@@ -9,4 +9,3 @@ metadata:
     app.kubernetes.io/created-by: operator
   name: securesign-sample
 spec:
-  # TODO(user): Add fields here

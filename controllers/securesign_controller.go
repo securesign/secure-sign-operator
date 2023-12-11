@@ -51,6 +51,7 @@ type SecuresignReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
 
 func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
@@ -124,6 +125,12 @@ func (r *SecuresignReconciler) createTrackedObjects(
 	var tlssa *corev1.ServiceAccount
 	var tlsnrSA = "trillian-logsigner"
 	var tDBSA = "trillian-mysql"
+	var tdbsa *corev1.ServiceAccount
+	var trilllogServ = "registry.redhat.io/rhtas-tech-preview/trillian-logserver-rhel9@sha256:43bfc6b7b8ed902592f19b830103d9030b59862f959c97c376cededba2ac3a03"
+	var trilllogSign = "registry.redhat.io/rhtas-tech-preview/trillian-logsigner-rhel9@sha256:fa2717c1d54400ca74cc3e9038bdf332fa834c0f5bc3215139c2d0e3579fc292"
+	var trillDb = "registry.redhat.io/rhtas-tech-preview/trillian-database-rhel9@sha256:fe4758ff57a9a6943a4655b21af63fb579384dc51838af85d0089c04290b4957"
+	var trillPVC *corev1.PersistentVolumeClaim
+	var dbSecret *corev1.Secret
 
 	// TUF
 	var tun *corev1.Namespace
@@ -189,7 +196,7 @@ func (r *SecuresignReconciler) createTrackedObjects(
 	if _, err = r.ensureSA(ctx, instance, trn.Name, tlsnrSA); err != nil {
 		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
 	}
-	if _, err = r.ensureSA(ctx, instance, trn.Name, tDBSA); err != nil {
+	if tdbsa, err = r.ensureSA(ctx, instance, trn.Name, tDBSA); err != nil {
 		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
 	}
 	// TRUSTED ARTIFACT SIGNER
@@ -203,6 +210,18 @@ func (r *SecuresignReconciler) createTrackedObjects(
 	if _, err = r.ensureSA(ctx, instance, tun.Name, tscj); err != nil {
 		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
 	}
+	// Create PVC
+	// Trillian
+	if trillPVC, err = r.ensurePVC(ctx, instance, trn.Name, "trillian-mysql"); err != nil {
+		return fmt.Errorf("could not ensure pvc: %w", err)
+	}
+
+	// Create Database Secret
+	// Trillian
+	if dbSecret, err = r.ensureSecret(ctx, instance, trn.Name, "trillian-mysql"); err != nil {
+		return fmt.Errorf("could not ensure secret: %w", err)
+	}
+
 	// Create Service
 	if svc, err = r.ensureServiceCluster(ctx, instance); err != nil {
 		return fmt.Errorf("could not ensure service: %w", err)
@@ -219,7 +238,13 @@ func (r *SecuresignReconciler) createTrackedObjects(
 		return fmt.Errorf("could not ensure deployment: %w", err)
 	}
 	// Trillian
-	if _, err = r.ensureDeployment(ctx, instance, trn.Name, svc.Name, tlssa.Name, "trillian-filler"); err != nil {
+	if _, err = r.ensureTrillDeployment(ctx, instance, trn.Name, svc.Name, tlssa.Name, "trillian-logserver", trilllogServ, dbSecret.Name); err != nil {
+		return fmt.Errorf("could not ensure deployment: %w", err)
+	}
+	if _, err = r.ensureTrillDeployment(ctx, instance, trn.Name, svc.Name, tlssa.Name, "trillian-logsigner", trilllogSign, dbSecret.Name); err != nil {
+		return fmt.Errorf("could not ensure deployment: %w", err)
+	}
+	if _, err = r.ensureTrillDb(ctx, instance, trn.Name, svc.Name, tdbsa.Name, "trillian-mysql", trillDb, trillPVC.Name, dbSecret.Name); err != nil {
 		return fmt.Errorf("could not ensure deployment: %w", err)
 	}
 	// Rekor
