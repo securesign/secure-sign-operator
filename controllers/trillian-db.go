@@ -23,8 +23,8 @@ func (r *SecuresignReconciler) ensureTrillDb(ctx context.Context, m *rhtasv1alph
 			Name:      dpName,
 			Namespace: namespace,
 			Labels: map[string]string{
-				"app.kubernetes.io/name":      "rhats-mysql",
-				"app.kubernetes.io/instance":  "trillian-db",
+				"app.kubernetes.io/name":      "trillian",
+				"app.kubernetes.io/instance":  "rhtas-mysql",
 				"app.kubernetes.io/component": "mysql",
 			},
 		},
@@ -32,16 +32,16 @@ func (r *SecuresignReconciler) ensureTrillDb(ctx context.Context, m *rhtasv1alph
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app.kubernetes.io/name":      "rhats-mysql",
-					"app.kubernetes.io/instance":  "trillian-db",
+					"app.kubernetes.io/name":      "trillian",
+					"app.kubernetes.io/instance":  "rhtas-mysql",
 					"app.kubernetes.io/component": "mysql",
 				},
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app.kubernetes.io/name":      "rhats-mysql",
-						"app.kubernetes.io/instance":  "trillian-db",
+						"app.kubernetes.io/name":      "trillian",
+						"app.kubernetes.io/instance":  "rhtas-mysql",
 						"app.kubernetes.io/component": "mysql",
 					},
 				},

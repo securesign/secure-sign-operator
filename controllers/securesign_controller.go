@@ -224,7 +224,7 @@ func (r *SecuresignReconciler) createTrackedObjects(
 
 	// Create Service
 	// Trillian
-	if svc, err = r.ensureService(ctx, instance, trn.Name, "rhtas-trillian-mysql", "mysql", 3306); err != nil {
+	if svc, err = r.ensureService(ctx, instance, trn.Name, "trillian-mysql", "mysql", "trillian", 3306); err != nil {
 		return fmt.Errorf("could not ensure service: %w", err)
 	}
 	// Create the deployments

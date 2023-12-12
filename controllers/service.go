@@ -13,23 +13,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func (r *SecuresignReconciler) ensureService(ctx context.Context, m *rhtasv1alpha1.Securesign, namespace string, name string, component string, port int) (*corev1.Service, error) {
+func (r *SecuresignReconciler) ensureService(ctx context.Context, m *rhtasv1alpha1.Securesign, namespace string, name string, component string, ssapp string, port int) (*corev1.Service, error) {
 	logger := log.FromContext(ctx)
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "trillian-mysql",
+			Name:      name,
 			Namespace: namespace,
 			Labels: map[string]string{
-				"app.kubernetes.io/component": "mysql",
-				"app.kubernetes.io/instance":  "trillian-db",
-				"app.kubernetes.io/name":      "rhats-mysql",
+				"app.kubernetes.io/component": component,
+				"app.kubernetes.io/name":      ssapp,
+				"app.kubernetes.io/instance":  "rhtas-" + component,
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"app.kubernetes.io/component": "mysql",
-				"app.kubernetes.io/instance":  "trillian-db",
-				"app.kubernetes.io/name":      "rhats-mysql",
+				"app.kubernetes.io/component": component,
+				"app.kubernetes.io/name":      ssapp,
+				"app.kubernetes.io/instance":  "rhtas-" + component,
 			},
 			Ports: []corev1.ServicePort{
 				{
