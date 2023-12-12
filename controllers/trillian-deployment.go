@@ -52,19 +52,19 @@ func (r *SecuresignReconciler) ensureTrillDeployment(ctx context.Context, m *rht
 							Command: []string{
 								"sh",
 								"-c",
-								"until nc -z -v -w30 mysql 3306; do echo \"Waiting for MySQL to start\"; sleep 5; done;",
+								"until nc -z -v -w30 trillian-mysql 3306; do echo \"Waiting for MySQL to start\"; sleep 5; done;",
 							},
 						},
 					},
 					Containers: []core.Container{
 						{
 							Args: []string{
-								"- --storage_system=mysql",
-								"- --quota_system=mysql",
-								"- --mysql_uri=$(MYSQL_USER):$(MYSQL_PASSWORD)@tcp($(MYSQL_HOSTNAME):$(MYSQL_PORT))/$(MYSQL_DATABASE)",
-								"- --rpc_endpoint=0.0.0.0:8091",
-								"- --http_endpoint=0.0.0.0:8090",
-								"- --alsologtostderr",
+								"--storage_system=mysql",
+								"--quota_system=mysql",
+								"--mysql_uri=$(MYSQL_USER):$(MYSQL_PASSWORD)@tcp($(MYSQL_HOSTNAME):$(MYSQL_PORT))/$(MYSQL_DATABASE)",
+								"--rpc_endpoint=0.0.0.0:8091",
+								"--http_endpoint=0.0.0.0:8090",
+								"--alsologtostderr",
 							},
 							Name:  dpName,
 							Image: image,
@@ -77,15 +77,8 @@ func (r *SecuresignReconciler) ensureTrillDeployment(ctx context.Context, m *rht
 							// Env variables from secret trillian-mysql
 							Env: []core.EnvVar{
 								{
-									Name: "MYSQL_USER",
-									ValueFrom: &core.EnvVarSource{
-										SecretKeyRef: &core.SecretKeySelector{
-											Key: "mysql-user",
-											LocalObjectReference: core.LocalObjectReference{
-												Name: dbsecret,
-											},
-										},
-									},
+									Name:  "MYSQL_USER",
+									Value: "mysql",
 								},
 								{
 									Name: "MYSQL_PASSWORD",
@@ -100,22 +93,15 @@ func (r *SecuresignReconciler) ensureTrillDeployment(ctx context.Context, m *rht
 								},
 								{
 									Name:  "MYSQL_HOSTNAME",
-									Value: "mysql",
+									Value: "trillian-mysql",
 								},
 								{
 									Name:  "MYSQL_PORT",
 									Value: "3306",
 								},
 								{
-									Name: "MYSQL_DATABASE",
-									ValueFrom: &core.EnvVarSource{
-										SecretKeyRef: &core.SecretKeySelector{
-											Key: "mysql-database",
-											LocalObjectReference: core.LocalObjectReference{
-												Name: dbsecret,
-											},
-										},
-									},
+									Name:  "MYSQL_DATABASE",
+									Value: "trillian",
 								},
 							},
 						},
@@ -131,6 +117,11 @@ func (r *SecuresignReconciler) ensureTrillDeployment(ctx context.Context, m *rht
 			Protocol:      core.ProtocolTCP,
 			ContainerPort: 8090,
 		})
+	}
+
+	// Add --force_master=true to args for the trillian-logsigner deployment
+	if dpName == "trillian-logsigner" {
+		dep.Spec.Template.Spec.Containers[0].Args = append(dep.Spec.Template.Spec.Containers[0].Args, "--force_master=true")
 	}
 
 	// Check if this Deployment already exists else create it

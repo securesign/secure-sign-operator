@@ -21,6 +21,11 @@ func (r *SecuresignReconciler) ensureSA(ctx context.Context, m *rhtasv1alpha1.Se
 			Name:      "rhtas-" + svcAccount,
 			Namespace: namespace,
 		},
+		ImagePullSecrets: []corev1.LocalObjectReference{
+			{
+				Name: "pull-secret",
+			},
+		},
 	}
 	// Check if this service account already exists else create it in the namespace
 	err := r.Get(ctx, client.ObjectKey{Name: sa.Name, Namespace: namespace}, sa)

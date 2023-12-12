@@ -23,7 +23,7 @@ func (r *SecuresignReconciler) ensureTrillDb(ctx context.Context, m *rhtasv1alph
 			Name:      dpName,
 			Namespace: namespace,
 			Labels: map[string]string{
-				"app.kubernetes.io/name":      "rhats-" + m.Name,
+				"app.kubernetes.io/name":      "rhats-mysql",
 				"app.kubernetes.io/instance":  "trillian-db",
 				"app.kubernetes.io/component": "mysql",
 			},
@@ -32,7 +32,7 @@ func (r *SecuresignReconciler) ensureTrillDb(ctx context.Context, m *rhtasv1alph
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app.kubernetes.io/name":      "rhats-" + m.Name,
+					"app.kubernetes.io/name":      "rhats-mysql",
 					"app.kubernetes.io/instance":  "trillian-db",
 					"app.kubernetes.io/component": "mysql",
 				},
@@ -40,7 +40,7 @@ func (r *SecuresignReconciler) ensureTrillDb(ctx context.Context, m *rhtasv1alph
 			Template: core.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app.kubernetes.io/name":      "rhats-" + m.Name,
+						"app.kubernetes.io/name":      "rhats-mysql",
 						"app.kubernetes.io/instance":  "trillian-db",
 						"app.kubernetes.io/component": "mysql",
 					},
@@ -59,15 +59,6 @@ func (r *SecuresignReconciler) ensureTrillDb(ctx context.Context, m *rhtasv1alph
 					},
 					Containers: []core.Container{
 						{
-							Command: []string{
-								"mysqladmin",
-								"ping",
-								"-h",
-								"localhost",
-								"-u",
-								"${MYSQL_USER}",
-								"-p${MYSQL_PASSWORD}",
-							},
 							Name:  dpName,
 							Image: image,
 							Ports: []core.ContainerPort{
@@ -79,15 +70,8 @@ func (r *SecuresignReconciler) ensureTrillDb(ctx context.Context, m *rhtasv1alph
 							// Env variables from secret trillian-mysql
 							Env: []core.EnvVar{
 								{
-									Name: "MYSQL_USER",
-									ValueFrom: &core.EnvVarSource{
-										SecretKeyRef: &core.SecretKeySelector{
-											Key: "mysql-user",
-											LocalObjectReference: core.LocalObjectReference{
-												Name: dbsecret,
-											},
-										},
-									},
+									Name:  "MYSQL_USER",
+									Value: "mysql",
 								},
 								{
 									Name: "MYSQL_PASSWORD",
@@ -116,15 +100,8 @@ func (r *SecuresignReconciler) ensureTrillDb(ctx context.Context, m *rhtasv1alph
 									Value: "3306",
 								},
 								{
-									Name: "MYSQL_DATABASE",
-									ValueFrom: &core.EnvVarSource{
-										SecretKeyRef: &core.SecretKeySelector{
-											Key: "mysql-database",
-											LocalObjectReference: core.LocalObjectReference{
-												Name: dbsecret,
-											},
-										},
-									},
+									Name:  "MYSQL_DATABASE",
+									Value: "trillian",
 								},
 							},
 							VolumeMounts: []core.VolumeMount{

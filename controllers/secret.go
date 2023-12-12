@@ -25,10 +25,10 @@ func (r *SecuresignReconciler) ensureSecret(ctx context.Context, m *rhtasv1alpha
 		Data: map[string][]byte{
 			// generate a random password for the mysql root user and the mysql password
 			// TODO - use a random password generator
-			"mysql-root-password": []byte("cGFzc3dvcmQ="),
-			"mysql-password":      []byte("cGFzc3dvcmQ="),
-			"mysql-database":      []byte("dHJpbGxpYW4="),
-			"mysql-user":          []byte("bXlzcWw="),
+			"mysql-root-password": []byte("password"),
+			"mysql-password":      []byte("password"),
+			"mysql-database":      []byte("trillian"),
+			"mysql-user":          []byte("mysql"),
 		},
 	}
 	// Check if this Secret already exists else create it in the namespace
