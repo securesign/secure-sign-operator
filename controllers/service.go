@@ -41,6 +41,17 @@ func (r *SecuresignReconciler) ensureService(ctx context.Context, m *rhtasv1alph
 			},
 		},
 	}
+
+	// if trillian-logsigner add an additional service port of 8090
+	if component == "trillian-logsigner" {
+		svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
+			Name:       "8090-tcp",
+			Protocol:   corev1.ProtocolTCP,
+			Port:       8090,
+			TargetPort: intstr.FromInt(8090),
+		})
+	}
+
 	err := r.Get(ctx, client.ObjectKey{Name: svc.Name, Namespace: namespace}, svc)
 	if err != nil {
 		logger.Info("Creating a new Service")
