@@ -103,14 +103,14 @@ func (r *SecuresignReconciler) ensureTufCopyJob(ctx context.Context, m *rhtasv1a
 		},
 	}
 
-	// Check if this Deployment already exists else create it
+	// Check if this Job already exists else create it
 	err := r.Get(ctx, client.ObjectKey{Name: job.Name, Namespace: namespace}, job)
-	// If the Deployment doesn't exist, create it but if it does, do nothing
+	// If the Job doesn't exist, create it but if it does, do nothing
 	if err != nil {
-		log.Info("Creating a new Deployment")
+		log.Info("Creating a new Job")
 		err = r.Create(ctx, job)
 		if err != nil {
-			log.Error(err, "Failed to create new Deployment")
+			log.Error(err, "Failed to create new Job")
 			return nil, err
 		}
 	}
