@@ -25,14 +25,10 @@ spec:
     jWRrqUp+QpQxfdKwSrLMYVPQw8e9iVewNZkZxPC0YVI=
     -----END EC PRIVATE KEY-----
   fulcioPublicKey: |
-    -----BEGIN EC PRIVATE KEY-----
-    Proc-Type: 4,ENCRYPTED
-    DEK-Info: DES-EDE3-CBC,57052BF0C94F8233
-
-    iYxyAS5gRrPrdKDdEvzokWkp5z5swdqkxyuGx98gcMHnkJlW+sa53cAqqnLefNXO
-    y/pROXH0PXhKg+5sMcwJCba8yf5obQOiqWsrH7ERb5SC+OmXvnIxTallp6fRw6W0
-    jWRrqUp+QpQxfdKwSrLMYVPQw8e9iVewNZkZxPC0YVI=
-    -----END EC PRIVATE KEY-----
+    -----BEGIN PUBLIC KEY-----
+    MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE+l00SWziQVPM+ubkppU3gSpdJnzd
+    hDqojvHYY6GRTDTZcFlU24mouB/ARzT1eS6giaFbehlg5QEm6GhfWdbiww==
+    -----END PUBLIC KEY-----
   fulcioPassword: password
   fulcioCert: |
     -----BEGIN CERTIFICATE-----
