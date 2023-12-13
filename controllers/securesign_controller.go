@@ -132,6 +132,7 @@ func (r *SecuresignReconciler) createTrackedObjects(
 	var tlsSA = "trillian-logserver"
 	var tlssa *corev1.ServiceAccount
 	var tlsnrSA = "trillian-logsigner"
+	var tlsnrsa *corev1.ServiceAccount
 	var tDBSA = "trillian-mysql"
 	var tdbsa *corev1.ServiceAccount
 	var trilllogServ = "registry.redhat.io/rhtas-tech-preview/trillian-logserver-rhel9@sha256:43bfc6b7b8ed902592f19b830103d9030b59862f959c97c376cededba2ac3a03"
@@ -222,7 +223,7 @@ func (r *SecuresignReconciler) createTrackedObjects(
 	if tlssa, err = r.ensureSA(ctx, instance, trn.Name, tlsSA); err != nil {
 		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
 	}
-	if _, err = r.ensureSA(ctx, instance, trn.Name, tlsnrSA); err != nil {
+	if tlsnrsa, err = r.ensureSA(ctx, instance, trn.Name, tlsnrSA); err != nil {
 		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
 	}
 	if tdbsa, err = r.ensureSA(ctx, instance, trn.Name, tDBSA); err != nil {
@@ -274,7 +275,7 @@ func (r *SecuresignReconciler) createTrackedObjects(
 	if _, err = r.ensureCTRekorJob(ctx, instance, rkn.Name, rtasctsa.Name, "rekor", "trusted-artifact-signer-rekor-createtree"); err != nil {
 		return fmt.Errorf("could not ensure job: %w", err)
 	}
-	if _, err = r.ensureCreateDbJob(ctx, instance, trn.Name, tdbsa.Name, "trillian", "trusted-artifact-signer-trillian-createdb", dbSecret.Name); err != nil {
+	if _, err = r.ensureCreateDbJob(ctx, instance, trn.Name, tlssa.Name, "trillian", "trusted-artifact-signer-trillian-createdb", dbSecret.Name); err != nil {
 		return fmt.Errorf("could not ensure job: %w", err)
 	}
 	// Create PVC
@@ -361,7 +362,7 @@ func (r *SecuresignReconciler) createTrackedObjects(
 	if _, err = r.ensureTrillDeployment(ctx, instance, trn.Name, tlssa.Name, "trillian-logserver", trilllogServ, dbSecret.Name); err != nil {
 		return fmt.Errorf("could not ensure deployment: %w", err)
 	}
-	if _, err = r.ensureTrillDeployment(ctx, instance, trn.Name, tlssa.Name, "trillian-logsigner", trilllogSign, dbSecret.Name); err != nil {
+	if _, err = r.ensureTrillDeployment(ctx, instance, trn.Name, tlsnrsa.Name, "trillian-logsigner", trilllogSign, dbSecret.Name); err != nil {
 		return fmt.Errorf("could not ensure deployment: %w", err)
 	}
 	if _, err = r.ensureTrillDb(ctx, instance, trn.Name, tdbsa.Name, "trillian-mysql", trillDb, trillPVC.Name, dbSecret.Name); err != nil {
