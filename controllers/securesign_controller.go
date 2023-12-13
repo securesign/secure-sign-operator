@@ -275,7 +275,7 @@ func (r *SecuresignReconciler) createTrackedObjects(
 	if _, err = r.ensureCTRekorJob(ctx, instance, rkn.Name, rtasctsa.Name, "rekor", "trusted-artifact-signer-rekor-createtree"); err != nil {
 		return fmt.Errorf("could not ensure job: %w", err)
 	}
-	if _, err = r.ensureCreateDbJob(ctx, instance, trn.Name, tlssa.Name, "trillian", "trusted-artifact-signer-trillian-createdb", dbSecret.Name); err != nil {
+	if _, err = r.ensureCreateDbJob(ctx, instance, tun.Name, tlssa.Name, "trillian", "trusted-artifact-signer-trillian-createdb", dbSecret.Name); err != nil {
 		return fmt.Errorf("could not ensure job: %w", err)
 	}
 	// Create PVC
