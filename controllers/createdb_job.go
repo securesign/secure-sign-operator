@@ -1,63 +1,3 @@
-/* # Source: trusted-artifact-signer/charts/scaffold/charts/trillian/templates/createdb/createdb-job.yaml
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: trusted-artifact-signer-trillian-createdb
-  namespace: trillian-system
-  labels:
-    app.kubernetes.io/component: "mysql"
-    app.kubernetes.io/name: trillian
-    app.kubernetes.io/instance: trusted-artifact-signer
-    helm.sh/chart: trillian-0.2.13
-    app.kubernetes.io/managed-by: Helm
-spec:
-  ttlSecondsAfterFinished: 3600
-  template:
-    spec:
-      serviceAccountName: trillian-logserver
-      restartPolicy: Never
-      automountServiceAccountToken:
-      containers:
-        - name: trusted-artifact-signer-trillian-createdb
-          image: "registry.redhat.io/rhtas-tech-preview/createdb-rhel9@sha256:c2067866e8cd73710bcdb218cb78bb3fcc5b314339a466de2b5af56b3b456be8"
-          imagePullPolicy: "IfNotPresent"
-          env:
-            - name: NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: MYSQL_USER
-              valueFrom:
-                secretKeyRef:
-                  name: trillian-mysql
-                  key: mysql-user
-            - name: MYSQL_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: trillian-mysql
-                  key: mysql-password
-            - name: MYSQL_DATABASE
-              valueFrom:
-                secretKeyRef:
-                  name: trillian-mysql
-                  key: mysql-database
-            - name: MYSQL_HOSTNAME
-              value: trillian-mysql
-            - name: MYSQL_PORT
-              value: "3306"
-            - name: EXIT_DIR
-              value: "/var/exitdir"
-          args: [
-            "--db_name=$(MYSQL_DATABASE)",
-            "--mysql_uri=$(MYSQL_USER):$(MYSQL_PASSWORD)@tcp($(MYSQL_HOSTNAME):$(MYSQL_PORT))/"
-          ]
-          volumeMounts:
-            - name: exit-dir
-              mountPath: "/var/exitdir"
-      volumes:
-        - name: exit-dir
-          emptyDir: {} */
-
 package controllers
 
 import (
@@ -76,7 +16,7 @@ func (r *SecuresignReconciler) ensureCreateDbJob(ctx context.Context, m *rhtasv1
 	error) {
 	log := log.FromContext(ctx)
 	imageName := "registry.redhat.io/rhtas-tech-preview/createdb-rhel9@sha256:c2067866e8cd73710bcdb218cb78bb3fcc5b314339a466de2b5af56b3b456be8"
-	log.Info("ensuring job")
+	log.Info("ensuring job", jobName, "in namespace", namespace)
 	// Define a new Namespace object
 	job := &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -125,15 +65,8 @@ func (r *SecuresignReconciler) ensureCreateDbJob(ctx context.Context, m *rhtasv1
 									},
 								},
 								{
-									Name: "MYSQL_ROOT_PASSWORD",
-									ValueFrom: &core.EnvVarSource{
-										SecretKeyRef: &core.SecretKeySelector{
-											Key: "mysql-root-password",
-											LocalObjectReference: core.LocalObjectReference{
-												Name: dbsecret,
-											},
-										},
-									},
+									Name:  "MYSQL_HOSTNAME",
+									Value: "mysql",
 								},
 								{
 									Name:  "MYSQL_PORT",

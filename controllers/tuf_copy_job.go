@@ -16,7 +16,7 @@ func (r *SecuresignReconciler) ensureTufCopyJob(ctx context.Context, m *rhtasv1a
 	error) {
 	log := log.FromContext(ctx)
 	imageName := "registry.redhat.io/openshift4/ose-cli:latest"
-	log.Info("ensuring job")
+	log.Info("ensuring job", jobName, "in namespace", namespace)
 	// Define a new Namespace object
 	job := &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
