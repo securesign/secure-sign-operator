@@ -16,7 +16,7 @@ func (r *SecuresignReconciler) ensureCreateDbJob(ctx context.Context, m *rhtasv1
 	error) {
 	log := log.FromContext(ctx)
 	imageName := "registry.redhat.io/rhtas-tech-preview/createdb-rhel9@sha256:c2067866e8cd73710bcdb218cb78bb3fcc5b314339a466de2b5af56b3b456be8"
-	log.Info("ensuring job", jobName, "in namespace", namespace)
+	log.Info("ensuring job")
 	// Define a new Namespace object
 	job := &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{

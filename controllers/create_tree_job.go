@@ -16,7 +16,7 @@ func (r *SecuresignReconciler) ensureCTRekorJob(ctx context.Context, m *rhtasv1a
 	error) {
 	log := log.FromContext(ctx)
 	imageName := "registry.redhat.io/rhtas-tech-preview/createtree-rhel9@sha256:8a80def74e850f2b4c73690f86669a1fe52c1043c175610750abb4644e63d4ab"
-	log.Info("ensuring job", jobName, "in namespace", namespace)
+	log.Info("ensuring job")
 	// Define a new Namespace object
 	job := &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
