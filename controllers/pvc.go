@@ -20,7 +20,7 @@ func (r *SecuresignReconciler) ensurePVC(ctx context.Context, m *rhtasv1alpha1.S
 	// Define a new PVC object
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "rhtas-" + pvcName,
+			Name:      pvcName,
 			Namespace: namespace,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{

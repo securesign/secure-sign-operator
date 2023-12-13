@@ -51,6 +51,43 @@ func (r *SecuresignReconciler) ensureService(ctx context.Context, m *rhtasv1alph
 			TargetPort: intstr.FromInt(8090),
 		})
 	}
+	// if rekor-server add an additional service port of 2112
+	if component == "rekor-server" {
+		svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
+			Name:       "3000-tcp",
+			Protocol:   corev1.ProtocolTCP,
+			Port:       80,
+			TargetPort: intstr.FromInt(3000),
+		})
+	}
+	// if fulcio-system add an additional service port of 5554 2112
+	if component == "fulcio-server" {
+		svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
+			Name:       "5554-tcp",
+			Protocol:   corev1.ProtocolTCP,
+			Port:       5554,
+			TargetPort: intstr.FromInt(5554),
+		})
+		svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
+			Name:       "80-tcp",
+			Protocol:   corev1.ProtocolTCP,
+			Port:       80,
+			TargetPort: intstr.FromInt(5555),
+		})
+	}
+	// if ctlog add an additional service port of 80
+	if component == "ctlog" {
+		svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
+			Name:       "80-tcp",
+			Protocol:   corev1.ProtocolTCP,
+			Port:       80,
+			TargetPort: intstr.FromInt(6962),
+		})
+	}
+	// if tuf-server replace targetPort with 8080 instead of 80
+	if component == "tuf-server" {
+		svc.Spec.Ports[0].TargetPort = intstr.FromInt(8080)
+	}
 
 	err := r.Get(ctx, client.ObjectKey{Name: svc.Name, Namespace: namespace}, svc)
 	if err != nil {

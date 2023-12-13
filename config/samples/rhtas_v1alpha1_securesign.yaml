@@ -9,3 +9,44 @@ metadata:
     app.kubernetes.io/created-by: operator
   name: securesign-sample
 spec:
+  rekorPrivateKey: |
+    -----BEGIN EC PRIVATE KEY-----
+    MHcCAQEEICnmFR7rXoJ3QujB9SzrKbVtXCikPXtEb2rs8EGgzYrSoAoGCCqGSM49
+    AwEHoUQDQgAEnItR5lDp+1fPho5A2npEr9CygZ3lVGXB6jc0MAS/bez9PxUlPacS
+    XrlASWbaMaLIoporoKnYhoGHd1oiiVq1lg==
+    -----END EC PRIVATE KEY-----
+  fulcioPrivateKey: |
+    -----BEGIN EC PRIVATE KEY-----
+    Proc-Type: 4,ENCRYPTED
+    DEK-Info: DES-EDE3-CBC,57052BF0C94F8233
+
+    iYxyAS5gRrPrdKDdEvzokWkp5z5swdqkxyuGx98gcMHnkJlW+sa53cAqqnLefNXO
+    y/pROXH0PXhKg+5sMcwJCba8yf5obQOiqWsrH7ERb5SC+OmXvnIxTallp6fRw6W0
+    jWRrqUp+QpQxfdKwSrLMYVPQw8e9iVewNZkZxPC0YVI=
+    -----END EC PRIVATE KEY-----
+  fulcioPublicKey: |
+    -----BEGIN EC PRIVATE KEY-----
+    Proc-Type: 4,ENCRYPTED
+    DEK-Info: DES-EDE3-CBC,57052BF0C94F8233
+
+    iYxyAS5gRrPrdKDdEvzokWkp5z5swdqkxyuGx98gcMHnkJlW+sa53cAqqnLefNXO
+    y/pROXH0PXhKg+5sMcwJCba8yf5obQOiqWsrH7ERb5SC+OmXvnIxTallp6fRw6W0
+    jWRrqUp+QpQxfdKwSrLMYVPQw8e9iVewNZkZxPC0YVI=
+    -----END EC PRIVATE KEY-----
+  fulcioPassword: password
+  fulcioCert: |
+    -----BEGIN CERTIFICATE-----
+    MIICTjCCAfOgAwIBAgIUW9JM5WZNic2pGCTv6jYea2xBprQwCgYIKoZIzj0EAwIw
+    fDELMAkGA1UEBhMCVVMxDjAMBgNVBAgMBU1haW5lMREwDwYDVQQHDAhQb3J0bGFu
+    ZDEQMA4GA1UECgwHUmVkIEhhdDEUMBIGA1UEAwwLc2lnc3RvcmUuZXoxIjAgBgkq
+    hkiG9w0BCQEWE3NvbWFsbGV5QHJlZGhhdC5jb20wHhcNMjMwOTI2MTgyNTEwWhcN
+    MjQwOTI1MTgyNTEwWjB8MQswCQYDVQQGEwJVUzEOMAwGA1UECAwFTWFpbmUxETAP
+    BgNVBAcMCFBvcnRsYW5kMRAwDgYDVQQKDAdSZWQgSGF0MRQwEgYDVQQDDAtzaWdz
+    dG9yZS5lejEiMCAGCSqGSIb3DQEJARYTc29tYWxsZXlAcmVkaGF0LmNvbTBZMBMG
+    ByqGSM49AgEGCCqGSM49AwEHA0IABPpdNEls4kFTzPrm5KaVN4EqXSZ83YQ6qI7x
+    2GOhkUw02XBZVNuJqLgfwEc09XkuoImhW3oZYOUBJuhoX1nW4sOjUzBRMB0GA1Ud
+    DgQWBBTXTK85svHwwn0vEmkp5+rvF9yL8jAfBgNVHSMEGDAWgBTXTK85svHwwn0v
+    Emkp5+rvF9yL8jAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA0kAMEYCIQDO
+    lLxcAuWYU2GqCG2XMaEEIIOX5ns5sf11MY6NdGcBngIhAMvOa1BZ7XYEGHj0G17y
+    lAqCBO3yklG3WNHoj8Hm4YGZ
+    -----END CERTIFICATE-----

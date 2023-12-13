@@ -12,7 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (r *SecuresignReconciler) ensureDeployment(ctx context.Context, m *rhtasv1alpha1.Securesign, namespace string, service string, sA string, dpName string) (*apps.Deployment,
+func (r *SecuresignReconciler) ensureTasDeployment(ctx context.Context, m *rhtasv1alpha1.Securesign, namespace string, sA string, dpName string) (*apps.Deployment,
 	error) {
 	log := log.FromContext(ctx)
 	log.Info("ensuring deployment")
@@ -23,20 +23,20 @@ func (r *SecuresignReconciler) ensureDeployment(ctx context.Context, m *rhtasv1a
 			Name:      dpName,
 			Namespace: namespace,
 			Labels: map[string]string{
-				"app.kubernetes.io/name": "rhats-" + m.Name,
+				"app.kubernetes.io/name": dpName,
 			},
 		},
 		Spec: apps.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app.kubernetes.io/name": "rhats-" + m.Name,
+					"app.kubernetes.io/name": dpName,
 				},
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app.kubernetes.io/name": "rhats-" + m.Name,
+						"app.kubernetes.io/name": dpName,
 					},
 				},
 				Spec: core.PodSpec{
@@ -44,17 +44,11 @@ func (r *SecuresignReconciler) ensureDeployment(ctx context.Context, m *rhtasv1a
 					Containers: []core.Container{
 						{
 							Name:  dpName,
-							Image: "registry.redhat.io/rhel8/httpd-24@sha256:1f9e679815efdaedfe379c21f45034525228be5278ba6c71eb13f7594b694c8f",
+							Image: "registry.redhat.io/rhtas-tech-preview/client-server-rhel9@sha256:07b1c06290706873ee55e39bad5804ea1d7574b01909adf97d67495ad919f9a1",
 							Ports: []core.ContainerPort{
 								{
-									Name:          "swarm",
+									Protocol:      core.ProtocolTCP,
 									ContainerPort: 8080,
-								},
-							},
-							Env: []core.EnvVar{
-								{
-									Name:  "fake",
-									Value: "fake",
 								},
 							},
 						},

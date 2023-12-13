@@ -29,7 +29,11 @@ type SecuresignSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of Securesign. Edit securesign_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	FulcioPublicKey  string `json:"fulcioPublicKey,omitempty"`
+	FulcioPrivateKey string `json:"fulcioPrivateKey,omitempty"`
+	FulcioCert       string `json:"fulcioCert,omitempty"`
+	FulcioPassword   string `json:"fulcioPassword,omitempty"`
+	RekorPrivateKey  string `json:"rekorPrivateKey,omitempty"`
 }
 
 // SecuresignStatus defines the observed state of Securesign

@@ -12,7 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (r *SecuresignReconciler) ensureTrillDb(ctx context.Context, m *rhtasv1alpha1.Securesign, namespace string, service string, sA string, dpName string, image string, pvcName string, dbsecret string) (*apps.Deployment,
+func (r *SecuresignReconciler) ensureTrillDb(ctx context.Context, m *rhtasv1alpha1.Securesign, namespace string, sA string, dpName string, image string, pvcName string, dbsecret string) (*apps.Deployment,
 	error) {
 	log := log.FromContext(ctx)
 	log.Info("ensuring deployment")
@@ -61,6 +61,21 @@ func (r *SecuresignReconciler) ensureTrillDb(ctx context.Context, m *rhtasv1alph
 						{
 							Name:  dpName,
 							Image: image,
+							ReadinessProbe: &core.Probe{
+								ProbeHandler: core.ProbeHandler{
+									Exec: &core.ExecAction{
+										Command: []string{
+											"mysqladmin",
+											"ping",
+											"-h",
+											"localhost",
+											"-u",
+											"$(MYSQL_USER)",
+											"-p$(MYSQL_PASSWORD)",
+										},
+									},
+								},
+							},
 							Ports: []core.ContainerPort{
 								{
 									Protocol:      core.ProtocolTCP,

@@ -35,9 +35,17 @@ spec:
           spec:
             description: SecuresignSpec defines the desired state of Securesign
             properties:
-              foo:
+              fulcioCert:
+                type: string
+              fulcioPassword:
+                type: string
+              fulcioPrivateKey:
+                type: string
+              fulcioPublicKey:
                 description: Foo is an example field of Securesign. Edit securesign_types.go
                   to remove/update
+                type: string
+              rekorPrivateKey:
                 type: string
             type: object
           status:

@@ -16,7 +16,7 @@ const (
 	netcat = "registry.redhat.io/rhtas-tech-preview/trillian-netcat-rhel9@sha256:b9fa895af8967cceb7a05ed7c9f2b80df047682ed11c87249ca2edba86492f6e"
 )
 
-func (r *SecuresignReconciler) ensureTrillDeployment(ctx context.Context, m *rhtasv1alpha1.Securesign, namespace string, service string, sA string, dpName string, image string, dbsecret string) (*apps.Deployment,
+func (r *SecuresignReconciler) ensureTrillDeployment(ctx context.Context, m *rhtasv1alpha1.Securesign, namespace string, sA string, dpName string, image string, dbsecret string) (*apps.Deployment,
 	error) {
 	log := log.FromContext(ctx)
 	log.Info("ensuring deployment")
@@ -27,20 +27,26 @@ func (r *SecuresignReconciler) ensureTrillDeployment(ctx context.Context, m *rht
 			Name:      dpName,
 			Namespace: namespace,
 			Labels: map[string]string{
-				"app.kubernetes.io/name": "rhats-" + m.Name,
+				"app.kubernetes.io/component": dpName,
+				"app.kubernetes.io/instance":  "trusted-artifact-signer",
+				"app.kubernetes.io/name":      "trillian",
 			},
 		},
 		Spec: apps.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app.kubernetes.io/name": "rhats-" + m.Name,
+					"app.kubernetes.io/component": dpName,
+					"app.kubernetes.io/instance":  "trusted-artifact-signer",
+					"app.kubernetes.io/name":      "trillian",
 				},
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app.kubernetes.io/name": "rhats-" + m.Name,
+						"app.kubernetes.io/component": dpName,
+						"app.kubernetes.io/instance":  "trusted-artifact-signer",
+						"app.kubernetes.io/name":      "trillian",
 					},
 				},
 				Spec: core.PodSpec{
