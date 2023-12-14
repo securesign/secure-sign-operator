@@ -20,7 +20,7 @@ func (r *SecuresignReconciler) ensureRekorDeployment(ctx context.Context, m *rht
 	// Define a new Namespace object
 	dep := &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "trusted-artifact-signer-tuf-" + dpName,
+			Name:      dpName,
 			Namespace: namespace,
 			Labels: map[string]string{
 				"app.kubernetes.io/component": dpName,
