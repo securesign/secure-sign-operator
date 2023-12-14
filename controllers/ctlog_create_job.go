@@ -41,16 +41,13 @@ func (r *SecuresignReconciler) ensureCreateCTJob(ctx context.Context, m *rhtasv1
 					RestartPolicy:                core.RestartPolicyNever,
 					InitContainers: []core.Container{
 						{
-							Name:  "wait-for-createtree-configmap",
-							Image: "registry.redhat.io/openshift4/ose-cli:latest",
-							// curl --fail --header "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt --max-time 10 https://kubernetes.default.svc/api/v1/namespaces/securesign-sample-ctlog-system/configmaps/ctlog-config | grep ''"treeID"
+							Name:    "wait-for-createtree-configmap",
+							Image:   "registry.redhat.io/openshift4/ose-cli:latest",
 							Command: []string{"/bin/sh"},
 							Args: []string{
 								"-c",
 								"until kubectl get configmap ctlog-config -n " + namespace + " -o jsonpath='{.data.treeID}' | grep -q 'treeID'; do sleep 1; done",
 							},
-						},
-						{
 							Env: []core.EnvVar{
 								{
 									Name:  "NAMESPACE",
