@@ -12,7 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (r *SecuresignReconciler) ensureCTRekorJob(ctx context.Context, m *rhtasv1alpha1.Securesign, namespace string, sA string, component string, jobName string) (*batch.Job,
+func (r *SecuresignReconciler) ensureCTRekorJob(ctx context.Context, m *rhtasv1alpha1.Securesign, namespace string, sA string, component string, jobName string, trn string) (*batch.Job,
 	error) {
 	log := log.FromContext(ctx)
 	imageName := "registry.redhat.io/rhtas-tech-preview/createtree-rhel9@sha256:8a80def74e850f2b4c73690f86669a1fe52c1043c175610750abb4644e63d4ab"
@@ -48,7 +48,7 @@ func (r *SecuresignReconciler) ensureCTRekorJob(ctx context.Context, m *rhtasv1a
 								"--namespace=$(NAMESPACE)",
 								"--configmap=rekor-config",
 								"--display_name=rekortree",
-								"--admin_server=trillian-logserver.trillian-system:8091",
+								"--admin_server=trillian-logserver." + trn + ":8091",
 								"--force=false",
 							},
 							Env: []core.EnvVar{
