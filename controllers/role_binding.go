@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (r *SecuresignReconciler) ensureRoleBinding(ctx context.Context, securesign *rhtasv1alpha1.Securesign, namespace string, bindingName string, roleName string, serviceAccount string, component string, tufNS string) (*rbac.RoleBinding, error) {
+func (r *SecuresignReconciler) ensureRoleBinding(ctx context.Context, securesign *rhtasv1alpha1.Securesign, namespace string, bindingName string, roleName string, serviceAccount string, component string, tufNS string, ctNS string) (*rbac.RoleBinding, error) {
 	log := log.FromContext(ctx)
 
 	roleBinding := &rbac.RoleBinding{
@@ -43,7 +43,9 @@ func (r *SecuresignReconciler) ensureRoleBinding(ctx context.Context, securesign
 		roleBinding.RoleRef.Kind = "ClusterRole"
 		roleBinding.Subjects[0].Namespace = tufNS
 	}
-
+	if bindingName == "trusted-artifact-signer-ctlog-createctconfig" {
+		roleBinding.Subjects[0].Namespace = ctNS
+	}
 	err := r.Get(ctx, client.ObjectKey{Name: bindingName, Namespace: namespace}, roleBinding)
 	if err != nil {
 		log.Info("Creating RoleBinding", "RoleBinding.Namespace", roleBinding.Namespace, "RoleBinding.Name", roleBinding.Name)
