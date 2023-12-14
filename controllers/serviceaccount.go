@@ -18,7 +18,7 @@ func (r *SecuresignReconciler) ensureSA(ctx context.Context, m *rhtasv1alpha1.Se
 	// Define a new Service Account object
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "rhtas-" + svcAccount,
+			Name:      svcAccount,
 			Namespace: namespace,
 		},
 		ImagePullSecrets: []corev1.LocalObjectReference{
