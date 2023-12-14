@@ -242,30 +242,30 @@ func (r *SecuresignReconciler) createTrackedObjects(
 	}
 	// Create the rolebindings
 	// CTLOG
-	if _, err = r.ensureRoleBinding(ctx, instance, ctn.Name, "ctlog-cm-operator", "ctlog-cm-operator", ctsa.Name, "ctlog"); err != nil {
+	if _, err = r.ensureRoleBinding(ctx, instance, ctn.Name, "ctlog-cm-operator", "ctlog-cm-operator", ctsa.Name, "ctlog", tun.Name); err != nil {
 		return fmt.Errorf("could not ensure rolebinding: %w", err)
 	}
-	if _, err = r.ensureRoleBinding(ctx, instance, ctn.Name, "ctlog-secret-operator", "ctlog-secret-operator", ctctasccsa.Name, "ctlog"); err != nil {
+	if _, err = r.ensureRoleBinding(ctx, instance, ctn.Name, "ctlog-secret-operator", "ctlog-secret-operator", ctctasccsa.Name, "ctlog", tun.Name); err != nil {
 		return fmt.Errorf("could not ensure rolebinding: %w", err)
 	}
 	// REKOR
-	if _, err = r.ensureRoleBinding(ctx, instance, rkn.Name, "rekor-cm-operator", "rekor-cm-operator", rtasctsa.Name, "rekor"); err != nil {
+	if _, err = r.ensureRoleBinding(ctx, instance, rkn.Name, "rekor-cm-operator", "rekor-cm-operator", rtasctsa.Name, "rekor", tun.Name); err != nil {
 		return fmt.Errorf("could not ensure rolebinding: %w", err)
 	}
 	// TUF
-	if _, err = r.ensureRoleBinding(ctx, instance, tun.Name, "tuf", "tuf", tstufsa.Name, "tuf"); err != nil {
+	if _, err = r.ensureRoleBinding(ctx, instance, tun.Name, "tuf", "tuf", tstufsa.Name, "tuf", tun.Name); err != nil {
 		return fmt.Errorf("could not ensure rolebinding: %w", err)
 	}
-	if _, err = r.ensureRoleBinding(ctx, instance, rkn.Name, "tuf-secret-copy-job-rekor-binding", "tas-secret-copy-job-role", tscjsa.Name, "tuf"); err != nil {
+	if _, err = r.ensureRoleBinding(ctx, instance, rkn.Name, "tuf-secret-copy-job-rekor-binding", "tas-secret-copy-job-role", tscjsa.Name, "tuf", tun.Name); err != nil {
 		return fmt.Errorf("could not ensure rolebinding: %w", err)
 	}
-	if _, err = r.ensureRoleBinding(ctx, instance, ctn.Name, "tuf-secret-copy-job-ctlog-binding", "tas-secret-copy-job-role", tscjsa.Name, "tuf"); err != nil {
+	if _, err = r.ensureRoleBinding(ctx, instance, ctn.Name, "tuf-secret-copy-job-ctlog-binding", "tas-secret-copy-job-role", tscjsa.Name, "tuf", tun.Name); err != nil {
 		return fmt.Errorf("could not ensure rolebinding: %w", err)
 	}
-	if _, err = r.ensureRoleBinding(ctx, instance, fun.Name, "tuf-secret-copy-job-fulcio-binding", "tas-secret-copy-job-role", tscjsa.Name, "tuf"); err != nil {
+	if _, err = r.ensureRoleBinding(ctx, instance, fun.Name, "tuf-secret-copy-job-fulcio-binding", "tas-secret-copy-job-role", tscjsa.Name, "tuf", tun.Name); err != nil {
 		return fmt.Errorf("could not ensure rolebinding: %w", err)
 	}
-	if _, err = r.ensureRoleBinding(ctx, instance, tun.Name, "tuf-secret-copy-job-binding", "tas-secret-copy-job-role", tscjsa.Name, "tuf"); err != nil {
+	if _, err = r.ensureRoleBinding(ctx, instance, tun.Name, "tuf-secret-copy-job-binding", "tas-secret-copy-job-role", tscjsa.Name, "tuf", tun.Name); err != nil {
 		return fmt.Errorf("could not ensure rolebinding: %w", err)
 	}
 	// Create Job

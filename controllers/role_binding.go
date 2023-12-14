@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (r *SecuresignReconciler) ensureRoleBinding(ctx context.Context, securesign *rhtasv1alpha1.Securesign, namespace string, bindingName string, roleName string, serviceAccount string, component string) (*rbac.RoleBinding, error) {
+func (r *SecuresignReconciler) ensureRoleBinding(ctx context.Context, securesign *rhtasv1alpha1.Securesign, namespace string, bindingName string, roleName string, serviceAccount string, component string, tufNS string) (*rbac.RoleBinding, error) {
 	log := log.FromContext(ctx)
 
 	roleBinding := &rbac.RoleBinding{
@@ -41,7 +41,7 @@ func (r *SecuresignReconciler) ensureRoleBinding(ctx context.Context, securesign
 	// The Namespace for the serviceAccount will be tuf-system
 	if bindingName == "tuf-secret-copy-job-fulcio-binding" || bindingName == "tuf-secret-copy-job-binding" || bindingName == "tuf-secret-copy-job-rekor-binding" || bindingName == "tuf-secret-copy-job-ctlog-binding" {
 		roleBinding.RoleRef.Kind = "ClusterRole"
-		roleBinding.Subjects[0].Namespace = "tuf-system"
+		roleBinding.Subjects[0].Namespace = tufNS
 	}
 
 	err := r.Get(ctx, client.ObjectKey{Name: bindingName, Namespace: namespace}, roleBinding)
