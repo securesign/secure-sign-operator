@@ -127,6 +127,7 @@ func (r *SecuresignReconciler) ensureFulDeployment(ctx context.Context, m *rhtas
 							},
 						},
 					},
+					AutomountServiceAccountToken: &[]bool{true}[0],
 					Volumes: []corev1.Volume{
 						{
 							Name: "fulcio-config",
