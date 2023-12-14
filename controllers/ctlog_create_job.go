@@ -46,7 +46,8 @@ func (r *SecuresignReconciler) ensureCreateCTJob(ctx context.Context, m *rhtasv1
 							Command: []string{"/bin/sh"},
 							Args: []string{
 								"-c",
-								"until kubectl get configmap ctlog-config -n " + namespace + " -o jsonpath='{.data.treeID}' | grep -q 'treeID'; do sleep 1; done",
+								// check this better in the future
+								"until kubectl get configmap ctlog-config -n " + namespace + "; do sleep 3 && echo \"no configmap present\"; done",
 							},
 							Env: []core.EnvVar{
 								{
