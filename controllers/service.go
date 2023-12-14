@@ -22,14 +22,14 @@ func (r *SecuresignReconciler) ensureService(ctx context.Context, m *rhtasv1alph
 			Labels: map[string]string{
 				"app.kubernetes.io/component": component,
 				"app.kubernetes.io/name":      ssapp,
-				"app.kubernetes.io/instance":  "rhtas-" + component,
+				"app.kubernetes.io/instance":  "trusted-artifact-signer",
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
 				"app.kubernetes.io/component": component,
 				"app.kubernetes.io/name":      ssapp,
-				"app.kubernetes.io/instance":  "rhtas-" + component,
+				"app.kubernetes.io/instance":  "trusted-artifact-signer",
 			},
 			Ports: []corev1.ServicePort{
 				{

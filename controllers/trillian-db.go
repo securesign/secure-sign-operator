@@ -24,7 +24,7 @@ func (r *SecuresignReconciler) ensureTrillDb(ctx context.Context, m *rhtasv1alph
 			Namespace: namespace,
 			Labels: map[string]string{
 				"app.kubernetes.io/name":      "trillian",
-				"app.kubernetes.io/instance":  "rhtas-mysql",
+				"app.kubernetes.io/instance":  "trusted-artifact-signer",
 				"app.kubernetes.io/component": "mysql",
 			},
 		},
@@ -33,7 +33,7 @@ func (r *SecuresignReconciler) ensureTrillDb(ctx context.Context, m *rhtasv1alph
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app.kubernetes.io/name":      "trillian",
-					"app.kubernetes.io/instance":  "rhtas-mysql",
+					"app.kubernetes.io/instance":  "trusted-artifact-signer",
 					"app.kubernetes.io/component": "mysql",
 				},
 			},
@@ -41,7 +41,7 @@ func (r *SecuresignReconciler) ensureTrillDb(ctx context.Context, m *rhtasv1alph
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"app.kubernetes.io/name":      "trillian",
-						"app.kubernetes.io/instance":  "rhtas-mysql",
+						"app.kubernetes.io/instance":  "trusted-artifact-signer",
 						"app.kubernetes.io/component": "mysql",
 					},
 				},
