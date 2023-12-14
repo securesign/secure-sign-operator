@@ -380,8 +380,11 @@ func (r *SecuresignReconciler) createTrackedObjects(
 		return fmt.Errorf("could not ensure deployment: %w", err)
 	}
 	// TUF
-	if _, err = r.ensureTufDeployment(ctx, instance, tun.Name, tstufsa.Name, "tuf"); err != nil {
-		return fmt.Errorf("could not ensure deployment: %w", err)
+	// ensure the secret tuf-secrets exists before creating the deployment log but dont fail and move on
+	if err = r.Get(ctx, client.ObjectKey{Name: "tuf-secrets", Namespace: tun.Name}, &corev1.Secret{}); err == nil {
+		if _, err = r.ensureTufDeployment(ctx, instance, tun.Name, tstufsa.Name, "tuf"); err != nil {
+			return fmt.Errorf("could not ensure deployment: %w", err)
+		}
 	}
 	// Trusted Artifact Signer
 	if _, err = r.ensureTasDeployment(ctx, instance, tascs.Name, tascsa.Name, "tas-clients"); err != nil {
