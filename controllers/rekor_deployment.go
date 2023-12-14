@@ -12,7 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (r *SecuresignReconciler) ensureRekorDeployment(ctx context.Context, m *rhtasv1alpha1.Securesign, namespace string, sA string, dpName string) (*apps.Deployment,
+func (r *SecuresignReconciler) ensureRekorDeployment(ctx context.Context, m *rhtasv1alpha1.Securesign, namespace string, sA string, dpName string, trn string) (*apps.Deployment,
 	error) {
 	log := log.FromContext(ctx)
 	log.Info("ensuring deployment")
@@ -115,7 +115,7 @@ func (r *SecuresignReconciler) ensureRekorDeployment(ctx context.Context, m *rht
 							},
 							Args: []string{
 								"serve",
-								"--trillian_log_server.address=trillian-logserver.trillian-system",
+								"--trillian_log_server.address=trillian-logserver" + trn,
 								"--trillian_log_server.port=8091",
 								"--trillian_log_server.sharding_config=/sharding/sharding-config.yaml",
 								"--redis_server.address=rekor-redis",

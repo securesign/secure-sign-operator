@@ -275,7 +275,7 @@ func (r *SecuresignReconciler) createTrackedObjects(
 	if _, err = r.ensureCTRekorJob(ctx, instance, rkn.Name, rtasctsa.Name, "rekor", "trusted-artifact-signer-rekor-createtree", trn.Name); err != nil {
 		return fmt.Errorf("could not ensure job: %w", err)
 	}
-	if _, err = r.ensureCreateCTJob(ctx, instance, ctn.Name, ctctasccsa.Name, "trusted-artifact-signer-ctlog-createctconfig", fun.Name); err != nil {
+	if _, err = r.ensureCreateCTJob(ctx, instance, ctn.Name, ctctasccsa.Name, "trusted-artifact-signer-ctlog-createctconfig", fun.Name, trn.Name); err != nil {
 		return fmt.Errorf("could not ensure job: %w", err)
 	}
 	//if _, err = r.ensureCreateDbJob(ctx, instance, tun.Name, tlssa.Name, "trillian", "trusted-artifact-signer-trillian-createdb", dbSecret.Name); err != nil {
@@ -372,7 +372,7 @@ func (r *SecuresignReconciler) createTrackedObjects(
 		return fmt.Errorf("could not ensure deployment: %w", err)
 	}
 	// Rekor
-	if _, err = r.ensureRekorDeployment(ctx, instance, rkn.Name, rssa.Name, "rekor-server"); err != nil {
+	if _, err = r.ensureRekorDeployment(ctx, instance, rkn.Name, rssa.Name, "rekor-server", trn.Name); err != nil {
 		return fmt.Errorf("could not ensure deployment: %w", err)
 	}
 	if _, err = r.ensureRedisDeployment(ctx, instance, rkn.Name, rrsa.Name, "rekor-redis"); err != nil {

@@ -12,7 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (r *SecuresignReconciler) ensureCreateCTJob(ctx context.Context, m *rhtasv1alpha1.Securesign, namespace string, sA string, jobName string, fun string) (*batch.Job,
+func (r *SecuresignReconciler) ensureCreateCTJob(ctx context.Context, m *rhtasv1alpha1.Securesign, namespace string, sA string, jobName string, fun string, trn string) (*batch.Job,
 	error) {
 	log := log.FromContext(ctx)
 	imageName := "registry.redhat.io/rhtas-tech-preview/createctconfig-rhel9@sha256:10155f8c2b73b12599124895b2db0c9e08b2c3953df7361574fd08467c42fd04"
@@ -36,17 +36,14 @@ func (r *SecuresignReconciler) ensureCreateCTJob(ctx context.Context, m *rhtasv1
 					},
 				},
 				Spec: core.PodSpec{
-					ServiceAccountName: sA,
-					RestartPolicy:      core.RestartPolicyNever,
+					ServiceAccountName:           sA,
+					AutomountServiceAccountToken: &[]bool{true}[0],
+					RestartPolicy:                core.RestartPolicyNever,
 					InitContainers: []core.Container{
 						{
-							Name:  "wait-for-createtree-configmap",
-							Image: "registry.access.redhat.com/ubi9/ubi-minimal:latest",
-							Command: []string{
-								"sh",
-								"-c",
-								"until curl --fail --header \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt --max-time 10 https://kubernetes.default.svc/api/v1/namespaces/$(NAMESPACE)/configmaps/ctlog-config | grep '\"treeID\":'; do echo waiting for Configmap ctlog-config; sleep 5; done;",
-							},
+							Name:    "wait-for-createtree-configmap",
+							Image:   "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+							Command: []string{"sh -c until curl --fail --header \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt --max-time 10 https://kubernetes.default.svc/api/v1/namespaces/$(NAMESPACE)/configmaps/ctlog-config | grep '\"treeID\":'; do echo waiting for Configmap ctlog-config; sleep 5; done;"},
 							Env: []core.EnvVar{
 								{
 									Name:  "NAMESPACE",
@@ -64,7 +61,7 @@ func (r *SecuresignReconciler) ensureCreateCTJob(ctx context.Context, m *rhtasv1
 								"--secret=ctlog-secret",
 								"--pubkeysecret=ctlog-public-key",
 								"--fulcio-url=http://fulcio-server." + fun + ".svc",
-								"--trillian-server=trillian-logserver.trillian-system:8091",
+								"--trillian-server=trillian-logserver." + trn + ":8091",
 								"--log-prefix=sigstorescaffolding",
 							},
 							Env: []core.EnvVar{
