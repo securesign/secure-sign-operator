@@ -309,9 +309,9 @@ func (r *SecuresignReconciler) createTrackedObjects(
 		return fmt.Errorf("could not ensure secret: %w", err)
 	}
 	// Fulcio
-	if _, err = r.ensureFulcioSecret(ctx, instance, fun.Name, "fulcio-secret-rh"); err != nil {
-		return fmt.Errorf("could not ensure secret: %w", err)
-	}
+	//	if _, err = r.ensureFulcioSecret(ctx, instance, fun.Name, "fulcio-secret-rh"); err != nil {
+	//		return fmt.Errorf("could not ensure secret: %w", err)
+	//	}
 	// Rekor
 	if _, err = r.ensureRekorSecret(ctx, instance, rkn.Name, "rekor-private-key"); err != nil {
 		return fmt.Errorf("could not ensure secret: %w", err)
