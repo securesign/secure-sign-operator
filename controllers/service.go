@@ -43,7 +43,7 @@ func (r *SecuresignReconciler) ensureService(ctx context.Context, m *rhtasv1alph
 	}
 
 	// if trillian-logsigner add an additional service port of 8090
-	if component == "trillian-logsigner" {
+	if component == "trillian-logserver" {
 		svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
 			Name:       "8090-tcp",
 			Protocol:   corev1.ProtocolTCP,
