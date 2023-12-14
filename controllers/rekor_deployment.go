@@ -99,7 +99,7 @@ func (r *SecuresignReconciler) ensureRekorDeployment(ctx context.Context, m *rht
 									Value: namespace,
 								},
 							},
-							Image: "registry.redhat.io/rhtas-tech-preview/tuf-server-rhel9@sha256:413e361de99f09e617084438b2fc3c9c477f4a8e2cd65bd5f48271e66d57a9d9",
+							Image: "registry.redhat.io/rhtas-tech-preview/rekor-server-rhel9@sha256:8ee7d5dd2fa1c955d64ab83d716d482a3feda8e029b861241b5b5dfc6f1b258e",
 							Ports: []core.ContainerPort{
 								{
 									Protocol:      core.ProtocolTCP,
