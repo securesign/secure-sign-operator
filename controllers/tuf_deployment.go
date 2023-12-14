@@ -125,11 +125,11 @@ func (r *SecuresignReconciler) ensureTufDeployment(ctx context.Context, m *rhtas
 			},
 		},
 	}
-	// Wait until the secret tuf-secrets exists else requeue
+	// Wait until the secret tuf-secrets exists else requeue. Don't fail the reconcile if the secret doesn't exist
 	err := r.Get(ctx, client.ObjectKey{Name: "tuf-secrets", Namespace: namespace}, &core.Secret{})
 	if err != nil {
-		log.Error(err, "Failed to get tuf-secrets")
-		return nil, err
+		log.Info("Waiting for tuf-secrets secret to be created")
+		return nil, nil
 	} else {
 		// Check if this Deployment already exists else create it
 		err := r.Get(ctx, client.ObjectKey{Name: dep.Name, Namespace: namespace}, dep)
