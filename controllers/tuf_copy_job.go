@@ -47,7 +47,7 @@ func (r *SecuresignReconciler) ensureTufCopyJob(ctx context.Context, m *rhtasv1a
 							Command: []string{"/bin/sh"},
 							Args: []string{
 								"-c",
-								"kubectl rollout status deployment rekor-system --timeout=120s -n " + rkn,
+								"kubectl rollout status deployment rekor-server --timeout=120s -n " + rkn,
 							},
 						},
 						{
