@@ -15,7 +15,7 @@ func (r *SecuresignReconciler) ensureNamespace(ctx context.Context, m *rhtasv1al
 
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: m.Name + "-" + component,
+			Name: component,
 		},
 	}
 
