@@ -121,7 +121,7 @@ func (r *SecuresignReconciler) createTrackedObjects(
 	var ctlogNamespace = "ctlog-system"
 	var ctlogSA = "ctlog"
 	var ctsa *corev1.ServiceAccount
-	var ctlogCTSA = "ctlog-createtree"
+	var ctCTSA = "ctlog-createtree"
 	var ctctsa *corev1.ServiceAccount
 	var ctlogTASCCSA = "trusted-artifact-signer-ctlog-createctconfig"
 	var ctctasccsa *corev1.ServiceAccount
@@ -199,7 +199,7 @@ func (r *SecuresignReconciler) createTrackedObjects(
 	if ctsa, err = r.ensureSA(ctx, instance, ctn.Name, ctlogSA); err != nil {
 		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
 	}
-	if ctctsa, err = r.ensureSA(ctx, instance, ctn.Name, ctlogCTSA); err != nil {
+	if ctctsa, err = r.ensureSA(ctx, instance, ctn.Name, ctCTSA); err != nil {
 		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
 	}
 	if ctctasccsa, err = r.ensureSA(ctx, instance, ctn.Name, ctlogTASCCSA); err != nil {
@@ -272,10 +272,13 @@ func (r *SecuresignReconciler) createTrackedObjects(
 	if _, err = r.ensureTufCopyJob(ctx, instance, tun.Name, tscjsa.Name, "tuf-secret-copy-job", rkn.Name, fun.Name, ctn.Name); err != nil {
 		return fmt.Errorf("could not ensure job: %w", err)
 	}
-	if _, err = r.ensureCTRekorJob(ctx, instance, rkn.Name, rtasctsa.Name, "rekor", "trusted-artifact-signer-rekor-createtree", trn.Name); err != nil {
+	if _, err = r.ensureCTJob(ctx, instance, rkn.Name, rtasctsa.Name, "rekor", "trusted-artifact-signer-rekor-createtree", trn.Name); err != nil {
 		return fmt.Errorf("could not ensure job: %w", err)
 	}
 	if _, err = r.ensureCreateCTJob(ctx, instance, ctn.Name, ctctasccsa.Name, "trusted-artifact-signer-ctlog-createctconfig", fun.Name, trn.Name); err != nil {
+		return fmt.Errorf("could not ensure job: %w", err)
+	}
+	if _, err = r.ensureCTJob(ctx, instance, ctn.Name, ctctsa.Name, "ctlog", "ctlog-createtree", trn.Name); err != nil {
 		return fmt.Errorf("could not ensure job: %w", err)
 	}
 	//if _, err = r.ensureCreateDbJob(ctx, instance, tun.Name, tlssa.Name, "trillian", "trusted-artifact-signer-trillian-createdb", dbSecret.Name); err != nil {
