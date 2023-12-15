@@ -40,8 +40,8 @@ func (r *SecuresignReconciler) ensureConfigMap(ctx context.Context, m *rhtasv1al
 	// If the configMapName is rekor-sharding-config then replace the data with the sharding-config.yaml
 	if configMapName == "rekor-sharding-config" {
 		configMap.Data = map[string]string{
-			"sharding-config.yaml": `|-
-			  `,
+			"sharding-config.yaml": "" +
+				"",
 		}
 	}
 
