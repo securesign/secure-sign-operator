@@ -36,7 +36,7 @@ func (r *SecuresignReconciler) ensureConfigMap(ctx context.Context, m *rhtasv1al
 	// If the configMapName is rekor-sharding-config then replace the Data with the a multi-line empty string shared-config.yaml that creates without any quotes single or double
 	if configMapName == "rekor-sharding-config" {
 		configMap.Data = map[string]string{
-			"sharding-config.yaml": "|",
+			"sharding-config.yaml": `|`,
 		}
 	}
 
