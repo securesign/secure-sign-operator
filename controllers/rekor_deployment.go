@@ -109,8 +109,12 @@ func (r *SecuresignReconciler) ensureRekorDeployment(ctx context.Context, m *rht
 							Image: "registry.redhat.io/rhtas-tech-preview/rekor-server-rhel9@sha256:8ee7d5dd2fa1c955d64ab83d716d482a3feda8e029b861241b5b5dfc6f1b258e",
 							Ports: []core.ContainerPort{
 								{
-									Protocol:      core.ProtocolTCP,
-									ContainerPort: 8080,
+									ContainerPort: 3000,
+									Name:          "rekor-server",
+								},
+								{
+									ContainerPort: 2112,
+									Protocol:      "TCP",
 								},
 							},
 							Args: []string{
