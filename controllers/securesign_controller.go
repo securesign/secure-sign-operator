@@ -339,7 +339,7 @@ func (r *SecuresignReconciler) createTrackedObjects(
 		return fmt.Errorf("could not ensure service: %w", err)
 	}
 	// Rekor
-	if _, err = r.ensureService(ctx, instance, rkn.Name, "rekor-server", "rekor-server", "rekor", 2112); err != nil {
+	if _, err = r.ensureService(ctx, instance, rkn.Name, "rekor-server", "rekor-server", "rekor-server", 2112); err != nil {
 		return fmt.Errorf("could not ensure service: %w", err)
 	}
 	if _, err = r.ensureService(ctx, instance, rkn.Name, "rekor-redis", "redis", "rekor", 6379); err != nil {
