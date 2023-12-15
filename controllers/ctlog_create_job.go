@@ -46,7 +46,7 @@ func (r *SecuresignReconciler) ensureCreateCTJob(ctx context.Context, m *rhtasv1
 							Command: []string{
 								"sh",
 								"-c",
-								"until curl --fail --header \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt --max-time 10 https://kubernetes.default.svc/api/v1/namespaces/securesign-sample-ctlog-system/configmaps/ctlog-config | grep ''\"treeID\"\"; do sleep 1; done",
+								"until curl --fail --header \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt --max-time 10 https://kubernetes.default.svc/api/v1/namespaces/" + namespace + "/configmaps/ctlog-config | grep '\"treeID\":'; do echo waiting for Configmap ctlog-config; sleep 5; done;",
 							},
 							Env: []core.EnvVar{
 								{
