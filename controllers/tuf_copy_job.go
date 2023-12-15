@@ -76,7 +76,7 @@ func (r *SecuresignReconciler) ensureTufCopyJob(ctx context.Context, m *rhtasv1a
 							Command: []string{"/bin/sh"},
 							Args: []string{
 								"-c",
-								"curl rekor-server." + rkn + ".svc.cluster.local/api/v1/log/publicKey -o /tmp/key -v && kubectl create secret generic rekor-public-key --from-file=key=/tmp/key -n" + namespace,
+								"curl rekor-server.rekor-system.svc.cluster.local/api/v1/log/publicKey -o /tmp/key -v && kubectl create secret generic rekor-public-key --from-file=key=/tmp/key",
 							},
 						},
 						{
@@ -85,7 +85,7 @@ func (r *SecuresignReconciler) ensureTufCopyJob(ctx context.Context, m *rhtasv1a
 							Command: []string{"/bin/sh"},
 							Args: []string{
 								"-c",
-								"kubectl -n " + fun + " get secrets fulcio-secret-rh -oyaml | sed 's/namespace: .*/namespace: " + namespace + "/' | kubectl apply -f -",
+								"kubectl -n fulcio-system get secrets fulcio-secret-rh -oyaml | sed 's/namespace: .*/namespace: tuf-system/' | kubectl apply -f -",
 							},
 						},
 						{
@@ -94,7 +94,7 @@ func (r *SecuresignReconciler) ensureTufCopyJob(ctx context.Context, m *rhtasv1a
 							Command: []string{"/bin/sh"},
 							Args: []string{
 								"-c",
-								"kubectl -n " + ctn + " get secrets ctlog-public-key -oyaml | sed 's/namespace: .*/namespace: " + namespace + "/' | kubectl apply -f -",
+								"kubectl -n ctlog-system get secrets ctlog-public-key -oyaml | sed 's/namespace: .*/namespace: tuf-system/' | kubectl apply -f -",
 							},
 						},
 					},
