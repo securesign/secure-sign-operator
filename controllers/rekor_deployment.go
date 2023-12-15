@@ -115,7 +115,7 @@ func (r *SecuresignReconciler) ensureRekorDeployment(ctx context.Context, m *rht
 							},
 							Args: []string{
 								"serve",
-								"--trillian_log_server.address=trillian-logserver" + trn,
+								"--trillian_log_server.address=trillian-logserver." + trn,
 								"--trillian_log_server.port=8091",
 								"--trillian_log_server.sharding_config=/sharding/sharding-config.yaml",
 								"--redis_server.address=rekor-redis",
