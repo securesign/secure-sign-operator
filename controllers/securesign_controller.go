@@ -121,8 +121,8 @@ func (r *SecuresignReconciler) createTrackedObjects(
 	var ctlogNamespace = "ctlog-system"
 	var ctlogSA = "ctlog"
 	var ctsa *corev1.ServiceAccount
-	//var ctlogCTSA = "ctlog-createtree"
-	//var ctctsa *corev1.ServiceAccount
+	var ctlogCTSA = "ctlog-createtree"
+	var ctctsa *corev1.ServiceAccount
 	var ctlogTASCCSA = "trusted-artifact-signer-ctlog-createctconfig"
 	var ctctasccsa *corev1.ServiceAccount
 
@@ -199,9 +199,9 @@ func (r *SecuresignReconciler) createTrackedObjects(
 	if ctsa, err = r.ensureSA(ctx, instance, ctn.Name, ctlogSA); err != nil {
 		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
 	}
-	//if ctctsa, err = r.ensureSA(ctx, instance, ctn.Name, ctlogCTSA); err != nil {
-	//	return fmt.Errorf("retrieved error while ensuring SA: %w", err)
-	//}
+	if ctctsa, err = r.ensureSA(ctx, instance, ctn.Name, ctlogCTSA); err != nil {
+		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
+	}
 	if ctctasccsa, err = r.ensureSA(ctx, instance, ctn.Name, ctlogTASCCSA); err != nil {
 		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
 	}
@@ -246,6 +246,9 @@ func (r *SecuresignReconciler) createTrackedObjects(
 		return fmt.Errorf("could not ensure rolebinding: %w", err)
 	}
 	if _, err = r.ensureRoleBinding(ctx, instance, ctn.Name, "ctlog-secret-operator", "ctlog-secret-operator", ctctasccsa.Name, "ctlog", tun.Name, ctn.Name); err != nil {
+		return fmt.Errorf("could not ensure rolebinding: %w", err)
+	}
+	if _, err = r.ensureRoleBinding(ctx, instance, ctn.Name, "ctlog-cm-operator", "ctlog-cm-operator", ctctsa.Name, "ctlog", tun.Name, ctn.Name); err != nil {
 		return fmt.Errorf("could not ensure rolebinding: %w", err)
 	}
 	// REKOR
