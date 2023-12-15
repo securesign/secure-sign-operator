@@ -115,7 +115,7 @@ func (r *SecuresignReconciler) ensureTufDeployment(ctx context.Context, m *rhtas
 							},
 							VolumeMounts: []core.VolumeMount{
 								{
-									Name:      "tuf-secets",
+									Name:      "tuf-secrets",
 									MountPath: "/var/run/tuf-secrets",
 								},
 							},
