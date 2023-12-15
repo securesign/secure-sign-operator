@@ -23,8 +23,8 @@ func (r *SecuresignReconciler) ensureRedisDeployment(ctx context.Context, m *rht
 			Name:      dpName,
 			Namespace: namespace,
 			Labels: map[string]string{
-				"app.kubernetes.io/component": dpName,
-				"app.kubernetes.io/name":      dpName,
+				"app.kubernetes.io/component": "redis",
+				"app.kubernetes.io/name":      "rekor",
 				"app.kubernetes.io/instance":  "trusted-artifact-signer",
 			},
 		},
@@ -32,16 +32,16 @@ func (r *SecuresignReconciler) ensureRedisDeployment(ctx context.Context, m *rht
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app.kubernetes.io/component": dpName,
-					"app.kubernetes.io/name":      dpName,
+					"app.kubernetes.io/component": "redis",
+					"app.kubernetes.io/name":      "rekor",
 					"app.kubernetes.io/instance":  "trusted-artifact-signer",
 				},
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app.kubernetes.io/component": dpName,
-						"app.kubernetes.io/name":      dpName,
+						"app.kubernetes.io/component": "redis",
+						"app.kubernetes.io/name":      "rekor",
 						"app.kubernetes.io/instance":  "trusted-artifact-signer",
 					},
 				},
