@@ -101,7 +101,7 @@ func (r *SecuresignReconciler) ensureRekorDeployment(ctx context.Context, m *rht
 											LocalObjectReference: core.LocalObjectReference{
 												Name: "rekor-config",
 											},
-											Key: "tree_id",
+											Key: "treeID",
 										},
 									},
 								},
