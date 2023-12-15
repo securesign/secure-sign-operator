@@ -379,7 +379,7 @@ func (r *SecuresignReconciler) createTrackedObjects(
 		return fmt.Errorf("could not ensure deployment: %w", err)
 	}
 	// Fulcio
-	if _, err = r.ensureFulDeployment(ctx, instance, fun.Name, "fulcio-server", fsa.Name, "fulcio", "server"); err != nil {
+	if _, err = r.ensureFulDeployment(ctx, instance, fun.Name, "fulcio-server", fsa.Name, "fulcio-server", "fulcio"); err != nil {
 		return fmt.Errorf("could not ensure deployment: %w", err)
 	}
 	// TUF
