@@ -242,9 +242,6 @@ func (r *SecuresignReconciler) createTrackedObjects(
 	}
 	// Create the rolebindings
 	// CTLOG
-	if _, err = r.ensureRoleBinding(ctx, instance, ctn.Name, "ctlog-cm-operator", "ctlog-cm-operator", ctsa.Name, "ctlog", tun.Name, ctn.Name); err != nil {
-		return fmt.Errorf("could not ensure rolebinding: %w", err)
-	}
 	if _, err = r.ensureRoleBinding(ctx, instance, ctn.Name, "ctlog-secret-operator", "ctlog-secret-operator", ctctasccsa.Name, "ctlog", tun.Name, ctn.Name); err != nil {
 		return fmt.Errorf("could not ensure rolebinding: %w", err)
 	}
