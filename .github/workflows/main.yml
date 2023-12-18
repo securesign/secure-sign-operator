@@ -30,11 +30,11 @@ jobs:
       - name: Build operator container
         run: make docker-build OPERATOR_IMAGE=${OPERATOR_IMAGE}
 
-      - name: Export container image
-        run: docker save -o /tmp/operator.tar ${OPERATOR_IMAGE}
+      - name: Export container image as a tar file
+        run: docker save ${OPERATOR_IMAGE} -o operator.tar
 
-      - name: Save container as artifact
-        uses: actions/upload-artifact@v1
+      - name: archive operator container
+        uses: actions/upload-artifact@v2
         with:
-          name: signer-operator
-          path: /tmp/operator.tar
+          name: operator
+          path: operator.tar
