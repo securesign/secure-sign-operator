@@ -30,6 +30,9 @@ jobs:
       - name: Build operator container
         run: make docker-build OPERATOR_IMAGE=${OPERATOR_IMAGE}
 
+      - name: debug
+        run: docker images
+
       - name: Export container image as a tar file
         run: docker save ${OPERATOR_IMAGE} -o operator.tar
 
