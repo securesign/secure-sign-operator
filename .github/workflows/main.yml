@@ -9,6 +9,7 @@ on:
 env:
   GO_VERSION: 1.19
   OPERATOR_IMAGE: quay.io/rcook/securesign-operator:latest
+  CONTROLLER_IMAGE: quay.io/rcook/securesign-controller:latest
 
 
 jobs:
@@ -28,16 +29,16 @@ jobs:
         run: make test
 
       - name: Build operator container
-        run: make docker-build OPERATOR_IMAGE=${OPERATOR_IMAGE}
+        run: make docker-build CONTROLLER_IMAGE=${CONTROLLER_IMAGE}
 
       - name: debug
         run: docker images
 
       - name: Export container image as a tar file
-        run: docker save ${OPERATOR_IMAGE} -o operator.tar
+        run: docker save ${CONTROLLER_IMAGE} -o controller.tar
 
-      - name: archive operator container
+      - name: archive controller container
         uses: actions/upload-artifact@v2
         with:
-          name: operator
-          path: operator.tar
+          name: controller
+          path: controller.tar
