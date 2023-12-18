@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: ["main", "release*"]
 
+env:
+  GO_VERSION: 1.19
+  OPERATOR_IMAGE: quay.io/rcook/securesign-operator:latest
+
+
 jobs:
   build-operator:
     name: Build-operator
@@ -23,7 +28,7 @@ jobs:
         run: make test
 
       - name: Build operator container
-        run: make docker-build IMG=${OPERATOR_IMAGE}
+        run: make docker-build OPERATOR_IMAGE=${OPERATOR_IMAGE}
 
       - name: Export container image
         run: docker save -o /tmp/operator.tar ${OPERATOR_IMAGE}
