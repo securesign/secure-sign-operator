@@ -64,3 +64,7 @@ jobs:
 
       - name: Apply sample config
         run: kubectl apply -f config/samples/rhtas_v1alpha1_securesign.yaml
+
+      - name: write PULL_SECRET to /tmp/pull-secret.txt
+        run: |
+          echo "${{ secrets.PULL_SECRET }}" > /tmp/pull-secret.txt
