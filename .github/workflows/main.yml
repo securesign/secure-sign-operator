@@ -55,4 +55,4 @@ jobs:
         run: make deploy CONTROLLER_IMAGE=${CONTROLLER_IMAGE}
 
       - name: Wait for operator to be ready
-        run: kubectl get po -A
+        run: kubectl wait --for=condition=available deployment/operator-controller-manager --timeout=60s -n operator-system
