@@ -56,3 +56,6 @@ jobs:
 
       - name: Wait for operator to be ready
         run: kubectl wait --for=condition=available deployment/operator-controller-manager --timeout=60s -n operator-system
+
+      - name: Apply sample config
+        run: kubectl apply -f config/samples/rhtas_v1alpha1_securesign.yaml
