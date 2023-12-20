@@ -74,3 +74,6 @@ jobs:
       - name: write PULL_SECRET to /tmp/pull-secret.txt
         run: |
           echo "${{ secrets.PULL_SECRET }}" > /tmp/pull-secret.txt
+
+      - name: Lazily create secrets in all namespaces
+        run: kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n securesign-sample-ctlog-system ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n securesign-sample-fulcio-system ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n securesign-sample-rekor-system ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n securesign-sample-trillian-system ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n securesign-sample-trusted-artifact-signer-clientserver ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n securesign-sample-tuf-system
