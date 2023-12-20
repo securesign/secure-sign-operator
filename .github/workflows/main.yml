@@ -8,8 +8,8 @@ on:
 
 env:
   GO_VERSION: 1.19
-  OPERATOR_IMAGE: quay.io/rcook/securesign-operator:latest
   CONTROLLER_IMAGE: quay.io/rcook/securesign-controller:latest
+  KIND_VERSION: 0.20.0
 
 
 jobs:
@@ -31,14 +31,28 @@ jobs:
       - name: Build operator container
         run: make docker-build CONTROLLER_IMAGE=${CONTROLLER_IMAGE}
 
-      - name: debug
-        run: docker images
+      - name: Install kind
+        run: |
+          curl -fsSL -o kind https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-linux-amd64
+          sudo install ./kind /usr/local/bin && rm kind
+          kind version
+          kind version | grep -q ${KIND_VERSION}
 
-      - name: Export container image as a tar file
-        run: docker save ${CONTROLLER_IMAGE} -o controller.tar
+      - name: install kubectl
+        run: |
+          curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.21.0/bin/linux/amd64/kubectl
+          chmod +x ./kubectl
+          sudo mv ./kubectl /usr/local/bin/kubectl
+          kubectl version --client
 
-      - name: archive controller container
-        uses: actions/upload-artifact@v2
-        with:
-          name: controller
-          path: controller.tar
+      - name: Create kind cluster
+        run: sh hack/kind.sh
+
+      - name: load operator image into kind cluster
+        run: kind load docker-image ${CONTROLLER_IMAGE}
+
+      - name: Deploy operator
+        run: make deploy CONTROLLER_IMAGE=${CONTROLLER_IMAGE}
+
+      - name: Wait for operator to be ready
+        run: kubectl get po -A
