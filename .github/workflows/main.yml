@@ -75,5 +75,21 @@ jobs:
         run: |
           echo "${{ secrets.PULL_SECRET }}" > /tmp/pull-secret.txt
 
+      - name: wait for ctlog namespace to exist
+        run: kubectl wait --for=condition=ready namespace/ctlog-system --timeout=60s
+      
+      - name: wait for fulcio namespace to exist
+        run: kubectl wait --for=condition=ready namespace/fulcio-system --timeout=60s
+
+      - name: wait for rekor namespace to exist
+        run: kubectl wait --for=condition=ready namespace/rekor-system --timeout=60s
+
+      - name: wait for trillian namespace to exist
+        run: kubectl wait --for=condition=ready namespace/trillian-system --timeout=60s
+
+      - name: wait for tuf namespace to exist
+        run: kubectl wait --for=condition=ready namespace/tuf-system --timeout=60s
+
       - name: Lazily create secrets in all namespaces
-        run: kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n securesign-sample-ctlog-system ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n securesign-sample-fulcio-system ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n securesign-sample-rekor-system ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n securesign-sample-trillian-system ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n securesign-sample-trusted-artifact-signer-clientserver ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n securesign-sample-tuf-system
+        run: kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n ctlog-system ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n fulcio-system ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n rekor-system ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n trillian-system ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n trusted-artifact-signer-clientserver ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n tuf-system
+
