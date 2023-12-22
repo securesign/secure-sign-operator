@@ -35,21 +35,93 @@ spec:
           spec:
             description: SecuresignSpec defines the desired state of Securesign
             properties:
-              fulcioCert:
-                type: string
-              fulcioPassword:
-                type: string
-              fulcioPrivateKey:
-                type: string
-              fulcioPublicKey:
+              ctlog:
+                description: CTlogSpec defines the desired state of CTlog
+                type: object
+              fulcio:
+                description: FulcioSpec defines the desired state of Fulcio
+                properties:
+                  external:
+                    type: boolean
+                  keySecret:
+                    type: string
+                  oidcIssuers:
+                    additionalProperties:
+                      properties:
+                        ClientID:
+                          type: string
+                        IssuerURL:
+                          type: string
+                        Type:
+                          type: string
+                      required:
+                      - ClientID
+                      - IssuerURL
+                      - Type
+                      type: object
+                    type: object
+                type: object
+              rekor:
                 description: Foo is an example field of Securesign. Edit securesign_types.go
                   to remove/update
-                type: string
-              rekorPrivateKey:
-                type: string
+                properties:
+                  external:
+                    type: boolean
+                  keySecret:
+                    type: string
+                  pvcName:
+                    type: string
+                type: object
+              trillian:
+                description: TrillianSpec defines the desired state of Trillian
+                properties:
+                  dbImage:
+                    type: string
+                  logSignerImage:
+                    description: Foo is an example field of Trillian. Edit trillian_types.go
+                      to remove/update
+                    type: string
+                  pvcName:
+                    type: string
+                  serverImage:
+                    type: string
+                type: object
+              tuf:
+                description: TufSpec defines the desired state of Tuf
+                properties:
+                  external:
+                    type: boolean
+                  image:
+                    type: string
+                type: object
+            required:
+            - fulcio
+            - rekor
+            - trillian
+            - tuf
             type: object
           status:
             description: SecuresignStatus defines the observed state of Securesign
+            properties:
+              ctlog:
+                type: string
+              fulcio:
+                type: string
+              rekor:
+                type: string
+              trillian:
+                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                  of cluster Important: Run "make" to regenerate code after modifying
+                  this file'
+                type: string
+              tuf:
+                type: string
+            required:
+            - ctlog
+            - fulcio
+            - rekor
+            - trillian
+            - tuf
             type: object
         type: object
     served: true

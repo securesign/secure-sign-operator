@@ -22,7 +22,9 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -67,7 +69,7 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, fmt.Errorf("failed to ensure tas: %w", err)
 	}
 
-	// Add finalizer for this CR
+	//Add finalizer for this CR
 	if !controllerutil.ContainsFinalizer(instance, finalizer) {
 		controllerutil.AddFinalizer(instance, finalizer)
 		err = r.Update(ctx, instance)
@@ -82,319 +84,74 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, r.Update(ctx, instance)
 	}
 
+	if err := r.ensureSa(ctx, instance); err != nil {
+		return failResult, err
+	}
+
+	if err := r.ensureRole(ctx, instance); err != nil {
+		return failResult, err
+	}
+
+	if err := r.ensureRoleBinding(ctx, instance); err != nil {
+		return failResult, err
+	}
+
 	// Reconcile the tracked objects
-	err = r.createTrackedObjects(ctx, instance)
+	var update bool
+	update, err = r.ensureTrillian(ctx, instance)
 	if err != nil {
 		log.Error(err, "failed to reconcile tas cluster")
 		return failResult, err
 	}
-	return ctrl.Result{Requeue: false}, nil
+	if update {
+		r.Status().Update(ctx, instance)
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	update, err = r.ensureTuf(ctx, instance)
+	if err != nil {
+		log.Error(err, "failed to reconcile tas cluster")
+		return failResult, err
+	}
+	if update {
+		r.Status().Update(ctx, instance)
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	update, err = r.ensureFulcio(ctx, instance)
+	if err != nil {
+		log.Error(err, "failed to reconcile tas cluster")
+		return failResult, err
+	}
+	if update {
+		r.Status().Update(ctx, instance)
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	update, err = r.ensureRekor(ctx, instance)
+	if err != nil {
+		log.Error(err, "failed to reconcile tas cluster")
+		return failResult, err
+	}
+	if update {
+		r.Status().Update(ctx, instance)
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	update, err = r.ensureCTlog(ctx, instance)
+	if err != nil {
+		log.Error(err, "failed to reconcile tas cluster")
+		return failResult, err
+	}
+	if update {
+		r.Status().Update(ctx, instance)
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	return ctrl.Result{}, nil
 }
 
 // createTrackedObjects Creates a mapping from client objects to their mutating functions.
-func (r *SecuresignReconciler) createTrackedObjects(
-	ctx context.Context,
-	instance *rhtasv1alpha1.Securesign,
-) error {
-	var err error
-	// ClusterRole
-	var copyRole = "tas-secret-copy-job-role"
-
-	// REKOR
-	var rkn *corev1.Namespace
-	var rekorNamespace = "rekor-system"
-	var rrSA = "rekor-redis"
-	var rrsa *corev1.ServiceAccount
-	var rsSA = "rekor-server"
-	var rssa *corev1.ServiceAccount
-	var rtasCTSA = "trusted-artifact-signer-rekor-createtree"
-	var rtasctsa *corev1.ServiceAccount
-
-	// FULCIO
-	var fun *corev1.Namespace
-	var fulcioNamespace = "fulcio-system"
-	var fSA = "fulcio-server"
-	var fsa *corev1.ServiceAccount
-
-	// CTLOG
-	var ctn *corev1.Namespace
-	var ctlogNamespace = "ctlog-system"
-	var ctlogSA = "ctlog"
-	var ctsa *corev1.ServiceAccount
-	var ctCTSA = "ctlog-createtree"
-	var ctctsa *corev1.ServiceAccount
-	var ctlogTASCCSA = "trusted-artifact-signer-ctlog-createctconfig"
-	var ctctasccsa *corev1.ServiceAccount
-
-	// TRILLIAN
-	var trn *corev1.Namespace
-	var trillianNamespace = "trillian-system"
-	var tlsSA = "trillian-logserver"
-	var tlssa *corev1.ServiceAccount
-	var tlsnrSA = "trillian-logsigner"
-	var tlsnrsa *corev1.ServiceAccount
-	var tDBSA = "trillian-mysql"
-	var tdbsa *corev1.ServiceAccount
-	var trilllogServ = "registry.redhat.io/rhtas-tech-preview/trillian-logserver-rhel9@sha256:43bfc6b7b8ed902592f19b830103d9030b59862f959c97c376cededba2ac3a03"
-	var trilllogSign = "registry.redhat.io/rhtas-tech-preview/trillian-logsigner-rhel9@sha256:fa2717c1d54400ca74cc3e9038bdf332fa834c0f5bc3215139c2d0e3579fc292"
-	var trillDb = "registry.redhat.io/rhtas-tech-preview/trillian-database-rhel9@sha256:fe4758ff57a9a6943a4655b21af63fb579384dc51838af85d0089c04290b4957"
-	var trillPVC *corev1.PersistentVolumeClaim
-	var dbSecret *corev1.Secret
-
-	// TUF
-	var tun *corev1.Namespace
-	var tufNamespace = "tuf-system"
-	var tstufSA = "tuf"
-	var tstufsa *corev1.ServiceAccount
-	var tscjSA = "tuf-secret-copy-job"
-	var tscjsa *corev1.ServiceAccount
-
-	// TRUSTED ARTIFACT SIGNER
-	var tascs *corev1.Namespace
-	var tasNamespace = "trusted-artifact-signer-clientserver"
-	var tascSA = "tas-clients"
-	var tascsa *corev1.ServiceAccount
-
-	// Create clusterrole
-	if _, err = r.ensureClusterRole(ctx, instance, copyRole); err != nil {
-		return fmt.Errorf("could not ensure clusterrole: %w", err)
-	}
-	// Create the namespaces
-	if tun, err = r.ensureNamespace(ctx, instance, tufNamespace); err != nil {
-		return fmt.Errorf("could not ensure namespace tuf-system. %w", err)
-	}
-	if trn, err = r.ensureNamespace(ctx, instance, trillianNamespace); err != nil {
-		return fmt.Errorf("could not ensure namespace trillian-system. %w", err)
-	}
-	if rkn, err = r.ensureNamespace(ctx, instance, rekorNamespace); err != nil {
-		return fmt.Errorf("could not ensure namespace rekor-system. %w", err)
-	}
-	if fun, err = r.ensureNamespace(ctx, instance, fulcioNamespace); err != nil {
-		return fmt.Errorf("could not ensure namespace fulcio-system. %w", err)
-	}
-	if ctn, err = r.ensureNamespace(ctx, instance, ctlogNamespace); err != nil {
-		return fmt.Errorf("could not ensure namespace ctlog-system. %w", err)
-	}
-	if tascs, err = r.ensureNamespace(ctx, instance, tasNamespace); err != nil {
-		return fmt.Errorf("could not ensure namespace trusted-artifact-signer-clientserver. %w", err)
-	}
-	// Create roles
-	// CTLOG
-	if _, err = r.ensureRole(ctx, instance, ctn.Name, "ctlog-cm-operator", "ctlog"); err != nil {
-		return fmt.Errorf("could not ensure role: %w", err)
-	}
-	if _, err = r.ensureRole(ctx, instance, ctn.Name, "ctlog-secret-operator", "ctlog"); err != nil {
-		return fmt.Errorf("could not ensure role: %w", err)
-	}
-	// REKOR
-	if _, err = r.ensureRole(ctx, instance, rkn.Name, "rekor-cm-operator", "rekor"); err != nil {
-		return fmt.Errorf("could not ensure role: %w", err)
-	}
-	// TUF
-	if _, err = r.ensureRole(ctx, instance, tun.Name, "tuf", "tuf"); err != nil {
-		return fmt.Errorf("could not ensure role: %w", err)
-	}
-	// Create the service accounts
-	// CTLOG
-	if ctsa, err = r.ensureSA(ctx, instance, ctn.Name, ctlogSA); err != nil {
-		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
-	}
-	if ctctsa, err = r.ensureSA(ctx, instance, ctn.Name, ctCTSA); err != nil {
-		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
-	}
-	if ctctasccsa, err = r.ensureSA(ctx, instance, ctn.Name, ctlogTASCCSA); err != nil {
-		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
-	}
-	// FULCIO
-	if fsa, err = r.ensureSA(ctx, instance, fun.Name, fSA); err != nil {
-		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
-	}
-	// REKOR
-	if rrsa, err = r.ensureSA(ctx, instance, rkn.Name, rrSA); err != nil {
-		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
-	}
-	if rssa, err = r.ensureSA(ctx, instance, rkn.Name, rsSA); err != nil {
-		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
-	}
-	if rtasctsa, err = r.ensureSA(ctx, instance, rkn.Name, rtasCTSA); err != nil {
-		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
-	}
-	// TRILLIAN
-	if tlssa, err = r.ensureSA(ctx, instance, trn.Name, tlsSA); err != nil {
-		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
-	}
-	if tlsnrsa, err = r.ensureSA(ctx, instance, trn.Name, tlsnrSA); err != nil {
-		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
-	}
-	if tdbsa, err = r.ensureSA(ctx, instance, trn.Name, tDBSA); err != nil {
-		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
-	}
-	// TRUSTED ARTIFACT SIGNER
-	if tascsa, err = r.ensureSA(ctx, instance, tascs.Name, tascSA); err != nil {
-		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
-	}
-	// TUF
-	if tstufsa, err = r.ensureSA(ctx, instance, tun.Name, tstufSA); err != nil {
-		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
-	}
-	if tscjsa, err = r.ensureSA(ctx, instance, tun.Name, tscjSA); err != nil {
-		return fmt.Errorf("retrieved error while ensuring SA: %w", err)
-	}
-	// Create the rolebindings
-	// CTLOG
-	if _, err = r.ensureRoleBinding(ctx, instance, ctn.Name, "ctlog-secret-operator", "ctlog-secret-operator", ctctasccsa.Name, "ctlog", tun.Name, ctn.Name); err != nil {
-		return fmt.Errorf("could not ensure rolebinding: %w", err)
-	}
-	if _, err = r.ensureRoleBinding(ctx, instance, ctn.Name, "ctlog-cm-operator", "ctlog-cm-operator", ctctsa.Name, "ctlog", tun.Name, ctn.Name); err != nil {
-		return fmt.Errorf("could not ensure rolebinding: %w", err)
-	}
-	// REKOR
-	if _, err = r.ensureRoleBinding(ctx, instance, rkn.Name, "rekor-cm-operator", "rekor-cm-operator", rtasctsa.Name, "rekor", tun.Name, ctn.Name); err != nil {
-		return fmt.Errorf("could not ensure rolebinding: %w", err)
-	}
-	// TUF
-	if _, err = r.ensureRoleBinding(ctx, instance, tun.Name, "tuf", "tuf", tstufsa.Name, "tuf", tun.Name, ctn.Name); err != nil {
-		return fmt.Errorf("could not ensure rolebinding: %w", err)
-	}
-	if _, err = r.ensureRoleBinding(ctx, instance, rkn.Name, "tuf-secret-copy-job-rekor-binding", "tas-secret-copy-job-role", tscjsa.Name, "tuf", tun.Name, ctn.Name); err != nil {
-		return fmt.Errorf("could not ensure rolebinding: %w", err)
-	}
-	if _, err = r.ensureRoleBinding(ctx, instance, ctn.Name, "tuf-secret-copy-job-ctlog-binding", "tas-secret-copy-job-role", tscjsa.Name, "tuf", tun.Name, ctn.Name); err != nil {
-		return fmt.Errorf("could not ensure rolebinding: %w", err)
-	}
-	if _, err = r.ensureRoleBinding(ctx, instance, fun.Name, "tuf-secret-copy-job-fulcio-binding", "tas-secret-copy-job-role", tscjsa.Name, "tuf", tun.Name, ctn.Name); err != nil {
-		return fmt.Errorf("could not ensure rolebinding: %w", err)
-	}
-	if _, err = r.ensureRoleBinding(ctx, instance, tun.Name, "tuf-secret-copy-job-binding", "tas-secret-copy-job-role", tscjsa.Name, "tuf", tun.Name, ctn.Name); err != nil {
-		return fmt.Errorf("could not ensure rolebinding: %w", err)
-	}
-	// Create Job
-	if _, err = r.ensureTufCopyJob(ctx, instance, tun.Name, tscjsa.Name, "tuf-secret-copy-job", rkn.Name, fun.Name, ctn.Name); err != nil {
-		return fmt.Errorf("could not ensure job: %w", err)
-	}
-	if _, err = r.ensureCTJob(ctx, instance, rkn.Name, rtasctsa.Name, "rekor", "trusted-artifact-signer-rekor-createtree", trn.Name); err != nil {
-		return fmt.Errorf("could not ensure job: %w", err)
-	}
-	if _, err = r.ensureCreateCTJob(ctx, instance, ctn.Name, ctctasccsa.Name, "trusted-artifact-signer-ctlog-createctconfig", fun.Name, trn.Name); err != nil {
-		return fmt.Errorf("could not ensure job: %w", err)
-	}
-	if _, err = r.ensureCTJob(ctx, instance, ctn.Name, ctctsa.Name, "ctlog", "ctlog-createtree", trn.Name); err != nil {
-		return fmt.Errorf("could not ensure job: %w", err)
-	}
-	//if _, err = r.ensureCreateDbJob(ctx, instance, trn.Name, tlssa.Name, "trillian", "trusted-artifact-signer-trillian-createdb", dbSecret.Name); err != nil {
-	//	return fmt.Errorf("could not ensure job: %w", err)
-	//}
-	// Create PVC
-	// Trillian
-	if trillPVC, err = r.ensurePVC(ctx, instance, trn.Name, "trillian-mysql"); err != nil {
-		return fmt.Errorf("could not ensure pvc: %w", err)
-	}
-	if _, err = r.ensurePVC(ctx, instance, rkn.Name, "rekor-server"); err != nil {
-		return fmt.Errorf("could not ensure pvc: %w", err)
-	}
-	// Create ConfigMap
-	// Rekor
-	if _, err = r.ensureConfigMap(ctx, instance, rkn.Name, "rekor-config", "rekor"); err != nil {
-		return fmt.Errorf("could not ensure configmap: %w", err)
-	}
-	if _, err = r.ensureConfigMap(ctx, instance, rkn.Name, "rekor-sharding-config", "rekor"); err != nil {
-		return fmt.Errorf("could not ensure configmap: %w", err)
-	}
-	// Ctlog
-	if _, err = r.ensureConfigMap(ctx, instance, ctn.Name, "ctlog-config", "ctlog"); err != nil {
-		return fmt.Errorf("could not ensure configmap: %w", err)
-	}
-	// Fulcio
-	if _, err = r.ensureOIDCConfigMap(ctx, instance, fun.Name, "fulcio-server-config", "fulcio"); err != nil {
-		return fmt.Errorf("could not ensure configmap: %w", err)
-	}
-
-	// Create Secret
-	// Trillian
-	if dbSecret, err = r.ensureDBSecret(ctx, instance, trn.Name, "trillian-mysql"); err != nil {
-		return fmt.Errorf("could not ensure secret: %w", err)
-	}
-	// Fulcio
-	//	if _, err = r.ensureFulcioSecret(ctx, instance, fun.Name, "fulcio-secret-rh"); err != nil {
-	//		return fmt.Errorf("could not ensure secret: %w", err)
-	//	}
-	// Rekor
-	if _, err = r.ensureRekorSecret(ctx, instance, rkn.Name, "rekor-private-key"); err != nil {
-		return fmt.Errorf("could not ensure secret: %w", err)
-	}
-
-	// Create Service
-	// Trillian
-	if _, err = r.ensureService(ctx, instance, trn.Name, "trillian-mysql", "mysql", "trillian", 3306); err != nil {
-		return fmt.Errorf("could not ensure service: %w", err)
-	}
-	if _, err = r.ensureService(ctx, instance, trn.Name, "trillian-logserver", "trillian-logserver", "trillian", 8091); err != nil {
-		return fmt.Errorf("could not ensure service: %w", err)
-	}
-	if _, err = r.ensureService(ctx, instance, trn.Name, "trillian-logsigner", "trillian-logsigner", "trillian", 8091); err != nil {
-		return fmt.Errorf("could not ensure service: %w", err)
-	}
-	// Ctlog
-	if _, err = r.ensureService(ctx, instance, ctn.Name, "ctlog", "ctlog", "ctlog", 6963); err != nil {
-		return fmt.Errorf("could not ensure service: %w", err)
-	}
-	// Rekor
-	if _, err = r.ensureService(ctx, instance, rkn.Name, "rekor-server", "rekor-server", "rekor-server", 2112); err != nil {
-		return fmt.Errorf("could not ensure service: %w", err)
-	}
-	if _, err = r.ensureService(ctx, instance, rkn.Name, "rekor-redis", "redis", "rekor", 6379); err != nil {
-		return fmt.Errorf("could not ensure service: %w", err)
-	}
-	// Fulcio
-	if _, err = r.ensureService(ctx, instance, fun.Name, "fulcio-server", "fulcio-server", "fulcio", 2112); err != nil {
-		return fmt.Errorf("could not ensure service: %w", err)
-	}
-	// TUF
-	if _, err = r.ensureService(ctx, instance, tun.Name, "tuf", "tuf", "tuf", 80); err != nil {
-		return fmt.Errorf("could not ensure service: %w", err)
-	}
-	// Trusted Artifact Signer
-	if _, err = r.ensureService(ctx, instance, tascs.Name, "tas-clients", "tas-clients", "tas", 8080); err != nil {
-		return fmt.Errorf("could not ensure service: %w", err)
-	}
-
-	// Create the deployments
-	// Ctlog
-	if _, err = r.ensurectDeployment(ctx, instance, ctn.Name, "ctlog", ctsa.Name, "ctlog"); err != nil {
-		return fmt.Errorf("could not ensure deployment: %w", err)
-	}
-
-	// Trillian
-	if _, err = r.ensureTrillDeployment(ctx, instance, trn.Name, tlssa.Name, "trillian-logserver", trilllogServ, dbSecret.Name); err != nil {
-		return fmt.Errorf("could not ensure deployment: %w", err)
-	}
-	if _, err = r.ensureTrillDeployment(ctx, instance, trn.Name, tlsnrsa.Name, "trillian-logsigner", trilllogSign, dbSecret.Name); err != nil {
-		return fmt.Errorf("could not ensure deployment: %w", err)
-	}
-	if _, err = r.ensureTrillDb(ctx, instance, trn.Name, tdbsa.Name, "trillian-mysql", trillDb, trillPVC.Name, dbSecret.Name); err != nil {
-		return fmt.Errorf("could not ensure deployment: %w", err)
-	}
-	// Rekor
-	if _, err = r.ensureRekorDeployment(ctx, instance, rkn.Name, rssa.Name, "rekor-server", trn.Name); err != nil {
-		return fmt.Errorf("could not ensure deployment: %w", err)
-	}
-	if _, err = r.ensureRedisDeployment(ctx, instance, rkn.Name, rrsa.Name, "rekor-redis"); err != nil {
-		return fmt.Errorf("could not ensure deployment: %w", err)
-	}
-	// Fulcio
-	if _, err = r.ensureFulDeployment(ctx, instance, fun.Name, "fulcio-server", fsa.Name, "fulcio-server", "fulcio"); err != nil {
-		return fmt.Errorf("could not ensure deployment: %w", err)
-	}
-	// TUF
-	if _, err = r.ensureTufDeployment(ctx, instance, tun.Name, tstufsa.Name, "tuf"); err != nil {
-		return fmt.Errorf("could not ensure deployment: %w", err)
-	}
-	// Trusted Artifact Signer
-	if _, err = r.ensureTasDeployment(ctx, instance, tascs.Name, tascsa.Name, "tas-clients"); err != nil {
-		return fmt.Errorf("could not ensure deployment: %w", err)
-	}
-	return nil
-}
 
 func (r *SecuresignReconciler) ensureSecureSign(
 	ctx context.Context,
@@ -403,7 +160,7 @@ func (r *SecuresignReconciler) ensureSecureSign(
 	var err error
 	instance := &rhtasv1alpha1.Securesign{}
 	if err = r.Get(ctx, req.NamespacedName, instance); err == nil {
-		return instance, nil
+		return instance.DeepCopy(), nil
 	}
 	if errors.IsNotFound(err) {
 		// Request object not found, could have been deleted after reconcile request.
@@ -413,6 +170,217 @@ func (r *SecuresignReconciler) ensureSecureSign(
 	}
 	// Error reading the object - requeue the request.
 	return nil, fmt.Errorf("failed to get SecureSign: %w", err)
+}
+
+func (r *SecuresignReconciler) ensureTrillian(
+	ctx context.Context,
+	securesign *rhtasv1alpha1.Securesign,
+) (bool, error) {
+	if securesign.Status.Trillian == "" {
+		instance := &rhtasv1alpha1.Trillian{}
+		instance.GenerateName = securesign.Name
+		instance.Namespace = securesign.Namespace
+		instance.Spec = securesign.Spec.Trillian
+		ctrl.SetControllerReference(securesign, instance, r.Scheme)
+
+		if err := r.Create(ctx, instance); err != nil {
+			return false, err
+		}
+		securesign.Status.Trillian = instance.Name
+		return true, nil
+	}
+	return false, nil
+}
+
+func (r *SecuresignReconciler) ensureCTlog(
+	ctx context.Context,
+	securesign *rhtasv1alpha1.Securesign,
+) (bool, error) {
+	if securesign.Status.CTlog == "" {
+		instance := &rhtasv1alpha1.CTlog{}
+		instance.GenerateName = securesign.Name
+		instance.Namespace = securesign.Namespace
+		instance.Spec = securesign.Spec.Ctlog
+		ctrl.SetControllerReference(securesign, instance, r.Scheme)
+
+		if err := r.Create(ctx, instance); err != nil {
+			return false, err
+		}
+		securesign.Status.CTlog = instance.Name
+		return true, nil
+	}
+	return false, nil
+}
+
+func (r *SecuresignReconciler) ensureTuf(
+	ctx context.Context,
+	securesign *rhtasv1alpha1.Securesign,
+) (bool, error) {
+	if securesign.Status.Tuf == "" {
+		instance := &rhtasv1alpha1.Tuf{}
+		instance.GenerateName = securesign.Name
+		instance.Namespace = securesign.Namespace
+		instance.Spec = securesign.Spec.Tuf
+		ctrl.SetControllerReference(securesign, instance, r.Scheme)
+
+		if err := r.Create(ctx, instance); err != nil {
+			return false, err
+		}
+		securesign.Status.Tuf = instance.Name
+		return true, nil
+	}
+	return false, nil
+}
+
+func (r *SecuresignReconciler) ensureFulcio(
+	ctx context.Context,
+	securesign *rhtasv1alpha1.Securesign,
+) (bool, error) {
+	if securesign.Status.Fulcio == "" {
+		instance := &rhtasv1alpha1.Fulcio{}
+
+		instance.GenerateName = securesign.Name
+		instance.Namespace = securesign.Namespace
+		ctrl.SetControllerReference(securesign, instance, r.Scheme)
+
+		instance.Spec = securesign.Spec.Fulcio
+		if err := r.Create(ctx, instance); err != nil {
+			return false, err
+		}
+		securesign.Status.Fulcio = instance.Name
+		return true, nil
+	}
+	return false, nil
+}
+
+func (r *SecuresignReconciler) ensureRekor(
+	ctx context.Context,
+	securesign *rhtasv1alpha1.Securesign,
+) (bool, error) {
+	if securesign.Status.Rekor == "" {
+		instance := &rhtasv1alpha1.Rekor{}
+
+		instance.GenerateName = securesign.Name
+		instance.Namespace = securesign.Namespace
+		ctrl.SetControllerReference(securesign, instance, r.Scheme)
+
+		instance.Spec = securesign.Spec.Rekor
+		if err := r.Create(ctx, instance); err != nil {
+			return false, err
+		}
+		securesign.Status.Rekor = instance.Name
+		return true, nil
+	}
+	return false, nil
+}
+
+func (r *SecuresignReconciler) ensureSa(
+	ctx context.Context,
+	securesign *rhtasv1alpha1.Securesign,
+) error {
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "sigstore-sa",
+			Namespace: securesign.Namespace,
+		},
+		ImagePullSecrets: []corev1.LocalObjectReference{
+			{
+				Name: "pull-secret",
+			},
+		},
+	}
+	// Check if this service account already exists else create it in the namespace
+	err := r.Get(ctx, client.ObjectKey{Name: sa.Name, Namespace: securesign.Namespace}, sa)
+	// If the SA doesn't exist, create it but if it does, do nothing
+	if err != nil {
+		err = r.Create(ctx, sa)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *SecuresignReconciler) ensureRole(
+	ctx context.Context,
+	securesign *rhtasv1alpha1.Securesign,
+) error {
+	name := "securesign"
+	role := &rbac.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: securesign.Namespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/name":     "securesign",
+				"app.kubernetes.io/instance": "trusted-artifact-signer",
+			},
+		},
+		Rules: []rbac.PolicyRule{
+			{
+				APIGroups: []string{""},
+				Resources: []string{"configmaps"},
+				Verbs:     []string{"create", "get", "update"},
+			},
+			{
+				APIGroups: []string{""},
+				Resources: []string{"secrets"},
+				Verbs:     []string{"create", "get", "update"},
+			},
+		},
+	}
+
+	err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: securesign.Namespace}, role)
+	if err != nil {
+		err = r.Create(ctx, role)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *SecuresignReconciler) ensureRoleBinding(
+	ctx context.Context,
+	securesign *rhtasv1alpha1.Securesign,
+) error {
+
+	name := "securesign"
+	roleBinding := &rbac.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: securesign.Namespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/name":     name,
+				"app.kubernetes.io/instance": "trusted-artifact-signer",
+			},
+		},
+
+		// todo: remove hardcoded names
+		Subjects: []rbac.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      "sigstore-sa",
+				Namespace: securesign.Namespace,
+			},
+		},
+		RoleRef: rbac.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     "securesign",
+		},
+	}
+
+	// If the bindingName is tuf-secret-copy-job* then change the kind of Role to clusterrole
+	// The Namespace for the serviceAccount will be tuf-system
+
+	err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: securesign.Namespace}, roleBinding)
+	if err != nil {
+		err = r.Create(ctx, roleBinding)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
