@@ -48,7 +48,7 @@ jobs:
       - name: write secret DOCKER_CONFIG to home directory
         run: |
           mkdir -p ~/.docker
-          echo "${{ secrets.DOCKER_CONFIG }}" > ~/.docker/config.json
+          echo ${{ secrets.DOCKER_CONFIG }} > ~/.docker/config.json
 
       - name: Create kind cluster
         run: sh hack/kind.sh
