@@ -41,17 +41,22 @@ type SecuresignSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of Securesign. Edit securesign_types.go to remove/update
-	FulcioPublicKey  string `json:"fulcioPublicKey,omitempty"`
-	FulcioPrivateKey string `json:"fulcioPrivateKey,omitempty"`
-	FulcioCert       string `json:"fulcioCert,omitempty"`
-	FulcioPassword   string `json:"fulcioPassword,omitempty"`
-	RekorPrivateKey  string `json:"rekorPrivateKey,omitempty"`
+	Rekor    RekorSpec    `json:"rekor"`
+	Fulcio   FulcioSpec   `json:"fulcio"`
+	Trillian TrillianSpec `json:"trillian"`
+	Tuf      TufSpec      `json:"tuf"`
+	Ctlog    CTlogSpec    `json:"ctlog,omitempty"`
 }
 
 // SecuresignStatus defines the observed state of Securesign
 type SecuresignStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	Trillian string `json:"trillian"`
+	Fulcio   string `json:"fulcio"`
+	Tuf      string `json:"tuf"`
+	CTlog    string `json:"ctlog"`
+	Rekor    string `json:"rekor"`
 }
 
 //+kubebuilder:object:root=true

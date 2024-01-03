@@ -1,4 +1,9 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
 - rhtas_v1alpha1_securesign.yaml
+- rhtas_v1alpha1_fulcio.yaml
+- rhtas_v1alpha1_trillian.yaml
+- rhtas_v1alpha1_rekor.yaml
+- rhtas_v1alpha1_tuf.yaml
+- rhtas_v1alpha1_ctlog.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

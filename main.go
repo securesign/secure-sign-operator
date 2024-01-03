@@ -20,6 +20,13 @@ import (
 	"flag"
 	"os"
 
+	client2 "github.com/securesign/operator/client"
+	"github.com/securesign/operator/controllers/ctlog"
+	"github.com/securesign/operator/controllers/fulcio"
+	"github.com/securesign/operator/controllers/rekor"
+	"github.com/securesign/operator/controllers/trillian"
+	"github.com/securesign/operator/controllers/tuf"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -89,11 +96,51 @@ func main() {
 		os.Exit(1)
 	}
 
+	client, err := client2.NewClientWithScheme(scheme)
+	if err != nil {
+		setupLog.Error(err, "unable to initialize k8s client")
+		os.Exit(1)
+	}
 	if err = (&controllers.SecuresignReconciler{
+		Client: client,
+		Scheme: client.Scheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Securesign")
+		os.Exit(1)
+	}
+	if err = (&fulcio.FulcioReconciler{
+		Client: client,
+		Scheme: client.Scheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Fulcio")
+		os.Exit(1)
+	}
+	if err = (&trillian.TrillianReconciler{
+		Client: client,
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Trillian")
+		os.Exit(1)
+	}
+	if err = (&rekor.RekorReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Securesign")
+		setupLog.Error(err, "unable to create controller", "controller", "Rekor")
+		os.Exit(1)
+	}
+	if err = (&tuf.TufReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Tuf")
+		os.Exit(1)
+	}
+	if err = (&ctlog.CTlogReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CTlog")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
