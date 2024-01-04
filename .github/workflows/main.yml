@@ -8,9 +8,7 @@ on:
 
 env:
   GO_VERSION: 1.19
-  CONTROLLER_IMAGE: quay.io/rcook/securesign-controller:latest
-  KIND_VERSION: 0.20.0
-
+  IMAGE_TAG_BASE: kind-registry:5000/securesign
 
 jobs:
   build-operator:
@@ -25,64 +23,57 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - name: Install Cluster
+        uses: container-tools/kind-action@v2.0.1
+        with:
+          version: v0.20.0
+          node_image: kindest/node:v1.26.6@sha256:6e2d8b28a5b601defe327b98bd1c2d1930b49e5d8c512e1895099e4504007adb
+          cpu: 3
+
       - name: Test
         run: make test
 
-      - name: Build operator container
-        run: make docker-build CONTROLLER_IMAGE=${CONTROLLER_IMAGE}
-
-      - name: Install kind
-        run: |
-          curl -fsSL -o kind https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-linux-amd64
-          sudo install ./kind /usr/local/bin && rm kind
-          kind version
-          kind version | grep -q ${KIND_VERSION}
-
-      - name: install kubectl
-        run: |
-          curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.21.0/bin/linux/amd64/kubectl
-          chmod +x ./kubectl
-          sudo mv ./kubectl /usr/local/bin/kubectl
-          kubectl version --client
-
-      - name: write secret DOCKER_CONFIG to home directory
-        run: |
-          mkdir -p ~/.docker
-          echo ${{ secrets.DOCKER_CONFIG }} > ~/.docker/config.json
-
-      - name: Create kind cluster
-        run: sh hack/kind.sh
-
-      - name: load operator image into kind cluster
-        run: kind load docker-image ${CONTROLLER_IMAGE}
-
-      - name: Deploy operator
-        run: make deploy CONTROLLER_IMAGE=${CONTROLLER_IMAGE}
+      - name: Build and Deploy operator container
+        run: make docker-build docker-push deploy
 
       - name: Wait for operator to be ready
         run: kubectl wait --for=condition=available deployment/operator-controller-manager --timeout=60s -n operator-system
 
-      - name: prepare keycloak using olm. Install OLM
+      - name: Install Keycloak
         run: |
+          #install OLM
           kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.25.0/crds.yaml
+          # wait for a while to be sure CRDs are installed
           sleep 1
           kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.25.0/olm.yaml
+          kubectl create --kustomize https://github.com/securesign/sigstore-ocp/keycloak/operator/overlay/kind
+          until [ ! -z "$(kubectl get pod -l name=keycloak-operator -n keycloak-system 2>/dev/null)" ]
+          do
+            echo "Waiting for keycloak operator. Pods in keycloak-system namespace:"
+            kubectl get pods -n keycloak-system
+            sleep 10
+          done
+          kubectl create --kustomize https://github.com/securesign/sigstore-ocp/keycloak/resources/overlay/kind
+          until [[ $( oc get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system 2>/dev/null) == "true" ]]
+          do
+            printf "Waiting for keycloak deployment. \n Keycloak ready: %s\n" $(oc get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system)
+            sleep 10
+          done
+        shell: bash
 
-      - name: wait for operator-controller-manager to be ready
-        run: kubectl wait --for=condition=available deployment/operator-controller-manager --timeout=60s -n operator-system
+      - name: Create test namespace
+        run: |
+          kubectl create ns test
+          echo ${{ secrets.PULL_SECRET }} > /tmp/pull-secret.txt
+          kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n test
 
       - name: Apply sample config
-        run: kubectl apply -f config/samples/rhtas_v1alpha1_securesign.yaml
+        run: kubectl apply -f config/samples/rhtas_v1alpha1_securesign.yaml -n test
 
-      - name: write PULL_SECRET to /tmp/pull-secret.txt
-        run: |
-          echo ${{ secrets.PULL_SECRET }} > /tmp/pull-secret.txt
-
-      - name: sleep then print namespaces
+      - name: sleep then print pods in test namespace
         run: |
           sleep 60
-          kubectl get ns
+          kubectl get pods -n test
 
-      - name: Lazily create secrets in all namespaces
-        run: kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n ctlog-system ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n fulcio-system ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n rekor-system ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n trillian-system ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n trusted-artifact-signer-clientserver ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n tuf-system
+
       
