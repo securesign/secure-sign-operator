@@ -71,6 +71,17 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fu
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create service: %w", err)
 	}
+	if instance.Spec.External {
+		// TODO: do we need to support ingress?
+		route := commonUtils.CreateRoute(*svc, "80-tcp")
+		if err = i.Client.Create(ctx, route); err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create route: %w", err)
+		}
+		instance.Status.Url = "https://" + route.Spec.Host
+	} else {
+		instance.Status.Url = fmt.Sprintf("http://%s.%s.svc", svc.Name, svc.Namespace)
+	}
 
 	instance.Status.Phase = rhtasv1alpha1.PhaseInitialization
 	return instance, nil

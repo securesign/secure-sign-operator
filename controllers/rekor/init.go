@@ -80,7 +80,7 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Re
 	svc := utils2.CreateService(instance.Namespace, rekorDeploymentName, rekorDeploymentName, rekorDeploymentName, 2112)
 	controllerutil.SetControllerReference(instance, svc, i.Client.Scheme())
 	svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
-		Name:       "3000-tcp",
+		Name:       "80-tcp",
 		Protocol:   corev1.ProtocolTCP,
 		Port:       80,
 		TargetPort: intstr.FromInt(3000),
@@ -96,11 +96,23 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Re
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create job: %w", err)
 	}
+
+	if instance.Spec.External {
+		// TODO: do we need to support ingress?
+		route := utils2.CreateRoute(*svc, "80-tcp")
+		if err = i.Client.Create(ctx, route); err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create route: %w", err)
+		}
+		instance.Status.Url = "https://" + route.Spec.Host
+	} else {
+		instance.Status.Url = fmt.Sprintf("http://%s.%s.svc", svc.Name, svc.Namespace)
+	}
+
 	instance.Status.Phase = rhtasv1alpha1.PhaseInitialization
 	return instance, nil
 
 }
-
 func (i initializeAction) initConfigmap(namespace string, name string) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
