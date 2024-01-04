@@ -10,15 +10,15 @@ metadata:
   name: securesign-sample
 spec:
   rekor:
-    external: true
+    external: false
     keySecret: rekor-private-key
   fulcio:
-    external: true
+    external: false
     keySecret: fulcio-secret-rh
     oidcIssuers:
-      "https://your-keycloak-url/auth/realms/sigstore":
+      "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore":
         ClientID: "sigstore"
-        IssuerURL: "https://your-keycloak-url/auth/realms/sigstore"
+        IssuerURL: "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore"
         Type: "email"
 
   trillian:
@@ -26,7 +26,7 @@ spec:
     dbImage: "registry.redhat.io/rhtas-tech-preview/trillian-database-rhel9@sha256:fe4758ff57a9a6943a4655b21af63fb579384dc51838af85d0089c04290b4957"
     logSignerImage: "registry.redhat.io/rhtas-tech-preview/trillian-logsigner-rhel9@sha256:fa2717c1d54400ca74cc3e9038bdf332fa834c0f5bc3215139c2d0e3579fc292"
   tuf:
-    external: true
+    external: false
     image: "registry.redhat.io/rhtas-tech-preview/tuf-server-rhel9@sha256:413e361de99f09e617084438b2fc3c9c477f4a8e2cd65bd5f48271e66d57a9d9"
   ctlog:
 
