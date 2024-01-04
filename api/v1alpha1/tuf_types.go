@@ -9,8 +9,7 @@ import (
 
 // TufSpec defines the desired state of Tuf
 type TufSpec struct {
-	External bool   `json:"external,omitempty"`
-	Image    string `json:"image,omitempty"`
+	External bool `json:"external,omitempty"`
 }
 
 // TufStatus defines the observed state of Tuf

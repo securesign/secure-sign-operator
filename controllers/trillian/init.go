@@ -7,6 +7,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/utils"
+	"github.com/securesign/operator/controllers/constants"
 	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,7 +60,7 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tr
 		trillPVC = instance.Spec.PvcName
 	}
 
-	db := trillianUtils.CreateTrillDb(instance.Namespace, instance.Spec.DbImage, dbDeploymentName, trillPVC, dbSecret.Name)
+	db := trillianUtils.CreateTrillDb(instance.Namespace, constants.TrillianDbImage, dbDeploymentName, trillPVC, dbSecret.Name)
 	controllerutil.SetControllerReference(instance, db, i.Client.Scheme())
 	if err = i.Client.Create(ctx, db); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
@@ -74,7 +75,7 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tr
 	}
 
 	// Log Server
-	server := trillianUtils.CreateTrillDeployment(instance.Namespace, instance.Spec.ServerImage, logserverDeploymentName, dbSecret.Name)
+	server := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianServerImage, logserverDeploymentName, dbSecret.Name)
 	controllerutil.SetControllerReference(instance, server, i.Client.Scheme())
 	server.Spec.Template.Spec.Containers[0].Ports = append(server.Spec.Template.Spec.Containers[0].Ports, corev1.ContainerPort{
 		Protocol:      corev1.ProtocolTCP,
@@ -93,7 +94,7 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tr
 	}
 
 	// Log Signer
-	signer := trillianUtils.CreateTrillDeployment(instance.Namespace, instance.Spec.LogSignerImage, logsignerDeploymentName, dbSecret.Name)
+	signer := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianLogSignerImage, logsignerDeploymentName, dbSecret.Name)
 	controllerutil.SetControllerReference(instance, signer, i.Client.Scheme())
 	signer.Spec.Template.Spec.Containers[0].Args = append(signer.Spec.Template.Spec.Containers[0].Args, "--force_master=true")
 	if err = i.Client.Create(ctx, signer); err != nil {

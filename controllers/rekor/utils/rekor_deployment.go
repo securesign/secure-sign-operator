@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"github.com/securesign/operator/controllers/constants"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -96,7 +97,7 @@ func CreateRekorDeployment(namespace string, dpName string, pvc string) *apps.De
 									},
 								},
 							},
-							Image: "registry.redhat.io/rhtas-tech-preview/rekor-server-rhel9@sha256:8ee7d5dd2fa1c955d64ab83d716d482a3feda8e029b861241b5b5dfc6f1b258e",
+							Image: constants.RekorServerImage,
 							Ports: []core.ContainerPort{
 								{
 									ContainerPort: 3000,

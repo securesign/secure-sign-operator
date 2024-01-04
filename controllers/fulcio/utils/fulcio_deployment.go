@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 
+	"github.com/securesign/operator/controllers/constants"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,7 +46,7 @@ func CreateDeployment(namespace string, deploymentName string, component string,
 					Containers: []corev1.Container{
 						{
 							Name:  ssapp,
-							Image: "registry.redhat.io/rhtas-tech-preview/fulcio-rhel9@sha256:0421d44d2da8dd87f05118293787d95686e72c65c0f56dfb9461a61e259b8edc",
+							Image: constants.FulcioServerImage,
 							Args: []string{
 								"serve",
 								"--port=5555",

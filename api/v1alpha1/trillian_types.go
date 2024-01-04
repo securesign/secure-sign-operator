@@ -27,12 +27,7 @@ import (
 type TrillianSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of Trillian. Edit trillian_types.go to remove/update
-	LogSignerImage string `json:"logSignerImage,omitempty"`
-	ServerImage    string `json:"serverImage,omitempty"`
-	DbImage        string `json:"dbImage,omitempty"`
-	PvcName        string `json:"pvcName,omitempty"`
+	PvcName string `json:"pvcName,omitempty"`
 }
 
 // TrillianStatus defines the observed state of Trillian

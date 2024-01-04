@@ -75,15 +75,7 @@ spec:
               trillian:
                 description: TrillianSpec defines the desired state of Trillian
                 properties:
-                  dbImage:
-                    type: string
-                  logSignerImage:
-                    description: Foo is an example field of Trillian. Edit trillian_types.go
-                      to remove/update
-                    type: string
                   pvcName:
-                    type: string
-                  serverImage:
                     type: string
                 type: object
               tuf:
@@ -91,8 +83,6 @@ spec:
                 properties:
                   external:
                     type: boolean
-                  image:
-                    type: string
                 type: object
             required:
             - fulcio

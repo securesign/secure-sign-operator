@@ -46,8 +46,6 @@ spec:
             properties:
               external:
                 type: boolean
-              image:
-                type: string
             type: object
           status:
             description: TufStatus defines the observed state of Tuf

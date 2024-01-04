@@ -41,7 +41,7 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tu
 		return instance, fmt.Errorf("could not create copy job: %w", err)
 	}
 
-	db := tufutils.CreateTufDeployment(instance.Namespace, instance.Spec.Image, tufDeploymentName)
+	db := tufutils.CreateTufDeployment(instance.Namespace, tufDeploymentName)
 	controllerutil.SetControllerReference(instance, db, i.Client.Scheme())
 	if err = i.Client.Create(ctx, db); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
