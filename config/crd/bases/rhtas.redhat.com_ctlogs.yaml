@@ -15,7 +15,12 @@ spec:
     singular: ctlog
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: The component phase
+      jsonPath: .status.phase
+      name: Phase
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: CTlog is the Schema for the ctlogs API

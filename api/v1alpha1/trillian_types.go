@@ -37,13 +37,14 @@ type TrillianSpec struct {
 
 // TrillianStatus defines the observed state of Trillian
 type TrillianStatus struct {
-	Phase Phase `json:"Phase"`
+	Phase Phase `json:"phase"`
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The component phase"
 
 // Trillian is the Schema for the trillians API
 type Trillian struct {

@@ -15,7 +15,16 @@ spec:
     singular: tuf
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: The component phase
+      jsonPath: .status.phase
+      name: Phase
+      type: string
+    - description: The component url
+      jsonPath: .status.url
+      name: URL
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Tuf is the Schema for the tufs API
@@ -43,12 +52,12 @@ spec:
           status:
             description: TufStatus defines the observed state of Tuf
             properties:
-              Phase:
+              phase:
                 type: string
               url:
                 type: string
             required:
-            - Phase
+            - phase
             type: object
         type: object
     served: true

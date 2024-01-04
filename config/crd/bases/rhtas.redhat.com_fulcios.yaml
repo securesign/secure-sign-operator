@@ -15,7 +15,16 @@ spec:
     singular: fulcio
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: The component phase
+      jsonPath: .status.phase
+      name: Phase
+      type: string
+    - description: The component url
+      jsonPath: .status.url
+      name: URL
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Fulcio is the Schema for the fulcios API
@@ -58,7 +67,7 @@ spec:
           status:
             description: FulcioStatus defines the observed state of Fulcio
             properties:
-              Phase:
+              phase:
                 type: string
               url:
                 type: string

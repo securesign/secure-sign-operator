@@ -16,11 +16,13 @@ type TufSpec struct {
 // TufStatus defines the observed state of Tuf
 type TufStatus struct {
 	Url   string `json:"url,omitempty"`
-	Phase Phase  `json:"Phase"`
+	Phase Phase  `json:"phase"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The component phase"
+//+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
 
 // Tuf is the Schema for the tufs API
 type Tuf struct {
