@@ -20,6 +20,7 @@ import (
 	"flag"
 	"os"
 
+	routev1 "github.com/openshift/api/route/v1"
 	client2 "github.com/securesign/operator/client"
 	"github.com/securesign/operator/controllers/ctlog"
 	"github.com/securesign/operator/controllers/fulcio"
@@ -52,6 +53,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(rhtasv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(routev1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

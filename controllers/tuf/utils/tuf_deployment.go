@@ -1,12 +1,13 @@
 package utils
 
 import (
+	"github.com/securesign/operator/controllers/constants"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateTufDeployment(namespace string, image string, dpName string) *apps.Deployment {
+func CreateTufDeployment(namespace string, dpName string) *apps.Deployment {
 	replicas := int32(1)
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -90,7 +91,7 @@ func CreateTufDeployment(namespace string, image string, dpName string) *apps.De
 					Containers: []core.Container{
 						{
 							Name:  dpName,
-							Image: image,
+							Image: constants.TufImage,
 							Ports: []core.ContainerPort{
 								{
 									Protocol:      core.ProtocolTCP,

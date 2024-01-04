@@ -178,7 +178,7 @@ func (r *SecuresignReconciler) ensureTrillian(
 ) (bool, error) {
 	if securesign.Status.Trillian == "" {
 		instance := &rhtasv1alpha1.Trillian{}
-		instance.GenerateName = securesign.Name
+		instance.Name = securesign.Name
 		instance.Namespace = securesign.Namespace
 		instance.Spec = securesign.Spec.Trillian
 		ctrl.SetControllerReference(securesign, instance, r.Scheme)
@@ -198,7 +198,7 @@ func (r *SecuresignReconciler) ensureCTlog(
 ) (bool, error) {
 	if securesign.Status.CTlog == "" {
 		instance := &rhtasv1alpha1.CTlog{}
-		instance.GenerateName = securesign.Name
+		instance.Name = securesign.Name
 		instance.Namespace = securesign.Namespace
 		instance.Spec = securesign.Spec.Ctlog
 		ctrl.SetControllerReference(securesign, instance, r.Scheme)
@@ -218,7 +218,7 @@ func (r *SecuresignReconciler) ensureTuf(
 ) (bool, error) {
 	if securesign.Status.Tuf == "" {
 		instance := &rhtasv1alpha1.Tuf{}
-		instance.GenerateName = securesign.Name
+		instance.Name = securesign.Name
 		instance.Namespace = securesign.Namespace
 		instance.Spec = securesign.Spec.Tuf
 		ctrl.SetControllerReference(securesign, instance, r.Scheme)
@@ -239,7 +239,7 @@ func (r *SecuresignReconciler) ensureFulcio(
 	if securesign.Status.Fulcio == "" {
 		instance := &rhtasv1alpha1.Fulcio{}
 
-		instance.GenerateName = securesign.Name
+		instance.Name = securesign.Name
 		instance.Namespace = securesign.Namespace
 		ctrl.SetControllerReference(securesign, instance, r.Scheme)
 
@@ -260,7 +260,7 @@ func (r *SecuresignReconciler) ensureRekor(
 	if securesign.Status.Rekor == "" {
 		instance := &rhtasv1alpha1.Rekor{}
 
-		instance.GenerateName = securesign.Name
+		instance.Name = securesign.Name
 		instance.Namespace = securesign.Namespace
 		ctrl.SetControllerReference(securesign, instance, r.Scheme)
 

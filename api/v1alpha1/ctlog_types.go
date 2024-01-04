@@ -18,6 +18,7 @@ type CTlogStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The component phase"
 
 // CTlog is the Schema for the ctlogs API
 type CTlog struct {

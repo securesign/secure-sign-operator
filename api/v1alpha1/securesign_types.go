@@ -41,10 +41,10 @@ type SecuresignSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of Securesign. Edit securesign_types.go to remove/update
-	Rekor    RekorSpec    `json:"rekor"`
-	Fulcio   FulcioSpec   `json:"fulcio"`
-	Trillian TrillianSpec `json:"trillian"`
-	Tuf      TufSpec      `json:"tuf"`
+	Rekor    RekorSpec    `json:"rekor,omitempty"`
+	Fulcio   FulcioSpec   `json:"fulcio,omitempty"`
+	Trillian TrillianSpec `json:"trillian,omitempty"`
+	Tuf      TufSpec      `json:"tuf,omitempty"`
 	Ctlog    CTlogSpec    `json:"ctlog,omitempty"`
 }
 
