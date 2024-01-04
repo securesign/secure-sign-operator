@@ -14,18 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-//FulcioPrivateKey is a multiline value that looks like this
-/*
------BEGIN EC PRIVATE KEY-----
-Proc-Type: 4,ENCRYPTED
-DEK-Info: DES-EDE3-CBC,57052BF0C94F8233
-
-iYxyAS5gRrPrdKDdEvzokWkp5z5swdqkxyuGx98gcMHnkJlW+sa53cAqqnLefNXO
-y/pROXH0PXhKg+5sMcwJCba8yf5obQOiqWsrH7ERb5SC+OmXvnIxTallp6fRw6W0
-jWRrqUp+QpQxfdKwSrLMYVPQw8e9iVewNZkZxPC0YVI=
------END EC PRIVATE KEY-----
-*/
-
 package v1alpha1
 
 import (
