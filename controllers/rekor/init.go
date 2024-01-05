@@ -36,8 +36,24 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Re
 	//log := ctrllog.FromContext(ctx)
 	var err error
 	if instance.Spec.KeySecret == "" {
-		// TODO: generate one
+		instance.Spec.KeySecret = "rekor-private-key"
 	}
+
+	if instance.Spec.RekorCert.Create {
+
+		certConfig, err := utils.CreateRekorKey()
+		if err != nil {
+			return instance, err
+		}
+
+		secret := utils2.CreateSecret(instance.Namespace, instance.Spec.KeySecret, "rekor-server", "rekor", map[string]string{"private": certConfig.RekorKey})
+		controllerutil.SetOwnerReference(instance, secret, i.Client.Scheme())
+		if err = i.Client.Create(ctx, secret); err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create rekor secret: %w", err)
+		}
+	}
+
 	sharding := i.initConfigmap(instance.Namespace, "rekor-sharding-config")
 	if err = i.Client.Create(ctx, sharding); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError

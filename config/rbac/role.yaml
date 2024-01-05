@@ -242,6 +242,18 @@ rules:
 - apiGroups:
   - rhtas.redhat.com
   resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rhtas.redhat.com
+  resources:
   - securesigns
   verbs:
   - create

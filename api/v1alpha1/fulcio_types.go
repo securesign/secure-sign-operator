@@ -12,6 +12,14 @@ type FulcioSpec struct {
 	External    bool                  `json:"external,omitempty"`
 	KeySecret   string                `json:"keySecret,omitempty"`
 	OidcIssuers map[string]OidcIssuer `json:"oidcIssuers,omitempty"`
+	FulcioCert  FulcioCert            `json:"fulcioCert,omitempty"`
+}
+
+type FulcioCert struct {
+	Create            bool   `json:"create"`
+	OrganizationName  string `json:"organizationName,omitempty"`  // +kubebuilder:validation:+optional
+	OrganizationEmail string `json:"organizationEmail,omitempty"` // +kubebuilder:validation:+optional
+	CertPassword      string `json:"certPassword,omitempty"`      // +kubebuilder:validation:+optional
 }
 
 type OidcIssuer struct {

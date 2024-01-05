@@ -37,7 +37,32 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fu
 	//log := ctrllog.FromContext(ctx)
 	var err error
 	if instance.Spec.KeySecret == "" {
-		// TODO: generate one
+		instance.Spec.KeySecret = "fulcio-secret-rh"
+	}
+
+	if instance.Spec.FulcioCert.Create {
+
+		if instance.Spec.FulcioCert.OrganizationName == "" || instance.Spec.FulcioCert.OrganizationEmail == "" || instance.Spec.FulcioCert.CertPassword == "" {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create fulcio cert secret: missing OrganizationName, OrganizationEmail or CertPassword from config")
+		}
+
+		certConfig, err := utils.SetupCerts(instance)
+		if err != nil {
+			return instance, err
+		}
+
+		secret := commonUtils.CreateSecret(instance.Namespace, instance.Spec.KeySecret, "fulcio-server", "fulcio", map[string]string{
+			"private":  certConfig.FulcioPrivateKey,
+			"public":   certConfig.FulcioPublicKey,
+			"cert":     certConfig.FulcioRootCert,
+			"password": certConfig.CertPassword,
+		})
+		controllerutil.SetOwnerReference(instance, secret, i.Client.Scheme())
+		if err = i.Client.Create(ctx, secret); err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create fulcio secret: %w", err)
+		}
 	}
 
 	cm := i.initConfigmap(instance.Namespace, "fulcio-server-config", *instance)
