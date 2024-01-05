@@ -39,7 +39,7 @@ func CreateCTJob(namespace string, jobName string) *batch.Job {
 							Command: []string{
 								"sh",
 								"-c",
-								"until curl --fail --header \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt --max-time 10 https://kubernetes.default.svc/api/v1/namespaces/" + namespace + "/configmaps/ctlog-config | grep '\"treeID\"':; do echo waiting for Configmap ctlog-config; sleep 5; done;",
+								"until curl --fail --header \"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\" --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt --max-time 10 https://kubernetes.default.svc/api/v1/namespaces/" + namespace + "/configmaps/trillian-tree | grep '\"treeID\"':; do echo waiting for Configmap ctlog-config; sleep 5; done;",
 							},
 							Env: []core.EnvVar{
 								{
@@ -54,7 +54,7 @@ func CreateCTJob(namespace string, jobName string) *batch.Job {
 							Name:  "trusted-artifact-signer-ctlog-createctconfig",
 							Image: imageName,
 							Args: []string{
-								"--configmap=ctlog-config",
+								"--configmap=trillian-tree",
 								"--secret=ctlog-secret",
 								"--pubkeysecret=ctlog-public-key",
 								"--fulcio-url=http://fulcio-server." + namespace + ".svc",

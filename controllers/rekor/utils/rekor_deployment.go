@@ -7,34 +7,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateRekorDeployment(namespace string, dpName string, pvc string) *apps.Deployment {
+func CreateRekorDeployment(namespace string, dpName string, pvc string, labels map[string]string) *apps.Deployment {
 	replicas := int32(1)
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpName,
 			Namespace: namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/component": dpName,
-				"app.kubernetes.io/name":      dpName,
-				"app.kubernetes.io/instance":  "trusted-artifact-signer",
-			},
+			Labels:    labels,
 		},
 		Spec: apps.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app.kubernetes.io/component": dpName,
-					"app.kubernetes.io/name":      dpName,
-					"app.kubernetes.io/instance":  "trusted-artifact-signer",
-				},
+				MatchLabels: labels,
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"app.kubernetes.io/component": dpName,
-						"app.kubernetes.io/name":      dpName,
-						"app.kubernetes.io/instance":  "trusted-artifact-signer",
-					},
+					Labels: labels,
 				},
 				Spec: core.PodSpec{
 					ServiceAccountName: "sigstore-sa",
@@ -90,7 +78,7 @@ func CreateRekorDeployment(namespace string, dpName string, pvc string) *apps.De
 									ValueFrom: &core.EnvVarSource{
 										ConfigMapKeyRef: &core.ConfigMapKeySelector{
 											LocalObjectReference: core.LocalObjectReference{
-												Name: "rekor-config",
+												Name: "trillian-tree",
 											},
 											Key: "treeID",
 										},

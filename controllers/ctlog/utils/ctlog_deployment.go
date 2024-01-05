@@ -7,35 +7,23 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func CreateDeployment(namespace string, deploymentName string, ssapp string) *appsv1.Deployment {
-
+func CreateDeployment(namespace string, deploymentName string, labels map[string]string) *appsv1.Deployment {
 	replicas := int32(1)
 	// Define a new Deployment object
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
 			Namespace: namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/name":      ssapp,
-				"app.kubernetes.io/instance":  "trusted-artifact-signer",
-				"app.kubernetes.io/component": ssapp,
-			},
+			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app.kubernetes.io/name":      ssapp,
-					"app.kubernetes.io/instance":  "trusted-artifact-signer",
-					"app.kubernetes.io/component": ssapp},
+				MatchLabels: labels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"app.kubernetes.io/name":      ssapp,
-						"app.kubernetes.io/component": ssapp,
-						"app.kubernetes.io/instance":  "trusted-artifact-signer",
-					},
+					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: "sigstore-sa",

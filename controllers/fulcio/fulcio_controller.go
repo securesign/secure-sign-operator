@@ -65,7 +65,7 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 	target := instance.DeepCopy()
 	actions := []Action{
-		NewInitializeAction(),
+		NewCreateAction(),
 		NewWaitAction(),
 	}
 

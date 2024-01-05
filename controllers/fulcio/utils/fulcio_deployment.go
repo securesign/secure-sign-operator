@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func CreateDeployment(namespace string, deploymentName string, component string, ssapp string) *appsv1.Deployment {
+func CreateDeployment(namespace string, deploymentName string, labels map[string]string) *appsv1.Deployment {
 	replicas := int32(1)
 	mode := int32(0666)
 
@@ -18,34 +18,22 @@ func CreateDeployment(namespace string, deploymentName string, component string,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
 			Namespace: namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/component": component,
-				"app.kubernetes.io/name":      ssapp,
-				"app.kubernetes.io/instance":  "trusted-artifact-signer",
-			},
+			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app.kubernetes.io/component": component,
-					"app.kubernetes.io/name":      ssapp,
-					"app.kubernetes.io/instance":  "trusted-artifact-signer",
-				},
+				MatchLabels: labels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"app.kubernetes.io/component": component,
-						"app.kubernetes.io/name":      ssapp,
-						"app.kubernetes.io/instance":  "trusted-artifact-signer",
-					},
+					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: "sigstore-sa",
 					Containers: []corev1.Container{
 						{
-							Name:  ssapp,
+							Name:  "fulcio-server",
 							Image: constants.FulcioServerImage,
 							Args: []string{
 								"serve",

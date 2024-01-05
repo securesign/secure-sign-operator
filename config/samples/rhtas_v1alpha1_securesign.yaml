@@ -20,12 +20,13 @@ spec:
     oidcIssuers:
       "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore":
         ClientID: "sigstore"
-        IssuerURL: "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore"
+        IssuerURL: "https://keycloak-keycloak-system.apps.rosa.hhdxf-cd9dh-3dt.1b9r.p3.openshiftapps.com/auth/realms/sigstore"
         Type: "email"
     fulcioCert:
       create: false
 
   trillian:
+    external: true
   tuf:
     external: true
   ctlog:

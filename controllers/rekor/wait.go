@@ -5,7 +5,7 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common"
-	commonUtils "github.com/securesign/operator/controllers/common/utils"
+	commonUtils "github.com/securesign/operator/controllers/common/utils/kubernetes"
 )
 
 func NewWaitAction() Action {
@@ -21,7 +21,7 @@ func (i waitAction) Name() string {
 }
 
 func (i waitAction) CanHandle(Rekor *rhtasv1alpha1.Rekor) bool {
-	return Rekor.Status.Phase == rhtasv1alpha1.PhaseInitialization
+	return Rekor.Status.Phase == rhtasv1alpha1.PhaseCreating
 }
 
 func (i waitAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) (*rhtasv1alpha1.Rekor, error) {
@@ -29,15 +29,15 @@ func (i waitAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) (
 		ok  bool
 		err error
 	)
-	for _, deployment := range []string{"rekor-server", "rekor-redis"} {
-		ok, err = commonUtils.DeploymentIsRunning(ctx, i.Client, instance.Namespace, deployment)
-		if err != nil {
-			instance.Status.Phase = rhtasv1alpha1.PhaseError
-			return instance, err
-		}
-		if !ok {
-			return instance, nil
-		}
+	labels := commonUtils.FilterCommonLabels(instance.Labels)
+	labels["app.kubernetes.io/component"] = ComponentName
+	ok, err = commonUtils.DeploymentIsRunning(ctx, i.Client, instance.Namespace, labels)
+	if err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, err
+	}
+	if !ok {
+		return instance, nil
 	}
 	instance.Status.Phase = rhtasv1alpha1.PhaseReady
 	return instance, nil

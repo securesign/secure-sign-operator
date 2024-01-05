@@ -72,7 +72,7 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	target := instance.DeepCopy()
 	actions := []Action{
 		NewPendingAction(),
-		NewInitializeAction(),
+		NewCreateAction(),
 		NewWaitAction(),
 	}
 
@@ -103,7 +103,7 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 func (r *TufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&rhtasv1alpha1.Tuf{}).
-		// TODO: redefine API - we need to watch Rekor changes as well
+		// TODO: we should not rely on ownership of securesign resource
 		Watches(&rhtasv1alpha1.Rekor{}, handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &rhtasv1alpha1.Securesign{})).
 		Complete(r)
 }

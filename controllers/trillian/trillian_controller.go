@@ -65,6 +65,7 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 	target := instance.DeepCopy()
 	actions := []Action{
+		NewCreateAction(),
 		NewInitializeAction(),
 		NewWaitAction(),
 	}

@@ -6,47 +6,54 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common"
-	"github.com/securesign/operator/controllers/common/utils"
+	utils "github.com/securesign/operator/controllers/common/utils/kubernetes"
 	ctlogUtils "github.com/securesign/operator/controllers/ctlog/utils"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
 	deploymentName = "ctlog"
-	jobName        = "ctlog-createtree"
+	ComponentName  = "ctlog"
 )
 
-func NewInitializeAction() Action {
-	return &initializeAction{}
+func NewCreateAction() Action {
+	return &createAction{}
 }
 
-type initializeAction struct {
+type createAction struct {
 	common.BaseAction
 }
 
-func (i initializeAction) Name() string {
-	return "initialize"
+func (i createAction) Name() string {
+	return "create"
 }
 
-func (i initializeAction) CanHandle(ctlog *rhtasv1alpha1.CTlog) bool {
+func (i createAction) CanHandle(ctlog *rhtasv1alpha1.CTlog) bool {
 	return ctlog.Status.Phase == rhtasv1alpha1.PhaseNone
 }
 
-func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) (*rhtasv1alpha1.CTlog, error) {
+func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) (*rhtasv1alpha1.CTlog, error) {
 	//log := ctrllog.FromContext(ctx)
 	var err error
+	labels := utils.FilterCommonLabels(instance.Labels)
+	labels["app.kubernetes.io/component"] = ComponentName
+	labels["app.kubernetes.io/name"] = deploymentName
 
-	server := ctlogUtils.CreateDeployment(instance.Namespace, deploymentName, "ctlog")
+	server := ctlogUtils.CreateDeployment(instance.Namespace, deploymentName, labels)
 	controllerutil.SetControllerReference(instance, server, i.Client.Scheme())
 	if err = i.Client.Create(ctx, server); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create job: %w", err)
 	}
 
-	cm := i.initConfigmap(instance.Namespace, "ctlog-config")
+	cm := utils.InitConfigmap(instance.Namespace, "ctlog-config", labels, map[string]string{
+		"__placeholder": "###################################################################\n" +
+			"# Just a placeholder so that reapplying this won't overwrite treeID\n" +
+			"# if it already exists. This caused grief, do not remove.\n" +
+			"###################################################################",
+	})
 	controllerutil.SetControllerReference(instance, cm, i.Client.Scheme())
 	if err = i.Client.Create(ctx, cm); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
@@ -60,14 +67,7 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CT
 		return instance, fmt.Errorf("could not create job: %w", err)
 	}
 
-	// TODO: move code from job to operator
-	tree := ctlogUtils.CTJob(instance.Namespace, "create-tree")
-	if err = i.Client.Create(ctx, tree); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create job: %w", err)
-	}
-
-	svc := utils.CreateService(instance.Namespace, "ctlog", "ctlog", "ctlog", 6963)
+	svc := utils.CreateService(instance.Namespace, "ctlog", 6963, labels)
 	svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
 		Name:       "80-tcp",
 		Protocol:   corev1.ProtocolTCP,
@@ -80,27 +80,7 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CT
 		return instance, fmt.Errorf("could not create service: %w", err)
 	}
 
-	instance.Status.Phase = rhtasv1alpha1.PhaseInitialization
+	instance.Status.Phase = rhtasv1alpha1.PhaseCreating
 	return instance, nil
 
-}
-
-func (i initializeAction) initConfigmap(namespace string, name string) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/name":     "ctlog",
-				"app.kubernetes.io/instance": "trusted-artifact-signer",
-			},
-		},
-
-		Data: map[string]string{
-			"__placeholder": "###################################################################\n" +
-				"# Just a placeholder so that reapplying this won't overwrite treeID\n" +
-				"# if it already exists. This caused grief, do not remove.\n" +
-				"###################################################################",
-		},
-	}
 }

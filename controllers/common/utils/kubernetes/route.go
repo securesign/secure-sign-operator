@@ -1,4 +1,4 @@
-package utils
+package kubernetes
 
 import (
 	routev1 "github.com/openshift/api/route/v1"
@@ -7,11 +7,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func CreateRoute(svc v1.Service, port string) *routev1.Route {
+func CreateRoute(svc v1.Service, port string, labels map[string]string) *routev1.Route {
 	return &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      svc.Name,
 			Namespace: svc.Namespace,
+			Labels:    labels,
 		},
 		Spec: routev1.RouteSpec{
 			To: routev1.RouteTargetReference{

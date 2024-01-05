@@ -51,6 +51,9 @@ It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controlle
 which provide a reconcile function responsible for synchronizing resources until the desired state is reached on the cluster.
 
 ### Test It Out
+The controller connects to services running inside the cluster. If you want to run the operator locally,
+you would need to expose them OR use `kubectl port-forward` function.
+
 1. Install the CRDs into the cluster:
 
 ```sh
@@ -58,12 +61,20 @@ make install
 ```
 
 2. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
-
 ```sh
 make run
 ```
 
 **NOTE:** You can also run this in one step by running: `make install run`
+
+### FAQ
+#### Q: I am getting following error from the locally running operator
+```
+Admin server unavailable: rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing: dial tcp: lookup trillian-logserver.test.svc: no such host"
+CreateTree...
+```
+**A:** The controller try to connect to the local service (trillian in this case).
+You need to export it OR use port-forward and set the correct URL to the CR configuration.
 
 ### Modifying the API definitions
 If you are editing the API definitions, generate the manifests such as CRs or CRDs using:

@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -64,7 +65,8 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 	target := instance.DeepCopy()
 	actions := []Action{
-		NewInitializeAction(),
+		NewPendingAction(),
+		NewCreateAction(),
 		NewWaitAction(),
 	}
 
@@ -96,5 +98,7 @@ func (r *RekorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&rhtasv1alpha1.Rekor{}).
 		Owns(&v12.Deployment{}).
+		// TODO: we should not rely on ownership of securesign resource
+		Watches(&rhtasv1alpha1.Trillian{}, handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &rhtasv1alpha1.Securesign{})).
 		Complete(r)
 }

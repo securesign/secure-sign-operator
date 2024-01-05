@@ -66,7 +66,7 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 	target := instance.DeepCopy()
 	actions := []Action{
-		NewInitializeAction(),
+		NewCreateAction(),
 		NewWaitAction(),
 	}
 
