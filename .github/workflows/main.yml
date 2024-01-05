@@ -45,10 +45,20 @@ jobs:
           sudo mv ./kubectl /usr/local/bin/kubectl
           kubectl version --client
 
-      - name: write secret DOCKER_CONFIG to home directory
-        run: |
-          mkdir -p ~/.docker
-          echo ${{ secrets.DOCKER_CONFIG }} > ~/.docker/config.json
+      - name: Login to registry.redhat.io
+        uses: docker/login-action@v1
+        with:
+          registry: registry.redhat.io
+          username: 7033380|gh-actions
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: login to quay
+        uses: docker/login-action@v1
+        with:
+          registry: quay.io
+          username: rcook
+          password: ${{ secrets.QUAY_PASSWORD }}
+
 
       - name: Create kind cluster
         run: sh hack/kind.sh
@@ -74,15 +84,30 @@ jobs:
       - name: Apply sample config
         run: kubectl apply -f config/samples/rhtas_v1alpha1_securesign.yaml
 
-      - name: write PULL_SECRET to /tmp/pull-secret.txt
-        run: |
-          echo ${{ secrets.PULL_SECRET }} > /tmp/pull-secret.txt
-
       - name: sleep then print namespaces
         run: |
           sleep 60
           kubectl get ns
+          kubectl get pods -A
 
-      - name: Lazily create secrets in all namespaces
-        run: kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n ctlog-system ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n fulcio-system ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n rekor-system ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n trillian-system ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n trusted-artifact-signer-clientserver ; kubectl create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/pull-secret.txt --type=kubernetes.io/dockerconfigjson -n tuf-system
-      
+      - name: Check the deployment of fulcio
+        run: kubectl wait --for=condition=available deployment/fulcio-server --timeout=60s -n test
+
+      - name: Check the deployment of rekor
+        run: kubectl wait --for=condition=available deployment/rekor-server --timeout=60s -n test
+
+      - name: Check for the deployment of redis
+        run: kubectl wait --for=condition=available deployment/rekor-redis --timeout=60s -n test
+
+      - name: Check for the deployment of trillian logsigner
+        run: kubectl wait --for=condition=available deployment/trillian-logsigner --timeout=60s -n test
+
+      - name: Check for the deployment of trillian logserver
+        run: kubectl wait --for=condition=available deployment/trillian-logserver --timeout=60s -n test
+
+      - name: Check for the deployment of ctlog
+        run: kubectl wait --for=condition=available deployment/ctlog --timeout=60s -n test
+
+      - name: dump the logs of the operator
+        run: kubectl logs -n operator-system deployment/operator-controller-manager
+        if: always()
