@@ -13,7 +13,7 @@ spec:
     external: true
     keySecret: rekor-private-key
     rekorCert:
-      create: false
+      create: true
   fulcio:
     external: true
     keySecret: fulcio-secret-rh
@@ -23,7 +23,10 @@ spec:
         IssuerURL: "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore"
         Type: "email"
     fulcioCert:
-      create: false
+      create: true
+      organizationName: myOrg
+      organizationEmail: myEmail
+      certPassword: secure
 
   trillian:
   tuf:

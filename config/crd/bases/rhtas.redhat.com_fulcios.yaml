@@ -46,6 +46,19 @@ spec:
             properties:
               external:
                 type: boolean
+              fulcioCert:
+                properties:
+                  certPassword:
+                    type: string
+                  create:
+                    type: boolean
+                  organizationEmail:
+                    type: string
+                  organizationName:
+                    type: string
+                required:
+                - create
+                type: object
               keySecret:
                 type: string
               oidcIssuers:
