@@ -41,6 +41,8 @@ spec:
             description: TrillianSpec defines the desired state of Trillian
             properties:
               pvcName:
+                description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                  Important: Run "make" to regenerate code after modifying this file'
                 type: string
             type: object
           status:

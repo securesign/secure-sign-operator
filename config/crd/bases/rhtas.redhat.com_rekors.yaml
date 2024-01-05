@@ -50,6 +50,13 @@ spec:
                 type: string
               pvcName:
                 type: string
+              rekorCert:
+                properties:
+                  create:
+                    type: boolean
+                required:
+                - create
+                type: object
             type: object
           status:
             description: RekorStatus defines the observed state of Rekor

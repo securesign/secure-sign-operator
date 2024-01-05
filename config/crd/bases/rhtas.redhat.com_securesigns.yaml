@@ -43,6 +43,19 @@ spec:
                 properties:
                   external:
                     type: boolean
+                  fulcioCert:
+                    properties:
+                      certPassword:
+                        type: string
+                      create:
+                        type: boolean
+                      organizationEmail:
+                        type: string
+                      organizationName:
+                        type: string
+                    required:
+                    - create
+                    type: object
                   keySecret:
                     type: string
                   oidcIssuers:
@@ -71,11 +84,21 @@ spec:
                     type: string
                   pvcName:
                     type: string
+                  rekorCert:
+                    properties:
+                      create:
+                        type: boolean
+                    required:
+                    - create
+                    type: object
                 type: object
               trillian:
                 description: TrillianSpec defines the desired state of Trillian
                 properties:
                   pvcName:
+                    description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of
+                      cluster Important: Run "make" to regenerate code after modifying
+                      this file'
                     type: string
                 type: object
               tuf:
@@ -84,11 +107,6 @@ spec:
                   external:
                     type: boolean
                 type: object
-            required:
-            - fulcio
-            - rekor
-            - trillian
-            - tuf
             type: object
           status:
             description: SecuresignStatus defines the observed state of Securesign

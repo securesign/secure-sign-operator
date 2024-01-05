@@ -9,9 +9,14 @@ import (
 
 // RekorSpec defines the desired state of Rekor
 type RekorSpec struct {
-	External  bool   `json:"external,omitempty"`
-	KeySecret string `json:"keySecret,omitempty"`
-	PvcName   string `json:"pvcName,omitempty"`
+	External  bool      `json:"external,omitempty"`
+	KeySecret string    `json:"keySecret,omitempty"`
+	PvcName   string    `json:"pvcName,omitempty"`
+	RekorCert RekorCert `json:"rekorCert,omitempty"`
+}
+
+type RekorCert struct {
+	Create bool `json:"create"`
 }
 
 // RekorStatus defines the observed state of Rekor
