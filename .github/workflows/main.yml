@@ -42,6 +42,9 @@ jobs:
       - name: Build and Deploy operator container
         run: make docker-build docker-push deploy
 
+      - name: deploy router crd
+        run: kubectl apply -f hack/router-crd.yaml
+
       - name: Wait for operator to be ready
         run: | 
           kubectl wait --for=condition=available deployment/operator-controller-manager --timeout=60s -n operator-system
@@ -75,8 +78,96 @@ jobs:
           kubectl -n test create secret generic rekor-private-key --from-file=private=./ci/certs/rekor_key.pem
           kubectl apply -f config/samples/rhtas_v1alpha1_securesign.yaml -n test
 
-      - name: sleep then print pods in test namespace
+      - name: Apply sample config that generates certifcates
         run: |
-          sleep 120
-          kubectl get pods -n test
-          [ -z "$(kubectl get pods -o jsonpath='{range .items[*]}{.status.phase}{"\n"}' | grep -v "Succeeded" | grep -v "Completed" | grep -v "Running")" ]
+          kubectl create ns create-cert
+          kubectl apply -f config/samples/rhtas_v1alpha1_securesign_cert_create.yaml -n create-cert
+
+      - name: Until shell script to wait for fulcio deployment to be created
+        run: |
+          until [ ! -z "$(kubectl get deployment fulcio-server -n test 2>/dev/null)" ]
+          do
+            echo "Waiting for fulcio deployment to be created. Pods in test namespace:"
+            kubectl get pods -n test
+            sleep 3
+          done
+        shell: bash
+
+      - name: Check the deployment of fulcio
+        run: kubectl wait --for=condition=available deployment/fulcio-server --timeout=80s -n test
+  
+      - name: Check the deployment of rekor
+        run: kubectl wait --for=condition=available deployment/rekor-server --timeout=80s -n test
+
+      - name: Check for the deployment of redis
+        run: kubectl wait --for=condition=available deployment/rekor-redis --timeout=80s -n test
+
+      - name: Check for the deployment of trillian logsigner
+        run: kubectl wait --for=condition=available deployment/trillian-logsigner --timeout=80s -n test
+
+      - name: Check for the deployment of trillian logserver
+        run: kubectl wait --for=condition=available deployment/trillian-logserver --timeout=80s -n test
+
+      - name: wait for the createtree job to finish
+        run: kubectl wait --for=condition=complete job/create-tree --timeout=120s -n test
+
+      - name: wait for the create-tree-rekor job to finish
+        run: kubectl wait --for=condition=complete job/create-tree-rekor --timeout=120s -n test
+
+      - name: wait for create-config job to finish
+        run: kubectl wait --for=condition=complete job/create-config --timeout=120s -n test
+
+      - name: Check for the deployment of tuf
+        run: kubectl wait --for=condition=available deployment/tuf --timeout=120s -n test
+
+      - name: Check for the deployment of ctlog
+        run: kubectl wait --for=condition=available deployment/ctlog --timeout=120s -n test
+
+      - name: Until shell script to wait for fulcio deployment to be created
+        run: |
+          until [ ! -z "$(kubectl get deployment fulcio-server -n create-cert 2>/dev/null)" ]
+          do
+            echo "Waiting for fulcio deployment to be created. Pods in create-cert namespace:"
+            kubectl get pods -n create-cert
+            sleep 3
+          done
+        shell: bash
+
+      - name: Check the deployment of fulcio
+        run: kubectl wait --for=condition=available deployment/fulcio-server --timeout=80s -n create-cert
+  
+      - name: Check the deployment of rekor
+        run: kubectl wait --for=condition=available deployment/rekor-server --timeout=80s -n create-cert
+
+      - name: Check for the deployment of redis
+        run: kubectl wait --for=condition=available deployment/rekor-redis --timeout=80s -n create-cert
+
+      - name: Check for the deployment of trillian logsigner
+        run: kubectl wait --for=condition=available deployment/trillian-logsigner --timeout=80s -n create-cert
+
+      - name: Check for the deployment of trillian logserver
+        run: kubectl wait --for=condition=available deployment/trillian-logserver --timeout=80s -n create-cert
+
+      - name: wait for the createtree job to finish
+        run: kubectl wait --for=condition=complete job/create-tree --timeout=120s -n create-cert
+
+      - name: wait for the create-tree-rekor job to finish
+        run: kubectl wait --for=condition=complete job/create-tree-rekor --timeout=120s -n create-cert
+
+      - name: wait for create-config job to finish
+        run: kubectl wait --for=condition=complete job/create-config --timeout=120s -n create-cert
+
+      - name: Check for the deployment of tuf
+        run: kubectl wait --for=condition=available deployment/tuf --timeout=120s -n create-cert
+
+      - name: Check for the deployment of ctlog
+        run: kubectl wait --for=condition=available deployment/ctlog --timeout=120s -n create-cert
+
+
+      - name: dump the logs of the operator
+        run: kubectl logs -n operator-system deployment/operator-controller-manager
+        if: always()
+
+      - name: dump all deployments
+        run: kubectl get deployments -A
+        if: always()
