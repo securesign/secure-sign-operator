@@ -51,6 +51,7 @@ type SecuresignReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
@@ -356,6 +357,11 @@ func (r *SecuresignReconciler) ensureRole(
 			{
 				APIGroups: []string{""},
 				Resources: []string{"secrets"},
+				Verbs:     []string{"create", "get", "update"},
+			},
+			{
+				APIGroups: []string{"route.openshift.io"},
+				Resources: []string{"routes"},
 				Verbs:     []string{"create", "get", "update"},
 			},
 		},

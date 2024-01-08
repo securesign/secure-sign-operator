@@ -25,6 +25,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -52,6 +53,7 @@ type RekorReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var instance rhtasv1alpha1.Rekor
+	log := ctrllog.FromContext(ctx)
 
 	if err := r.Client.Get(ctx, req.NamespacedName, &instance); err != nil {
 		if errors.IsNotFound(err) {
@@ -72,6 +74,7 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	for _, a := range actions {
 		a.InjectClient(r.Client)
+		a.InjectLogger(log)
 
 		if a.CanHandle(target) {
 			newTarget, err := a.Handle(ctx, target)

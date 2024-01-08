@@ -83,12 +83,14 @@ jobs:
           kubectl create ns create-cert
           kubectl apply -f config/samples/rhtas_v1alpha1_securesign_cert_create.yaml -n create-cert
 
-      - name: Until shell script to wait for fulcio deployment to be created
+        #Deployment is done in iterations TUF should be the last one
+      - name: Until shell script to wait for tuf deployment to be created
         run: |
-          timeout 120s bash -c 'until [ ! -z "$(kubectl get deployment fulcio-server -n test 2>/dev/null)" ]
+          timeout 120s bash -c 'until [ ! -z "$(kubectl get deployment tuf -n test 2>/dev/null)" ]
           do
-            echo "Waiting for fulcio deployment to be created. Pods in test namespace:"
+            echo "Waiting for tuf deployment to be created. Pods in test namespace:"
             kubectl get pods -n test
+            kubectl get rekor,fulcio,tuf,ctlog,trillian -n test
             sleep 3
           done'
         shell: bash
@@ -106,16 +108,7 @@ jobs:
         run: kubectl wait --for=condition=available deployment/trillian-logsigner --timeout=80s -n test
 
       - name: Check for the deployment of trillian logserver
-        run: kubectl wait --for=condition=available deployment/trillian-logserver --timeout=80s -n test
-
-      - name: wait for the createtree job to finish
-        run: kubectl wait --for=condition=complete job/create-tree --timeout=120s -n test
-
-      - name: wait for the create-tree-rekor job to finish
-        run: kubectl wait --for=condition=complete job/create-tree-rekor --timeout=120s -n test
-
-      - name: wait for create-config job to finish
-        run: kubectl wait --for=condition=complete job/create-config --timeout=120s -n test
+        run: kubectl wait --for=condition=available deployment/trillian-logserver --timeout=200s -n test
 
       - name: Check for the deployment of tuf
         run: kubectl wait --for=condition=available deployment/tuf --timeout=120s -n test
@@ -123,14 +116,16 @@ jobs:
       - name: Check for the deployment of ctlog
         run: kubectl wait --for=condition=available deployment/ctlog --timeout=120s -n test
 
-      - name: Until shell script to wait for fulcio deployment to be created
+      #Deployment is done in iterations TUF should be the last one
+      - name: Until shell script to wait for tuf deployment to be created
         run: |
-          until [ ! -z "$(kubectl get deployment fulcio-server -n create-cert 2>/dev/null)" ]
+          timeout 120s bash -c 'until [ ! -z "$(kubectl get deployment tuf -n create-cert 2>/dev/null)" ]
           do
-            echo "Waiting for fulcio deployment to be created. Pods in create-cert namespace:"
+            echo "Waiting for tuf deployment to be created. Pods in create-cert namespace:"
             kubectl get pods -n create-cert
+            kubectl get rekor,fulcio,tuf,ctlog,trillian -n create-cert
             sleep 3
-          done
+          done'
         shell: bash
 
       - name: Check the deployment of fulcio
@@ -146,16 +141,7 @@ jobs:
         run: kubectl wait --for=condition=available deployment/trillian-logsigner --timeout=80s -n create-cert
 
       - name: Check for the deployment of trillian logserver
-        run: kubectl wait --for=condition=available deployment/trillian-logserver --timeout=80s -n create-cert
-
-      - name: wait for the createtree job to finish
-        run: kubectl wait --for=condition=complete job/create-tree --timeout=120s -n create-cert
-
-      - name: wait for the create-tree-rekor job to finish
-        run: kubectl wait --for=condition=complete job/create-tree-rekor --timeout=120s -n create-cert
-
-      - name: wait for create-config job to finish
-        run: kubectl wait --for=condition=complete job/create-config --timeout=120s -n create-cert
+        run: kubectl wait --for=condition=available deployment/trillian-logserver --timeout=200s -n create-cert
 
       - name: Check for the deployment of tuf
         run: kubectl wait --for=condition=available deployment/tuf --timeout=120s -n create-cert
@@ -169,5 +155,7 @@ jobs:
         if: always()
 
       - name: dump all deployments
-        run: kubectl get deployments -A
+        run: |
+          kubectl get deployments -A
+          kubectl get rekor,fulcio,tuf,ctlog,trillian -A
         if: always()

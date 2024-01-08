@@ -59,12 +59,12 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 			return instance, err
 		}
 
-		secret := kubernetes.CreateSecret(instance.Namespace, instance.Spec.KeySecret, "fulcio-server", "fulcio", map[string]string{
+		secret := kubernetes.CreateSecret(instance.Spec.KeySecret, instance.Namespace, map[string][]byte{
 			"private":  certConfig.FulcioPrivateKey,
 			"public":   certConfig.FulcioPublicKey,
 			"cert":     certConfig.FulcioRootCert,
 			"password": certConfig.CertPassword,
-		})
+		}, labels)
 		controllerutil.SetOwnerReference(instance, secret, i.Client.Scheme())
 		if err = i.Client.Create(ctx, secret); err != nil {
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
@@ -106,6 +106,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	if instance.Spec.External {
 		// TODO: do we need to support ingress?
 		route := kubernetes.CreateRoute(*svc, "80-tcp", labels)
+		controllerutil.SetControllerReference(instance, route, i.Client.Scheme())
 		if err = i.Client.Create(ctx, route); err != nil {
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
 			return instance, fmt.Errorf("could not create route: %w", err)
@@ -115,7 +116,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		instance.Status.Url = fmt.Sprintf("http://%s.%s.svc", svc.Name, svc.Namespace)
 	}
 
-	instance.Status.Phase = rhtasv1alpha1.PhaseCreating
+	instance.Status.Phase = rhtasv1alpha1.PhaseInitialize
 	return instance, nil
 
 }

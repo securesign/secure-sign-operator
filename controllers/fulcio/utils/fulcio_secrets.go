@@ -15,10 +15,10 @@ import (
 )
 
 type FulcioCertConfig struct {
-	FulcioPrivateKey string
-	FulcioPublicKey  string
-	FulcioRootCert   string
-	CertPassword     string
+	FulcioPrivateKey []byte
+	FulcioPublicKey  []byte
+	FulcioRootCert   []byte
+	CertPassword     []byte
 }
 
 func SetupCerts(instance *rhtasv1alpha1.Fulcio) (*FulcioCertConfig, error) {
@@ -45,34 +45,34 @@ func SetupCerts(instance *rhtasv1alpha1.Fulcio) (*FulcioCertConfig, error) {
 		return nil, err
 	}
 	fulcioConfig.FulcioRootCert = fulcioRootCert
-	fulcioConfig.CertPassword = instance.Spec.FulcioCert.CertPassword
+	fulcioConfig.CertPassword = []byte(instance.Spec.FulcioCert.CertPassword)
 
 	return fulcioConfig, nil
 }
 
-func createCAKey(key *ecdsa.PrivateKey, instance *rhtasv1alpha1.Fulcio) (string, error) {
+func createCAKey(key *ecdsa.PrivateKey, instance *rhtasv1alpha1.Fulcio) ([]byte, error) {
 	mKey, err := x509.MarshalECPrivateKey(key)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	block, err := x509.EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", mKey, []byte(instance.Spec.FulcioCert.CertPassword), x509.PEMCipherAES256)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	var pemData bytes.Buffer
 	if err := pem.Encode(&pemData, block); err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return pemData.String(), nil
+	return pemData.Bytes(), nil
 }
 
-func createCAPub(key *ecdsa.PrivateKey) (string, error) {
+func createCAPub(key *ecdsa.PrivateKey) ([]byte, error) {
 	mPubKey, err := x509.MarshalPKIXPublicKey(key.Public())
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	var pemPubKey bytes.Buffer
@@ -81,13 +81,13 @@ func createCAPub(key *ecdsa.PrivateKey) (string, error) {
 		Bytes: mPubKey,
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return pemPubKey.String(), nil
+	return pemPubKey.Bytes(), nil
 }
 
-func createFulcioCA(key *ecdsa.PrivateKey, instance *rhtasv1alpha1.Fulcio) (string, error) {
+func createFulcioCA(key *ecdsa.PrivateKey, instance *rhtasv1alpha1.Fulcio) ([]byte, error) {
 	notBefore := time.Now()
 	notAfter := notBefore.Add(365 * 24 * 10 * time.Hour)
 
@@ -111,7 +111,7 @@ func createFulcioCA(key *ecdsa.PrivateKey, instance *rhtasv1alpha1.Fulcio) (stri
 
 	fulcioRoot, err := x509.CreateCertificate(rand.Reader, &template, &template, key.Public(), key)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	var pemFulcioRoot bytes.Buffer
@@ -120,8 +120,8 @@ func createFulcioCA(key *ecdsa.PrivateKey, instance *rhtasv1alpha1.Fulcio) (stri
 		Bytes: fulcioRoot,
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return pemFulcioRoot.String(), nil
+	return pemFulcioRoot.Bytes(), nil
 }

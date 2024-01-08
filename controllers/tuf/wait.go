@@ -21,7 +21,7 @@ func (i waitAction) Name() string {
 }
 
 func (i waitAction) CanHandle(tuf *rhtasv1alpha1.Tuf) bool {
-	return tuf.Status.Phase == rhtasv1alpha1.PhaseCreating
+	return tuf.Status.Phase == rhtasv1alpha1.PhaseInitialize
 }
 
 func (i waitAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) (*rhtasv1alpha1.Tuf, error) {
@@ -30,7 +30,6 @@ func (i waitAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) (*r
 		err error
 	)
 	labels := commonUtils.FilterCommonLabels(instance.Labels)
-	labels["app.kubernetes.io/component"] = ComponentName
 	ok, err = commonUtils.DeploymentIsRunning(ctx, i.Client, instance.Namespace, labels)
 	if err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError

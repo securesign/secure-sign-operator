@@ -6,7 +6,6 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common"
-	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/trillian/utils"
 )
 
@@ -34,15 +33,7 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tr
 		return instance, fmt.Errorf("could not create Trillian tree: %w", err)
 	}
 
-	labels := kubernetes.FilterCommonLabels(instance.Labels)
-	labels["app.kubernetes.io/component"] = ComponentName
-	labels["app.kubernetes.io/name"] = logserverDeploymentName
-
-	config := kubernetes.InitConfigmap(instance.Namespace, "trillian-tree", labels, map[string]string{"treeID": fmt.Sprint(tree.TreeId)})
-	if err = i.Client.Create(ctx, config); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create Trillian tree: %w", err)
-	}
+	instance.Status.TreeID = tree.TreeId
 	instance.Status.Phase = rhtasv1alpha1.PhaseReady
 	return instance, nil
 }

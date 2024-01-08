@@ -31,7 +31,7 @@ func (i createAction) Name() string {
 }
 
 func (i createAction) CanHandle(ctlog *rhtasv1alpha1.CTlog) bool {
-	return ctlog.Status.Phase == rhtasv1alpha1.PhaseNone
+	return ctlog.Status.Phase == rhtasv1alpha1.PhaseCreating
 }
 
 func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) (*rhtasv1alpha1.CTlog, error) {
@@ -41,28 +41,37 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	labels["app.kubernetes.io/component"] = ComponentName
 	labels["app.kubernetes.io/name"] = deploymentName
 
-	server := ctlogUtils.CreateDeployment(instance.Namespace, deploymentName, labels)
+	trillians, err := findTrillians(ctx, i.Client, *instance)
+	if err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not find trillian: %w", err)
+	}
+
+	fulcios, err := findFulcios(ctx, i.Client, *instance)
+	if err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not find fulcio: %w", err)
+	}
+
+	var config, pubKey *corev1.Secret
+	if config, pubKey, err = ctlogUtils.CreateCtlogConfig(ctx, i.Client, instance.Namespace, trillians.Items[0].Status.Url, trillians.Items[0].Status.TreeID, fulcios.Items[0].Status.Url, labels); err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not create CTLog configuration: %w", err)
+	}
+	controllerutil.SetControllerReference(instance, config, i.Client.Scheme())
+	controllerutil.SetControllerReference(instance, pubKey, i.Client.Scheme())
+	if err = i.Client.Create(ctx, config); err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not create CTLog configuration secret: %w", err)
+	}
+	if err = i.Client.Create(ctx, pubKey); err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not create CTLog public key secret: %w", err)
+	}
+
+	server := ctlogUtils.CreateDeployment(instance.Namespace, deploymentName, config.Name, labels)
 	controllerutil.SetControllerReference(instance, server, i.Client.Scheme())
 	if err = i.Client.Create(ctx, server); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create job: %w", err)
-	}
-
-	cm := utils.InitConfigmap(instance.Namespace, "ctlog-config", labels, map[string]string{
-		"__placeholder": "###################################################################\n" +
-			"# Just a placeholder so that reapplying this won't overwrite treeID\n" +
-			"# if it already exists. This caused grief, do not remove.\n" +
-			"###################################################################",
-	})
-	controllerutil.SetControllerReference(instance, cm, i.Client.Scheme())
-	if err = i.Client.Create(ctx, cm); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create job: %w", err)
-	}
-
-	// TODO: move code from job to operator
-	config := ctlogUtils.CreateCTJob(instance.Namespace, "create-config")
-	if err = i.Client.Create(ctx, config); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create job: %w", err)
 	}
@@ -80,7 +89,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		return instance, fmt.Errorf("could not create service: %w", err)
 	}
 
-	instance.Status.Phase = rhtasv1alpha1.PhaseCreating
+	instance.Status.Phase = rhtasv1alpha1.PhaseInitialize
 	return instance, nil
 
 }

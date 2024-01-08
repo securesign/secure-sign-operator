@@ -36,13 +36,13 @@ func (i createAction) CanHandle(Rekor *rhtasv1alpha1.Rekor) bool {
 func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) (*rhtasv1alpha1.Rekor, error) {
 	//log := ctrllog.FromContext(ctx)
 	var err error
-	commonLabels := k8sutils.FilterCommonLabels(instance.Labels)
-	commonLabels["app.kubernetes.io/component"] = ComponentName
 
-	redisLabels := commonLabels
+	redisLabels := k8sutils.FilterCommonLabels(instance.Labels)
+	redisLabels["app.kubernetes.io/component"] = ComponentName
 	redisLabels["app.kubernetes.io/name"] = rekorRedisDeploymentName
 
-	rekorServerLabels := commonLabels
+	rekorServerLabels := k8sutils.FilterCommonLabels(instance.Labels)
+	rekorServerLabels["app.kubernetes.io/component"] = ComponentName
 	rekorServerLabels["app.kubernetes.io/name"] = rekorDeploymentName
 
 	if instance.Spec.KeySecret == "" {
@@ -56,7 +56,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 			return instance, err
 		}
 
-		secret := k8sutils.CreateSecret(instance.Namespace, instance.Spec.KeySecret, "rekor-server", "rekor", map[string]string{"private": certConfig.RekorKey})
+		secret := k8sutils.CreateSecret(instance.Spec.KeySecret, instance.Namespace, map[string][]byte{"private": certConfig.RekorKey}, rekorServerLabels)
 		controllerutil.SetOwnerReference(instance, secret, i.Client.Scheme())
 		if err = i.Client.Create(ctx, secret); err != nil {
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
@@ -65,6 +65,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 	}
 
 	sharding := k8sutils.InitConfigmap(instance.Namespace, "rekor-sharding-config", rekorServerLabels, map[string]string{"sharding-config.yaml": ""})
+	controllerutil.SetControllerReference(instance, sharding, i.Client.Scheme())
 	if err = i.Client.Create(ctx, sharding); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create Rekor secret: %w", err)
@@ -83,7 +84,13 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		rekorPvcName = instance.Spec.PvcName
 	}
 
-	dp := utils.CreateRekorDeployment(instance.Namespace, rekorDeploymentName, rekorPvcName, rekorServerLabels)
+	trillians, err := findTrillians(ctx, i.Client, *instance)
+	if err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not find trillian TreeID: %w", err)
+	}
+
+	dp := utils.CreateRekorDeployment(instance.Namespace, rekorDeploymentName, trillians.Items[0].Status.TreeID, rekorPvcName, rekorServerLabels)
 	controllerutil.SetControllerReference(instance, dp, i.Client.Scheme())
 	if err = i.Client.Create(ctx, dp); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
@@ -113,6 +120,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 	if instance.Spec.External {
 		// TODO: do we need to support ingress?
 		route := k8sutils.CreateRoute(*svc, "80-tcp", rekorServerLabels)
+		controllerutil.SetControllerReference(instance, route, i.Client.Scheme())
 		if err = i.Client.Create(ctx, route); err != nil {
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
 			return instance, fmt.Errorf("could not create route: %w", err)
@@ -122,7 +130,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		instance.Status.Url = fmt.Sprintf("http://%s.%s.svc", svc.Name, svc.Namespace)
 	}
 
-	instance.Status.Phase = rhtasv1alpha1.PhaseCreating
+	instance.Status.Phase = rhtasv1alpha1.PhaseInitialize
 	return instance, nil
 
 }

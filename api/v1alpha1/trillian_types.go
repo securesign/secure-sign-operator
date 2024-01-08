@@ -33,8 +33,9 @@ type TrillianSpec struct {
 
 // TrillianStatus defines the observed state of Trillian
 type TrillianStatus struct {
-	Url   string `json:"url"`
-	Phase Phase  `json:"phase"`
+	Url    string `json:"url"`
+	TreeID int64  `json:"treeID"`
+	Phase  Phase  `json:"phase"`
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }

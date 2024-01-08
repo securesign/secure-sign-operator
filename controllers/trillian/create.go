@@ -41,19 +41,20 @@ func (i createAction) CanHandle(trillian *rhtasv1alpha1.Trillian) bool {
 func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) (*rhtasv1alpha1.Trillian, error) {
 	//log := ctrllog.FromContext(ctx)
 	var err error
-	labels := kubernetes.FilterCommonLabels(instance.Labels)
-	labels["app.kubernetes.io/component"] = ComponentName
 
-	dbLabels := labels
+	dbLabels := kubernetes.FilterCommonLabels(instance.Labels)
+	dbLabels["app.kubernetes.io/component"] = ComponentName
 	dbLabels["app.kubernetes.io/name"] = dbDeploymentName
 
-	logSignerLabels := labels
+	logSignerLabels := kubernetes.FilterCommonLabels(instance.Labels)
+	logSignerLabels["app.kubernetes.io/component"] = ComponentName
 	logSignerLabels["app.kubernetes.io/name"] = logsignerDeploymentName
 
-	logServerLabels := labels
+	logServerLabels := kubernetes.FilterCommonLabels(instance.Labels)
+	logServerLabels["app.kubernetes.io/component"] = ComponentName
 	logServerLabels["app.kubernetes.io/name"] = logserverDeploymentName
 
-	dbSecret := i.createDbSecret(instance.Namespace, labels)
+	dbSecret := i.createDbSecret(instance.Namespace, dbLabels)
 	controllerutil.SetControllerReference(instance, dbSecret, i.Client.Scheme())
 	if err = i.Client.Create(ctx, dbSecret); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError

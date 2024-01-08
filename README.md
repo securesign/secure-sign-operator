@@ -41,6 +41,15 @@ UnDeploy the controller from the cluster:
 make undeploy
 ```
 
+### Local Development
+The controller connects to services running inside the cluster to configure them. The Trillian server is configured using RPC protocol.
+The RPC protocol rely on the HTTP/2 that is hard to route outside the cluster (see #issueLink). 
+Until the issue is fixed, the locally running operator will fail with
+```
+Admin server unavailable: rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing: dial tcp: lookup trillian-logserver.test.svc: no such host"
+CreateTree...
+```
+
 ## Contributing
 // TODO(user): Add detailed information on how you would like others to contribute to this project
 
@@ -51,9 +60,6 @@ It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controlle
 which provide a reconcile function responsible for synchronizing resources until the desired state is reached on the cluster.
 
 ### Test It Out
-The controller connects to services running inside the cluster. If you want to run the operator locally,
-you would need to expose them OR use `kubectl port-forward` function.
-
 1. Install the CRDs into the cluster:
 
 ```sh
@@ -66,15 +72,6 @@ make run
 ```
 
 **NOTE:** You can also run this in one step by running: `make install run`
-
-### FAQ
-#### Q: I am getting following error from the locally running operator
-```
-Admin server unavailable: rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing: dial tcp: lookup trillian-logserver.test.svc: no such host"
-CreateTree...
-```
-**A:** The controller try to connect to the local service (trillian in this case).
-You need to export it OR use port-forward and set the correct URL to the CR configuration.
 
 ### Modifying the API definitions
 If you are editing the API definitions, generate the manifests such as CRs or CRDs using:

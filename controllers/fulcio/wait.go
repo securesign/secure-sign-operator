@@ -21,7 +21,7 @@ func (i waitAction) Name() string {
 }
 
 func (i waitAction) CanHandle(Fulcio *rhtasv1alpha1.Fulcio) bool {
-	return Fulcio.Status.Phase == rhtasv1alpha1.PhaseCreating
+	return Fulcio.Status.Phase == rhtasv1alpha1.PhaseInitialize
 }
 
 func (i waitAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) (*rhtasv1alpha1.Fulcio, error) {

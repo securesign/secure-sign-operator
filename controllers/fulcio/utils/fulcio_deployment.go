@@ -46,7 +46,7 @@ func CreateDeployment(namespace string, deploymentName string, labels map[string
 								"/var/run/fulcio-secrets/cert.pem",
 								"--fileca-key-passwd",
 								"$(PASSWORD)",
-								fmt.Sprintf("--ct-log-url=http://ctlog.%s.svc/sigstorescaffolding", namespace),
+								fmt.Sprintf("--ct-log-url=http://ctlog.%s.svc/trusted-artifact-signer", namespace),
 							},
 							Env: []corev1.EnvVar{
 								{

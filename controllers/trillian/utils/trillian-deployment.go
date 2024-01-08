@@ -1,13 +1,10 @@
 package utils
 
 import (
+	"github.com/securesign/operator/controllers/constants"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-const (
-	netcat = "registry.redhat.io/rhtas-tech-preview/trillian-netcat-rhel9@sha256:b9fa895af8967cceb7a05ed7c9f2b80df047682ed11c87249ca2edba86492f6e"
 )
 
 func CreateTrillDeployment(namespace string, image string, dpName string, dbsecret string, labels map[string]string) *apps.Deployment {
@@ -32,7 +29,7 @@ func CreateTrillDeployment(namespace string, image string, dpName string, dbsecr
 					InitContainers: []core.Container{
 						{
 							Name:  "wait-for-trillian-db",
-							Image: netcat,
+							Image: constants.TrillianNetcatImage,
 							Command: []string{
 								"sh",
 								"-c",

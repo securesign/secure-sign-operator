@@ -21,7 +21,7 @@ func (i waitAction) Name() string {
 }
 
 func (i waitAction) CanHandle(ctlog *rhtasv1alpha1.CTlog) bool {
-	return ctlog.Status.Phase == rhtasv1alpha1.PhaseCreating
+	return ctlog.Status.Phase == rhtasv1alpha1.PhaseInitialize
 }
 
 func (i waitAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) (*rhtasv1alpha1.CTlog, error) {

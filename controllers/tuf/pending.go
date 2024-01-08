@@ -6,7 +6,6 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
-	"github.com/securesign/operator/controllers/rekor"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -32,7 +31,6 @@ func (i pendingAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) 
 	}
 
 	searchLabels := kubernetes.FilterCommonLabels(instance.Labels)
-	searchLabels["app.kubernetes.io/component"] = rekor.ComponentName
 
 	rekorList := &rhtasv1alpha1.RekorList{}
 	err := i.Client.List(ctx, rekorList, client.InNamespace(instance.Namespace), client.MatchingLabels(searchLabels))

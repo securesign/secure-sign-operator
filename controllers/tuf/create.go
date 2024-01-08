@@ -40,13 +40,6 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) (
 	labels["app.kubernetes.io/component"] = ComponentName
 	labels["app.kubernetes.io/name"] = tufDeploymentName
 
-	// TODO: migrate code to the operator
-	copyJob := tufutils.InitTufCopyJob(instance.Namespace, "tuf-secret-copy-job")
-	if err = i.Client.Create(ctx, copyJob); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create copy job: %w", err)
-	}
-
 	db := tufutils.CreateTufDeployment(instance.Namespace, tufDeploymentName, labels)
 	controllerutil.SetControllerReference(instance, db, i.Client.Scheme())
 	if err = i.Client.Create(ctx, db); err != nil {
@@ -66,6 +59,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) (
 	if instance.Spec.External {
 		// TODO: do we need to support ingress?
 		route := kubernetes.CreateRoute(*svc, "tuf", labels)
+		controllerutil.SetControllerReference(instance, route, i.Client.Scheme())
 		if err = i.Client.Create(ctx, route); err != nil {
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
 			return instance, fmt.Errorf("could not create route: %w", err)
@@ -75,6 +69,6 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) (
 		instance.Status.Url = fmt.Sprintf("http://%s.%s.svc", svc.Name, svc.Namespace)
 	}
 
-	instance.Status.Phase = rhtasv1alpha1.PhaseCreating
+	instance.Status.Phase = rhtasv1alpha1.PhaseInitialize
 	return instance, nil
 }
