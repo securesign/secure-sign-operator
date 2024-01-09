@@ -42,13 +42,23 @@ make undeploy
 ```
 
 ### Local Development
-The controller connects to services running inside the cluster to configure them. The Trillian server is configured using RPC protocol.
-The RPC protocol rely on the HTTP/2 that is hard to route outside the cluster (see #issueLink). 
-Until the issue is fixed, the locally running operator will fail with
+As a prerequisite you need to enable HTTP/2 on a single Ingress Controller. To enable HTTP/2 on an Ingress Controller, enter the oc annotate command:
+
 ```
-Admin server unavailable: rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing: dial tcp: lookup trillian-logserver.test.svc: no such host"
-CreateTree...
+$  oc -n openshift-ingress-operator annotate ingresscontrollers/<ingresscontroller_name> ingress.operator.openshift.io/default-enable-http2=true
 ```
+Replace <ingresscontroller_name> with the name of the Ingress Controller to annotate.
+
+#### Install the CRDs into the cluster:
+```
+make install
+````
+
+Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
+```
+make run
+```
+NOTE: You can also run this in one step by running: make install run
 
 ## Contributing
 // TODO(user): Add detailed information on how you would like others to contribute to this project
