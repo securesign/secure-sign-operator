@@ -3,21 +3,14 @@ package trillian
 import (
 	"context"
 	"fmt"
+	"time"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common"
-	"github.com/securesign/operator/controllers/common/utils"
-	"github.com/securesign/operator/controllers/constants"
-	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
-	corev1 "k8s.io/api/core/v1"
+	"github.com/securesign/operator/controllers/trillian/utils"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-)
-
-const (
-	dbDeploymentName        = "trillian-db"
-	logserverDeploymentName = "trillian-logserver"
-	logsignerDeploymentName = "trillian-logsigner"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func NewInitializeAction() Action {
@@ -29,99 +22,46 @@ type initializeAction struct {
 }
 
 func (i initializeAction) Name() string {
-	return "initialize"
+	return "create"
 }
 
 func (i initializeAction) CanHandle(trillian *rhtasv1alpha1.Trillian) bool {
-	return trillian.Status.Phase == rhtasv1alpha1.PhaseNone
+	return trillian.Status.Phase == rhtasv1alpha1.PhaseInitialize
 }
 
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) (*rhtasv1alpha1.Trillian, error) {
-	//log := ctrllog.FromContext(ctx)
-	var err error
-
-	dbSecret := i.createDbSecret(instance.Namespace)
-	controllerutil.SetControllerReference(instance, dbSecret, i.Client.Scheme())
-	if err = i.Client.Create(ctx, dbSecret); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create secret: %w", err)
-	}
-
-	var trillPVC string
-	if instance.Spec.PvcName == "" {
-		pvc := utils.CreatePVC(instance.Namespace, "trillian-mysql", "5Gi")
-		controllerutil.SetControllerReference(instance, pvc, i.Client.Scheme())
-		if err = i.Client.Create(ctx, pvc); err != nil {
-			instance.Status.Phase = rhtasv1alpha1.PhaseError
-			return instance, fmt.Errorf("could not create pvc: %w", err)
+	var caCert []byte = nil
+	if instance.Spec.External {
+		scr := &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: instance.Namespace,
+			},
+			Data: map[string]string{},
 		}
-		trillPVC = pvc.Name
-	} else {
-		trillPVC = instance.Spec.PvcName
-	}
+		scr.Annotations = map[string]string{"service.beta.openshift.io/inject-cabundle": "true"}
+		if err := i.Client.Create(ctx, scr); err != nil {
+			return instance, err
+		}
+		// wait some time for the certificate injection
+		time.Sleep(time.Second)
 
-	db := trillianUtils.CreateTrillDb(instance.Namespace, constants.TrillianDbImage, dbDeploymentName, trillPVC, dbSecret.Name)
-	controllerutil.SetControllerReference(instance, db, i.Client.Scheme())
-	if err = i.Client.Create(ctx, db); err != nil {
+		if err := i.Client.Get(ctx, types.NamespacedName{
+			Namespace: instance.Namespace,
+			Name:      scr.Name,
+		}, scr); err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not get trillian CaCert: %w", err)
+		}
+		caCert = []byte(scr.Data["service-ca.crt"])
+	}
+	tree, err := utils.CreateTrillianTree(ctx, instance.Status.Url, caCert)
+	if err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create trillian DB: %w", err)
+		return instance, fmt.Errorf("could not create Trillian tree: %w", err)
 	}
 
-	mysql := utils.CreateService(instance.Namespace, "trillian-mysql", "mysql", "trillian", 3306)
-	controllerutil.SetControllerReference(instance, mysql, i.Client.Scheme())
-	if err = i.Client.Create(ctx, mysql); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create service: %w", err)
-	}
-
-	// Log Server
-	server := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianServerImage, logserverDeploymentName, dbSecret.Name)
-	controllerutil.SetControllerReference(instance, server, i.Client.Scheme())
-	server.Spec.Template.Spec.Containers[0].Ports = append(server.Spec.Template.Spec.Containers[0].Ports, corev1.ContainerPort{
-		Protocol:      corev1.ProtocolTCP,
-		ContainerPort: 8090,
-	})
-	if err = i.Client.Create(ctx, server); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create job: %w", err)
-	}
-
-	logserver := utils.CreateService(instance.Namespace, "trillian-logserver", "trillian-logserver", "trillian", 8091)
-	controllerutil.SetControllerReference(instance, logserver, i.Client.Scheme())
-	if err = i.Client.Create(ctx, logserver); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create service: %w", err)
-	}
-
-	// Log Signer
-	signer := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianLogSignerImage, logsignerDeploymentName, dbSecret.Name)
-	controllerutil.SetControllerReference(instance, signer, i.Client.Scheme())
-	signer.Spec.Template.Spec.Containers[0].Args = append(signer.Spec.Template.Spec.Containers[0].Args, "--force_master=true")
-	if err = i.Client.Create(ctx, signer); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create job: %w", err)
-	}
-
-	instance.Status.Phase = rhtasv1alpha1.PhaseInitialization
+	instance.Status.TreeID = tree.TreeId
+	instance.Status.Phase = rhtasv1alpha1.PhaseReady
 	return instance, nil
-
-}
-
-func (i initializeAction) createDbSecret(namespace string) *corev1.Secret {
-	// Define a new Secret object
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "rhtas",
-			Namespace:    namespace,
-		},
-		Type: "Opaque",
-		Data: map[string][]byte{
-			// generate a random password for the mysql root user and the mysql password
-			// TODO - use a random password generator
-			"mysql-root-password": []byte("password"),
-			"mysql-password":      []byte("password"),
-			"mysql-database":      []byte("trillian"),
-			"mysql-user":          []byte("mysql"),
-		},
-	}
 }

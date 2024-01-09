@@ -95,6 +95,8 @@ spec:
               trillian:
                 description: TrillianSpec defines the desired state of Trillian
                 properties:
+                  external:
+                    type: boolean
                   pvcName:
                     description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of
                       cluster Important: Run "make" to regenerate code after modifying

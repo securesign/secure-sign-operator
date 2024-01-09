@@ -3,6 +3,7 @@ package tuf
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	"github.com/securesign/operator/api/v1alpha1"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -11,6 +12,7 @@ import (
 type Action interface {
 	InjectClient(client client.Client)
 	InjectRecorder(recorder record.EventRecorder)
+	InjectLogger(logger logr.Logger)
 
 	// a user friendly name for the action
 	Name() string

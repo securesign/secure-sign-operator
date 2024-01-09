@@ -10,7 +10,7 @@ import (
 )
 
 type RekorCertConfig struct {
-	RekorKey string
+	RekorKey []byte
 }
 
 func CreateRekorKey() (*RekorCertConfig, error) {
@@ -34,7 +34,7 @@ func CreateRekorKey() (*RekorCertConfig, error) {
 		return nil, err
 	}
 
-	rekorCertConfig.RekorKey = pemRekorKey.String()
+	rekorCertConfig.RekorKey = pemRekorKey.Bytes()
 
 	return rekorCertConfig, nil
 }

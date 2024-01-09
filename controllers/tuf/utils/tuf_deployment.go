@@ -7,34 +7,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateTufDeployment(namespace string, dpName string) *apps.Deployment {
+func CreateTufDeployment(namespace string, dpName string, labels map[string]string) *apps.Deployment {
 	replicas := int32(1)
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpName,
 			Namespace: namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/component": dpName,
-				"app.kubernetes.io/name":      dpName,
-				"app.kubernetes.io/instance":  "trusted-artifact-signer",
-			},
+			Labels:    labels,
 		},
 		Spec: apps.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app.kubernetes.io/component": dpName,
-					"app.kubernetes.io/name":      dpName,
-					"app.kubernetes.io/instance":  "trusted-artifact-signer",
-				},
+				MatchLabels: labels,
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"app.kubernetes.io/component": dpName,
-						"app.kubernetes.io/name":      dpName,
-						"app.kubernetes.io/instance":  "trusted-artifact-signer",
-					},
+					Labels: labels,
 				},
 				Spec: core.PodSpec{
 					ServiceAccountName: "sigstore-sa",

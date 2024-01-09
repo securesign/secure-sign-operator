@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/securesign/operator/controllers/constants"
 	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -50,6 +51,7 @@ type SecuresignReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
@@ -181,6 +183,11 @@ func (r *SecuresignReconciler) ensureTrillian(
 		instance := &rhtasv1alpha1.Trillian{}
 		instance.Name = securesign.Name
 		instance.Namespace = securesign.Namespace
+		instance.Labels = map[string]string{
+			"app.kubernetes.io/part-of":  constants.AppName,
+			"app.kubernetes.io/instance": securesign.Name,
+		}
+
 		instance.Spec = securesign.Spec.Trillian
 		ctrl.SetControllerReference(securesign, instance, r.Scheme)
 
@@ -201,6 +208,11 @@ func (r *SecuresignReconciler) ensureCTlog(
 		instance := &rhtasv1alpha1.CTlog{}
 		instance.Name = securesign.Name
 		instance.Namespace = securesign.Namespace
+		instance.Labels = map[string]string{
+			"app.kubernetes.io/part-of":  constants.AppName,
+			"app.kubernetes.io/instance": securesign.Name,
+		}
+
 		instance.Spec = securesign.Spec.Ctlog
 		ctrl.SetControllerReference(securesign, instance, r.Scheme)
 
@@ -221,6 +233,11 @@ func (r *SecuresignReconciler) ensureTuf(
 		instance := &rhtasv1alpha1.Tuf{}
 		instance.Name = securesign.Name
 		instance.Namespace = securesign.Namespace
+		instance.Labels = map[string]string{
+			"app.kubernetes.io/part-of":  constants.AppName,
+			"app.kubernetes.io/instance": securesign.Name,
+		}
+
 		instance.Spec = securesign.Spec.Tuf
 		ctrl.SetControllerReference(securesign, instance, r.Scheme)
 
@@ -242,6 +259,10 @@ func (r *SecuresignReconciler) ensureFulcio(
 
 		instance.Name = securesign.Name
 		instance.Namespace = securesign.Namespace
+		instance.Labels = map[string]string{
+			"app.kubernetes.io/part-of":  constants.AppName,
+			"app.kubernetes.io/instance": securesign.Name,
+		}
 		ctrl.SetControllerReference(securesign, instance, r.Scheme)
 
 		instance.Spec = securesign.Spec.Fulcio
@@ -263,6 +284,10 @@ func (r *SecuresignReconciler) ensureRekor(
 
 		instance.Name = securesign.Name
 		instance.Namespace = securesign.Namespace
+		instance.Labels = map[string]string{
+			"app.kubernetes.io/part-of":  constants.AppName,
+			"app.kubernetes.io/instance": securesign.Name,
+		}
 		ctrl.SetControllerReference(securesign, instance, r.Scheme)
 
 		instance.Spec = securesign.Spec.Rekor
@@ -292,10 +317,17 @@ func (r *SecuresignReconciler) ensureSa(
 	}
 	// Check if this service account already exists else create it in the namespace
 	err := r.Get(ctx, client.ObjectKey{Name: sa.Name, Namespace: securesign.Namespace}, sa)
-	// If the SA doesn't exist, create it but if it does, do nothing
 	if err != nil {
-		err = r.Create(ctx, sa)
-		if err != nil {
+		if errors.IsNotFound(err) {
+			sa.Labels = map[string]string{
+				"app.kubernetes.io/part-of":  constants.AppName,
+				"app.kubernetes.io/instance": securesign.Name,
+			}
+			err = r.Create(ctx, sa)
+			if err != nil {
+				return err
+			}
+		} else {
 			return err
 		}
 	}
@@ -312,8 +344,8 @@ func (r *SecuresignReconciler) ensureRole(
 			Name:      name,
 			Namespace: securesign.Namespace,
 			Labels: map[string]string{
-				"app.kubernetes.io/name":     "securesign",
-				"app.kubernetes.io/instance": "trusted-artifact-signer",
+				"app.kubernetes.io/part-of":  constants.AppName,
+				"app.kubernetes.io/instance": securesign.Name,
 			},
 		},
 		Rules: []rbac.PolicyRule{
@@ -325,6 +357,11 @@ func (r *SecuresignReconciler) ensureRole(
 			{
 				APIGroups: []string{""},
 				Resources: []string{"secrets"},
+				Verbs:     []string{"create", "get", "update"},
+			},
+			{
+				APIGroups: []string{"route.openshift.io"},
+				Resources: []string{"routes"},
 				Verbs:     []string{"create", "get", "update"},
 			},
 		},
@@ -351,8 +388,8 @@ func (r *SecuresignReconciler) ensureRoleBinding(
 			Name:      name,
 			Namespace: securesign.Namespace,
 			Labels: map[string]string{
-				"app.kubernetes.io/name":     name,
-				"app.kubernetes.io/instance": "trusted-artifact-signer",
+				"app.kubernetes.io/part-of":  constants.AppName,
+				"app.kubernetes.io/instance": securesign.Name,
 			},
 		},
 

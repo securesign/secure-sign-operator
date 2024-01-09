@@ -1,50 +1,35 @@
 package utils
 
 import (
+	"github.com/securesign/operator/controllers/constants"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	netcat = "registry.redhat.io/rhtas-tech-preview/trillian-netcat-rhel9@sha256:b9fa895af8967cceb7a05ed7c9f2b80df047682ed11c87249ca2edba86492f6e"
-)
-
-func CreateTrillDeployment(namespace string, image string, dpName string, dbsecret string) *apps.Deployment {
+func CreateTrillDeployment(namespace string, image string, dpName string, dbsecret string, tlsSecretName string, labels map[string]string) *apps.Deployment {
 	replicas := int32(1)
-	return &apps.Deployment{
+	d := &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpName,
 			Namespace: namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/component": dpName,
-				"app.kubernetes.io/instance":  "trusted-artifact-signer",
-				"app.kubernetes.io/name":      "trillian",
-			},
+			Labels:    labels,
 		},
 		Spec: apps.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app.kubernetes.io/component": dpName,
-					"app.kubernetes.io/instance":  "trusted-artifact-signer",
-					"app.kubernetes.io/name":      "trillian",
-				},
+				MatchLabels: labels,
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"app.kubernetes.io/component": dpName,
-						"app.kubernetes.io/instance":  "trusted-artifact-signer",
-						"app.kubernetes.io/name":      "trillian",
-					},
+					Labels: labels,
 				},
 				Spec: core.PodSpec{
 					ServiceAccountName: "sigstore-sa",
 					InitContainers: []core.Container{
 						{
 							Name:  "wait-for-trillian-db",
-							Image: netcat,
+							Image: constants.TrillianNetcatImage,
 							Command: []string{
 								"sh",
 								"-c",
@@ -106,4 +91,32 @@ func CreateTrillDeployment(namespace string, image string, dpName string, dbsecr
 			},
 		},
 	}
+
+	if tlsSecretName != "" {
+		d.Spec.Template.Spec.Volumes = append(d.Spec.Template.Spec.Volumes, core.Volume{
+			Name: "tls",
+			VolumeSource: core.VolumeSource{
+				Secret: &core.SecretVolumeSource{
+					SecretName: tlsSecretName,
+					Items: []core.KeyToPath{
+						{
+							Key:  "tls.crt",
+							Path: "tls.crt",
+						},
+						{
+							Key:  "tls.key",
+							Path: "tls.key",
+						},
+					},
+				},
+			},
+		})
+		d.Spec.Template.Spec.Containers[0].VolumeMounts = append(d.Spec.Template.Spec.Containers[0].VolumeMounts, core.VolumeMount{
+			Name:      "tls",
+			MountPath: "/tls",
+		})
+
+		d.Spec.Template.Spec.Containers[0].Args = append(d.Spec.Template.Spec.Containers[0].Args, "--tls_cert_file=/tls/tls.crt", "--tls_key_file=/tls/tls.key")
+	}
+	return d
 }

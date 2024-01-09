@@ -5,7 +5,7 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common"
-	commonUtils "github.com/securesign/operator/controllers/common/utils"
+	commonUtils "github.com/securesign/operator/controllers/common/utils/kubernetes"
 )
 
 func NewWaitAction() Action {
@@ -21,7 +21,7 @@ func (i waitAction) Name() string {
 }
 
 func (i waitAction) CanHandle(tuf *rhtasv1alpha1.Tuf) bool {
-	return tuf.Status.Phase == rhtasv1alpha1.PhaseInitialization
+	return tuf.Status.Phase == rhtasv1alpha1.PhaseInitialize
 }
 
 func (i waitAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) (*rhtasv1alpha1.Tuf, error) {
@@ -29,15 +29,14 @@ func (i waitAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) (*r
 		ok  bool
 		err error
 	)
-	for _, deployment := range []string{"tuf"} {
-		ok, err = commonUtils.DeploymentIsRunning(ctx, i.Client, instance.Namespace, deployment)
-		if err != nil {
-			instance.Status.Phase = rhtasv1alpha1.PhaseError
-			return instance, err
-		}
-		if !ok {
-			return instance, nil
-		}
+	labels := commonUtils.FilterCommonLabels(instance.Labels)
+	ok, err = commonUtils.DeploymentIsRunning(ctx, i.Client, instance.Namespace, labels)
+	if err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, err
+	}
+	if !ok {
+		return instance, nil
 	}
 	instance.Status.Phase = rhtasv1alpha1.PhaseReady
 	return instance, nil

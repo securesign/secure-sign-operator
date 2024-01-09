@@ -27,12 +27,15 @@ import (
 type TrillianSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	PvcName string `json:"pvcName,omitempty"`
+	PvcName  string `json:"pvcName,omitempty"`
+	External bool   `json:"external,omitempty"`
 }
 
 // TrillianStatus defines the observed state of Trillian
 type TrillianStatus struct {
-	Phase Phase `json:"phase"`
+	Url    string `json:"url"`
+	TreeID int64  `json:"treeID"`
+	Phase  Phase  `json:"phase"`
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
@@ -40,6 +43,7 @@ type TrillianStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The component phase"
+//+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
 
 // Trillian is the Schema for the trillians API
 type Trillian struct {

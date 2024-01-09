@@ -1,40 +1,30 @@
 package utils
 
 import (
+	"fmt"
+
 	"github.com/securesign/operator/controllers/constants"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateRekorDeployment(namespace string, dpName string, pvc string) *apps.Deployment {
+func CreateRekorDeployment(namespace string, dpName string, treeID int64, pvc string, labels map[string]string) *apps.Deployment {
 	replicas := int32(1)
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpName,
 			Namespace: namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/component": dpName,
-				"app.kubernetes.io/name":      dpName,
-				"app.kubernetes.io/instance":  "trusted-artifact-signer",
-			},
+			Labels:    labels,
 		},
 		Spec: apps.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app.kubernetes.io/component": dpName,
-					"app.kubernetes.io/name":      dpName,
-					"app.kubernetes.io/instance":  "trusted-artifact-signer",
-				},
+				MatchLabels: labels,
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"app.kubernetes.io/component": dpName,
-						"app.kubernetes.io/name":      dpName,
-						"app.kubernetes.io/instance":  "trusted-artifact-signer",
-					},
+					Labels: labels,
 				},
 				Spec: core.PodSpec{
 					ServiceAccountName: "sigstore-sa",
@@ -84,19 +74,6 @@ func CreateRekorDeployment(namespace string, dpName string, pvc string) *apps.De
 							//	SuccessThreshold:    1,
 							//	FailureThreshold:    3,
 							//},
-							Env: []core.EnvVar{
-								{
-									Name: "TREE_ID",
-									ValueFrom: &core.EnvVarSource{
-										ConfigMapKeyRef: &core.ConfigMapKeySelector{
-											LocalObjectReference: core.LocalObjectReference{
-												Name: "rekor-config",
-											},
-											Key: "treeID",
-										},
-									},
-								},
-							},
 							Image: constants.RekorServerImage,
 							Ports: []core.ContainerPort{
 								{
@@ -118,7 +95,7 @@ func CreateRekorDeployment(namespace string, dpName string, pvc string) *apps.De
 								"--rekor_server.address=0.0.0.0",
 								"--rekor_server.signer=/key/private",
 								"--enable_retrieve_api=true",
-								"--trillian_log_server.tlog_id=$(TREE_ID)",
+								fmt.Sprintf("--trillian_log_server.tlog_id=%d", treeID),
 								"--enable_attestation_storage",
 								"--attestation_storage_bucket=file:///var/run/attestations",
 							},

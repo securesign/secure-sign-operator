@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -50,9 +51,9 @@ type CTlogReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
 
 	var instance rhtasv1alpha1.CTlog
+	log := log.FromContext(ctx)
 
 	if err := r.Client.Get(ctx, req.NamespacedName, &instance); err != nil {
 		if errors.IsNotFound(err) {
@@ -66,12 +67,14 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 	target := instance.DeepCopy()
 	actions := []Action{
-		NewInitializeAction(),
+		NewPendingAction(),
+		NewCreateAction(),
 		NewWaitAction(),
 	}
 
 	for _, a := range actions {
 		a.InjectClient(r.Client)
+		a.InjectLogger(log)
 
 		if a.CanHandle(target) {
 			newTarget, err := a.Handle(ctx, target)
@@ -98,5 +101,7 @@ func (r *CTlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&rhtasv1alpha1.CTlog{}).
 		Owns(&v1.Deployment{}).
+		// TODO: we should not rely on ownership of securesign resource
+		Watches(&rhtasv1alpha1.Trillian{}, handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &rhtasv1alpha1.Securesign{})).
 		Complete(r)
 }

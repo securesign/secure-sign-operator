@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -52,6 +53,7 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// Fetch the Trillian instance
 	var instance rhtasv1alpha1.Trillian
+	log := ctrllog.FromContext(ctx)
 
 	if err := r.Client.Get(ctx, req.NamespacedName, &instance); err != nil {
 		if errors.IsNotFound(err) {
@@ -65,12 +67,14 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 	target := instance.DeepCopy()
 	actions := []Action{
+		NewCreateAction(),
 		NewInitializeAction(),
 		NewWaitAction(),
 	}
 
 	for _, a := range actions {
 		a.InjectClient(r.Client)
+		a.InjectLogger(log)
 
 		if a.CanHandle(target) {
 			newTarget, err := a.Handle(ctx, target)

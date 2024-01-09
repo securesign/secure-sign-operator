@@ -10,12 +10,12 @@ metadata:
   name: securesign-sample
 spec:
   rekor:
-    external: true
+    external: false
     keySecret: rekor-private-key
     rekorCert:
       create: true
   fulcio:
-    external: true
+    external: false
     keySecret: fulcio-secret-rh
     oidcIssuers:
       "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore":
