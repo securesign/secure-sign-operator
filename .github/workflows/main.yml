@@ -85,12 +85,12 @@ jobs:
 
       - name: Until shell script to wait for fulcio deployment to be created
         run: |
-          until [ ! -z "$(kubectl get deployment fulcio-server -n test 2>/dev/null)" ]
+          timeout 120s bash -c 'until [ ! -z "$(kubectl get deployment fulcio-server -n test 2>/dev/null)" ]
           do
             echo "Waiting for fulcio deployment to be created. Pods in test namespace:"
             kubectl get pods -n test
             sleep 3
-          done
+          done'
         shell: bash
 
       - name: Check the deployment of fulcio
