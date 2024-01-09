@@ -38,6 +38,7 @@ func (i pendingAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) 
 		return instance, err
 	}
 	if len(rekorList.Items) == 0 || rekorList.Items[0].Status.Phase != rhtasv1alpha1.PhaseReady {
+		i.Logger.V(1).Info("waiting for rekor")
 		return instance, nil
 	}
 

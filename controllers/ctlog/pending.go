@@ -35,6 +35,7 @@ func (i pendingAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog
 		return instance, err
 	}
 	if len(trillians.Items) == 0 || trillians.Items[0].Status.Phase != rhtasv1alpha1.PhaseReady {
+		i.Logger.V(1).Info("waiting for trillian")
 		return instance, nil
 	}
 
@@ -43,6 +44,7 @@ func (i pendingAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog
 		return instance, err
 	}
 	if len(fulcios.Items) == 0 || fulcios.Items[0].Status.Phase != rhtasv1alpha1.PhaseReady {
+		i.Logger.V(1).Info("waiting for fulcio")
 		return instance, nil
 	}
 

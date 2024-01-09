@@ -35,7 +35,6 @@ func (i createAction) CanHandle(ctlog *rhtasv1alpha1.CTlog) bool {
 }
 
 func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) (*rhtasv1alpha1.CTlog, error) {
-	//log := ctrllog.FromContext(ctx)
 	var err error
 	labels := utils.FilterCommonLabels(instance.Labels)
 	labels["app.kubernetes.io/component"] = ComponentName

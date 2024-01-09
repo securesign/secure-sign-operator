@@ -35,6 +35,7 @@ func (i pendingAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor
 		return instance, err
 	}
 	if len(list.Items) == 0 || list.Items[0].Status.Phase != rhtasv1alpha1.PhaseReady {
+		i.Logger.V(1).Info("waiting for trillian")
 		return instance, nil
 	}
 
