@@ -4,9 +4,7 @@ metadata:
   labels:
     app.kubernetes.io/name: securesign
     app.kubernetes.io/instance: securesign-sample
-    app.kubernetes.io/part-of: operator
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: operator
+    app.kubernetes.io/part-of: trusted-artifact-signer
   name: securesign-sample
 spec:
   rekor:

@@ -37,7 +37,7 @@ jobs:
           version: v0.20.0
           node_image: kindest/node:v1.26.6@sha256:6e2d8b28a5b601defe327b98bd1c2d1930b49e5d8c512e1895099e4504007adb
           cpu: 3
-          config: ./ci/config.yaml
+          config: ./ci/kind/config.yaml
 
       - name: Build and Deploy operator container
         run: make docker-build docker-push deploy
@@ -74,14 +74,14 @@ jobs:
       - name: Apply sample config
         run: |
           kubectl create ns test
-          kubectl -n test create secret generic fulcio-secret-rh --from-file=private=./ci/certs/file_ca_key.pem --from-file=public=./ci/certs/file_ca_pub.pem --from-file=cert=./ci/certs/fulcio-root.pem  --from-literal=password=secure
-          kubectl -n test create secret generic rekor-private-key --from-file=private=./ci/certs/rekor_key.pem
-          kubectl apply -f config/samples/rhtas_v1alpha1_securesign.yaml -n test
+          kubectl -n test create secret generic fulcio-secret-rh --from-file=private=./ci/kind/certs/file_ca_key.pem --from-file=public=./ci/kind/certs/file_ca_pub.pem --from-file=cert=./ci/kind/certs/fulcio-root.pem  --from-literal=password=secure
+          kubectl -n test create secret generic rekor-private-key --from-file=private=./ci/kind/certs/rekor_key.pem
+          kubectl apply -f ./ci/resources/securesign.yaml -n test
 
       - name: Apply sample config that generates certifcates
         run: |
           kubectl create ns create-cert
-          kubectl apply -f config/samples/rhtas_v1alpha1_securesign_cert_create.yaml -n create-cert
+          kubectl apply -f ./ci/resources/cert_create.yaml -n create-cert
 
       - name: Until shell script to wait for fulcio deployment to be created
         run: |
