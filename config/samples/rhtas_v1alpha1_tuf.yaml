@@ -2,11 +2,8 @@ apiVersion: rhtas.redhat.com/v1alpha1
 kind: Tuf
 metadata:
   labels:
-    app.kubernetes.io/name: tuf
-    app.kubernetes.io/instance: tuf-sample
-    app.kubernetes.io/part-of: operator
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: operator
+    app.kubernetes.io/name: securesign
+    app.kubernetes.io/instance: securesign-sample
+    app.kubernetes.io/part-of: trusted-artifact-signer
   name: tuf-sample
 spec:
-  # TODO(user): Add fields here
