@@ -15,6 +15,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// reference code https://github.com/sigstore/scaffolding/blob/main/cmd/trillian/createtree/main.go
 var (
 	treeState = trillian.TreeState_ACTIVE.String()
 	treeType  = trillian.TreeType_LOG.String()

@@ -28,6 +28,7 @@ import (
 	fulcioclient "github.com/sigstore/fulcio/pkg/api"
 )
 
+// reference code https://github.com/sigstore/scaffolding/blob/main/cmd/ctlog/createctconfig/main.go
 const (
 	bitSize = 4096
 
