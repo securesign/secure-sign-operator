@@ -149,15 +149,15 @@ jobs:
       - name: Check for the deployment of ctlog
         run: kubectl wait --for=condition=available deployment/ctlog --timeout=120s -n create-cert
 
-      - name: create the testpod
+      - name: create the trusted-artifact-signer-test-connection job
         run: kubectl apply -f hack/connection-verify.yaml -n test
 
-      - name: wait for the testpod to be ready
-        run: kubectl wait --for=condition=ready pod/trusted-artifact-signer-test-connection --timeout=120s -n test
+      - name: wait for the trusted-artifact-signer-test-connection job to complete
+        run: kubectl wait --for=condition=complete job/trusted-artifact-signer-test-connection -n test --timeout=120s
 
-      - name: wait for pod to exit cleanly
-        run: kubectl wait --for=condition=complete pod/trusted-artifact-signer-test-connection --timeout=120s -n test
-        
+      - name: kubectl logs for the trusted-artifact-signer-test-connection job
+        run: kubectl logs -n test job/trusted-artifact-signer-test-connection
+  
       - name: dump the logs of the operator
         run: kubectl logs -n operator-system deployment/operator-controller-manager
         if: always()
