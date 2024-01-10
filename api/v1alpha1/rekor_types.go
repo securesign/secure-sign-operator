@@ -15,6 +15,8 @@ type RekorSpec struct {
 	PvcName string `json:"pvcName,omitempty"`
 	// Certificate configuration
 	Certificate RekorCert `json:"certificate,omitempty"`
+	//Enable Service monitors for rekor
+	Monitoring bool `json:"monitoring,omitempty"`
 }
 
 type RekorCert struct {

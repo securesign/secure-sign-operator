@@ -12,6 +12,7 @@ spec:
     certificate:
       create: true
       secretName: rekor-cert
+    monitoring: false
   trillian:
     database:
       create: true
@@ -28,5 +29,6 @@ spec:
       organizationName: Red Hat
       organizationEmail: jdoe@redhat.com
       secretName: fulcio-cert
+    monitoring: false
   tuf:
     external: true

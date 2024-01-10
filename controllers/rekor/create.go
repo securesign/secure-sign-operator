@@ -5,18 +5,24 @@ import (
 	"fmt"
 	"github.com/securesign/operator/controllers/common/action"
 
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	k8sutils "github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/rekor/utils"
 	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const rekorDeploymentName = "rekor-server"
-const rekorRedisDeploymentName = "rekor-redis"
-const ComponentName = "rekor"
+const (
+	rekorDeploymentName      = "rekor-server"
+	rekorRedisDeploymentName = "rekor-redis"
+	ComponentName            = "rekor"
+	rekorMonitoringRoleName  = "prometheus-k8s-rekor"
+	rekorServiceMonitorName  = "rekor-metrics"
+)
 
 func NewCreateAction() action.Action[rhtasv1alpha1.Rekor] {
 	return &createAction{}
@@ -124,6 +130,79 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		instance.Status.Url = "https://" + route.Spec.Host
 	} else {
 		instance.Status.Url = fmt.Sprintf("http://%s.%s.svc", svc.Name, svc.Namespace)
+	}
+
+	if instance.Spec.Monitoring {
+
+		monitoringRoleLabels := k8sutils.FilterCommonLabels(instance.Labels)
+		monitoringRoleLabels["app.kubernetes.io/component"] = ComponentName
+		monitoringRoleLabels["app.kubernetes.io/name"] = rekorMonitoringRoleName
+		role := k8sutils.CreateRole(
+			instance.Namespace,
+			rekorMonitoringRoleName,
+			monitoringRoleLabels,
+			[]v1.PolicyRule{
+				{
+					APIGroups: []string{""},
+					Resources: []string{"services", "endpoints", "pods"},
+					Verbs:     []string{"get", "list", "watch"},
+				},
+			},
+		)
+		controllerutil.SetOwnerReference(instance, role, i.Client.Scheme())
+		if err = i.Client.Create(ctx, role); err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create rekor role: %w", err)
+		}
+
+		monitoringRoleBindingLabels := k8sutils.FilterCommonLabels(instance.Labels)
+		monitoringRoleBindingLabels["app.kubernetes.io/component"] = ComponentName
+		monitoringRoleBindingLabels["app.kubernetes.io/name"] = rekorMonitoringRoleName
+		roleBinding := k8sutils.CreateRoleBinding(
+			instance.Namespace,
+			rekorMonitoringRoleName,
+			monitoringRoleBindingLabels,
+			v1.RoleRef{
+				APIGroup: v1.SchemeGroupVersion.Group,
+				Kind:     "Role",
+				Name:     rekorMonitoringRoleName,
+			},
+			[]v1.Subject{
+				{Kind: "ServiceAccount", Name: "prometheus-k8s", Namespace: "openshift-monitoring"},
+			},
+		)
+		controllerutil.SetOwnerReference(instance, roleBinding, i.Client.Scheme())
+		if err = i.Client.Create(ctx, roleBinding); err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create rekor roleBinding: %w", err)
+		}
+
+		serviceMonitorLabels := k8sutils.FilterCommonLabels(instance.Labels)
+		serviceMonitorLabels["app.kubernetes.io/component"] = ComponentName
+		serviceMonitorLabels["app.kubernetes.io/name"] = rekorServiceMonitorName
+
+		serviceMonitorMatchLabels := k8sutils.FilterCommonLabels(instance.Labels)
+		serviceMonitorMatchLabels["app.kubernetes.io/component"] = ComponentName
+		serviceMonitorMatchLabels["app.kubernetes.io/name"] = rekorDeploymentName
+
+		serviceMonitor := k8sutils.CreateServiceMonitor(
+			instance.Namespace,
+			rekorServiceMonitorName,
+			serviceMonitorLabels,
+			[]monitoringv1.Endpoint{
+				{
+					Interval: monitoringv1.Duration("30s"),
+					Port:     "rekor-server",
+					Scheme:   "http",
+				},
+			},
+			serviceMonitorMatchLabels,
+		)
+
+		if err = i.Client.Create(ctx, serviceMonitor); err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create fulcio serviceMonitor: %w", err)
+		}
 	}
 
 	instance.Status.Phase = rhtasv1alpha1.PhaseInitialize

@@ -15,6 +15,8 @@ type FulcioSpec struct {
 	OidcIssuers map[string]OidcIssuer `json:"oidcIssuers"`
 	// Certificate configuration
 	Certificate FulcioCert `json:"certificate,omitempty"`
+	//Enable Service monitors for fulcio
+	Monitoring bool `json:"monitoring,omitempty"`
 }
 
 // FulcioCert defines fields for system-generated certificate

@@ -45,6 +45,12 @@ type FulcioReconciler struct {
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=fulcios/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=fulcios/finalizers,verbs=update
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=secrets,verbs=create;get;list;watch;update;patch;delete
+//+kubebuilder:rbac:groups=rhtas.redhat.com,resources=roles,verbs=create;get;list;watch;update;patch;delete
+//+kubebuilder:rbac:groups=rhtas.redhat.com,resources=rolebindings,verbs=create;get;list;watch;update;patch;delete
+//+kubebuilder:rbac:groups=rhtas.redhat.com,resources=servicemonitors,verbs=create;get;list;watch;update;patch;delete
+//+kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=create;get;list;watch;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=endpoints,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

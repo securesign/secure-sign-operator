@@ -17,6 +17,7 @@ spec:
     certificate:
       create: true
       secretName: rekor-private
+    monitoring: false
   fulcio:
     external: false
     oidcIssuers:
@@ -29,6 +30,7 @@ spec:
       organizationEmail: jdoe@redhat.com
       organizationName: Red Hat
       secretName: fulcio-cert
+    monitoring: false
   tuf:
     external: false
   ctlog:
