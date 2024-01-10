@@ -11,19 +11,20 @@ import (
 type FulcioSpec struct {
 	// Define whether you want to export service or not
 	External bool `json:"external,omitempty"`
-	// Enter secret name with your keys and certificate
-	KeySecret string `json:"keySecret,omitempty"`
 	// OIDC issuer configuration
 	OidcIssuers map[string]OidcIssuer `json:"oidcIssuers"`
-	// Certificate configuration if you want to generate one
-	FulcioCert FulcioCert `json:"fulcioCert,omitempty"`
+	// Certificate configuration
+	Certificate FulcioCert `json:"certificate,omitempty"`
 }
 
+// FulcioCert defines fields for system-generated certificate
 type FulcioCert struct {
-	Create            bool   `json:"create"`
+	Create bool `json:"create"`
+	// Enter secret name for your keys and certificate (will be generated in case of the `create=true`)
+	// Required fields are: public,private,cert,password
+	SecretName        string `json:"secretName"`
 	OrganizationName  string `json:"organizationName,omitempty"`  // +kubebuilder:validation:+optional
 	OrganizationEmail string `json:"organizationEmail,omitempty"` // +kubebuilder:validation:+optional
-	CertPassword      string `json:"certPassword,omitempty"`      // +kubebuilder:validation:+optional
 }
 
 type OidcIssuer struct {

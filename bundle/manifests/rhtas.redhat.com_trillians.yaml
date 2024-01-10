@@ -19,6 +19,10 @@ spec:
       jsonPath: .status.phase
       name: Phase
       type: string
+    - description: The component url
+      jsonPath: .status.url
+      name: URL
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -47,14 +51,23 @@ spec:
                       DB
                     type: string
                 type: object
+              external:
+                type: boolean
             type: object
           status:
             description: TrillianStatus defines the observed state of Trillian
             properties:
               phase:
                 type: string
+              treeID:
+                format: int64
+                type: integer
+              url:
+                type: string
             required:
             - phase
+            - treeID
+            - url
             type: object
         type: object
     served: true

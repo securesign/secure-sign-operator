@@ -9,9 +9,9 @@ metadata:
 spec:
   rekor:
     external: true
-    keySecret: rekor-private-key
-    rekorCert:
+    certificate:
       create: true
+      secretName: rekor-cert
   fulcio:
     external: true
     keySecret: fulcio-secret-rh
@@ -20,7 +20,10 @@ spec:
         ClientID: "trusted-artifact-signer"
         IssuerURL: "https://your-oidc-issuer-url"
         Type: "email"
-    fulcioCert:
+    certificate:
       create: true
+      organizationName: Red Hat
+      organizationEmail: jdoe@redhat.com
+      secretName: fulcio-cert
   tuf:
     external: true

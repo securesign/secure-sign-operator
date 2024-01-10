@@ -45,18 +45,13 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 	rekorServerLabels["app.kubernetes.io/component"] = ComponentName
 	rekorServerLabels["app.kubernetes.io/name"] = rekorDeploymentName
 
-	if instance.Spec.KeySecret == "" {
-		instance.Spec.KeySecret = "rekor-private-key"
-	}
-
-	if instance.Spec.RekorCert.Create {
-
+	if instance.Spec.Certificate.Create {
 		certConfig, err := utils.CreateRekorKey()
 		if err != nil {
 			return instance, err
 		}
 
-		secret := k8sutils.CreateSecret(instance.Spec.KeySecret, instance.Namespace, map[string][]byte{"private": certConfig.RekorKey}, rekorServerLabels)
+		secret := k8sutils.CreateSecret(instance.Spec.Certificate.SecretName, instance.Namespace, map[string][]byte{"private": certConfig.RekorKey}, rekorServerLabels)
 		controllerutil.SetOwnerReference(instance, secret, i.Client.Scheme())
 		if err = i.Client.Create(ctx, secret); err != nil {
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
@@ -90,7 +85,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		return instance, fmt.Errorf("could not find trillian TreeID: %w", err)
 	}
 
-	dp := utils.CreateRekorDeployment(instance.Namespace, rekorDeploymentName, trillians.Items[0].Status.TreeID, rekorPvcName, rekorServerLabels)
+	dp := utils.CreateRekorDeployment(instance.Namespace, rekorDeploymentName, trillians.Items[0].Status.TreeID, rekorPvcName, instance.Spec.Certificate.SecretName, rekorServerLabels)
 	controllerutil.SetControllerReference(instance, dp, i.Client.Scheme())
 	if err = i.Client.Create(ctx, dp); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError

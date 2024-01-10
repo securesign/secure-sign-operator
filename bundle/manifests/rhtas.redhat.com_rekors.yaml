@@ -43,23 +43,27 @@ spec:
           spec:
             description: RekorSpec defines the desired state of Rekor
             properties:
+              certificate:
+                description: Certificate configuration
+                properties:
+                  create:
+                    description: Generate certificate
+                    type: boolean
+                  secretName:
+                    description: 'Enter secret name for your keys and certificate
+                      (will be generated in case of `create=true`) Required fields:
+                      private'
+                    type: string
+                required:
+                - create
+                - secretName
+                type: object
               external:
                 description: Define whether you want to export service or not
                 type: boolean
-              keySecret:
-                description: Enter secret name with your keys and certificate
-                type: string
               pvcName:
                 description: Persistent volume claim name to bound with Rekor component
                 type: string
-              rekorCert:
-                description: Certificate configuration if you want to generate one
-                properties:
-                  create:
-                    type: boolean
-                required:
-                - create
-                type: object
             type: object
           status:
             description: RekorStatus defines the observed state of Rekor

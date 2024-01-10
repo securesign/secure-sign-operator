@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func CreateDeployment(namespace string, deploymentName string, labels map[string]string) *appsv1.Deployment {
+func CreateDeployment(namespace string, deploymentName string, certSecret string, labels map[string]string) *appsv1.Deployment {
 	replicas := int32(1)
 	mode := int32(0666)
 
@@ -55,7 +55,7 @@ func CreateDeployment(namespace string, deploymentName string, labels map[string
 										SecretKeyRef: &corev1.SecretKeySelector{
 											Key: "password",
 											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "fulcio-secret-rh",
+												Name: certSecret,
 											},
 										},
 									},
@@ -149,7 +149,7 @@ func CreateDeployment(namespace string, deploymentName string, labels map[string
 							Name: "fulcio-cert",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName: "fulcio-secret-rh",
+									SecretName: certSecret,
 									Items: []corev1.KeyToPath{
 										{
 											Key:  "private",

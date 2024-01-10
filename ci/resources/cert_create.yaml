@@ -26,8 +26,6 @@ spec:
       create: true
       organizationName: myOrg
       organizationEmail: myEmail
-      certPassword: secure
-
   trillian:
   tuf:
     external: true

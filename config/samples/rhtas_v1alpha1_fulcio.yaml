@@ -7,11 +7,15 @@ metadata:
     app.kubernetes.io/part-of: trusted-artifact-signer
   name: fulcio-sample
 spec:
-  fulcio:
-    external: true
-    keySecret: fulcio-secret-rh
-    oidcIssuers:
-      "https://your-oidc-issuer-url":
-        ClientID: "trusted-artifact-signer"
-        IssuerURL: "https://your-oidc-issuer-url"
-        Type: "email"
+  external: true
+  keySecret: fulcio-secret-rh
+  oidcIssuers:
+    "https://your-oidc-issuer-url":
+      ClientID: "trusted-artifact-signer"
+      IssuerURL: "https://your-oidc-issuer-url"
+      Type: "email"
+  certificate:
+    create: true
+    organizationName: Red Hat
+    organizationEmail: jdoe@redhat.com
+    secretName: fulcio-cert

@@ -44,26 +44,27 @@ spec:
           spec:
             description: FulcioSpec defines the desired state of Fulcio
             properties:
-              external:
-                description: Define whether you want to export service or not
-                type: boolean
-              fulcioCert:
-                description: Certificate configuration if you want to generate one
+              certificate:
+                description: Certificate configuration
                 properties:
-                  certPassword:
-                    type: string
                   create:
                     type: boolean
                   organizationEmail:
                     type: string
                   organizationName:
                     type: string
+                  secretName:
+                    description: 'Enter secret name for your keys and certificate
+                      (will be generated in case of the `create=true`) Required fields
+                      are: public,private,cert,password'
+                    type: string
                 required:
                 - create
+                - secretName
                 type: object
-              keySecret:
-                description: Enter secret name with your keys and certificate
-                type: string
+              external:
+                description: Define whether you want to export service or not
+                type: boolean
               oidcIssuers:
                 additionalProperties:
                   properties:

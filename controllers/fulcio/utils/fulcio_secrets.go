@@ -12,6 +12,7 @@ import (
 	"time"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/controllers/common"
 )
 
 type FulcioCertConfig struct {
@@ -23,12 +24,13 @@ type FulcioCertConfig struct {
 
 func SetupCerts(instance *rhtasv1alpha1.Fulcio) (*FulcioCertConfig, error) {
 	fulcioConfig := &FulcioCertConfig{}
+	fulcioConfig.CertPassword = common.GeneratePassword(8)
 	cakey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, err
 	}
 
-	fulcioPrivateKey, err := createCAKey(cakey, instance)
+	fulcioPrivateKey, err := createCAKey(cakey, fulcioConfig.CertPassword)
 	if err != nil {
 		return nil, err
 	}
@@ -45,18 +47,17 @@ func SetupCerts(instance *rhtasv1alpha1.Fulcio) (*FulcioCertConfig, error) {
 		return nil, err
 	}
 	fulcioConfig.FulcioRootCert = fulcioRootCert
-	fulcioConfig.CertPassword = []byte(instance.Spec.FulcioCert.CertPassword)
 
 	return fulcioConfig, nil
 }
 
-func createCAKey(key *ecdsa.PrivateKey, instance *rhtasv1alpha1.Fulcio) ([]byte, error) {
+func createCAKey(key *ecdsa.PrivateKey, password []byte) ([]byte, error) {
 	mKey, err := x509.MarshalECPrivateKey(key)
 	if err != nil {
 		return nil, err
 	}
 
-	block, err := x509.EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", mKey, []byte(instance.Spec.FulcioCert.CertPassword), x509.PEMCipherAES256)
+	block, err := x509.EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", mKey, []byte(password), x509.PEMCipherAES256)
 	if err != nil {
 		return nil, err
 	}
@@ -93,13 +94,13 @@ func createFulcioCA(key *ecdsa.PrivateKey, instance *rhtasv1alpha1.Fulcio) ([]by
 
 	issuer := pkix.Name{
 		CommonName:   "commonName",
-		Organization: []string{instance.Spec.FulcioCert.OrganizationName},
+		Organization: []string{instance.Spec.Certificate.OrganizationName},
 	}
 
 	template := x509.Certificate{
 		SerialNumber:          big.NewInt(0),
 		Subject:               issuer,
-		EmailAddresses:        []string{instance.Spec.FulcioCert.OrganizationEmail},
+		EmailAddresses:        []string{instance.Spec.Certificate.OrganizationEmail},
 		SignatureAlgorithm:    x509.ECDSAWithSHA256,
 		BasicConstraintsValid: true,
 		IsCA:                  true,
