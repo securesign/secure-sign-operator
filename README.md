@@ -41,6 +41,25 @@ UnDeploy the controller from the cluster:
 make undeploy
 ```
 
+### Local Development
+As a prerequisite you need to enable HTTP/2 on a single Ingress Controller. To enable HTTP/2 on an Ingress Controller, enter the oc annotate command:
+
+```
+$  oc -n openshift-ingress-operator annotate ingresscontrollers/<ingresscontroller_name> ingress.operator.openshift.io/default-enable-http2=true
+```
+Replace <ingresscontroller_name> with the name of the Ingress Controller to annotate.
+
+#### Install the CRDs into the cluster:
+```
+make install
+````
+
+Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
+```
+make run
+```
+NOTE: You can also run this in one step by running: make install run
+
 ## Contributing
 // TODO(user): Add detailed information on how you would like others to contribute to this project
 
@@ -58,7 +77,6 @@ make install
 ```
 
 2. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
-
 ```sh
 make run
 ```

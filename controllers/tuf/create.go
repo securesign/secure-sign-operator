@@ -6,49 +6,48 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common"
-	"github.com/securesign/operator/controllers/common/utils"
+	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	tufutils "github.com/securesign/operator/controllers/tuf/utils"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const tufDeploymentName = "tuf"
+const (
+	tufDeploymentName = "tuf"
+	ComponentName     = "tuf"
+)
 
-func NewInitializeAction() Action {
-	return &initializeAction{}
+func NewCreateAction() Action {
+	return &createAction{}
 }
 
-type initializeAction struct {
+type createAction struct {
 	common.BaseAction
 }
 
-func (i initializeAction) Name() string {
-	return "initialize"
+func (i createAction) Name() string {
+	return "create"
 }
 
-func (i initializeAction) CanHandle(tuf *rhtasv1alpha1.Tuf) bool {
-	return tuf.Status.Phase == rhtasv1alpha1.PhaseInitialization
+func (i createAction) CanHandle(tuf *rhtasv1alpha1.Tuf) bool {
+	return tuf.Status.Phase == rhtasv1alpha1.PhaseCreating
 }
 
-func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) (*rhtasv1alpha1.Tuf, error) {
+func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) (*rhtasv1alpha1.Tuf, error) {
 	//log := ctrllog.FromContext(ctx)
 
 	var err error
+	labels := kubernetes.FilterCommonLabels(instance.Labels)
+	labels["app.kubernetes.io/component"] = ComponentName
+	labels["app.kubernetes.io/name"] = tufDeploymentName
 
-	// TODO: migrate code to the operator
-	copyJob := tufutils.InitTufCopyJob(instance.Namespace, "tuf-secret-copy-job")
-	if err = i.Client.Create(ctx, copyJob); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create copy job: %w", err)
-	}
-
-	db := tufutils.CreateTufDeployment(instance.Namespace, tufDeploymentName)
+	db := tufutils.CreateTufDeployment(instance.Namespace, tufDeploymentName, labels)
 	controllerutil.SetControllerReference(instance, db, i.Client.Scheme())
 	if err = i.Client.Create(ctx, db); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create TUF: %w", err)
 	}
 
-	svc := utils.CreateService(instance.Namespace, "tuf", "tuf", "tuf", 8080)
+	svc := kubernetes.CreateService(instance.Namespace, "tuf", 8080, labels)
 	//patch the pregenerated service
 	svc.Spec.Ports[0].Port = 80
 	controllerutil.SetControllerReference(instance, svc, i.Client.Scheme())
@@ -59,7 +58,8 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tu
 
 	if instance.Spec.External {
 		// TODO: do we need to support ingress?
-		route := utils.CreateRoute(*svc, "tuf")
+		route := kubernetes.CreateRoute(*svc, "tuf", labels)
+		controllerutil.SetControllerReference(instance, route, i.Client.Scheme())
 		if err = i.Client.Create(ctx, route); err != nil {
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
 			return instance, fmt.Errorf("could not create route: %w", err)
@@ -69,6 +69,6 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tu
 		instance.Status.Url = fmt.Sprintf("http://%s.%s.svc", svc.Name, svc.Namespace)
 	}
 
-	instance.Status.Phase = rhtasv1alpha1.PhaseInitialization
+	instance.Status.Phase = rhtasv1alpha1.PhaseInitialize
 	return instance, nil
 }
