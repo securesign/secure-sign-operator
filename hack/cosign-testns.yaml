@@ -24,7 +24,7 @@ spec:
               runAsUser: 1000
         containers:
           - name: cosign
-            image: registry.redhat.io/rhtas-tech-preview/cosign-rhel9:sha256:f4c2cec3fc1e24bbe094b511f6fe2fe3c6fa972da0edacaf6ac5672f06253a3e
+            image: registry.redhat.io/rhtas-tech-preview/cosign-rhel9@sha256:f4c2cec3fc1e24bbe094b511f6fe2fe3c6fa972da0edacaf6ac5672f06253a3e
             env:
             - name: OIDC_AUTHENTICATION_REALM
               value: "sigstore"
