@@ -154,9 +154,6 @@ jobs:
 
       - name: wait for the trusted-artifact-signer-test-connection job to complete
         run: kubectl wait --for=condition=complete job/trusted-artifact-signer-test-connection -n test --timeout=120s
-
-      - name: kubectl logs for the trusted-artifact-signer-test-connection job
-        run: kubectl logs -n test job/trusted-artifact-signer-test-connection
   
       - name: dump the logs of the operator
         run: kubectl logs -n operator-system deployment/operator-controller-manager
@@ -165,5 +162,6 @@ jobs:
       - name: dump all deployments
         run: |
           kubectl get deployments -A
+          kubectl get svc -A
           kubectl get rekor,fulcio,tuf,ctlog,trillian -A
         if: always()
