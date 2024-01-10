@@ -1,0 +1,12 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: trusted-artifact-signer-test-connection
+  labels:
+    app.kubernetes.io/component: trusted-artifact-signer
+  annotations:
+      helm.sh/hook: test
+spec:
+  template:
+    spec:
+      containers:
