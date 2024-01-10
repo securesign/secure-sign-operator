@@ -1,18 +1,17 @@
----
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   creationTimestamp: null
-  name: ctlogs.rhtas.redhat.com
+  name: tufs.rhtas.redhat.com
 spec:
   group: rhtas.redhat.com
   names:
-    kind: CTlog
-    listKind: CTlogList
-    plural: ctlogs
-    singular: ctlog
+    kind: Tuf
+    listKind: TufList
+    plural: tufs
+    singular: tuf
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -20,10 +19,14 @@ spec:
       jsonPath: .status.phase
       name: Phase
       type: string
+    - description: The component url
+      jsonPath: .status.url
+      name: URL
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: CTlog is the Schema for the ctlogs API
+        description: Tuf is the Schema for the tufs API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -38,12 +41,18 @@ spec:
           metadata:
             type: object
           spec:
-            description: CTlogSpec defines the desired state of CTlog component
+            description: TufSpec defines the desired state of Tuf
+            properties:
+              external:
+                description: Define whether you want to export service or not
+                type: boolean
             type: object
           status:
-            description: CTlogStatus defines the observed state of CTlog component
+            description: TufStatus defines the observed state of Tuf
             properties:
               phase:
+                type: string
+              url:
                 type: string
             required:
             - phase
@@ -53,3 +62,9 @@ spec:
     storage: true
     subresources:
       status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: null
+  storedVersions: null

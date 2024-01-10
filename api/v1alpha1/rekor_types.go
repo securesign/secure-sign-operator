@@ -9,9 +9,13 @@ import (
 
 // RekorSpec defines the desired state of Rekor
 type RekorSpec struct {
-	External  bool      `json:"external,omitempty"`
-	KeySecret string    `json:"keySecret,omitempty"`
-	PvcName   string    `json:"pvcName,omitempty"`
+	// Define whether you want to export service or not
+	External bool `json:"external,omitempty"`
+	// Enter secret name with your keys and certificate
+	KeySecret string `json:"keySecret,omitempty"`
+	// Persistent volume claim name to bound with Rekor component
+	PvcName string `json:"pvcName,omitempty"`
+	// Certificate configuration if you want to generate one
 	RekorCert RekorCert `json:"rekorCert,omitempty"`
 }
 

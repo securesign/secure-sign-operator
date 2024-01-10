@@ -9,6 +9,7 @@ import (
 
 // TufSpec defines the desired state of Tuf
 type TufSpec struct {
+	// Define whether you want to export service or not
 	External bool `json:"external,omitempty"`
 }
 

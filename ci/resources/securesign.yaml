@@ -1,0 +1,31 @@
+apiVersion: rhtas.redhat.com/v1alpha1
+kind: Securesign
+metadata:
+  labels:
+    app.kubernetes.io/name: securesign
+    app.kubernetes.io/instance: securesign-sample
+    app.kubernetes.io/part-of: operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: operator
+  name: securesign-sample
+spec:
+  rekor:
+    external: true
+    keySecret: rekor-private-key
+    rekorCert:
+      create: false
+  fulcio:
+    external: true
+    keySecret: fulcio-secret-rh
+    oidcIssuers:
+      "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore":
+        ClientID: "sigstore"
+        IssuerURL: "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore"
+        Type: "email"
+    fulcioCert:
+      create: false
+
+  trillian:
+  tuf:
+    external: true
+  ctlog:

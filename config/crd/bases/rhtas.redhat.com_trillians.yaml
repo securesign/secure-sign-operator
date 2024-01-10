@@ -44,12 +44,16 @@ spec:
           spec:
             description: TrillianSpec defines the desired state of Trillian
             properties:
+              database:
+                description: Define your database connection
+                properties:
+                  pvcName:
+                    description: Persistent volume claim name to bound with Trillian
+                      DB
+                    type: string
+                type: object
               external:
                 type: boolean
-              pvcName:
-                description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-                  Important: Run "make" to regenerate code after modifying this file'
-                type: string
             type: object
           status:
             description: TrillianStatus defines the observed state of Trillian

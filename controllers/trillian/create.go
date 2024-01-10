@@ -64,7 +64,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	}
 
 	var trillPVC string
-	if instance.Spec.PvcName == "" {
+	if instance.Spec.Db.PvcName == "" {
 		pvc := kubernetes.CreatePVC(instance.Namespace, "trillian-mysql", "5Gi")
 		controllerutil.SetControllerReference(instance, pvc, i.Client.Scheme())
 		if err = i.Client.Create(ctx, pvc); err != nil {
@@ -73,7 +73,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		}
 		trillPVC = pvc.Name
 	} else {
-		trillPVC = instance.Spec.PvcName
+		trillPVC = instance.Spec.Db.PvcName
 	}
 
 	db := trillianUtils.CreateTrillDb(instance.Namespace, constants.TrillianDbImage, dbDeploymentName, trillPVC, dbSecret.Name, dbLabels)

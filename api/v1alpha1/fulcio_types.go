@@ -9,10 +9,14 @@ import (
 
 // FulcioSpec defines the desired state of Fulcio
 type FulcioSpec struct {
-	External    bool                  `json:"external,omitempty"`
-	KeySecret   string                `json:"keySecret,omitempty"`
-	OidcIssuers map[string]OidcIssuer `json:"oidcIssuers,omitempty"`
-	FulcioCert  FulcioCert            `json:"fulcioCert,omitempty"`
+	// Define whether you want to export service or not
+	External bool `json:"external,omitempty"`
+	// Enter secret name with your keys and certificate
+	KeySecret string `json:"keySecret,omitempty"`
+	// OIDC issuer configuration
+	OidcIssuers map[string]OidcIssuer `json:"oidcIssuers"`
+	// Certificate configuration if you want to generate one
+	FulcioCert FulcioCert `json:"fulcioCert,omitempty"`
 }
 
 type FulcioCert struct {

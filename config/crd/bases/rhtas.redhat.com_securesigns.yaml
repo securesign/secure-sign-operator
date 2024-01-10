@@ -36,14 +36,17 @@ spec:
             description: SecuresignSpec defines the desired state of Securesign
             properties:
               ctlog:
-                description: CTlogSpec defines the desired state of CTlog
+                description: CTlogSpec defines the desired state of CTlog component
                 type: object
               fulcio:
                 description: FulcioSpec defines the desired state of Fulcio
                 properties:
                   external:
+                    description: Define whether you want to export service or not
                     type: boolean
                   fulcioCert:
+                    description: Certificate configuration if you want to generate
+                      one
                     properties:
                       certPassword:
                         type: string
@@ -57,6 +60,7 @@ spec:
                     - create
                     type: object
                   keySecret:
+                    description: Enter secret name with your keys and certificate
                     type: string
                   oidcIssuers:
                     additionalProperties:
@@ -72,19 +76,27 @@ spec:
                       - IssuerURL
                       - Type
                       type: object
+                    description: OIDC issuer configuration
                     type: object
+                required:
+                - oidcIssuers
                 type: object
               rekor:
-                description: Foo is an example field of Securesign. Edit securesign_types.go
-                  to remove/update
+                description: RekorSpec defines the desired state of Rekor
                 properties:
                   external:
+                    description: Define whether you want to export service or not
                     type: boolean
                   keySecret:
+                    description: Enter secret name with your keys and certificate
                     type: string
                   pvcName:
+                    description: Persistent volume claim name to bound with Rekor
+                      component
                     type: string
                   rekorCert:
+                    description: Certificate configuration if you want to generate
+                      one
                     properties:
                       create:
                         type: boolean
@@ -95,18 +107,22 @@ spec:
               trillian:
                 description: TrillianSpec defines the desired state of Trillian
                 properties:
+                  database:
+                    description: Define your database connection
+                    properties:
+                      pvcName:
+                        description: Persistent volume claim name to bound with Trillian
+                          DB
+                        type: string
+                    type: object
                   external:
                     type: boolean
-                  pvcName:
-                    description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of
-                      cluster Important: Run "make" to regenerate code after modifying
-                      this file'
-                    type: string
                 type: object
               tuf:
                 description: TufSpec defines the desired state of Tuf
                 properties:
                   external:
+                    description: Define whether you want to export service or not
                     type: boolean
                 type: object
             type: object

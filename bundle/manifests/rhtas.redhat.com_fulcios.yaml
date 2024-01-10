@@ -1,18 +1,17 @@
----
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   creationTimestamp: null
-  name: rekors.rhtas.redhat.com
+  name: fulcios.rhtas.redhat.com
 spec:
   group: rhtas.redhat.com
   names:
-    kind: Rekor
-    listKind: RekorList
-    plural: rekors
-    singular: rekor
+    kind: Fulcio
+    listKind: FulcioList
+    plural: fulcios
+    singular: fulcio
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -27,7 +26,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Rekor is the Schema for the rekors API
+        description: Fulcio is the Schema for the fulcios API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -42,28 +41,49 @@ spec:
           metadata:
             type: object
           spec:
-            description: RekorSpec defines the desired state of Rekor
+            description: FulcioSpec defines the desired state of Fulcio
             properties:
               external:
                 description: Define whether you want to export service or not
                 type: boolean
-              keySecret:
-                description: Enter secret name with your keys and certificate
-                type: string
-              pvcName:
-                description: Persistent volume claim name to bound with Rekor component
-                type: string
-              rekorCert:
+              fulcioCert:
                 description: Certificate configuration if you want to generate one
                 properties:
+                  certPassword:
+                    type: string
                   create:
                     type: boolean
+                  organizationEmail:
+                    type: string
+                  organizationName:
+                    type: string
                 required:
                 - create
                 type: object
+              keySecret:
+                description: Enter secret name with your keys and certificate
+                type: string
+              oidcIssuers:
+                additionalProperties:
+                  properties:
+                    ClientID:
+                      type: string
+                    IssuerURL:
+                      type: string
+                    Type:
+                      type: string
+                  required:
+                  - ClientID
+                  - IssuerURL
+                  - Type
+                  type: object
+                description: OIDC issuer configuration
+                type: object
+            required:
+            - oidcIssuers
             type: object
           status:
-            description: RekorStatus defines the observed state of Rekor
+            description: FulcioStatus defines the observed state of Fulcio
             properties:
               phase:
                 type: string
@@ -75,3 +95,9 @@ spec:
     storage: true
     subresources:
       status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: null
+  storedVersions: null

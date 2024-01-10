@@ -22,7 +22,7 @@ type initializeAction struct {
 }
 
 func (i initializeAction) Name() string {
-	return "create"
+	return "initialize"
 }
 
 func (i initializeAction) CanHandle(trillian *rhtasv1alpha1.Trillian) bool {
