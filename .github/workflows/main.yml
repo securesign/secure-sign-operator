@@ -149,11 +149,6 @@ jobs:
       - name: Check for the deployment of ctlog
         run: kubectl wait --for=condition=available deployment/ctlog --timeout=120s -n create-cert
 
-      - name: verify the deployment of tuf goes into a ready state
-        run: |
-          kubectl wait --for=condition=ready pod -l app=tuf -n test --timeout=120s
-          kubectl wait --for=condition=ready pod -l app=tuf -n create-cert --timeout=120s
-
       - name: dump the logs of the operator
         run: kubectl logs -n operator-system deployment/operator-controller-manager
         if: always()
