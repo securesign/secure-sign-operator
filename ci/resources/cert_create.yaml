@@ -9,6 +9,10 @@ metadata:
     app.kubernetes.io/created-by: operator
   name: securesign-sample
 spec:
+  trillian:
+    external: false
+    db:
+      createDatabase: true
   rekor:
     external: false
     certificate:

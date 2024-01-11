@@ -12,6 +12,10 @@ spec:
     certificate:
       create: true
       secretName: rekor-cert
+  trillian:
+    external: false
+    db:
+      createDatabase: true
   fulcio:
     external: true
     keySecret: fulcio-secret-rh

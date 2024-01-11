@@ -134,7 +134,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-01-11T16:05:49Z"
+    createdAt: "2024-01-11T23:50:50Z"
     operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: operator.v0.0.1
@@ -600,7 +600,7 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
-                image: quay.io/jbouska/securesign-controller:latest
+                image: quay.io/rcook/securesign-controller:latest
                 livenessProbe:
                   httpGet:
                     path: /healthz
