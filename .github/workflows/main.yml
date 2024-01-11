@@ -161,6 +161,12 @@ jobs:
       - name: wait for the cosign verify job to complete
         run: kubectl wait --for=condition=complete job/cosign-verify -n test --timeout=200s
 
+      - name: create the cosign verify job
+        run: kubectl apply -f hack/cosign-createcertns.yaml -n create-cert
+
+      - name: wait for the cosign verify job to complete
+        run: kubectl wait --for=condition=complete job/cosign-verify -n create-cert --timeout=200s
+
       - name: dump the log of the cosign verify job
         run: kubectl logs -n test job/cosign-verify
         if: always()
