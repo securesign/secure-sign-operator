@@ -171,8 +171,12 @@ jobs:
         run: kubectl logs -n test job/cosign-verify
         if: always()
       
-      - name: try to find in the logs of the pod the error DELETE
+      - name: try to find in the logs of the pod
         run: kubectl logs -n test $(kubectl get pods -n test -o name | grep cosign-verify)
+        if: always()
+
+      - name: try to find in the logs of the pod
+        run: kubectl logs -n create-cert $(kubectl get pods -n create-cert -o name | grep cosign-verify)
         if: always()
 
       - name: dump the logs of the operator
