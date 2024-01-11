@@ -1,0 +1,45 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cosign-verify
+  labels:
+    app.kubernetes.io/component: trusted-artifact-signer
+  annotations:
+      helm.sh/hook: test
+spec:
+  template:
+    spec:
+        restartPolicy: Never
+        initContainers:
+        - name: buildah
+          image: quay.io/buildah/stable
+          command: ["/bin/sh", "-c"]
+          args:
+          - |
+              buildah pull alpine:latest
+              buildah tag alpine:latest ttl.sh/sigstore-test:5m
+              buildah push ttl.sh/sigstore-test:5m
+          securityContext:
+              privileged: true
+              runAsUser: 1000
+        containers:
+          - name: cosign
+            image: registry.redhat.io/rhtas-tech-preview/cosign-rhel9@sha256:f4c2cec3fc1e24bbe094b511f6fe2fe3c6fa972da0edacaf6ac5672f06253a3e
+            env:
+            - name: OIDC_AUTHENTICATION_REALM
+              value: "sigstore"
+            - name: FULCIO_URL
+              value: "http://fulcio-server.test.svc"
+            - name: OIDC_ISSUER_URL
+              value: "http://keycloak-internal.keycloak-system.svc/auth/realms/$(OIDC_AUTHENTICATION_REALM)"
+            - name: REKOR_URL
+              value: "http://rekor-server.test.svc"
+            - name: TUF_URL
+              value: "http://tuf.test.svc"
+            command: ["/bin/sh", "-c"]
+            args:
+              - |
+                cosign initialize --mirror=$TUF_URL --root=$TUF_URL/root.json
+                TOKEN=$(curl -X POST -H "Content-Type: application/x-www-form-urlencoded" -d "username=jdoe" -d "password=secure" -d "grant_type=password" -d "scope=openid" -d "client_id=sigstore" $OIDC_ISSUER_URL/protocol/openid-connect/token |  sed -E 's/.*"access_token":"([^"]*).*/\1/')
+                cosign sign -y --fulcio-url=$FULCIO_URL --rekor-url=$REKOR_URL --oidc-issuer=$OIDC_ISSUER_URL --identity-token=$TOKEN ttl.sh/sigstore-test:5m
+                cosign verify --rekor-url=$REKOR_URL --certificate-identity-regexp ".*@redhat" --certificate-oidc-issuer-regexp ".*keycloak.*" ttl.sh/sigstore-test:5m

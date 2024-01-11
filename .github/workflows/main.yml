@@ -149,6 +149,35 @@ jobs:
       - name: Check for the deployment of ctlog
         run: kubectl wait --for=condition=available deployment/ctlog --timeout=120s -n create-cert
 
+      - name: create the trusted-artifact-signer-test-connection job
+        run: kubectl apply -f hack/connection-verify.yaml -n test
+
+      - name: wait for the trusted-artifact-signer-test-connection job to complete
+        run: kubectl wait --for=condition=complete job/trusted-artifact-signer-test-connection -n test --timeout=120s
+
+      - name: create the cosign verify job
+        run: kubectl apply -f hack/cosign-testns.yaml -n test
+
+      - name: wait for the cosign verify job to complete
+        run: kubectl wait --for=condition=complete job/cosign-verify -n test --timeout=200s
+
+      - name: create the cosign verify job
+        run: kubectl apply -f hack/cosign-createcertns.yaml -n create-cert
+
+      - name: wait for the cosign verify job to complete
+        run: kubectl wait --for=condition=complete job/cosign-verify -n create-cert --timeout=200s
+
+      - name: dump the log of the cosign verify job
+        run: kubectl logs -n test job/cosign-verify
+        if: always()
+      
+      - name: try to find in the logs of the pod
+        run: kubectl logs -n test $(kubectl get pods -n test -o name | grep cosign-verify)
+        if: always()
+
+      - name: try to find in the logs of the pod
+        run: kubectl logs -n create-cert $(kubectl get pods -n create-cert -o name | grep cosign-verify)
+        if: always()
 
       - name: dump the logs of the operator
         run: kubectl logs -n operator-system deployment/operator-controller-manager
@@ -157,5 +186,6 @@ jobs:
       - name: dump all deployments
         run: |
           kubectl get deployments -A
+          kubectl get svc -A
           kubectl get rekor,fulcio,tuf,ctlog,trillian -A
         if: always()
