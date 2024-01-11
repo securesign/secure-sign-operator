@@ -43,15 +43,11 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	labels["app.kubernetes.io/component"] = ComponentName
 	labels["app.kubernetes.io/name"] = fulcioDeploymentName
 
-	if instance.Spec.KeySecret == "" {
-		instance.Spec.KeySecret = "fulcio-secret-rh"
-	}
+	if instance.Spec.Certificate.Create {
 
-	if instance.Spec.FulcioCert.Create {
-
-		if instance.Spec.FulcioCert.OrganizationName == "" || instance.Spec.FulcioCert.OrganizationEmail == "" || instance.Spec.FulcioCert.CertPassword == "" {
+		if instance.Spec.Certificate.OrganizationName == "" || instance.Spec.Certificate.OrganizationEmail == "" {
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
-			return instance, fmt.Errorf("could not create fulcio cert secret: missing OrganizationName, OrganizationEmail or CertPassword from config")
+			return instance, fmt.Errorf("could not create fulcio cert secret: missing OrganizationName, OrganizationEmail from config")
 		}
 
 		certConfig, err := utils.SetupCerts(instance)
@@ -59,7 +55,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 			return instance, err
 		}
 
-		secret := kubernetes.CreateSecret(instance.Spec.KeySecret, instance.Namespace, map[string][]byte{
+		secret := kubernetes.CreateSecret(instance.Spec.Certificate.SecretName, instance.Namespace, map[string][]byte{
 			"private":  certConfig.FulcioPrivateKey,
 			"public":   certConfig.FulcioPublicKey,
 			"cert":     certConfig.FulcioRootCert,
@@ -79,7 +75,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		return instance, fmt.Errorf("could not create fulcio secret: %w", err)
 	}
 
-	dp := utils.CreateDeployment(instance.Namespace, fulcioDeploymentName, labels)
+	dp := utils.CreateDeployment(instance.Namespace, fulcioDeploymentName, instance.Spec.Certificate.SecretName, labels)
 	controllerutil.SetControllerReference(instance, dp, i.Client.Scheme())
 	if err = i.Client.Create(ctx, dp); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
@@ -99,6 +95,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		Port:       80,
 		TargetPort: intstr.FromInt(5555),
 	})
+	controllerutil.SetControllerReference(instance, svc, i.Client.Scheme())
 	if err = i.Client.Create(ctx, svc); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create service: %w", err)

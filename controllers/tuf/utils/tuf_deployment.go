@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateTufDeployment(namespace string, dpName string, labels map[string]string) *apps.Deployment {
+func CreateTufDeployment(namespace string, dpName string, fulcioSecret string, rekorSecret string, labels map[string]string) *apps.Deployment {
 	replicas := int32(1)
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -48,7 +48,7 @@ func CreateTufDeployment(namespace string, dpName string, labels map[string]stri
 										{
 											Secret: &core.SecretProjection{
 												LocalObjectReference: core.LocalObjectReference{
-													Name: "fulcio-secret-rh",
+													Name: fulcioSecret,
 												},
 												Items: []core.KeyToPath{
 													{
@@ -61,7 +61,7 @@ func CreateTufDeployment(namespace string, dpName string, labels map[string]stri
 										{
 											Secret: &core.SecretProjection{
 												LocalObjectReference: core.LocalObjectReference{
-													Name: "rekor-public-key",
+													Name: rekorSecret,
 												},
 												Items: []core.KeyToPath{
 													{

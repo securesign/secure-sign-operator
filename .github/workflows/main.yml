@@ -76,12 +76,12 @@ jobs:
           kubectl create ns test
           kubectl -n test create secret generic fulcio-secret-rh --from-file=private=./ci/certs/file_ca_key.pem --from-file=public=./ci/certs/file_ca_pub.pem --from-file=cert=./ci/certs/fulcio-root.pem  --from-literal=password=secure
           kubectl -n test create secret generic rekor-private-key --from-file=private=./ci/certs/rekor_key.pem
-          kubectl apply -f config/samples/rhtas_v1alpha1_securesign.yaml -n test
+          kubectl apply -f ci/resources/securesign.yaml -n test
 
       - name: Apply sample config that generates certifcates
         run: |
           kubectl create ns create-cert
-          kubectl apply -f config/samples/rhtas_v1alpha1_securesign_cert_create.yaml -n create-cert
+          kubectl apply -f ci/resources/cert_create.yaml -n create-cert
 
         #Deployment is done in iterations TUF should be the last one
       - name: Until shell script to wait for tuf deployment to be created

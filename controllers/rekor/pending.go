@@ -6,7 +6,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
 )
 
 func NewPendingAction() Action {
@@ -30,26 +30,12 @@ func (i pendingAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor
 		instance.Status.Phase = rhtasv1alpha1.PhasePending
 	}
 
-	list, err := findTrillians(ctx, i.Client, *instance)
-	if err != nil {
-		return instance, err
-	}
-	if len(list.Items) == 0 || list.Items[0].Status.Phase != rhtasv1alpha1.PhaseReady {
-		i.Logger.V(1).Info("waiting for trillian")
+	trillian, err := trillianUtils.FindTrillian(ctx, i.Client, instance.Namespace, kubernetes.FilterCommonLabels(instance.Labels))
+	if err != nil || trillian.Status.Phase != rhtasv1alpha1.PhaseReady {
+		i.Logger.V(1).Info("Trillian is not ready")
 		return instance, nil
 	}
 
 	instance.Status.Phase = rhtasv1alpha1.PhaseCreating
 	return instance, err
-}
-
-func findTrillians(ctx context.Context, cli client.Client, instance rhtasv1alpha1.Rekor) (*rhtasv1alpha1.TrillianList, error) {
-	searchLabels := kubernetes.FilterCommonLabels(instance.Labels)
-
-	list := &rhtasv1alpha1.TrillianList{}
-	err := cli.List(ctx, list, client.InNamespace(instance.Namespace), client.MatchingLabels(searchLabels))
-	if err != nil {
-		return nil, err
-	}
-	return list, nil
 }

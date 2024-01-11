@@ -45,6 +45,7 @@ spec:
             description: TufSpec defines the desired state of Tuf
             properties:
               external:
+                description: Define whether you want to export service or not
                 type: boolean
             type: object
           status:

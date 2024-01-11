@@ -25,10 +25,6 @@ import (
 
 // SecuresignSpec defines the desired state of Securesign
 type SecuresignSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of Securesign. Edit securesign_types.go to remove/update
 	Rekor    RekorSpec    `json:"rekor,omitempty"`
 	Fulcio   FulcioSpec   `json:"fulcio,omitempty"`
 	Trillian TrillianSpec `json:"trillian,omitempty"`

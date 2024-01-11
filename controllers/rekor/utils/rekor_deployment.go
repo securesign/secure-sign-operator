@@ -9,7 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateRekorDeployment(namespace string, dpName string, treeID int64, pvc string, labels map[string]string) *apps.Deployment {
+func CreateRekorDeployment(namespace string, dpName string, treeID int64, pvc string, certSecret string, labels map[string]string) *apps.Deployment {
 	replicas := int32(1)
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -51,7 +51,7 @@ func CreateRekorDeployment(namespace string, dpName string, treeID int64, pvc st
 							Name: "rekor-private-key-volume",
 							VolumeSource: core.VolumeSource{
 								Secret: &core.SecretVolumeSource{
-									SecretName: "rekor-private-key",
+									SecretName: certSecret,
 									Items: []core.KeyToPath{
 										{
 											Key:  "private",

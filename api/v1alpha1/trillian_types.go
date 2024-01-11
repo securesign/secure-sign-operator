@@ -20,15 +20,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // TrillianSpec defines the desired state of Trillian
 type TrillianSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	PvcName  string `json:"pvcName,omitempty"`
-	External bool   `json:"external,omitempty"`
+	// Define your database connection
+	Db TrillianDB `json:"database,omitempty"`
+}
+
+type TrillianDB struct {
+	// Persistent volume claim name to bound with Trillian DB
+	PvcName string `json:"pvcName,omitempty"`
 }
 
 // TrillianStatus defines the observed state of Trillian

@@ -8,6 +8,8 @@ import (
 	"github.com/securesign/operator/controllers/common"
 	utils "github.com/securesign/operator/controllers/common/utils/kubernetes"
 	ctlogUtils "github.com/securesign/operator/controllers/ctlog/utils"
+	fulcioUtils "github.com/securesign/operator/controllers/fulcio/utils"
+	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -40,20 +42,19 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	labels["app.kubernetes.io/component"] = ComponentName
 	labels["app.kubernetes.io/name"] = deploymentName
 
-	trillians, err := findTrillians(ctx, i.Client, *instance)
-	if err != nil {
+	fulcio, err := fulcioUtils.FindFulcio(ctx, i.Client, instance.Namespace, utils.FilterCommonLabels(instance.Labels))
+	if err != nil || fulcio.Status.Phase != rhtasv1alpha1.PhaseReady {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not find trillian: %w", err)
+		return instance, fmt.Errorf("could not find Fulcio: %s", err)
 	}
-
-	fulcios, err := findFulcios(ctx, i.Client, *instance)
-	if err != nil {
+	trillian, err := trillianUtils.FindTrillian(ctx, i.Client, instance.Namespace, utils.FilterCommonLabels(instance.Labels))
+	if err != nil || trillian.Status.Phase != rhtasv1alpha1.PhaseReady {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not find fulcio: %w", err)
+		return instance, fmt.Errorf("can't find trillian: %s", err)
 	}
 
 	var config, pubKey *corev1.Secret
-	if config, pubKey, err = ctlogUtils.CreateCtlogConfig(ctx, i.Client, instance.Namespace, trillians.Items[0].Status.Url, trillians.Items[0].Status.TreeID, fulcios.Items[0].Status.Url, labels); err != nil {
+	if config, pubKey, err = ctlogUtils.CreateCtlogConfig(ctx, instance.Namespace, trillian.Status.Url, trillian.Status.TreeID, fulcio.Status.Url, labels); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create CTLog configuration: %w", err)
 	}

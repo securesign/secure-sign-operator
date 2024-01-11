@@ -38,10 +38,10 @@ spec:
           metadata:
             type: object
           spec:
-            description: CTlogSpec defines the desired state of CTlog
+            description: CTlogSpec defines the desired state of CTlog component
             type: object
           status:
-            description: CTlogStatus defines the observed state of CTlog
+            description: CTlogStatus defines the observed state of CTlog component
             properties:
               phase:
                 type: string

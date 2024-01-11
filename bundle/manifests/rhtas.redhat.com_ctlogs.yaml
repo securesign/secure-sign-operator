@@ -1,18 +1,17 @@
----
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   creationTimestamp: null
-  name: trillians.rhtas.redhat.com
+  name: ctlogs.rhtas.redhat.com
 spec:
   group: rhtas.redhat.com
   names:
-    kind: Trillian
-    listKind: TrillianList
-    plural: trillians
-    singular: trillian
+    kind: CTlog
+    listKind: CTlogList
+    plural: ctlogs
+    singular: ctlog
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -20,14 +19,10 @@ spec:
       jsonPath: .status.phase
       name: Phase
       type: string
-    - description: The component url
-      jsonPath: .status.url
-      name: URL
-      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Trillian is the Schema for the trillians API
+        description: CTlog is the Schema for the ctlogs API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -42,34 +37,24 @@ spec:
           metadata:
             type: object
           spec:
-            description: TrillianSpec defines the desired state of Trillian
-            properties:
-              database:
-                description: Define your database connection
-                properties:
-                  pvcName:
-                    description: Persistent volume claim name to bound with Trillian
-                      DB
-                    type: string
-                type: object
+            description: CTlogSpec defines the desired state of CTlog component
             type: object
           status:
-            description: TrillianStatus defines the observed state of Trillian
+            description: CTlogStatus defines the observed state of CTlog component
             properties:
               phase:
                 type: string
-              treeID:
-                format: int64
-                type: integer
-              url:
-                type: string
             required:
             - phase
-            - treeID
-            - url
             type: object
         type: object
     served: true
     storage: true
     subresources:
       status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: null
+  storedVersions: null

@@ -11,24 +11,22 @@ metadata:
 spec:
   rekor:
     external: false
-    keySecret: rekor-private-key
-    rekorCert:
+    certificate:
       create: true
+      secretName: rekor-private
   fulcio:
     external: false
-    keySecret: fulcio-secret-rh
     oidcIssuers:
       "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore":
         ClientID: "sigstore"
         IssuerURL: "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore"
         Type: "email"
-    fulcioCert:
+    certificate:
       create: true
-      organizationName: myOrg
-      organizationEmail: myEmail
-      certPassword: secure
-
+      organizationEmail: jdoe@redhat.com
+      organizationName: Red Hat
+      secretName: fulcio-cert
   trillian:
   tuf:
-    external: true
+    external: false
   ctlog:

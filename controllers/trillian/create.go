@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/uuid"
-	v1 "github.com/openshift/api/route/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
@@ -41,9 +39,7 @@ func (i createAction) CanHandle(trillian *rhtasv1alpha1.Trillian) bool {
 }
 
 func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) (*rhtasv1alpha1.Trillian, error) {
-	//log := ctrllog.FromContext(ctx)
 	var err error
-
 	dbLabels := kubernetes.FilterCommonLabels(instance.Labels)
 	dbLabels["app.kubernetes.io/component"] = ComponentName
 	dbLabels["app.kubernetes.io/name"] = dbDeploymentName
@@ -64,7 +60,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	}
 
 	var trillPVC string
-	if instance.Spec.PvcName == "" {
+	if instance.Spec.Db.PvcName == "" {
 		pvc := kubernetes.CreatePVC(instance.Namespace, "trillian-mysql", "5Gi")
 		controllerutil.SetControllerReference(instance, pvc, i.Client.Scheme())
 		if err = i.Client.Create(ctx, pvc); err != nil {
@@ -73,7 +69,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		}
 		trillPVC = pvc.Name
 	} else {
-		trillPVC = instance.Spec.PvcName
+		trillPVC = instance.Spec.Db.PvcName
 	}
 
 	db := trillianUtils.CreateTrillDb(instance.Namespace, constants.TrillianDbImage, dbDeploymentName, trillPVC, dbSecret.Name, dbLabels)
@@ -92,34 +88,17 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 
 	// Log Server
 	svcName := "trillian-logserver"
-	tlsSecretName := ""
 	serverPort := 8091
 
 	logserverService := kubernetes.CreateService(instance.Namespace, svcName, serverPort, logServerLabels)
-
-	if instance.Spec.External {
-		tlsSecretName = svcName + "-" + uuid.New().String()
-		// generate signed certificate
-		logserverService.Annotations = map[string]string{"service.beta.openshift.io/serving-cert-secret-name": tlsSecretName}
-
-		route := kubernetes.CreateRoute(*logserverService, svcName, logServerLabels)
-		route.Spec.TLS.Termination = v1.TLSTerminationReencrypt
-		controllerutil.SetControllerReference(instance, route, i.Client.Scheme())
-		if err = i.Client.Create(ctx, route); err != nil {
-			instance.Status.Phase = rhtasv1alpha1.PhaseError
-			return instance, fmt.Errorf("could not create route: %w", err)
-		}
-		instance.Status.Url = route.Spec.Host + ":443"
-	} else {
-		instance.Status.Url = fmt.Sprintf("%s.%s.svc:%d", logserverService.Name, logserverService.Namespace, serverPort)
-	}
 	controllerutil.SetControllerReference(instance, logserverService, i.Client.Scheme())
 	if err = i.Client.Create(ctx, logserverService); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create service: %w", err)
 	}
+	instance.Status.Url = fmt.Sprintf("%s.%s.svc:%d", logserverService.Name, logserverService.Namespace, serverPort)
 
-	server := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianServerImage, logserverDeploymentName, dbSecret.Name, tlsSecretName, logServerLabels)
+	server := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianServerImage, logserverDeploymentName, dbSecret.Name, logServerLabels)
 	controllerutil.SetControllerReference(instance, server, i.Client.Scheme())
 	server.Spec.Template.Spec.Containers[0].Ports = append(server.Spec.Template.Spec.Containers[0].Ports, corev1.ContainerPort{
 		Protocol:      corev1.ProtocolTCP,
@@ -131,7 +110,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	}
 
 	// Log Signer
-	signer := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianLogSignerImage, logsignerDeploymentName, dbSecret.Name, "", logSignerLabels)
+	signer := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianLogSignerImage, logsignerDeploymentName, dbSecret.Name, logSignerLabels)
 	controllerutil.SetControllerReference(instance, signer, i.Client.Scheme())
 	signer.Spec.Template.Spec.Containers[0].Args = append(signer.Spec.Template.Spec.Containers[0].Args, "--force_master=true")
 	if err = i.Client.Create(ctx, signer); err != nil {
