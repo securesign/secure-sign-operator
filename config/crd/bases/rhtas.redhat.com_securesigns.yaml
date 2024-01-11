@@ -95,6 +95,10 @@ spec:
               trillian:
                 description: TrillianSpec defines the desired state of Trillian
                 properties:
+                  createDatabase:
+                    type: boolean
+                  databaseSecret:
+                    type: string
                   external:
                     type: boolean
                   pvcName:

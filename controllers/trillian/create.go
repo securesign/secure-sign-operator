@@ -56,11 +56,17 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	logServerLabels["app.kubernetes.io/component"] = ComponentName
 	logServerLabels["app.kubernetes.io/name"] = logserverDeploymentName
 
-	dbSecret := i.createDbSecret(instance.Namespace, dbLabels)
-	controllerutil.SetControllerReference(instance, dbSecret, i.Client.Scheme())
-	if err = i.Client.Create(ctx, dbSecret); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create secret: %w", err)
+	var dbSecName string
+	if instance.Spec.DatabaseSecret == "" {
+		dbSecret := i.createDbSecret(instance.Namespace, dbLabels)
+		controllerutil.SetControllerReference(instance, dbSecret, i.Client.Scheme())
+		if err = i.Client.Create(ctx, dbSecret); err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create secret: %w", err)
+		}
+		dbSecName = dbSecret.Name
+	} else {
+		dbSecName = instance.Spec.DatabaseSecret
 	}
 
 	var trillPVC string
@@ -76,18 +82,20 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		trillPVC = instance.Spec.PvcName
 	}
 
-	db := trillianUtils.CreateTrillDb(instance.Namespace, constants.TrillianDbImage, dbDeploymentName, trillPVC, dbSecret.Name, dbLabels)
-	controllerutil.SetControllerReference(instance, db, i.Client.Scheme())
-	if err = i.Client.Create(ctx, db); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create trillian DB: %w", err)
-	}
+	if instance.Spec.CreateDatabase {
+		db := trillianUtils.CreateTrillDb(instance.Namespace, constants.TrillianDbImage, dbDeploymentName, trillPVC, dbSecName, dbLabels)
+		controllerutil.SetControllerReference(instance, db, i.Client.Scheme())
+		if err = i.Client.Create(ctx, db); err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create trillian DB: %w", err)
+		}
 
-	mysql := kubernetes.CreateService(instance.Namespace, "trillian-mysql", 3306, dbLabels)
-	controllerutil.SetControllerReference(instance, mysql, i.Client.Scheme())
-	if err = i.Client.Create(ctx, mysql); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create service: %w", err)
+		mysql := kubernetes.CreateService(instance.Namespace, "trillian-mysql", 3306, dbLabels)
+		controllerutil.SetControllerReference(instance, mysql, i.Client.Scheme())
+		if err = i.Client.Create(ctx, mysql); err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create service: %w", err)
+		}
 	}
 
 	// Log Server
@@ -119,7 +127,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		return instance, fmt.Errorf("could not create service: %w", err)
 	}
 
-	server := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianServerImage, logserverDeploymentName, dbSecret.Name, tlsSecretName, logServerLabels)
+	server := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianServerImage, logserverDeploymentName, dbSecName, tlsSecretName, logServerLabels)
 	controllerutil.SetControllerReference(instance, server, i.Client.Scheme())
 	server.Spec.Template.Spec.Containers[0].Ports = append(server.Spec.Template.Spec.Containers[0].Ports, corev1.ContainerPort{
 		Protocol:      corev1.ProtocolTCP,
@@ -131,7 +139,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	}
 
 	// Log Signer
-	signer := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianLogSignerImage, logsignerDeploymentName, dbSecret.Name, "", logSignerLabels)
+	signer := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianLogSignerImage, logsignerDeploymentName, dbSecName, "", logSignerLabels)
 	controllerutil.SetControllerReference(instance, signer, i.Client.Scheme())
 	signer.Spec.Template.Spec.Containers[0].Args = append(signer.Spec.Template.Spec.Containers[0].Args, "--force_master=true")
 	if err = i.Client.Create(ctx, signer); err != nil {

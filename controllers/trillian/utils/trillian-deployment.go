@@ -58,8 +58,15 @@ func CreateTrillDeployment(namespace string, image string, dpName string, dbsecr
 							// Env variables from secret trillian-mysql
 							Env: []core.EnvVar{
 								{
-									Name:  "MYSQL_USER",
-									Value: "mysql",
+									Name: "MYSQL_USER",
+									ValueFrom: &core.EnvVarSource{
+										SecretKeyRef: &core.SecretKeySelector{
+											Key: "mysql-user",
+											LocalObjectReference: core.LocalObjectReference{
+												Name: dbsecret,
+											},
+										},
+									},
 								},
 								{
 									Name: "MYSQL_PASSWORD",
@@ -73,16 +80,37 @@ func CreateTrillDeployment(namespace string, image string, dpName string, dbsecr
 									},
 								},
 								{
-									Name:  "MYSQL_HOSTNAME",
-									Value: "trillian-mysql",
+									Name: "MYSQL_HOSTNAME",
+									ValueFrom: &core.EnvVarSource{
+										SecretKeyRef: &core.SecretKeySelector{
+											Key: "mysql-host",
+											LocalObjectReference: core.LocalObjectReference{
+												Name: dbsecret,
+											},
+										},
+									},
 								},
 								{
-									Name:  "MYSQL_PORT",
-									Value: "3306",
+									Name: "MYSQL_PORT",
+									ValueFrom: &core.EnvVarSource{
+										SecretKeyRef: &core.SecretKeySelector{
+											Key: "mysql-port",
+											LocalObjectReference: core.LocalObjectReference{
+												Name: dbsecret,
+											},
+										},
+									},
 								},
 								{
-									Name:  "MYSQL_DATABASE",
-									Value: "trillian",
+									Name: "MYSQL_DATABASE",
+									ValueFrom: &core.EnvVarSource{
+										SecretKeyRef: &core.SecretKeySelector{
+											Key: "mysql-database",
+											LocalObjectReference: core.LocalObjectReference{
+												Name: dbsecret,
+											},
+										},
+									},
 								},
 							},
 						},

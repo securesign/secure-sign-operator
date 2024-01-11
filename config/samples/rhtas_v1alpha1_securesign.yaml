@@ -26,6 +26,8 @@ spec:
       create: false
 
   trillian:
+    external: false
+    createDatabase: true
   tuf:
     external: false
   ctlog:

@@ -27,8 +27,10 @@ import (
 type TrillianSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	PvcName  string `json:"pvcName,omitempty"`
-	External bool   `json:"external,omitempty"`
+	PvcName        string `json:"pvcName,omitempty"`
+	External       bool   `json:"external,omitempty"`
+	DatabaseSecret string `json:"databaseSecret,omitempty"`
+	CreateDatabase bool   `json:"createDatabase,omitempty"`
 }
 
 // TrillianStatus defines the observed state of Trillian
