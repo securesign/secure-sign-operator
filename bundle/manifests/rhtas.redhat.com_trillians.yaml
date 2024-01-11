@@ -51,8 +51,6 @@ spec:
                       DB
                     type: string
                 type: object
-              external:
-                type: boolean
             type: object
           status:
             description: TrillianStatus defines the observed state of Trillian

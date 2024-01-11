@@ -8,6 +8,7 @@ import (
 	"github.com/securesign/operator/controllers/common"
 	k8sutils "github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/rekor/utils"
+	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -71,7 +72,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		rekorPvc := k8sutils.CreatePVC(instance.Namespace, "rekor-server", "5Gi")
 		if err = i.Client.Create(ctx, rekorPvc); err != nil {
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
-			return instance, fmt.Errorf("could not create Rekor secret: %w", err)
+			return instance, fmt.Errorf("could not create Rekor PVC: %w", err)
 		}
 		rekorPvcName = rekorPvc.Name
 		// TODO: add status field
@@ -79,13 +80,13 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		rekorPvcName = instance.Spec.PvcName
 	}
 
-	trillians, err := findTrillians(ctx, i.Client, *instance)
+	trillian, err := trillianUtils.FindTrillian(ctx, i.Client, instance.Namespace, k8sutils.FilterCommonLabels(instance.Labels))
 	if err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not find trillian TreeID: %w", err)
 	}
 
-	dp := utils.CreateRekorDeployment(instance.Namespace, rekorDeploymentName, trillians.Items[0].Status.TreeID, rekorPvcName, instance.Spec.Certificate.SecretName, rekorServerLabels)
+	dp := utils.CreateRekorDeployment(instance.Namespace, rekorDeploymentName, trillian.Status.TreeID, rekorPvcName, instance.Spec.Certificate.SecretName, rekorServerLabels)
 	controllerutil.SetControllerReference(instance, dp, i.Client.Scheme())
 	if err = i.Client.Create(ctx, dp); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError

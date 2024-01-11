@@ -42,13 +42,6 @@ make undeploy
 ```
 
 ### Local Development
-As a prerequisite you need to enable HTTP/2 on a single Ingress Controller. To enable HTTP/2 on an Ingress Controller, enter the oc annotate command:
-
-```
-$  oc -n openshift-ingress-operator annotate ingresscontrollers/<ingresscontroller_name> ingress.operator.openshift.io/default-enable-http2=true
-```
-Replace <ingresscontroller_name> with the name of the Ingress Controller to annotate.
-
 #### Install the CRDs into the cluster:
 ```
 make install
@@ -59,6 +52,19 @@ Run your controller (this will run in the foreground, so switch to a new termina
 make run
 ```
 NOTE: You can also run this in one step by running: make install run
+
+#### Port-forward service(s)
+After installation of your resource(s), you will need to allow the locally running operator to the internal service(s).
+This workaround is needed because the trillian server use insecure RPC protocol for communication with others. 
+Currently, it is not possible to route insecure GRPC outside the cluster so the local development rely on port-forward.
+
+##### Procedure
+Install your CR and wait until the operator log prints
+```
+Operator is running on localhost. You need to port-forward services.
+Execute `oc port-forward service/trillian-logserver 8091 8091` in your namespace to continue.
+```
+Then execute the command as is written `oc port-forward service/trillian-logserver 8091 8091`
 
 ## Contributing
 // TODO(user): Add detailed information on how you would like others to contribute to this project

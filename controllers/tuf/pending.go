@@ -6,7 +6,8 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	fulcioUtils "github.com/securesign/operator/controllers/fulcio/utils"
+	rekorUtils "github.com/securesign/operator/controllers/rekor/utils"
 )
 
 func NewPendingAction() Action {
@@ -30,15 +31,15 @@ func (i pendingAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) 
 		instance.Status.Phase = rhtasv1alpha1.PhasePending
 	}
 
-	searchLabels := kubernetes.FilterCommonLabels(instance.Labels)
-
-	rekorList := &rhtasv1alpha1.RekorList{}
-	err := i.Client.List(ctx, rekorList, client.InNamespace(instance.Namespace), client.MatchingLabels(searchLabels))
-	if err != nil {
-		return instance, err
+	rekor, err := rekorUtils.FindRekor(ctx, i.Client, instance.Namespace, kubernetes.FilterCommonLabels(instance.Labels))
+	if err != nil || rekor.Status.Phase != rhtasv1alpha1.PhaseReady {
+		i.Logger.V(1).Info("Rekor is not ready")
+		return instance, nil
 	}
-	if len(rekorList.Items) == 0 || rekorList.Items[0].Status.Phase != rhtasv1alpha1.PhaseReady {
-		i.Logger.V(1).Info("waiting for rekor")
+
+	fulcio, err := fulcioUtils.FindFulcio(ctx, i.Client, instance.Namespace, kubernetes.FilterCommonLabels(instance.Labels))
+	if err != nil || fulcio.Status.Phase != rhtasv1alpha1.PhaseReady {
+		i.Logger.V(1).Info("Fulcio is not ready")
 		return instance, nil
 	}
 

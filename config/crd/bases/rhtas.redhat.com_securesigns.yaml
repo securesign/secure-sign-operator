@@ -118,8 +118,6 @@ spec:
                           DB
                         type: string
                     type: object
-                  external:
-                    type: boolean
                 type: object
               tuf:
                 description: TufSpec defines the desired state of Tuf

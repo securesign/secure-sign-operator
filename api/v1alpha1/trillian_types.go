@@ -23,8 +23,7 @@ import (
 // TrillianSpec defines the desired state of Trillian
 type TrillianSpec struct {
 	// Define your database connection
-	Db       TrillianDB `json:"database,omitempty"`
-	External bool       `json:"external,omitempty"`
+	Db TrillianDB `json:"database,omitempty"`
 }
 
 type TrillianDB struct {

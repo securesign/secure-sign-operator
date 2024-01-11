@@ -1,4 +1,4 @@
-package utils
+package trillianUtils
 
 import (
 	apps "k8s.io/api/apps/v1"

@@ -7,6 +7,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
+	"github.com/securesign/operator/controllers/fulcio/utils"
 	tufutils "github.com/securesign/operator/controllers/tuf/utils"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -33,14 +34,18 @@ func (i createAction) CanHandle(tuf *rhtasv1alpha1.Tuf) bool {
 }
 
 func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) (*rhtasv1alpha1.Tuf, error) {
-	//log := ctrllog.FromContext(ctx)
-
 	var err error
 	labels := kubernetes.FilterCommonLabels(instance.Labels)
 	labels["app.kubernetes.io/component"] = ComponentName
 	labels["app.kubernetes.io/name"] = tufDeploymentName
 
-	db := tufutils.CreateTufDeployment(instance.Namespace, tufDeploymentName, labels)
+	fulcio, err := utils.FindFulcio(ctx, i.Client, instance.Namespace, kubernetes.FilterCommonLabels(instance.Labels))
+	if err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not find Fulcio: %s", err)
+	}
+
+	db := tufutils.CreateTufDeployment(instance.Namespace, tufDeploymentName, fulcio.Spec.Certificate.SecretName, "rekor-public-key", labels)
 	controllerutil.SetControllerReference(instance, db, i.Client.Scheme())
 	if err = i.Client.Create(ctx, db); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError

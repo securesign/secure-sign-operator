@@ -10,22 +10,17 @@ metadata:
   name: securesign-sample
 spec:
   rekor:
-    external: true
-    keySecret: rekor-private-key
-    rekorCert:
+    external: false
+    certificate:
+      secretName: rekor-private-key
       create: false
   fulcio:
-    external: true
-    keySecret: fulcio-secret-rh
+    external: false
     oidcIssuers:
       "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore":
         ClientID: "sigstore"
         IssuerURL: "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore"
         Type: "email"
-    fulcioCert:
+    certificate:
       create: false
-
-  trillian:
-  tuf:
-    external: true
-  ctlog:
+      secretName: fulcio-secret-rh

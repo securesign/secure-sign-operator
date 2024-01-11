@@ -13,9 +13,6 @@ import (
 	"fmt"
 	"net/url"
 
-	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
@@ -23,6 +20,7 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/logging"
 
 	fulcioclient "github.com/sigstore/fulcio/pkg/api"
@@ -264,7 +262,7 @@ func createConfigWithKeys(ctx context.Context, keytype string) (*Config, error) 
 	}, nil
 }
 
-func CreateCtlogConfig(ctx context.Context, cli client.Client, ns string, trillianUrl string, treeID int64, fulcioUrl string, labels map[string]string) (*corev1.Secret, *corev1.Secret, error) {
+func CreateCtlogConfig(ctx context.Context, ns string, trillianUrl string, treeID int64, fulcioUrl string, labels map[string]string) (*corev1.Secret, *corev1.Secret, error) {
 	u, err := url.Parse(fulcioUrl)
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid fulcioURL %s : %v", fulcioUrl, err)

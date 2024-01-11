@@ -95,6 +95,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		Port:       80,
 		TargetPort: intstr.FromInt(5555),
 	})
+	controllerutil.SetControllerReference(instance, svc, i.Client.Scheme())
 	if err = i.Client.Create(ctx, svc); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create service: %w", err)

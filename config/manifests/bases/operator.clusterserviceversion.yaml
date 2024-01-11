@@ -4,7 +4,7 @@ metadata:
   annotations:
     alm-examples: '[]'
     capabilities: Basic Install
-  name: rhtas.v0.0.0
+  name: operator.v0.0.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
