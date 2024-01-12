@@ -148,7 +148,7 @@ func (i createAction) createDbSecret(namespace string, labels map[string]string)
 			"mysql-database":      []byte("trillian"),
 			"mysql-user":          []byte("mysql"),
 			"mysql-port":          []byte("3306"),
-			"mysql-host":      []byte("trillian-mysql"),
+			"mysql-host":          []byte("trillian-mysql"),
 		},
 	}
 }

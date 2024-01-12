@@ -29,7 +29,6 @@ spec:
       organizationEmail: jdoe@redhat.com
       organizationName: Red Hat
       secretName: fulcio-cert
-  trillian:
   tuf:
     external: false
   ctlog:
