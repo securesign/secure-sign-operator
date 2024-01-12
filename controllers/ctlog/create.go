@@ -39,8 +39,8 @@ func (i createAction) CanHandle(ctlog *rhtasv1alpha1.CTlog) bool {
 func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) (*rhtasv1alpha1.CTlog, error) {
 	var err error
 	labels := utils.FilterCommonLabels(instance.Labels)
-	labels["app.kubernetes.io/component"] = ComponentName
-	labels["app.kubernetes.io/name"] = deploymentName
+	labels[utils.ComponentLabel] = ComponentName
+	labels[utils.NameLabel] = deploymentName
 
 	fulcio, err := fulcioUtils.FindFulcio(ctx, i.Client, instance.Namespace, utils.FilterCommonLabels(instance.Labels))
 	if err != nil || fulcio.Status.Phase != rhtasv1alpha1.PhaseReady {

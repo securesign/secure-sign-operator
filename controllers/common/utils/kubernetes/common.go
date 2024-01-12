@@ -8,6 +8,9 @@ import (
 const (
 	inContainerNamespaceFile = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 	kubeConfigEnvVar         = "KUBECONFIG"
+
+	ComponentLabel = "app.kubernetes.io/component"
+	NameLabel      = "app.kubernetes.io/name"
 )
 
 func FilterCommonLabels(labels map[string]string) map[string]string {

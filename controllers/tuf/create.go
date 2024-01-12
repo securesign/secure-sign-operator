@@ -36,8 +36,8 @@ func (i createAction) CanHandle(tuf *rhtasv1alpha1.Tuf) bool {
 func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) (*rhtasv1alpha1.Tuf, error) {
 	var err error
 	labels := kubernetes.FilterCommonLabels(instance.Labels)
-	labels["app.kubernetes.io/component"] = ComponentName
-	labels["app.kubernetes.io/name"] = tufDeploymentName
+	labels[kubernetes.ComponentLabel] = ComponentName
+	labels[kubernetes.NameLabel] = tufDeploymentName
 
 	fulcio, err := utils.FindFulcio(ctx, i.Client, instance.Namespace, kubernetes.FilterCommonLabels(instance.Labels))
 	if err != nil {
