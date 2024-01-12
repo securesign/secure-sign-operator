@@ -1,4 +1,4 @@
-name: Validate SecureSign
+name: Validate SecureSign 
 on: 
   push:
     branches: ["main", "release*"]
