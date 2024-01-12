@@ -167,7 +167,6 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 
 		serviceMonitorMatchLabels := kubernetes.FilterCommonLabels(instance.Labels)
 		serviceMonitorMatchLabels["app.kubernetes.io/component"] = ComponentName
-		serviceMonitorMatchLabels["app.kubernetes.io/name"] = fulcioDeploymentName
 		serviceMonitor := kubernetes.CreateServiceMonitor(
 			instance.Namespace,
 			fulcioDeploymentName,

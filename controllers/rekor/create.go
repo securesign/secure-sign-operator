@@ -183,7 +183,6 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 
 		serviceMonitorMatchLabels := k8sutils.FilterCommonLabels(instance.Labels)
 		serviceMonitorMatchLabels["app.kubernetes.io/component"] = ComponentName
-		serviceMonitorMatchLabels["app.kubernetes.io/name"] = rekorDeploymentName
 
 		serviceMonitor := k8sutils.CreateServiceMonitor(
 			instance.Namespace,
