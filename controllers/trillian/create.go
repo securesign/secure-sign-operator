@@ -78,7 +78,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		trillPVC = instance.Spec.Db.PvcName
 	}
 
-	if instance.Spec.Db.CreateDatabase {
+	if instance.Spec.Db.Create {
 		db := trillianUtils.CreateTrillDb(instance.Namespace, constants.TrillianDbImage, dbDeploymentName, trillPVC, dbSecName, dbLabels)
 		controllerutil.SetControllerReference(instance, db, i.Client.Scheme())
 		if err = i.Client.Create(ctx, db); err != nil {

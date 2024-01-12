@@ -10,9 +10,8 @@ metadata:
   name: securesign-sample
 spec:
   trillian:
-    external: false
-    db:
-      createDatabase: true
+    database:
+      create: true
   rekor:
     external: false
     certificate:

@@ -47,7 +47,7 @@ spec:
               database:
                 description: Define your database connection
                 properties:
-                  createDatabase:
+                  create:
                     description: 'Create Database if a database is not created one
                       must be defined using the DatabaseSecret field default: true'
                     type: boolean
