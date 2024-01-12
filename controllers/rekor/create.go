@@ -39,12 +39,12 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 	var err error
 
 	redisLabels := k8sutils.FilterCommonLabels(instance.Labels)
-	redisLabels["app.kubernetes.io/component"] = ComponentName
-	redisLabels["app.kubernetes.io/name"] = rekorRedisDeploymentName
+	redisLabels[k8sutils.ComponentLabel] = ComponentName
+	redisLabels[k8sutils.NameLabel] = rekorRedisDeploymentName
 
 	rekorServerLabels := k8sutils.FilterCommonLabels(instance.Labels)
-	rekorServerLabels["app.kubernetes.io/component"] = ComponentName
-	rekorServerLabels["app.kubernetes.io/name"] = rekorDeploymentName
+	rekorServerLabels[k8sutils.ComponentLabel] = ComponentName
+	rekorServerLabels[k8sutils.NameLabel] = rekorDeploymentName
 
 	if instance.Spec.Certificate.Create {
 		certConfig, err := utils.CreateRekorKey()

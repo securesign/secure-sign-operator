@@ -30,7 +30,7 @@ func (i waitAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) (*r
 		err error
 	)
 	labels := commonUtils.FilterCommonLabels(instance.Labels)
-	labels["app.kubernetes.io/component"] = ComponentName
+	labels[commonUtils.ComponentLabel] = ComponentName
 	ok, err = commonUtils.DeploymentIsRunning(ctx, i.Client, instance.Namespace, labels)
 	if err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError

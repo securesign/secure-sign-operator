@@ -40,8 +40,8 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	//log := ctrllog.FromContext(ctx)
 	var err error
 	labels := kubernetes.FilterCommonLabels(instance.Labels)
-	labels["app.kubernetes.io/component"] = ComponentName
-	labels["app.kubernetes.io/name"] = fulcioDeploymentName
+	labels[kubernetes.ComponentLabel] = ComponentName
+	labels[kubernetes.NameLabel] = fulcioDeploymentName
 
 	if instance.Spec.Certificate.Create {
 

@@ -41,16 +41,16 @@ func (i createAction) CanHandle(trillian *rhtasv1alpha1.Trillian) bool {
 func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) (*rhtasv1alpha1.Trillian, error) {
 	var err error
 	dbLabels := kubernetes.FilterCommonLabels(instance.Labels)
-	dbLabels["app.kubernetes.io/component"] = ComponentName
-	dbLabels["app.kubernetes.io/name"] = dbDeploymentName
+	dbLabels[kubernetes.ComponentLabel] = ComponentName
+	dbLabels[kubernetes.NameLabel] = dbDeploymentName
 
 	logSignerLabels := kubernetes.FilterCommonLabels(instance.Labels)
-	logSignerLabels["app.kubernetes.io/component"] = ComponentName
-	logSignerLabels["app.kubernetes.io/name"] = logsignerDeploymentName
+	logSignerLabels[kubernetes.ComponentLabel] = ComponentName
+	logSignerLabels[kubernetes.NameLabel] = logsignerDeploymentName
 
 	logServerLabels := kubernetes.FilterCommonLabels(instance.Labels)
-	logServerLabels["app.kubernetes.io/component"] = ComponentName
-	logServerLabels["app.kubernetes.io/name"] = logserverDeploymentName
+	logServerLabels[kubernetes.ComponentLabel] = ComponentName
+	logServerLabels[kubernetes.NameLabel] = logserverDeploymentName
 
 	dbSecret := i.createDbSecret(instance.Namespace, dbLabels)
 	controllerutil.SetControllerReference(instance, dbSecret, i.Client.Scheme())
