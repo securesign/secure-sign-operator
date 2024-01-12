@@ -119,8 +119,8 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 
 	if instance.Spec.Monitoring {
 		monitoringRoleLabels := kubernetes.FilterCommonLabels(instance.Labels)
-		monitoringRoleLabels["app.kubernetes.io/component"] = ComponentName
-		monitoringRoleLabels["app.kubernetes.io/name"] = fulcioMonitoringRoleName
+		monitoringRoleLabels[kubernetes.ComponentLabel] = ComponentName
+		monitoringRoleLabels[kubernetes.NameLabel] = fulcioMonitoringRoleName
 		role := kubernetes.CreateRole(
 			instance.Namespace,
 			fulcioMonitoringRoleName,
@@ -140,8 +140,8 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		}
 
 		monitoringRoleBindingLabels := kubernetes.FilterCommonLabels(instance.Labels)
-		monitoringRoleBindingLabels["app.kubernetes.io/component"] = ComponentName
-		monitoringRoleBindingLabels["app.kubernetes.io/name"] = fulcioMonitoringRoleName
+		monitoringRoleBindingLabels[kubernetes.ComponentLabel] = ComponentName
+		monitoringRoleBindingLabels[kubernetes.NameLabel] = fulcioMonitoringRoleName
 		roleBinding := kubernetes.CreateRoleBinding(
 			instance.Namespace,
 			fulcioMonitoringRoleName,
@@ -162,11 +162,11 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		}
 
 		serviceMonitorLabels := kubernetes.FilterCommonLabels(instance.Labels)
-		serviceMonitorLabels["app.kubernetes.io/component"] = ComponentName
-		serviceMonitorLabels["app.kubernetes.io/name"] = fulcioServiceMonitorName
+		serviceMonitorLabels[kubernetes.ComponentLabel] = ComponentName
+		serviceMonitorLabels[kubernetes.NameLabel] = fulcioServiceMonitorName
 
 		serviceMonitorMatchLabels := kubernetes.FilterCommonLabels(instance.Labels)
-		serviceMonitorMatchLabels["app.kubernetes.io/component"] = ComponentName
+		serviceMonitorMatchLabels[kubernetes.ComponentLabel] = ComponentName
 		serviceMonitor := kubernetes.CreateServiceMonitor(
 			instance.Namespace,
 			fulcioDeploymentName,

@@ -135,8 +135,8 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 	if instance.Spec.Monitoring {
 
 		monitoringRoleLabels := k8sutils.FilterCommonLabels(instance.Labels)
-		monitoringRoleLabels["app.kubernetes.io/component"] = ComponentName
-		monitoringRoleLabels["app.kubernetes.io/name"] = rekorMonitoringRoleName
+		monitoringRoleLabels[k8sutils.ComponentLabel] = ComponentName
+		monitoringRoleLabels[k8sutils.NameLabel] = rekorMonitoringRoleName
 		role := k8sutils.CreateRole(
 			instance.Namespace,
 			rekorMonitoringRoleName,
@@ -156,8 +156,8 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		}
 
 		monitoringRoleBindingLabels := k8sutils.FilterCommonLabels(instance.Labels)
-		monitoringRoleBindingLabels["app.kubernetes.io/component"] = ComponentName
-		monitoringRoleBindingLabels["app.kubernetes.io/name"] = rekorMonitoringRoleName
+		monitoringRoleBindingLabels[k8sutils.ComponentLabel] = ComponentName
+		monitoringRoleBindingLabels[k8sutils.NameLabel] = rekorMonitoringRoleName
 		roleBinding := k8sutils.CreateRoleBinding(
 			instance.Namespace,
 			rekorMonitoringRoleName,
@@ -178,11 +178,11 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		}
 
 		serviceMonitorLabels := k8sutils.FilterCommonLabels(instance.Labels)
-		serviceMonitorLabels["app.kubernetes.io/component"] = ComponentName
-		serviceMonitorLabels["app.kubernetes.io/name"] = rekorServiceMonitorName
+		serviceMonitorLabels[k8sutils.ComponentLabel] = ComponentName
+		serviceMonitorLabels[k8sutils.NameLabel] = rekorServiceMonitorName
 
 		serviceMonitorMatchLabels := k8sutils.FilterCommonLabels(instance.Labels)
-		serviceMonitorMatchLabels["app.kubernetes.io/component"] = ComponentName
+		serviceMonitorMatchLabels[k8sutils.ComponentLabel] = ComponentName
 
 		serviceMonitor := k8sutils.CreateServiceMonitor(
 			instance.Namespace,
