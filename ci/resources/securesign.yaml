@@ -10,7 +10,6 @@ metadata:
   name: securesign-sample
 spec:
   trillian:
-    external: false
     database:
       create: true
   rekor:
