@@ -56,7 +56,7 @@ NOTE: You can also run this in one step by running: make install run
 #### Port-forward service(s)
 After installation of your resource(s), you will need to allow the locally running operator to the internal service(s).
 This workaround is needed because the trillian server use insecure RPC protocol for communication with others. 
-Currently, it is not possible to route insecure GRPC outside the cluster so the local development rely on port-forward.
+Currently, it is not possible to route insecure GRPC outside the cluster so the local deployment rely on port-forward.
 
 ##### Procedure
 Install your CR and wait until the operator log prints
