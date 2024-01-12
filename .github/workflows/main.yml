@@ -185,7 +185,6 @@ jobs:
 
       - name: dump all deployments
         run: |
-          kubectl get deployment -n test trillian-logserver -o yaml
           kubectl get deployments -A
           kubectl get svc -A
           kubectl get rekor,fulcio,tuf,ctlog,trillian -A
