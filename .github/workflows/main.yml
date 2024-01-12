@@ -185,6 +185,9 @@ jobs:
 
       - name: dump all deployments
         run: |
+          kubectl get secrets -A
+          kubectl get events -n test
+          kubectl get events -n create-cert
           kubectl get deployments -A
           kubectl get svc -A
           kubectl get rekor,fulcio,tuf,ctlog,trillian -A
