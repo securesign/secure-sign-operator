@@ -185,6 +185,7 @@ jobs:
 
       - name: dump all deployments
         run: |
+          kubectl get deployment -o yaml -n test trillian-logserver
           kubectl get secrets -A
           kubectl get events -n test
           kubectl get events -n create-cert
