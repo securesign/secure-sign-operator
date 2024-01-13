@@ -86,7 +86,7 @@ jobs:
       - name: Apply db sample that tests existing db
         run: |
           kubectl create ns db
-          kubectl apply -f ci/resources/db/ -n db
+          kubectl apply -f ci/db/ -n db
           kubectl apply -f ci/resources/byodb.yaml -n db
 
         #Deployment is done in iterations TUF should be the last one
