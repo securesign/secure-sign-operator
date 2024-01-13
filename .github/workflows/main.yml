@@ -87,7 +87,7 @@ jobs:
         run: |
           kubectl create ns db
           kubectl apply -f ci/db/ -n db
-          kubectl apply -f ci/resources/byodb.yaml -n db
+          kubectl apply -f ci/resources/byodb.yml -n db
 
         #Deployment is done in iterations TUF should be the last one
       - name: Until shell script to wait for tuf deployment to be created
