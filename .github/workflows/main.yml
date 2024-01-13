@@ -87,7 +87,7 @@ jobs:
         run: |
           kubectl create ns db
           kubectl apply -f ci/db/ -n db
-          kubectl apply -f ci/resources/byodb.yml -n db
+          kubectl apply -f ci/resources/byodb.yaml -n db
 
         #Deployment is done in iterations TUF should be the last one
       - name: Until shell script to wait for tuf deployment to be created
@@ -230,7 +230,6 @@ jobs:
 
       - name: dump all deployments
         run: |
-          kubectl get deployment -o yaml -n test trillian-logserver
           kubectl get secrets -A
           kubectl get events -n test
           kubectl get events -n create-cert
