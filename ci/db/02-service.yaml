@@ -4,7 +4,6 @@ metadata:
   labels:
     app.kubernetes.io/component: mysql
   name: trillian-mysql
-  namespace: mysql 
 spec:
   internalTrafficPolicy: Cluster
   ipFamilies:
