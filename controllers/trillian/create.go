@@ -66,18 +66,19 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	}
 
 	var trillPVC string
-	if instance.Spec.Db.PvcName == "" {
-		pvc := kubernetes.CreatePVC(instance.Namespace, "trillian-mysql", "5Gi")
-		controllerutil.SetControllerReference(instance, pvc, i.Client.Scheme())
-		if err = i.Client.Create(ctx, pvc); err != nil {
-			instance.Status.Phase = rhtasv1alpha1.PhaseError
-			return instance, fmt.Errorf("could not create pvc: %w", err)
+	if instance.Spec.Db.Create {
+		if instance.Spec.Db.PvcName == "" {
+			pvc := kubernetes.CreatePVC(instance.Namespace, "trillian-mysql", "5Gi")
+			controllerutil.SetControllerReference(instance, pvc, i.Client.Scheme())
+			if err = i.Client.Create(ctx, pvc); err != nil {
+				instance.Status.Phase = rhtasv1alpha1.PhaseError
+				return instance, fmt.Errorf("could not create pvc: %w", err)
+			}
+			trillPVC = pvc.Name
+		} else {
+			trillPVC = instance.Spec.Db.PvcName
 		}
-		trillPVC = pvc.Name
-	} else {
-		trillPVC = instance.Spec.Db.PvcName
 	}
-
 	if instance.Spec.Db.Create {
 		db := trillianUtils.CreateTrillDb(instance.Namespace, constants.TrillianDbImage, dbDeploymentName, trillPVC, dbSecName, dbLabels)
 		controllerutil.SetControllerReference(instance, db, i.Client.Scheme())
