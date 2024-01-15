@@ -2,18 +2,18 @@ package ctlog
 
 import (
 	"context"
+	"github.com/securesign/operator/controllers/common/action"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/controllers/common"
 	commonUtils "github.com/securesign/operator/controllers/common/utils/kubernetes"
 )
 
-func NewWaitAction() Action {
+func NewWaitAction() action.Action[rhtasv1alpha1.CTlog] {
 	return &waitAction{}
 }
 
 type waitAction struct {
-	common.BaseAction
+	action.BaseAction
 }
 
 func (i waitAction) Name() string {

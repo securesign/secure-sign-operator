@@ -3,9 +3,9 @@ package tuf
 import (
 	"context"
 	"fmt"
+	"github.com/securesign/operator/controllers/common/action"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/fulcio/utils"
 	tufutils "github.com/securesign/operator/controllers/tuf/utils"
@@ -17,12 +17,12 @@ const (
 	ComponentName     = "tuf"
 )
 
-func NewCreateAction() Action {
+func NewCreateAction() action.Action[rhtasv1alpha1.Tuf] {
 	return &createAction{}
 }
 
 type createAction struct {
-	common.BaseAction
+	action.BaseAction
 }
 
 func (i createAction) Name() string {

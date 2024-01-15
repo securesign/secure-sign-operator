@@ -3,21 +3,21 @@ package trillian
 import (
 	"context"
 	"fmt"
+	"github.com/securesign/operator/controllers/common/action"
 	"net"
 	"time"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/trillian/utils"
 )
 
-func NewInitializeAction() Action {
+func NewInitializeAction() action.Action[rhtasv1alpha1.Trillian] {
 	return &initializeAction{}
 }
 
 type initializeAction struct {
-	common.BaseAction
+	action.BaseAction
 }
 
 func (i initializeAction) Name() string {

@@ -18,6 +18,7 @@ package tuf
 
 import (
 	"context"
+	"github.com/securesign/operator/controllers/common/action"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	p "github.com/securesign/operator/controllers/common/operator/predicate"
@@ -77,7 +78,7 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		}
 	}
 	target := instance.DeepCopy()
-	actions := []Action{
+	actions := []action.Action[rhtasv1alpha1.Tuf]{
 		NewPendingAction(),
 		NewCreateAction(),
 		NewWaitAction(),

@@ -18,6 +18,7 @@ package fulcio
 
 import (
 	"context"
+	"github.com/securesign/operator/controllers/common/action"
 
 	p "github.com/securesign/operator/controllers/common/operator/predicate"
 	v1 "k8s.io/api/apps/v1"
@@ -70,7 +71,7 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return reconcile.Result{}, err
 	}
 	target := instance.DeepCopy()
-	actions := []Action{
+	actions := []action.Action[rhtasv1alpha1.Fulcio]{
 		NewCreateAction(),
 		NewWaitAction(),
 	}

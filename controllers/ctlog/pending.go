@@ -2,20 +2,20 @@ package ctlog
 
 import (
 	"context"
+	"github.com/securesign/operator/controllers/common/action"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/fulcio/utils"
 	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
 )
 
-func NewPendingAction() Action {
+func NewPendingAction() action.Action[rhtasv1alpha1.CTlog] {
 	return &pendingAction{}
 }
 
 type pendingAction struct {
-	common.BaseAction
+	action.BaseAction
 }
 
 func (i pendingAction) Name() string {

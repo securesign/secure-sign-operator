@@ -3,22 +3,22 @@ package rekor
 import (
 	"context"
 	"fmt"
+	"github.com/securesign/operator/controllers/common/action"
 	"io"
 	"net/http"
 	"time"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/controllers/common"
 	commonUtils "github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func NewWaitAction() Action {
+func NewWaitAction() action.Action[rhtasv1alpha1.Rekor] {
 	return &waitAction{}
 }
 
 type waitAction struct {
-	common.BaseAction
+	action.BaseAction
 }
 
 func (i waitAction) Name() string {
