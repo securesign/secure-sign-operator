@@ -134,6 +134,10 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 
 func (i createAction) createDbSecret(namespace string, labels map[string]string) *corev1.Secret {
 	// Define a new Secret object
+	var rootPass []byte
+	var mysqlPass []byte
+	rootPass = common.GeneratePassword(12)
+	mysqlPass = common.GeneratePassword(12)
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "rhtas",
@@ -142,10 +146,8 @@ func (i createAction) createDbSecret(namespace string, labels map[string]string)
 		},
 		Type: "Opaque",
 		Data: map[string][]byte{
-			// generate a random password for the mysql root user and the mysql password
-			// TODO - use a random password generator
-			"mysql-root-password": []byte("password"),
-			"mysql-password":      []byte("password"),
+			"mysql-root-password": rootPass,
+			"mysql-password":      mysqlPass,
 			"mysql-database":      []byte("trillian"),
 			"mysql-user":          []byte("mysql"),
 			"mysql-port":          []byte("3306"),
