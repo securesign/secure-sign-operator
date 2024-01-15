@@ -3,9 +3,9 @@ package ctlog
 import (
 	"context"
 	"fmt"
+	"github.com/securesign/operator/controllers/common/action"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/controllers/common"
 	utils "github.com/securesign/operator/controllers/common/utils/kubernetes"
 	ctlogUtils "github.com/securesign/operator/controllers/ctlog/utils"
 	fulcioUtils "github.com/securesign/operator/controllers/fulcio/utils"
@@ -20,12 +20,12 @@ const (
 	ComponentName  = "ctlog"
 )
 
-func NewCreateAction() Action {
+func NewCreateAction() action.Action[rhtasv1alpha1.CTlog] {
 	return &createAction{}
 }
 
 type createAction struct {
-	common.BaseAction
+	action.BaseAction
 }
 
 func (i createAction) Name() string {

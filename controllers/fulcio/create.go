@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/securesign/operator/controllers/common/action"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/fulcio/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -20,12 +20,12 @@ const (
 	ComponentName        = "fulcio"
 )
 
-func NewCreateAction() Action {
+func NewCreateAction() action.Action[rhtasv1alpha1.Fulcio] {
 	return &createAction{}
 }
 
 type createAction struct {
-	common.BaseAction
+	action.BaseAction
 }
 
 func (i createAction) Name() string {

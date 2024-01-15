@@ -1,4 +1,4 @@
-package common
+package action
 
 import (
 	"github.com/go-logr/logr"
