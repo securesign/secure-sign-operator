@@ -62,6 +62,9 @@ spec:
               external:
                 description: Define whether you want to export service or not
                 type: boolean
+              monitoring:
+                description: Enable Service monitors for rekor
+                type: boolean
               pvcName:
                 description: Persistent volume claim name to bound with Rekor component
                 type: string

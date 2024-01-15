@@ -6,18 +6,22 @@ import (
 	"fmt"
 	"github.com/securesign/operator/controllers/common/action"
 
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/fulcio/utils"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
-	fulcioDeploymentName = "fulcio-server"
-	ComponentName        = "fulcio"
+	fulcioDeploymentName     = "fulcio-server"
+	ComponentName            = "fulcio"
+	fulcioMonitoringRoleName = "prometheus-k8s-fulcio"
+	fulcioServiceMonitorName = "fulcio-metrics"
 )
 
 func NewCreateAction() action.Action[rhtasv1alpha1.Fulcio] {
@@ -111,6 +115,76 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		instance.Status.Url = "https://" + route.Spec.Host
 	} else {
 		instance.Status.Url = fmt.Sprintf("http://%s.%s.svc", svc.Name, svc.Namespace)
+	}
+
+	if instance.Spec.Monitoring {
+		monitoringRoleLabels := kubernetes.FilterCommonLabels(instance.Labels)
+		monitoringRoleLabels[kubernetes.ComponentLabel] = ComponentName
+		monitoringRoleLabels[kubernetes.NameLabel] = fulcioMonitoringRoleName
+		role := kubernetes.CreateRole(
+			instance.Namespace,
+			fulcioMonitoringRoleName,
+			monitoringRoleLabels,
+			[]v1.PolicyRule{
+				{
+					APIGroups: []string{""},
+					Resources: []string{"services", "endpoints", "pods"},
+					Verbs:     []string{"get", "list", "watch"},
+				},
+			},
+		)
+		controllerutil.SetOwnerReference(instance, role, i.Client.Scheme())
+		if err = i.Client.Create(ctx, role); err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create fulcio role: %w", err)
+		}
+
+		monitoringRoleBindingLabels := kubernetes.FilterCommonLabels(instance.Labels)
+		monitoringRoleBindingLabels[kubernetes.ComponentLabel] = ComponentName
+		monitoringRoleBindingLabels[kubernetes.NameLabel] = fulcioMonitoringRoleName
+		roleBinding := kubernetes.CreateRoleBinding(
+			instance.Namespace,
+			fulcioMonitoringRoleName,
+			monitoringRoleBindingLabels,
+			v1.RoleRef{
+				APIGroup: v1.SchemeGroupVersion.Group,
+				Kind:     "Role",
+				Name:     fulcioMonitoringRoleName,
+			},
+			[]v1.Subject{
+				{Kind: "ServiceAccount", Name: "prometheus-k8s", Namespace: "openshift-monitoring"},
+			},
+		)
+		controllerutil.SetOwnerReference(instance, roleBinding, i.Client.Scheme())
+		if err = i.Client.Create(ctx, roleBinding); err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create fulcio roleBinding: %w", err)
+		}
+
+		serviceMonitorLabels := kubernetes.FilterCommonLabels(instance.Labels)
+		serviceMonitorLabels[kubernetes.ComponentLabel] = ComponentName
+		serviceMonitorLabels[kubernetes.NameLabel] = fulcioServiceMonitorName
+
+		serviceMonitorMatchLabels := kubernetes.FilterCommonLabels(instance.Labels)
+		serviceMonitorMatchLabels[kubernetes.ComponentLabel] = ComponentName
+		serviceMonitor := kubernetes.CreateServiceMonitor(
+			instance.Namespace,
+			fulcioDeploymentName,
+			serviceMonitorLabels,
+			[]monitoringv1.Endpoint{
+				{
+					Interval: monitoringv1.Duration("30s"),
+					Port:     "fulcio-server",
+					Scheme:   "http",
+				},
+			},
+			serviceMonitorMatchLabels,
+		)
+
+		if err = i.Client.Create(ctx, serviceMonitor); err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create fulcio serviceMonitor: %w", err)
+		}
 	}
 
 	instance.Status.Phase = rhtasv1alpha1.PhaseInitialize

@@ -3,6 +3,8 @@ package trillian
 import (
 	"context"
 	"fmt"
+
+	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/action"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"

@@ -65,6 +65,9 @@ spec:
               external:
                 description: Define whether you want to export service or not
                 type: boolean
+              monitoring:
+                description: Enable Service monitors for fulcio
+                type: boolean
               oidcIssuers:
                 additionalProperties:
                   properties:
