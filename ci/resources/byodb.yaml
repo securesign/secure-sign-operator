@@ -11,7 +11,8 @@ metadata:
 spec:
   trillian:
     database:
-      create: true
+      create: false
+      databaseSecret: trillian-mysql
   rekor:
     external: false
     certificate:
@@ -32,3 +33,4 @@ spec:
   tuf:
     external: false
   ctlog:
+

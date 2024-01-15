@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: "mysql"
+  replicas: 1
+  strategy:
+    type: Recreate
+    rollingUpdate: null
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: "mysql"
+    spec:
+      containers:
+        - name: mysql
+          image: "registry.redhat.io/rhtas-tech-preview/trillian-database-rhel9@sha256:fe4758ff57a9a6943a4655b21af63fb579384dc51838af85d0089c04290b4957"
+          imagePullPolicy: "IfNotPresent"
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: trillian-mysql
+                  key: mysql-root-password
+            - name: MYSQL_USER
+              value: "mysql"
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: trillian-mysql
+                  key: mysql-password
+            - name: MYSQL_DATABASE
+              value: trillian
+          ports:
+            - containerPort: 3306
+              protocol: TCP
+          livenessProbe:
+            exec:
+              command:
+              - mysqladmin
+              - ping
+              - -h
+              - localhost
+              - -u
+              - $(MYSQL_USER)
+              - -p$(MYSQL_PASSWORD)
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          readinessProbe:
+            exec:
+              command:
+              - mysqladmin
+              - ping
+              - -h
+              - localhost
+              - -u
+              - $(MYSQL_USER)
+              - -p$(MYSQL_PASSWORD)
+            failureThreshold: 3
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            {}
+          volumeMounts:
+            - name: storage
+              mountPath: /var/lib/mysql
+              subPath:
+      securityContext:
+        fsGroup: 0
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: trillian-mysql

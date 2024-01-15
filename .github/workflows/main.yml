@@ -1,4 +1,4 @@
-name: Validate SecureSign
+name: Validate SecureSign 
 on: 
   push:
     branches: ["main", "release*"]
@@ -83,6 +83,12 @@ jobs:
           kubectl create ns create-cert
           kubectl apply -f ci/resources/cert_create.yaml -n create-cert
 
+      - name: Apply db sample that tests existing db
+        run: |
+          kubectl create ns db
+          kubectl apply -f ci/db/ -n db
+          kubectl apply -f ci/resources/byodb.yaml -n db
+
         #Deployment is done in iterations TUF should be the last one
       - name: Until shell script to wait for tuf deployment to be created
         run: |
@@ -149,6 +155,39 @@ jobs:
       - name: Check for the deployment of ctlog
         run: kubectl wait --for=condition=available deployment/ctlog --timeout=120s -n create-cert
 
+      - name: Until shell script to wait for tuf deployment to be created
+        run: |
+          timeout 120s bash -c 'until [ ! -z "$(kubectl get deployment tuf -n db 2>/dev/null)" ]
+          do
+            echo "Waiting for tuf deployment to be created. Pods in db namespace:"
+            kubectl get pods -n db
+            kubectl get rekor,fulcio,tuf,ctlog,trillian -n db
+            sleep 3
+          done'
+        shell: bash
+
+      - name: Check the deployment of fulcio
+        run: kubectl wait --for=condition=available deployment/fulcio-server --timeout=80s -n db
+  
+      - name: Check the deployment of rekor
+        run: kubectl wait --for=condition=available deployment/rekor-server --timeout=80s -n db
+
+      - name: Check for the deployment of redis
+        run: kubectl wait --for=condition=available deployment/rekor-redis --timeout=80s -n db
+
+      - name: Check for the deployment of trillian logsigner
+        run: kubectl wait --for=condition=available deployment/trillian-logsigner --timeout=80s -n db
+
+      - name: Check for the deployment of trillian logserver
+        run: kubectl wait --for=condition=available deployment/trillian-logserver --timeout=200s -n db
+
+      - name: Check for the deployment of tuf
+        run: kubectl wait --for=condition=available deployment/tuf --timeout=120s -n db
+
+      - name: Check for the deployment of ctlog
+        run: kubectl wait --for=condition=available deployment/ctlog --timeout=120s -n db
+
+
       - name: create the trusted-artifact-signer-test-connection job
         run: kubectl apply -f hack/connection-verify.yaml -n test
 
@@ -166,6 +205,12 @@ jobs:
 
       - name: wait for the cosign verify job to complete
         run: kubectl wait --for=condition=complete job/cosign-verify -n create-cert --timeout=200s
+
+      - name: create the cosign verify job
+        run: kubectl apply -f hack/cosign-createcertns.yaml -n db
+
+      - name: wait for the cosign verify job to complete
+        run: kubectl wait --for=condition=complete job/cosign-verify -n db --timeout=200s
 
       - name: dump the log of the cosign verify job
         run: kubectl logs -n test job/cosign-verify
@@ -185,6 +230,9 @@ jobs:
 
       - name: dump all deployments
         run: |
+          kubectl get secrets -A
+          kubectl get events -n test
+          kubectl get events -n create-cert
           kubectl get deployments -A
           kubectl get svc -A
           kubectl get rekor,fulcio,tuf,ctlog,trillian -A
