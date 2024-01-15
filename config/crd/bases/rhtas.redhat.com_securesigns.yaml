@@ -239,6 +239,11 @@ spec:
                     type: object
                 type: object
               tuf:
+                default:
+                  keys:
+                  - name: rekor.pub
+                  - name: ctfe.pub
+                  - name: fulcio_v1.crt.pem
                 description: TufSpec defines the desired state of Tuf
                 properties:
                   externalAccess:
@@ -254,6 +259,42 @@ spec:
                         description: Set hostname for your Ingress/Route.
                         type: string
                     type: object
+                  keys:
+                    default:
+                    - name: rekor.pub
+                    - name: ctfe.pub
+                    - name: fulcio_v1.crt.pem
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        secretRef:
+                          description: SecretKeySelector selects a key of a Secret.
+                          properties:
+                            key:
+                              description: The key of the secret to select from.  Must
+                                be a valid secret key.
+                              type: string
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
+                              type: string
+                            optional:
+                              description: Specify whether the Secret or its key must
+                                be defined
+                              type: boolean
+                          required:
+                          - key
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      required:
+                      - name
+                      type: object
+                    type: array
+                  port:
+                    default: 80
+                    format: int32
+                    type: integer
                 type: object
             type: object
           status:

@@ -135,8 +135,9 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&tuf.TufReconciler{
-		Client: client,
-		Scheme: mgr.GetScheme(),
+		Client:   client,
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("tuf-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Tuf")
 		os.Exit(1)

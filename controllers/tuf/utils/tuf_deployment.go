@@ -1,18 +1,48 @@
 package utils
 
 import (
+	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/constants"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateTufDeployment(namespace string, dpName string, fulcioSecret string, rekorSecret string, labels map[string]string) *apps.Deployment {
+func secretsVolumeProjection(spec v1alpha1.TufSpec) *core.ProjectedVolumeSource {
+
+	projections := make([]core.VolumeProjection, 0)
+
+	for _, key := range spec.Keys {
+		p := core.VolumeProjection{Secret: selectorToProjection(key.SecretRef, key.Name)}
+		projections = append(projections, p)
+	}
+
+	return &core.ProjectedVolumeSource{
+		Sources: projections,
+	}
+}
+
+func selectorToProjection(secret *core.SecretKeySelector, path string) *core.SecretProjection {
+	return &core.SecretProjection{
+		LocalObjectReference: core.LocalObjectReference{
+			Name: secret.Name,
+		},
+		Items: []core.KeyToPath{
+			{
+				Key:  secret.Key,
+				Path: path,
+			},
+		},
+		Optional: secret.Optional,
+	}
+}
+
+func CreateTufDeployment(instance *v1alpha1.Tuf, dpName string, labels map[string]string) *apps.Deployment {
 	replicas := int32(1)
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpName,
-			Namespace: namespace,
+			Namespace: instance.Namespace,
 			Labels:    labels,
 		},
 		Spec: apps.DeploymentSpec{
@@ -25,60 +55,18 @@ func CreateTufDeployment(namespace string, dpName string, fulcioSecret string, r
 					Labels: labels,
 				},
 				Spec: core.PodSpec{
-					ServiceAccountName: constants.ServiceAccountName,
+					ServiceAccountName: dpName,
 					Volumes: []core.Volume{
 						{
 							Name: "tuf-secrets",
 							VolumeSource: core.VolumeSource{
-								Projected: &core.ProjectedVolumeSource{
-									Sources: []core.VolumeProjection{
-										{
-											Secret: &core.SecretProjection{
-												LocalObjectReference: core.LocalObjectReference{
-													Name: "ctlog-public-key",
-												},
-												Items: []core.KeyToPath{
-													{
-														Key:  "public",
-														Path: "ctfe.pub",
-													},
-												},
-											},
-										},
-										{
-											Secret: &core.SecretProjection{
-												LocalObjectReference: core.LocalObjectReference{
-													Name: fulcioSecret,
-												},
-												Items: []core.KeyToPath{
-													{
-														Key:  "cert",
-														Path: "fulcio-cert",
-													},
-												},
-											},
-										},
-										{
-											Secret: &core.SecretProjection{
-												LocalObjectReference: core.LocalObjectReference{
-													Name: rekorSecret,
-												},
-												Items: []core.KeyToPath{
-													{
-														Key:  "key",
-														Path: "rekor-pubkey",
-													},
-												},
-											},
-										},
-									},
-								},
+								Projected: secretsVolumeProjection(instance.Spec),
 							},
 						},
 					},
 					Containers: []core.Container{
 						{
-							Name:  dpName,
+							Name:  "tuf",
 							Image: constants.TufImage,
 							Ports: []core.ContainerPort{
 								{
@@ -89,7 +77,7 @@ func CreateTufDeployment(namespace string, dpName string, fulcioSecret string, r
 							Env: []core.EnvVar{
 								{
 									Name:  "NAMESPACE",
-									Value: namespace,
+									Value: instance.Namespace,
 								},
 							},
 							VolumeMounts: []core.VolumeMount{

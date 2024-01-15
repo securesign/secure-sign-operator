@@ -10,17 +10,24 @@ import (
 )
 
 type RekorCertConfig struct {
-	RekorKey []byte
+	RekorKey    []byte
+	RekorPubKey []byte
 }
 
 func CreateRekorKey() (*RekorCertConfig, error) {
-	rekorCertConfig := &RekorCertConfig{}
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, err
 	}
 
+	key.Public()
+
 	mKey, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		return nil, err
+	}
+
+	mPubKey, err := x509.MarshalPKIXPublicKey(key.Public())
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +41,17 @@ func CreateRekorKey() (*RekorCertConfig, error) {
 		return nil, err
 	}
 
-	rekorCertConfig.RekorKey = pemRekorKey.Bytes()
+	var pemPubKey bytes.Buffer
+	err = pem.Encode(&pemPubKey, &pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: mPubKey,
+	})
+	if err != nil {
+		return nil, err
+	}
 
-	return rekorCertConfig, nil
+	return &RekorCertConfig{
+		RekorKey:    pemRekorKey.Bytes(),
+		RekorPubKey: pemPubKey.Bytes(),
+	}, nil
 }

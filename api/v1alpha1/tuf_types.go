@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -11,12 +12,29 @@ import (
 type TufSpec struct {
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
+	//+kubebuilder:default:=80
+	Port int32 `json:"port,omitempty"`
+	//+kubebuilder:default:={{name: rekor.pub},{name: ctfe.pub},{name: fulcio_v1.crt.pem}}
+	Keys []TufKey `json:"keys,omitempty"`
+}
+
+type TufKey struct {
+	//+required
+	Name string `json:"name"`
+	//+optional
+	SecretRef *v1.SecretKeySelector `json:"secretRef,omitempty"`
 }
 
 // TufStatus defines the observed state of Tuf
 type TufStatus struct {
 	Url   string `json:"url,omitempty"`
 	Phase Phase  `json:"phase"`
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
 //+kubebuilder:object:root=true

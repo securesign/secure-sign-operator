@@ -28,8 +28,9 @@ type SecuresignSpec struct {
 	Rekor    RekorSpec    `json:"rekor,omitempty"`
 	Fulcio   FulcioSpec   `json:"fulcio,omitempty"`
 	Trillian TrillianSpec `json:"trillian,omitempty"`
-	Tuf      TufSpec      `json:"tuf,omitempty"`
-	Ctlog    CTlogSpec    `json:"ctlog,omitempty"`
+	//+kubebuilder:default:={keys:{{name: rekor.pub},{name: ctfe.pub},{name: fulcio_v1.crt.pem}}}
+	Tuf   TufSpec   `json:"tuf,omitempty"`
+	Ctlog CTlogSpec `json:"ctlog,omitempty"`
 }
 
 // SecuresignStatus defines the observed state of Securesign

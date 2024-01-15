@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"github.com/securesign/operator/controllers/common"
+	"maps"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
 	k8sutils "github.com/securesign/operator/controllers/common/utils/kubernetes"
+	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/rekor/utils"
 	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -59,7 +61,16 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 			return instance, err
 		}
 
-		secret := k8sutils.CreateSecret(instance.Spec.Certificate.SecretName, instance.Namespace, map[string][]byte{"private": certConfig.RekorKey}, rekorServerLabels)
+		secretLabels := map[string]string{
+			constants.TufLabelNamespace + "/rekor.pub": "public",
+		}
+		maps.Copy(secretLabels, rekorServerLabels)
+
+		secret := k8sutils.CreateSecret(instance.Spec.Certificate.SecretName, instance.Namespace,
+			map[string][]byte{
+				"private": certConfig.RekorKey,
+				"public":  certConfig.RekorPubKey,
+			}, secretLabels)
 		controllerutil.SetOwnerReference(instance, secret, i.Client.Scheme())
 		if err = i.Client.Create(ctx, secret); err != nil {
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
