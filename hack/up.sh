@@ -1,6 +1,6 @@
 kind delete cluster
 
-make docker-build && make docker-push 
+make image-build && make image-push
 
 # spin up kind cluster
 cat <<EOF | kind create cluster --image kindest/node:v1.28.0 --config=-
