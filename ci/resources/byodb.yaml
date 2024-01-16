@@ -30,4 +30,7 @@ spec:
       secretName: fulcio-cert
   tuf:
   ctlog:
-
+    certificate:
+      create: true
+      secretName: ctlog-private-key
+      secretKey: private

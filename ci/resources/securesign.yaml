@@ -27,3 +27,8 @@ spec:
       create: false
       secretName: fulcio-secret-rh
     monitoring: false
+  ctlog:
+    certificate:
+      create: true
+      secretName: ctlog-private-key
+      secretKey: private

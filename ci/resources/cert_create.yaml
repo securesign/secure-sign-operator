@@ -37,3 +37,7 @@ spec:
     externalAccess:
       enabled: true
   ctlog:
+    certificate:
+      create: true
+      secretName: ctlog-private-key
+      secretKey: private
