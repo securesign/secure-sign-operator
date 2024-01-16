@@ -10,7 +10,7 @@ import (
 // FulcioSpec defines the desired state of Fulcio
 type FulcioSpec struct {
 	// Define whether you want to export service or not
-	External bool `json:"external,omitempty"`
+	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
 	// OIDC issuer configuration
 	OidcIssuers map[string]OidcIssuer `json:"oidcIssuers"`
 	// Certificate configuration

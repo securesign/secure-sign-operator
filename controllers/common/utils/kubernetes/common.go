@@ -3,6 +3,8 @@ package kubernetes
 import (
 	"os"
 	"path/filepath"
+
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -57,4 +59,16 @@ func ContainerMode() (bool, error) {
 		return true, err
 	}
 	return false, nil
+}
+
+func IsOpenShift(client kubernetes.Interface) bool {
+	_, err := client.Discovery().ServerResourcesForGroupVersion("image.openshift.io/v1")
+	if err != nil {
+		// continue with non-ocp standard
+		return false
+	} else if err != nil {
+		return false
+	}
+
+	return true
 }

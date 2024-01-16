@@ -14,12 +14,10 @@ spec:
       create: false
       databaseSecret: trillian-mysql
   rekor:
-    external: false
     certificate:
       create: true
       secretName: rekor-private
   fulcio:
-    external: false
     oidcIssuers:
       "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore":
         ClientID: "sigstore"
@@ -31,6 +29,5 @@ spec:
       organizationName: Red Hat
       secretName: fulcio-cert
   tuf:
-    external: false
   ctlog:
 

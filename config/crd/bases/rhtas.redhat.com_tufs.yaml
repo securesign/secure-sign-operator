@@ -44,9 +44,18 @@ spec:
           spec:
             description: TufSpec defines the desired state of Tuf
             properties:
-              external:
+              externalAccess:
                 description: Define whether you want to export service or not
-                type: boolean
+                properties:
+                  enabled:
+                    description: If set to true, the Operator will create an Ingress
+                      or a Route resource. For the plain Ingress there is no TLS configuration
+                      provided Route object uses "edge" termination by default.
+                    type: boolean
+                  host:
+                    description: Set hostname for your Ingress/Route.
+                    type: string
+                type: object
             type: object
           status:
             description: TufStatus defines the observed state of Tuf

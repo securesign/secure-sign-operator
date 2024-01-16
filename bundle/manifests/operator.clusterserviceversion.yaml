@@ -35,7 +35,9 @@ metadata:
               "organizationName": "Red Hat",
               "secretName": "fulcio-cert"
             },
-            "external": true,
+            "externalAccess": {
+              "enabled": true
+            },
             "keySecret": "fulcio-secret-rh",
             "oidcIssuers": {
               "https://your-oidc-issuer-url": {
@@ -62,7 +64,9 @@ metadata:
               "create": true,
               "secretName": "rekor-cert"
             },
-            "external": true
+            "externalAccess": {
+              "enabled": true
+            }
           }
         },
         {
@@ -84,8 +88,11 @@ metadata:
                 "organizationName": "Red Hat",
                 "secretName": "fulcio-cert"
               },
-              "external": true,
+              "externalAccess": {
+                "enabled": true
+              },
               "keySecret": "fulcio-secret-rh",
+              "monitoring": false,
               "oidcIssuers": {
                 "https://your-oidc-issuer-url": {
                   "ClientID": "trusted-artifact-signer",
@@ -99,7 +106,10 @@ metadata:
                 "create": true,
                 "secretName": "rekor-cert"
               },
-              "external": true
+              "externalAccess": {
+                "enabled": true
+              },
+              "monitoring": false
             },
             "trillian": {
               "database": {
@@ -107,7 +117,9 @@ metadata:
               }
             },
             "tuf": {
-              "external": true
+              "externalAccess": {
+                "enabled": true
+              }
             }
           }
         },
@@ -139,7 +151,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-01-12T00:08:46Z"
+    createdAt: "2024-01-17T11:19:23Z"
     operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: operator.v0.0.1
@@ -187,6 +199,22 @@ spec:
     spec:
       clusterPermissions:
       - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - endpoints
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          verbs:
+          - get
+          - list
+          - watch
         - apiGroups:
           - apps
           resources:
@@ -284,9 +312,45 @@ spec:
           - update
           - watch
         - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
           - networking
           resources:
           - ingresses
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - networking.k8s.io
+          resources:
+          - ingresses
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - operator.openshift.io
+          resources:
+          - ingresscontrollers
           verbs:
           - create
           - delete

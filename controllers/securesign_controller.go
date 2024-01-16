@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/securesign/operator/client"
 	"github.com/securesign/operator/controllers/constants"
 	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
@@ -28,7 +29,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	client2 "sigs.k8s.io/controller-runtime/pkg/client"
+
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -51,7 +53,8 @@ type SecuresignReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=operator.openshift.io,resources=ingresscontrollers,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
@@ -319,7 +322,7 @@ func (r *SecuresignReconciler) ensureSa(
 		},
 	}
 	// Check if this service account already exists else create it in the namespace
-	err := r.Get(ctx, client.ObjectKey{Name: sa.Name, Namespace: securesign.Namespace}, sa)
+	err := r.Get(ctx, client2.ObjectKey{Name: sa.Name, Namespace: securesign.Namespace}, sa)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			sa.Labels = map[string]string{
@@ -370,7 +373,7 @@ func (r *SecuresignReconciler) ensureRole(
 		},
 	}
 
-	err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: securesign.Namespace}, role)
+	err := r.Get(ctx, client2.ObjectKey{Name: name, Namespace: securesign.Namespace}, role)
 	if err != nil {
 		err = r.Create(ctx, role)
 		if err != nil {
@@ -414,7 +417,7 @@ func (r *SecuresignReconciler) ensureRoleBinding(
 	// If the bindingName is tuf-secret-copy-job* then change the kind of Role to clusterrole
 	// The Namespace for the serviceAccount will be tuf-system
 
-	err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: securesign.Namespace}, roleBinding)
+	err := r.Get(ctx, client2.ObjectKey{Name: name, Namespace: securesign.Namespace}, roleBinding)
 	if err != nil {
 		err = r.Create(ctx, roleBinding)
 		if err != nil {

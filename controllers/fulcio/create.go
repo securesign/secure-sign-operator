@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/securesign/operator/controllers/common/action"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/controllers/common/action"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/fulcio/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -86,7 +86,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		return instance, fmt.Errorf("could not create fulcio secret: %w", err)
 	}
 
-	svc := kubernetes.CreateService(instance.Namespace, "fulcio-server", 2112, labels)
+	svc := kubernetes.CreateService(instance.Namespace, ComponentName, 2112, labels)
 	svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
 		Name:       "5554-tcp",
 		Protocol:   corev1.ProtocolTCP,
@@ -104,17 +104,17 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create service: %w", err)
 	}
-	if instance.Spec.External {
-		// TODO: do we need to support ingress?
-		route := kubernetes.CreateRoute(*svc, "80-tcp", labels)
-		controllerutil.SetControllerReference(instance, route, i.Client.Scheme())
-		if err = i.Client.Create(ctx, route); err != nil {
+	if instance.Spec.ExternalAccess.Enabled {
+		ingress, err := kubernetes.CreateIngress(ctx, i.Client, *svc, instance.Spec.ExternalAccess, "80-tcp", labels)
+		if err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create ingress: %w", err)
+		}
+		controllerutil.SetControllerReference(instance, ingress, i.Client.Scheme())
+		if err = i.Client.Create(ctx, ingress); err != nil {
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
 			return instance, fmt.Errorf("could not create route: %w", err)
 		}
-		instance.Status.Url = "https://" + route.Spec.Host
-	} else {
-		instance.Status.Url = fmt.Sprintf("http://%s.%s.svc", svc.Name, svc.Namespace)
 	}
 
 	if instance.Spec.Monitoring {

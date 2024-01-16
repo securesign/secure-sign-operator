@@ -18,15 +18,16 @@ package fulcio
 
 import (
 	"context"
+
 	"github.com/securesign/operator/controllers/common/action"
 
+	"github.com/securesign/operator/client"
 	p "github.com/securesign/operator/controllers/common/operator/predicate"
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"

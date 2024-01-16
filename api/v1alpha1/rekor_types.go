@@ -10,7 +10,7 @@ import (
 // RekorSpec defines the desired state of Rekor
 type RekorSpec struct {
 	// Define whether you want to export service or not
-	External bool `json:"external,omitempty"`
+	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
 	// Persistent volume claim name to bound with Rekor component
 	PvcName string `json:"pvcName,omitempty"`
 	// Certificate configuration

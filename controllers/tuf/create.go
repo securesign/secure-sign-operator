@@ -3,9 +3,9 @@ package tuf
 import (
 	"context"
 	"fmt"
-	"github.com/securesign/operator/controllers/common/action"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/controllers/common/action"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/fulcio/utils"
 	tufutils "github.com/securesign/operator/controllers/tuf/utils"
@@ -52,7 +52,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) (
 		return instance, fmt.Errorf("could not create TUF: %w", err)
 	}
 
-	svc := kubernetes.CreateService(instance.Namespace, "tuf", 8080, labels)
+	svc := kubernetes.CreateService(instance.Namespace, ComponentName, 8080, labels)
 	//patch the pregenerated service
 	svc.Spec.Ports[0].Port = 80
 	controllerutil.SetControllerReference(instance, svc, i.Client.Scheme())
@@ -61,17 +61,17 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) (
 		return instance, fmt.Errorf("could not create service: %w", err)
 	}
 
-	if instance.Spec.External {
-		// TODO: do we need to support ingress?
-		route := kubernetes.CreateRoute(*svc, "tuf", labels)
-		controllerutil.SetControllerReference(instance, route, i.Client.Scheme())
-		if err = i.Client.Create(ctx, route); err != nil {
+	if instance.Spec.ExternalAccess.Enabled {
+		ingress, err := kubernetes.CreateIngress(ctx, i.Client, *svc, instance.Spec.ExternalAccess, "tuf", labels)
+		if err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create ingress: %w", err)
+		}
+		controllerutil.SetControllerReference(instance, ingress, i.Client.Scheme())
+		if err = i.Client.Create(ctx, ingress); err != nil {
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
 			return instance, fmt.Errorf("could not create route: %w", err)
 		}
-		instance.Status.Url = "https://" + route.Spec.Host
-	} else {
-		instance.Status.Url = fmt.Sprintf("http://%s.%s.svc", svc.Name, svc.Namespace)
 	}
 
 	instance.Status.Phase = rhtasv1alpha1.PhaseInitialize

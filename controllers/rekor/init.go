@@ -2,8 +2,14 @@ package rekor
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
+
 	"github.com/securesign/operator/controllers/common/action"
+	v12 "k8s.io/api/networking/v1"
+	client2 "sigs.k8s.io/controller-runtime/pkg/client"
+
 	"io"
 	"net/http"
 	"time"
@@ -45,10 +51,37 @@ func (i waitAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) (
 		return instance, nil
 	}
 
+	// find internal service URL (don't use the `.status.Url` because it can be external Ingress route with untrusted CA
+	rekor, err := commonUtils.SearchForInternalUrl(ctx, i.Client, instance.Namespace, labels)
+	if err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, err
+	}
+
+	inContainer, err := commonUtils.ContainerMode()
+	if err == nil {
+		if !inContainer {
+			fmt.Println("Operator is running on localhost. You need to port-forward services.")
+			for it := 0; it < 60; it++ {
+				if rawConnect("localhost", "8080") {
+					fmt.Println("Connection is open.")
+					rekor = "localhost:8080"
+					break
+				} else {
+					fmt.Println("Execute `oc port-forward service/rekor 8091 8080` in your namespace to continue.")
+					time.Sleep(time.Duration(5) * time.Second)
+				}
+			}
+
+		}
+	} else {
+		i.Logger.Info("Can't recognise operator mode - expecting in-container run")
+	}
+
 	var pubKeyResponse *http.Response
 	for retry := 1; retry < 5; retry++ {
 		time.Sleep(time.Duration(retry) * time.Second)
-		pubKeyResponse, err = http.Get(instance.Status.Url + "/api/v1/log/publicKey")
+		pubKeyResponse, err = http.Get("http://" + rekor + "/api/v1/log/publicKey")
 		if err == nil && pubKeyResponse.StatusCode == http.StatusOK {
 			continue
 		}
@@ -70,6 +103,37 @@ func (i waitAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) (
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create rekor-public-key secret: %w", err)
 	}
+
+	if instance.Spec.ExternalAccess.Enabled {
+		protocol := "http://"
+		ingressList := &v12.IngressList{}
+		err = i.Client.List(ctx, ingressList, client2.InNamespace(instance.Namespace), client2.MatchingLabels(labels), client2.Limit(1))
+		if err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, err
+		}
+		if len(ingressList.Items) != 1 {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, errors.New("can't find ingress object")
+		}
+		if len(ingressList.Items[0].Spec.TLS) > 0 {
+			protocol = "https://"
+		}
+		instance.Status.Url = protocol + ingressList.Items[0].Spec.Rules[0].Host
+	}
 	instance.Status.Phase = rhtasv1alpha1.PhaseReady
 	return instance, nil
+}
+
+func rawConnect(host string, port string) bool {
+	timeout := time.Second
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), timeout)
+	if err != nil {
+		return false
+	}
+	if conn != nil {
+		defer conn.Close()
+		return true
+	}
+	return false
 }

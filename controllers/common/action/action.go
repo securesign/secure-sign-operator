@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	"github.com/securesign/operator/client"
 	"k8s.io/client-go/tools/record"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Action[T interface{}] interface {

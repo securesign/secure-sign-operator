@@ -8,7 +8,8 @@ metadata:
   name: securesign-sample
 spec:
   rekor:
-    external: true
+    externalAccess:
+      enabled: true
     certificate:
       create: true
       secretName: rekor-cert
@@ -17,7 +18,8 @@ spec:
     database:
       create: true
   fulcio:
-    external: true
+    externalAccess:
+      enabled: true
     keySecret: fulcio-secret-rh
     oidcIssuers:
       "https://your-oidc-issuer-url":
@@ -31,4 +33,5 @@ spec:
       secretName: fulcio-cert
     monitoring: false
   tuf:
-    external: true
+    externalAccess:
+      enabled: true
