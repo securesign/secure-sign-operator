@@ -40,7 +40,7 @@ jobs:
           config: ./ci/config.yaml
 
       - name: Build and Deploy operator container
-        run: make image-build image-push deploy
+        run: make CTR_CMD=docker image-build image-push deploy
 
       - name: deploy router crd
         run: kubectl apply -f hack/router-crd.yaml
