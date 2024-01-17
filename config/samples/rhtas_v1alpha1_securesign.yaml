@@ -21,11 +21,12 @@ spec:
     externalAccess:
       enabled: true
     keySecret: fulcio-secret-rh
-    oidcIssuers:
-      "https://your-oidc-issuer-url":
-        ClientID: "trusted-artifact-signer"
-        IssuerURL: "https://your-oidc-issuer-url"
-        Type: "email"
+    config:
+      OIDCIssuers:
+        "https://your-oidc-issuer-url":
+          ClientID: "trusted-artifact-signer"
+          IssuerURL: "https://your-oidc-issuer-url"
+          Type: "email"
     certificate:
       create: true
       organizationName: Red Hat
