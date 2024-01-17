@@ -19,6 +19,8 @@ type RekorSpec struct {
 	Certificate RekorCert `json:"certificate,omitempty"`
 	//Enable Service monitors for rekor
 	Monitoring bool `json:"monitoring,omitempty"`
+	//Rekor Search UI
+	RekorSearchUI RekorSearchUI `json:"rekorSearchUI,omitempty"`
 }
 
 type RekorCert struct {
@@ -27,6 +29,11 @@ type RekorCert struct {
 	// Enter secret name for your keys and certificate (will be generated in case of `create=true`)
 	// Required fields: private
 	SecretName string `json:"secretName"`
+}
+
+type RekorSearchUI struct {
+	//Enable RekorSearchUI deployment
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 // RekorStatus defines the observed state of Rekor
