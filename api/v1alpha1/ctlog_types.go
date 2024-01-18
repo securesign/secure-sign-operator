@@ -9,6 +9,8 @@ import (
 
 // CTlogSpec defines the desired state of CTlog component
 type CTlogSpec struct {
+	//+optional
+	TreeID *int64 `json:"treeID,omitempty"`
 	// Certificate configuration
 	Certificate CtlogCert `json:"certificate,omitempty"`
 }
@@ -24,6 +26,8 @@ type CtlogCert struct {
 // CTlogStatus defines the observed state of CTlog component
 type CTlogStatus struct {
 	Phase Phase `json:"phase"`
+
+	TreeID *int64 `json:"treeID,omitempty"`
 }
 
 //+kubebuilder:object:root=true

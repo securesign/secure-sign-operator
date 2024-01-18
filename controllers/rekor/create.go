@@ -3,6 +3,7 @@ package rekor
 import (
 	"context"
 	"fmt"
+	"github.com/securesign/operator/controllers/common"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -92,7 +93,17 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		return instance, fmt.Errorf("could not find trillian TreeID: %w", err)
 	}
 
-	dp := utils.CreateRekorDeployment(instance.Namespace, rekorDeploymentName, trillian.Status.TreeID, rekorPvcName, instance.Spec.Certificate.SecretName, rekorServerLabels)
+	if instance.Spec.TreeID == nil || *instance.Spec.TreeID == int64(0) {
+		tree, err := common.CreateTrillianTree(ctx, "ctlog-tree", trillian.Status.Url)
+		if err != nil {
+			return instance, fmt.Errorf("could not create ctlog-tree: %w", err)
+		}
+		instance.Status.TreeID = &tree.TreeId
+	} else {
+		instance.Status.TreeID = instance.Spec.TreeID
+	}
+
+	dp := utils.CreateRekorDeployment(instance.Namespace, rekorDeploymentName, *instance.Status.TreeID, rekorPvcName, instance.Spec.Certificate.SecretName, rekorServerLabels)
 	controllerutil.SetControllerReference(instance, dp, i.Client.Scheme())
 	if err = i.Client.Create(ctx, dp); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError

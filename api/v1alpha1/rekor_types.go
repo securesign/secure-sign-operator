@@ -9,6 +9,8 @@ import (
 
 // RekorSpec defines the desired state of Rekor
 type RekorSpec struct {
+	//+optional
+	TreeID *int64 `json:"treeID,omitempty"`
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
 	// Persistent volume claim name to bound with Rekor component
@@ -29,8 +31,9 @@ type RekorCert struct {
 
 // RekorStatus defines the observed state of Rekor
 type RekorStatus struct {
-	Url   string `json:"url,omitempty"`
-	Phase Phase  `json:"phase,omitempty"`
+	Url    string `json:"url,omitempty"`
+	Phase  Phase  `json:"phase,omitempty"`
+	TreeID *int64 `json:"treeID,omitempty"`
 }
 
 //+kubebuilder:object:root=true
