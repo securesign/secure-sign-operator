@@ -291,8 +291,15 @@ func CreateCtlogConfig(ctx context.Context, ns string, trillianUrl string, treeI
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid fulcioURL %s : %v", fulcioUrl, err)
 	}
-	client := fulcioclient.NewClient(u)
-	root, err := client.RootCert()
+
+	var root *fulcioclient.RootResponse
+	for retry := 0; retry < 5; retry++ {
+		client := fulcioclient.NewClient(u)
+		root, err = client.RootCert()
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to fetch fulcio Root cert: %w", err)
 	}
