@@ -11,8 +11,8 @@ import (
 type FulcioSpec struct {
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
-	// OIDC issuer configuration
-	OidcIssuers map[string]OidcIssuer `json:"oidcIssuers"`
+	//+required
+	Config FulcioConfig `json:"config"`
 	// Certificate configuration
 	Certificate FulcioCert `json:"certificate,omitempty"`
 	//Enable Service monitors for fulcio
@@ -29,10 +29,39 @@ type FulcioCert struct {
 	OrganizationEmail string `json:"organizationEmail,omitempty"` // +kubebuilder:validation:+optional
 }
 
-type OidcIssuer struct {
-	ClientID  string `json:"ClientID"`
-	IssuerURL string `json:"IssuerURL"`
-	Type      string `json:"Type"`
+type FulcioConfig struct {
+	OIDCIssuers map[string]OIDCIssuer `json:"OIDCIssuers,omitempty"`
+
+	// A meta issuer has a templated URL of the form:
+	//   https://oidc.eks.*.amazonaws.com/id/*
+	// Where * can match a single hostname or URI path parts
+	// (in particular, no '.' or '/' are permitted, among
+	// other special characters)  Some examples we want to match:
+	// * https://oidc.eks.us-west-2.amazonaws.com/id/B02C93B6A2D30341AD01E1B6D48164CB
+	// * https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster
+	MetaIssuers map[string]OIDCIssuer `json:"MetaIssuers,omitempty"`
+}
+
+type OIDCIssuer struct {
+	// The expected issuer of an OIDC token
+	IssuerURL string `json:"IssuerURL,omitempty"`
+	// The expected client ID of the OIDC token
+	ClientID string `json:"ClientID"`
+	// Used to determine the subject of the certificate and if additional
+	// certificate values are needed
+	Type string `json:"Type"`
+	// Optional, if the issuer is in a different claim in the OIDC token
+	IssuerClaim string `json:"IssuerClaim,omitempty"`
+	// The domain that must be present in the subject for 'uri' issuer types
+	// Also used to create an email for 'username' issuer types
+	SubjectDomain string `json:"SubjectDomain,omitempty"`
+	// SPIFFETrustDomain specifies the trust domain that 'spiffe' issuer types
+	// issue ID tokens for. Tokens with a different trust domain will be
+	// rejected.
+	SPIFFETrustDomain string `json:"SPIFFETrustDomain,omitempty"`
+	// Optional, the challenge claim expected for the issuer
+	// Set if using a custom issuer
+	ChallengeClaim string `json:"ChallengeClaim,omitempty"`
 }
 
 // FulcioStatus defines the observed state of Fulcio

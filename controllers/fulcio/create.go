@@ -193,7 +193,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 }
 
 func (i createAction) initConfigmap(namespace string, name string, m rhtasv1alpha1.Fulcio, labels map[string]string) *corev1.ConfigMap {
-	issuers, _ := json.Marshal(m.Spec.OidcIssuers)
+	config, _ := json.Marshal(m.Spec.Config)
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -202,7 +202,7 @@ func (i createAction) initConfigmap(namespace string, name string, m rhtasv1alph
 		},
 
 		Data: map[string]string{
-			"config.json": fmt.Sprintf("{\"OIDCIssuers\": %s}", issuers),
+			"config.json": string(config),
 		},
 	}
 }

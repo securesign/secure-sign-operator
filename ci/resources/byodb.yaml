@@ -18,11 +18,12 @@ spec:
       create: true
       secretName: rekor-private
   fulcio:
-    oidcIssuers:
-      "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore":
-        ClientID: "sigstore"
-        IssuerURL: "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore"
-        Type: "email"
+    config:
+      OIDCIssuers:
+        "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore":
+          ClientID: "sigstore"
+          IssuerURL: "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore"
+          Type: "email"
     certificate:
       create: true
       organizationEmail: jdoe@redhat.com
