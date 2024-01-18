@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Install Go
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -39,11 +39,13 @@ jobs:
           cpu: 3
           config: ./ci/config.yaml
 
+      - name: Install Ingress
+        run: |
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+          kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
+
       - name: Build and Deploy operator container
         run: make docker-build docker-push deploy
-
-      - name: deploy router crd
-        run: kubectl apply -f hack/router-crd.yaml
 
       - name: Wait for operator to be ready
         run: | 
@@ -69,224 +71,39 @@ jobs:
             printf "Waiting for keycloak deployment. \n Keycloak ready: %s\n" $(oc get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system)
             sleep 10
           done
+          
+          # HACK - expose keycloak under the same name as the internal SVC has so it will be accessible:
+          # - within the cluster (where the localhost does not work)
+          # - outside the cluster (resolved from /etc/hosts and redirect to the localhost)
+          kubectl create -n keycloak-system -f - <<EOF
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: keycloak
+          spec:
+            rules:
+            - host: keycloak-internal.keycloak-system.svc
+              http:
+                paths:
+                - backend:
+                    service:
+                      name: keycloak-internal
+                      port:
+                        number: 80
+                  path: /
+                  pathType: Prefix
+          EOF
         shell: bash
 
-      - name: Apply sample config
+      - name: Add service hosts to /etc/hosts
         run: |
-          kubectl create ns test
-          kubectl -n test create secret generic fulcio-secret-rh --from-file=private=./ci/certs/file_ca_key.pem --from-file=public=./ci/certs/file_ca_pub.pem --from-file=cert=./ci/certs/fulcio-root.pem  --from-literal=password=secure
-          kubectl -n test create secret generic rekor-private-key --from-file=private=./ci/certs/rekor_key.pem
-          kubectl apply -f ci/resources/securesign.yaml -n test
+          sudo echo "127.0.0.1 fulcio.local tuf.local rekor.local keycloak-internal.keycloak-system.svc" | sudo tee -a /etc/hosts
+      - name: Install cosign
+        run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.2.2
 
-      - name: Apply sample config that generates certifcates
-        run: |
-          kubectl create ns create-cert
-          kubectl apply -f ci/resources/cert_create.yaml -n create-cert
-
-      - name: Apply db sample that tests existing db
-        run: |
-          kubectl create ns db
-          kubectl apply -f ci/db/ -n db
-          kubectl apply -f ci/resources/byodb.yaml -n db
-
-      - name: Apply sample config that uses injected ctlog privateKey
-        run: |
-          kubectl create ns ctlog-private-key-ns
-          kubectl -n ctlog-private-key-ns create secret generic ctlog-private-key --from-file=private=./ci/certs/ctlog_privkey.pem
-          kubectl apply -f ci/resources/ctlog_private_key.yaml -n ctlog-private-key-ns
-
-        #Deployment is done in iterations TUF should be the last one
-      - name: Until shell script to wait for tuf deployment to be created
-        run: |
-          timeout 120s bash -c 'until [ ! -z "$(kubectl get deployment tuf -n test 2>/dev/null)" ]
-          do
-            echo "Waiting for tuf deployment to be created. Pods in test namespace:"
-            kubectl get pods -n test
-            kubectl get rekor,fulcio,tuf,ctlog,trillian -n test
-            sleep 3
-          done'
-        shell: bash
-
-      - name: Check the deployment of fulcio
-        run: kubectl wait --for=condition=available deployment/fulcio-server --timeout=80s -n test
-  
-      - name: Check the deployment of rekor
-        run: kubectl wait --for=condition=available deployment/rekor-server --timeout=80s -n test
-
-      - name: Check for the deployment of redis
-        run: kubectl wait --for=condition=available deployment/rekor-redis --timeout=80s -n test
-
-      - name: Check for the deployment of trillian logsigner
-        run: kubectl wait --for=condition=available deployment/trillian-logsigner --timeout=80s -n test
-
-      - name: Check for the deployment of trillian logserver
-        run: kubectl wait --for=condition=available deployment/trillian-logserver --timeout=200s -n test
-
-      - name: Check for the deployment of tuf
-        run: kubectl wait --for=condition=available deployment/tuf --timeout=120s -n test
-
-      - name: Check for the deployment of ctlog
-        run: kubectl wait --for=condition=available deployment/ctlog --timeout=120s -n test
-
-      #Deployment is done in iterations TUF should be the last one
-      - name: Until shell script to wait for tuf deployment to be created
-        run: |
-          timeout 120s bash -c 'until [ ! -z "$(kubectl get deployment tuf -n create-cert 2>/dev/null)" ]
-          do
-            echo "Waiting for tuf deployment to be created. Pods in create-cert namespace:"
-            kubectl get pods -n create-cert
-            kubectl get rekor,fulcio,tuf,ctlog,trillian -n create-cert
-            sleep 3
-          done'
-        shell: bash
-
-      - name: Check the deployment of fulcio
-        run: kubectl wait --for=condition=available deployment/fulcio-server --timeout=80s -n create-cert
-  
-      - name: Check the deployment of rekor
-        run: kubectl wait --for=condition=available deployment/rekor-server --timeout=80s -n create-cert
-
-      - name: Check for the deployment of redis
-        run: kubectl wait --for=condition=available deployment/rekor-redis --timeout=80s -n create-cert
-
-      - name: Check for the deployment of trillian logsigner
-        run: kubectl wait --for=condition=available deployment/trillian-logsigner --timeout=80s -n create-cert
-
-      - name: Check for the deployment of trillian logserver
-        run: kubectl wait --for=condition=available deployment/trillian-logserver --timeout=200s -n create-cert
-
-      - name: Check for the deployment of tuf
-        run: kubectl wait --for=condition=available deployment/tuf --timeout=120s -n create-cert
-
-      - name: Check for the deployment of ctlog
-        run: kubectl wait --for=condition=available deployment/ctlog --timeout=120s -n create-cert
-
-      - name: Until shell script to wait for tuf deployment to be created
-        run: |
-          timeout 120s bash -c 'until [ ! -z "$(kubectl get deployment tuf -n db 2>/dev/null)" ]
-          do
-            echo "Waiting for tuf deployment to be created. Pods in db namespace:"
-            kubectl get pods -n db
-            kubectl get rekor,fulcio,tuf,ctlog,trillian -n db
-            sleep 3
-          done'
-        shell: bash
-
-      - name: Check the deployment of fulcio
-        run: kubectl wait --for=condition=available deployment/fulcio-server --timeout=80s -n db
-  
-      - name: Check the deployment of rekor
-        run: kubectl wait --for=condition=available deployment/rekor-server --timeout=80s -n db
-
-      - name: Check for the deployment of redis
-        run: kubectl wait --for=condition=available deployment/rekor-redis --timeout=80s -n db
-
-      - name: Check for the deployment of trillian logsigner
-        run: kubectl wait --for=condition=available deployment/trillian-logsigner --timeout=80s -n db
-
-      - name: Check for the deployment of trillian logserver
-        run: kubectl wait --for=condition=available deployment/trillian-logserver --timeout=200s -n db
-
-      - name: Check for the deployment of tuf
-        run: kubectl wait --for=condition=available deployment/tuf --timeout=120s -n db
-
-      - name: Check for the deployment of ctlog
-        run: kubectl wait --for=condition=available deployment/ctlog --timeout=120s -n db
-
-        #Deployment is done in iterations TUF should be the last one
-      - name: Until shell script to wait for tuf deployment to be created
-        run: |
-          timeout 120s bash -c 'until [ ! -z "$(kubectl get deployment tuf -n ctlog-private-key-ns 2>/dev/null)" ]
-          do
-            echo "Waiting for tuf deployment to be created. Pods in ctlog-private-key-ns namespace:"
-            kubectl get pods -n ctlog-private-key-ns
-            kubectl get rekor,fulcio,tuf,ctlog,trillian -n ctlog-private-key-ns
-            sleep 3
-          done'
-        shell: bash
-
-      - name: Check the deployment of fulcio
-        run: kubectl wait --for=condition=available deployment/fulcio-server --timeout=80s -n ctlog-private-key-ns
-
-      - name: Check the deployment of rekor
-        run: kubectl wait --for=condition=available deployment/rekor-server --timeout=80s -n ctlog-private-key-ns
-
-      - name: Check for the deployment of redis
-        run: kubectl wait --for=condition=available deployment/rekor-redis --timeout=80s -n ctlog-private-key-ns
-
-      - name: Check for the deployment of trillian logsigner
-        run: kubectl wait --for=condition=available deployment/trillian-logsigner --timeout=80s -n ctlog-private-key-ns
-
-      - name: Check for the deployment of trillian logserver
-        run: kubectl wait --for=condition=available deployment/trillian-logserver --timeout=200s -n ctlog-private-key-ns
-
-      - name: Check for the deployment of tuf
-        run: kubectl wait --for=condition=available deployment/tuf --timeout=120s -n ctlog-private-key-ns
-
-      - name: Check for the deployment of ctlog
-        run: kubectl wait --for=condition=available deployment/ctlog --timeout=120s -n ctlog-private-key-ns
-
-      - name: create the trusted-artifact-signer-test-connection job
-        run: kubectl apply -f hack/connection-verify.yaml -n test
-
-      - name: wait for the trusted-artifact-signer-test-connection job to complete
-        run: kubectl wait --for=condition=complete job/trusted-artifact-signer-test-connection -n test --timeout=120s
-
-      - name: create the cosign verify job
-        run: kubectl apply -f hack/cosign-testns.yaml -n test
-
-      - name: wait for the cosign verify job to complete
-        run: kubectl wait --for=condition=complete job/cosign-verify -n test --timeout=200s
-
-      - name: create the cosign verify job
-        run: kubectl apply -f hack/cosign-createcertns.yaml -n create-cert
-
-      - name: wait for the cosign verify job to complete
-        run: kubectl wait --for=condition=complete job/cosign-verify -n create-cert --timeout=200s
-
-      - name: create the cosign verify job
-        run: kubectl apply -f hack/cosign-createcertns.yaml -n db
-
-      - name: wait for the cosign verify job to complete
-        run: kubectl wait --for=condition=complete job/cosign-verify -n db --timeout=200s
-
-      - name: create the cosign verify job
-        run: kubectl apply -f hack/cosign-ctlog-private-keyns.yaml -n ctlog-private-key-ns
-
-      - name: wait for the cosign verify job to complete
-        run: kubectl wait --for=condition=complete job/cosign-verify -n ctlog-private-key-ns --timeout=200s
-
-      - name: dump the log of the cosign verify job
-        run: kubectl logs -n test job/cosign-verify
-        if: always()
-
-      - name: dump the log of the cosign verify job
-        run: kubectl logs -n ctlog-private-key-ns job/cosign-verify
-        if: always()
-
-      - name: try to find in the logs of the pod
-        run: kubectl logs -n test $(kubectl get pods -n test -o name | grep cosign-verify)
-        if: always()
-
-      - name: try to find in the logs of the pod
-        run: kubectl logs -n create-cert $(kubectl get pods -n create-cert -o name | grep cosign-verify)
-        if: always()
-
-      - name: try to find in the logs of the pod
-        run: kubectl logs -n ctlog-private-key-ns $(kubectl get pods -n ctlog-private-key-ns -o name | grep cosign-verify)
-        if: always()
+      - name: Run tests
+        run: make integration-test
 
       - name: dump the logs of the operator
         run: kubectl logs -n operator-system deployment/operator-controller-manager
-        if: always()
-
-      - name: dump all deployments
-        run: |
-          kubectl get secrets -A
-          kubectl get events -n test
-          kubectl get events -n create-cert
-          kubectl get events -n ctlog-private-key-ns
-          kubectl get deployments -A
-          kubectl get svc -A
-          kubectl get rekor,fulcio,tuf,ctlog,trillian -A
         if: always()

@@ -30,10 +30,34 @@ func CreateTrillDeployment(namespace string, image string, dpName string, dbsecr
 						{
 							Name:  "wait-for-trillian-db",
 							Image: constants.TrillianNetcatImage,
+							Env: []core.EnvVar{
+								{
+									Name: "MYSQL_HOSTNAME",
+									ValueFrom: &core.EnvVarSource{
+										SecretKeyRef: &core.SecretKeySelector{
+											Key: "mysql-host",
+											LocalObjectReference: core.LocalObjectReference{
+												Name: dbsecret,
+											},
+										},
+									},
+								},
+								{
+									Name: "MYSQL_PORT",
+									ValueFrom: &core.EnvVarSource{
+										SecretKeyRef: &core.SecretKeySelector{
+											Key: "mysql-port",
+											LocalObjectReference: core.LocalObjectReference{
+												Name: dbsecret,
+											},
+										},
+									},
+								},
+							},
 							Command: []string{
 								"sh",
 								"-c",
-								"until nc -z -v -w30 trillian-mysql 3306; do echo \"Waiting for MySQL to start\"; sleep 5; done;",
+								"until nc -z -v -w30 $MYSQL_HOSTNAME $MYSQL_PORT; do echo \"Waiting for MySQL to start\"; sleep 5; done;",
 							},
 						},
 					},
