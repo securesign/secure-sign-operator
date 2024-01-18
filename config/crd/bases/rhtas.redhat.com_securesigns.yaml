@@ -53,6 +53,9 @@ spec:
                     required:
                     - create
                     type: object
+                  treeID:
+                    format: int64
+                    type: integer
                 type: object
               fulcio:
                 description: FulcioSpec defines the desired state of Fulcio
@@ -213,6 +216,9 @@ spec:
                     description: Persistent volume claim name to bound with Rekor
                       component
                     type: string
+                  treeID:
+                    format: int64
+                    type: integer
                 type: object
               trillian:
                 description: TrillianSpec defines the desired state of Trillian

@@ -55,12 +55,18 @@ spec:
                 required:
                 - create
                 type: object
+              treeID:
+                format: int64
+                type: integer
             type: object
           status:
             description: CTlogStatus defines the observed state of CTlog component
             properties:
               phase:
                 type: string
+              treeID:
+                format: int64
+                type: integer
             required:
             - phase
             type: object

@@ -77,12 +77,18 @@ spec:
               pvcName:
                 description: Persistent volume claim name to bound with Rekor component
                 type: string
+              treeID:
+                format: int64
+                type: integer
             type: object
           status:
             description: RekorStatus defines the observed state of Rekor
             properties:
               phase:
                 type: string
+              treeID:
+                format: int64
+                type: integer
               url:
                 type: string
             type: object

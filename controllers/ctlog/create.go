@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/action"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	utils "github.com/securesign/operator/controllers/common/utils/kubernetes"
@@ -66,9 +67,19 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		}
 	}
 
+	if instance.Spec.TreeID == nil || *instance.Spec.TreeID == int64(0) {
+		tree, err := common.CreateTrillianTree(ctx, "ctlog-tree", trillian.Status.Url)
+		if err != nil {
+			return instance, fmt.Errorf("could not create ctlog-tree: %w", err)
+		}
+		instance.Status.TreeID = &tree.TreeId
+	} else {
+		instance.Status.TreeID = instance.Spec.TreeID
+	}
+
 	var config, pubKey *corev1.Secret
 
-	if config, pubKey, err = ctlogUtils.CreateCtlogConfig(ctx, instance.Namespace, trillian.Status.Url, trillian.Status.TreeID, "http://"+fulcioUrl, labels, privateKey); err != nil {
+	if config, pubKey, err = ctlogUtils.CreateCtlogConfig(ctx, instance.Namespace, trillian.Status.Url, *instance.Status.TreeID, "http://"+fulcioUrl, labels, privateKey); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create CTLog configuration: %w", err)
 	}
