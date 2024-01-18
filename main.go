@@ -20,6 +20,7 @@ import (
 	"flag"
 	"os"
 
+	v1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	client2 "github.com/securesign/operator/client"
 	"github.com/securesign/operator/controllers/ctlog"
@@ -55,6 +56,7 @@ func init() {
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(rhtasv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
+	utilruntime.Must(v1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -126,21 +128,21 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&rekor.RekorReconciler{
-		Client: mgr.GetClient(),
+		Client: client,
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Rekor")
 		os.Exit(1)
 	}
 	if err = (&tuf.TufReconciler{
-		Client: mgr.GetClient(),
+		Client: client,
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Tuf")
 		os.Exit(1)
 	}
 	if err = (&ctlog.CTlogReconciler{
-		Client: mgr.GetClient(),
+		Client: client,
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CTlog")

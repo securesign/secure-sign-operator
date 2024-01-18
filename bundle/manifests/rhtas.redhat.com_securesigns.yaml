@@ -58,8 +58,21 @@ spec:
                     - create
                     - secretName
                     type: object
-                  external:
+                  externalAccess:
                     description: Define whether you want to export service or not
+                    properties:
+                      enabled:
+                        description: If set to true, the Operator will create an Ingress
+                          or a Route resource. For the plain Ingress there is no TLS
+                          configuration provided Route object uses "edge" termination
+                          by default.
+                        type: boolean
+                      host:
+                        description: Set hostname for your Ingress/Route.
+                        type: string
+                    type: object
+                  monitoring:
+                    description: Enable Service monitors for fulcio
                     type: boolean
                   oidcIssuers:
                     additionalProperties:
@@ -98,8 +111,21 @@ spec:
                     - create
                     - secretName
                     type: object
-                  external:
+                  externalAccess:
                     description: Define whether you want to export service or not
+                    properties:
+                      enabled:
+                        description: If set to true, the Operator will create an Ingress
+                          or a Route resource. For the plain Ingress there is no TLS
+                          configuration provided Route object uses "edge" termination
+                          by default.
+                        type: boolean
+                      host:
+                        description: Set hostname for your Ingress/Route.
+                        type: string
+                    type: object
+                  monitoring:
+                    description: Enable Service monitors for rekor
                     type: boolean
                   pvcName:
                     description: Persistent volume claim name to bound with Rekor
@@ -130,9 +156,19 @@ spec:
               tuf:
                 description: TufSpec defines the desired state of Tuf
                 properties:
-                  external:
+                  externalAccess:
                     description: Define whether you want to export service or not
-                    type: boolean
+                    properties:
+                      enabled:
+                        description: If set to true, the Operator will create an Ingress
+                          or a Route resource. For the plain Ingress there is no TLS
+                          configuration provided Route object uses "edge" termination
+                          by default.
+                        type: boolean
+                      host:
+                        description: Set hostname for your Ingress/Route.
+                        type: string
+                    type: object
                 type: object
             type: object
           status:

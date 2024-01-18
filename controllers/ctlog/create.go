@@ -3,12 +3,12 @@ package ctlog
 import (
 	"context"
 	"fmt"
-	"github.com/securesign/operator/controllers/common/action"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/controllers/common/action"
 	utils "github.com/securesign/operator/controllers/common/utils/kubernetes"
 	ctlogUtils "github.com/securesign/operator/controllers/ctlog/utils"
-	fulcioUtils "github.com/securesign/operator/controllers/fulcio/utils"
+	"github.com/securesign/operator/controllers/fulcio"
 	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -42,10 +42,13 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	labels[utils.ComponentLabel] = ComponentName
 	labels[utils.NameLabel] = deploymentName
 
-	fulcio, err := fulcioUtils.FindFulcio(ctx, i.Client, instance.Namespace, utils.FilterCommonLabels(instance.Labels))
-	if err != nil || fulcio.Status.Phase != rhtasv1alpha1.PhaseReady {
+	fulcioLabels := utils.FilterCommonLabels(instance.Labels)
+	fulcioLabels[utils.ComponentLabel] = fulcio.ComponentName
+	// find internal service URL (don't use the `.status.Url` because it can be external Ingress route with untrusted CA
+	fulcioUrl, err := utils.SearchForInternalUrl(ctx, i.Client, instance.Namespace, fulcioLabels)
+	if err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not find Fulcio: %s", err)
+		return instance, fmt.Errorf("can't find fulcio service: %s", err)
 	}
 	trillian, err := trillianUtils.FindTrillian(ctx, i.Client, instance.Namespace, utils.FilterCommonLabels(instance.Labels))
 	if err != nil || trillian.Status.Phase != rhtasv1alpha1.PhaseReady {
@@ -54,7 +57,8 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	}
 
 	var config, pubKey *corev1.Secret
-	if config, pubKey, err = ctlogUtils.CreateCtlogConfig(ctx, instance.Namespace, trillian.Status.Url, trillian.Status.TreeID, fulcio.Status.Url, labels); err != nil {
+
+	if config, pubKey, err = ctlogUtils.CreateCtlogConfig(ctx, instance.Namespace, trillian.Status.Url, trillian.Status.TreeID, "http://"+fulcioUrl, labels); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create CTLog configuration: %w", err)
 	}

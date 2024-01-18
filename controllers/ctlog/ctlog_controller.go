@@ -18,8 +18,11 @@ package ctlog
 
 import (
 	"context"
-	"github.com/securesign/operator/controllers/common/action"
 
+	"github.com/securesign/operator/controllers/common/action"
+	client2 "sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/securesign/operator/client"
 	p "github.com/securesign/operator/controllers/common/operator/predicate"
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -27,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -114,14 +116,14 @@ func (r *CTlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				return false
 			}},
 		)).
-		Watches(&rhtasv1alpha1.Trillian{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
+		Watches(&rhtasv1alpha1.Trillian{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client2.Object) []reconcile.Request {
 			var requests []reconcile.Request
 			t, ok := a.(*rhtasv1alpha1.Trillian)
 			if !ok {
 				return requests
 			}
 			list := &rhtasv1alpha1.CTlogList{}
-			if err := mgr.GetClient().List(ctx, list, client.MatchingLabels(t.Labels), client.InNamespace(t.Namespace)); err != nil {
+			if err := mgr.GetClient().List(ctx, list, client2.MatchingLabels(t.Labels), client2.InNamespace(t.Namespace)); err != nil {
 				return requests
 			}
 
@@ -135,14 +137,14 @@ func (r *CTlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			}
 			return requests
 		})).
-		Watches(&rhtasv1alpha1.Fulcio{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
+		Watches(&rhtasv1alpha1.Fulcio{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client2.Object) []reconcile.Request {
 			var requests []reconcile.Request
 			t, ok := a.(*rhtasv1alpha1.Fulcio)
 			if !ok {
 				return requests
 			}
 			list := &rhtasv1alpha1.CTlogList{}
-			if err := mgr.GetClient().List(ctx, list, client.MatchingLabels(t.Labels), client.InNamespace(t.Namespace)); err != nil {
+			if err := mgr.GetClient().List(ctx, list, client2.MatchingLabels(t.Labels), client2.InNamespace(t.Namespace)); err != nil {
 				return requests
 			}
 

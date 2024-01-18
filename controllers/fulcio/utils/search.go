@@ -10,29 +10,21 @@ import (
 
 func FindFulcio(ctx context.Context, cli client.Client, namespace string, labels map[string]string) (*rhtasv1alpha1.Fulcio, error) {
 	list := &rhtasv1alpha1.FulcioList{}
-	err := cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels(labels))
+	err := cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels(labels), client.Limit(1))
 	if err != nil {
 		return nil, err
 	}
-	if len(list.Items) > 1 {
-		return nil, errors.New("dupplicit resource")
-	}
-
 	if len(list.Items) == 1 {
 		return &list.Items[0], nil
 	}
 	// try to find any resource in namespace
-	err = cli.List(ctx, list, client.InNamespace(namespace))
+	err = cli.List(ctx, list, client.InNamespace(namespace), client.Limit(1))
 	if err != nil {
 		return nil, err
-	}
-	if len(list.Items) > 1 {
-		return nil, errors.New("dupplicit resource")
 	}
 
 	if len(list.Items) == 1 {
 		return &list.Items[0], nil
 	}
-	return nil, errors.New("no resource found")
-
+	return nil, errors.New("component not found")
 }

@@ -3,12 +3,13 @@ package trillian
 import (
 	"context"
 	"fmt"
-	"github.com/securesign/operator/controllers/common/action"
 	"net"
 	"time"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/controllers/common/action"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
+
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/trillian/utils"
 )
 

@@ -7,7 +7,8 @@ metadata:
     app.kubernetes.io/part-of: trusted-artifact-signer
   name: fulcio-sample
 spec:
-  external: true
+  externalAccess:
+    enabled: true
   keySecret: fulcio-secret-rh
   oidcIssuers:
     "https://your-oidc-issuer-url":

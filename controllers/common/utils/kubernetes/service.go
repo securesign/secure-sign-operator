@@ -1,8 +1,13 @@
 package kubernetes
 
 import (
+	"context"
+	"errors"
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -26,4 +31,17 @@ func CreateService(namespace string, name string, port int, labels map[string]st
 			},
 		},
 	}
+}
+
+func SearchForInternalUrl(ctx context.Context, cli client.Client, namespace string, labels map[string]string) (string, error) {
+	list := &corev1.ServiceList{}
+	err := cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels(labels), client.Limit(1))
+	if err != nil {
+		return "", err
+	}
+	if len(list.Items) != 1 {
+		return "", errors.New("component not found")
+	}
+	return fmt.Sprintf("%s.%s.svc.cluster.local", list.Items[0].Name, list.Items[0].Namespace), nil
+
 }

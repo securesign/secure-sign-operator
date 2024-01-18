@@ -13,13 +13,11 @@ spec:
     database:
       create: true
   rekor:
-    external: false
     certificate:
       secretName: rekor-private-key
       create: false
     monitoring: false
   fulcio:
-    external: false
     oidcIssuers:
       "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore":
         ClientID: "sigstore"

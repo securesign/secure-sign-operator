@@ -29,11 +29,11 @@ spec:
             - name: OIDC_AUTHENTICATION_REALM
               value: "sigstore"
             - name: FULCIO_URL
-              value: "http://fulcio-server.test.svc"
+              value: "http://fulcio.test.svc"
             - name: OIDC_ISSUER_URL
               value: "http://keycloak-internal.keycloak-system.svc/auth/realms/$(OIDC_AUTHENTICATION_REALM)"
             - name: REKOR_URL
-              value: "http://rekor-server.test.svc"
+              value: "http://rekor.test.svc"
             - name: TUF_URL
               value: "http://tuf.test.svc"
             command: ["/bin/sh", "-c"]
