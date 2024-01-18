@@ -9,6 +9,16 @@ import (
 
 // CTlogSpec defines the desired state of CTlog component
 type CTlogSpec struct {
+	// Certificate configuration
+	Certificate CtlogCert `json:"certificate,omitempty"`
+}
+
+type CtlogCert struct {
+	Create bool `json:"create"`
+	//Name of the secret the ctlog private key is stored in
+	SecretName string `json:"secretName,omitempty"` // +kubebuilder:validation:+optional
+	//Key for the private key inside the secret
+	SecretKey string `json:"secretKey,omitempty"` // +kubebuilder:validation:+optional
 }
 
 // CTlogStatus defines the observed state of CTlog component

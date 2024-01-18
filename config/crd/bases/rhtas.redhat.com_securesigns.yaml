@@ -37,6 +37,22 @@ spec:
             properties:
               ctlog:
                 description: CTlogSpec defines the desired state of CTlog component
+                properties:
+                  certificate:
+                    description: Certificate configuration
+                    properties:
+                      create:
+                        type: boolean
+                      secretKey:
+                        description: Key for the private key inside the secret
+                        type: string
+                      secretName:
+                        description: Name of the secret the ctlog private key is stored
+                          in
+                        type: string
+                    required:
+                    - create
+                    type: object
                 type: object
               fulcio:
                 description: FulcioSpec defines the desired state of Fulcio

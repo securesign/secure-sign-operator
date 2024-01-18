@@ -6,6 +6,7 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
+	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	utils "github.com/securesign/operator/controllers/common/utils/kubernetes"
 	ctlogUtils "github.com/securesign/operator/controllers/ctlog/utils"
 	"github.com/securesign/operator/controllers/fulcio"
@@ -56,9 +57,18 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		return instance, fmt.Errorf("can't find trillian: %s", err)
 	}
 
+	var privateKey []byte
+	if !instance.Spec.Certificate.Create {
+		privateKey, err = kubernetes.GetSecretValue(i.Client, instance.Namespace, instance.Spec.Certificate.SecretName, instance.Spec.Certificate.SecretKey)
+		if err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not retrieve ctlog secret %s: %w", instance.Spec.Certificate.SecretName, err)
+		}
+	}
+
 	var config, pubKey *corev1.Secret
 
-	if config, pubKey, err = ctlogUtils.CreateCtlogConfig(ctx, instance.Namespace, trillian.Status.Url, trillian.Status.TreeID, "http://"+fulcioUrl, labels); err != nil {
+	if config, pubKey, err = ctlogUtils.CreateCtlogConfig(ctx, instance.Namespace, trillian.Status.Url, trillian.Status.TreeID, "http://"+fulcioUrl, labels, privateKey); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create CTLog configuration: %w", err)
 	}

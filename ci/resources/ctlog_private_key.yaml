@@ -13,20 +13,31 @@ spec:
     database:
       create: true
   rekor:
+    externalAccess:
+      enabled: true
     certificate:
-      secretName: rekor-private-key
-      create: false
+      create: true
+      secretName: rekor-private
     monitoring: false
   fulcio:
+    externalAccess:
+      enabled: true
     oidcIssuers:
       "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore":
         ClientID: "sigstore"
         IssuerURL: "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore"
         Type: "email"
     certificate:
-      create: false
-      secretName: fulcio-secret-rh
+      create: true
+      organizationEmail: jdoe@redhat.com
+      organizationName: Red Hat
+      secretName: fulcio-cert
     monitoring: false
+  tuf:
+    externalAccess:
+      enabled: true
   ctlog:
     certificate:
-      create: true
+      create: false
+      secretName: ctlog-private-key
+      secretKey: private

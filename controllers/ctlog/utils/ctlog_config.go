@@ -236,23 +236,47 @@ func mustMarshalAny(pb proto.Message) *anypb.Any {
 	return ret
 }
 
-func createConfigWithKeys(ctx context.Context, keytype string) (*Config, error) {
+func createConfigWithKeys(ctx context.Context, keytype string, privateKey []byte) (*Config, error) {
+	var signer crypto.Signer
 	var privKey crypto.PrivateKey
-	var err error
-	if keytype == "rsa" {
-		privKey, err = rsa.GenerateKey(rand.Reader, bitSize)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate Private RSA Key: %w", err)
+	var ok bool
+
+	if privateKey == nil {
+		var err error
+		if keytype == "rsa" {
+			privKey, err = rsa.GenerateKey(rand.Reader, bitSize)
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate Private RSA Key: %w", err)
+			}
+		} else {
+			privKey, err = ecdsa.GenerateKey(supportedCurves[curveType], rand.Reader)
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate Private ECDSA Key: %w", err)
+			}
 		}
-	} else {
-		privKey, err = ecdsa.GenerateKey(supportedCurves[curveType], rand.Reader)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate Private ECDSA Key: %w", err)
+		if signer, ok = privKey.(crypto.Signer); !ok {
+			return nil, fmt.Errorf("failed to convert to Signer")
 		}
+		return &Config{
+			PrivKey: privKey,
+			PubKey:  signer.Public(),
+		}, nil
 	}
 
-	var ok bool
-	var signer crypto.Signer
+	block, rest := pem.Decode([]byte(privateKey))
+	if block == nil || block.Type != "EC PARAMETERS" {
+		return nil, fmt.Errorf("failed to decode EC PARAMETERS")
+	}
+
+	block, _ = pem.Decode(rest)
+	if block == nil || block.Type != "EC PRIVATE KEY" {
+		return nil, fmt.Errorf("failed to decode private key")
+	}
+
+	privKey, err := x509.ParseECPrivateKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse private key: %s", err)
+	}
 	if signer, ok = privKey.(crypto.Signer); !ok {
 		return nil, fmt.Errorf("failed to convert to Signer")
 	}
@@ -262,7 +286,7 @@ func createConfigWithKeys(ctx context.Context, keytype string) (*Config, error) 
 	}, nil
 }
 
-func CreateCtlogConfig(ctx context.Context, ns string, trillianUrl string, treeID int64, fulcioUrl string, labels map[string]string) (*corev1.Secret, *corev1.Secret, error) {
+func CreateCtlogConfig(ctx context.Context, ns string, trillianUrl string, treeID int64, fulcioUrl string, labels map[string]string, privateKey []byte) (*corev1.Secret, *corev1.Secret, error) {
 	u, err := url.Parse(fulcioUrl)
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid fulcioURL %s : %v", fulcioUrl, err)
@@ -273,7 +297,7 @@ func CreateCtlogConfig(ctx context.Context, ns string, trillianUrl string, treeI
 		return nil, nil, fmt.Errorf("Failed to fetch fulcio Root cert: %w", err)
 	}
 
-	ctlogConfig, err := createConfigWithKeys(ctx, "ecdsa")
+	ctlogConfig, err := createConfigWithKeys(ctx, "ecdsa", privateKey)
 	if err != nil {
 		return nil, nil, err
 	}
