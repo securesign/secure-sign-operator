@@ -30,7 +30,7 @@ func CreateDeployment(namespace string, deploymentName string, certSecret string
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: "sigstore-sa",
+					ServiceAccountName: constants.ServiceAccountName,
 					Containers: []corev1.Container{
 						{
 							Name:  "fulcio-server",

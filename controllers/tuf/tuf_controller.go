@@ -67,17 +67,10 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-
-			// TODO: HACK - redefine APIe
-			owner := rhtasv1alpha1.Securesign{}
-			r.Client.Get(ctx, req.NamespacedName, &owner)
-			if owner.Status.Tuf != "" {
-				r.Client.Get(ctx, types.NamespacedName{Name: owner.Status.Tuf, Namespace: req.Namespace}, &instance)
-			}
-		} else {
-			// Error reading the object - requeue the request.
-			return reconcile.Result{}, err
+			return reconcile.Result{}, nil
 		}
+		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
 	}
 	target := instance.DeepCopy()
 	actions := []action.Action[rhtasv1alpha1.Tuf]{

@@ -27,7 +27,7 @@ func CreateRekorDeployment(namespace string, dpName string, treeID int64, pvc st
 					Labels: labels,
 				},
 				Spec: core.PodSpec{
-					ServiceAccountName: "sigstore-sa",
+					ServiceAccountName: constants.ServiceAccountName,
 					Volumes: []core.Volume{
 						{
 							Name: "rekor-sharding-config",

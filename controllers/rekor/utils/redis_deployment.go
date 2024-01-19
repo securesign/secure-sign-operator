@@ -26,7 +26,7 @@ func CreateRedisDeployment(namespace string, dpName string, labels map[string]st
 					Labels: labels,
 				},
 				Spec: core.PodSpec{
-					ServiceAccountName: "sigstore-sa",
+					ServiceAccountName: constants.ServiceAccountName,
 					Volumes: []core.Volume{
 						{
 							Name: "storage",

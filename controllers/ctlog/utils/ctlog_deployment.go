@@ -27,7 +27,7 @@ func CreateDeployment(namespace string, deploymentName string, configName string
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: "sigstore-sa",
+					ServiceAccountName: constants.ServiceAccountName,
 					Containers: []corev1.Container{
 						{
 							Name:  "ctlog",
