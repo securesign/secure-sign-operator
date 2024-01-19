@@ -35,3 +35,6 @@ spec:
   tuf:
     externalAccess:
       enabled: true
+  ctlog:
+    certificate:
+      create: true
