@@ -20,7 +20,6 @@ spec:
   fulcio:
     externalAccess:
       enabled: true
-    keySecret: fulcio-secret-rh
     config:
       OIDCIssuers:
         "https://your-oidc-issuer-url":
