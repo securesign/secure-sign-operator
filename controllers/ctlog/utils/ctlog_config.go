@@ -12,6 +12,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"net/url"
+	"time"
 
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
@@ -293,13 +294,10 @@ func CreateCtlogConfig(ctx context.Context, ns string, trillianUrl string, treeI
 	}
 
 	var root *fulcioclient.RootResponse
-	for retry := 0; retry < 5; retry++ {
-		client := fulcioclient.NewClient(u)
-		root, err = client.RootCert()
-		if err == nil {
-			break
-		}
-	}
+
+	client := fulcioclient.NewClient(u, fulcioclient.WithTimeout(time.Minute))
+	root, err = client.RootCert()
+
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to fetch fulcio Root cert: %w", err)
 	}

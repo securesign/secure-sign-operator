@@ -25,7 +25,7 @@ func CreateTufDeployment(namespace string, dpName string, fulcioSecret string, r
 					Labels: labels,
 				},
 				Spec: core.PodSpec{
-					ServiceAccountName: "sigstore-sa",
+					ServiceAccountName: constants.ServiceAccountName,
 					Volumes: []core.Volume{
 						{
 							Name: "tuf-secrets",

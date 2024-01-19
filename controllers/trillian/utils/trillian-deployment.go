@@ -25,7 +25,7 @@ func CreateTrillDeployment(namespace string, image string, dpName string, dbsecr
 					Labels: labels,
 				},
 				Spec: core.PodSpec{
-					ServiceAccountName: "sigstore-sa",
+					ServiceAccountName: constants.ServiceAccountName,
 					InitContainers: []core.Container{
 						{
 							Name:  "wait-for-trillian-db",
