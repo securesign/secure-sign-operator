@@ -72,10 +72,10 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 						SecretName: "my-fulcio-secret",
 					},
 				},
-				// TODO: jpower ctlog certificates cover by test
 				Ctlog: v1alpha1.CTlogSpec{
 					Certificate: v1alpha1.CtlogCert{
-						Create: true,
+						Create:     false,
+						SecretName: "my-ctlog-secret",
 					},
 				},
 				Tuf: v1alpha1.TufSpec{
@@ -95,10 +95,8 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 	})
 
 	Describe("Install with provided certificates", func() {
-		var ctSecret *v1.Secret
 		BeforeAll(func() {
-			ctSecret = initCTSecret(namespace.Name, securesign.Spec.Ctlog.Certificate.SecretName)
-			Expect(cli.Create(ctx, ctSecret))
+			Expect(cli.Create(ctx, initCTSecret(namespace.Name, securesign.Spec.Ctlog.Certificate.SecretName)))
 			Expect(cli.Create(ctx, initFulcioSecret(namespace.Name, securesign.Spec.Fulcio.Certificate.SecretName)))
 			Expect(cli.Create(ctx, initRekorSecret(namespace.Name, securesign.Spec.Rekor.Certificate.SecretName)))
 			Expect(cli.Create(ctx, securesign)).To(Succeed())
@@ -227,7 +225,7 @@ func initCTSecret(ns string, name string) *v1.Secret {
 			Namespace: ns,
 		},
 		Data: map[string][]byte{
-			"p": private,
+			"private": private,
 		},
 	}
 }

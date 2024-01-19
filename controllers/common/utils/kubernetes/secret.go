@@ -20,24 +20,16 @@ func CreateSecret(name string, namespace string, data map[string][]byte, labels 
 	}
 }
 
-func GetSecretValue(client client.Client, namespace, secretName, secretKey string) ([]byte, error) {
-	var secretValue []byte
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: namespace,
-		},
-	}
+func GetSecret(client client.Client, namespace, secretName string) (*corev1.Secret, error) {
+	var secret corev1.Secret
 
 	err := client.Get(context.TODO(), types.NamespacedName{
 		Name:      secretName,
 		Namespace: namespace,
-	}, secret)
+	}, &secret)
 
 	if err != nil {
 		return nil, err
 	}
-
-	secretValue = secret.Data[secretKey]
-	return secretValue, nil
+	return &secret, nil
 }

@@ -45,9 +45,6 @@ spec:
                 properties:
                   create:
                     type: boolean
-                  secretKey:
-                    description: Key for the private key inside the secret
-                    type: string
                   secretName:
                     description: Name of the secret the ctlog private key is stored
                       in
