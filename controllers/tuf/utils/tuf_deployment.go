@@ -36,8 +36,11 @@ func selectorToProjection(secret *v1alpha1.SecretKeySelector, path string) *core
 	}
 }
 
-func CreateTufDeployment(instance *v1alpha1.Tuf, dpName string, labels map[string]string) *apps.Deployment {
+func CreateTufDeployment(instance *v1alpha1.Tuf, dpName string, labels map[string]string, serviceAccountName string) *apps.Deployment {
 	replicas := int32(1)
+	if serviceAccountName == "" {
+		serviceAccountName = constants.ServiceAccountName
+	}
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpName,
@@ -54,7 +57,7 @@ func CreateTufDeployment(instance *v1alpha1.Tuf, dpName string, labels map[strin
 					Labels: labels,
 				},
 				Spec: core.PodSpec{
-					ServiceAccountName: dpName,
+					ServiceAccountName: serviceAccountName,
 					Volumes: []core.Volume{
 						{
 							Name: "tuf-secrets",

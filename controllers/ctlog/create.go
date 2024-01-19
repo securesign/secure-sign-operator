@@ -95,7 +95,9 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		return instance, fmt.Errorf("could not create CTLog public key secret: %w", err)
 	}
 
-	server := ctlogUtils.CreateDeployment(instance.Namespace, deploymentName, config.Name, labels)
+	sa := utils.CreateServiceAccount(instance.Namespace, "ctlog-sa", labels)
+
+	server := ctlogUtils.CreateDeployment(instance.Namespace, deploymentName, config.Name, labels, sa.Name)
 	controllerutil.SetControllerReference(instance, server, i.Client.Scheme())
 	if err = i.Client.Create(ctx, server); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError

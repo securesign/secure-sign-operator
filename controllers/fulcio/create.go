@@ -24,6 +24,7 @@ const (
 	ComponentName            = "fulcio"
 	fulcioMonitoringRoleName = "prometheus-k8s-fulcio"
 	fulcioServiceMonitorName = "fulcio-metrics"
+	fulcioServiceAccountName = "fulcio-sa"
 )
 
 func NewCreateAction() action.Action[rhtasv1alpha1.Fulcio] {
@@ -86,7 +87,8 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		return instance, fmt.Errorf("could not create fulcio secret: %w", err)
 	}
 
-	dp := utils.CreateDeployment(instance.Namespace, fulcioDeploymentName, instance.Spec.Certificate.SecretName, labels)
+	sa := kubernetes.CreateServiceAccount(instance.Namespace, fulcioServiceAccountName, labels)
+	dp := utils.CreateDeployment(instance.Namespace, fulcioDeploymentName, instance.Spec.Certificate.SecretName, labels, sa.Name)
 	controllerutil.SetControllerReference(instance, dp, i.Client.Scheme())
 	if err = i.Client.Create(ctx, dp); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError

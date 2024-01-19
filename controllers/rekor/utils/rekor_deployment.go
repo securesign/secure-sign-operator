@@ -9,8 +9,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateRekorDeployment(namespace string, dpName string, treeID int64, pvc string, certSecret string, labels map[string]string) *apps.Deployment {
+func CreateRekorDeployment(namespace string, dpName string, treeID int64, pvc string, certSecret string, labels map[string]string, serviceAccountName string) *apps.Deployment {
 	replicas := int32(1)
+	if serviceAccountName == "" {
+		serviceAccountName = constants.ServiceAccountName
+	}
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpName,
@@ -27,7 +30,7 @@ func CreateRekorDeployment(namespace string, dpName string, treeID int64, pvc st
 					Labels: labels,
 				},
 				Spec: core.PodSpec{
-					ServiceAccountName: constants.ServiceAccountName,
+					ServiceAccountName: serviceAccountName,
 					Volumes: []core.Volume{
 						{
 							Name: "rekor-sharding-config",

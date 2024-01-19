@@ -3,6 +3,8 @@ package tuf
 import (
 	"context"
 	"fmt"
+	"reflect"
+
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
@@ -15,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -146,7 +147,8 @@ func (i reconcileAction) ensureDeployment(ctx context.Context, instance *rhtasv1
 	ok := types.NamespacedName{Name: DeploymentName, Namespace: instance.Namespace}
 	labels := constants.LabelsFor(ComponentName, ComponentName, instance.Name)
 
-	db := tufutils.CreateTufDeployment(instance, DeploymentName, labels)
+	sa := kubernetes.CreateServiceAccount(instance.Namespace, serviceAccountName, labels)
+	db := tufutils.CreateTufDeployment(instance, DeploymentName, labels, sa.Name)
 
 	if err = controllerutil.SetControllerReference(instance, db, i.Client.Scheme()); err != nil {
 		return fmt.Errorf("could not set controller reference for Deployment: %w", err)
