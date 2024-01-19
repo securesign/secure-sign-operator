@@ -50,7 +50,7 @@ jobs:
 
       - name: Wait for operator to be ready
         run: | 
-          kubectl wait --for=condition=available deployment/operator-controller-manager --timeout=60s -n operator-system
+          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=60s -n openshift-rhtas-operator
 
       - name: Install Keycloak
         run: |
@@ -59,6 +59,7 @@ jobs:
           # wait for a while to be sure CRDs are installed
           sleep 1
           kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.25.0/olm.yaml
+
           kubectl create --kustomize https://github.com/securesign/sigstore-ocp/keycloak/operator/overlay/kind
           until [ ! -z "$(kubectl get pod -l name=keycloak-operator -n keycloak-system 2>/dev/null)" ]
           do
@@ -106,5 +107,5 @@ jobs:
         run: make integration-test
 
       - name: dump the logs of the operator
-        run: kubectl logs -n operator-system deployment/operator-controller-manager
+        run: kubectl logs -n openshift-rhtas-operator deployment/operator-controller-manager
         if: always()
