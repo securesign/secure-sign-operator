@@ -53,6 +53,8 @@ const (
 
 	gitsignConsoleCliName        = "gitsign"
 	gitsignConsoleCliDescription = "gitsign is a CLI tool that allows you to digitally sign and verify git commits."
+
+	OperatorServiceAccountName = "rhtas-operator-controller-manager"
 )
 
 // SecuresignReconciler reconciles a Securesign object
@@ -159,14 +161,9 @@ func (r *SecuresignReconciler) ensureRBAC() func(context.Context, *rhtasv1alpha1
 
 		sa := &corev1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      constants.ServiceAccountName,
+				Name:      OperatorServiceAccountName,
 				Namespace: securesign.Namespace,
 				Labels:    labels(*securesign),
-			},
-			ImagePullSecrets: []corev1.LocalObjectReference{
-				{
-					Name: "pull-secret",
-				},
 			},
 		}
 		ctrl.SetControllerReference(securesign, sa, r.Scheme)
@@ -182,7 +179,7 @@ func (r *SecuresignReconciler) ensureRBAC() func(context.Context, *rhtasv1alpha1
 			}
 		}
 
-		role := kubernetes.CreateRole(securesign.Namespace, constants.ServiceAccountName, labels(*securesign),
+		role := kubernetes.CreateRole(securesign.Namespace, OperatorServiceAccountName, labels(*securesign),
 			[]rbac.PolicyRule{
 				{
 					APIGroups: []string{""},
@@ -208,7 +205,7 @@ func (r *SecuresignReconciler) ensureRBAC() func(context.Context, *rhtasv1alpha1
 			}
 		}
 
-		roleBinding := kubernetes.CreateRoleBinding(securesign.Namespace, constants.ServiceAccountName, labels(*securesign),
+		roleBinding := kubernetes.CreateRoleBinding(securesign.Namespace, OperatorServiceAccountName, labels(*securesign),
 			rbac.RoleRef{
 				APIGroup: rbac.SchemeGroupVersion.Group,
 				Kind:     "Role",

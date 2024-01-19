@@ -8,6 +8,7 @@ import (
 	"github.com/securesign/operator/controllers/common/action"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	k8sutils "github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/constants"
 	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
@@ -17,11 +18,13 @@ import (
 )
 
 const (
-	dbDeploymentName        = "trillian-db"
-	logserverDeploymentName = "trillian-logserver"
-	logsignerDeploymentName = "trillian-logsigner"
-
-	ComponentName = "trillian"
+	dbDeploymentName            = "trillian-db"
+	logserverDeploymentName     = "trillian-logserver"
+	logsignerDeploymentName     = "trillian-logsigner"
+	ComponentName               = "trillian"
+	dbServiceAccountName        = "trillian-db-sa"
+	logsignerServiceAccountName = "trillian-logsigner-sa"
+	logserverServiceAccountName = "trillian-logserver-sa"
 )
 
 func NewCreateAction() action.Action[rhtasv1alpha1.Trillian] {
@@ -86,7 +89,14 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	}
 
 	if instance.Spec.Db.Create {
-		db := trillianUtils.CreateTrillDb(instance.Namespace, constants.TrillianDbImage, dbDeploymentName, trillPVC, dbSecName, dbLabels)
+		sa := kubernetes.CreateServiceAccount(instance.Namespace, dbServiceAccountName, dbLabels)
+		controllerutil.SetControllerReference(instance, sa, i.Client.Scheme())
+		if err = i.Client.Create(ctx, sa); err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create trillian DB sa: %w", err)
+		}
+
+		db := trillianUtils.CreateTrillDb(instance.Namespace, constants.TrillianDbImage, dbDeploymentName, trillPVC, dbSecName, dbLabels, sa.Name)
 		controllerutil.SetControllerReference(instance, db, i.Client.Scheme())
 		if err = i.Client.Create(ctx, db); err != nil {
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
@@ -113,7 +123,14 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	}
 	instance.Status.Url = fmt.Sprintf("%s.%s.svc:%d", logserverService.Name, logserverService.Namespace, serverPort)
 
-	server := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianServerImage, logserverDeploymentName, dbSecName, logServerLabels)
+	serverSA := kubernetes.CreateServiceAccount(instance.Namespace, logserverServiceAccountName, logServerLabels)
+	controllerutil.SetControllerReference(instance, serverSA, i.Client.Scheme())
+	if err = i.Client.Create(ctx, serverSA); err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not create trillian logserver sa: %w", err)
+	}
+
+	server := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianServerImage, logserverDeploymentName, dbSecName, logServerLabels, serverSA.Name)
 	controllerutil.SetControllerReference(instance, server, i.Client.Scheme())
 	server.Spec.Template.Spec.Containers[0].Ports = append(server.Spec.Template.Spec.Containers[0].Ports, corev1.ContainerPort{
 		Protocol:      corev1.ProtocolTCP,
@@ -125,7 +142,14 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	}
 
 	// Log Signer
-	signer := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianLogSignerImage, logsignerDeploymentName, dbSecName, logSignerLabels)
+	signerSA := kubernetes.CreateServiceAccount(instance.Namespace, logsignerServiceAccountName, logSignerLabels)
+	controllerutil.SetControllerReference(instance, signerSA, i.Client.Scheme())
+	if err = i.Client.Create(ctx, signerSA); err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not create trillian logsigner sa: %w", err)
+	}
+
+	signer := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianLogSignerImage, logsignerDeploymentName, dbSecName, logSignerLabels, signerSA.Name)
 	controllerutil.SetControllerReference(instance, signer, i.Client.Scheme())
 	signer.Spec.Template.Spec.Containers[0].Args = append(signer.Spec.Template.Spec.Containers[0].Args, "--force_master=true")
 	if err = i.Client.Create(ctx, signer); err != nil {

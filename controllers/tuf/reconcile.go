@@ -3,6 +3,8 @@ package tuf
 import (
 	"context"
 	"fmt"
+	"reflect"
+
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
@@ -15,15 +17,15 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
-	ComponentName  = "tuf"
-	DeploymentName = "tuf"
+	ComponentName      = "tuf"
+	DeploymentName     = "tuf"
+	ServiceAccountName = "tuf"
 )
 
 func NewReconcileAction() action.Action[rhtasv1alpha1.Tuf] {
@@ -79,7 +81,7 @@ func (i reconcileAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf
 
 func (i reconcileAction) ensureSA(ctx context.Context, instance *rhtasv1alpha1.Tuf) error {
 	var err error
-	labels := constants.LabelsFor(ComponentName, ComponentName, instance.Name)
+	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 	ok := types.NamespacedName{Name: DeploymentName, Namespace: instance.Namespace}
 
 	sa := &v1.ServiceAccount{
@@ -87,11 +89,6 @@ func (i reconcileAction) ensureSA(ctx context.Context, instance *rhtasv1alpha1.T
 			Name:      DeploymentName,
 			Namespace: instance.Namespace,
 			Labels:    labels,
-		},
-		ImagePullSecrets: []v1.LocalObjectReference{
-			{
-				Name: "pull-secret",
-			},
 		},
 	}
 
@@ -146,7 +143,7 @@ func (i reconcileAction) ensureDeployment(ctx context.Context, instance *rhtasv1
 	ok := types.NamespacedName{Name: DeploymentName, Namespace: instance.Namespace}
 	labels := constants.LabelsFor(ComponentName, ComponentName, instance.Name)
 
-	db := tufutils.CreateTufDeployment(instance, DeploymentName, labels)
+	db := tufutils.CreateTufDeployment(instance, DeploymentName, labels, ServiceAccountName)
 
 	if err = controllerutil.SetControllerReference(instance, db, i.Client.Scheme()); err != nil {
 		return fmt.Errorf("could not set controller reference for Deployment: %w", err)

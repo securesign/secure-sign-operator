@@ -7,7 +7,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateTrillDb(namespace string, image string, dpName string, pvcName string, dbsecret string, labels map[string]string) *apps.Deployment {
+func CreateTrillDb(namespace string, image string, dpName string, pvcName string, dbsecret string, labels map[string]string, serviceAccountName string) *apps.Deployment {
+	if serviceAccountName == "" {
+		serviceAccountName = constants.ServiceAccountName
+	}
 	replicas := int32(1)
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -25,7 +28,7 @@ func CreateTrillDb(namespace string, image string, dpName string, pvcName string
 					Labels: labels,
 				},
 				Spec: core.PodSpec{
-					ServiceAccountName: constants.ServiceAccountName,
+					ServiceAccountName: serviceAccountName,
 					Volumes: []core.Volume{
 						{
 							Name: "storage",

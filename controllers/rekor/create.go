@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/securesign/operator/controllers/common"
-
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/action"
+	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	k8sutils "github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/rekor/utils"
 	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
@@ -20,11 +20,12 @@ import (
 
 const (
 	RekorDeploymentName         = "rekor-server"
-	rekorRedisDeploymentName    = "rekor-redis"
-	RekorSearchUiDeploymentName = "rekor-search-ui"
+	RekorRedisDeploymentName    = "rekor-redis"
 	ComponentName               = "rekor"
-	rekorMonitoringRoleName     = "prometheus-k8s-rekor"
-	rekorServiceMonitorName     = "rekor-metrics"
+	RekorSearchUiDeploymentName = "rekor-search-ui"
+	RekorMonitoringRoleName     = "prometheus-k8s-rekor"
+	RekorServiceMonitorName     = "rekor-metrics"
+	RekorServiceAccountName     = "rekor-sa"
 )
 
 func NewCreateAction() action.Action[rhtasv1alpha1.Rekor] {
@@ -49,7 +50,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 
 	redisLabels := k8sutils.FilterCommonLabels(instance.Labels)
 	redisLabels[k8sutils.ComponentLabel] = ComponentName
-	redisLabels[k8sutils.NameLabel] = rekorRedisDeploymentName
+	redisLabels[k8sutils.NameLabel] = RekorRedisDeploymentName
 
 	rekorServerLabels := k8sutils.FilterCommonLabels(instance.Labels)
 	rekorServerLabels[k8sutils.ComponentLabel] = ComponentName
@@ -103,21 +104,28 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		instance.Status.TreeID = instance.Spec.TreeID
 	}
 
-	dp := utils.CreateRekorDeployment(instance, RekorDeploymentName, rekorServerLabels)
+	sa := kubernetes.CreateServiceAccount(instance.Namespace, RekorServiceAccountName, rekorServerLabels)
+	controllerutil.SetControllerReference(instance, sa, i.Client.Scheme())
+	if err = i.Client.Create(ctx, sa); err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not create rekor sa: %w", err)
+	}
+
+	dp := utils.CreateRekorDeployment(instance, RekorDeploymentName, rekorServerLabels, sa.Name)
 	controllerutil.SetControllerReference(instance, dp, i.Client.Scheme())
 	if err = i.Client.Create(ctx, dp); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create Rekor deployment: %w", err)
 	}
 
-	redis := utils.CreateRedisDeployment(instance.Namespace, "rekor-redis", redisLabels)
+	redis := utils.CreateRedisDeployment(instance.Namespace, "rekor-redis", redisLabels, RekorServiceAccountName)
 	controllerutil.SetControllerReference(instance, redis, i.Client.Scheme())
 	if err = i.Client.Create(ctx, redis); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create Rekor-redis deployment: %w", err)
 	}
 
-	redisService := k8sutils.CreateService(instance.Namespace, rekorRedisDeploymentName, 6379, redisLabels)
+	redisService := k8sutils.CreateService(instance.Namespace, RekorRedisDeploymentName, 6379, redisLabels)
 	controllerutil.SetControllerReference(instance, redisService, i.Client.Scheme())
 	if err = i.Client.Create(ctx, redisService); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
@@ -154,10 +162,10 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 
 		monitoringRoleLabels := k8sutils.FilterCommonLabels(instance.Labels)
 		monitoringRoleLabels[k8sutils.ComponentLabel] = ComponentName
-		monitoringRoleLabels[k8sutils.NameLabel] = rekorMonitoringRoleName
+		monitoringRoleLabels[k8sutils.NameLabel] = RekorMonitoringRoleName
 		role := k8sutils.CreateRole(
 			instance.Namespace,
-			rekorMonitoringRoleName,
+			RekorMonitoringRoleName,
 			monitoringRoleLabels,
 			[]v1.PolicyRule{
 				{
@@ -175,15 +183,15 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 
 		monitoringRoleBindingLabels := k8sutils.FilterCommonLabels(instance.Labels)
 		monitoringRoleBindingLabels[k8sutils.ComponentLabel] = ComponentName
-		monitoringRoleBindingLabels[k8sutils.NameLabel] = rekorMonitoringRoleName
+		monitoringRoleBindingLabels[k8sutils.NameLabel] = RekorMonitoringRoleName
 		roleBinding := k8sutils.CreateRoleBinding(
 			instance.Namespace,
-			rekorMonitoringRoleName,
+			RekorMonitoringRoleName,
 			monitoringRoleBindingLabels,
 			v1.RoleRef{
 				APIGroup: v1.SchemeGroupVersion.Group,
 				Kind:     "Role",
-				Name:     rekorMonitoringRoleName,
+				Name:     RekorMonitoringRoleName,
 			},
 			[]v1.Subject{
 				{Kind: "ServiceAccount", Name: "prometheus-k8s", Namespace: "openshift-monitoring"},
@@ -197,14 +205,14 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 
 		serviceMonitorLabels := k8sutils.FilterCommonLabels(instance.Labels)
 		serviceMonitorLabels[k8sutils.ComponentLabel] = ComponentName
-		serviceMonitorLabels[k8sutils.NameLabel] = rekorServiceMonitorName
+		serviceMonitorLabels[k8sutils.NameLabel] = RekorServiceMonitorName
 
 		serviceMonitorMatchLabels := k8sutils.FilterCommonLabels(instance.Labels)
 		serviceMonitorMatchLabels[k8sutils.ComponentLabel] = ComponentName
 
 		serviceMonitor := k8sutils.CreateServiceMonitor(
 			instance.Namespace,
-			rekorServiceMonitorName,
+			RekorServiceMonitorName,
 			serviceMonitorLabels,
 			[]monitoringv1.Endpoint{
 				{

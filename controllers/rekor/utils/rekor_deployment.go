@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/constants"
 	apps "k8s.io/api/apps/v1"
@@ -9,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, labels map[string]string) *apps.Deployment {
+func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, labels map[string]string, serviceAccountName string) *apps.Deployment {
 	env := make([]core.EnvVar, 0)
 	appArgs := []string{
 		"serve",
@@ -106,6 +107,9 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, labels map[s
 	//TODO mount additional ENV variables and secrets to enable cloud KMS service
 
 	replicas := int32(1)
+	if serviceAccountName == "" {
+		serviceAccountName = constants.ServiceAccountName
+	}
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpName,
@@ -122,7 +126,7 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, labels map[s
 					Labels: labels,
 				},
 				Spec: core.PodSpec{
-					ServiceAccountName: constants.ServiceAccountName,
+					ServiceAccountName: serviceAccountName,
 					Volumes:            volumes,
 					Containers: []core.Container{
 						{

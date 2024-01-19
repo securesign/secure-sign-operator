@@ -24,6 +24,7 @@ const (
 	ComponentName            = "fulcio"
 	fulcioMonitoringRoleName = "prometheus-k8s-fulcio"
 	fulcioServiceMonitorName = "fulcio-metrics"
+	fulcioServiceAccountName = "fulcio-sa"
 )
 
 func NewCreateAction() action.Action[rhtasv1alpha1.Fulcio] {
@@ -83,10 +84,17 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	controllerutil.SetOwnerReference(instance, cm, i.Client.Scheme())
 	if err = i.Client.Create(ctx, cm); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create fulcio secret: %w", err)
+		return instance, fmt.Errorf("could not create fulcio sa: %w", err)
 	}
 
-	dp := utils.CreateDeployment(instance.Namespace, fulcioDeploymentName, instance.Spec.Certificate.SecretName, labels)
+	sa := kubernetes.CreateServiceAccount(instance.Namespace, fulcioServiceAccountName, labels)
+	controllerutil.SetOwnerReference(instance, sa, i.Client.Scheme())
+	if err = i.Client.Create(ctx, sa); err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not create fulcio sa: %w", err)
+	}
+
+	dp := utils.CreateDeployment(instance.Namespace, fulcioDeploymentName, instance.Spec.Certificate.SecretName, labels, fulcioServiceAccountName)
 	controllerutil.SetControllerReference(instance, dp, i.Client.Scheme())
 	if err = i.Client.Create(ctx, dp); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
