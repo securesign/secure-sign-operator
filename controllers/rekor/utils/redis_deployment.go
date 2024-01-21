@@ -62,12 +62,6 @@ func CreateRedisDeployment(namespace string, dpName string, labels map[string]st
 								SuccessThreshold:    1,
 								FailureThreshold:    3,
 							},
-							Args: []string{
-								"--bind",
-								"0.0.0.0",
-								"--appendonly",
-								"yes",
-							},
 							VolumeMounts: []core.VolumeMount{
 								{
 									Name:      "storage",
