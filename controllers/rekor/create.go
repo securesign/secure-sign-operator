@@ -3,8 +3,9 @@ package rekor
 import (
 	"context"
 	"fmt"
-	"github.com/securesign/operator/controllers/common"
 	"maps"
+
+	"github.com/securesign/operator/controllers/common"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -15,6 +16,8 @@ import (
 	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/rbac/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -87,12 +90,25 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 
 	var rekorPvcName string
 	if instance.Spec.PvcName == "" {
-		rekorPvc := k8sutils.CreatePVC(instance.Namespace, "rekor-server", "5Gi")
-		if err = i.Client.Create(ctx, rekorPvc); err != nil {
+		// Check if the PVC already exists
+		existingPvc := &corev1.PersistentVolumeClaim{}
+		err := i.Client.Get(ctx, types.NamespacedName{Name: "rekor-server", Namespace: instance.Namespace}, existingPvc)
+		if err == nil {
+			// PVC already exists, use its name
+			rekorPvcName = existingPvc.Name
+		} else if k8serrors.IsNotFound(err) {
+			// PVC does not exist, create a new one
+			rekorPvc := k8sutils.CreatePVC(instance.Namespace, "rekor-server", "5Gi")
+			if err := i.Client.Create(ctx, rekorPvc); err != nil {
+				instance.Status.Phase = rhtasv1alpha1.PhaseError
+				return instance, fmt.Errorf("could not create Rekor PVC: %w", err)
+			}
+			rekorPvcName = rekorPvc.Name
+		} else {
+			// Error while checking for PVC existence
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
-			return instance, fmt.Errorf("could not create Rekor PVC: %w", err)
+			return instance, fmt.Errorf("could not check for existing Rekor PVC: %w", err)
 		}
-		rekorPvcName = rekorPvc.Name
 		// TODO: add status field
 	} else {
 		rekorPvcName = instance.Spec.PvcName
