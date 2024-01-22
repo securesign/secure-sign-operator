@@ -34,7 +34,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	rclient "sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -43,7 +42,6 @@ import (
 	"time"
 )
 
-const finalizer = "rhtas.redhat.com/tuf"
 const DebugLevel int = 1
 
 var requeueError = errors.New("requeue the reconcile key")
@@ -109,27 +107,8 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		}
 	}
 
-	// Let's add a finalizer. Then, we can define some operations which should
-	// occurs before the custom resource to be deleted.
-	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers
-	if !controllerutil.ContainsFinalizer(instance, finalizer) {
-		rlog.Info("Adding Finalizer for TUF")
-		if ok := controllerutil.AddFinalizer(instance, finalizer); !ok {
-			err := errors.New("failed to add finalizer into the custom resource")
-			rlog.Error(err, err.Error())
-			return ctrl.Result{Requeue: true}, nil
-		}
-
-		if err := r.Update(ctx, instance); err != nil {
-			rlog.Error(err, "Failed to update custom resource to add finalizer")
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{Requeue: true, RequeueAfter: time.Second}, nil
-	}
-
 	target := instance.DeepCopy()
 	actions := []action.Action[rhtasv1alpha1.Tuf]{
-		NewFinalizeAction(),
 		NewPendingAction(),
 		NewReconcileAction(),
 		NewWaitAction(),
