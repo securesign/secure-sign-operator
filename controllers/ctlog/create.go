@@ -58,15 +58,6 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		return instance, fmt.Errorf("can't find trillian: %s", err)
 	}
 
-	var privateKey []byte
-	if !instance.Spec.Certificate.Create {
-		privateKey, err = kubernetes.GetSecretValue(i.Client, instance.Namespace, instance.Spec.Certificate.SecretName, instance.Spec.Certificate.SecretKey)
-		if err != nil {
-			instance.Status.Phase = rhtasv1alpha1.PhaseError
-			return instance, fmt.Errorf("could not retrieve ctlog secret %s: %w", instance.Spec.Certificate.SecretName, err)
-		}
-	}
-
 	if instance.Spec.TreeID == nil || *instance.Spec.TreeID == int64(0) {
 		tree, err := common.CreateTrillianTree(ctx, "ctlog-tree", trillian.Status.Url)
 		if err != nil {
@@ -77,9 +68,19 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		instance.Status.TreeID = instance.Spec.TreeID
 	}
 
-	var config, pubKey *corev1.Secret
+	certConfig := &ctlogUtils.PrivateKeyConfig{}
+	if !instance.Spec.Certificate.Create {
+		privateKeySecret, err := kubernetes.GetSecret(i.Client, instance.Namespace, instance.Spec.Certificate.SecretName)
+		if err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not retrieve ctlog secret %s: %w", instance.Spec.Certificate.SecretName, err)
+		}
+		certConfig.PrivateKey = privateKeySecret.Data["private"]
+		certConfig.PrivateKeyPass = privateKeySecret.Data["password"]
+	}
 
-	if config, pubKey, err = ctlogUtils.CreateCtlogConfig(ctx, instance.Namespace, trillian.Status.Url, *instance.Status.TreeID, "http://"+fulcioUrl, labels, privateKey); err != nil {
+	var config, pubKey *corev1.Secret
+	if config, pubKey, err = ctlogUtils.CreateCtlogConfig(ctx, instance.Namespace, trillian.Status.Url, *instance.Status.TreeID, "http://"+fulcioUrl, labels, certConfig); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create CTLog configuration: %w", err)
 	}

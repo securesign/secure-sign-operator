@@ -7,7 +7,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
+	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -72,6 +72,11 @@ type Config struct {
 	// there will be a period of time when we allow both. It might also contain
 	// multiple Root Certificates, if we choose to support admitting certificates from fulcio instances run by others
 	FulcioCerts [][]byte
+}
+
+type PrivateKeyConfig struct {
+	PrivateKey     []byte
+	PrivateKeyPass []byte
 }
 
 func extractFulcioRoot(fulcioRoot []byte) ([]byte, error) {
@@ -237,57 +242,54 @@ func mustMarshalAny(pb proto.Message) *anypb.Any {
 	return ret
 }
 
-func createConfigWithKeys(ctx context.Context, keytype string, privateKey []byte) (*Config, error) {
+func createConfigWithKeys(ctx context.Context, certConfig *PrivateKeyConfig) (*Config, error) {
 	var signer crypto.Signer
 	var privKey crypto.PrivateKey
+	var err error
 	var ok bool
 
-	if privateKey == nil {
-		var err error
-		if keytype == "rsa" {
-			privKey, err = rsa.GenerateKey(rand.Reader, bitSize)
-			if err != nil {
-				return nil, fmt.Errorf("failed to generate Private RSA Key: %w", err)
+	if certConfig.PrivateKey == nil {
+		privKey, err = ecdsa.GenerateKey(supportedCurves[curveType], rand.Reader)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate private key: %w", err)
+		}
+	} else {
+		block, _ := pem.Decode(certConfig.PrivateKey)
+		if block == nil {
+			return nil, fmt.Errorf("failed to decode private key")
+		}
+		if x509.IsEncryptedPEMBlock(block) {
+			if certConfig.PrivateKeyPass == nil {
+				return nil, fmt.Errorf("failed to get private key password")
 			}
-		} else {
-			privKey, err = ecdsa.GenerateKey(supportedCurves[curveType], rand.Reader)
+			block.Bytes, err = x509.DecryptPEMBlock(block, certConfig.PrivateKeyPass)
 			if err != nil {
-				return nil, fmt.Errorf("failed to generate Private ECDSA Key: %w", err)
+				return nil, fmt.Errorf("failed to decrypt private key: %w", err)
 			}
 		}
-		if signer, ok = privKey.(crypto.Signer); !ok {
-			return nil, fmt.Errorf("failed to convert to Signer")
+
+		privKey, err = x509.ParseECPrivateKey(block.Bytes)
+		if err != nil {
+			privKey, err = x509.ParsePKCS8PrivateKey(block.Bytes)
+			if err != nil {
+				privKey, err = x509.ParsePKCS1PrivateKey(block.Bytes)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse private key: %w", err)
+				}
+			}
 		}
+	}
+	if signer, ok = privKey.(crypto.Signer); !ok {
+		return nil, fmt.Errorf("failed to convert to crypto.Signer")
+	} else {
 		return &Config{
 			PrivKey: privKey,
 			PubKey:  signer.Public(),
 		}, nil
 	}
-
-	block, rest := pem.Decode([]byte(privateKey))
-	if block == nil || block.Type != "EC PARAMETERS" {
-		return nil, fmt.Errorf("failed to decode EC PARAMETERS")
-	}
-
-	block, _ = pem.Decode(rest)
-	if block == nil || block.Type != "EC PRIVATE KEY" {
-		return nil, fmt.Errorf("failed to decode private key")
-	}
-
-	privKey, err := x509.ParseECPrivateKey(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse private key: %s", err)
-	}
-	if signer, ok = privKey.(crypto.Signer); !ok {
-		return nil, fmt.Errorf("failed to convert to Signer")
-	}
-	return &Config{
-		PrivKey: privKey,
-		PubKey:  signer.Public(),
-	}, nil
 }
 
-func CreateCtlogConfig(ctx context.Context, ns string, trillianUrl string, treeID int64, fulcioUrl string, labels map[string]string, privateKey []byte) (*corev1.Secret, *corev1.Secret, error) {
+func CreateCtlogConfig(ctx context.Context, ns string, trillianUrl string, treeID int64, fulcioUrl string, labels map[string]string, certConfig *PrivateKeyConfig) (*corev1.Secret, *corev1.Secret, error) {
 	u, err := url.Parse(fulcioUrl)
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid fulcioURL %s : %v", fulcioUrl, err)
@@ -302,11 +304,17 @@ func CreateCtlogConfig(ctx context.Context, ns string, trillianUrl string, treeI
 		return nil, nil, fmt.Errorf("Failed to fetch fulcio Root cert: %w", err)
 	}
 
-	ctlogConfig, err := createConfigWithKeys(ctx, "ecdsa", privateKey)
+	ctlogConfig, err := createConfigWithKeys(ctx, certConfig)
 	if err != nil {
 		return nil, nil, err
 	}
-	ctlogConfig.PrivKeyPassword = "test"
+
+	if certConfig.PrivateKeyPass == nil {
+		ctlogConfig.PrivKeyPassword = string(common.GeneratePassword(8))
+	} else {
+		ctlogConfig.PrivKeyPassword = string(certConfig.PrivateKeyPass)
+	}
+
 	ctlogConfig.LogID = treeID
 	ctlogConfig.LogPrefix = "trusted-artifact-signer"
 	ctlogConfig.TrillianServerAddr = trillianUrl
