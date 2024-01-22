@@ -36,6 +36,8 @@ check_pod_status() {
 install_sso_keycloak() {
     pushd /tmp
     git clone https://github.com/securesign/sigstore-ocp
+    git fetch -a -v
+    git checkout release-1.0.gamma
     cd sigstore-ocp
     oc apply --kustomize keycloak/operator/base
     check_pod_status "keycloak-system" "rhsso-operator"
