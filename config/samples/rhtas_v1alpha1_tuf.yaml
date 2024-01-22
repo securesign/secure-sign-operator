@@ -7,4 +7,20 @@ metadata:
     app.kubernetes.io/part-of: trusted-artifact-signer
   name: tuf-sample
 spec:
+  external:
+    enabled: true
+    host: "tuf.example.com"
+  keys:
+    - name: rekor.pub
+      secretRef:
+        name: rekor-pub-key
+        key:  public
+    - name: fulcio_v1.crt.pem
+      secretRef:
+        name: fulcio-pub-key
+        key: cert
+    - name: ctfe.pub
+      secretRef:
+        name: ctlog-pub-key
+        key: public
 

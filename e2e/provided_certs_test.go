@@ -82,6 +82,29 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 					ExternalAccess: v1alpha1.ExternalAccess{
 						Enabled: true,
 					},
+					Keys: []v1alpha1.TufKey{
+						{
+							Name: "fulcio_v1.crt.pem",
+							SecretRef: &v1alpha1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: "my-fulcio-secret",
+								},
+								Key: "cert",
+							},
+						},
+						{
+							Name: "rekor.pub",
+							SecretRef: &v1alpha1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: "my-rekor-secret",
+								},
+								Key: "public",
+							},
+						},
+						{
+							Name: "ctfe.pub",
+						},
+					},
 				},
 				Trillian: v1alpha1.TrillianSpec{Db: v1alpha1.TrillianDB{
 					Create: true,
@@ -199,7 +222,7 @@ func initFulcioSecret(ns string, name string) *v1.Secret {
 }
 
 func initRekorSecret(ns string, name string) *v1.Secret {
-	_, private, _, err := initCertificates(false)
+	public, private, _, err := initCertificates(false)
 	if err != nil {
 		return nil
 	}
@@ -210,6 +233,7 @@ func initRekorSecret(ns string, name string) *v1.Secret {
 		},
 		Data: map[string][]byte{
 			"private": private,
+			"public":  public,
 		},
 	}
 }

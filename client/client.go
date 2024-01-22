@@ -65,3 +65,23 @@ func NewClientWithScheme(scheme *runtime.Scheme) (Client, error) {
 func NewClient() (Client, error) {
 	return NewClientWithScheme(clientscheme.Scheme)
 }
+
+func WrapClient(dynClient controller.Client) (Client, error) {
+
+	cfg, err := config.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	var clientset kubernetes.Interface
+	if clientset, err = kubernetes.NewForConfig(cfg); err != nil {
+		return nil, err
+	}
+
+	return &defaultClient{
+		Client:    dynClient,
+		Interface: clientset,
+		scheme:    dynClient.Scheme(),
+		config:    cfg,
+	}, nil
+}

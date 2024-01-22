@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
+	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/fulcio/utils"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/rbac/v1"
@@ -59,12 +61,17 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 			return instance, err
 		}
 
+		secretLabels := map[string]string{
+			constants.TufLabelNamespace + "/fulcio_v1.crt.pem": "cert",
+		}
+		maps.Copy(secretLabels, labels)
+
 		secret := kubernetes.CreateSecret(instance.Spec.Certificate.SecretName, instance.Namespace, map[string][]byte{
 			"private":  certConfig.FulcioPrivateKey,
 			"public":   certConfig.FulcioPublicKey,
 			"cert":     certConfig.FulcioRootCert,
 			"password": certConfig.CertPassword,
-		}, labels)
+		}, secretLabels)
 		controllerutil.SetOwnerReference(instance, secret, i.Client.Scheme())
 		if err = i.Client.Create(ctx, secret); err != nil {
 			instance.Status.Phase = rhtasv1alpha1.PhaseError

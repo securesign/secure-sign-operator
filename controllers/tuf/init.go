@@ -3,6 +3,9 @@ package tuf
 import (
 	"context"
 	"errors"
+	"fmt"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/securesign/operator/controllers/common/action"
 	v12 "k8s.io/api/networking/v1"
@@ -60,7 +63,12 @@ func (i waitAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) (*r
 			protocol = "https://"
 		}
 		instance.Status.Url = protocol + ingressList.Items[0].Spec.Rules[0].Host
+	} else {
+		instance.Status.Url = fmt.Sprintf("http://%s.%s.svc", DeploymentName, instance.Namespace)
 	}
+
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: string(rhtasv1alpha1.PhaseReady),
+		Status: metav1.ConditionTrue, Reason: string(rhtasv1alpha1.PhaseReady)})
 
 	instance.Status.Phase = rhtasv1alpha1.PhaseReady
 	return instance, nil

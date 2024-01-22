@@ -10,6 +10,8 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"github.com/securesign/operator/controllers/constants"
+	"maps"
 	"net/url"
 	"time"
 
@@ -329,8 +331,12 @@ func CreateCtlogConfig(ctx context.Context, ns string, trillianUrl string, treeI
 
 	config := kubernetes.CreateSecret("ctlog-secret", ns, configMap, labels)
 
+	secretLabels := map[string]string{
+		constants.TufLabelNamespace + "/ctfe.pub": "public",
+	}
+	maps.Copy(secretLabels, labels)
 	pubData := map[string][]byte{PublicKey: configMap[PublicKey]}
-	pubKeySecret := kubernetes.CreateSecret("ctlog-public-key", ns, pubData, labels)
+	pubKeySecret := kubernetes.CreateSecret("ctlog-public-key", ns, pubData, secretLabels)
 
 	return config, pubKeySecret, nil
 }

@@ -1,5 +1,7 @@
 package v1alpha1
 
+import v1 "k8s.io/api/core/v1"
+
 type Phase string
 
 const (
@@ -18,4 +20,13 @@ type ExternalAccess struct {
 	Enabled bool `json:"enabled,omitempty"`
 	// Set hostname for your Ingress/Route.
 	Host string `json:"host,omitempty"`
+}
+
+// SecretKeySelector selects a key of a Secret.
+// +structType=atomic
+type SecretKeySelector struct {
+	// The name of the secret in the pod's namespace to select from.
+	v1.LocalObjectReference `json:",inline" protobuf:"bytes,1,opt,name=localObjectReference"`
+	// The key of the secret to select from.  Must be a valid secret key.
+	Key string `json:"key" protobuf:"bytes,2,opt,name=key"`
 }
