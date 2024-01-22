@@ -100,7 +100,7 @@ func (i pendingAction) handleKey(ctx context.Context, instance *rhtasv1alpha1.Tu
 	}
 }
 
-func (i pendingAction) discoverSecret(ctx context.Context, namespace string, key *rhtasv1alpha1.TufKey) (*v12.SecretKeySelector, error) {
+func (i pendingAction) discoverSecret(ctx context.Context, namespace string, key *rhtasv1alpha1.TufKey) (*rhtasv1alpha1.SecretKeySelector, error) {
 	labelName := constants.TufLabelNamespace + "/" + key.Name
 	s, err := i.findSecret(ctx, namespace, labelName)
 	if err != nil {
@@ -112,7 +112,7 @@ func (i pendingAction) discoverSecret(ctx context.Context, namespace string, key
 			err = errors.New(fmt.Sprintf("label %s is empty", labelName))
 			return nil, err
 		}
-		return &v12.SecretKeySelector{
+		return &rhtasv1alpha1.SecretKeySelector{
 			Key: keySelector,
 			LocalObjectReference: v12.LocalObjectReference{
 				Name: s.Name,

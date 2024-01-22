@@ -25,7 +25,6 @@ import (
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"maps"
-	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -60,10 +59,6 @@ var _ = Describe("TUF controller", func() {
 			By("Creating the Namespace to perform the tests")
 			err := k8sClient.Create(ctx, namespace)
 			Expect(err).To(Not(HaveOccurred()))
-
-			By("Setting the Image ENV VAR which stores the Operand image")
-			err = os.Setenv("TUF_IMAGE", "example.com/image:test")
-			Expect(err).To(Not(HaveOccurred()))
 		})
 
 		AfterEach(func() {
@@ -81,9 +76,6 @@ var _ = Describe("TUF controller", func() {
 			// More info: https://book.kubebuilder.io/reference/envtest.html#testing-considerations
 			By("Deleting the Namespace to perform the tests")
 			_ = k8sClient.Delete(ctx, namespace)
-
-			By("Removing the Image ENV VAR which stores the Operand image")
-			_ = os.Unsetenv("TUF_IMAGE")
 		})
 
 		It("should successfully reconcile a custom resource for Tuf", func() {
@@ -106,7 +98,7 @@ var _ = Describe("TUF controller", func() {
 						Keys: []v1alpha1.TufKey{
 							{
 								Name: "fulcio_v1.crt.pem",
-								SecretRef: &corev1.SecretKeySelector{
+								SecretRef: &v1alpha1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{
 										Name: "fulcio-pub-key",
 									},
@@ -118,7 +110,7 @@ var _ = Describe("TUF controller", func() {
 							},
 							{
 								Name: "rekor.pub",
-								SecretRef: &corev1.SecretKeySelector{
+								SecretRef: &v1alpha1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{
 										Name: "rekor-pub-key",
 									},

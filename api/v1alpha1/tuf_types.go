@@ -1,7 +1,6 @@
 package v1alpha1
 
 import (
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -22,7 +21,7 @@ type TufKey struct {
 	//+required
 	Name string `json:"name"`
 	//+optional
-	SecretRef *v1.SecretKeySelector `json:"secretRef,omitempty"`
+	SecretRef *SecretKeySelector `json:"secretRef,omitempty"`
 }
 
 // TufStatus defines the observed state of Tuf

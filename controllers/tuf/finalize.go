@@ -48,11 +48,11 @@ func (i *finalizeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf
 	// the Kubernetes API to remove the custom resource.
 	_ = i.doFinalizerOperations(ctx, instance)
 
-	// TODO(user): If you add operations to the doFinalizerOperationsForMemcached method
+	// TODO(user): If you add operations to the doFinalizerOperations method
 	// then you need to ensure that all worked fine before deleting and updating the Downgrade status
 	// otherwise, you should requeue here.
 
-	// Re-fetch the memcached Custom Resource before update the status
+	// Re-fetch the Tuf Custom Resource before update the status
 	// so that we have the latest state of the resource on the cluster and we will avoid
 	// raise the issue "the object has been modified, please apply
 	// your changes to the latest version and try again" which would re-trigger the reconciliation

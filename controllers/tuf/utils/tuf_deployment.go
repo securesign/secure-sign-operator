@@ -22,7 +22,7 @@ func secretsVolumeProjection(spec v1alpha1.TufSpec) *core.ProjectedVolumeSource 
 	}
 }
 
-func selectorToProjection(secret *core.SecretKeySelector, path string) *core.SecretProjection {
+func selectorToProjection(secret *v1alpha1.SecretKeySelector, path string) *core.SecretProjection {
 	return &core.SecretProjection{
 		LocalObjectReference: core.LocalObjectReference{
 			Name: secret.Name,
@@ -33,7 +33,6 @@ func selectorToProjection(secret *core.SecretKeySelector, path string) *core.Sec
 				Path: path,
 			},
 		},
-		Optional: secret.Optional,
 	}
 }
 

@@ -85,7 +85,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 					Keys: []v1alpha1.TufKey{
 						{
 							Name: "fulcio_v1.crt.pem",
-							SecretRef: &v1.SecretKeySelector{
+							SecretRef: &v1alpha1.SecretKeySelector{
 								LocalObjectReference: v1.LocalObjectReference{
 									Name: "my-fulcio-secret",
 								},
@@ -94,7 +94,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 						},
 						{
 							Name: "rekor.pub",
-							SecretRef: &v1.SecretKeySelector{
+							SecretRef: &v1alpha1.SecretKeySelector{
 								LocalObjectReference: v1.LocalObjectReference{
 									Name: "my-rekor-secret",
 								},
