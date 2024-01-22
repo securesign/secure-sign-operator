@@ -20,19 +20,26 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // TrillianSpec defines the desired state of Trillian
 type TrillianSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Define your database connection
+	Db TrillianDB `json:"database,omitempty"`
+}
+
+type TrillianDB struct {
+	// Create Database if a database is not created one must be defined using the DatabaseSecret field
+	// default: true
+	Create bool `json:"create,omitempty"`
+	// Persistent volume claim name to bound with Trillian DB
 	PvcName string `json:"pvcName,omitempty"`
+	// Secret with values to be used to connect to an existing DB or to be used with the creation of a new DB
+	DatabaseSecret string `json:"databaseSecret,omitempty"`
 }
 
 // TrillianStatus defines the observed state of Trillian
 type TrillianStatus struct {
-	Phase Phase `json:"phase"`
+	Url   string `json:"url"`
+	Phase Phase  `json:"phase"`
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
@@ -40,6 +47,7 @@ type TrillianStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The component phase"
+//+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
 
 // Trillian is the Schema for the trillians API
 type Trillian struct {

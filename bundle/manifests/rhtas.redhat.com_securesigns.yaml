@@ -34,13 +34,165 @@ spec:
           spec:
             description: SecuresignSpec defines the desired state of Securesign
             properties:
-              foo:
-                description: Foo is an example field of Securesign. Edit securesign_types.go
-                  to remove/update
-                type: string
+              ctlog:
+                description: CTlogSpec defines the desired state of CTlog component
+                type: object
+              fulcio:
+                description: FulcioSpec defines the desired state of Fulcio
+                properties:
+                  certificate:
+                    description: Certificate configuration
+                    properties:
+                      create:
+                        type: boolean
+                      organizationEmail:
+                        type: string
+                      organizationName:
+                        type: string
+                      secretName:
+                        description: 'Enter secret name for your keys and certificate
+                          (will be generated in case of the `create=true`) Required
+                          fields are: public,private,cert,password'
+                        type: string
+                    required:
+                    - create
+                    - secretName
+                    type: object
+                  externalAccess:
+                    description: Define whether you want to export service or not
+                    properties:
+                      enabled:
+                        description: If set to true, the Operator will create an Ingress
+                          or a Route resource. For the plain Ingress there is no TLS
+                          configuration provided Route object uses "edge" termination
+                          by default.
+                        type: boolean
+                      host:
+                        description: Set hostname for your Ingress/Route.
+                        type: string
+                    type: object
+                  monitoring:
+                    description: Enable Service monitors for fulcio
+                    type: boolean
+                  oidcIssuers:
+                    additionalProperties:
+                      properties:
+                        ClientID:
+                          type: string
+                        IssuerURL:
+                          type: string
+                        Type:
+                          type: string
+                      required:
+                      - ClientID
+                      - IssuerURL
+                      - Type
+                      type: object
+                    description: OIDC issuer configuration
+                    type: object
+                required:
+                - oidcIssuers
+                type: object
+              rekor:
+                description: RekorSpec defines the desired state of Rekor
+                properties:
+                  certificate:
+                    description: Certificate configuration
+                    properties:
+                      create:
+                        description: Generate certificate
+                        type: boolean
+                      secretName:
+                        description: 'Enter secret name for your keys and certificate
+                          (will be generated in case of `create=true`) Required fields:
+                          private'
+                        type: string
+                    required:
+                    - create
+                    - secretName
+                    type: object
+                  externalAccess:
+                    description: Define whether you want to export service or not
+                    properties:
+                      enabled:
+                        description: If set to true, the Operator will create an Ingress
+                          or a Route resource. For the plain Ingress there is no TLS
+                          configuration provided Route object uses "edge" termination
+                          by default.
+                        type: boolean
+                      host:
+                        description: Set hostname for your Ingress/Route.
+                        type: string
+                    type: object
+                  monitoring:
+                    description: Enable Service monitors for rekor
+                    type: boolean
+                  pvcName:
+                    description: Persistent volume claim name to bound with Rekor
+                      component
+                    type: string
+                type: object
+              trillian:
+                description: TrillianSpec defines the desired state of Trillian
+                properties:
+                  database:
+                    description: Define your database connection
+                    properties:
+                      create:
+                        description: 'Create Database if a database is not created
+                          one must be defined using the DatabaseSecret field default:
+                          true'
+                        type: boolean
+                      databaseSecret:
+                        description: Secret with values to be used to connect to an
+                          existing DB or to be used with the creation of a new DB
+                        type: string
+                      pvcName:
+                        description: Persistent volume claim name to bound with Trillian
+                          DB
+                        type: string
+                    type: object
+                type: object
+              tuf:
+                description: TufSpec defines the desired state of Tuf
+                properties:
+                  externalAccess:
+                    description: Define whether you want to export service or not
+                    properties:
+                      enabled:
+                        description: If set to true, the Operator will create an Ingress
+                          or a Route resource. For the plain Ingress there is no TLS
+                          configuration provided Route object uses "edge" termination
+                          by default.
+                        type: boolean
+                      host:
+                        description: Set hostname for your Ingress/Route.
+                        type: string
+                    type: object
+                type: object
             type: object
           status:
             description: SecuresignStatus defines the observed state of Securesign
+            properties:
+              ctlog:
+                type: string
+              fulcio:
+                type: string
+              rekor:
+                type: string
+              trillian:
+                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                  of cluster Important: Run "make" to regenerate code after modifying
+                  this file'
+                type: string
+              tuf:
+                type: string
+            required:
+            - ctlog
+            - fulcio
+            - rekor
+            - trillian
+            - tuf
             type: object
         type: object
     served: true

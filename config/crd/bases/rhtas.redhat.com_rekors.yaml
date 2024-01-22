@@ -44,18 +44,51 @@ spec:
           spec:
             description: RekorSpec defines the desired state of Rekor
             properties:
-              external:
+              certificate:
+                description: Certificate configuration
+                properties:
+                  create:
+                    description: Generate certificate
+                    type: boolean
+                  secretName:
+                    description: 'Enter secret name for your keys and certificate
+                      (will be generated in case of `create=true`) Required fields:
+                      private'
+                    type: string
+                required:
+                - create
+                - secretName
+                type: object
+              externalAccess:
+                description: Define whether you want to export service or not
+                properties:
+                  enabled:
+                    description: If set to true, the Operator will create an Ingress
+                      or a Route resource. For the plain Ingress there is no TLS configuration
+                      provided Route object uses "edge" termination by default.
+                    type: boolean
+                  host:
+                    description: Set hostname for your Ingress/Route.
+                    type: string
+                type: object
+              monitoring:
+                description: Enable Service monitors for rekor
                 type: boolean
-              keySecret:
-                type: string
               pvcName:
+                description: Persistent volume claim name to bound with Rekor component
                 type: string
+              treeID:
+                format: int64
+                type: integer
             type: object
           status:
             description: RekorStatus defines the observed state of Rekor
             properties:
               phase:
                 type: string
+              treeID:
+                format: int64
+                type: integer
               url:
                 type: string
             type: object

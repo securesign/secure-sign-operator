@@ -19,15 +19,17 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"time"
 
+	"github.com/securesign/operator/client"
+	"github.com/securesign/operator/controllers/common/utils/kubernetes"
+	"github.com/securesign/operator/controllers/constants"
 	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -50,6 +52,8 @@ type SecuresignReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=operator.openshift.io,resources=ingresscontrollers,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
@@ -60,19 +64,29 @@ type SecuresignReconciler struct {
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=create;get;list;watch;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=endpoints,verbs=get;list;watch
 
 func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
-	failResult := ctrl.Result{RequeueAfter: time.Second * 15}
 	instance, err := r.ensureSecureSign(ctx, req)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to ensure tas: %w", err)
+		if errors.IsNotFound(err) {
+			// ignore
+			log.V(3).Info("securesign resource not found - it must be deleted")
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, fmt.Errorf("failed to ensure securesign resource: %w", err)
 	}
 
+	target := instance.DeepCopy()
+
 	//Add finalizer for this CR
-	if !controllerutil.ContainsFinalizer(instance, finalizer) {
-		controllerutil.AddFinalizer(instance, finalizer)
-		err = r.Update(ctx, instance)
+	if !controllerutil.ContainsFinalizer(target, finalizer) {
+		controllerutil.AddFinalizer(target, finalizer)
+		err = r.Update(ctx, target)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update instance: %w", err)
 		}
@@ -80,78 +94,36 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	if instance.DeletionTimestamp != nil {
-		controllerutil.RemoveFinalizer(instance, finalizer)
-		return ctrl.Result{}, r.Update(ctx, instance)
+		controllerutil.RemoveFinalizer(target, finalizer)
+		return ctrl.Result{}, r.Update(ctx, target)
 	}
 
-	if err := r.ensureSa(ctx, instance); err != nil {
-		return failResult, err
+	actions := []func(context.Context, *rhtasv1alpha1.Securesign) (bool, error){
+		r.ensureRBAC(),
+		r.ensureTrillian(),
+		r.ensureFulcio(),
+		r.ensureRekor(),
+		r.ensureCTlog(),
+		r.ensureTuf(),
 	}
 
-	if err := r.ensureRole(ctx, instance); err != nil {
-		return failResult, err
-	}
-
-	if err := r.ensureRoleBinding(ctx, instance); err != nil {
-		return failResult, err
-	}
-
-	// Reconcile the tracked objects
-	var update bool
-	update, err = r.ensureTrillian(ctx, instance)
-	if err != nil {
-		log.Error(err, "failed to reconcile tas cluster")
-		return failResult, err
-	}
-	if update {
-		r.Status().Update(ctx, instance)
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	update, err = r.ensureTuf(ctx, instance)
-	if err != nil {
-		log.Error(err, "failed to reconcile tas cluster")
-		return failResult, err
-	}
-	if update {
-		r.Status().Update(ctx, instance)
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	update, err = r.ensureFulcio(ctx, instance)
-	if err != nil {
-		log.Error(err, "failed to reconcile tas cluster")
-		return failResult, err
-	}
-	if update {
-		r.Status().Update(ctx, instance)
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	update, err = r.ensureRekor(ctx, instance)
-	if err != nil {
-		log.Error(err, "failed to reconcile tas cluster")
-		return failResult, err
-	}
-	if update {
-		r.Status().Update(ctx, instance)
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	update, err = r.ensureCTlog(ctx, instance)
-	if err != nil {
-		log.Error(err, "failed to reconcile tas cluster")
-		return failResult, err
-	}
-	if update {
-		r.Status().Update(ctx, instance)
-		return ctrl.Result{Requeue: true}, nil
+	for _, a := range actions {
+		update, err := a(ctx, target)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if update {
+			err = r.Status().Update(ctx, target)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			// requeue one by one to be always up-to-date
+			return ctrl.Result{Requeue: true}, nil
+		}
 	}
 
 	return ctrl.Result{}, nil
 }
-
-// createTrackedObjects Creates a mapping from client objects to their mutating functions.
 
 func (r *SecuresignReconciler) ensureSecureSign(
 	ctx context.Context,
@@ -160,227 +132,197 @@ func (r *SecuresignReconciler) ensureSecureSign(
 	var err error
 	instance := &rhtasv1alpha1.Securesign{}
 	if err = r.Get(ctx, req.NamespacedName, instance); err == nil {
-		return instance.DeepCopy(), nil
+		return instance, nil
 	}
-	if errors.IsNotFound(err) {
-		// Request object not found, could have been deleted after reconcile request.
-		// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-		// Return and don't requeue
-		return nil, fmt.Errorf("Securesign Cluster resource not found, ignoring since object must be deleted: %w", err)
-	}
-	// Error reading the object - requeue the request.
 	return nil, fmt.Errorf("failed to get SecureSign: %w", err)
 }
 
-func (r *SecuresignReconciler) ensureTrillian(
-	ctx context.Context,
-	securesign *rhtasv1alpha1.Securesign,
-) (bool, error) {
-	if securesign.Status.Trillian == "" {
-		instance := &rhtasv1alpha1.Trillian{}
-		instance.Name = securesign.Name
-		instance.Namespace = securesign.Namespace
-		instance.Spec = securesign.Spec.Trillian
-		ctrl.SetControllerReference(securesign, instance, r.Scheme)
+func (r *SecuresignReconciler) ensureRBAC() func(context.Context, *rhtasv1alpha1.Securesign) (bool, error) {
+	return func(ctx context.Context, securesign *rhtasv1alpha1.Securesign) (bool, error) {
 
-		if err := r.Create(ctx, instance); err != nil {
-			return false, err
-		}
-		securesign.Status.Trillian = instance.Name
-		return true, nil
-	}
-	return false, nil
-}
-
-func (r *SecuresignReconciler) ensureCTlog(
-	ctx context.Context,
-	securesign *rhtasv1alpha1.Securesign,
-) (bool, error) {
-	if securesign.Status.CTlog == "" {
-		instance := &rhtasv1alpha1.CTlog{}
-		instance.Name = securesign.Name
-		instance.Namespace = securesign.Namespace
-		instance.Spec = securesign.Spec.Ctlog
-		ctrl.SetControllerReference(securesign, instance, r.Scheme)
-
-		if err := r.Create(ctx, instance); err != nil {
-			return false, err
-		}
-		securesign.Status.CTlog = instance.Name
-		return true, nil
-	}
-	return false, nil
-}
-
-func (r *SecuresignReconciler) ensureTuf(
-	ctx context.Context,
-	securesign *rhtasv1alpha1.Securesign,
-) (bool, error) {
-	if securesign.Status.Tuf == "" {
-		instance := &rhtasv1alpha1.Tuf{}
-		instance.Name = securesign.Name
-		instance.Namespace = securesign.Namespace
-		instance.Spec = securesign.Spec.Tuf
-		ctrl.SetControllerReference(securesign, instance, r.Scheme)
-
-		if err := r.Create(ctx, instance); err != nil {
-			return false, err
-		}
-		securesign.Status.Tuf = instance.Name
-		return true, nil
-	}
-	return false, nil
-}
-
-func (r *SecuresignReconciler) ensureFulcio(
-	ctx context.Context,
-	securesign *rhtasv1alpha1.Securesign,
-) (bool, error) {
-	if securesign.Status.Fulcio == "" {
-		instance := &rhtasv1alpha1.Fulcio{}
-
-		instance.Name = securesign.Name
-		instance.Namespace = securesign.Namespace
-		ctrl.SetControllerReference(securesign, instance, r.Scheme)
-
-		instance.Spec = securesign.Spec.Fulcio
-		if err := r.Create(ctx, instance); err != nil {
-			return false, err
-		}
-		securesign.Status.Fulcio = instance.Name
-		return true, nil
-	}
-	return false, nil
-}
-
-func (r *SecuresignReconciler) ensureRekor(
-	ctx context.Context,
-	securesign *rhtasv1alpha1.Securesign,
-) (bool, error) {
-	if securesign.Status.Rekor == "" {
-		instance := &rhtasv1alpha1.Rekor{}
-
-		instance.Name = securesign.Name
-		instance.Namespace = securesign.Namespace
-		ctrl.SetControllerReference(securesign, instance, r.Scheme)
-
-		instance.Spec = securesign.Spec.Rekor
-		if err := r.Create(ctx, instance); err != nil {
-			return false, err
-		}
-		securesign.Status.Rekor = instance.Name
-		return true, nil
-	}
-	return false, nil
-}
-
-func (r *SecuresignReconciler) ensureSa(
-	ctx context.Context,
-	securesign *rhtasv1alpha1.Securesign,
-) error {
-	sa := &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "sigstore-sa",
-			Namespace: securesign.Namespace,
-		},
-		ImagePullSecrets: []corev1.LocalObjectReference{
-			{
-				Name: "pull-secret",
-			},
-		},
-	}
-	// Check if this service account already exists else create it in the namespace
-	err := r.Get(ctx, client.ObjectKey{Name: sa.Name, Namespace: securesign.Namespace}, sa)
-	// If the SA doesn't exist, create it but if it does, do nothing
-	if err != nil {
-		err = r.Create(ctx, sa)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (r *SecuresignReconciler) ensureRole(
-	ctx context.Context,
-	securesign *rhtasv1alpha1.Securesign,
-) error {
-	name := "securesign"
-	role := &rbac.Role{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: securesign.Namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/name":     "securesign",
-				"app.kubernetes.io/instance": "trusted-artifact-signer",
-			},
-		},
-		Rules: []rbac.PolicyRule{
-			{
-				APIGroups: []string{""},
-				Resources: []string{"configmaps"},
-				Verbs:     []string{"create", "get", "update"},
-			},
-			{
-				APIGroups: []string{""},
-				Resources: []string{"secrets"},
-				Verbs:     []string{"create", "get", "update"},
-			},
-		},
-	}
-
-	err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: securesign.Namespace}, role)
-	if err != nil {
-		err = r.Create(ctx, role)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (r *SecuresignReconciler) ensureRoleBinding(
-	ctx context.Context,
-	securesign *rhtasv1alpha1.Securesign,
-) error {
-
-	name := "securesign"
-	roleBinding := &rbac.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: securesign.Namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/name":     name,
-				"app.kubernetes.io/instance": "trusted-artifact-signer",
-			},
-		},
-
-		// todo: remove hardcoded names
-		Subjects: []rbac.Subject{
-			{
-				Kind:      "ServiceAccount",
-				Name:      "sigstore-sa",
+		sa := &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.ServiceAccountName,
 				Namespace: securesign.Namespace,
+				Labels:    labels(*securesign),
 			},
-		},
-		RoleRef: rbac.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "Role",
-			Name:     "securesign",
-		},
-	}
-
-	// If the bindingName is tuf-secret-copy-job* then change the kind of Role to clusterrole
-	// The Namespace for the serviceAccount will be tuf-system
-
-	err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: securesign.Namespace}, roleBinding)
-	if err != nil {
-		err = r.Create(ctx, roleBinding)
-		if err != nil {
-			return err
+			ImagePullSecrets: []corev1.LocalObjectReference{
+				{
+					Name: "pull-secret",
+				},
+			},
 		}
+		ctrl.SetControllerReference(securesign, sa, r.Scheme)
+		if err := r.Get(ctx, types.NamespacedName{Namespace: sa.Namespace, Name: sa.Name}, &corev1.ServiceAccount{}); err != nil {
+			if errors.IsNotFound(err) {
+				err = r.Create(ctx, sa)
+				if err != nil {
+					return false, err
+				}
+			}
+			if err != nil {
+				return false, err
+			}
+		}
+
+		role := kubernetes.CreateRole(securesign.Namespace, constants.ServiceAccountName, labels(*securesign),
+			[]rbac.PolicyRule{
+				{
+					APIGroups: []string{""},
+					Resources: []string{"configmaps"},
+					Verbs:     []string{"create", "get", "update"},
+				},
+				{
+					APIGroups: []string{""},
+					Resources: []string{"secrets"},
+					Verbs:     []string{"create", "get", "update"},
+				},
+			})
+		ctrl.SetControllerReference(securesign, role, r.Scheme)
+		if err := r.Get(ctx, types.NamespacedName{Namespace: role.Namespace, Name: role.Name}, &rbac.Role{}); err != nil {
+			if errors.IsNotFound(err) {
+				err = r.Create(ctx, role)
+				if err != nil {
+					return false, err
+				}
+			}
+			if err != nil {
+				return false, err
+			}
+		}
+
+		roleBinding := kubernetes.CreateRoleBinding(securesign.Namespace, constants.ServiceAccountName, labels(*securesign),
+			rbac.RoleRef{
+				APIGroup: rbac.SchemeGroupVersion.Group,
+				Kind:     "Role",
+				Name:     role.Name,
+			},
+			[]rbac.Subject{
+				{Kind: "ServiceAccount", Name: sa.Name, Namespace: securesign.Namespace},
+			})
+		ctrl.SetControllerReference(securesign, roleBinding, r.Scheme)
+		if err := r.Get(ctx, types.NamespacedName{Namespace: roleBinding.Namespace, Name: roleBinding.Name}, &rbac.RoleBinding{}); err != nil {
+			if errors.IsNotFound(err) {
+				err = r.Create(ctx, roleBinding)
+				if err != nil {
+					return false, err
+				}
+			}
+			if err != nil {
+				return false, err
+			}
+		}
+		return false, nil
+
 	}
-	return nil
+}
+
+func (r *SecuresignReconciler) ensureTrillian() func(context.Context, *rhtasv1alpha1.Securesign) (bool, error) {
+	return func(ctx context.Context, securesign *rhtasv1alpha1.Securesign) (bool, error) {
+		if securesign.Status.Trillian == "" {
+			instance := &rhtasv1alpha1.Trillian{}
+			instance.Name = securesign.Name
+			instance.Namespace = securesign.Namespace
+			instance.Labels = labels(*securesign)
+
+			instance.Spec = securesign.Spec.Trillian
+			ctrl.SetControllerReference(securesign, instance, r.Scheme)
+			securesign.Status.Trillian = instance.Name
+			if err := r.Create(ctx, instance); err != nil {
+				return false, err
+			}
+			return true, nil
+		}
+		return false, nil
+	}
+}
+
+func (r *SecuresignReconciler) ensureCTlog() func(context.Context, *rhtasv1alpha1.Securesign) (bool, error) {
+	return func(ctx context.Context, securesign *rhtasv1alpha1.Securesign) (bool, error) {
+		if securesign.Status.CTlog == "" {
+			instance := &rhtasv1alpha1.CTlog{}
+			instance.Name = securesign.Name
+			instance.Namespace = securesign.Namespace
+			instance.Labels = labels(*securesign)
+
+			instance.Spec = securesign.Spec.Ctlog
+			ctrl.SetControllerReference(securesign, instance, r.Scheme)
+			securesign.Status.CTlog = instance.Name
+			if err := r.Create(ctx, instance); err != nil {
+				return false, err
+			}
+			return true, nil
+		}
+		return false, nil
+	}
+}
+
+func (r *SecuresignReconciler) ensureTuf() func(context.Context, *rhtasv1alpha1.Securesign) (bool, error) {
+	return func(ctx context.Context, securesign *rhtasv1alpha1.Securesign) (bool, error) {
+		if securesign.Status.Tuf == "" {
+			instance := &rhtasv1alpha1.Tuf{}
+			instance.Name = securesign.Name
+			instance.Namespace = securesign.Namespace
+			instance.Labels = labels(*securesign)
+
+			instance.Spec = securesign.Spec.Tuf
+			ctrl.SetControllerReference(securesign, instance, r.Scheme)
+			securesign.Status.Tuf = instance.Name
+			if err := r.Create(ctx, instance); err != nil {
+				return false, err
+			}
+			return true, nil
+		}
+		return false, nil
+	}
+}
+
+func (r *SecuresignReconciler) ensureFulcio() func(context.Context, *rhtasv1alpha1.Securesign) (bool, error) {
+	return func(ctx context.Context, securesign *rhtasv1alpha1.Securesign) (bool, error) {
+		if securesign.Status.Fulcio == "" {
+			instance := &rhtasv1alpha1.Fulcio{}
+
+			instance.Name = securesign.Name
+			instance.Namespace = securesign.Namespace
+			instance.Labels = labels(*securesign)
+			ctrl.SetControllerReference(securesign, instance, r.Scheme)
+
+			instance.Spec = securesign.Spec.Fulcio
+			securesign.Status.Fulcio = instance.Name
+			if err := r.Create(ctx, instance); err != nil {
+				return false, err
+			}
+			return true, nil
+		}
+		return false, nil
+	}
+}
+
+func (r *SecuresignReconciler) ensureRekor() func(context.Context, *rhtasv1alpha1.Securesign) (bool, error) {
+	return func(ctx context.Context, securesign *rhtasv1alpha1.Securesign) (bool, error) {
+		if securesign.Status.Rekor == "" {
+			instance := &rhtasv1alpha1.Rekor{}
+
+			instance.Name = securesign.Name
+			instance.Namespace = securesign.Namespace
+			instance.Labels = labels(*securesign)
+			ctrl.SetControllerReference(securesign, instance, r.Scheme)
+
+			securesign.Status.Rekor = instance.Name
+			instance.Spec = securesign.Spec.Rekor
+			if err := r.Create(ctx, instance); err != nil {
+				return false, err
+			}
+			return true, nil
+		}
+		return false, nil
+	}
+}
+func labels(instance rhtasv1alpha1.Securesign) map[string]string {
+	return map[string]string{
+		"app.kubernetes.io/part-of":  constants.AppName,
+		"app.kubernetes.io/instance": instance.Name,
+	}
 }
 
 // SetupWithManager sets up the controller with the Manager.

@@ -38,13 +38,32 @@ spec:
           metadata:
             type: object
           spec:
-            description: CTlogSpec defines the desired state of CTlog
+            description: CTlogSpec defines the desired state of CTlog component
+            properties:
+              certificate:
+                description: Certificate configuration
+                properties:
+                  create:
+                    type: boolean
+                  secretName:
+                    description: Name of the secret the ctlog private key is stored
+                      in
+                    type: string
+                required:
+                - create
+                type: object
+              treeID:
+                format: int64
+                type: integer
             type: object
           status:
-            description: CTlogStatus defines the observed state of CTlog
+            description: CTlogStatus defines the observed state of CTlog component
             properties:
               phase:
                 type: string
+              treeID:
+                format: int64
+                type: integer
             required:
             - phase
             type: object

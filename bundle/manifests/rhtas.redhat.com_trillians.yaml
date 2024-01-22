@@ -1,0 +1,88 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.11.1
+  creationTimestamp: null
+  name: trillians.rhtas.redhat.com
+spec:
+  group: rhtas.redhat.com
+  names:
+    kind: Trillian
+    listKind: TrillianList
+    plural: trillians
+    singular: trillian
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The component phase
+      jsonPath: .status.phase
+      name: Phase
+      type: string
+    - description: The component url
+      jsonPath: .status.url
+      name: URL
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Trillian is the Schema for the trillians API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: TrillianSpec defines the desired state of Trillian
+            properties:
+              database:
+                description: Define your database connection
+                properties:
+                  create:
+                    description: 'Create Database if a database is not created one
+                      must be defined using the DatabaseSecret field default: true'
+                    type: boolean
+                  databaseSecret:
+                    description: Secret with values to be used to connect to an existing
+                      DB or to be used with the creation of a new DB
+                    type: string
+                  pvcName:
+                    description: Persistent volume claim name to bound with Trillian
+                      DB
+                    type: string
+                type: object
+            type: object
+          status:
+            description: TrillianStatus defines the observed state of Trillian
+            properties:
+              phase:
+                type: string
+              treeID:
+                format: int64
+                type: integer
+              url:
+                type: string
+            required:
+            - phase
+            - treeID
+            - url
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: null
+  storedVersions: null

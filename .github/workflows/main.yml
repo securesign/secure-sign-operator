@@ -1,5 +1,6 @@
-name: Validate SecureSign
-on: 
+name: Validate SecureSign 
+on:
+  workflow_dispatch:
   push:
     branches: ["main", "release*"]
     tags: ["*"]
@@ -7,7 +8,7 @@ on:
     branches: ["main", "release*"]
 
 env:
-  GO_VERSION: 1.19
+  GO_VERSION: 1.21
   IMAGE_TAG_BASE: ${KIND_REGISTRY}/securesign
 
 jobs:
@@ -19,7 +20,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Install Go
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -38,6 +39,11 @@ jobs:
           node_image: kindest/node:v1.26.6@sha256:6e2d8b28a5b601defe327b98bd1c2d1930b49e5d8c512e1895099e4504007adb
           cpu: 3
           config: ./ci/config.yaml
+
+      - name: Install Ingress
+        run: |
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+          kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
 
       - name: Build and Deploy operator container
         run: make docker-build docker-push deploy
@@ -66,17 +72,39 @@ jobs:
             printf "Waiting for keycloak deployment. \n Keycloak ready: %s\n" $(oc get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system)
             sleep 10
           done
+          
+          # HACK - expose keycloak under the same name as the internal SVC has so it will be accessible:
+          # - within the cluster (where the localhost does not work)
+          # - outside the cluster (resolved from /etc/hosts and redirect to the localhost)
+          kubectl create -n keycloak-system -f - <<EOF
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: keycloak
+          spec:
+            rules:
+            - host: keycloak-internal.keycloak-system.svc
+              http:
+                paths:
+                - backend:
+                    service:
+                      name: keycloak-internal
+                      port:
+                        number: 80
+                  path: /
+                  pathType: Prefix
+          EOF
         shell: bash
 
-      - name: Apply sample config
+      - name: Add service hosts to /etc/hosts
         run: |
-          kubectl create ns test
-          kubectl -n test create secret generic fulcio-secret-rh --from-file=private=./ci/certs/file_ca_key.pem --from-file=public=./ci/certs/file_ca_pub.pem --from-file=cert=./ci/certs/fulcio-root.pem  --from-literal=password=secure
-          kubectl -n test create secret generic rekor-private-key --from-file=private=./ci/certs/rekor_key.pem
-          kubectl apply -f config/samples/rhtas_v1alpha1_securesign.yaml -n test
+          sudo echo "127.0.0.1 fulcio.local tuf.local rekor.local keycloak-internal.keycloak-system.svc" | sudo tee -a /etc/hosts
+      - name: Install cosign
+        run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.2.2
 
-      - name: sleep then print pods in test namespace
-        run: |
-          sleep 120
-          kubectl get pods -n test
-          [ -z "$(kubectl get pods -o jsonpath='{range .items[*]}{.status.phase}{"\n"}' | grep -v "Succeeded" | grep -v "Completed" | grep -v "Running")" ]
+      - name: Run tests
+        run: make integration-test
+
+      - name: dump the logs of the operator
+        run: kubectl logs -n operator-system deployment/operator-controller-manager
+        if: always()

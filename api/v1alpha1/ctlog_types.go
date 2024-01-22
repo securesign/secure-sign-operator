@@ -7,13 +7,25 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// CTlogSpec defines the desired state of CTlog
+// CTlogSpec defines the desired state of CTlog component
 type CTlogSpec struct {
+	//+optional
+	TreeID *int64 `json:"treeID,omitempty"`
+	// Certificate configuration
+	Certificate CtlogCert `json:"certificate,omitempty"`
 }
 
-// CTlogStatus defines the observed state of CTlog
+type CtlogCert struct {
+	Create bool `json:"create"`
+	//Name of the secret the ctlog private key is stored in
+	SecretName string `json:"secretName,omitempty"` // +kubebuilder:validation:+optional
+}
+
+// CTlogStatus defines the observed state of CTlog component
 type CTlogStatus struct {
 	Phase Phase `json:"phase"`
+
+	TreeID *int64 `json:"treeID,omitempty"`
 }
 
 //+kubebuilder:object:root=true

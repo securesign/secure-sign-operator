@@ -20,6 +20,10 @@ spec:
       jsonPath: .status.phase
       name: Phase
       type: string
+    - description: The component url
+      jsonPath: .status.url
+      name: URL
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -40,16 +44,33 @@ spec:
           spec:
             description: TrillianSpec defines the desired state of Trillian
             properties:
-              pvcName:
-                type: string
+              database:
+                description: Define your database connection
+                properties:
+                  create:
+                    description: 'Create Database if a database is not created one
+                      must be defined using the DatabaseSecret field default: true'
+                    type: boolean
+                  databaseSecret:
+                    description: Secret with values to be used to connect to an existing
+                      DB or to be used with the creation of a new DB
+                    type: string
+                  pvcName:
+                    description: Persistent volume claim name to bound with Trillian
+                      DB
+                    type: string
+                type: object
             type: object
           status:
             description: TrillianStatus defines the observed state of Trillian
             properties:
               phase:
                 type: string
+              url:
+                type: string
             required:
             - phase
+            - url
             type: object
         type: object
     served: true

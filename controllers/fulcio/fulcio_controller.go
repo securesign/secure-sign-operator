@@ -19,11 +19,18 @@ package fulcio
 import (
 	"context"
 
+	"github.com/securesign/operator/controllers/common/action"
+
+	"github.com/securesign/operator/client"
+	p "github.com/securesign/operator/controllers/common/operator/predicate"
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -38,6 +45,12 @@ type FulcioReconciler struct {
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=fulcios,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=fulcios/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=fulcios/finalizers,verbs=update
+//+kubebuilder:rbac:groups=rhtas.redhat.com,resources=secrets,verbs=create;get;list;watch;update;patch;delete
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=create;get;list;watch;update;patch;delete
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=create;get;list;watch;update;patch;delete
+//+kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=create;get;list;watch;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=endpoints,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -51,6 +64,7 @@ type FulcioReconciler struct {
 func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 
 	var instance rhtasv1alpha1.Fulcio
+	log := ctrllog.FromContext(ctx)
 
 	if err := r.Client.Get(ctx, req.NamespacedName, &instance); err != nil {
 		if errors.IsNotFound(err) {
@@ -63,13 +77,14 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return reconcile.Result{}, err
 	}
 	target := instance.DeepCopy()
-	actions := []Action{
-		NewInitializeAction(),
+	actions := []action.Action[rhtasv1alpha1.Fulcio]{
+		NewCreateAction(),
 		NewWaitAction(),
 	}
 
 	for _, a := range actions {
 		a.InjectClient(r.Client)
+		a.InjectLogger(log)
 
 		if a.CanHandle(target) {
 			newTarget, err := a.Handle(ctx, target)
@@ -94,7 +109,14 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 // SetupWithManager sets up the controller with the Manager.
 func (r *FulcioReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&rhtasv1alpha1.Fulcio{}).
-		Owns(&v1.Deployment{}).
+		For(&rhtasv1alpha1.Fulcio{}, builder.WithPredicates(
+			predicate.Or(predicate.GenerationChangedPredicate{}, p.StatusChangedPredicate{}),
+		)).
+		Owns(&v1.Deployment{}, builder.WithPredicates(
+			// ignore create events
+			predicate.Funcs{CreateFunc: func(event event.CreateEvent) bool {
+				return false
+			}},
+		)).
 		Complete(r)
 }

@@ -19,11 +19,18 @@ package trillian
 import (
 	"context"
 
+	"github.com/securesign/operator/controllers/common/action"
+
+	"github.com/securesign/operator/client"
+	p "github.com/securesign/operator/controllers/common/operator/predicate"
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -52,6 +59,7 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// Fetch the Trillian instance
 	var instance rhtasv1alpha1.Trillian
+	log := ctrllog.FromContext(ctx)
 
 	if err := r.Client.Get(ctx, req.NamespacedName, &instance); err != nil {
 		if errors.IsNotFound(err) {
@@ -64,13 +72,15 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return reconcile.Result{}, err
 	}
 	target := instance.DeepCopy()
-	actions := []Action{
+	actions := []action.Action[rhtasv1alpha1.Trillian]{
+		NewCreateAction(),
 		NewInitializeAction(),
 		NewWaitAction(),
 	}
 
 	for _, a := range actions {
 		a.InjectClient(r.Client)
+		a.InjectLogger(log)
 
 		if a.CanHandle(target) {
 			newTarget, err := a.Handle(ctx, target)
@@ -95,7 +105,13 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 // SetupWithManager sets up the controller with the Manager.
 func (r *TrillianReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&rhtasv1alpha1.Trillian{}).
-		Owns(&v1.Deployment{}).
+		For(&rhtasv1alpha1.Trillian{}, builder.WithPredicates(
+			predicate.Or(predicate.GenerationChangedPredicate{}, p.StatusChangedPredicate{}))).
+		Owns(&v1.Deployment{}, builder.WithPredicates(
+			// ignore create events
+			predicate.Funcs{CreateFunc: func(event event.CreateEvent) bool {
+				return false
+			}},
+		)).
 		Complete(r)
 }

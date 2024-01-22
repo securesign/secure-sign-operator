@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func CreateDeployment(namespace string, deploymentName string, component string, ssapp string) *appsv1.Deployment {
+func CreateDeployment(namespace string, deploymentName string, certSecret string, labels map[string]string) *appsv1.Deployment {
 	replicas := int32(1)
 	mode := int32(0666)
 
@@ -18,34 +18,22 @@ func CreateDeployment(namespace string, deploymentName string, component string,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
 			Namespace: namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/component": component,
-				"app.kubernetes.io/name":      ssapp,
-				"app.kubernetes.io/instance":  "trusted-artifact-signer",
-			},
+			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app.kubernetes.io/component": component,
-					"app.kubernetes.io/name":      ssapp,
-					"app.kubernetes.io/instance":  "trusted-artifact-signer",
-				},
+				MatchLabels: labels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"app.kubernetes.io/component": component,
-						"app.kubernetes.io/name":      ssapp,
-						"app.kubernetes.io/instance":  "trusted-artifact-signer",
-					},
+					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: "sigstore-sa",
+					ServiceAccountName: constants.ServiceAccountName,
 					Containers: []corev1.Container{
 						{
-							Name:  ssapp,
+							Name:  "fulcio-server",
 							Image: constants.FulcioServerImage,
 							Args: []string{
 								"serve",
@@ -58,7 +46,7 @@ func CreateDeployment(namespace string, deploymentName string, component string,
 								"/var/run/fulcio-secrets/cert.pem",
 								"--fileca-key-passwd",
 								"$(PASSWORD)",
-								fmt.Sprintf("--ct-log-url=http://ctlog.%s.svc/sigstorescaffolding", namespace),
+								fmt.Sprintf("--ct-log-url=http://ctlog.%s.svc/trusted-artifact-signer", namespace),
 							},
 							Env: []corev1.EnvVar{
 								{
@@ -67,7 +55,7 @@ func CreateDeployment(namespace string, deploymentName string, component string,
 										SecretKeyRef: &corev1.SecretKeySelector{
 											Key: "password",
 											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "fulcio-secret-rh",
+												Name: certSecret,
 											},
 										},
 									},
@@ -161,7 +149,7 @@ func CreateDeployment(namespace string, deploymentName string, component string,
 							Name: "fulcio-cert",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName: "fulcio-secret-rh",
+									SecretName: certSecret,
 									Items: []corev1.KeyToPath{
 										{
 											Key:  "private",

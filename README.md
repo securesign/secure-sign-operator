@@ -41,6 +41,31 @@ UnDeploy the controller from the cluster:
 make undeploy
 ```
 
+### Local Development
+#### Install the CRDs into the cluster:
+```
+make install
+````
+
+Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
+```
+make run
+```
+NOTE: You can also run this in one step by running: make install run
+
+#### Port-forward service(s)
+After installation of your resource(s), you will need to allow the locally running operator to the internal service(s).
+This workaround is needed because the trillian server use insecure RPC protocol for communication with others. 
+Currently, it is not possible to route insecure GRPC outside the cluster so the local deployment rely on port-forward.
+
+##### Procedure
+Install your CR and wait until the operator log prints
+```
+Operator is running on localhost. You need to port-forward services.
+Execute `oc port-forward service/trillian-logserver 8091 8091` in your namespace to continue.
+```
+Then execute the command as is written `oc port-forward service/trillian-logserver 8091 8091`
+
 ## Contributing
 // TODO(user): Add detailed information on how you would like others to contribute to this project
 
@@ -58,7 +83,6 @@ make install
 ```
 
 2. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
-
 ```sh
 make run
 ```

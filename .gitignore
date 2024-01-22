@@ -9,6 +9,9 @@ bin
 testbin/*
 Dockerfile.cross
 
+# Environment variables script
+*tas-env-vars.sh
+
 # Test binary, build with `go test -c`
 *.test
 

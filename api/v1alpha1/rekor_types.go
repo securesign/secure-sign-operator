@@ -9,15 +9,31 @@ import (
 
 // RekorSpec defines the desired state of Rekor
 type RekorSpec struct {
-	External  bool   `json:"external,omitempty"`
-	KeySecret string `json:"keySecret,omitempty"`
-	PvcName   string `json:"pvcName,omitempty"`
+	//+optional
+	TreeID *int64 `json:"treeID,omitempty"`
+	// Define whether you want to export service or not
+	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
+	// Persistent volume claim name to bound with Rekor component
+	PvcName string `json:"pvcName,omitempty"`
+	// Certificate configuration
+	Certificate RekorCert `json:"certificate,omitempty"`
+	//Enable Service monitors for rekor
+	Monitoring bool `json:"monitoring,omitempty"`
+}
+
+type RekorCert struct {
+	// Generate certificate
+	Create bool `json:"create"`
+	// Enter secret name for your keys and certificate (will be generated in case of `create=true`)
+	// Required fields: private
+	SecretName string `json:"secretName"`
 }
 
 // RekorStatus defines the observed state of Rekor
 type RekorStatus struct {
-	Url   string `json:"url,omitempty"`
-	Phase Phase  `json:"phase,omitempty"`
+	Url    string `json:"url,omitempty"`
+	Phase  Phase  `json:"phase,omitempty"`
+	TreeID *int64 `json:"treeID,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -2,129 +2,138 @@ package rekor
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
+
+	"github.com/securesign/operator/controllers/common/action"
+	v12 "k8s.io/api/networking/v1"
+	client2 "sigs.k8s.io/controller-runtime/pkg/client"
+
+	"io"
+	"net/http"
+	"time"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/controllers/common"
-	utils2 "github.com/securesign/operator/controllers/common/utils"
-	"github.com/securesign/operator/controllers/rekor/utils"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	commonUtils "github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const rekorDeploymentName = "rekor-server"
-
-func NewInitializeAction() Action {
-	return &initializeAction{}
+func NewWaitAction() action.Action[rhtasv1alpha1.Rekor] {
+	return &waitAction{}
 }
 
-type initializeAction struct {
-	common.BaseAction
+type waitAction struct {
+	action.BaseAction
 }
 
-func (i initializeAction) Name() string {
-	return "initialize"
+func (i waitAction) Name() string {
+	return "wait"
 }
 
-func (i initializeAction) CanHandle(Rekor *rhtasv1alpha1.Rekor) bool {
-	return Rekor.Status.Phase == rhtasv1alpha1.PhaseNone
+func (i waitAction) CanHandle(Rekor *rhtasv1alpha1.Rekor) bool {
+	return Rekor.Status.Phase == rhtasv1alpha1.PhaseInitialize
 }
 
-func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) (*rhtasv1alpha1.Rekor, error) {
-	//log := ctrllog.FromContext(ctx)
-	var err error
-	if instance.Spec.KeySecret == "" {
-		// TODO: generate one
-	}
-	sharding := i.initConfigmap(instance.Namespace, "rekor-sharding-config")
-	if err = i.Client.Create(ctx, sharding); err != nil {
+func (i waitAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) (*rhtasv1alpha1.Rekor, error) {
+	var (
+		ok  bool
+		err error
+	)
+	labels := commonUtils.FilterCommonLabels(instance.Labels)
+	labels[commonUtils.ComponentLabel] = ComponentName
+	ok, err = commonUtils.DeploymentIsRunning(ctx, i.Client, instance.Namespace, labels)
+	if err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create Rekor secret: %w", err)
+		return instance, err
+	}
+	if !ok {
+		return instance, nil
 	}
 
-	var rekorPvcName string
-	if instance.Spec.PvcName == "" {
-		rekorPvc := utils2.CreatePVC(instance.Namespace, "rekor-server", "5Gi")
-		if err = i.Client.Create(ctx, rekorPvc); err != nil {
-			instance.Status.Phase = rhtasv1alpha1.PhaseError
-			return instance, fmt.Errorf("could not create Rekor secret: %w", err)
+	// find internal service URL (don't use the `.status.Url` because it can be external Ingress route with untrusted CA
+	rekor, err := commonUtils.SearchForInternalUrl(ctx, i.Client, instance.Namespace, labels)
+	if err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, err
+	}
+
+	inContainer, err := commonUtils.ContainerMode()
+	if err == nil {
+		if !inContainer {
+			fmt.Println("Operator is running on localhost. You need to port-forward services.")
+			for it := 0; it < 60; it++ {
+				if rawConnect("localhost", "8080") {
+					fmt.Println("Connection is open.")
+					rekor = "localhost:8080"
+					break
+				} else {
+					fmt.Println("Execute `oc port-forward service/rekor 8091 8080` in your namespace to continue.")
+					time.Sleep(time.Duration(5) * time.Second)
+				}
+			}
+
 		}
-		rekorPvcName = rekorPvc.Name
-		// TODO: add status field
 	} else {
-		rekorPvcName = instance.Spec.PvcName
+		i.Logger.Info("Can't recognise operator mode - expecting in-container run")
 	}
 
-	config := i.initConfigmap(instance.Namespace, "rekor-config")
-	if err = i.Client.Create(ctx, config); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create Rekor secret: %w", err)
-	}
-
-	dp := utils.CreateRekorDeployment(instance.Namespace, rekorDeploymentName, rekorPvcName)
-	controllerutil.SetControllerReference(instance, dp, i.Client.Scheme())
-	if err = i.Client.Create(ctx, dp); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create Rekor deployment: %w", err)
-	}
-
-	redis := utils.CreateRedisDeployment(instance.Namespace, "rekor-redis")
-	controllerutil.SetControllerReference(instance, redis, i.Client.Scheme())
-	if err = i.Client.Create(ctx, redis); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create Rekor-redis deployment: %w", err)
-	}
-
-	svc := utils2.CreateService(instance.Namespace, rekorDeploymentName, rekorDeploymentName, rekorDeploymentName, 2112)
-	controllerutil.SetControllerReference(instance, svc, i.Client.Scheme())
-	svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
-		Name:       "80-tcp",
-		Protocol:   corev1.ProtocolTCP,
-		Port:       80,
-		TargetPort: intstr.FromInt(3000),
-	})
-	if err = i.Client.Create(ctx, svc); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create service: %w", err)
-	}
-
-	// TODO: move code from job to operator
-	tree := utils.CTJob(instance.Namespace, "create-tree-rekor")
-	if err = i.Client.Create(ctx, tree); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create job: %w", err)
-	}
-
-	if instance.Spec.External {
-		// TODO: do we need to support ingress?
-		route := utils2.CreateRoute(*svc, "80-tcp")
-		if err = i.Client.Create(ctx, route); err != nil {
-			instance.Status.Phase = rhtasv1alpha1.PhaseError
-			return instance, fmt.Errorf("could not create route: %w", err)
+	var pubKeyResponse *http.Response
+	for retry := 1; retry < 5; retry++ {
+		time.Sleep(time.Duration(retry) * time.Second)
+		pubKeyResponse, err = http.Get("http://" + rekor + "/api/v1/log/publicKey")
+		if err == nil && pubKeyResponse.StatusCode == http.StatusOK {
+			continue
 		}
-		instance.Status.Url = "https://" + route.Spec.Host
-	} else {
-		instance.Status.Url = fmt.Sprintf("http://%s.%s.svc", svc.Name, svc.Namespace)
+		i.Logger.Info("retrying to get rekor public key")
 	}
 
-	instance.Status.Phase = rhtasv1alpha1.PhaseInitialization
+	if err != nil || pubKeyResponse.StatusCode != http.StatusOK {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, err
+	}
+	body, err := io.ReadAll(pubKeyResponse.Body)
+	if err != nil || pubKeyResponse.StatusCode != http.StatusOK {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, err
+	}
+	secret := commonUtils.CreateSecret("rekor-public-key", instance.Namespace, map[string][]byte{"key": body}, labels)
+	controllerutil.SetControllerReference(instance, secret, i.Client.Scheme())
+	if err = i.Client.Create(ctx, secret); err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not create rekor-public-key secret: %w", err)
+	}
+
+	if instance.Spec.ExternalAccess.Enabled {
+		protocol := "http://"
+		ingressList := &v12.IngressList{}
+		err = i.Client.List(ctx, ingressList, client2.InNamespace(instance.Namespace), client2.MatchingLabels(labels), client2.Limit(1))
+		if err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, err
+		}
+		if len(ingressList.Items) != 1 {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, errors.New("can't find ingress object")
+		}
+		if len(ingressList.Items[0].Spec.TLS) > 0 {
+			protocol = "https://"
+		}
+		instance.Status.Url = protocol + ingressList.Items[0].Spec.Rules[0].Host
+	}
+	instance.Status.Phase = rhtasv1alpha1.PhaseReady
 	return instance, nil
-
 }
-func (i initializeAction) initConfigmap(namespace string, name string) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/name":     "rekor",
-				"app.kubernetes.io/instance": "trusted-artifact-signer",
-			},
-		},
 
-		Data: map[string]string{
-			"sharding-config.yaml": ""},
+func rawConnect(host string, port string) bool {
+	timeout := time.Second
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), timeout)
+	if err != nil {
+		return false
 	}
+	if conn != nil {
+		defer conn.Close()
+		return true
+	}
+	return false
 }

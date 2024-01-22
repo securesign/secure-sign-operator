@@ -14,18 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-//FulcioPrivateKey is a multiline value that looks like this
-/*
------BEGIN EC PRIVATE KEY-----
-Proc-Type: 4,ENCRYPTED
-DEK-Info: DES-EDE3-CBC,57052BF0C94F8233
-
-iYxyAS5gRrPrdKDdEvzokWkp5z5swdqkxyuGx98gcMHnkJlW+sa53cAqqnLefNXO
-y/pROXH0PXhKg+5sMcwJCba8yf5obQOiqWsrH7ERb5SC+OmXvnIxTallp6fRw6W0
-jWRrqUp+QpQxfdKwSrLMYVPQw8e9iVewNZkZxPC0YVI=
------END EC PRIVATE KEY-----
-*/
-
 package v1alpha1
 
 import (
@@ -37,15 +25,12 @@ import (
 
 // SecuresignSpec defines the desired state of Securesign
 type SecuresignSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of Securesign. Edit securesign_types.go to remove/update
 	Rekor    RekorSpec    `json:"rekor,omitempty"`
 	Fulcio   FulcioSpec   `json:"fulcio,omitempty"`
 	Trillian TrillianSpec `json:"trillian,omitempty"`
-	Tuf      TufSpec      `json:"tuf,omitempty"`
-	Ctlog    CTlogSpec    `json:"ctlog,omitempty"`
+	//+kubebuilder:default:={keys:{{name: rekor.pub},{name: ctfe.pub},{name: fulcio_v1.crt.pem}}}
+	Tuf   TufSpec   `json:"tuf,omitempty"`
+	Ctlog CTlogSpec `json:"ctlog,omitempty"`
 }
 
 // SecuresignStatus defines the observed state of Securesign
