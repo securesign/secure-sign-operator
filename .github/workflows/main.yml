@@ -107,5 +107,5 @@ jobs:
         run: make integration-test
 
       - name: dump the logs of the operator
-        run: kubectl logs -n openshift-rhtas-operator deployment/operator-controller-manager
+        run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
         if: always()
