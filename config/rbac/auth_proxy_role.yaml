@@ -5,10 +5,10 @@ metadata:
     app.kubernetes.io/name: clusterrole
     app.kubernetes.io/instance: proxy-role
     app.kubernetes.io/component: kube-rbac-proxy
-    app.kubernetes.io/created-by: operator
-    app.kubernetes.io/part-of: operator
+    app.kubernetes.io/created-by: rhtas-operator
+    app.kubernetes.io/part-of: rhtas-operator
     app.kubernetes.io/managed-by: kustomize
-  name: proxy-role
+  name: operator-proxy-role
 rules:
 - apiGroups:
   - authentication.k8s.io
