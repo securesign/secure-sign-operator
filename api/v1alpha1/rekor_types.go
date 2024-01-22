@@ -38,9 +38,11 @@ type RekorSearchUI struct {
 
 // RekorStatus defines the observed state of Rekor
 type RekorStatus struct {
-	Url    string `json:"url,omitempty"`
-	Phase  Phase  `json:"phase,omitempty"`
-	TreeID *int64 `json:"treeID,omitempty"`
+	Url                string `json:"url,omitempty"`
+	Phase              Phase  `json:"phase,omitempty"`
+	TreeID             *int64 `json:"treeID,omitempty"`
+	RekorSearchUIPhase Phase  `json:"rekorSearchUIPhase,omitempty"`
+	RekorSearchUIUrl   string `json:"rekorSearchUIUrl,omitempty"`
 }
 
 //+kubebuilder:object:root=true

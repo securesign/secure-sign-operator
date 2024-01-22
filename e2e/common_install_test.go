@@ -4,6 +4,7 @@ package e2e_test
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -46,6 +47,9 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 					Certificate: v1alpha1.RekorCert{
 						Create:     true,
 						SecretName: "rekor-secret",
+					},
+					RekorSearchUI: v1alpha1.RekorSearchUI{
+						Enabled: true,
 					},
 				},
 				Fulcio: v1alpha1.FulcioSpec{
@@ -162,6 +166,25 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			tas.VerifyTrillian(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyCTLog(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyTuf(ctx, cli, namespace.Name, securesign.Name)
+			tas.VerifyRekorSearchUI(ctx, cli, namespace.Name, securesign.Name)
+		})
+
+		It("Verify Rekor Search UI is accessible", func() {
+			rekor := tas.GetRekor(ctx, cli, namespace.Name, securesign.Name)()
+			Expect(rekor).ToNot(BeNil())
+			Expect(rekor.Status.RekorSearchUIUrl).NotTo(BeEmpty())
+
+			httpClient := http.Client{
+				Timeout: time.Second * 10,
+			}
+			Eventually(func() bool {
+				resp, err := httpClient.Get(rekor.Status.RekorSearchUIUrl)
+				if err != nil {
+					return false
+				}
+				defer resp.Body.Close()
+				return resp.StatusCode == http.StatusOK
+			}, "30s", "1s").Should(BeTrue(), "Rekor UI should be accessible and return a status code of 200")
 		})
 
 		It("Use cosign cli", func() {

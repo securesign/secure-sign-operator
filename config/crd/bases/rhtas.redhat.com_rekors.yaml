@@ -93,6 +93,10 @@ spec:
             properties:
               phase:
                 type: string
+              rekorSearchUIPhase:
+                type: string
+              rekorSearchUIUrl:
+                type: string
               treeID:
                 format: int64
                 type: integer

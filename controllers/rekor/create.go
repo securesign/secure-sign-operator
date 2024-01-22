@@ -23,7 +23,7 @@ import (
 const (
 	RekorDeploymentName         = "rekor-server"
 	rekorRedisDeploymentName    = "rekor-redis"
-	rekorSearchUiDeploymentName = "rekor-search-ui"
+	RekorSearchUiDeploymentName = "rekor-search-ui"
 	ComponentName               = "rekor"
 	rekorMonitoringRoleName     = "prometheus-k8s-rekor"
 	rekorServiceMonitorName     = "rekor-metrics"
@@ -238,23 +238,23 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 	if instance.Spec.RekorSearchUI.Enabled {
 		rekorSearchUiLabels := k8sutils.FilterCommonLabels(instance.Labels)
 		rekorSearchUiLabels[k8sutils.ComponentLabel] = ComponentName
-		rekorSearchUiLabels[k8sutils.NameLabel] = rekorSearchUiDeploymentName
+		rekorSearchUiLabels[k8sutils.NameLabel] = RekorSearchUiDeploymentName
 
-		rekorSearchUi := utils.CreateRekorSearchUiDeployment(instance.Namespace, rekorSearchUiDeploymentName, rekorSearchUiLabels)
+		rekorSearchUi := utils.CreateRekorSearchUiDeployment(instance.Namespace, RekorSearchUiDeploymentName, rekorSearchUiLabels)
 		controllerutil.SetControllerReference(instance, rekorSearchUi, i.Client.Scheme())
 		if err = i.Client.Create(ctx, rekorSearchUi); err != nil {
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
 			return instance, fmt.Errorf("could not create Rekor-Search-UI deployment: %w", err)
 		}
 
-		rekorSearchUiService := k8sutils.CreateService(instance.Namespace, rekorSearchUiDeploymentName, 3000, rekorSearchUiLabels)
+		rekorSearchUiService := k8sutils.CreateService(instance.Namespace, RekorSearchUiDeploymentName, 3000, rekorSearchUiLabels)
 		controllerutil.SetControllerReference(instance, rekorSearchUiService, i.Client.Scheme())
 		if err = i.Client.Create(ctx, rekorSearchUiService); err != nil {
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
 			return instance, fmt.Errorf("could not create Rekor-Search-UI service: %w", err)
 		}
 
-		rekorSearchUiIngress, err := k8sutils.CreateIngress(ctx, i.Client, *rekorSearchUiService, rhtasv1alpha1.ExternalAccess{}, rekorSearchUiDeploymentName, rekorSearchUiLabels)
+		rekorSearchUiIngress, err := k8sutils.CreateIngress(ctx, i.Client, *rekorSearchUiService, rhtasv1alpha1.ExternalAccess{}, RekorSearchUiDeploymentName, rekorSearchUiLabels)
 		controllerutil.SetControllerReference(instance, rekorSearchUiIngress, i.Client.Scheme())
 		if err != nil {
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
@@ -265,6 +265,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
 			return instance, fmt.Errorf("could not create route: %w", err)
 		}
+		instance.Status.RekorSearchUIPhase = rhtasv1alpha1.PhaseInitialize
 	}
 
 	instance.Status.Phase = rhtasv1alpha1.PhaseInitialize

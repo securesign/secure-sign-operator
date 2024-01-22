@@ -115,8 +115,23 @@ func (i waitAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) (
 			protocol = "https://"
 		}
 		instance.Status.Url = protocol + ingress.Spec.Rules[0].Host
-
 	}
+
+	if instance.Spec.RekorSearchUI.Enabled {
+		protocol := "http://"
+		ingress := &v12.Ingress{}
+		err = i.Client.Get(ctx, types.NamespacedName{Name: RekorSearchUiDeploymentName, Namespace: instance.Namespace}, ingress)
+		if err != nil {
+			instance.Status.RekorSearchUIPhase = rhtasv1alpha1.PhaseError
+			return instance, err
+		}
+		if len(ingress.Spec.TLS) > 0 {
+			protocol = "https://"
+		}
+		instance.Status.RekorSearchUIUrl = protocol + ingress.Spec.Rules[0].Host
+		instance.Status.RekorSearchUIPhase = rhtasv1alpha1.PhaseReady
+	}
+
 	instance.Status.Phase = rhtasv1alpha1.PhaseReady
 	return instance, nil
 }

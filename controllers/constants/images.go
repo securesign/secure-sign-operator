@@ -10,8 +10,8 @@ const (
 
 	FulcioServerImage = "quay.io/redhat-user-workloads/rhtas-tenant/fulcio-1-0-gamma/fulcio-1-0-gamma@sha256:8e80fa6fba6df4cc3065636a7fd926b57327a5ed36f67caf56f162ea7ae0480b"
 
-	RekorRedisImage  = "docker.io/redis@sha256:6c42cce2871e8dc5fb3e843ed5c4e7939d312faf5e53ff0ff4ca955a7e0b2b39"
-	RekorServerImage = "quay.io/redhat-user-workloads/rhtas-tenant/rekor-1-0-gamma/rekor-server-1-0-gamma@sha256:8772a59796c39f6f8bbe74a628652777e4b187d3c1292ec893797ee87b259497"
+	RekorRedisImage    = "docker.io/redis@sha256:6c42cce2871e8dc5fb3e843ed5c4e7939d312faf5e53ff0ff4ca955a7e0b2b39"
+	RekorServerImage   = "quay.io/redhat-user-workloads/rhtas-tenant/rekor-1-0-gamma/rekor-server-1-0-gamma@sha256:8772a59796c39f6f8bbe74a628652777e4b187d3c1292ec893797ee87b259497"
 	RekorSearchUiImage = "quay.io/redhat-user-workloads/rhtas-tenant/rekor-1-0-gamma/rekor-search-ui-1-0-gamma@sha256:1859fcbe036bc48ff4c301b2e8a01fe71f35e5e8a97e6b882e44e6175f34a375"
 
 	TufImage = "quay.io/redhat-user-workloads/rhtas-tenant/scaffold-1-0-gamma/tuf-server-0-6@sha256:e61ca335380ccb857cc66ecbb922ac741247956b62abba795fc29da648b91e26"
