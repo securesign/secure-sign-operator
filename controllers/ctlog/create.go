@@ -47,7 +47,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	fulcioLabels := utils.FilterCommonLabels(instance.Labels)
 	fulcioLabels[utils.ComponentLabel] = fulcio.ComponentName
 	// find internal service URL (don't use the `.status.Url` because it can be external Ingress route with untrusted CA
-	fulcioUrl, err := utils.SearchForInternalUrl(ctx, i.Client, instance.Namespace, fulcioLabels)
+	fulcioUrl, err := utils.GetInternalUrl(ctx, i.Client, instance.Namespace, fulcio.ComponentName)
 	if err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("can't find fulcio service: %s", err)

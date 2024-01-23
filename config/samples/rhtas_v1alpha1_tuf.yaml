@@ -23,4 +23,3 @@ spec:
       secretRef:
         name: ctlog-pub-key
         key: public
-

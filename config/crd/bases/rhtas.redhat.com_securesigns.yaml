@@ -213,6 +213,13 @@ spec:
                     description: Persistent volume claim name to bound with Rekor
                       component
                     type: string
+                  rekorSearchUI:
+                    description: Rekor Search UI
+                    properties:
+                      enabled:
+                        description: Enable RekorSearchUI deployment
+                        type: boolean
+                    type: object
                   treeID:
                     format: int64
                     type: integer
