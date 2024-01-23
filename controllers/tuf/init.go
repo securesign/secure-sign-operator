@@ -2,14 +2,14 @@ package tuf
 
 import (
 	"context"
-	"errors"
 	"fmt"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/securesign/operator/controllers/common/action"
 	v12 "k8s.io/api/networking/v1"
-	client2 "sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/types"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	commonUtils "github.com/securesign/operator/controllers/common/utils/kubernetes"
@@ -49,20 +49,16 @@ func (i waitAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) (*r
 
 	if instance.Spec.ExternalAccess.Enabled {
 		protocol := "http://"
-		ingressList := &v12.IngressList{}
-		err = i.Client.List(ctx, ingressList, client2.InNamespace(instance.Namespace), client2.MatchingLabels(labels), client2.Limit(1))
+		ingress := &v12.Ingress{}
+		err = i.Client.Get(ctx, types.NamespacedName{Name: ComponentName, Namespace: instance.Namespace}, ingress)
 		if err != nil {
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
 			return instance, err
 		}
-		if len(ingressList.Items) != 1 {
-			instance.Status.Phase = rhtasv1alpha1.PhaseError
-			return instance, errors.New("can't find ingress object")
-		}
-		if len(ingressList.Items[0].Spec.TLS) > 0 {
+		if len(ingress.Spec.TLS) > 0 {
 			protocol = "https://"
 		}
-		instance.Status.Url = protocol + ingressList.Items[0].Spec.Rules[0].Host
+		instance.Status.Url = protocol + ingress.Spec.Rules[0].Host
 	} else {
 		instance.Status.Url = fmt.Sprintf("http://%s.%s.svc", DeploymentName, instance.Namespace)
 	}
