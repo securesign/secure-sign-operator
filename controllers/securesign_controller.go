@@ -21,9 +21,12 @@ import (
 	"fmt"
 
 	"github.com/securesign/operator/client"
+	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/constants"
+	apps "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/networking/v1"
 	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,11 +36,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
+	cliv1 "github.com/openshift/api/console/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 )
 
 const (
 	finalizer = "tas.rhtas.redhat.com"
+
+	ClientServerDeploymentName = "client-server"
+
+	cosignConsoleCliName        = "cosign"
+	cosignConsoleCliDescription = "cosign is a CLI tool that allows you to manage sigstore artifacts."
+
+	rekorCliConsoleCliName        = "rekor-cli"
+	rekorCliConsoleCliDescription = "rekor-cli is a CLI tool that allows you to interact with rekor server."
+
+	gitsignConsoleCliName        = "gitsign"
+	gitsignConsoleCliDescription = "gitsign is a CLI tool that allows you to digitally sign and verify git commits."
 )
 
 // SecuresignReconciler reconciles a Securesign object
@@ -68,6 +83,7 @@ type SecuresignReconciler struct {
 //+kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=create;get;list;watch;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=endpoints,verbs=get;list;watch
+//+kubebuilder:rbac:groups=console.openshift.io,resources=consoleclidownloads,verbs=create;get;list;watch;update;patch;delete
 
 func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
@@ -105,6 +121,7 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		r.ensureRekor(),
 		r.ensureCTlog(),
 		r.ensureTuf(),
+		r.ensureClientServer(),
 	}
 
 	for _, a := range actions {
@@ -318,6 +335,126 @@ func (r *SecuresignReconciler) ensureRekor() func(context.Context, *rhtasv1alpha
 		return false, nil
 	}
 }
+
+func (r *SecuresignReconciler) ensureClientServer() func(context.Context, *rhtasv1alpha1.Securesign) (bool, error) {
+	return func(ctx context.Context, s *rhtasv1alpha1.Securesign) (bool, error) {
+
+		if s.Spec.ClientServer.Enabled {
+			clientServerDeploymentLabels := kubernetes.FilterCommonLabels(s.Labels)
+			clientServerDeploymentLabels[kubernetes.ComponentLabel] = ClientServerDeploymentName
+			clientServerDeploymentLabels[kubernetes.NameLabel] = ClientServerDeploymentName
+			clientServerDeployment := common.CreateClientserverDeployment(s.Namespace, ClientServerDeploymentName, clientServerDeploymentLabels)
+			if err := r.Get(ctx, types.NamespacedName{Namespace: clientServerDeployment.Namespace, Name: clientServerDeployment.Name}, &apps.Deployment{}); err != nil {
+				if errors.IsNotFound(err) {
+					err = r.Create(ctx, clientServerDeployment)
+					if err != nil {
+						return false, err
+					}
+				}
+				if err != nil {
+					return false, err
+				}
+			}
+			ctrl.SetControllerReference(s, clientServerDeployment, r.Scheme)
+
+			clientServerService := kubernetes.CreateService(s.Namespace, ClientServerDeploymentName, 8080, clientServerDeploymentLabels)
+			if err := r.Get(ctx, types.NamespacedName{Namespace: clientServerService.Namespace, Name: clientServerService.Name}, &corev1.Service{}); err != nil {
+				if errors.IsNotFound(err) {
+					err = r.Create(ctx, clientServerService)
+					if err != nil {
+						return false, err
+					}
+				}
+				if err != nil {
+					return false, err
+				}
+			}
+			ctrl.SetControllerReference(s, clientServerService, r.Scheme)
+
+			clientServerIngress, err := kubernetes.CreateIngress(ctx, r.Client, *clientServerService, rhtasv1alpha1.ExternalAccess{}, ClientServerDeploymentName, clientServerDeploymentLabels)
+			if err != nil {
+				return false, err
+			}
+			if err := r.Get(ctx, types.NamespacedName{Namespace: clientServerIngress.Namespace, Name: clientServerIngress.Name}, &v1.Ingress{}); err != nil {
+				if errors.IsNotFound(err) {
+					err = r.Create(ctx, clientServerIngress)
+					if err != nil {
+						return false, err
+					}
+				}
+				if err != nil {
+					return false, err
+				}
+			}
+
+			protocol := "http://"
+			if len(clientServerIngress.Spec.TLS) > 0 {
+				protocol = "https://"
+			}
+			s.Status.ClientServerUrl = protocol + clientServerIngress.Spec.Rules[0].Host
+			err = r.Status().Update(ctx, s)
+			if err != nil {
+				return false, err
+			}
+			ctrl.SetControllerReference(s, clientServerIngress, r.Scheme)
+
+			if s.Spec.ClientServer.EnableOpenshiftCliDownload {
+				cosignConsoleCliDownloadLabels := kubernetes.FilterCommonLabels(s.Labels)
+				cosignConsoleCliDownloadLabels[kubernetes.ComponentLabel] = ClientServerDeploymentName
+				cosignConsoleCliDownloadLabels[kubernetes.NameLabel] = cosignConsoleCliName
+				cosignConsoleCliDownload := kubernetes.CreateConsoleCLIDownload(s.Namespace, cosignConsoleCliName, s.Status.ClientServerUrl, cosignConsoleCliDescription, cosignConsoleCliDownloadLabels)
+				if err := r.Get(ctx, types.NamespacedName{Namespace: cosignConsoleCliDownload.Namespace, Name: cosignConsoleCliDownload.Name}, &cliv1.ConsoleCLIDownload{}); err != nil {
+					if errors.IsNotFound(err) {
+						err = r.Create(ctx, cosignConsoleCliDownload)
+						if err != nil {
+							return false, err
+						}
+					}
+					if err != nil {
+						return false, err
+					}
+				}
+				ctrl.SetControllerReference(s, cosignConsoleCliDownload, r.Scheme)
+
+				rekorCliConsoleCliDownloadLabels := kubernetes.FilterCommonLabels(s.Labels)
+				rekorCliConsoleCliDownloadLabels[kubernetes.ComponentLabel] = ClientServerDeploymentName
+				rekorCliConsoleCliDownloadLabels[kubernetes.NameLabel] = rekorCliConsoleCliName
+				rekorCliConsoleCliDownload := kubernetes.CreateConsoleCLIDownload(s.Namespace, rekorCliConsoleCliName, s.Status.ClientServerUrl, rekorCliConsoleCliDescription, rekorCliConsoleCliDownloadLabels)
+				if err := r.Get(ctx, types.NamespacedName{Namespace: rekorCliConsoleCliDownload.Namespace, Name: rekorCliConsoleCliDownload.Name}, &cliv1.ConsoleCLIDownload{}); err != nil {
+					if errors.IsNotFound(err) {
+						err = r.Create(ctx, rekorCliConsoleCliDownload)
+						if err != nil {
+							return false, err
+						}
+					}
+					if err != nil {
+						return false, err
+					}
+				}
+				ctrl.SetControllerReference(s, rekorCliConsoleCliDownload, r.Scheme)
+
+				gitsignConsoleCliDownloadLabels := kubernetes.FilterCommonLabels(s.Labels)
+				gitsignConsoleCliDownloadLabels[kubernetes.ComponentLabel] = ClientServerDeploymentName
+				gitsignConsoleCliDownloadLabels[kubernetes.NameLabel] = gitsignConsoleCliName
+				gitsignConsoleCliDownload := kubernetes.CreateConsoleCLIDownload(s.Namespace, gitsignConsoleCliName, s.Status.ClientServerUrl, gitsignConsoleCliDescription, gitsignConsoleCliDownloadLabels)
+				if err := r.Get(ctx, types.NamespacedName{Namespace: gitsignConsoleCliDownload.Namespace, Name: gitsignConsoleCliDownload.Name}, &cliv1.ConsoleCLIDownload{}); err != nil {
+					if errors.IsNotFound(err) {
+						err = r.Create(ctx, gitsignConsoleCliDownload)
+						if err != nil {
+							return false, err
+						}
+					}
+					if err != nil {
+						return false, err
+					}
+				}
+				ctrl.SetControllerReference(s, gitsignConsoleCliDownload, r.Scheme)
+			}
+		}
+		return false, nil
+	}
+}
+
 func labels(instance rhtasv1alpha1.Securesign) map[string]string {
 	return map[string]string{
 		"app.kubernetes.io/part-of":  constants.AppName,

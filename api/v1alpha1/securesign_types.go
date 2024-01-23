@@ -31,17 +31,27 @@ type SecuresignSpec struct {
 	//+kubebuilder:default:={keys:{{name: rekor.pub},{name: ctfe.pub},{name: fulcio_v1.crt.pem}}}
 	Tuf   TufSpec   `json:"tuf,omitempty"`
 	Ctlog CTlogSpec `json:"ctlog,omitempty"`
+	//Enable the ClientServer to serve rekor-cli, gitsign and cosign
+	ClientServer ClientServer `json:"clientServer,omitempty"`
+}
+
+type ClientServer struct {
+	//Enable the ClientServer
+	Enabled bool `json:"enabled,omitempty"`
+	//Enable the OpenshiftCliDownload crd
+	EnableOpenshiftCliDownload bool `json:"enableOpenshiftCliDownload,omitempty"`
 }
 
 // SecuresignStatus defines the observed state of Securesign
 type SecuresignStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Trillian string `json:"trillian"`
-	Fulcio   string `json:"fulcio"`
-	Tuf      string `json:"tuf"`
-	CTlog    string `json:"ctlog"`
-	Rekor    string `json:"rekor"`
+	Trillian        string `json:"trillian"`
+	Fulcio          string `json:"fulcio"`
+	Tuf             string `json:"tuf"`
+	CTlog           string `json:"ctlog"`
+	Rekor           string `json:"rekor"`
+	ClientServerUrl string `json:"clientServerUrl"`
 }
 
 //+kubebuilder:object:root=true

@@ -35,6 +35,17 @@ spec:
           spec:
             description: SecuresignSpec defines the desired state of Securesign
             properties:
+              clientServer:
+                description: Enable the ClientServer to serve rekor-cli, gitsign and
+                  cosign
+                properties:
+                  enableOpenshiftCliDownload:
+                    description: Enable the OpenshiftCliDownload crd
+                    type: boolean
+                  enabled:
+                    description: Enable the ClientServer
+                    type: boolean
+                type: object
               ctlog:
                 description: CTlogSpec defines the desired state of CTlog component
                 properties:
@@ -385,6 +396,8 @@ spec:
           status:
             description: SecuresignStatus defines the observed state of Securesign
             properties:
+              clientServerUrl:
+                type: string
               ctlog:
                 type: string
               fulcio:
@@ -399,6 +412,7 @@ spec:
               tuf:
                 type: string
             required:
+            - clientServerUrl
             - ctlog
             - fulcio
             - rekor
