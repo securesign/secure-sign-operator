@@ -15,20 +15,25 @@ type RekorSpec struct {
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
 	// Persistent volume claim name to bound with Rekor component
 	PvcName string `json:"pvcName,omitempty"`
-	// Certificate configuration
-	Certificate RekorCert `json:"certificate,omitempty"`
 	//Enable Service monitors for rekor
 	Monitoring bool `json:"monitoring,omitempty"`
 	//Rekor Search UI
 	RekorSearchUI RekorSearchUI `json:"rekorSearchUI,omitempty"`
+	// Signer configuration
+	Signer RekorSigner `json:"signer,omitempty"`
 }
 
-type RekorCert struct {
-	// Generate certificate
-	Create bool `json:"create"`
-	// Enter secret name for your keys and certificate (will be generated in case of `create=true`)
-	// Required fields: private
-	SecretName string `json:"secretName"`
+type RekorSigner struct {
+	// KMS Signer provider. Valid options are secret, memory or any supported KMS provider defined by go-cloud style URI
+	//+kubebuilder:default:=secret
+	KMS string `json:"kms,omitempty"`
+
+	// Password to decrypt signer private key
+	//+optional
+	PasswordRef *SecretKeySelector `json:"passwordRef,omitempty"`
+	// Reference to signer private key
+	//+optional
+	KeyRef *SecretKeySelector `json:"keyRef,omitempty"`
 }
 
 type RekorSearchUI struct {

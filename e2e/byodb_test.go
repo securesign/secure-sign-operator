@@ -46,10 +46,6 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 					ExternalAccess: v1alpha1.ExternalAccess{
 						Enabled: true,
 					},
-					Certificate: v1alpha1.RekorCert{
-						Create:     true,
-						SecretName: "rekor-secret",
-					},
 				},
 				Fulcio: v1alpha1.FulcioSpec{
 					ExternalAccess: v1alpha1.ExternalAccess{

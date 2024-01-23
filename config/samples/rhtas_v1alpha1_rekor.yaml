@@ -9,6 +9,3 @@ metadata:
 spec:
   externalAccess:
     enabled: true
-  certificate:
-    create: true
-    secretName: rekor-cert
