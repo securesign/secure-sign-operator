@@ -3,6 +3,7 @@ package rekor
 import (
 	"context"
 	"fmt"
+
 	"github.com/securesign/operator/controllers/common"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
