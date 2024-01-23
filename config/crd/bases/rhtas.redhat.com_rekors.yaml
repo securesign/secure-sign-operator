@@ -77,6 +77,13 @@ spec:
               pvcName:
                 description: Persistent volume claim name to bound with Rekor component
                 type: string
+              rekorSearchUI:
+                description: Rekor Search UI
+                properties:
+                  enabled:
+                    description: Enable RekorSearchUI deployment
+                    type: boolean
+                type: object
               treeID:
                 format: int64
                 type: integer
@@ -85,6 +92,10 @@ spec:
             description: RekorStatus defines the observed state of Rekor
             properties:
               phase:
+                type: string
+              rekorSearchUIPhase:
+                type: string
+              rekorSearchUIUrl:
                 type: string
               treeID:
                 format: int64

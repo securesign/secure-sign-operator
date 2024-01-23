@@ -6,8 +6,8 @@ metadata:
     app.kubernetes.io/name: clusterrole
     app.kubernetes.io/instance: ctlog-viewer-role
     app.kubernetes.io/component: rbac
-    app.kubernetes.io/created-by: operator
-    app.kubernetes.io/part-of: operator
+    app.kubernetes.io/created-by: rhtas-operator
+    app.kubernetes.io/part-of: rhtas-operator
     app.kubernetes.io/managed-by: kustomize
   name: ctlog-viewer-role
 rules:

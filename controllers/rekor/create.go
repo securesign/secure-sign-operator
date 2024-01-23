@@ -3,8 +3,9 @@ package rekor
 import (
 	"context"
 	"fmt"
-	"github.com/securesign/operator/controllers/common"
 	"maps"
+
+	"github.com/securesign/operator/controllers/common"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -20,11 +21,12 @@ import (
 )
 
 const (
-	rekorDeploymentName      = "rekor-server"
-	rekorRedisDeploymentName = "rekor-redis"
-	ComponentName            = "rekor"
-	rekorMonitoringRoleName  = "prometheus-k8s-rekor"
-	rekorServiceMonitorName  = "rekor-metrics"
+	RekorDeploymentName         = "rekor-server"
+	rekorRedisDeploymentName    = "rekor-redis"
+	RekorSearchUiDeploymentName = "rekor-search-ui"
+	ComponentName               = "rekor"
+	rekorMonitoringRoleName     = "prometheus-k8s-rekor"
+	rekorServiceMonitorName     = "rekor-metrics"
 )
 
 func NewCreateAction() action.Action[rhtasv1alpha1.Rekor] {
@@ -53,7 +55,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 
 	rekorServerLabels := k8sutils.FilterCommonLabels(instance.Labels)
 	rekorServerLabels[k8sutils.ComponentLabel] = ComponentName
-	rekorServerLabels[k8sutils.NameLabel] = rekorDeploymentName
+	rekorServerLabels[k8sutils.NameLabel] = RekorDeploymentName
 
 	if instance.Spec.Certificate.Create {
 		certConfig, err := utils.CreateRekorKey()
@@ -87,12 +89,27 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 
 	var rekorPvcName string
 	if instance.Spec.PvcName == "" {
-		rekorPvc := k8sutils.CreatePVC(instance.Namespace, "rekor-server", "5Gi")
-		if err = i.Client.Create(ctx, rekorPvc); err != nil {
+		// Check if the PVC already exists
+		exists, err := k8sutils.GetPVC(ctx, i.Client, instance.Namespace, "rekor-server")
+		if err != nil {
+			// Error while checking for PVC existence
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
-			return instance, fmt.Errorf("could not create Rekor PVC: %w", err)
+			return instance, fmt.Errorf("could not check for existing Rekor PVC: %w", err)
 		}
-		rekorPvcName = rekorPvc.Name
+		if exists {
+			// PVC already exists, use its name
+			i.Logger.V(1).Info("PVC already exists reusing")
+			rekorPvcName = "rekor-server"
+		} else {
+			// PVC does not exist, create a new one
+			i.Logger.V(1).Info("Creating new PVC")
+			rekorPvc := k8sutils.CreatePVC(instance.Namespace, "rekor-server", "5Gi")
+			if err := i.Client.Create(ctx, rekorPvc); err != nil {
+				instance.Status.Phase = rhtasv1alpha1.PhaseError
+				return instance, fmt.Errorf("could not create Rekor PVC: %w", err)
+			}
+			rekorPvcName = rekorPvc.Name
+		}
 		// TODO: add status field
 	} else {
 		rekorPvcName = instance.Spec.PvcName
@@ -114,7 +131,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		instance.Status.TreeID = instance.Spec.TreeID
 	}
 
-	dp := utils.CreateRekorDeployment(instance.Namespace, rekorDeploymentName, *instance.Status.TreeID, rekorPvcName, instance.Spec.Certificate.SecretName, rekorServerLabels)
+	dp := utils.CreateRekorDeployment(instance.Namespace, RekorDeploymentName, *instance.Status.TreeID, rekorPvcName, instance.Spec.Certificate.SecretName, rekorServerLabels)
 	controllerutil.SetControllerReference(instance, dp, i.Client.Scheme())
 	if err = i.Client.Create(ctx, dp); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
@@ -128,7 +145,14 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		return instance, fmt.Errorf("could not create Rekor-redis deployment: %w", err)
 	}
 
-	svc := k8sutils.CreateService(instance.Namespace, ComponentName, 2112, rekorServerLabels)
+	redisService := k8sutils.CreateService(instance.Namespace, rekorRedisDeploymentName, 6379, redisLabels)
+	controllerutil.SetControllerReference(instance, redisService, i.Client.Scheme())
+	if err = i.Client.Create(ctx, redisService); err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not create redis service: %w", err)
+	}
+
+	svc := k8sutils.CreateService(instance.Namespace, RekorDeploymentName, 2112, rekorServerLabels)
 	controllerutil.SetControllerReference(instance, svc, i.Client.Scheme())
 	svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
 		Name:       "80-tcp",
@@ -224,6 +248,39 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
 			return instance, fmt.Errorf("could not create fulcio serviceMonitor: %w", err)
 		}
+	}
+
+	if instance.Spec.RekorSearchUI.Enabled {
+		rekorSearchUiLabels := k8sutils.FilterCommonLabels(instance.Labels)
+		rekorSearchUiLabels[k8sutils.ComponentLabel] = ComponentName
+		rekorSearchUiLabels[k8sutils.NameLabel] = RekorSearchUiDeploymentName
+
+		rekorSearchUi := utils.CreateRekorSearchUiDeployment(instance.Namespace, RekorSearchUiDeploymentName, rekorSearchUiLabels)
+		controllerutil.SetControllerReference(instance, rekorSearchUi, i.Client.Scheme())
+		if err = i.Client.Create(ctx, rekorSearchUi); err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create Rekor-Search-UI deployment: %w", err)
+		}
+
+		rekorSearchUiService := k8sutils.CreateService(instance.Namespace, RekorSearchUiDeploymentName, 3000, rekorSearchUiLabels)
+		controllerutil.SetControllerReference(instance, rekorSearchUiService, i.Client.Scheme())
+		if err = i.Client.Create(ctx, rekorSearchUiService); err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create Rekor-Search-UI service: %w", err)
+		}
+
+		rekorSearchUiIngress, err := k8sutils.CreateIngress(ctx, i.Client, *rekorSearchUiService, rhtasv1alpha1.ExternalAccess{}, RekorSearchUiDeploymentName, rekorSearchUiLabels)
+		controllerutil.SetControllerReference(instance, rekorSearchUiIngress, i.Client.Scheme())
+		if err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create ingress: %w", err)
+		}
+		controllerutil.SetControllerReference(instance, rekorSearchUiIngress, i.Client.Scheme())
+		if err = i.Client.Create(ctx, rekorSearchUiIngress); err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("could not create route: %w", err)
+		}
+		instance.Status.RekorSearchUIPhase = rhtasv1alpha1.PhaseInitialize
 	}
 
 	instance.Status.Phase = rhtasv1alpha1.PhaseInitialize

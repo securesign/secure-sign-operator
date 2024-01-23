@@ -44,3 +44,14 @@ func GetRekor(ctx context.Context, cli client.Client, ns string, name string) fu
 		return instance
 	}
 }
+
+func VerifyRekorSearchUI(ctx context.Context, cli client.Client, namespace string, name string) {
+	Eventually(GetRekor(ctx, cli, namespace, name)).Should(
+		WithTransform(func(f *v1alpha1.Rekor) v1alpha1.Phase {
+			return f.Status.RekorSearchUIPhase
+		}, Equal(v1alpha1.PhaseReady)))
+
+	list := &v1.PodList{}
+	cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels{kubernetes.NameLabel: rekor.RekorSearchUiDeploymentName})
+	Expect(list.Items).To(And(Not(BeEmpty()), HaveEach(WithTransform(func(p v1.Pod) v1.PodPhase { return p.Status.Phase }, Equal(v1.PodRunning)))))
+}
