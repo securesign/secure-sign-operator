@@ -8,7 +8,7 @@ import (
 	"github.com/securesign/operator/controllers/common/action"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/controllers/common/utils/kubernetes"
+	k8sutils "github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/constants"
 	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -42,17 +42,17 @@ func (i createAction) CanHandle(trillian *rhtasv1alpha1.Trillian) bool {
 
 func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) (*rhtasv1alpha1.Trillian, error) {
 	var err error
-	dbLabels := kubernetes.FilterCommonLabels(instance.Labels)
-	dbLabels[kubernetes.ComponentLabel] = ComponentName
-	dbLabels[kubernetes.NameLabel] = dbDeploymentName
+	dbLabels := k8sutils.FilterCommonLabels(instance.Labels)
+	dbLabels[k8sutils.ComponentLabel] = ComponentName
+	dbLabels[k8sutils.NameLabel] = dbDeploymentName
 
-	logSignerLabels := kubernetes.FilterCommonLabels(instance.Labels)
-	logSignerLabels[kubernetes.ComponentLabel] = ComponentName
-	logSignerLabels[kubernetes.NameLabel] = logsignerDeploymentName
+	logSignerLabels := k8sutils.FilterCommonLabels(instance.Labels)
+	logSignerLabels[k8sutils.ComponentLabel] = ComponentName
+	logSignerLabels[k8sutils.NameLabel] = logsignerDeploymentName
 
-	logServerLabels := kubernetes.FilterCommonLabels(instance.Labels)
-	logServerLabels[kubernetes.ComponentLabel] = ComponentName
-	logServerLabels[kubernetes.NameLabel] = logserverDeploymentName
+	logServerLabels := k8sutils.FilterCommonLabels(instance.Labels)
+	logServerLabels[k8sutils.ComponentLabel] = ComponentName
+	logServerLabels[k8sutils.NameLabel] = logserverDeploymentName
 
 	var dbSecName string
 	if instance.Spec.Db.DatabaseSecret == "" {
@@ -70,17 +70,21 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	var trillPVC string
 	if instance.Spec.Db.Create {
 		if instance.Spec.Db.PvcName == "" {
-			pvc := kubernetes.CreatePVC(instance.Namespace, "trillian-mysql", "5Gi")
+			// PVC does not exist, create a new one
+			i.Logger.V(1).Info("Creating new PVC")
+			pvc := k8sutils.CreatePVC(instance.Namespace, "trillian-mysql", "5Gi")
 			controllerutil.SetControllerReference(instance, pvc, i.Client.Scheme())
 			if err = i.Client.Create(ctx, pvc); err != nil {
 				instance.Status.Phase = rhtasv1alpha1.PhaseError
-				return instance, fmt.Errorf("could not create pvc: %w", err)
+				return instance, fmt.Errorf("could not create MySQL PVC: %w", err)
 			}
 			trillPVC = pvc.Name
-		} else {
-			trillPVC = instance.Spec.Db.PvcName
 		}
+		// TODO: add status field
+	} else {
+		trillPVC = instance.Spec.Db.PvcName
 	}
+
 	if instance.Spec.Db.Create {
 		db := trillianUtils.CreateTrillDb(instance.Namespace, constants.TrillianDbImage, dbDeploymentName, trillPVC, dbSecName, dbLabels)
 		controllerutil.SetControllerReference(instance, db, i.Client.Scheme())
@@ -89,7 +93,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 			return instance, fmt.Errorf("could not create trillian DB: %w", err)
 		}
 
-		mysql := kubernetes.CreateService(instance.Namespace, "trillian-mysql", 3306, dbLabels)
+		mysql := k8sutils.CreateService(instance.Namespace, "trillian-mysql", 3306, dbLabels)
 		controllerutil.SetControllerReference(instance, mysql, i.Client.Scheme())
 		if err = i.Client.Create(ctx, mysql); err != nil {
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
@@ -101,7 +105,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	svcName := "trillian-logserver"
 	serverPort := 8091
 
-	logserverService := kubernetes.CreateService(instance.Namespace, svcName, serverPort, logServerLabels)
+	logserverService := k8sutils.CreateService(instance.Namespace, svcName, serverPort, logServerLabels)
 	controllerutil.SetControllerReference(instance, logserverService, i.Client.Scheme())
 	if err = i.Client.Create(ctx, logserverService); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError

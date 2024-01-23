@@ -3,9 +3,9 @@ package rekor
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	"github.com/securesign/operator/controllers/common"
-	"maps"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -89,12 +89,27 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 
 	var rekorPvcName string
 	if instance.Spec.PvcName == "" {
-		rekorPvc := k8sutils.CreatePVC(instance.Namespace, "rekor-server", "5Gi")
-		if err = i.Client.Create(ctx, rekorPvc); err != nil {
+		// Check if the PVC already exists
+		exists, err := k8sutils.GetPVC(ctx, i.Client, instance.Namespace, "rekor-server")
+		if err != nil {
+			// Error while checking for PVC existence
 			instance.Status.Phase = rhtasv1alpha1.PhaseError
-			return instance, fmt.Errorf("could not create Rekor PVC: %w", err)
+			return instance, fmt.Errorf("could not check for existing Rekor PVC: %w", err)
 		}
-		rekorPvcName = rekorPvc.Name
+		if exists {
+			// PVC already exists, use its name
+			i.Logger.V(1).Info("PVC already exists reusing")
+			rekorPvcName = "rekor-server"
+		} else {
+			// PVC does not exist, create a new one
+			i.Logger.V(1).Info("Creating new PVC")
+			rekorPvc := k8sutils.CreatePVC(instance.Namespace, "rekor-server", "5Gi")
+			if err := i.Client.Create(ctx, rekorPvc); err != nil {
+				instance.Status.Phase = rhtasv1alpha1.PhaseError
+				return instance, fmt.Errorf("could not create Rekor PVC: %w", err)
+			}
+			rekorPvcName = rekorPvc.Name
+		}
 		// TODO: add status field
 	} else {
 		rekorPvcName = instance.Spec.PvcName
