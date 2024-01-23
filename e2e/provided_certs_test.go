@@ -50,9 +50,14 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 					ExternalAccess: v1alpha1.ExternalAccess{
 						Enabled: true,
 					},
-					Certificate: v1alpha1.RekorCert{
-						Create:     false,
-						SecretName: "my-rekor-secret",
+					Signer: v1alpha1.RekorSigner{
+						KMS: "secret",
+						KeyRef: &v1alpha1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "my-rekor-secret",
+							},
+							Key: "private",
+						},
 					},
 				},
 				Fulcio: v1alpha1.FulcioSpec{
@@ -121,7 +126,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 		BeforeAll(func() {
 			Expect(cli.Create(ctx, initCTSecret(namespace.Name, securesign.Spec.Ctlog.Certificate.SecretName)))
 			Expect(cli.Create(ctx, initFulcioSecret(namespace.Name, securesign.Spec.Fulcio.Certificate.SecretName)))
-			Expect(cli.Create(ctx, initRekorSecret(namespace.Name, securesign.Spec.Rekor.Certificate.SecretName)))
+			Expect(cli.Create(ctx, initRekorSecret(namespace.Name, "my-rekor-secret")))
 			Expect(cli.Create(ctx, securesign)).To(Succeed())
 		})
 
@@ -152,7 +157,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 							return volume.VolumeSource.Secret.SecretName
 						}
 						return ""
-					}, Equal(securesign.Spec.Rekor.Certificate.SecretName)),
+					}, Equal("my-rekor-secret")),
 				))
 
 		})

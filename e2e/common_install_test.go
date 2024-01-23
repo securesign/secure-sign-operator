@@ -4,6 +4,8 @@ package e2e_test
 
 import (
 	"context"
+	"fmt"
+	"github.com/securesign/operator/controllers/rekor"
 	"net/http"
 	"time"
 
@@ -43,10 +45,6 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				Rekor: v1alpha1.RekorSpec{
 					ExternalAccess: v1alpha1.ExternalAccess{
 						Enabled: true,
-					},
-					Certificate: v1alpha1.RekorCert{
-						Create:     true,
-						SecretName: "rekor-secret",
 					},
 					RekorSearchUI: v1alpha1.RekorSearchUI{
 						Enabled: true,
@@ -120,7 +118,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				secret := &v1.Secret{}
 				cli.Get(ctx, types.NamespacedName{
 					Namespace: namespace.Name,
-					Name:      securesign.Spec.Rekor.Certificate.SecretName,
+					Name:      fmt.Sprintf(rekor.SecretNameFormat, securesign.Name),
 				}, secret)
 				return secret
 			}).Should(
@@ -157,7 +155,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 							return volume.VolumeSource.Secret.SecretName
 						}
 						return ""
-					}, Equal(securesign.Spec.Rekor.Certificate.SecretName)),
+					}, Equal(fmt.Sprintf(rekor.SecretNameFormat, securesign.Name))),
 				))
 
 		})

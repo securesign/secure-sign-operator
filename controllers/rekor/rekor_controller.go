@@ -18,6 +18,7 @@ package rekor
 
 import (
 	"context"
+	"k8s.io/client-go/tools/record"
 
 	"github.com/securesign/operator/client"
 	"github.com/securesign/operator/controllers/common/action"
@@ -42,7 +43,8 @@ import (
 // RekorReconciler reconciles a Rekor object
 type RekorReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 }
 
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=rekors,verbs=get;list;watch;create;update;patch;delete
@@ -80,6 +82,7 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 	target := instance.DeepCopy()
 	actions := []action.Action[rhtasv1alpha1.Rekor]{
+		NewGenerateSignerAction(),
 		NewPendingAction(),
 		NewCreateAction(),
 		NewWaitAction(),
@@ -88,6 +91,7 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	for _, a := range actions {
 		a.InjectClient(r.Client)
 		a.InjectLogger(log)
+		a.InjectRecorder(r.Recorder)
 
 		if a.CanHandle(target) {
 			newTarget, err := a.Handle(ctx, target)

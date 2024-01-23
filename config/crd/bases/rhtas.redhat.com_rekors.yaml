@@ -44,21 +44,6 @@ spec:
           spec:
             description: RekorSpec defines the desired state of Rekor
             properties:
-              certificate:
-                description: Certificate configuration
-                properties:
-                  create:
-                    description: Generate certificate
-                    type: boolean
-                  secretName:
-                    description: 'Enter secret name for your keys and certificate
-                      (will be generated in case of `create=true`) Required fields:
-                      private'
-                    type: string
-                required:
-                - create
-                - secretName
-                type: object
               externalAccess:
                 description: Define whether you want to export service or not
                 properties:
@@ -83,6 +68,45 @@ spec:
                   enabled:
                     description: Enable RekorSearchUI deployment
                     type: boolean
+                type: object
+              signer:
+                description: Signer configuration
+                properties:
+                  keyRef:
+                    description: Reference to signer private key
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  kms:
+                    default: secret
+                    description: KMS Signer provider. Valid options are secret, memory
+                      or any supported KMS provider defined by go-cloud style URI
+                    type: string
+                  passwordRef:
+                    description: Password to decrypt signer private key
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
                 type: object
               treeID:
                 format: int64

@@ -128,8 +128,9 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&rekor.RekorReconciler{
-		Client: client,
-		Scheme: mgr.GetScheme(),
+		Client:   client,
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("rekor-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Rekor")
 		os.Exit(1)

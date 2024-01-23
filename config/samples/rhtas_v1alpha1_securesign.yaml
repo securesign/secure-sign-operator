@@ -10,9 +10,6 @@ spec:
   rekor:
     externalAccess:
       enabled: true
-    certificate:
-      create: true
-      secretName: rekor-cert
     monitoring: false
   trillian:
     database:

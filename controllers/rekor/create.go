@@ -3,15 +3,12 @@ package rekor
 import (
 	"context"
 	"fmt"
-	"maps"
-
 	"github.com/securesign/operator/controllers/common"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
 	k8sutils "github.com/securesign/operator/controllers/common/utils/kubernetes"
-	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/rekor/utils"
 	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -57,29 +54,6 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 	rekorServerLabels[k8sutils.ComponentLabel] = ComponentName
 	rekorServerLabels[k8sutils.NameLabel] = RekorDeploymentName
 
-	if instance.Spec.Certificate.Create {
-		certConfig, err := utils.CreateRekorKey()
-		if err != nil {
-			return instance, err
-		}
-
-		secretLabels := map[string]string{
-			constants.TufLabelNamespace + "/rekor.pub": "public",
-		}
-		maps.Copy(secretLabels, rekorServerLabels)
-
-		secret := k8sutils.CreateSecret(instance.Spec.Certificate.SecretName, instance.Namespace,
-			map[string][]byte{
-				"private": certConfig.RekorKey,
-				"public":  certConfig.RekorPubKey,
-			}, secretLabels)
-		controllerutil.SetOwnerReference(instance, secret, i.Client.Scheme())
-		if err = i.Client.Create(ctx, secret); err != nil {
-			instance.Status.Phase = rhtasv1alpha1.PhaseError
-			return instance, fmt.Errorf("could not create rekor secret: %w", err)
-		}
-	}
-
 	sharding := k8sutils.InitConfigmap(instance.Namespace, "rekor-sharding-config", rekorServerLabels, map[string]string{"sharding-config.yaml": ""})
 	controllerutil.SetControllerReference(instance, sharding, i.Client.Scheme())
 	if err = i.Client.Create(ctx, sharding); err != nil {
@@ -87,7 +61,6 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		return instance, fmt.Errorf("could not create Rekor secret: %w", err)
 	}
 
-	var rekorPvcName string
 	if instance.Spec.PvcName == "" {
 		// Check if the PVC already exists
 		exists, err := k8sutils.GetPVC(ctx, i.Client, instance.Namespace, "rekor-server")
@@ -99,7 +72,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		if exists {
 			// PVC already exists, use its name
 			i.Logger.V(1).Info("PVC already exists reusing")
-			rekorPvcName = "rekor-server"
+			instance.Spec.PvcName = "rekor-server"
 		} else {
 			// PVC does not exist, create a new one
 			i.Logger.V(1).Info("Creating new PVC")
@@ -108,11 +81,9 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 				instance.Status.Phase = rhtasv1alpha1.PhaseError
 				return instance, fmt.Errorf("could not create Rekor PVC: %w", err)
 			}
-			rekorPvcName = rekorPvc.Name
+			instance.Spec.PvcName = rekorPvc.Name
 		}
 		// TODO: add status field
-	} else {
-		rekorPvcName = instance.Spec.PvcName
 	}
 
 	trillian, err := trillianUtils.FindTrillian(ctx, i.Client, instance.Namespace, k8sutils.FilterCommonLabels(instance.Labels))
@@ -131,7 +102,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		instance.Status.TreeID = instance.Spec.TreeID
 	}
 
-	dp := utils.CreateRekorDeployment(instance.Namespace, RekorDeploymentName, *instance.Status.TreeID, rekorPvcName, instance.Spec.Certificate.SecretName, rekorServerLabels)
+	dp := utils.CreateRekorDeployment(instance, RekorDeploymentName, rekorServerLabels)
 	controllerutil.SetControllerReference(instance, dp, i.Client.Scheme())
 	if err = i.Client.Create(ctx, dp); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
