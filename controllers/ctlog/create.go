@@ -3,6 +3,7 @@ package ctlog
 import (
 	"context"
 	"fmt"
+
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/action"
