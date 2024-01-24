@@ -1,4 +1,4 @@
-# operator
+# RHTAS operator
 The RHTAS(Red Hat Trusted Artifact Signer) operator allows for the deployment of a production ready version of the SigStore project.
 
 ## Description
@@ -28,6 +28,13 @@ kubectl apply -f config/samples/rhtas_v1alpha1_securesign.yaml
 ```
 
 4. The components have now been deployed to the Kubernetes cluster and available to be used with Cosign and Tekton chains to sign artifacts.
+NOTE: Please define the values of YOUR_KEYCLOAK and YOUR_REALM for the OIDC provider, USER, PASSWORD, IMAGE, and OCP_APPS_URL. Finally specify a container image that you have authorization to push images to.
+
+```sh
+export OIDC_ISSUER_URL=https://$YOUR_KEYCLOAK/auth/realms/$YOUR_REALM
+TOKEN=$(curl -X POST -H "Content-Type: application/x-www-form-urlencoded" -d "username=$USER" -d "password=$PASSWORD" -d "grant_type=password" -d "scope=openid" -d "client_id=$YOUR_REALM" $OIDC_ISSUER_URL/protocol/openid-connect/token |  sed -E 's/.*"access_token":"([^"]*).*/\1/')
+cosign initialize --mirror=https://tuf.$OCP_APPS_URL/ --root=https://tuf.$OCP_APPS_URL/root.json
+cosign sign -y --fulcio-url=https://fulcio.$OCP_APPS_URL/ --oidc-issuer=$OIDC_ISSUER_URL --identity-token=$TOKEN $IMAGE
 
 ### Uninstall CRDs
 To delete the CRDs from the cluster:
