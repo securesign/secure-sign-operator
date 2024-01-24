@@ -33,5 +33,3 @@ spec:
     externalAccess:
       enabled: true
   ctlog:
-    certificate:
-      create: true

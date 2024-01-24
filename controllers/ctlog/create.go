@@ -3,11 +3,9 @@ package ctlog
 import (
 	"context"
 	"fmt"
-
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/action"
-	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	utils "github.com/securesign/operator/controllers/common/utils/kubernetes"
 	ctlogUtils "github.com/securesign/operator/controllers/ctlog/utils"
 	"github.com/securesign/operator/controllers/fulcio"
@@ -44,14 +42,6 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	labels[utils.ComponentLabel] = ComponentName
 	labels[utils.NameLabel] = deploymentName
 
-	fulcioLabels := utils.FilterCommonLabels(instance.Labels)
-	fulcioLabels[utils.ComponentLabel] = fulcio.ComponentName
-	// find internal service URL (don't use the `.status.Url` because it can be external Ingress route with untrusted CA
-	fulcioUrl, err := utils.GetInternalUrl(ctx, i.Client, instance.Namespace, fulcio.ComponentName)
-	if err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("can't find fulcio service: %s", err)
-	}
 	trillian, err := trillianUtils.FindTrillian(ctx, i.Client, instance.Namespace, utils.FilterCommonLabels(instance.Labels))
 	if err != nil || trillian.Status.Phase != rhtasv1alpha1.PhaseReady {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
@@ -68,19 +58,20 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		instance.Status.TreeID = instance.Spec.TreeID
 	}
 
-	certConfig := &ctlogUtils.PrivateKeyConfig{}
-	if !instance.Spec.Certificate.Create {
-		privateKeySecret, err := kubernetes.GetSecret(i.Client, instance.Namespace, instance.Spec.Certificate.SecretName)
-		if err != nil {
-			instance.Status.Phase = rhtasv1alpha1.PhaseError
-			return instance, fmt.Errorf("could not retrieve ctlog secret %s: %w", instance.Spec.Certificate.SecretName, err)
-		}
-		certConfig.PrivateKey = privateKeySecret.Data["private"]
-		certConfig.PrivateKeyPass = privateKeySecret.Data["password"]
+	certConfig, err := i.handlePrivateKey(instance)
+	if err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, err
+	}
+
+	rootCerts, err := i.handleRootCertificates(ctx, instance)
+	if err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, err
 	}
 
 	var config, pubKey *corev1.Secret
-	if config, pubKey, err = ctlogUtils.CreateCtlogConfig(ctx, instance.Namespace, trillian.Status.Url, *instance.Status.TreeID, "http://"+fulcioUrl, labels, certConfig); err != nil {
+	if config, pubKey, err = ctlogUtils.CreateCtlogConfig(ctx, instance.Namespace, trillian.Status.Url, *instance.Status.TreeID, rootCerts, labels, certConfig); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create CTLog configuration: %w", err)
 	}
@@ -107,7 +98,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		Name:       "80-tcp",
 		Protocol:   corev1.ProtocolTCP,
 		Port:       80,
-		TargetPort: intstr.FromInt(6962),
+		TargetPort: intstr.FromInt32(6962),
 	})
 	controllerutil.SetControllerReference(instance, svc, i.Client.Scheme())
 	if err = i.Client.Create(ctx, svc); err != nil {
@@ -118,4 +109,53 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	instance.Status.Phase = rhtasv1alpha1.PhaseInitialize
 	return instance, nil
 
+}
+
+func (i createAction) handlePrivateKey(instance *rhtasv1alpha1.CTlog) (*ctlogUtils.PrivateKeyConfig, error) {
+	private, err := utils.GetSecretData(i.Client, instance.Namespace, instance.Spec.PrivateKeyRef)
+	if err != nil {
+		return nil, err
+	}
+	public, err := utils.GetSecretData(i.Client, instance.Namespace, instance.Spec.PublicKeyRef)
+	if err != nil {
+		return nil, err
+	}
+	password, err := utils.GetSecretData(i.Client, instance.Namespace, instance.Spec.PrivateKeyPasswordRef)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ctlogUtils.PrivateKeyConfig{
+		PrivateKey:     private,
+		PublicKey:      public,
+		PrivateKeyPass: password,
+	}, nil
+}
+
+func (i createAction) handleRootCertificates(ctx context.Context, instance *rhtasv1alpha1.CTlog) ([]ctlogUtils.RootCertificate, error) {
+	if len(instance.Spec.RootCertificates) == 0 {
+		// find internal service URL (don't use the `.status.Url` because it can be external Ingress route with untrusted CA
+		url, err := utils.GetInternalUrl(ctx, i.Client, instance.Namespace, fulcio.ComponentName)
+		if err != nil {
+			return nil, fmt.Errorf("can't find fulcio service: %s", err)
+		}
+		cert, err := ctlogUtils.GetFulcioRootCert("http://" + url)
+		if err != nil {
+			return nil, err
+		}
+
+		return []ctlogUtils.RootCertificate{cert}, nil
+	}
+
+	certs := make([]ctlogUtils.RootCertificate, 0)
+
+	for _, selector := range instance.Spec.RootCertificates {
+		data, err := utils.GetSecretData(i.Client, instance.Namespace, &selector)
+		if err != nil {
+			return nil, err
+		}
+		certs = append(certs, data)
+	}
+
+	return certs, nil
 }

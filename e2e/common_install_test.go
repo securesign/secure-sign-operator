@@ -69,11 +69,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 						OrganizationEmail: "my@email.org",
 					},
 				},
-				Ctlog: v1alpha1.CTlogSpec{
-					Certificate: v1alpha1.CtlogCert{
-						Create: true,
-					},
-				},
+				Ctlog: v1alpha1.CTlogSpec{},
 				Tuf: v1alpha1.TufSpec{
 					ExternalAccess: v1alpha1.ExternalAccess{
 						Enabled: true,

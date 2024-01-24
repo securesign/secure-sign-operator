@@ -42,7 +42,7 @@ func CreateDeployment(namespace string, deploymentName string, configName string
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/healthz",
-										Port: intstr.FromInt(6962),
+										Port: intstr.FromInt32(6962),
 									},
 								},
 								InitialDelaySeconds: 10,
@@ -51,7 +51,7 @@ func CreateDeployment(namespace string, deploymentName string, configName string
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/healthz",
-										Port: intstr.FromInt(6962),
+										Port: intstr.FromInt32(6962),
 									},
 								},
 								InitialDelaySeconds: 10,

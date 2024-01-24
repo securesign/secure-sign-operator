@@ -4,36 +4,26 @@ import (
 	"bytes"
 	"context"
 	"crypto"
-	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"github.com/securesign/operator/controllers/constants"
-	"maps"
-	"net/url"
-	"time"
-
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
-	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"github.com/securesign/operator/controllers/constants"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/logging"
-
-	fulcioclient "github.com/sigstore/fulcio/pkg/api"
+	"maps"
 )
 
 // reference code https://github.com/sigstore/scaffolding/blob/main/cmd/ctlog/createctconfig/main.go
 const (
-	bitSize = 4096
-
-	curveType = "p256"
 	// ConfigKey is the key in the map holding the marshalled CTLog config.
 	ConfigKey = "config"
 	// PrivateKey is the key in the map holding the encrypted PEM private key
@@ -69,46 +59,28 @@ type Config struct {
 	// Address of the gRPC Trillian Admin Server (host:port)
 	TrillianServerAddr string
 
-	// FulcioCerts contains one or more Root certificates for Fulcio.
+	// RootCerts contains one or more Root certificates that are acceptable to the log.
 	// It may contain more than one if Fulcio key is rotated for example, so
 	// there will be a period of time when we allow both. It might also contain
 	// multiple Root Certificates, if we choose to support admitting certificates from fulcio instances run by others
-	FulcioCerts [][]byte
+	RootCerts []RootCertificate
 }
 
-type PrivateKeyConfig struct {
-	PrivateKey     []byte
-	PrivateKeyPass []byte
-}
-
-func extractFulcioRoot(fulcioRoot []byte) ([]byte, error) {
-	// Fetch only root certificate from the chain
-	certs, err := cryptoutils.UnmarshalCertificatesFromPEM(fulcioRoot)
-	if err != nil {
-		return nil, fmt.Errorf("unable to unmarshal certficate chain: %w", err)
-	}
-	return cryptoutils.MarshalCertificateToPEM(certs[len(certs)-1])
-}
-
-// AddFulcioRoot will add the specified fulcioRoot to the list of trusted
-// Fulcios. If it already exists, it's a nop.
-// The fulcioRoot should come from the call to fetch a PublicFulcio root
-// and is the ChainPEM from the fulcioclient RootResponse.
-func (c *Config) AddFulcioRoot(ctx context.Context, fulcioRoot []byte) error {
-	root, err := extractFulcioRoot(fulcioRoot)
-	if err != nil {
-		return fmt.Errorf("extracting fulcioRoot: %w", err)
-	}
-	for _, fc := range c.FulcioCerts {
+// AddRootCertificate will add the specified root certificate to truststore.
+// If it already exists, it's a nop. The fulcio root cert should come from
+// the call to fetch a PublicFulcio root and is the ChainPEM from the
+// fulcioclient RootResponse.
+func (c *Config) AddRootCertificate(ctx context.Context, root RootCertificate) error {
+	for _, fc := range c.RootCerts {
 		if bytes.Equal(fc, root) {
 			//TODO: improve logging
-			logging.FromContext(ctx).Info("Found existing fulcio root, not adding")
+			logging.FromContext(ctx).Info("Found existing root certificate, not adding")
 			return nil
 		}
 	}
 	//TODO: improve logging
-	logging.FromContext(ctx).Info("Adding new FulcioRoot")
-	c.FulcioCerts = append(c.FulcioCerts, root)
+	logging.FromContext(ctx).Info("Adding new root certificate")
+	c.RootCerts = append(c.RootCerts, root)
 	return nil
 }
 
@@ -126,8 +98,8 @@ func (c *Config) MarshalConfig(ctx context.Context) (map[string][]byte, error) {
 	// so we just call them fulcio-%
 	// What matters however is to ensure that the filenames match the keys
 	// in the configmap / secret that we construct so they get properly mounted.
-	rootPems := make([]string, 0, len(c.FulcioCerts))
-	for i := range c.FulcioCerts {
+	rootPems := make([]string, 0, len(c.RootCerts))
+	for i := range c.RootCerts {
 		rootPems = append(rootPems, fmt.Sprintf("%sfulcio-%d", rootsPemFileDir, i))
 	}
 
@@ -229,7 +201,7 @@ func (c *Config) marshalSecrets() (map[string][]byte, error) {
 		PrivateKey: privPEM,
 		PublicKey:  pubPEM,
 	}
-	for i, cert := range c.FulcioCerts {
+	for i, cert := range c.RootCerts {
 		fulcioKey := fmt.Sprintf("fulcio-%d", i)
 		data[fulcioKey] = cert
 	}
@@ -251,36 +223,34 @@ func createConfigWithKeys(ctx context.Context, certConfig *PrivateKeyConfig) (*C
 	var ok bool
 
 	if certConfig.PrivateKey == nil {
-		privKey, err = ecdsa.GenerateKey(supportedCurves[curveType], rand.Reader)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate private key: %w", err)
-		}
-	} else {
-		block, _ := pem.Decode(certConfig.PrivateKey)
-		if block == nil {
-			return nil, fmt.Errorf("failed to decode private key")
-		}
-		if x509.IsEncryptedPEMBlock(block) {
-			if certConfig.PrivateKeyPass == nil {
-				return nil, fmt.Errorf("failed to get private key password")
-			}
-			block.Bytes, err = x509.DecryptPEMBlock(block, certConfig.PrivateKeyPass)
-			if err != nil {
-				return nil, fmt.Errorf("failed to decrypt private key: %w", err)
-			}
-		}
+		return nil, fmt.Errorf("failed to get private key")
+	}
 
-		privKey, err = x509.ParseECPrivateKey(block.Bytes)
+	block, _ := pem.Decode(certConfig.PrivateKey)
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode private key")
+	}
+	if x509.IsEncryptedPEMBlock(block) {
+		if certConfig.PrivateKeyPass == nil {
+			return nil, fmt.Errorf("failed to get private key password")
+		}
+		block.Bytes, err = x509.DecryptPEMBlock(block, certConfig.PrivateKeyPass)
 		if err != nil {
-			privKey, err = x509.ParsePKCS8PrivateKey(block.Bytes)
+			return nil, fmt.Errorf("failed to decrypt private key: %w", err)
+		}
+	}
+
+	privKey, err = x509.ParseECPrivateKey(block.Bytes)
+	if err != nil {
+		privKey, err = x509.ParsePKCS8PrivateKey(block.Bytes)
+		if err != nil {
+			privKey, err = x509.ParsePKCS1PrivateKey(block.Bytes)
 			if err != nil {
-				privKey, err = x509.ParsePKCS1PrivateKey(block.Bytes)
-				if err != nil {
-					return nil, fmt.Errorf("failed to parse private key: %w", err)
-				}
+				return nil, fmt.Errorf("failed to parse private key: %w", err)
 			}
 		}
 	}
+
 	if signer, ok = privKey.(crypto.Signer); !ok {
 		return nil, fmt.Errorf("failed to convert to crypto.Signer")
 	} else {
@@ -291,21 +261,7 @@ func createConfigWithKeys(ctx context.Context, certConfig *PrivateKeyConfig) (*C
 	}
 }
 
-func CreateCtlogConfig(ctx context.Context, ns string, trillianUrl string, treeID int64, fulcioUrl string, labels map[string]string, certConfig *PrivateKeyConfig) (*corev1.Secret, *corev1.Secret, error) {
-	u, err := url.Parse(fulcioUrl)
-	if err != nil {
-		return nil, nil, fmt.Errorf("invalid fulcioURL %s : %v", fulcioUrl, err)
-	}
-
-	var root *fulcioclient.RootResponse
-
-	client := fulcioclient.NewClient(u, fulcioclient.WithTimeout(time.Minute))
-	root, err = client.RootCert()
-
-	if err != nil {
-		return nil, nil, fmt.Errorf("Failed to fetch fulcio Root cert: %w", err)
-	}
-
+func CreateCtlogConfig(ctx context.Context, ns string, trillianUrl string, treeID int64, rootCerts []RootCertificate, labels map[string]string, certConfig *PrivateKeyConfig) (*corev1.Secret, *corev1.Secret, error) {
 	ctlogConfig, err := createConfigWithKeys(ctx, certConfig)
 	if err != nil {
 		return nil, nil, err
@@ -321,9 +277,12 @@ func CreateCtlogConfig(ctx context.Context, ns string, trillianUrl string, treeI
 	ctlogConfig.LogPrefix = "trusted-artifact-signer"
 	ctlogConfig.TrillianServerAddr = trillianUrl
 
-	if err = ctlogConfig.AddFulcioRoot(ctx, root.ChainPEM); err != nil {
-		return nil, nil, fmt.Errorf("Failed to add fulcio root: %v", err)
+	for _, cert := range rootCerts {
+		if err = ctlogConfig.AddRootCertificate(ctx, cert); err != nil {
+			return nil, nil, fmt.Errorf("Failed to add fulcio root: %v", err)
+		}
 	}
+
 	configMap, err := ctlogConfig.MarshalConfig(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to marshal ctlog config: %v", err)

@@ -78,9 +78,19 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 					},
 				},
 				Ctlog: v1alpha1.CTlogSpec{
-					Certificate: v1alpha1.CtlogCert{
-						Create:     false,
-						SecretName: "my-ctlog-secret",
+					PrivateKeyRef: &v1alpha1.SecretKeySelector{
+						LocalObjectReference: v1.LocalObjectReference{
+							Name: "my-ctlog-secret",
+						},
+						Key: "private",
+					},
+					RootCertificates: []v1alpha1.SecretKeySelector{
+						{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "my-fulcio-secret",
+							},
+							Key: "cert",
+						},
 					},
 				},
 				Tuf: v1alpha1.TufSpec{
@@ -124,7 +134,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 
 	Describe("Install with provided certificates", func() {
 		BeforeAll(func() {
-			Expect(cli.Create(ctx, initCTSecret(namespace.Name, securesign.Spec.Ctlog.Certificate.SecretName)))
+			Expect(cli.Create(ctx, initCTSecret(namespace.Name, "my-ctlog-secret")))
 			Expect(cli.Create(ctx, initFulcioSecret(namespace.Name, securesign.Spec.Fulcio.Certificate.SecretName)))
 			Expect(cli.Create(ctx, initRekorSecret(namespace.Name, "my-rekor-secret")))
 			Expect(cli.Create(ctx, securesign)).To(Succeed())

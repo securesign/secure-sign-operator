@@ -9,16 +9,28 @@ import (
 
 // CTlogSpec defines the desired state of CTlog component
 type CTlogSpec struct {
+	// The ID of a Trillian tree that stores the log data.
 	//+optional
 	TreeID *int64 `json:"treeID,omitempty"`
-	// Certificate configuration
-	Certificate CtlogCert `json:"certificate,omitempty"`
-}
 
-type CtlogCert struct {
-	Create bool `json:"create"`
-	//Name of the secret the ctlog private key is stored in
-	SecretName string `json:"secretName,omitempty"` // +kubebuilder:validation:+optional
+	// The private key used for signing STHs etc.
+	//+optional
+	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+
+	// Password to decrypt private key
+	//+optional
+	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
+
+	// The public key matching the private key (if both are present). It is
+	// used only by mirror logs for verifying the source log's signatures, but can
+	// be specified for regular logs as well for the convenience of test tools.
+	//+optional
+	PublicKeyRef *SecretKeySelector `json:"publicKeyRef,omitempty"`
+
+	// List of secrets containing root certificates that are acceptable to the log.
+	// The certs are served through get-roots endpoint. Optional in mirrors.
+	//+optional
+	RootCertificates []SecretKeySelector `json:"rootCertificates,omitempty"`
 }
 
 // CTlogStatus defines the observed state of CTlog component

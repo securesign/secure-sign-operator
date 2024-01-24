@@ -144,8 +144,9 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&ctlog.CTlogReconciler{
-		Client: client,
-		Scheme: mgr.GetScheme(),
+		Client:   client,
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("ctlog-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CTlog")
 		os.Exit(1)
