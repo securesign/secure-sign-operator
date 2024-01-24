@@ -18,6 +18,7 @@ package ctlog
 
 import (
 	"context"
+	"k8s.io/client-go/tools/record"
 
 	"github.com/securesign/operator/controllers/common/action"
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
@@ -42,7 +43,8 @@ import (
 // CTlogReconciler reconciles a CTlog object
 type CTlogReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 }
 
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=ctlogs,verbs=get;list;watch;create;update;patch;delete
@@ -75,6 +77,7 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 	target := instance.DeepCopy()
 	actions := []action.Action[rhtasv1alpha1.CTlog]{
+		NewGenerateKeysAction(),
 		NewPendingAction(),
 		NewCreateAction(),
 		NewWaitAction(),
@@ -83,6 +86,7 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	for _, a := range actions {
 		a.InjectClient(r.Client)
 		a.InjectLogger(log)
+		a.InjectRecorder(r.Recorder)
 
 		if a.CanHandle(target) {
 			newTarget, err := a.Handle(ctx, target)
