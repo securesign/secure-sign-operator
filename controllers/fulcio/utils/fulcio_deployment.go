@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+
 	"github.com/securesign/operator/api/v1alpha1"
 
 	"github.com/securesign/operator/controllers/constants"
@@ -11,9 +12,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, labels map[string]string) *appsv1.Deployment {
+func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, labels map[string]string, serviceAccountName string) *appsv1.Deployment {
 	replicas := int32(1)
 	mode := int32(0666)
+	if serviceAccountName == "" {
+		serviceAccountName = constants.ServiceAccountName
+	}
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -31,7 +35,7 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, labels m
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: constants.ServiceAccountName,
+					ServiceAccountName: serviceAccountName,
 					Containers: []corev1.Container{
 						{
 							Name:  "fulcio-server",

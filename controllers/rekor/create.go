@@ -3,11 +3,13 @@ package rekor
 import (
 	"context"
 	"fmt"
+
 	"github.com/securesign/operator/controllers/common"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
+	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	k8sutils "github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/rekor/utils"
 	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
@@ -24,6 +26,7 @@ const (
 	ComponentName               = "rekor"
 	rekorMonitoringRoleName     = "prometheus-k8s-rekor"
 	rekorServiceMonitorName     = "rekor-metrics"
+	RekorServiceAccountName     = "rekor-sa"
 )
 
 func NewCreateAction() action.Action[rhtasv1alpha1.Rekor] {
@@ -102,14 +105,21 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		instance.Status.TreeID = instance.Spec.TreeID
 	}
 
-	dp := utils.CreateRekorDeployment(instance, RekorDeploymentName, rekorServerLabels)
+	sa := kubernetes.CreateServiceAccount(instance.Namespace, RekorServiceAccountName, rekorServerLabels)
+	controllerutil.SetControllerReference(instance, sa, i.Client.Scheme())
+	if err = i.Client.Create(ctx, sa); err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not create rekor sa: %w", err)
+	}
+
+	dp := utils.CreateRekorDeployment(instance, RekorDeploymentName, rekorServerLabels, sa.Name)
 	controllerutil.SetControllerReference(instance, dp, i.Client.Scheme())
 	if err = i.Client.Create(ctx, dp); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create Rekor deployment: %w", err)
 	}
 
-	redis := utils.CreateRedisDeployment(instance.Namespace, "rekor-redis", redisLabels)
+	redis := utils.CreateRedisDeployment(instance.Namespace, "rekor-redis", redisLabels, RekorServiceAccountName)
 	controllerutil.SetControllerReference(instance, redis, i.Client.Scheme())
 	if err = i.Client.Create(ctx, redis); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError

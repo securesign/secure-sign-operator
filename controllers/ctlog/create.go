@@ -3,6 +3,7 @@ package ctlog
 import (
 	"context"
 	"fmt"
+
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/action"
@@ -16,8 +17,9 @@ import (
 )
 
 const (
-	deploymentName = "ctlog"
-	ComponentName  = "ctlog"
+	deploymentName          = "ctlog"
+	ComponentName           = "ctlog"
+	CTLogServiceAccountName = "ctlog-sa"
 )
 
 func NewCreateAction() action.Action[rhtasv1alpha1.CTlog] {
@@ -86,7 +88,14 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		return instance, fmt.Errorf("could not create CTLog public key secret: %w", err)
 	}
 
-	server := ctlogUtils.CreateDeployment(instance.Namespace, deploymentName, config.Name, labels)
+	sa := utils.CreateServiceAccount(instance.Namespace, CTLogServiceAccountName, labels)
+	controllerutil.SetControllerReference(instance, sa, i.Client.Scheme())
+	if err = i.Client.Create(ctx, sa); err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not create ctlog service account: %w", err)
+	}
+
+	server := ctlogUtils.CreateDeployment(instance.Namespace, deploymentName, config.Name, labels, sa.Name)
 	controllerutil.SetControllerReference(instance, server, i.Client.Scheme())
 	if err = i.Client.Create(ctx, server); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
