@@ -41,6 +41,11 @@ type RekorSearchUI struct {
 	Enabled bool `json:"enabled,omitempty"`
 }
 
+type RekorSearchUI struct {
+	//Enable RekorSearchUI deployment
+	Enabled bool `json:"enabled,omitempty"`
+}
+
 // RekorStatus defines the observed state of Rekor
 type RekorStatus struct {
 	Url                string `json:"url,omitempty"`
