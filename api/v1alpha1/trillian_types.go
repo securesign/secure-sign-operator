@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -33,7 +34,7 @@ type TrillianDB struct {
 	// Persistent volume claim name to bound with Trillian DB
 	PvcName string `json:"pvcName,omitempty"`
 	// Secret with values to be used to connect to an existing DB or to be used with the creation of a new DB
-	DatabaseSecret string `json:"databaseSecret,omitempty"`
+	DatabaseSecretRef *v1.LocalObjectReference `json:"databaseSecretRef,omitempty"`
 }
 
 // TrillianStatus defines the observed state of Trillian

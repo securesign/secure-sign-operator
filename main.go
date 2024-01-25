@@ -131,8 +131,9 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&fulcio.FulcioReconciler{
-		Client: client,
-		Scheme: client.Scheme(),
+		Client:   client,
+		Scheme:   client.Scheme(),
+		Recorder: mgr.GetEventRecorderFor("fulcio-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Fulcio")
 		os.Exit(1)

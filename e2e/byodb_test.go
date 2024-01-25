@@ -60,10 +60,9 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 							},
 						}},
 					Certificate: v1alpha1.FulcioCert{
-						Create:            true,
-						SecretName:        "fulcio-secret",
 						OrganizationName:  "MyOrg",
 						OrganizationEmail: "my@email.org",
+						CommonName:        "fulcio",
 					},
 				},
 				Tuf: v1alpha1.TufSpec{
@@ -73,8 +72,10 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 				},
 				Ctlog: v1alpha1.CTlogSpec{},
 				Trillian: v1alpha1.TrillianSpec{Db: v1alpha1.TrillianDB{
-					Create:         false,
-					DatabaseSecret: "my-db",
+					Create: false,
+					DatabaseSecretRef: &v1.LocalObjectReference{
+						Name: "my-db",
+					},
 				}},
 			},
 		}
@@ -86,7 +87,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 
 	Describe("Install with byodb", func() {
 		BeforeAll(func() {
-			Expect(createDB(ctx, cli, namespace.Name, securesign.Spec.Trillian.Db.DatabaseSecret)).To(Succeed())
+			Expect(createDB(ctx, cli, namespace.Name, securesign.Spec.Trillian.Db.DatabaseSecretRef.Name)).To(Succeed())
 			Expect(cli.Create(ctx, securesign)).To(Succeed())
 		})
 

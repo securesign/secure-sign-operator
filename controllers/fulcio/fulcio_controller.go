@@ -18,13 +18,16 @@ package fulcio
 
 import (
 	"context"
+	"errors"
+	"k8s.io/client-go/tools/record"
+	"time"
 
 	"github.com/securesign/operator/controllers/common/action"
 
 	"github.com/securesign/operator/client"
 	p "github.com/securesign/operator/controllers/common/operator/predicate"
 	v1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -36,10 +39,13 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 )
 
+var requeueError = errors.New("requeue the reconcile key")
+
 // FulcioReconciler reconciles a Fulcio object
 type FulcioReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 }
 
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=fulcios,verbs=get;list;watch;create;update;patch;delete
@@ -67,7 +73,7 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	log := ctrllog.FromContext(ctx)
 
 	if err := r.Client.Get(ctx, req.NamespacedName, &instance); err != nil {
-		if errors.IsNotFound(err) {
+		if k8sErrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
@@ -78,6 +84,7 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 	target := instance.DeepCopy()
 	actions := []action.Action[rhtasv1alpha1.Fulcio]{
+		NewGenerateCertAction(),
 		NewCreateAction(),
 		NewWaitAction(),
 	}
@@ -85,6 +92,7 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	for _, a := range actions {
 		a.InjectClient(r.Client)
 		a.InjectLogger(log)
+		a.InjectRecorder(r.Recorder)
 
 		if a.CanHandle(target) {
 			newTarget, err := a.Handle(ctx, target)
@@ -92,11 +100,14 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				if newTarget != nil {
 					_ = r.Status().Update(ctx, newTarget)
 				}
+				if errors.Is(err, requeueError) {
+					return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
+				}
 				return reconcile.Result{}, err
 			}
 
 			if newTarget != nil {
-				if err := r.Status().Update(ctx, newTarget); err != nil {
+				if err = r.Status().Update(ctx, newTarget); err != nil {
 					return reconcile.Result{}, err
 				}
 			}
