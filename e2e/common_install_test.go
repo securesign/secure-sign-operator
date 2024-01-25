@@ -5,9 +5,10 @@ package e2e_test
 import (
 	"context"
 	"fmt"
-	"github.com/securesign/operator/controllers/rekor"
 	"net/http"
 	"time"
+
+	"github.com/securesign/operator/controllers/rekor"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -42,10 +43,6 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				Name:      "test",
 			},
 			Spec: v1alpha1.SecuresignSpec{
-				ClientServer: v1alpha1.ClientServer{
-					Enabled:                    true,
-					EnableOpenshiftCliDownload: false,
-				},
 				Rekor: v1alpha1.RekorSpec{
 					ExternalAccess: v1alpha1.ExternalAccess{
 						Enabled: true,
