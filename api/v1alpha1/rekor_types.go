@@ -16,7 +16,7 @@ type RekorSpec struct {
 	// Persistent volume claim name to bound with Rekor component
 	PvcName string `json:"pvcName,omitempty"`
 	//Enable Service monitors for rekor
-	Monitoring bool `json:"monitoring,omitempty"`
+	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
 	//Rekor Search UI
 	RekorSearchUI RekorSearchUI `json:"rekorSearchUI,omitempty"`
 	// Signer configuration
@@ -43,11 +43,15 @@ type RekorSearchUI struct {
 
 // RekorStatus defines the observed state of Rekor
 type RekorStatus struct {
-	Url                string `json:"url,omitempty"`
-	Phase              Phase  `json:"phase,omitempty"`
-	TreeID             *int64 `json:"treeID,omitempty"`
-	RekorSearchUIPhase Phase  `json:"rekorSearchUIPhase,omitempty"`
-	RekorSearchUIUrl   string `json:"rekorSearchUIUrl,omitempty"`
+	Url              string `json:"url,omitempty"`
+	Phase            Phase  `json:"phase,omitempty"`
+	RekorSearchUIUrl string `json:"rekorSearchUIUrl,omitempty"`
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
 //+kubebuilder:object:root=true

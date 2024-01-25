@@ -10,7 +10,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
-	k8sCli "github.com/securesign/operator/client"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/e2e/support"
 	"github.com/securesign/operator/e2e/support/tas"
@@ -144,7 +143,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 	})
 })
 
-func createDB(ctx context.Context, cli k8sCli.Client, ns string, secretRef string) error {
+func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef string) error {
 	err := cli.Create(ctx, &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: secretRef},
 		Data: map[string][]byte{

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+
 	"github.com/securesign/operator/api/v1alpha1"
 
 	"github.com/securesign/operator/controllers/constants"
@@ -11,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, labels map[string]string) *appsv1.Deployment {
+func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa string, labels map[string]string) *appsv1.Deployment {
 	replicas := int32(1)
 	mode := int32(0666)
 
@@ -31,7 +32,7 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, labels m
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: constants.ServiceAccountName,
+					ServiceAccountName: sa,
 					Containers: []corev1.Container{
 						{
 							Name:  "fulcio-server",
@@ -84,6 +85,10 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, labels m
 									},
 								},
 								InitialDelaySeconds: 10,
+								TimeoutSeconds:      1,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
 							},
 							ReadinessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
@@ -92,7 +97,12 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, labels m
 										Port: intstr.FromInt32(5555),
 									},
 								},
+								// we need to specify all defaults https://github.com/stolostron/multicluster-observability-operator/pull/301
 								InitialDelaySeconds: 10,
+								TimeoutSeconds:      1,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{

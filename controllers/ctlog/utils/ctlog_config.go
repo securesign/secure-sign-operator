@@ -9,17 +9,16 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
-	"github.com/securesign/operator/controllers/constants"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/logging"
-	"maps"
 )
 
 // reference code https://github.com/sigstore/scaffolding/blob/main/cmd/ctlog/createctconfig/main.go
@@ -216,7 +215,7 @@ func mustMarshalAny(pb proto.Message) *anypb.Any {
 	return ret
 }
 
-func createConfigWithKeys(ctx context.Context, certConfig *PrivateKeyConfig) (*Config, error) {
+func createConfigWithKeys(certConfig *PrivateKeyConfig) (*Config, error) {
 	var signer crypto.Signer
 	var privKey crypto.PrivateKey
 	var err error
@@ -261,16 +260,16 @@ func createConfigWithKeys(ctx context.Context, certConfig *PrivateKeyConfig) (*C
 	}
 }
 
-func CreateCtlogConfig(ctx context.Context, ns string, trillianUrl string, treeID int64, rootCerts []RootCertificate, labels map[string]string, certConfig *PrivateKeyConfig) (*corev1.Secret, *corev1.Secret, error) {
-	ctlogConfig, err := createConfigWithKeys(ctx, certConfig)
+func CreateCtlogConfig(ctx context.Context, ns string, trillianUrl string, treeID int64, rootCerts []RootCertificate, labels map[string]string, keyConfig *PrivateKeyConfig) (*corev1.Secret, error) {
+	ctlogConfig, err := createConfigWithKeys(keyConfig)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	if certConfig.PrivateKeyPass == nil {
+	if keyConfig.PrivateKeyPass == nil {
 		ctlogConfig.PrivKeyPassword = string(common.GeneratePassword(8))
 	} else {
-		ctlogConfig.PrivKeyPassword = string(certConfig.PrivateKeyPass)
+		ctlogConfig.PrivKeyPassword = string(keyConfig.PrivateKeyPass)
 	}
 
 	ctlogConfig.LogID = treeID
@@ -279,23 +278,16 @@ func CreateCtlogConfig(ctx context.Context, ns string, trillianUrl string, treeI
 
 	for _, cert := range rootCerts {
 		if err = ctlogConfig.AddRootCertificate(ctx, cert); err != nil {
-			return nil, nil, fmt.Errorf("Failed to add fulcio root: %v", err)
+			return nil, fmt.Errorf("Failed to add fulcio root: %v", err)
 		}
 	}
 
 	configMap, err := ctlogConfig.MarshalConfig(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Failed to marshal ctlog config: %v", err)
+		return nil, fmt.Errorf("Failed to marshal ctlog config: %v", err)
 	}
 
 	config := kubernetes.CreateSecret("ctlog-secret", ns, configMap, labels)
 
-	secretLabels := map[string]string{
-		constants.TufLabelNamespace + "/ctfe.pub": "public",
-	}
-	maps.Copy(secretLabels, labels)
-	pubData := map[string][]byte{PublicKey: configMap[PublicKey]}
-	pubKeySecret := kubernetes.CreateSecret("ctlog-public-key", ns, pubData, secretLabels)
-
-	return config, pubKeySecret, nil
+	return config, nil
 }

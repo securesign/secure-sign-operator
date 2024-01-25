@@ -18,23 +18,18 @@ package ctlog
 
 import (
 	"context"
+
+	"github.com/securesign/operator/controllers/ctlog/actions"
+	v12 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
 
 	"github.com/securesign/operator/controllers/common/action"
-	client2 "sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/securesign/operator/client"
-	p "github.com/securesign/operator/controllers/common/operator/predicate"
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -63,7 +58,8 @@ type CTlogReconciler struct {
 func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 
 	var instance rhtasv1alpha1.CTlog
-	log := log.FromContext(ctx)
+	rlog := log.FromContext(ctx)
+	rlog.V(1).Info("Reconciling CTlog", "request", req)
 
 	if err := r.Client.Get(ctx, req.NamespacedName, &instance); err != nil {
 		if errors.IsNotFound(err) {
@@ -76,33 +72,33 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return reconcile.Result{}, err
 	}
 	target := instance.DeepCopy()
-	actions := []action.Action[rhtasv1alpha1.CTlog]{
-		NewGenerateKeysAction(),
-		NewPendingAction(),
-		NewCreateAction(),
-		NewWaitAction(),
+	acs := []action.Action[rhtasv1alpha1.CTlog]{
+		actions.NewPendingAction(),
+
+		actions.NewHandleFulcioCertAction(),
+		actions.NewGenerateKeysAction(),
+		actions.NewCreateTrillianTreeAction(),
+		actions.NewServerConfigAction(),
+
+		actions.NewRBACAction(),
+		actions.NewDeployAction(),
+		actions.NewServiceAction(),
+
+		actions.NewToInitializeAction(),
+
+		actions.NewInitializeAction(),
 	}
 
-	for _, a := range actions {
+	for _, a := range acs {
 		a.InjectClient(r.Client)
-		a.InjectLogger(log)
+		a.InjectLogger(rlog.WithName(a.Name()))
 		a.InjectRecorder(r.Recorder)
 
 		if a.CanHandle(target) {
-			newTarget, err := a.Handle(ctx, target)
-			if err != nil {
-				if newTarget != nil {
-					_ = r.Status().Update(ctx, newTarget)
-				}
-				return reconcile.Result{}, err
+			result := a.Handle(ctx, target)
+			if result != nil {
+				return result.Result, result.Err
 			}
-
-			if newTarget != nil {
-				if err := r.Status().Update(ctx, newTarget); err != nil {
-					return reconcile.Result{}, err
-				}
-			}
-			break
 		}
 	}
 	return reconcile.Result{}, nil
@@ -111,56 +107,8 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 // SetupWithManager sets up the controller with the Manager.
 func (r *CTlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&rhtasv1alpha1.CTlog{}, builder.WithPredicates(
-			predicate.Or(predicate.GenerationChangedPredicate{}, p.StatusChangedPredicate{}),
-		)).
-		Owns(&v1.Deployment{}, builder.WithPredicates(
-			// ignore create events
-			predicate.Funcs{CreateFunc: func(event event.CreateEvent) bool {
-				return false
-			}},
-		)).
-		Watches(&rhtasv1alpha1.Trillian{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client2.Object) []reconcile.Request {
-			var requests []reconcile.Request
-			t, ok := a.(*rhtasv1alpha1.Trillian)
-			if !ok {
-				return requests
-			}
-			list := &rhtasv1alpha1.CTlogList{}
-			if err := mgr.GetClient().List(ctx, list, client2.MatchingLabels(t.Labels), client2.InNamespace(t.Namespace)); err != nil {
-				return requests
-			}
-
-			for _, i := range list.Items {
-				requests = append(requests, reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Namespace: i.Namespace,
-						Name:      i.Name,
-					},
-				})
-			}
-			return requests
-		})).
-		Watches(&rhtasv1alpha1.Fulcio{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client2.Object) []reconcile.Request {
-			var requests []reconcile.Request
-			t, ok := a.(*rhtasv1alpha1.Fulcio)
-			if !ok {
-				return requests
-			}
-			list := &rhtasv1alpha1.CTlogList{}
-			if err := mgr.GetClient().List(ctx, list, client2.MatchingLabels(t.Labels), client2.InNamespace(t.Namespace)); err != nil {
-				return requests
-			}
-
-			for _, i := range list.Items {
-				requests = append(requests, reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Namespace: i.Namespace,
-						Name:      i.Name,
-					},
-				})
-			}
-			return requests
-		})).
+		For(&rhtasv1alpha1.CTlog{}).
+		Owns(&v1.Deployment{}).
+		Owns(&v12.Service{}).
 		Complete(r)
 }

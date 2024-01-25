@@ -37,12 +37,11 @@ type SecuresignSpec struct {
 type SecuresignStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Trillian        string `json:"trillian"`
-	Fulcio          string `json:"fulcio"`
-	Tuf             string `json:"tuf"`
-	CTlog           string `json:"ctlog"`
-	Rekor           string `json:"rekor"`
-	ClientServerUrl string `json:"clientServerUrl"`
+	Trillian string `json:"trillian"`
+	Fulcio   string `json:"fulcio"`
+	Tuf      string `json:"tuf"`
+	CTlog    string `json:"ctlog"`
+	Rekor    string `json:"rekor"`
 }
 
 //+kubebuilder:object:root=true

@@ -134,6 +134,12 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 						},
 						{
 							Name: "ctfe.pub",
+							SecretRef: &v1alpha1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: "my-ctlog-secret",
+								},
+								Key: "public",
+							},
 						},
 					},
 				},
@@ -277,7 +283,7 @@ func initRekorSecret(ns string, name string) *v1.Secret {
 }
 
 func initCTSecret(ns string, name string) *v1.Secret {
-	_, private, _, err := initCertificates(false)
+	public, private, _, err := initCertificates(false)
 	if err != nil {
 		return nil
 	}
@@ -288,6 +294,7 @@ func initCTSecret(ns string, name string) *v1.Secret {
 		},
 		Data: map[string][]byte{
 			"private": private,
+			"public":  public,
 		},
 	}
 }

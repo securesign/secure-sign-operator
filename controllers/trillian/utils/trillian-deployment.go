@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateTrillDeployment(namespace string, image string, dpName string, dbsecret string, labels map[string]string) *apps.Deployment {
+func CreateTrillDeployment(namespace string, image string, dpName string, sa string, dbsecret core.LocalObjectReference, labels map[string]string) *apps.Deployment {
 	replicas := int32(1)
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -25,7 +25,7 @@ func CreateTrillDeployment(namespace string, image string, dpName string, dbsecr
 					Labels: labels,
 				},
 				Spec: core.PodSpec{
-					ServiceAccountName: constants.ServiceAccountName,
+					ServiceAccountName: sa,
 					InitContainers: []core.Container{
 						{
 							Name:  "wait-for-trillian-db",
@@ -35,10 +35,8 @@ func CreateTrillDeployment(namespace string, image string, dpName string, dbsecr
 									Name: "MYSQL_HOSTNAME",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key: "mysql-host",
-											LocalObjectReference: core.LocalObjectReference{
-												Name: dbsecret,
-											},
+											Key:                  "mysql-host",
+											LocalObjectReference: dbsecret,
 										},
 									},
 								},
@@ -46,10 +44,8 @@ func CreateTrillDeployment(namespace string, image string, dpName string, dbsecr
 									Name: "MYSQL_PORT",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key: "mysql-port",
-											LocalObjectReference: core.LocalObjectReference{
-												Name: dbsecret,
-											},
+											Key:                  "mysql-port",
+											LocalObjectReference: dbsecret,
 										},
 									},
 								},
@@ -85,10 +81,8 @@ func CreateTrillDeployment(namespace string, image string, dpName string, dbsecr
 									Name: "MYSQL_USER",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key: "mysql-user",
-											LocalObjectReference: core.LocalObjectReference{
-												Name: dbsecret,
-											},
+											Key:                  "mysql-user",
+											LocalObjectReference: dbsecret,
 										},
 									},
 								},
@@ -96,10 +90,8 @@ func CreateTrillDeployment(namespace string, image string, dpName string, dbsecr
 									Name: "MYSQL_PASSWORD",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key: "mysql-password",
-											LocalObjectReference: core.LocalObjectReference{
-												Name: dbsecret,
-											},
+											Key:                  "mysql-password",
+											LocalObjectReference: dbsecret,
 										},
 									},
 								},
@@ -107,10 +99,8 @@ func CreateTrillDeployment(namespace string, image string, dpName string, dbsecr
 									Name: "MYSQL_HOSTNAME",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key: "mysql-host",
-											LocalObjectReference: core.LocalObjectReference{
-												Name: dbsecret,
-											},
+											Key:                  "mysql-host",
+											LocalObjectReference: dbsecret,
 										},
 									},
 								},
@@ -118,10 +108,8 @@ func CreateTrillDeployment(namespace string, image string, dpName string, dbsecr
 									Name: "MYSQL_PORT",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key: "mysql-port",
-											LocalObjectReference: core.LocalObjectReference{
-												Name: dbsecret,
-											},
+											Key:                  "mysql-port",
+											LocalObjectReference: dbsecret,
 										},
 									},
 								},
@@ -129,10 +117,8 @@ func CreateTrillDeployment(namespace string, image string, dpName string, dbsecr
 									Name: "MYSQL_DATABASE",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key: "mysql-database",
-											LocalObjectReference: core.LocalObjectReference{
-												Name: dbsecret,
-											},
+											Key:                  "mysql-database",
+											LocalObjectReference: dbsecret,
 										},
 									},
 								},

@@ -1,13 +1,12 @@
 package trillianUtils
 
 import (
-	"github.com/securesign/operator/controllers/constants"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateTrillDb(namespace string, image string, dpName string, pvcName string, dbsecret string, labels map[string]string) *apps.Deployment {
+func CreateTrillDb(namespace string, image string, dpName string, sa string, pvcName string, dbsecret core.LocalObjectReference, labels map[string]string) *apps.Deployment {
 	replicas := int32(1)
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -25,7 +24,7 @@ func CreateTrillDb(namespace string, image string, dpName string, pvcName string
 					Labels: labels,
 				},
 				Spec: core.PodSpec{
-					ServiceAccountName: constants.ServiceAccountName,
+					ServiceAccountName: sa,
 					Volumes: []core.Volume{
 						{
 							Name: "storage",
@@ -54,6 +53,11 @@ func CreateTrillDb(namespace string, image string, dpName string, pvcName string
 										},
 									},
 								},
+								InitialDelaySeconds: 10,
+								TimeoutSeconds:      1,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
 							},
 							Ports: []core.ContainerPort{
 								{
@@ -64,17 +68,20 @@ func CreateTrillDb(namespace string, image string, dpName string, pvcName string
 							// Env variables from secret trillian-mysql
 							Env: []core.EnvVar{
 								{
-									Name:  "MYSQL_USER",
-									Value: "mysql",
+									Name: "MYSQL_USER",
+									ValueFrom: &core.EnvVarSource{
+										SecretKeyRef: &core.SecretKeySelector{
+											Key:                  "mysql-user",
+											LocalObjectReference: dbsecret,
+										},
+									},
 								},
 								{
 									Name: "MYSQL_PASSWORD",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key: "mysql-password",
-											LocalObjectReference: core.LocalObjectReference{
-												Name: dbsecret,
-											},
+											Key:                  "mysql-password",
+											LocalObjectReference: dbsecret,
 										},
 									},
 								},
@@ -82,20 +89,28 @@ func CreateTrillDb(namespace string, image string, dpName string, pvcName string
 									Name: "MYSQL_ROOT_PASSWORD",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key: "mysql-root-password",
-											LocalObjectReference: core.LocalObjectReference{
-												Name: dbsecret,
-											},
+											Key:                  "mysql-root-password",
+											LocalObjectReference: dbsecret,
 										},
 									},
 								},
 								{
-									Name:  "MYSQL_PORT",
-									Value: "3306",
+									Name: "MYSQL_PORT",
+									ValueFrom: &core.EnvVarSource{
+										SecretKeyRef: &core.SecretKeySelector{
+											Key:                  "mysql-port",
+											LocalObjectReference: dbsecret,
+										},
+									},
 								},
 								{
-									Name:  "MYSQL_DATABASE",
-									Value: "trillian",
+									Name: "MYSQL_DATABASE",
+									ValueFrom: &core.EnvVarSource{
+										SecretKeyRef: &core.SecretKeySelector{
+											Key:                  "mysql-database",
+											LocalObjectReference: dbsecret,
+										},
+									},
 								},
 							},
 							VolumeMounts: []core.VolumeMount{

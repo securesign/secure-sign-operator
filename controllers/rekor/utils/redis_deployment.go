@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateRedisDeployment(namespace string, dpName string, labels map[string]string) *apps.Deployment {
+func CreateRedisDeployment(namespace string, dpName string, sa string, labels map[string]string) *apps.Deployment {
 	replicas := int32(1)
 	// Define a new Namespace object
 	return &apps.Deployment{
@@ -26,7 +26,7 @@ func CreateRedisDeployment(namespace string, dpName string, labels map[string]st
 					Labels: labels,
 				},
 				Spec: core.PodSpec{
-					ServiceAccountName: constants.ServiceAccountName,
+					ServiceAccountName: sa,
 					Volumes: []core.Volume{
 						{
 							Name: "storage",

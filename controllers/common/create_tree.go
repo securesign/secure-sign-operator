@@ -3,12 +3,12 @@ package common
 import (
 	"context"
 	"fmt"
-	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"net"
 	"time"
 
 	"github.com/google/trillian"
 	"github.com/google/trillian/client"
+	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/durationpb"

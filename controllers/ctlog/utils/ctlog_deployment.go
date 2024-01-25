@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/constants"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -8,13 +9,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func CreateDeployment(namespace string, deploymentName string, configName string, labels map[string]string) *appsv1.Deployment {
+func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, configName string, sa string, labels map[string]string) *appsv1.Deployment {
 	replicas := int32(1)
 	// Define a new Deployment object
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
-			Namespace: namespace,
+			Namespace: instance.Namespace,
 			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -27,7 +28,7 @@ func CreateDeployment(namespace string, deploymentName string, configName string
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: constants.ServiceAccountName,
+					ServiceAccountName: sa,
 					Containers: []corev1.Container{
 						{
 							Name:  "ctlog",
@@ -46,6 +47,10 @@ func CreateDeployment(namespace string, deploymentName string, configName string
 									},
 								},
 								InitialDelaySeconds: 10,
+								TimeoutSeconds:      1,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
 							},
 							ReadinessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
@@ -55,6 +60,10 @@ func CreateDeployment(namespace string, deploymentName string, configName string
 									},
 								},
 								InitialDelaySeconds: 10,
+								TimeoutSeconds:      1,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{

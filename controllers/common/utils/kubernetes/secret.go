@@ -2,8 +2,11 @@ package kubernetes
 
 import (
 	"context"
+	"errors"
 	"fmt"
+
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/labels"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,6 +50,29 @@ func GetSecretData(client client.Client, namespace string, selector *rhtasv1alph
 		} else {
 			return nil, fmt.Errorf("could not retrieve %s secret's key %s: %w", selector.Name, selector.Key, err)
 		}
+	}
+	return nil, nil
+}
+
+func FindSecret(ctx context.Context, c client.Client, namespace string, label string) (*corev1.Secret, error) {
+	list := &corev1.SecretList{}
+
+	selector, err := labels.Parse(label)
+	listOptions := &client.ListOptions{
+		LabelSelector: selector,
+	}
+
+	err = c.List(ctx, list, client.InNamespace(namespace), listOptions)
+
+	if err != nil {
+		return nil, err
+	}
+	if len(list.Items) > 1 {
+		return nil, errors.New("duplicate resource")
+	}
+
+	if len(list.Items) == 1 {
+		return &list.Items[0], nil
 	}
 	return nil, nil
 }

@@ -4,9 +4,15 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"github.com/securesign/operator/client"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
+
+type Result struct {
+	Result reconcile.Result
+	Err    error
+}
 
 type Action[T interface{}] interface {
 	InjectClient(client client.Client)
@@ -20,5 +26,5 @@ type Action[T interface{}] interface {
 	CanHandle(*T) bool
 
 	// executes the handling function
-	Handle(context.Context, *T) (*T, error)
+	Handle(context.Context, *T) *Result
 }
