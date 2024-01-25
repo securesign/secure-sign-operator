@@ -5,10 +5,12 @@ package e2e_test
 import (
 	"context"
 	"fmt"
-	"github.com/securesign/operator/controllers/fulcio"
-	"github.com/securesign/operator/controllers/rekor"
 	"net/http"
 	"time"
+
+	"github.com/securesign/operator/controllers/fulcio"
+
+	"github.com/securesign/operator/controllers/rekor"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -43,10 +45,6 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				Name:      "test",
 			},
 			Spec: v1alpha1.SecuresignSpec{
-				ClientServer: v1alpha1.ClientServer{
-					Enabled:                    true,
-					EnableOpenshiftCliDownload: false,
-				},
 				Rekor: v1alpha1.RekorSpec{
 					ExternalAccess: v1alpha1.ExternalAccess{
 						Enabled: true,
@@ -171,7 +169,6 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			tas.VerifyCTLog(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyTuf(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyRekorSearchUI(ctx, cli, namespace.Name, securesign.Name)
-			tas.VerifyClientServer(ctx, cli, securesign.Namespace)
 		})
 
 		It("Verify Rekor Search UI is accessible", func() {
@@ -190,24 +187,6 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				defer resp.Body.Close()
 				return resp.StatusCode == http.StatusOK
 			}, "30s", "1s").Should(BeTrue(), "Rekor UI should be accessible and return a status code of 200")
-		})
-
-		It("Verify client server is accessible", func() {
-			securesign := tas.GetSecuresign(ctx, cli, namespace.Name, securesign.Name)()
-			Expect(securesign).ToNot(BeNil())
-
-			httpClient := http.Client{
-				Timeout: time.Second * 10,
-			}
-			Eventually(func() bool {
-				resp, err := httpClient.Get(securesign.Status.ClientServerUrl)
-				if err != nil {
-					return false
-				}
-				defer resp.Body.Close()
-				return resp.StatusCode == http.StatusForbidden
-			}, "30s", "1s").Should(BeTrue(), "Client Server should be accessible and return a status code of 403")
-
 		})
 
 		It("Use cosign cli", func() {
