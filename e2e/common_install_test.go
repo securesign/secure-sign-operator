@@ -5,10 +5,10 @@ package e2e_test
 import (
 	"context"
 	"fmt"
-	"github.com/securesign/operator/controllers/fulcio"
-	"github.com/securesign/operator/controllers/rekor"
 	"net/http"
 	"time"
+
+	"github.com/securesign/operator/controllers/fulcio"
 
 	"github.com/securesign/operator/controllers/rekor"
 
