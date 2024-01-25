@@ -17,5 +17,5 @@ const (
 	TufImage = "quay.io/redhat-user-workloads/rhtas-tenant/scaffold-1-0-gamma/tuf-server-0-6@sha256:e61ca335380ccb857cc66ecbb922ac741247956b62abba795fc29da648b91e26"
 
 	CTLogImage        = "quay.io/redhat-user-workloads/rhtas-tenant/scaffold-1-0-gamma/ct-server-0-6@sha256:44c8c0632a3fe797325062bc482018dfb1e44ae592054cba06269cee8356a45e"
-	ClientServerImage = "quay.io/redhat-user-workloads/rhtas-tenant/access-1-0-gamma/client-server-1-0-gamma@sha256:7b028da0290c2a5f3626e6c2564279872d2ac445b253ac66da2f1820ad01368b"
+	ClientServerImage = "quay.io/redhat-user-workloads/rhtas-tenant/access-1-0-gamma/client-server-1-0-gamma@sha256:5a74147cd6edd9ee6627a02653a101ac3e927148576ab35467bacb65fd35ce98"
 )
