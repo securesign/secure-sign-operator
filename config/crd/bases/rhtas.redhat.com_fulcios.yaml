@@ -47,20 +47,57 @@ spec:
               certificate:
                 description: Certificate configuration
                 properties:
-                  create:
-                    type: boolean
+                  caRef:
+                    description: Reference to CA certificate
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  commonName:
+                    type: string
                   organizationEmail:
                     type: string
                   organizationName:
                     type: string
-                  secretName:
-                    description: 'Enter secret name for your keys and certificate
-                      (will be generated in case of the `create=true`) Required fields
-                      are: public,private,cert,password'
-                    type: string
-                required:
-                - create
-                - secretName
+                  privateKeyPasswordRef:
+                    description: Reference to password to encrypt CA private key
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  privateKeyRef:
+                    description: Reference to CA private key
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
                 type: object
               config:
                 properties:

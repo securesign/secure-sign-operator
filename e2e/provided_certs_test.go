@@ -73,8 +73,24 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 							},
 						}},
 					Certificate: v1alpha1.FulcioCert{
-						Create:     false,
-						SecretName: "my-fulcio-secret",
+						PrivateKeyRef: &v1alpha1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "my-fulcio-secret",
+							},
+							Key: "private",
+						},
+						PrivateKeyPasswordRef: &v1alpha1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "my-fulcio-secret",
+							},
+							Key: "password",
+						},
+						CARef: &v1alpha1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "my-fulcio-secret",
+							},
+							Key: "cert",
+						},
 					},
 				},
 				Ctlog: v1alpha1.CTlogSpec{
@@ -135,7 +151,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 	Describe("Install with provided certificates", func() {
 		BeforeAll(func() {
 			Expect(cli.Create(ctx, initCTSecret(namespace.Name, "my-ctlog-secret")))
-			Expect(cli.Create(ctx, initFulcioSecret(namespace.Name, securesign.Spec.Fulcio.Certificate.SecretName)))
+			Expect(cli.Create(ctx, initFulcioSecret(namespace.Name, "my-fulcio-secret")))
 			Expect(cli.Create(ctx, initRekorSecret(namespace.Name, "my-rekor-secret")))
 			Expect(cli.Create(ctx, securesign)).To(Succeed())
 		})
@@ -144,14 +160,21 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 			tas.VerifyFulcio(ctx, cli, namespace.Name, securesign.Name)
 			server := tas.GetFulcioServerPod(ctx, cli, namespace.Name)()
 			Expect(server).NotTo(BeNil())
-			Expect(server.Spec.Volumes).To(
+
+			sp := []v1.SecretProjection{}
+			for _, volume := range server.Spec.Volumes {
+				if volume.Name == "fulcio-cert" {
+					for _, source := range volume.VolumeSource.Projected.Sources {
+						sp = append(sp, *source.Secret)
+					}
+				}
+			}
+
+			Expect(sp).To(
 				ContainElement(
-					WithTransform(func(volume v1.Volume) string {
-						if volume.VolumeSource.Secret != nil {
-							return volume.VolumeSource.Secret.SecretName
-						}
-						return ""
-					}, Equal(securesign.Spec.Fulcio.Certificate.SecretName)),
+					WithTransform(func(sp v1.SecretProjection) string {
+						return sp.Name
+					}, Equal("my-fulcio-secret")),
 				))
 
 		})

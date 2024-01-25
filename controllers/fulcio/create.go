@@ -4,13 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"maps"
-
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
-	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/fulcio/utils"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/rbac/v1"
@@ -38,46 +35,23 @@ func (i createAction) Name() string {
 	return "create"
 }
 
-func (i createAction) CanHandle(Fulcio *rhtasv1alpha1.Fulcio) bool {
-	return Fulcio.Status.Phase == rhtasv1alpha1.PhaseNone
+func (i createAction) CanHandle(instance *rhtasv1alpha1.Fulcio) bool {
+	return instance.Status.Phase == rhtasv1alpha1.PhaseNone ||
+		instance.Status.Phase == rhtasv1alpha1.PhasePending ||
+		instance.Status.Phase == rhtasv1alpha1.PhaseCreating
 }
 
 func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) (*rhtasv1alpha1.Fulcio, error) {
+	if instance.Status.Phase != rhtasv1alpha1.PhaseCreating {
+		instance.Status.Phase = rhtasv1alpha1.PhaseCreating
+		return instance, requeueError
+	}
+
 	//log := ctrllog.FromContext(ctx)
 	var err error
 	labels := kubernetes.FilterCommonLabels(instance.Labels)
 	labels[kubernetes.ComponentLabel] = ComponentName
 	labels[kubernetes.NameLabel] = fulcioDeploymentName
-
-	if instance.Spec.Certificate.Create {
-
-		if instance.Spec.Certificate.OrganizationName == "" || instance.Spec.Certificate.OrganizationEmail == "" {
-			instance.Status.Phase = rhtasv1alpha1.PhaseError
-			return instance, fmt.Errorf("could not create fulcio cert secret: missing OrganizationName, OrganizationEmail from config")
-		}
-
-		certConfig, err := utils.SetupCerts(instance)
-		if err != nil {
-			return instance, err
-		}
-
-		secretLabels := map[string]string{
-			constants.TufLabelNamespace + "/fulcio_v1.crt.pem": "cert",
-		}
-		maps.Copy(secretLabels, labels)
-
-		secret := kubernetes.CreateSecret(instance.Spec.Certificate.SecretName, instance.Namespace, map[string][]byte{
-			"private":  certConfig.FulcioPrivateKey,
-			"public":   certConfig.FulcioPublicKey,
-			"cert":     certConfig.FulcioRootCert,
-			"password": certConfig.CertPassword,
-		}, secretLabels)
-		controllerutil.SetOwnerReference(instance, secret, i.Client.Scheme())
-		if err = i.Client.Create(ctx, secret); err != nil {
-			instance.Status.Phase = rhtasv1alpha1.PhaseError
-			return instance, fmt.Errorf("could not create fulcio secret: %w", err)
-		}
-	}
 
 	cm := i.initConfigmap(instance.Namespace, "fulcio-server-config", *instance, labels)
 	controllerutil.SetOwnerReference(instance, cm, i.Client.Scheme())
@@ -86,7 +60,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		return instance, fmt.Errorf("could not create fulcio secret: %w", err)
 	}
 
-	dp := utils.CreateDeployment(instance.Namespace, fulcioDeploymentName, instance.Spec.Certificate.SecretName, labels)
+	dp := utils.CreateDeployment(instance, fulcioDeploymentName, labels)
 	controllerutil.SetControllerReference(instance, dp, i.Client.Scheme())
 	if err = i.Client.Create(ctx, dp); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
@@ -98,13 +72,13 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		Name:       "5554-tcp",
 		Protocol:   corev1.ProtocolTCP,
 		Port:       5554,
-		TargetPort: intstr.FromInt(5554),
+		TargetPort: intstr.FromInt32(5554),
 	})
 	svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
 		Name:       "80-tcp",
 		Protocol:   corev1.ProtocolTCP,
 		Port:       80,
-		TargetPort: intstr.FromInt(5555),
+		TargetPort: intstr.FromInt32(5555),
 	})
 	controllerutil.SetControllerReference(instance, svc, i.Client.Scheme())
 	if err = i.Client.Create(ctx, svc); err != nil {

@@ -5,6 +5,7 @@ package e2e_test
 import (
 	"context"
 	"fmt"
+	"github.com/securesign/operator/controllers/fulcio"
 	"github.com/securesign/operator/controllers/rekor"
 	"net/http"
 	"time"
@@ -63,10 +64,9 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 							},
 						}},
 					Certificate: v1alpha1.FulcioCert{
-						Create:            true,
-						SecretName:        "fulcio-secret",
 						OrganizationName:  "MyOrg",
 						OrganizationEmail: "my@email.org",
+						CommonName:        "fullcio",
 					},
 				},
 				Ctlog: v1alpha1.CTlogSpec{},
@@ -96,7 +96,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				fulcioSecret := &v1.Secret{}
 				cli.Get(ctx, types.NamespacedName{
 					Namespace: namespace.Name,
-					Name:      securesign.Spec.Fulcio.Certificate.SecretName,
+					Name:      fmt.Sprintf(fulcio.SecretNameFormat, securesign.Name),
 				}, fulcioSecret)
 				return fulcioSecret
 			}).Should(
@@ -128,16 +128,22 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			tas.VerifyFulcio(ctx, cli, namespace.Name, securesign.Name)
 			server := tas.GetFulcioServerPod(ctx, cli, namespace.Name)()
 			Expect(server).NotTo(BeNil())
-			Expect(server.Spec.Volumes).To(
-				ContainElement(
-					WithTransform(func(volume v1.Volume) string {
-						if volume.VolumeSource.Secret != nil {
-							return volume.VolumeSource.Secret.SecretName
-						}
-						return ""
-					}, Equal(securesign.Spec.Fulcio.Certificate.SecretName)),
-				))
 
+			sp := []v1.SecretProjection{}
+			for _, volume := range server.Spec.Volumes {
+				if volume.Name == "fulcio-cert" {
+					for _, source := range volume.VolumeSource.Projected.Sources {
+						sp = append(sp, *source.Secret)
+					}
+				}
+			}
+
+			Expect(sp).To(
+				ContainElement(
+					WithTransform(func(sp v1.SecretProjection) string {
+						return sp.Name
+					}, Equal(fmt.Sprintf(fulcio.SecretNameFormat, securesign.Name))),
+				))
 		})
 
 		It("rekor is running with mounted certs", func() {
