@@ -328,10 +328,16 @@ spec:
                           one must be defined using the DatabaseSecret field default:
                           true'
                         type: boolean
-                      databaseSecret:
+                      databaseSecretRef:
                         description: Secret with values to be used to connect to an
                           existing DB or to be used with the creation of a new DB
-                        type: string
+                        properties:
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                        type: object
+                        x-kubernetes-map-type: atomic
                       pvcName:
                         description: Persistent volume claim name to bound with Trillian
                           DB
