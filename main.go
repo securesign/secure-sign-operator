@@ -17,17 +17,26 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
+	"fmt"
 	"os"
 
+	consolev1 "github.com/openshift/api/console/v1"
 	v1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	client2 "github.com/securesign/operator/client"
+	"github.com/securesign/operator/controllers/common/utils/kubernetes"
+	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/ctlog"
 	"github.com/securesign/operator/controllers/fulcio"
 	"github.com/securesign/operator/controllers/rekor"
 	"github.com/securesign/operator/controllers/trillian"
 	"github.com/securesign/operator/controllers/tuf"
+	apps "k8s.io/api/apps/v1"
+	core "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -45,6 +54,12 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers"
 	//+kubebuilder:scaffold:imports
+)
+
+const (
+	cliServerNs        = "trusted-artifact-signer"
+	cliServerName      = "cli-server"
+	cliServerComponent = "client-server"
 )
 
 var (
@@ -164,9 +179,154 @@ func main() {
 		os.Exit(1)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	obj, err := createClientserver(ctx, client)
+	if err != nil {
+		setupLog.Error(err, "unable to create client-server resources")
+	}
+	defer func() {
+		for _, o := range obj {
+			if err := client.Delete(ctx, o); err != nil {
+				setupLog.Error(err, "unable to cleanup client-server resources")
+			}
+		}
+		cancel()
+	}()
+
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
+	}
+}
+
+func createClientserver(ctx context.Context, cli client2.Client) ([]client.Object, error) {
+	var (
+		err    error
+		obj    []client.Object
+		labels = map[string]string{
+			"app.kubernetes.io/part-of": constants.AppName,
+			kubernetes.ComponentLabel:   cliServerComponent,
+		}
+	)
+	ns := &core.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: cliServerNs,
+		},
+	}
+
+	obj = append(obj, ns)
+	obj = append(obj, createClientserverDeployment(ns.Name, labels))
+	svc := kubernetes.CreateService(ns.Name, cliServerName, 8080, labels)
+	obj = append(obj, svc)
+	ingress, err := kubernetes.CreateIngress(ctx, cli, *svc, rhtasv1alpha1.ExternalAccess{}, cliServerName, labels)
+	if err != nil {
+		return obj, err
+	}
+	obj = append(obj, ingress)
+
+	if kubernetes.IsOpenShift(cli) {
+		protocol := "http://"
+		if len(ingress.Spec.TLS) > 0 {
+			protocol = "https://"
+		}
+		for name, description := range map[string]string{
+			"cosign":    "cosign is a CLI tool that allows you to manage sigstore artifacts.",
+			"rekor-cli": "rekor-cli is a CLI tool that allows you to interact with rekor server.",
+			"gitsign":   "gitsign is a CLI tool that allows you to digitally sign and verify git commits.",
+		} {
+			obj = append(obj, createConsoleCLIDownload(ns.Name, name, protocol+ingress.Spec.Rules[0].Host, description, labels))
+		}
+	}
+
+	for _, o := range obj {
+		err = cli.Create(ctx, o)
+		if err != nil {
+			return obj, err
+		}
+	}
+
+	return obj, nil
+}
+
+func createClientserverDeployment(namespace string, labels map[string]string) *apps.Deployment {
+	replicas := int32(1)
+
+	return &apps.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cliServerName,
+			Namespace: namespace,
+			Labels:    labels,
+		},
+		Spec: apps.DeploymentSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Template: core.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: core.PodSpec{
+					Containers: []core.Container{
+						{
+							Name:            cliServerName,
+							Image:           constants.ClientServerImage,
+							ImagePullPolicy: "IfNotPresent",
+							Ports: []core.ContainerPort{
+								{
+									ContainerPort: 8080,
+									Protocol:      "TCP",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func createConsoleCLIDownload(namespace, name, clientServerUrl, description string, labels map[string]string) *consolev1.ConsoleCLIDownload {
+	return &consolev1.ConsoleCLIDownload{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels:    labels,
+		},
+		Spec: consolev1.ConsoleCLIDownloadSpec{
+			Description: description,
+			DisplayName: fmt.Sprintf("%s - Command Line Interface (CLI)", name),
+			Links: []consolev1.CLIDownloadLink{
+				{
+					Href: fmt.Sprintf("%s/clients/linux/%s-amd64.gz", clientServerUrl, name),
+					Text: fmt.Sprintf("Download %s for Linux x86_64", name),
+				},
+				{
+					Href: fmt.Sprintf("%s/clients/linux/%s-arm64.gz", clientServerUrl, name),
+					Text: fmt.Sprintf("Download %s for Linux arm64", name),
+				},
+				{
+					Href: fmt.Sprintf("%s/clients/linux/%s-ppc64le.gz", clientServerUrl, name),
+					Text: fmt.Sprintf("Download %s for Linux ppc64le", name),
+				},
+				{
+					Href: fmt.Sprintf("%s/clients/linux/%s-s390x.gz", clientServerUrl, name),
+					Text: fmt.Sprintf("Download %s for Linux s390x", name),
+				},
+				{
+					Href: fmt.Sprintf("%s/clients/darwin/%s-amd64.gz", clientServerUrl, name),
+					Text: fmt.Sprintf("Download %s for Mac x86_64", name),
+				},
+				{
+					Href: fmt.Sprintf("%s/clients/darwin/%s-arm64.gz", clientServerUrl, name),
+					Text: fmt.Sprintf("Download %s for Mac arm64", name),
+				},
+				{
+					Href: fmt.Sprintf("%s/clients/windows/%s-amd64.gz", clientServerUrl, name),
+					Text: fmt.Sprintf("Download %s for Windows x86_64", name),
+				},
+			},
+		},
 	}
 }
