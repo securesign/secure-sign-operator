@@ -21,12 +21,23 @@ type FulcioSpec struct {
 
 // FulcioCert defines fields for system-generated certificate
 type FulcioCert struct {
-	Create bool `json:"create"`
-	// Enter secret name for your keys and certificate (will be generated in case of the `create=true`)
-	// Required fields are: public,private,cert,password
-	SecretName        string `json:"secretName"`
-	OrganizationName  string `json:"organizationName,omitempty"`  // +kubebuilder:validation:+optional
-	OrganizationEmail string `json:"organizationEmail,omitempty"` // +kubebuilder:validation:+optional
+	// Reference to CA private key
+	//+optional
+	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+	// Reference to password to encrypt CA private key
+	//+optional
+	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
+
+	// Reference to CA certificate
+	//+optional
+	CARef *SecretKeySelector `json:"caRef,omitempty"`
+
+	//+optional
+	CommonName string `json:"commonName,omitempty"`
+	//+optional
+	OrganizationName string `json:"organizationName,omitempty"`
+	//+optional
+	OrganizationEmail string `json:"organizationEmail,omitempty"`
 }
 
 type FulcioConfig struct {

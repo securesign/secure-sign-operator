@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"github.com/securesign/operator/api/v1alpha1"
 
 	"github.com/securesign/operator/controllers/constants"
 	appsv1 "k8s.io/api/apps/v1"
@@ -10,14 +11,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func CreateDeployment(namespace string, deploymentName string, certSecret string, labels map[string]string) *appsv1.Deployment {
+func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, labels map[string]string) *appsv1.Deployment {
 	replicas := int32(1)
 	mode := int32(0666)
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
-			Namespace: namespace,
+			Namespace: instance.Namespace,
 			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -46,16 +47,16 @@ func CreateDeployment(namespace string, deploymentName string, certSecret string
 								"/var/run/fulcio-secrets/cert.pem",
 								"--fileca-key-passwd",
 								"$(PASSWORD)",
-								fmt.Sprintf("--ct-log-url=http://ctlog.%s.svc/trusted-artifact-signer", namespace),
+								fmt.Sprintf("--ct-log-url=http://ctlog.%s.svc/trusted-artifact-signer", instance.Namespace),
 							},
 							Env: []corev1.EnvVar{
 								{
 									Name: "PASSWORD",
 									ValueFrom: &corev1.EnvVarSource{
 										SecretKeyRef: &corev1.SecretKeySelector{
-											Key: "password",
+											Key: instance.Spec.Certificate.PrivateKeyPasswordRef.Key,
 											LocalObjectReference: corev1.LocalObjectReference{
-												Name: certSecret,
+												Name: instance.Spec.Certificate.PrivateKeyPasswordRef.Name,
 											},
 										},
 									},
@@ -79,7 +80,7 @@ func CreateDeployment(namespace string, deploymentName string, certSecret string
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/healthz",
-										Port: intstr.FromInt(5555),
+										Port: intstr.FromInt32(5555),
 									},
 								},
 								InitialDelaySeconds: 10,
@@ -88,7 +89,7 @@ func CreateDeployment(namespace string, deploymentName string, certSecret string
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/healthz",
-										Port: intstr.FromInt(5555),
+										Port: intstr.FromInt32(5555),
 									},
 								},
 								InitialDelaySeconds: 10,
@@ -148,16 +149,33 @@ func CreateDeployment(namespace string, deploymentName string, certSecret string
 						{
 							Name: "fulcio-cert",
 							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: certSecret,
-									Items: []corev1.KeyToPath{
+								Projected: &corev1.ProjectedVolumeSource{
+									Sources: []corev1.VolumeProjection{
 										{
-											Key:  "private",
-											Path: "key.pem",
+											Secret: &corev1.SecretProjection{
+												LocalObjectReference: corev1.LocalObjectReference{
+													Name: instance.Spec.Certificate.PrivateKeyRef.Name,
+												},
+												Items: []corev1.KeyToPath{
+													{
+														Key:  instance.Spec.Certificate.PrivateKeyRef.Key,
+														Path: "key.pem",
+													},
+												},
+											},
 										},
 										{
-											Key:  "cert",
-											Path: "cert.pem",
+											Secret: &corev1.SecretProjection{
+												LocalObjectReference: corev1.LocalObjectReference{
+													Name: instance.Spec.Certificate.CARef.Name,
+												},
+												Items: []corev1.KeyToPath{
+													{
+														Key:  instance.Spec.Certificate.CARef.Key,
+														Path: "cert.pem",
+													},
+												},
+											},
 										},
 									},
 								},

@@ -60,10 +60,9 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 							},
 						}},
 					Certificate: v1alpha1.FulcioCert{
-						Create:            true,
-						SecretName:        "fulcio-secret",
 						OrganizationName:  "MyOrg",
 						OrganizationEmail: "my@email.org",
+						CommonName:        "fulcio",
 					},
 				},
 				Tuf: v1alpha1.TufSpec{

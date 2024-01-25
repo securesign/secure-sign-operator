@@ -9,7 +9,6 @@ metadata:
 spec:
   externalAccess:
     enabled: true
-  keySecret: fulcio-secret-rh
   config:
     OIDCIssuers:
       "https://your-oidc-issuer-url":
@@ -17,7 +16,6 @@ spec:
         IssuerURL: "https://your-oidc-issuer-url"
         Type: "email"
   certificate:
-    create: true
     organizationName: Red Hat
     organizationEmail: jdoe@redhat.com
-    secretName: fulcio-cert
+    commonName: fulcio.hostname

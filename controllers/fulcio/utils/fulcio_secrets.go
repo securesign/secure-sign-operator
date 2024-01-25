@@ -2,62 +2,54 @@ package utils
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"time"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/controllers/common"
 )
 
+type PEM []byte
+
 type FulcioCertConfig struct {
-	FulcioPrivateKey []byte
-	FulcioPublicKey  []byte
-	FulcioRootCert   []byte
-	CertPassword     []byte
+	PrivateKey         PEM
+	PublicKey          PEM
+	RootCert           PEM
+	PrivateKeyPassword []byte
 }
 
-func SetupCerts(instance *rhtasv1alpha1.Fulcio) (*FulcioCertConfig, error) {
-	fulcioConfig := &FulcioCertConfig{}
-	fulcioConfig.CertPassword = common.GeneratePassword(8)
-	cakey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return nil, err
+func (c FulcioCertConfig) ToMap() map[string][]byte {
+	result := make(map[string][]byte)
+
+	if len(c.PrivateKey) > 0 {
+		result["private"] = c.PrivateKey
+	}
+	if len(c.PublicKey) > 0 {
+		result["public"] = c.PublicKey
+	}
+	if len(c.PrivateKeyPassword) > 0 {
+		result["password"] = c.PrivateKeyPassword
+	}
+	if len(c.RootCert) > 0 {
+		result["cert"] = c.RootCert
 	}
 
-	fulcioPrivateKey, err := createCAKey(cakey, fulcioConfig.CertPassword)
-	if err != nil {
-		return nil, err
-	}
-	fulcioConfig.FulcioPrivateKey = fulcioPrivateKey
-
-	fulcioPublicKey, err := createCAPub(cakey)
-	if err != nil {
-		return nil, err
-	}
-	fulcioConfig.FulcioPublicKey = fulcioPublicKey
-
-	fulcioRootCert, err := createFulcioCA(cakey, instance)
-	if err != nil {
-		return nil, err
-	}
-	fulcioConfig.FulcioRootCert = fulcioRootCert
-
-	return fulcioConfig, nil
+	return result
 }
 
-func createCAKey(key *ecdsa.PrivateKey, password []byte) ([]byte, error) {
+func CreateCAKey(key *ecdsa.PrivateKey, password []byte) (PEM, error) {
 	mKey, err := x509.MarshalECPrivateKey(key)
 	if err != nil {
 		return nil, err
 	}
 
-	block, err := x509.EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", mKey, []byte(password), x509.PEMCipherAES256)
+	block, err := x509.EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", mKey, password, x509.PEMCipherAES256)
 	if err != nil {
 		return nil, err
 	}
@@ -70,8 +62,8 @@ func createCAKey(key *ecdsa.PrivateKey, password []byte) ([]byte, error) {
 	return pemData.Bytes(), nil
 }
 
-func createCAPub(key *ecdsa.PrivateKey) ([]byte, error) {
-	mPubKey, err := x509.MarshalPKIXPublicKey(key.Public())
+func CreateCAPub(key crypto.PublicKey) (PEM, error) {
+	mPubKey, err := x509.MarshalPKIXPublicKey(key)
 	if err != nil {
 		return nil, err
 	}
@@ -88,12 +80,32 @@ func createCAPub(key *ecdsa.PrivateKey) ([]byte, error) {
 	return pemPubKey.Bytes(), nil
 }
 
-func createFulcioCA(key *ecdsa.PrivateKey, instance *rhtasv1alpha1.Fulcio) ([]byte, error) {
+func CreateFulcioCA(config *FulcioCertConfig, instance *rhtasv1alpha1.Fulcio) (PEM, error) {
+	var err error
+
+	if instance.Spec.Certificate.CommonName == "" || instance.Spec.Certificate.OrganizationEmail == "" || instance.Spec.Certificate.OrganizationName == "" {
+		return nil, fmt.Errorf("could not create certificate: missing OrganizationName, OrganizationEmail or CommonName from config")
+	}
+
+	block, _ := pem.Decode(config.PrivateKey)
+	keyBytes := block.Bytes
+	if x509.IsEncryptedPEMBlock(block) {
+		keyBytes, err = x509.DecryptPEMBlock(block, config.PrivateKeyPassword)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	key, err := x509.ParseECPrivateKey(keyBytes)
+	if err != nil {
+		return nil, err
+	}
+
 	notBefore := time.Now()
 	notAfter := notBefore.Add(365 * 24 * 10 * time.Hour)
 
 	issuer := pkix.Name{
-		CommonName:   "commonName",
+		CommonName:   instance.Spec.Certificate.CommonName,
 		Organization: []string{instance.Spec.Certificate.OrganizationName},
 	}
 
