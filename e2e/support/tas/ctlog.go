@@ -31,6 +31,7 @@ func VerifyCTLog(ctx context.Context, cli client.Client, namespace string, name 
 	// If verification fails, print the CTLog Deployment YAML
 
 	PrintCTLogDeploymentYAML(ctx, cli, namespace, name)
+	PrintEvents(ctx, cli, namespace)
 }
 
 func CurrentGinkgoTestDescription() {
@@ -68,4 +69,13 @@ func PrintCTLogDeploymentYAML(ctx context.Context, cli client.Client, namespace,
 
 	fmt.Println("CTLog Deployment YAML:")
 	fmt.Println(strings.TrimSpace(string(yamlData)))
+}
+
+// function to print events in the namespace
+func PrintEvents(ctx context.Context, cli client.Client, namespace string) {
+	list := &v1.EventList{}
+	cli.List(ctx, list, client.InNamespace(namespace))
+	for _, e := range list.Items {
+		fmt.Printf("Event: %s\n", e.Name)
+	}
 }
