@@ -68,7 +68,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 					Certificate: v1alpha1.FulcioCert{
 						OrganizationName:  "MyOrg",
 						OrganizationEmail: "my@email.org",
-						CommonName:        "fullcio",
+						CommonName:        "fulcio",
 					},
 				},
 				Ctlog: v1alpha1.CTlogSpec{},
