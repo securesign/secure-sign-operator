@@ -69,6 +69,43 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		return instance, fmt.Errorf("could not create fulcio sa: %w", err)
 	}
 
+	role := kubernetes.CreateRole(
+		instance.Namespace,
+		fulcioDeploymentName,
+		labels,
+		[]v1.PolicyRule{
+			{
+				APIGroups: []string{""},
+				Resources: []string{"secrets"},
+				Verbs:     []string{"create", "get", "update"},
+			},
+		},
+	)
+	if err = i.Client.Create(ctx, role); err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not create fulcio role: %w", err)
+	}
+
+	rb := kubernetes.CreateRoleBinding(
+		instance.Namespace,
+		fulcioDeploymentName,
+		labels,
+		v1.RoleRef{
+			APIGroup: v1.SchemeGroupVersion.Group,
+			Kind:     "Role",
+			Name:     role.Name,
+		},
+		[]v1.Subject{
+			{Kind: "ServiceAccount", Name: sa.Name, Namespace: instance.Namespace},
+		},
+	)
+
+	controllerutil.SetOwnerReference(instance, rb, i.Client.Scheme())
+	if err = i.Client.Create(ctx, rb); err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not create rekor roleBinding: %w", err)
+	}
+
 	dp := utils.CreateDeployment(instance, fulcioDeploymentName, labels, sa.Name)
 	controllerutil.SetControllerReference(instance, dp, i.Client.Scheme())
 	if err = i.Client.Create(ctx, dp); err != nil {

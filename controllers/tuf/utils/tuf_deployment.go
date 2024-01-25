@@ -37,9 +37,6 @@ func selectorToProjection(secret *v1alpha1.SecretKeySelector, path string) *core
 }
 
 func CreateTufDeployment(instance *v1alpha1.Tuf, dpName string, labels map[string]string, serviceAccountName string) *apps.Deployment {
-	if serviceAccountName == "" {
-		serviceAccountName = constants.ServiceAccountName
-	}
 	replicas := int32(1)
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{

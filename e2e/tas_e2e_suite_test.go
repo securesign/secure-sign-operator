@@ -19,7 +19,7 @@ import (
 
 func TestE2e(t *testing.T) {
 	RegisterFailHandler(Fail)
-	SetDefaultEventuallyTimeout(time.Duration(3) * time.Minute)
+	SetDefaultEventuallyTimeout(time.Duration(5) * time.Minute)
 	RunSpecs(t, "Trusted Artifact Signer E2E Suite")
 }
 

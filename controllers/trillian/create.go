@@ -22,10 +22,8 @@ const (
 	logserverDeploymentName = "trillian-logserver"
 	logsignerDeploymentName = "trillian-logsigner"
 
-	dbServiceAccountName        = "trillian-db-sa"
-	logsignerServiceAccountName = "trillian-logsigner-sa"
-	logserverServiceAccountName = "trillian-logserver-sa"
-	ComponentName               = "trillian"
+	trillianServiceAccountName = "trillian-sa"
+	ComponentName              = "trillian"
 )
 
 func NewCreateAction() action.Action[rhtasv1alpha1.Trillian] {
@@ -97,13 +95,14 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		trillPVC = instance.Spec.Db.PvcName
 	}
 
+	sa := kubernetes.CreateServiceAccount(instance.Namespace, trillianServiceAccountName, dbLabels)
+	controllerutil.SetControllerReference(instance, sa, i.Client.Scheme())
+	if err = i.Client.Create(ctx, sa); err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not create trillian sa: %w", err)
+	}
+
 	if instance.Spec.Db.Create {
-		sa := kubernetes.CreateServiceAccount(instance.Namespace, dbServiceAccountName, dbLabels)
-		controllerutil.SetControllerReference(instance, sa, i.Client.Scheme())
-		if err = i.Client.Create(ctx, sa); err != nil {
-			instance.Status.Phase = rhtasv1alpha1.PhaseError
-			return instance, fmt.Errorf("could not create trillian DB sa: %w", err)
-		}
 
 		db := trillianUtils.CreateTrillDb(instance.Namespace, constants.TrillianDbImage, dbDeploymentName, trillPVC, dbSecName, dbLabels, sa.Name)
 		controllerutil.SetControllerReference(instance, db, i.Client.Scheme())
@@ -132,14 +131,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	}
 	instance.Status.Url = fmt.Sprintf("%s.%s.svc:%d", logserverService.Name, logserverService.Namespace, serverPort)
 
-	serverSA := kubernetes.CreateServiceAccount(instance.Namespace, logserverServiceAccountName, logServerLabels)
-	controllerutil.SetControllerReference(instance, serverSA, i.Client.Scheme())
-	if err = i.Client.Create(ctx, serverSA); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create trillian logserver sa: %w", err)
-	}
-
-	server := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianServerImage, logserverDeploymentName, dbSecName, logServerLabels, serverSA.Name)
+	server := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianServerImage, logserverDeploymentName, dbSecName, logServerLabels, sa.Name)
 	controllerutil.SetControllerReference(instance, server, i.Client.Scheme())
 	server.Spec.Template.Spec.Containers[0].Ports = append(server.Spec.Template.Spec.Containers[0].Ports, corev1.ContainerPort{
 		Protocol:      corev1.ProtocolTCP,
@@ -150,15 +142,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		return instance, fmt.Errorf("could not create job: %w", err)
 	}
 
-	// Log Signer
-	signerSA := kubernetes.CreateServiceAccount(instance.Namespace, logsignerServiceAccountName, logSignerLabels)
-	controllerutil.SetControllerReference(instance, signerSA, i.Client.Scheme())
-	if err = i.Client.Create(ctx, signerSA); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
-		return instance, fmt.Errorf("could not create trillian logsigner sa: %w", err)
-	}
-
-	signer := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianLogSignerImage, logsignerDeploymentName, dbSecName, logSignerLabels, signerSA.Name)
+	signer := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianLogSignerImage, logsignerDeploymentName, dbSecName, logSignerLabels, sa.Name)
 	controllerutil.SetControllerReference(instance, signer, i.Client.Scheme())
 	signer.Spec.Template.Spec.Containers[0].Args = append(signer.Spec.Template.Spec.Containers[0].Args, "--force_master=true")
 	if err = i.Client.Create(ctx, signer); err != nil {

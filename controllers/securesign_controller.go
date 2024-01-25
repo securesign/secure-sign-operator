@@ -21,14 +21,9 @@ import (
 	"fmt"
 
 	"github.com/securesign/operator/client"
-	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/constants"
-	corev1 "k8s.io/api/core/v1"
-	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
@@ -49,8 +44,6 @@ const (
 
 	gitsignConsoleCliName        = "gitsign"
 	gitsignConsoleCliDescription = "gitsign is a CLI tool that allows you to digitally sign and verify git commits."
-
-	OperatorServiceAccountName = "rhtas-operator-controller-manager"
 )
 
 // SecuresignReconciler reconciles a Securesign object
@@ -114,7 +107,6 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	actions := []func(context.Context, *rhtasv1alpha1.Securesign) (bool, error){
-		r.ensureRBAC(),
 		r.ensureTrillian(),
 		r.ensureFulcio(),
 		r.ensureRekor(),
@@ -150,81 +142,6 @@ func (r *SecuresignReconciler) ensureSecureSign(
 		return instance, nil
 	}
 	return nil, fmt.Errorf("failed to get SecureSign: %w", err)
-}
-
-func (r *SecuresignReconciler) ensureRBAC() func(context.Context, *rhtasv1alpha1.Securesign) (bool, error) {
-	return func(ctx context.Context, securesign *rhtasv1alpha1.Securesign) (bool, error) {
-
-		sa := &corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      OperatorServiceAccountName,
-				Namespace: securesign.Namespace,
-				Labels:    labels(*securesign),
-			},
-		}
-		ctrl.SetControllerReference(securesign, sa, r.Scheme)
-		if err := r.Get(ctx, types.NamespacedName{Namespace: sa.Namespace, Name: sa.Name}, &corev1.ServiceAccount{}); err != nil {
-			if errors.IsNotFound(err) {
-				err = r.Create(ctx, sa)
-				if err != nil {
-					return false, err
-				}
-			}
-			if err != nil {
-				return false, err
-			}
-		}
-
-		role := kubernetes.CreateRole(securesign.Namespace, OperatorServiceAccountName, labels(*securesign),
-			[]rbac.PolicyRule{
-				{
-					APIGroups: []string{""},
-					Resources: []string{"configmaps"},
-					Verbs:     []string{"create", "get", "update"},
-				},
-				{
-					APIGroups: []string{""},
-					Resources: []string{"secrets"},
-					Verbs:     []string{"create", "get", "update"},
-				},
-			})
-		ctrl.SetControllerReference(securesign, role, r.Scheme)
-		if err := r.Get(ctx, types.NamespacedName{Namespace: role.Namespace, Name: role.Name}, &rbac.Role{}); err != nil {
-			if errors.IsNotFound(err) {
-				err = r.Create(ctx, role)
-				if err != nil {
-					return false, err
-				}
-			}
-			if err != nil {
-				return false, err
-			}
-		}
-
-		roleBinding := kubernetes.CreateRoleBinding(securesign.Namespace, OperatorServiceAccountName, labels(*securesign),
-			rbac.RoleRef{
-				APIGroup: rbac.SchemeGroupVersion.Group,
-				Kind:     "Role",
-				Name:     role.Name,
-			},
-			[]rbac.Subject{
-				{Kind: "ServiceAccount", Name: sa.Name, Namespace: securesign.Namespace},
-			})
-		ctrl.SetControllerReference(securesign, roleBinding, r.Scheme)
-		if err := r.Get(ctx, types.NamespacedName{Namespace: roleBinding.Namespace, Name: roleBinding.Name}, &rbac.RoleBinding{}); err != nil {
-			if errors.IsNotFound(err) {
-				err = r.Create(ctx, roleBinding)
-				if err != nil {
-					return false, err
-				}
-			}
-			if err != nil {
-				return false, err
-			}
-		}
-		return false, nil
-
-	}
 }
 
 func (r *SecuresignReconciler) ensureTrillian() func(context.Context, *rhtasv1alpha1.Securesign) (bool, error) {

@@ -26,7 +26,7 @@ const (
 	ComponentName               = "rekor"
 	rekorMonitoringRoleName     = "prometheus-k8s-rekor"
 	rekorServiceMonitorName     = "rekor-metrics"
-	RekorServiceAccountName     = "rekor-sa"
+	rekorServiceAccountName     = "rekor-sa"
 )
 
 func NewCreateAction() action.Action[rhtasv1alpha1.Rekor] {
@@ -105,11 +105,53 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		instance.Status.TreeID = instance.Spec.TreeID
 	}
 
-	sa := kubernetes.CreateServiceAccount(instance.Namespace, RekorServiceAccountName, rekorServerLabels)
+	sa := kubernetes.CreateServiceAccount(instance.Namespace, rekorServiceAccountName, rekorServerLabels)
 	controllerutil.SetControllerReference(instance, sa, i.Client.Scheme())
 	if err = i.Client.Create(ctx, sa); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create rekor sa: %w", err)
+	}
+
+	role := k8sutils.CreateRole(
+		instance.Namespace,
+		RekorDeploymentName,
+		rekorServerLabels,
+		[]v1.PolicyRule{
+			{
+				APIGroups:     []string{""},
+				Resources:     []string{"configmaps"},
+				ResourceNames: []string{"rekor-config"},
+				Verbs:         []string{"get", "update"},
+			},
+			{
+				APIGroups: []string{""},
+				Resources: []string{"secrets"},
+				Verbs:     []string{"create", "get", "update"},
+			},
+		},
+	)
+	if err = i.Client.Create(ctx, role); err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not create rekor role: %w", err)
+	}
+
+	rb := k8sutils.CreateRoleBinding(
+		instance.Namespace,
+		RekorDeploymentName,
+		rekorServerLabels,
+		v1.RoleRef{
+			APIGroup: v1.SchemeGroupVersion.Group,
+			Kind:     "Role",
+			Name:     role.Name,
+		},
+		[]v1.Subject{
+			{Kind: "ServiceAccount", Name: sa.Name, Namespace: instance.Namespace},
+		},
+	)
+	controllerutil.SetOwnerReference(instance, rb, i.Client.Scheme())
+	if err = i.Client.Create(ctx, rb); err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not create rekor roleBinding: %w", err)
 	}
 
 	dp := utils.CreateRekorDeployment(instance, RekorDeploymentName, rekorServerLabels, sa.Name)
@@ -119,7 +161,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		return instance, fmt.Errorf("could not create Rekor deployment: %w", err)
 	}
 
-	redis := utils.CreateRedisDeployment(instance.Namespace, "rekor-redis", redisLabels, RekorServiceAccountName)
+	redis := utils.CreateRedisDeployment(instance.Namespace, "rekor-redis", redisLabels, sa.Name)
 	controllerutil.SetControllerReference(instance, redis, i.Client.Scheme())
 	if err = i.Client.Create(ctx, redis); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError

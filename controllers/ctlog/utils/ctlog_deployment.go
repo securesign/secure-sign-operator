@@ -9,9 +9,6 @@ import (
 )
 
 func CreateDeployment(namespace string, deploymentName string, configName string, labels map[string]string, serviceAccountName string) *appsv1.Deployment {
-	if serviceAccountName == "" {
-		serviceAccountName = constants.ServiceAccountName
-	}
 	replicas := int32(1)
 	// Define a new Deployment object
 	return &appsv1.Deployment{

@@ -8,9 +8,6 @@ import (
 )
 
 func CreateRedisDeployment(namespace string, dpName string, labels map[string]string, serviceAccountName string) *apps.Deployment {
-	if serviceAccountName == "" {
-		serviceAccountName = constants.ServiceAccountName
-	}
 	replicas := int32(1)
 	// Define a new Namespace object
 	return &apps.Deployment{

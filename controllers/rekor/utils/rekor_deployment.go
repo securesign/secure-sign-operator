@@ -11,9 +11,6 @@ import (
 )
 
 func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, labels map[string]string, serviceAccountName string) *apps.Deployment {
-	if serviceAccountName == "" {
-		serviceAccountName = constants.ServiceAccountName
-	}
 	env := make([]core.EnvVar, 0)
 	appArgs := []string{
 		"serve",

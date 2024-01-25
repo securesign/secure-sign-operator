@@ -15,10 +15,6 @@ import (
 func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, labels map[string]string, serviceAccountName string) *appsv1.Deployment {
 	replicas := int32(1)
 	mode := int32(0666)
-	if serviceAccountName == "" {
-		serviceAccountName = constants.ServiceAccountName
-	}
-
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,

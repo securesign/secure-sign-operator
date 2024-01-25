@@ -1,16 +1,12 @@
 package trillianUtils
 
 import (
-	"github.com/securesign/operator/controllers/constants"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func CreateTrillDb(namespace string, image string, dpName string, pvcName string, dbsecret string, labels map[string]string, serviceAccountName string) *apps.Deployment {
-	if serviceAccountName == "" {
-		serviceAccountName = constants.ServiceAccountName
-	}
 	replicas := int32(1)
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{

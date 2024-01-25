@@ -8,9 +8,6 @@ import (
 )
 
 func CreateTrillDeployment(namespace string, image string, dpName string, dbsecret string, labels map[string]string, serviceAccountName string) *apps.Deployment {
-	if serviceAccountName == "" {
-		serviceAccountName = constants.ServiceAccountName
-	}
 	replicas := int32(1)
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{

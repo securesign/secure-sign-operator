@@ -12,6 +12,7 @@ import (
 	"github.com/securesign/operator/controllers/fulcio"
 	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -93,6 +94,54 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	if err = i.Client.Create(ctx, sa); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return instance, fmt.Errorf("could not create ctlog service account: %w", err)
+	}
+
+	role := utils.CreateRole(
+		instance.Namespace,
+		deploymentName,
+		labels,
+		[]v1.PolicyRule{
+			{
+				APIGroups:     []string{""},
+				Resources:     []string{"configmaps"},
+				ResourceNames: []string{"ctlog-config"},
+				Verbs:         []string{"get", "update"},
+			},
+			{
+				APIGroups: []string{""},
+				Resources: []string{"secrets"},
+				Verbs:     []string{"create", "get", "update"},
+			},
+			{
+				APIGroups:     []string{""},
+				Resources:     []string{"configmaps"},
+				ResourceNames: []string{"ctlog-config"},
+				Verbs:         []string{"get", "update"},
+			},
+		},
+	)
+	if err = i.Client.Create(ctx, role); err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not create ctlog role: %w", err)
+	}
+
+	rb := utils.CreateRoleBinding(
+		instance.Namespace,
+		deploymentName,
+		labels,
+		v1.RoleRef{
+			APIGroup: v1.SchemeGroupVersion.Group,
+			Kind:     "Role",
+			Name:     role.Name,
+		},
+		[]v1.Subject{
+			{Kind: "ServiceAccount", Name: sa.Name, Namespace: instance.Namespace},
+		},
+	)
+	controllerutil.SetOwnerReference(instance, rb, i.Client.Scheme())
+	if err = i.Client.Create(ctx, rb); err != nil {
+		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		return instance, fmt.Errorf("could not create ctlog roleBinding: %w", err)
 	}
 
 	server := ctlogUtils.CreateDeployment(instance.Namespace, deploymentName, config.Name, labels, sa.Name)
