@@ -55,7 +55,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	logServerLabels[k8sutils.NameLabel] = logserverDeploymentName
 
 	var dbSecName string
-	if instance.Spec.Db.DatabaseSecret == "" {
+	if instance.Spec.Db.DatabaseSecretRef == nil {
 		dbSecret := i.createDbSecret(instance.Namespace, dbLabels)
 		controllerutil.SetControllerReference(instance, dbSecret, i.Client.Scheme())
 		if err = i.Client.Create(ctx, dbSecret); err != nil {
@@ -63,8 +63,16 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 			return instance, fmt.Errorf("could not create secret: %w", err)
 		}
 		dbSecName = dbSecret.Name
+		instance.Spec.Db.DatabaseSecretRef = &corev1.LocalObjectReference{
+			Name: dbSecName,
+		}
+		if err = i.Client.Update(ctx, instance); err != nil {
+			instance.Status.Phase = rhtasv1alpha1.PhaseError
+			return instance, fmt.Errorf("unable to update trillian resource: %w", err)
+		}
+		return nil, nil
 	} else {
-		dbSecName = instance.Spec.Db.DatabaseSecret
+		dbSecName = instance.Spec.Db.DatabaseSecretRef.Name
 	}
 
 	var trillPVC string
