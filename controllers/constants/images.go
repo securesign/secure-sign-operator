@@ -1,7 +1,7 @@
 package constants
 
 const (
-	TrillianLogSignerImage = "registry.redhat.io/rhtas-tech-preview/rillian-logsigner-rhel9@sha256:3c60ec029bc6742d9e1a62f057b2c7da928d0b13c50985495a4670c5538310d3"
+	TrillianLogSignerImage = "registry.redhat.io/rhtas-tech-preview/trillian-logsigner-rhel9@sha256:3c60ec029bc6742d9e1a62f057b2c7da928d0b13c50985495a4670c5538310d3"
 	TrillianServerImage    = "registry.redhat.io/rhtas-tech-preview/trillian-logserver-rhel9@sha256:5f9fcca2db9dbcbed0862d7a7e13cf355a3299624f0967836ea512c5b769ebb4"
 	TrillianDbImage        = "registry.redhat.io/rhtas-tech-preview/trillian-database-rhel9@sha256:508ff03f1ba8bd337ef5986535841cdbecd946be482c58ba91f6fdb51c2e5f9e"
 
