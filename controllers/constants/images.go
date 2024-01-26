@@ -10,9 +10,9 @@ const (
 
 	FulcioServerImage = "registry.redhat.io/rhtas-tech-preview/fulcio-rhel9@sha256:12fac8e6d83056a7e5108cf92d6c622ef800ea0f2361e5b5d428a9a94811dd10"
 
-	RekorRedisImage    = "docker.io/redis@sha256:6c42cce2871e8dc5fb3e843ed5c4e7939d312faf5e53ff0ff4ca955a7e0b2b39"
 	RekorServerImage   = "registry.redhat.io/rhtas-tech-preview/rekor-server-rhel9@sha256:53b650ad487dce78025d1dbddc5f25116c132f4e78b7d6f8c1dd0638574f6db3"
 	RekorSearchUiImage = "registry.redhat.io/rhtas-tech-preview/rekor-search-ui-rhel9@sha256:ea4344bc762809ca46ea0708de378d8592b97194a9c1e08eb9396294276818bf"
+	RekorRedisImage = "quay.io/redhat-user-workloads/rhtas-tenant/trillian-1-0-gamma/redis-0-6@sha256:be343cb799d09978fc51aa6041ecedb5b7e852d696544a17c29e105b76d2e4ae"
 
 	TufImage = "registry.redhat.io/rhtas-tech-preview/tuf-server-rhel9@sha256:e61b455868b416882dc45fe53a5039077de9c932865361fde28d52b31e4a68d2"
 
