@@ -1,0 +1,27 @@
+schemaVersion: 2.2.0
+metadata:
+  name: fbc-4.12
+  displayName: FBC 4.12
+  description: 'File based catalog'
+  language: fbc 
+  provider: Red Hat
+components:
+  - name: operator-bundle-1-0-gamma
+    image:
+      imageName: "registry.redhat.io/rhtas-tech-preview/sigstore-rhel9-operator"
+      dockerfile:
+        uri: bundle.Dockerfile 
+        buildContext: "4.12" 
+  - name: kubernetes
+    kubernetes:
+      inlined: placeholder
+    attributes:
+      deployment/container-port: 50051
+      deployment/cpuRequest: "100m"
+      deployment/memoryRequest: 512Mi
+      deployment/replicas: 1
+      deployment/storageRequest: "0"
+commands:
+  - id: build-image
+    apply:
+      component: image-build"
