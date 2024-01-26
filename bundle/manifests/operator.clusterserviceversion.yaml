@@ -669,7 +669,7 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
-                image: quay.io/redhat-user-workloads/rhtas-tenant/operator-1-0-gamma/operator-1-0-gamma:eaed20e6991daba3e84f6b861fe75a1c850ef2fb
+                image: registry.redhat.io/rhtas-tech-preview/sigstore-rhel9-operator@sha256:e4a077015f43fb343d8b13739f08d90e9e9229dc0e3a90e42f72a33dbacd979e
                 livenessProbe:
                   httpGet:
                     path: /healthz
