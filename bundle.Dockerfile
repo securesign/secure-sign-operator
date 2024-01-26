@@ -1,4 +1,6 @@
 FROM scratch
+# Resolves konflux bug: build issues with only 1 scratch parent image
+FROM registry.redhat.io/ubi9/ubi-micro:latest
 
 # Core bundle labels.
 LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1
