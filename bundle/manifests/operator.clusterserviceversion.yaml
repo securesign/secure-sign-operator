@@ -669,7 +669,7 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
-                image: quay.io/rcook/securesign-controller:latest
+                image: registry.redhat.io/rhtas-tech-preview/sigstore-rhel9-operator@sha256:e4a077015f43fb343d8b13739f08d90e9e9229dc0e3a90e42f72a33dbacd979e
                 livenessProbe:
                   httpGet:
                     path: /healthz

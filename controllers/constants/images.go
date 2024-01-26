@@ -12,7 +12,7 @@ const (
 
 	RekorServerImage   = "registry.redhat.io/rhtas-tech-preview/rekor-server-rhel9@sha256:53b650ad487dce78025d1dbddc5f25116c132f4e78b7d6f8c1dd0638574f6db3"
 	RekorSearchUiImage = "registry.redhat.io/rhtas-tech-preview/rekor-search-ui-rhel9@sha256:ea4344bc762809ca46ea0708de378d8592b97194a9c1e08eb9396294276818bf"
-	RekorRedisImage = "registry.redhat.io/rhtas-tech-preview/redis-trillian-rhel9@sha256:acf920baf6ee1715c0c9d7ddf69867d331c589d3afa680048c508943078d9585"
+	RekorRedisImage    = "registry.redhat.io/rhtas-tech-preview/redis-trillian-rhel9@sha256:acf920baf6ee1715c0c9d7ddf69867d331c589d3afa680048c508943078d9585"
 
 	TufImage = "registry.redhat.io/rhtas-tech-preview/tuf-server-rhel9@sha256:e61b455868b416882dc45fe53a5039077de9c932865361fde28d52b31e4a68d2"
 
