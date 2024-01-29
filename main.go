@@ -235,6 +235,7 @@ func createClientserver(ctx context.Context, cli client2.Client) ([]client.Objec
 			"cosign":    "cosign is a CLI tool that allows you to manage sigstore artifacts.",
 			"rekor-cli": "rekor-cli is a CLI tool that allows you to interact with rekor server.",
 			"gitsign":   "gitsign is a CLI tool that allows you to digitally sign and verify git commits.",
+			"ec":        "Enterprise Contract CLI. Set of commands to help validate resources with the Enterprise Contract.",
 		} {
 			obj = append(obj, createConsoleCLIDownload(ns.Name, name, protocol+ingress.Spec.Rules[0].Host, description, labels))
 		}
