@@ -1,17 +1,17 @@
 schemaVersion: 2.2.0
 metadata:
-  name: fbc-4.12
-  displayName: FBC 4.12
+  name: rhtas-operator-fbc-v4.16
+  displayName: RHTAS FBC v4.16
   description: 'File based catalog'
-  language: fbc 
+  language: fbc
   provider: Red Hat
 components:
-  - name: operator-bundle-1-0-gamma
+  - name: image-build
     image:
-      imageName: "registry.redhat.io/rhtas-tech-preview/sigstore-rhel9-operator"
+      imageName: ""
       dockerfile:
-        uri: bundle.Dockerfile 
-        buildContext: "4.12" 
+        uri: bundle.Dockerfile
+        buildContext: ""
   - name: kubernetes
     kubernetes:
       inlined: placeholder
@@ -24,4 +24,4 @@ components:
 commands:
   - id: build-image
     apply:
-      component: image-build"
+      component: image-build
