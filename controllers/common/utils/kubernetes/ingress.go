@@ -33,7 +33,7 @@ func CreateIngress(ctx context.Context, cli client.Client, svc v12.Service, conf
 			if err := cli.Get(ctx, types.NamespacedName{Namespace: "openshift-ingress-operator", Name: "default"}, ctrl); err != nil {
 				return nil, err
 			}
-			host = fmt.Sprintf("%s.%s.%s", svc.Name, svc.Namespace, ctrl.Status.Domain)
+			host = fmt.Sprintf("%s-%s.%s", svc.Name, svc.Namespace, ctrl.Status.Domain)
 		} else {
 			host = svc.Name + ".local"
 		}
