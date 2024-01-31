@@ -1,0 +1,13 @@
+---
+schema: olm.package
+name: rhtas-operator
+defaultChannel: stable
+---
+schema: olm.channel
+package: krhtas-operator
+name: stable
+entries:
+- name: rhtas-operator-v0.0.1
+---
+schema: olm.bundle
+image: registry.redhat.io/container-native-virtualization/hco-bundle-registry@sha256:35b29e8eb48d9818a1217d5b89e4dcb7a900c5c5e6ae3745683813c5708c86e9
