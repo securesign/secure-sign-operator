@@ -55,7 +55,7 @@ EOT
 
 dockerfile()
 {
-  cat <<EOT > "$1"/bunlde.Dockerfile
+  cat <<EOT > "$1"/catalog.Dockerfile
 # The base image is expected to contain
 # /bin/opm (with a serve subcommand) and /bin/grpc_health_probe
 FROM registry.redhat.io/openshift4/ose-operator-registry:$1
@@ -63,16 +63,11 @@ FROM registry.redhat.io/openshift4/ose-operator-registry:$1
 ENTRYPOINT ["/bin/opm"]
 CMD ["serve", "/configs", "--cache-dir=/tmp/cache"]
 
-# Copy files to locations specified by labels.
-COPY bundle/manifests /config/manifests/
-COPY bundle/metadata /config/metadata/
-COPY bundle/tests/scorecard /config/tests/scorecard/
-
-
+add catalog /configs
 RUN ["/bin/opm", "serve", "/configs", "--cache-dir=/tmp/cache", "--cache-only"]
 
-
 # Core bundle labels.
+
 LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1
 LABEL operators.operatorframework.io.bundle.manifests.v1=manifests/
 LABEL operators.operatorframework.io.bundle.metadata.v1=metadata/
@@ -83,9 +78,6 @@ LABEL operators.operatorframework.io.metrics.mediatype.v1=metrics+v1
 LABEL operators.operatorframework.io.metrics.project_layout=go.kubebuilder.io/v3
 LABEL operators.operatorframework.io.index.configs.v1=/configs
 
-# Labels for testing.
-LABEL operators.operatorframework.io.test.mediatype.v1=scorecard+v1
-LABEL operators.operatorframework.io.test.config.v1=tests/scorecard/
 EOT
 }
 
@@ -126,6 +118,7 @@ case $cmd in
     case $yqOrjq in
       "yq")
         touch "${frag}"/graph.yaml
+        echo opm render $from -o yaml 
 	"${OPM_CMD}" render "$from" -o yaml | yq "select( .package == \"$package_name\" or .name == \"$package_name\")" | yq 'select(.schema == "olm.bundle") = {"schema": .schema, "image": .image}' | yq 'select(.schema == "olm.package") = {"schema": .schema, "name": .name, "defaultChannel": .defaultChannel}' > "${frag}"/graph.yaml
       ;;
       "jq")
