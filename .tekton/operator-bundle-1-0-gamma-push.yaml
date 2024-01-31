@@ -18,13 +18,13 @@ metadata:
 spec:
   params:
   - name: dockerfile
-    value: bundle.Dockerfile
+    value: catalog.Dockerfile
   - name: git-url
     value: '{{source_url}}'
   - name: output-image
     value: quay.io/redhat-user-workloads/rhtas-tenant/operator-1-0-gamma/operator-bundle-1-0-gamma:{{revision}}
   - name: path-context
-    value: .
+    value: fbc/v4.13
   - name: revision
     value: '{{revision}}'
   pipelineSpec:
