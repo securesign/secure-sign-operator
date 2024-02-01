@@ -36,6 +36,79 @@ spec:
             properties:
               ctlog:
                 description: CTlogSpec defines the desired state of CTlog component
+                properties:
+                  privateKeyPasswordRef:
+                    description: Password to decrypt private key
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  privateKeyRef:
+                    description: The private key used for signing STHs etc.
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  publicKeyRef:
+                    description: The public key matching the private key (if both
+                      are present). It is used only by mirror logs for verifying the
+                      source log's signatures, but can be specified for regular logs
+                      as well for the convenience of test tools.
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  rootCertificates:
+                    description: List of secrets containing root certificates that
+                      are acceptable to the log. The certs are served through get-roots
+                      endpoint. Optional in mirrors.
+                    items:
+                      description: SecretKeySelector selects a key of a Secret.
+                      properties:
+                        key:
+                          description: The key of the secret to select from.  Must
+                            be a valid secret key.
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            TODO: Add other useful fields. apiVersion, kind, uid?'
+                          type: string
+                      required:
+                      - key
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    type: array
+                  treeID:
+                    description: The ID of a Trillian tree that stores the log data.
+                    format: int64
+                    type: integer
                 type: object
               fulcio:
                 description: FulcioSpec defines the desired state of Fulcio
@@ -43,20 +116,138 @@ spec:
                   certificate:
                     description: Certificate configuration
                     properties:
-                      create:
-                        type: boolean
+                      caRef:
+                        description: Reference to CA certificate
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      commonName:
+                        type: string
                       organizationEmail:
                         type: string
                       organizationName:
                         type: string
-                      secretName:
-                        description: 'Enter secret name for your keys and certificate
-                          (will be generated in case of the `create=true`) Required
-                          fields are: public,private,cert,password'
-                        type: string
-                    required:
-                    - create
-                    - secretName
+                      privateKeyPasswordRef:
+                        description: Reference to password to encrypt CA private key
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      privateKeyRef:
+                        description: Reference to CA private key
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
+                  config:
+                    properties:
+                      MetaIssuers:
+                        additionalProperties:
+                          properties:
+                            ChallengeClaim:
+                              description: Optional, the challenge claim expected
+                                for the issuer Set if using a custom issuer
+                              type: string
+                            ClientID:
+                              description: The expected client ID of the OIDC token
+                              type: string
+                            IssuerClaim:
+                              description: Optional, if the issuer is in a different
+                                claim in the OIDC token
+                              type: string
+                            IssuerURL:
+                              description: The expected issuer of an OIDC token
+                              type: string
+                            SPIFFETrustDomain:
+                              description: SPIFFETrustDomain specifies the trust domain
+                                that 'spiffe' issuer types issue ID tokens for. Tokens
+                                with a different trust domain will be rejected.
+                              type: string
+                            SubjectDomain:
+                              description: The domain that must be present in the
+                                subject for 'uri' issuer types Also used to create
+                                an email for 'username' issuer types
+                              type: string
+                            Type:
+                              description: Used to determine the subject of the certificate
+                                and if additional certificate values are needed
+                              type: string
+                          required:
+                          - ClientID
+                          - Type
+                          type: object
+                        description: 'A meta issuer has a templated URL of the form:
+                          https://oidc.eks.*.amazonaws.com/id/* Where * can match
+                          a single hostname or URI path parts (in particular, no ''.''
+                          or ''/'' are permitted, among other special characters)  Some
+                          examples we want to match: * https://oidc.eks.us-west-2.amazonaws.com/id/B02C93B6A2D30341AD01E1B6D48164CB
+                          * https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster'
+                        type: object
+                      OIDCIssuers:
+                        additionalProperties:
+                          properties:
+                            ChallengeClaim:
+                              description: Optional, the challenge claim expected
+                                for the issuer Set if using a custom issuer
+                              type: string
+                            ClientID:
+                              description: The expected client ID of the OIDC token
+                              type: string
+                            IssuerClaim:
+                              description: Optional, if the issuer is in a different
+                                claim in the OIDC token
+                              type: string
+                            IssuerURL:
+                              description: The expected issuer of an OIDC token
+                              type: string
+                            SPIFFETrustDomain:
+                              description: SPIFFETrustDomain specifies the trust domain
+                                that 'spiffe' issuer types issue ID tokens for. Tokens
+                                with a different trust domain will be rejected.
+                              type: string
+                            SubjectDomain:
+                              description: The domain that must be present in the
+                                subject for 'uri' issuer types Also used to create
+                                an email for 'username' issuer types
+                              type: string
+                            Type:
+                              description: Used to determine the subject of the certificate
+                                and if additional certificate values are needed
+                              type: string
+                          required:
+                          - ClientID
+                          - Type
+                          type: object
+                        type: object
                     type: object
                   externalAccess:
                     description: Define whether you want to export service or not
@@ -74,43 +265,12 @@ spec:
                   monitoring:
                     description: Enable Service monitors for fulcio
                     type: boolean
-                  oidcIssuers:
-                    additionalProperties:
-                      properties:
-                        ClientID:
-                          type: string
-                        IssuerURL:
-                          type: string
-                        Type:
-                          type: string
-                      required:
-                      - ClientID
-                      - IssuerURL
-                      - Type
-                      type: object
-                    description: OIDC issuer configuration
-                    type: object
                 required:
-                - oidcIssuers
+                - config
                 type: object
               rekor:
                 description: RekorSpec defines the desired state of Rekor
                 properties:
-                  certificate:
-                    description: Certificate configuration
-                    properties:
-                      create:
-                        description: Generate certificate
-                        type: boolean
-                      secretName:
-                        description: 'Enter secret name for your keys and certificate
-                          (will be generated in case of `create=true`) Required fields:
-                          private'
-                        type: string
-                    required:
-                    - create
-                    - secretName
-                    type: object
                   externalAccess:
                     description: Define whether you want to export service or not
                     properties:
@@ -131,6 +291,56 @@ spec:
                     description: Persistent volume claim name to bound with Rekor
                       component
                     type: string
+                  rekorSearchUI:
+                    description: Rekor Search UI
+                    properties:
+                      enabled:
+                        description: Enable RekorSearchUI deployment
+                        type: boolean
+                    type: object
+                  signer:
+                    description: Signer configuration
+                    properties:
+                      keyRef:
+                        description: Reference to signer private key
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      kms:
+                        default: secret
+                        description: KMS Signer provider. Valid options are secret,
+                          memory or any supported KMS provider defined by go-cloud
+                          style URI
+                        type: string
+                      passwordRef:
+                        description: Password to decrypt signer private key
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
+                  treeID:
+                    format: int64
+                    type: integer
                 type: object
               trillian:
                 description: TrillianSpec defines the desired state of Trillian
@@ -143,10 +353,16 @@ spec:
                           one must be defined using the DatabaseSecret field default:
                           true'
                         type: boolean
-                      databaseSecret:
+                      databaseSecretRef:
                         description: Secret with values to be used to connect to an
                           existing DB or to be used with the creation of a new DB
-                        type: string
+                        properties:
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                        type: object
+                        x-kubernetes-map-type: atomic
                       pvcName:
                         description: Persistent volume claim name to bound with Trillian
                           DB
@@ -154,6 +370,11 @@ spec:
                     type: object
                 type: object
               tuf:
+                default:
+                  keys:
+                  - name: rekor.pub
+                  - name: ctfe.pub
+                  - name: fulcio_v1.crt.pem
                 description: TufSpec defines the desired state of Tuf
                 properties:
                   externalAccess:
@@ -169,11 +390,45 @@ spec:
                         description: Set hostname for your Ingress/Route.
                         type: string
                     type: object
+                  keys:
+                    default:
+                    - name: rekor.pub
+                    - name: ctfe.pub
+                    - name: fulcio_v1.crt.pem
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        secretRef:
+                          description: SecretKeySelector selects a key of a Secret.
+                          properties:
+                            key:
+                              description: The key of the secret to select from.  Must
+                                be a valid secret key.
+                              type: string
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
+                              type: string
+                          required:
+                          - key
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      required:
+                      - name
+                      type: object
+                    type: array
+                  port:
+                    default: 80
+                    format: int32
+                    type: integer
                 type: object
             type: object
           status:
             description: SecuresignStatus defines the observed state of Securesign
             properties:
+              clientServerUrl:
+                type: string
               ctlog:
                 type: string
               fulcio:
@@ -188,6 +443,7 @@ spec:
               tuf:
                 type: string
             required:
+            - clientServerUrl
             - ctlog
             - fulcio
             - rekor
