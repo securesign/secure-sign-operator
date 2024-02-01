@@ -1,0 +1,790 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: |-
+      [
+        {
+          "apiVersion": "rhtas.redhat.com/v1alpha1",
+          "kind": "CTlog",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/instance": "securesign-sample",
+              "app.kubernetes.io/name": "securesign-sample",
+              "app.kubernetes.io/part-of": "trusted-artifact-signer"
+            },
+            "name": "ctlog-sample"
+          },
+          "spec": null
+        },
+        {
+          "apiVersion": "rhtas.redhat.com/v1alpha1",
+          "kind": "Fulcio",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/instance": "securesign-sample",
+              "app.kubernetes.io/name": "securesign-sample",
+              "app.kubernetes.io/part-of": "trusted-artifact-signer"
+            },
+            "name": "fulcio-sample"
+          },
+          "spec": {
+            "certificate": {
+              "commonName": "fulcio.hostname",
+              "organizationEmail": "jdoe@redhat.com",
+              "organizationName": "Red Hat"
+            },
+            "config": {
+              "OIDCIssuers": {
+                "https://your-oidc-issuer-url": {
+                  "ClientID": "trusted-artifact-signer",
+                  "IssuerURL": "https://your-oidc-issuer-url",
+                  "Type": "email"
+                }
+              }
+            },
+            "externalAccess": {
+              "enabled": true
+            }
+          }
+        },
+        {
+          "apiVersion": "rhtas.redhat.com/v1alpha1",
+          "kind": "Rekor",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/instance": "securesign-sample",
+              "app.kubernetes.io/name": "securesign-sample",
+              "app.kubernetes.io/part-of": "trusted-artifact-signer"
+            },
+            "name": "rekor-sample"
+          },
+          "spec": {
+            "externalAccess": {
+              "enabled": true
+            }
+          }
+        },
+        {
+          "apiVersion": "rhtas.redhat.com/v1alpha1",
+          "kind": "Securesign",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/instance": "securesign-sample",
+              "app.kubernetes.io/name": "securesign-sample",
+              "app.kubernetes.io/part-of": "trusted-artifact-signer"
+            },
+            "name": "securesign-sample"
+          },
+          "spec": {
+            "ctlog": null,
+            "fulcio": {
+              "certificate": {
+                "commonName": "fulcio.hostname",
+                "organizationEmail": "jdoe@redhat.com",
+                "organizationName": "Red Hat"
+              },
+              "config": {
+                "OIDCIssuers": {
+                  "https://your-oidc-issuer-url": {
+                    "ClientID": "trusted-artifact-signer",
+                    "IssuerURL": "https://your-oidc-issuer-url",
+                    "Type": "email"
+                  }
+                }
+              },
+              "externalAccess": {
+                "enabled": true
+              },
+              "monitoring": false
+            },
+            "rekor": {
+              "externalAccess": {
+                "enabled": true
+              },
+              "monitoring": false
+            },
+            "trillian": {
+              "database": {
+                "create": true
+              }
+            },
+            "tuf": {
+              "externalAccess": {
+                "enabled": true
+              }
+            }
+          }
+        },
+        {
+          "apiVersion": "rhtas.redhat.com/v1alpha1",
+          "kind": "Trillian",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/instance": "securesign-sample",
+              "app.kubernetes.io/name": "securesign-sample",
+              "app.kubernetes.io/part-of": "trusted-artifact-signer"
+            },
+            "name": "trillian-sample"
+          },
+          "spec": null
+        },
+        {
+          "apiVersion": "rhtas.redhat.com/v1alpha1",
+          "kind": "Tuf",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/instance": "securesign-sample",
+              "app.kubernetes.io/name": "securesign-sample",
+              "app.kubernetes.io/part-of": "trusted-artifact-signer"
+            },
+            "name": "tuf-sample"
+          },
+          "spec": {
+            "external": {
+              "enabled": true,
+              "host": "tuf.example.com"
+            },
+            "keys": [
+              {
+                "name": "rekor.pub",
+                "secretRef": {
+                  "key": "public",
+                  "name": "rekor-pub-key"
+                }
+              },
+              {
+                "name": "fulcio_v1.crt.pem",
+                "secretRef": {
+                  "key": "cert",
+                  "name": "fulcio-pub-key"
+                }
+              },
+              {
+                "name": "ctfe.pub",
+                "secretRef": {
+                  "key": "public",
+                  "name": "ctlog-pub-key"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    capabilities: Basic Install
+    createdAt: "2024-02-01T19:16:43Z"
+    operators.operatorframework.io/builder: operator-sdk-v1.32.0
+    operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
+  name: rhtas-operator.v0.0.1
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - kind: CTlog
+      name: ctlogs.rhtas.redhat.com
+      version: v1alpha1
+    - kind: Fulcio
+      name: fulcios.rhtas.redhat.com
+      version: v1alpha1
+    - kind: Rekor
+      name: rekors.rhtas.redhat.com
+      version: v1alpha1
+    - kind: Securesign
+      name: securesigns.rhtas.redhat.com
+      version: v1alpha1
+    - kind: Trillian
+      name: trillians.rhtas.redhat.com
+      version: v1alpha1
+    - kind: Tuf
+      name: tufs.rhtas.redhat.com
+      version: v1alpha1
+  description: Rhtas Operator description. TODO.
+  displayName: Rhtas Operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      clusterPermissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - endpoints
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          verbs:
+          - create
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - batch
+          resources:
+          - jobs
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - console.openshift.io
+          resources:
+          - consoleclidownloads
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - namespaces
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - persistentvolumeclaims
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - serviceaccounts
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - services
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - networking
+          resources:
+          - ingresses
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - networking.k8s.io
+          resources:
+          - ingresses
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - operator.openshift.io
+          resources:
+          - ingresscontrollers
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - clusterrolebindings
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - clusterroles
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - rolebindings
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - roles
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - ctlogs
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - ctlogs/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - ctlogs/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - fulcios
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - fulcios/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - fulcios/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - rekors
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - rekors/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - rekors/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - secrets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - securesigns
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - securesigns/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - securesigns/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - trillians
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - trillians/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - trillians/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - tufs
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - tufs/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - tufs/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - route.openshift.io
+          resources:
+          - routes
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - authentication.k8s.io
+          resources:
+          - tokenreviews
+          verbs:
+          - create
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
+        serviceAccountName: rhtas-operator-controller-manager
+      deployments:
+      - label:
+          app.kubernetes.io/component: manager
+          app.kubernetes.io/created-by: rhtas-operator
+          app.kubernetes.io/instance: operator-controller-manager
+          app.kubernetes.io/managed-by: kustomize
+          app.kubernetes.io/name: deployment
+          app.kubernetes.io/part-of: rhtas-operator
+          control-plane: operator-controller-manager
+        name: rhtas-operator-controller-manager
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              control-plane: operator-controller-manager
+          strategy: {}
+          template:
+            metadata:
+              annotations:
+                kubectl.kubernetes.io/default-container: manager
+              labels:
+                control-plane: operator-controller-manager
+            spec:
+              affinity:
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms:
+                    - matchExpressions:
+                      - key: kubernetes.io/arch
+                        operator: In
+                        values:
+                        - amd64
+                        - arm64
+                        - ppc64le
+                        - s390x
+                      - key: kubernetes.io/os
+                        operator: In
+                        values:
+                        - linux
+              containers:
+              - args:
+                - --secure-listen-address=0.0.0.0:8443
+                - --upstream=http://127.0.0.1:8080/
+                - --logtostderr=true
+                - --v=0
+                image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
+                name: kube-rbac-proxy
+                ports:
+                - containerPort: 8443
+                  name: https
+                  protocol: TCP
+                resources:
+                  limits:
+                    cpu: 500m
+                    memory: 128Mi
+                  requests:
+                    cpu: 5m
+                    memory: 64Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+              - args:
+                - --health-probe-bind-address=:8081
+                - --metrics-bind-address=127.0.0.1:8080
+                - --leader-elect
+                command:
+                - /manager
+                image: registry.redhat.io/rhtas-tech-preview/sigstore-rhel9-operator-controller:latest
+                livenessProbe:
+                  httpGet:
+                    path: /healthz
+                    port: 8081
+                  initialDelaySeconds: 15
+                  periodSeconds: 20
+                name: manager
+                readinessProbe:
+                  httpGet:
+                    path: /readyz
+                    port: 8081
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+                resources:
+                  limits:
+                    cpu: 500m
+                    memory: 128Mi
+                  requests:
+                    cpu: 10m
+                    memory: 64Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+              securityContext:
+                runAsNonRoot: true
+              serviceAccountName: rhtas-operator-controller-manager
+              terminationGracePeriodSeconds: 10
+      permissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          verbs:
+          - create
+          - patch
+        serviceAccountName: rhtas-operator-controller-manager
+    strategy: deployment
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - rhtas-operator
+  links:
+  - name: Rhtas Operator
+    url: https://rhtas-operator.domain
+  maintainers:
+  - email: your@email.com
+    name: Maintainer Name
+  maturity: alpha
+  provider:
+    name: Provider Name
+    url: https://your.domain
+  version: 0.0.1

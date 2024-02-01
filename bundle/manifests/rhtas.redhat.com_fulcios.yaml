@@ -46,20 +46,137 @@ spec:
               certificate:
                 description: Certificate configuration
                 properties:
-                  create:
-                    type: boolean
+                  caRef:
+                    description: Reference to CA certificate
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  commonName:
+                    type: string
                   organizationEmail:
                     type: string
                   organizationName:
                     type: string
-                  secretName:
-                    description: 'Enter secret name for your keys and certificate
-                      (will be generated in case of the `create=true`) Required fields
-                      are: public,private,cert,password'
-                    type: string
-                required:
-                - create
-                - secretName
+                  privateKeyPasswordRef:
+                    description: Reference to password to encrypt CA private key
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  privateKeyRef:
+                    description: Reference to CA private key
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                type: object
+              config:
+                properties:
+                  MetaIssuers:
+                    additionalProperties:
+                      properties:
+                        ChallengeClaim:
+                          description: Optional, the challenge claim expected for
+                            the issuer Set if using a custom issuer
+                          type: string
+                        ClientID:
+                          description: The expected client ID of the OIDC token
+                          type: string
+                        IssuerClaim:
+                          description: Optional, if the issuer is in a different claim
+                            in the OIDC token
+                          type: string
+                        IssuerURL:
+                          description: The expected issuer of an OIDC token
+                          type: string
+                        SPIFFETrustDomain:
+                          description: SPIFFETrustDomain specifies the trust domain
+                            that 'spiffe' issuer types issue ID tokens for. Tokens
+                            with a different trust domain will be rejected.
+                          type: string
+                        SubjectDomain:
+                          description: The domain that must be present in the subject
+                            for 'uri' issuer types Also used to create an email for
+                            'username' issuer types
+                          type: string
+                        Type:
+                          description: Used to determine the subject of the certificate
+                            and if additional certificate values are needed
+                          type: string
+                      required:
+                      - ClientID
+                      - Type
+                      type: object
+                    description: 'A meta issuer has a templated URL of the form: https://oidc.eks.*.amazonaws.com/id/*
+                      Where * can match a single hostname or URI path parts (in particular,
+                      no ''.'' or ''/'' are permitted, among other special characters)  Some
+                      examples we want to match: * https://oidc.eks.us-west-2.amazonaws.com/id/B02C93B6A2D30341AD01E1B6D48164CB
+                      * https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster'
+                    type: object
+                  OIDCIssuers:
+                    additionalProperties:
+                      properties:
+                        ChallengeClaim:
+                          description: Optional, the challenge claim expected for
+                            the issuer Set if using a custom issuer
+                          type: string
+                        ClientID:
+                          description: The expected client ID of the OIDC token
+                          type: string
+                        IssuerClaim:
+                          description: Optional, if the issuer is in a different claim
+                            in the OIDC token
+                          type: string
+                        IssuerURL:
+                          description: The expected issuer of an OIDC token
+                          type: string
+                        SPIFFETrustDomain:
+                          description: SPIFFETrustDomain specifies the trust domain
+                            that 'spiffe' issuer types issue ID tokens for. Tokens
+                            with a different trust domain will be rejected.
+                          type: string
+                        SubjectDomain:
+                          description: The domain that must be present in the subject
+                            for 'uri' issuer types Also used to create an email for
+                            'username' issuer types
+                          type: string
+                        Type:
+                          description: Used to determine the subject of the certificate
+                            and if additional certificate values are needed
+                          type: string
+                      required:
+                      - ClientID
+                      - Type
+                      type: object
+                    type: object
                 type: object
               externalAccess:
                 description: Define whether you want to export service or not
@@ -76,24 +193,8 @@ spec:
               monitoring:
                 description: Enable Service monitors for fulcio
                 type: boolean
-              oidcIssuers:
-                additionalProperties:
-                  properties:
-                    ClientID:
-                      type: string
-                    IssuerURL:
-                      type: string
-                    Type:
-                      type: string
-                  required:
-                  - ClientID
-                  - IssuerURL
-                  - Type
-                  type: object
-                description: OIDC issuer configuration
-                type: object
             required:
-            - oidcIssuers
+            - config
             type: object
           status:
             description: FulcioStatus defines the observed state of Fulcio
