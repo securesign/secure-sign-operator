@@ -9,7 +9,7 @@
     "package": "rhtas-operator",
     "entries": [
         {
-            "name": "rhtas-operator-v0.0.1"
+            "name": "rhtas-operator.v0.0.1"
         }
     ]
 }
