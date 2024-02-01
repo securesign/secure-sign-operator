@@ -69,8 +69,8 @@ spec:
   - rhtas
   - trust
   links:
-  - name: Rhtas Operator
-    url: https://rhtas-operator.domain
+  - name: RHTAS Operator
+    url: https://github.com/securesign/secure-sign-operator
   maintainers:
   - email: rcook@redhat.com
     name: Ryan Cook
