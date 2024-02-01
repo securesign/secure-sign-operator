@@ -7,7 +7,7 @@ layout:
 - go.kubebuilder.io/v3
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
-  scorecard.sdk.sign-operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
 projectName: rhtas-operator
 repo: github.com/securesign/secure-sign-operator
 resources:
