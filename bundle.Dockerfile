@@ -1,4 +1,4 @@
-FROM scratch
+FROM registry.redhat.io/openshift4/ose-operator-registry:v4.14 
 
 # Core bundle labels.
 LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1
