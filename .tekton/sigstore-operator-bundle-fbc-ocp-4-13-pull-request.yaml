@@ -12,7 +12,7 @@ metadata:
       || "catalog.Dockerfile".pathChanged() )
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: operator-1-0-gamma
+    appstudio.openshift.io/application: sigstore-operator-bundle-fbc-ocp
     appstudio.openshift.io/component: sigstore-operator-bundle-fbc-ocp-4-13
     pipelines.appstudio.openshift.io/type: build
   name: sigstore-operator-bundle-fbc-ocp-4-13-on-pull-request
@@ -26,7 +26,7 @@ spec:
   - name: image-expires-after
     value: 5d
   - name: output-image
-    value: quay.io/redhat-user-workloads/rhtas-tenant/operator-1-0-gamma/sigstore-operator-bundle-fbc-ocp-4-13:on-pr-{{revision}}
+    value: quay.io/redhat-user-workloads/rhtas-tenant/sigstore-operator-bundle-fbc-ocp/sigstore-operator-bundle-fbc-ocp-4-13:on-pr-{{revision}}
   - name: path-context
     value: fbc/v4.13
   - name: revision
