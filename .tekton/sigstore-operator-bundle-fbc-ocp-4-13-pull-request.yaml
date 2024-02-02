@@ -7,11 +7,10 @@ metadata:
     build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch
-      == "release-1.0.gamma"
+    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch == "release-1.0.gamma" && ( "./fbc/v4.13/***".pathChanged() || ".tekton/sigstore-operator-bundle-fbc-ocp-4-13-pull-request.yaml".pathChanged() )
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: operator-1-0-gamma
+    appstudio.openshift.io/application: sigstore-operator-bundle-fbc-ocp
     appstudio.openshift.io/component: sigstore-operator-bundle-fbc-ocp-4-13
     pipelines.appstudio.openshift.io/type: build
   name: sigstore-operator-bundle-fbc-ocp-4-13-on-pull-request
@@ -25,7 +24,7 @@ spec:
   - name: image-expires-after
     value: 5d
   - name: output-image
-    value: quay.io/redhat-user-workloads/rhtas-tenant/operator-1-0-gamma/sigstore-operator-bundle-fbc-ocp-4-13:on-pr-{{revision}}
+    value: quay.io/redhat-user-workloads/rhtas-tenant/sigstore-operator-bundle-fbc-ocp/sigstore-operator-bundle-fbc-ocp-4-13:on-pr-{{revision}}
   - name: path-context
     value: fbc/v4.13
   - name: revision
