@@ -719,7 +719,7 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
-                image: registry.redhat.io/rhtas-tech-preview/sigstore-rhel9-operator-controller:latest
+                image: quay.io/redhat-user-workloads/rhtas-tenant/operator-1-0-gamma/operator-1-0-gamma@sha256:4074205546123d175996e4cd14d3459cfebb0af78272b063b28e162652653485
                 livenessProbe:
                   httpGet:
                     path: /healthz

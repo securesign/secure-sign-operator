@@ -17,7 +17,7 @@
     "schema": "olm.bundle",
     "name": "rhtas-operator.v0.0.1",
     "package": "rhtas-operator",
-    "image": "quay.io/redhat-user-workloads/rhtas-tenant/operator-1-0-gamma/sigstore-operator-bundle@sha256:dfe806246c946c3481e735beec590437c2e05ffb167a6b2670b359d6a73c72a8",
+    "image": "quay.io/redhat-user-workloads/rhtas-tenant/operator-1-0-gamma/sigstore-operator-bundle@sha256:2f62912b1a46416eb6840b0f7801ea2ff2d51a74a9347eef125821faeb157006",
     "properties": [
         {
             "type": "olm.gvk",
@@ -211,11 +211,11 @@
         },
         {
             "name": "",
-            "image": "quay.io/redhat-user-workloads/rhtas-tenant/operator-1-0-gamma/sigstore-operator-bundle@sha256:dfe806246c946c3481e735beec590437c2e05ffb167a6b2670b359d6a73c72a8"
+            "image": "quay.io/redhat-user-workloads/rhtas-tenant/operator-1-0-gamma/sigstore-operator-bundle@sha256:2f62912b1a46416eb6840b0f7801ea2ff2d51a74a9347eef125821faeb157006"
         },
         {
             "name": "",
-            "image": "registry.redhat.io/rhtas-tech-preview/sigstore-rhel9-operator-controller:latest"
+            "image": "quay.io/redhat-user-workloads/rhtas-tenant/operator-1-0-gamma/operator-1-0-gamma@sha256:4074205546123d175996e4cd14d3459cfebb0af78272b063b28e162652653485"
         }
     ]
 }

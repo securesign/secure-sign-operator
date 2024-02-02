@@ -178,7 +178,7 @@ func createDB(ctx context.Context, cli k8sCli.Client, ns string, secretRef strin
 			Containers: []v1.Container{
 				{
 					Name:  "mysql",
-					Image: "registry.redhat.io/rhtas-tech-preview/trillian-database-rhel9@sha256:fe4758ff57a9a6943a4655b21af63fb579384dc51838af85d0089c04290b4957",
+					Image: "quay.io/redhat-user-workloads/rhtas-tenant/trillian-1-0-gamma/trillian-database-1-5@sha256:3e7210bd4943c266eabaee33a50d86241c66ed69463f208bcc0b0b7373c22af0",
 					Env: []v1.EnvVar{
 						{
 							Name: "MYSQL_ROOT_PASSWORD",
