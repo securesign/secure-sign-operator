@@ -4,8 +4,8 @@ metadata:
   labels:
     release.appstudio.openshift.io/auto-release: "true"
     release.appstudio.openshift.io/standing-attribution: "true"
-  name: rhtas-rhtas-fbc-v4-13-registry-redhat-io
+  name: rhtas-rhtas-fbc-v4-16-registry-redhat-io
   namespace: rhtas-tenant
 spec:
-  application: rhtas-fbc-v4-13
+  application: rhtas-fbc-v4-16
   target: rhtap-releng-tenant

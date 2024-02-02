@@ -1,0 +1,13 @@
+schema: olm.package
+name: rhtas-operator
+defaultChannel: stable
+---
+entries:
+- name: rhtas-operator.v0.0.1
+name: stable
+package: rhtas-operator
+schema: olm.channel
+---
+schema: olm.bundle
+image: quay.io/redhat-user-workloads/rhtas-tenant/operator-1-0-gamma/sigstore-operator-bundle@sha256:dfe806246c946c3481e735beec590437c2e05ffb167a6b2670b359d6a73c72a8
+# rhtas-bundle-registry v0.0.1

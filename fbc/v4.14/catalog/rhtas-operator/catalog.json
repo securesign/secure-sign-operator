@@ -1,0 +1,221 @@
+{
+    "schema": "olm.package",
+    "name": "rhtas-operator",
+    "defaultChannel": "stable"
+}
+{
+    "schema": "olm.channel",
+    "name": "stable",
+    "package": "rhtas-operator",
+    "entries": [
+        {
+            "name": "rhtas-operator.v0.0.1"
+        }
+    ]
+}
+{
+    "schema": "olm.bundle",
+    "name": "rhtas-operator.v0.0.1",
+    "package": "rhtas-operator",
+    "image": "quay.io/redhat-user-workloads/rhtas-tenant/operator-1-0-gamma/sigstore-operator-bundle@sha256:dfe806246c946c3481e735beec590437c2e05ffb167a6b2670b359d6a73c72a8",
+    "properties": [
+        {
+            "type": "olm.gvk",
+            "value": {
+                "group": "rhtas.redhat.com",
+                "kind": "CTlog",
+                "version": "v1alpha1"
+            }
+        },
+        {
+            "type": "olm.gvk",
+            "value": {
+                "group": "rhtas.redhat.com",
+                "kind": "Fulcio",
+                "version": "v1alpha1"
+            }
+        },
+        {
+            "type": "olm.gvk",
+            "value": {
+                "group": "rhtas.redhat.com",
+                "kind": "Rekor",
+                "version": "v1alpha1"
+            }
+        },
+        {
+            "type": "olm.gvk",
+            "value": {
+                "group": "rhtas.redhat.com",
+                "kind": "Securesign",
+                "version": "v1alpha1"
+            }
+        },
+        {
+            "type": "olm.gvk",
+            "value": {
+                "group": "rhtas.redhat.com",
+                "kind": "Trillian",
+                "version": "v1alpha1"
+            }
+        },
+        {
+            "type": "olm.gvk",
+            "value": {
+                "group": "rhtas.redhat.com",
+                "kind": "Tuf",
+                "version": "v1alpha1"
+            }
+        },
+        {
+            "type": "olm.package",
+            "value": {
+                "packageName": "rhtas-operator",
+                "version": "0.0.1"
+            }
+        },
+        {
+            "type": "olm.csv.metadata",
+            "value": {
+                "annotations": {
+                    "alm-examples": "[\n  {\n    \"apiVersion\": \"rhtas.redhat.com/v1alpha1\",\n    \"kind\": \"CTlog\",\n    \"metadata\": {\n      \"labels\": {\n        \"app.kubernetes.io/instance\": \"securesign-sample\",\n        \"app.kubernetes.io/name\": \"securesign-sample\",\n        \"app.kubernetes.io/part-of\": \"trusted-artifact-signer\"\n      },\n      \"name\": \"ctlog-sample\"\n    },\n    \"spec\": null\n  },\n  {\n    \"apiVersion\": \"rhtas.redhat.com/v1alpha1\",\n    \"kind\": \"Fulcio\",\n    \"metadata\": {\n      \"labels\": {\n        \"app.kubernetes.io/instance\": \"securesign-sample\",\n        \"app.kubernetes.io/name\": \"securesign-sample\",\n        \"app.kubernetes.io/part-of\": \"trusted-artifact-signer\"\n      },\n      \"name\": \"fulcio-sample\"\n    },\n    \"spec\": {\n      \"certificate\": {\n        \"commonName\": \"fulcio.hostname\",\n        \"organizationEmail\": \"jdoe@redhat.com\",\n        \"organizationName\": \"Red Hat\"\n      },\n      \"config\": {\n        \"OIDCIssuers\": {\n          \"https://your-oidc-issuer-url\": {\n            \"ClientID\": \"trusted-artifact-signer\",\n            \"IssuerURL\": \"https://your-oidc-issuer-url\",\n            \"Type\": \"email\"\n          }\n        }\n      },\n      \"externalAccess\": {\n        \"enabled\": true\n      }\n    }\n  },\n  {\n    \"apiVersion\": \"rhtas.redhat.com/v1alpha1\",\n    \"kind\": \"Rekor\",\n    \"metadata\": {\n      \"labels\": {\n        \"app.kubernetes.io/instance\": \"securesign-sample\",\n        \"app.kubernetes.io/name\": \"securesign-sample\",\n        \"app.kubernetes.io/part-of\": \"trusted-artifact-signer\"\n      },\n      \"name\": \"rekor-sample\"\n    },\n    \"spec\": {\n      \"externalAccess\": {\n        \"enabled\": true\n      }\n    }\n  },\n  {\n    \"apiVersion\": \"rhtas.redhat.com/v1alpha1\",\n    \"kind\": \"Securesign\",\n    \"metadata\": {\n      \"labels\": {\n        \"app.kubernetes.io/instance\": \"securesign-sample\",\n        \"app.kubernetes.io/name\": \"securesign-sample\",\n        \"app.kubernetes.io/part-of\": \"trusted-artifact-signer\"\n      },\n      \"name\": \"securesign-sample\"\n    },\n    \"spec\": {\n      \"ctlog\": null,\n      \"fulcio\": {\n        \"certificate\": {\n          \"commonName\": \"fulcio.hostname\",\n          \"organizationEmail\": \"jdoe@redhat.com\",\n          \"organizationName\": \"Red Hat\"\n        },\n        \"config\": {\n          \"OIDCIssuers\": {\n            \"https://your-oidc-issuer-url\": {\n              \"ClientID\": \"trusted-artifact-signer\",\n              \"IssuerURL\": \"https://your-oidc-issuer-url\",\n              \"Type\": \"email\"\n            }\n          }\n        },\n        \"externalAccess\": {\n          \"enabled\": true\n        },\n        \"monitoring\": false\n      },\n      \"rekor\": {\n        \"externalAccess\": {\n          \"enabled\": true\n        },\n        \"monitoring\": false\n      },\n      \"trillian\": {\n        \"database\": {\n          \"create\": true\n        }\n      },\n      \"tuf\": {\n        \"externalAccess\": {\n          \"enabled\": true\n        }\n      }\n    }\n  },\n  {\n    \"apiVersion\": \"rhtas.redhat.com/v1alpha1\",\n    \"kind\": \"Trillian\",\n    \"metadata\": {\n      \"labels\": {\n        \"app.kubernetes.io/instance\": \"securesign-sample\",\n        \"app.kubernetes.io/name\": \"securesign-sample\",\n        \"app.kubernetes.io/part-of\": \"trusted-artifact-signer\"\n      },\n      \"name\": \"trillian-sample\"\n    },\n    \"spec\": null\n  },\n  {\n    \"apiVersion\": \"rhtas.redhat.com/v1alpha1\",\n    \"kind\": \"Tuf\",\n    \"metadata\": {\n      \"labels\": {\n        \"app.kubernetes.io/instance\": \"securesign-sample\",\n        \"app.kubernetes.io/name\": \"securesign-sample\",\n        \"app.kubernetes.io/part-of\": \"trusted-artifact-signer\"\n      },\n      \"name\": \"tuf-sample\"\n    },\n    \"spec\": {\n      \"external\": {\n        \"enabled\": true,\n        \"host\": \"tuf.example.com\"\n      },\n      \"keys\": [\n        {\n          \"name\": \"rekor.pub\",\n          \"secretRef\": {\n            \"key\": \"public\",\n            \"name\": \"rekor-pub-key\"\n          }\n        },\n        {\n          \"name\": \"fulcio_v1.crt.pem\",\n          \"secretRef\": {\n            \"key\": \"cert\",\n            \"name\": \"fulcio-pub-key\"\n          }\n        },\n        {\n          \"name\": \"ctfe.pub\",\n          \"secretRef\": {\n            \"key\": \"public\",\n            \"name\": \"ctlog-pub-key\"\n          }\n        }\n      ]\n    }\n  }\n]",
+                    "capabilities": "Basic Install",
+                    "createdAt": "2024-02-01T20:54:11Z",
+                    "operators.operatorframework.io/builder": "operator-sdk-v1.32.0",
+                    "operators.operatorframework.io/project_layout": "go.kubebuilder.io/v3"
+                },
+                "apiServiceDefinitions": {},
+                "crdDescriptions": {
+                    "owned": [
+                        {
+                            "name": "ctlogs.rhtas.redhat.com",
+                            "version": "v1alpha1",
+                            "kind": "CTlog",
+                            "displayName": "CTlog",
+                            "description": "CTlog is the Schema for the ctlogs API"
+                        },
+                        {
+                            "name": "fulcios.rhtas.redhat.com",
+                            "version": "v1alpha1",
+                            "kind": "Fulcio",
+                            "displayName": "Fulcio",
+                            "description": "Fulcio is the Schema for the fulcios API"
+                        },
+                        {
+                            "name": "rekors.rhtas.redhat.com",
+                            "version": "v1alpha1",
+                            "kind": "Rekor",
+                            "displayName": "Rekor",
+                            "description": "Rekor is the Schema for the rekors API"
+                        },
+                        {
+                            "name": "securesigns.rhtas.redhat.com",
+                            "version": "v1alpha1",
+                            "kind": "Securesign",
+                            "displayName": "Securesign",
+                            "description": "Securesign is the Schema for the securesigns API"
+                        },
+                        {
+                            "name": "trillians.rhtas.redhat.com",
+                            "version": "v1alpha1",
+                            "kind": "Trillian",
+                            "displayName": "Trillian",
+                            "description": "Trillian is the Schema for the trillians API"
+                        },
+                        {
+                            "name": "tufs.rhtas.redhat.com",
+                            "version": "v1alpha1",
+                            "kind": "Tuf",
+                            "displayName": "Tuf",
+                            "description": "Tuf is the Schema for the tufs API"
+                        }
+                    ]
+                },
+                "description": "Red Hat Trusted Artifact Signer enhances software supply chain security by simplifying cryptographic signing and verifying of software artifacts, such as container images, binaries and documents. Trusted Artifact Signer provides a production ready deployment of the Sigstore project within an enterprise. Enterprises adopting it can meet signing-related criteria for achieving Supply Chain Levels for Software Artifacts (SLSA) compliance and have greater confidence in the security and trustworthiness of their software supply chains.",
+                "displayName": "Red Hat Trusted Artifact Signer",
+                "installModes": [
+                    {
+                        "type": "OwnNamespace",
+                        "supported": false
+                    },
+                    {
+                        "type": "SingleNamespace",
+                        "supported": false
+                    },
+                    {
+                        "type": "MultiNamespace",
+                        "supported": false
+                    },
+                    {
+                        "type": "AllNamespaces",
+                        "supported": true
+                    }
+                ],
+                "keywords": [
+                    "security",
+                    "rhtas",
+                    "trust"
+                ],
+                "links": [
+                    {
+                        "name": "RHTAS Operator",
+                        "url": "https://github.com/securesign/secure-sign-operator"
+                    }
+                ],
+                "maintainers": [
+                    {
+                        "name": "Ryan Cook",
+                        "email": "rcook@redhat.com"
+                    },
+                    {
+                        "name": "Tomas Turek",
+                        "email": "tturek@redhat.com"
+                    },
+                    {
+                        "name": "Jan Bouska",
+                        "email": "jbouska@redhat.com"
+                    },
+                    {
+                        "name": "Gregory Pereira",
+                        "email": "gpereira@redhat.com"
+                    },
+                    {
+                        "name": "Jason Power",
+                        "email": "japower@redhat.com"
+                    },
+                    {
+                        "name": "Sally O'Malley",
+                        "email": "somalley@redhat.com"
+                    },
+                    {
+                        "name": "Tommy Dalton",
+                        "email": "tdalton@redhat.com"
+                    },
+                    {
+                        "name": "Lance Ball",
+                        "email": "lball@redhat.com"
+                    }
+                ],
+                "maturity": "alpha",
+                "provider": {
+                    "name": "Red Hat",
+                    "url": "https://github.com/securesign/secure-sign-operator"
+                }
+            }
+        }
+    ],
+    "relatedImages": [
+        {
+            "name": "",
+            "image": "gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1"
+        },
+        {
+            "name": "",
+            "image": "quay.io/redhat-user-workloads/rhtas-tenant/operator-1-0-gamma/sigstore-operator-bundle@sha256:dfe806246c946c3481e735beec590437c2e05ffb167a6b2670b359d6a73c72a8"
+        },
+        {
+            "name": "",
+            "image": "registry.redhat.io/rhtas-tech-preview/sigstore-rhel9-operator-controller:latest"
+        }
+    ]
+}
