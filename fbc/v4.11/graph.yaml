@@ -9,5 +9,5 @@ package: rhtas-operator
 schema: olm.channel
 ---
 schema: olm.bundle
-image: quay.io/redhat-user-workloads/rhtas-tenant/operator-1-0-gamma/sigstore-operator-bundle@sha256:dfe806246c946c3481e735beec590437c2e05ffb167a6b2670b359d6a73c72a8
+image: registry.redhat.io/rhtas-tech-preview/sigstore-operator-bundle@sha256:cb4882eed25159c8f3877bfaade0a122e215a36ee29187a9b44dcd12512972e0
 # rhtas-bundle-registry v0.0.1
