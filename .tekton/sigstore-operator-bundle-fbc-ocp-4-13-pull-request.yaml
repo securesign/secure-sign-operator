@@ -7,7 +7,9 @@ metadata:
     build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch == "release-1.0.gamma" && ( "./fbc/v4.13/***".pathChanged() || ".tekton/sigstore-operator-bundle-fbc-ocp-4-13-pull-request.yaml".pathChanged() )
+    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch
+      == "release-1.0.gamma" && ( "fbc/v4.13/***".pathChanged() || ".tekton/sigstore-operator-bundle-fbc-ocp-4-13-pull-request.yaml".pathChanged()
+      )
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: sigstore-operator-bundle-fbc-ocp
@@ -125,9 +127,6 @@ spec:
     - description: ""
       name: CHAINS-GIT_COMMIT
       value: $(tasks.clone-repository.results.commit)
-    - description: ""
-      name: JAVA_COMMUNITY_DEPENDENCIES
-      value: $(tasks.build-container.results.JAVA_COMMUNITY_DEPENDENCIES)
     tasks:
     - name: init
       params:
@@ -205,9 +204,7 @@ spec:
       - name: CONTEXT
         value: $(params.path-context)
       - name: HERMETIC
-        value: $(params.hermetic)
-      - name: PREFETCH_INPUT
-        value: $(params.prefetch-input)
+        value: "true"
       - name: IMAGE_EXPIRES_AFTER
         value: $(params.image-expires-after)
       - name: COMMIT_SHA
@@ -366,6 +363,78 @@ spec:
         operator: in
         values:
         - "false"
+    - name: inspect-image
+      params:
+      - name: IMAGE_URL
+        value: $(tasks.build-container.results.IMAGE_URL)
+      - name: IMAGE_DIGEST
+        value: $(tasks.build-container.results.IMAGE_DIGEST)
+      runAfter:
+      - build-container
+      taskRef:
+        params:
+        - name: name
+          value: inspect-image
+        - name: bundle
+          value: quay.io/redhat-appstudio-tekton-catalog/task-inspect-image:0.1@sha256:d27c6ff7b9be6df786f489f8a5d4a8f0619d77e45f0d12e4a730157b60873c82
+        - name: kind
+          value: task
+        resolver: bundles
+      when:
+      - input: $(params.skip-checks)
+        operator: in
+        values:
+        - "false"
+      workspaces:
+      - name: source
+        workspace: workspace
+    - name: fbc-validate
+      params:
+      - name: IMAGE_URL
+        value: $(tasks.build-container.results.IMAGE_URL)
+      - name: IMAGE_DIGEST
+        value: $(tasks.build-container.results.IMAGE_DIGEST)
+      - name: BASE_IMAGE
+        value: $(tasks.inspect-image.results.BASE_IMAGE)
+      runAfter:
+      - inspect-image
+      taskRef:
+        params:
+        - name: name
+          value: fbc-validation
+        - name: bundle
+          value: quay.io/redhat-appstudio-tekton-catalog/task-fbc-validation:0.1@sha256:343411e76897ca9fcec0bf73f518ecbaf41408f25e5197999a7d6e40d2fa7432
+        - name: kind
+          value: task
+        resolver: bundles
+      when:
+      - input: $(params.skip-checks)
+        operator: in
+        values:
+        - "false"
+      workspaces:
+      - name: workspace
+        workspace: workspace
+    - name: fbc-related-image-check
+      runAfter:
+      - fbc-validate
+      taskRef:
+        params:
+        - name: name
+          value: fbc-related-image-check
+        - name: bundle
+          value: quay.io/redhat-appstudio-tekton-catalog/task-fbc-related-image-check:0.1@sha256:0f3d14f881e5664cbdb8e031120e711e30f9c9e6ea3c93de3d533342ec8c6cca
+        - name: kind
+          value: task
+        resolver: bundles
+      when:
+      - input: $(params.skip-checks)
+        operator: in
+        values:
+        - "false"
+      workspaces:
+      - name: workspace
+        workspace: workspace
     workspaces:
     - name: workspace
     - name: git-auth
