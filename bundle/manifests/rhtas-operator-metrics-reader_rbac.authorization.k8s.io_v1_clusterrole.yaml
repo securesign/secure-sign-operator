@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: clusterrole
     app.kubernetes.io/part-of: rhtas-operator
-  name: operator-metrics-reader
+  name: rhtas-operator-metrics-reader
 rules:
 - nonResourceURLs:
   - /metrics
