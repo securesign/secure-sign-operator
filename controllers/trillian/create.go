@@ -80,8 +80,13 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		if instance.Spec.Db.PvcName == "" {
 			// PVC does not exist, create a new one
 			i.Logger.V(1).Info("Creating new PVC")
-			pvc := k8sutils.CreatePVC(instance.Namespace, "trillian-mysql", "5Gi")
-			controllerutil.SetControllerReference(instance, pvc, i.Client.Scheme())
+			if instance.Spec.Db.PvcSize == "" {
+				instance.Spec.Db.PvcSize = "5Gi"
+			}
+			pvc := k8sutils.CreatePVC(instance.Namespace, "trillian-mysql", instance.Spec.Db.PvcSize)
+			if !instance.Spec.Db.RetainPVC {
+				controllerutil.SetControllerReference(instance, pvc, i.Client.Scheme())
+			}
 			if err = i.Client.Create(ctx, pvc); err != nil {
 				instance.Status.Phase = rhtasv1alpha1.PhaseError
 				return instance, fmt.Errorf("could not create MySQL PVC: %w", err)

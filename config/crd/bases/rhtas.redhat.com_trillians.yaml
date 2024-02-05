@@ -65,6 +65,12 @@ spec:
                     description: Persistent volume claim name to bound with Trillian
                       DB
                     type: string
+                  pvcSize:
+                    description: 'Database PVC Size in MB or GB. Example: 5Gi'
+                    type: string
+                  retainPVC:
+                    description: Retain the PVC after Trillian is deleted
+                    type: boolean
                 type: object
             type: object
           status:

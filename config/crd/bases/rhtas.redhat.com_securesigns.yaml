@@ -292,6 +292,9 @@ spec:
                     description: Persistent volume claim name to bound with Rekor
                       component
                     type: string
+                  pvcSize:
+                    description: 'Rekor PVC Size in MB or GB. Example: 5Gi'
+                    type: string
                   rekorSearchUI:
                     description: Rekor Search UI
                     properties:
@@ -299,6 +302,9 @@ spec:
                         description: Enable RekorSearchUI deployment
                         type: boolean
                     type: object
+                  retainPVC:
+                    description: Retain the PVC after Rekor is deleted
+                    type: boolean
                   signer:
                     description: Signer configuration
                     properties:
@@ -368,6 +374,12 @@ spec:
                         description: Persistent volume claim name to bound with Trillian
                           DB
                         type: string
+                      pvcSize:
+                        description: 'Database PVC Size in MB or GB. Example: 5Gi'
+                        type: string
+                      retainPVC:
+                        description: Retain the PVC after Trillian is deleted
+                        type: boolean
                     type: object
                 type: object
               tuf:

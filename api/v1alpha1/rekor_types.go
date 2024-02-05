@@ -21,6 +21,10 @@ type RekorSpec struct {
 	RekorSearchUI RekorSearchUI `json:"rekorSearchUI,omitempty"`
 	// Signer configuration
 	Signer RekorSigner `json:"signer,omitempty"`
+	// Retain the PVC after Rekor is deleted
+	RetainPVC bool `json:"retainPVC,omitempty"`
+	// Rekor PVC Size in MB or GB. Example: 5Gi
+	PvcSize string `json:"pvcSize,omitempty"`
 }
 
 type RekorSigner struct {

@@ -3,6 +3,7 @@ package rekor
 import (
 	"context"
 	"fmt"
+
 	"github.com/securesign/operator/controllers/common"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -76,12 +77,18 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		} else {
 			// PVC does not exist, create a new one
 			i.Logger.V(1).Info("Creating new PVC")
-			rekorPvc := k8sutils.CreatePVC(instance.Namespace, "rekor-server", "5Gi")
-			if err := i.Client.Create(ctx, rekorPvc); err != nil {
+			if instance.Spec.PvcSize == "" {
+				instance.Spec.PvcSize = "5Gi"
+			}
+			pvc := k8sutils.CreatePVC(instance.Namespace, "rekor-server", instance.Spec.PvcSize)
+			if !instance.Spec.RetainPVC {
+				controllerutil.SetControllerReference(instance, pvc, i.Client.Scheme())
+			}
+			if err := i.Client.Create(ctx, pvc); err != nil {
 				instance.Status.Phase = rhtasv1alpha1.PhaseError
 				return instance, fmt.Errorf("could not create Rekor PVC: %w", err)
 			}
-			instance.Spec.PvcName = rekorPvc.Name
+			instance.Spec.PvcName = pvc.Name
 		}
 		// TODO: add status field
 	}

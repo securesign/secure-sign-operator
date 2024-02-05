@@ -35,6 +35,10 @@ type TrillianDB struct {
 	PvcName string `json:"pvcName,omitempty"`
 	// Secret with values to be used to connect to an existing DB or to be used with the creation of a new DB
 	DatabaseSecretRef *v1.LocalObjectReference `json:"databaseSecretRef,omitempty"`
+	// Retain the PVC after Trillian is deleted
+	RetainPVC bool `json:"retainPVC,omitempty"`
+	// Database PVC Size in MB or GB. Example: 5Gi
+	PvcSize string `json:"pvcSize,omitempty"`
 }
 
 // TrillianStatus defines the observed state of Trillian
