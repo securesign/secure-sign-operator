@@ -84,7 +84,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 				instance.Spec.Db.PvcSize = "5Gi"
 			}
 			pvc := k8sutils.CreatePVC(instance.Namespace, "trillian-mysql", instance.Spec.Db.PvcSize)
-			if !instance.Spec.Db.RetainPVC {
+			if instance.Spec.Db.RetainPVC != false {
 				controllerutil.SetControllerReference(instance, pvc, i.Client.Scheme())
 			}
 			if err = i.Client.Create(ctx, pvc); err != nil {
