@@ -30,7 +30,7 @@ var _ = Describe("CliServer is running", func() {
 			}
 			url := protocol + lst.Items[0].Spec.Rules[0].Host
 
-			for _, c := range []string{"cosign", "rekor-cli", "gitsign"} {
+			for _, c := range []string{"cosign", "rekor-cli", "gitsign", "ec"} {
 				for _, path := range []string{
 					"/clients/linux/%s-amd64.gz",
 					"/clients/linux/%s-arm64.gz",
