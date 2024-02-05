@@ -81,7 +81,7 @@ func (i createAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 				instance.Spec.PvcSize = "5Gi"
 			}
 			pvc := k8sutils.CreatePVC(instance.Namespace, "rekor-server", instance.Spec.PvcSize)
-			if instance.Spec.RetainPVC != false {
+			if instance.Spec.RetainPVC == false {
 				controllerutil.SetControllerReference(instance, pvc, i.Client.Scheme())
 			}
 			if err := i.Client.Create(ctx, pvc); err != nil {
