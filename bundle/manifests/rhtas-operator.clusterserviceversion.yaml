@@ -172,10 +172,10 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-02-01T20:54:11Z"
-    operators.operatorframework.io/builder: operator-sdk-v1.32.0
+    createdAt: "2024-02-07T16:47:24Z"
+    operators.operatorframework.io/builder: operator-sdk-v1.33.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: rhtas-operator.v0.0.1
+  name: rhtas-operator.v0.0.2
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -719,7 +719,7 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
-                image: registry.redhat.io/rhtas-tech-preview/sigstore-rhel9-operator-controller:latest
+                image: registry.redhat.io/rhtas-tech-preview/sigstore-rhel9-operator:0.0.2
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -821,4 +821,4 @@ spec:
   provider:
     name: Red Hat
     url: https://github.com/securesign/secure-sign-operator
-  version: 0.0.1
+  version: 0.0.2
