@@ -9,13 +9,13 @@
     "package": "rhtas-operator",
     "entries": [
         {
-            "name": "rhtas-operator.v0.0.1"
+            "name": "rhtas-operator.1.1.beta"
         }
     ]
 }
 {
     "schema": "olm.bundle",
-    "name": "rhtas-operator.v0.0.1",
+    "name": "rhtas-operator.1.1.beta",
     "package": "rhtas-operator",
     "image": "registry.redhat.io/rhtas-tech-preview/sigstore-operator-bundle@sha256:cb4882eed25159c8f3877bfaade0a122e215a36ee29187a9b44dcd12512972e0",
     "properties": [
