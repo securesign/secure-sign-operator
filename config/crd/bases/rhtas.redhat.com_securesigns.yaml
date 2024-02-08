@@ -298,6 +298,20 @@ spec:
                           resources
                         type: boolean
                     type: object
+                  pvc:
+                    description: PVC configuration
+                    properties:
+                      name:
+                        description: PVC name
+                        type: string
+                      retain:
+                        description: Retain the PVC after Rekor is deleted
+                        type: boolean
+                      size:
+                        default: 5Gi
+                        description: PVC size for Rekor
+                        type: string
+                    type: object
                   pvcName:
                     description: Persistent volume claim name to bound with Rekor
                       component
@@ -374,10 +388,20 @@ spec:
                             type: string
                         type: object
                         x-kubernetes-map-type: atomic
-                      pvcName:
-                        description: Persistent volume claim name to bound with Trillian
-                          DB
-                        type: string
+                      pvc:
+                        description: PVC configuration
+                        properties:
+                          name:
+                            description: PVC name
+                            type: string
+                          retain:
+                            description: Retain the PVC after Trillian is deleted
+                            type: boolean
+                          size:
+                            default: 5Gi
+                            description: PVC size for Trillian
+                            type: string
+                        type: object
                     type: object
                 type: object
               tuf:

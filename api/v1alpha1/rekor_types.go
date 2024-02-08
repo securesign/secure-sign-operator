@@ -21,8 +21,19 @@ type RekorSpec struct {
 	RekorSearchUI RekorSearchUI `json:"rekorSearchUI,omitempty"`
 	// Signer configuration
 	Signer RekorSigner `json:"signer,omitempty"`
+	// PVC configuration
+	Pvc RekorPvc `json:"pvc,omitempty"`
 }
 
+type RekorPvc struct {
+	// Retain the PVC after Rekor is deleted
+	Retain bool `json:"retain,omitempty"`
+	// PVC size for Rekor
+	//+kubebuilder:default:="5Gi"
+	Size string `json:"size,omitempty"`
+	// PVC name
+	Name string `json:"name,omitempty"`
+}
 type RekorSigner struct {
 	// KMS Signer provider. Valid options are secret, memory or any supported KMS provider defined by go-cloud style URI
 	//+kubebuilder:default:=secret

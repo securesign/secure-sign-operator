@@ -31,10 +31,20 @@ type TrillianDB struct {
 	// Create Database if a database is not created one must be defined using the DatabaseSecret field
 	// default: true
 	Create bool `json:"create,omitempty"`
-	// Persistent volume claim name to bound with Trillian DB
-	PvcName string `json:"pvcName,omitempty"`
+	// PVC configuration
+	Pvc TrillianPvc `json:"pvc,omitempty"`
 	// Secret with values to be used to connect to an existing DB or to be used with the creation of a new DB
 	DatabaseSecretRef *v1.LocalObjectReference `json:"databaseSecretRef,omitempty"`
+}
+
+type TrillianPvc struct {
+	// Retain the PVC after Trillian is deleted
+	Retain bool `json:"retain,omitempty"`
+	// PVC size for Trillian
+	//+kubebuilder:default:="5Gi"
+	Size string `json:"size,omitempty"`
+	// PVC name
+	Name string `json:"name,omitempty"`
 }
 
 // TrillianStatus defines the observed state of Trillian
