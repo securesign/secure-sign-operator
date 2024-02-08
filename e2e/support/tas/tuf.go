@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
-	"github.com/securesign/operator/controllers/tuf"
+	"github.com/securesign/operator/controllers/tuf/actions"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,7 +19,7 @@ func VerifyTuf(ctx context.Context, cli client.Client, namespace string, name st
 		}, Equal(v1alpha1.PhaseReady)))
 
 	list := &v1.PodList{}
-	cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels{kubernetes.ComponentLabel: tuf.ComponentName})
+	cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels{kubernetes.ComponentLabel: actions.ComponentName})
 	Expect(list.Items).To(And(Not(BeEmpty()), HaveEach(WithTransform(func(p v1.Pod) v1.PodPhase { return p.Status.Phase }, Equal(v1.PodRunning)))))
 }
 

@@ -21,3 +21,14 @@ func DeploymentIsRunning(ctx context.Context, cli client.Client, namespace strin
 	}
 	return true, nil
 }
+
+func DeploymentList(ctx context.Context, cli client.Client, component, namespace string) (*v1.DeploymentList, error) {
+	var err error
+	list := &v1.DeploymentList{}
+
+	if err = cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels{ComponentLabel: component}); err != nil {
+		return nil, err
+	}
+
+	return list, nil
+}

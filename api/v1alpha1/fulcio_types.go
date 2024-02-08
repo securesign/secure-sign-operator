@@ -16,7 +16,7 @@ type FulcioSpec struct {
 	// Certificate configuration
 	Certificate FulcioCert `json:"certificate,omitempty"`
 	//Enable Service monitors for fulcio
-	Monitoring bool `json:"monitoring,omitempty"`
+	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
 }
 
 // FulcioCert defines fields for system-generated certificate
@@ -79,6 +79,12 @@ type OIDCIssuer struct {
 type FulcioStatus struct {
 	Url   string `json:"url,omitempty"`
 	Phase Phase  `json:"phase,omitempty"`
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
 //+kubebuilder:object:root=true

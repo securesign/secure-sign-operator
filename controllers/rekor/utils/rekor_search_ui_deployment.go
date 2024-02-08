@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateRekorSearchUiDeployment(namespace, dpName string, labels map[string]string) *apps.Deployment {
+func CreateRekorSearchUiDeployment(namespace, dpName string, sa string, labels map[string]string) *apps.Deployment {
 	replicas := int32(1)
 
 	return &apps.Deployment{
@@ -26,7 +26,7 @@ func CreateRekorSearchUiDeployment(namespace, dpName string, labels map[string]s
 					Labels: labels,
 				},
 				Spec: core.PodSpec{
-					ServiceAccountName: constants.ServiceAccountName,
+					ServiceAccountName: sa,
 					Containers: []core.Container{
 						{
 							Name:  dpName,

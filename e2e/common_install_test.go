@@ -8,9 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/securesign/operator/controllers/fulcio"
-
-	"github.com/securesign/operator/controllers/rekor"
+	"github.com/securesign/operator/controllers/fulcio/actions"
+	actions2 "github.com/securesign/operator/controllers/rekor/actions/server"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -98,7 +97,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				fulcioSecret := &v1.Secret{}
 				cli.Get(ctx, types.NamespacedName{
 					Namespace: namespace.Name,
-					Name:      fmt.Sprintf(fulcio.SecretNameFormat, securesign.Name),
+					Name:      fmt.Sprintf(actions.SecretNameFormat, securesign.Name),
 				}, fulcioSecret)
 				return fulcioSecret
 			}).Should(
@@ -116,7 +115,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				secret := &v1.Secret{}
 				cli.Get(ctx, types.NamespacedName{
 					Namespace: namespace.Name,
-					Name:      fmt.Sprintf(rekor.SecretNameFormat, securesign.Name),
+					Name:      fmt.Sprintf(actions2.SecretNameFormat, securesign.Name),
 				}, secret)
 				return secret
 			}).Should(
@@ -144,7 +143,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				ContainElement(
 					WithTransform(func(sp v1.SecretProjection) string {
 						return sp.Name
-					}, Equal(fmt.Sprintf(fulcio.SecretNameFormat, securesign.Name))),
+					}, Equal(fmt.Sprintf(actions.SecretNameFormat, securesign.Name))),
 				))
 		})
 
@@ -159,7 +158,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 							return volume.VolumeSource.Secret.SecretName
 						}
 						return ""
-					}, Equal(fmt.Sprintf(rekor.SecretNameFormat, securesign.Name))),
+					}, Equal(fmt.Sprintf(actions2.SecretNameFormat, securesign.Name))),
 				))
 
 		})

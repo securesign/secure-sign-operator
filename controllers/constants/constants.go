@@ -1,6 +1,5 @@
 package constants
 
 const (
-	AppName            = "trusted-artifact-signer"
-	ServiceAccountName = "securesign"
+	AppName = "trusted-artifact-signer"
 )

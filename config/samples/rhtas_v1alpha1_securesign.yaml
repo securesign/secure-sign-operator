@@ -10,7 +10,8 @@ spec:
   rekor:
     externalAccess:
       enabled: true
-    monitoring: false
+    monitoring:
+      enabled: false
   trillian:
     database:
       create: true
@@ -27,7 +28,8 @@ spec:
       organizationName: Red Hat
       organizationEmail: jdoe@redhat.com
       commonName: fulcio.hostname
-    monitoring: false
+    monitoring:
+      enabled: false
   tuf:
     externalAccess:
       enabled: true

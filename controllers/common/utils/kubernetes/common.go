@@ -4,7 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -61,14 +62,15 @@ func ContainerMode() (bool, error) {
 	return false, nil
 }
 
-func IsOpenShift(client kubernetes.Interface) bool {
-	_, err := client.Discovery().ServerResourcesForGroupVersion("image.openshift.io/v1")
+func IsOpenShift(client client.Client) bool {
+	_, err := client.RESTMapper().ResourceFor(schema.GroupVersionResource{
+		Group:    "image.openshift.io",
+		Version:  "v1",
+		Resource: "image",
+	})
 	if err != nil {
 		// continue with non-ocp standard
 		return false
-	} else if err != nil {
-		return false
 	}
-
 	return true
 }

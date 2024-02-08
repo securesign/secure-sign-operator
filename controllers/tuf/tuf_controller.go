@@ -18,33 +18,25 @@ package tuf
 
 import (
 	"context"
-	"errors"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/client"
 	"github.com/securesign/operator/controllers/common/action"
-	p "github.com/securesign/operator/controllers/common/operator/predicate"
+	"github.com/securesign/operator/controllers/tuf/actions"
 	v1 "k8s.io/api/apps/v1"
+	v12 "k8s.io/api/core/v1"
+	v13 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
-	rclient "sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 )
 
 const DebugLevel int = 1
-
-var requeueError = errors.New("requeue the reconcile key")
 
 // TufReconciler reconciles a Tuf object
 type TufReconciler struct {
@@ -68,7 +60,7 @@ type TufReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	rlog := log.FromContext(ctx).WithName("controller").WithName("tuf")
-	rlog.V(DebugLevel).Info("Reconciling TUF", "request", req)
+	rlog.V(1).Info("Reconciling TUF", "request", req)
 
 	// Fetch the Tuf instance
 	instance := &rhtasv1alpha1.Tuf{}
@@ -94,49 +86,31 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			rlog.Error(err, "Failed to update TUF status")
 			return ctrl.Result{}, err
 		}
-
-		// Let's re-fetch the Tuf Custom Resource after update the status
-		// so that we have the latest state of the resource on the cluster and we will avoid
-		// raise the issue "the object has been modified, please apply
-		// your changes to the latest version and try again" which would re-trigger the reconciliation
-		// if we try to update it again in the following operations
-		time.Sleep(time.Second)
-		if err := r.Get(ctx, req.NamespacedName, instance); err != nil {
-			rlog.Error(err, "Failed to re-fetch TUF")
-			return ctrl.Result{}, err
-		}
+		return ctrl.Result{}, nil
 	}
 
 	target := instance.DeepCopy()
-	actions := []action.Action[rhtasv1alpha1.Tuf]{
-		NewPendingAction(),
-		NewReconcileAction(),
-		NewWaitAction(),
+	acs := []action.Action[rhtasv1alpha1.Tuf]{
+		actions.NewPendingAction(),
+		actions.NewRBACAction(),
+		actions.NewDeployAction(),
+		actions.NewServiceAction(),
+		actions.NewIngressAction(),
+		actions.NewToInitializePhaseAction(),
+
+		actions.NewInitializeAction(),
 	}
 
-	for _, a := range actions {
+	for _, a := range acs {
 		a.InjectClient(r.Client)
 		a.InjectLogger(rlog.WithName(a.Name()))
 		a.InjectRecorder(r.Recorder)
 
 		if a.CanHandle(target) {
-			newTarget, err := a.Handle(ctx, target)
-			if err != nil {
-				if newTarget != nil {
-					_ = r.Status().Update(ctx, newTarget)
-				}
-				if errors.Is(err, requeueError) {
-					return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
-				}
-				return reconcile.Result{}, err
+			result := a.Handle(ctx, target)
+			if result != nil {
+				return result.Result, result.Err
 			}
-
-			if newTarget != nil {
-				if err = r.Status().Update(ctx, newTarget); err != nil {
-					return reconcile.Result{}, err
-				}
-			}
-			break
 		}
 	}
 	return reconcile.Result{}, nil
@@ -145,55 +119,9 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 // SetupWithManager sets up the controller with the Manager.
 func (r *TufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&rhtasv1alpha1.Tuf{}, builder.WithPredicates(
-			predicate.Or(predicate.GenerationChangedPredicate{}, p.StatusChangedPredicate{}))).
-		Owns(&v1.Deployment{}, builder.WithPredicates(
-			// ignore create events
-			predicate.Funcs{CreateFunc: func(event event.CreateEvent) bool {
-				return false
-			}},
-		)).
-		Watches(&rhtasv1alpha1.Rekor{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a rclient.Object) []reconcile.Request {
-			var requests []reconcile.Request
-			t, ok := a.(*rhtasv1alpha1.Rekor)
-			if !ok {
-				return requests
-			}
-			rekors := &rhtasv1alpha1.RekorList{}
-			if err := mgr.GetClient().List(ctx, rekors, rclient.MatchingLabels(t.Labels), rclient.InNamespace(t.Namespace)); err != nil {
-				return requests
-			}
-
-			for _, i := range rekors.Items {
-				requests = append(requests, reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Namespace: i.Namespace,
-						Name:      i.Name,
-					},
-				})
-			}
-			return requests
-		})).
-		Watches(&rhtasv1alpha1.Fulcio{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a rclient.Object) []reconcile.Request {
-			var requests []reconcile.Request
-			t, ok := a.(*rhtasv1alpha1.Fulcio)
-			if !ok {
-				return requests
-			}
-			fulcios := &rhtasv1alpha1.FulcioList{}
-			if err := mgr.GetClient().List(ctx, fulcios, rclient.MatchingLabels(t.Labels), rclient.InNamespace(t.Namespace)); err != nil {
-				return requests
-			}
-
-			for _, i := range fulcios.Items {
-				requests = append(requests, reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Namespace: i.Namespace,
-						Name:      i.Name,
-					},
-				})
-			}
-			return requests
-		})).
+		For(&rhtasv1alpha1.Tuf{}).
+		Owns(&v1.Deployment{}).
+		Owns(&v12.Service{}).
+		Owns(&v13.Ingress{}).
 		Complete(r)
 }

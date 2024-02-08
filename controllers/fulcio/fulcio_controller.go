@@ -19,21 +19,20 @@ package fulcio
 import (
 	"context"
 	"errors"
+
+	"github.com/securesign/operator/controllers/fulcio/actions"
+	v12 "k8s.io/api/core/v1"
+	v13 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/record"
-	"time"
 
 	"github.com/securesign/operator/controllers/common/action"
 
-	"github.com/securesign/operator/client"
-	p "github.com/securesign/operator/controllers/common/operator/predicate"
 	v1 "k8s.io/api/apps/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -71,6 +70,7 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	var instance rhtasv1alpha1.Fulcio
 	log := ctrllog.FromContext(ctx)
+	log.V(1).Info("Reconciling Fulcio", "request", req)
 
 	if err := r.Client.Get(ctx, req.NamespacedName, &instance); err != nil {
 		if k8sErrors.IsNotFound(err) {
@@ -82,36 +82,30 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
+
 	target := instance.DeepCopy()
-	actions := []action.Action[rhtasv1alpha1.Fulcio]{
-		NewGenerateCertAction(),
-		NewCreateAction(),
-		NewWaitAction(),
+	acs := []action.Action[rhtasv1alpha1.Fulcio]{
+		actions.NewGenerateCertAction(),
+		actions.NewRBACAction(),
+		actions.NewServerConfigAction(),
+		actions.NewDeployAction(),
+		actions.NewCreateMonitorAction(),
+		actions.NewServiceAction(),
+		actions.NewIngressAction(),
+		actions.NewToInitializeAction(),
+		actions.NewInitializeAction(),
 	}
 
-	for _, a := range actions {
+	for _, a := range acs {
 		a.InjectClient(r.Client)
-		a.InjectLogger(log)
+		a.InjectLogger(log.WithName(a.Name()))
 		a.InjectRecorder(r.Recorder)
 
 		if a.CanHandle(target) {
-			newTarget, err := a.Handle(ctx, target)
-			if err != nil {
-				if newTarget != nil {
-					_ = r.Status().Update(ctx, newTarget)
-				}
-				if errors.Is(err, requeueError) {
-					return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
-				}
-				return reconcile.Result{}, err
+			result := a.Handle(ctx, target)
+			if result != nil {
+				return result.Result, result.Err
 			}
-
-			if newTarget != nil {
-				if err = r.Status().Update(ctx, newTarget); err != nil {
-					return reconcile.Result{}, err
-				}
-			}
-			break
 		}
 	}
 	return reconcile.Result{}, nil
@@ -120,14 +114,9 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 // SetupWithManager sets up the controller with the Manager.
 func (r *FulcioReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&rhtasv1alpha1.Fulcio{}, builder.WithPredicates(
-			predicate.Or(predicate.GenerationChangedPredicate{}, p.StatusChangedPredicate{}),
-		)).
-		Owns(&v1.Deployment{}, builder.WithPredicates(
-			// ignore create events
-			predicate.Funcs{CreateFunc: func(event event.CreateEvent) bool {
-				return false
-			}},
-		)).
+		For(&rhtasv1alpha1.Fulcio{}).
+		Owns(&v1.Deployment{}).
+		Owns(&v12.Service{}).
+		Owns(&v13.Ingress{}).
 		Complete(r)
 }

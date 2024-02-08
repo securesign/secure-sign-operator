@@ -25,12 +25,12 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	v1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
-	client2 "github.com/securesign/operator/client"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/ctlog"
 	"github.com/securesign/operator/controllers/fulcio"
 	"github.com/securesign/operator/controllers/rekor"
+	"github.com/securesign/operator/controllers/securesign"
 	"github.com/securesign/operator/controllers/trillian"
 	"github.com/securesign/operator/controllers/tuf"
 	apps "k8s.io/api/apps/v1"
@@ -52,7 +52,6 @@ import (
 	cliv1 "github.com/openshift/api/console/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/controllers"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -118,35 +117,35 @@ func main() {
 		os.Exit(1)
 	}
 
-	client, err := client2.NewClientWithScheme(scheme)
 	if err != nil {
 		setupLog.Error(err, "unable to initialize k8s client")
 		os.Exit(1)
 	}
-	if err = (&controllers.SecuresignReconciler{
-		Client: client,
-		Scheme: client.Scheme(),
+	if err = (&securesign.SecuresignReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Securesign")
 		os.Exit(1)
 	}
 	if err = (&fulcio.FulcioReconciler{
-		Client:   client,
-		Scheme:   client.Scheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
 		Recorder: mgr.GetEventRecorderFor("fulcio-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Fulcio")
 		os.Exit(1)
 	}
 	if err = (&trillian.TrillianReconciler{
-		Client: client,
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("trillian-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Trillian")
 		os.Exit(1)
 	}
 	if err = (&rekor.RekorReconciler{
-		Client:   client,
+		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: mgr.GetEventRecorderFor("rekor-controller"),
 	}).SetupWithManager(mgr); err != nil {
@@ -154,7 +153,7 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&tuf.TufReconciler{
-		Client:   client,
+		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: mgr.GetEventRecorderFor("tuf-controller"),
 	}).SetupWithManager(mgr); err != nil {
@@ -162,7 +161,7 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&ctlog.CTlogReconciler{
-		Client:   client,
+		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: mgr.GetEventRecorderFor("ctlog-controller"),
 	}).SetupWithManager(mgr); err != nil {
@@ -181,13 +180,13 @@ func main() {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	obj, err := createClientserver(ctx, client)
+	obj, err := createClientserver(ctx, mgr.GetClient())
 	if err != nil {
 		setupLog.Error(err, "unable to create client-server resources")
 	}
 	defer func() {
 		for _, o := range obj {
-			if err := client.Delete(ctx, o); err != nil {
+			if err := mgr.GetClient().Delete(ctx, o); err != nil {
 				setupLog.Error(err, "unable to cleanup client-server resources")
 			}
 		}
@@ -201,7 +200,7 @@ func main() {
 	}
 }
 
-func createClientserver(ctx context.Context, cli client2.Client) ([]client.Object, error) {
+func createClientserver(ctx context.Context, cli client.Client) ([]client.Object, error) {
 	var (
 		err    error
 		obj    []client.Object

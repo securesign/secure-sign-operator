@@ -22,6 +22,11 @@ type ExternalAccess struct {
 	Host string `json:"host,omitempty"`
 }
 
+type MonitoringConfig struct {
+	// If true, the Operator will create monitoring resources
+	Enabled bool `json:"enabled,omitempty"`
+}
+
 // SecretKeySelector selects a key of a Secret.
 // +structType=atomic
 type SecretKeySelector struct {

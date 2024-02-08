@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/constants"
 	apps "k8s.io/api/apps/v1"
@@ -9,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, labels map[string]string) *apps.Deployment {
+func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, labels map[string]string) *apps.Deployment {
 	env := make([]core.EnvVar, 0)
 	appArgs := []string{
 		"serve",
@@ -20,7 +21,7 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, labels map[s
 		"--redis_server.port=6379",
 		"--rekor_server.address=0.0.0.0",
 		"--enable_retrieve_api=true",
-		fmt.Sprintf("--trillian_log_server.tlog_id=%d", *instance.Status.TreeID),
+		fmt.Sprintf("--trillian_log_server.tlog_id=%d", *instance.Spec.TreeID),
 		"--enable_attestation_storage",
 		"--attestation_storage_bucket=file:///var/run/attestations",
 	}
@@ -122,7 +123,7 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, labels map[s
 					Labels: labels,
 				},
 				Spec: core.PodSpec{
-					ServiceAccountName: constants.ServiceAccountName,
+					ServiceAccountName: sa,
 					Volumes:            volumes,
 					Containers: []core.Container{
 						{

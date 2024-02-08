@@ -18,23 +18,22 @@ package rekor
 
 import (
 	"context"
+
+	actions2 "github.com/securesign/operator/controllers/rekor/actions"
+	"github.com/securesign/operator/controllers/rekor/actions/redis"
+	"github.com/securesign/operator/controllers/rekor/actions/server"
+	"github.com/securesign/operator/controllers/rekor/actions/ui"
+	v13 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/record"
 
-	"github.com/securesign/operator/client"
 	"github.com/securesign/operator/controllers/common/action"
-	client2 "sigs.k8s.io/controller-runtime/pkg/client"
-
-	p "github.com/securesign/operator/controllers/common/operator/predicate"
 	v12 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -69,6 +68,7 @@ type RekorReconciler struct {
 func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var instance rhtasv1alpha1.Rekor
 	log := ctrllog.FromContext(ctx)
+	log.V(1).Info("Reconciling Rekor", "request", req)
 
 	if err := r.Client.Get(ctx, req.NamespacedName, &instance); err != nil {
 		if errors.IsNotFound(err) {
@@ -82,32 +82,51 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 	target := instance.DeepCopy()
 	actions := []action.Action[rhtasv1alpha1.Rekor]{
-		NewGenerateSignerAction(),
-		NewPendingAction(),
-		NewCreateAction(),
-		NewWaitAction(),
+		actions2.NewPendingAction(),
+
+		server.NewGenerateSignerAction(),
+
+		// PENDING -> CREATING
+		actions2.NewToCreatingAction(),
+		actions2.NewRBACAction(),
+		server.NewServerConfigAction(),
+		server.NewCreatePvcAction(),
+		server.NewCreateTrillianTreeAction(),
+		server.NewDeployAction(),
+		server.NewCreateServiceAction(),
+		server.NewCreateMonitorAction(),
+		server.NewIngressAction(),
+
+		redis.NewDeployAction(),
+		redis.NewCreateServiceAction(),
+
+		ui.NewDeployAction(),
+		ui.NewCreateServiceAction(),
+		ui.NewIngressAction(),
+
+		// CREATE -> INITIALIZE
+		actions2.NewToInitializeAction(),
+
+		server.NewDeploymentReadyAction(),
+		server.NewResolvePubKeyAction(),
+		server.NewInitializeUrlAction(),
+
+		ui.NewInitializeAction(),
+		redis.NewInitializeAction(),
+
+		actions2.NewInitializeAction(),
 	}
 
 	for _, a := range actions {
 		a.InjectClient(r.Client)
-		a.InjectLogger(log)
+		a.InjectLogger(log.WithName(a.Name()))
 		a.InjectRecorder(r.Recorder)
 
 		if a.CanHandle(target) {
-			newTarget, err := a.Handle(ctx, target)
-			if err != nil {
-				if newTarget != nil {
-					_ = r.Status().Update(ctx, newTarget)
-				}
-				return reconcile.Result{}, err
+			result := a.Handle(ctx, target)
+			if result != nil {
+				return result.Result, result.Err
 			}
-
-			if newTarget != nil {
-				if err := r.Status().Update(ctx, newTarget); err != nil {
-					return reconcile.Result{}, err
-				}
-			}
-			break
 		}
 	}
 	return reconcile.Result{}, nil
@@ -116,35 +135,9 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 // SetupWithManager sets up the controller with the Manager.
 func (r *RekorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&rhtasv1alpha1.Rekor{}, builder.WithPredicates(
-			predicate.Or(predicate.GenerationChangedPredicate{}, p.StatusChangedPredicate{}),
-		)).
-		Owns(&v12.Deployment{}, builder.WithPredicates(
-			// ignore create events
-			predicate.Funcs{CreateFunc: func(event event.CreateEvent) bool {
-				return false
-			}},
-		)).
-		Watches(&rhtasv1alpha1.Trillian{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client2.Object) []reconcile.Request {
-			var requests []reconcile.Request
-			t, ok := a.(*rhtasv1alpha1.Trillian)
-			if !ok {
-				return requests
-			}
-			rekors := &rhtasv1alpha1.RekorList{}
-			if err := mgr.GetClient().List(ctx, rekors, client2.MatchingLabels(t.Labels), client2.InNamespace(t.Namespace)); err != nil {
-				return requests
-			}
-
-			for _, i := range rekors.Items {
-				requests = append(requests, reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Namespace: i.Namespace,
-						Name:      i.Name,
-					},
-				})
-			}
-			return requests
-		})).
+		For(&rhtasv1alpha1.Rekor{}).
+		Owns(&v12.Deployment{}).
+		Owns(&v13.Service{}).
+		Owns(&v1.Ingress{}).
 		Complete(r)
 }

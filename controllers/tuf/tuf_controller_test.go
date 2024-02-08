@@ -18,14 +18,16 @@ package tuf
 
 import (
 	"context"
+	"maps"
+	"time"
+
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/constants"
-	"github.com/securesign/operator/controllers/ctlog"
+	actions2 "github.com/securesign/operator/controllers/ctlog/actions"
+	"github.com/securesign/operator/controllers/tuf/actions"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"maps"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -141,7 +143,7 @@ var _ = Describe("TUF controller", func() {
 			secretLabels := map[string]string{
 				constants.TufLabelNamespace + "/ctfe.pub": "public",
 			}
-			maps.Copy(secretLabels, constants.LabelsFor(ctlog.ComponentName, ctlog.ComponentName, ctlog.ComponentName))
+			maps.Copy(secretLabels, constants.LabelsFor(actions2.ComponentName, actions2.ComponentName, actions2.ComponentName))
 			_ = k8sClient.Create(ctx, kubernetes.CreateSecret("ctlog", typeNamespaceName.Namespace, map[string][]byte{
 				"public": []byte("secret"),
 			}, secretLabels))
@@ -156,7 +158,7 @@ var _ = Describe("TUF controller", func() {
 			deployment := &appsv1.Deployment{}
 			By("Checking if Deployment was successfully created in the reconciliation")
 			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: DeploymentName, Namespace: TufNamespace}, deployment)
+				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: TufNamespace}, deployment)
 			}, time.Minute, time.Second).Should(Succeed())
 
 			By("Move to Ready phase")
@@ -175,14 +177,14 @@ var _ = Describe("TUF controller", func() {
 			By("Checking if Service was successfully created in the reconciliation")
 			service := &corev1.Service{}
 			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: DeploymentName, Namespace: TufNamespace}, service)
+				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: TufNamespace}, service)
 			}, time.Minute, time.Second).Should(Succeed())
 			Expect(service.Spec.Ports[0].Port).Should(Equal(int32(8181)))
 
 			By("Checking if Ingress was successfully created in the reconciliation")
 			ingress := &v1.Ingress{}
 			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: DeploymentName, Namespace: TufNamespace}, ingress)
+				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: TufNamespace}, ingress)
 			}, time.Minute, time.Second).Should(Succeed())
 			Expect(ingress.Spec.Rules[0].Host).Should(Equal("tuf.localhost"))
 			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Name).Should(Equal(service.Name))
@@ -206,14 +208,14 @@ var _ = Describe("TUF controller", func() {
 			By("Checking if controller will return deployment to desired state")
 			deployment = &appsv1.Deployment{}
 			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: DeploymentName, Namespace: TufNamespace}, deployment)
+				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: TufNamespace}, deployment)
 			}, time.Minute, time.Second).Should(Succeed())
 			replicas := int32(99)
 			deployment.Spec.Replicas = &replicas
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
 			Eventually(func() int32 {
 				deployment = &appsv1.Deployment{}
-				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: DeploymentName, Namespace: TufNamespace}, deployment)).Should(Succeed())
+				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: TufNamespace}, deployment)).Should(Succeed())
 				return *deployment.Spec.Replicas
 			}, time.Minute, time.Second).Should(Equal(int32(1)))
 		})
