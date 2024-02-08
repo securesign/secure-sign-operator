@@ -44,6 +44,7 @@ type TrillianPvc struct {
 	//+kubebuilder:default:="5Gi"
 	Size string `json:"size,omitempty"`
 	// PVC name
+	//+kubebuilder:default:="trillian-mysql"
 	Name string `json:"name,omitempty"`
 }
 
