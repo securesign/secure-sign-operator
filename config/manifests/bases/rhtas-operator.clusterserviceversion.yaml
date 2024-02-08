@@ -4,7 +4,7 @@ metadata:
   annotations:
     alm-examples: '[]'
     capabilities: Basic Install
-  name: rhtas-operator.v0.0.1
+  name: rhtas-operator.v0.0.2
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -92,4 +92,4 @@ spec:
   provider:
     name: Red Hat
     url: https://github.com/securesign/secure-sign-operator
-  version: 0.0.0
+  version: 0.0.2
