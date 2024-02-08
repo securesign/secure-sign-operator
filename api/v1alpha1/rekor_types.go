@@ -29,7 +29,7 @@ type RekorPvc struct {
 	// Retain the PVC after Rekor is deleted
 	Retain bool `json:"retain,omitempty"`
 	// PVC size for Rekor
-	//+kubebuilder:default:=5Gi
+	//+kubebuilder:default:="5Gi"
 	Size string `json:"size,omitempty"`
 	// PVC name
 	Name string `json:"name,omitempty"`

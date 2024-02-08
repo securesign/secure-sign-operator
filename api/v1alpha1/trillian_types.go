@@ -41,7 +41,7 @@ type TrillianPvc struct {
 	// Retain the PVC after Trillian is deleted
 	Retain bool `json:"retain,omitempty"`
 	// PVC size for Trillian
-	//+kubebuilder:default:=5Gi
+	//+kubebuilder:default:="5Gi"
 	Size string `json:"size,omitempty"`
 	// PVC name
 	//+kubebuilder:default:=trillian-mysql
