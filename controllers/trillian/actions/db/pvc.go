@@ -37,8 +37,10 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tri
 	i.Logger.V(1).Info("Creating new PVC")
 	i.Recorder.Event(instance, v1.EventTypeNormal, "PersistentVolumeCreated", "New PersistentVolume created")
 	pvc := k8sutils.CreatePVC(instance.Namespace, actions2.DbPvcName, instance.Spec.Db.Pvc.Size, constants.LabelsFor(actions2.ComponentName, actions2.DbDeploymentName, instance.Name))
-	if err = controllerutil.SetControllerReference(instance, pvc, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for PVC: %w", err))
+	if !instance.Spec.Db.Pvc.Retain {
+		if err = controllerutil.SetControllerReference(instance, pvc, i.Client.Scheme()); err != nil {
+			return i.Failed(fmt.Errorf("could not set controller reference for PVC: %w", err))
+		}
 	}
 
 	if _, err = i.Ensure(ctx, pvc); err != nil {
