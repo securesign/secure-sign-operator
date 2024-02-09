@@ -7,7 +7,7 @@ import (
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
 	k8sutils "github.com/securesign/operator/controllers/common/utils/kubernetes"
-	"github.com/securesign/operator/controllers/constants"
+	"github.com/securesign/operator/controllers/fulcio/actions"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -29,7 +29,7 @@ func (g handleFulcioCert) CanHandle(instance *v1alpha1.CTlog) bool {
 
 func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) *action.Result {
 
-	scr, err := k8sutils.FindSecret(ctx, g.Client, instance.Namespace, constants.TufLabelNamespace+"/fulcio_v1.crt.pem")
+	scr, err := k8sutils.FindSecret(ctx, g.Client, instance.Namespace, actions.FulcioCALabel)
 	if err != nil {
 		return g.Failed(err)
 	}
@@ -37,7 +37,7 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) 
 		//TODO: add status condition - waiting for fulcio
 		return g.Requeue()
 	}
-	if scr.Data[scr.Labels[constants.TufLabelNamespace+"/fulcio_v1.crt.pem"]] == nil {
+	if scr.Data[scr.Labels[actions.FulcioCALabel]] == nil {
 		return g.Failed(fmt.Errorf("can't find fulcio certificate in provided secret"))
 	}
 
@@ -45,7 +45,7 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) 
 		LocalObjectReference: v1.LocalObjectReference{
 			Name: scr.Name,
 		},
-		Key: scr.Labels[constants.TufLabelNamespace+"/fulcio_v1.crt.pem"],
+		Key: scr.Labels[actions.FulcioCALabel],
 	})
 	return g.Update(ctx, instance)
 }

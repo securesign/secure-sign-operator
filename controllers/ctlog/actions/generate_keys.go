@@ -3,7 +3,6 @@ package actions
 import (
 	"context"
 	"fmt"
-	"maps"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
@@ -43,18 +42,13 @@ func (g generateKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *act
 		return g.Failed(err)
 	}
 
-	secretLabels := map[string]string{
-		constants.TufLabelNamespace + "/ctfe.pub": "public",
-	}
-	maps.Copy(secretLabels, labels)
-
 	secretName := fmt.Sprintf(KeySecretNameFormat, instance.Name)
 
 	secret := k8sutils.CreateSecret(secretName, instance.Namespace,
 		map[string][]byte{
 			"private": config.PrivateKey,
 			"public":  config.PublicKey,
-		}, secretLabels)
+		}, labels)
 
 	if err = controllerutil.SetControllerReference(instance, secret, g.Client.Scheme()); err != nil {
 		return g.Failed(fmt.Errorf("could not set controller reference for Secret: %w", err))

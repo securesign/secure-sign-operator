@@ -25,6 +25,7 @@ import (
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/ctlog/actions"
+	fulcio "github.com/securesign/operator/controllers/fulcio/actions"
 	trillian "github.com/securesign/operator/controllers/trillian/actions"
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -125,7 +126,7 @@ var _ = Describe("CTlog controller", func() {
 			By("Creating fulcio root cert")
 			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("test", Namespace,
 				map[string][]byte{"cert": []byte("fakeCert")},
-				map[string]string{constants.TufLabelNamespace + "/fulcio_v1.crt.pem": "cert"},
+				map[string]string{fulcio.FulcioCALabel: "cert"},
 			))).To(Succeed())
 
 			Eventually(func() v1alpha1.Phase {

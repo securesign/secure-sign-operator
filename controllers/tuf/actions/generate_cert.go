@@ -104,7 +104,7 @@ func (i pendingAction) handleKey(ctx context.Context, instance *rhtasv1alpha1.Tu
 }
 
 func (i pendingAction) discoverSecret(ctx context.Context, namespace string, key *rhtasv1alpha1.TufKey) (*rhtasv1alpha1.SecretKeySelector, error) {
-	labelName := constants.TufLabelNamespace + "/" + key.Name
+	labelName := constants.LabelNamespace + "/" + key.Name
 	s, err := k8sutils.FindSecret(ctx, i.Client, namespace, labelName)
 	if err != nil {
 		return nil, err
