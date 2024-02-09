@@ -1,0 +1,10 @@
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: ReleasePlan
+metadata:
+  labels:
+    release.appstudio.openshift.io/auto-release: 'false'
+  name: rhtas-fbc-v4-14-registry-redhat-io
+  namespace: rhtas-tenant 
+spec:
+  application: rhtas-fbc-v4-14
+  target: rhtap-releng-tenant
