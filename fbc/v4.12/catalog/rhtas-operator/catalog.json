@@ -9,15 +9,15 @@
     "package": "rhtas-operator",
     "entries": [
         {
-            "name": "rhtas-operator.v0.0.1"
+            "name": "rhtas-operator.v0.0.2"
         }
     ]
 }
 {
     "schema": "olm.bundle",
-    "name": "rhtas-operator.v0.0.1",
+    "name": "rhtas-operator.v0.0.2",
     "package": "rhtas-operator",
-    "image": "registry.redhat.io/rhtas-tech-preview/sigstore-operator-bundle@sha256:cb4882eed25159c8f3877bfaade0a122e215a36ee29187a9b44dcd12512972e0",
+    "image": "registry.redhat.io/rhtas-tech-preview/sigstore-operator-bundle@sha256:35551ecf6bfeb68a264586946a81ff08cc08effc8b33c7387160b203c0459586",
     "properties": [
         {
             "type": "olm.gvk",
@@ -211,11 +211,11 @@
         },
         {
             "name": "",
-            "image": "registry.redhat.io/rhtas-tech-preview/sigstore-operator-bundle@sha256:cb4882eed25159c8f3877bfaade0a122e215a36ee29187a9b44dcd12512972e0"
+            "image": "registry.redhat.io/rhtas-tech-preview/sigstore-operator-bundle@sha256:35551ecf6bfeb68a264586946a81ff08cc08effc8b33c7387160b203c0459586"
         },
         {
             "name": "",
-            "image": "registry.redhat.io/rhtas-tech-preview/sigstore-rhel9-operator:sha256:e13382b22c6efacd0e2668cc74a97bf65ba567f8b1061289339d81ef8407f26c"
+            "image": "registry.redhat.io/rhtas-tech-preview/sigstore-rhel9-operator@sha256:1e222bd50cf344ccac36cd80110d9201e2c71ec023ffed3643e348e6cd0c354d"
         },
         {
             "name": "",
@@ -243,11 +243,11 @@
         },
         {
             "name": "",
-            "image": "registry.redhat.io/rhtas-tech-preview/rekor-search-ui-rhel9@sha256:325f1e84936c31e02bddb2bc4fff07c3a55c2e556deba72e99f4ec99aa589cca"
+            "image": "quay.io/redhat-user-workloads/rhtas-tenant/rekor-1-0-gamma/rekor-search-ui-1-0-gamma@sha256:325f1e84936c31e02bddb2bc4fff07c3a55c2e556deba72e99f4ec99aa589cca"
         },
         {
             "name": "",
-            "image": "registry.redhat.io/rhtas-tech-preview/redis-trillian-rhel9@sha256:914089e0e8407420ce07f44dad49da75d34c88eac6314ea8d6e45ff0745e4b42"
+            "image": "quay.io/redhat-user-workloads/rhtas-tenant/trillian-1-0-gamma/redis-0-6@sha256:914089e0e8407420ce07f44dad49da75d34c88eac6314ea8d6e45ff0745e4b42"
         },
         {
             "name": "",
