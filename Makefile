@@ -111,7 +111,7 @@ test: manifests generate fmt vet envtest ## Run tests.
 
 .PHONY: integration-test
 integration-test:
-	go test ./e2e/... -v -tags=integration --ginkgo.v
+	go test ./e2e/... -tags=integration
 
 ##@ Build
 

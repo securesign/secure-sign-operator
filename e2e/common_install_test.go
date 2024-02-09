@@ -32,6 +32,12 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 	var namespace *v1.Namespace
 	var securesign *v1alpha1.Securesign
 
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			support.DumpNamespace(ctx, cli, namespace.Name)
+		}
+	})
+
 	BeforeAll(func() {
 		namespace = support.CreateTestNamespace(ctx, cli)
 		DeferCleanup(func() {
