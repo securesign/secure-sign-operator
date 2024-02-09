@@ -243,11 +243,11 @@
         },
         {
             "name": "",
-            "image": "quay.io/redhat-user-workloads/rhtas-tenant/rekor-1-0-gamma/rekor-search-ui-1-0-gamma@sha256:325f1e84936c31e02bddb2bc4fff07c3a55c2e556deba72e99f4ec99aa589cca"
+            "image": "registry.redhat.io/rhtas-tech-preview/rekor-search-ui-rhel9@sha256:325f1e84936c31e02bddb2bc4fff07c3a55c2e556deba72e99f4ec99aa589cca"
         },
         {
             "name": "",
-            "image": "quay.io/redhat-user-workloads/rhtas-tenant/trillian-1-0-gamma/redis-0-6@sha256:914089e0e8407420ce07f44dad49da75d34c88eac6314ea8d6e45ff0745e4b42"
+            "image": "registry.redhat.io/rhtas-tech-preview/redis-trillian-rhel9@sha256:914089e0e8407420ce07f44dad49da75d34c88eac6314ea8d6e45ff0745e4b42"
         },
         {
             "name": "",
