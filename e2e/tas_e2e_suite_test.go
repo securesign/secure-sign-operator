@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/format"
 	routev1 "github.com/openshift/api/route/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -22,6 +23,9 @@ func TestE2e(t *testing.T) {
 	RegisterFailHandler(Fail)
 	SetDefaultEventuallyTimeout(time.Duration(3) * time.Minute)
 	RunSpecs(t, "Trusted Artifact Signer E2E Suite")
+
+	// print whole stack in case of failure
+	format.MaxLength = 0
 }
 
 func CreateClient() (runtimeCli.Client, error) {

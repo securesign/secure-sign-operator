@@ -28,10 +28,15 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 	var namespace *v1.Namespace
 	var securesign *v1alpha1.Securesign
 
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			support.DumpNamespace(ctx, cli, namespace.Name)
+		}
+	})
+
 	BeforeAll(func() {
 		namespace = support.CreateTestNamespace(ctx, cli)
 		DeferCleanup(func() {
-			support.DumpNamespace(ctx, cli, namespace.Name)
 			cli.Delete(ctx, namespace)
 		})
 
