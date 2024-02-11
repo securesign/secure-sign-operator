@@ -9,4 +9,5 @@ const (
 	ServerComponentName    = "rekor-server"
 	RedisComponentName     = "rekor-redis"
 	UIComponentName        = "rekor-ui"
+	RekorPvcName           = "rekor-pvc"
 )

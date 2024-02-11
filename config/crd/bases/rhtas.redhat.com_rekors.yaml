@@ -63,8 +63,25 @@ spec:
                     description: If true, the Operator will create monitoring resources
                     type: boolean
                 type: object
+              pvc:
+                default:
+                  retain: true
+                  size: 5Gi
+                description: PVC configuration
+                properties:
+                  retain:
+                    default: true
+                    description: Retain policy for the PVC
+                    type: boolean
+                  size:
+                    default: 5Gi
+                    description: Size of the PVC
+                    type: string
+                required:
+                - retain
+                type: object
               pvcName:
-                description: Persistent volume claim name to bound with Rekor component
+                description: PVC Name
                 type: string
               rekorSearchUI:
                 description: Rekor Search UI
@@ -115,6 +132,8 @@ spec:
               treeID:
                 format: int64
                 type: integer
+            required:
+            - pvc
             type: object
           status:
             description: RekorStatus defines the observed state of Rekor
