@@ -37,16 +37,7 @@ type TrillianDB struct {
 	DatabaseSecretRef *v1.LocalObjectReference `json:"databaseSecretRef,omitempty"`
 	// PVC configuration
 	//+kubebuilder:default:={size: "5Gi", retain: true}
-	Pvc TrillianPvc `json:"pvc,omitempty"`
-}
-
-type TrillianPvc struct {
-	// Size of the PVC
-	//+kubebuilder:default:="5Gi"
-	Size string `json:"size,omitempty"`
-	// Retain policy for the PVC
-	//+kubebuilder:default:=true
-	Retain bool `json:"retain"`
+	Pvc Pvc `json:"pvc,omitempty"`
 }
 
 // TrillianStatus defines the observed state of Trillian

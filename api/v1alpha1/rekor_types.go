@@ -21,18 +21,9 @@ type RekorSpec struct {
 	Signer RekorSigner `json:"signer,omitempty"`
 	// PVC configuration
 	//+kubebuilder:default:={size: "5Gi", retain: true}
-	Pvc RekorPvc `json:"pvc"`
+	Pvc Pvc `json:"pvc"`
 	// PVC Name
 	PvcName string `json:"pvcName,omitempty"`
-}
-
-type RekorPvc struct {
-	// Size of the PVC
-	//+kubebuilder:default:="5Gi"
-	Size string `json:"size,omitempty"`
-	// Retain policy for the PVC
-	//+kubebuilder:default:=true
-	Retain bool `json:"retain"`
 }
 
 type RekorSigner struct {
