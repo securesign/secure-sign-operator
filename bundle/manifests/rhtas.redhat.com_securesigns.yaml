@@ -264,7 +264,12 @@ spec:
                     type: object
                   monitoring:
                     description: Enable Service monitors for fulcio
-                    type: boolean
+                    properties:
+                      enabled:
+                        description: If true, the Operator will create monitoring
+                          resources
+                        type: boolean
+                    type: object
                 required:
                 - config
                 type: object
@@ -286,7 +291,12 @@ spec:
                     type: object
                   monitoring:
                     description: Enable Service monitors for rekor
-                    type: boolean
+                    properties:
+                      enabled:
+                        description: If true, the Operator will create monitoring
+                          resources
+                        type: boolean
+                    type: object
                   pvcName:
                     description: Persistent volume claim name to bound with Rekor
                       component
@@ -427,8 +437,6 @@ spec:
           status:
             description: SecuresignStatus defines the observed state of Securesign
             properties:
-              clientServerUrl:
-                type: string
               ctlog:
                 type: string
               fulcio:
@@ -443,7 +451,6 @@ spec:
               tuf:
                 type: string
             required:
-            - clientServerUrl
             - ctlog
             - fulcio
             - rekor

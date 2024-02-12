@@ -3,6 +3,6 @@ resources:
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
-- name: controller
+- digest: sha256:e4a077015f43fb343d8b13739f08d90e9e9229dc0e3a90e42f72a33dbacd979e
+  name: controller
   newName: registry.redhat.io/rhtas-tech-preview/sigstore-rhel9-operator
-  newTag: sha256:e4a077015f43fb343d8b13739f08d90e9e9229dc0e3a90e42f72a33dbacd979e
