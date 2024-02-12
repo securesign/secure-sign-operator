@@ -63,7 +63,6 @@ type SecuresignReconciler struct {
 //+kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=create;get;list;watch;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=endpoints,verbs=get;list;watch
-//+kubebuilder:rbac:groups=console.openshift.io,resources=consoleclidownloads,verbs=create;get;list;watch;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;get;list;watch;update;patch
 
 // TODO: rework Securesign controller to watch resources
