@@ -13,6 +13,7 @@ const (
 	RekorRedisImage    = "quay.io/redhat-user-workloads/rhtas-tenant/trillian-1-0-gamma/redis-0-6@sha256:acf920baf6ee1715c0c9d7ddf69867d331c589d3afa680048c508943078d9585"
 	RekorServerImage   = "quay.io/redhat-user-workloads/rhtas-tenant/rekor-1-0-gamma/rekor-server-1-0-gamma@sha256:53b650ad487dce78025d1dbddc5f25116c132f4e78b7d6f8c1dd0638574f6db3"
 	RekorSearchUiImage = "quay.io/redhat-user-workloads/rhtas-tenant/rekor-1-0-gamma/rekor-search-ui-1-0-gamma@sha256:ea4344bc762809ca46ea0708de378d8592b97194a9c1e08eb9396294276818bf"
+	BackfillRedisImage = "quay.io/redhat-user-workloads/rhtas-tenant/rekor-1-0-gamma/backfill-redis-1-0-gamma@sha256:028b3090bd0677351cc40de4a49246a5cdd57bdd2ad1668e4d7df0a7c01f20c7"
 
 	TufImage = "quay.io/redhat-user-workloads/rhtas-tenant/scaffold-1-0-gamma/tuf-server-0-6@sha256:e61b455868b416882dc45fe53a5039077de9c932865361fde28d52b31e4a68d2"
 

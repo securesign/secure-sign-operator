@@ -32,6 +32,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -100,6 +101,10 @@ var _ = Describe("Rekor controller", func() {
 						},
 						RekorSearchUI: v1alpha1.RekorSearchUI{
 							Enabled: true,
+						},
+						BackFillRedis: v1alpha1.BackFillRedis{
+							Enabled:  true,
+							Schedule: "0 0 * * *",
 						},
 					},
 				}
@@ -177,6 +182,11 @@ var _ = Describe("Rekor controller", func() {
 			By("UI svc created")
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.SearchUiDeploymentName, Namespace: Namespace}, &corev1.Service{})
+			}, time.Minute, time.Second).Should(Succeed())
+
+			By("Backfill Redis Cronjob Created")
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.BackfillRedisCronJobName, Namespace: Namespace}, &batchv1.CronJob{})
 			}, time.Minute, time.Second).Should(Succeed())
 
 			By("Waiting until Rekor instance is Initialization")
