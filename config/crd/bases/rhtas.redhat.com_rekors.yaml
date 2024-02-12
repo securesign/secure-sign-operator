@@ -64,9 +64,6 @@ spec:
                     type: boolean
                 type: object
               pvc:
-                default:
-                  retain: true
-                  size: 5Gi
                 description: PVC configuration
                 properties:
                   retain:
@@ -132,8 +129,6 @@ spec:
               treeID:
                 format: int64
                 type: integer
-            required:
-            - pvc
             type: object
           status:
             description: RekorStatus defines the observed state of Rekor

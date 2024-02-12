@@ -58,9 +58,6 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   pvc:
-                    default:
-                      retain: true
-                      size: 5Gi
                     description: PVC configuration
                     properties:
                       retain:

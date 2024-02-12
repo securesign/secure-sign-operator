@@ -36,7 +36,6 @@ type TrillianDB struct {
 	// Secret with values to be used to connect to an existing DB or to be used with the creation of a new DB
 	DatabaseSecretRef *v1.LocalObjectReference `json:"databaseSecretRef,omitempty"`
 	// PVC configuration
-	//+kubebuilder:default:={size: "5Gi", retain: true}
 	Pvc Pvc `json:"pvc,omitempty"`
 }
 
