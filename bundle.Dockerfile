@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/ubi-micro
+FROM registry.access.redhat.com/ubi9/ubi-micro@sha256:d72202acf3073b61cb407e86395935b7bac5b93b16071d2b40b9fb485db2135d
 
 # Core bundle labels.
 LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1
@@ -17,18 +17,18 @@ LABEL io.openshift.tags="rhtas-operator-bundle, rhtas-operator, Red Hat Trusted 
 LABEL summary="Operator Bundle for the rhtas-operator."
 LABEL com.redhat.component="sigstore-operator-bundle"
 
-LABEL features.operators.openshift.io/cni=false
-LABEL features.operators.openshift.io/disconnected=false
-LABEL features.operators.openshift.io/disconnected=false
-LABEL features.operators.openshift.io/fips-compliant=false
-LABEL features.operators.openshift.io/proxy-aware=false
-LABEL features.operators.openshift.io/cnf=false
-LABEL features.operators.openshift.io/cni=false
-LABEL features.operators.openshift.io/csi=false
-LABEL features.operators.openshift.io/tls-profiles=false
-LABEL features.operators.openshift.io/token-auth-aws=false
-LABEL features.operators.openshift.io/token-auth-azure=false
-LABEL features.operators.openshift.io/token-auth-gcp=false
+LABEL features.operators.openshift.io/cni="false"
+LABEL features.operators.openshift.io/disconnected="false"
+LABEL features.operators.openshift.io/disconnected="false"
+LABEL features.operators.openshift.io/fips-compliant="false"
+LABEL features.operators.openshift.io/proxy-aware="false"
+LABEL features.operators.openshift.io/cnf="false"
+LABEL features.operators.openshift.io/cni="false"
+LABEL features.operators.openshift.io/csi="false"
+LABEL features.operators.openshift.io/tls-profiles="false"
+LABEL features.operators.openshift.io/token-auth-aws="false"
+LABEL features.operators.openshift.io/token-auth-azure="false"
+LABEL features.operators.openshift.io/token-auth-gcp="false"
 
 
 # Labels for testing.
