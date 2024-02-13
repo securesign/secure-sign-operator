@@ -206,8 +206,8 @@
     ],
     "relatedImages": [
         {
-            "name": "",
-            "image": "gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1"
+            "name": "gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1",
+            "image": "gcr.io/kubebuilder/kube-rbac-proxy@sha256:d4883d7c622683b3319b5e6b3a7edfbf2594c18060131a8bf64504805f875522"
         },
         {
             "name": "",

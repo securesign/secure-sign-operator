@@ -196,10 +196,10 @@ spec:
           value: task
         resolver: bundles
       when:
-      - input: $(params.hermetic)
-        operator: in
+      - input: $(params.prefetch-input)
+        operator: notin
         values:
-        - "true"
+        - "{}"
       workspaces:
       - name: source
         workspace: workspace
