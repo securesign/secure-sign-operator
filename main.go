@@ -35,8 +35,12 @@ import (
 	"github.com/securesign/operator/controllers/tuf"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -49,7 +53,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	cliv1 "github.com/openshift/api/console/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
@@ -59,6 +62,8 @@ const (
 	cliServerNs        = "trusted-artifact-signer"
 	cliServerName      = "cli-server"
 	cliServerComponent = "client-server"
+
+	crdName = "securesigns.rhtas.redhat.com"
 )
 
 var (
@@ -66,13 +71,17 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 )
 
+//+kubebuilder:rbac:groups=console.openshift.io,resources=consoleclidownloads,verbs=create;get;list;watch;update;patch;delete
+//+kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get
+
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(rhtasv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(v1.AddToScheme(scheme))
-	utilruntime.Must(cliv1.AddToScheme(scheme))
+	utilruntime.Must(consolev1.AddToScheme(scheme))
+	utilruntime.Must(apiextensions.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -180,18 +189,12 @@ func main() {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	obj, err := createClientserver(ctx, mgr.GetClient())
+	setupLog.Info("installing client server resources")
+	_, err = createClientserver(ctx)
 	if err != nil {
 		setupLog.Error(err, "unable to create client-server resources")
 	}
-	defer func() {
-		for _, o := range obj {
-			if err := mgr.GetClient().Delete(ctx, o); err != nil {
-				setupLog.Error(err, "unable to cleanup client-server resources")
-			}
-		}
-		cancel()
-	}()
+	defer cancel()
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
@@ -200,7 +203,7 @@ func main() {
 	}
 }
 
-func createClientserver(ctx context.Context, cli client.Client) ([]client.Object, error) {
+func createClientserver(ctx context.Context) ([]client.Object, error) {
 	var (
 		err    error
 		obj    []client.Object
@@ -209,6 +212,10 @@ func createClientserver(ctx context.Context, cli client.Client) ([]client.Object
 			kubernetes.ComponentLabel:   cliServerComponent,
 		}
 	)
+
+	// create new client - the manager's one is not initialized yet ))
+	cli, err := client.New(ctrl.GetConfigOrDie(), client.Options{Scheme: scheme})
+
 	ns := &core.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: cliServerNs,
@@ -240,8 +247,16 @@ func createClientserver(ctx context.Context, cli client.Client) ([]client.Object
 		}
 	}
 
+	owner, err := getSecureSignCRD(ctx, cli)
+	if err != nil {
+		return nil, err
+	}
 	for _, o := range obj {
-		err = cli.Create(ctx, o)
+		err = controllerutil.SetOwnerReference(owner, o, scheme)
+		if err != nil {
+			return nil, err
+		}
+		err = replaceResource(ctx, cli, o)
 		if err != nil {
 			return obj, err
 		}
@@ -330,4 +345,30 @@ func createConsoleCLIDownload(namespace, name, clientServerUrl, description stri
 			},
 		},
 	}
+}
+
+func getSecureSignCRD(ctx context.Context, cli client.Client) (*apiextensions.CustomResourceDefinition, error) {
+	crd := &apiextensions.CustomResourceDefinition{}
+	err := cli.Get(ctx, types.NamespacedName{Name: crdName}, crd)
+	return crd, err
+}
+
+func replaceResource(ctx context.Context, c client.Client, res client.Object) error {
+	err := c.Create(ctx, res)
+	if err != nil && apierrors.IsAlreadyExists(err) {
+		existing, ok := res.DeepCopyObject().(client.Object)
+		if !ok {
+			return fmt.Errorf("type assertion failed: %v", res.DeepCopyObject())
+		}
+		err = c.Get(ctx, client.ObjectKeyFromObject(existing), existing)
+		if err != nil {
+			return err
+		}
+		res.SetResourceVersion(existing.GetResourceVersion())
+		err = c.Update(ctx, res)
+	}
+	if err != nil {
+		return fmt.Errorf("could not create or replace %s: %w"+res.GetObjectKind().GroupVersionKind().String(), err)
+	}
+	return nil
 }
