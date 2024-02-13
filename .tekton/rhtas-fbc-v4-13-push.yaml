@@ -27,6 +27,10 @@ spec:
     value: fbc/v4.13
   - name: revision
     value: '{{revision}}'
+  - name: prefetch-input
+    value: ''
+  - name: hermetic
+    value: "true"
   pipelineSpec:
     finally:
     - name: show-sbom
@@ -184,10 +188,10 @@ spec:
           value: task
         resolver: bundles
       when:
-      - input: $(params.hermetic)
-        operator: in
+      - input: $(params.prefetch-input)
+        operator: notin
         values:
-        - "true"
+        - "{}"
       workspaces:
       - name: source
         workspace: workspace
