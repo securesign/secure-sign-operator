@@ -8,6 +8,7 @@
 bin
 testbin/*
 Dockerfile.cross
+tas-env-variables.sh
 
 # Environment variables script
 *tas-env-vars.sh
