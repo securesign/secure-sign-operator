@@ -21,6 +21,7 @@ import (
 )
 
 const SecretNameFormat = "fulcio-%s-cert"
+const FulcioCALabel = constants.LabelNamespace + "/fulcio_v1.crt.pem"
 
 func NewGenerateCertAction() action.Action[v1alpha1.Fulcio] {
 	return &generateCert{}
@@ -65,9 +66,8 @@ func (g generateCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *ac
 
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 
-	// TODO: tturek
 	secretLabels := map[string]string{
-		constants.TufLabelNamespace + "/fulcio_v1.crt.pem": "cert",
+		FulcioCALabel: "cert",
 	}
 	maps.Copy(secretLabels, labels)
 

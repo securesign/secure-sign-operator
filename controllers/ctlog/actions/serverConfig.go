@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
@@ -17,6 +18,7 @@ import (
 )
 
 const ConfigSecretNameFormat = "ctlog-%s-config"
+const CTLLabel = constants.LabelNamespace + "/ctfe.pub"
 
 func NewServerConfigAction() action.Action[rhtasv1alpha1.CTlog] {
 	return &serverConfig{}
@@ -58,8 +60,13 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	}
 
 	var config *corev1.Secret
+	secretLabels := map[string]string{
+		CTLLabel: "public",
+	}
+	maps.Copy(secretLabels, labels)
+
 	//TODO: the config is generated in every reconcile loop rotation - it can cause performance issues
-	if config, err = ctlogUtils.CreateCtlogConfig(ctx, instance.Namespace, trillUrl+":8091", *instance.Spec.TreeID, rootCerts, labels, certConfig); err != nil {
+	if config, err = ctlogUtils.CreateCtlogConfig(ctx, instance.Namespace, trillUrl+":8091", *instance.Spec.TreeID, rootCerts, secretLabels, certConfig); err != nil {
 		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create CTLog configuration: %w", err), instance)
 	}

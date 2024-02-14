@@ -141,10 +141,10 @@ var _ = Describe("TUF controller", func() {
 
 			By("Creating ctlog secret with public key")
 			secretLabels := map[string]string{
-				constants.TufLabelNamespace + "/ctfe.pub": "public",
+				constants.LabelNamespace + "/ctfe.pub": "public",
 			}
 			maps.Copy(secretLabels, constants.LabelsFor(actions2.ComponentName, actions2.ComponentName, actions2.ComponentName))
-			_ = k8sClient.Create(ctx, kubernetes.CreateSecret("ctlog", typeNamespaceName.Namespace, map[string][]byte{
+			_ = k8sClient.Create(ctx, kubernetes.CreateSecret("ctlog-test", typeNamespaceName.Namespace, map[string][]byte{
 				"public": []byte("secret"),
 			}, secretLabels))
 

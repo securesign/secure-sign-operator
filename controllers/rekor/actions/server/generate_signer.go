@@ -19,7 +19,7 @@ import (
 
 const SecretNameFormat = "rekor-%s-signer"
 
-const RekorPubLabel = constants.TufLabelNamespace + "/rekor.pub"
+const RekorPubLabel = constants.LabelNamespace + "/rekor.pub"
 
 func NewGenerateSignerAction() action.Action[v1alpha1.Rekor] {
 	return &generateSigner{}
