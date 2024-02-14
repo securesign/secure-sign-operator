@@ -17,7 +17,7 @@
     "schema": "olm.bundle",
     "name": "rhtas-operator.v0.0.2",
     "package": "rhtas-operator",
-    "image": "registry.redhat.io/rhtas-tech-preview/sigstore-operator-bundle@sha256:35551ecf6bfeb68a264586946a81ff08cc08effc8b33c7387160b203c0459586",
+    "image": "registry.redhat.io/rhtas-tech-preview/sigstore-operator-bundle@sha256:3dcbf6b275a8e06e7b8d83c85cbf0ca7e093d273dd5c410fd2daee97779ef7e1",
     "properties": [
         {
             "type": "olm.gvk",
@@ -211,11 +211,11 @@
         },
         {
             "name": "",
-            "image": "registry.redhat.io/rhtas-tech-preview/sigstore-operator-bundle@sha256:35551ecf6bfeb68a264586946a81ff08cc08effc8b33c7387160b203c0459586"
+            "image": "registry.redhat.io/rhtas-tech-preview/sigstore-operator-bundle@sha256:3dcbf6b275a8e06e7b8d83c85cbf0ca7e093d273dd5c410fd2daee97779ef7e1"
         },
         {
             "name": "",
-            "image": "registry.redhat.io/rhtas-tech-preview/sigstore-rhel9-operator@sha256:1e222bd50cf344ccac36cd80110d9201e2c71ec023ffed3643e348e6cd0c354d"
+            "image": "registry.redhat.io/rhtas-tech-preview/sigstore-rhel9-operator@sha256:2e3ba07b2695d86bcfb5ea7ea32ad3dddc365c1fad2385ff048e8dc30afd76d6"
         },
         {
             "name": "",
