@@ -21,6 +21,8 @@ type RekorSpec struct {
 	RekorSearchUI RekorSearchUI `json:"rekorSearchUI,omitempty"`
 	// Signer configuration
 	Signer RekorSigner `json:"signer,omitempty"`
+	// BackFillRedis CronJob Configuration
+	BackFillRedis BackFillRedis `json:"backFillRedis,omitempty"`
 }
 
 type RekorSigner struct {
@@ -39,6 +41,15 @@ type RekorSigner struct {
 type RekorSearchUI struct {
 	//Enable RekorSearchUI deployment
 	Enabled bool `json:"enabled,omitempty"`
+}
+
+type BackFillRedis struct {
+	//Enable the BackFillRedis CronJob
+	//+kubebuilder:default:=true
+	Enabled bool `json:"enabled,omitempty"`
+	//Schedule for the BackFillRedis CronJob
+	//+kubebuilder:default:="0 0 * * *"
+	Schedule string `json:"schedule,omitempty"`
 }
 
 // RekorStatus defines the observed state of Rekor

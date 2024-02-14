@@ -20,6 +20,7 @@ import (
 	"context"
 
 	actions2 "github.com/securesign/operator/controllers/rekor/actions"
+	backfillredis "github.com/securesign/operator/controllers/rekor/actions/backfillRedis"
 	"github.com/securesign/operator/controllers/rekor/actions/redis"
 	"github.com/securesign/operator/controllers/rekor/actions/server"
 	"github.com/securesign/operator/controllers/rekor/actions/ui"
@@ -37,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	batchv1 "k8s.io/api/batch/v1"
 )
 
 // RekorReconciler reconciles a Rekor object
@@ -53,6 +55,7 @@ type RekorReconciler struct {
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=create;get;list;watch;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=create;get;list;watch;update;patch;delete
 //+kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=create;get;list;watch;update;patch;delete
+//+kubebuilder:rbac:groups="batch",resources=cronjobs,verbs=create;get;list;watch;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=endpoints,verbs=get;list;watch
 
@@ -104,6 +107,8 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		ui.NewCreateServiceAction(),
 		ui.NewIngressAction(),
 
+		backfillredis.NewBackfillRedisCronJobAction(),
+
 		// CREATE -> INITIALIZE
 		actions2.NewToInitializeAction(),
 
@@ -139,5 +144,6 @@ func (r *RekorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&v12.Deployment{}).
 		Owns(&v13.Service{}).
 		Owns(&v1.Ingress{}).
+		Owns(&batchv1.CronJob{}).
 		Complete(r)
 }

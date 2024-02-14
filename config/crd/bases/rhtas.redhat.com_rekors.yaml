@@ -44,6 +44,18 @@ spec:
           spec:
             description: RekorSpec defines the desired state of Rekor
             properties:
+              backFillRedis:
+                description: BackFillRedis CronJob Configuration
+                properties:
+                  enabled:
+                    default: true
+                    description: Enable the BackFillRedis CronJob
+                    type: boolean
+                  schedule:
+                    default: 0 0 * * *
+                    description: Schedule for the BackFillRedis CronJob
+                    type: string
+                type: object
               externalAccess:
                 description: Define whether you want to export service or not
                 properties:
