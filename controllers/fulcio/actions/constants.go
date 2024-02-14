@@ -6,4 +6,6 @@ const (
 	MonitoringRoleName = "prometheus-k8s-fulcio"
 	ServiceMonitorName = "fulcio-metrics"
 	RBACName           = "fulcio"
+
+	CertCondition = "FulcioCert"
 )

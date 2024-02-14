@@ -5,6 +5,7 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
+	"github.com/securesign/operator/controllers/constants"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -22,24 +23,19 @@ func (i initializeAction) Name() string {
 }
 
 func (i initializeAction) CanHandle(instance *rhtasv1alpha1.Rekor) bool {
-	return instance.Status.Phase == rhtasv1alpha1.PhaseInitialize
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	return c.Reason == constants.Initialize
 }
 
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
 
-	components := []string{ServerComponentName, RedisComponentName}
-	if instance.Spec.RekorSearchUI.Enabled {
-		components = append(components, UIComponentName)
-	}
-	for _, c := range components {
-		if !meta.IsStatusConditionTrue(instance.Status.Conditions, c+"Ready") {
-			// deployment is watched - no need to requeue
-			return i.Return()
-		}
-	}
+	if (!instance.Spec.RekorSearchUI.Enabled || meta.IsStatusConditionTrue(instance.Status.Conditions, UICondition)) &&
+		meta.IsStatusConditionTrue(instance.Status.Conditions, RedisCondition) &&
+		meta.IsStatusConditionTrue(instance.Status.Conditions, ServerCondition) {
 
-	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: string(rhtasv1alpha1.PhaseReady),
-		Status: metav1.ConditionTrue, Reason: string(rhtasv1alpha1.PhaseReady)})
-	instance.Status.Phase = rhtasv1alpha1.PhaseReady
-	return i.StatusUpdate(ctx, instance)
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
+			Status: metav1.ConditionTrue, Reason: constants.Ready})
+		return i.StatusUpdate(ctx, instance)
+	}
+	return i.Requeue()
 }

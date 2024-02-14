@@ -77,8 +77,7 @@ type OIDCIssuer struct {
 
 // FulcioStatus defines the observed state of Fulcio
 type FulcioStatus struct {
-	Url   string `json:"url,omitempty"`
-	Phase Phase  `json:"phase,omitempty"`
+	Url string `json:"url,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge
@@ -89,7 +88,7 @@ type FulcioStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The component phase"
+//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
 //+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
 
 // Fulcio is the Schema for the fulcios API

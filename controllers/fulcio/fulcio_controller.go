@@ -85,6 +85,7 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	target := instance.DeepCopy()
 	acs := []action.Action[rhtasv1alpha1.Fulcio]{
+		actions.NewToPendingPhaseAction(),
 		actions.NewGenerateCertAction(),
 		actions.NewRBACAction(),
 		actions.NewServerConfigAction(),

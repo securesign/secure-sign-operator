@@ -36,29 +36,26 @@ func (g generateCert) Name() string {
 }
 
 func (g generateCert) CanHandle(instance *v1alpha1.Fulcio) bool {
-	return instance.Status.Phase == v1alpha1.PhaseNone || instance.Status.Phase == v1alpha1.PhasePending
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	return c.Reason == constants.Pending
 }
 
 func (g generateCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *action.Result {
-	if instance.Status.Phase == v1alpha1.PhaseNone {
-		instance.Status.Phase = v1alpha1.PhasePending
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:   "FulcioCert",
-			Status: metav1.ConditionUnknown,
-			Reason: "Resolving",
-		})
-		return g.StatusUpdate(ctx, instance)
-	}
-
 	if instance.Spec.Certificate.PrivateKeyRef == nil && instance.Spec.Certificate.CARef != nil {
-		instance.Status.Phase = v1alpha1.PhaseError
+		err := fmt.Errorf("missing private key for CA certificate")
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    string(v1alpha1.PhaseReady),
+			Type:    CertCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Failure",
-			Message: "There is set CARef field but there is no PrivateKeyRef secret attached.",
+			Reason:  constants.Failure,
+			Message: err.Error(),
 		})
-		return g.FailedWithStatusUpdate(ctx, fmt.Errorf("missing private key for CA certificate"), instance)
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		return g.FailedWithStatusUpdate(ctx, err, instance)
 	}
 
 	secretName := fmt.Sprintf(SecretNameFormat, instance.Name)
@@ -75,9 +72,9 @@ func (g generateCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *ac
 	if err != nil {
 		if !meta.IsStatusConditionFalse(instance.Status.Conditions, "FulcioCert") {
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:    "FulcioCert",
+				Type:    CertCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  "Failure",
+				Reason:  constants.Failure,
 				Message: err.Error(),
 			})
 			return g.StatusUpdate(ctx, instance)
@@ -92,11 +89,16 @@ func (g generateCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *ac
 		return g.Failed(fmt.Errorf("could not set controller reference for Secret: %w", err))
 	}
 	if updated, err = g.Ensure(ctx, secret); err != nil {
-		instance.Status.Phase = v1alpha1.PhaseError
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    string(v1alpha1.PhaseReady),
+			Type:    CertCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Failure",
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
 		return g.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create secret: %w", err), instance)
@@ -135,13 +137,13 @@ func (g generateCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *ac
 		return g.Update(ctx, instance)
 	}
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:   "FulcioCert",
+		Type:   CertCondition,
 		Status: metav1.ConditionTrue,
 		Reason: "Resolved",
 	})
-	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: string(v1alpha1.PhaseReady),
-		Status: metav1.ConditionTrue, Reason: string(v1alpha1.PhaseCreating)})
-	instance.Status.Phase = v1alpha1.PhaseCreating
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
+		Status: metav1.ConditionFalse, Reason: constants.Creating})
+
 	return g.StatusUpdate(ctx, instance)
 }
 

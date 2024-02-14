@@ -6,7 +6,6 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
 	"github.com/securesign/operator/controllers/constants"
-	actions2 "github.com/securesign/operator/controllers/trillian/actions"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -35,7 +34,7 @@ func (i trillianAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secu
 
 	trillian.Name = instance.Name
 	trillian.Namespace = instance.Namespace
-	trillian.Labels = constants.LabelsFor(actions2.ComponentName, trillian.Name, instance.Name)
+	trillian.Labels = constants.LabelsFor("trillian", trillian.Name, instance.Name)
 	trillian.Spec = instance.Spec.Trillian
 
 	if err = controllerutil.SetControllerReference(instance, trillian, i.Client.Scheme()); err != nil {

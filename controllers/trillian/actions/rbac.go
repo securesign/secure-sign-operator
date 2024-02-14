@@ -1,4 +1,4 @@
-package actions2
+package actions
 
 import (
 	"context"
@@ -28,25 +28,15 @@ func (i rbacAction) Name() string {
 }
 
 func (i rbacAction) CanHandle(instance *rhtasv1alpha1.Trillian) bool {
-	return instance.Status.Phase == rhtasv1alpha1.PhaseNone ||
-		instance.Status.Phase == rhtasv1alpha1.PhaseCreating ||
-		instance.Status.Phase == rhtasv1alpha1.PhaseReady
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	return c.Reason == constants.Creating || c.Reason == constants.Ready
 }
 
 func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
-	if instance.Status.Phase == rhtasv1alpha1.PhaseNone {
-		instance.Status.Phase = rhtasv1alpha1.PhaseCreating
-
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: string(rhtasv1alpha1.PhaseReady),
-			Status: metav1.ConditionTrue, Reason: string(rhtasv1alpha1.PhaseCreating)})
-
-		return i.StatusUpdate(ctx, instance)
-	}
-
 	var (
 		err error
 	)
-	labels := constants.LabelsFor(ComponentName, RBACName, instance.Name)
+	labels := constants.LabelsFor(LogServerComponentName, RBACName, instance.Name)
 
 	sa := &v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
@@ -67,11 +57,10 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian
 	// don't re-enqueue for RBAC in any case (except failure)
 	_, err = i.Ensure(ctx, sa)
 	if err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    string(rhtasv1alpha1.PhaseReady),
+			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Failure",
+			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create SA: %w", err), instance)
@@ -94,11 +83,10 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian
 	}
 	_, err = i.Ensure(ctx, role)
 	if err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    string(rhtasv1alpha1.PhaseReady),
+			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Failure",
+			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Role: %w", err), instance)
@@ -117,11 +105,10 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian
 	}
 	_, err = i.Ensure(ctx, rb)
 	if err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    string(rhtasv1alpha1.PhaseReady),
+			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Failure",
+			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create RoleBinding: %w", err), instance)

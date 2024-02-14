@@ -135,7 +135,7 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 			tas.VerifyRekor(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyFulcio(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyCTLog(ctx, cli, namespace.Name, securesign.Name)
-			tas.VerifyTrillian(ctx, cli, namespace.Name, securesign.Name)
+			tas.VerifyTrillian(ctx, cli, namespace.Name, securesign.Name, true)
 			tas.VerifyTuf(ctx, cli, namespace.Name, securesign.Name)
 		})
 

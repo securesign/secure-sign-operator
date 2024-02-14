@@ -26,8 +26,7 @@ type TufKey struct {
 
 // TufStatus defines the observed state of Tuf
 type TufStatus struct {
-	Url   string `json:"url,omitempty"`
-	Phase Phase  `json:"phase"`
+	Url string `json:"url,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge
@@ -38,7 +37,7 @@ type TufStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The component phase"
+//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
 //+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
 
 // Tuf is the Schema for the tufs API

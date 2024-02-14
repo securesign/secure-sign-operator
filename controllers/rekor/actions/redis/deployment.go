@@ -8,6 +8,8 @@ import (
 	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/rekor/actions"
 	"github.com/securesign/operator/controllers/rekor/utils"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -26,7 +28,8 @@ func (i deployAction) Name() string {
 }
 
 func (i deployAction) CanHandle(instance *rhtasv1alpha1.Rekor) bool {
-	return instance.Status.Phase == rhtasv1alpha1.PhaseCreating || instance.Status.Phase == rhtasv1alpha1.PhaseReady
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	return c.Reason == constants.Creating || c.Reason == constants.Ready
 }
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
@@ -41,12 +44,29 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 	}
 
 	if updated, err = i.Ensure(ctx, dp); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    actions.RedisCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Rekor redis: %w", err), instance)
 	}
 
 	if updated {
-		return i.Return()
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    actions.RedisCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Creating,
+			Message: "Redis created",
+		})
+		return i.StatusUpdate(ctx, instance)
 	} else {
 		return i.Continue()
 	}

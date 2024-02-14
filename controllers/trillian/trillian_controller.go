@@ -76,6 +76,8 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 	target := instance.DeepCopy()
 	actions := []action.Action[rhtasv1alpha1.Trillian]{
+		actions2.NewToPendingPhaseAction(),
+		actions2.NewToCreatePhaseAction(),
 		actions2.NewRBACAction(),
 
 		db.NewCreateSecretAction(),
@@ -87,8 +89,12 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		logserver.NewCreateServiceAction(),
 
 		logsigner.NewDeployAction(),
+
 		actions2.NewToInitializePhaseAction(),
 
+		db.NewInitializeAction(),
+		logserver.NewInitializeAction(),
+		logsigner.NewInitializeAction(),
 		actions2.NewInitializeAction(),
 	}
 

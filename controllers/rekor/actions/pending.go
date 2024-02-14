@@ -6,7 +6,10 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
 	utils "github.com/securesign/operator/controllers/common/utils/kubernetes"
+	"github.com/securesign/operator/controllers/constants"
 	trillian "github.com/securesign/operator/controllers/trillian/actions"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func NewPendingAction() action.Action[rhtasv1alpha1.Rekor] {
@@ -22,23 +25,55 @@ func (i pendingAction) Name() string {
 }
 
 func (i pendingAction) CanHandle(instance *rhtasv1alpha1.Rekor) bool {
-	return instance.Status.Phase == rhtasv1alpha1.PhaseNone || instance.Status.Phase == rhtasv1alpha1.PhasePending
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	return c == nil || c.Reason == constants.Pending
 }
 
 func (i pendingAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
-	if instance.Status.Phase == rhtasv1alpha1.PhaseNone {
-		instance.Status.Phase = rhtasv1alpha1.PhasePending
+	if meta.FindStatusCondition(instance.Status.Conditions, constants.Ready) == nil {
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:   constants.Ready,
+			Status: metav1.ConditionFalse,
+			Reason: constants.Pending,
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:   ServerCondition,
+			Status: metav1.ConditionUnknown,
+			Reason: constants.Pending,
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:   RedisCondition,
+			Status: metav1.ConditionUnknown,
+			Reason: constants.Pending,
+		})
+		if instance.Spec.RekorSearchUI.Enabled {
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:   UICondition,
+				Status: metav1.ConditionUnknown,
+				Reason: constants.Pending,
+			})
+		}
 		return i.StatusUpdate(ctx, instance)
 	}
 
 	var err error
 	_, err = utils.GetInternalUrl(ctx, i.Client, instance.Namespace, trillian.LogserverDeploymentName)
 	if err != nil {
-		//TODO: add status condition - waiting for trillian
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Pending,
+			Message: "Waiting for Rekor Logserver service",
+		})
+		i.StatusUpdate(ctx, instance)
 		return i.Requeue()
 	}
 
-	instance.Status.Phase = rhtasv1alpha1.PhaseCreating
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:   constants.Ready,
+		Status: metav1.ConditionFalse,
+		Reason: constants.Creating,
+	})
 	return i.StatusUpdate(ctx, instance)
 
 }
