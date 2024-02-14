@@ -116,7 +116,7 @@ func CreateTrillDb(namespace string, image string, dpName string, sa string, pvc
 							VolumeMounts: []core.VolumeMount{
 								{
 									Name:      "storage",
-									MountPath: "/var/lib/mysql",
+									MountPath: "/var/lib/mysql/data",
 								},
 							},
 						},
