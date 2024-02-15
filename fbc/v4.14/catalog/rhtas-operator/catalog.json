@@ -216,7 +216,7 @@
         {
             "name": "",
             "image": "registry.redhat.io/rhtas-tech-preview/sigstore-rhel9-operator@sha256:734ff68eb0e84b22d1dd297d8f9fc505f30eaadaa2c4c5797142ca902f12f549"
-        },,
+        },
         {
             "name": "",
             "image": "registry.redhat.io/rhtas-tech-preview/trillian-logsigner-rhel9@sha256:015f430f8f966d5cf83cdaad5ba5ca87dd75a83e64abd229c00ddd370f3c393b"
