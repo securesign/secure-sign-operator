@@ -51,7 +51,7 @@ func (i pendingAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog
 			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Pending,
-			Message: "Waiting for Rekor Logserver service",
+			Message: "Waiting for Trillian Logserver service",
 		})
 		// update will throw requeue only with first update
 		i.StatusUpdate(ctx, instance)

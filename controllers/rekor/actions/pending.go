@@ -63,7 +63,7 @@ func (i pendingAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor
 			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Pending,
-			Message: "Waiting for Rekor Logserver service",
+			Message: "Waiting for Trillian Logserver service",
 		})
 		i.StatusUpdate(ctx, instance)
 		return i.Requeue()

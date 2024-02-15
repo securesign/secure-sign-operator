@@ -84,6 +84,12 @@ func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 
 	if updated, err = i.Ensure(ctx, backfillRedisCronJob); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    actions.RedisCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Failure,
