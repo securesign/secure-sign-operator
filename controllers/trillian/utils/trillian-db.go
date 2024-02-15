@@ -9,7 +9,7 @@ import (
 func CreateTrillDb(namespace string, image string, dpName string, sa string, pvcName string, dbsecret core.LocalObjectReference, openshift bool, labels map[string]string) *apps.Deployment {
 	replicas := int32(1)
 	var secCont *core.PodSecurityContext
-	if openshift {
+	if !openshift {
 		uid := int64(1001)
 		fsid := int64(1001)
 		secCont = &core.PodSecurityContext{
