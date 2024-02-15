@@ -35,17 +35,35 @@ type SecuresignSpec struct {
 
 // SecuresignStatus defines the observed state of Securesign
 type SecuresignStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	Trillian string `json:"trillian"`
-	Fulcio   string `json:"fulcio"`
-	Tuf      string `json:"tuf"`
-	CTlog    string `json:"ctlog"`
-	Rekor    string `json:"rekor"`
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
+	Conditions   []metav1.Condition     `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	RekorStatus  SecuresignRekorStatus  `json:"rekor,omitempty"`
+	FulcioStatus SecuresignFulcioStatus `json:"fulcio,omitempty"`
+	TufStatus    SecuresignTufStatus    `json:"tuf,omitempty"`
+}
+
+type SecuresignRekorStatus struct {
+	Url string `json:"url,omitempty"`
+}
+
+type SecuresignFulcioStatus struct {
+	Url string `json:"url,omitempty"`
+}
+
+type SecuresignTufStatus struct {
+	Url string `json:"url,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The Deployment status"
+//+kubebuilder:printcolumn:name="Rekor URL",type=string,JSONPath=`.status.rekor.url`,description="The rekor url"
+//+kubebuilder:printcolumn:name="Fulcio URL",type=string,JSONPath=`.status.fulcio.url`,description="The fulcio url"
+//+kubebuilder:printcolumn:name="Tuf URL",type=string,JSONPath=`.status.tuf.url`,description="The tuf url"
 
 // Securesign is the Schema for the securesigns API
 type Securesign struct {

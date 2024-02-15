@@ -96,6 +96,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 		})
 
 		It("All components are running", func() {
+			tas.VerifySecuresign(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyTrillian(ctx, cli, namespace.Name, securesign.Name, false)
 			tas.VerifyFulcio(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyRekor(ctx, cli, namespace.Name, securesign.Name)
