@@ -10,4 +10,7 @@ const (
 	RedisComponentName       = "rekor-redis"
 	UIComponentName          = "rekor-ui"
 	BackfillRedisCronJobName = "backfill-redis"
+	UICondition              = "UiAvailable"
+	ServerCondition          = "ServerAvailable"
+	RedisCondition           = "RedisAvailable"
 )

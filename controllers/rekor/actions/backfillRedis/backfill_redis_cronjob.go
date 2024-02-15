@@ -8,6 +8,7 @@ import (
 	"github.com/securesign/operator/controllers/rekor/actions"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -31,7 +32,8 @@ func (i backfillRedisCronJob) Name() string {
 }
 
 func (i backfillRedisCronJob) CanHandle(instance *rhtasv1alpha1.Rekor) bool {
-	return (instance.Status.Phase == rhtasv1alpha1.PhaseCreating || instance.Status.Phase == rhtasv1alpha1.PhaseReady) && instance.Spec.BackFillRedis.Enabled
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && instance.Spec.BackFillRedis.Enabled
 }
 
 func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
@@ -41,7 +43,6 @@ func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 	)
 
 	if _, err := cron.ParseStandard(instance.Spec.BackFillRedis.Schedule); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return i.Failed(fmt.Errorf("could not create backfill redis cron job: %w", err))
 	}
 
@@ -82,12 +83,29 @@ func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 	}
 
 	if updated, err = i.Ensure(ctx, backfillRedisCronJob); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    actions.RedisCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create backfill redis cron job: %w", err), instance)
 	}
 
 	if updated {
-		return i.Return()
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Creating,
+			Message: "Backfill redis job created",
+		})
+		return i.StatusUpdate(ctx, instance)
 	} else {
 		return i.Continue()
 	}

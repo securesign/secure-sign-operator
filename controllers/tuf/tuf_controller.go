@@ -26,8 +26,6 @@ import (
 	v12 "k8s.io/api/core/v1"
 	v13 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -77,25 +75,16 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		}
 	}
 
-	if instance.Status.Conditions == nil || len(instance.Status.Conditions) == 0 {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:   string(rhtasv1alpha1.PhaseReady),
-			Status: metav1.ConditionUnknown,
-			Reason: string(rhtasv1alpha1.PhasePending)})
-		if err := r.Status().Update(ctx, instance); err != nil {
-			rlog.Error(err, "Failed to update TUF status")
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{}, nil
-	}
-
 	target := instance.DeepCopy()
 	acs := []action.Action[rhtasv1alpha1.Tuf]{
-		actions.NewPendingAction(),
+		actions.NewToPendingPhaseAction(),
+
+		actions.NewResolveKeysAction(),
 		actions.NewRBACAction(),
 		actions.NewDeployAction(),
 		actions.NewServiceAction(),
 		actions.NewIngressAction(),
+
 		actions.NewToInitializePhaseAction(),
 
 		actions.NewInitializeAction(),

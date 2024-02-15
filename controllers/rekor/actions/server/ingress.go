@@ -10,6 +10,8 @@ import (
 	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/rekor/actions"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -27,7 +29,8 @@ func (i ingressAction) Name() string {
 }
 
 func (i ingressAction) CanHandle(instance *rhtasv1alpha1.Rekor) bool {
-	return (instance.Status.Phase == rhtasv1alpha1.PhaseCreating || instance.Status.Phase == rhtasv1alpha1.PhaseReady) &&
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	return (c.Reason == constants.Creating || c.Reason == constants.Ready) &&
 		instance.Spec.ExternalAccess.Enabled
 }
 
@@ -51,11 +54,29 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor
 	}
 
 	if updated, err = i.Ensure(ctx, ingress); err != nil {
-		return i.Failed(fmt.Errorf("could not create Ingress: %w", err))
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    actions.ServerCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		return i.FailedWithStatusUpdate(ctx, err, instance)
 	}
 
 	if updated {
-		return i.Return()
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    actions.ServerCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Creating,
+			Message: "Ingress created",
+		})
+		return i.StatusUpdate(ctx, instance)
 	} else {
 		return i.Continue()
 	}

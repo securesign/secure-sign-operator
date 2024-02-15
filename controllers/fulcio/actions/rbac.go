@@ -28,7 +28,8 @@ func (i rbacAction) Name() string {
 }
 
 func (i rbacAction) CanHandle(instance *rhtasv1alpha1.Fulcio) bool {
-	return instance.Status.Phase == rhtasv1alpha1.PhaseCreating || instance.Status.Phase == rhtasv1alpha1.PhaseReady
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	return c.Reason == constants.Creating || c.Reason == constants.Ready
 }
 
 func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) *action.Result {
@@ -56,11 +57,10 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) 
 	// don't re-enqueue for RBAC in any case (except failure)
 	_, err = i.Ensure(ctx, sa)
 	if err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    string(rhtasv1alpha1.PhaseReady),
+			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Failure",
+			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create SA: %w", err), instance)
@@ -83,11 +83,10 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) 
 	}
 	_, err = i.Ensure(ctx, role)
 	if err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    string(rhtasv1alpha1.PhaseReady),
+			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Failure",
+			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Role: %w", err), instance)
@@ -106,11 +105,10 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) 
 	}
 	_, err = i.Ensure(ctx, rb)
 	if err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    string(rhtasv1alpha1.PhaseReady),
+			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Failure",
+			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create RoleBinding: %w", err), instance)

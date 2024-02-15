@@ -15,9 +15,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - description: The component phase
-      jsonPath: .status.phase
-      name: Phase
+    - description: The component status
+      jsonPath: .status.conditions[?(@.type=="Ready")].reason
+      name: Status
       type: string
     - description: The component url
       jsonPath: .status.url
@@ -274,8 +274,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              phase:
-                type: string
               url:
                 type: string
             type: object

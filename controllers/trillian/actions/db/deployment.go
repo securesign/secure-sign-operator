@@ -9,6 +9,8 @@ import (
 	"github.com/securesign/operator/controllers/constants"
 	actions2 "github.com/securesign/operator/controllers/trillian/actions"
 	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -27,7 +29,8 @@ func (i deployAction) Name() string {
 }
 
 func (i deployAction) CanHandle(instance *rhtasv1alpha1.Trillian) bool {
-	return instance.Status.Phase == rhtasv1alpha1.PhaseCreating && instance.Spec.Db.Create
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	return (c.Reason == constants.Ready || c.Reason == constants.Creating) && instance.Spec.Db.Create
 }
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
@@ -36,13 +39,12 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		updated   bool
 		openshift bool
 	)
-
 	openshift = kubernetes.IsOpenShift(i.Client)
 
 	labels := constants.LabelsFor(actions2.ComponentName, actions2.DbDeploymentName, instance.Name)
 	db := trillianUtils.CreateTrillDb(instance.Namespace, constants.TrillianDbImage,
-		actions2.DbDeploymentName,
-		actions2.RBACName,
+		actions.DbDeploymentName,
+		actions.RBACName,
 		instance.Spec.Db.PvcName,
 		*instance.Spec.Db.DatabaseSecretRef,
 		openshift,
@@ -52,12 +54,29 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	}
 
 	if updated, err = i.Ensure(ctx, db); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    actions.DbCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Trillian DB: %w", err), instance)
 	}
 
 	if updated {
-		return i.Return()
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    actions.DbCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Creating,
+			Message: "Database deployment created",
+		})
+		return i.StatusUpdate(ctx, instance)
 	} else {
 		return i.Continue()
 	}

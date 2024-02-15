@@ -5,6 +5,7 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
+	"github.com/securesign/operator/controllers/constants"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -18,18 +19,17 @@ type toInitialize struct {
 }
 
 func (i toInitialize) Name() string {
-	return "create action done"
+	return "move to initialize"
 }
 
 func (i toInitialize) CanHandle(tuf *rhtasv1alpha1.Tuf) bool {
-	return tuf.Status.Phase == rhtasv1alpha1.PhaseCreating
+	c := meta.FindStatusCondition(tuf.Status.Conditions, constants.Ready)
+	return c.Status == metav1.ConditionFalse && (c.Reason == constants.Creating)
 }
 
 func (i toInitialize) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
-	instance.Status.Phase = rhtasv1alpha1.PhaseInitialize
-
-	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: string(rhtasv1alpha1.PhaseReady),
-		Status: metav1.ConditionTrue, Reason: string(rhtasv1alpha1.PhaseInitialize)})
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
+		Status: metav1.ConditionFalse, Reason: constants.Initialize, Message: "Move to initialize phase"})
 
 	return i.StatusUpdate(ctx, instance)
 }

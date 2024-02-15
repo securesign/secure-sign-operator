@@ -94,11 +94,15 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	acs := []action.Action[rhtasv1alpha1.Securesign]{
+		actions.NewInitializeStatusAction(),
+
 		actions.NewTrillianAction(),
 		actions.NewFulcioAction(),
 		actions.NewRekorAction(),
 		actions.NewCtlogAction(),
 		actions.NewTufAction(),
+
+		actions.NewUpdateStatusAction(),
 	}
 
 	for _, a := range acs {
@@ -119,5 +123,10 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 func (r *SecuresignReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&rhtasv1alpha1.Securesign{}).
+		Owns(&rhtasv1alpha1.Fulcio{}).
+		Owns(&rhtasv1alpha1.Rekor{}).
+		Owns(&rhtasv1alpha1.Tuf{}).
+		Owns(&rhtasv1alpha1.Trillian{}).
+		Owns(&rhtasv1alpha1.CTlog{}).
 		Complete(r)
 }
