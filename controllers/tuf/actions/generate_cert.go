@@ -14,58 +14,37 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewPendingAction() action.Action[rhtasv1alpha1.Tuf] {
-	return &pendingAction{}
+func NewResolveKeysAction() action.Action[rhtasv1alpha1.Tuf] {
+	return &resolveKeysAction{}
 }
 
-type pendingAction struct {
+type resolveKeysAction struct {
 	action.BaseAction
 }
 
-func (i pendingAction) Name() string {
-	return "pending"
+func (i resolveKeysAction) Name() string {
+	return "resolve keys"
 }
 
-func (i pendingAction) CanHandle(tuf *rhtasv1alpha1.Tuf) bool {
-	return tuf.Status.Phase == rhtasv1alpha1.PhaseNone || tuf.Status.Phase == rhtasv1alpha1.PhasePending
+func (i resolveKeysAction) CanHandle(tuf *rhtasv1alpha1.Tuf) bool {
+	c := meta.FindStatusCondition(tuf.Status.Conditions, constants.Ready)
+	return c.Reason == constants.Pending
 }
 
-func (i pendingAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
-	if instance.Status.Phase == rhtasv1alpha1.PhaseNone {
-		instance.Status.Phase = rhtasv1alpha1.PhasePending
-		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
-			Type:    string(rhtasv1alpha1.PhaseReady),
-			Status:  v1.ConditionFalse,
-			Reason:  (string)(rhtasv1alpha1.PhasePending),
-			Message: "Resolving keys",
-		})
-		return i.StatusUpdate(ctx, instance)
-	}
-
+func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
 	for index, key := range instance.Spec.Keys {
-		if meta.FindStatusCondition(instance.Status.Conditions, key.Name) == nil {
-			meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
-				Type:   key.Name,
-				Status: v1.ConditionUnknown,
-				Reason: "Resolving",
-			})
-			return i.StatusUpdate(ctx, instance)
-		}
-
 		if !meta.IsStatusConditionTrue(instance.Status.Conditions, key.Name) {
 			updated, err := i.handleKey(ctx, instance, &instance.Spec.Keys[index])
 			if err != nil {
-				if !meta.IsStatusConditionFalse(instance.Status.Conditions, key.Name) {
-					meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
-						Type:    key.Name,
-						Status:  v1.ConditionFalse,
-						Reason:  "Failure",
-						Message: err.Error(),
-					})
-					return i.StatusUpdate(ctx, instance)
-				}
-
-				// swallow error and retry
+				meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{Type: constants.Ready,
+					Status: v1.ConditionFalse, Reason: constants.Pending, Message: "Resolving keys"})
+				meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
+					Type:    key.Name,
+					Status:  v1.ConditionFalse,
+					Reason:  constants.Failure,
+					Message: err.Error(),
+				})
+				i.StatusUpdate(ctx, instance)
 				return i.Requeue()
 			}
 			if updated {
@@ -75,19 +54,18 @@ func (i pendingAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) 
 			meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 				Type:   key.Name,
 				Status: v1.ConditionTrue,
-				Reason: "Ready",
+				Reason: constants.Ready,
 			})
 			return i.StatusUpdate(ctx, instance)
 		}
 	}
 
-	meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{Type: string(rhtasv1alpha1.PhaseReady),
-		Status: v1.ConditionTrue, Reason: string(rhtasv1alpha1.PhaseCreating)})
-	instance.Status.Phase = rhtasv1alpha1.PhaseCreating
+	meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{Type: constants.Ready,
+		Status: v1.ConditionFalse, Reason: constants.Creating, Message: "Keys resolved"})
 	return i.StatusUpdate(ctx, instance)
 }
 
-func (i pendingAction) handleKey(ctx context.Context, instance *rhtasv1alpha1.Tuf, key *rhtasv1alpha1.TufKey) (bool, error) {
+func (i resolveKeysAction) handleKey(ctx context.Context, instance *rhtasv1alpha1.Tuf, key *rhtasv1alpha1.TufKey) (bool, error) {
 	switch {
 	case key.SecretRef == nil:
 		sks, err := i.discoverSecret(ctx, instance.Namespace, key)
@@ -103,7 +81,7 @@ func (i pendingAction) handleKey(ctx context.Context, instance *rhtasv1alpha1.Tu
 	}
 }
 
-func (i pendingAction) discoverSecret(ctx context.Context, namespace string, key *rhtasv1alpha1.TufKey) (*rhtasv1alpha1.SecretKeySelector, error) {
+func (i resolveKeysAction) discoverSecret(ctx context.Context, namespace string, key *rhtasv1alpha1.TufKey) (*rhtasv1alpha1.SecretKeySelector, error) {
 	labelName := constants.LabelNamespace + "/" + key.Name
 	s, err := k8sutils.FindSecret(ctx, i.Client, namespace, labelName)
 	if err != nil {

@@ -34,7 +34,8 @@ func (i resolvePubKeyAction) Name() string {
 }
 
 func (i resolvePubKeyAction) CanHandle(instance *rhtasv1alpha1.Rekor) bool {
-	return instance.Status.Phase == rhtasv1alpha1.PhaseInitialize
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	return c.Reason == constants.Initialize && meta.IsStatusConditionTrue(instance.Status.Conditions, actions.ServerCondition)
 }
 
 func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
@@ -68,11 +69,16 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		return i.Failed(fmt.Errorf("could not set controller reference for Secret: %w", err))
 	}
 	if updated, err = i.Ensure(ctx, scr); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    string(rhtasv1alpha1.PhaseReady),
+			Type:    actions.ServerCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Failure",
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create secret: %w", err), instance)
@@ -98,7 +104,6 @@ func (i resolvePubKeyAction) resolvePubKey(instance rhtasv1alpha1.Rekor) ([]byte
 	}
 
 	if err != nil || pubKeyResponse.StatusCode != http.StatusOK {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		return nil, err
 	}
 	return io.ReadAll(pubKeyResponse.Body)

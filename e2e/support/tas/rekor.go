@@ -6,17 +6,19 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
+	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/rekor/actions"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func VerifyRekor(ctx context.Context, cli client.Client, namespace string, name string) {
 	Eventually(GetRekor(ctx, cli, namespace, name)).Should(
-		WithTransform(func(f *v1alpha1.Rekor) v1alpha1.Phase {
-			return f.Status.Phase
-		}, Equal(v1alpha1.PhaseReady)))
+		WithTransform(func(f *v1alpha1.Rekor) bool {
+			return meta.IsStatusConditionTrue(f.Status.Conditions, constants.Ready)
+		}, BeTrue()))
 
 	list := &v1.PodList{}
 

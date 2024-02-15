@@ -28,6 +28,7 @@ import (
 	fulcio "github.com/securesign/operator/controllers/fulcio/actions"
 	trillian "github.com/securesign/operator/controllers/trillian/actions"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -108,20 +109,27 @@ var _ = Describe("CTlog controller", func() {
 				return k8sClient.Get(ctx, typeNamespaceName, found)
 			}, time.Minute, time.Second).Should(Succeed())
 
-			By("Pending phase until Trillian svc is created")
-			Eventually(func() v1alpha1.Phase {
+			By("Status conditions are initialized")
+			Eventually(func() bool {
 				found := &v1alpha1.CTlog{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Phase
-			}, time.Minute, time.Second).Should(Equal(v1alpha1.PhasePending))
+				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
+			}, time.Minute, time.Second).Should(BeTrue())
+
+			By("Pending phase until Trillian svc is created")
+			Eventually(func() string {
+				found := &v1alpha1.CTlog{}
+				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
+			}, time.Minute, time.Second).Should(Equal(constants.Pending))
 
 			By("Creating trillian service")
-			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, 8091, constants.LabelsForComponent(trillian.ComponentName, instance.Name)))).To(Succeed())
-			Eventually(func() v1alpha1.Phase {
+			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, 8091, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
+			Eventually(func() string {
 				found := &v1alpha1.CTlog{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Phase
-			}, time.Minute, time.Second).Should(Equal(v1alpha1.PhaseCreating))
+				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
+			}, time.Minute, time.Second).Should(Equal(constants.Creating))
 
 			By("Creating fulcio root cert")
 			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("test", Namespace,
@@ -129,11 +137,11 @@ var _ = Describe("CTlog controller", func() {
 				map[string]string{fulcio.FulcioCALabel: "cert"},
 			))).To(Succeed())
 
-			Eventually(func() v1alpha1.Phase {
+			Eventually(func() string {
 				found := &v1alpha1.CTlog{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Phase
-			}, time.Minute, time.Second).Should(Equal(v1alpha1.PhaseCreating))
+				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
+			}, time.Minute, time.Second).Should(Equal(constants.Creating))
 
 			By("Key Secret is created")
 			found := &v1alpha1.CTlog{}
@@ -171,11 +179,11 @@ var _ = Describe("CTlog controller", func() {
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
 
 			By("Waiting until CTlog instance is Ready")
-			Eventually(func() v1alpha1.Phase {
+			Eventually(func() bool {
 				found := &v1alpha1.CTlog{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Phase
-			}, time.Minute, time.Second).Should(Equal(v1alpha1.PhaseReady))
+				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
+			}, time.Minute, time.Second).Should(BeTrue())
 
 			By("Checking if controller will return deployment to desired state")
 			deployment = &appsv1.Deployment{}

@@ -1,10 +1,11 @@
-package actions2
+package actions
 
 import (
 	"context"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
+	"github.com/securesign/operator/controllers/constants"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -18,18 +19,17 @@ type toInitialize struct {
 }
 
 func (i toInitialize) Name() string {
-	return "move to initialize"
+	return "to initialize"
 }
 
 func (i toInitialize) CanHandle(instance *rhtasv1alpha1.Trillian) bool {
-	return instance.Status.Phase == rhtasv1alpha1.PhaseCreating
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	return c.Reason == constants.Creating
 }
 
 func (i toInitialize) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
-	instance.Status.Phase = rhtasv1alpha1.PhaseInitialize
-
-	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: string(rhtasv1alpha1.PhaseReady),
-		Status: metav1.ConditionTrue, Reason: string(rhtasv1alpha1.PhaseInitialize)})
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
+		Status: metav1.ConditionFalse, Reason: constants.Initialize})
 
 	return i.StatusUpdate(ctx, instance)
 }

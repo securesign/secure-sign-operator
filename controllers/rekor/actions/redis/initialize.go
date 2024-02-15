@@ -25,7 +25,8 @@ func (i initializeAction) Name() string {
 }
 
 func (i initializeAction) CanHandle(instance *rhtasv1alpha1.Rekor) bool {
-	return instance.Status.Phase == rhtasv1alpha1.PhaseInitialize && !meta.IsStatusConditionTrue(instance.Status.Conditions, actions.RedisComponentName+"Ready")
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	return c.Reason == constants.Initialize && !meta.IsStatusConditionTrue(instance.Status.Conditions, actions.RedisCondition)
 }
 
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
@@ -40,12 +41,17 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Re
 	}
 	if !ok {
 		i.Logger.Info("Waiting for deployment")
-		// deployment is watched - no need to requeue
-		return i.Return()
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    actions.RedisCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Initialize,
+			Message: "Waiting for deployment to be ready",
+		})
+		return i.StatusUpdate(ctx, instance)
 	}
 
-	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: actions.RedisComponentName + "Ready",
-		Status: metav1.ConditionTrue, Reason: string(rhtasv1alpha1.PhaseReady)})
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: actions.RedisCondition,
+		Status: metav1.ConditionTrue, Reason: constants.Ready})
 
 	return i.StatusUpdate(ctx, instance)
 }

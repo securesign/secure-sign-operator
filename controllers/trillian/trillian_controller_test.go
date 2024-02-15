@@ -21,9 +21,10 @@ import (
 	"time"
 
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/controllers/common/utils/kubernetes"
+	"github.com/securesign/operator/controllers/constants"
 	actions "github.com/securesign/operator/controllers/trillian/actions"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -104,13 +105,19 @@ var _ = Describe("Trillian controller", func() {
 				return k8sClient.Get(ctx, typeNamespaceName, found)
 			}, time.Minute, time.Second).Should(Succeed())
 
-			By("Database secret created")
+			By("Status conditions are initialized")
+			Eventually(func() bool {
+				found := &v1alpha1.Trillian{}
+				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
+			}, time.Minute, time.Second).Should(BeTrue())
 			found := &v1alpha1.Trillian{}
+
+			By("Database secret created")
 			Eventually(func() *corev1.LocalObjectReference {
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Spec.Db.DatabaseSecretRef
 			}, time.Minute, time.Second).Should(Not(BeNil()))
-
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Spec.Db.DatabaseSecretRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
 
 			By("Database PVC created")
@@ -147,14 +154,14 @@ var _ = Describe("Trillian controller", func() {
 			}, time.Minute, time.Second).Should(Succeed())
 
 			By("Waiting until Trillian instance is Initialization")
-			Eventually(func() v1alpha1.Phase {
+			Eventually(func() string {
 				found := &v1alpha1.Trillian{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Phase
-			}, time.Minute, time.Second).Should(Equal(v1alpha1.PhaseInitialize))
+				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
+			}, time.Minute, time.Second).Should(Equal(constants.Initialize))
 
 			deployments := &appsv1.DeploymentList{}
-			Expect(k8sClient.List(ctx, deployments, runtimeClient.InNamespace(Namespace), runtimeClient.MatchingLabels{kubernetes.ComponentLabel: actions.ComponentName})).To(Succeed())
+			Expect(k8sClient.List(ctx, deployments, runtimeClient.InNamespace(Namespace))).To(Succeed())
 			By("Move to Ready phase")
 			for _, d := range deployments.Items {
 				d.Status.Replicas = *d.Spec.Replicas
@@ -164,11 +171,11 @@ var _ = Describe("Trillian controller", func() {
 			// Workaround to succeed condition for Ready phase
 
 			By("Waiting until Trillian instance is Ready")
-			Eventually(func() v1alpha1.Phase {
+			Eventually(func() bool {
 				found := &v1alpha1.Trillian{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Phase
-			}, time.Minute, time.Second).Should(Equal(v1alpha1.PhaseReady))
+				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
+			}, time.Minute, time.Second).Should(BeTrue())
 
 			By("Checking if controller will return deployment to desired state")
 			deployment := &appsv1.Deployment{}

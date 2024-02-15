@@ -170,7 +170,8 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 		})
 
 		It("All other components are running", func() {
-			tas.VerifyTrillian(ctx, cli, namespace.Name, securesign.Name)
+			tas.VerifySecuresign(ctx, cli, namespace.Name, securesign.Name)
+			tas.VerifyTrillian(ctx, cli, namespace.Name, securesign.Name, true)
 			tas.VerifyCTLog(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyTuf(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyRekorSearchUI(ctx, cli, namespace.Name, securesign.Name)

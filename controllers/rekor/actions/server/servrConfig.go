@@ -31,7 +31,8 @@ func (i serverConfig) Name() string {
 }
 
 func (i serverConfig) CanHandle(instance *rhtasv1alpha1.Rekor) bool {
-	return instance.Status.Phase == rhtasv1alpha1.PhaseCreating || instance.Status.Phase == rhtasv1alpha1.PhaseReady
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	return c.Reason == constants.Creating || c.Reason == constants.Ready
 }
 
 func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
@@ -49,18 +50,29 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		return i.Failed(fmt.Errorf("could not set controller reference for ConfigMap: %w", err))
 	}
 	if updated, err = i.Ensure(ctx, cm); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    string(rhtasv1alpha1.PhaseReady),
+			Type:    actions.ServerCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Failure",
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create CondigMap: %w", err), instance)
 	}
 
 	if updated {
-		return i.Requeue()
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    actions.ServerCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Creating,
+			Message: "Server config created",
+		})
+		return i.StatusUpdate(ctx, instance)
 	} else {
 		return i.Continue()
 	}

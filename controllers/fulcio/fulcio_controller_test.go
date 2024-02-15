@@ -27,6 +27,7 @@ import (
 	"github.com/securesign/operator/controllers/fulcio/actions"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -128,12 +129,19 @@ var _ = Describe("Fulcio controller", func() {
 				return k8sClient.Get(ctx, typeNamespaceName, found)
 			}, time.Minute, time.Second).Should(Succeed())
 
-			By("Pending phase until password key is resolved")
-			Eventually(func() v1alpha1.Phase {
+			By("Status conditions are initialized")
+			Eventually(func() bool {
 				found := &v1alpha1.Fulcio{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Phase
-			}, time.Minute, time.Second).Should(Equal(v1alpha1.PhasePending))
+				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
+			}, time.Minute, time.Second).Should(BeTrue())
+
+			By("Pending phase until password key is resolved")
+			Eventually(func() string {
+				found := &v1alpha1.Fulcio{}
+				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
+			}, time.Minute, time.Second).Should(Equal(constants.Pending))
 
 			By("Creating password secret with cert password")
 			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("password-secret", typeNamespaceName.Namespace, map[string][]byte{
@@ -184,11 +192,11 @@ var _ = Describe("Fulcio controller", func() {
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
 
 			By("Waiting until Fulcio instance is Ready")
-			Eventually(func() v1alpha1.Phase {
+			Eventually(func() bool {
 				found := &v1alpha1.Fulcio{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Phase
-			}, time.Minute, time.Second).Should(Equal(v1alpha1.PhaseReady))
+				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
+			}, time.Minute, time.Second).Should(BeTrue())
 
 			By("Checking if Service was successfully created in the reconciliation")
 			service := &corev1.Service{}

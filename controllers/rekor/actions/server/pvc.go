@@ -9,6 +9,8 @@ import (
 	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/rekor/actions"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -29,7 +31,8 @@ func (i createPvcAction) Name() string {
 }
 
 func (i createPvcAction) CanHandle(instance *rhtasv1alpha1.Rekor) bool {
-	return instance.Status.Phase == rhtasv1alpha1.PhaseCreating && instance.Spec.PvcName == ""
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	return c.Reason == constants.Creating && instance.Spec.PvcName == ""
 }
 
 func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
@@ -44,7 +47,18 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rek
 	}
 
 	if _, err = i.Ensure(ctx, pvc); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    actions.ServerCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create DB PVC: %w", err), instance)
 	}
 

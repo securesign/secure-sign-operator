@@ -88,9 +88,6 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		actions2.NewPendingAction(),
 
 		server.NewGenerateSignerAction(),
-
-		// PENDING -> CREATING
-		actions2.NewToCreatingAction(),
 		actions2.NewRBACAction(),
 		server.NewServerConfigAction(),
 		server.NewCreatePvcAction(),
@@ -112,9 +109,8 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		// CREATE -> INITIALIZE
 		actions2.NewToInitializeAction(),
 
-		server.NewDeploymentReadyAction(),
+		server.NewInitializeAction(),
 		server.NewResolvePubKeyAction(),
-		server.NewInitializeUrlAction(),
 
 		ui.NewInitializeAction(),
 		redis.NewInitializeAction(),

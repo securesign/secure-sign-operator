@@ -35,7 +35,6 @@ type CTlogSpec struct {
 
 // CTlogStatus defines the observed state of CTlog component
 type CTlogStatus struct {
-	Phase Phase `json:"phase"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge
@@ -46,7 +45,7 @@ type CTlogStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The component phase"
+//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
 
 // CTlog is the Schema for the ctlogs API
 type CTlog struct {
