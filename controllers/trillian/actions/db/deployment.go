@@ -5,8 +5,9 @@ import (
 	"fmt"
 
 	"github.com/securesign/operator/controllers/common/action"
+	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/constants"
-	"github.com/securesign/operator/controllers/trillian/actions"
+	actions2 "github.com/securesign/operator/controllers/trillian/actions"
 	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -31,15 +32,20 @@ func (i deployAction) CanHandle(instance *rhtasv1alpha1.Trillian) bool {
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
 	var (
-		err     error
-		updated bool
+		err       error
+		updated   bool
+		openshift bool
 	)
+
+	openshift = kubernetes.IsOpenShift(i.Client)
+
 	labels := constants.LabelsFor(actions2.ComponentName, actions2.DbDeploymentName, instance.Name)
 	db := trillianUtils.CreateTrillDb(instance.Namespace, constants.TrillianDbImage,
 		actions2.DbDeploymentName,
 		actions2.RBACName,
 		instance.Spec.Db.PvcName,
 		*instance.Spec.Db.DatabaseSecretRef,
+		openshift,
 		labels)
 	if err = controllerutil.SetControllerReference(instance, db, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for DB Deployment: %w", err))

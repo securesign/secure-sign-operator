@@ -6,8 +6,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateTrillDb(namespace string, image string, dpName string, sa string, pvcName string, dbsecret core.LocalObjectReference, labels map[string]string) *apps.Deployment {
+func CreateTrillDb(namespace string, image string, dpName string, sa string, pvcName string, dbsecret core.LocalObjectReference, openshift bool, labels map[string]string) *apps.Deployment {
 	replicas := int32(1)
+	var secCont *core.PodSecurityContext
+	if openshift {
+		uid := int64(1001)
+		fsid := int64(1001)
+		secCont = &core.PodSecurityContext{
+			RunAsUser: &uid,
+			FSGroup:   &fsid,
+		}
+	}
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpName,
@@ -25,6 +34,7 @@ func CreateTrillDb(namespace string, image string, dpName string, sa string, pvc
 				},
 				Spec: core.PodSpec{
 					ServiceAccountName: sa,
+					SecurityContext:    secCont,
 					Volumes: []core.Volume{
 						{
 							Name: "storage",
