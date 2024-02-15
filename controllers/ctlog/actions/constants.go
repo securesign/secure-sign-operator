@@ -5,5 +5,5 @@ const (
 	ComponentName  = "ctlog"
 	RBACName       = "ctlog"
 
-	CertCondition = "FulcioCert"
+	CertCondition = "FulcioCertAvailable"
 )

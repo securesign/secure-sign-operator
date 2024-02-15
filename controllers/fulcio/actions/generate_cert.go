@@ -70,7 +70,7 @@ func (g generateCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *ac
 
 	config, err := g.setupCert(instance)
 	if err != nil {
-		if !meta.IsStatusConditionFalse(instance.Status.Conditions, "FulcioCert") {
+		if !meta.IsStatusConditionFalse(instance.Status.Conditions, CertCondition) {
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:    CertCondition,
 				Status:  metav1.ConditionFalse,

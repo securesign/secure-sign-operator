@@ -7,5 +7,5 @@ const (
 	ServiceMonitorName = "fulcio-metrics"
 	RBACName           = "fulcio"
 
-	CertCondition = "FulcioCert"
+	CertCondition = "FulcioCertAvailable"
 )
