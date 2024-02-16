@@ -179,17 +179,45 @@ jobs:
         run: |
           sed -i 's|"https://your-oidc-issuer-url"|${{ secrets.testing_keycloak }}|g' config/samples/rhtas_v1alpha1_securesign.yaml
           sed -i 's|"trusted-artifact-signer"|"sigstore"|g' config/samples/rhtas_v1alpha1_securesign.yaml
+          kubectl create ns test
+          kubectl apply -f config/samples/rhtas_v1alpha1_securesign.yaml -n test
+
+      - name: Until shell script to wait for trillian-db deployment to be created
+        run: |
+          for i in trillian-db trillian-logserver trillian-logsigner fulcio-server; do
+            until [ ! -z "$(kubectl get deployment $i -n test 2>/dev/null)" ]
+            do
+              echo "Waiting for $i deployment to be created. Pods in test namespace:"
+              kubectl get pods -n test
+              sleep 3
+            done
+          done
+        shell: bash
 
       - name: Test deployments are ready
         run: |
-          kubectl wait --for-condition=available deployment/trillian-db -n test
-          kubectl wait --for-condition=available deployment/trillian-logserver -n test
-          kubectl wait --for-condition=available deployment/trillian-logsigner -n test
-          kubectl wait --for-condition=available deployment/fulcio-server -n test
-          kubectl wait --for-condition=available deployment/tuf -n test
-          kubectl wait --for-condition=available deployment/ctlog -n test
-          kubectl wait --for-condition=available deployment/rekor-redis -n test
-          kubectl wait --for-condition=available deployment/rekor-server -n test
+          kubectl wait --for=condition=available deployment/trillian-db -n test --timeout=30s
+          kubectl wait --for=condition=available deployment/trillian-logserver -n test --timeout=30s
+          kubectl wait --for=condition=available deployment/trillian-logsigner -n test --timeout=30s
+          kubectl wait --for=condition=available deployment/fulcio-server -n test --timeout=30s
+
+      - name: Until shell script to wait for tuf, ctlog, rekor-redis, rekor-server deployment to be created
+        run: |
+          for i in tuf ctlog rekor-redis rekor-server; do
+            until [ ! -z "$(kubectl get deployment $i -n test 2>/dev/null)" ]
+            do
+              echo "Waiting for $i deployment to be created. Pods in test namespace:"
+              kubectl get pods -n test
+              sleep 3
+            done
+          done
+        shell: bash
+
+      - name: Test deployments are ready
+          kubectl wait --for=condition=available deployment/tuf -n test --timeout=30s
+          kubectl wait --for=condition=available deployment/ctlog -n test --timeout=30s
+          kubectl wait --for=condition=available deployment/rekor-redis -n test --timeout=30s
+          kubectl wait --for=condition=available deployment/rekor-server -n test --timeout=30s
 
       - name: dump the logs of the operator
         run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
