@@ -181,7 +181,7 @@ jobs:
       - name: Deploy RTHAS
         run: |
           sed -i 's|"https://your-oidc-issuer-url"|${{ secrets.testing_keycloak }}|g' config/samples/rhtas_v1alpha1_securesign.yaml
-          sed -i 's|"trusted-artifact-signer"|"sigstore"|g' config/samples/rhtas_v1alpha1_securesign.yaml
+          sed -i 's|ClientID: "trusted-artifact-signer"|ClientID: "sigstore"|g' config/samples/rhtas_v1alpha1_securesign.yaml
           kubectl create ns test
           kubectl apply -f config/samples/rhtas_v1alpha1_securesign.yaml -n test
 
