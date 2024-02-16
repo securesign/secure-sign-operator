@@ -9,8 +9,9 @@ on:
 
 env:
   GO_VERSION: 1.21
-  IMAGE_TAG_BASE: ${KIND_REGISTRY}/securesign
-  IMAGE_TAG: latest
+  AWS_REGION: us-east-2
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
 jobs:
   build-operator:
@@ -25,6 +26,22 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - name: Build operator container
+        run: IMG=ttl.sh/securesign make docker-build docker-push
+
+  test-kind:
+    name: Test kind deployment
+    runs-on: ubuntu-20.04
+    needs: build-operator
+    steps:  
+      - name: Checkout source
+        uses: actions/checkout@v2
+
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+            
       - name: Log in to registry.redhat.io
         uses: redhat-actions/podman-login@9184318aae1ee5034fbfbacc0388acf12669171f # v1
         with:
@@ -46,8 +63,8 @@ jobs:
           kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
           kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
 
-      - name: Build and Deploy operator container
-        run: make docker-build docker-push deploy
+      - name: Deploy operator container
+        run: IMG=ttl.sh/securesign make deploy
 
       - name: Wait for operator to be ready
         run: | 
@@ -109,4 +126,62 @@ jobs:
 
       - name: dump the logs of the operator
         run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
+        if: always()
+
+  test-eks:
+    name: Test EKS deployment
+    runs-on: ubuntu-20.04
+    needs: build-operator
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v2
+
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install eksctl
+        run: |
+          ARCH=amd64
+          PLATFORM=$(uname -s)_$ARCH
+          curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$PLATFORM.tar.gz"
+          tar -xzf eksctl_$PLATFORM.tar.gz -C /tmp && rm eksctl_$PLATFORM.tar.gz
+          sudo mv /tmp/eksctl /usr/local/bin
+
+      - name: Install kubectl
+        run: |
+          ARCH=amd64
+          PLATFORM=$(uname -s)_$ARCH
+          curl -sLO "https://dl.k8s.io/release/v1.22.0/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin
+
+      - name: run eksctl create cluster
+        run: |
+          eksctl create cluster --alb-ingress-access --external-dns-access --name rhtas-eks --nodes 1  --node-type m5.xlarge --spot
+          eksctl utils associate-iam-oidc-provider --region=us-east-2 --cluster=rhtas-eks --approve
+          eksctl create iamserviceaccount --region us-east-2 --name ebs-csi-controller-sa --namespace kube-system --cluster rhtas-eks --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy --approve --role-only --role-name AmazonEKS_EBS_CSI_DriverRole
+          eksctl create addon --name aws-ebs-csi-driver --cluster rhtas-eks --service-account-role-arn arn:aws:iam::${{ secrets.AWS }}:role/AmazonEKS_EBS_CSI_DriverRole --force
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/aws/deploy.yaml
+
+      - name: Deploy operator container
+        run: IMG=ttl.sh/securesign make deploy
+
+      - name: Wait for operator to be ready
+        run: | 
+          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=60s -n openshift-rhtas-operator
+
+      - name: Install cosign
+        run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.2.2
+
+      - name: Run tests
+        run: make integration-test
+
+      - name: dump the logs of the operator
+        run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
+        if: always()
+
+      - name: delete the cluster
+        run: eksctl delete cluster --name rhtas-eks --region us-east-2 --wait
         if: always()
