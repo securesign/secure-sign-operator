@@ -7,7 +7,7 @@ import (
 	"github.com/securesign/operator/controllers/common/action"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/constants"
-	actions2 "github.com/securesign/operator/controllers/trillian/actions"
+	"github.com/securesign/operator/controllers/trillian/actions"
 	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
