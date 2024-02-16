@@ -214,6 +214,7 @@ jobs:
         shell: bash
 
       - name: Test deployments are ready
+        run: |
           kubectl wait --for=condition=available deployment/tuf -n test --timeout=30s
           kubectl wait --for=condition=available deployment/ctlog -n test --timeout=30s
           kubectl wait --for=condition=available deployment/rekor-redis -n test --timeout=30s
