@@ -159,7 +159,7 @@ jobs:
 
       - name: run eksctl create cluster
         run: |
-          eksctl create cluster --alb-ingress-access --external-dns-access --name rhtas-eks --nodes 1  --node-type m5.xlarge --spot
+          eksctl create cluster --alb-ingress-access --external-dns-access --name rhtas-eks-${GITHUB_SHA} --nodes 1  --node-type m5.xlarge --spot
           eksctl utils associate-iam-oidc-provider --region=us-east-2 --cluster=rhtas-eks --approve
           eksctl create iamserviceaccount --region us-east-2 --name ebs-csi-controller-sa --namespace kube-system --cluster rhtas-eks --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy --approve --role-only --role-name AmazonEKS_EBS_CSI_DriverRole
           eksctl create addon --name aws-ebs-csi-driver --cluster rhtas-eks --service-account-role-arn arn:aws:iam::${{ secrets.AWS }}:role/AmazonEKS_EBS_CSI_DriverRole --force
@@ -174,6 +174,11 @@ jobs:
 
       - name: Install cosign
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.2.2
+
+      - name: Deploy RTHAS
+        run: |
+          sed -i 's|"https://your-oidc-issuer-url"|${{ secrets.testing_keycloak }}|g' config/samples/rhtas_v1alpha1_securesign.yaml
+          sed -i 's|"trusted-artifact-signer"|"sigstore"|g' config/samples/rhtas_v1alpha1_securesign.yaml
 
       - name: Test deployments are ready
         run: |
@@ -191,5 +196,5 @@ jobs:
         if: always()
 
       - name: delete the cluster
-        run: eksctl delete cluster --name rhtas-eks --region us-east-2 --wait
+        run: eksctl delete cluster --name rhtas-eks-${GITHUB_SHA} --region us-east-2 --wait
         if: always()
