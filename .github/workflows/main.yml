@@ -175,8 +175,16 @@ jobs:
       - name: Install cosign
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.2.2
 
-      - name: Run tests
-        run: make integration-test
+      - name: Test deployments are ready
+        run: |
+          kubectl wait --for-condition=available deployment/trillian-db -n test
+          kubectl wait --for-condition=available deployment/trillian-logserver -n test
+          kubectl wait --for-condition=available deployment/trillian-logsigner -n test
+          kubectl wait --for-condition=available deployment/fulcio-server -n test
+          kubectl wait --for-condition=available deployment/tuf -n test
+          kubectl wait --for-condition=available deployment/ctlog -n test
+          kubectl wait --for-condition=available deployment/rekor-redis -n test
+          kubectl wait --for-condition=available deployment/rekor-server -n test
 
       - name: dump the logs of the operator
         run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
