@@ -27,7 +27,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Build operator container
-        run: IMG=ttl.sh/securesign make docker-build docker-push
+        run: IMG=ttl.sh/securesign/secure-sign-operator:1h make docker-build docker-push
 
   test-kind:
     name: Test kind deployment
@@ -64,7 +64,7 @@ jobs:
           kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
 
       - name: Deploy operator container
-        run: IMG=ttl.sh/securesign make deploy
+        run: IMG=ttl.sh/securesign/secure-sign-operator:1h make deploy
 
       - name: Wait for operator to be ready
         run: | 
@@ -169,7 +169,7 @@ jobs:
           kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/aws/deploy.yaml
 
       - name: Deploy operator container
-        run: IMG=ttl.sh/securesign make deploy
+        run: IMG=ttl.sh/securesign/secure-sign-operator:1h make deploy
 
       - name: Wait for operator to be ready
         run: | 
