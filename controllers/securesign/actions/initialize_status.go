@@ -22,7 +22,7 @@ func (i initializeStatus) Name() string {
 	return "initialize status"
 }
 
-func (i initializeStatus) CanHandle(instance *rhtasv1alpha1.Securesign) bool {
+func (i initializeStatus) CanHandle(_ context.Context, instance *rhtasv1alpha1.Securesign) bool {
 	return meta.FindStatusCondition(instance.Status.Conditions, constants.Ready) == nil
 }
 

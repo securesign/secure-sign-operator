@@ -24,38 +24,12 @@ func (i pendingAction) Name() string {
 	return "pending"
 }
 
-func (i pendingAction) CanHandle(instance *rhtasv1alpha1.Rekor) bool {
+func (i pendingAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c == nil || c.Reason == constants.Pending
+	return c.Reason == constants.Pending
 }
 
 func (i pendingAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
-	if meta.FindStatusCondition(instance.Status.Conditions, constants.Ready) == nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:   constants.Ready,
-			Status: metav1.ConditionFalse,
-			Reason: constants.Pending,
-		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:   ServerCondition,
-			Status: metav1.ConditionUnknown,
-			Reason: constants.Pending,
-		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:   RedisCondition,
-			Status: metav1.ConditionUnknown,
-			Reason: constants.Pending,
-		})
-		if instance.Spec.RekorSearchUI.Enabled {
-			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:   UICondition,
-				Status: metav1.ConditionUnknown,
-				Reason: constants.Pending,
-			})
-		}
-		return i.StatusUpdate(ctx, instance)
-	}
-
 	var err error
 	_, err = utils.GetInternalUrl(ctx, i.Client, instance.Namespace, trillian.LogserverDeploymentName)
 	if err != nil {

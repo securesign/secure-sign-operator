@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -35,6 +36,11 @@ type CTlogSpec struct {
 
 // CTlogStatus defines the observed state of CTlog component
 type CTlogStatus struct {
+	ServerConfigRef       *v1.LocalObjectReference `json:"serverConfigRef,omitempty"`
+	PrivateKeyRef         *SecretKeySelector       `json:"privateKeyRef,omitempty"`
+	PrivateKeyPasswordRef *SecretKeySelector       `json:"privateKeyPasswordRef,omitempty"`
+	PublicKeyRef          *SecretKeySelector       `json:"publicKeyRef,omitempty"`
+	RootCertificates      []SecretKeySelector      `json:"rootCertificates,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge

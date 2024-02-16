@@ -23,7 +23,7 @@ type Action[T interface{}] interface {
 	Name() string
 
 	// returns true if the action can handle the integration
-	CanHandle(*T) bool
+	CanHandle(context.Context, *T) bool
 
 	// executes the handling function
 	Handle(context.Context, *T) *Result

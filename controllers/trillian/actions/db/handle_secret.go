@@ -8,7 +8,7 @@ import (
 	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/action"
 	"github.com/securesign/operator/controllers/constants"
-	actions2 "github.com/securesign/operator/controllers/trillian/actions"
+	trillian "github.com/securesign/operator/controllers/trillian/actions"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -22,29 +22,39 @@ const (
 	host = "trillian-mysql"
 )
 
-func NewCreateSecretAction() action.Action[rhtasv1alpha1.Trillian] {
-	return &createSecretAction{}
+func NewHandleSecretAction() action.Action[rhtasv1alpha1.Trillian] {
+	return &handleSecretAction{}
 }
 
-type createSecretAction struct {
+type handleSecretAction struct {
 	action.BaseAction
 }
 
-func (i createSecretAction) Name() string {
+func (i handleSecretAction) Name() string {
 	return "create db secret"
 }
 
-func (i createSecretAction) CanHandle(instance *rhtasv1alpha1.Trillian) bool {
+func (i handleSecretAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Creating && instance.Spec.Db.Create && instance.Spec.Db.DatabaseSecretRef == nil
+	return c.Reason == constants.Creating && instance.Status.Db.DatabaseSecretRef == nil
 }
 
-func (i createSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
-
+func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
+	if !instance.Spec.Db.Create {
+		if instance.Spec.Db.DatabaseSecretRef != nil {
+			instance.Status.Db.DatabaseSecretRef = instance.Spec.Db.DatabaseSecretRef
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: trillian.DbCondition,
+				Status: metav1.ConditionTrue, Reason: constants.Ready, Message: "Working with external DB"})
+		} else {
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: trillian.DbCondition,
+				Status: metav1.ConditionFalse, Reason: constants.Failure, Message: "Expecting external DB configuration"})
+		}
+		return i.StatusUpdate(ctx, instance)
+	}
 	var (
 		err error
 	)
-	dbLabels := constants.LabelsFor(actions2.DbComponentName, actions2.DbDeploymentName, instance.Name)
+	dbLabels := constants.LabelsFor(trillian.DbComponentName, trillian.DbDeploymentName, instance.Name)
 
 	dbSecret := i.createDbSecret(instance.Namespace, dbLabels)
 	if err = controllerutil.SetControllerReference(instance, dbSecret, i.Client.Scheme()); err != nil {
@@ -54,7 +64,7 @@ func (i createSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 	// no watch on secret - continue if no error
 	if _, err = i.Ensure(ctx, dbSecret); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions2.DbCondition,
+			Type:    trillian.DbCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Failure,
 			Message: err.Error(),
@@ -68,12 +78,12 @@ func (i createSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create DB secret: %w", err), instance)
 	}
 
-	instance.Spec.Db.DatabaseSecretRef = &corev1.LocalObjectReference{
+	instance.Status.Db.DatabaseSecretRef = &corev1.LocalObjectReference{
 		Name: dbSecret.Name,
 	}
-	return i.Update(ctx, instance)
+	return i.StatusUpdate(ctx, instance)
 }
-func (i createSecretAction) createDbSecret(namespace string, labels map[string]string) *corev1.Secret {
+func (i handleSecretAction) createDbSecret(namespace string, labels map[string]string) *corev1.Secret {
 	// Define a new Secret object
 	var rootPass []byte
 	var mysqlPass []byte

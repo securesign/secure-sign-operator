@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/securesign/operator/api/v1alpha1"
-
 	"github.com/securesign/operator/controllers/constants"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -55,9 +54,9 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 									Name: "PASSWORD",
 									ValueFrom: &corev1.EnvVarSource{
 										SecretKeyRef: &corev1.SecretKeySelector{
-											Key: instance.Spec.Certificate.PrivateKeyPasswordRef.Key,
+											Key: instance.Status.Certificate.PrivateKeyPasswordRef.Key,
 											LocalObjectReference: corev1.LocalObjectReference{
-												Name: instance.Spec.Certificate.PrivateKeyPasswordRef.Name,
+												Name: instance.Status.Certificate.PrivateKeyPasswordRef.Name,
 											},
 										},
 									},
@@ -127,9 +126,7 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 							Name: "fulcio-config",
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "fulcio-server-config",
-									},
+									LocalObjectReference: *instance.Status.ServerConfigRef,
 								},
 							},
 						},
@@ -164,11 +161,11 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 										{
 											Secret: &corev1.SecretProjection{
 												LocalObjectReference: corev1.LocalObjectReference{
-													Name: instance.Spec.Certificate.PrivateKeyRef.Name,
+													Name: instance.Status.Certificate.PrivateKeyRef.Name,
 												},
 												Items: []corev1.KeyToPath{
 													{
-														Key:  instance.Spec.Certificate.PrivateKeyRef.Key,
+														Key:  instance.Status.Certificate.PrivateKeyRef.Key,
 														Path: "key.pem",
 													},
 												},
@@ -177,11 +174,11 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 										{
 											Secret: &corev1.SecretProjection{
 												LocalObjectReference: corev1.LocalObjectReference{
-													Name: instance.Spec.Certificate.CARef.Name,
+													Name: instance.Status.Certificate.CARef.Name,
 												},
 												Items: []corev1.KeyToPath{
 													{
-														Key:  instance.Spec.Certificate.CARef.Key,
+														Key:  instance.Status.Certificate.CARef.Key,
 														Path: "cert.pem",
 													},
 												},

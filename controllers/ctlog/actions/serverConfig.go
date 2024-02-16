@@ -3,7 +3,6 @@ package actions
 import (
 	"context"
 	"fmt"
-	"maps"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
@@ -17,8 +16,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const ConfigSecretNameFormat = "ctlog-%s-config"
-const CTLLabel = constants.LabelNamespace + "/ctfe.pub"
+const (
+	CTLPubLabel = constants.LabelNamespace + "/ctfe.pub"
+)
 
 func NewServerConfigAction() action.Action[rhtasv1alpha1.CTlog] {
 	return &serverConfig{}
@@ -32,21 +32,27 @@ func (i serverConfig) Name() string {
 	return "create server config"
 }
 
-func (i serverConfig) CanHandle(instance *rhtasv1alpha1.CTlog) bool {
+func (i serverConfig) CanHandle(_ context.Context, instance *rhtasv1alpha1.CTlog) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Creating || c.Reason == constants.Ready
+	return c.Reason == constants.Creating && instance.Status.ServerConfigRef == nil
 }
 
 func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) *action.Result {
 	var (
-		err     error
-		updated bool
+		err error
 	)
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 
 	trillUrl, err := utils.GetInternalUrl(ctx, i.Client, instance.Namespace, trillian.LogserverDeploymentName)
 	if err != nil {
-		return i.Failed(err)
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Creating,
+			Message: "Waiting for Trillian logserver",
+		})
+		i.StatusUpdate(ctx, instance)
+		return i.Requeue()
 	}
 
 	rootCerts, err := i.handleRootCertificates(instance)
@@ -59,20 +65,15 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
+			Reason:  constants.Creating,
+			Message: "Waiting for Ctlog private key secret",
 		})
-		return i.FailedWithStatusUpdate(ctx, err, instance)
+		i.StatusUpdate(ctx, instance)
+		return i.Requeue()
 	}
 
-	var config *corev1.Secret
-	secretLabels := map[string]string{
-		CTLLabel: "public",
-	}
-	maps.Copy(secretLabels, labels)
-
-	//TODO: the config is generated in every reconcile loop rotation - it can cause performance issues
-	if config, err = ctlogUtils.CreateCtlogConfig(ctx, instance.Namespace, trillUrl+":8091", *instance.Spec.TreeID, rootCerts, secretLabels, certConfig); err != nil {
+	var cfg map[string][]byte
+	if cfg, err = ctlogUtils.CreateCtlogConfig(trillUrl+":8091", *instance.Spec.TreeID, rootCerts, certConfig); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
@@ -81,42 +82,42 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create CTLog configuration: %w", err), instance)
 	}
-	// patch secret name
-	config.Name = fmt.Sprintf(ConfigSecretNameFormat, instance.Name)
 
-	if err = controllerutil.SetControllerReference(instance, config, i.Client.Scheme()); err != nil {
+	newConfig := utils.CreateImmutableSecret(fmt.Sprintf("ctlog-config-%s", instance.Name), instance.Namespace, cfg, labels)
+
+	if err = controllerutil.SetControllerReference(instance, newConfig, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Secret: %w", err))
 	}
-	if _, err = i.Ensure(ctx, config); err != nil {
+
+	_, err = i.Ensure(ctx, newConfig)
+	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Secret: %w", err), instance)
+		return i.FailedWithStatusUpdate(ctx, err, instance)
 	}
 
-	if updated {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
-			Status: metav1.ConditionFalse, Reason: constants.Creating, Message: "Server config created"})
-		return i.StatusUpdate(ctx, instance)
-	} else {
-		return i.Continue()
-	}
+	instance.Status.ServerConfigRef = &corev1.LocalObjectReference{Name: newConfig.Name}
 
+	i.Recorder.Event(instance, corev1.EventTypeNormal, "CTLogConfigUpdated", "CTLog config updated")
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
+		Status: metav1.ConditionFalse, Reason: constants.Creating, Message: "Server config created"})
+	return i.StatusUpdate(ctx, instance)
 }
 
 func (i serverConfig) handlePrivateKey(instance *rhtasv1alpha1.CTlog) (*ctlogUtils.PrivateKeyConfig, error) {
-	private, err := utils.GetSecretData(i.Client, instance.Namespace, instance.Spec.PrivateKeyRef)
+	private, err := utils.GetSecretData(i.Client, instance.Namespace, instance.Status.PrivateKeyRef)
 	if err != nil {
 		return nil, err
 	}
-	public, err := utils.GetSecretData(i.Client, instance.Namespace, instance.Spec.PublicKeyRef)
+	public, err := utils.GetSecretData(i.Client, instance.Namespace, instance.Status.PublicKeyRef)
 	if err != nil {
 		return nil, err
 	}
-	password, err := utils.GetSecretData(i.Client, instance.Namespace, instance.Spec.PrivateKeyPasswordRef)
+	password, err := utils.GetSecretData(i.Client, instance.Namespace, instance.Status.PrivateKeyPasswordRef)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +132,7 @@ func (i serverConfig) handlePrivateKey(instance *rhtasv1alpha1.CTlog) (*ctlogUti
 func (i serverConfig) handleRootCertificates(instance *rhtasv1alpha1.CTlog) ([]ctlogUtils.RootCertificate, error) {
 	certs := make([]ctlogUtils.RootCertificate, 0)
 
-	for _, selector := range instance.Spec.RootCertificates {
+	for _, selector := range instance.Status.RootCertificates {
 		data, err := utils.GetSecretData(i.Client, instance.Namespace, &selector)
 		if err != nil {
 			return nil, err

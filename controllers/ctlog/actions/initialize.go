@@ -23,7 +23,7 @@ func (i initializeAction) Name() string {
 	return "initialize"
 }
 
-func (i initializeAction) CanHandle(instance *rhtasv1alpha1.CTlog) bool {
+func (i initializeAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.CTlog) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	return c.Reason == constants.Initialize
 }

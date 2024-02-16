@@ -25,7 +25,7 @@ func (i tufAction) Name() string {
 	return "create tuf"
 }
 
-func (i tufAction) CanHandle(*rhtasv1alpha1.Securesign) bool {
+func (i tufAction) CanHandle(context.Context, *rhtasv1alpha1.Securesign) bool {
 	return true
 }
 

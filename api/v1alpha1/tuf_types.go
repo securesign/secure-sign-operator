@@ -26,7 +26,8 @@ type TufKey struct {
 
 // TufStatus defines the observed state of Tuf
 type TufStatus struct {
-	Url string `json:"url,omitempty"`
+	Keys []TufKey `json:"keys,omitempty"`
+	Url  string   `json:"url,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge

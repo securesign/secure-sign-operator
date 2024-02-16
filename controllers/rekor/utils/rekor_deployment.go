@@ -30,9 +30,7 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 			Name: "rekor-sharding-config",
 			VolumeSource: core.VolumeSource{
 				ConfigMap: &core.ConfigMapVolumeSource{
-					LocalObjectReference: core.LocalObjectReference{
-						Name: "rekor-sharding-config",
-					},
+					LocalObjectReference: *instance.Status.ServerConfigRef,
 				},
 			},
 		},
@@ -40,7 +38,7 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 			Name: "storage",
 			VolumeSource: core.VolumeSource{
 				PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
-					ClaimName: instance.Spec.Pvc.Name,
+					ClaimName: instance.Status.PvcName,
 				},
 			},
 		},
@@ -64,10 +62,10 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 	// KMS secret
 	if instance.Spec.Signer.KMS == "secret" || instance.Spec.Signer.KMS == "" {
 		svsPrivate := &core.SecretVolumeSource{
-			SecretName: instance.Spec.Signer.KeyRef.Name,
+			SecretName: instance.Status.Signer.KeyRef.Name,
 			Items: []core.KeyToPath{
 				{
-					Key:  instance.Spec.Signer.KeyRef.Key,
+					Key:  instance.Status.Signer.KeyRef.Key,
 					Path: "private",
 				},
 			},
@@ -95,9 +93,9 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 				Name: "SIGNER_PASSWORD",
 				ValueFrom: &core.EnvVarSource{
 					SecretKeyRef: &core.SecretKeySelector{
-						Key: instance.Spec.Signer.PasswordRef.Key,
+						Key: instance.Status.Signer.PasswordRef.Key,
 						LocalObjectReference: core.LocalObjectReference{
-							Name: instance.Spec.Signer.PasswordRef.Name,
+							Name: instance.Status.Signer.PasswordRef.Name,
 						},
 					},
 				},

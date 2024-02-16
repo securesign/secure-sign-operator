@@ -24,35 +24,33 @@ import (
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/rekor/actions"
-	"github.com/securesign/operator/controllers/rekor/actions/server"
 	trillian "github.com/securesign/operator/controllers/trillian/actions"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("Rekor controller", func() {
-	Context("Rekor controller test", func() {
+var _ = Describe("Rekor hot update test", func() {
+	Context("Rekor update test", func() {
 
 		const (
 			Name      = "test"
-			Namespace = "default"
+			Namespace = "update"
 		)
 
 		ctx := context.Background()
 
 		namespace := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      Name,
-				Namespace: Namespace,
+				Name: Namespace,
 			},
 		}
 
@@ -97,15 +95,13 @@ var _ = Describe("Rekor controller", func() {
 					Spec: v1alpha1.RekorSpec{
 						TreeID: &ptr,
 						ExternalAccess: v1alpha1.ExternalAccess{
-							Enabled: true,
-							Host:    "rekor.local",
+							Enabled: false,
 						},
 						RekorSearchUI: v1alpha1.RekorSearchUI{
-							Enabled: true,
+							Enabled: false,
 						},
 						BackFillRedis: v1alpha1.BackFillRedis{
-							Enabled:  true,
-							Schedule: "0 0 * * *",
+							Enabled: false,
 						},
 					},
 				}
@@ -119,78 +115,8 @@ var _ = Describe("Rekor controller", func() {
 				return k8sClient.Get(ctx, typeNamespaceName, found)
 			}, time.Minute, time.Second).Should(Succeed())
 
-			By("Status conditions are initialized")
-			Eventually(func() bool {
-				found := &v1alpha1.Rekor{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
-			}, time.Minute, time.Second).Should(BeTrue())
-
-			Eventually(func() string {
-				found := &v1alpha1.Rekor{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}, time.Minute, time.Second).Should(Equal(constants.Pending))
-
 			By("Move to CreatingPhase by creating trillian service")
 			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, 8091, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
-
-			By("Rekor signer created")
-			found := &v1alpha1.Rekor{}
-			Eventually(func() *v1alpha1.SecretKeySelector {
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).To(Succeed())
-				return found.Status.Signer.KeyRef
-			}, time.Minute, time.Second).Should(Not(BeNil()))
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Status.Signer.KeyRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
-
-			By("Rekor public key secret created")
-			Eventually(func() []corev1.Secret {
-				scr := &corev1.SecretList{}
-				Expect(k8sClient.List(ctx, scr, runtimeClient.InNamespace(Namespace), runtimeClient.MatchingLabels{server.RekorPubLabel: "public"})).Should(Succeed())
-				return scr.Items
-			}, time.Minute, time.Second).Should(Not(BeEmpty()))
-
-			By("Rekor server PVC created")
-			Eventually(func() string {
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.PvcName
-			}, time.Minute, time.Second).Should(Not(BeEmpty()))
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Status.PvcName, Namespace: Namespace}, &corev1.PersistentVolumeClaim{})).Should(Succeed())
-
-			By("Rekor server SVC created")
-			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, &corev1.Service{})
-			}, time.Minute, time.Second).Should(Succeed())
-
-			By("Rekor server deployment created")
-			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, &appsv1.Deployment{})
-			}, time.Minute, time.Second).Should(Succeed())
-
-			By("Redis Deployment created")
-			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.RedisDeploymentName, Namespace: Namespace}, &appsv1.Deployment{})
-			}, time.Minute, time.Second).Should(Succeed())
-
-			By("Redis svc created")
-			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.RedisDeploymentName, Namespace: Namespace}, &corev1.Service{})
-			}, time.Minute, time.Second).Should(Succeed())
-
-			By("UI Deployment created")
-			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.SearchUiDeploymentName, Namespace: Namespace}, &appsv1.Deployment{})
-			}, time.Minute, time.Second).Should(Succeed())
-
-			By("UI svc created")
-			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.SearchUiDeploymentName, Namespace: Namespace}, &corev1.Service{})
-			}, time.Minute, time.Second).Should(Succeed())
-
-			By("Backfill Redis Cronjob Created")
-			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.BackfillRedisCronJobName, Namespace: Namespace}, &batchv1.CronJob{})
-			}, time.Minute, time.Second).Should(Succeed())
 
 			By("Waiting until Rekor instance is Initialization")
 			Eventually(func() string {
@@ -210,25 +136,45 @@ var _ = Describe("Rekor controller", func() {
 			// Workaround to succeed condition for Ready phase
 
 			By("Waiting until Rekor instance is Ready")
+			found := &v1alpha1.Rekor{}
 			Eventually(func() bool {
-				found := &v1alpha1.Rekor{}
+
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
 			}, time.Minute, time.Second).Should(BeTrue())
 
-			By("Checking if controller will return deployment to desired state")
+			By("Save the Deployment configuration")
 			deployment := &appsv1.Deployment{}
-			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, deployment)
-			}, time.Minute, time.Second).Should(Succeed())
-			replicas := int32(99)
-			deployment.Spec.Replicas = &replicas
-			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
-			Eventually(func() int32 {
-				deployment = &appsv1.Deployment{}
-				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
-				return *deployment.Spec.Replicas
-			}, time.Minute, time.Second).Should(Equal(int32(1)))
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
+
+			By("Patch the signer key")
+			Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+			found.Spec.Signer.KeyRef = &v1alpha1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "key-secret",
+				},
+				Key: "private",
+			}
+			Expect(k8sClient.Update(ctx, found)).To(Succeed())
+			By("Move to CreatingPhase by creating trillian service")
+			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("key-secret", Namespace, map[string][]byte{"private": []byte("fake")}, constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)))).To(Succeed())
+
+			By("Secret key is resolved")
+			Eventually(func() *v1alpha1.SecretKeySelector {
+				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return found.Status.Signer.KeyRef
+			}, time.Minute, time.Second).Should(Not(BeNil()))
+			Eventually(func() string {
+				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return found.Status.Signer.KeyRef.Name
+			}, time.Minute, time.Second).Should(Equal("key-secret"))
+
+			By("Rekor deployment is updated")
+			Eventually(func() bool {
+				updated := &appsv1.Deployment{}
+				k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, updated)
+				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
+			}, time.Minute, time.Second).Should(BeFalse())
 		})
 	})
 })

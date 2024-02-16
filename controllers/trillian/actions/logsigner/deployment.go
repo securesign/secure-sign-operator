@@ -28,7 +28,7 @@ func (i deployAction) Name() string {
 	return "deploy"
 }
 
-func (i deployAction) CanHandle(instance *rhtasv1alpha1.Trillian) bool {
+func (i deployAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	return c.Reason == constants.Creating || c.Reason == constants.Ready
 }
@@ -39,7 +39,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		updated bool
 	)
 
-	if instance.Spec.Db.DatabaseSecretRef == nil {
+	if instance.Status.Db.DatabaseSecretRef == nil {
 		err = errors.New("reference to database secret is not set")
 
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -58,10 +58,9 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	}
 
 	labels := constants.LabelsFor(actions.LogSignerComponentName, actions.LogsignerDeploymentName, instance.Name)
-	signer := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianLogSignerImage,
+	signer := trillianUtils.CreateTrillDeployment(instance, constants.TrillianLogSignerImage,
 		actions.LogsignerDeploymentName,
 		actions.RBACName,
-		*instance.Spec.Db.DatabaseSecretRef,
 		labels)
 	signer.Spec.Template.Spec.Containers[0].Args = append(signer.Spec.Template.Spec.Containers[0].Args, "--force_master=true")
 

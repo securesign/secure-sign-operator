@@ -29,7 +29,7 @@ func (i createServiceAction) Name() string {
 	return "create service"
 }
 
-func (i createServiceAction) CanHandle(instance *rhtasv1alpha1.Rekor) bool {
+func (i createServiceAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	return c.Reason == constants.Creating || c.Reason == constants.Ready
 }

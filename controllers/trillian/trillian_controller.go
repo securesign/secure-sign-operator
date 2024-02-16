@@ -80,7 +80,7 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		actions2.NewToCreatePhaseAction(),
 		actions2.NewRBACAction(),
 
-		db.NewCreateSecretAction(),
+		db.NewHandleSecretAction(),
 		db.NewCreatePvcAction(),
 		db.NewDeployAction(),
 		db.NewCreateServiceAction(),
@@ -103,7 +103,8 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		a.InjectLogger(log.WithName(a.Name()))
 		a.InjectRecorder(r.Recorder)
 
-		if a.CanHandle(target) {
+		if a.CanHandle(ctx, target) {
+			log.V(2).Info("Executing " + a.Name())
 			result := a.Handle(ctx, target)
 			if result != nil {
 				return result.Result, result.Err

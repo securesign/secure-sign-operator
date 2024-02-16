@@ -22,7 +22,7 @@ func (i updateStatusAction) Name() string {
 	return "update status"
 }
 
-func (i updateStatusAction) CanHandle(instance *rhtasv1alpha1.Securesign) bool {
+func (i updateStatusAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Securesign) bool {
 	return meta.FindStatusCondition(instance.Status.Conditions, constants.Ready) != nil
 }
 

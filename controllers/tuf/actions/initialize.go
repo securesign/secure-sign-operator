@@ -27,7 +27,7 @@ func (i initializeAction) Name() string {
 	return "initialize"
 }
 
-func (i initializeAction) CanHandle(tuf *rhtasv1alpha1.Tuf) bool {
+func (i initializeAction) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Tuf) bool {
 	c := meta.FindStatusCondition(tuf.Status.Conditions, constants.Ready)
 	return c.Reason == constants.Initialize
 }

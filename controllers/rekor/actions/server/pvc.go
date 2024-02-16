@@ -30,13 +30,17 @@ func (i createPvcAction) Name() string {
 	return "create PVC"
 }
 
-func (i createPvcAction) CanHandle(instance *rhtasv1alpha1.Rekor) bool {
+func (i createPvcAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Creating && instance.Spec.Pvc.Name == ""
+	return c.Reason == constants.Creating && instance.Status.PvcName == ""
 }
 
 func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
 	var err error
+	if instance.Spec.Pvc.Name != "" {
+		instance.Status.PvcName = instance.Spec.Pvc.Name
+		return i.StatusUpdate(ctx, instance)
+	}
 
 	// PVC does not exist, create a new one
 	i.Logger.V(1).Info("Creating new PVC")
@@ -63,6 +67,6 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rek
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create DB PVC: %w", err), instance)
 	}
 	i.Recorder.Event(instance, v1.EventTypeNormal, "PersistentVolumeCreated", "New PersistentVolume created")
-	instance.Spec.Pvc.Name = pvc.Name
-	return i.Update(ctx, instance)
+	instance.Status.PvcName = pvc.Name
+	return i.StatusUpdate(ctx, instance)
 }

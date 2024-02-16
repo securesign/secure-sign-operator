@@ -117,7 +117,7 @@ test: manifests generate fmt vet envtest ## Run tests.
 
 .PHONY: integration-test
 integration-test:
-	go test ./e2e/... -tags=integration
+	go test ./e2e/... -tags=integration -timeout 20m
 
 ##@ Build
 

@@ -27,7 +27,7 @@ func (i ingressAction) Name() string {
 	return "ingress"
 }
 
-func (i ingressAction) CanHandle(instance *rhtasv1alpha1.Fulcio) bool {
+func (i ingressAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Fulcio) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	return c.Reason == constants.Creating || c.Reason == constants.Ready &&
 		instance.Spec.ExternalAccess.Enabled

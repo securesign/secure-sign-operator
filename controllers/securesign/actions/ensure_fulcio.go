@@ -25,7 +25,7 @@ func (i fulcioAction) Name() string {
 	return "create fulcio"
 }
 
-func (i fulcioAction) CanHandle(*rhtasv1alpha1.Securesign) bool {
+func (i fulcioAction) CanHandle(context.Context, *rhtasv1alpha1.Securesign) bool {
 	return true
 }
 

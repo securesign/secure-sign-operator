@@ -31,7 +31,7 @@ func (i deployAction) Name() string {
 	return "deploy"
 }
 
-func (i deployAction) CanHandle(instance *rhtasv1alpha1.Trillian) bool {
+func (i deployAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	return c.Reason == constants.Creating || c.Reason == constants.Ready
 }
@@ -42,7 +42,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		updated bool
 	)
 
-	if instance.Spec.Db.DatabaseSecretRef == nil {
+	if instance.Status.Db.DatabaseSecretRef == nil {
 		err = errors.New("reference to database secret is not set")
 
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -61,10 +61,9 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	}
 
 	labels := constants.LabelsFor(actions.LogServerComponentName, actions.LogserverDeploymentName, instance.Name)
-	server := trillianUtils.CreateTrillDeployment(instance.Namespace, constants.TrillianServerImage,
+	server := trillianUtils.CreateTrillDeployment(instance, constants.TrillianServerImage,
 		actions.LogserverDeploymentName,
 		actions.RBACName,
-		*instance.Spec.Db.DatabaseSecretRef,
 		labels)
 	server.Spec.Template.Spec.Containers[0].Ports = append(server.Spec.Template.Spec.Containers[0].Ports, corev1.ContainerPort{
 		Protocol:      corev1.ProtocolTCP,

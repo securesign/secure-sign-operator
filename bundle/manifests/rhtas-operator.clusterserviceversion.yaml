@@ -176,7 +176,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-02-15T11:34:50Z"
+    createdAt: "2024-02-22T09:00:47Z"
     operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: rhtas-operator.v0.0.1
@@ -354,6 +354,7 @@ spec:
           verbs:
           - create
           - delete
+          - deletecollection
           - get
           - list
           - patch

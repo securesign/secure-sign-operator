@@ -21,16 +21,24 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
+	ctl "github.com/securesign/operator/controllers/ctlog/actions"
+	fulcio "github.com/securesign/operator/controllers/fulcio/actions"
+	"github.com/securesign/operator/controllers/rekor/actions/server"
 	"github.com/securesign/operator/controllers/tuf/actions"
 	v1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
 	v13 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -95,7 +103,8 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		a.InjectLogger(rlog.WithName(a.Name()))
 		a.InjectRecorder(r.Recorder)
 
-		if a.CanHandle(target) {
+		if a.CanHandle(ctx, target) {
+			rlog.V(2).Info("Executing " + a.Name())
 			result := a.Handle(ctx, target)
 			if result != nil {
 				return result.Result, result.Err
@@ -107,10 +116,53 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *TufReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	fulcio, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+		{
+			Key:      fulcio.FulcioCALabel,
+			Operator: metav1.LabelSelectorOpExists,
+		},
+	}})
+	rekor, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+		{
+			Key:      server.RekorPubLabel,
+			Operator: metav1.LabelSelectorOpExists,
+		},
+	}})
+	ctl, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+		{
+			Key:      ctl.CTLPubLabel,
+			Operator: metav1.LabelSelectorOpExists,
+		},
+	}})
+	if err != nil {
+		return err
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&rhtasv1alpha1.Tuf{}).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		Owns(&v13.Ingress{}).
+		Watches(&v12.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+			val, ok := object.GetLabels()["app.kubernetes.io/instance"]
+			if ok {
+				return []reconcile.Request{
+					{
+						NamespacedName: types.NamespacedName{
+							Namespace: object.GetNamespace(),
+							Name:      val,
+						},
+					},
+				}
+			}
+
+			list := &rhtasv1alpha1.TufList{}
+			mgr.GetClient().List(ctx, list, client.InNamespace(object.GetNamespace()))
+			requests := make([]reconcile.Request, len(list.Items))
+			for i, k := range list.Items {
+				requests[i] = reconcile.Request{NamespacedName: types.NamespacedName{Namespace: object.GetNamespace(), Name: k.Name}}
+			}
+			return requests
+
+		}), builder.WithPredicates(predicate.Or(fulcio, rekor, ctl))).
 		Complete(r)
 }

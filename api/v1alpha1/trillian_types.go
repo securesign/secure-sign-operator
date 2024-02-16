@@ -42,6 +42,7 @@ type TrillianDB struct {
 
 // TrillianStatus defines the observed state of Trillian
 type TrillianStatus struct {
+	Db TrillianDB `json:"database,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge

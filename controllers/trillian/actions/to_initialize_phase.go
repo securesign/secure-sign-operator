@@ -22,7 +22,7 @@ func (i toInitialize) Name() string {
 	return "to initialize"
 }
 
-func (i toInitialize) CanHandle(instance *rhtasv1alpha1.Trillian) bool {
+func (i toInitialize) CanHandle(_ context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	return c.Reason == constants.Creating
 }

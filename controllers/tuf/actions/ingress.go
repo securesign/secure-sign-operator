@@ -27,7 +27,7 @@ func (i ingressAction) Name() string {
 	return "ingress"
 }
 
-func (i ingressAction) CanHandle(tuf *rhtasv1alpha1.Tuf) bool {
+func (i ingressAction) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Tuf) bool {
 	c := meta.FindStatusCondition(tuf.Status.Conditions, constants.Ready)
 	return (c.Reason == constants.Creating || c.Reason == constants.Ready) &&
 		tuf.Spec.ExternalAccess.Enabled

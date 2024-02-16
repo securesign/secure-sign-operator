@@ -1,18 +1,19 @@
 package trillianUtils
 
 import (
+	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/constants"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateTrillDeployment(namespace string, image string, dpName string, sa string, dbsecret core.LocalObjectReference, labels map[string]string) *apps.Deployment {
+func CreateTrillDeployment(instance *v1alpha1.Trillian, image string, dpName string, sa string, labels map[string]string) *apps.Deployment {
 	replicas := int32(1)
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpName,
-			Namespace: namespace,
+			Namespace: instance.Namespace,
 			Labels:    labels,
 		},
 		Spec: apps.DeploymentSpec{
@@ -36,7 +37,7 @@ func CreateTrillDeployment(namespace string, image string, dpName string, sa str
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
 											Key:                  "mysql-host",
-											LocalObjectReference: dbsecret,
+											LocalObjectReference: *instance.Status.Db.DatabaseSecretRef,
 										},
 									},
 								},
@@ -45,7 +46,7 @@ func CreateTrillDeployment(namespace string, image string, dpName string, sa str
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
 											Key:                  "mysql-port",
-											LocalObjectReference: dbsecret,
+											LocalObjectReference: *instance.Status.Db.DatabaseSecretRef,
 										},
 									},
 								},
@@ -82,7 +83,7 @@ func CreateTrillDeployment(namespace string, image string, dpName string, sa str
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
 											Key:                  "mysql-user",
-											LocalObjectReference: dbsecret,
+											LocalObjectReference: *instance.Status.Db.DatabaseSecretRef,
 										},
 									},
 								},
@@ -91,7 +92,7 @@ func CreateTrillDeployment(namespace string, image string, dpName string, sa str
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
 											Key:                  "mysql-password",
-											LocalObjectReference: dbsecret,
+											LocalObjectReference: *instance.Status.Db.DatabaseSecretRef,
 										},
 									},
 								},
@@ -100,7 +101,7 @@ func CreateTrillDeployment(namespace string, image string, dpName string, sa str
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
 											Key:                  "mysql-host",
-											LocalObjectReference: dbsecret,
+											LocalObjectReference: *instance.Status.Db.DatabaseSecretRef,
 										},
 									},
 								},
@@ -109,7 +110,7 @@ func CreateTrillDeployment(namespace string, image string, dpName string, sa str
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
 											Key:                  "mysql-port",
-											LocalObjectReference: dbsecret,
+											LocalObjectReference: *instance.Status.Db.DatabaseSecretRef,
 										},
 									},
 								},
@@ -118,7 +119,7 @@ func CreateTrillDeployment(namespace string, image string, dpName string, sa str
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
 											Key:                  "mysql-database",
-											LocalObjectReference: dbsecret,
+											LocalObjectReference: *instance.Status.Db.DatabaseSecretRef,
 										},
 									},
 								},

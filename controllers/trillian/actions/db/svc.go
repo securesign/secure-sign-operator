@@ -27,7 +27,7 @@ func (i createServiceAction) Name() string {
 	return "create service"
 }
 
-func (i createServiceAction) CanHandle(instance *rhtasv1alpha1.Trillian) bool {
+func (i createServiceAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && instance.Spec.Db.Create
 }

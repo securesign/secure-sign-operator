@@ -28,14 +28,18 @@ func (i createPvcAction) Name() string {
 	return "create PVC"
 }
 
-func (i createPvcAction) CanHandle(instance *rhtasv1alpha1.Trillian) bool {
+func (i createPvcAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Creating && instance.Spec.Db.Create && instance.Spec.Db.Pvc.Name == ""
+	return c.Reason == constants.Creating && instance.Spec.Db.Create && instance.Status.Db.Pvc.Name == ""
 }
 
 func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
 	var err error
 
+	if instance.Spec.Db.Pvc.Name != "" {
+		instance.Status.Db.Pvc.Name = instance.Spec.Db.Pvc.Name
+		return i.StatusUpdate(ctx, instance)
+	}
 	// PVC does not exist, create a new one
 	i.Logger.V(1).Info("Creating new PVC")
 	pvc := k8sutils.CreatePVC(instance.Namespace, actions.DbPvcName, instance.Spec.Db.Pvc.Size, instance.Spec.Db.Pvc.StorageClass, constants.LabelsFor(actions.DbComponentName, actions.DbDeploymentName, instance.Name))
@@ -59,6 +63,6 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tri
 	}
 	i.Recorder.Event(instance, v1.EventTypeNormal, "PersistentVolumeCreated", "New PersistentVolume created")
 
-	instance.Spec.Db.Pvc.Name = pvc.Name
-	return i.Update(ctx, instance)
+	instance.Status.Db.Pvc.Name = pvc.Name
+	return i.StatusUpdate(ctx, instance)
 }
