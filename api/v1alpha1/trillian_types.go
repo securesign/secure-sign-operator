@@ -31,8 +31,6 @@ type TrillianDB struct {
 	// Create Database if a database is not created one must be defined using the DatabaseSecret field
 	// default: true
 	Create bool `json:"create,omitempty"`
-	// Persistent volume claim name to bound with Trillian DB
-	PvcName string `json:"pvcName,omitempty"`
 	// Secret with values to be used to connect to an existing DB or to be used with the creation of a new DB
 	DatabaseSecretRef *v1.LocalObjectReference `json:"databaseSecretRef,omitempty"`
 	// PVC configuration

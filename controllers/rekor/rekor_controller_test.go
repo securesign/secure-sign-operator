@@ -145,9 +145,9 @@ var _ = Describe("Rekor controller", func() {
 			By("Rekor server PVC created")
 			Eventually(func() string {
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Spec.PvcName
+				return found.Spec.Pvc.Name
 			}, time.Minute, time.Second).Should(Not(BeEmpty()))
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Spec.PvcName, Namespace: Namespace}, &corev1.PersistentVolumeClaim{})).Should(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Spec.Pvc.Name, Namespace: Namespace}, &corev1.PersistentVolumeClaim{})).Should(Succeed())
 
 			By("Rekor server SVC created")
 			Eventually(func() error {

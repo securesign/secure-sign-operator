@@ -6,7 +6,7 @@ import (
 
 	"github.com/securesign/operator/controllers/common/action"
 	"github.com/securesign/operator/controllers/constants"
-	"github.com/securesign/operator/controllers/trillian/actions"
+	actions2 "github.com/securesign/operator/controllers/trillian/actions"
 	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -38,7 +38,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	db := trillianUtils.CreateTrillDb(instance.Namespace, constants.TrillianDbImage,
 		actions2.DbDeploymentName,
 		actions2.RBACName,
-		instance.Spec.Db.PvcName,
+		instance.Spec.Db.Pvc.Name,
 		*instance.Spec.Db.DatabaseSecretRef,
 		labels)
 	if err = controllerutil.SetControllerReference(instance, db, i.Client.Scheme()); err != nil {

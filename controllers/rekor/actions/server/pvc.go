@@ -29,7 +29,7 @@ func (i createPvcAction) Name() string {
 }
 
 func (i createPvcAction) CanHandle(instance *rhtasv1alpha1.Rekor) bool {
-	return instance.Status.Phase == rhtasv1alpha1.PhaseCreating && instance.Spec.PvcName == ""
+	return instance.Status.Phase == rhtasv1alpha1.PhaseCreating && instance.Spec.Pvc.Name == ""
 }
 
 func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
@@ -50,6 +50,6 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rek
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create DB PVC: %w", err), instance)
 	}
 
-	instance.Spec.PvcName = pvc.Name
+	instance.Spec.Pvc.Name = pvc.Name
 	return i.Update(ctx, instance)
 }

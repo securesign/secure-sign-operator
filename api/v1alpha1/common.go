@@ -44,4 +44,8 @@ type Pvc struct {
 	// Retain policy for the PVC
 	//+kubebuilder:default:=true
 	Retain bool `json:"retain"`
+	// Name of the PVC
+	Name string `json:"name,omitempty"`
+	// Storage class for the PVC
+	StorageClass string `json:"storageClass,omitempty"`
 }

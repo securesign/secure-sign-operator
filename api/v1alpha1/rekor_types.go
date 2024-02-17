@@ -21,8 +21,6 @@ type RekorSpec struct {
 	Signer RekorSigner `json:"signer,omitempty"`
 	// PVC configuration
 	Pvc Pvc `json:"pvc,omitempty"`
-	// PVC Name
-	PvcName string `json:"pvcName,omitempty"`
 }
 
 type RekorSigner struct {

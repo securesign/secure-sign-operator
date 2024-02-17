@@ -27,7 +27,7 @@ func (i createPvcAction) Name() string {
 }
 
 func (i createPvcAction) CanHandle(instance *rhtasv1alpha1.Trillian) bool {
-	return instance.Status.Phase == rhtasv1alpha1.PhaseCreating && instance.Spec.Db.Create && instance.Spec.Db.PvcName == ""
+	return instance.Status.Phase == rhtasv1alpha1.PhaseCreating && instance.Spec.Db.Create && instance.Spec.Db.Pvc.Name == ""
 }
 
 func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
@@ -47,6 +47,6 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tri
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create DB PVC: %w", err), instance)
 	}
 
-	instance.Spec.Db.PvcName = pvc.Name
+	instance.Spec.Db.Pvc.Name = pvc.Name
 	return i.Update(ctx, instance)
 }

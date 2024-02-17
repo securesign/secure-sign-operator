@@ -301,6 +301,9 @@ spec:
                   pvc:
                     description: PVC configuration
                     properties:
+                      name:
+                        description: Name of the PVC
+                        type: string
                       retain:
                         default: true
                         description: Retain policy for the PVC
@@ -309,12 +312,12 @@ spec:
                         default: 5Gi
                         description: Size of the PVC
                         type: string
+                      storageClass:
+                        description: Storage class for the PVC
+                        type: string
                     required:
                     - retain
                     type: object
-                  pvcName:
-                    description: PVC Name
-                    type: string
                   rekorSearchUI:
                     description: Rekor Search UI
                     properties:
@@ -390,6 +393,9 @@ spec:
                       pvc:
                         description: PVC configuration
                         properties:
+                          name:
+                            description: Name of the PVC
+                            type: string
                           retain:
                             default: true
                             description: Retain policy for the PVC
@@ -398,13 +404,12 @@ spec:
                             default: 5Gi
                             description: Size of the PVC
                             type: string
+                          storageClass:
+                            description: Storage class for the PVC
+                            type: string
                         required:
                         - retain
                         type: object
-                      pvcName:
-                        description: Persistent volume claim name to bound with Trillian
-                          DB
-                        type: string
                     type: object
                 type: object
               tuf:

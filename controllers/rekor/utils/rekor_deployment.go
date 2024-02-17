@@ -40,7 +40,7 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 			Name: "storage",
 			VolumeSource: core.VolumeSource{
 				PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
-					ClaimName: instance.Spec.PvcName,
+					ClaimName: instance.Spec.Pvc.Name,
 				},
 			},
 		},
