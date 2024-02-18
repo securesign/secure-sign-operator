@@ -6,17 +6,19 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
+	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/tuf/actions"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func VerifyTuf(ctx context.Context, cli client.Client, namespace string, name string) {
 	Eventually(GetTuf(ctx, cli, namespace, name)).Should(
-		WithTransform(func(f *v1alpha1.Tuf) v1alpha1.Phase {
-			return f.Status.Phase
-		}, Equal(v1alpha1.PhaseReady)))
+		WithTransform(func(f *v1alpha1.Tuf) string {
+			return meta.FindStatusCondition(f.Status.Conditions, constants.Ready).Reason
+		}, Equal(constants.Ready)))
 
 	list := &v1.PodList{}
 	cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels{kubernetes.ComponentLabel: actions.ComponentName})

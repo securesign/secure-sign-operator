@@ -3,7 +3,6 @@ package actions
 import (
 	"context"
 	"fmt"
-	"maps"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
@@ -31,7 +30,8 @@ func (g generateKeys) Name() string {
 }
 
 func (g generateKeys) CanHandle(instance *v1alpha1.CTlog) bool {
-	return instance.Status.Phase == v1alpha1.PhaseCreating && instance.Spec.PrivateKeyRef == nil
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	return c.Reason == constants.Creating && instance.Spec.PrivateKeyRef == nil
 }
 
 func (g generateKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *action.Result {
@@ -43,28 +43,22 @@ func (g generateKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *act
 		return g.Failed(err)
 	}
 
-	secretLabels := map[string]string{
-		constants.TufLabelNamespace + "/ctfe.pub": "public",
-	}
-	maps.Copy(secretLabels, labels)
-
 	secretName := fmt.Sprintf(KeySecretNameFormat, instance.Name)
 
 	secret := k8sutils.CreateSecret(secretName, instance.Namespace,
 		map[string][]byte{
 			"private": config.PrivateKey,
 			"public":  config.PublicKey,
-		}, secretLabels)
+		}, labels)
 
 	if err = controllerutil.SetControllerReference(instance, secret, g.Client.Scheme()); err != nil {
 		return g.Failed(fmt.Errorf("could not set controller reference for Secret: %w", err))
 	}
 	if _, err = g.Ensure(ctx, secret); err != nil {
-		instance.Status.Phase = v1alpha1.PhaseError
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    string(v1alpha1.PhaseReady),
+			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Failure",
+			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
 		return g.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Secret: %w", err), instance)

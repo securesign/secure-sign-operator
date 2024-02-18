@@ -26,7 +26,8 @@ func (i serviceAction) Name() string {
 }
 
 func (i serviceAction) CanHandle(tuf *rhtasv1alpha1.Tuf) bool {
-	return tuf.Status.Phase == rhtasv1alpha1.PhaseCreating || tuf.Status.Phase == rhtasv1alpha1.PhaseReady
+	c := meta.FindStatusCondition(tuf.Status.Conditions, constants.Ready)
+	return c.Reason == constants.Creating || c.Reason == constants.Ready
 }
 
 func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
@@ -44,18 +45,19 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) 
 		return i.Failed(fmt.Errorf("could not set controller reference for Service: %w", err))
 	}
 	if updated, err = i.Ensure(ctx, svc); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    string(rhtasv1alpha1.PhaseReady),
+			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Failure",
+			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create service: %w", err), instance)
 	}
 
 	if updated {
-		return i.Return()
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
+			Status: metav1.ConditionFalse, Reason: constants.Creating, Message: "Service created"})
+		return i.StatusUpdate(ctx, instance)
 	} else {
 		return i.Continue()
 	}

@@ -21,6 +21,8 @@ type RekorSpec struct {
 	Signer RekorSigner `json:"signer,omitempty"`
 	// PVC configuration
 	Pvc Pvc `json:"pvc,omitempty"`
+	// BackFillRedis CronJob Configuration
+	BackFillRedis BackFillRedis `json:"backFillRedis,omitempty"`
 }
 
 type RekorSigner struct {
@@ -41,10 +43,18 @@ type RekorSearchUI struct {
 	Enabled bool `json:"enabled,omitempty"`
 }
 
+type BackFillRedis struct {
+	//Enable the BackFillRedis CronJob
+	//+kubebuilder:default:=true
+	Enabled bool `json:"enabled,omitempty"`
+	//Schedule for the BackFillRedis CronJob
+	//+kubebuilder:default:="0 0 * * *"
+	Schedule string `json:"schedule,omitempty"`
+}
+
 // RekorStatus defines the observed state of Rekor
 type RekorStatus struct {
 	Url              string `json:"url,omitempty"`
-	Phase            Phase  `json:"phase,omitempty"`
 	RekorSearchUIUrl string `json:"rekorSearchUIUrl,omitempty"`
 	// +listType=map
 	// +listMapKey=type
@@ -56,7 +66,7 @@ type RekorStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The component phase"
+//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
 //+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
 
 // Rekor is the Schema for the rekors API

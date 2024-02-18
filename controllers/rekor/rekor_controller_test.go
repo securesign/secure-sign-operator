@@ -29,9 +29,11 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -101,6 +103,10 @@ var _ = Describe("Rekor controller", func() {
 						RekorSearchUI: v1alpha1.RekorSearchUI{
 							Enabled: true,
 						},
+						BackFillRedis: v1alpha1.BackFillRedis{
+							Enabled:  true,
+							Schedule: "0 0 * * *",
+						},
 					},
 				}
 				err = k8sClient.Create(ctx, instance)
@@ -113,19 +119,21 @@ var _ = Describe("Rekor controller", func() {
 				return k8sClient.Get(ctx, typeNamespaceName, found)
 			}, time.Minute, time.Second).Should(Succeed())
 
-			Eventually(func() v1alpha1.Phase {
+			By("Status conditions are initialized")
+			Eventually(func() bool {
 				found := &v1alpha1.Rekor{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Phase
-			}, time.Minute, time.Second).Should(Equal(v1alpha1.PhasePending))
+				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
+			}, time.Minute, time.Second).Should(BeTrue())
+
+			Eventually(func() string {
+				found := &v1alpha1.Rekor{}
+				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
+			}, time.Minute, time.Second).Should(Equal(constants.Pending))
 
 			By("Move to CreatingPhase by creating trillian service")
-			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, 8091, constants.LabelsForComponent(trillian.ComponentName, instance.Name)))).To(Succeed())
-			Eventually(func() v1alpha1.Phase {
-				found := &v1alpha1.Rekor{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Phase
-			}, time.Minute, time.Second).Should(Equal(v1alpha1.PhaseCreating))
+			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, 8091, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
 
 			By("Rekor signer created")
 			found := &v1alpha1.Rekor{}
@@ -179,12 +187,17 @@ var _ = Describe("Rekor controller", func() {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.SearchUiDeploymentName, Namespace: Namespace}, &corev1.Service{})
 			}, time.Minute, time.Second).Should(Succeed())
 
+			By("Backfill Redis Cronjob Created")
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.BackfillRedisCronJobName, Namespace: Namespace}, &batchv1.CronJob{})
+			}, time.Minute, time.Second).Should(Succeed())
+
 			By("Waiting until Rekor instance is Initialization")
-			Eventually(func() v1alpha1.Phase {
+			Eventually(func() string {
 				found := &v1alpha1.Rekor{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Phase
-			}, time.Minute, time.Second).Should(Equal(v1alpha1.PhaseInitialize))
+				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
+			}, time.Minute, time.Second).Should(Equal(constants.Initialize))
 
 			deployments := &appsv1.DeploymentList{}
 			Expect(k8sClient.List(ctx, deployments, runtimeClient.InNamespace(Namespace))).To(Succeed())
@@ -197,11 +210,11 @@ var _ = Describe("Rekor controller", func() {
 			// Workaround to succeed condition for Ready phase
 
 			By("Waiting until Rekor instance is Ready")
-			Eventually(func() v1alpha1.Phase {
+			Eventually(func() bool {
 				found := &v1alpha1.Rekor{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Phase
-			}, time.Minute, time.Second).Should(Equal(v1alpha1.PhaseReady))
+				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
+			}, time.Minute, time.Second).Should(BeTrue())
 
 			By("Checking if controller will return deployment to desired state")
 			deployment := &appsv1.Deployment{}

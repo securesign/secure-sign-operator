@@ -19,7 +19,7 @@ import (
 
 const SecretNameFormat = "rekor-%s-signer"
 
-const RekorPubLabel = constants.TufLabelNamespace + "/rekor.pub"
+const RekorPubLabel = constants.LabelNamespace + "/rekor.pub"
 
 func NewGenerateSignerAction() action.Action[v1alpha1.Rekor] {
 	return &generateSigner{}
@@ -34,7 +34,8 @@ func (g generateSigner) Name() string {
 }
 
 func (g generateSigner) CanHandle(instance *v1alpha1.Rekor) bool {
-	return (instance.Status.Phase == v1alpha1.PhaseCreating) &&
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	return c.Reason == constants.Creating &&
 		(instance.Spec.Signer.KMS == "secret" || instance.Spec.Signer.KMS == "") &&
 		instance.Spec.Signer.KeyRef == nil
 }
@@ -49,7 +50,18 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 
 	certConfig, err := utils.CreateRekorKey()
 	if err != nil {
-		instance.Status.Phase = v1alpha1.PhaseError
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    actions.ServerCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
 		return g.FailedWithStatusUpdate(ctx, err, instance)
 	}
 
@@ -69,11 +81,16 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 		return g.Failed(fmt.Errorf("could not set controller reference for Secret: %w", err))
 	}
 	if updated, err = g.Ensure(ctx, secret); err != nil {
-		instance.Status.Phase = v1alpha1.PhaseError
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    string(v1alpha1.PhaseReady),
+			Type:    actions.ServerCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Failure",
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
 		return g.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create secret: %w", err), instance)

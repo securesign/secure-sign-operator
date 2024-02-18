@@ -63,7 +63,6 @@ type SecuresignReconciler struct {
 //+kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=create;get;list;watch;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=endpoints,verbs=get;list;watch
-//+kubebuilder:rbac:groups=console.openshift.io,resources=consoleclidownloads,verbs=create;get;list;watch;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;get;list;watch;update;patch
 
 // TODO: rework Securesign controller to watch resources
@@ -95,11 +94,15 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	acs := []action.Action[rhtasv1alpha1.Securesign]{
+		actions.NewInitializeStatusAction(),
+
 		actions.NewTrillianAction(),
 		actions.NewFulcioAction(),
 		actions.NewRekorAction(),
 		actions.NewCtlogAction(),
 		actions.NewTufAction(),
+
+		actions.NewUpdateStatusAction(),
 	}
 
 	for _, a := range acs {
@@ -120,5 +123,10 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 func (r *SecuresignReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&rhtasv1alpha1.Securesign{}).
+		Owns(&rhtasv1alpha1.Fulcio{}).
+		Owns(&rhtasv1alpha1.Rekor{}).
+		Owns(&rhtasv1alpha1.Tuf{}).
+		Owns(&rhtasv1alpha1.Trillian{}).
+		Owns(&rhtasv1alpha1.CTlog{}).
 		Complete(r)
 }

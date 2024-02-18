@@ -96,13 +96,17 @@ metadata:
               "externalAccess": {
                 "enabled": true
               },
-              "monitoring": false
+              "monitoring": {
+                "enabled": false
+              }
             },
             "rekor": {
               "externalAccess": {
                 "enabled": true
               },
-              "monitoring": false
+              "monitoring": {
+                "enabled": false
+              }
             },
             "trillian": {
               "database": {
@@ -172,7 +176,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-02-01T20:54:11Z"
+    createdAt: "2024-02-15T11:34:50Z"
     operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: rhtas-operator.v0.0.1
@@ -254,9 +258,27 @@ spec:
           - list
           - watch
         - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - get
+        - apiGroups:
           - apps
           resources:
           - deployments
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - batch
+          resources:
+          - cronjobs
           verbs:
           - create
           - delete
@@ -719,7 +741,7 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
-                image: registry.redhat.io/rhtas-tech-preview/sigstore-rhel9-operator-controller:latest
+                image: registry.redhat.io/rhtas-tech-preview/sigstore-rhel9-operator@sha256:e4a077015f43fb343d8b13739f08d90e9e9229dc0e3a90e42f72a33dbacd979e
                 livenessProbe:
                   httpGet:
                     path: /healthz

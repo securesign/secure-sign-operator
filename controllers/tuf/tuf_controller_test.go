@@ -28,6 +28,7 @@ import (
 	"github.com/securesign/operator/controllers/tuf/actions"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -132,28 +133,35 @@ var _ = Describe("TUF controller", func() {
 				return k8sClient.Get(ctx, typeNamespaceName, found)
 			}, time.Minute, time.Second).Should(Succeed())
 
-			By("Pending phase untill ctlog public key is resolved")
-			Eventually(func() v1alpha1.Phase {
+			By("Status conditions are initialized")
+			Eventually(func() bool {
 				found := &v1alpha1.Tuf{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Phase
-			}, time.Minute, time.Second).Should(Equal(v1alpha1.PhasePending))
+				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
+			}, time.Minute, time.Second).Should(BeTrue())
+
+			By("Pending phase until ctlog public key is resolved")
+			Eventually(func() string {
+				found := &v1alpha1.Tuf{}
+				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
+			}, time.Minute, time.Second).Should(Equal(constants.Pending))
 
 			By("Creating ctlog secret with public key")
 			secretLabels := map[string]string{
-				constants.TufLabelNamespace + "/ctfe.pub": "public",
+				constants.LabelNamespace + "/ctfe.pub": "public",
 			}
 			maps.Copy(secretLabels, constants.LabelsFor(actions2.ComponentName, actions2.ComponentName, actions2.ComponentName))
-			_ = k8sClient.Create(ctx, kubernetes.CreateSecret("ctlog", typeNamespaceName.Namespace, map[string][]byte{
+			_ = k8sClient.Create(ctx, kubernetes.CreateSecret("ctlog-test", typeNamespaceName.Namespace, map[string][]byte{
 				"public": []byte("secret"),
 			}, secretLabels))
 
 			By("Waiting until Tuf instance is Initialization")
-			Eventually(func() v1alpha1.Phase {
+			Eventually(func() string {
 				found := &v1alpha1.Tuf{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Phase
-			}, time.Minute, time.Second).Should(Equal(v1alpha1.PhaseInitialize))
+				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
+			}, time.Minute, time.Second).Should(Equal(constants.Initialize))
 
 			deployment := &appsv1.Deployment{}
 			By("Checking if Deployment was successfully created in the reconciliation")
@@ -168,11 +176,11 @@ var _ = Describe("TUF controller", func() {
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
 
 			By("Waiting until Tuf instance is Ready")
-			Eventually(func() v1alpha1.Phase {
+			Eventually(func() bool {
 				found := &v1alpha1.Tuf{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Phase
-			}, time.Minute, time.Second).Should(Equal(v1alpha1.PhaseReady))
+				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
+			}, time.Minute, time.Second).Should(BeTrue())
 
 			By("Checking if Service was successfully created in the reconciliation")
 			service := &corev1.Service{}
@@ -194,11 +202,11 @@ var _ = Describe("TUF controller", func() {
 			Eventually(func() error {
 				found := &v1alpha1.Tuf{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				rekorCondition := findCondition(found.Status.Conditions, "rekor.pub")
+				rekorCondition := meta.FindStatusCondition(found.Status.Conditions, "rekor.pub")
 				Expect(rekorCondition).Should(Not(BeNil()))
 				Expect(rekorCondition.Status).Should(Equal(metav1.ConditionTrue))
 				Expect(rekorCondition.Reason).Should(Equal("Ready"))
-				ctlogCondition := findCondition(found.Status.Conditions, "ctfe.pub")
+				ctlogCondition := meta.FindStatusCondition(found.Status.Conditions, "ctfe.pub")
 				Expect(ctlogCondition).Should(Not(BeNil()))
 				Expect(ctlogCondition.Status).Should(Equal(metav1.ConditionTrue))
 				Expect(ctlogCondition.Reason).Should(Equal("Ready"))
@@ -221,14 +229,3 @@ var _ = Describe("TUF controller", func() {
 		})
 	})
 })
-
-func findCondition(conditions []metav1.Condition, ctype string) *metav1.Condition {
-	if conditions != nil && len(conditions) != 0 {
-		for _, c := range conditions {
-			if c.Type == ctype {
-				return &c
-			}
-		}
-	}
-	return nil
-}

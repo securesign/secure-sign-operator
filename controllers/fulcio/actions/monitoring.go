@@ -28,7 +28,8 @@ func (i monitoringAction) Name() string {
 }
 
 func (i monitoringAction) CanHandle(instance *rhtasv1alpha1.Fulcio) bool {
-	return instance.Status.Phase == rhtasv1alpha1.PhaseCreating && instance.Spec.Monitoring.Enabled
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && instance.Spec.Monitoring.Enabled
 }
 
 func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) *action.Result {
@@ -56,11 +57,10 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fu
 	}
 
 	if _, err = i.Ensure(ctx, role); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    string(rhtasv1alpha1.PhaseReady),
+			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Failure",
+			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create monitoring role: %w", err), instance)
@@ -84,11 +84,10 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fu
 	}
 
 	if _, err = i.Ensure(ctx, roleBinding); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    string(rhtasv1alpha1.PhaseReady),
+			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Failure",
+			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create monitoring RoleBinding: %w", err), instance)
@@ -113,11 +112,10 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fu
 	}
 
 	if _, err = i.Ensure(ctx, serviceMonitor); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    string(rhtasv1alpha1.PhaseReady),
+			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
-			Reason:  "Failure",
+			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create serviceMonitor: %w", err), instance)

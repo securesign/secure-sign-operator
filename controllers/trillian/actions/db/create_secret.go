@@ -8,7 +8,8 @@ import (
 	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/action"
 	"github.com/securesign/operator/controllers/constants"
-	"github.com/securesign/operator/controllers/trillian/actions"
+	actions2 "github.com/securesign/operator/controllers/trillian/actions"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -34,7 +35,8 @@ func (i createSecretAction) Name() string {
 }
 
 func (i createSecretAction) CanHandle(instance *rhtasv1alpha1.Trillian) bool {
-	return instance.Status.Phase == rhtasv1alpha1.PhaseCreating && instance.Spec.Db.Create && instance.Spec.Db.DatabaseSecretRef == nil
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	return c.Reason == constants.Creating && instance.Spec.Db.Create && instance.Spec.Db.DatabaseSecretRef == nil
 }
 
 func (i createSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
@@ -42,7 +44,7 @@ func (i createSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 	var (
 		err error
 	)
-	dbLabels := constants.LabelsFor(actions2.ComponentName, actions2.DbDeploymentName, instance.Name)
+	dbLabels := constants.LabelsFor(actions2.DbComponentName, actions2.DbDeploymentName, instance.Name)
 
 	dbSecret := i.createDbSecret(instance.Namespace, dbLabels)
 	if err = controllerutil.SetControllerReference(instance, dbSecret, i.Client.Scheme()); err != nil {
@@ -51,7 +53,18 @@ func (i createSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 
 	// no watch on secret - continue if no error
 	if _, err = i.Ensure(ctx, dbSecret); err != nil {
-		instance.Status.Phase = rhtasv1alpha1.PhaseError
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    actions2.DbCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create DB secret: %w", err), instance)
 	}
 
