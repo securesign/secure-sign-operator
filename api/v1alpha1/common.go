@@ -21,6 +21,19 @@ type MonitoringConfig struct {
 	Enabled bool `json:"enabled"`
 }
 
+// TrillianService configuration to connect Trillian server
+type TrillianService struct {
+	// Address to Trillian Log Server End point
+	//+optional
+	Address string `json:"address,omitempty"`
+	// Port of Trillian Log Server End point
+	//+kubebuilder:validation:Minimum:=1
+	//+kubebuilder:validation:Maximum:=65535
+	//+kubebuilder:default:=8091
+	//+optional
+	Port *int32 `json:"port,omitempty"`
+}
+
 // LocalObjectReference contains enough information to let you locate the
 // referenced object inside the same namespace.
 // +structType=atomic

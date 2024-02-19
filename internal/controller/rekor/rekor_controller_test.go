@@ -23,11 +23,9 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils"
 
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/controller/rekor/actions/server"
-	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -127,15 +125,6 @@ var _ = Describe("Rekor controller", func() {
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
 			}).Should(BeTrue())
-
-			Eventually(func() string {
-				found := &v1alpha1.Rekor{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}).Should(Equal(constants.Pending))
-
-			By("Move to CreatingPhase by creating trillian service")
-			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, 8091, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
 
 			By("Rekor signer created")
 			found := &v1alpha1.Rekor{}

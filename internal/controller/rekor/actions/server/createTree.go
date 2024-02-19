@@ -4,13 +4,14 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/trillian"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common"
 	"github.com/securesign/operator/internal/controller/common/action"
-	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
-	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
+	"github.com/securesign/operator/internal/controller/rekor/utils"
+	actions2 "github.com/securesign/operator/internal/controller/trillian/actions"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,12 +40,20 @@ func (i createTrillianTreeAction) Handle(ctx context.Context, instance *rhtasv1a
 		return i.StatusUpdate(ctx, instance)
 	}
 	var err error
+	var tree *trillian.Tree
+	var trillUrl string
 
-	trillUrl, err := k8sutils.GetInternalUrl(ctx, i.Client, instance.Namespace, trillian.LogserverDeploymentName)
-	if err != nil {
-		return i.Failed(err)
+	switch {
+	case instance.Spec.Trillian.Port == nil:
+		err = fmt.Errorf("%s: %w", i.Name(), utils.TrillianPortNotSpecified)
+	case instance.Spec.Trillian.Address == "":
+		trillUrl = fmt.Sprintf("%s.%s.svc:%d", actions2.LogserverDeploymentName, instance.Namespace, *instance.Spec.Trillian.Port)
+	default:
+		trillUrl = fmt.Sprintf("%s:%d", instance.Spec.Trillian.Address, *instance.Spec.Trillian.Port)
 	}
-	tree, err := common.CreateTrillianTree(ctx, "rekor-tree", trillUrl+":8091", constants.CreateTreeDeadline)
+	i.Logger.V(1).Info("trillian logserver", "address", trillUrl)
+
+	tree, err = common.CreateTrillianTree(ctx, "rekor-tree", trillUrl, constants.CreateTreeDeadline)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ServerCondition,
