@@ -14,6 +14,8 @@ func CreatePVC(namespace string, pvcName string, pvcSize string, storageClass st
 	var computedStorageClass *string
 	if storageClass == "" {
 		computedStorageClass = nil
+	} else {
+		computedStorageClass = &storageClass
 	}
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
