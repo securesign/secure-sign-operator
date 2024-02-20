@@ -41,11 +41,17 @@ spec:
             description: TrillianSpec defines the desired state of Trillian
             properties:
               database:
+                default:
+                  create: true
+                  pvc:
+                    retain: true
+                    size: 5Gi
                 description: Define your database connection
                 properties:
                   create:
-                    description: 'Create Database if a database is not created one
-                      must be defined using the DatabaseSecret field default: true'
+                    default: true
+                    description: Create Database if a database is not created one
+                      must be defined using the DatabaseSecret field
                     type: boolean
                   databaseSecretRef:
                     description: Secret with values to be used to connect to an existing
@@ -58,6 +64,9 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   pvc:
+                    default:
+                      retain: true
+                      size: 5Gi
                     description: PVC configuration
                     properties:
                       name:
