@@ -13,14 +13,14 @@ type RekorSpec struct {
 	TreeID *int64 `json:"treeID,omitempty"`
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
-	// Persistent volume claim name to bound with Rekor component
-	PvcName string `json:"pvcName,omitempty"`
 	//Enable Service monitors for rekor
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
 	//Rekor Search UI
 	RekorSearchUI RekorSearchUI `json:"rekorSearchUI,omitempty"`
 	// Signer configuration
 	Signer RekorSigner `json:"signer,omitempty"`
+	// PVC configuration
+	Pvc Pvc `json:"pvc,omitempty"`
 	// BackFillRedis CronJob Configuration
 	BackFillRedis BackFillRedis `json:"backFillRedis,omitempty"`
 }

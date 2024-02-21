@@ -123,10 +123,10 @@ var _ = Describe("Trillian controller", func() {
 			By("Database PVC created")
 			Eventually(func() string {
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Spec.Db.PvcName
+				return found.Spec.Db.Pvc.Name
 			}, time.Minute, time.Second).Should(Not(BeNil()))
 
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Spec.Db.PvcName, Namespace: Namespace}, &corev1.PersistentVolumeClaim{})).Should(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Spec.Db.Pvc.Name, Namespace: Namespace}, &corev1.PersistentVolumeClaim{})).Should(Succeed())
 
 			By("Database SVC created")
 			Eventually(func() error {

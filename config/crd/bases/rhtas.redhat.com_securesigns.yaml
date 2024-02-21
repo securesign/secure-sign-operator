@@ -327,10 +327,24 @@ spec:
                           resources
                         type: boolean
                     type: object
-                  pvcName:
-                    description: Persistent volume claim name to bound with Rekor
-                      component
-                    type: string
+                  pvc:
+                    description: PVC configuration
+                    properties:
+                      name:
+                        description: Name of the PVC
+                        type: string
+                      retain:
+                        default: true
+                        description: Retain policy for the PVC
+                        type: boolean
+                      size:
+                        default: 5Gi
+                        description: Size of the PVC
+                        type: string
+                      storageClass:
+                        description: Storage class for the PVC
+                        type: string
+                    type: object
                   rekorSearchUI:
                     description: Rekor Search UI
                     properties:
@@ -386,12 +400,17 @@ spec:
                 description: TrillianSpec defines the desired state of Trillian
                 properties:
                   database:
+                    default:
+                      create: true
+                      pvc:
+                        retain: true
+                        size: 5Gi
                     description: Define your database connection
                     properties:
                       create:
-                        description: 'Create Database if a database is not created
-                          one must be defined using the DatabaseSecret field default:
-                          true'
+                        default: true
+                        description: Create Database if a database is not created
+                          one must be defined using the DatabaseSecret field
                         type: boolean
                       databaseSecretRef:
                         description: Secret with values to be used to connect to an
@@ -403,10 +422,29 @@ spec:
                             type: string
                         type: object
                         x-kubernetes-map-type: atomic
-                      pvcName:
-                        description: Persistent volume claim name to bound with Trillian
-                          DB
-                        type: string
+                      pvc:
+                        default:
+                          retain: true
+                          size: 5Gi
+                        description: PVC configuration
+                        properties:
+                          name:
+                            description: Name of the PVC
+                            type: string
+                          retain:
+                            default: true
+                            description: Retain policy for the PVC
+                            type: boolean
+                          size:
+                            default: 5Gi
+                            description: Size of the PVC
+                            type: string
+                          storageClass:
+                            description: Storage class for the PVC
+                            type: string
+                        type: object
+                    required:
+                    - create
                     type: object
                 type: object
               tuf:

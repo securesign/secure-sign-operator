@@ -23,3 +23,19 @@ type SecretKeySelector struct {
 	// The key of the secret to select from.  Must be a valid secret key.
 	Key string `json:"key" protobuf:"bytes,2,opt,name=key"`
 }
+
+// PVCStruct
+type Pvc struct {
+	// Size of the PVC
+	//+kubebuilder:default:="5Gi"
+	Size string `json:"size,omitempty"`
+	// Retain policy for the PVC
+	//+kubebuilder:default:=true
+	Retain bool `json:"retain,omitempty"`
+	// Name of the PVC
+	//+optional
+	Name string `json:"name,omitempty"`
+	// Storage class for the PVC
+	//+optional
+	StorageClass string `json:"storageClass,omitempty"`
+}
