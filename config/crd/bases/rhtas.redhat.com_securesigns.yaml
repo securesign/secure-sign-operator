@@ -344,8 +344,6 @@ spec:
                       storageClass:
                         description: Storage class for the PVC
                         type: string
-                    required:
-                    - retain
                     type: object
                   rekorSearchUI:
                     description: Rekor Search UI
@@ -444,8 +442,6 @@ spec:
                           storageClass:
                             description: Storage class for the PVC
                             type: string
-                        required:
-                        - retain
                         type: object
                     type: object
                 type: object
