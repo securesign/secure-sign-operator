@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: trusted-artifact-signer-test-sign-verify
+  name: tas-test-sign-verify
   labels:
     app.kubernetes.io/component: trusted-artifact-signer
   annotations:
@@ -9,15 +9,38 @@ metadata:
 spec:
   template:
     spec:
-      containers:
+      initContainers:
       - name: buildah
         image: quay.io/buildah/stable
         command: ["/bin/sh", "-c"]
         args:
         - |
-          buildah pull alpine:latest
-          buildah tag alpine:latest ttl.sh/sigstore-test:5m
-          buildah push ttl.sh/sigstore-test:5m
+            buildah pull alpine:latest
+            buildah tag alpine:latest ttl.sh/sigstore-test:5m
+            buildah push ttl.sh/sigstore-test:5m
         securityContext:
-          privileged: true
+            privileged: true
+      containers:
+      - name: cosign
+        image: quay.io/redhat-user-workloads/rhtas-tenant/cli-1-0-gamma/cosign-cli-2-2@sha256:151f4a1e721b644bafe47bf5bfb8844ff27b95ca098cc37f3f6cbedcda79a897
+        env:
+        - name: OIDC_AUTHENTICATION_REALM
+          value: "sigstore"
+        - name: FULCIO_URL
+          value: "fulcio-server-url"
+        - name: OIDC_ISSUER_URL
+          value: "oidc-issuer-url"
+        - name: REKOR_URL
+          value: "rekor-server-url"
+        - name: TUF_URL
+          value: "tuf-url"
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            trust anchor --store /run/secrets/kubernetes.io/serviceaccount/ca.crt
+            cosign initialize --mirror=$TUF_URL --root=$TUF_URL/root.json
+            TOKEN=$(curl -X POST -H "Content-Type: application/x-www-form-urlencoded" -d "username=jdoe" -d "password=secure" -d "grant_type=password" -d "scope=openid" -d "client_id=sigstore" $OIDC_ISSUER_URL/protocol/openid-connect/token |  sed -E 's/.*"access_token":"([^"]*).*/\1/')
+            cosign sign -y --fulcio-url=$FULCIO_URL --rekor-url=$REKOR_URL --oidc-issuer=$OIDC_ISSUER_URL --identity-token=$TOKEN ttl.sh/sigstore-test:5m
+            cosign verify --rekor-url=$REKOR_URL --certificate-identity-regexp ".*@redhat" --certificate-oidc-issuer-regexp ".*keycloak.*" ttl.sh/sigstore-test:5m
       restartPolicy: Never
+  backoffLimit: 4 # Defines the number of retries before considering the Job failed.
