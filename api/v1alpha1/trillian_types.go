@@ -24,13 +24,14 @@ import (
 // TrillianSpec defines the desired state of Trillian
 type TrillianSpec struct {
 	// Define your database connection
+	//+kubebuilder:default:={create:true,pvc:{retain:true,size:"5Gi"}}
 	Db TrillianDB `json:"database,omitempty"`
 }
 
 type TrillianDB struct {
 	// Create Database if a database is not created one must be defined using the DatabaseSecret field
 	//+kubebuilder:default:=true
-	Create bool `json:"create,omitempty"`
+	Create bool `json:"create"`
 	// Secret with values to be used to connect to an existing DB or to be used with the creation of a new DB
 	//+optional
 	DatabaseSecretRef *v1.LocalObjectReference `json:"databaseSecretRef,omitempty"`
