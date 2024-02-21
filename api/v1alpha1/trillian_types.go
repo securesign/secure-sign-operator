@@ -24,7 +24,6 @@ import (
 // TrillianSpec defines the desired state of Trillian
 type TrillianSpec struct {
 	// Define your database connection
-	//+kubebuilder:default:={create:true, pvc: {retain:true, size:"5Gi"}}
 	Db TrillianDB `json:"database,omitempty"`
 }
 

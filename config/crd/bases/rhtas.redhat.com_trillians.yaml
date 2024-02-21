@@ -41,11 +41,6 @@ spec:
             description: TrillianSpec defines the desired state of Trillian
             properties:
               database:
-                default:
-                  create: true
-                  pvc:
-                    retain: true
-                    size: 5Gi
                 description: Define your database connection
                 properties:
                   create:
