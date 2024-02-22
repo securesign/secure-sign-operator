@@ -221,6 +221,21 @@ envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
+.PHONY: productization-adjustments
+productization-adjustments: ## Add feature labels and swap base image for konflux
+	sed -i '' 's/^FROM scratch$$/FROM registry.access.redhat.com\/ubi9\/ubi-micro/' bundle.Dockerfile
+	echo '' >> bundle/metadata/annotations.yaml
+	echo '  features.operators.openshift.io/disconnected: "false"' >> bundle/metadata/annotations.yaml
+	echo '  features.operators.openshift.io/fips-compliant: "false"' >> bundle/metadata/annotations.yaml
+	echo '  features.operators.openshift.io/proxy-aware: "false"' >> bundle/metadata/annotations.yaml
+	echo '  features.operators.openshift.io/cnf: "false"' >> bundle/metadata/annotations.yaml
+	echo '  features.operators.openshift.io/cni: "false"' >> bundle/metadata/annotations.yaml
+	echo '  features.operators.openshift.io/csi: "false"' >> bundle/metadata/annotations.yaml
+	echo '  features.operators.openshift.io/tls-profiles: "false"' >> bundle/metadata/annotations.yaml
+	echo '  features.operators.openshift.io/token-auth-aws: "false"' >> bundle/metadata/annotations.yaml
+	echo '  features.operators.openshift.io/token-auth-azure: "false"' >> bundle/metadata/annotations.yaml
+	echo '  features.operators.openshift.io/token-auth-gcp: "false"' >> bundle/metadata/annotations.yaml
+
 .PHONY: operator-sdk
 OPERATOR_SDK ?= $(LOCALBIN)/operator-sdk
 operator-sdk: ## Download operator-sdk locally if necessary.
@@ -243,6 +258,7 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
+	make productization-adjustments
 	$(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: bundle-build
