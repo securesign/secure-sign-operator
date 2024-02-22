@@ -1,0 +1,25 @@
+# STEPS:
+# Caveat: Run these commands from a FBC overlay (ex: v4.14)
+# 1. run the container:         FBC_VERSION="v4.14" && CONTAINER_ID=$(docker run -u root -d registry.redhat.io/redhat/redhat-operator-index:$FBC_VERSION)
+# 2. copy the catalog file in:  docker cp $(pwd)/catalog/rhtas-operator/catalog.json $CONTAINER_ID:/configs/rhtas-operator/catalog.json
+# 3. re-serve:                  docker exec -u root -it $CONTAINER_ID opm serve --pprof-addr="" --cache-only /configs
+# 4. commit the image:          docker commit $CONTAINER_ID quay.io/grpereir/redhat-operator-index:$FBC_VERSION
+# 5  push the image:            docker push quay.io/grpereir/redhat-operator-index:$FBC_VERSION
+    # NOTE: if you are using your own repo, you will have to switch this to public so it is pullable by testing cluster
+# 6. create catalog source (see below):
+: '
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: rhtas-operator
+  namespace: openshift-marketplace
+spec:
+  sourceType: grpc
+  grpcPodConfig:
+    securityContextConfig: legacy
+  publisher: Red Hat
+  image: quay.io/grpereir/redhat-operator-index:$FBC_VERSION
+  displayName: TAS Operator
+'
+# 7. apply the CS:              oc apply -f ./catalogSource.yaml
+# 8. delete the catalog-operator pod:  CATALOG_OPERATOR_POD=$oc get pods -n openshift-operator-lifecycle-manager | grep catalog-operator | awk '{print $1}') && oc delete pod $CATALOG_OPERATOR_POD -n openshift-operator-lifecycle-manage
