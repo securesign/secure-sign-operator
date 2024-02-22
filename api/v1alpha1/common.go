@@ -31,7 +31,7 @@ type Pvc struct {
 	Size string `json:"size,omitempty"`
 	// Retain policy for the PVC
 	//+kubebuilder:default:=true
-	Retain bool `json:"retain,omitempty"`
+	Retain bool `json:"retain"`
 	// Name of the PVC
 	//+optional
 	Name string `json:"name,omitempty"`

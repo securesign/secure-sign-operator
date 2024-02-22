@@ -20,6 +20,7 @@ type RekorSpec struct {
 	// Signer configuration
 	Signer RekorSigner `json:"signer,omitempty"`
 	// PVC configuration
+	//+kubebuilder:default:={size: "5Gi", retain: true}
 	Pvc Pvc `json:"pvc,omitempty"`
 	// BackFillRedis CronJob Configuration
 	BackFillRedis BackFillRedis `json:"backFillRedis,omitempty"`

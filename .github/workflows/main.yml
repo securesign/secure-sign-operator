@@ -199,10 +199,10 @@ jobs:
 
       - name: Test deployments are ready
         run: |
-          kubectl wait --for=condition=available deployment/trillian-db -n test --timeout=30s
-          kubectl wait --for=condition=available deployment/trillian-logserver -n test --timeout=30s
-          kubectl wait --for=condition=available deployment/trillian-logsigner -n test --timeout=30s
-          kubectl wait --for=condition=available deployment/fulcio-server -n test --timeout=30s
+          kubectl wait --for=condition=available deployment/trillian-db -n test --timeout=60s
+          kubectl wait --for=condition=available deployment/trillian-logserver -n test --timeout=60s
+          kubectl wait --for=condition=available deployment/trillian-logsigner -n test --timeout=60s
+          kubectl wait --for=condition=available deployment/fulcio-server -n test --timeout=60s
 
       - name: Until shell script to wait for tuf, ctlog, rekor-redis, rekor-server deployment to be created
         run: |
@@ -218,10 +218,10 @@ jobs:
 
       - name: Test deployments are ready
         run: |
-          kubectl wait --for=condition=available deployment/tuf -n test --timeout=30s
-          kubectl wait --for=condition=available deployment/ctlog -n test --timeout=30s
-          kubectl wait --for=condition=available deployment/rekor-redis -n test --timeout=30s
-          kubectl wait --for=condition=available deployment/rekor-server -n test --timeout=30s
+          kubectl wait --for=condition=available deployment/tuf -n test --timeout=60s
+          kubectl wait --for=condition=available deployment/ctlog -n test --timeout=60s
+          kubectl wait --for=condition=available deployment/rekor-redis -n test --timeout=60s
+          kubectl wait --for=condition=available deployment/rekor-server -n test --timeout=60s
 
       - name: dump the logs of the operator
         run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager

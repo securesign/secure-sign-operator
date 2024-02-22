@@ -76,6 +76,9 @@ spec:
                     type: boolean
                 type: object
               pvc:
+                default:
+                  retain: true
+                  size: 5Gi
                 description: PVC configuration
                 properties:
                   name:
@@ -92,6 +95,8 @@ spec:
                   storageClass:
                     description: Storage class for the PVC
                     type: string
+                required:
+                - retain
                 type: object
               rekorSearchUI:
                 description: Rekor Search UI
