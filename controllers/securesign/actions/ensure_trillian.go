@@ -24,7 +24,7 @@ func (i trillianAction) Name() string {
 	return "create trillian"
 }
 
-func (i trillianAction) CanHandle(*rhtasv1alpha1.Securesign) bool {
+func (i trillianAction) CanHandle(context.Context, *rhtasv1alpha1.Securesign) bool {
 	return true
 }
 

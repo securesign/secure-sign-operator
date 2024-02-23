@@ -22,7 +22,7 @@ func (i toPending) Name() string {
 	return "move to pending phase"
 }
 
-func (i toPending) CanHandle(tuf *rhtasv1alpha1.Tuf) bool {
+func (i toPending) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Tuf) bool {
 	return meta.FindStatusCondition(tuf.Status.Conditions, constants.Ready) == nil
 }
 

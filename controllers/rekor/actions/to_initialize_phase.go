@@ -22,7 +22,7 @@ func (i toInitializeAction) Name() string {
 	return "move to initialization phase"
 }
 
-func (i toInitializeAction) CanHandle(instance *rhtasv1alpha1.Rekor) bool {
+func (i toInitializeAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	return c.Reason == constants.Creating
 }

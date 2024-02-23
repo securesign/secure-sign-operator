@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/rekor/actions"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -30,26 +31,27 @@ func (i serverConfig) Name() string {
 	return "create server config"
 }
 
-func (i serverConfig) CanHandle(instance *rhtasv1alpha1.Rekor) bool {
+func (i serverConfig) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Creating || c.Reason == constants.Ready
+	return c.Reason == constants.Creating && instance.Status.ServerConfigRef == nil
 }
 
 func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
 	var (
-		err     error
-		updated bool
+		err error
 	)
 	labels := constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
 
 	if err != nil {
 		return i.FailedWithStatusUpdate(ctx, err, instance)
 	}
-	cm := kubernetes.InitConfigmap(instance.Namespace, cmName, labels, map[string]string{"sharding-config.yaml": ""})
-	if err = controllerutil.SetControllerReference(instance, cm, i.Client.Scheme()); err != nil {
+	newConfig := kubernetes.CreateImmutableConfigmap(fmt.Sprintf("rekor-server-config-%s", instance.Namespace), instance.Namespace, labels, map[string]string{"sharding-config.yaml": ""})
+	if err = controllerutil.SetControllerReference(instance, newConfig, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for ConfigMap: %w", err))
 	}
-	if updated, err = i.Ensure(ctx, cm); err != nil {
+
+	_, err = i.Ensure(ctx, newConfig)
+	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ServerCondition,
 			Status:  metav1.ConditionFalse,
@@ -62,19 +64,16 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create CondigMap: %w", err), instance)
+		return i.FailedWithStatusUpdate(ctx, err, instance)
 	}
 
-	if updated {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.ServerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Creating,
-			Message: "Server config created",
-		})
-		return i.StatusUpdate(ctx, instance)
-	} else {
-		return i.Continue()
-	}
+	instance.Status.ServerConfigRef = &corev1.LocalObjectReference{Name: newConfig.Name}
 
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:    actions.ServerCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  constants.Creating,
+		Message: "Server config created",
+	})
+	return i.StatusUpdate(ctx, instance)
 }

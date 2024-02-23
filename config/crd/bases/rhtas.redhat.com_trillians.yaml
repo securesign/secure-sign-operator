@@ -159,6 +159,47 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              database:
+                properties:
+                  create:
+                    default: true
+                    description: Create Database if a database is not created one
+                      must be defined using the DatabaseSecret field
+                    type: boolean
+                  databaseSecretRef:
+                    description: Secret with values to be used to connect to an existing
+                      DB or to be used with the creation of a new DB
+                    properties:
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  pvc:
+                    default:
+                      retain: true
+                      size: 5Gi
+                    description: PVC configuration
+                    properties:
+                      name:
+                        description: Name of the PVC
+                        type: string
+                      retain:
+                        default: true
+                        description: Retain policy for the PVC
+                        type: boolean
+                      size:
+                        default: 5Gi
+                        description: Size of the PVC
+                        type: string
+                      storageClass:
+                        description: Storage class for the PVC
+                        type: string
+                    type: object
+                required:
+                - create
+                type: object
             type: object
         type: object
     served: true

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -14,12 +15,13 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 )
 
-const pubSecretNameFormat = "rekor-%s-public-key"
+const pubSecretNameFormat = "rekor-public-%s-"
 
 func NewResolvePubKeyAction() action.Action[rhtasv1alpha1.Rekor] {
 	return &resolvePubKeyAction{}
@@ -33,23 +35,32 @@ func (i resolvePubKeyAction) Name() string {
 	return "resolve public key"
 }
 
-func (i resolvePubKeyAction) CanHandle(instance *rhtasv1alpha1.Rekor) bool {
+func (i resolvePubKeyAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Initialize && meta.IsStatusConditionTrue(instance.Status.Conditions, actions.ServerCondition)
+	if (c.Reason != constants.Initialize && c.Reason != constants.Ready) || !meta.IsStatusConditionTrue(instance.Status.Conditions, actions.ServerCondition) {
+		return false
+	}
+
+	if scr, err := k8sutils.GetSecret(i.Client, instance.Namespace, instance.Status.Signer.KeyRef.Name); err == nil {
+		if _, ok := scr.Labels[RekorPubLabel]; ok {
+			return false
+		}
+	}
+
+	if scr, _ := k8sutils.FindSecret(ctx, i.Client, instance.Namespace, RekorPubLabel); scr != nil {
+		if expected, err := i.resolvePubKey(*instance); err == nil {
+			return !bytes.Equal(scr.Data[scr.Labels[RekorPubLabel]], expected)
+		}
+	} else {
+		return true
+	}
+	return false
 }
 
 func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
 	var (
-		err     error
-		updated bool
+		err error
 	)
-	secret, err := k8sutils.FindSecret(ctx, i.Client, instance.Namespace, RekorPubLabel)
-	if err != nil {
-		return i.Failed(err)
-	}
-	if secret != nil {
-		return i.Continue()
-	}
 
 	key, err := i.resolvePubKey(*instance)
 	if err != nil {
@@ -57,18 +68,24 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	}
 
 	keyName := "public"
-	secretName := fmt.Sprintf(pubSecretNameFormat, instance.Name)
-	labels := constants.LabelsFor(actions.ServerComponentName, secretName, instance.Name)
+	labels := constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
+
 	labels[RekorPubLabel] = keyName
 
-	scr := k8sutils.CreateSecret(secretName, instance.Namespace,
+	newConfig := k8sutils.CreateImmutableSecret(fmt.Sprintf(pubSecretNameFormat, instance.Name), instance.Namespace,
 		map[string][]byte{
 			keyName: key,
 		}, labels)
-	if err = controllerutil.SetControllerReference(instance, scr, i.Client.Scheme()); err != nil {
+	if err = controllerutil.SetControllerReference(instance, newConfig, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Secret: %w", err))
 	}
-	if updated, err = i.Ensure(ctx, scr); err != nil {
+
+	// ensure that only new key is exposed
+	if err = i.Client.DeleteAllOf(ctx, &v1.Secret{}, client.InNamespace(instance.Namespace), client.MatchingLabels(constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)), client.HasLabels{RekorPubLabel}); err != nil {
+		return i.Failed(err)
+	}
+
+	if err = i.Client.Create(ctx, newConfig); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ServerCondition,
 			Status:  metav1.ConditionFalse,
@@ -81,12 +98,13 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create secret: %w", err), instance)
+		return i.FailedWithStatusUpdate(ctx, err, instance)
 	}
-	if updated {
-		i.Recorder.Event(instance, v1.EventTypeNormal, "PublicKeySecretCreated", "New Rekor public key created: "+scr.Name)
-	}
-	return i.Continue()
+
+	i.Recorder.Event(instance, v1.EventTypeNormal, "PublicKeySecretCreated", "New Rekor public key created: "+newConfig.Name)
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
+		Status: metav1.ConditionFalse, Reason: constants.Creating, Message: "Server config created"})
+	return i.StatusUpdate(ctx, instance)
 }
 
 func (i resolvePubKeyAction) resolvePubKey(instance rhtasv1alpha1.Rekor) ([]byte, error) {

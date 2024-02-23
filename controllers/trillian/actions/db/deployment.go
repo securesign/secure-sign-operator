@@ -29,7 +29,7 @@ func (i deployAction) Name() string {
 	return "deploy"
 }
 
-func (i deployAction) CanHandle(instance *rhtasv1alpha1.Trillian) bool {
+func (i deployAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	return (c.Reason == constants.Ready || c.Reason == constants.Creating) && instance.Spec.Db.Create
 }
@@ -42,7 +42,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	)
 	openshift = kubernetes.IsOpenShift(i.Client)
 
-	if instance.Spec.Db.DatabaseSecretRef == nil {
+	if instance.Status.Db.DatabaseSecretRef == nil {
 		err = errors.New("reference to database secret is not set")
 
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -61,13 +61,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	}
 
 	labels := constants.LabelsFor(actions.DbComponentName, actions.DbDeploymentName, instance.Name)
-	db := trillianUtils.CreateTrillDb(instance.Namespace, constants.TrillianDbImage,
-		actions.DbDeploymentName,
-		actions.RBACName,
-		instance.Spec.Db.Pvc.Name,
-		*instance.Spec.Db.DatabaseSecretRef,
-		openshift,
-		labels)
+	db := trillianUtils.CreateTrillDb(instance, actions.DbDeploymentName, actions.RBACName, openshift, labels)
 	if err = controllerutil.SetControllerReference(instance, db, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for DB Deployment: %w", err))
 	}

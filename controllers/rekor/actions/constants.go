@@ -13,4 +13,5 @@ const (
 	UICondition              = "UiAvailable"
 	ServerCondition          = "ServerAvailable"
 	RedisCondition           = "RedisAvailable"
+	SignerCondition          = "SignerAvailable"
 )

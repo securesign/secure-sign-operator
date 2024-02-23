@@ -22,7 +22,7 @@ func (i toInitialize) Name() string {
 	return "move to initialize"
 }
 
-func (i toInitialize) CanHandle(tuf *rhtasv1alpha1.Tuf) bool {
+func (i toInitialize) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Tuf) bool {
 	c := meta.FindStatusCondition(tuf.Status.Conditions, constants.Ready)
 	return c.Status == metav1.ConditionFalse && (c.Reason == constants.Creating)
 }

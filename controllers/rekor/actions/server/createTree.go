@@ -28,7 +28,7 @@ func (i createTrillianTreeAction) Name() string {
 	return "create Trillian tree"
 }
 
-func (i createTrillianTreeAction) CanHandle(instance *rhtasv1alpha1.Rekor) bool {
+func (i createTrillianTreeAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	return c.Reason == constants.Creating && (instance.Spec.TreeID == nil || *instance.Spec.TreeID == int64(0))
 }

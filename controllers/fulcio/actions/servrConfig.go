@@ -9,13 +9,10 @@ import (
 	"github.com/securesign/operator/controllers/common/action"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/constants"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-)
-
-const (
-	cmName = "fulcio-server-config"
 )
 
 func NewServerConfigAction() action.Action[rhtasv1alpha1.Fulcio] {
@@ -30,15 +27,31 @@ func (i serverConfig) Name() string {
 	return "create server config"
 }
 
-func (i serverConfig) CanHandle(instance *rhtasv1alpha1.Fulcio) bool {
+func (i serverConfig) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Creating || c.Reason == constants.Ready
+	if c.Reason != constants.Creating && c.Reason != constants.Ready {
+		return false
+	}
+
+	if instance.Status.ServerConfigRef == nil {
+		return true
+	}
+	existing, err := kubernetes.GetConfigMap(ctx, i.Client, instance.Namespace, instance.Status.ServerConfigRef.Name)
+	if err != nil {
+		i.Logger.Error(err, "Cant load existing configuration")
+		return false
+	}
+	expected, err := json.Marshal(instance.Spec.Config)
+	if err != nil {
+		i.Logger.Error(err, "Cant parse expected configuration")
+		return false
+	}
+	return existing.Data["config.json"] != string(expected)
 }
 
 func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) *action.Result {
 	var (
-		err     error
-		updated bool
+		err error
 	)
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 
@@ -46,28 +59,47 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	if err != nil {
 		return i.FailedWithStatusUpdate(ctx, err, instance)
 	}
-	cm := kubernetes.InitConfigmap(instance.Namespace, cmName, labels, map[string]string{
+	expected := kubernetes.CreateImmutableConfigmap(fmt.Sprintf("fulcio-config-%s", instance.Name), instance.Namespace, labels, map[string]string{
 		"config.json": string(config),
 	})
-	if err = controllerutil.SetControllerReference(instance, cm, i.Client.Scheme()); err != nil {
+	if err = controllerutil.SetControllerReference(instance, expected, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for ConfigMap: %w", err))
 	}
-	if updated, err = i.Ensure(ctx, cm); err != nil {
+
+	// invalidate config
+	if instance.Status.ServerConfigRef != nil {
+		if err = i.Client.Delete(ctx, &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      instance.Status.ServerConfigRef.Name,
+				Namespace: instance.Namespace,
+			},
+		}); err != nil {
+			return i.Failed(err)
+		}
+		instance.Status.ServerConfigRef = nil
+	}
+
+	if err = i.Client.Create(ctx, expected); err != nil {
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    CertCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create service: %w", err), instance)
+		return i.FailedWithStatusUpdate(ctx, err, instance)
 	}
 
-	if updated {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
-			Status: metav1.ConditionFalse, Reason: constants.Creating, Message: "Server config created"})
-		return i.StatusUpdate(ctx, instance)
-	} else {
-		return i.Continue()
-	}
+	instance.Status.ServerConfigRef = &v1.LocalObjectReference{Name: expected.Name}
+
+	i.Recorder.Event(instance, v1.EventTypeNormal, "FulcioConfigUpdated", "Fulcio config updated")
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
+		Status: metav1.ConditionFalse, Reason: constants.Creating, Message: "Server config created"})
+	return i.StatusUpdate(ctx, instance)
 
 }

@@ -28,7 +28,7 @@ func (i monitoringAction) Name() string {
 	return "create monitoring"
 }
 
-func (i monitoringAction) CanHandle(instance *rhtasv1alpha1.Rekor) bool {
+func (i monitoringAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && instance.Spec.Monitoring.Enabled
 }

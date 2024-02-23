@@ -22,7 +22,7 @@ func (i toCreate) Name() string {
 	return "move to create phase"
 }
 
-func (i toCreate) CanHandle(instance *rhtasv1alpha1.Trillian) bool {
+func (i toCreate) CanHandle(_ context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	return meta.FindStatusCondition(instance.Status.Conditions, constants.Ready).Reason == constants.Pending
 }
 

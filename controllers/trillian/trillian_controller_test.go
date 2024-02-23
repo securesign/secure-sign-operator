@@ -116,17 +116,17 @@ var _ = Describe("Trillian controller", func() {
 			By("Database secret created")
 			Eventually(func() *corev1.LocalObjectReference {
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Spec.Db.DatabaseSecretRef
+				return found.Status.Db.DatabaseSecretRef
 			}, time.Minute, time.Second).Should(Not(BeNil()))
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Spec.Db.DatabaseSecretRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Status.Db.DatabaseSecretRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
 
 			By("Database PVC created")
 			Eventually(func() string {
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Spec.Db.Pvc.Name
+				return found.Status.Db.Pvc.Name
 			}, time.Minute, time.Second).Should(Not(BeNil()))
 
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Spec.Db.Pvc.Name, Namespace: Namespace}, &corev1.PersistentVolumeClaim{})).Should(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Status.Db.Pvc.Name, Namespace: Namespace}, &corev1.PersistentVolumeClaim{})).Should(Succeed())
 
 			By("Database SVC created")
 			Eventually(func() error {

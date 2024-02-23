@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -77,7 +78,9 @@ type OIDCIssuer struct {
 
 // FulcioStatus defines the observed state of Fulcio
 type FulcioStatus struct {
-	Url string `json:"url,omitempty"`
+	ServerConfigRef *v1.LocalObjectReference `json:"serverConfigRef,omitempty"`
+	Certificate     FulcioCert               `json:"certificate,omitempty"`
+	Url             string                   `json:"url,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge

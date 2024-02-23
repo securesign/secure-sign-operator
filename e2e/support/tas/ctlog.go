@@ -39,3 +39,14 @@ func GetCTLogServerPod(ctx context.Context, cli client.Client, ns string) func()
 		return &list.Items[0]
 	}
 }
+
+func GetCTLog(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.CTlog {
+	return func() *v1alpha1.CTlog {
+		instance := &v1alpha1.CTlog{}
+		cli.Get(ctx, types.NamespacedName{
+			Namespace: ns,
+			Name:      name,
+		}, instance)
+		return instance
+	}
+}

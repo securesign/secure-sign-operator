@@ -86,7 +86,7 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	target := instance.DeepCopy()
 	acs := []action.Action[rhtasv1alpha1.Fulcio]{
 		actions.NewToPendingPhaseAction(),
-		actions.NewGenerateCertAction(),
+		actions.NewHandleCertAction(),
 		actions.NewRBACAction(),
 		actions.NewServerConfigAction(),
 		actions.NewDeployAction(),
@@ -102,7 +102,8 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		a.InjectLogger(log.WithName(a.Name()))
 		a.InjectRecorder(r.Recorder)
 
-		if a.CanHandle(target) {
+		if a.CanHandle(ctx, target) {
+			log.V(2).Info("Executing " + a.Name())
 			result := a.Handle(ctx, target)
 			if result != nil {
 				return result.Result, result.Err

@@ -20,8 +20,14 @@ import (
 	"context"
 
 	"github.com/securesign/operator/controllers/ctlog/actions"
+	actions2 "github.com/securesign/operator/controllers/fulcio/actions"
 	v12 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/securesign/operator/controllers/common/action"
 	v1 "k8s.io/api/apps/v1"
@@ -76,7 +82,7 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		actions.NewPendingAction(),
 
 		actions.NewHandleFulcioCertAction(),
-		actions.NewGenerateKeysAction(),
+		actions.NewHandleKeysAction(),
 		actions.NewCreateTrillianTreeAction(),
 		actions.NewServerConfigAction(),
 
@@ -90,11 +96,13 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	for _, a := range acs {
+		rlog.V(2).Info("Executing " + a.Name())
 		a.InjectClient(r.Client)
 		a.InjectLogger(rlog.WithName(a.Name()))
 		a.InjectRecorder(r.Recorder)
 
-		if a.CanHandle(target) {
+		if a.CanHandle(ctx, target) {
+			rlog.V(1).Info("Executing " + a.Name())
 			result := a.Handle(ctx, target)
 			if result != nil {
 				return result.Result, result.Err
@@ -106,9 +114,41 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CTlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	secretPredicate, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+		{
+			Key:      actions2.FulcioCALabel,
+			Operator: metav1.LabelSelectorOpExists,
+		},
+	}})
+	if err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&rhtasv1alpha1.CTlog{}).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
+		Watches(&v12.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+			val, ok := object.GetLabels()["app.kubernetes.io/instance"]
+			if ok {
+				return []reconcile.Request{
+					{
+						NamespacedName: types.NamespacedName{
+							Namespace: object.GetNamespace(),
+							Name:      val,
+						},
+					},
+				}
+			}
+
+			list := &rhtasv1alpha1.CTlogList{}
+			mgr.GetClient().List(ctx, list, client.InNamespace(object.GetNamespace()))
+			requests := make([]reconcile.Request, len(list.Items))
+			for i, k := range list.Items {
+				requests[i] = reconcile.Request{NamespacedName: types.NamespacedName{Namespace: object.GetNamespace(), Name: k.Name}}
+			}
+			return requests
+
+		}), builder.WithPredicates(secretPredicate)).
 		Complete(r)
 }

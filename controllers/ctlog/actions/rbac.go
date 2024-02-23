@@ -27,7 +27,7 @@ func (i rbacAction) Name() string {
 	return "ensure RBAC"
 }
 
-func (i rbacAction) CanHandle(instance *rhtasv1alpha1.CTlog) bool {
+func (i rbacAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.CTlog) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	return c.Reason == constants.Creating || c.Reason == constants.Ready
 }

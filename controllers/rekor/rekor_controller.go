@@ -85,8 +85,9 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 	target := instance.DeepCopy()
 	actions := []action.Action[rhtasv1alpha1.Rekor]{
-		actions2.NewPendingAction(),
+		actions2.NewInitializeConditions(),
 
+		actions2.NewPendingAction(),
 		server.NewGenerateSignerAction(),
 		actions2.NewRBACAction(),
 		server.NewServerConfigAction(),
@@ -123,7 +124,8 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		a.InjectLogger(log.WithName(a.Name()))
 		a.InjectRecorder(r.Recorder)
 
-		if a.CanHandle(target) {
+		if a.CanHandle(ctx, target) {
+			log.V(2).Info("Executing " + a.Name())
 			result := a.Handle(ctx, target)
 			if result != nil {
 				return result.Result, result.Err

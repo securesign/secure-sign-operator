@@ -142,12 +142,12 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 
 		It("Verify TUF keys", func() {
 			tuf := tas.GetTuf(ctx, cli, namespace.Name, securesign.Name)()
-			Expect(tuf.Spec.Keys).To(HaveEach(WithTransform(func(k v1alpha1.TufKey) string { return k.SecretRef.Name }, Not(BeEmpty()))))
+			Expect(tuf.Status.Keys).To(HaveEach(WithTransform(func(k v1alpha1.TufKey) string { return k.SecretRef.Name }, Not(BeEmpty()))))
 			var (
 				expected, actual []byte
 				err              error
 			)
-			for _, k := range tuf.Spec.Keys {
+			for _, k := range tuf.Status.Keys {
 				actual, err = kubernetes.GetSecretData(cli, namespace.Name, k.SecretRef)
 				Expect(err).To(Not(HaveOccurred()))
 

@@ -25,7 +25,7 @@ func (i deployAction) Name() string {
 	return "deploy"
 }
 
-func (i deployAction) CanHandle(tuf *rhtasv1alpha1.Fulcio) bool {
+func (i deployAction) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Fulcio) bool {
 	c := meta.FindStatusCondition(tuf.Status.Conditions, constants.Ready)
 	return c.Reason == constants.Creating || c.Reason == constants.Ready
 }
@@ -37,7 +37,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	)
 
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
-
 	dp := futils.CreateDeployment(instance, DeploymentName, RBACName, labels)
 
 	if err = controllerutil.SetControllerReference(instance, dp, i.Client.Scheme()); err != nil {

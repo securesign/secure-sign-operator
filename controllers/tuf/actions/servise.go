@@ -25,7 +25,7 @@ func (i serviceAction) Name() string {
 	return "create service"
 }
 
-func (i serviceAction) CanHandle(tuf *rhtasv1alpha1.Tuf) bool {
+func (i serviceAction) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Tuf) bool {
 	c := meta.FindStatusCondition(tuf.Status.Conditions, constants.Ready)
 	return c.Reason == constants.Creating || c.Reason == constants.Ready
 }

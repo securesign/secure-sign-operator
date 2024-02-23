@@ -15,12 +15,10 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 )
 
-type PEM []byte
-
 type FulcioCertConfig struct {
-	PrivateKey         PEM
-	PublicKey          PEM
-	RootCert           PEM
+	PrivateKey         []byte
+	PublicKey          []byte
+	RootCert           []byte
 	PrivateKeyPassword []byte
 }
 
@@ -43,7 +41,7 @@ func (c FulcioCertConfig) ToMap() map[string][]byte {
 	return result
 }
 
-func CreateCAKey(key *ecdsa.PrivateKey, password []byte) (PEM, error) {
+func CreateCAKey(key *ecdsa.PrivateKey, password []byte) ([]byte, error) {
 	mKey, err := x509.MarshalECPrivateKey(key)
 	if err != nil {
 		return nil, err
@@ -62,7 +60,7 @@ func CreateCAKey(key *ecdsa.PrivateKey, password []byte) (PEM, error) {
 	return pemData.Bytes(), nil
 }
 
-func CreateCAPub(key crypto.PublicKey) (PEM, error) {
+func CreateCAPub(key crypto.PublicKey) ([]byte, error) {
 	mPubKey, err := x509.MarshalPKIXPublicKey(key)
 	if err != nil {
 		return nil, err
@@ -80,7 +78,7 @@ func CreateCAPub(key crypto.PublicKey) (PEM, error) {
 	return pemPubKey.Bytes(), nil
 }
 
-func CreateFulcioCA(config *FulcioCertConfig, instance *rhtasv1alpha1.Fulcio) (PEM, error) {
+func CreateFulcioCA(config *FulcioCertConfig, instance *rhtasv1alpha1.Fulcio) ([]byte, error) {
 	var err error
 
 	if instance.Spec.Certificate.CommonName == "" || instance.Spec.Certificate.OrganizationEmail == "" || instance.Spec.Certificate.OrganizationName == "" {

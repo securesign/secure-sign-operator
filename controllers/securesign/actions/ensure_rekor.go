@@ -24,7 +24,7 @@ func (i rekorAction) Name() string {
 	return "create rekor"
 }
 
-func (i rekorAction) CanHandle(*rhtasv1alpha1.Securesign) bool {
+func (i rekorAction) CanHandle(context.Context, *rhtasv1alpha1.Securesign) bool {
 	return true
 }
 

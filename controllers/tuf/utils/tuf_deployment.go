@@ -8,11 +8,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func secretsVolumeProjection(spec v1alpha1.TufSpec) *core.ProjectedVolumeSource {
+func secretsVolumeProjection(keys []v1alpha1.TufKey) *core.ProjectedVolumeSource {
 
 	projections := make([]core.VolumeProjection, 0)
 
-	for _, key := range spec.Keys {
+	for _, key := range keys {
 		p := core.VolumeProjection{Secret: selectorToProjection(key.SecretRef, key.Name)}
 		projections = append(projections, p)
 	}
@@ -59,7 +59,7 @@ func CreateTufDeployment(instance *v1alpha1.Tuf, dpName string, sa string, label
 						{
 							Name: "tuf-secrets",
 							VolumeSource: core.VolumeSource{
-								Projected: secretsVolumeProjection(instance.Spec),
+								Projected: secretsVolumeProjection(instance.Status.Keys),
 							},
 						},
 					},

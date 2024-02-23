@@ -24,7 +24,7 @@ func (i pendingAction) Name() string {
 	return "pending"
 }
 
-func (i pendingAction) CanHandle(instance *rhtasv1alpha1.CTlog) bool {
+func (i pendingAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.CTlog) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	return c == nil || c.Reason == constants.Pending
 }

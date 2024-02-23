@@ -22,7 +22,7 @@ func (i toPending) Name() string {
 	return "move to pending phase"
 }
 
-func (i toPending) CanHandle(instance *rhtasv1alpha1.Trillian) bool {
+func (i toPending) CanHandle(_ context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	return meta.FindStatusCondition(instance.Status.Conditions, constants.Ready) == nil
 }
 

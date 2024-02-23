@@ -35,3 +35,14 @@ func GetTuf(ctx context.Context, cli client.Client, ns string, name string) func
 		return instance
 	}
 }
+
+func GetTufServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {
+	return func() *v1.Pod {
+		list := &v1.PodList{}
+		cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{kubernetes.ComponentLabel: actions.ComponentName})
+		if len(list.Items) != 1 {
+			return nil
+		}
+		return &list.Items[0]
+	}
+}

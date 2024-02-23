@@ -1,12 +1,14 @@
 package trillianUtils
 
 import (
+	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/controllers/constants"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateTrillDb(namespace string, image string, dpName string, sa string, pvcName string, dbsecret core.LocalObjectReference, openshift bool, labels map[string]string) *apps.Deployment {
+func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, openshift bool, labels map[string]string) *apps.Deployment {
 	replicas := int32(1)
 	var secCont *core.PodSecurityContext
 	if !openshift {
@@ -20,7 +22,7 @@ func CreateTrillDb(namespace string, image string, dpName string, sa string, pvc
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpName,
-			Namespace: namespace,
+			Namespace: instance.Namespace,
 			Labels:    labels,
 		},
 		Spec: apps.DeploymentSpec{
@@ -40,7 +42,7 @@ func CreateTrillDb(namespace string, image string, dpName string, sa string, pvc
 							Name: "storage",
 							VolumeSource: core.VolumeSource{
 								PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
-									ClaimName: pvcName,
+									ClaimName: instance.Status.Db.Pvc.Name,
 								},
 							},
 						},
@@ -48,7 +50,7 @@ func CreateTrillDb(namespace string, image string, dpName string, sa string, pvc
 					Containers: []core.Container{
 						{
 							Name:  dpName,
-							Image: image,
+							Image: constants.TrillianDbImage,
 							ReadinessProbe: &core.Probe{
 								ProbeHandler: core.ProbeHandler{
 									Exec: &core.ExecAction{
@@ -82,7 +84,7 @@ func CreateTrillDb(namespace string, image string, dpName string, sa string, pvc
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
 											Key:                  "mysql-user",
-											LocalObjectReference: dbsecret,
+											LocalObjectReference: *instance.Status.Db.DatabaseSecretRef,
 										},
 									},
 								},
@@ -91,7 +93,7 @@ func CreateTrillDb(namespace string, image string, dpName string, sa string, pvc
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
 											Key:                  "mysql-password",
-											LocalObjectReference: dbsecret,
+											LocalObjectReference: *instance.Status.Db.DatabaseSecretRef,
 										},
 									},
 								},
@@ -100,7 +102,7 @@ func CreateTrillDb(namespace string, image string, dpName string, sa string, pvc
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
 											Key:                  "mysql-root-password",
-											LocalObjectReference: dbsecret,
+											LocalObjectReference: *instance.Status.Db.DatabaseSecretRef,
 										},
 									},
 								},
@@ -109,7 +111,7 @@ func CreateTrillDb(namespace string, image string, dpName string, sa string, pvc
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
 											Key:                  "mysql-port",
-											LocalObjectReference: dbsecret,
+											LocalObjectReference: *instance.Status.Db.DatabaseSecretRef,
 										},
 									},
 								},
@@ -118,7 +120,7 @@ func CreateTrillDb(namespace string, image string, dpName string, sa string, pvc
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
 											Key:                  "mysql-database",
-											LocalObjectReference: dbsecret,
+											LocalObjectReference: *instance.Status.Db.DatabaseSecretRef,
 										},
 									},
 								},

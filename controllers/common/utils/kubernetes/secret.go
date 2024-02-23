@@ -25,6 +25,19 @@ func CreateSecret(name string, namespace string, data map[string][]byte, labels 
 	}
 }
 
+func CreateImmutableSecret(namePrefix string, namespace string, data map[string][]byte, labels map[string]string) *corev1.Secret {
+	immutable := true
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: namePrefix,
+			Namespace:    namespace,
+			Labels:       labels,
+		},
+		Data:      data,
+		Immutable: &immutable,
+	}
+}
+
 func GetSecret(client client.Client, namespace, secretName string) (*corev1.Secret, error) {
 	var secret corev1.Secret
 

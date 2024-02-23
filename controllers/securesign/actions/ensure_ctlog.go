@@ -25,7 +25,7 @@ func (i ctlogAction) Name() string {
 	return "create ctlog"
 }
 
-func (i ctlogAction) CanHandle(*rhtasv1alpha1.Securesign) bool {
+func (i ctlogAction) CanHandle(context.Context, *rhtasv1alpha1.Securesign) bool {
 	return true
 }
 

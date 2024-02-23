@@ -4,12 +4,8 @@ package e2e_test
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
-
-	"github.com/securesign/operator/controllers/fulcio/actions"
-	actions2 "github.com/securesign/operator/controllers/rekor/actions/server"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -98,14 +94,16 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			Expect(cli.Create(ctx, securesign)).To(Succeed())
 		})
 
+		It("Fulcio is running", func() {
+			tas.VerifyFulcio(ctx, cli, namespace.Name, securesign.Name)
+		})
+
 		It("operator should generate fulcio secret", func() {
 			Eventually(func() *v1.Secret {
-				fulcioSecret := &v1.Secret{}
-				cli.Get(ctx, types.NamespacedName{
-					Namespace: namespace.Name,
-					Name:      fmt.Sprintf(actions.SecretNameFormat, securesign.Name),
-				}, fulcioSecret)
-				return fulcioSecret
+				fulcio := tas.GetFulcio(ctx, cli, namespace.Name, securesign.Name)()
+				scr := &v1.Secret{}
+				Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: fulcio.Status.Certificate.PrivateKeyRef.Name}, scr)).To(Succeed())
+				return scr
 			}).Should(
 				WithTransform(func(secret *v1.Secret) map[string][]byte { return secret.Data },
 					And(
@@ -119,10 +117,10 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 		It("operator should generate rekor secret", func() {
 			Eventually(func() *v1.Secret {
 				secret := &v1.Secret{}
-				cli.Get(ctx, types.NamespacedName{
-					Namespace: namespace.Name,
-					Name:      fmt.Sprintf(actions2.SecretNameFormat, securesign.Name),
-				}, secret)
+				rekor := tas.GetRekor(ctx, cli, namespace.Name, securesign.Name)()
+				scr := &v1.Secret{}
+				Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: rekor.Status.Signer.KeyRef.Name}, scr)).To(Succeed())
+				return scr
 				return secret
 			}).Should(
 				WithTransform(func(secret *v1.Secret) map[string][]byte { return secret.Data },
@@ -132,7 +130,6 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 		})
 
 		It("fulcio is running with mounted certs", func() {
-			tas.VerifyFulcio(ctx, cli, namespace.Name, securesign.Name)
 			server := tas.GetFulcioServerPod(ctx, cli, namespace.Name)()
 			Expect(server).NotTo(BeNil())
 
@@ -149,7 +146,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				ContainElement(
 					WithTransform(func(sp v1.SecretProjection) string {
 						return sp.Name
-					}, Equal(fmt.Sprintf(actions.SecretNameFormat, securesign.Name))),
+					}, Equal(tas.GetFulcio(ctx, cli, namespace.Name, securesign.Name)().Status.Certificate.CARef.Name)),
 				))
 		})
 
@@ -164,8 +161,8 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 							return volume.VolumeSource.Secret.SecretName
 						}
 						return ""
-					}, Equal(fmt.Sprintf(actions2.SecretNameFormat, securesign.Name))),
-				))
+					}, Equal(tas.GetRekor(ctx, cli, namespace.Name, securesign.Name)().Status.Signer.KeyRef.Name))),
+			)
 
 		})
 

@@ -25,7 +25,7 @@ func (i deployAction) Name() string {
 	return "deploy"
 }
 
-func (i deployAction) CanHandle(tuf *rhtasv1alpha1.Tuf) bool {
+func (i deployAction) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Tuf) bool {
 	c := meta.FindStatusCondition(tuf.Status.Conditions, constants.Ready)
 	return c.Reason == constants.Creating || c.Reason == constants.Ready
 }
