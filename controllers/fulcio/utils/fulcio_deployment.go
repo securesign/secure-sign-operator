@@ -61,6 +61,10 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 										},
 									},
 								},
+								{
+									Name:  "SSL_CERT_DIR",
+									Value: "/var/run/fulcio",
+								},
 							},
 							Ports: []corev1.ContainerPort{
 								{
