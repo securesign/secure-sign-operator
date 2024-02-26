@@ -24,7 +24,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 	cli, _ := CreateClient()
 	ctx := context.TODO()
 
-	targetImageName := "ttl.sh/" + uuid.New().String() + ":5m"
+	targetImageName := "ttl.sh/" + uuid.New().String() + ":15m"
 	var namespace *v1.Namespace
 	var securesign *v1alpha1.Securesign
 

@@ -44,13 +44,17 @@ spec:
                 description: Define your database connection
                 properties:
                   create:
-                    default: true
+                    default: false
                     description: Create Database if a database is not created one
                       must be defined using the DatabaseSecret field
                     type: boolean
                   databaseSecretRef:
-                    description: Secret with values to be used to connect to an existing
-                      DB or to be used with the creation of a new DB
+                    description: 'Secret with values to be used to connect to an existing
+                      DB or to be used with the creation of a new DB mysql-host: The
+                      host of the MySQL server mysql-port: The port of the MySQL server
+                      mysql-user: The user to connect to the MySQL server mysql-password:
+                      The password to connect to the MySQL server mysql-database:
+                      The database to connect to'
                     properties:
                       name:
                         description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
@@ -162,13 +166,17 @@ spec:
               database:
                 properties:
                   create:
-                    default: true
+                    default: false
                     description: Create Database if a database is not created one
                       must be defined using the DatabaseSecret field
                     type: boolean
                   databaseSecretRef:
-                    description: Secret with values to be used to connect to an existing
-                      DB or to be used with the creation of a new DB
+                    description: 'Secret with values to be used to connect to an existing
+                      DB or to be used with the creation of a new DB mysql-host: The
+                      host of the MySQL server mysql-port: The port of the MySQL server
+                      mysql-user: The user to connect to the MySQL server mysql-password:
+                      The password to connect to the MySQL server mysql-database:
+                      The database to connect to'
                     properties:
                       name:
                         description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
@@ -196,6 +204,8 @@ spec:
                       storageClass:
                         description: Storage class for the PVC
                         type: string
+                    required:
+                    - retain
                     type: object
                 required:
                 - create
