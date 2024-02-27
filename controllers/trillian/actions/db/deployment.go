@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/securesign/operator/controllers/common/action"
@@ -42,9 +41,9 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	)
 	openshift = kubernetes.IsOpenShift(i.Client)
 
-	if instance.Status.Db.DatabaseSecretRef == nil {
-		err = errors.New("reference to database secret is not set")
-
+	labels := constants.LabelsFor(actions.DbComponentName, actions.DbDeploymentName, instance.Name)
+	db, err := trillianUtils.CreateTrillDb(instance, actions.DbDeploymentName, actions.RBACName, openshift, labels)
+	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.DbCondition,
 			Status:  metav1.ConditionFalse,
@@ -59,9 +58,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Trillian DB: %w", err), instance)
 	}
-
-	labels := constants.LabelsFor(actions.DbComponentName, actions.DbDeploymentName, instance.Name)
-	db := trillianUtils.CreateTrillDb(instance, actions.DbDeploymentName, actions.RBACName, openshift, labels)
 	if err = controllerutil.SetControllerReference(instance, db, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for DB Deployment: %w", err))
 	}

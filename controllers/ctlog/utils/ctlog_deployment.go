@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"errors"
+
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/constants"
 	appsv1 "k8s.io/api/apps/v1"
@@ -9,7 +11,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, configName string, sa string, labels map[string]string) *appsv1.Deployment {
+func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string, labels map[string]string) (*appsv1.Deployment, error) {
+	if instance.Status.ServerConfigRef == nil {
+		return nil, errors.New("server config name not specified")
+	}
 	replicas := int32(1)
 	// Define a new Deployment object
 	return &appsv1.Deployment{
@@ -89,7 +94,7 @@ func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, configNam
 							Name: "keys",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName: configName,
+									SecretName: instance.Status.ServerConfigRef.Name,
 								},
 							},
 						},
@@ -97,5 +102,5 @@ func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, configNam
 				},
 			},
 		},
-	}
+	}, nil
 }

@@ -2,7 +2,6 @@ package logsigner
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/securesign/operator/controllers/common/action"
@@ -39,9 +38,13 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		updated bool
 	)
 
-	if instance.Status.Db.DatabaseSecretRef == nil {
-		err = errors.New("reference to database secret is not set")
-
+	labels := constants.LabelsFor(actions.LogSignerComponentName, actions.LogsignerDeploymentName, instance.Name)
+	signer, err := trillianUtils.CreateTrillDeployment(instance, constants.TrillianLogSignerImage,
+		actions.LogsignerDeploymentName,
+		actions.RBACName,
+		labels)
+	signer.Spec.Template.Spec.Containers[0].Args = append(signer.Spec.Template.Spec.Containers[0].Args, "--force_master=true")
+	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.SignerCondition,
 			Status:  metav1.ConditionFalse,
@@ -56,13 +59,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Trillian LogSigner: %w", err), instance)
 	}
-
-	labels := constants.LabelsFor(actions.LogSignerComponentName, actions.LogsignerDeploymentName, instance.Name)
-	signer := trillianUtils.CreateTrillDeployment(instance, constants.TrillianLogSignerImage,
-		actions.LogsignerDeploymentName,
-		actions.RBACName,
-		labels)
-	signer.Spec.Template.Spec.Containers[0].Args = append(signer.Spec.Template.Spec.Containers[0].Args, "--force_master=true")
 
 	if err = controllerutil.SetControllerReference(instance, signer, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for LogSigner deployment: %w", err))

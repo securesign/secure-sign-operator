@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/securesign/operator/api/v1alpha1"
@@ -10,7 +11,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, labels map[string]string) *apps.Deployment {
+func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, labels map[string]string) (*apps.Deployment, error) {
+	if instance.Status.ServerConfigRef == nil {
+		return nil, errors.New("server config name not specified")
+	}
 	env := make([]core.EnvVar, 0)
 	appArgs := []string{
 		"serve",
@@ -61,6 +65,9 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 
 	// KMS secret
 	if instance.Spec.Signer.KMS == "secret" || instance.Spec.Signer.KMS == "" {
+		if instance.Status.Signer.KeyRef == nil {
+			return nil, errors.New("signer key ref not specified")
+		}
 		svsPrivate := &core.SecretVolumeSource{
 			SecretName: instance.Status.Signer.KeyRef.Name,
 			Items: []core.KeyToPath{
@@ -87,7 +94,7 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 		})
 
 		// Add signer password
-		if instance.Spec.Signer.PasswordRef != nil {
+		if instance.Status.Signer.PasswordRef != nil {
 			appArgs = append(appArgs, "--rekor_server.signer-passwd=$(SIGNER_PASSWORD)")
 			env = append(env, core.EnvVar{
 				Name: "SIGNER_PASSWORD",
@@ -154,5 +161,5 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 				},
 			},
 		},
-	}
+	}, nil
 }

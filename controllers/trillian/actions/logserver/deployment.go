@@ -2,7 +2,6 @@ package logserver
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/securesign/operator/controllers/common/action"
@@ -42,9 +41,16 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		updated bool
 	)
 
-	if instance.Status.Db.DatabaseSecretRef == nil {
-		err = errors.New("reference to database secret is not set")
-
+	labels := constants.LabelsFor(actions.LogServerComponentName, actions.LogserverDeploymentName, instance.Name)
+	server, err := trillianUtils.CreateTrillDeployment(instance, constants.TrillianServerImage,
+		actions.LogserverDeploymentName,
+		actions.RBACName,
+		labels)
+	server.Spec.Template.Spec.Containers[0].Ports = append(server.Spec.Template.Spec.Containers[0].Ports, corev1.ContainerPort{
+		Protocol:      corev1.ProtocolTCP,
+		ContainerPort: 8090,
+	})
+	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ServerCondition,
 			Status:  metav1.ConditionFalse,
@@ -59,16 +65,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Trillian server: %w", err), instance)
 	}
-
-	labels := constants.LabelsFor(actions.LogServerComponentName, actions.LogserverDeploymentName, instance.Name)
-	server := trillianUtils.CreateTrillDeployment(instance, constants.TrillianServerImage,
-		actions.LogserverDeploymentName,
-		actions.RBACName,
-		labels)
-	server.Spec.Template.Spec.Containers[0].Ports = append(server.Spec.Template.Spec.Containers[0].Ports, corev1.ContainerPort{
-		Protocol:      corev1.ProtocolTCP,
-		ContainerPort: 8090,
-	})
 
 	if err = controllerutil.SetControllerReference(instance, server, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for server: %w", err))

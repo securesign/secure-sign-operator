@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/securesign/operator/api/v1alpha1"
@@ -11,9 +12,46 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa string, labels map[string]string) *appsv1.Deployment {
+func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa string, labels map[string]string) (*appsv1.Deployment, error) {
+	if instance.Status.ServerConfigRef == nil {
+		return nil, errors.New("server config ref is not specified")
+	}
+	if instance.Status.Certificate.PrivateKeyRef == nil {
+		return nil, errors.New("private key secret is not specified")
+	}
+
+	if instance.Status.Certificate.CARef == nil {
+		return nil, errors.New("CA secret is not specified")
+	}
+
 	replicas := int32(1)
 	mode := int32(0666)
+	args := []string{
+		"serve",
+		"--port=5555",
+		"--grpc-port=5554",
+		"--ca=fileca",
+		"--fileca-key",
+		"/var/run/fulcio-secrets/key.pem",
+		"--fileca-cert",
+		"/var/run/fulcio-secrets/cert.pem",
+		fmt.Sprintf("--ct-log-url=http://ctlog.%s.svc/trusted-artifact-signer", instance.Namespace)}
+
+	env := make([]corev1.EnvVar, 0)
+	if instance.Status.Certificate.PrivateKeyPasswordRef != nil {
+		env = append(env, corev1.EnvVar{
+			Name: "PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					Key: instance.Status.Certificate.PrivateKeyPasswordRef.Key,
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: instance.Status.Certificate.PrivateKeyPasswordRef.Name,
+					},
+				},
+			},
+		})
+		args = append(args, "--fileca-key-passwd", "$(PASSWORD)")
+	}
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -36,32 +74,8 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 						{
 							Name:  "fulcio-server",
 							Image: constants.FulcioServerImage,
-							Args: []string{
-								"serve",
-								"--port=5555",
-								"--grpc-port=5554",
-								"--ca=fileca",
-								"--fileca-key",
-								"/var/run/fulcio-secrets/key.pem",
-								"--fileca-cert",
-								"/var/run/fulcio-secrets/cert.pem",
-								"--fileca-key-passwd",
-								"$(PASSWORD)",
-								fmt.Sprintf("--ct-log-url=http://ctlog.%s.svc/trusted-artifact-signer", instance.Namespace),
-							},
-							Env: []corev1.EnvVar{
-								{
-									Name: "PASSWORD",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											Key: instance.Status.Certificate.PrivateKeyPasswordRef.Key,
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: instance.Status.Certificate.PrivateKeyPasswordRef.Name,
-											},
-										},
-									},
-								},
-							},
+							Args:  args,
+							Env:   env,
 							Ports: []corev1.ContainerPort{
 								{
 									Protocol:      corev1.ProtocolTCP,
@@ -192,5 +206,5 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 				},
 			},
 		},
-	}
+	}, nil
 }
