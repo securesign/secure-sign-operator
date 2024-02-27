@@ -70,5 +70,5 @@ spec:
 EOF
 
 # Apply the modified YAML using kubectl
-kubectl apply -f job.yaml
+kubectl apply -f job.yaml -n default
 oc wait --for=condition=complete job/tas-test-sign-verify --timeout=5m -n default
