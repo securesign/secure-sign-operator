@@ -14,14 +14,14 @@ import (
 
 func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa string, labels map[string]string) (*appsv1.Deployment, error) {
 	if instance.Status.ServerConfigRef == nil {
-		return nil, errors.New("server config ref specified")
+		return nil, errors.New("server config ref is not specified")
 	}
 	if instance.Status.Certificate.PrivateKeyRef == nil {
-		return nil, errors.New("private key secret specified")
+		return nil, errors.New("private key secret is not specified")
 	}
 
 	if instance.Status.Certificate.CARef == nil {
-		return nil, errors.New("CA secret specified")
+		return nil, errors.New("CA secret is not specified")
 	}
 
 	replicas := int32(1)
