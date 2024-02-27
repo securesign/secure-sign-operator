@@ -6,7 +6,7 @@ LABEL operators.operatorframework.io.bundle.manifests.v1=manifests/
 LABEL operators.operatorframework.io.bundle.metadata.v1=metadata/
 LABEL operators.operatorframework.io.bundle.package.v1=rhtas-operator
 LABEL operators.operatorframework.io.bundle.channels.v1=alpha
-LABEL operators.operatorframework.io.metrics.builder=operator-sdk-v1.32.0
+LABEL operators.operatorframework.io.metrics.builder=operator-sdk-v1.33.0
 LABEL operators.operatorframework.io.metrics.mediatype.v1=metrics+v1
 LABEL operators.operatorframework.io.metrics.project_layout=go.kubebuilder.io/v3
 
@@ -16,14 +16,11 @@ LABEL io.k8s.display-name="RHTAS operator bundle container image for Red Hat Tru
 LABEL io.openshift.tags="rhtas-operator-bundle, rhtas-operator, Red Hat Trusted Artifact Signer."
 LABEL summary="Operator Bundle for the rhtas-operator."
 LABEL com.redhat.component="sigstore-operator-bundle"
-#
 LABEL features.operators.openshift.io/cni="false"
-LABEL features.operators.openshift.io/disconnected="false"
 LABEL features.operators.openshift.io/disconnected="false"
 LABEL features.operators.openshift.io/fips-compliant="false"
 LABEL features.operators.openshift.io/proxy-aware="false"
 LABEL features.operators.openshift.io/cnf="false"
-LABEL features.operators.openshift.io/cni="false"
 LABEL features.operators.openshift.io/csi="false"
 LABEL features.operators.openshift.io/tls-profiles="false"
 LABEL features.operators.openshift.io/token-auth-aws="false"
