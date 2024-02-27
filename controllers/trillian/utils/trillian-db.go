@@ -1,6 +1,8 @@
 package trillianUtils
 
 import (
+	"errors"
+
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/constants"
 	apps "k8s.io/api/apps/v1"
@@ -8,7 +10,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, openshift bool, labels map[string]string) *apps.Deployment {
+func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, openshift bool, labels map[string]string) (*apps.Deployment, error) {
+	if instance.Status.Db.DatabaseSecretRef == nil {
+		return nil, errors.New("reference to database secret is not set")
+	}
+	if instance.Status.Db.Pvc.Name == "" {
+		return nil, errors.New("reference to database pvc is not set")
+	}
 	replicas := int32(1)
 	var secCont *core.PodSecurityContext
 	if !openshift {
@@ -136,5 +144,5 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, opensh
 				},
 			},
 		},
-	}
+	}, nil
 }

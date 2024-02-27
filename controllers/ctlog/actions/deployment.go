@@ -8,10 +8,8 @@ import (
 	"github.com/securesign/operator/controllers/common/action"
 	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/ctlog/utils"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -40,12 +38,18 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 
-	config := &v1.Secret{}
-	if err = i.Client.Get(ctx, types.NamespacedName{Name: instance.Status.ServerConfigRef.Name, Namespace: instance.Namespace}, config); err != nil {
-		return i.Failed(err)
+	dp, err := utils.CreateDeployment(instance, DeploymentName, RBACName, labels)
+	if err != nil {
+		if err != nil {
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:    constants.Ready,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			})
+			return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could create server Deployment: %w", err), instance)
+		}
 	}
-
-	dp := utils.CreateDeployment(instance, DeploymentName, config.Name, RBACName, labels)
 
 	if err = controllerutil.SetControllerReference(instance, dp, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Deployment: %w", err))

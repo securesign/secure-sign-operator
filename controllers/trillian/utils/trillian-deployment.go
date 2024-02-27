@@ -1,6 +1,8 @@
 package trillianUtils
 
 import (
+	"errors"
+
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/constants"
 	apps "k8s.io/api/apps/v1"
@@ -8,7 +10,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateTrillDeployment(instance *v1alpha1.Trillian, image string, dpName string, sa string, labels map[string]string) *apps.Deployment {
+func CreateTrillDeployment(instance *v1alpha1.Trillian, image string, dpName string, sa string, labels map[string]string) (*apps.Deployment, error) {
+	if instance.Status.Db.DatabaseSecretRef == nil {
+		return nil, errors.New("reference to database secret is not set")
+	}
 	replicas := int32(1)
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -129,5 +134,5 @@ func CreateTrillDeployment(instance *v1alpha1.Trillian, image string, dpName str
 				},
 			},
 		},
-	}
+	}, nil
 }
