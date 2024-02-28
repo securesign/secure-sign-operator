@@ -216,6 +216,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				"--fulcio-url="+fulcio.Status.Url,
 				"--rekor-url="+rekor.Status.Url,
 				"--oidc-issuer="+support.OidcIssuerUrl(),
+				"--oidc-client-id="+support.OidcClientID(),
 				"--identity-token="+oidcToken,
 				targetImageName,
 			)).To(Succeed())
