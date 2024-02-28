@@ -62,6 +62,9 @@ const (
 	cliServerNs        = "trusted-artifact-signer"
 	cliServerName      = "cli-server"
 	cliServerComponent = "client-server"
+	sharedVolumeName   = "shared-data"
+	cliBinaryPath      = "/opt/app-root/src/clients/*"
+	cliWebServerPath   = "/var/www/html/clients/"
 
 	crdName = "securesigns.rhtas.redhat.com"
 )
@@ -284,15 +287,53 @@ func createClientserverDeployment(namespace string, labels map[string]string) *a
 					Labels: labels,
 				},
 				Spec: core.PodSpec{
+					Volumes: []core.Volume{
+						{
+							Name: sharedVolumeName,
+							VolumeSource: core.VolumeSource{
+								EmptyDir: &core.EmptyDirVolumeSource{},
+							},
+						},
+					},
+					InitContainers: []core.Container{
+						{
+							Name:    "init-shared-data-cg",
+							Image:   constants.ClientServerImage_cg,
+							Command: []string{"sh", "-c", fmt.Sprintf("cp -r %s %s", cliBinaryPath, cliWebServerPath)},
+							VolumeMounts: []core.VolumeMount{
+								{
+									Name:      sharedVolumeName,
+									MountPath: cliWebServerPath,
+								},
+							},
+						},
+						{
+							Name:    "init-shared-data-re",
+							Image:   constants.ClientServerImage_re,
+							Command: []string{"sh", "-c", fmt.Sprintf("cp -r %s %s", cliBinaryPath, cliWebServerPath)},
+							VolumeMounts: []core.VolumeMount{
+								{
+									Name:      sharedVolumeName,
+									MountPath: cliWebServerPath,
+								},
+							},
+						},
+					},
 					Containers: []core.Container{
 						{
 							Name:            cliServerName,
 							Image:           constants.ClientServerImage,
-							ImagePullPolicy: "IfNotPresent",
+							ImagePullPolicy: core.PullAlways,
 							Ports: []core.ContainerPort{
 								{
 									ContainerPort: 8080,
-									Protocol:      "TCP",
+									Protocol:      core.ProtocolTCP,
+								},
+							},
+							VolumeMounts: []core.VolumeMount{
+								{
+									Name:      sharedVolumeName,
+									MountPath: cliWebServerPath,
 								},
 							},
 						},
