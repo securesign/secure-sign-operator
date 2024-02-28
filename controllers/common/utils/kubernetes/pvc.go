@@ -10,13 +10,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreatePVC(namespace string, pvcName string, pvcSize string, storageClass string, labels map[string]string) *corev1.PersistentVolumeClaim {
+func CreatePVC(namespace string, pvcName string, pvcSize resource.Quantity, storageClass string, labels map[string]string) *corev1.PersistentVolumeClaim {
 	var computedStorageClass *string
 	if storageClass == "" {
 		computedStorageClass = nil
 	} else {
 		computedStorageClass = &storageClass
 	}
+
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pvcName,
@@ -29,7 +30,7 @@ func CreatePVC(namespace string, pvcName string, pvcSize string, storageClass st
 			},
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceName(corev1.ResourceStorage): resource.MustParse(pvcSize),
+					corev1.ResourceName(corev1.ResourceStorage): pvcSize,
 				},
 			},
 			StorageClassName: computedStorageClass,

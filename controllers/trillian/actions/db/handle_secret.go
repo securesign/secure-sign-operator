@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"github.com/securesign/operator/controllers/common/utils"
 	"strconv"
 
 	"github.com/securesign/operator/controllers/common"
@@ -40,7 +41,7 @@ func (i handleSecretAction) CanHandle(ctx context.Context, instance *rhtasv1alph
 }
 
 func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
-	if !instance.Spec.Db.Create {
+	if !utils.OptionalBool(instance.Spec.Db.Create) {
 		if instance.Spec.Db.DatabaseSecretRef != nil {
 			instance.Status.Db.DatabaseSecretRef = instance.Spec.Db.DatabaseSecretRef
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: trillian.DbCondition,

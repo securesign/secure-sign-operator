@@ -24,13 +24,16 @@ import (
 // TrillianSpec defines the desired state of Trillian
 type TrillianSpec struct {
 	// Define your database connection
+	//+kubebuilder:validation:XValidation:rule=((!self.create && self.databaseSecretRef != null) || self.create),message=databaseSecretRef cannot be empty
+	//+kubebuilder:default:={create: true, pvc: {size: "5Gi", retain: true}}
 	Db TrillianDB `json:"database,omitempty"`
 }
 
 type TrillianDB struct {
 	// Create Database if a database is not created one must be defined using the DatabaseSecret field
-	//+kubebuilder:default:=false
-	Create bool `json:"create"`
+	//+kubebuilder:default:=true
+	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
+	Create *bool `json:"create"`
 	// Secret with values to be used to connect to an existing DB or to be used with the creation of a new DB
 	// mysql-host: The host of the MySQL server
 	// mysql-port: The port of the MySQL server

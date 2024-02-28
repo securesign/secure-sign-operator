@@ -5,6 +5,7 @@ package e2e_test
 import (
 	"context"
 	"encoding/json"
+	"github.com/securesign/operator/controllers/common/utils"
 	"time"
 
 	"github.com/google/uuid"
@@ -81,7 +82,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 					},
 				},
 				Trillian: v1alpha1.TrillianSpec{Db: v1alpha1.TrillianDB{
-					Create: true,
+					Create: utils.Pointer(true),
 				}},
 			},
 		}

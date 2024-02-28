@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/securesign/operator/controllers/common/utils"
 
 	"github.com/securesign/operator/controllers/common/action"
 	k8sutils "github.com/securesign/operator/controllers/common/utils/kubernetes"
@@ -42,10 +43,14 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rek
 		return i.StatusUpdate(ctx, instance)
 	}
 
+	if instance.Spec.Pvc.Size == nil {
+		return i.Failed(fmt.Errorf("PVC size is not set"))
+	}
+
 	// PVC does not exist, create a new one
 	i.Logger.V(1).Info("Creating new PVC")
-	pvc := k8sutils.CreatePVC(instance.Namespace, fmt.Sprintf(PvcNameFormat, instance.Name), instance.Spec.Pvc.Size, instance.Spec.Pvc.StorageClass, constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name))
-	if !instance.Spec.Pvc.Retain {
+	pvc := k8sutils.CreatePVC(instance.Namespace, fmt.Sprintf(PvcNameFormat, instance.Name), *instance.Spec.Pvc.Size, instance.Spec.Pvc.StorageClass, constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name))
+	if !utils.OptionalBool(instance.Spec.Pvc.Retain) {
 		if err = controllerutil.SetControllerReference(instance, pvc, i.Client.Scheme()); err != nil {
 			return i.Failed(fmt.Errorf("could not set controller reference for PVC: %w", err))
 		}

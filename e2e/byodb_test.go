@@ -76,7 +76,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 				},
 				Ctlog: v1alpha1.CTlogSpec{},
 				Trillian: v1alpha1.TrillianSpec{Db: v1alpha1.TrillianDB{
-					Create: false,
+					Create: new(bool),
 					DatabaseSecretRef: &v1.LocalObjectReference{
 						Name: "my-db",
 					},

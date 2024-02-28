@@ -4,6 +4,7 @@ package e2e_test
 
 import (
 	"context"
+	"github.com/securesign/operator/controllers/common/utils"
 	"net/http"
 	"time"
 
@@ -79,7 +80,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 					},
 				},
 				Trillian: v1alpha1.TrillianSpec{Db: v1alpha1.TrillianDB{
-					Create: true,
+					Create: utils.Pointer(true),
 				}},
 			},
 		}
