@@ -19,11 +19,11 @@ const (
 )
 
 func OidcIssuerUrl() string {
-	return EnvOrDefault(OIDC_ISSUER_URL, "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore")
+	return EnvOrDefault(OIDC_ISSUER_URL, "http://keycloak-internal.keycloak-system.svc/auth/realms/trusted-artifact-signer")
 }
 
 func OidcClientID() string {
-	return EnvOrDefault(OIDC_CLIENT_ID, "sigstore")
+	return EnvOrDefault(OIDC_CLIENT_ID, "trusted-artifact-signer")
 }
 
 func OidcToken(ctx context.Context) (string, error) {
@@ -32,7 +32,7 @@ func OidcToken(ctx context.Context) (string, error) {
 	data.Set("password", EnvOrDefault(OIDC_PASSWORD, "secure"))
 	data.Set("grant_type", "password")
 	data.Set("scope", "openid")
-	data.Set("client_id", EnvOrDefault(OIDC_CLIENT_ID, "trusted-artifact-signer"))
+	data.Set("client_id", OidcClientID())
 	r, err := http.NewRequestWithContext(ctx, http.MethodPost, OidcIssuerUrl()+"/protocol/openid-connect/token", strings.NewReader(data.Encode()))
 	if err != nil {
 		return "", err
