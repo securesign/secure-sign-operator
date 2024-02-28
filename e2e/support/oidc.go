@@ -19,11 +19,11 @@ const (
 )
 
 func OidcIssuerUrl() string {
-	return EnvOrDefault(OIDC_ISSUER_URL, "http://keycloak-internal.keycloak-system.svc/auth/realms/sigstore")
+	return EnvOrDefault(OIDC_ISSUER_URL, "http://keycloak-internal.keycloak-system.svc/auth/realms/trusted-artifact-signer")
 }
 
 func OidcClientID() string {
-	return EnvOrDefault(OIDC_CLIENT_ID, "sigstore")
+	return EnvOrDefault(OIDC_CLIENT_ID, "trusted-artifact-signer")
 }
 
 func OidcToken(ctx context.Context) (string, error) {
