@@ -68,7 +68,7 @@ jobs:
 
       - name: Wait for operator to be ready
         run: | 
-          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=60s -n openshift-rhtas-operator
+          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n openshift-rhtas-operator
 
       - name: Install Keycloak
         run: |
