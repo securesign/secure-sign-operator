@@ -48,8 +48,9 @@ spec:
                 description: Password to decrypt private key
                 properties:
                   key:
-                    description: The key of the secret to select from.  Must be a
-                      valid secret key.
+                    description: The key of the secret to select from. Must be a valid
+                      secret key.
+                    pattern: '[-._a-zA-Z0-9]+'
                     type: string
                   name:
                     description: |-
@@ -65,8 +66,9 @@ spec:
                 description: The private key used for signing STHs etc.
                 properties:
                   key:
-                    description: The key of the secret to select from.  Must be a
-                      valid secret key.
+                    description: The key of the secret to select from. Must be a valid
+                      secret key.
+                    pattern: '[-._a-zA-Z0-9]+'
                     type: string
                   name:
                     description: |-
@@ -85,8 +87,9 @@ spec:
                   be specified for regular logs as well for the convenience of test tools.
                 properties:
                   key:
-                    description: The key of the secret to select from.  Must be a
-                      valid secret key.
+                    description: The key of the secret to select from. Must be a valid
+                      secret key.
+                    pattern: '[-._a-zA-Z0-9]+'
                     type: string
                   name:
                     description: |-
@@ -106,8 +109,9 @@ spec:
                   description: SecretKeySelector selects a key of a Secret.
                   properties:
                     key:
-                      description: The key of the secret to select from.  Must be
-                        a valid secret key.
+                      description: The key of the secret to select from. Must be a
+                        valid secret key.
+                      pattern: '[-._a-zA-Z0-9]+'
                       type: string
                     name:
                       description: |-
@@ -204,8 +208,9 @@ spec:
                 description: SecretKeySelector selects a key of a Secret.
                 properties:
                   key:
-                    description: The key of the secret to select from.  Must be a
-                      valid secret key.
+                    description: The key of the secret to select from. Must be a valid
+                      secret key.
+                    pattern: '[-._a-zA-Z0-9]+'
                     type: string
                   name:
                     description: |-
@@ -221,8 +226,9 @@ spec:
                 description: SecretKeySelector selects a key of a Secret.
                 properties:
                   key:
-                    description: The key of the secret to select from.  Must be a
-                      valid secret key.
+                    description: The key of the secret to select from. Must be a valid
+                      secret key.
+                    pattern: '[-._a-zA-Z0-9]+'
                     type: string
                   name:
                     description: |-
@@ -238,8 +244,9 @@ spec:
                 description: SecretKeySelector selects a key of a Secret.
                 properties:
                   key:
-                    description: The key of the secret to select from.  Must be a
-                      valid secret key.
+                    description: The key of the secret to select from. Must be a valid
+                      secret key.
+                    pattern: '[-._a-zA-Z0-9]+'
                     type: string
                   name:
                     description: |-
@@ -256,8 +263,9 @@ spec:
                   description: SecretKeySelector selects a key of a Secret.
                   properties:
                     key:
-                      description: The key of the secret to select from.  Must be
-                        a valid secret key.
+                      description: The key of the secret to select from. Must be a
+                        valid secret key.
+                      pattern: '[-._a-zA-Z0-9]+'
                       type: string
                     name:
                       description: |-

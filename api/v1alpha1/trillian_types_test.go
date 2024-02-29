@@ -10,7 +10,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 var _ = Describe("Trillian", func() {
@@ -200,13 +199,6 @@ var _ = Describe("Trillian", func() {
 		})
 	})
 })
-
-func getKey(instance *Trillian) types.NamespacedName {
-	return types.NamespacedName{
-		Name:      instance.Name,
-		Namespace: instance.Namespace,
-	}
-}
 
 func generateTrillianObject(name string) *Trillian {
 	storage := k8sresource.MustParse("5Gi")

@@ -2,6 +2,7 @@ package backfillredis
 
 import (
 	"fmt"
+	"github.com/securesign/operator/controllers/common/utils"
 
 	"github.com/robfig/cron/v3"
 	"github.com/securesign/operator/controllers/constants"
@@ -33,7 +34,7 @@ func (i backfillRedisCronJob) Name() string {
 
 func (i backfillRedisCronJob) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && instance.Spec.BackFillRedis.Enabled
+	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && utils.OptionalBool(instance.Spec.BackFillRedis.Enabled)
 }
 
 func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {

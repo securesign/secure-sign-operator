@@ -10,13 +10,15 @@ import (
 
 // RekorSpec defines the desired state of Rekor
 type RekorSpec struct {
+	// ID of Merkle tree in Trillian backend
+	// If it is unset, the operator will create new Merkle tree in the Trillian backend
 	//+optional
 	TreeID *int64 `json:"treeID,omitempty"`
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
 	//Enable Service monitors for rekor
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
-	//Rekor Search UI
+	// Rekor Search UI
 	RekorSearchUI RekorSearchUI `json:"rekorSearchUI,omitempty"`
 	// Signer configuration
 	Signer RekorSigner `json:"signer,omitempty"`
@@ -24,6 +26,7 @@ type RekorSpec struct {
 	//+kubebuilder:default:={size: "5Gi", retain: true}
 	Pvc Pvc `json:"pvc,omitempty"`
 	// BackFillRedis CronJob Configuration
+	//+kubebuilder:default:={enabled: true, schedule: "0 0 * * *"}
 	BackFillRedis BackFillRedis `json:"backFillRedis,omitempty"`
 }
 
@@ -41,16 +44,20 @@ type RekorSigner struct {
 }
 
 type RekorSearchUI struct {
-	//Enable RekorSearchUI deployment
-	Enabled bool `json:"enabled,omitempty"`
+	// If set to true, the Operator will deploy a Rekor Search UI
+	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
+	//+kubebuilder:default:=false
+	Enabled bool `json:"enabled"`
 }
 
 type BackFillRedis struct {
 	//Enable the BackFillRedis CronJob
+	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
 	//+kubebuilder:default:=true
-	Enabled bool `json:"enabled,omitempty"`
+	Enabled *bool `json:"enabled"`
 	//Schedule for the BackFillRedis CronJob
 	//+kubebuilder:default:="0 0 * * *"
+	//+kubebuilder:validation:Pattern:="^(@(?i)(yearly|annually|monthly|weekly|daily|hourly)|((\\*(\\/[1-9][0-9]*)?|[0-9,-]+)+\\s){4}(\\*(\\/[1-9][0-9]*)?|[0-9,-]+)+)$"
 	Schedule string `json:"schedule,omitempty"`
 }
 

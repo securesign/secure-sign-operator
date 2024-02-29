@@ -55,8 +55,9 @@ spec:
                     description: Reference to CA certificate
                     properties:
                       key:
-                        description: The key of the secret to select from.  Must be
+                        description: The key of the secret to select from. Must be
                           a valid secret key.
+                        pattern: '[-._a-zA-Z0-9]+'
                         type: string
                       name:
                         description: |-
@@ -78,8 +79,9 @@ spec:
                     description: Reference to password to encrypt CA private key
                     properties:
                       key:
-                        description: The key of the secret to select from.  Must be
+                        description: The key of the secret to select from. Must be
                           a valid secret key.
+                        pattern: '[-._a-zA-Z0-9]+'
                         type: string
                       name:
                         description: |-
@@ -95,8 +97,9 @@ spec:
                     description: Reference to CA private key
                     properties:
                       key:
-                        description: The key of the secret to select from.  Must be
+                        description: The key of the secret to select from. Must be
                           a valid secret key.
+                        pattern: '[-._a-zA-Z0-9]+'
                         type: string
                       name:
                         description: |-
@@ -202,6 +205,7 @@ spec:
                 description: Define whether you want to export service or not
                 properties:
                   enabled:
+                    default: false
                     description: |-
                       If set to true, the Operator will create an Ingress or a Route resource.
                       For the plain Ingress there is no TLS configuration provided Route object uses "edge" termination by default.
@@ -212,16 +216,21 @@ spec:
                   host:
                     description: Set hostname for your Ingress/Route.
                     type: string
+                required:
+                - enabled
                 type: object
               monitoring:
                 description: Enable Service monitors for fulcio
                 properties:
                   enabled:
+                    default: false
                     description: If true, the Operator will create monitoring resources
                     type: boolean
                     x-kubernetes-validations:
                     - message: Feature cannot be disabled
                       rule: (self || !oldSelf)
+                required:
+                - enabled
                 type: object
             required:
             - config
@@ -236,8 +245,9 @@ spec:
                     description: Reference to CA certificate
                     properties:
                       key:
-                        description: The key of the secret to select from.  Must be
+                        description: The key of the secret to select from. Must be
                           a valid secret key.
+                        pattern: '[-._a-zA-Z0-9]+'
                         type: string
                       name:
                         description: |-
@@ -259,8 +269,9 @@ spec:
                     description: Reference to password to encrypt CA private key
                     properties:
                       key:
-                        description: The key of the secret to select from.  Must be
+                        description: The key of the secret to select from. Must be
                           a valid secret key.
+                        pattern: '[-._a-zA-Z0-9]+'
                         type: string
                       name:
                         description: |-
@@ -276,8 +287,9 @@ spec:
                     description: Reference to CA private key
                     properties:
                       key:
-                        description: The key of the secret to select from.  Must be
+                        description: The key of the secret to select from. Must be
                           a valid secret key.
+                        pattern: '[-._a-zA-Z0-9]+'
                         type: string
                       name:
                         description: |-

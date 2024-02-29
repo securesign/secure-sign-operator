@@ -18,6 +18,7 @@ package rekor
 
 import (
 	"context"
+	"github.com/securesign/operator/controllers/common/utils"
 	"time"
 
 	"github.com/securesign/operator/api/v1alpha1"
@@ -101,7 +102,7 @@ var _ = Describe("Rekor hot update test", func() {
 							Enabled: false,
 						},
 						BackFillRedis: v1alpha1.BackFillRedis{
-							Enabled: false,
+							Enabled: utils.Pointer(false),
 						},
 					},
 				}

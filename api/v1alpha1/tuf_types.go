@@ -12,14 +12,23 @@ type TufSpec struct {
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
 	//+kubebuilder:default:=80
+	//+kubebuilder:validation:Minimum:=1
+	//+kubebuilder:validation:Maximum:=65535
 	Port int32 `json:"port,omitempty"`
+	// List of TUF targets which will be added to TUF root
 	//+kubebuilder:default:={{name: rekor.pub},{name: ctfe.pub},{name: fulcio_v1.crt.pem}}
+	//+kubebuilder:validation:MinItems:=1
 	Keys []TufKey `json:"keys,omitempty"`
 }
 
 type TufKey struct {
+	// File name which will be used as TUF target.
 	//+required
+	//+kubebuilder:validation:Pattern:="^[-._a-zA-Z0-9]+$"
 	Name string `json:"name"`
+	// Reference to secret object
+	// If it is unset, the operator will try to autoconfigure secret reference, by searching secrets in namespace which
+	// contain `rhtas.redhat.com/$name` label.
 	//+optional
 	SecretRef *SecretKeySelector `json:"secretRef,omitempty"`
 }

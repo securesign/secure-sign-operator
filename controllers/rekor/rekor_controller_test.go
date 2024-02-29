@@ -18,6 +18,7 @@ package rekor
 
 import (
 	"context"
+	"github.com/securesign/operator/controllers/common/utils"
 	"time"
 
 	"github.com/securesign/operator/api/v1alpha1"
@@ -104,7 +105,7 @@ var _ = Describe("Rekor controller", func() {
 							Enabled: true,
 						},
 						BackFillRedis: v1alpha1.BackFillRedis{
-							Enabled:  true,
+							Enabled:  utils.Pointer(true),
 							Schedule: "0 0 * * *",
 						},
 					},
