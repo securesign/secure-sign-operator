@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"github.com/securesign/operator/controllers/common/utils"
 
 	"github.com/securesign/operator/controllers/common/action"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
@@ -30,7 +31,7 @@ func (i deployAction) Name() string {
 
 func (i deployAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return (c.Reason == constants.Ready || c.Reason == constants.Creating) && instance.Spec.Db.Create
+	return (c.Reason == constants.Ready || c.Reason == constants.Creating) && utils.OptionalBool(instance.Spec.Db.Create)
 }
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {

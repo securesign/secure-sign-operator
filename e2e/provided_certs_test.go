@@ -10,6 +10,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"github.com/securesign/operator/controllers/common/utils"
 	"math/big"
 	"time"
 
@@ -150,7 +151,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 					},
 				},
 				Trillian: v1alpha1.TrillianSpec{Db: v1alpha1.TrillianDB{
-					Create: true,
+					Create: utils.Pointer(true),
 				}},
 			},
 		}

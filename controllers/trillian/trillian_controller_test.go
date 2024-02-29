@@ -18,6 +18,7 @@ package trillian
 
 import (
 	"context"
+	"github.com/securesign/operator/controllers/common/utils"
 	"time"
 
 	"github.com/securesign/operator/api/v1alpha1"
@@ -91,7 +92,7 @@ var _ = Describe("Trillian controller", func() {
 					},
 					Spec: v1alpha1.TrillianSpec{
 						Db: v1alpha1.TrillianDB{
-							Create: true,
+							Create: utils.Pointer(true),
 						},
 					},
 				}

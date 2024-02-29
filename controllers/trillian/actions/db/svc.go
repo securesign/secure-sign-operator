@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"github.com/securesign/operator/controllers/common/utils"
 
 	"github.com/securesign/operator/controllers/common/action"
 	k8sutils "github.com/securesign/operator/controllers/common/utils/kubernetes"
@@ -29,7 +30,7 @@ func (i createServiceAction) Name() string {
 
 func (i createServiceAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && instance.Spec.Db.Create
+	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && utils.OptionalBool(instance.Spec.Db.Create)
 }
 
 func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {

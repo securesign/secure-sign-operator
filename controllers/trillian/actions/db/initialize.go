@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"github.com/securesign/operator/controllers/common/utils"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
@@ -26,7 +27,7 @@ func (i initializeAction) Name() string {
 
 func (i initializeAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Initialize && instance.Spec.Db.Create && !meta.IsStatusConditionTrue(instance.Status.Conditions, actions.DbCondition)
+	return c.Reason == constants.Initialize && utils.OptionalBool(instance.Spec.Db.Create) && !meta.IsStatusConditionTrue(instance.Status.Conditions, actions.DbCondition)
 }
 
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {

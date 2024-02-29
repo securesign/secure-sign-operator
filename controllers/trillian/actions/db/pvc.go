@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"github.com/securesign/operator/controllers/common/utils"
 
 	"github.com/securesign/operator/controllers/common/action"
 	k8sutils "github.com/securesign/operator/controllers/common/utils/kubernetes"
@@ -30,7 +31,7 @@ func (i createPvcAction) Name() string {
 
 func (i createPvcAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Creating && instance.Spec.Db.Create && instance.Status.Db.Pvc.Name == ""
+	return c.Reason == constants.Creating && utils.OptionalBool(instance.Spec.Db.Create) && instance.Status.Db.Pvc.Name == ""
 }
 
 func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
@@ -40,10 +41,15 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tri
 		instance.Status.Db.Pvc.Name = instance.Spec.Db.Pvc.Name
 		return i.StatusUpdate(ctx, instance)
 	}
+
+	if instance.Spec.Db.Pvc.Size == nil {
+		return i.Failed(fmt.Errorf("PVC size is not set"))
+	}
+
 	// PVC does not exist, create a new one
 	i.Logger.V(1).Info("Creating new PVC")
-	pvc := k8sutils.CreatePVC(instance.Namespace, actions.DbPvcName, instance.Spec.Db.Pvc.Size, instance.Spec.Db.Pvc.StorageClass, constants.LabelsFor(actions.DbComponentName, actions.DbDeploymentName, instance.Name))
-	if !instance.Spec.Db.Pvc.Retain {
+	pvc := k8sutils.CreatePVC(instance.Namespace, actions.DbPvcName, *instance.Spec.Db.Pvc.Size, instance.Spec.Db.Pvc.StorageClass, constants.LabelsFor(actions.DbComponentName, actions.DbDeploymentName, instance.Name))
+	if !utils.OptionalBool(instance.Spec.Db.Pvc.Retain) {
 		if err = controllerutil.SetControllerReference(instance, pvc, i.Client.Scheme()); err != nil {
 			return i.Failed(fmt.Errorf("could not set controller reference for PVC: %w", err))
 		}
