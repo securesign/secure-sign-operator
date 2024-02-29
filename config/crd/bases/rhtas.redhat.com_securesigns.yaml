@@ -339,16 +339,25 @@ spec:
                 description: RekorSpec defines the desired state of Rekor
                 properties:
                   backFillRedis:
+                    default:
+                      enabled: true
+                      schedule: 0 0 * * *
                     description: BackFillRedis CronJob Configuration
                     properties:
                       enabled:
                         default: true
                         description: Enable the BackFillRedis CronJob
                         type: boolean
+                        x-kubernetes-validations:
+                        - message: Feature cannot be disabled
+                          rule: (self || !oldSelf)
                       schedule:
                         default: 0 0 * * *
                         description: Schedule for the BackFillRedis CronJob
+                        pattern: ^(@(?i)(yearly|annually|monthly|weekly|daily|hourly)|((\*(\/[1-9][0-9]*)?|[0-9,-]+)+\s){4}(\*(\/[1-9][0-9]*)?|[0-9,-]+)+)$
                         type: string
+                    required:
+                    - enabled
                     type: object
                   externalAccess:
                     description: Define whether you want to export service or not
@@ -423,8 +432,15 @@ spec:
                     description: Rekor Search UI
                     properties:
                       enabled:
-                        description: Enable RekorSearchUI deployment
+                        default: false
+                        description: If set to true, the Operator will deploy a Rekor
+                          Search UI
                         type: boolean
+                        x-kubernetes-validations:
+                        - message: Feature cannot be disabled
+                          rule: (self || !oldSelf)
+                    required:
+                    - enabled
                     type: object
                   signer:
                     description: Signer configuration
@@ -473,6 +489,9 @@ spec:
                         x-kubernetes-map-type: atomic
                     type: object
                   treeID:
+                    description: |-
+                      ID of Merkle tree in Trillian backend
+                      If it is unset, the operator will create new Merkle tree in the Trillian backend
                     format: int64
                     type: integer
                 type: object
