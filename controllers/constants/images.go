@@ -1,21 +1,21 @@
 package constants
 
 const (
-	TrillianLogSignerImage = "quay.io/redhat-user-workloads/rhtas-tenant/trillian-1-0-gamma/trillian-logsigner-1-5@sha256:3c60ec029bc6742d9e1a62f057b2c7da928d0b13c50985495a4670c5538310d3"
-	TrillianServerImage    = "quay.io/redhat-user-workloads/rhtas-tenant/trillian-1-0-gamma/trillian-logserver-1-5@sha256:5f9fcca2db9dbcbed0862d7a7e13cf355a3299624f0967836ea512c5b769ebb4"
-	TrillianDbImage        = "quay.io/redhat-user-workloads/rhtas-tenant/trillian-1-0-gamma/trillian-database-1-5@sha256:e8e038bf1ca79f44a12b63b460f60148c9a230c2e551d13783626f03ce2573a1"
+	TrillianLogSignerImage = "quay.io/redhat-user-workloads/rhtas-tenant/trillian/logsigner@sha256:758951a98791644d2512369019b077c261a685507bbcc119facf34c9d3d378f9"
+	TrillianServerImage    = "quay.io/redhat-user-workloads/rhtas-tenant/trillian/logserver@sha256:fe3f936d4261191509b6d14585d569ffa51a0a97448266835fc50e22d929479f"
+	TrillianDbImage        = "quay.io/redhat-user-workloads/rhtas-tenant/trillian/database@sha256:f0963d5df411b670c868bde46d49b13d5dc2c146875612b2fd92e7b10cdddcba"
 
 	// TODO: remove and check the DB pod status
-	TrillianNetcatImage = "quay.io/redhat-user-workloads/rhtas-tenant/trillian-1-0-gamma/trillian-netcat-1-5@sha256:a43e9a384050d398a73e90d51c9c0f9f1af426117fa9bf6725674de7a95f0873"
+	TrillianNetcatImage = "quay.io/redhat-user-workloads/rhtas-tenant/trillian/netcat@sha256:8ae5e563f8bf6bc47f70b09744bff89fa8e26cadbe2d56fabd3565a03a8089ae"
 
-	FulcioServerImage = "quay.io/redhat-user-workloads/rhtas-tenant/fulcio-1-0-gamma/fulcio-1-0-gamma@sha256:12fac8e6d83056a7e5108cf92d6c622ef800ea0f2361e5b5d428a9a94811dd10"
+	FulcioServerImage = "quay.io/redhat-user-workloads/rhtas-tenant/fulcio/fulcio-server@sha256:f681ddfdb833bba18f2a2249a80260c9049f523b258bf3924a27796e4716f863"
 
-	RekorRedisImage    = "quay.io/redhat-user-workloads/rhtas-tenant/trillian-1-0-gamma/redis-0-6@sha256:acf920baf6ee1715c0c9d7ddf69867d331c589d3afa680048c508943078d9585"
-	RekorServerImage   = "quay.io/redhat-user-workloads/rhtas-tenant/rekor-1-0-gamma/rekor-server-1-0-gamma@sha256:53b650ad487dce78025d1dbddc5f25116c132f4e78b7d6f8c1dd0638574f6db3"
-	RekorSearchUiImage = "quay.io/redhat-user-workloads/rhtas-tenant/rekor-1-0-gamma/rekor-search-ui-1-0-gamma@sha256:ea4344bc762809ca46ea0708de378d8592b97194a9c1e08eb9396294276818bf"
-	BackfillRedisImage = "quay.io/redhat-user-workloads/rhtas-tenant/rekor-1-0-gamma/backfill-redis-1-0-gamma@sha256:028b3090bd0677351cc40de4a49246a5cdd57bdd2ad1668e4d7df0a7c01f20c7"
+	RekorRedisImage    = "quay.io/redhat-user-workloads/rhtas-tenant/trillian/redis@sha256:04828065ab7ece69321d851707849e8151c94fc31f7b97e8429a0ae581cdf4b9"
+	RekorServerImage   = "quay.io/redhat-user-workloads/rhtas-tenant/rekor/rekor-server@sha256:7db020afd0202ceb22e2f99812650d48b78e48ae63cc57e8221be13ba2005682"
+	RekorSearchUiImage = "quay.io/redhat-user-workloads/rhtas-tenant/rekor-search-ui/rekor-search-ui@sha256:7f6aa5eb011d5250ccf79375f229034064c5d626bf6f5e4c31beca89dad27093"
+	BackfillRedisImage = "quay.io/redhat-user-workloads/rhtas-tenant/rekor/backfill-redis@sha256:aac9c4d61cec2233108235192fe5812ece7a6cd7dcad41dcdcc025faf32d4c06"
 
-	TufImage = "quay.io/redhat-user-workloads/rhtas-tenant/scaffold-1-0-gamma/tuf-server-0-6@sha256:e61b455868b416882dc45fe53a5039077de9c932865361fde28d52b31e4a68d2"
+	TufImage = "quay.io/redhat-user-workloads/rhtas-tenant/scaffold/tuf-server@sha256:975bc755f80eefa615f796555f09997b4c7e200d19f1b50702ece63d9f942737"
 
 	CTLogImage        = "quay.io/redhat-user-workloads/rhtas-tenant/certificate-transparency-go/certificate-transparency-go@sha256:a851350d37cb2105c35c529a30f1b5432c85056e24c95838cfc39b0870187cc6"
 	ClientServerImage = "quay.io/redhat-user-workloads/rhtas-tenant/access-1-0-gamma/client-server-1-0-gamma@sha256:91caede7f666f380bd3e437444386a3818d89d50f28bb468c79294450c6bca9e"
