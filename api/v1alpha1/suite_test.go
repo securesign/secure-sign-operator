@@ -2,6 +2,8 @@ package v1alpha1
 
 import (
 	"fmt"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -55,3 +57,10 @@ var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	Expect(testEnv.Stop()).To(Succeed())
 })
+
+func getKey(instance v1.Object) types.NamespacedName {
+	return types.NamespacedName{
+		Name:      instance.GetName(),
+		Namespace: instance.GetNamespace(),
+	}
+}

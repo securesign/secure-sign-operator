@@ -52,6 +52,7 @@ spec:
                 description: Define whether you want to export service or not
                 properties:
                   enabled:
+                    default: false
                     description: |-
                       If set to true, the Operator will create an Ingress or a Route resource.
                       For the plain Ingress there is no TLS configuration provided Route object uses "edge" termination by default.
@@ -62,22 +63,31 @@ spec:
                   host:
                     description: Set hostname for your Ingress/Route.
                     type: string
+                required:
+                - enabled
                 type: object
               keys:
                 default:
                 - name: rekor.pub
                 - name: ctfe.pub
                 - name: fulcio_v1.crt.pem
+                description: List of TUF targets which will be added to TUF root
                 items:
                   properties:
                     name:
+                      description: File name which will be used as TUF target.
+                      pattern: ^[-._a-zA-Z0-9]+$
                       type: string
                     secretRef:
-                      description: SecretKeySelector selects a key of a Secret.
+                      description: |-
+                        Reference to secret object
+                        If it is unset, the operator will try to autoconfigure secret reference, by searching secrets in namespace which
+                        contain `rhtas.redhat.com/$name` label.
                       properties:
                         key:
-                          description: The key of the secret to select from.  Must
+                          description: The key of the secret to select from. Must
                             be a valid secret key.
+                          pattern: '[-._a-zA-Z0-9]+'
                           type: string
                         name:
                           description: |-
@@ -92,10 +102,13 @@ spec:
                   required:
                   - name
                   type: object
+                minItems: 1
                 type: array
               port:
                 default: 80
                 format: int32
+                maximum: 65535
+                minimum: 1
                 type: integer
             type: object
           status:
@@ -177,13 +190,19 @@ spec:
                 items:
                   properties:
                     name:
+                      description: File name which will be used as TUF target.
+                      pattern: ^[-._a-zA-Z0-9]+$
                       type: string
                     secretRef:
-                      description: SecretKeySelector selects a key of a Secret.
+                      description: |-
+                        Reference to secret object
+                        If it is unset, the operator will try to autoconfigure secret reference, by searching secrets in namespace which
+                        contain `rhtas.redhat.com/$name` label.
                       properties:
                         key:
-                          description: The key of the secret to select from.  Must
+                          description: The key of the secret to select from. Must
                             be a valid secret key.
+                          pattern: '[-._a-zA-Z0-9]+'
                           type: string
                         name:
                           description: |-

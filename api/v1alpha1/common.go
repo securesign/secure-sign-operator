@@ -9,7 +9,8 @@ type ExternalAccess struct {
 	// If set to true, the Operator will create an Ingress or a Route resource.
 	//For the plain Ingress there is no TLS configuration provided Route object uses "edge" termination by default.
 	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
-	Enabled bool `json:"enabled,omitempty"`
+	//+kubebuilder:default:=false
+	Enabled bool `json:"enabled"`
 	// Set hostname for your Ingress/Route.
 	Host string `json:"host,omitempty"`
 }
@@ -17,7 +18,8 @@ type ExternalAccess struct {
 type MonitoringConfig struct {
 	// If true, the Operator will create monitoring resources
 	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
-	Enabled bool `json:"enabled,omitempty"`
+	//+kubebuilder:default:=false
+	Enabled bool `json:"enabled"`
 }
 
 // SecretKeySelector selects a key of a Secret.
@@ -25,7 +27,9 @@ type MonitoringConfig struct {
 type SecretKeySelector struct {
 	// The name of the secret in the pod's namespace to select from.
 	v1.LocalObjectReference `json:",inline" protobuf:"bytes,1,opt,name=localObjectReference"`
-	// The key of the secret to select from.  Must be a valid secret key.
+	// The key of the secret to select from. Must be a valid secret key.
+	//+required
+	//+kubebuilder:validation:Pattern:="[-._a-zA-Z0-9]+"
 	Key string `json:"key" protobuf:"bytes,2,opt,name=key"`
 }
 
