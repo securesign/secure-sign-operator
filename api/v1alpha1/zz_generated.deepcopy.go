@@ -352,7 +352,11 @@ func (in *FulcioStatus) DeepCopyInto(out *FulcioStatus) {
 		*out = new(v1.LocalObjectReference)
 		**out = **in
 	}
-	in.Certificate.DeepCopyInto(&out.Certificate)
+	if in.Certificate != nil {
+		in, out := &in.Certificate, &out.Certificate
+		*out = new(FulcioCert)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]metav1.Condition, len(*in))

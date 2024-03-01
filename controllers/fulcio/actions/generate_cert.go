@@ -40,7 +40,8 @@ func (g handleCert) Name() string {
 
 func (g handleCert) CanHandle(_ context.Context, instance *v1alpha1.Fulcio) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return (c.Reason == constants.Pending || c.Reason == constants.Ready) && !equality.Semantic.DeepDerivative(instance.Spec.Certificate, instance.Status.Certificate)
+	return (c.Reason == constants.Pending || c.Reason == constants.Ready) && (instance.Status.Certificate == nil ||
+		!equality.Semantic.DeepDerivative(instance.Spec.Certificate, *instance.Status.Certificate))
 }
 
 func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *action.Result {
@@ -120,7 +121,11 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 	}
 	g.Recorder.Event(instance, v1.EventTypeNormal, "FulcioCertUpdated", "Fulcio certificate secret updated")
 
-	instance.Spec.Certificate.DeepCopyInto(&instance.Status.Certificate)
+	if instance.Status.Certificate == nil {
+		instance.Status.Certificate = new(v1alpha1.FulcioCert)
+	}
+
+	instance.Spec.Certificate.DeepCopyInto(instance.Status.Certificate)
 	if instance.Spec.Certificate.PrivateKeyRef == nil {
 		instance.Status.Certificate.PrivateKeyRef = &v1alpha1.SecretKeySelector{
 			Key: "private",

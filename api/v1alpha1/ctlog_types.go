@@ -9,8 +9,11 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // CTlogSpec defines the desired state of CTlog component
+// +kubebuilder:validation:XValidation:rule=(!has(self.publicKeyRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
+// +kubebuilder:validation:XValidation:rule=(!has(self.privateKeyPasswordRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
 type CTlogSpec struct {
 	// The ID of a Trillian tree that stores the log data.
+	// If it is unset, the operator will create new Merkle tree in the Trillian backend
 	//+optional
 	TreeID *int64 `json:"treeID,omitempty"`
 
