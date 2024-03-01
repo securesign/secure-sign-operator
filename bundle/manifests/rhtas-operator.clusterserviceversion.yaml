@@ -186,10 +186,10 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-02-22T09:00:47Z"
+    createdAt: "2024-03-01T10:33:26Z"
     operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: rhtas-operator.v0.0.1
+  name: rhtas-operator.v1.0.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -854,4 +854,4 @@ spec:
   provider:
     name: Red Hat
     url: https://github.com/securesign/secure-sign-operator
-  version: 0.0.1
+  version: 1.0.0
