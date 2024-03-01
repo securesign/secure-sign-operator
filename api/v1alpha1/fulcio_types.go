@@ -15,12 +15,14 @@ type FulcioSpec struct {
 	//+required
 	Config FulcioConfig `json:"config"`
 	// Certificate configuration
-	Certificate FulcioCert `json:"certificate,omitempty"`
+	Certificate FulcioCert `json:"certificate"`
 	//Enable Service monitors for fulcio
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
 }
 
 // FulcioCert defines fields for system-generated certificate
+// +kubebuilder:validation:XValidation:rule=(has(self.caRef) || self.commonName != ""),message=commonName cannot be empty
+// +kubebuilder:validation:XValidation:rule=(!has(self.caRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
 type FulcioCert struct {
 	// Reference to CA private key
 	//+optional
@@ -42,7 +44,8 @@ type FulcioCert struct {
 }
 
 type FulcioConfig struct {
-	OIDCIssuers map[string]OIDCIssuer `json:"OIDCIssuers,omitempty"`
+	//+kubebuilder:validation:MinProperties:=1
+	OIDCIssuers map[string]OIDCIssuer `json:"OIDCIssuers"`
 
 	// A meta issuer has a templated URL of the form:
 	//   https://oidc.eks.*.amazonaws.com/id/*
@@ -51,6 +54,7 @@ type FulcioConfig struct {
 	// other special characters)  Some examples we want to match:
 	// * https://oidc.eks.us-west-2.amazonaws.com/id/B02C93B6A2D30341AD01E1B6D48164CB
 	// * https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster
+	// +optional
 	MetaIssuers map[string]OIDCIssuer `json:"MetaIssuers,omitempty"`
 }
 
@@ -58,9 +62,11 @@ type OIDCIssuer struct {
 	// The expected issuer of an OIDC token
 	IssuerURL string `json:"IssuerURL,omitempty"`
 	// The expected client ID of the OIDC token
+	//+required
 	ClientID string `json:"ClientID"`
 	// Used to determine the subject of the certificate and if additional
 	// certificate values are needed
+	//+required
 	Type string `json:"Type"`
 	// Optional, if the issuer is in a different claim in the OIDC token
 	IssuerClaim string `json:"IssuerClaim,omitempty"`
@@ -79,7 +85,7 @@ type OIDCIssuer struct {
 // FulcioStatus defines the observed state of Fulcio
 type FulcioStatus struct {
 	ServerConfigRef *v1.LocalObjectReference `json:"serverConfigRef,omitempty"`
-	Certificate     FulcioCert               `json:"certificate,omitempty"`
+	Certificate     *FulcioCert              `json:"certificate,omitempty"`
 	Url             string                   `json:"url,omitempty"`
 	// +listType=map
 	// +listMapKey=type

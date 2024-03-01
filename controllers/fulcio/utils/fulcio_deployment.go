@@ -16,6 +16,9 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 	if instance.Status.ServerConfigRef == nil {
 		return nil, errors.New("server config ref is not specified")
 	}
+	if instance.Status.Certificate == nil {
+		return nil, errors.New("certificate config is not specified")
+	}
 	if instance.Status.Certificate.PrivateKeyRef == nil {
 		return nil, errors.New("private key secret is not specified")
 	}
