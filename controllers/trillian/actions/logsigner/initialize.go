@@ -46,6 +46,6 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tr
 		return i.StatusUpdate(ctx, instance)
 	}
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: actions.SignerCondition,
-		Status: metav1.ConditionTrue, Reason: constants.Ready, Message: "Logsigner is ready"})
+		Status: metav1.ConditionTrue, Reason: constants.Ready})
 	return i.StatusUpdate(ctx, instance)
 }

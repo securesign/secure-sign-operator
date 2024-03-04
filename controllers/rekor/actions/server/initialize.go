@@ -69,10 +69,9 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Re
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:    actions.ServerCondition,
-		Status:  metav1.ConditionTrue,
-		Reason:  constants.Ready,
-		Message: "Deployment ready",
+		Type:   actions.ServerCondition,
+		Status: metav1.ConditionTrue,
+		Reason: constants.Ready,
 	})
 	return i.Continue()
 }

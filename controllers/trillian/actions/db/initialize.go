@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+
 	"github.com/securesign/operator/controllers/common/utils"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -48,6 +49,6 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tr
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: actions.DbCondition,
-		Status: metav1.ConditionTrue, Reason: constants.Ready, Message: "Db ready"})
+		Status: metav1.ConditionTrue, Reason: constants.Ready})
 	return i.StatusUpdate(ctx, instance)
 }
