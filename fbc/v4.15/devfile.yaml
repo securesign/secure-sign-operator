@@ -1,7 +1,7 @@
 schemaVersion: 2.2.0
 metadata:
-  name: fbc-v4.12
-  displayName: FBC v4.12
+  name: fbc-v4.15
+  displayName: FBC v4.15
   description: 'File based catalog'
   language: fbc
   provider: Red Hat
