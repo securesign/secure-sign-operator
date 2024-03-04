@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"sort"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
@@ -27,19 +28,16 @@ func (i updateStatusAction) CanHandle(ctx context.Context, instance *rhtasv1alph
 }
 
 func (i updateStatusAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
-	for _, conditionType := range []string{TrillianCondition, FulcioCondition, RekorCondition, CTlogCondition, TufCondition} {
-		c := meta.FindStatusCondition(instance.Status.Conditions, conditionType)
-		if c.Status != v1.ConditionTrue {
-			meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
-				Type:    constants.Ready,
-				Status:  c.Status,
-				Reason:  c.Reason,
-				Message: c.Message,
-			})
-			return i.StatusUpdate(ctx, instance)
-		}
-	}
+	sorted := sortByStatus(instance.Status.Conditions)
 
+	if !meta.IsStatusConditionTrue(instance.Status.Conditions, sorted[0]) {
+		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
+			Type:   constants.Ready,
+			Status: v1.ConditionFalse,
+			Reason: meta.FindStatusCondition(instance.Status.Conditions, sorted[0]).Reason,
+		})
+		return i.StatusUpdate(ctx, instance)
+	}
 	if !meta.IsStatusConditionTrue(instance.Status.Conditions, constants.Ready) {
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 			Type:   constants.Ready,
@@ -49,4 +47,23 @@ func (i updateStatusAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 		return i.StatusUpdate(ctx, instance)
 	}
 	return i.Continue()
+}
+
+func sortByStatus(conditions []v1.Condition) []string {
+	sorted := []string{TrillianCondition, FulcioCondition, RekorCondition, CTlogCondition, TufCondition}
+	sort.SliceStable(sorted, func(i, j int) bool {
+		iCondition := meta.FindStatusCondition(conditions, sorted[i])
+		jCondition := meta.FindStatusCondition(conditions, sorted[j])
+		switch iCondition.Reason {
+		case constants.Initialize:
+			return jCondition.Reason == constants.Ready
+		case constants.Creating:
+			return jCondition.Reason == constants.Ready || jCondition.Reason == constants.Initialize
+		case constants.Pending:
+			return jCondition.Reason == constants.Ready || jCondition.Reason == constants.Initialize || jCondition.Reason == constants.Creating
+		default:
+			return true
+		}
+	})
+	return sorted
 }

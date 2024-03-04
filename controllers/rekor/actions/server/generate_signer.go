@@ -158,6 +158,11 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 		Reason:  constants.Creating,
 		Message: "Signer resolved",
 	})
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:   actions.SignerCondition,
+		Status: metav1.ConditionTrue,
+		Reason: constants.Ready,
+	})
 	return g.StatusUpdate(ctx, instance)
 }
 

@@ -47,6 +47,6 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tr
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: actions.ServerCondition,
-		Status: metav1.ConditionTrue, Reason: constants.Ready, Message: "Logserver is ready"})
+		Status: metav1.ConditionTrue, Reason: constants.Ready})
 	return i.StatusUpdate(ctx, instance)
 }

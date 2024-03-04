@@ -18,8 +18,9 @@ package rekor
 
 import (
 	"context"
-	"github.com/securesign/operator/controllers/common/utils"
 	"time"
+
+	"github.com/securesign/operator/controllers/common/utils"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
