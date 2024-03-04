@@ -34,7 +34,9 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 			Name: "rekor-sharding-config",
 			VolumeSource: core.VolumeSource{
 				ConfigMap: &core.ConfigMapVolumeSource{
-					LocalObjectReference: *instance.Status.ServerConfigRef,
+					LocalObjectReference: core.LocalObjectReference{
+						Name: instance.Status.ServerConfigRef.Name,
+					},
 				},
 			},
 		},

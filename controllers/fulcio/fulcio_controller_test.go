@@ -109,7 +109,7 @@ var _ = Describe("Fulcio controller", func() {
 							OrganizationEmail: "my@email.com",
 							CommonName:        "local",
 							PrivateKeyPasswordRef: &v1alpha1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{
+								LocalObjectReference: v1alpha1.LocalObjectReference{
 									Name: "password-secret",
 								},
 								Key: "password",

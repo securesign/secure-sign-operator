@@ -102,7 +102,7 @@ var _ = Describe("TUF controller", func() {
 							{
 								Name: "fulcio_v1.crt.pem",
 								SecretRef: &v1alpha1.SecretKeySelector{
-									LocalObjectReference: corev1.LocalObjectReference{
+									LocalObjectReference: v1alpha1.LocalObjectReference{
 										Name: "fulcio-pub-key",
 									},
 									Key: "cert",
@@ -114,7 +114,7 @@ var _ = Describe("TUF controller", func() {
 							{
 								Name: "rekor.pub",
 								SecretRef: &v1alpha1.SecretKeySelector{
-									LocalObjectReference: corev1.LocalObjectReference{
+									LocalObjectReference: v1alpha1.LocalObjectReference{
 										Name: "rekor-pub-key",
 									},
 									Key: "public",

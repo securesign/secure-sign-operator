@@ -129,7 +129,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 	if instance.Spec.Certificate.PrivateKeyRef == nil {
 		instance.Status.Certificate.PrivateKeyRef = &v1alpha1.SecretKeySelector{
 			Key: "private",
-			LocalObjectReference: v1.LocalObjectReference{
+			LocalObjectReference: v1alpha1.LocalObjectReference{
 				Name: newCert.Name,
 			},
 		}
@@ -138,7 +138,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 	if instance.Spec.Certificate.PrivateKeyPasswordRef == nil && len(cert.PrivateKeyPassword) > 0 {
 		instance.Status.Certificate.PrivateKeyPasswordRef = &v1alpha1.SecretKeySelector{
 			Key: "password",
-			LocalObjectReference: v1.LocalObjectReference{
+			LocalObjectReference: v1alpha1.LocalObjectReference{
 				Name: newCert.Name,
 			},
 		}
@@ -147,7 +147,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 	if instance.Spec.Certificate.CARef == nil {
 		instance.Status.Certificate.CARef = &v1alpha1.SecretKeySelector{
 			Key: "cert",
-			LocalObjectReference: v1.LocalObjectReference{
+			LocalObjectReference: v1alpha1.LocalObjectReference{
 				Name: newCert.Name,
 			},
 		}

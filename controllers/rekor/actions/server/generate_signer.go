@@ -137,7 +137,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 	if instance.Spec.Signer.KeyRef == nil {
 		instance.Status.Signer.KeyRef = &v1alpha1.SecretKeySelector{
 			Key: "private",
-			LocalObjectReference: v1.LocalObjectReference{
+			LocalObjectReference: v1alpha1.LocalObjectReference{
 				Name: secret.Name,
 			},
 		}
@@ -145,7 +145,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 	if _, ok := secret.Data["password"]; instance.Spec.Signer.PasswordRef == nil && ok {
 		instance.Status.Signer.PasswordRef = &v1alpha1.SecretKeySelector{
 			Key: "password",
-			LocalObjectReference: v1.LocalObjectReference{
+			LocalObjectReference: v1alpha1.LocalObjectReference{
 				Name: secret.Name,
 			},
 		}

@@ -91,8 +91,10 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, opensh
 									Name: "MYSQL_USER",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key:                  "mysql-user",
-											LocalObjectReference: *instance.Status.Db.DatabaseSecretRef,
+											Key: "mysql-user",
+											LocalObjectReference: core.LocalObjectReference{
+												Name: instance.Status.Db.DatabaseSecretRef.Name,
+											},
 										},
 									},
 								},
@@ -100,8 +102,10 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, opensh
 									Name: "MYSQL_PASSWORD",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key:                  "mysql-password",
-											LocalObjectReference: *instance.Status.Db.DatabaseSecretRef,
+											Key: "mysql-password",
+											LocalObjectReference: core.LocalObjectReference{
+												Name: instance.Status.Db.DatabaseSecretRef.Name,
+											},
 										},
 									},
 								},
@@ -109,8 +113,10 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, opensh
 									Name: "MYSQL_ROOT_PASSWORD",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key:                  "mysql-root-password",
-											LocalObjectReference: *instance.Status.Db.DatabaseSecretRef,
+											Key: "mysql-root-password",
+											LocalObjectReference: core.LocalObjectReference{
+												Name: instance.Status.Db.DatabaseSecretRef.Name,
+											},
 										},
 									},
 								},
@@ -118,8 +124,10 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, opensh
 									Name: "MYSQL_PORT",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key:                  "mysql-port",
-											LocalObjectReference: *instance.Status.Db.DatabaseSecretRef,
+											Key: "mysql-port",
+											LocalObjectReference: core.LocalObjectReference{
+												Name: instance.Status.Db.DatabaseSecretRef.Name,
+											},
 										},
 									},
 								},
@@ -127,8 +135,10 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, opensh
 									Name: "MYSQL_DATABASE",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key:                  "mysql-database",
-											LocalObjectReference: *instance.Status.Db.DatabaseSecretRef,
+											Key: "mysql-database",
+											LocalObjectReference: core.LocalObjectReference{
+												Name: instance.Status.Db.DatabaseSecretRef.Name,
+											},
 										},
 									},
 								},

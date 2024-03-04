@@ -151,7 +151,7 @@ var _ = Describe("Rekor hot update test", func() {
 			By("Patch the signer key")
 			Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 			found.Spec.Signer.KeyRef = &v1alpha1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
+				LocalObjectReference: v1alpha1.LocalObjectReference{
 					Name: "key-secret",
 				},
 				Key: "private",

@@ -9,7 +9,6 @@ import (
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/rekor/actions"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -67,7 +66,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		return i.FailedWithStatusUpdate(ctx, err, instance)
 	}
 
-	instance.Status.ServerConfigRef = &corev1.LocalObjectReference{Name: newConfig.Name}
+	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:    actions.ServerCondition,

@@ -6,7 +6,6 @@ import (
 	"github.com/securesign/operator/controllers/common/utils"
 	"golang.org/x/net/context"
 	_ "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -228,13 +227,13 @@ var _ = Describe("Rekor", func() {
 							Signer: RekorSigner{
 								KMS: "secret",
 								KeyRef: &SecretKeySelector{
-									LocalObjectReference: corev1.LocalObjectReference{
+									LocalObjectReference: LocalObjectReference{
 										Name: "secret",
 									},
 									Key: "key",
 								},
 								PasswordRef: &SecretKeySelector{
-									LocalObjectReference: corev1.LocalObjectReference{
+									LocalObjectReference: LocalObjectReference{
 										Name: "secret",
 									},
 									Key: "key",

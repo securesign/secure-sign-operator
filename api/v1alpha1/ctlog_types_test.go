@@ -5,7 +5,6 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
 	_ "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -48,7 +47,7 @@ var _ = Describe("CTlog", func() {
 				invalidObject := generateCTlogObject("public-key-invalid")
 				invalidObject.Spec.PublicKeyRef = &SecretKeySelector{
 					Key:                  "key",
-					LocalObjectReference: corev1.LocalObjectReference{Name: "name"},
+					LocalObjectReference: LocalObjectReference{Name: "name"},
 				}
 
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
@@ -60,7 +59,7 @@ var _ = Describe("CTlog", func() {
 				invalidObject := generateCTlogObject("private-key-password-invalid")
 				invalidObject.Spec.PublicKeyRef = &SecretKeySelector{
 					Key:                  "key",
-					LocalObjectReference: corev1.LocalObjectReference{Name: "name"},
+					LocalObjectReference: LocalObjectReference{Name: "name"},
 				}
 
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
@@ -108,26 +107,26 @@ var _ = Describe("CTlog", func() {
 							TreeID: &tree,
 							PublicKeyRef: &SecretKeySelector{
 								Key: "key",
-								LocalObjectReference: corev1.LocalObjectReference{
+								LocalObjectReference: LocalObjectReference{
 									Name: "name",
 								},
 							},
 							PrivateKeyRef: &SecretKeySelector{
 								Key: "key",
-								LocalObjectReference: corev1.LocalObjectReference{
+								LocalObjectReference: LocalObjectReference{
 									Name: "name",
 								},
 							},
 							PrivateKeyPasswordRef: &SecretKeySelector{
 								Key: "key",
-								LocalObjectReference: corev1.LocalObjectReference{
+								LocalObjectReference: LocalObjectReference{
 									Name: "name",
 								},
 							},
 							RootCertificates: []SecretKeySelector{
 								{
 									Key: "key",
-									LocalObjectReference: corev1.LocalObjectReference{
+									LocalObjectReference: LocalObjectReference{
 										Name: "name",
 									},
 								},

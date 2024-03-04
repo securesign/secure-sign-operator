@@ -115,7 +115,7 @@ var _ = Describe("Trillian controller", func() {
 			found := &v1alpha1.Trillian{}
 
 			By("Database secret created")
-			Eventually(func() *corev1.LocalObjectReference {
+			Eventually(func() *v1alpha1.LocalObjectReference {
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Db.DatabaseSecretRef
 			}, time.Minute, time.Second).Should(Not(BeNil()))

@@ -18,13 +18,13 @@ package ctlog
 
 import (
 	"context"
+	"github.com/securesign/operator/controllers/ctlog/utils"
 	"time"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/ctlog/actions"
-	"github.com/securesign/operator/controllers/ctlog/utils"
 	fulcio "github.com/securesign/operator/controllers/fulcio/actions"
 	trillian "github.com/securesign/operator/controllers/trillian/actions"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -163,20 +163,21 @@ var _ = Describe("CTlog update test", func() {
 			}, time.Minute, time.Second).Should(BeFalse())
 
 			By("Private key has changed")
+			key, err := utils.CreatePrivateKey()
+			Expect(err).To(Not(HaveOccurred()))
+			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("key-secret", Namespace,
+				map[string][]byte{"private": key.PrivateKey}, constants.LabelsFor(actions.ComponentName, Name, instance.Name)))).To(Succeed())
+
 			k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
 			found := &v1alpha1.CTlog{}
 			Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 			found.Spec.PrivateKeyRef = &v1alpha1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
+				LocalObjectReference: v1alpha1.LocalObjectReference{
 					Name: "key-secret",
 				},
 				Key: "private",
 			}
 			Expect(k8sClient.Update(ctx, found)).To(Succeed())
-			key, err := utils.CreatePrivateKey()
-			Expect(err).To(Not(HaveOccurred()))
-			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("key-secret", Namespace,
-				map[string][]byte{"private": key.PrivateKey}, constants.LabelsFor(actions.ComponentName, Name, instance.Name)))).To(Succeed())
 
 			By("CTLog status field changed")
 			Eventually(func() string {

@@ -112,19 +112,19 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 			Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(securesign), securesign)).To(Succeed())
 			securesign.Spec.Fulcio.Certificate = v1alpha1.FulcioCert{
 				PrivateKeyRef: &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1.LocalObjectReference{
+					LocalObjectReference: v1alpha1.LocalObjectReference{
 						Name: "my-fulcio-secret",
 					},
 					Key: "private",
 				},
 				PrivateKeyPasswordRef: &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1.LocalObjectReference{
+					LocalObjectReference: v1alpha1.LocalObjectReference{
 						Name: "my-fulcio-secret",
 					},
 					Key: "password",
 				},
 				CARef: &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1.LocalObjectReference{
+					LocalObjectReference: v1alpha1.LocalObjectReference{
 						Name: "my-fulcio-secret",
 					},
 					Key: "cert",
@@ -208,7 +208,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 			securesign.Spec.Rekor.Signer = v1alpha1.RekorSigner{
 				KMS: "secret",
 				KeyRef: &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1.LocalObjectReference{
+					LocalObjectReference: v1alpha1.LocalObjectReference{
 						Name: "my-rekor-secret",
 					},
 					Key: "private",
@@ -248,13 +248,13 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 		It("Pods are restarted after update", func() {
 			Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(securesign), securesign)).To(Succeed())
 			securesign.Spec.Ctlog.PrivateKeyRef = &v1alpha1.SecretKeySelector{
-				LocalObjectReference: v1.LocalObjectReference{
+				LocalObjectReference: v1alpha1.LocalObjectReference{
 					Name: "my-ctlog-secret",
 				},
 				Key: "private",
 			}
 			securesign.Spec.Ctlog.PublicKeyRef = &v1alpha1.SecretKeySelector{
-				LocalObjectReference: v1.LocalObjectReference{
+				LocalObjectReference: v1alpha1.LocalObjectReference{
 					Name: "my-ctlog-secret",
 				},
 				Key: "public",

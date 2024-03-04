@@ -100,7 +100,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		return i.FailedWithStatusUpdate(ctx, err, instance)
 	}
 
-	instance.Status.ServerConfigRef = &corev1.LocalObjectReference{Name: newConfig.Name}
+	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
 
 	i.Recorder.Event(instance, corev1.EventTypeNormal, "CTLogConfigUpdated", "CTLog config updated")
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
