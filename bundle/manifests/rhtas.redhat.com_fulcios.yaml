@@ -112,6 +112,11 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                 type: object
+                x-kubernetes-validations:
+                - message: commonName cannot be empty
+                  rule: (has(self.caRef) || self.commonName != "")
+                - message: privateKeyRef cannot be empty
+                  rule: (!has(self.caRef) || has(self.privateKeyRef))
               config:
                 properties:
                   MetaIssuers:
@@ -199,7 +204,10 @@ spec:
                       - ClientID
                       - Type
                       type: object
+                    minProperties: 1
                     type: object
+                required:
+                - OIDCIssuers
                 type: object
               externalAccess:
                 description: Define whether you want to export service or not
@@ -233,6 +241,7 @@ spec:
                 - enabled
                 type: object
             required:
+            - certificate
             - config
             type: object
           status:
@@ -302,6 +311,11 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                 type: object
+                x-kubernetes-validations:
+                - message: commonName cannot be empty
+                  rule: (has(self.caRef) || self.commonName != "")
+                - message: privateKeyRef cannot be empty
+                  rule: (!has(self.caRef) || has(self.privateKeyRef))
               conditions:
                 items:
                   description: "Condition contains details for one aspect of the current

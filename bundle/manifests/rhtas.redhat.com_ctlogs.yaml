@@ -125,10 +125,17 @@ spec:
                   x-kubernetes-map-type: atomic
                 type: array
               treeID:
-                description: The ID of a Trillian tree that stores the log data.
+                description: |-
+                  The ID of a Trillian tree that stores the log data.
+                  If it is unset, the operator will create new Merkle tree in the Trillian backend
                 format: int64
                 type: integer
             type: object
+            x-kubernetes-validations:
+            - message: privateKeyRef cannot be empty
+              rule: (!has(self.publicKeyRef) || has(self.privateKeyRef))
+            - message: privateKeyRef cannot be empty
+              rule: (!has(self.privateKeyPasswordRef) || has(self.privateKeyRef))
           status:
             description: CTlogStatus defines the observed state of CTlog component
             properties:
