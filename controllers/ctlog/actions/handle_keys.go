@@ -130,7 +130,7 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 	if instance.Spec.PrivateKeyRef == nil {
 		instance.Status.PrivateKeyRef = &v1alpha1.SecretKeySelector{
 			Key: "private",
-			LocalObjectReference: v1.LocalObjectReference{
+			LocalObjectReference: v1alpha1.LocalObjectReference{
 				Name: secret.Name,
 			},
 		}
@@ -141,7 +141,7 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 	if _, ok := data["password"]; instance.Spec.PrivateKeyPasswordRef == nil && ok {
 		instance.Status.PrivateKeyPasswordRef = &v1alpha1.SecretKeySelector{
 			Key: "password",
-			LocalObjectReference: v1.LocalObjectReference{
+			LocalObjectReference: v1alpha1.LocalObjectReference{
 				Name: secret.Name,
 			},
 		}
@@ -152,7 +152,7 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 	if instance.Spec.PublicKeyRef == nil {
 		instance.Status.PublicKeyRef = &v1alpha1.SecretKeySelector{
 			Key: "public",
-			LocalObjectReference: v1.LocalObjectReference{
+			LocalObjectReference: v1alpha1.LocalObjectReference{
 				Name: secret.Name,
 			},
 		}

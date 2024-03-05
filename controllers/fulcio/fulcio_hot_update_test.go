@@ -143,7 +143,7 @@ var _ = Describe("Fulcio hot update", func() {
 			By("Key rotation")
 			Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 			found.Spec.Certificate.PrivateKeyPasswordRef = &v1alpha1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
+				LocalObjectReference: v1alpha1.LocalObjectReference{
 					Name: "password-secret",
 				},
 				Key: "password",

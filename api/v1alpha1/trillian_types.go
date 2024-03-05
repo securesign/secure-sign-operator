@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -41,7 +40,7 @@ type TrillianDB struct {
 	// mysql-password: The password to connect to the MySQL server
 	// mysql-database: The database to connect to
 	//+optional
-	DatabaseSecretRef *v1.LocalObjectReference `json:"databaseSecretRef,omitempty"`
+	DatabaseSecretRef *LocalObjectReference `json:"databaseSecretRef,omitempty"`
 	// PVC configuration
 	//+kubebuilder:default:={size: "5Gi", retain: true}
 	Pvc Pvc `json:"pvc,omitempty"`

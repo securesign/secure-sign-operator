@@ -143,7 +143,9 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 							Name: "fulcio-config",
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: *instance.Status.ServerConfigRef,
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: instance.Status.ServerConfigRef.Name,
+									},
 								},
 							},
 						},

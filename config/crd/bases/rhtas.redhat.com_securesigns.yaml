@@ -65,16 +65,16 @@ spec:
                       key:
                         description: The key of the secret to select from. Must be
                           a valid secret key.
-                        pattern: '[-._a-zA-Z0-9]+'
+                        pattern: ^[-._a-zA-Z0-9]+$
                         type: string
                       name:
                         description: |-
                           Name of the referent.
                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?
                         type: string
                     required:
                     - key
+                    - name
                     type: object
                     x-kubernetes-map-type: atomic
                   privateKeyRef:
@@ -83,16 +83,16 @@ spec:
                       key:
                         description: The key of the secret to select from. Must be
                           a valid secret key.
-                        pattern: '[-._a-zA-Z0-9]+'
+                        pattern: ^[-._a-zA-Z0-9]+$
                         type: string
                       name:
                         description: |-
                           Name of the referent.
                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?
                         type: string
                     required:
                     - key
+                    - name
                     type: object
                     x-kubernetes-map-type: atomic
                   publicKeyRef:
@@ -104,16 +104,16 @@ spec:
                       key:
                         description: The key of the secret to select from. Must be
                           a valid secret key.
-                        pattern: '[-._a-zA-Z0-9]+'
+                        pattern: ^[-._a-zA-Z0-9]+$
                         type: string
                       name:
                         description: |-
                           Name of the referent.
                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?
                         type: string
                     required:
                     - key
+                    - name
                     type: object
                     x-kubernetes-map-type: atomic
                   rootCertificates:
@@ -126,16 +126,16 @@ spec:
                         key:
                           description: The key of the secret to select from. Must
                             be a valid secret key.
-                          pattern: '[-._a-zA-Z0-9]+'
+                          pattern: ^[-._a-zA-Z0-9]+$
                           type: string
                         name:
                           description: |-
                             Name of the referent.
                             More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            TODO: Add other useful fields. apiVersion, kind, uid?
                           type: string
                       required:
                       - key
+                      - name
                       type: object
                       x-kubernetes-map-type: atomic
                     type: array
@@ -163,16 +163,16 @@ spec:
                           key:
                             description: The key of the secret to select from. Must
                               be a valid secret key.
-                            pattern: '[-._a-zA-Z0-9]+'
+                            pattern: ^[-._a-zA-Z0-9]+$
                             type: string
                           name:
                             description: |-
                               Name of the referent.
                               More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              TODO: Add other useful fields. apiVersion, kind, uid?
                             type: string
                         required:
                         - key
+                        - name
                         type: object
                         x-kubernetes-map-type: atomic
                       commonName:
@@ -187,16 +187,16 @@ spec:
                           key:
                             description: The key of the secret to select from. Must
                               be a valid secret key.
-                            pattern: '[-._a-zA-Z0-9]+'
+                            pattern: ^[-._a-zA-Z0-9]+$
                             type: string
                           name:
                             description: |-
                               Name of the referent.
                               More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              TODO: Add other useful fields. apiVersion, kind, uid?
                             type: string
                         required:
                         - key
+                        - name
                         type: object
                         x-kubernetes-map-type: atomic
                       privateKeyRef:
@@ -205,16 +205,16 @@ spec:
                           key:
                             description: The key of the secret to select from. Must
                               be a valid secret key.
-                            pattern: '[-._a-zA-Z0-9]+'
+                            pattern: ^[-._a-zA-Z0-9]+$
                             type: string
                           name:
                             description: |-
                               Name of the referent.
                               More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              TODO: Add other useful fields. apiVersion, kind, uid?
                             type: string
                         required:
                         - key
+                        - name
                         type: object
                         x-kubernetes-map-type: atomic
                     type: object
@@ -467,16 +467,16 @@ spec:
                           key:
                             description: The key of the secret to select from. Must
                               be a valid secret key.
-                            pattern: '[-._a-zA-Z0-9]+'
+                            pattern: ^[-._a-zA-Z0-9]+$
                             type: string
                           name:
                             description: |-
                               Name of the referent.
                               More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              TODO: Add other useful fields. apiVersion, kind, uid?
                             type: string
                         required:
                         - key
+                        - name
                         type: object
                         x-kubernetes-map-type: atomic
                       kms:
@@ -491,16 +491,16 @@ spec:
                           key:
                             description: The key of the secret to select from. Must
                               be a valid secret key.
-                            pattern: '[-._a-zA-Z0-9]+'
+                            pattern: ^[-._a-zA-Z0-9]+$
                             type: string
                           name:
                             description: |-
                               Name of the referent.
                               More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              TODO: Add other useful fields. apiVersion, kind, uid?
                             type: string
                         required:
                         - key
+                        - name
                         type: object
                         x-kubernetes-map-type: atomic
                     type: object
@@ -543,8 +543,9 @@ spec:
                             description: |-
                               Name of the referent.
                               More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              TODO: Add other useful fields. apiVersion, kind, uid?
                             type: string
+                        required:
+                        - name
                         type: object
                         x-kubernetes-map-type: atomic
                       pvc:
@@ -638,16 +639,16 @@ spec:
                             key:
                               description: The key of the secret to select from. Must
                                 be a valid secret key.
-                              pattern: '[-._a-zA-Z0-9]+'
+                              pattern: ^[-._a-zA-Z0-9]+$
                               type: string
                             name:
                               description: |-
                                 Name of the referent.
                                 More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                TODO: Add other useful fields. apiVersion, kind, uid?
                               type: string
                           required:
                           - key
+                          - name
                           type: object
                           x-kubernetes-map-type: atomic
                       required:

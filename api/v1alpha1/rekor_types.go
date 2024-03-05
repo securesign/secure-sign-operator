@@ -1,7 +1,6 @@
 package v1alpha1
 
 import (
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -63,11 +62,11 @@ type BackFillRedis struct {
 
 // RekorStatus defines the observed state of Rekor
 type RekorStatus struct {
-	ServerConfigRef  *v1.LocalObjectReference `json:"serverConfigRef,omitempty"`
-	Signer           RekorSigner              `json:"signer,omitempty"`
-	PvcName          string                   `json:"pvcName,omitempty"`
-	Url              string                   `json:"url,omitempty"`
-	RekorSearchUIUrl string                   `json:"rekorSearchUIUrl,omitempty"`
+	ServerConfigRef  *LocalObjectReference `json:"serverConfigRef,omitempty"`
+	Signer           RekorSigner           `json:"signer,omitempty"`
+	PvcName          string                `json:"pvcName,omitempty"`
+	Url              string                `json:"url,omitempty"`
+	RekorSearchUIUrl string                `json:"rekorSearchUIUrl,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge

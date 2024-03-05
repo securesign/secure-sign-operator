@@ -10,7 +10,6 @@ import (
 	"github.com/securesign/operator/controllers/common/action"
 	k8sutils "github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/constants"
-	v12 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -124,7 +123,7 @@ func (i resolveKeysAction) discoverSecret(ctx context.Context, namespace string,
 		}
 		return &rhtasv1alpha1.SecretKeySelector{
 			Key: keySelector,
-			LocalObjectReference: v12.LocalObjectReference{
+			LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
 				Name: s.Name,
 			},
 		}, nil

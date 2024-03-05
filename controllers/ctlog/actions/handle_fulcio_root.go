@@ -43,7 +43,7 @@ func (g handleFulcioCert) CanHandle(ctx context.Context, instance *v1alpha1.CTlo
 
 	if scr, _ := k8sutils.FindSecret(ctx, g.Client, instance.Namespace, actions.FulcioCALabel); scr != nil {
 		return !slices.Contains(instance.Status.RootCertificates, v1alpha1.SecretKeySelector{
-			LocalObjectReference: v1.LocalObjectReference{Name: scr.Name},
+			LocalObjectReference: v1alpha1.LocalObjectReference{Name: scr.Name},
 			Key:                  scr.Labels[actions.FulcioCALabel],
 		})
 	}
@@ -78,7 +78,7 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) 
 	}
 
 	instance.Status.RootCertificates = append(instance.Spec.RootCertificates, v1alpha1.SecretKeySelector{
-		LocalObjectReference: v1.LocalObjectReference{
+		LocalObjectReference: v1alpha1.LocalObjectReference{
 			Name: scr.Name,
 		},
 		Key: scr.Labels[actions.FulcioCALabel],
