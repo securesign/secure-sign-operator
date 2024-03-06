@@ -190,7 +190,7 @@ func (g generateSigner) CreateRekorKey(instance *v1alpha1.Rekor) (*RekorCertConf
 		return config, nil
 	}
 
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 	if err != nil {
 		return nil, err
 	}

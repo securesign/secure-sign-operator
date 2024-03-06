@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"slices"
 
 	"github.com/securesign/operator/api/v1alpha1"
@@ -92,7 +93,9 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) 
 				Namespace: instance.Namespace,
 			},
 		}); err != nil {
-			return g.Failed(err)
+			if !k8sErrors.IsNotFound(err) {
+				return g.Failed(err)
+			}
 		}
 		instance.Status.ServerConfigRef = nil
 	}

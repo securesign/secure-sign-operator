@@ -355,14 +355,14 @@ func initCertificates(passwordProtected bool) ([]byte, []byte, []byte, error) {
 	}
 	//Create certificate templet
 	template := x509.Certificate{
-		SerialNumber:          big.NewInt(0),
+		SerialNumber:          big.NewInt(1),
 		Subject:               issuer,
 		SignatureAlgorithm:    x509.ECDSAWithSHA256,
 		NotBefore:             notBefore,
 		NotAfter:              notAfter,
 		BasicConstraintsValid: true,
 		IsCA:                  true,
-		KeyUsage:              x509.KeyUsageCertSign,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
 		Issuer:                issuer,
 	}
 	//Create certificate using templet

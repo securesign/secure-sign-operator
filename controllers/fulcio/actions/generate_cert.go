@@ -183,7 +183,7 @@ func (g handleCert) setupCert(instance *v1alpha1.Fulcio) (*utils.FulcioCertConfi
 		}
 		config.PrivateKey = key
 	} else {
-		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 		if err != nil {
 			return nil, err
 		}

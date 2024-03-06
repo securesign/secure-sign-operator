@@ -229,7 +229,8 @@ func generateFulcioObject(name string) *Fulcio {
 				},
 			},
 			Certificate: FulcioCert{
-				CommonName: "hostname",
+				CommonName:       "hostname",
+				OrganizationName: "organization",
 			},
 		},
 	}
