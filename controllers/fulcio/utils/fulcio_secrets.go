@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -81,8 +82,8 @@ func CreateCAPub(key crypto.PublicKey) ([]byte, error) {
 func CreateFulcioCA(config *FulcioCertConfig, instance *rhtasv1alpha1.Fulcio) ([]byte, error) {
 	var err error
 
-	if instance.Spec.Certificate.CommonName == "" || instance.Spec.Certificate.OrganizationEmail == "" || instance.Spec.Certificate.OrganizationName == "" {
-		return nil, fmt.Errorf("could not create certificate: missing OrganizationName, OrganizationEmail or CommonName from config")
+	if instance.Spec.Certificate.CommonName == "" || instance.Spec.Certificate.OrganizationName == "" {
+		return nil, fmt.Errorf("could not create certificate: missing OrganizationName or CommonName from config")
 	}
 
 	block, _ := pem.Decode(config.PrivateKey)
@@ -107,14 +108,25 @@ func CreateFulcioCA(config *FulcioCertConfig, instance *rhtasv1alpha1.Fulcio) ([
 		Organization: []string{instance.Spec.Certificate.OrganizationName},
 	}
 
+	serialNumber, err := GenerateSerialNumber()
+	if err != nil {
+		return nil, err
+	}
+
+	emailAddresses := make([]string, 0)
+
+	if instance.Spec.Certificate.OrganizationEmail != "" {
+		emailAddresses = append(emailAddresses, instance.Spec.Certificate.OrganizationEmail)
+	}
+
 	template := x509.Certificate{
-		SerialNumber:          big.NewInt(0),
+		SerialNumber:          serialNumber,
 		Subject:               issuer,
-		EmailAddresses:        []string{instance.Spec.Certificate.OrganizationEmail},
-		SignatureAlgorithm:    x509.ECDSAWithSHA256,
+		EmailAddresses:        emailAddresses,
+		SignatureAlgorithm:    x509.ECDSAWithSHA384,
 		BasicConstraintsValid: true,
 		IsCA:                  true,
-		KeyUsage:              x509.KeyUsageCertSign,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
 		Issuer:                issuer,
 		NotBefore:             notBefore,
 		NotAfter:              notAfter,
@@ -135,4 +147,17 @@ func CreateFulcioCA(config *FulcioCertConfig, instance *rhtasv1alpha1.Fulcio) ([
 	}
 
 	return pemFulcioRoot.Bytes(), nil
+}
+
+// GenerateSerialNumber creates a compliant serial number as per RFC 5280 4.1.2.2.
+// Serial numbers must be positive, and can be no longer than 20 bytes.
+// The serial number is generated with 159 bits, so that the first bit will always
+// be 0, resulting in a positive serial number.
+func GenerateSerialNumber() (*big.Int, error) {
+	// Pick a random number from 0 to 2^159.
+	serial, err := rand.Int(rand.Reader, (&big.Int{}).Exp(big.NewInt(2), big.NewInt(159), nil))
+	if err != nil {
+		return nil, errors.New("error generating serial number")
+	}
+	return serial, nil
 }

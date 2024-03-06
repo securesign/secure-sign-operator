@@ -115,6 +115,8 @@ spec:
                 x-kubernetes-validations:
                 - message: commonName cannot be empty
                   rule: (has(self.caRef) || self.commonName != "")
+                - message: organizationName cannot be empty
+                  rule: (has(self.caRef) || self.organizationName != "")
                 - message: privateKeyRef cannot be empty
                   rule: (!has(self.caRef) || has(self.privateKeyRef))
               config:
@@ -314,6 +316,8 @@ spec:
                 x-kubernetes-validations:
                 - message: commonName cannot be empty
                   rule: (has(self.caRef) || self.commonName != "")
+                - message: organizationName cannot be empty
+                  rule: (has(self.caRef) || self.organizationName != "")
                 - message: privateKeyRef cannot be empty
                   rule: (!has(self.caRef) || has(self.privateKeyRef))
               conditions:

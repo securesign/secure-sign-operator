@@ -21,6 +21,7 @@ type FulcioSpec struct {
 
 // FulcioCert defines fields for system-generated certificate
 // +kubebuilder:validation:XValidation:rule=(has(self.caRef) || self.commonName != ""),message=commonName cannot be empty
+// +kubebuilder:validation:XValidation:rule=(has(self.caRef) || self.organizationName != ""),message=organizationName cannot be empty
 // +kubebuilder:validation:XValidation:rule=(!has(self.caRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
 type FulcioCert struct {
 	// Reference to CA private key
