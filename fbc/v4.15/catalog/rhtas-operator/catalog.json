@@ -196,7 +196,7 @@
     "schema": "olm.bundle",
     "name": "rhtas-operator.v1.0.0",
     "package": "rhtas-operator",
-    "image": "quay.io/redhat-user-workloads/rhtas-tenant/operator/rhtas-operator-bundle@sha256:f033df3e7f5e7c2743533fbac27801a4be8cfaf78578b63797b46aaee94bae89",
+    "image": "quay.io/redhat-user-workloads/rhtas-tenant/operator/rhtas-operator-bundle@sha256:6f1c1703060698779d04e4964a864d259ad468f514ce7fc21a2eb8f44299bbdb",
     "properties": [
         {
             "type": "olm.gvk",
@@ -315,11 +315,11 @@
         },
         {
             "name": "",
-            "image": "quay.io/redhat-user-workloads/rhtas-tenant/operator/rhtas-operator-bundle@sha256:f033df3e7f5e7c2743533fbac27801a4be8cfaf78578b63797b46aaee94bae89"
+            "image": "quay.io/redhat-user-workloads/rhtas-tenant/operator/rhtas-operator-bundle@sha256:6f1c1703060698779d04e4964a864d259ad468f514ce7fc21a2eb8f44299bbdb"
         },
         {
             "name": "",
-            "image": "registry.redhat.io/rhtas-tech-preview/sigstore-rhel9-operator@sha256:e4a077015f43fb343d8b13739f08d90e9e9229dc0e3a90e42f72a33dbacd979e"
+            "image": "quay.io/redhat-user-workloads/rhtas-tenant/operator/rhtas-operator@sha256:e550dad4a7299118fe220cd4c145c6e2deee75d2e28e41525f9dc2fb6c9f7508"
         },
         {
             "name": "",
