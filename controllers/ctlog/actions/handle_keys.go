@@ -3,7 +3,6 @@ package actions
 import (
 	"context"
 	"fmt"
-
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
 	k8sutils "github.com/securesign/operator/controllers/common/utils/kubernetes"
@@ -11,6 +10,7 @@ import (
 	"github.com/securesign/operator/controllers/ctlog/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -168,7 +168,9 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 				Namespace: instance.Namespace,
 			},
 		}); err != nil {
-			return g.Failed(err)
+			if !k8sErrors.IsNotFound(err) {
+				return g.Failed(err)
+			}
 		}
 		instance.Status.ServerConfigRef = nil
 	}
