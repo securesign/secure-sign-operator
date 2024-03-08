@@ -160,7 +160,7 @@
         },
         {
             "name": "",
-            "image": "registry.redhat.io/rhtas-tech-preview/trillian-netcat-rhel9@sha256:c4c5a553ea96b2bf98434d9fb21d0a1bf5649b85daa02698748cef89b88c2471"
+            "image": "registry.redhat.io/openshift4/ose-tools-rhel8@sha256:486b4d2dd0d10c5ef0212714c94334e04fe8a3d36cf619881986201a50f123c7"
         },
         {
             "name": "",
@@ -335,7 +335,7 @@
         },
         {
             "name": "",
-            "image": "quay.io/redhat-user-workloads/rhtas-tenant/trillian/netcat@sha256:8ae5e563f8bf6bc47f70b09744bff89fa8e26cadbe2d56fabd3565a03a8089ae"
+            "image": "registry.redhat.io/openshift4/ose-tools-rhel8@sha256:486b4d2dd0d10c5ef0212714c94334e04fe8a3d36cf619881986201a50f123c7"
         },
         {
             "name": "",
