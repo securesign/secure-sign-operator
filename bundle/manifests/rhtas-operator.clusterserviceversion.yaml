@@ -45,13 +45,14 @@ metadata:
               "organizationName": "Red Hat"
             },
             "config": {
-              "OIDCIssuers": {
-                "https://your-oidc-issuer-url": {
+              "OIDCIssuers": [
+                {
                   "ClientID": "trusted-artifact-signer",
+                  "Issuer": "https://your-oidc-issuer-url",
                   "IssuerURL": "https://your-oidc-issuer-url",
                   "Type": "email"
                 }
-              }
+              ]
             },
             "externalAccess": {
               "enabled": true
@@ -95,13 +96,14 @@ metadata:
                 "organizationName": "Red Hat"
               },
               "config": {
-                "OIDCIssuers": {
-                  "https://your-oidc-issuer-url": {
+                "OIDCIssuers": [
+                  {
                     "ClientID": "trusted-artifact-signer",
+                    "Issuer": "https://your-oidc-issuer-url",
                     "IssuerURL": "https://your-oidc-issuer-url",
                     "Type": "email"
                   }
-                }
+                ]
               },
               "externalAccess": {
                 "enabled": true
@@ -186,7 +188,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-03-05T14:59:04Z"
+    createdAt: "2024-03-12T10:13:29Z"
     operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: rhtas-operator.v1.0.0
