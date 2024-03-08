@@ -6,7 +6,7 @@ const (
 	TrillianDbImage        = "quay.io/redhat-user-workloads/rhtas-tenant/trillian/database@sha256:ce37d05a70d742ea12dac1d6df46f70a22d11bd71a00d2f1cd1479633ad91f63"
 
 	// TODO: remove and check the DB pod status
-	TrillianNetcatImage = "quay.io/redhat-user-workloads/rhtas-tenant/trillian/netcat@sha256:d24f3619cedf8adf43c42310f3fc3fa4fddb89c86509303bc8c3e21a9c6775d1"
+	TrillianNetcatImage = "registry.redhat.io/openshift4/ose-tools-rhel8@sha256:486b4d2dd0d10c5ef0212714c94334e04fe8a3d36cf619881986201a50f123c7"
 
 	FulcioServerImage = "quay.io/redhat-user-workloads/rhtas-tenant/fulcio/fulcio-server@sha256:afc0b39f25fc2a503e60b67336133ba38a9fed5043814b0bc78df938059d7f98"
 
