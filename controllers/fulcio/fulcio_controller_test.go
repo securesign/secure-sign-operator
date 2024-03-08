@@ -116,6 +116,9 @@ var _ = Describe("Fulcio controller", func() {
 							},
 						},
 						Monitoring: v1alpha1.MonitoringConfig{Enabled: false},
+						TrustedCA: &v1alpha1.LocalObjectReference{
+							Name: "trusted-ca-bundle",
+						},
 					},
 				}
 				err = k8sClient.Create(ctx, instance)

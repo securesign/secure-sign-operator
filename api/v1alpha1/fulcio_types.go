@@ -17,6 +17,9 @@ type FulcioSpec struct {
 	Certificate FulcioCert `json:"certificate"`
 	//Enable Service monitors for fulcio
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
+	// ConfigMap with additional bundle of trusted CA
+	//+optional
+	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
 }
 
 // FulcioCert defines fields for system-generated certificate
