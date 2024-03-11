@@ -1,0 +1,14 @@
+---
+- hosts: localhost
+  become: false
+  gather_facts: false
+  tasks:
+  - name: "Create Route53 record"
+    route53:
+      command: create
+      zone: "{{ route53_zone }}"
+      record: "{{ route53_record }}"
+      type: CNAME
+      ttl: "7200"
+      value: "{{ route53_elb }}"
+      overwrite: true

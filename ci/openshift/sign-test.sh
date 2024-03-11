@@ -1,5 +1,10 @@
 #!/bin/bash
-BASE_DOMAIN=apps.$(oc get dns cluster -o jsonpath='{ .spec.baseDomain }')
+# If environment variable BASE_DOMAIN is not set look up the value using oc because it's most likely an OpenShift cluster
+if [ -z "$DOMAIN" ]; then
+  BASE_DOMAIN=apps.$(oc get dns cluster -o jsonpath='{ .spec.baseDomain }')
+else
+  BASE_DOMAIN=apps.$DOMAIN
+fi
 OIDC_ISSUER=https://keycloak-keycloak-system.$BASE_DOMAIN/auth/realms/trusted-artifact-signer
 
 sed -i "s|https://your-oidc-issuer-url|$OIDC_ISSUER|g" config/samples/rhtas_v1alpha1_securesign.yaml
@@ -71,3 +76,4 @@ EOF
 # Apply the modified YAML using kubectl
 kubectl apply -f job.yaml -n default
 oc wait --for=condition=complete job/tas-test-sign-verify --timeout=5m -n default
+kubectl logs job/tas-test-sign-verify -n default
