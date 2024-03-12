@@ -230,6 +230,8 @@ jobs:
 
       - name: Deploy RTHAS
         run: sh ci/openshift/sign-test.sh
+        env:
+          DOMAIN: ${{ secrets.DOMAIN }}
 
       - name: dump the logs of the operator
         run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
