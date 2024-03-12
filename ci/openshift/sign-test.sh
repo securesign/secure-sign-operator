@@ -8,7 +8,7 @@ fi
 OIDC_ISSUER=https://keycloak-keycloak-system.$BASE_DOMAIN/auth/realms/trusted-artifact-signer
 # If EKS is true, change the keycloak URL to the existing Keycloak URL
 if [ "$EKS" = "true" ]; then
-  OIDC_ISSUER=${{ TESTING_KEYCLOAK }}/auth/realms/trusted-artifact-signer
+  OIDC_ISSUER=${TESTING_KEYCLOAK}/auth/realms/trusted-artifact-signer
 fi
 sed -i "s|https://your-oidc-issuer-url|$OIDC_ISSUER|g" config/samples/rhtas_v1alpha1_securesign.yaml
 
