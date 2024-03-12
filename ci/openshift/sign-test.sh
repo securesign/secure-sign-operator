@@ -11,6 +11,10 @@ sed -i "s|https://your-oidc-issuer-url|$OIDC_ISSUER|g" config/samples/rhtas_v1al
 
 oc create ns securesign
 oc apply -f config/samples/rhtas_v1alpha1_securesign.yaml -n securesign
+# If EKS is true, we need to create a pull secret using the registry credentials from /tmp
+if [ "$EKS" = "true" ]; then
+  oc create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/config.json --type=kubernetes.io/dockerconfigjson -n securesign
+fi
 
 timeout 300 bash -c 'for i in trillian-db trillian-logserver trillian-logsigner fulcio-server; do until [ ! -z "$(oc get deployment $i -n securesign 2>/dev/null)" ]; do echo "Waiting for $i deployment to be created. Pods in securesign namespace:"; oc get pods -n securesign; sleep 3; done; done'
 oc wait --for=condition=available deployment/trillian-db -n securesign --timeout=60s
