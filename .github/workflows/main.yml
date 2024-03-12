@@ -233,6 +233,7 @@ jobs:
         env:
           DOMAIN: ${{ secrets.DOMAIN }}
           EKS: true
+          TESTING_KEYCLOAK: ${{ secrets.TESTING_KEYCLOAK }}
 
       - name: dump the logs of the operator
         run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager

@@ -6,8 +6,13 @@ else
   BASE_DOMAIN=apps.$DOMAIN
 fi
 OIDC_ISSUER=https://keycloak-keycloak-system.$BASE_DOMAIN/auth/realms/trusted-artifact-signer
-
+# If EKS is true, change the keycloak URL to the existing Keycloak URL
+if [ "$EKS" = "true" ]; then
+  OIDC_ISSUER=${{ TESTING_KEYCLOAK }}/auth/realms/trusted-artifact-signer
+fi
 sed -i "s|https://your-oidc-issuer-url|$OIDC_ISSUER|g" config/samples/rhtas_v1alpha1_securesign.yaml
+
+
 
 oc create ns securesign
 oc apply -f config/samples/rhtas_v1alpha1_securesign.yaml -n securesign
@@ -60,7 +65,7 @@ spec:
         - name: FULCIO_URL
           value: "https://fulcio-server-securesign.${BASE_DOMAIN}"
         - name: OIDC_ISSUER_URL
-          value: "https://keycloak-keycloak-system.${BASE_DOMAIN}/auth/realms/trusted-artifact-signer"
+          value: "${OIDC_ISSUER}"
         - name: REKOR_URL
           value: "https://rekor-server-securesign.${BASE_DOMAIN}"
         - name: TUF_URL
