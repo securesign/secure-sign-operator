@@ -24,6 +24,8 @@ require (
 	sigs.k8s.io/controller-runtime v0.16.3
 )
 
+require github.com/evanphx/json-patch v5.6.0+incompatible // indirect
+
 require (
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

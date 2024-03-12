@@ -59,12 +59,11 @@ func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1alpha1.T
 	}
 
 	if cap(instance.Status.Keys) < len(instance.Spec.Keys) {
-		instance.Status.Keys = make([]rhtasv1alpha1.TufKey, len(instance.Spec.Keys))
+		instance.Status.Keys = make([]rhtasv1alpha1.TufKey, 0, len(instance.Spec.Keys))
 	}
 	for index, key := range instance.Spec.Keys {
 		k, err := i.handleKey(ctx, instance, &key)
 		if err != nil {
-			instance.Status.Keys[index].SecretRef = nil
 			meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{Type: constants.Ready,
 				Status: v1.ConditionFalse, Reason: constants.Pending, Message: "Resolving keys"})
 
@@ -77,13 +76,22 @@ func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1alpha1.T
 			i.StatusUpdate(ctx, instance)
 			return i.Requeue()
 		}
-		if !reflect.DeepEqual(*k, instance.Status.Keys[index]) {
-			instance.Status.Keys[index] = *k
+		if len(instance.Status.Keys) < index+1 {
+			instance.Status.Keys = append(instance.Status.Keys, *k)
 			meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 				Type:   key.Name,
 				Status: v1.ConditionTrue,
 				Reason: constants.Ready,
 			})
+		} else {
+			if !reflect.DeepEqual(*k, instance.Status.Keys[index]) {
+				instance.Status.Keys[index] = *k
+				meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
+					Type:   key.Name,
+					Status: v1.ConditionTrue,
+					Reason: constants.Ready,
+				})
+			}
 		}
 		if index == len(instance.Status.Keys)-1 {
 			meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{Type: constants.Ready,
