@@ -175,7 +175,7 @@ jobs:
         run: |
           eksctl create cluster --alb-ingress-access --external-dns-access --name rhtas-eks-${GITHUB_SHA} --nodes 2  --node-type m5.xlarge --spot
           eksctl utils associate-iam-oidc-provider --region=us-east-2 --cluster=rhtas-eks-${GITHUB_SHA} --approve
-          eksctl create iamserviceaccount --region us-east-2 --name ebs-csi-controller-sa-${GITHUB_SHA} --namespace kube-system --cluster rhtas-eks-${GITHUB_SHA} --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy --approve --role-only --role-name AmazonEKS_EBS_CSI_DriverRole
+          eksctl create iamserviceaccount --region us-east-2 --name ebs-csi-controller-sa-${GITHUB_RUN_ID} --namespace kube-system --cluster rhtas-eks-${GITHUB_SHA} --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy --approve --role-only --role-name AmazonEKS_EBS_CSI_DriverRole
           eksctl create addon --name aws-ebs-csi-driver --cluster rhtas-eks-${GITHUB_SHA} --service-account-role-arn arn:aws:iam::${{ secrets.AWS }}:role/AmazonEKS_EBS_CSI_DriverRole --force
 
       - name: Install Ingress
