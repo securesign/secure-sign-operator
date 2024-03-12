@@ -9,6 +9,7 @@ OIDC_ISSUER=https://keycloak-keycloak-system.$BASE_DOMAIN/auth/realms/trusted-ar
 # If EKS is true, change the keycloak URL to the existing Keycloak URL
 if [ "$EKS" = "true" ]; then
   OIDC_ISSUER=${TESTING_KEYCLOAK}/auth/realms/trusted-artifact-signer
+  sed -i "s|trusted-artifact-signer|sigstore|g" config/samples/rhtas_v1alpha1_securesign.yaml
 fi
 sed -i "s|https://your-oidc-issuer-url|$OIDC_ISSUER|g" config/samples/rhtas_v1alpha1_securesign.yaml
 
@@ -81,6 +82,11 @@ spec:
       restartPolicy: Never
   backoffLimit: 4 # Defines the number of retries before considering the Job failed.
 EOF
+
+# For EKS replace trusted-artifact-signer with the sigstore
+if [ "$EKS" = "true" ]; then
+  sed -i "s/trusted-artifact-signer/sigstore/g" job.yaml
+fi
 
 # Apply the modified YAML using kubectl
 kubectl apply -f job.yaml -n default

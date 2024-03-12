@@ -182,6 +182,7 @@ jobs:
         run: |
           kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/aws/deploy.yaml
           kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
+          kubectl patch ingressclass nginx --type=json -p='[{"op": "add", "path": "/metadata/annotations/ingressclass.kubernetes.io~1is-default-class", "value": "true"}]'
 
       - name: define the ingress in route53
         run: |
