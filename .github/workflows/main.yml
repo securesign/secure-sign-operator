@@ -210,6 +210,8 @@ jobs:
         run: |
           timeout 300 bash -c 'until [ ! -z "$(oc get deployment cert-manager -n operators 2>/dev/null)" ]; do echo "Waiting for $i deployment to be created."; oc get pods -n operators; sleep 3; done'
           kubectl wait --for=condition=available deployment/cert-manager -n operators --timeout=120s
+          timeout 300 bash -c 'until [ ! -z "$(oc get deployment cert-manager-webhook -n operators 2>/dev/null)" ]; do echo "Waiting for $i deployment to be created."; oc get pods -n operators; sleep 3; done'
+          kubectl wait --for=condition=available deployment/cert-manager-webhook -n operators --timeout=120s
           kubectl create secret -n operators generic acme-route53 --from-literal=AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
           sed -i 's/AWSACCESS/${{ secrets.AWS_ACCESS_KEY_ID }}/g' ci/openshift/clusterissuer.yaml
           sed -i 's/DOMAIN/${{ secrets.DOMAIN }}/g' ci/openshift/certificate.yaml
