@@ -1,11 +1,26 @@
 #!/bin/bash
-BASE_DOMAIN=apps.$(oc get dns cluster -o jsonpath='{ .spec.baseDomain }')
+# If environment variable BASE_DOMAIN is not set look up the value using oc because it's most likely an OpenShift cluster
+if [ -z "$DOMAIN" ]; then
+  BASE_DOMAIN=apps.$(oc get dns cluster -o jsonpath='{ .spec.baseDomain }')
+else
+  BASE_DOMAIN=apps.$DOMAIN
+fi
 OIDC_ISSUER=https://keycloak-keycloak-system.$BASE_DOMAIN/auth/realms/trusted-artifact-signer
-
+# If EKS is true, change the keycloak URL to the existing Keycloak URL
+if [ "$EKS" = "true" ]; then
+  OIDC_ISSUER=${TESTING_KEYCLOAK}/auth/realms/trusted-artifact-signer
+  sed -i "s|trusted-artifact-signer|sigstore|g" config/samples/rhtas_v1alpha1_securesign.yaml
+fi
 sed -i "s|https://your-oidc-issuer-url|$OIDC_ISSUER|g" config/samples/rhtas_v1alpha1_securesign.yaml
+
+
 
 oc create ns securesign
 oc apply -f config/samples/rhtas_v1alpha1_securesign.yaml -n securesign
+# If EKS is true, we need to create a pull secret using the registry credentials from /tmp
+if [ "$EKS" = "true" ]; then
+  oc create secret generic pull-secret --from-file=.dockerconfigjson=/tmp/config.json --type=kubernetes.io/dockerconfigjson -n securesign
+fi
 
 timeout 300 bash -c 'for i in trillian-db trillian-logserver trillian-logsigner fulcio-server; do until [ ! -z "$(oc get deployment $i -n securesign 2>/dev/null)" ]; do echo "Waiting for $i deployment to be created. Pods in securesign namespace:"; oc get pods -n securesign; sleep 3; done; done'
 oc wait --for=condition=available deployment/trillian-db -n securesign --timeout=60s
@@ -51,7 +66,7 @@ spec:
         - name: FULCIO_URL
           value: "https://fulcio-server-securesign.${BASE_DOMAIN}"
         - name: OIDC_ISSUER_URL
-          value: "https://keycloak-keycloak-system.${BASE_DOMAIN}/auth/realms/trusted-artifact-signer"
+          value: "${OIDC_ISSUER}"
         - name: REKOR_URL
           value: "https://rekor-server-securesign.${BASE_DOMAIN}"
         - name: TUF_URL
@@ -68,6 +83,12 @@ spec:
   backoffLimit: 4 # Defines the number of retries before considering the Job failed.
 EOF
 
+# For EKS replace trusted-artifact-signer with the sigstore
+if [ "$EKS" = "true" ]; then
+  sed -i "s/trusted-artifact-signer/sigstore/g" job.yaml
+fi
+
 # Apply the modified YAML using kubectl
 kubectl apply -f job.yaml -n default
 oc wait --for=condition=complete job/tas-test-sign-verify --timeout=5m -n default
+kubectl logs job/tas-test-sign-verify -n default
