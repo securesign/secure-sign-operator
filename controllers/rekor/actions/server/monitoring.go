@@ -113,7 +113,7 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Re
 		[]monitoringv1.Endpoint{
 			{
 				Interval: monitoringv1.Duration("30s"),
-				Port:     "fulcio-server",
+				Port:     "rekor-server",
 				Scheme:   "http",
 			},
 		},

@@ -64,6 +64,7 @@ type SecuresignReconciler struct {
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=endpoints,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;get;list;watch;update;patch
+//+kubebuilder:rbac:groups="operator.openshift.io",resources=consoles,verbs=get;list
 
 // TODO: rework Securesign controller to watch resources
 func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -101,7 +102,8 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		actions.NewRekorAction(),
 		actions.NewCtlogAction(),
 		actions.NewTufAction(),
-
+		actions.NewSegmentBackupCronJobAction(),
+		actions.NewSegmentBackupJobAction(),
 		actions.NewUpdateStatusAction(),
 	}
 
