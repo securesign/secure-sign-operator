@@ -68,6 +68,8 @@ spec:
   backoffLimit: 4 # Defines the number of retries before considering the Job failed.
 EOF
 
+oc logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
+
 # Apply the modified YAML using kubectl
 kubectl apply -f job.yaml -n default
 oc wait --for=condition=complete job/tas-test-sign-verify --timeout=5m -n default

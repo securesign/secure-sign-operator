@@ -27,6 +27,11 @@ func (i serverConfig) Name() string {
 	return "create server config"
 }
 
+type FulcioMapConfig struct {
+	OIDCIssuers map[string]rhtasv1alpha1.OIDCIssuer
+	MetaIssuers map[string]rhtasv1alpha1.OIDCIssuer
+}
+
 func (i serverConfig) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	if c.Reason != constants.Creating && c.Reason != constants.Ready {
@@ -41,12 +46,31 @@ func (i serverConfig) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Ful
 		i.Logger.Error(err, "Cant load existing configuration")
 		return false
 	}
-	expected, err := json.Marshal(instance.Spec.Config)
+	expected, err := json.Marshal(ConvertToFulcioMapConfig(instance.Spec.Config))
 	if err != nil {
 		i.Logger.Error(err, "Cant parse expected configuration")
 		return false
 	}
 	return existing.Data["config.json"] != string(expected)
+}
+
+func ConvertToFulcioMapConfig(fulcioConfig rhtasv1alpha1.FulcioConfig) *FulcioMapConfig {
+	OIDCIssuers := make(map[string]rhtasv1alpha1.OIDCIssuer)
+	MetaIssuers := make(map[string]rhtasv1alpha1.OIDCIssuer)
+
+	for _, issuer := range fulcioConfig.OIDCIssuers {
+		OIDCIssuers[issuer.Issuer] = issuer
+	}
+
+	for _, issuer := range fulcioConfig.MetaIssuers {
+		MetaIssuers[issuer.Issuer] = issuer
+	}
+
+	fulcioMapConfig := &FulcioMapConfig{
+		OIDCIssuers: OIDCIssuers,
+		MetaIssuers: MetaIssuers,
+	}
+	return fulcioMapConfig
 }
 
 func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) *action.Result {
@@ -55,7 +79,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	)
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 
-	config, err := json.Marshal(instance.Spec.Config)
+	config, err := json.Marshal(ConvertToFulcioMapConfig(instance.Spec.Config))
 	if err != nil {
 		return i.FailedWithStatusUpdate(ctx, err, instance)
 	}

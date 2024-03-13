@@ -11,9 +11,9 @@ spec:
     enabled: true
   config:
     OIDCIssuers:
-      "https://your-oidc-issuer-url":
-        ClientID: "trusted-artifact-signer"
+      - ClientID: "trusted-artifact-signer"
         IssuerURL: "https://your-oidc-issuer-url"
+        Issuer: "https://your-oidc-issuer-url"
         Type: "email"
   certificate:
     organizationName: Red Hat

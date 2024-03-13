@@ -11,6 +11,7 @@ import (
 type FulcioSpec struct {
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
+	// Fulcio Configuration
 	//+required
 	Config FulcioConfig `json:"config"`
 	// Certificate configuration
@@ -47,8 +48,9 @@ type FulcioCert struct {
 }
 
 type FulcioConfig struct {
-	//+kubebuilder:validation:MinProperties:=1
-	OIDCIssuers map[string]OIDCIssuer `json:"OIDCIssuers"`
+	// OIDC Configuration
+	// +kubebuilder:validation:MinItems=1
+	OIDCIssuers []OIDCIssuer `json:"OIDCIssuers"`
 
 	// A meta issuer has a templated URL of the form:
 	//   https://oidc.eks.*.amazonaws.com/id/*
@@ -58,13 +60,15 @@ type FulcioConfig struct {
 	// * https://oidc.eks.us-west-2.amazonaws.com/id/B02C93B6A2D30341AD01E1B6D48164CB
 	// * https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster
 	// +optional
-	MetaIssuers map[string]OIDCIssuer `json:"MetaIssuers,omitempty"`
+	MetaIssuers []OIDCIssuer `json:"MetaIssuers,omitempty"`
 }
 
 type OIDCIssuer struct {
 	// The expected issuer of an OIDC token
 	IssuerURL string `json:"IssuerURL,omitempty"`
-	// The expected client ID of the OIDC token
+	// The expected issuer of an OIDC token
+	//+required
+	Issuer string `json:"Issuer"`
 	//+required
 	ClientID string `json:"ClientID"`
 	// Used to determine the subject of the certificate and if additional

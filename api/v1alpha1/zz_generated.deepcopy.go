@@ -268,17 +268,13 @@ func (in *FulcioConfig) DeepCopyInto(out *FulcioConfig) {
 	*out = *in
 	if in.OIDCIssuers != nil {
 		in, out := &in.OIDCIssuers, &out.OIDCIssuers
-		*out = make(map[string]OIDCIssuer, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
+		*out = make([]OIDCIssuer, len(*in))
+		copy(*out, *in)
 	}
 	if in.MetaIssuers != nil {
 		in, out := &in.MetaIssuers, &out.MetaIssuers
-		*out = make(map[string]OIDCIssuer, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
+		*out = make([]OIDCIssuer, len(*in))
+		copy(*out, *in)
 	}
 }
 

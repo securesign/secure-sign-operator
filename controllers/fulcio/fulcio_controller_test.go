@@ -96,9 +96,10 @@ var _ = Describe("Fulcio controller", func() {
 							Enabled: true,
 						},
 						Config: v1alpha1.FulcioConfig{
-							OIDCIssuers: map[string]v1alpha1.OIDCIssuer{
-								"test": {
+							OIDCIssuers: []v1alpha1.OIDCIssuer{
+								{
 									IssuerURL: "test",
+									Issuer:    "test",
 									ClientID:  "test",
 									Type:      "email",
 								},
