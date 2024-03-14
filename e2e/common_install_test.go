@@ -4,9 +4,10 @@ package e2e_test
 
 import (
 	"context"
-	"github.com/securesign/operator/controllers/common/utils"
 	"net/http"
 	"time"
+
+	"github.com/securesign/operator/controllers/common/utils"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -60,10 +61,11 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 						Enabled: true,
 					},
 					Config: v1alpha1.FulcioConfig{
-						OIDCIssuers: map[string]v1alpha1.OIDCIssuer{
-							support.OidcIssuerUrl(): {
+						OIDCIssuers: []v1alpha1.OIDCIssuer{
+							{
 								ClientID:  support.OidcClientID(),
 								IssuerURL: support.OidcIssuerUrl(),
+								Issuer:    support.OidcIssuerUrl(),
 								Type:      "email",
 							},
 						}},

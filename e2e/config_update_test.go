@@ -5,8 +5,10 @@ package e2e_test
 import (
 	"context"
 	"encoding/json"
-	"github.com/securesign/operator/controllers/common/utils"
 	"time"
+
+	"github.com/securesign/operator/controllers/common/utils"
+	"github.com/securesign/operator/controllers/fulcio/actions"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -62,10 +64,11 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 						Enabled: true,
 					},
 					Config: v1alpha1.FulcioConfig{
-						OIDCIssuers: map[string]v1alpha1.OIDCIssuer{
-							support.OidcIssuerUrl(): {
+						OIDCIssuers: []v1alpha1.OIDCIssuer{
+							{
 								ClientID:  support.OidcClientID(),
 								IssuerURL: support.OidcIssuerUrl(),
+								Issuer:    support.OidcIssuerUrl(),
 								Type:      "email",
 							},
 						}},
@@ -170,15 +173,17 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 	Describe("Fulcio Config update", func() {
 		It("Pods are restarted after update", func() {
 			Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(securesign), securesign)).To(Succeed())
-			securesign.Spec.Fulcio.Config.OIDCIssuers = map[string]v1alpha1.OIDCIssuer{
-				support.OidcIssuerUrl(): {
+			securesign.Spec.Fulcio.Config.OIDCIssuers = []v1alpha1.OIDCIssuer{
+				{
 					ClientID:  support.OidcClientID(),
 					IssuerURL: support.OidcIssuerUrl(),
+					Issuer:    support.OidcIssuerUrl(),
 					Type:      "email",
 				},
-				"fake": {
+				{
 					ClientID:  "fake",
 					IssuerURL: "fake",
+					Issuer:    "fake",
 					Type:      "email",
 				},
 			}
@@ -196,7 +201,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 
 			cm := &v1.ConfigMap{}
 			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: fulcio.Status.ServerConfigRef.Name}, cm)).To(Succeed())
-			config := &v1alpha1.FulcioConfig{}
+			config := &actions.FulcioMapConfig{}
 			Expect(json.Unmarshal([]byte(cm.Data["config.json"]), config)).To(Succeed())
 			Expect(config.OIDCIssuers).To(HaveKey("fake"))
 		})

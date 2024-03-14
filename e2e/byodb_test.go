@@ -56,10 +56,11 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 						Enabled: true,
 					},
 					Config: v1alpha1.FulcioConfig{
-						OIDCIssuers: map[string]v1alpha1.OIDCIssuer{
-							support.OidcIssuerUrl(): {
+						OIDCIssuers: []v1alpha1.OIDCIssuer{
+							{
 								ClientID:  support.OidcClientID(),
 								IssuerURL: support.OidcIssuerUrl(),
+								Issuer:    support.OidcIssuerUrl(),
 								Type:      "email",
 							},
 						}},

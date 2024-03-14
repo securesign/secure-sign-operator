@@ -96,9 +96,10 @@ var _ = Describe("Fulcio controller", func() {
 							Enabled: true,
 						},
 						Config: v1alpha1.FulcioConfig{
-							OIDCIssuers: map[string]v1alpha1.OIDCIssuer{
-								"test": {
+							OIDCIssuers: []v1alpha1.OIDCIssuer{
+								{
 									IssuerURL: "test",
+									Issuer:    "test",
 									ClientID:  "test",
 									Type:      "email",
 								},
@@ -116,6 +117,9 @@ var _ = Describe("Fulcio controller", func() {
 							},
 						},
 						Monitoring: v1alpha1.MonitoringConfig{Enabled: false},
+						TrustedCA: &v1alpha1.LocalObjectReference{
+							Name: "trusted-ca-bundle",
+						},
 					},
 				}
 				err = k8sClient.Create(ctx, instance)
