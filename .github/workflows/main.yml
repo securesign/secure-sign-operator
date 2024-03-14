@@ -132,6 +132,9 @@ jobs:
     name: Test EKS deployment
     runs-on: ubuntu-20.04
     needs: build-operator
+    if: >
+      (github.event_name == 'push' || github.event_name == 'schedule') &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
@@ -148,12 +151,6 @@ jobs:
           password: ${{ secrets.REGISTRY_PASSWORD }}
           registry: registry.redhat.io
           auth_file_path: /tmp/config.json
-
-      - name: Install Ansible
-        run: |
-          sudo apt-add-repository --yes --update ppa:ansible/ansible
-          sudo apt install -y ansible
-          ansible-galaxy collection install amazon.aws
 
       - name: Install eksctl
         run: |
@@ -173,28 +170,11 @@ jobs:
 
       - name: run eksctl create cluster
         run: |
-          eksctl create cluster --alb-ingress-access --external-dns-access --name rhtas-eks-${GITHUB_SHA} --nodes 2  --node-type m5.xlarge --spot
+          eksctl create cluster --alb-ingress-access --external-dns-access --name rhtas-eks-${GITHUB_SHA} --nodes 1  --node-type m5.xlarge --spot
           eksctl utils associate-iam-oidc-provider --region=us-east-2 --cluster=rhtas-eks-${GITHUB_SHA} --approve
-          eksctl create iamserviceaccount --region us-east-2 --name ebs-csi-controller-sa-${GITHUB_RUN_ID} --namespace kube-system --cluster rhtas-eks-${GITHUB_SHA} --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy --approve --role-only --role-name AmazonEKS_EBS_CSI_DriverRole
+          eksctl create iamserviceaccount --region us-east-2 --name ebs-csi-controller-sa --namespace kube-system --cluster rhtas-eks-${GITHUB_SHA} --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy --approve --role-only --role-name AmazonEKS_EBS_CSI_DriverRole
           eksctl create addon --name aws-ebs-csi-driver --cluster rhtas-eks-${GITHUB_SHA} --service-account-role-arn arn:aws:iam::${{ secrets.AWS }}:role/AmazonEKS_EBS_CSI_DriverRole --force
-
-      - name: Install Ingress
-        run: |
           kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/aws/deploy.yaml
-          kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
-          kubectl patch ingressclass nginx --type=json -p='[{"op": "add", "path": "/metadata/annotations/ingressclass.kubernetes.io~1is-default-class", "value": "true"}]'
-
-      - name: define the ingress in route53
-        run: |
-          . /opt/pipx/venvs/ansible-core/bin/activate
-          /opt/pipx/venvs/ansible-core/bin/python -m pip install boto3 botocore
-          LB=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-          ansible-playbook -e route53_elb=$LB -e route53_zone=${{ secrets.DOMAIN }} -e route53_record="*.apps.${{ secrets.DOMAIN }}" ci/route53.yaml
-
-      - name: Install OLM
-        run: |
-          kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.25.0/crds.yaml
-          kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.25.0/olm.yaml
 
       - name: Deploy operator container
         run: IMG=ttl.sh/securesign/secure-sign-operator:1h make deploy
@@ -203,38 +183,54 @@ jobs:
         run: |
           kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=60s -n openshift-rhtas-operator
 
-      - name: Install Cert-Manager
-        run: |
-          kubectl create -f https://operatorhub.io/install/cert-manager.yaml
-
-      - name: wait for Cert-Manager to be ready then define certifcate
-        run: |
-          timeout 300 bash -c 'until [ ! -z "$(oc get deployment cert-manager -n operators 2>/dev/null)" ]; do echo "Waiting for $i deployment to be created."; oc get pods -n operators; sleep 3; done'
-          kubectl wait --for=condition=available deployment/cert-manager -n operators --timeout=120s
-          timeout 300 bash -c 'until [ ! -z "$(oc get deployment cert-manager-webhook -n operators 2>/dev/null)" ]; do echo "Waiting for $i deployment to be created."; oc get pods -n operators; sleep 3; done'
-          kubectl wait --for=condition=available deployment/cert-manager-webhook -n operators --timeout=120s
-          kubectl create secret -n operators generic acme-route53 --from-literal=AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          sed -i 's/AWSACCESS/${{ secrets.AWS_ACCESS_KEY_ID }}/g' ci/openshift/clusterissuer.yaml
-          sed -i 's/DOMAIN/${{ secrets.DOMAIN }}/g' ci/openshift/certificate.yaml
-          kubectl create -f ci/openshift/clusterissuer.yaml
-          kubectl create -f ci/openshift/certificate.yaml
-          kubectl patch deployment ingress-nginx-controller -n ingress-nginx --type=json -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--default-ssl-certificate=ingress-nginx/ingress-certificate"}]'
-
       - name: Install cosign
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.2.2
 
-      - name: Modify the config file before running the script
-        run: |
-          sed -i 's/\(rekor:\)/\1\n    externalAccess:\n      enabled: true\n      host: rekor.apps${{ secrets.DOMAIN }}/' config/samples/rhtas_v1alpha1_securesign.yaml
-          sed -i 's/\(fulcio:\)/\1\n    externalAccess:\n      enabled: true\n      host: fulcio.apps.${{ secrets.DOMAIN }}/' config/samples/rhtas_v1alpha1_securesign.yaml
-          sed -i 's/\(tuf:\)/\1\n    externalAccess:\n      enabled: true\n      host: tuf.apps.${{ secrets.DOMAIN }}/' config/samples/rhtas_v1alpha1_securesign.yaml
-
       - name: Deploy RTHAS
-        run: sh ci/openshift/sign-test.sh
-        env:
-          DOMAIN: ${{ secrets.DOMAIN }}
-          EKS: true
-          TESTING_KEYCLOAK: ${{ secrets.TESTING_KEYCLOAK }}
+        run: |
+          sed -i 's|"https://your-oidc-issuer-url"|${{ secrets.testing_keycloak }}|g' config/samples/rhtas_v1alpha1_securesign.yaml
+          sed -i 's|ClientID: "trusted-artifact-signer"|ClientID: "sigstore"|g' config/samples/rhtas_v1alpha1_securesign.yaml
+          kubectl create ns test
+          kubectl apply -f config/samples/rhtas_v1alpha1_securesign.yaml -n test
+          oc create secret generic pull-secret -n test --from-file=.dockerconfigjson=/tmp/config.json --type=kubernetes.io/dockerconfigjson
+
+      - name: Until shell script to wait for trillian-db deployment to be created
+        run: |
+          for i in trillian-db trillian-logserver trillian-logsigner fulcio-server; do
+            until [ ! -z "$(kubectl get deployment $i -n test 2>/dev/null)" ]
+            do
+              echo "Waiting for $i deployment to be created. Pods in test namespace:"
+              kubectl get pods -n test
+              sleep 3
+            done
+          done
+        shell: bash
+
+      - name: Test deployments are ready
+        run: |
+          kubectl wait --for=condition=available deployment/trillian-db -n test --timeout=60s
+          kubectl wait --for=condition=available deployment/trillian-logserver -n test --timeout=60s
+          kubectl wait --for=condition=available deployment/trillian-logsigner -n test --timeout=60s
+          kubectl wait --for=condition=available deployment/fulcio-server -n test --timeout=60s
+
+      - name: Until shell script to wait for tuf, ctlog, rekor-redis, rekor-server deployment to be created
+        run: |
+          for i in tuf ctlog rekor-redis rekor-server; do
+            until [ ! -z "$(kubectl get deployment $i -n test 2>/dev/null)" ]
+            do
+              echo "Waiting for $i deployment to be created. Pods in test namespace:"
+              kubectl get pods -n test
+              sleep 3
+            done
+          done
+        shell: bash
+
+      - name: Test deployments are ready
+        run: |
+          kubectl wait --for=condition=available deployment/tuf -n test --timeout=60s
+          kubectl wait --for=condition=available deployment/ctlog -n test --timeout=60s
+          kubectl wait --for=condition=available deployment/rekor-redis -n test --timeout=60s
+          kubectl wait --for=condition=available deployment/rekor-server -n test --timeout=60s
 
       - name: dump the logs of the operator
         run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
