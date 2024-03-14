@@ -7,7 +7,7 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: | 
-      event == "push" && target_branch == "main" && (".tekton/rhtas-operator-push.yaml".pathChanged() || "api/***".pathChanged() || "config/***".pathChanged() || "controllers/***".pathChanged() || "Dockerfile.rhtas-operator.rh".pathChanged() || "go.mod".pathChanged() || "go.sum".pathChanged() || "main.go".pathChanged() ||  "Makefile".pathChanged() )
+      event == "push" && target_branch == "main" && (".tekton/rhtas-operator-push.yaml".pathChanged() || "api/***".pathChanged() || "controllers/***".pathChanged() || "Dockerfile.rhtas-operator.rh".pathChanged() || "go.mod".pathChanged() || "go.sum".pathChanged() || "main.go".pathChanged() ||  "Makefile".pathChanged() )
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: operator
