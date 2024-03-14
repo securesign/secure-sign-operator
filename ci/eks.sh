@@ -7,12 +7,12 @@ fi
 # Ask for the AWS access key if its not stored in an environment variable AWS_ACCESS_KEY_ID
 if [ -z "$AWS_ACCESS_KEY" ]; then
   echo "Enter your AWS access key"
-  read AWS_ACCESS_KEY
+  read -s AWS_ACCESS_KEY
 fi
 # Ask for the AWS secret key if its not stored in an environment variable AWS_SECRET_ACCESS_KEY
 if [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
   echo "Enter your AWS secret key: "
-    read AWS_SECRET_ACCESS_KEY
+    read -s AWS_SECRET_ACCESS_KEY
 fi
 
 # Ask for the Wildcard DNS if its not stored in an environment variable WILDCARD_DNS
@@ -26,6 +26,10 @@ if ! [ -x "$(command -v eksctl)" ]; then
   echo "eksctl is not installed. Please install eksctl and try again."
   exit 1
 fi
+
+# Ask for an email address to be used for the Let's Encrypt certificate
+echo "Enter your email address to be used for the Let's Encrypt certificate: "
+read EMAIL
 
 # Deploy EKS cluster
 eksctl create cluster --alb-ingress-access --external-dns-access --name rhtas-eks --nodes 4  --node-type m5.xlarge --zones us-east-2b,us-east-2c --node-zones=us-east-2b
@@ -60,7 +64,7 @@ kubectl wait --for=condition=available deployment/cert-manager-webhook -n operat
 
 # Define the cert-manager issuer
 kubectl create secret -n operators generic acme-route53 --from-literal=secret-access-key=${AWS_SECRET_ACCESS_KEY}
-cat <<EOF | sed "s/AWSACCESS/${AWS_ACCESS_KEY}/g" > issuer.yaml
+cat <<EOF > issuer.yaml
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
@@ -69,20 +73,20 @@ metadata:
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
-    email: rcook@redhat.com
+    email: ${EMAIL}
     privateKeySecretRef:
       name: letsencrypt-prod
     solvers:
     - dns01:
         route53:
           region: us-east-2
-          accessKeyID: AWSACCESS
+          accessKeyID: ${AWS_ACCESS_KEY}
           secretAccessKeySecretRef:
             name: acme-route53
             key: secret-access-key
 EOF
 
-cat <<EOF | sed "s/DOMAIN/${WILDCARD_DNS}/g" > certificate.yaml
+cat <<EOF > certificate.yaml
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -90,12 +94,12 @@ metadata:
   namespace: ingress-nginx
 spec:
   secretName: ingress-certificate
-  commonName: "*.DOMAIN"
+  commonName: "*.${WILDCARD_DNS}"
   issuerRef:
     name: letsencrypt-production
     kind: ClusterIssuer
   dnsNames:
-  - "*.DOMAIN"
+  - "*.${WILDCARD_DNS}"
 EOF
 
 kubectl create -f ./clusterissuer.yaml
