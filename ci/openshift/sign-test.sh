@@ -2,10 +2,10 @@
 BASE_DOMAIN=apps.$(oc get dns cluster -o jsonpath='{ .spec.baseDomain }')
 OIDC_ISSUER=https://keycloak-keycloak-system.$BASE_DOMAIN/auth/realms/trusted-artifact-signer
 
-sed -i "s|https://your-oidc-issuer-url|$OIDC_ISSUER|g" config/samples/rhtas_v1alpha1_securesign.yaml
+cat config/samples/rhtas_v1alpha1_securesign.yaml | sed "s|https://your-oidc-issuer-url|$OIDC_ISSUER|g" > securesign.yaml
 
 oc create ns securesign
-oc apply -f config/samples/rhtas_v1alpha1_securesign.yaml -n securesign
+oc apply -f securesign.yaml -n securesign
 
 timeout 300 bash -c 'for i in trillian-db trillian-logserver trillian-logsigner fulcio-server; do until [ ! -z "$(oc get deployment $i -n securesign 2>/dev/null)" ]; do echo "Waiting for $i deployment to be created. Pods in securesign namespace:"; oc get pods -n securesign; sleep 3; done; done'
 oc wait --for=condition=available deployment/trillian-db -n securesign --timeout=60s
@@ -44,7 +44,7 @@ spec:
             privileged: true
       containers:
       - name: cosign
-        image: quay.io/redhat-user-workloads/rhtas-tenant/cli-1-0-gamma/cosign-cli-2-2@sha256:151f4a1e721b644bafe47bf5bfb8844ff27b95ca098cc37f3f6cbedcda79a897
+        image: registry.redhat.io/rhtas-tech-preview/cosign-rhel9:0.0.2
         env:
         - name: OIDC_AUTHENTICATION_REALM
           value: "trusted-artifact-signer"
