@@ -168,6 +168,7 @@ spec:
                           type: string
                       required:
                       - ClientID
+                      - Issuer
                       - Type
                       type: object
                     type: array
@@ -210,6 +211,7 @@ spec:
                           type: string
                       required:
                       - ClientID
+                      - Issuer
                       - Type
                       type: object
                     minItems: 1
@@ -248,6 +250,18 @@ spec:
                 required:
                 - enabled
                 type: object
+              trustedCA:
+                description: ConfigMap with additional bundle of trusted CA
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
             required:
             - certificate
             - config

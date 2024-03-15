@@ -3,6 +3,6 @@ resources:
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
-- digest: sha256:e550dad4a7299118fe220cd4c145c6e2deee75d2e28e41525f9dc2fb6c9f7508
+- digest: sha256:d5d1cbddb1996374d7b36a193c5aec486a1365806b070a8d38f5d6b6d0218a54
   name: controller
   newName: quay.io/redhat-user-workloads/rhtas-tenant/operator/rhtas-operator
