@@ -38,7 +38,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		updated bool
 	)
 	labels := constants.LabelsFor(actions.UIComponentName, actions.SearchUiDeploymentName, instance.Name)
-	dp := utils.CreateRekorSearchUiDeployment(instance.Namespace, actions.SearchUiDeploymentName, actions.RBACName, labels)
+	dp := utils.CreateRekorSearchUiDeployment(instance, actions.SearchUiDeploymentName, actions.RBACName, labels)
 	if err = controllerutil.SetControllerReference(instance, dp, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Deployment: %w", err))
 	}
