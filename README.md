@@ -179,3 +179,33 @@ TOKEN=$(curl -X POST -H "Content-Type: application/x-www-form-urlencoded" -d "us
 cosign sign -y --fulcio-url=$FULCIO_URL --rekor-url=$REKOR_URL --oidc-issuer=$OIDC_ISSUER_URL --oidc-client-id=trusted-artifact-signer --identity-token=$TOKEN ttl.sh/tas-test:
 cosign verify --rekor-url=\$REKOR_URL --certificate-identity-regexp ".*@redhat" --certificate-oidc-issuer-regexp ".*keycloak.*" ttl.sh/tas-test:5m
 ```
+
+## Clients
+RHTAS provides client binaries for cosign, gitsign, rekor-cli, and ec. To access these resources the ingress resource must exist. To do this create the following file `cli-ingress.yaml` using your wildcard domain.
+
+```
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cli-external
+  namespace: trusted-artifact-signer
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: cli-server.example.com
+    http:
+      paths:
+      - backend:
+          service:
+            name: cli-server
+            port:
+              name: cli-server
+        path: /clients(/|$)(.*)
+        pathType: ImplementationSpecific
+```
+
+Apply the file to the cluster.
+
+```
+kubectl apply -f cli-ingress.yaml
+```
