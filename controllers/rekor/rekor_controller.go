@@ -104,6 +104,7 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		ui.NewDeployAction(),
 		ui.NewCreateServiceAction(),
 		ui.NewIngressAction(),
+		ui.NewServerConfigAction(),
 
 		backfillredis.NewBackfillRedisCronJobAction(),
 
