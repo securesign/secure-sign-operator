@@ -1,19 +1,20 @@
 package utils
 
 import (
+	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/constants"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateRekorSearchUiDeployment(namespace, dpName string, sa string, labels map[string]string) *apps.Deployment {
+func CreateRekorSearchUiDeployment(instance *v1alpha1.Rekor, dpName string, sa string, labels map[string]string) *apps.Deployment {
 	replicas := int32(1)
 
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpName,
-			Namespace: namespace,
+			Namespace: instance.Namespace,
 			Labels:    labels,
 		},
 		Spec: apps.DeploymentSpec{
@@ -29,7 +30,13 @@ func CreateRekorSearchUiDeployment(namespace, dpName string, sa string, labels m
 					ServiceAccountName: sa,
 					Containers: []core.Container{
 						{
-							Name:  dpName,
+							Name: dpName,
+							Env: []core.EnvVar{
+								{
+									Name:  "NEXT_PUBLIC_REKOR_DEFAULT_DOMAIN",
+									Value: instance.Status.Url,
+								},
+							},
 							Image: constants.RekorSearchUiImage,
 							Ports: []core.ContainerPort{
 								{
