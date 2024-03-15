@@ -132,9 +132,6 @@ jobs:
     name: Test EKS deployment
     runs-on: ubuntu-20.04
     needs: build-operator
-    if: >
-      (github.event_name == 'push' || github.event_name == 'schedule') &&
-      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
@@ -181,56 +178,61 @@ jobs:
 
       - name: Wait for operator to be ready
         run: |
-          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=60s -n openshift-rhtas-operator
+          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n openshift-rhtas-operator
 
+      - name: Install Keycloak
+        run: |
+          #install OLM
+          kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.25.0/crds.yaml
+          # wait for a while to be sure CRDs are installed
+          sleep 1
+          kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.25.0/olm.yaml
+
+          kubectl create --kustomize https://github.com/securesign/sigstore-ocp/keycloak/operator/overlay/kind
+          until [ ! -z "$(kubectl get pod -l name=keycloak-operator -n keycloak-system 2>/dev/null)" ]
+          do
+            echo "Waiting for keycloak operator. Pods in keycloak-system namespace:"
+            kubectl get pods -n keycloak-system
+            sleep 10
+          done
+          kubectl create --kustomize https://github.com/securesign/sigstore-ocp/keycloak/resources/overlay/kind
+          until [[ $( oc get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system 2>/dev/null) == "true" ]]
+          do
+            printf "Waiting for keycloak deployment. \n Keycloak ready: %s\n" $(oc get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system)
+            sleep 10
+          done
+
+          # HACK - expose keycloak under the same name as the internal SVC has so it will be accessible:
+          # - within the cluster (where the localhost does not work)
+          # - outside the cluster (resolved from /etc/hosts and redirect to the localhost)
+          kubectl create -n keycloak-system -f - <<EOF
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: keycloak
+          spec:
+            rules:
+            - host: keycloak-internal.keycloak-system.svc
+              http:
+                paths:
+                - backend:
+                    service:
+                      name: keycloak-internal
+                      port:
+                        number: 80
+                  path: /
+                  pathType: Prefix
+          EOF
+        shell: bash
+
+      - name: Add service hosts to /etc/hosts
+        run: |
+          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local cli-server.local" | sudo tee -a /etc/hosts
       - name: Install cosign
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.2.2
 
-      - name: Deploy RTHAS
-        run: |
-          sed -i 's|"https://your-oidc-issuer-url"|${{ secrets.testing_keycloak }}|g' config/samples/rhtas_v1alpha1_securesign.yaml
-          sed -i 's|ClientID: "trusted-artifact-signer"|ClientID: "sigstore"|g' config/samples/rhtas_v1alpha1_securesign.yaml
-          kubectl create ns test
-          kubectl apply -f config/samples/rhtas_v1alpha1_securesign.yaml -n test
-          oc create secret generic pull-secret -n test --from-file=.dockerconfigjson=/tmp/config.json --type=kubernetes.io/dockerconfigjson
-
-      - name: Until shell script to wait for trillian-db deployment to be created
-        run: |
-          for i in trillian-db trillian-logserver trillian-logsigner fulcio-server; do
-            until [ ! -z "$(kubectl get deployment $i -n test 2>/dev/null)" ]
-            do
-              echo "Waiting for $i deployment to be created. Pods in test namespace:"
-              kubectl get pods -n test
-              sleep 3
-            done
-          done
-        shell: bash
-
-      - name: Test deployments are ready
-        run: |
-          kubectl wait --for=condition=available deployment/trillian-db -n test --timeout=60s
-          kubectl wait --for=condition=available deployment/trillian-logserver -n test --timeout=60s
-          kubectl wait --for=condition=available deployment/trillian-logsigner -n test --timeout=60s
-          kubectl wait --for=condition=available deployment/fulcio-server -n test --timeout=60s
-
-      - name: Until shell script to wait for tuf, ctlog, rekor-redis, rekor-server deployment to be created
-        run: |
-          for i in tuf ctlog rekor-redis rekor-server; do
-            until [ ! -z "$(kubectl get deployment $i -n test 2>/dev/null)" ]
-            do
-              echo "Waiting for $i deployment to be created. Pods in test namespace:"
-              kubectl get pods -n test
-              sleep 3
-            done
-          done
-        shell: bash
-
-      - name: Test deployments are ready
-        run: |
-          kubectl wait --for=condition=available deployment/tuf -n test --timeout=60s
-          kubectl wait --for=condition=available deployment/ctlog -n test --timeout=60s
-          kubectl wait --for=condition=available deployment/rekor-redis -n test --timeout=60s
-          kubectl wait --for=condition=available deployment/rekor-server -n test --timeout=60s
+      - name: Run tests
+        run: make integration-test
 
       - name: dump the logs of the operator
         run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
