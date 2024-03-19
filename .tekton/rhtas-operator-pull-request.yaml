@@ -8,7 +8,7 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: | 
-      event == "pull_request" && target_branch == "main" && (".tekton/rhtas-operator-pull-request.yaml".pathChanged() || "api/***".pathChanged() || "controllers/***".pathChanged() || "Dockerfile.rhtas-operator.rh".pathChanged() || "go.mod".pathChanged() || "main.go".pathChanged() || "Makefile".pathChanged() || "go.sum".pathChanged() || "trigger-konflux-builds.txt".pathChanged() )
+      event == "pull_request" && target_branch == "main" && (".tekton/rhtas-operator-pull-request.yaml".pathChanged() || "api/***".pathChanged() || "controllers/***".pathChanged() || "Dockerfile.rhtas-operator.rh".pathChanged() || "go.mod".pathChanged() || "main.go".pathChanged() || "go.sum".pathChanged() || "trigger-konflux-builds.txt".pathChanged() )
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: operator
