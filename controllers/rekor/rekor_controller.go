@@ -85,10 +85,15 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 	target := instance.DeepCopy()
 	actions := []action.Action[rhtasv1alpha1.Rekor]{
+		// NONE -> PENDING
 		actions2.NewInitializeConditions(),
 
+		// PENDING
 		actions2.NewPendingAction(),
+		// PENDING -> CREATE
 		server.NewGenerateSignerAction(),
+
+		// CREATE
 		actions2.NewRBACAction(),
 		server.NewServerConfigAction(),
 		server.NewCreatePvcAction(),
@@ -97,6 +102,7 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		server.NewCreateServiceAction(),
 		server.NewCreateMonitorAction(),
 		server.NewIngressAction(),
+		server.NewStatusUrlAction(),
 
 		redis.NewDeployAction(),
 		redis.NewCreateServiceAction(),
@@ -109,13 +115,14 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		// CREATE -> INITIALIZE
 		actions2.NewToInitializeAction(),
-
+		// INITIALIZE
 		server.NewInitializeAction(),
 		server.NewResolvePubKeyAction(),
 
 		ui.NewInitializeAction(),
 		redis.NewInitializeAction(),
 
+		// INITIALIZE -> READY
 		actions2.NewInitializeAction(),
 	}
 
