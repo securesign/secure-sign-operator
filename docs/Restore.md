@@ -33,7 +33,7 @@ oc apply -f ./RestoreExample.yaml
 ```
 
 ## New Cluster Restore
-If on a new cluster it is advised to perform a restore only of the Persistent Volumes  as the configuration of the operator will have to be updated due to the new cluster. Before installing a new instance of the operator perform the following.
+If on a new cluster it is advised to perform a restore only of the Persistent Volumes  as the configuration of the operator will have to be updated due to the new cluster. Before installing a new instance of the operator perform the following. When updating the operators configuration be sure to specify the treeID's for ctlog and rekor from the backup.
 
 ```sh
 cat << EOF > ./RestoreExample.yaml

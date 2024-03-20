@@ -88,6 +88,11 @@ aws_access_key_id=<AWS_ACCESS_KEY_ID>
 aws_secret_access_key=<AWS_SECRET_ACCESS_KEY>
 EOF
 ```
+Once configured the key will be pushed up onto the cluster.
+
+```sh
+oc create secret generic cloud-credentials -n openshift-adp --from-file cloud=credentials-velero
+```
 
 ## OADP Install
 The OADP Operator can be installed from the Openshift Operator Hub.
