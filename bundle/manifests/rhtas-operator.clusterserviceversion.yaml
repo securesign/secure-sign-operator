@@ -188,7 +188,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-03-19T12:35:15Z"
+    createdAt: "2024-03-20T10:13:07Z"
     operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: rhtas-operator.v1.0.0
@@ -754,7 +754,7 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
-                image: quay.io/redhat-user-workloads/rhtas-tenant/operator/rhtas-operator@sha256:30f6c6666a8807362f70a7d01345d9cfaf92ce7e61d29ca3996cd4787b8b5229
+                image: quay.io/redhat-user-workloads/rhtas-tenant/operator/rhtas-operator@sha256:fe85a8149947a030d48a0297e1eb8287e20a6f314530c9b68b7a6dd7df0f7c43
                 livenessProbe:
                   httpGet:
                     path: /healthz
