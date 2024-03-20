@@ -3,10 +3,10 @@ package db
 import (
 	"context"
 	"fmt"
+
 	"github.com/securesign/operator/controllers/common/utils"
 
 	"github.com/securesign/operator/controllers/common/action"
-	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/trillian/actions"
 	trillianUtils "github.com/securesign/operator/controllers/trillian/utils"
@@ -36,14 +36,12 @@ func (i deployAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Tri
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
 	var (
-		err       error
-		updated   bool
-		openshift bool
+		err     error
+		updated bool
 	)
-	openshift = kubernetes.IsOpenShift(i.Client)
 
 	labels := constants.LabelsFor(actions.DbComponentName, actions.DbDeploymentName, instance.Name)
-	db, err := trillianUtils.CreateTrillDb(instance, actions.DbDeploymentName, actions.RBACName, openshift, labels)
+	db, err := trillianUtils.CreateTrillDb(instance, actions.DbDeploymentName, actions.RBACName, labels)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.DbCondition,
