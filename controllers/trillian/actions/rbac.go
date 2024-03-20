@@ -76,6 +76,12 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian
 			Resources: []string{"secrets"},
 			Verbs:     []string{"create", "get", "update"},
 		},
+		{
+			APIGroups:     []string{"security.openshift.io"},
+			ResourceNames: []string{"nonroot"},
+			Resources:     []string{"securitycontextconstraints"},
+			Verbs:         []string{"use"},
+		},
 	})
 
 	if err = ctrl.SetControllerReference(instance, role, i.Client.Scheme()); err != nil {
