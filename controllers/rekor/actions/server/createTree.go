@@ -30,10 +30,14 @@ func (i createTrillianTreeAction) Name() string {
 
 func (i createTrillianTreeAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Creating && (instance.Spec.TreeID == nil || *instance.Spec.TreeID == int64(0))
+	return c.Reason == constants.Creating && instance.Status.TreeID == nil
 }
 
 func (i createTrillianTreeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
+	if instance.Spec.TreeID != nil && *instance.Spec.TreeID != int64(0) {
+		instance.Status.TreeID = instance.Spec.TreeID
+		return i.StatusUpdate(ctx, instance)
+	}
 	var err error
 
 	trillUrl, err := k8sutils.GetInternalUrl(ctx, i.Client, instance.Namespace, trillian.LogserverDeploymentName)
@@ -57,7 +61,7 @@ func (i createTrillianTreeAction) Handle(ctx context.Context, instance *rhtasv1a
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create trillian tree: %w", err), instance)
 	}
 	i.Recorder.Event(instance, v1.EventTypeNormal, "TreeID", "New Trillian tree created")
-	instance.Spec.TreeID = &tree.TreeId
+	instance.Status.TreeID = &tree.TreeId
 
-	return i.Update(ctx, instance)
+	return i.StatusUpdate(ctx, instance)
 }

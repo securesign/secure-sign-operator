@@ -40,16 +40,6 @@ func (action *BaseAction) InjectLogger(logger logr.Logger) {
 func (action *BaseAction) Continue() *Result {
 	return nil
 }
-func (action *BaseAction) Update(ctx context.Context, obj client2.Object) *Result {
-	if err := action.Client.Update(ctx, obj); err != nil {
-		if strings.Contains(err.Error(), OptimisticLockErrorMsg) {
-			return &Result{Result: reconcile.Result{RequeueAfter: 1 * time.Second}, Err: nil}
-		}
-		return action.Failed(err)
-	}
-	// Requeue will be caused by update
-	return &Result{Result: reconcile.Result{Requeue: false}}
-}
 
 func (action *BaseAction) StatusUpdate(ctx context.Context, obj client2.Object) *Result {
 	if err := action.Client.Status().Update(ctx, obj); err != nil {

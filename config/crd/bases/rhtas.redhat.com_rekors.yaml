@@ -340,6 +340,10 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                 type: object
+              treeID:
+                description: The ID of a Trillian tree that stores the log data.
+                format: int64
+                type: integer
               url:
                 type: string
             type: object

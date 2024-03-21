@@ -188,7 +188,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-03-20T11:20:43Z"
+    createdAt: "2024-03-21T13:01:00Z"
     operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: rhtas-operator.v1.0.0

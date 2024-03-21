@@ -172,6 +172,11 @@ func (in *CTlogStatus) DeepCopyInto(out *CTlogStatus) {
 		*out = make([]SecretKeySelector, len(*in))
 		copy(*out, *in)
 	}
+	if in.TreeID != nil {
+		in, out := &in.TreeID, &out.TreeID
+		*out = new(int64)
+		**out = **in
+	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]v1.Condition, len(*in))
@@ -580,6 +585,11 @@ func (in *RekorStatus) DeepCopyInto(out *RekorStatus) {
 		**out = **in
 	}
 	in.Signer.DeepCopyInto(&out.Signer)
+	if in.TreeID != nil {
+		in, out := &in.TreeID, &out.TreeID
+		*out = new(int64)
+		**out = **in
+	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]v1.Condition, len(*in))
