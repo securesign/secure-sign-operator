@@ -43,6 +43,8 @@ type CTlogStatus struct {
 	PrivateKeyPasswordRef *SecretKeySelector    `json:"privateKeyPasswordRef,omitempty"`
 	PublicKeyRef          *SecretKeySelector    `json:"publicKeyRef,omitempty"`
 	RootCertificates      []SecretKeySelector   `json:"rootCertificates,omitempty"`
+	// The ID of a Trillian tree that stores the log data.
+	TreeID *int64 `json:"treeID,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge

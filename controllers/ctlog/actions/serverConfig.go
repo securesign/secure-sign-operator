@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -41,6 +42,10 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	var (
 		err error
 	)
+	if instance.Status.TreeID == nil {
+		return i.Failed(errors.New("reference to Trillian TreeID not set"))
+	}
+
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 
 	trillUrl, err := utils.GetInternalUrl(ctx, i.Client, instance.Namespace, trillian.LogserverDeploymentName)
@@ -73,7 +78,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	}
 
 	var cfg map[string][]byte
-	if cfg, err = ctlogUtils.CreateCtlogConfig(trillUrl+":8091", *instance.Spec.TreeID, rootCerts, certConfig); err != nil {
+	if cfg, err = ctlogUtils.CreateCtlogConfig(trillUrl+":8091", *instance.Status.TreeID, rootCerts, certConfig); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,

@@ -15,6 +15,9 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 	if instance.Status.ServerConfigRef == nil {
 		return nil, errors.New("server config name not specified")
 	}
+	if instance.Status.TreeID == nil {
+		return nil, errors.New("reference to trillian TreeID not set")
+	}
 	env := make([]core.EnvVar, 0)
 	appArgs := []string{
 		"serve",
@@ -25,7 +28,7 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 		"--redis_server.port=6379",
 		"--rekor_server.address=0.0.0.0",
 		"--enable_retrieve_api=true",
-		fmt.Sprintf("--trillian_log_server.tlog_id=%d", *instance.Spec.TreeID),
+		fmt.Sprintf("--trillian_log_server.tlog_id=%d", *instance.Status.TreeID),
 		"--enable_attestation_storage",
 		"--attestation_storage_bucket=file:///var/run/attestations",
 	}
