@@ -1,27 +1,26 @@
 package constants
 
 const (
-	TrillianLogSignerImage = "quay.io/redhat-user-workloads/rhtas-tenant/trillian/logsigner@sha256:f8199e0b14f391574181a3e38659a2ec5baeb65ba5101ac63b5b9785ae01c214"
-	TrillianServerImage    = "quay.io/redhat-user-workloads/rhtas-tenant/trillian/logserver@sha256:cdb2fa8ef85a9727c2b306652e4127ee4b2723cd361a04f364f4a96d60194777"
-	TrillianDbImage        = "quay.io/redhat-user-workloads/rhtas-tenant/trillian/database@sha256:145560da2f030ab6574d62c912b757d5537e75e4ec10e0d26cf56a67b1573969"
+	TrillianLogSignerImage = "registry.redhat.io/rhtas/trillian-logsigner-rhel9@sha256:aa7812254a582c12bf71834f1617a81f76d00a5ee90413d7d707ed5068e21220"
+	TrillianServerImage    = "registry.redhat.io/rhtas/trillian-logserver-rhel9@sha256:61320904f81c5d389c052222311a1357504a14b0de00426013cb8f29690220bf"
+	TrillianDbImage        = "registry.redhat.io/rhtas/trillian-database-rhel9@sha256:4989f92e18a541f12fb6174bd6686a24362a24700813e352c8c2c8eff4ab943f"
 
 	// TODO: remove and check the DB pod status
 	TrillianNetcatImage = "registry.redhat.io/openshift4/ose-tools-rhel8@sha256:486b4d2dd0d10c5ef0212714c94334e04fe8a3d36cf619881986201a50f123c7"
 
-	FulcioServerImage = "quay.io/redhat-user-workloads/rhtas-tenant/fulcio/fulcio-server@sha256:f333772eb0cd23360516da4a7a50813a59d67c690c2b6baef4bc4b6094d1116b"
+	FulcioServerImage = "registry.redhat.io/rhtas/fulcio-rhel9@sha256:f333772eb0cd23360516da4a7a50813a59d67c690c2b6baef4bc4b6094d1116b"
 
-	RekorRedisImage    = "quay.io/redhat-user-workloads/rhtas-tenant/trillian/redis@sha256:0804a6634b8836cb2e957ee16d54e8d6ab94d311362a48baf238b1f575d79934"
-	RekorServerImage   = "quay.io/redhat-user-workloads/rhtas-tenant/rekor/rekor-server@sha256:a2075576589bec3c4544db4368732cb1388e8f5a3cb2a739d943cee601e64b74"
-	RekorSearchUiImage = "quay.io/redhat-user-workloads/rhtas-tenant/rekor-search-ui/rekor-search-ui@sha256:1a8c0448c294e33a3ec6d11f45e886d3ad606b221ed81d114f6d91257a968209"
-	BackfillRedisImage = "quay.io/redhat-user-workloads/rhtas-tenant/rekor/backfill-redis@sha256:27a016efec4dca3f029d0b7ac0fc02cbac7bd44051ebd0e2f458f8b5b9fc8972"
+	RekorRedisImage    = "registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:8c12d98f96ed3daa3ea7ce03d52e8b6748c4b7ab20eee98c1d1ad031d14af00e"
+	RekorServerImage   = "registry.redhat.io/rhtas/rekor-server-rhel9@sha256:133e42c7dd44ce6d12a3cee28ead1a4eb1a99ebaaa07d67d4362eec7561ae672"
+	RekorSearchUiImage = "registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:0c8a24911435b3d8b9c137e8105192a3f513d775cc2728a87506c68785975f7b"
+	BackfillRedisImage = "registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:46bf598e4959fd032f53ad7728ba9dc23f463b8b841d207d31def4f0d4990888"
 
-	TufImage = "quay.io/redhat-user-workloads/rhtas-tenant/scaffold/tuf-server@sha256:b6875d661113f34911075264950a4a507090dddb2c01c313885ea367c113ec08"
+	TufImage = "registry.redhat.io/rhtas/tuf-server-rhel9@sha256:6e07be763052f724ac96739afed4b35509b95d88e3d5d86748c5b931f94639aa"
 
-	CTLogImage = "quay.io/redhat-user-workloads/rhtas-tenant/certificate-transparency-go/certificate-transparency-go@sha256:1419a048cb5095b3f65d08224e6f94c6eb166d8d5a16707942aed2880992ddee"
+	CTLogImage = "registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:1419a048cb5095b3f65d08224e6f94c6eb166d8d5a16707942aed2880992ddee"
 
 	ClientServerImage    = "registry.access.redhat.com/ubi9/httpd-24@sha256:7874b82335a80269dcf99e5983c2330876f5fe8bdc33dc6aa4374958a2ffaaee"
-	ClientServerImage_cg = "quay.io/redhat-user-workloads/rhtas-tenant/cli/client-server-cg@sha256:eb49058e7b12a2f48e363c09ef438aeb8500e83a4fb91451197f6bc2fe2e61de"
-	ClientServerImage_re = "quay.io/redhat-user-workloads/rhtas-tenant/cli/client-server-re@sha256:dd05e0575f1ee94ffe8a299a3baf5af1a5b77299f4f356daf7826d6e4814cd3d"
-
+	ClientServerImage_cg = "registry.redhat.io/rhtas/client-server-cg-rhel9@sha256:3ecacaccf5a43e3832e0e9cd3957850f06e8ae7716d89c83d89fb9b3535d5547"
+	ClientServerImage_re = "registry.redhat.io/rhtas/client-server-re-rhel9@sha256:9c4867018453a2d02be004b392b8b17e1cdb89ed841aefe619b63627f024ff90"
 	SegmentBackupImage = "quay.io/redhat-user-workloads/rhtas-tenant/segment-backup-job/segment-backup-job:97ce064c4c8599edae3087f7d96eb93c11f1d8a8"
 )
