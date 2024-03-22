@@ -75,7 +75,7 @@ aws iam put-user-policy \
 
 ## Credentials File
 
-Once the velero policy is in place we can then create the required access Key using info from the following commad.
+Once the velero policy is in place we can then create the required access Key using info from the following command.
 
 ```sh
 aws iam create-access-key --user-name velero
@@ -147,21 +147,5 @@ Once configured run the following command to apply it to the cluster.
 oc apply -f DataProtectionApplication.yaml
 ```
 
-## Enabling CSI Snapshot Backups
-Included in the plugins section of the above CR is the CSI plugin, in order to allow for CSI snapshots we need to alter the clusters VolumeSnapshotClass to include the following tag. This way we can backup the data in the clusters PVC's.
-
-```sh
-cat << EOF > ./VolumeSnapshotStorageLabel.yaml
-apiVersion: snapshot.storage.k8s.io/v1
-kind: VolumeSnapshotClass
-metadata:
-  name: csi-aws-vsc
-  labels:
-    velero.io/csi-volumesnapshot-class: "true"
-driver: efs-csi-driver
-deletionPolicy: Retain
-EOF
-```
-
 ## Extra Install Info
-For extra info or specifics relating to the install and or config of the operator see the [OADP Docs](https://docs.openshift.com/container-platform/4.14/backup_and_restore/application_backup_and_restore/installing/oadp-installing-operator.html).
+For extra info or specifics relating to the install and or configuration of the operator see the [OADP Docs](https://docs.openshift.com/container-platform/4.14/backup_and_restore/application_backup_and_restore/installing/oadp-installing-operator.html).

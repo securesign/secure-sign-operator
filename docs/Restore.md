@@ -13,7 +13,7 @@ cat << EOF > ./RestoreExample.yaml
 apiVersion: velero.io/v1
 kind: Restore
 metadata:
-  name: <BackName>
+  name: <BackupName>
   namespace: openshift-adp
 spec:
   backupName: <BackupName>
@@ -33,7 +33,7 @@ oc apply -f ./RestoreExample.yaml
 ```
 
 ## New Cluster Restore
-If on a new cluster it is advised to perform a restore only of the Persistent Volumes  as the configuration of the operator will have to be updated due to the new cluster. Before installing a new instance of the operator perform the following. When updating the operators configuration be sure to specify the treeID's for ctlog and rekor from the backup.
+If on a new cluster it is advised to perform a restore only of the Persistent Volumes as the configuration of the operator will have to be updated due to the new cluster. Before installing a new instance of the operator perform the following. When updating the operators configuration be sure to specify the treeID's for ctlog and rekor from the backup or use the same rekor and ctlog Custom Resources from the backup.
 
 ```sh
 cat << EOF > ./RestoreExample.yaml
@@ -63,8 +63,6 @@ spec:
   - Securesign
   - pods
   - tuf
-  - ctlog
-  - rekor
   - fulcio
   - trillian
   - ConfigMap
