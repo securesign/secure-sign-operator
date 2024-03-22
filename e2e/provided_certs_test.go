@@ -10,9 +10,10 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"github.com/securesign/operator/controllers/common/utils"
 	"math/big"
 	"time"
+
+	"github.com/securesign/operator/controllers/common/utils"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -72,10 +73,11 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 						Enabled: true,
 					},
 					Config: v1alpha1.FulcioConfig{
-						OIDCIssuers: map[string]v1alpha1.OIDCIssuer{
-							support.OidcIssuerUrl(): {
+						OIDCIssuers: []v1alpha1.OIDCIssuer{
+							{
 								ClientID:  support.OidcClientID(),
 								IssuerURL: support.OidcIssuerUrl(),
+								Issuer:    support.OidcIssuerUrl(),
 								Type:      "email",
 							},
 						}},

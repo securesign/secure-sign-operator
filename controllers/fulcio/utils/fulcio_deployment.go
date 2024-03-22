@@ -3,6 +3,7 @@ package utils
 import (
 	"errors"
 	"fmt"
+	"github.com/securesign/operator/controllers/common/utils"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/constants"
@@ -27,8 +28,6 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 		return nil, errors.New("CA secret is not specified")
 	}
 
-	replicas := int32(1)
-	mode := int32(0666)
 	args := []string{
 		"serve",
 		"--port=5555",
@@ -41,6 +40,11 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 		fmt.Sprintf("--ct-log-url=http://ctlog.%s.svc/trusted-artifact-signer", instance.Namespace)}
 
 	env := make([]corev1.EnvVar, 0)
+	env = append(env, corev1.EnvVar{
+		Name:  "SSL_CERT_DIR",
+		Value: "/var/run/fulcio",
+	})
+
 	if instance.Status.Certificate.PrivateKeyPasswordRef != nil {
 		env = append(env, corev1.EnvVar{
 			Name: "PASSWORD",
@@ -56,6 +60,33 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 		args = append(args, "--fileca-key-passwd", "$(PASSWORD)")
 	}
 
+	oidcInfo := make([]corev1.VolumeProjection, 0)
+	// Integration with https://kubernetes.default.svc" OIDC issuer and ctlog service
+	oidcInfo = append(oidcInfo, corev1.VolumeProjection{
+		ConfigMap: &corev1.ConfigMapProjection{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: "kube-root-ca.crt",
+			},
+			Items: []corev1.KeyToPath{
+				{
+					Key:  "ca.crt",
+					Path: "ca.crt",
+					Mode: utils.Pointer(int32(0444)),
+				},
+			},
+		},
+	})
+
+	if instance.Spec.TrustedCA != nil {
+		oidcInfo = append(oidcInfo, corev1.VolumeProjection{
+			ConfigMap: &corev1.ConfigMapProjection{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: instance.Spec.TrustedCA.Name,
+				},
+			},
+		})
+	}
+
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
@@ -63,7 +94,7 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &replicas,
+			Replicas: utils.Pointer(int32(1)),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
@@ -128,6 +159,7 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 								{
 									Name:      "oidc-info",
 									MountPath: "/var/run/fulcio",
+									ReadOnly:  true,
 								},
 								{
 									Name:      "fulcio-cert",
@@ -153,22 +185,7 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 							Name: "oidc-info",
 							VolumeSource: corev1.VolumeSource{
 								Projected: &corev1.ProjectedVolumeSource{
-									Sources: []corev1.VolumeProjection{
-										{
-											ConfigMap: &corev1.ConfigMapProjection{
-												LocalObjectReference: corev1.LocalObjectReference{
-													Name: "kube-root-ca.crt",
-												},
-												Items: []corev1.KeyToPath{
-													{
-														Key:  "ca.crt",
-														Path: "ca.crt",
-														Mode: &mode,
-													},
-												},
-											},
-										},
-									},
+									Sources: oidcInfo,
 								},
 							},
 						},

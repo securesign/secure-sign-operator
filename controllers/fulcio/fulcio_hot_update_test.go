@@ -95,9 +95,10 @@ var _ = Describe("Fulcio hot update", func() {
 							Enabled: true,
 						},
 						Config: v1alpha1.FulcioConfig{
-							OIDCIssuers: map[string]v1alpha1.OIDCIssuer{
-								"test": {
+							OIDCIssuers: []v1alpha1.OIDCIssuer{
+								{
 									IssuerURL: "test",
+									Issuer:    "test",
 									ClientID:  "test",
 									Type:      "email",
 								},
@@ -189,8 +190,9 @@ var _ = Describe("Fulcio hot update", func() {
 
 			By("Update OIDC")
 			Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-			found.Spec.Config.OIDCIssuers["fakeProvider"] = v1alpha1.OIDCIssuer{
+			found.Spec.Config.OIDCIssuers[0] = v1alpha1.OIDCIssuer{
 				IssuerURL: "fake",
+				Issuer:    "fake",
 				ClientID:  "fake",
 				Type:      "email",
 			}

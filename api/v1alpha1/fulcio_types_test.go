@@ -29,7 +29,7 @@ var _ = Describe("Fulcio", func() {
 			Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
 			Expect(fetched).To(Equal(created))
 
-			fetched.Spec.Config.OIDCIssuers["test"] = OIDCIssuer{
+			fetched.Spec.Config.OIDCIssuers[0] = OIDCIssuer{
 				Type:     "email",
 				ClientID: "client",
 			}
@@ -128,11 +128,11 @@ var _ = Describe("Fulcio", func() {
 
 			It("config is not empty", func() {
 				invalidObject := generateFulcioObject("config-invalid")
-				invalidObject.Spec.Config.OIDCIssuers = make(map[string]OIDCIssuer)
+				invalidObject.Spec.Config.OIDCIssuers = []OIDCIssuer{}
 
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("in body should have at least 1 properties")))
+					To(MatchError(ContainSubstring("in body should have at least 1 items")))
 			})
 		})
 
@@ -170,8 +170,8 @@ var _ = Describe("Fulcio", func() {
 								Host:    "hostname",
 							},
 							Config: FulcioConfig{
-								OIDCIssuers: map[string]OIDCIssuer{
-									"oidc": {
+								OIDCIssuers: []OIDCIssuer{
+									{
 										ClientID:          "client",
 										Type:              "email",
 										IssuerURL:         "url",
@@ -180,7 +180,7 @@ var _ = Describe("Fulcio", func() {
 										SPIFFETrustDomain: "SPIFFE",
 										SubjectDomain:     "domain",
 									},
-									"oidc2": {
+									{
 										ClientID:          "clien2",
 										Type:              "email2",
 										IssuerURL:         "url2",
@@ -220,11 +220,25 @@ func generateFulcioObject(name string) *Fulcio {
 		},
 		Spec: FulcioSpec{
 			Config: FulcioConfig{
-				OIDCIssuers: map[string]OIDCIssuer{
-					"oidc": {
+				OIDCIssuers: []OIDCIssuer{
+					{
 						ClientID:  "client",
 						Type:      "email",
 						IssuerURL: "url",
+						Issuer:    "url",
+					},
+				},
+				MetaIssuers: []OIDCIssuer{
+					{
+						ClientID:  "client",
+						Type:      "email",
+						IssuerURL: "url",
+						Issuer:    "url",
+					},
+					{
+						ClientID: "client",
+						Type:     "email",
+						Issuer:   "url",
 					},
 				},
 			},
