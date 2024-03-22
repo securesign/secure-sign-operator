@@ -32,7 +32,7 @@ echo "Enter your email address to be used for the Let's Encrypt certificate: "
 read EMAIL
 
 # Deploy EKS cluster
-eksctl create cluster --alb-ingress-access --external-dns-access --name rhtas-eks --nodes 4  --node-type m5.xlarge --zones us-east-2b,us-east-2c --node-zones=us-east-2b
+eksctl create cluster --alb-ingress-access --external-dns-access --name rhtas-eks --nodes 4 --zones us-east-2b,us-east-2c --node-zones=us-east-2b --region us-east-2
 eksctl utils associate-iam-oidc-provider --region=us-east-2 --cluster=rhtas-eks --approve
 eksctl create iamserviceaccount --region us-east-2 --name ebs-csi-controller-sa --namespace kube-system --cluster rhtas-eks --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy --approve --role-only --role-name AmazonEKS_EBS_CSI_DriverRole
 eksctl create addon --name aws-ebs-csi-driver --cluster rhtas-eks --service-account-role-arn arn:aws:iam::$ACCT:role/AmazonEKS_EBS_CSI_DriverRole --force
