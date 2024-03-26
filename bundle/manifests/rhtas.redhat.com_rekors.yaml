@@ -91,7 +91,7 @@ spec:
                 description: Enable Service monitors for rekor
                 properties:
                   enabled:
-                    default: false
+                    default: true
                     description: If true, the Operator will create monitoring resources
                     type: boolean
                     x-kubernetes-validations:
