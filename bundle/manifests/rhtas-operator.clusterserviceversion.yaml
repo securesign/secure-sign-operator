@@ -85,7 +85,8 @@ metadata:
               "app.kubernetes.io/name": "securesign-sample",
               "app.kubernetes.io/part-of": "trusted-artifact-signer"
             },
-            "name": "securesign-sample"
+            "name": "securesign-sample",
+            "namespace": "rhtas-operator"
           },
           "spec": {
             "ctlog": null,
@@ -109,7 +110,7 @@ metadata:
                 "enabled": true
               },
               "monitoring": {
-                "enabled": false
+                "enabled": true
               }
             },
             "rekor": {
@@ -117,7 +118,7 @@ metadata:
                 "enabled": true
               },
               "monitoring": {
-                "enabled": false
+                "enabled": true
               }
             },
             "trillian": {
@@ -188,7 +189,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-03-21T13:01:00Z"
+    createdAt: "2024-03-26T15:15:42Z"
     operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: rhtas-operator.v1.0.0
@@ -432,6 +433,13 @@ spec:
           - patch
           - update
           - watch
+        - apiGroups:
+          - operator.openshift.io
+          resources:
+          - consoles
+          verbs:
+          - get
+          - list
         - apiGroups:
           - operator.openshift.io
           resources:
@@ -754,7 +762,7 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
-                image: quay.io/redhat-user-workloads/rhtas-tenant/operator/rhtas-operator@sha256:e9c66d586d773edc59d80d0d75731d345da10c8d5accdc35a5adb2ebfb2b3897
+                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:8638159c41aff3234e965d9fd61a4fed9ae8393070228f6d4afd1124d186e970
                 livenessProbe:
                   httpGet:
                     path: /healthz
