@@ -118,6 +118,7 @@ jobs:
       - name: Add service hosts to /etc/hosts
         run: |
           sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local cli-server.local" | sudo tee -a /etc/hosts
+  
       - name: Install cosign
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.2.2
 
