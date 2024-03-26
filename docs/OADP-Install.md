@@ -104,7 +104,7 @@ cat << EOF > ./DataProtectionApplication.yaml
 apiVersion: oadp.openshift.io/v1alpha1
 kind: DataProtectionApplication
 metadata:
-  name: DataProtectionApplication
+  name: data-protection-application
   namespace: openshift-adp 
 spec:
   snapshotMoveData: true

@@ -1,0 +1,84 @@
+TUF_URL=$(oc -n tas-operator get tuf securesign-sample -o jsonpath='{.status.url}')
+FULCIO_URL=$(oc -n tas-operator get fulcio securesign-sample -o jsonpath='{.status.url}')
+REKOR_URL=$(oc -n tas-operator get rekor securesign-sample -o jsonpath='{.status.url}')
+OPENSHIFT_APPS_SUBDOMAIN=apps.$(oc get dns cluster -o jsonpath='{ .spec.baseDomain }')
+OIDC_ISSUER=https://keycloak-keycloak-system.$OPENSHIFT_APPS_SUBDOMAIN/auth/realms/trusted-artifact-signer
+
+rm -r ~/.sigstore
+cosign initialize --mirror=$TUF_URL --root=$TUF_URL/root.json 
+cosign sign -y --fulcio-url=$FULCIO_URL --rekor-url=$REKOR_URL --oidc-issuer=$OIDC_ISSUER quay.io/tdalton/rhtastest:test2 --oidc-client-id=trusted-artifact-signer
+cosign verify --rekor-url=$REKOR_URL --certificate-identity-regexp jdoe@redhat.com --certificate-oidc-issuer-regexp  keycloak-keycloak-system quay.io/tdalton/rhtastest:test2 
+
+
+
+
+https://keycloak-keycloak-system.apps.rosa.om6zs-3zn55-j86.i6rg.p3.openshiftapps.com
+
+
+apiVersion: rhtas.redhat.com/v1alpha1
+kind: Securesign
+metadata:
+  labels:
+    app.kubernetes.io/name: securesign-sample
+    app.kubernetes.io/instance: securesign-sample
+    app.kubernetes.io/part-of: trusted-artifact-signer
+  name: securesign-sample
+spec:
+  rekor:
+    externalAccess:
+      enabled: true
+    monitoring:
+      enabled: false
+    treeID: 9073472342370173029
+  trillian:
+    database:
+      create: true
+  fulcio:
+    externalAccess:
+      enabled: true
+    config:
+      OIDCIssuers:
+        "https://keycloak-keycloak-system.apps.rosa.om6zs-3zn55-j86.i6rg.p3.openshiftapps.com/auth/realms/trusted-artifact-signer":
+          ClientID: "trusted-artifact-signer"
+          IssuerURL: "https://keycloak-keycloak-system.apps.rosa.om6zs-3zn55-j86.i6rg.p3.openshiftapps.com/auth/realms/trusted-artifact-signer"
+          Type: "email"
+    certificate:
+      organizationName: Red Hat
+      organizationEmail: jdoe@redhat.com
+      commonName: fulcio.hostname
+    monitoring:
+      enabled: false
+  tuf:
+    externalAccess:
+      enabled: true
+  ctlog:
+    treeID: 893639057730069610
+
+
+rekor.pub
+-----BEGIN PUBLIC KEY-----
+MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAElkbhkFwfu7XolckqFss00VJXPbIC3MQT
+/W3Ul0dvIFzpqqShQhq7Im+6Ydq1+AP+iGjVRqqYzc83RqX1FbqCtT3zdSxQhhPj
+hi2aqeS8/AuOfqSHon98h91/pd1zJjRY
+-----END PUBLIC KEY-----
+
+fulcio_v1.crt.pem
+-----BEGIN CERTIFICATE-----
+MIIB9TCCAXugAwIBAgIUApgnqwXpwTMBRnjTSN4vrQAfLaMwCgYIKoZIzj0EAwMw
+LDEQMA4GA1UEChMHUmVkIEhhdDEYMBYGA1UEAxMPZnVsY2lvLmhvc3RuYW1lMB4X
+DTI0MDMyMDA5NTAxNloXDTM0MDMxODA5NTAxNlowLDEQMA4GA1UEChMHUmVkIEhh
+dDEYMBYGA1UEAxMPZnVsY2lvLmhvc3RuYW1lMHYwEAYHKoZIzj0CAQYFK4EEACID
+YgAEfiRxcJ4fo0K/X8l7rz2Xc60FIzWXNMFet4CRLvYTIo2l+r0tMIDSa1mbHCUo
+UtAy7FzXzF0QUwD19AsW5nSHz8VQTAbVJjD5sI3CMHKR0MNd7rMnTw6qTGPXPMs4
+XTSOo14wXDAOBgNVHQ8BAf8EBAMCAQYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4E
+FgQUVIKDe9Rxri9VU0tH1AMYkYeDiAQwGgYDVR0RBBMwEYEPamRvZUByZWRoYXQu
+Y29tMAoGCCqGSM49BAMDA2gAMGUCMFQVUJ8WYu9F4FkkuwEPr4uFl42XFrrzTLZZ
+Hn3Miw1xEPHiOO6fqISjProQ0X4p7wIxAPhJcl2Pj4QT0ds6AXc9ogj/6/Y34nIO
+VTGzOTd+GoeB+mHVDbLFPCmvS7mti/kbZQ==
+-----END CERTIFICATE-----
+
+ctfe.pub
+-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEFFaEHqUL1LfwDrjzuk8f2LGNrWIN
+4Nhik3ZL44tJ6tIzy/3iHPjWIIICp1f3YE6BqgHPTWiMfQBf6PR/kznObA==
+-----END PUBLIC KEY-----

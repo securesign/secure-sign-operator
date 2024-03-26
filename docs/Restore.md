@@ -4,6 +4,20 @@
 Performing a restore assumes the follwing.
 - OADP operator is installed and configured correctly.
 - You are utilising the same namespace structure as the backup.
+- THe operator is currently disabled or not present on the cluster.
+
+## Disable operator
+If the operator is installed an you wish to perform a restore please use the following command to scale down the operator deployment.
+
+```sh
+oc scale deploy rhtas-operator-controller-manager --replicas=0 -n openshift-operators
+```
+
+Once restore operations have completed you can reactivate the operator by scaling back up its deployment.
+
+```sh
+oc scale deploy rhtas-operator-controller-manager --replicas=1 -n openshift-operators
+```
 
 ## Same Cluster restore
 If the cluster you are performing the restore action on is the same cluster as the original backup the following Restore Example should suffice.
@@ -44,7 +58,16 @@ metadata:
   namespace: openshift-adp
 spec:
   backupName: <BackupName>
-  includedResources: [] 
+  includedResources: 
+  - pvc
+  - secrets
+  - configmaps
+  - securesign.rhtas.redhat.com
+  - trillian.rhtas.redhat.com
+  - ctlog.rhtas.redhat.com
+  - fulcio.rhtas.redhat.com
+  - rekor.rhtas.redhat.com
+  - tuf.rhtas.redhat.com
   excludedResources:
   - nodes
   - events
@@ -52,20 +75,6 @@ spec:
   - backups.velero.io
   - restores.velero.io
   - resticrepositories.velero.io
-  - deployments
-  - secrets
-  - configmaps
-  - cronjobs
-  - replicasets
-  - services
-  - routes
-  - ingresses
-  - Securesign
-  - pods
-  - tuf
-  - fulcio
-  - trillian
-  - ConfigMap
   restorePVs: true 
   existingResourcePolicy: Update
 EOF

@@ -19,10 +19,9 @@ metadata:
 spec:
   hooks: {}
   includedNamespaces:
-  - openshift-rhtas-operator
   - trusted-artifact-signer
   includedResources: [] 
-  excludedResources: VolumeSnapshots
+  excludedResources: [VolumeSnapshots]
   storageLocation: <BackupStorageLocation>
   ttl: 720h0m0s
 EOF
@@ -46,10 +45,9 @@ spec:
   template:
     hooks: {}
     includedNamespaces:
-    - openshift-rhtas-operator
     - trusted-artifact-signer
     includedResources: [] 
-    excludedResources: VolumeSnapshots
+    excludedResources: [VolumeSnapshots]
     storageLocation: <BackupStorageLocation>
     ttl: 720h0m0s
 EOF
