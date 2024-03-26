@@ -22,4 +22,6 @@ const (
 	ClientServerImage    = "registry.access.redhat.com/ubi9/httpd-24@sha256:7874b82335a80269dcf99e5983c2330876f5fe8bdc33dc6aa4374958a2ffaaee"
 	ClientServerImage_cg = "quay.io/redhat-user-workloads/rhtas-tenant/cli/client-server-cg@sha256:eb49058e7b12a2f48e363c09ef438aeb8500e83a4fb91451197f6bc2fe2e61de"
 	ClientServerImage_re = "quay.io/redhat-user-workloads/rhtas-tenant/cli/client-server-re@sha256:dd05e0575f1ee94ffe8a299a3baf5af1a5b77299f4f356daf7826d6e4814cd3d"
+
+	SegmentBackupImage = "quay.io/redhat-user-workloads/rhtas-tenant/segment-backup-job/segment-backup-job:97ce064c4c8599edae3087f7d96eb93c11f1d8a8"
 )

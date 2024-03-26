@@ -218,6 +218,9 @@ func createClientserver(ctx context.Context) ([]client.Object, error) {
 
 	// create new client - the manager's one is not initialized yet ))
 	cli, err := client.New(ctrl.GetConfigOrDie(), client.Options{Scheme: scheme})
+	if err != nil {
+		return []client.Object{}, err
+	}
 
 	ns := &core.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
