@@ -123,7 +123,9 @@ metadata:
             "trillian": {
               "database": {
                 "create": true
-              }
+              },
+              "trillianAddress": "trillian-address",
+              "trillienPort": "8091"
             },
             "tuf": {
               "externalAccess": {
@@ -188,7 +190,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-03-21T13:01:00Z"
+    createdAt: "2024-02-27T11:46:52Z"
     operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: rhtas-operator.v1.0.0

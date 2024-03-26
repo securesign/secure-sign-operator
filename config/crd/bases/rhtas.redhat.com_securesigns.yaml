@@ -532,6 +532,13 @@ spec:
                       If it is unset, the operator will create new Merkle tree in the Trillian backend
                     format: int64
                     type: integer
+                  trillianAddress:
+                    default: trillian-logserver.trillian-system.svc
+                    description: Trillian External Log Server
+                    type: string
+                  trillianPort:
+                    default: "8091"
+                    type: string
                 type: object
               trillian:
                 description: TrillianSpec defines the desired state of Trillian
