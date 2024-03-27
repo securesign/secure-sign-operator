@@ -1,0 +1,16 @@
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: <BackupName>
+  labels:
+    velero.io/storage-location: default
+  namespace: openshift-adp
+spec:
+  hooks: {}
+  includedNamespaces:
+  - openshift-rhtas-operator
+  - trusted-artifact-signer
+  includedResources: [] 
+  excludedResources: [] 
+  storageLocation: default
+  ttl: 720h0m0s
