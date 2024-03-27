@@ -31,7 +31,24 @@ metadata:
   namespace: openshift-adp
 spec:
   backupName: <BackupName>
-  includedResources: [] 
+  includedResources:
+    - pvc
+    - secrets
+    - configmaps
+    - securesign.rhtas.redhat.com
+    - trillian.rhtas.redhat.com
+    - ctlog.rhtas.redhat.com
+    - fulcio.rhtas.redhat.com
+    - rekor.rhtas.redhat.com
+    - tuf.rhtas.redhat.com
+  restoreStatus:
+    includedResources:
+      - securesign.rhtas.redhat.com
+      - trillian.rhtas.redhat.com
+      - ctlog.rhtas.redhat.com
+      - fulcio.rhtas.redhat.com
+      - rekor.rhtas.redhat.com
+      - tuf.rhtas.redhat.com
   excludedResources:
   - nodes
   - events
@@ -58,16 +75,31 @@ metadata:
   namespace: openshift-adp
 spec:
   backupName: <BackupName>
-  includedResources: 
-  - pvc
-  - secrets
-  - configmaps
-  - securesign.rhtas.redhat.com
-  - trillian.rhtas.redhat.com
-  - ctlog.rhtas.redhat.com
-  - fulcio.rhtas.redhat.com
-  - rekor.rhtas.redhat.com
-  - tuf.rhtas.redhat.com
+  includedResources:
+    - pvc
+    - secrets
+    - configmaps
+    - securesign.rhtas.redhat.com
+    - trillian.rhtas.redhat.com
+    - ctlog.rhtas.redhat.com
+    - fulcio.rhtas.redhat.com
+    - rekor.rhtas.redhat.com
+    - tuf.rhtas.redhat.com
+  restoreStatus:
+    includedResources:
+      - securesign.rhtas.redhat.com
+      - trillian.rhtas.redhat.com
+      - ctlog.rhtas.redhat.com
+      - fulcio.rhtas.redhat.com
+      - rekor.rhtas.redhat.com
+      - tuf.rhtas.redhat.com
+  excludedResources:
+  - nodes
+  - events
+  - events.events.k8s.io
+  - backups.velero.io
+  - restores.velero.io
+  - resticrepositories.velero.io
   excludedResources:
   - nodes
   - events
