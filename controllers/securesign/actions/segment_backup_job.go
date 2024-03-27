@@ -65,13 +65,13 @@ func (i segmentBackupJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Se
 	role := kubernetes.CreateClusterRole(instance.Namespace, SegmentRBACName, labels, []rbacv1.PolicyRule{
 		{
 			APIGroups: []string{""},
-			Resources: []string{"configmaps", "secrets"},
+			Resources: []string{"secrets"},
 			Verbs:     []string{"get", "list"},
 		},
 		{
 			APIGroups: []string{""},
 			Resources: []string{"configmaps"},
-			Verbs:     []string{"update"},
+			Verbs:     []string{"update", "get", "list", "patch"},
 		},
 		{
 			APIGroups: []string{"route.openshift.io"},
