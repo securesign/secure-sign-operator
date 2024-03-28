@@ -19,3 +19,10 @@ func LabelsForComponent(component, instance string) map[string]string {
 		"app.kubernetes.io/managed-by": "controller-manager",
 	}
 }
+
+func LabelsRHTAS() map[string]string {
+	return map[string]string{
+		"app.kubernetes.io/part-of":    "trusted-artifact-signer",
+		"app.kubernetes.io/managed-by": "controller-manager",
+	}
+}

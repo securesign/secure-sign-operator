@@ -21,7 +21,9 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
+	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/securesign/actions"
+	v1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -54,7 +56,7 @@ type SecuresignReconciler struct {
 //+kubebuilder:rbac:groups=networking,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;list;watch;create;update;patch;delete;deletecollection
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
@@ -90,6 +92,11 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	if instance.DeletionTimestamp != nil {
+		labels := constants.LabelsFor(actions.SegmentBackupCronJobName, actions.SegmentBackupCronJobName, instance.Name)
+		labels["app.kubernetes.io/instance-namespace"] = instance.Namespace
+		if err := r.Client.DeleteAllOf(ctx, &v1.ClusterRoleBinding{}, client.MatchingLabels(labels)); err != nil {
+			log.Error(err, "problem with removing clusterRoleBinding resource")
+		}
 		controllerutil.RemoveFinalizer(target, finalizer)
 		return ctrl.Result{}, r.Update(ctx, target)
 	}
@@ -102,6 +109,7 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		actions.NewRekorAction(),
 		actions.NewCtlogAction(),
 		actions.NewTufAction(),
+		actions.NewRBACAction(),
 		actions.NewSegmentBackupCronJobAction(),
 		actions.NewSegmentBackupJobAction(),
 		actions.NewUpdateStatusAction(),

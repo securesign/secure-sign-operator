@@ -16,12 +16,11 @@ func CreateRole(namespace, name string, labels map[string]string, rules []rbacv1
 	}
 }
 
-func CreateClusterRole(namespace, name string, labels map[string]string, rules []rbacv1.PolicyRule) *rbacv1.ClusterRole {
+func CreateClusterRole(name string, labels map[string]string, rules []rbacv1.PolicyRule) *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    labels,
+			Name:   name,
+			Labels: labels,
 		},
 		Rules: rules,
 	}
