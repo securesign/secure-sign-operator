@@ -763,7 +763,7 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
-                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:0c7fbe2139621e6da78aedf36a8fdb758e1c4e9311e8a6b433af605c0723b472
+                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:caca7ad0bc55808ca0c36d2d857dc6ac8c4866cb967c7073fd5799e173f2268f
                 livenessProbe:
                   httpGet:
                     path: /healthz
