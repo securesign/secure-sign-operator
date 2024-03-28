@@ -17,12 +17,11 @@ func CreateRoleBinding(namespace string, name string, labels map[string]string, 
 	}
 }
 
-func CreateClusterRoleBinding(namespace string, name string, labels map[string]string, roleRef rbacv1.RoleRef, subjects []rbacv1.Subject) *rbacv1.ClusterRoleBinding {
+func CreateClusterRoleBinding(name string, labels map[string]string, roleRef rbacv1.RoleRef, subjects []rbacv1.Subject) *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    labels,
+			Name:   name,
+			Labels: labels,
 		},
 		RoleRef:  roleRef,
 		Subjects: subjects,

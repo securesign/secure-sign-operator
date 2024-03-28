@@ -2,26 +2,21 @@ package actions
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/robfig/cron/v3"
 	"github.com/securesign/operator/controllers/constants"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	rbacv1 "k8s.io/api/rbac/v1"
 
 	"context"
 
-	"github.com/securesign/operator/controllers/common/action"
-	"github.com/securesign/operator/controllers/common/utils/kubernetes"
-
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/controllers/common/action"
 )
 
 func NewSegmentBackupCronJobAction() action.Action[rhtasv1alpha1.Securesign] {
@@ -36,11 +31,12 @@ func (i segmentBackupCronJob) Name() string {
 	return "segment-backup-nightly-metrics"
 }
 func (i segmentBackupCronJob) CanHandle(_ context.Context, instance *rhtasv1alpha1.Securesign) bool {
-	labels := instance.GetLabels()
-	for key, value := range labels {
-		if key == "rhtas.redhat.com/metrics" && (value == "false" || value == "False") {
-			return false
-		}
+	val, found := instance.Annotations["rhtas.redhat.com/metrics"]
+	if !found {
+		return true
+	}
+	if boolVal, err := strconv.ParseBool(val); err == nil {
+		return boolVal
 	}
 	return true
 }
@@ -56,62 +52,6 @@ func (i segmentBackupCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 	}
 
 	labels := constants.LabelsFor(SegmentBackupCronJobName, SegmentBackupCronJobName, instance.Name)
-
-	sa := &v1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      SegmentRBACName,
-			Namespace: instance.Namespace,
-			Labels:    labels,
-		},
-	}
-
-	if err = ctrl.SetControllerReference(instance, sa, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controll reference for SA: %w", err))
-	}
-	// don't re-enqueue for RBAC in any case (except failure)
-	_, err = i.Ensure(ctx, sa)
-
-	role := kubernetes.CreateClusterRole(instance.Namespace, SegmentRBACName, labels, []rbacv1.PolicyRule{
-		{
-			APIGroups: []string{""},
-			Resources: []string{"secrets"},
-			Verbs:     []string{"get", "list"},
-		},
-		{
-			APIGroups: []string{""},
-			Resources: []string{"configmaps"},
-			Verbs:     []string{"update", "get", "list", "patch"},
-		},
-		{
-			APIGroups: []string{"route.openshift.io"},
-			Resources: []string{"routes"},
-			Verbs:     []string{"get", "list"},
-		},
-		{
-			APIGroups: []string{"operator.openshift.io"},
-			Resources: []string{"consoles"},
-			Verbs:     []string{"get", "list"},
-		},
-	})
-
-	if err = ctrl.SetControllerReference(instance, role, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controll reference for role: %w", err))
-	}
-	_, err = i.Ensure(ctx, role)
-
-	rb := kubernetes.CreateClusterRoleBinding(instance.Namespace, SegmentRBACName, labels, rbacv1.RoleRef{
-		APIGroup: v1.SchemeGroupVersion.Group,
-		Kind:     "ClusterRole",
-		Name:     SegmentRBACName,
-	},
-		[]rbacv1.Subject{
-			{Kind: "ServiceAccount", Name: SegmentRBACName, Namespace: instance.Namespace},
-		})
-
-	if err = ctrl.SetControllerReference(instance, rb, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controll reference for roleBinding: %w", err))
-	}
-	_, err = i.Ensure(ctx, rb)
 
 	segmentBackupCronJob := &batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
