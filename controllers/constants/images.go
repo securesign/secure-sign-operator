@@ -20,7 +20,7 @@ const (
 	CTLogImage = "registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:1419a048cb5095b3f65d08224e6f94c6eb166d8d5a16707942aed2880992ddee"
 
 	ClientServerImage    = "registry.access.redhat.com/ubi9/httpd-24@sha256:7874b82335a80269dcf99e5983c2330876f5fe8bdc33dc6aa4374958a2ffaaee"
-	ClientServerImage_cg = "registry.redhat.io/rhtas/client-server-cg-rhel9@sha256:3ecacaccf5a43e3832e0e9cd3957850f06e8ae7716d89c83d89fb9b3535d5547"
-	ClientServerImage_re = "registry.redhat.io/rhtas/client-server-re-rhel9@sha256:9c4867018453a2d02be004b392b8b17e1cdb89ed841aefe619b63627f024ff90"
+	ClientServerImage_cg = "registry.redhat.io/rhtas/client-server-cg-rhel9@sha256:7448d37e1f9e8bb9cff80cb10271cffa345c2bb15ef7e1719a186e3020a6805c"
+	ClientServerImage_re = "registry.redhat.io/rhtas/client-server-re-rhel9@sha256:3499f0e2d371d07fc23fc6a37ba92911980d79b3510370cc7c00e0da5bad64ae"
 	SegmentBackupImage   = "registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:8f4f3ff12fb255c889f019b71b9e4c348b9b1c7276a5a7ca5b56a05c05aa8535"
 )
