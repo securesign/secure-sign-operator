@@ -110,7 +110,7 @@ metadata:
                 "enabled": true
               },
               "monitoring": {
-                "enabled": true
+                "enabled": false
               }
             },
             "rekor": {
@@ -118,7 +118,7 @@ metadata:
                 "enabled": true
               },
               "monitoring": {
-                "enabled": true
+                "enabled": false
               }
             },
             "trillian": {
@@ -189,7 +189,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-04-02T08:05:15Z"
+    createdAt: "2024-04-02T16:39:44Z"
     operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: rhtas-operator.v1.0.0

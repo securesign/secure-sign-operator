@@ -12,7 +12,7 @@ spec:
     externalAccess:
       enabled: true
     monitoring:
-      enabled: true
+      enabled: false
   trillian:
     database:
       create: true
@@ -30,7 +30,7 @@ spec:
       organizationEmail: jdoe@redhat.com
       commonName: fulcio.hostname
     monitoring:
-      enabled: true
+      enabled: false
   tuf:
     externalAccess:
       enabled: true

@@ -17,7 +17,7 @@ type ExternalAccess struct {
 type MonitoringConfig struct {
 	// If true, the Operator will create monitoring resources
 	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
-	//+kubebuilder:default:=true
+	//+kubebuilder:default:=false
 	Enabled bool `json:"enabled"`
 }
 
