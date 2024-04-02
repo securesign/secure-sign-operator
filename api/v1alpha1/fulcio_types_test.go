@@ -142,7 +142,7 @@ var _ = Describe("Fulcio", func() {
 				validObject.Spec.Config.MetaIssuers = []OIDCIssuer{
 					{
 						ClientID: "client",
-						Type: "email",
+						Type:     "email",
 					},
 				}
 

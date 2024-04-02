@@ -38,9 +38,6 @@ func (i segmentBackupJob) CanHandle(_ context.Context, instance *rhtasv1alpha1.S
 }
 
 func (i segmentBackupJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
-	if !instance.Spec.Analytics {
-		return i.Continue()
-	}
 
 	var (
 		err error
