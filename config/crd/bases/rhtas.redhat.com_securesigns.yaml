@@ -347,7 +347,7 @@ spec:
                     description: Enable Service monitors for fulcio
                     properties:
                       enabled:
-                        default: true
+                        default: false
                         description: If true, the Operator will create monitoring
                           resources
                         type: boolean
@@ -419,7 +419,7 @@ spec:
                     description: Enable Service monitors for rekor
                     properties:
                       enabled:
-                        default: true
+                        default: false
                         description: If true, the Operator will create monitoring
                           resources
                         type: boolean
