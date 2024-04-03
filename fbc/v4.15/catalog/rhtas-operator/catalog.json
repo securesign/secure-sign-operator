@@ -196,7 +196,7 @@
     "schema": "olm.bundle",
     "name": "rhtas-operator.v1.0.0",
     "package": "rhtas-operator",
-    "image": "registry.redhat.io/rhtas/rhtas-operator-bundle@sha256:208c1dba8f3798d8f3f631e303e568c20b4f6999433f3e47fe4c4a0279c9d0fe",
+    "image": "registry.redhat.io/rhtas/rhtas-operator-bundle@sha256:4ed7e2280537a2e6676aa2b256321c0dba1000b57738a4b8bf9725015f111ad2",
     "properties": [
         {
             "type": "olm.gvk",
@@ -315,11 +315,11 @@
         },
         {
             "name": "",
-            "image": "registry.redhat.io/rhtas/rhtas-operator-bundle@sha256:208c1dba8f3798d8f3f631e303e568c20b4f6999433f3e47fe4c4a0279c9d0fe"
+            "image": "registry.redhat.io/rhtas/rhtas-operator-bundle@sha256:4ed7e2280537a2e6676aa2b256321c0dba1000b57738a4b8bf9725015f111ad2"
         },
         {
             "name": "",
-            "image": "registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:46900cbea45bf026991f3a596e6ea47b633e0d6bd582a680655af115832423c3"
+            "image": "registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:2d2a22420249890a64b42c663d57c4b5c6638e0597fe74b01b275ba915e53ea2"
         },
         {
             "name": "",
