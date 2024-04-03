@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/controllers/constants"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -41,7 +42,11 @@ func (i rbacAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Secures
 }
 
 func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
+	if !instance.Spec.Analytics {
+		return i.Continue()
+	}
 	var err error
+
 	labels := constants.LabelsFor(SegmentBackupCronJobName, SegmentBackupCronJobName, instance.Name)
 	labels["app.kubernetes.io/instance-namespace"] = instance.Namespace
 
@@ -58,6 +63,16 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 	}
 	// don't re-enqueue for RBAC in any case (except failure)
 	_, err = i.Ensure(ctx, sa)
+
+	if err != nil {
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create SA: %w", err), instance)
+	}
 
 	role := kubernetes.CreateClusterRole(SegmentRBACName, constants.LabelsRHTAS(), []rbacv1.PolicyRule{
 		{
@@ -81,7 +96,18 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 			Verbs:     []string{"get", "list"},
 		},
 	})
+
 	_, err = i.Ensure(ctx, role)
+
+	if err != nil {
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create clusterrole required for SBJ: %w", err), instance)
+	}
 
 	rb := kubernetes.CreateClusterRoleBinding(fmt.Sprintf(namespacedNamePattern, instance.Namespace), labels, rbacv1.RoleRef{
 		APIGroup: v1.SchemeGroupVersion.Group,
@@ -91,7 +117,18 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 		[]rbacv1.Subject{
 			{Kind: "ServiceAccount", Name: SegmentRBACName, Namespace: instance.Namespace},
 		})
+
 	_, err = i.Ensure(ctx, rb)
+
+	if err != nil {
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create clusterrolebinding required for SBJ: %w", err), instance)
+	}
 
 	return i.Continue()
 }

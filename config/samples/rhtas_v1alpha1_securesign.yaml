@@ -34,4 +34,5 @@ spec:
   tuf:
     externalAccess:
       enabled: true
+  analytics: false
   ctlog:

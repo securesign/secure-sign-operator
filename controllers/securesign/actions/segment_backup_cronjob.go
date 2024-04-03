@@ -42,6 +42,11 @@ func (i segmentBackupCronJob) CanHandle(_ context.Context, instance *rhtasv1alph
 }
 
 func (i segmentBackupCronJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
+
+	if !instance.Spec.Analytics {
+		return i.Continue()
+	}
+
 	var (
 		err     error
 		updated bool
