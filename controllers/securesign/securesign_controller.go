@@ -103,15 +103,14 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	acs := []action.Action[rhtasv1alpha1.Securesign]{
 		actions.NewInitializeStatusAction(),
-
 		actions.NewTrillianAction(),
 		actions.NewFulcioAction(),
 		actions.NewRekorAction(),
 		actions.NewCtlogAction(),
 		actions.NewTufAction(),
 		actions.NewRBACAction(),
-		actions.NewSegmentBackupCronJobAction(),
 		actions.NewSegmentBackupJobAction(),
+		actions.NewSegmentBackupCronJobAction(),
 		actions.NewUpdateStatusAction(),
 	}
 

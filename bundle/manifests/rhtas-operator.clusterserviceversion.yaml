@@ -89,6 +89,7 @@ metadata:
             "namespace": "rhtas-operator"
           },
           "spec": {
+            "analytics": false,
             "ctlog": null,
             "fulcio": {
               "certificate": {
@@ -189,7 +190,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-04-02T16:39:44Z"
+    createdAt: "2024-04-03T14:51:19Z"
     operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: rhtas-operator.v1.0.0
