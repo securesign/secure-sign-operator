@@ -15,6 +15,6 @@ image: registry.redhat.io/rhtas-tech-preview/sigstore-operator-bundle@sha256:1c0
 # rhtas-bundle-registry v0.0.2
 ---
 schema: olm.bundle
-image: registry.redhat.io/rhtas/rhtas-operator-bundle@sha256:cbf83c222d175515b62e70c06670aefec59c9e1aaa3ce214dd06a28f5edce601
+image: registry.redhat.io/rhtas/rhtas-operator-bundle@sha256:b263772342cb6f7a9685f731b486cec57d468e754daedf8c91068adc57445da4
 # rhtas-bundle-registry v1.0.0
 ---
