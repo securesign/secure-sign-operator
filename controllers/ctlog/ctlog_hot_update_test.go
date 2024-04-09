@@ -18,8 +18,9 @@ package ctlog
 
 import (
 	"context"
-	"github.com/securesign/operator/controllers/ctlog/utils"
 	"time"
+
+	"github.com/securesign/operator/controllers/ctlog/utils"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
@@ -127,8 +128,8 @@ var _ = Describe("CTlog update test", func() {
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase
-			deployment.Status.Replicas = *deployment.Spec.Replicas
-			deployment.Status.ReadyReplicas = *deployment.Spec.Replicas
+			deployment.Status.Conditions = []appsv1.DeploymentCondition{
+				{Status: corev1.ConditionTrue, Type: appsv1.DeploymentAvailable, Reason: constants.Ready}}
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
 
 			By("Waiting until CTlog instance is Ready")

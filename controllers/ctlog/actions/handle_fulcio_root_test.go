@@ -21,7 +21,7 @@ func Test_HandleFulcioCert_Autodiscover(t *testing.T) {
 
 	instance := &v1alpha1.CTlog{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "auto",
+			Name:      "auto",
 			Namespace: "default",
 		},
 		Spec: v1alpha1.CTlogSpec{},
@@ -59,13 +59,12 @@ func Test_HandleFulcioCert_Autodiscover(t *testing.T) {
 	g.Expect(meta.IsStatusConditionTrue(i.Status.Conditions, CertCondition)).To(BeTrue())
 }
 
-
 func Test_HandleFulcioCert_Empty(t *testing.T) {
 	g := NewWithT(t)
 
 	instance := &v1alpha1.CTlog{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "empty",
+			Name:      "empty",
 			Namespace: "default",
 		},
 		Spec: v1alpha1.CTlogSpec{},
@@ -102,17 +101,17 @@ func Test_HandleFulcioCert_Configured(t *testing.T) {
 
 	instance := &v1alpha1.CTlog{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "configured",
+			Name:      "configured",
 			Namespace: "default",
 		},
 		Spec: v1alpha1.CTlogSpec{
 			RootCertificates: []v1alpha1.SecretKeySelector{
 				{
-					Key: "key",
+					Key:                  "key",
 					LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
 				},
 				{
-					Key: "key",
+					Key:                  "key",
 					LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret-2"},
 				},
 			},
@@ -157,13 +156,13 @@ func Test_HandleFulcioCert_Configured_Priority(t *testing.T) {
 
 	instance := &v1alpha1.CTlog{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "configured-priority",
+			Name:      "configured-priority",
 			Namespace: "default",
 		},
 		Spec: v1alpha1.CTlogSpec{
 			RootCertificates: []v1alpha1.SecretKeySelector{
 				{
-					Key: "key",
+					Key:                  "key",
 					LocalObjectReference: v1alpha1.LocalObjectReference{Name: "my-secret"},
 				},
 			},
@@ -208,13 +207,13 @@ func Test_HandleFulcioCert_Delete_ServerConfig(t *testing.T) {
 
 	instance := &v1alpha1.CTlog{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "delete-config",
+			Name:      "delete-config",
 			Namespace: "default",
 		},
 		Spec: v1alpha1.CTlogSpec{
 			RootCertificates: []v1alpha1.SecretKeySelector{
 				{
-					Key: "key",
+					Key:                  "key",
 					LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
 				},
 			},
@@ -232,7 +231,7 @@ func Test_HandleFulcioCert_Delete_ServerConfig(t *testing.T) {
 	}
 
 	c := testAction.FakeClientBuilder().WithObjects(
-		kubernetes.CreateImmutableSecret("ctlog-config", instance.Namespace, map[string][]byte{},  map[string]string{}),
+		kubernetes.CreateImmutableSecret("ctlog-config", instance.Namespace, map[string][]byte{}, map[string]string{}),
 		instance,
 	).Build()
 
@@ -250,4 +249,3 @@ func Test_HandleFulcioCert_Delete_ServerConfig(t *testing.T) {
 	g.Expect(i.Status.ServerConfigRef).To(BeNil())
 	g.Expect(c.Get(context.TODO(), types.NamespacedName{Name: "ctlog-config", Namespace: instance.GetNamespace()}, &v1.Secret{})).To(HaveOccurred())
 }
-
