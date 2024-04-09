@@ -26,6 +26,88 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - name: Remove rhel9 suffix from images.go
+        uses: jacobtomlinson/gha-find-replace@v3
+        with:
+          find: "-rhel9@"
+          replace: "@"
+          include: "**images.go"
+          regex: false
+
+      - name: Replace trillian images
+        uses: jacobtomlinson/gha-find-replace@v3
+        with:
+          find: "registry.redhat.io/rhtas/trillian-"
+          replace: "quay.io/redhat-user-workloads/rhtas-tenant/trillian/"
+          include: "**images.go"
+          regex: false
+
+      - name: replace Fulcio images
+        uses: jacobtomlinson/gha-find-replace@v3
+        with:
+          find: "registry.redhat.io/rhtas/fulcio"
+          replace: "quay.io/redhat-user-workloads/rhtas-tenant/fulcio/fulcio-server"
+          include: "**images.go"
+          regex: false
+
+      - name: replace Rekor-search images
+        uses: jacobtomlinson/gha-find-replace@v3
+        with:
+          find: "registry.redhat.io/rhtas/rekor-search-ui"
+          replace: "quay.io/redhat-user-workloads/rhtas-tenant/rekor-search-ui/rekor-search-ui"
+          include: "**images.go"
+          regex: false
+
+      - name: replace Rekor images
+        uses: jacobtomlinson/gha-find-replace@v3
+        with:
+          find: 'registry.redhat.io/rhtas/rekor-'
+          replace: "quay.io/redhat-user-workloads/rhtas-tenant/rekor/rekor-"
+          include: "**images.go"
+          regex: false
+
+      - name: replace Tuf images
+        uses: jacobtomlinson/gha-find-replace@v3
+        with:
+          find: "registry.redhat.io/rhtas/tuf-"
+          replace: "quay.io/redhat-user-workloads/rhtas-tenant/scaffold/tuf-"
+          include: "**images.go"
+          regex: false
+
+      - name: replace CTL images
+        uses: jacobtomlinson/gha-find-replace@v3
+        with:
+          find: "registry.redhat.io/rhtas/certificate-transparency"
+          replace: "quay.io/redhat-user-workloads/rhtas-tenant/certificate-transparency-go/certificate-transparency-go"
+          include: "**images.go"
+          regex: false
+
+      - name: replace server-cg image
+        uses: jacobtomlinson/gha-find-replace@v3
+        with:
+          find: "registry.redhat.io/rhtas/client-server-cg"
+          replace: "quay.io/redhat-user-workloads/rhtas-tenant/cli/client-server-cg"
+          include: "**images.go"
+          regex: false
+      - name: replace server-re image
+        uses: jacobtomlinson/gha-find-replace@v3
+        with:
+          find: "registry.redhat.io/rhtas/client-server-re"
+          replace: "quay.io/redhat-user-workloads/rhtas-tenant/cli/client-server-re"
+          include: "**images.go"
+          regex: false
+
+      - name: replace segment job image
+        uses: jacobtomlinson/gha-find-replace@v3
+        with:
+          find: "registry.redhat.io/rhtas/segment-reporting"
+          replace: "quay.io/redhat-user-workloads/rhtas-tenant/segment-backup-job/segment-backup-job"
+          include: "**images.go"
+          regex: false
+
+      - name: Print Resulting images.go file
+        run: cat controllers/constants/images.go
+
       - name: Build operator container
         run: IMG=ttl.sh/securesign/secure-sign-operator:1h make docker-build docker-push
 
