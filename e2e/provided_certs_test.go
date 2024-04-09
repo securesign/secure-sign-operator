@@ -11,6 +11,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"math/big"
+	"os"
 	"time"
 
 	"github.com/securesign/operator/controllers/common/utils"
@@ -38,7 +39,9 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			support.DumpNamespace(ctx, cli, namespace.Name)
+			if val, present := os.LookupEnv("CI"); present && val == "true" {
+				support.DumpNamespace(ctx, cli, namespace.Name)
+			}
 		}
 	})
 

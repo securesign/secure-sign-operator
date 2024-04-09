@@ -5,6 +5,7 @@ package e2e_test
 import (
 	"context"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/securesign/operator/controllers/common/utils"
@@ -32,7 +33,9 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			support.DumpNamespace(ctx, cli, namespace.Name)
+			if val, present := os.LookupEnv("CI"); present && val == "true" {
+				support.DumpNamespace(ctx, cli, namespace.Name)
+			}
 		}
 	})
 

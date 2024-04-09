@@ -5,6 +5,7 @@ package e2e_test
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"time"
 
 	"github.com/securesign/operator/controllers/common/utils"
@@ -26,6 +27,7 @@ import (
 )
 
 var _ = Describe("Securesign hot update", Ordered, func() {
+	SetDefaultEventuallyTimeout(time.Duration(5) * time.Minute)
 	cli, _ := CreateClient()
 	ctx := context.TODO()
 
@@ -35,7 +37,9 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			support.DumpNamespace(ctx, cli, namespace.Name)
+			if val, present := os.LookupEnv("CI"); present && val == "true" {
+				support.DumpNamespace(ctx, cli, namespace.Name)
+			}
 		}
 	})
 
@@ -225,7 +229,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 			Eventually(func() string {
 				rekor := tas.GetRekor(ctx, cli, namespace.Name, securesign.Name)()
 				return meta.FindStatusCondition(rekor.Status.Conditions, constants.Ready).Reason
-			}).Should(Equal(constants.Creating))
+			}).Should(Equal(constants.Pending))
 
 			Expect(cli.Create(ctx, initRekorSecret(namespace.Name, "my-rekor-secret")))
 

@@ -43,11 +43,6 @@ func (i pendingAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor
 		return i.Requeue()
 	}
 
-	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:   constants.Ready,
-		Status: metav1.ConditionFalse,
-		Reason: constants.Creating,
-	})
-	return i.StatusUpdate(ctx, instance)
+	return i.Continue()
 
 }

@@ -4,6 +4,7 @@ package e2e_test
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -30,7 +31,11 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			support.DumpNamespace(ctx, cli, namespace.Name)
+			if val, present := os.LookupEnv("CI"); present && val == "true" {
+				if val, present := os.LookupEnv("CI"); present && val == "true" {
+					support.DumpNamespace(ctx, cli, namespace.Name)
+				}
+			}
 		}
 	})
 

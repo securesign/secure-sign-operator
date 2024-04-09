@@ -4,6 +4,7 @@ package e2e_test
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/securesign/operator/controllers/common/utils"
@@ -30,7 +31,9 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			support.DumpNamespace(ctx, cli, namespace.Name)
+			if val, present := os.LookupEnv("CI"); present && val == "true" {
+				support.DumpNamespace(ctx, cli, namespace.Name)
+			}
 		}
 	})
 

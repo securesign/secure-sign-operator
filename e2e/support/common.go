@@ -66,6 +66,13 @@ func EnvOrDefault(env string, def string) string {
 func DumpNamespace(ctx context.Context, cli client.Client, ns string) {
 
 	core.GinkgoWriter.Println("----------------------- Dumping namespace " + ns + " -----------------------")
+	securesigns := &v1alpha1.SecuresignList{}
+	cli.List(ctx, securesigns, client.InNamespace(ns))
+	core.GinkgoWriter.Println("Securesigns:")
+	for _, p := range securesigns.Items {
+		core.GinkgoWriter.Println(toYAMLNoManagedFields(&p))
+	}
+
 	fulcios := &v1alpha1.FulcioList{}
 	cli.List(ctx, fulcios, client.InNamespace(ns))
 	core.GinkgoWriter.Println("Fulcios:")

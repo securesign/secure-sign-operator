@@ -43,23 +43,36 @@ func (g generateSigner) Name() string {
 
 func (g generateSigner) CanHandle(_ context.Context, instance *v1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	if c.Reason != constants.Creating && c.Reason != constants.Ready {
+	if c.Reason != constants.Pending && c.Reason != constants.Ready {
 		return false
 	}
 
-	if instance.Spec.Signer.KMS != "secret" && instance.Spec.Signer.KMS != "" {
-		return false
-	}
 	return instance.Status.Signer.KeyRef == nil || !equality.Semantic.DeepDerivative(instance.Spec.Signer, instance.Status.Signer)
 
 }
 
 func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *action.Result {
-	if meta.FindStatusCondition(instance.Status.Conditions, constants.Ready).Reason != constants.Creating {
+	if instance.Spec.Signer.KMS != "secret" && instance.Spec.Signer.KMS != "" {
+		instance.Status.Signer = instance.Spec.Signer
+		// skip signer resolution and move to creating
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:   constants.Ready,
 			Status: metav1.ConditionFalse,
 			Reason: constants.Creating,
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    actions.SignerCondition,
+			Status:  metav1.ConditionTrue,
+			Reason:  constants.Ready,
+			Message: "Not using Secret resource",
+		})
+		return g.StatusUpdate(ctx, instance)
+	}
+	if meta.FindStatusCondition(instance.Status.Conditions, constants.Ready).Reason != constants.Pending {
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:   constants.Ready,
+			Status: metav1.ConditionFalse,
+			Reason: constants.Pending,
 		},
 		)
 		return g.StatusUpdate(ctx, instance)
@@ -67,11 +80,6 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 	var (
 		err error
 	)
-
-	instance.Status.Signer = instance.Spec.Signer
-	if instance.Status.Signer.KeyRef != nil {
-		return g.StatusUpdate(ctx, instance)
-	}
 
 	certConfig, err := g.CreateRekorKey(instance)
 	if err != nil {
@@ -81,6 +89,12 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 				Status:  metav1.ConditionFalse,
 				Reason:  constants.Failure,
 				Message: err.Error(),
+			})
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:    actions.ServerCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Pending,
+				Message: "resolving keys",
 			})
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:    constants.Ready,
@@ -95,6 +109,9 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 	}
 
 	labels := constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
+	if err = g.Client.DeleteAllOf(ctx, &v1.Secret{}, client.InNamespace(instance.Namespace), client.MatchingLabels(labels), client.HasLabels{RekorPubLabel}); err != nil {
+		return g.Failed(err)
+	}
 
 	data := make(map[string][]byte)
 	if certConfig.RekorKey != nil {
@@ -104,10 +121,6 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 		data["password"] = certConfig.RekorKeyPassword
 	}
 	if certConfig.RekorPubKey != nil {
-		// ensure that only new key is exposed
-		if err = g.Client.DeleteAllOf(ctx, &v1.Secret{}, client.InNamespace(instance.Namespace), client.MatchingLabels(labels), client.HasLabels{RekorPubLabel}); err != nil {
-			return g.Failed(err)
-		}
 		labels[RekorPubLabel] = "public"
 		data["public"] = certConfig.RekorPubKey
 	}
@@ -157,6 +170,11 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 		Status:  metav1.ConditionFalse,
 		Reason:  constants.Creating,
 		Message: "Signer resolved",
+	})
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:   actions.ServerCondition,
+		Status: metav1.ConditionFalse,
+		Reason: constants.Creating,
 	})
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:   actions.SignerCondition,
