@@ -4,6 +4,7 @@ import (
 	"context"
 
 	v1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -15,20 +16,20 @@ func DeploymentIsRunning(ctx context.Context, cli client.Client, namespace strin
 		return false, err
 	}
 	for _, d := range list.Items {
-		if d.Status.ReadyReplicas != *d.Spec.Replicas {
+		c := getDeploymentCondition(d.Status, v1.DeploymentAvailable)
+		if c == nil || c.Status == corev1.ConditionFalse {
 			return false, nil
 		}
 	}
 	return true, nil
 }
 
-func DeploymentList(ctx context.Context, cli client.Client, component, namespace string) (*v1.DeploymentList, error) {
-	var err error
-	list := &v1.DeploymentList{}
-
-	if err = cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels{ComponentLabel: component}); err != nil {
-		return nil, err
+func getDeploymentCondition(status v1.DeploymentStatus, condType v1.DeploymentConditionType) *v1.DeploymentCondition {
+	for i := range status.Conditions {
+		c := status.Conditions[i]
+		if c.Type == condType {
+			return &c
+		}
 	}
-
-	return list, nil
+	return nil
 }

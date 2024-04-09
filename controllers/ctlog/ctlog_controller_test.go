@@ -168,8 +168,8 @@ var _ = Describe("CTlog controller", func() {
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase
-			deployment.Status.Replicas = *deployment.Spec.Replicas
-			deployment.Status.ReadyReplicas = *deployment.Spec.Replicas
+			deployment.Status.Conditions = []appsv1.DeploymentCondition{
+				{Status: corev1.ConditionTrue, Type: appsv1.DeploymentAvailable, Reason: constants.Ready}}
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
 
 			By("Waiting until CTlog instance is Ready")
