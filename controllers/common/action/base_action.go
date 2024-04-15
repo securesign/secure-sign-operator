@@ -135,6 +135,9 @@ func (action *BaseAction) Ensure(ctx context.Context, obj client2.Object) (bool,
 	action.Logger.Info("Updating object",
 		"kind", reflect.TypeOf(currentObj).Elem().Name(), "Namespace", key.Namespace, "Name", key.Name)
 	if err := action.Client.Update(ctx, currentObj); err != nil {
+		if strings.Contains(err.Error(), OptimisticLockErrorMsg) {
+			return action.Ensure(ctx, obj)
+		}
 		action.Logger.Error(err, "Failed to update object",
 			"kind", reflect.TypeOf(obj).Elem().Name(), "Namespace", key.Namespace, "Name", key.Name)
 		return false, err
