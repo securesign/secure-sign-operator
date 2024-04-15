@@ -121,13 +121,14 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 		})
 
 		It("operator should generate rekor secret", func() {
+			Eventually(func() *v1alpha1.SecretKeySelector {
+				return tas.GetRekor(ctx, cli, namespace.Name, securesign.Name)().Status.Signer.KeyRef
+			}).Should(Not(BeNil()))
 			Eventually(func() *v1.Secret {
-				secret := &v1.Secret{}
 				rekor := tas.GetRekor(ctx, cli, namespace.Name, securesign.Name)()
 				scr := &v1.Secret{}
 				Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: rekor.Status.Signer.KeyRef.Name}, scr)).To(Succeed())
 				return scr
-				return secret
 			}).Should(
 				WithTransform(func(secret *v1.Secret) map[string][]byte { return secret.Data },
 					And(
