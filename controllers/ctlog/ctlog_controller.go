@@ -89,6 +89,7 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		actions.NewRBACAction(),
 		actions.NewDeployAction(),
 		actions.NewServiceAction(),
+		actions.NewCreateMonitorAction(),
 
 		actions.NewToInitializeAction(),
 
