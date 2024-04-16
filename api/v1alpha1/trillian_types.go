@@ -26,6 +26,8 @@ type TrillianSpec struct {
 	//+kubebuilder:validation:XValidation:rule=((!self.create && self.databaseSecretRef != null) || self.create),message=databaseSecretRef cannot be empty
 	//+kubebuilder:default:={create: true, pvc: {size: "5Gi", retain: true}}
 	Db TrillianDB `json:"database,omitempty"`
+	// Enable Monitoring for Logsigner and Logserver
+	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
 }
 
 type TrillianDB struct {

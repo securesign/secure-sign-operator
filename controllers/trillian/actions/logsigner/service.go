@@ -1,4 +1,4 @@
-package logserver
+package logsigner
 
 import (
 	"context"
@@ -10,11 +10,9 @@ import (
 	"github.com/securesign/operator/controllers/trillian/actions"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -35,7 +33,7 @@ func (i createServiceAction) Name() string {
 
 func (i createServiceAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Creating || c.Reason == constants.Ready
+	return c.Reason == constants.Creating || c.Reason == constants.Ready && instance.Spec.Monitoring.Enabled
 }
 
 func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
@@ -45,23 +43,14 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		updated bool
 	)
 
-	labels := constants.LabelsFor(actions.LogServerComponentName, actions.LogserverDeploymentName, instance.Name)
-	logserverService := k8sutils.CreateService(instance.Namespace, actions.LogserverDeploymentName, serverPort, labels)
+	labels := constants.LabelsFor(actions.LogSignerComponentName, actions.LogsignerDeploymentName, instance.Name)
+	logsignerService := k8sutils.CreateService(instance.Namespace, actions.LogsignerDeploymentName, monitoringPort, labels)
 
-	if instance.Spec.Monitoring.Enabled {
-		logserverService.Spec.Ports = append(logserverService.Spec.Ports, corev1.ServicePort{
-			Name:       actions.LogServerMonitoringName,
-			Protocol:   corev1.ProtocolTCP,
-			Port:       int32(monitoringPort),
-			TargetPort: intstr.FromInt(monitoringPort),
-		})
+	if err = controllerutil.SetControllerReference(instance, logsignerService, i.Client.Scheme()); err != nil {
+		return i.Failed(fmt.Errorf("could not set controller reference for logsigner Service: %w", err))
 	}
 
-	if err = controllerutil.SetControllerReference(instance, logserverService, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for logserver Service: %w", err))
-	}
-
-	if updated, err = i.Ensure(ctx, logserverService); err != nil {
+	if updated, err = i.Ensure(ctx, logsignerService); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ServerCondition,
 			Status:  metav1.ConditionFalse,
@@ -74,7 +63,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create logserver Service: %w", err), instance)
+		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create logsigner Service: %w", err), instance)
 	}
 
 	if updated {
