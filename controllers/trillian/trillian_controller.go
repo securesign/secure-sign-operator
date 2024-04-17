@@ -87,8 +87,11 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 		logserver.NewDeployAction(),
 		logserver.NewCreateServiceAction(),
+		logserver.NewCreateMonitorAction(),
 
 		logsigner.NewDeployAction(),
+		logsigner.NewCreateServiceAction(),
+		logsigner.NewCreateMonitorAction(),
 
 		actions2.NewToInitializePhaseAction(),
 

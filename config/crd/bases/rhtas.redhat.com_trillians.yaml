@@ -121,6 +121,19 @@ spec:
                 x-kubernetes-validations:
                 - message: databaseSecretRef cannot be empty
                   rule: ((!self.create && self.databaseSecretRef != null) || self.create)
+              monitoring:
+                description: Enable Monitoring for Logsigner and Logserver
+                properties:
+                  enabled:
+                    default: false
+                    description: If true, the Operator will create monitoring resources
+                    type: boolean
+                    x-kubernetes-validations:
+                    - message: Feature cannot be disabled
+                      rule: (self || !oldSelf)
+                required:
+                - enabled
+                type: object
             type: object
           status:
             description: TrillianStatus defines the observed state of Trillian
