@@ -57,4 +57,29 @@ spec:
   - deployments
   restorePVs: true 
   existingResourcePolicy: update
+EOF
+
+oc apply -f RestoreExample.yaml
 ```
+
+## Cross Provider Restore 
+To perform a restore on a cluster using different storage classes create a yaml file based upon the following:
+
+```sh
+cat << EOF > ./changestorageclass.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: change-storage-class-config
+  namespace: openshift-adp
+  labels:
+    velero.io/plugin-config: ""
+    velero.io/change-storage-class: RestoreItemAction
+data:
+  gp3-csi: ssd-csi
+EOF
+
+oc apply -f changestorageclass.yaml
+```
+
+The above example is swapping from an Amazon Web Services storage solution to a Google Cloud Provider Solution.
