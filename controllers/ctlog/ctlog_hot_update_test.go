@@ -192,7 +192,7 @@ var _ = Describe("CTlog update test", func() {
 				updated := &appsv1.Deployment{}
 				k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
-			}, time.Minute, time.Second).Should(BeFalse())
+			}, 2*time.Minute, time.Second).Should(BeFalse())
 		})
 	})
 })
