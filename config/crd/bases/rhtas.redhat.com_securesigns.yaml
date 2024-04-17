@@ -342,11 +342,13 @@ spec:
                           - Issuer
                           - Type
                           type: object
-                        minItems: 1
                         type: array
-                    required:
-                    - OIDCIssuers
                     type: object
+                    x-kubernetes-validations:
+                    - message: At least one of OIDCIssuers or MetaIssuers must be
+                        defined
+                      rule: (has(self.OIDCIssuers) && (size(self.OIDCIssuers) > 0))
+                        || (has(self.MetaIssuers) && (size(self.MetaIssuers) > 0))
                   externalAccess:
                     description: Define whether you want to export service or not
                     properties:
