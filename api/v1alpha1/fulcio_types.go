@@ -47,10 +47,12 @@ type FulcioCert struct {
 	OrganizationEmail string `json:"organizationEmail,omitempty"`
 }
 
+// FulcioConfig configuration of OIDC issuers
+// +kubebuilder:validation:XValidation:rule=(has(self.OIDCIssuers) && (size(self.OIDCIssuers) > 0)) || (has(self.MetaIssuers) && (size(self.MetaIssuers) > 0)),message=At least one of OIDCIssuers or MetaIssuers must be defined
 type FulcioConfig struct {
 	// OIDC Configuration
-	// +kubebuilder:validation:MinItems=1
-	OIDCIssuers []OIDCIssuer `json:"OIDCIssuers"`
+	// +optional
+	OIDCIssuers []OIDCIssuer `json:"OIDCIssuers,omitempty"`
 
 	// A meta issuer has a templated URL of the form:
 	//   https://oidc.eks.*.amazonaws.com/id/*
