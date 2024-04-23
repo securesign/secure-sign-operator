@@ -102,6 +102,7 @@ metadata:
     app.kubernetes.io/instance: securesign-sample
     app.kubernetes.io/part-of: trusted-artifact-signer
   name: securesign-sample
+  namespace: rhtas-operator
 spec:
   rekor:
     externalAccess:
@@ -118,9 +119,9 @@ spec:
       host: fulcio.example.com
     config:
       OIDCIssuers:
-        "https://keycloak-keycloak-system.example.comauth/realms/trusted-artifact-signer":
-          ClientID: "trusted-artifact-signer"
-          IssuerURL: "https://keycloak-keycloak-system.example.comauth/realms/trusted-artifact-signer"
+        - ClientID: "trusted-artifact-signer"
+          IssuerURL: "https://your-oidc-issuer-url"
+          Issuer: "https://your-oidc-issuer-url"
           Type: "email"
     certificate:
       organizationName: Red Hat
@@ -132,6 +133,7 @@ spec:
     externalAccess:
       enabled: true
       host: tuf.example.com
+  analytics: false
   ctlog:
   ```
 
