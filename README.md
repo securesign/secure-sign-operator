@@ -107,6 +107,7 @@ spec:
   rekor:
     externalAccess:
       enabled: true
+      host: rekor.example.com
     monitoring:
       enabled: false
   trillian:
@@ -115,6 +116,7 @@ spec:
   fulcio:
     externalAccess:
       enabled: true
+      host: fulcio.example.com
     config:
       OIDCIssuers:
         - ClientID: "trusted-artifact-signer"
@@ -124,12 +126,13 @@ spec:
     certificate:
       organizationName: Red Hat
       organizationEmail: jdoe@redhat.com
-      commonName: fulcio.hostname
+      commonName: fulcio.example.com
     monitoring:
       enabled: false
   tuf:
     externalAccess:
       enabled: true
+      host: tuf.example.com
   analytics: false
   ctlog:
   ```
