@@ -101,7 +101,7 @@ metadata:
                 "enabled": true
               },
               "monitoring": {
-                "enabled": false
+                "enabled": true
               }
             },
             "rekor": {
@@ -109,7 +109,7 @@ metadata:
                 "enabled": true
               },
               "monitoring": {
-                "enabled": false
+                "enabled": true
               }
             },
             "trillian": {

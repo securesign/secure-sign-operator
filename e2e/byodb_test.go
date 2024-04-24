@@ -49,6 +49,9 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace.Name,
 				Name:      "test",
+				Annotations: map[string]string{
+					"rhtas.redhat.com/metrics": "false",
+				},
 			},
 			Spec: v1alpha1.SecuresignSpec{
 				Rekor: v1alpha1.RekorSpec{
