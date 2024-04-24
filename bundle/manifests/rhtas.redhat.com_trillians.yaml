@@ -125,7 +125,7 @@ spec:
                 description: Enable Monitoring for Logsigner and Logserver
                 properties:
                   enabled:
-                    default: false
+                    default: true
                     description: If true, the Operator will create monitoring resources
                     type: boolean
                     x-kubernetes-validations:

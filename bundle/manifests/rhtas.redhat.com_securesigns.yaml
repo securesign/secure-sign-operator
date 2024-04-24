@@ -56,14 +56,6 @@ spec:
           spec:
             description: SecuresignSpec defines the desired state of Securesign
             properties:
-              analytics:
-                default: false
-                description: If true, the Operator will create segment backup job
-                  and cronjob and required RBAC
-                type: boolean
-                x-kubernetes-validations:
-                - message: Feature cannot be disabled
-                  rule: (self || !oldSelf)
               ctlog:
                 description: CTlogSpec defines the desired state of CTlog component
                 properties:
@@ -71,7 +63,7 @@ spec:
                     description: Enable Service monitors for ctlog
                     properties:
                       enabled:
-                        default: false
+                        default: true
                         description: If true, the Operator will create monitoring
                           resources
                         type: boolean
@@ -641,7 +633,7 @@ spec:
                     description: Enable Monitoring for Logsigner and Logserver
                     properties:
                       enabled:
-                        default: false
+                        default: true
                         description: If true, the Operator will create monitoring
                           resources
                         type: boolean
@@ -723,8 +715,6 @@ spec:
                     minimum: 1
                     type: integer
                 type: object
-            required:
-            - analytics
             type: object
           status:
             description: SecuresignStatus defines the observed state of Securesign
