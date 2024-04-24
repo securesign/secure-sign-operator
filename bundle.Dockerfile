@@ -16,6 +16,7 @@ LABEL io.k8s.display-name="RHTAS operator bundle container image for Red Hat Tru
 LABEL io.openshift.tags="rhtas-operator-bundle, rhtas-operator, Red Hat Trusted Artifact Signer."
 LABEL summary="Operator Bundle for the rhtas-operator."
 LABEL com.redhat.component="sigstore-operator-bundle"
+LABEL name="sigstore-operator-bundle"
 LABEL features.operators.openshift.io/cni="false"
 LABEL features.operators.openshift.io/disconnected="false"
 LABEL features.operators.openshift.io/fips-compliant="false"
