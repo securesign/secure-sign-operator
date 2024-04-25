@@ -6,12 +6,10 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"net/http"
-	"strings"
-
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/networking/v1"
+	"net/http"
 	ctrl "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -46,10 +44,6 @@ var _ = Describe("CliServer is running", func() {
 					"/clients/darwin/%s-arm64.gz",
 					"/clients/windows/%s-amd64.gz",
 				} {
-					if c == "ec" && strings.Contains(path, "windows") {
-						// TODO - remove this skip condition after SECURESIGN-737 is fixed
-						Skip("SECURESIGN-737")
-					}
 					resp, err := client.Get(fmt.Sprintf(url+path, c))
 					gomega.Expect(err).ToNot(gomega.HaveOccurred())
 					gomega.Expect(resp.StatusCode).To(gomega.Equal(200), fmt.Sprintf("Client for %s on %s not found", c, path))
