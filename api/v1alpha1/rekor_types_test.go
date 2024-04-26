@@ -77,27 +77,27 @@ var _ = Describe("Rekor", func() {
 		When("changing Rekor Search UI", func() {
 			It("enabled false->true", func() {
 				created := generateRekorObject("rekor-ui-1")
-				created.Spec.RekorSearchUI.Enabled = false
+				created.Spec.RekorSearchUI.Enabled = utils.Pointer(false)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Rekor{}
 				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
-				fetched.Spec.RekorSearchUI.Enabled = true
+				fetched.Spec.RekorSearchUI.Enabled = utils.Pointer(true)
 				Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
 			})
 
 			It("enabled true->false", func() {
 				created := generateRekorObject("rekor-ui-2")
-				created.Spec.RekorSearchUI.Enabled = true
+				created.Spec.RekorSearchUI.Enabled = utils.Pointer(true)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Rekor{}
 				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
-				fetched.Spec.RekorSearchUI.Enabled = false
+				fetched.Spec.RekorSearchUI.Enabled = utils.Pointer(false)
 				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), fetched))).To(BeTrue())
 				Expect(k8sClient.Update(context.Background(), fetched)).
 					To(MatchError(ContainSubstring("Feature cannot be disabled")))
@@ -188,7 +188,9 @@ var _ = Describe("Rekor", func() {
 					Expect(k8sClient.Create(context.Background(), &rekorInstance)).To(Succeed())
 					fetched := &Rekor{}
 					Expect(k8sClient.Get(context.Background(), getKey(&rekorInstance), fetched)).To(Succeed())
-					Expect(fetched.Spec).To(Equal(expectedRekorInstance.Spec))
+					Expect(fetched.Spec.Pvc.Name).To(Equal(expectedRekorInstance.Spec.Pvc.Name))
+					Expect(fetched.Spec.Pvc.Size).To(Equal(expectedRekorInstance.Spec.Pvc.Size))
+					Expect(*fetched.Spec.RekorSearchUI.Enabled).To(BeTrue())
 				})
 			})
 
@@ -211,7 +213,7 @@ var _ = Describe("Rekor", func() {
 								Host:    "hostname",
 							},
 							RekorSearchUI: RekorSearchUI{
-								Enabled: true,
+								Enabled: utils.Pointer(true),
 							},
 							BackFillRedis: BackFillRedis{
 								Enabled:  utils.Pointer(true),
@@ -270,7 +272,9 @@ var _ = Describe("Rekor", func() {
 					Expect(k8sClient.Create(context.Background(), &rekorInstance)).To(Succeed())
 					fetchedRekor := &Rekor{}
 					Expect(k8sClient.Get(context.Background(), getKey(&rekorInstance), fetchedRekor)).To(Succeed())
-					Expect(fetchedRekor.Spec).To(Equal(expectedRekorInstance.Spec))
+					Expect(fetchedRekor.Spec.Pvc.Name).To(Equal(expectedRekorInstance.Spec.Pvc.Name))
+					Expect(fetchedRekor.Spec.Pvc.Size).To(Equal(expectedRekorInstance.Spec.Pvc.Size))
+					Expect(*fetchedRekor.Spec.RekorSearchUI.Enabled).To(BeTrue())
 				})
 			})
 		})

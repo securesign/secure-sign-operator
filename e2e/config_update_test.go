@@ -63,7 +63,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 						Enabled: true,
 					},
 					RekorSearchUI: v1alpha1.RekorSearchUI{
-						Enabled: false,
+						Enabled: utils.Pointer(false),
 					},
 				},
 				Fulcio: v1alpha1.FulcioSpec{
