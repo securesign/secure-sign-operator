@@ -183,7 +183,7 @@ metadata:
       ]
     capabilities: Basic Install
     containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:0c2da12e405de8c3553c5d1912dd83d0f3cb0857cf5727c7d335d5ba6d5991b5
-    createdAt: "2024-04-24T13:10:19Z"
+    createdAt: "2024-04-26T13:48:58Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
