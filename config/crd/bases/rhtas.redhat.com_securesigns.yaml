@@ -486,7 +486,7 @@ spec:
                     description: Rekor Search UI
                     properties:
                       enabled:
-                        default: false
+                        default: true
                         description: If set to true, the Operator will deploy a Rekor
                           Search UI
                         type: boolean

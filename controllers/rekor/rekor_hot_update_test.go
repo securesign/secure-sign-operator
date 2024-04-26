@@ -100,7 +100,7 @@ var _ = Describe("Rekor hot update test", func() {
 							Enabled: false,
 						},
 						RekorSearchUI: v1alpha1.RekorSearchUI{
-							Enabled: false,
+							Enabled: utils.Pointer(false),
 						},
 						BackFillRedis: v1alpha1.BackFillRedis{
 							Enabled: utils.Pointer(false),
