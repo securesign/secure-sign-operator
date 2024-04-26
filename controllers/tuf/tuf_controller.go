@@ -18,8 +18,9 @@ package tuf
 
 import (
 	"context"
-
+	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/controllers/annotations"
 	"github.com/securesign/operator/controllers/common/action"
 	ctl "github.com/securesign/operator/controllers/ctlog/actions"
 	fulcio "github.com/securesign/operator/controllers/fulcio/actions"
@@ -116,6 +117,12 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *TufReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Filter out with the pause annotation.
+	pause, err := olpredicate.NewPause(annotations.PausedReconciliation)
+	if err != nil {
+		return err
+	}
+
 	fulcio, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      fulcio.FulcioCALabel,
@@ -134,15 +141,17 @@ func (r *TufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			Operator: metav1.LabelSelectorOpExists,
 		},
 	}})
+
 	if err != nil {
 		return err
 	}
 	return ctrl.NewControllerManagedBy(mgr).
+		WithEventFilter(pause).
 		For(&rhtasv1alpha1.Tuf{}).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		Owns(&v13.Ingress{}).
-		Watches(&v12.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+		WatchesMetadata(&v12.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
 			val, ok := object.GetLabels()["app.kubernetes.io/instance"]
 			if ok {
 				return []reconcile.Request{
