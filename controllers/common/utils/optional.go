@@ -1,7 +1,7 @@
 package utils
 
 func IsEnabled(flag *bool) bool {
-	return flag != nil && *flag
+return utils.pointer.BoolPtrDerefOr(flag, false)
 }
 
 func OptionalBool(boolean *bool) bool {
