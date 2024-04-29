@@ -1,6 +1,6 @@
 package constants
 
-const (
+var (
 	TrillianLogSignerImage = "registry.redhat.io/rhtas/trillian-logsigner-rhel9@sha256:aa7812254a582c12bf71834f1617a81f76d00a5ee90413d7d707ed5068e21220"
 	TrillianServerImage    = "registry.redhat.io/rhtas/trillian-logserver-rhel9@sha256:61320904f81c5d389c052222311a1357504a14b0de00426013cb8f29690220bf"
 	TrillianDbImage        = "registry.redhat.io/rhtas/trillian-database-rhel9@sha256:4989f92e18a541f12fb6174bd6686a24362a24700813e352c8c2c8eff4ab943f"
