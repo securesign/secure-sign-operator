@@ -49,7 +49,7 @@ func (i initializeConditions) Handle(ctx context.Context, instance *rhtasv1alpha
 		Status: metav1.ConditionUnknown,
 		Reason: constants.Pending,
 	})
-	if !utils.IsEnabled(instance.Spec.RekorSearchUI.Enabled) {
+	if utils.IsEnabled(instance.Spec.RekorSearchUI.Enabled) {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:   UICondition,
 			Status: metav1.ConditionUnknown,

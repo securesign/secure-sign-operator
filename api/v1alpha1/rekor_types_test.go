@@ -82,10 +82,10 @@ var _ = Describe("Rekor", func() {
 
 				fetched := &Rekor{}
 				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
-				Expect(*fetched.Spec.RekorSearchUI.Enabled).To(BeFalse())
+				Expect(fetched).To(Equal(created))
 
 				fetched.Spec.RekorSearchUI.Enabled = utils.Pointer(true)
-				Expect(*fetched.Spec.RekorSearchUI.Enabled).To(BeTrue())
+				Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
 			})
 
 			It("enabled true->false", func() {
