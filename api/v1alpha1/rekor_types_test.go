@@ -189,8 +189,8 @@ var _ = Describe("Rekor", func() {
 					fetched := &Rekor{}
 					Expect(k8sClient.Get(context.Background(), getKey(&rekorInstance), fetched)).To(Succeed())
 					Expect(fetched.Spec.Pvc.Name).To(Equal(expectedRekorInstance.Spec.Pvc.Name))
-					Expect(fetched.Spec.Pvc.Size).To(Equal(expectedRekorInstance.Spec.Pvc.Size))					
-					Expect(fetched.Spec.Rekor.SearchUI.Enabled).To(BeTrue())
+					Expect(fetched.Spec.Pvc.Size).To(Equal(expectedRekorInstance.Spec.Pvc.Size))
+					Expect(fetched.Spec.SearchUI.Enabled).To(BeTrue())
 				})
 			})
 

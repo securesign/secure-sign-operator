@@ -1,7 +1,11 @@
 package utils
 
+import (
+	"k8s.io/utils/pointer"
+)
+
 func IsEnabled(flag *bool) bool {
-return utils.pointer.BoolPtrDerefOr(flag, false)
+	return pointer.BoolPtrDerefOr(flag, false)
 }
 
 func OptionalBool(boolean *bool) bool {
