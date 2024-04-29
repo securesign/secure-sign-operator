@@ -17,6 +17,7 @@ import (
 
 // reference code https://github.com/sigstore/scaffolding/blob/main/cmd/trillian/createtree/main.go
 func CreateTrillianTree(ctx context.Context, displayName string, trillianURL string) (*trillian.Tree, error) {
+	var err error
 	inContainer, err := kubernetes.ContainerMode()
 	if err == nil {
 		if !inContainer {
@@ -36,7 +37,6 @@ func CreateTrillianTree(ctx context.Context, displayName string, trillianURL str
 	} else {
 		klog.Info("Can't recognise operator mode - expecting in-container run")
 	}
-
 	req, err := newRequest(displayName)
 	if err != nil {
 		return nil, err
@@ -44,7 +44,6 @@ func CreateTrillianTree(ctx context.Context, displayName string, trillianURL str
 	var opts grpc.DialOption
 	klog.Warning("Using an insecure gRPC connection to Trillian")
 	opts = grpc.WithTransportCredentials(insecure.NewCredentials())
-
 	conn, err := grpc.Dial(trillianURL, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial: %w", err)
@@ -54,12 +53,13 @@ func CreateTrillianTree(ctx context.Context, displayName string, trillianURL str
 	adminClient := trillian.NewTrillianAdminClient(conn)
 	logClient := trillian.NewTrillianLogClient(conn)
 
-	tree, err := client.CreateAndInitTree(ctx, req, adminClient, logClient)
-
+	timeout := time.Duration(120 * time.Second)
+	ctx2, cancel := context.WithTimeout(ctx, timeout)
+	tree, err := client.CreateAndInitTree(ctx2, req, adminClient, logClient)
+	defer cancel()
 	if err != nil {
 		return nil, fmt.Errorf("could not create Trillian tree: %w", err)
 	}
-
 	return tree, err
 }
 

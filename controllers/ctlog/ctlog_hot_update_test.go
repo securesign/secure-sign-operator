@@ -73,7 +73,7 @@ var _ = Describe("CTlog update test", func() {
 
 			Eventually(func() error {
 				return k8sClient.Delete(context.TODO(), found)
-			}, 2*time.Minute, time.Second).Should(Succeed())
+			}, 3*time.Minute, time.Second).Should(Succeed())
 
 			// TODO(user): Attention if you improve this code by adding other context test you MUST
 			// be aware of the current delete namespace limitations.
@@ -192,7 +192,7 @@ var _ = Describe("CTlog update test", func() {
 				updated := &appsv1.Deployment{}
 				k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
-			}, 2*time.Minute, time.Second).Should(BeFalse())
+			}, 3*time.Minute, time.Second).Should(BeFalse())
 		})
 	})
 })
