@@ -7,9 +7,8 @@ metadata:
     app.kubernetes.io/part-of: trusted-artifact-signer
   name: tuf-sample
 spec:
-  external:
+  externalAccess:
     enabled: true
-    host: "tuf.example.com"
   keys:
     - name: rekor.pub
       secretRef:
