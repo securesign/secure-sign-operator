@@ -138,6 +138,8 @@ spec:
                 - retain
                 type: object
               rekorSearchUI:
+                default:
+                  enabled: true
                 description: Rekor Search UI
                 properties:
                   enabled:

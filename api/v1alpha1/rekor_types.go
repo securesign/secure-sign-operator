@@ -18,6 +18,7 @@ type RekorSpec struct {
 	//Enable Service monitors for rekor
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
 	// Rekor Search UI
+	//+kubebuilder:default:={enabled: true}
 	RekorSearchUI RekorSearchUI `json:"rekorSearchUI,omitempty"`
 	// Signer configuration
 	Signer RekorSigner `json:"signer,omitempty"`
