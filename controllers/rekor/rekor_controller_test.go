@@ -103,7 +103,7 @@ var _ = Describe("Rekor controller", func() {
 							Host:    "rekor.local",
 						},
 						RekorSearchUI: v1alpha1.RekorSearchUI{
-							Enabled: true,
+							Enabled: utils.Pointer(true),
 						},
 						BackFillRedis: v1alpha1.BackFillRedis{
 							Enabled:  utils.Pointer(true),

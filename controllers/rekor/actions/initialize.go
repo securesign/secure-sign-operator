@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"github.com/securesign/operator/controllers/common/utils"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
@@ -24,18 +25,29 @@ func (i initializeAction) Name() string {
 
 func (i initializeAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	if c == nil {
+		return false
+	}
 	return c.Reason == constants.Initialize
 }
 
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
 
-	if (!instance.Spec.RekorSearchUI.Enabled || meta.IsStatusConditionTrue(instance.Status.Conditions, UICondition)) &&
-		meta.IsStatusConditionTrue(instance.Status.Conditions, RedisCondition) &&
-		meta.IsStatusConditionTrue(instance.Status.Conditions, ServerCondition) {
-
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
-			Status: metav1.ConditionTrue, Reason: constants.Ready})
-		return i.StatusUpdate(ctx, instance)
+	if !meta.IsStatusConditionTrue(instance.Status.Conditions, ServerCondition) {
+		return i.Requeue()
 	}
-	return i.Requeue()
+
+	if !meta.IsStatusConditionTrue(instance.Status.Conditions, RedisCondition) {
+		return i.Requeue()
+	}
+
+	if utils.IsEnabled(instance.Spec.RekorSearchUI.Enabled) {
+		if  !meta.IsStatusConditionTrue(instance.Status.Conditions, UICondition) {
+			return i.Requeue()
+		}
+	}
+
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
+		Status: metav1.ConditionTrue, Reason: constants.Ready})
+	return i.StatusUpdate(ctx, instance)
 }

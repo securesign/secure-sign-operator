@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/securesign/operator/controllers/common/action"
+	commonutils "github.com/securesign/operator/controllers/common/utils"
 	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/rekor/actions"
 	"github.com/securesign/operator/controllers/rekor/utils"
@@ -29,7 +30,10 @@ func (i deployAction) Name() string {
 
 func (i deployAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && instance.Spec.RekorSearchUI.Enabled
+	if c == nil {
+		return false
+	}
+	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && commonutils.IsEnabled(instance.Spec.RekorSearchUI.Enabled)
 }
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
