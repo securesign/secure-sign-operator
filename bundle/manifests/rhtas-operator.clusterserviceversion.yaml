@@ -151,9 +151,8 @@ metadata:
             "name": "tuf-sample"
           },
           "spec": {
-            "external": {
-              "enabled": true,
-              "host": "tuf.example.com"
+            "externalAccess": {
+              "enabled": true
             },
             "keys": [
               {
@@ -182,8 +181,8 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:0c2da12e405de8c3553c5d1912dd83d0f3cb0857cf5727c7d335d5ba6d5991b5
-    createdAt: "2024-04-24T13:10:19Z"
+    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:7f5cf8b939a08fce4f19ccbcf37bb0fa126b0c91929cae0033604fb10a0c0b22
+    createdAt: "2024-05-01T07:50:10Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -779,7 +778,7 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
-                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:0c2da12e405de8c3553c5d1912dd83d0f3cb0857cf5727c7d335d5ba6d5991b5
+                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:7f5cf8b939a08fce4f19ccbcf37bb0fa126b0c91929cae0033604fb10a0c0b22
                 livenessProbe:
                   httpGet:
                     path: /healthz
