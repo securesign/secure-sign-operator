@@ -3,8 +3,10 @@ name: rhtas-operator
 defaultChannel: stable
 ---
 entries:
-  - name: rhtas-operator.v0.0.2
-name: alpha
+  - name: rhtas-operator.v1.0.0
+  - name: rhtas-operator.v1.0.1
+    replaces: rhtas-operator.v1.0.0
+name: rhtas-1-0
 package: rhtas-operator
 schema: olm.channel
 ---
