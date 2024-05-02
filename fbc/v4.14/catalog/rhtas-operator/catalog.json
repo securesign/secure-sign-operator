@@ -5,11 +5,15 @@
 }
 {
     "schema": "olm.channel",
-    "name": "alpha",
+    "name": "rhtas-1-0",
     "package": "rhtas-operator",
     "entries": [
         {
-            "name": "rhtas-operator.v0.0.2"
+            "name": "rhtas-operator.v1.0.0"
+        },
+        {
+            "name": "rhtas-operator.v1.0.1",
+            "replaces": "rhtas-operator.v1.0.0"
         }
     ]
 }
