@@ -42,7 +42,7 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Re
 	}
 
 	if utils.IsEnabled(instance.Spec.RekorSearchUI.Enabled) {
-		if  !meta.IsStatusConditionTrue(instance.Status.Conditions, UICondition) {
+		if !meta.IsStatusConditionTrue(instance.Status.Conditions, UICondition) {
 			return i.Requeue()
 		}
 	}
