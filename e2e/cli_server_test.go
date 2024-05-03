@@ -1,15 +1,16 @@
 //go:build integration
 
-package e2e_test
+package e2e
 
 import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net/http"
+
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/networking/v1"
-	"net/http"
 	ctrl "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
