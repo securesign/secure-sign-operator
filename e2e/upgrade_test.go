@@ -4,12 +4,13 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"time"
 
 	semver "github.com/blang/semver/v4"
-	"github.com/google/uuid"
+	"github.com/onsi/ginkgo/v2/dsl/core"
 	v12 "github.com/operator-framework/api/pkg/operators/v1"
 	tasv1alpha "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/utils"
@@ -36,7 +37,7 @@ import (
 const testCatalog = "test-catalog"
 
 var _ = Describe("Operator upgrade", Ordered, func() {
-	targetImageName := "ttl.sh/" + uuid.New().String() + ":15m"
+
 	cli, _ := CreateClient()
 	ctx := context.TODO()
 
@@ -49,13 +50,26 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		rrekor                                 *tasv1alpha.Rekor
 		rtuf                                   *tasv1alpha.Tuf
 		oidcToken                              string
+		prevImageName, newImageName            string
 	)
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
+
 			if val, present := os.LookupEnv("CI"); present && val == "true" {
-				if val, present := os.LookupEnv("CI"); present && val == "true" {
-					support.DumpNamespace(ctx, cli, namespace.Name)
+				support.DumpNamespace(ctx, cli, namespace.Name)
+				csvs := &v1alpha1.ClusterServiceVersionList{}
+				cli.List(ctx, csvs, runtimeCli.InNamespace(namespace.Name))
+				core.GinkgoWriter.Println("\n\nClusterServiceVersions:")
+				for _, p := range csvs.Items {
+					core.GinkgoWriter.Printf("%s %s %s\n", p.Name, p.Spec.Version, p.Status.Phase)
+				}
+
+				catalogs := &v1alpha1.CatalogSourceList{}
+				cli.List(ctx, catalogs, runtimeCli.InNamespace(namespace.Name))
+				core.GinkgoWriter.Println("\n\nCatalogSources:")
+				for _, p := range catalogs.Items {
+					core.GinkgoWriter.Printf("%s %s %s\n", p.Name, p.Spec.Image, p.Status.GRPCConnectionState.LastObservedState)
 				}
 			}
 		}
@@ -73,7 +87,8 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 	})
 
 	BeforeAll(func() {
-		support.PrepareImage(ctx, targetImageName)
+		prevImageName = support.PrepareImage(ctx)
+		newImageName = support.PrepareImage(ctx)
 	})
 
 	It("Install catalogSource", func() {
@@ -230,14 +245,13 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 			"--oidc-issuer="+support.OidcIssuerUrl(),
 			"--oidc-client-id="+support.OidcClientID(),
 			"--identity-token="+oidcToken,
-			targetImageName,
+			prevImageName,
 		)).To(gomega.Succeed())
 	})
 
 	It("Upgrade operator", func() {
 		gomega.Expect(support.CreateOrUpdateCatalogSource(ctx, cli, namespace.Name, testCatalog, targetedCatalogImage)).To(gomega.Succeed())
 
-		time.Sleep(5 * time.Second)
 		gomega.Eventually(func() *v1alpha1.CatalogSource {
 			c := &v1alpha1.CatalogSource{}
 			cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: testCatalog}, c)
@@ -250,8 +264,16 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		}, gomega.Equal("READY"))))
 
 		gomega.Eventually(findClusterServiceVersion(ctx, cli, func(csv v1alpha1.ClusterServiceVersion) bool {
+			return csv.Spec.Version.Version.String() == base.String()
+		}, namespace.Name)).WithTimeout(5 * time.Minute).Should(gomega.WithTransform(func(csv *v1alpha1.ClusterServiceVersion) v1alpha1.ClusterServiceVersionPhase {
+			return csv.Status.Phase
+		}, gomega.Equal(v1alpha1.CSVPhaseReplacing)))
+
+		gomega.Eventually(findClusterServiceVersion(ctx, cli, func(csv v1alpha1.ClusterServiceVersion) bool {
 			return csv.Spec.Version.Version.String() != base.String()
-		}, namespace.Name)).Should(gomega.Not(gomega.BeNil()))
+		}, namespace.Name)).WithTimeout(5 * time.Minute).Should(gomega.And(gomega.Not(gomega.BeNil()), gomega.WithTransform(func(csv *v1alpha1.ClusterServiceVersion) v1alpha1.ClusterServiceVersionPhase {
+			return csv.Status.Phase
+		}, gomega.Equal(v1alpha1.CSVPhaseSucceeded))))
 
 		updated = findClusterServiceVersion(ctx, cli, func(csv v1alpha1.ClusterServiceVersion) bool {
 			return csv.Spec.Version.Version.String() != base.String()
@@ -278,7 +300,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 				}, d)).To(gomega.Succeed())
 
 				return d.Spec.Template.Spec.Containers[0].Image
-			}).Should(gomega.Equal(v))
+			}).Should(gomega.Equal(v), fmt.Sprintf("Expected %s deployment image to be equal to %s", k, v))
 		}
 
 		tas.VerifySecuresign(ctx, cli, namespace.Name, securesignDeployment.Name)
@@ -296,7 +318,27 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 			"--rekor-url="+rrekor.Status.Url,
 			"--certificate-identity-regexp", ".*@redhat",
 			"--certificate-oidc-issuer-regexp", ".*keycloak.*",
-			targetImageName,
+			prevImageName,
+		)).To(gomega.Succeed())
+	})
+
+	It("Sign and Verify new image after upgrade", func() {
+		gomega.Expect(clients.Execute(
+			"cosign", "sign", "-y",
+			"--fulcio-url="+rfulcio.Status.Url,
+			"--rekor-url="+rrekor.Status.Url,
+			"--oidc-issuer="+support.OidcIssuerUrl(),
+			"--oidc-client-id="+support.OidcClientID(),
+			"--identity-token="+oidcToken,
+			newImageName,
+		)).To(gomega.Succeed())
+
+		gomega.Expect(clients.Execute(
+			"cosign", "verify",
+			"--rekor-url="+rrekor.Status.Url,
+			"--certificate-identity-regexp", ".*@redhat",
+			"--certificate-oidc-issuer-regexp", ".*keycloak.*",
+			newImageName,
 		)).To(gomega.Succeed())
 	})
 })
