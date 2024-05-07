@@ -181,8 +181,8 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:7f5cf8b939a08fce4f19ccbcf37bb0fa126b0c91929cae0033604fb10a0c0b22
-    createdAt: "2024-05-01T07:50:10Z"
+    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:bbf4418ef6738ce14935cb1d9e1a7254f94368d7ac2171a83e291e3270cb8107
+    createdAt: "2024-05-07T20:44:54Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -778,7 +778,7 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
-                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:7f5cf8b939a08fce4f19ccbcf37bb0fa126b0c91929cae0033604fb10a0c0b22
+                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:bbf4418ef6738ce14935cb1d9e1a7254f94368d7ac2171a83e291e3270cb8107
                 livenessProbe:
                   httpGet:
                     path: /healthz
