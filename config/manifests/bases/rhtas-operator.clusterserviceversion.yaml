@@ -101,7 +101,7 @@ spec:
     name: Tommy Dalton
   - email: lball@redhat.com
     name: Lance Ball
-  maturity: alpha
+  maturity: stable
   provider:
     name: Red Hat
     url: https://github.com/securesign/secure-sign-operator

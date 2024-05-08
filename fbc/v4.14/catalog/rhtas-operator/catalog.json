@@ -5,7 +5,7 @@
 }
 {
     "schema": "olm.channel",
-    "name": "rhtas-1-0",
+    "name": "stable-1-0",
     "package": "rhtas-operator",
     "entries": [
         {

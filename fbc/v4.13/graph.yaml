@@ -6,7 +6,7 @@ entries:
   - name: rhtas-operator.v1.0.0
   - name: rhtas-operator.v1.0.1
     replaces: rhtas-operator.v1.0.0
-name: rhtas-1-0
+name: stable-1-0
 package: rhtas-operator
 schema: olm.channel
 ---

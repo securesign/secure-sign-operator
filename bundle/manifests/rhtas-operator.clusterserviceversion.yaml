@@ -193,7 +193,7 @@ metadata:
     features.operators.openshift.io/token-auth-aws: "false"
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
-    operators.operatorframework.io/builder: operator-sdk-v1.32.0
+    operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/securesign/secure-sign-operator
     support: Red Hat
@@ -876,7 +876,7 @@ spec:
     name: Tommy Dalton
   - email: lball@redhat.com
     name: Lance Ball
-  maturity: alpha
+  maturity: stable
   provider:
     name: Red Hat
     url: https://github.com/securesign/secure-sign-operator
