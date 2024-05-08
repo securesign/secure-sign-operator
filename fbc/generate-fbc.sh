@@ -147,14 +147,14 @@ case $cmd in
       exit 1
     fi
     setBrew "${frag}" "$3"
-    "${OPM_CMD}" stable render-template basic "${frag}"/graph.yaml > "${frag}"/catalog/rhtas-operator/catalog.json
+    "${OPM_CMD}" alpha render-template basic "${frag}"/graph.yaml > "${frag}"/catalog/rhtas-operator/catalog.json
     unsetBrew "${frag}" "$3"
   ;;
   "--render-all")
     for f in ./"v4."*; do
       frag=${f#./}
       setBrew "${frag}" "$2"
-      "${OPM_CMD}" stable render-template basic "${frag}"/graph.yaml > "${frag}"/catalog/rhtas-operator/catalog.json
+      "${OPM_CMD}" alpha render-template basic "${frag}"/graph.yaml > "${frag}"/catalog/rhtas-operator/catalog.json
       unsetBrew "${frag}" "$2"
     done
   ;;
