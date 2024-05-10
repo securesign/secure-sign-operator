@@ -2,6 +2,7 @@ package support
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -33,7 +34,12 @@ func CreateTestNamespace(ctx context.Context, cli client.Client) *v1.Namespace {
 	return ns
 }
 
-func PrepareImage(ctx context.Context, targetImageName string) {
+func PrepareImage(ctx context.Context) string {
+	if v, ok := os.LookupEnv("TEST_IMAGE"); ok {
+		return v
+	}
+	targetImageName := fmt.Sprintf("ttl.sh/%s:15m", uuid.New().String())
+
 	dockerCli, err := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
 	Expect(err).ToNot(HaveOccurred())
 
@@ -53,6 +59,7 @@ func PrepareImage(ctx context.Context, targetImageName string) {
 	defer push.Close()
 	// wait for a while to be sure that the image landed in the registry
 	time.Sleep(10 * time.Second)
+	return targetImageName
 }
 
 func EnvOrDefault(env string, def string) string {
