@@ -16,7 +16,6 @@ import (
 
 	"github.com/securesign/operator/controllers/common/utils"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
@@ -33,7 +32,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 	cli, _ := CreateClient()
 	ctx := context.TODO()
 
-	targetImageName := "ttl.sh/" + uuid.New().String() + ":15m"
+	var targetImageName string
 	var namespace *v1.Namespace
 	var securesign *v1alpha1.Securesign
 
@@ -166,7 +165,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 	})
 
 	BeforeAll(func() {
-		support.PrepareImage(ctx, targetImageName)
+		targetImageName = support.PrepareImage(ctx)
 	})
 
 	Describe("Install with provided certificates", func() {
