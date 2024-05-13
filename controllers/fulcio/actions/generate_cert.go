@@ -77,7 +77,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 	}
 	maps.Copy(secretLabels, labels)
 
-	cert, err := g.setupCert(instance)
+	cert, err := g.setupCert(ctx, instance)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    CertCondition,
@@ -164,7 +164,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 	return g.StatusUpdate(ctx, instance)
 }
 
-func (g handleCert) setupCert(instance *v1alpha1.Fulcio) (*utils.FulcioCertConfig, error) {
+func (g handleCert) setupCert(ctx context.Context, instance *v1alpha1.Fulcio) (*utils.FulcioCertConfig, error) {
 	config := &utils.FulcioCertConfig{}
 
 	if ref := instance.Spec.Certificate.PrivateKeyPasswordRef; ref != nil {
@@ -208,7 +208,7 @@ func (g handleCert) setupCert(instance *v1alpha1.Fulcio) (*utils.FulcioCertConfi
 		}
 		config.RootCert = key
 	} else {
-		rootCert, err := utils.CreateFulcioCA(config, instance)
+		rootCert, err := utils.CreateFulcioCA(ctx, g.Client, config, instance, DeploymentName)
 		if err != nil {
 			return nil, err
 		}
