@@ -24,7 +24,6 @@ type FulcioSpec struct {
 }
 
 // FulcioCert defines fields for system-generated certificate
-// +kubebuilder:validation:XValidation:rule=(has(self.caRef) || self.commonName != ""),message=commonName cannot be empty
 // +kubebuilder:validation:XValidation:rule=(has(self.caRef) || self.organizationName != ""),message=organizationName cannot be empty
 // +kubebuilder:validation:XValidation:rule=(!has(self.caRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
 type FulcioCert struct {
@@ -40,6 +39,8 @@ type FulcioCert struct {
 	CARef *SecretKeySelector `json:"caRef,omitempty"`
 
 	//+optional
+	// CommonName specifies the common name for the Fulcio certificate.
+	// If not provided, the common name will default to the host name.
 	CommonName string `json:"commonName,omitempty"`
 	//+optional
 	OrganizationName string `json:"organizationName,omitempty"`

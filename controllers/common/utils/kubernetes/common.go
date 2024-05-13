@@ -1,10 +1,14 @@
 package kubernetes
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
+	v13 "github.com/openshift/api/operator/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -73,4 +77,15 @@ func IsOpenShift(client client.Client) bool {
 		return false
 	}
 	return true
+}
+
+func CalculateHostname(ctx context.Context, client client.Client, svcName, ns string) (string, error) {
+	if IsOpenShift(client) {
+		ctrl := &v13.IngressController{}
+		if err := client.Get(ctx, types.NamespacedName{Namespace: "openshift-ingress-operator", Name: "default"}, ctrl); err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("%s-%s.%s", svcName, ns, ctrl.Status.Domain), nil
+	}
+	return svcName + ".local", nil
 }

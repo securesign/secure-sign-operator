@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"context"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rand"
@@ -14,6 +15,8 @@ import (
 	"time"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/controllers/common/utils/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type FulcioCertConfig struct {
@@ -79,11 +82,11 @@ func CreateCAPub(key crypto.PublicKey) ([]byte, error) {
 	return pemPubKey.Bytes(), nil
 }
 
-func CreateFulcioCA(config *FulcioCertConfig, instance *rhtasv1alpha1.Fulcio) ([]byte, error) {
+func CreateFulcioCA(ctx context.Context, client client.Client, config *FulcioCertConfig, instance *rhtasv1alpha1.Fulcio, deploymentName string) ([]byte, error) {
 	var err error
 
-	if instance.Spec.Certificate.CommonName == "" || instance.Spec.Certificate.OrganizationName == "" {
-		return nil, fmt.Errorf("could not create certificate: missing OrganizationName or CommonName from config")
+	if instance.Spec.Certificate.OrganizationName == "" {
+		return nil, fmt.Errorf("could not create certificate: missing OrganizationName from config")
 	}
 
 	block, _ := pem.Decode(config.PrivateKey)
@@ -102,6 +105,20 @@ func CreateFulcioCA(config *FulcioCertConfig, instance *rhtasv1alpha1.Fulcio) ([
 
 	notBefore := time.Now()
 	notAfter := notBefore.Add(365 * 24 * 10 * time.Hour)
+
+	if instance.Spec.Certificate.CommonName == "" {
+		if instance.Spec.ExternalAccess.Enabled {
+			if instance.Spec.ExternalAccess.Host != "" {
+				instance.Spec.Certificate.CommonName = instance.Spec.ExternalAccess.Host
+			} else {
+				if instance.Spec.Certificate.CommonName, err = kubernetes.CalculateHostname(ctx, client, deploymentName, instance.Namespace); err != nil {
+					return nil, err
+				}
+			}
+		} else {
+			instance.Spec.Certificate.CommonName = fmt.Sprintf("%s.%s.svc.local", deploymentName, instance.Namespace)
+		}
+	}
 
 	issuer := pkix.Name{
 		CommonName:   instance.Spec.Certificate.CommonName,
