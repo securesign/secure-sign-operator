@@ -81,7 +81,6 @@ metadata:
             "name": "securesign-sample"
           },
           "spec": {
-            "analytics": false,
             "ctlog": null,
             "fulcio": {
               "certificate": {
@@ -182,7 +181,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:bbf4418ef6738ce14935cb1d9e1a7254f94368d7ac2171a83e291e3270cb8107
-    createdAt: "2024-05-10T13:52:27Z"
+    createdAt: "2024-05-15T09:25:17Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"

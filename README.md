@@ -133,7 +133,6 @@ spec:
     externalAccess:
       enabled: true
       host: tuf.example.com
-  analytics: false
   ctlog:
   ```
 
