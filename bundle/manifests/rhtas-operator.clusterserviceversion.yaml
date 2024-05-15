@@ -180,8 +180,8 @@ metadata:
         }
       ]
     capabilities: Seamless Upgrades
-    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:bbf4418ef6738ce14935cb1d9e1a7254f94368d7ac2171a83e291e3270cb8107
-    createdAt: "2024-05-15T09:25:17Z"
+    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:37bf7ff12a35b8c183d08b439fb2a75da34a2f2cc156d9656b99cc642129690c
+    createdAt: "2024-05-15T17:11:23Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -777,7 +777,7 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
-                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:bbf4418ef6738ce14935cb1d9e1a7254f94368d7ac2171a83e291e3270cb8107
+                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:37bf7ff12a35b8c183d08b439fb2a75da34a2f2cc156d9656b99cc642129690c
                 livenessProbe:
                   httpGet:
                     path: /healthz
