@@ -18,6 +18,8 @@ package trillian
 
 import (
 	"context"
+	olpredicate "github.com/operator-framework/operator-lib/predicate"
+	"github.com/securesign/operator/controllers/annotations"
 
 	"github.com/securesign/operator/controllers/common/action"
 	actions2 "github.com/securesign/operator/controllers/trillian/actions"
@@ -119,7 +121,14 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *TrillianReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Filter out with the pause annotation.
+	pause, err := olpredicate.NewPause(annotations.PausedReconciliation)
+	if err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
+		WithEventFilter(pause).
 		For(&rhtasv1alpha1.Trillian{}).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).

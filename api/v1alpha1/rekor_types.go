@@ -64,6 +64,9 @@ type BackFillRedis struct {
 // RekorStatus defines the observed state of Rekor
 type RekorStatus struct {
 	ServerConfigRef  *LocalObjectReference `json:"serverConfigRef,omitempty"`
+	// Reference to secret with Rekor's signer public key.
+	// Public key is automatically generated from signer private key.
+	PublicKeyRef     *SecretKeySelector `json:"publicKeyRef,omitempty"`
 	Signer           RekorSigner           `json:"signer,omitempty"`
 	PvcName          string                `json:"pvcName,omitempty"`
 	Url              string                `json:"url,omitempty"`

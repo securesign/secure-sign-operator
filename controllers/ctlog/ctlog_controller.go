@@ -18,6 +18,8 @@ package ctlog
 
 import (
 	"context"
+	olpredicate "github.com/operator-framework/operator-lib/predicate"
+	"github.com/securesign/operator/controllers/annotations"
 
 	"github.com/securesign/operator/controllers/ctlog/actions"
 	actions2 "github.com/securesign/operator/controllers/fulcio/actions"
@@ -115,6 +117,12 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CTlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Filter out with the pause annotation.
+	pause, err := olpredicate.NewPause(annotations.PausedReconciliation)
+	if err != nil {
+		return err
+	}
+
 	secretPredicate, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      actions2.FulcioCALabel,
@@ -126,10 +134,11 @@ func (r *CTlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
+		WithEventFilter(pause).
 		For(&rhtasv1alpha1.CTlog{}).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
-		Watches(&v12.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+		WatchesMetadata(&v12.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
 			val, ok := object.GetLabels()["app.kubernetes.io/instance"]
 			if ok {
 				return []reconcile.Request{

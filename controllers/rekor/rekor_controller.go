@@ -18,6 +18,8 @@ package rekor
 
 import (
 	"context"
+	olpredicate "github.com/operator-framework/operator-lib/predicate"
+	"github.com/securesign/operator/controllers/annotations"
 
 	actions2 "github.com/securesign/operator/controllers/rekor/actions"
 	backfillredis "github.com/securesign/operator/controllers/rekor/actions/backfillRedis"
@@ -144,7 +146,14 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *RekorReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Filter out with the pause annotation.
+	pause, err := olpredicate.NewPause(annotations.PausedReconciliation)
+	if err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
+		WithEventFilter(pause).
 		For(&rhtasv1alpha1.Rekor{}).
 		Owns(&v12.Deployment{}).
 		Owns(&v13.Service{}).

@@ -590,6 +590,11 @@ func (in *RekorStatus) DeepCopyInto(out *RekorStatus) {
 		*out = new(LocalObjectReference)
 		**out = **in
 	}
+	if in.PublicKeyRef != nil {
+		in, out := &in.PublicKeyRef, &out.PublicKeyRef
+		*out = new(SecretKeySelector)
+		**out = **in
+	}
 	in.Signer.DeepCopyInto(&out.Signer)
 	if in.TreeID != nil {
 		in, out := &in.TreeID, &out.TreeID

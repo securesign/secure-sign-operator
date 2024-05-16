@@ -11,6 +11,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.13.0
 	github.com/onsi/gomega v1.29.0
 	github.com/openshift/api v0.0.0-20231118005202-0f638a8a4705
+	github.com/operator-framework/operator-lib v0.12.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.70.0
 	github.com/sigstore/fulcio v1.4.4
 	github.com/sigstore/sigstore v1.8.1

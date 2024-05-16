@@ -19,6 +19,8 @@ package fulcio
 import (
 	"context"
 	"errors"
+	olpredicate "github.com/operator-framework/operator-lib/predicate"
+	"github.com/securesign/operator/controllers/annotations"
 
 	"github.com/securesign/operator/controllers/fulcio/actions"
 	v12 "k8s.io/api/core/v1"
@@ -115,7 +117,14 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *FulcioReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Filter out with the pause annotation.
+	pause, err := olpredicate.NewPause(annotations.PausedReconciliation)
+	if err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
+		WithEventFilter(pause).
 		For(&rhtasv1alpha1.Fulcio{}).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).

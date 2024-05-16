@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,8 +67,13 @@ func GetSecretData(client client.Client, namespace string, selector *rhtasv1alph
 	return nil, nil
 }
 
-func FindSecret(ctx context.Context, c client.Client, namespace string, label string) (*corev1.Secret, error) {
-	list := &corev1.SecretList{}
+func FindSecret(ctx context.Context, c client.Client, namespace string, label string) (*metav1.PartialObjectMetadata, error) {
+	list := &metav1.PartialObjectMetadataList{}
+	list.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "",
+		Version: "v1",
+		Kind:    "Secret",
+	})
 
 	selector, err := labels.Parse(label)
 	listOptions := &client.ListOptions{

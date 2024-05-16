@@ -3,7 +3,9 @@ package action
 import (
 	"context"
 	"errors"
+	"github.com/securesign/operator/controllers/annotations"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -112,6 +114,14 @@ func (action *BaseAction) Ensure(ctx context.Context, obj client2.Object) (bool,
 			return true, nil
 		}
 		return false, err
+	}
+
+	annoStr, find := currentObj.GetAnnotations()[annotations.PausedReconciliation]
+	if find {
+		annoBool, _ := strconv.ParseBool(annoStr)
+		if annoBool {
+			return false, nil
+		}
 	}
 
 	currentSpec := reflect.ValueOf(currentObj).Elem().FieldByName("Spec")

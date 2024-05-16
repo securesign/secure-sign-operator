@@ -18,8 +18,9 @@ package securesign
 
 import (
 	"context"
-
+	"github.com/operator-framework/operator-lib/predicate"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/controllers/annotations"
 	"github.com/securesign/operator/controllers/common/action"
 	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/securesign/actions"
@@ -141,7 +142,14 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SecuresignReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Filter out with the pause annotation.
+	pause, err := predicate.NewPause(annotations.PausedReconciliation)
+	if err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
+		WithEventFilter(pause).
 		For(&rhtasv1alpha1.Securesign{}).
 		Owns(&rhtasv1alpha1.Fulcio{}).
 		Owns(&rhtasv1alpha1.Rekor{}).

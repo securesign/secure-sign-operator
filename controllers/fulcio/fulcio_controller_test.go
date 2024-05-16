@@ -153,11 +153,15 @@ var _ = Describe("Fulcio controller", func() {
 
 			By("Secrets are resolved")
 			var certSecret *corev1.Secret
-			Eventually(func() *corev1.Secret {
-				certSecret, err = kubernetes.FindSecret(ctx, k8sClient, Namespace, actions.FulcioCALabel)
+			var certSecretPartialObject *metav1.PartialObjectMetadata
+			Eventually(func() *metav1.PartialObjectMetadata {
+				certSecretPartialObject, err = kubernetes.FindSecret(ctx, k8sClient, Namespace, actions.FulcioCALabel)
 				Expect(err).To(Not(HaveOccurred()))
-				return certSecret
+				return certSecretPartialObject
 			}, time.Minute, time.Second).Should(Not(BeNil()))
+
+			certSecret, err = kubernetes.GetSecret(k8sClient, certSecretPartialObject.Namespace, certSecretPartialObject.Name)
+			Expect(err).To(Not(HaveOccurred()))
 
 			Eventually(func() bool {
 				found := &v1alpha1.Fulcio{}
