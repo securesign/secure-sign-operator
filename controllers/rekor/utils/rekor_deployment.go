@@ -165,6 +165,9 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 					},
 				},
 			},
+			Strategy: apps.DeploymentStrategy{
+				Type: "Recreate",
+			},
 		},
 	}, nil
 }
