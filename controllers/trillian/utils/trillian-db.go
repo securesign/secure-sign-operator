@@ -153,6 +153,9 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, opensh
 					},
 				},
 			},
+			Strategy: apps.DeploymentStrategy{
+				Type: "Recreate",
+			},
 		},
 	}, nil
 }
