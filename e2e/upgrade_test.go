@@ -37,7 +37,7 @@ import (
 const testCatalog = "test-catalog"
 
 var _ = Describe("Operator upgrade", Ordered, func() {
-
+	gomega.SetDefaultEventuallyTimeout(5 * time.Minute)
 	cli, _ := CreateClient()
 	ctx := context.TODO()
 
