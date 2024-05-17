@@ -121,7 +121,18 @@ metadata:
             "tuf": {
               "externalAccess": {
                 "enabled": true
-              }
+              },
+              "keys": [
+                {
+                  "name": "rekor.pub"
+                },
+                {
+                  "name": "ctfe.pub"
+                },
+                {
+                  "name": "fulcio_v1.crt.pem"
+                }
+              ]
             }
           }
         },
