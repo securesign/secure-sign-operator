@@ -15,6 +15,7 @@ metadata:
     features.operators.openshift.io/token-auth-aws: "false"
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
+    operators.openshift.io/valid-subscription: '["Red Hat Trusted Artifact Signer"]'
     repository: https://github.com/securesign/secure-sign-operator
     support: Red Hat
   name: rhtas-operator.v1.0.1
