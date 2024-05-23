@@ -70,6 +70,9 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   commonName:
+                    description: |-
+                      CommonName specifies the common name for the Fulcio certificate.
+                      If not provided, the common name will default to the host name.
                     type: string
                   organizationEmail:
                     type: string
@@ -113,8 +116,6 @@ spec:
                     x-kubernetes-map-type: atomic
                 type: object
                 x-kubernetes-validations:
-                - message: commonName cannot be empty
-                  rule: (has(self.caRef) || self.commonName != "")
                 - message: organizationName cannot be empty
                   rule: (has(self.caRef) || self.organizationName != "")
                 - message: privateKeyRef cannot be empty
@@ -292,6 +293,9 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   commonName:
+                    description: |-
+                      CommonName specifies the common name for the Fulcio certificate.
+                      If not provided, the common name will default to the host name.
                     type: string
                   organizationEmail:
                     type: string
@@ -335,8 +339,6 @@ spec:
                     x-kubernetes-map-type: atomic
                 type: object
                 x-kubernetes-validations:
-                - message: commonName cannot be empty
-                  rule: (has(self.caRef) || self.commonName != "")
                 - message: organizationName cannot be empty
                   rule: (has(self.caRef) || self.organizationName != "")
                 - message: privateKeyRef cannot be empty

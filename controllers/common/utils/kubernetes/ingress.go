@@ -2,14 +2,11 @@ package kubernetes
 
 import (
 	"context"
-	"fmt"
 
-	v13 "github.com/openshift/api/operator/v1"
 	"github.com/securesign/operator/api/v1alpha1"
 	v12 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -28,14 +25,9 @@ func CreateIngress(ctx context.Context, cli client.Client, svc v12.Service, conf
 	}
 
 	if host == "" {
-		if IsOpenShift(cli) {
-			ctrl := &v13.IngressController{}
-			if err := cli.Get(ctx, types.NamespacedName{Namespace: "openshift-ingress-operator", Name: "default"}, ctrl); err != nil {
-				return nil, err
-			}
-			host = fmt.Sprintf("%s-%s.%s", svc.Name, svc.Namespace, ctrl.Status.Domain)
-		} else {
-			host = svc.Name + ".local"
+		var err error
+		if host, err = CalculateHostname(ctx, cli, svc.Name, svc.Namespace); err != nil {
+			return nil, err
 		}
 	}
 	return &networkingv1.Ingress{

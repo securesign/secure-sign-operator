@@ -105,15 +105,6 @@ var _ = Describe("Fulcio", func() {
 		})
 
 		Context("is validated", func() {
-			It("commonName", func() {
-				invalidObject := generateFulcioObject("commonname-invalid")
-				invalidObject.Spec.Certificate.CommonName = ""
-
-				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
-				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("commonName cannot be empty")))
-			})
-
 			It("private key", func() {
 				invalidObject := generateFulcioObject("private-key-invalid")
 				invalidObject.Spec.Certificate.CARef = &SecretKeySelector{
