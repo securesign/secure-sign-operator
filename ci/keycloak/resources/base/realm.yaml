@@ -1,0 +1,16 @@
+apiVersion: keycloak.org/v1alpha1
+kind: KeycloakRealm
+metadata:
+  labels:
+    app: sso
+  name: trusted-artifact-signer
+spec:
+  instanceSelector:
+    matchLabels:
+      app: sso
+  realm:
+    displayName: Red-Hat-Trusted-Artifact-Signer
+    enabled: true
+    id: trusted-artifact-signer
+    realm: trusted-artifact-signer
+    sslRequired: none
