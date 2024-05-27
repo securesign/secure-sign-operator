@@ -22,23 +22,24 @@ var _ = Describe("Trusted Artifact Signer releases -", Ordered, func() {
 
 	It("cloning repository", func() {
 		var err error
-		releasesRepo := support.RepoReleases
-		releasesBranch := support.GetEnvOrDefault(support.EnvRepoReleasesBranch, support.RepoReleasesDefBranch)
+		releasesBranch := support.GetEnvOrDefault(support.EnvReleasesRepoBranch, support.ReleasesRepoDefBranch)
 		githubUsername := support.GetEnv(support.EnvTestGithubUser)
 		githubToken := support.GetEnvOrDefaultSecret(support.EnvTestGithubToken, "")
-		releasesDir, _, err = support.GitCloneWithAuth(releasesRepo, releasesBranch,
+		releasesDir, _, err = support.GitCloneWithAuth(support.ReleasesRepo, releasesBranch,
 			&gitAuth.BasicAuth{
 				Username: githubUsername,
 				Password: githubToken,
 			})
 		if err != nil {
-			Fail(fmt.Sprintf("Error cloning %s: %s", releasesRepo, err))
+			Fail(fmt.Sprintf("Error cloning %s: %s", support.ReleasesRepo, err))
 		}
 		log.Println("Cloned successfully")
 	})
 
 	It("snapshot.json file exist and is valid", func() {
-		snapshotFilePath := filepath.Join(releasesDir, "/1.0.1/snapshot.json")
+		snapshotFileFolder := support.GetEnvOrDefault(support.EnvReleasesFolder, support.ReleasesDefFolder)
+		snapshotFilePath := filepath.Join(releasesDir, fmt.Sprintf("/%s/snapshot.json", snapshotFileFolder))
+		log.Printf("Reading %s\n", snapshotFilePath)
 		content, err := os.ReadFile(snapshotFilePath)
 		if err != nil {
 			Fail(fmt.Sprintf("Failed to read JSON file: %v", err))
