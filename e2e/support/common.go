@@ -3,12 +3,16 @@ package support
 import (
 	"context"
 	"fmt"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"io"
+	"log"
 	"os"
 	"time"
 
 	"github.com/docker/docker/api/types"
 	docker "github.com/docker/docker/client"
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/google/uuid"
 	"github.com/onsi/ginkgo/v2/dsl/core"
 	. "github.com/onsi/gomega"
@@ -22,6 +26,20 @@ import (
 )
 
 const fromImage = "alpine:latest"
+
+func GetEnv(key string) string {
+	return GetEnvOrDefault(key, "")
+}
+
+func GetEnvOrDefault(key, defaultValue string) string {
+	value, exists := os.LookupEnv(key)
+	if !exists && defaultValue != "" {
+		log.Println(fmt.Sprintf("%s='%s' (default)", key, defaultValue))
+		return defaultValue
+	}
+	log.Println(fmt.Sprintf("%s='%s'", key, value))
+	return value
+}
 
 func CreateTestNamespace(ctx context.Context, cli client.Client) *v1.Namespace {
 	ns := &v1.Namespace{
@@ -149,4 +167,19 @@ func toYAMLNoManagedFields(value runtime.Object) string {
 	out, _ := yaml.Marshal(mapdata)
 
 	return fmt.Sprintf("%s\n", out)
+}
+
+func GitCloneWithAuth(url string, branch string, auth transport.AuthMethod) (string, *git.Repository, error) {
+	dir, err := os.MkdirTemp("", "securesign-")
+	if err != nil {
+		return "", nil, err
+	}
+	log.Println(fmt.Sprintf("Cloning %s on branch %s to %s", url, branch, dir))
+	repo, err := git.PlainClone(dir, false, &git.CloneOptions{
+		URL:           url,
+		ReferenceName: plumbing.NewBranchReferenceName(branch),
+		SingleBranch:  true,
+		Auth:          auth,
+	})
+	return dir, repo, err
 }
