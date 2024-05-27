@@ -25,7 +25,7 @@ var _ = Describe("Trusted Artifact Signer releases -", Ordered, func() {
 		releasesRepo := support.RepoReleases
 		releasesBranch := support.GetEnvOrDefault(support.EnvRepoReleasesBranch, support.RepoReleasesDefBranch)
 		githubUsername := support.GetEnv(support.EnvTestGithubUser)
-		githubToken := support.GetEnv(support.EnvTestGithubToken)
+		githubToken := support.GetEnvOrDefaultSecret(support.EnvTestGithubToken, "")
 		releasesDir, _, err = support.GitCloneWithAuth(releasesRepo, releasesBranch,
 			&gitAuth.BasicAuth{
 				Username: githubUsername,

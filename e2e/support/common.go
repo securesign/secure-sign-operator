@@ -28,17 +28,38 @@ import (
 const fromImage = "alpine:latest"
 
 func GetEnv(key string) string {
-	return GetEnvOrDefault(key, "")
+	return getEnvOrDefault(key, "", true)
 }
 
 func GetEnvOrDefault(key, defaultValue string) string {
+	return getEnvOrDefault(key, defaultValue, true)
+}
+
+func GetEnvOrDefaultSecret(key, defaultValue string) string {
+	return getEnvOrDefault(key, defaultValue, false)
+}
+
+func getEnvOrDefault(key, defaultValue string, isLogged bool) string {
+	var returnValue string
+	isDefaultValue := false
 	value, exists := os.LookupEnv(key)
 	if !exists && defaultValue != "" {
-		log.Println(fmt.Sprintf("%s='%s' (default)", key, defaultValue))
-		return defaultValue
+		returnValue = defaultValue
+		isDefaultValue = true
+	} else {
+		returnValue = value
 	}
-	log.Println(fmt.Sprintf("%s='%s'", key, value))
-	return value
+	var logMessage string
+	if isLogged || returnValue == "" {
+		logMessage = fmt.Sprintf("%s='%s'", key, returnValue)
+	} else {
+		logMessage = fmt.Sprintf("%s=%s", key, "*****")
+	}
+	if isDefaultValue {
+		logMessage = fmt.Sprintf("%s (default)", logMessage)
+	}
+	log.Println(logMessage)
+	return returnValue
 }
 
 func CreateTestNamespace(ctx context.Context, cli client.Client) *v1.Namespace {
