@@ -204,3 +204,21 @@ func GitCloneWithAuth(url string, branch string, auth transport.AuthMethod) (str
 	})
 	return dir, repo, err
 }
+
+func ValidateJson(path string) error {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var js map[string]interface{}
+	return json.Unmarshal(content, &js)
+}
+
+func ValidateYaml(path string) error {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var yml map[string]interface{}
+	return yaml.Unmarshal(content, &yml)
+}

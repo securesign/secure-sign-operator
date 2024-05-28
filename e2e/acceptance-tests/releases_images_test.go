@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 var _ = Describe("Trusted Artifact Signer releases -", Ordered, func() {
@@ -76,6 +77,34 @@ var _ = Describe("Trusted Artifact Signer releases -", Ordered, func() {
 		allPresent, notPresentSHA := support.AllItemsPresent(operatorSHAs, snapshotSHAs)
 		if !allPresent {
 			Fail("Operator SHA not found in snapshot.yaml file: " + notPresentSHA)
+		}
+	})
+
+	It("releases json and yaml files are all valid", func() {
+		var invalidFiles []string
+		err := filepath.Walk(releasesDir, func(path string, info os.FileInfo, err error) error {
+			if !info.IsDir() {
+				if strings.HasSuffix(info.Name(), ".json") {
+					validationError := support.ValidateJson(path)
+					if validationError != nil {
+						invalidFiles = append(invalidFiles, path)
+						log.Printf("%s: %s", path, validationError.Error())
+					}
+				} else if strings.HasSuffix(info.Name(), ".yaml") {
+					validationError := support.ValidateYaml(path)
+					if validationError != nil {
+						invalidFiles = append(invalidFiles, path)
+						log.Printf("%s: %s", path, validationError.Error())
+					}
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			Fail(fmt.Sprintf("Failed to go through %s: %s", releasesDir, err))
+		}
+		if len(invalidFiles) > 0 {
+			Fail(fmt.Sprintf("Invalid files found in: %s\n%s", releasesDir, strings.Join(invalidFiles, "\n")))
 		}
 	})
 })
