@@ -16,7 +16,7 @@ import (
 )
 
 // reference code https://github.com/sigstore/scaffolding/blob/main/cmd/trillian/createtree/main.go
-func CreateTrillianTree(ctx context.Context, displayName string, trillianURL string) (*trillian.Tree, error) {
+func CreateTrillianTree(ctx context.Context, displayName string, trillianURL string, deadline int64) (*trillian.Tree, error) {
 	var err error
 	inContainer, err := kubernetes.ContainerMode()
 	if err == nil {
@@ -53,7 +53,7 @@ func CreateTrillianTree(ctx context.Context, displayName string, trillianURL str
 	adminClient := trillian.NewTrillianAdminClient(conn)
 	logClient := trillian.NewTrillianLogClient(conn)
 
-	timeout := time.Duration(120 * time.Second)
+	timeout := time.Duration(time.Duration(deadline) * time.Second)
 	ctx2, cancel := context.WithTimeout(ctx, timeout)
 	tree, err := client.CreateAndInitTree(ctx2, req, adminClient, logClient)
 	defer cancel()

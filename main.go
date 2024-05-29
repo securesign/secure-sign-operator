@@ -105,6 +105,7 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.Int64Var(&constants.CreateTreeDeadline, "create-tree-deadline", constants.CreateTreeDeadline, "The time allowance (in seconds) for the create tree job to run before failing.")
 	utils.StringFlagOrEnv(&constants.TrillianLogSignerImage, "trillian-log-signer-image", "TRILLIAN_LOG_SIGNER_IMAGE", constants.TrillianLogSignerImage, "The image used for trillian log signer.")
 	utils.StringFlagOrEnv(&constants.TrillianServerImage, "trillian-log-server-image", "TRILLIAN_LOG_SERVER_IMAGE", constants.TrillianServerImage, "The image used for trillian log server.")
 	utils.StringFlagOrEnv(&constants.TrillianDbImage, "trillian-db-image", "TRILLIAN_DB_IMAGE", constants.TrillianDbImage, "The image used for trillian's database.")

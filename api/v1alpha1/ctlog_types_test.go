@@ -97,7 +97,6 @@ var _ = Describe("CTlog", func() {
 			When("CR is fully populated", func() {
 				It("outputs the CR", func() {
 					tree := int64(1269875)
-
 					ctlogInstance = CTlog{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "ctlog-full-manifest",
@@ -156,7 +155,6 @@ var _ = Describe("CTlog", func() {
 					}
 
 					expectedCTlogInstance.Spec.TreeID = &tree
-
 					Expect(k8sClient.Create(context.Background(), &ctlogInstance)).To(Succeed())
 					fetchedCTlog := &CTlog{}
 					Expect(k8sClient.Get(context.Background(), getKey(&ctlogInstance), fetchedCTlog)).To(Succeed())

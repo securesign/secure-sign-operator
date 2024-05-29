@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/action"
@@ -44,7 +43,7 @@ func (i createTrillianTreeAction) Handle(ctx context.Context, instance *rhtasv1a
 	if err != nil {
 		return i.Failed(err)
 	}
-	tree, err := common.CreateTrillianTree(ctx, "rekor-tree", trillUrl+":8091")
+	tree, err := common.CreateTrillianTree(ctx, "rekor-tree", trillUrl+":8091", constants.CreateTreeDeadline)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ServerCondition,

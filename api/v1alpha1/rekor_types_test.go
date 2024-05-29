@@ -198,7 +198,6 @@ var _ = Describe("Rekor", func() {
 				It("outputs the CR", func() {
 					storage := k8sresource.MustParse("987Gi")
 					tree := int64(1269875)
-
 					rekorInstance = Rekor{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "rekor-full-manifest",
