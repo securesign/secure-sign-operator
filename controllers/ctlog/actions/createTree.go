@@ -3,7 +3,6 @@ package actions
 import (
 	"context"
 	"fmt"
-
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common"
 	"github.com/securesign/operator/controllers/common/action"
@@ -49,7 +48,7 @@ func (i createTrillianTreeAction) Handle(ctx context.Context, instance *rhtasv1a
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not find trillian instance: %w", err), instance)
 	}
-	tree, err := common.CreateTrillianTree(ctx, "ctlog-tree", trillUrl+":8091")
+	tree, err := common.CreateTrillianTree(ctx, "ctlog-tree", trillUrl+":8091", constants.CreateTreeDeadline)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    constants.Ready,
