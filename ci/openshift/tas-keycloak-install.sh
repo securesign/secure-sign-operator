@@ -34,27 +34,20 @@ check_pod_status() {
 
 # Install SSO Operator and Keycloak service
 install_sso_keycloak() {
-    pushd /tmp
-    git clone https://github.com/securesign/sigstore-ocp
-    git fetch -a -v
-    cd sigstore-ocp
-    git checkout main
-    oc apply --kustomize keycloak/operator/base
+    oc apply --kustomize ci/keycloak/operator/base
     check_pod_status "keycloak-system" "rhsso-operator"
     # Check the return value from the function
     if [ $? -ne 0 ]; then
         echo "Pod status check failed. Exiting the script."
         exit 1
     fi
-    oc apply --kustomize keycloak/resources/base
+    oc apply --kustomize ci/keycloak/resources/base
     check_pod_status "keycloak-system" "keycloak-postgresql"
     # Check the return value from the function
     if [ $? -ne 0 ]; then
         echo "Pod status check failed. Exiting the script."
         exit 1
     fi
-    cd ../ && rm -rf sigstore-ocp
-    popd
 }
 
 # Install Red Hat SSO Operator and setup Keycloak service

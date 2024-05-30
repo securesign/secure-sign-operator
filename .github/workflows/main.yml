@@ -161,14 +161,14 @@ jobs:
           sleep 1
           kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.25.0/olm.yaml
 
-          kubectl create --kustomize https://github.com/securesign/sigstore-ocp/keycloak/operator/overlay/kind
+          kubectl create --kustomize ci/keycloak/operator/overlay/kind
           until [ ! -z "$(kubectl get pod -l name=keycloak-operator -n keycloak-system 2>/dev/null)" ]
           do
             echo "Waiting for keycloak operator. Pods in keycloak-system namespace:"
             kubectl get pods -n keycloak-system
             sleep 10
           done
-          kubectl create --kustomize https://github.com/securesign/sigstore-ocp/keycloak/resources/overlay/kind
+          kubectl create --kustomize ci/keycloak/resources/overlay/kind
           until [[ $( oc get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system 2>/dev/null) == "true" ]]
           do
             printf "Waiting for keycloak deployment. \n Keycloak ready: %s\n" $(oc get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system)
