@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -33,7 +34,7 @@ var _ = Describe("CliServer is running", func() {
 			tr := &http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 			}
-			client := &http.Client{Transport: tr}
+			client := &http.Client{Transport: tr, Timeout: 2 * time.Minute}
 
 			for _, c := range []string{"cosign", "rekor-cli", "gitsign", "ec"} {
 				for _, path := range []string{
