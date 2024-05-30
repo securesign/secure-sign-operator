@@ -1,0 +1,69 @@
+apiVersion: projctl.konflux.dev/v1beta1
+kind: ProjectDevelopmentStreamTemplate
+metadata:
+  name: operator-template
+spec:
+  project: operator
+  variables:
+    - name: version
+      description: A version number for a new development stream
+    - name: versionName
+      description: A K8s-compliant name for the version
+
+  resources:
+    - apiVersion: appstudio.redhat.com/v1alpha1
+      kind: Application
+      metadata:
+        annotations:
+          application.thumbnail: "5"
+          finalizeCount: "0"
+        finalizers:
+          - spi.appstudio.redhat.com/remote-secrets
+          - application.appstudio.redhat.com/finalizer
+        name: "operator-{{.versionName}}"
+      spec:
+        displayName: "operator-{{.versionName}}"
+
+    - apiVersion: appstudio.redhat.com/v1alpha1
+      kind: Component
+      metadata:
+        annotations:
+          applicationFailCounter: "0"
+        finalizers:
+          - test.appstudio.openshift.io/component
+          - component.appstudio.redhat.com/finalizer
+          - image-controller.appstudio.openshift.io/image-repository
+          - image-registry-secret-sa-link.component.appstudio.openshift.io/finalizer
+          - pac.component.appstudio.openshift.io/finalizer
+        name: "rhtas-operator-{{.versionName}}"
+      spec:
+        application: "operator-{{.versionName}}"
+        componentName: "rhtas-operator-{{.versionName}}"
+        source:
+          git:
+            context: ./
+            dockerfileUrl: Dockerfile.rhtas-operator.rh
+            revision: "{{.version}}"
+            url: https://github.com/securesign/secure-sign-operator
+
+    - apiVersion: appstudio.redhat.com/v1alpha1
+      kind: Component
+      metadata:
+        annotations:
+          applicationFailCounter: "0"
+        finalizers:
+          - test.appstudio.openshift.io/component
+          - component.appstudio.redhat.com/finalizer
+          - image-controller.appstudio.openshift.io/image-repository
+          - image-registry-secret-sa-link.component.appstudio.openshift.io/finalizer
+          - pac.component.appstudio.openshift.io/finalizer
+        name: "rhtas-operator-bundle-{{.versionName}}"
+      spec:
+        application: "operator-{{.versionName}}"
+        componentName: "rhtas-operator-bundle-{{.versionName}}"
+        source:
+          git:
+            context: ./
+            dockerfileUrl: bundle.Dockerfile
+            revision: "{{.version}}"
+            url: https://github.com/securesign/secure-sign-operator
