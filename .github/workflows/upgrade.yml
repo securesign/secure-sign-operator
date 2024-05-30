@@ -132,6 +132,12 @@ jobs:
       - name: Build operator bundle
         run: make bundle bundle-build bundle-push
 
+      - name: Checkout FBC source
+        uses: actions/checkout@v2
+        with:
+          repository: "securesign/fbc"
+          path: fbc
+
       - name: Build catalog
         run: |
           cd fbc
