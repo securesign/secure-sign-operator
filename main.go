@@ -25,6 +25,7 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	v1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
+	"github.com/securesign/operator/controllers/common/utils"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/ctlog"
@@ -41,6 +42,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -89,14 +91,36 @@ func init() {
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
+
+	// flags related to operator
+	var (
+		metricsAddr          string
+		probeAddr            string
+		pprofAddr            string
+		enableLeaderElection bool
+	)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&pprofAddr, "pprof-address", "", "The address to expose the pprof server. Default is empty string which disables the pprof server.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	utils.StringFlagOrEnv(&constants.TrillianLogSignerImage, "trillian-log-signer-image", "TRILLIAN_LOG_SIGNER_IMAGE", constants.TrillianLogSignerImage, "The image used for trillian log signer.")
+	utils.StringFlagOrEnv(&constants.TrillianServerImage, "trillian-log-server-image", "TRILLIAN_LOG_SERVER_IMAGE", constants.TrillianServerImage, "The image used for trillian log server.")
+	utils.StringFlagOrEnv(&constants.TrillianDbImage, "trillian-db-image", "TRILLIAN_DB_IMAGE", constants.TrillianDbImage, "The image used for trillian's database.")
+	utils.StringFlagOrEnv(&constants.TrillianNetcatImage, "trillian-netcat-image", "TRILLIAN_NETCAT_IMAGE", constants.TrillianNetcatImage, "The image used for trillian netcat.")
+	utils.StringFlagOrEnv(&constants.FulcioServerImage, "fulcio-server-image", "FULCIO_SERVER_IMAGE", constants.FulcioServerImage, "The image used for the fulcio server.")
+	utils.StringFlagOrEnv(&constants.RekorRedisImage, "rekor-redis-image", "REKOR_REDIS_IMAGE", constants.RekorRedisImage, "The image used for redis.")
+	utils.StringFlagOrEnv(&constants.RekorServerImage, "rekor-server-image", "REKOR_SERVER_IMAGE", constants.RekorServerImage, "The image used for rekor server.")
+	utils.StringFlagOrEnv(&constants.RekorSearchUiImage, "rekor-search-ui-image", "REKOR_SEARCH_UI_IMAGE", constants.RekorSearchUiImage, "The image used for rekor search ui.")
+	utils.StringFlagOrEnv(&constants.BackfillRedisImage, "backfill-redis-image", "BACKFILL_REDIS_IMAGE", constants.BackfillRedisImage, "The image used for backfill redis.")
+	utils.StringFlagOrEnv(&constants.TufImage, "tuf-image", "TUF_IMAGE", constants.TufImage, "The image used for TUF.")
+	utils.StringFlagOrEnv(&constants.CTLogImage, "ctlog-image", "CTLOG_IMAGE", constants.CTLogImage, "The image used for ctlog.")
+	utils.StringFlagOrEnv(&constants.ClientServerImage, "client-server-image", "CLIENT_SERVER_IMAGE", constants.ClientServerImage, "The image used to serve our cli binary's.")
+	utils.StringFlagOrEnv(&constants.ClientServerImage_cg, "client-server-cg-image", "CLIENT_SERVER_CG_IMAGE", constants.ClientServerImage_cg, "The image used to serve cosign and gitsign.")
+	utils.StringFlagOrEnv(&constants.ClientServerImage_re, "client-server-re-image", "CLIENT_SERVER_RE_IMAGE", constants.ClientServerImage_re, "The image used to serve rekor-cli and the ec binary.")
+	utils.StringFlagOrEnv(&constants.SegmentBackupImage, "segment-backup-job-image", "SEGMENT_BACKUP_JOB_IMAGE", constants.SegmentBackupImage, "The image used for the segment backup job")
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -107,9 +131,12 @@ func main() {
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
-		// MetricsBindAddress:     metricsAddr,
+		Metrics: metricsserver.Options{
+			BindAddress: metricsAddr,
+		},
 		// Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
+		PprofBindAddress:       pprofAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "f81d37df.redhat.com",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily

@@ -1,6 +1,6 @@
 //go:build integration
 
-package e2e_test
+package e2e
 
 import (
 	"context"
@@ -11,11 +11,11 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"math/big"
+	"os"
 	"time"
 
 	"github.com/securesign/operator/controllers/common/utils"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
@@ -32,13 +32,15 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 	cli, _ := CreateClient()
 	ctx := context.TODO()
 
-	targetImageName := "ttl.sh/" + uuid.New().String() + ":15m"
+	var targetImageName string
 	var namespace *v1.Namespace
 	var securesign *v1alpha1.Securesign
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			support.DumpNamespace(ctx, cli, namespace.Name)
+			if val, present := os.LookupEnv("CI"); present && val == "true" {
+				support.DumpNamespace(ctx, cli, namespace.Name)
+			}
 		}
 	})
 
@@ -52,6 +54,9 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace.Name,
 				Name:      "test",
+				Annotations: map[string]string{
+					"rhtas.redhat.com/metrics": "false",
+				},
 			},
 			Spec: v1alpha1.SecuresignSpec{
 				Rekor: v1alpha1.RekorSpec{
@@ -160,7 +165,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 	})
 
 	BeforeAll(func() {
-		support.PrepareImage(ctx, targetImageName)
+		targetImageName = support.PrepareImage(ctx)
 	})
 
 	Describe("Install with provided certificates", func() {

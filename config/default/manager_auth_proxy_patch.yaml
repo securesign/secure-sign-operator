@@ -31,11 +31,10 @@ spec:
           capabilities:
             drop:
               - "ALL"
-        image: gcr.io/kubebuilder/kube-rbac-proxy@sha256:d4883d7c622683b3319b5e6b3a7edfbf2594c18060131a8bf64504805f875522
+        image: registry.redhat.io/openshift4/ose-kube-rbac-proxy@sha256:fe54e0fd550746460d2ae61432aac192106ea495bcadca7377ea6a8141834c2f
         args:
         - "--secure-listen-address=0.0.0.0:8443"
         - "--upstream=http://127.0.0.1:8080/"
-        - "--logtostderr=true"
         - "--v=0"
         ports:
         - containerPort: 8443

@@ -5,6 +5,7 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
+	"github.com/securesign/operator/controllers/common/utils"
 	"github.com/securesign/operator/controllers/constants"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,7 +49,7 @@ func (i initializeConditions) Handle(ctx context.Context, instance *rhtasv1alpha
 		Status: metav1.ConditionUnknown,
 		Reason: constants.Pending,
 	})
-	if instance.Spec.RekorSearchUI.Enabled {
+	if utils.IsEnabled(instance.Spec.RekorSearchUI.Enabled) {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:   UICondition,
 			Status: metav1.ConditionUnknown,

@@ -1,0 +1,33 @@
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: <RestoreName>
+  namespace: openshift-adp
+spec:
+  backupName: <BackupName>
+  includedResources: [] 
+  excludedResources:
+  - nodes
+  - events
+  - events.events.k8s.io
+  - backups.velero.io
+  - restores.velero.io
+  - resticrepositories.velero.io
+  - deployments
+  - secrets
+  - configmaps
+  - cronjobs
+  - replicasets
+  - services
+  - routes
+  - ingresses
+  - Securesign
+  - pods
+  - tuf
+  - ctlog
+  - rekor
+  - fulcio
+  - trillian
+  - ConfigMap
+  restorePVs: true 
+  existingResourcePolicy: Update

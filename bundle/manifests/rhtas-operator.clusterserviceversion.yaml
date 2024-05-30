@@ -2,16 +2,6 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    features.operators.openshift.io/disconnected: "false"
-    features.operators.openshift.io/fips-compliant: "false"
-    features.operators.openshift.io/proxy-aware: "false"
-    features.operators.openshift.io/cnf: "false"
-    features.operators.openshift.io/cni: "false"
-    features.operators.openshift.io/csi: "false"
-    features.operators.openshift.io/tls-profiles: "false"
-    features.operators.openshift.io/token-auth-aws: "false"
-    features.operators.openshift.io/token-auth-azure: "false"
-    features.operators.openshift.io/token-auth-gcp: "false"
     alm-examples: |-
       [
         {
@@ -80,16 +70,17 @@ metadata:
           "apiVersion": "rhtas.redhat.com/v1alpha1",
           "kind": "Securesign",
           "metadata": {
+            "annotations": {
+              "rhtas.redhat.com/metrics": "true"
+            },
             "labels": {
               "app.kubernetes.io/instance": "securesign-sample",
               "app.kubernetes.io/name": "securesign-sample",
               "app.kubernetes.io/part-of": "trusted-artifact-signer"
             },
-            "name": "securesign-sample",
-            "namespace": "rhtas-operator"
+            "name": "securesign-sample"
           },
           "spec": {
-            "analytics": false,
             "ctlog": null,
             "fulcio": {
               "certificate": {
@@ -111,7 +102,7 @@ metadata:
                 "enabled": true
               },
               "monitoring": {
-                "enabled": false
+                "enabled": true
               }
             },
             "rekor": {
@@ -119,7 +110,7 @@ metadata:
                 "enabled": true
               },
               "monitoring": {
-                "enabled": false
+                "enabled": true
               }
             },
             "trillian": {
@@ -130,7 +121,18 @@ metadata:
             "tuf": {
               "externalAccess": {
                 "enabled": true
-              }
+              },
+              "keys": [
+                {
+                  "name": "rekor.pub"
+                },
+                {
+                  "name": "ctfe.pub"
+                },
+                {
+                  "name": "fulcio_v1.crt.pem"
+                }
+              ]
             }
           }
         },
@@ -159,9 +161,8 @@ metadata:
             "name": "tuf-sample"
           },
           "spec": {
-            "external": {
-              "enabled": true,
-              "host": "tuf.example.com"
+            "externalAccess": {
+              "enabled": true
             },
             "keys": [
               {
@@ -189,11 +190,25 @@ metadata:
           }
         }
       ]
-    capabilities: Basic Install
-    createdAt: "2024-04-04T07:35:04Z"
+    capabilities: Seamless Upgrades
+    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:a21f7128694a64989bf0d84a7a7da4c1ffc89edf62d594dc8bea7bcfe9ac08d3
+    createdAt: "2024-05-20T12:33:48Z"
+    features.operators.openshift.io/cnf: "false"
+    features.operators.openshift.io/cni: "false"
+    features.operators.openshift.io/csi: "false"
+    features.operators.openshift.io/disconnected: "false"
+    features.operators.openshift.io/fips-compliant: "false"
+    features.operators.openshift.io/proxy-aware: "false"
+    features.operators.openshift.io/tls-profiles: "false"
+    features.operators.openshift.io/token-auth-aws: "false"
+    features.operators.openshift.io/token-auth-azure: "false"
+    features.operators.openshift.io/token-auth-gcp: "false"
+    operators.openshift.io/valid-subscription: '["Red Hat Trusted Artifact Signer"]'
     operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: rhtas-operator.v1.0.0
+    repository: https://github.com/securesign/secure-sign-operator
+    support: Red Hat
+  name: rhtas-operator.v1.0.1
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -401,6 +416,14 @@ spec:
         - apiGroups:
           - monitoring.coreos.com
           resources:
+          - prometheuses/api
+          verbs:
+          - create
+          - get
+          - update
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
           - servicemonitors
           verbs:
           - create
@@ -473,6 +496,7 @@ spec:
           verbs:
           - create
           - delete
+          - deletecollection
           - get
           - list
           - patch
@@ -485,6 +509,7 @@ spec:
           verbs:
           - create
           - delete
+          - deletecollection
           - get
           - list
           - patch
@@ -497,6 +522,7 @@ spec:
           verbs:
           - create
           - delete
+          - deletecollection
           - get
           - list
           - patch
@@ -738,9 +764,8 @@ spec:
               - args:
                 - --secure-listen-address=0.0.0.0:8443
                 - --upstream=http://127.0.0.1:8080/
-                - --logtostderr=true
                 - --v=0
-                image: gcr.io/kubebuilder/kube-rbac-proxy@sha256:d4883d7c622683b3319b5e6b3a7edfbf2594c18060131a8bf64504805f875522
+                image: registry.redhat.io/openshift4/ose-kube-rbac-proxy@sha256:fe54e0fd550746460d2ae61432aac192106ea495bcadca7377ea6a8141834c2f
                 name: kube-rbac-proxy
                 ports:
                 - containerPort: 8443
@@ -764,7 +789,7 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
-                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:2d2a22420249890a64b42c663d57c4b5c6638e0597fe74b01b275ba915e53ea2
+                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:a21f7128694a64989bf0d84a7a7da4c1ffc89edf62d594dc8bea7bcfe9ac08d3
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -781,7 +806,7 @@ spec:
                 resources:
                   limits:
                     cpu: 500m
-                    memory: 128Mi
+                    memory: 256Mi
                   requests:
                     cpu: 10m
                     memory: 64Mi
@@ -862,8 +887,8 @@ spec:
     name: Tommy Dalton
   - email: lball@redhat.com
     name: Lance Ball
-  maturity: alpha
+  maturity: stable
   provider:
     name: Red Hat
     url: https://github.com/securesign/secure-sign-operator
-  version: 1.0.0
+  version: 1.0.1

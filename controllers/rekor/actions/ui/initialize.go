@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/securesign/operator/controllers/common/action"
+	"github.com/securesign/operator/controllers/common/utils"
 	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/rekor/actions"
 	v12 "k8s.io/api/networking/v1"
@@ -31,7 +32,7 @@ func (i initializeAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	return c.Reason == constants.Initialize &&
 		!meta.IsStatusConditionTrue(instance.Status.Conditions, actions.UICondition) &&
-		instance.Spec.RekorSearchUI.Enabled
+		utils.IsEnabled(instance.Spec.RekorSearchUI.Enabled)
 }
 
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {

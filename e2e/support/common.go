@@ -2,6 +2,7 @@ package support
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -33,7 +34,12 @@ func CreateTestNamespace(ctx context.Context, cli client.Client) *v1.Namespace {
 	return ns
 }
 
-func PrepareImage(ctx context.Context, targetImageName string) {
+func PrepareImage(ctx context.Context) string {
+	if v, ok := os.LookupEnv("TEST_IMAGE"); ok {
+		return v
+	}
+	targetImageName := fmt.Sprintf("ttl.sh/%s:15m", uuid.New().String())
+
 	dockerCli, err := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
 	Expect(err).ToNot(HaveOccurred())
 
@@ -53,6 +59,7 @@ func PrepareImage(ctx context.Context, targetImageName string) {
 	defer push.Close()
 	// wait for a while to be sure that the image landed in the registry
 	time.Sleep(10 * time.Second)
+	return targetImageName
 }
 
 func EnvOrDefault(env string, def string) string {
@@ -66,57 +73,64 @@ func EnvOrDefault(env string, def string) string {
 func DumpNamespace(ctx context.Context, cli client.Client, ns string) {
 
 	core.GinkgoWriter.Println("----------------------- Dumping namespace " + ns + " -----------------------")
+	securesigns := &v1alpha1.SecuresignList{}
+	cli.List(ctx, securesigns, client.InNamespace(ns))
+	core.GinkgoWriter.Println("\n\nSecuresigns:")
+	for _, p := range securesigns.Items {
+		core.GinkgoWriter.Println(toYAMLNoManagedFields(&p))
+	}
+
 	fulcios := &v1alpha1.FulcioList{}
 	cli.List(ctx, fulcios, client.InNamespace(ns))
-	core.GinkgoWriter.Println("Fulcios:")
+	core.GinkgoWriter.Println("\n\nFulcios:")
 	for _, p := range fulcios.Items {
 		core.GinkgoWriter.Println(toYAMLNoManagedFields(&p))
 	}
 
 	rekors := &v1alpha1.RekorList{}
 	cli.List(ctx, rekors, client.InNamespace(ns))
-	core.GinkgoWriter.Println("Rekors:")
+	core.GinkgoWriter.Println("\n\nRekors:")
 	for _, p := range rekors.Items {
 		core.GinkgoWriter.Println(toYAMLNoManagedFields(&p))
 	}
 
 	tufs := &v1alpha1.TufList{}
 	cli.List(ctx, tufs, client.InNamespace(ns))
-	core.GinkgoWriter.Println("Tufs:")
+	core.GinkgoWriter.Println("\n\nTufs:")
 	for _, p := range tufs.Items {
 		core.GinkgoWriter.Println(toYAMLNoManagedFields(&p))
 	}
 
 	ctlogs := &v1alpha1.CTlogList{}
 	cli.List(ctx, ctlogs, client.InNamespace(ns))
-	core.GinkgoWriter.Println("CTLogs:")
+	core.GinkgoWriter.Println("\n\nCTLogs:")
 	for _, p := range ctlogs.Items {
 		core.GinkgoWriter.Println(toYAMLNoManagedFields(&p))
 	}
 
 	trillians := &v1alpha1.TrillianList{}
 	cli.List(ctx, trillians, client.InNamespace(ns))
-	core.GinkgoWriter.Println("Trillians:")
+	core.GinkgoWriter.Println("\n\nTrillians:")
 	for _, p := range trillians.Items {
 		core.GinkgoWriter.Println(toYAMLNoManagedFields(&p))
 	}
 
 	pods := &v1.PodList{}
-	cli.List(ctx, pods)
-	core.GinkgoWriter.Println("Pods:")
+	cli.List(ctx, pods, client.InNamespace(ns))
+	core.GinkgoWriter.Println("\n\nPods:")
 	for _, p := range pods.Items {
 		core.GinkgoWriter.Println(toYAMLNoManagedFields(&p))
 	}
 
 	secrets := &v1.SecretList{}
-	cli.List(ctx, secrets)
+	cli.List(ctx, secrets, client.InNamespace(ns))
 	core.GinkgoWriter.Println("Secrets:")
 	for _, p := range secrets.Items {
 		core.GinkgoWriter.Println(toYAMLNoManagedFields(&p))
 	}
 
 	cm := &v1.ConfigMapList{}
-	cli.List(ctx, cm)
+	cli.List(ctx, cm, client.InNamespace(ns))
 	core.GinkgoWriter.Println("ConfigMaps:")
 	for _, p := range cm.Items {
 		core.GinkgoWriter.Println(toYAMLNoManagedFields(&p))
@@ -134,5 +148,5 @@ func toYAMLNoManagedFields(value runtime.Object) string {
 	}
 	out, _ := yaml.Marshal(mapdata)
 
-	return string(out)
+	return fmt.Sprintf("%s\n", out)
 }

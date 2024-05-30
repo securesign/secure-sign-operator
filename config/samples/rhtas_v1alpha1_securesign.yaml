@@ -5,14 +5,15 @@ metadata:
     app.kubernetes.io/name: securesign-sample
     app.kubernetes.io/instance: securesign-sample
     app.kubernetes.io/part-of: trusted-artifact-signer
+  annotations:
+    rhtas.redhat.com/metrics: "true"
   name: securesign-sample
-  namespace: rhtas-operator
 spec:
   rekor:
     externalAccess:
       enabled: true
     monitoring:
-      enabled: false
+      enabled: true
   trillian:
     database:
       create: true
@@ -30,9 +31,12 @@ spec:
       organizationEmail: jdoe@redhat.com
       commonName: fulcio.hostname
     monitoring:
-      enabled: false
+      enabled: true
   tuf:
     externalAccess:
       enabled: true
-  analytics: false
+    keys:
+      - name: rekor.pub
+      - name: ctfe.pub
+      - name: fulcio_v1.crt.pem
   ctlog:

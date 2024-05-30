@@ -44,6 +44,19 @@ spec:
           spec:
             description: CTlogSpec defines the desired state of CTlog component
             properties:
+              monitoring:
+                description: Enable Service monitors for ctlog
+                properties:
+                  enabled:
+                    default: true
+                    description: If true, the Operator will create monitoring resources
+                    type: boolean
+                    x-kubernetes-validations:
+                    - message: Feature cannot be disabled
+                      rule: (self || !oldSelf)
+                required:
+                - enabled
+                type: object
               privateKeyPasswordRef:
                 description: Password to decrypt private key
                 properties:

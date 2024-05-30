@@ -6,6 +6,7 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/action"
+	"github.com/securesign/operator/controllers/common/utils"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/rekor/actions"
@@ -30,8 +31,11 @@ func (i ingressAction) Name() string {
 
 func (i ingressAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	if c == nil {
+		return false
+	}
 	return (c.Reason == constants.Creating || c.Reason == constants.Ready) &&
-		instance.Spec.RekorSearchUI.Enabled
+		utils.IsEnabled(instance.Spec.RekorSearchUI.Enabled)
 }
 
 func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {

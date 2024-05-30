@@ -18,8 +18,9 @@ package rekor
 
 import (
 	"context"
-	"github.com/securesign/operator/controllers/common/utils"
 	"time"
+
+	"github.com/securesign/operator/controllers/common/utils"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
@@ -99,7 +100,7 @@ var _ = Describe("Rekor hot update test", func() {
 							Enabled: false,
 						},
 						RekorSearchUI: v1alpha1.RekorSearchUI{
-							Enabled: false,
+							Enabled: utils.Pointer(false),
 						},
 						BackFillRedis: v1alpha1.BackFillRedis{
 							Enabled: utils.Pointer(false),
@@ -130,8 +131,8 @@ var _ = Describe("Rekor hot update test", func() {
 			Expect(k8sClient.List(ctx, deployments, runtimeClient.InNamespace(Namespace))).To(Succeed())
 			By("Move to Ready phase")
 			for _, d := range deployments.Items {
-				d.Status.Replicas = *d.Spec.Replicas
-				d.Status.ReadyReplicas = *d.Spec.Replicas
+				d.Status.Conditions = []appsv1.DeploymentCondition{
+					{Status: corev1.ConditionTrue, Type: appsv1.DeploymentAvailable, Reason: constants.Ready}}
 				Expect(k8sClient.Status().Update(ctx, &d)).Should(Succeed())
 			}
 			// Workaround to succeed condition for Ready phase

@@ -18,8 +18,9 @@ package ctlog
 
 import (
 	"context"
-	"github.com/securesign/operator/controllers/ctlog/utils"
 	"time"
+
+	"github.com/securesign/operator/controllers/ctlog/utils"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/common/utils/kubernetes"
@@ -72,7 +73,7 @@ var _ = Describe("CTlog update test", func() {
 
 			Eventually(func() error {
 				return k8sClient.Delete(context.TODO(), found)
-			}, 2*time.Minute, time.Second).Should(Succeed())
+			}, 3*time.Minute, time.Second).Should(Succeed())
 
 			// TODO(user): Attention if you improve this code by adding other context test you MUST
 			// be aware of the current delete namespace limitations.
@@ -127,8 +128,8 @@ var _ = Describe("CTlog update test", func() {
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase
-			deployment.Status.Replicas = *deployment.Spec.Replicas
-			deployment.Status.ReadyReplicas = *deployment.Spec.Replicas
+			deployment.Status.Conditions = []appsv1.DeploymentCondition{
+				{Status: corev1.ConditionTrue, Type: appsv1.DeploymentAvailable, Reason: constants.Ready}}
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
 
 			By("Waiting until CTlog instance is Ready")
@@ -191,7 +192,7 @@ var _ = Describe("CTlog update test", func() {
 				updated := &appsv1.Deployment{}
 				k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
-			}, time.Minute, time.Second).Should(BeFalse())
+			}, 3*time.Minute, time.Second).Should(BeFalse())
 		})
 	})
 })

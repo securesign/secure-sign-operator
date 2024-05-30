@@ -28,10 +28,6 @@ type SecuresignSpec struct {
 	Rekor    RekorSpec    `json:"rekor,omitempty"`
 	Fulcio   FulcioSpec   `json:"fulcio,omitempty"`
 	Trillian TrillianSpec `json:"trillian,omitempty"`
-	// If true, the Operator will create segment backup job and cronjob and required RBAC
-	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
-	//+kubebuilder:default:=false
-	Analytics bool `json:"analytics"`
 	//+kubebuilder:default:={keys:{{name: rekor.pub},{name: ctfe.pub},{name: fulcio_v1.crt.pem}}}
 	Tuf   TufSpec   `json:"tuf,omitempty"`
 	Ctlog CTlogSpec `json:"ctlog,omitempty"`

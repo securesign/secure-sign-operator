@@ -91,7 +91,7 @@ spec:
                 description: Enable Service monitors for rekor
                 properties:
                   enabled:
-                    default: false
+                    default: true
                     description: If true, the Operator will create monitoring resources
                     type: boolean
                     x-kubernetes-validations:
@@ -138,10 +138,12 @@ spec:
                 - retain
                 type: object
               rekorSearchUI:
+                default:
+                  enabled: true
                 description: Rekor Search UI
                 properties:
                   enabled:
-                    default: false
+                    default: true
                     description: If set to true, the Operator will deploy a Rekor
                       Search UI
                     type: boolean

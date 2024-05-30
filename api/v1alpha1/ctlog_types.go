@@ -34,6 +34,9 @@ type CTlogSpec struct {
 	// The certs are served through get-roots endpoint. Optional in mirrors.
 	//+optional
 	RootCertificates []SecretKeySelector `json:"rootCertificates,omitempty"`
+
+	//Enable Service monitors for ctlog
+	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
 }
 
 // CTlogStatus defines the observed state of CTlog component

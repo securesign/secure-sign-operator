@@ -161,6 +161,14 @@ rules:
 - apiGroups:
   - monitoring.coreos.com
   resources:
+  - prometheuses/api
+  verbs:
+  - create
+  - get
+  - update
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
   - servicemonitors
   verbs:
   - create
@@ -233,6 +241,7 @@ rules:
   verbs:
   - create
   - delete
+  - deletecollection
   - get
   - list
   - patch
@@ -245,6 +254,7 @@ rules:
   verbs:
   - create
   - delete
+  - deletecollection
   - get
   - list
   - patch
@@ -257,6 +267,7 @@ rules:
   verbs:
   - create
   - delete
+  - deletecollection
   - get
   - list
   - patch

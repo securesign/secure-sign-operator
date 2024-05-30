@@ -21,8 +21,10 @@ func VerifyTuf(ctx context.Context, cli client.Client, namespace string, name st
 		}, Equal(constants.Ready)))
 
 	list := &v1.PodList{}
-	cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels{kubernetes.ComponentLabel: actions.ComponentName})
-	Expect(list.Items).To(And(Not(BeEmpty()), HaveEach(WithTransform(func(p v1.Pod) v1.PodPhase { return p.Status.Phase }, Equal(v1.PodRunning)))))
+	Eventually(func() []v1.Pod {
+		cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels{kubernetes.ComponentLabel: actions.ComponentName})
+		return list.Items
+	}).Should(And(Not(BeEmpty()), HaveEach(WithTransform(func(p v1.Pod) v1.PodPhase { return p.Status.Phase }, Equal(v1.PodRunning)))))
 }
 
 func GetTuf(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.Tuf {

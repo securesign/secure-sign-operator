@@ -129,10 +129,28 @@ var _ = Describe("Fulcio", func() {
 			It("config is not empty", func() {
 				invalidObject := generateFulcioObject("config-invalid")
 				invalidObject.Spec.Config.OIDCIssuers = []OIDCIssuer{}
+				invalidObject.Spec.Config.MetaIssuers = []OIDCIssuer{}
 
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("in body should have at least 1 items")))
+					To(MatchError(ContainSubstring("At least one of OIDCIssuers or MetaIssuers must be defined")))
+			})
+
+			It("only MetaIssuer is set", func() {
+				validObject := generateFulcioObject("config-metaissuer")
+				validObject.Spec.Config.OIDCIssuers = []OIDCIssuer{}
+				validObject.Spec.Config.MetaIssuers = []OIDCIssuer{
+					{
+						ClientID: "client",
+						Type:     "email",
+					},
+				}
+
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+
+				fetched := &Fulcio{}
+				Expect(k8sClient.Get(context.Background(), getKey(validObject), fetched)).To(Succeed())
+				Expect(fetched).To(Equal(validObject))
 			})
 		})
 

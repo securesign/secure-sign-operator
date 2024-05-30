@@ -1,9 +1,10 @@
 //go:build integration
 
-package e2e_test
+package e2e
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 
@@ -29,6 +30,10 @@ var _ = Describe("CliServer is running", func() {
 				protocol = "https://"
 			}
 			url := protocol + lst.Items[0].Spec.Rules[0].Host
+			tr := &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			}
+			client := &http.Client{Transport: tr}
 
 			for _, c := range []string{"cosign", "rekor-cli", "gitsign", "ec"} {
 				for _, path := range []string{
@@ -40,9 +45,9 @@ var _ = Describe("CliServer is running", func() {
 					"/clients/darwin/%s-arm64.gz",
 					"/clients/windows/%s-amd64.gz",
 				} {
-					resp, err := http.Get(fmt.Sprintf(url+path, c))
+					resp, err := client.Get(fmt.Sprintf(url+path, c))
 					gomega.Expect(err).ToNot(gomega.HaveOccurred())
-					gomega.Expect(resp.StatusCode).To(gomega.Equal(200))
+					gomega.Expect(resp.StatusCode).To(gomega.Equal(200), fmt.Sprintf("Client for %s on %s not found", c, path))
 				}
 
 			}

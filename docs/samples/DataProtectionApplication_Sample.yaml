@@ -1,0 +1,38 @@
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+  name: <ApplicationNamespace>
+  namespace: openshift-adp 
+spec:
+  snapshotMoveData: true
+  configuration:
+    velero:
+      defaultPlugins:
+        - openshift 
+        - aws
+        - csi
+      resourceTimeout: 10m 
+    nodeAgent: 
+      enable: true 
+      uploaderType: kopia 
+  backupLocations:
+    - name: default
+      velero:
+        provider: aws
+        default: true
+        objectStorage:
+          bucket: rhtas-backup
+          prefix: operator-backup
+        config:
+          region: us-east-1
+          profile: "default"
+        credential:
+          key: cloud
+          name: cloud-credentials 
+  snapshotLocations: 
+    - name: default
+      velero:
+        provider: aws
+        config:
+          region: us-east-1
+          profile: "default"

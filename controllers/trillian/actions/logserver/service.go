@@ -10,9 +10,15 @@ import (
 	"github.com/securesign/operator/controllers/trillian/actions"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+)
+
+const (
+	monitoringPort = 8090
 )
 
 func NewCreateServiceAction() action.Action[rhtasv1alpha1.Trillian] {
@@ -41,6 +47,15 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 
 	labels := constants.LabelsFor(actions.LogServerComponentName, actions.LogserverDeploymentName, instance.Name)
 	logserverService := k8sutils.CreateService(instance.Namespace, actions.LogserverDeploymentName, serverPort, labels)
+
+	if instance.Spec.Monitoring.Enabled {
+		logserverService.Spec.Ports = append(logserverService.Spec.Ports, corev1.ServicePort{
+			Name:       actions.LogServerMonitoringName,
+			Protocol:   corev1.ProtocolTCP,
+			Port:       int32(monitoringPort),
+			TargetPort: intstr.FromInt(monitoringPort),
+		})
+	}
 
 	if err = controllerutil.SetControllerReference(instance, logserverService, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for logserver Service: %w", err))
