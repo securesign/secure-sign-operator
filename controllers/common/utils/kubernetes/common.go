@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sync"
 
 	v13 "github.com/openshift/api/operator/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -66,17 +68,28 @@ func ContainerMode() (bool, error) {
 	return false, nil
 }
 
+var onceIsOpenshift sync.Once
+var isOpenshift bool
+
 func IsOpenShift(client client.Client) bool {
-	_, err := client.RESTMapper().ResourceFor(schema.GroupVersionResource{
-		Group:    "image.openshift.io",
-		Version:  "v1",
-		Resource: "image",
+	// atomic
+	onceIsOpenshift.Do(func() {
+		log := ctrllog.Log.WithName("IsOpenshift")
+		_, err := client.RESTMapper().ResourceFor(schema.GroupVersionResource{
+			Group:    "security.openshift.io",
+			Resource: "SecurityContextConstraints",
+		})
+		if err != nil {
+			// continue with non-ocp standard
+			log.Info("no")
+			log.V(1).Info(err.Error())
+			isOpenshift = false
+			return
+		}
+		isOpenshift = true
+		log.Info("yes")
 	})
-	if err != nil {
-		// continue with non-ocp standard
-		return false
-	}
-	return true
+	return isOpenshift
 }
 
 func CalculateHostname(ctx context.Context, client client.Client, svcName, ns string) (string, error) {
