@@ -138,7 +138,7 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 					Volumes:            volumes,
 					Containers: []core.Container{
 						{
-							Name: dpName,
+							Name:  dpName,
 							Image: constants.RekorServerImage,
 							Ports: []core.ContainerPort{
 								{
@@ -155,10 +155,10 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 							VolumeMounts: volumeMounts,
 							LivenessProbe: &core.Probe{
 								InitialDelaySeconds: 30,
-								PeriodSeconds: 10,
-								TimeoutSeconds: 1,
-								FailureThreshold: 3,
-								SuccessThreshold: 1,
+								PeriodSeconds:       10,
+								TimeoutSeconds:      1,
+								FailureThreshold:    3,
+								SuccessThreshold:    1,
 								ProbeHandler: core.ProbeHandler{
 									HTTPGet: &core.HTTPGetAction{
 										Port: intstr.FromInt32(3000),
@@ -168,10 +168,10 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 							},
 							ReadinessProbe: &core.Probe{
 								InitialDelaySeconds: 10,
-								PeriodSeconds: 10,
-								TimeoutSeconds: 1,
-								FailureThreshold: 3,
-								SuccessThreshold: 1,
+								PeriodSeconds:       10,
+								TimeoutSeconds:      1,
+								FailureThreshold:    3,
+								SuccessThreshold:    1,
 								ProbeHandler: core.ProbeHandler{
 									HTTPGet: &core.HTTPGetAction{
 										Port: intstr.FromInt32(3000),
