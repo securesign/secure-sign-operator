@@ -63,17 +63,29 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, opensh
 								ProbeHandler: core.ProbeHandler{
 									Exec: &core.ExecAction{
 										Command: []string{
-											"mysqladmin",
-											"ping",
-											"-h",
-											"localhost",
-											"-u",
-											"$(MYSQL_USER)",
-											"-p$(MYSQL_PASSWORD)",
+											"bash",
+											"-c",
+											"mariadb -u $MYSQL_USER -p${MYSQL_PASSWORD} -e \"SELECT 1;\"",
 										},
 									},
 								},
 								InitialDelaySeconds: 10,
+								PeriodSeconds:       10,
+								TimeoutSeconds:      1,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+							},
+							LivenessProbe: &core.Probe{
+								ProbeHandler: core.ProbeHandler{
+									Exec: &core.ExecAction{
+										Command: []string{
+											"bash",
+											"-c",
+											"mariadb-admin -u $MYSQL_USER -p${MYSQL_PASSWORD} ping",
+										},
+									},
+								},
+								InitialDelaySeconds: 30,
 								TimeoutSeconds:      1,
 								PeriodSeconds:       10,
 								SuccessThreshold:    1,
