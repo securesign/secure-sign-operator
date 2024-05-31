@@ -3,6 +3,7 @@ package utils
 import (
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/constants"
@@ -137,16 +138,7 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 					Volumes:            volumes,
 					Containers: []core.Container{
 						{
-							Name: dpName,
-							// TODO add probe
-							//LivenessProbe: &core.Probe{
-							//	},
-							//	InitialDelaySeconds: 30,
-							//	TimeoutSeconds:      1,
-							//	PeriodSeconds:       10,
-							//	SuccessThreshold:    1,
-							//	FailureThreshold:    3,
-							//},
+							Name:  dpName,
 							Image: constants.RekorServerImage,
 							Ports: []core.ContainerPort{
 								{
@@ -161,6 +153,32 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 							Env:          env,
 							Args:         appArgs,
 							VolumeMounts: volumeMounts,
+							LivenessProbe: &core.Probe{
+								InitialDelaySeconds: 30,
+								PeriodSeconds:       10,
+								TimeoutSeconds:      1,
+								FailureThreshold:    3,
+								SuccessThreshold:    1,
+								ProbeHandler: core.ProbeHandler{
+									HTTPGet: &core.HTTPGetAction{
+										Port: intstr.FromInt32(3000),
+										Path: "/ping",
+									},
+								},
+							},
+							ReadinessProbe: &core.Probe{
+								InitialDelaySeconds: 10,
+								PeriodSeconds:       10,
+								TimeoutSeconds:      1,
+								FailureThreshold:    3,
+								SuccessThreshold:    1,
+								ProbeHandler: core.ProbeHandler{
+									HTTPGet: &core.HTTPGetAction{
+										Port: intstr.FromInt32(3000),
+										Path: "/ping",
+									},
+								},
+							},
 						},
 					},
 				},

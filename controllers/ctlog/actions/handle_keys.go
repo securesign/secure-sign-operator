@@ -100,7 +100,7 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 			}
 		}
 		config, err = utils.GeneratePublicKey(&utils.PrivateKeyConfig{PrivateKey: private, PrivateKeyPass: password})
-		if err != nil || config == nil{
+		if err != nil || config == nil {
 			return g.Failed(fmt.Errorf("unable to generate public key: %w", err))
 		}
 		data = map[string][]byte{"public": config.PublicKey}
