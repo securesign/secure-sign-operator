@@ -65,7 +65,7 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, opensh
 										Command: []string{
 											"bash",
 											"-c",
-											"mariadb -u $MYSQL_USER -p${MYSQL_PASSWORD} -e \"SELECT 1;\"",
+											"mariadb -u ${MYSQL_USER} -p${MYSQL_PASSWORD} -e \"SELECT 1;\"",
 										},
 									},
 								},
@@ -81,7 +81,7 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, opensh
 										Command: []string{
 											"bash",
 											"-c",
-											"mariadb-admin -u $MYSQL_USER -p${MYSQL_PASSWORD} ping",
+											"mariadb-admin -u ${MYSQL_USER} -p${MYSQL_PASSWORD} ping",
 										},
 									},
 								},
