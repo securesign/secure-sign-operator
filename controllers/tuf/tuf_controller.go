@@ -18,6 +18,7 @@ package tuf
 
 import (
 	"context"
+
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/controllers/annotations"
@@ -32,6 +33,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -142,6 +144,13 @@ func (r *TufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 	}})
 
+	partialSecret := &metav1.PartialObjectMetadata{}
+	partialSecret.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "",
+		Version: "v1",
+		Kind:    "Secret",
+	})
+
 	if err != nil {
 		return err
 	}
@@ -151,7 +160,7 @@ func (r *TufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		Owns(&v13.Ingress{}).
-		WatchesMetadata(&v12.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+		WatchesMetadata(partialSecret, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
 			val, ok := object.GetLabels()["app.kubernetes.io/instance"]
 			if ok {
 				return []reconcile.Request{

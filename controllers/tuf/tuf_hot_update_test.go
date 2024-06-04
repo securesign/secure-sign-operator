@@ -131,14 +131,14 @@ var _ = Describe("TUF update test", func() {
 			Eventually(func() error {
 				found := &v1alpha1.Tuf{}
 				return k8sClient.Get(ctx, typeNamespaceName, found)
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("Status conditions are initialized")
 			Eventually(func() bool {
 				found := &v1alpha1.Tuf{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
-			}, time.Minute, time.Second).Should(BeTrue())
+			}).Should(BeTrue())
 
 			By("Creating ctlog secret with public key")
 			secretLabels := map[string]string{
@@ -154,13 +154,13 @@ var _ = Describe("TUF update test", func() {
 				found := &v1alpha1.Tuf{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}, time.Minute, time.Second).Should(Equal(constants.Initialize))
+			}).Should(Equal(constants.Initialize))
 
 			deployment := &appsv1.Deployment{}
 			By("Checking if Deployment was successfully created in the reconciliation")
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: TufNamespace}, deployment)
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase
@@ -173,7 +173,7 @@ var _ = Describe("TUF update test", func() {
 				found := &v1alpha1.Tuf{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
-			}, time.Minute, time.Second).Should(BeTrue())
+			}).Should(BeTrue())
 
 			By("Checking the latest Status Condition added to the Tuf instance")
 			Eventually(func() error {
@@ -188,7 +188,7 @@ var _ = Describe("TUF update test", func() {
 				Expect(ctlogCondition.Status).Should(Equal(metav1.ConditionTrue))
 				Expect(ctlogCondition.Reason).Should(Equal("Ready"))
 				return nil
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("Recreate ctlog secret")
 			Expect(k8sClient.DeleteAllOf(ctx, &corev1.Secret{}, runtimeCli.InNamespace(TufNamespace), runtimeCli.MatchingLabels(secretLabels)))
@@ -198,7 +198,7 @@ var _ = Describe("TUF update test", func() {
 				found := &v1alpha1.Tuf{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}, time.Minute, time.Second).Should(Equal(constants.Pending))
+			}).Should(Equal(constants.Pending))
 
 			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("ctlog-update", typeNamespaceName.Namespace, map[string][]byte{
 				"public": []byte("update"),
@@ -209,7 +209,7 @@ var _ = Describe("TUF update test", func() {
 				found := &v1alpha1.Tuf{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, "ctfe.pub")
-			}, time.Minute, time.Second).Should(BeTrue())
+			}).Should(BeTrue())
 
 			Eventually(func() []v1alpha1.TufKey {
 				found := &v1alpha1.Tuf{}
@@ -222,7 +222,7 @@ var _ = Describe("TUF update test", func() {
 				updated := &appsv1.Deployment{}
 				k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: TufNamespace}, updated)
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
-			}, time.Minute, time.Second).Should(BeFalse())
+			}).Should(BeFalse())
 		})
 	})
 })

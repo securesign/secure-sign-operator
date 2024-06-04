@@ -130,21 +130,21 @@ var _ = Describe("Fulcio controller", func() {
 			Eventually(func() error {
 				found := &v1alpha1.Fulcio{}
 				return k8sClient.Get(ctx, typeNamespaceName, found)
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("Status conditions are initialized")
 			Eventually(func() bool {
 				found := &v1alpha1.Fulcio{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
-			}, time.Minute, time.Second).Should(BeTrue())
+			}).Should(BeTrue())
 
 			By("Pending phase until password key is resolved")
 			Eventually(func() string {
 				found := &v1alpha1.Fulcio{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}, time.Minute, time.Second).Should(Equal(constants.Pending))
+			}).Should(Equal(constants.Pending))
 
 			By("Creating password secret with cert password")
 			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("password-secret", typeNamespaceName.Namespace, map[string][]byte{
@@ -157,28 +157,28 @@ var _ = Describe("Fulcio controller", func() {
 				certSecret, err = kubernetes.FindSecret(ctx, k8sClient, Namespace, actions.FulcioCALabel)
 				Expect(err).To(Not(HaveOccurred()))
 				return certSecret
-			}, time.Minute, time.Second).Should(Not(BeNil()))
+			}).Should(Not(BeNil()))
 
 			Eventually(func() bool {
 				found := &v1alpha1.Fulcio{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, actions.CertCondition)
-			}, time.Minute, time.Second).Should(BeTrue())
+			}).Should(BeTrue())
 			Eventually(func() string {
 				found := &v1alpha1.Fulcio{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Certificate.CARef.Name
-			}, time.Minute, time.Second).Should(Equal(certSecret.Name))
+			}).Should(Equal(certSecret.Name))
 			Eventually(func() string {
 				found := &v1alpha1.Fulcio{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Certificate.PrivateKeyRef.Name
-			}, time.Minute, time.Second).Should(Equal(certSecret.Name))
+			}).Should(Equal(certSecret.Name))
 			Eventually(func() string {
 				found := &v1alpha1.Fulcio{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Certificate.PrivateKeyPasswordRef.Name
-			}, time.Minute, time.Second).Should(Equal("password-secret"))
+			}).Should(Equal("password-secret"))
 
 			Expect(certSecret.Data).To(And(HaveKey("private"), HaveKey("cert")))
 
@@ -186,7 +186,7 @@ var _ = Describe("Fulcio controller", func() {
 			By("Checking if Deployment was successfully created in the reconciliation")
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase
@@ -199,13 +199,13 @@ var _ = Describe("Fulcio controller", func() {
 				found := &v1alpha1.Fulcio{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
-			}, time.Minute, time.Second).Should(BeTrue())
+			}).Should(BeTrue())
 
 			By("Checking if Service was successfully created in the reconciliation")
 			service := &corev1.Service{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, service)
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 			Expect(service.Spec.Ports[0].Port).Should(Equal(int32(2112)))
 			Expect(service.Spec.Ports[1].Port).Should(Equal(int32(5554)))
 			Expect(service.Spec.Ports[2].Port).Should(Equal(int32(80)))
@@ -214,7 +214,7 @@ var _ = Describe("Fulcio controller", func() {
 			ingress := &v1.Ingress{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, ingress)
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 			Expect(ingress.Spec.Rules[0].Host).Should(Equal("fulcio.localhost"))
 			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Name).Should(Equal(service.Name))
 			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Port.Name).Should(Equal("80-tcp"))
@@ -223,7 +223,7 @@ var _ = Describe("Fulcio controller", func() {
 			deployment = &appsv1.Deployment{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 			replicas := int32(99)
 			deployment.Spec.Replicas = &replicas
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
@@ -231,7 +231,7 @@ var _ = Describe("Fulcio controller", func() {
 				deployment = &appsv1.Deployment{}
 				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
 				return *deployment.Spec.Replicas
-			}, time.Minute, time.Second).Should(Equal(int32(1)))
+			}).Should(Equal(int32(1)))
 		})
 	})
 })

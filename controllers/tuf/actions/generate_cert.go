@@ -56,6 +56,7 @@ func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1alpha1.T
 	if meta.FindStatusCondition(instance.Status.Conditions, constants.Ready).Reason != constants.Pending {
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{Type: constants.Ready,
 			Status: v1.ConditionFalse, Reason: constants.Pending, Message: "Resolving keys"})
+		return i.StatusUpdate(ctx, instance)
 	}
 
 	if cap(instance.Status.Keys) < len(instance.Spec.Keys) {

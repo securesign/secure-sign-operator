@@ -18,8 +18,10 @@ package ctlog
 
 import (
 	"context"
+
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/securesign/operator/controllers/annotations"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/securesign/operator/controllers/ctlog/actions"
 	actions2 "github.com/securesign/operator/controllers/fulcio/actions"
@@ -133,12 +135,19 @@ func (r *CTlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
+	partialSecret := &metav1.PartialObjectMetadata{}
+	partialSecret.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "",
+		Version: "v1",
+		Kind:    "Secret",
+	})
+
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
 		For(&rhtasv1alpha1.CTlog{}).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
-		WatchesMetadata(&v12.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+		WatchesMetadata(partialSecret, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
 			val, ok := object.GetLabels()["app.kubernetes.io/instance"]
 			if ok {
 				return []reconcile.Request{

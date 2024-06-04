@@ -3,13 +3,13 @@ package action
 import (
 	"context"
 	"errors"
-	"github.com/securesign/operator/controllers/annotations"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/securesign/operator/controllers/annotations"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/record"

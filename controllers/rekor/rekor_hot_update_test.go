@@ -115,7 +115,7 @@ var _ = Describe("Rekor hot update test", func() {
 			Eventually(func() error {
 				found := &v1alpha1.Rekor{}
 				return k8sClient.Get(ctx, typeNamespaceName, found)
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("Move to CreatingPhase by creating trillian service")
 			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, 8091, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
@@ -125,7 +125,7 @@ var _ = Describe("Rekor hot update test", func() {
 				found := &v1alpha1.Rekor{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}, time.Minute, time.Second).Should(Equal(constants.Initialize))
+			}).Should(Equal(constants.Initialize))
 
 			deployments := &appsv1.DeploymentList{}
 			Expect(k8sClient.List(ctx, deployments, runtimeClient.InNamespace(Namespace))).To(Succeed())
@@ -143,7 +143,7 @@ var _ = Describe("Rekor hot update test", func() {
 
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
-			}, time.Minute, time.Second).Should(BeTrue())
+			}).Should(BeTrue())
 
 			By("Save the Deployment configuration")
 			deployment := &appsv1.Deployment{}
@@ -165,18 +165,18 @@ var _ = Describe("Rekor hot update test", func() {
 			Eventually(func() *v1alpha1.SecretKeySelector {
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Signer.KeyRef
-			}, time.Minute, time.Second).Should(Not(BeNil()))
+			}).Should(Not(BeNil()))
 			Eventually(func() string {
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Signer.KeyRef.Name
-			}, time.Minute, time.Second).Should(Equal("key-secret"))
+			}).Should(Equal("key-secret"))
 
 			By("Rekor deployment is updated")
 			Eventually(func() bool {
 				updated := &appsv1.Deployment{}
 				k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, updated)
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
-			}, time.Minute, time.Second).Should(BeFalse())
+			}).Should(BeFalse())
 		})
 	})
 })

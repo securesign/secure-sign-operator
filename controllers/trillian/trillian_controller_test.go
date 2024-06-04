@@ -105,62 +105,62 @@ var _ = Describe("Trillian controller", func() {
 			Eventually(func() error {
 				found := &v1alpha1.Trillian{}
 				return k8sClient.Get(ctx, typeNamespaceName, found)
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("Status conditions are initialized")
 			Eventually(func() bool {
 				found := &v1alpha1.Trillian{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
-			}, time.Minute, time.Second).Should(BeTrue())
+			}).Should(BeTrue())
 			found := &v1alpha1.Trillian{}
 
 			By("Database secret created")
 			Eventually(func() *v1alpha1.LocalObjectReference {
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Db.DatabaseSecretRef
-			}, time.Minute, time.Second).Should(Not(BeNil()))
+			}).Should(Not(BeNil()))
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Status.Db.DatabaseSecretRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
 
 			By("Database PVC created")
 			Eventually(func() string {
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Db.Pvc.Name
-			}, time.Minute, time.Second).Should(Not(BeNil()))
+			}).Should(And(Not(BeNil()), Not(BeEmpty())))
 
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Status.Db.Pvc.Name, Namespace: Namespace}, &corev1.PersistentVolumeClaim{})).Should(Succeed())
 
 			By("Database SVC created")
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: "trillian-mysql", Namespace: Namespace}, &corev1.Service{})
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("Database Deployment created")
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DbDeploymentName, Namespace: Namespace}, &appsv1.Deployment{})
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("LogServer Deployment created")
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.LogserverDeploymentName, Namespace: Namespace}, &appsv1.Deployment{})
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("LogServerSvc Deployment created")
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.LogserverDeploymentName, Namespace: Namespace}, &corev1.Service{})
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("LogSigner Deployment created")
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.LogsignerDeploymentName, Namespace: Namespace}, &appsv1.Deployment{})
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("Waiting until Trillian instance is Initialization")
 			Eventually(func() string {
 				found := &v1alpha1.Trillian{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}, time.Minute, time.Second).Should(Equal(constants.Initialize))
+			}).Should(Equal(constants.Initialize))
 
 			deployments := &appsv1.DeploymentList{}
 			Expect(k8sClient.List(ctx, deployments, runtimeClient.InNamespace(Namespace))).To(Succeed())
@@ -177,13 +177,13 @@ var _ = Describe("Trillian controller", func() {
 				found := &v1alpha1.Trillian{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
-			}, time.Minute, time.Second).Should(BeTrue())
+			}).Should(BeTrue())
 
 			By("Checking if controller will return deployment to desired state")
 			deployment := &appsv1.Deployment{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.LogserverDeploymentName, Namespace: Namespace}, deployment)
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 			replicas := int32(99)
 			deployment.Spec.Replicas = &replicas
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
@@ -191,7 +191,7 @@ var _ = Describe("Trillian controller", func() {
 				deployment = &appsv1.Deployment{}
 				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.LogserverDeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
 				return *deployment.Spec.Replicas
-			}, time.Minute, time.Second).Should(Equal(int32(1)))
+			}).Should(Equal(int32(1)))
 		})
 	})
 })
