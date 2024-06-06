@@ -124,7 +124,7 @@ jobs:
           regex: false
 
       - name: Print Resulting images.go file
-        run: cat controllers/constants/images.go
+        run: cat internal/controller/constants/images.go
 
       - name: Build operator container
         run: make docker-build docker-push
@@ -223,5 +223,5 @@ jobs:
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.2.2
 
       - name: Run tests
-        run: TEST_BASE_CATALOG=registry.redhat.io/redhat/redhat-operator-index:v4.14 TEST_TARGET_CATALOG=$CATALOG_IMG go test ./e2e/... -tags=upgrade -timeout 20m
+        run: TEST_BASE_CATALOG=registry.redhat.io/redhat/redhat-operator-index:v4.14 TEST_TARGET_CATALOG=$CATALOG_IMG go test ./test/e2e/... -tags=upgrade -timeout 20m
 

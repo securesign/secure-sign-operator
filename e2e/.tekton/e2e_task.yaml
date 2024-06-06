@@ -1,0 +1,28 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: go-unit-test
+  annotations:
+    tekton.dev/title: "Go Unit Test Task"
+spec:
+  params:
+    - name: SNAPSHOT
+      type: string
+  workspaces:
+    - name: source
+  steps:
+    - name: parse-bundle-image
+      image: quay.io/jpmaida1/jq@sha256:f90645c017ba8b1a2fff44309231cb7f8fd3a441690e17c15a53e60997f309c0
+      workingDir: $(workspaces.source.path)
+      script: jq <<< $(params.SNAPSHOT) '.components[] | select(.name | contains("operator-bundle")).containerImage' >> bundle
+    - name: install
+      image: quay.io/operator-framework/operator-sdk:v1.34
+      workingDir: $(workspaces.source.path)
+      script: operator-sdk run bundle $(cat bundle)
+#    - name: run-tests
+#      image: brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_1.21@sha256:98a0ff138c536eee98704d6909699ad5d0725a20573e2c510a60ef462b45cce0
+#      workingDir: $(workspaces.source.path)/source
+#      script: |
+#        #!/usr/bin/env sh
+#        go mod vendor
+#        go test ./...
