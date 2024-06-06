@@ -120,13 +120,13 @@ var _ = Describe("Fulcio hot update", func() {
 			Eventually(func() error {
 				found := &v1alpha1.Fulcio{}
 				return k8sClient.Get(ctx, typeNamespaceName, found)
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			deployment := &appsv1.Deployment{}
 			By("Checking if Deployment was successfully created in the reconciliation")
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase
@@ -139,7 +139,7 @@ var _ = Describe("Fulcio hot update", func() {
 			Eventually(func() bool {
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
-			}, time.Minute, time.Second).Should(BeTrue())
+			}).Should(BeTrue())
 
 			By("Key rotation")
 			Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
@@ -156,7 +156,7 @@ var _ = Describe("Fulcio hot update", func() {
 				found := &v1alpha1.Fulcio{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}, time.Minute, time.Second).Should(Equal(constants.Pending))
+			}).Should(Equal(constants.Pending))
 
 			By("Creating password secret with cert password")
 			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("password-secret", typeNamespaceName.Namespace, map[string][]byte{
@@ -168,20 +168,20 @@ var _ = Describe("Fulcio hot update", func() {
 				found := &v1alpha1.Fulcio{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Certificate.PrivateKeyPasswordRef.Name
-			}, time.Minute, time.Second).Should(Equal("password-secret"))
+			}).Should(Equal("password-secret"))
 
 			Eventually(func() bool {
 				found := &v1alpha1.Fulcio{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, actions.CertCondition)
-			}, time.Minute, time.Second).Should(BeTrue())
+			}).Should(BeTrue())
 
 			By("Fulcio deployment is updated")
 			Eventually(func() bool {
 				updated := &appsv1.Deployment{}
 				k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
-			}, time.Minute, time.Second).Should(BeFalse())
+			}).Should(BeFalse())
 
 			time.Sleep(10 * time.Second)
 
@@ -203,7 +203,7 @@ var _ = Describe("Fulcio hot update", func() {
 				updated := &appsv1.Deployment{}
 				k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
-			}, time.Minute, time.Second).Should(BeFalse())
+			}).Should(BeFalse())
 		})
 	})
 })

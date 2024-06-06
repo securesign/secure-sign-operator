@@ -42,8 +42,11 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	var (
 		err error
 	)
-	if instance.Status.TreeID == nil {
+	switch {
+	case instance.Status.TreeID == nil:
 		return i.Failed(errors.New("reference to Trillian TreeID not set"))
+	case instance.Status.PrivateKeyRef == nil:
+		return i.Failed(errors.New("status reference to private key not set"))
 	}
 
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)

@@ -108,7 +108,7 @@ var _ = Describe("CTlog update test", func() {
 			Eventually(func() error {
 				found := &v1alpha1.CTlog{}
 				return k8sClient.Get(ctx, typeNamespaceName, found)
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("Creating trillian service")
 			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, 8091, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
@@ -124,7 +124,7 @@ var _ = Describe("CTlog update test", func() {
 			By("Checking if Deployment was successfully created in the reconciliation")
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase
@@ -137,7 +137,7 @@ var _ = Describe("CTlog update test", func() {
 				found := &v1alpha1.CTlog{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
-			}, time.Minute, time.Second).Should(BeTrue())
+			}).Should(BeTrue())
 
 			By("Fulcio CA has changed")
 			Expect(k8sClient.Delete(ctx, fulcioCa)).To(Succeed())
@@ -152,7 +152,7 @@ var _ = Describe("CTlog update test", func() {
 				found := &v1alpha1.CTlog{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.RootCertificates
-			}, time.Minute, time.Second).Should(HaveExactElements(WithTransform(func(ks v1alpha1.SecretKeySelector) string {
+			}).Should(HaveExactElements(WithTransform(func(ks v1alpha1.SecretKeySelector) string {
 				return ks.Name
 			}, Equal("test2"))))
 
@@ -161,7 +161,7 @@ var _ = Describe("CTlog update test", func() {
 				updated := &appsv1.Deployment{}
 				k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
-			}, time.Minute, time.Second).Should(BeFalse())
+			}).Should(BeFalse())
 
 			By("Private key has changed")
 			key, err := utils.CreatePrivateKey()
@@ -171,28 +171,31 @@ var _ = Describe("CTlog update test", func() {
 
 			k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
 			found := &v1alpha1.CTlog{}
-			Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-			found.Spec.PrivateKeyRef = &v1alpha1.SecretKeySelector{
-				LocalObjectReference: v1alpha1.LocalObjectReference{
-					Name: "key-secret",
-				},
-				Key: "private",
-			}
-			Expect(k8sClient.Update(ctx, found)).To(Succeed())
+
+			Eventually(func() error {
+				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				found.Spec.PrivateKeyRef = &v1alpha1.SecretKeySelector{
+					LocalObjectReference: v1alpha1.LocalObjectReference{
+						Name: "key-secret",
+					},
+					Key: "private",
+				}
+				return k8sClient.Update(ctx, found)
+			}).Should(Succeed())
 
 			By("CTLog status field changed")
 			Eventually(func() string {
 				found := &v1alpha1.CTlog{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.PrivateKeyRef.Name
-			}, time.Minute, time.Second).Should(Equal("key-secret"))
+			}).Should(Equal("key-secret"))
 
 			By("CTL deployment is updated")
 			Eventually(func() bool {
 				updated := &appsv1.Deployment{}
 				k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
-			}, 3*time.Minute, time.Second).Should(BeFalse())
+			}).Should(BeFalse())
 		})
 	})
 })

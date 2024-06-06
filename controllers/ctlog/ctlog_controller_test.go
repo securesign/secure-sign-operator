@@ -106,21 +106,21 @@ var _ = Describe("CTlog controller", func() {
 			Eventually(func() error {
 				found := &v1alpha1.CTlog{}
 				return k8sClient.Get(ctx, typeNamespaceName, found)
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("Status conditions are initialized")
 			Eventually(func() bool {
 				found := &v1alpha1.CTlog{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
-			}, time.Minute, time.Second).Should(BeTrue())
+			}).Should(BeTrue())
 
 			By("Pending phase until Trillian svc is created")
 			Eventually(func() string {
 				found := &v1alpha1.CTlog{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}, time.Minute, time.Second).Should(Equal(constants.Pending))
+			}).Should(Equal(constants.Pending))
 
 			By("Creating trillian service")
 			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, 8091, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
@@ -128,7 +128,7 @@ var _ = Describe("CTlog controller", func() {
 				found := &v1alpha1.CTlog{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}, time.Minute, time.Second).Should(Equal(constants.Creating))
+			}).Should(Equal(constants.Creating))
 
 			By("Creating fulcio root cert")
 			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("test", Namespace,
@@ -140,29 +140,29 @@ var _ = Describe("CTlog controller", func() {
 				found := &v1alpha1.CTlog{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}, time.Minute, time.Second).Should(Equal(constants.Creating))
+			}).Should(Equal(constants.Creating))
 
 			By("Key Secret is created")
 			found := &v1alpha1.CTlog{}
 			Eventually(func() *v1alpha1.SecretKeySelector {
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.PrivateKeyRef
-			}, time.Minute, time.Second).Should(Not(BeNil()))
+			}).Should(Not(BeNil()))
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: found.Status.PrivateKeyRef.Name, Namespace: Namespace}, &corev1.Secret{})
-			}, time.Minute, time.Second).Should(Not(HaveOccurred()))
+			}).Should(Not(HaveOccurred()))
 
 			deployment := &appsv1.Deployment{}
 			By("Checking if Deployment was successfully created in the reconciliation")
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("Checking if Service was successfully created in the reconciliation")
 			service := &corev1.Service{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.ComponentName, Namespace: Namespace}, service)
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 			Expect(service.Spec.Ports[0].Port).Should(Equal(int32(6963)))
 			Expect(service.Spec.Ports[1].Port).Should(Equal(int32(80)))
 
@@ -177,13 +177,13 @@ var _ = Describe("CTlog controller", func() {
 				found := &v1alpha1.CTlog{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
-			}, time.Minute, time.Second).Should(BeTrue())
+			}).Should(BeTrue())
 
 			By("Checking if controller will return deployment to desired state")
 			deployment = &appsv1.Deployment{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 			replicas := int32(99)
 			deployment.Spec.Replicas = &replicas
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
@@ -191,7 +191,7 @@ var _ = Describe("CTlog controller", func() {
 				deployment = &appsv1.Deployment{}
 				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
 				return *deployment.Spec.Replicas
-			}, time.Minute, time.Second).Should(Equal(int32(1)))
+			}).Should(Equal(int32(1)))
 		})
 	})
 })

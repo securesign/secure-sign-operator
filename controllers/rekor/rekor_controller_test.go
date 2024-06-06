@@ -119,20 +119,20 @@ var _ = Describe("Rekor controller", func() {
 			Eventually(func() error {
 				found := &v1alpha1.Rekor{}
 				return k8sClient.Get(ctx, typeNamespaceName, found)
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("Status conditions are initialized")
 			Eventually(func() bool {
 				found := &v1alpha1.Rekor{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
-			}, time.Minute, time.Second).Should(BeTrue())
+			}).Should(BeTrue())
 
 			Eventually(func() string {
 				found := &v1alpha1.Rekor{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}, time.Minute, time.Second).Should(Equal(constants.Pending))
+			}).Should(Equal(constants.Pending))
 
 			By("Move to CreatingPhase by creating trillian service")
 			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, 8091, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
@@ -142,7 +142,7 @@ var _ = Describe("Rekor controller", func() {
 			Eventually(func() *v1alpha1.SecretKeySelector {
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).To(Succeed())
 				return found.Status.Signer.KeyRef
-			}, time.Minute, time.Second).Should(Not(BeNil()))
+			}).Should(Not(BeNil()))
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Status.Signer.KeyRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
 
 			By("Rekor public key secret created")
@@ -150,56 +150,56 @@ var _ = Describe("Rekor controller", func() {
 				scr := &corev1.SecretList{}
 				Expect(k8sClient.List(ctx, scr, runtimeClient.InNamespace(Namespace), runtimeClient.MatchingLabels{server.RekorPubLabel: "public"})).Should(Succeed())
 				return scr.Items
-			}, time.Minute, time.Second).Should(Not(BeEmpty()))
+			}).Should(Not(BeEmpty()))
 
 			By("Rekor server PVC created")
 			Eventually(func() string {
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.PvcName
-			}, time.Minute, time.Second).Should(Not(BeEmpty()))
+			}).Should(Not(BeEmpty()))
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Status.PvcName, Namespace: Namespace}, &corev1.PersistentVolumeClaim{})).Should(Succeed())
 
 			By("Rekor server SVC created")
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, &corev1.Service{})
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("Rekor server deployment created")
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, &appsv1.Deployment{})
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("Redis Deployment created")
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.RedisDeploymentName, Namespace: Namespace}, &appsv1.Deployment{})
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("Redis svc created")
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.RedisDeploymentName, Namespace: Namespace}, &corev1.Service{})
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("UI Deployment created")
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.SearchUiDeploymentName, Namespace: Namespace}, &appsv1.Deployment{})
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("UI svc created")
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.SearchUiDeploymentName, Namespace: Namespace}, &corev1.Service{})
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("Backfill Redis Cronjob Created")
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.BackfillRedisCronJobName, Namespace: Namespace}, &batchv1.CronJob{})
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			By("Waiting until Rekor instance is Initialization")
 			Eventually(func() string {
 				found := &v1alpha1.Rekor{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}, time.Minute, time.Second).Should(Equal(constants.Initialize))
+			}).Should(Equal(constants.Initialize))
 
 			deployments := &appsv1.DeploymentList{}
 			Expect(k8sClient.List(ctx, deployments, runtimeClient.InNamespace(Namespace))).To(Succeed())
@@ -216,13 +216,13 @@ var _ = Describe("Rekor controller", func() {
 				found := &v1alpha1.Rekor{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
-			}, time.Minute, time.Second).Should(BeTrue())
+			}).Should(BeTrue())
 
 			By("Checking if controller will return deployment to desired state")
 			deployment := &appsv1.Deployment{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, deployment)
-			}, time.Minute, time.Second).Should(Succeed())
+			}).Should(Succeed())
 			replicas := int32(99)
 			deployment.Spec.Replicas = &replicas
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
@@ -230,7 +230,7 @@ var _ = Describe("Rekor controller", func() {
 				deployment = &appsv1.Deployment{}
 				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
 				return *deployment.Spec.Replicas
-			}, time.Minute, time.Second).Should(Equal(int32(1)))
+			}).Should(Equal(int32(1)))
 		})
 	})
 })
