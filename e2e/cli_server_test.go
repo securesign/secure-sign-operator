@@ -19,10 +19,10 @@ const cliServerNs = "trusted-artifact-signer"
 
 var _ = Describe("CliServer", Ordered, func() {
 	var (
-		cli ctrl.Client
+		cli        ctrl.Client
 		httpClient *http.Client
-		url string
-		ctx = context.TODO()
+		url        string
+		ctx        = context.TODO()
 	)
 
 	BeforeAll(func() {
