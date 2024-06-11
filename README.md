@@ -35,6 +35,7 @@ export OIDC_ISSUER_URL=https://$YOUR_KEYCLOAK/auth/realms/$YOUR_REALM
 TOKEN=$(curl -X POST -H "Content-Type: application/x-www-form-urlencoded" -d "username=$USER" -d "password=$PASSWORD" -d "grant_type=password" -d "scope=openid" -d "client_id=$YOUR_REALM" $OIDC_ISSUER_URL/protocol/openid-connect/token |  sed -E 's/.*"access_token":"([^"]*).*/\1/')
 cosign initialize --mirror=https://tuf.$OCP_APPS_URL/ --root=https://tuf.$OCP_APPS_URL/root.json
 cosign sign -y --fulcio-url=https://fulcio.$OCP_APPS_URL/ --oidc-issuer=$OIDC_ISSUER_URL --identity-token=$TOKEN $IMAGE
+```
 
 ### Uninstall CRDs
 To delete the CRDs from the cluster:
@@ -134,7 +135,7 @@ spec:
       enabled: true
       host: tuf.example.com
   ctlog:
-  ```
+```
 
 Apply the configuration file above once the values for your environment are defined.
 ```
@@ -167,6 +168,7 @@ Root status:
 			"error": ""
 		},
 ....
+```
 
 It is now possible to sign an image. The example below will authenticate to `Keycloak` to generate a token.
 ```
