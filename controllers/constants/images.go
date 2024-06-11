@@ -8,7 +8,7 @@ var (
 	// TODO: remove and check the DB pod status
 	TrillianNetcatImage = "registry.redhat.io/openshift4/ose-tools-rhel8@sha256:486b4d2dd0d10c5ef0212714c94334e04fe8a3d36cf619881986201a50f123c7"
 
-	FulcioServerImage = "registry.redhat.io/rhtas/fulcio-rhel9@sha256:c4abc6342b39701d237ab3f0f25b75b677214b3ede00540b2488f524ad112179"
+	FulcioServerImage = "registry.redhat.io/rhtas/fulcio-rhel9@sha256:e16accb01b2ca6bf4ebd60c6ce7faab73b784828578ee74305a3a97ff9db1e26"
 
 	RekorRedisImage    = "registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:5f0630c7aa29eeee28668f7ad451f129c9fb2feb86ec21b6b1b0b5cc42b44f4a"
 	RekorServerImage   = "registry.redhat.io/rhtas/rekor-server-rhel9@sha256:eed7af638b1587c61a76daef5df949bb37364023e5fa8a13255da02e2595f5ca"
