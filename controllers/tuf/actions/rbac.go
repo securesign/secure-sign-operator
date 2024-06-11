@@ -44,11 +44,6 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *ac
 			Namespace: instance.Namespace,
 			Labels:    labels,
 		},
-		ImagePullSecrets: []v1.LocalObjectReference{
-			{
-				Name: "pull-secret",
-			},
-		},
 	}
 
 	if err = ctrl.SetControllerReference(instance, sa, i.Client.Scheme()); err != nil {

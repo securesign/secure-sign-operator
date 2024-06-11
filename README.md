@@ -141,12 +141,6 @@ Apply the configuration file above once the values for your environment are defi
 ```
 kubectl apply -n securesign -f rhtas-deployment.yaml
 ```
-Because an image of netcat is used from `registry.redhat.io` it is required to provide credentials to registry.redhat.io. The below assumes that an authentication file has been created in the `/tmp` directory.
-
-```
-kubectl create secret generic pull-secret -n securesign --from-file=.dockerconfigjson=/tmp/config.json --type=kubernetes.io/dockerconfigjson
-```
-
 
 ### Verifying signatures
 To verify RHTAS is working as expected we will initialize to TUF.
