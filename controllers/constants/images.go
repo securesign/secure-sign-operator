@@ -2,7 +2,7 @@ package constants
 
 var (
 	TrillianLogSignerImage = "registry.redhat.io/rhtas/trillian-logsigner-rhel9@sha256:920f2fd735525dd612546a874e24d301761ca83c79ddb6898ee7d31470ffc467"
-	TrillianServerImage    = "registry.redhat.io/rhtas/trillian-logserver-rhel9@sha256:4478e867e59b5c2d7a4e2630f76fad7899205de611a6f4648d9ca7389392780d"
+	TrillianServerImage    = "registry.redhat.io/rhtas/trillian-logserver-rhel9@sha256:1673f08529a94671f881edec6fd29b73f43c2115dc86b643f9dd79d7e36be38e"
 	TrillianDbImage        = "registry.redhat.io/rhtas/trillian-database-rhel9@sha256:221b4cb0f86d73606520c708499f0e6686838054fb0a759ba323c3f3ac8b7fed"
 
 	// TODO: remove and check the DB pod status
