@@ -98,6 +98,7 @@ func main() {
 		probeAddr            string
 		pprofAddr            string
 		enableLeaderElection bool
+		cliHostname          string
 	)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -121,6 +122,7 @@ func main() {
 	utils.StringFlagOrEnv(&constants.ClientServerImage_cg, "client-server-cg-image", "CLIENT_SERVER_CG_IMAGE", constants.ClientServerImage_cg, "The image used to serve cosign and gitsign.")
 	utils.StringFlagOrEnv(&constants.ClientServerImage_re, "client-server-re-image", "CLIENT_SERVER_RE_IMAGE", constants.ClientServerImage_re, "The image used to serve rekor-cli and the ec binary.")
 	utils.StringFlagOrEnv(&constants.SegmentBackupImage, "segment-backup-job-image", "SEGMENT_BACKUP_JOB_IMAGE", constants.SegmentBackupImage, "The image used for the segment backup job")
+	flag.StringVar(&cliHostname, "cli-server-hostname", "", "The hostname for the cli server")
 
 	opts := zap.Options{
 		Development: true,
@@ -221,7 +223,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	setupLog.Info("installing client server resources")
-	_, err = createClientserver(ctx)
+	_, err = createClientserver(ctx, cliHostname)
 	if err != nil {
 		setupLog.Error(err, "unable to create client-server resources")
 	}
@@ -234,7 +236,7 @@ func main() {
 	}
 }
 
-func createClientserver(ctx context.Context) ([]client.Object, error) {
+func createClientserver(ctx context.Context, cliHostname string) ([]client.Object, error) {
 	var (
 		err    error
 		obj    []client.Object
@@ -260,7 +262,7 @@ func createClientserver(ctx context.Context) ([]client.Object, error) {
 	obj = append(obj, createClientserverDeployment(ns.Name, labels))
 	svc := kubernetes.CreateService(ns.Name, cliServerName, 8080, labels)
 	obj = append(obj, svc)
-	ingress, err := kubernetes.CreateIngress(ctx, cli, *svc, rhtasv1alpha1.ExternalAccess{}, cliServerName, labels)
+	ingress, err := kubernetes.CreateIngress(ctx, cli, *svc, rhtasv1alpha1.ExternalAccess{Host: cliHostname}, cliServerName, labels)
 	if err != nil {
 		return obj, err
 	}
