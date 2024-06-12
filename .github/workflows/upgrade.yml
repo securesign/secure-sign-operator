@@ -72,7 +72,7 @@ jobs:
         uses: jacobtomlinson/gha-find-replace@v3
         with:
           find: "registry.redhat.io/rhtas/rekor-search-ui"
-          replace: "quay.io/redhat-user-workloads/rhtas-tenant/rekor-search-ui/rekor-search-ui"
+          replace: "quay.io/redhat-user-workloads/rhtas-tenant/rekor-search/rekor-search"
           include: "**images.go"
           regex: false
 
