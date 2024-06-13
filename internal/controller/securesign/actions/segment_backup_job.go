@@ -2,6 +2,7 @@ package actions
 
 import (
 	"fmt"
+	"github.com/securesign/operator/internal/controller/annotations"
 	"strconv"
 
 	"context"
@@ -27,7 +28,7 @@ func (i segmentBackupJob) Name() string {
 	return "segment-backup-installation"
 }
 func (i segmentBackupJob) CanHandle(_ context.Context, instance *rhtasv1alpha1.Securesign) bool {
-	val, found := instance.Annotations["rhtas.redhat.com/metrics"]
+	val, found := instance.Annotations[annotations.Metrics]
 	if !found {
 		return true
 	}

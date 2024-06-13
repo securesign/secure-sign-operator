@@ -2,6 +2,7 @@ package actions
 
 import (
 	"fmt"
+	"github.com/securesign/operator/internal/controller/annotations"
 	"strconv"
 
 	"github.com/robfig/cron/v3"
@@ -31,7 +32,7 @@ func (i segmentBackupCronJob) Name() string {
 	return "segment-backup-nightly-metrics"
 }
 func (i segmentBackupCronJob) CanHandle(_ context.Context, instance *rhtasv1alpha1.Securesign) bool {
-	val, found := instance.Annotations["rhtas.redhat.com/metrics"]
+	val, found := instance.Annotations[annotations.Metrics]
 	if !found {
 		return true
 	}

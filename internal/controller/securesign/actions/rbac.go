@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"fmt"
+	"github.com/securesign/operator/internal/controller/annotations"
 	"strconv"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -35,7 +36,7 @@ func (i rbacAction) Name() string {
 }
 
 func (i rbacAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Securesign) bool {
-	val, found := instance.Annotations["rhtas.redhat.com/metrics"]
+	val, found := instance.Annotations[annotations.Metrics]
 	if !found {
 		return true
 	}
