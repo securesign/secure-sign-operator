@@ -5,14 +5,14 @@
 *.dll
 *.so
 *.dylib
-bin
+bin/*
 testbin/*
 Dockerfile.cross
 
 # Environment variables script
 *tas-env-vars.sh
 
-# Test binary, build with `go test -c`
+# Test binary, built with `go test -c`
 *.test
 
 # Output of the go coverage tool, specifically when used with LiteIDE
@@ -20,10 +20,15 @@ Dockerfile.cross
 
 # Kubernetes Generated files - skip generated files, except for vendored files
 
+# Go workspace file
+go.work
+
+# Kubernetes Generated files - skip generated files, except for vendored files
 !vendor/**/zz_generated.*
 
 # editor and IDE paraphernalia
 .idea
+.vscode
 *.swp
 *.swo
 *~

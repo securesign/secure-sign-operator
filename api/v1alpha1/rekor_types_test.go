@@ -3,7 +3,7 @@ package v1alpha1
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/controllers/common/utils"
+	"github.com/securesign/operator/internal/controller/common/utils"
 	"golang.org/x/net/context"
 	_ "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

@@ -106,7 +106,7 @@ jobs:
           regex: false
 
       - name: Print Resulting images.go file
-        run: cat controllers/constants/images.go
+        run: cat internal/controller/constants/images.go
 
       - name: Build operator container
         run: IMG=ttl.sh/securesign/secure-sign-operator:1h make docker-build docker-push
@@ -205,7 +205,7 @@ jobs:
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.2.2
 
       - name: Run tests
-        run: make integration-test
+        run: make test-e2e
 
       - name: dump the logs of the operator
         run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
