@@ -31,6 +31,9 @@ func (i createServiceAction) Name() string {
 
 func (i createServiceAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	if c == nil {
+		return false
+	}
 	return c.Reason == constants.Creating || c.Reason == constants.Ready
 }
 

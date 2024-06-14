@@ -83,6 +83,8 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 	target := instance.DeepCopy()
 	acs := []action.Action[rhtasv1alpha1.CTlog]{
+		actions.NewHandleErrorAction(),
+
 		actions.NewPendingAction(),
 
 		actions.NewHandleFulcioCertAction(),

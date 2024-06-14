@@ -300,6 +300,10 @@ spec:
                 type: string
               rekorSearchUIUrl:
                 type: string
+              restarts:
+                default: 0
+                description: Number of component restarts.
+                type: integer
               serverConfigRef:
                 description: |-
                   LocalObjectReference contains enough information to let you locate the

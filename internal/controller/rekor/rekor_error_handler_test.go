@@ -18,33 +18,33 @@ package rekor
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
+	appsv1 "k8s.io/api/apps/v1"
+	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/constants"
-	"github.com/securesign/operator/internal/controller/rekor/actions"
-	"github.com/securesign/operator/internal/controller/rekor/actions/server"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("Rekor controller", func() {
-	Context("Rekor controller test", func() {
+var _ = Describe("Rekor ErrorHandler", func() {
+	Context("Rekor ErrorHandler test", func() {
 
 		const (
 			Name      = "test"
-			Namespace = "controller"
+			Namespace = "errorhandler"
 		)
 
 		ctx := context.Background()
@@ -59,6 +59,9 @@ var _ = Describe("Rekor controller", func() {
 		instance := &v1alpha1.Rekor{}
 
 		BeforeEach(func() {
+			// workaround - disable "host" mode in CreateTrillianTree function
+			Expect(os.Setenv("CONTAINER_MODE", "true")).To(Not(HaveOccurred()))
+
 			By("Creating the Namespace to perform the tests")
 			err := k8sClient.Create(ctx, namespace)
 			Expect(err).To(Not(HaveOccurred()))
@@ -87,14 +90,12 @@ var _ = Describe("Rekor controller", func() {
 			if err != nil && errors.IsNotFound(err) {
 				// Let's mock our custom resource at the same way that we would
 				// apply on the cluster the manifest under config/samples
-				ptr := int64(123)
 				instance := &v1alpha1.Rekor{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      Name,
 						Namespace: Namespace,
 					},
 					Spec: v1alpha1.RekorSpec{
-						TreeID: &ptr,
 						ExternalAccess: v1alpha1.ExternalAccess{
 							Enabled: true,
 							Host:    "rekor.local",
@@ -111,75 +112,42 @@ var _ = Describe("Rekor controller", func() {
 				err = k8sClient.Create(ctx, instance)
 				Expect(err).To(Not(HaveOccurred()))
 			}
+			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
 
-			By("Checking if the custom resource was successfully created")
-			Eventually(func() error {
-				found := &v1alpha1.Rekor{}
-				return k8sClient.Get(ctx, typeNamespaceName, found)
-			}).Should(Succeed())
-
-			By("Status conditions are initialized")
-			Eventually(func() bool {
-				found := &v1alpha1.Rekor{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
-			}).Should(BeTrue())
-
-			By("Rekor signer created")
 			found := &v1alpha1.Rekor{}
-			Eventually(func() *v1alpha1.SecretKeySelector {
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).To(Succeed())
-				return found.Status.Signer.KeyRef
-			}).Should(Not(BeNil()))
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Status.Signer.KeyRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
 
-			By("Rekor public key secret created")
-			Eventually(func() []corev1.Secret {
-				scr := &corev1.SecretList{}
-				Expect(k8sClient.List(ctx, scr, runtimeClient.InNamespace(Namespace), runtimeClient.MatchingLabels{server.RekorPubLabel: "public"})).Should(Succeed())
-				return scr.Items
-			}).Should(Not(BeEmpty()))
-
-			By("Rekor server PVC created")
+			By("Deployment should fail")
 			Eventually(func() string {
+
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.PvcName
-			}).Should(Not(BeEmpty()))
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Status.PvcName, Namespace: Namespace}, &corev1.PersistentVolumeClaim{})).Should(Succeed())
+				condition := meta.FindStatusCondition(found.Status.Conditions, constants.Ready)
+				if condition == nil {
+					return ""
+				}
+				return condition.Reason
+			}).Should(Equal(constants.Failure))
 
-			By("Rekor server SVC created")
-			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, &corev1.Service{})
-			}).Should(Succeed())
+			// persist signer name
+			signerName := found.Status.Signer.KeyRef.Name
+			Expect(signerName).To(Not(BeEmpty()))
 
-			By("Rekor server deployment created")
-			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, &appsv1.Deployment{})
-			}).Should(Succeed())
+			By("Periodically trying to restart deployment")
+			Eventually(func() string {
+				found := &v1alpha1.Rekor{}
+				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
+			}).Should(Not(Equal(constants.Failure)))
+			Eventually(func() string {
+				found := &v1alpha1.Rekor{}
+				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
+			}).Should(Equal(constants.Failure))
 
-			By("Redis Deployment created")
+			By("After fixing the problem the Rekor instance is Ready")
 			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.RedisDeploymentName, Namespace: Namespace}, &appsv1.Deployment{})
-			}).Should(Succeed())
-
-			By("Redis svc created")
-			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.RedisDeploymentName, Namespace: Namespace}, &corev1.Service{})
-			}).Should(Succeed())
-
-			By("UI Deployment created")
-			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.SearchUiDeploymentName, Namespace: Namespace}, &appsv1.Deployment{})
-			}).Should(Succeed())
-
-			By("UI svc created")
-			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.SearchUiDeploymentName, Namespace: Namespace}, &corev1.Service{})
-			}).Should(Succeed())
-
-			By("Backfill Redis Cronjob Created")
-			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.BackfillRedisCronJobName, Namespace: Namespace}, &batchv1.CronJob{})
+				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				found.Spec.TreeID = utils.Pointer(int64(1))
+				return k8sClient.Update(ctx, found)
 			}).Should(Succeed())
 
 			By("Waiting until Rekor instance is Initialization")
@@ -199,26 +167,14 @@ var _ = Describe("Rekor controller", func() {
 			}
 			// Workaround to succeed condition for Ready phase
 
-			By("Waiting until Rekor instance is Ready")
 			Eventually(func() bool {
 				found := &v1alpha1.Rekor{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
 			}).Should(BeTrue())
 
-			By("Checking if controller will return deployment to desired state")
-			deployment := &appsv1.Deployment{}
-			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, deployment)
-			}).Should(Succeed())
-			replicas := int32(99)
-			deployment.Spec.Replicas = &replicas
-			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
-			Eventually(func() int32 {
-				deployment = &appsv1.Deployment{}
-				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
-				return *deployment.Spec.Replicas
-			}).Should(Equal(int32(1)))
+			By("Pregenerated resources are reused")
+			Expect(signerName).To(Equal(found.Status.Signer.KeyRef.Name))
 		})
 	})
 })

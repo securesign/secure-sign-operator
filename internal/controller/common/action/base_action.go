@@ -70,8 +70,9 @@ func (action *BaseAction) FailedWithStatusUpdate(ctx context.Context, err error,
 		}
 		err = errors.Join(e, err)
 	}
-	// Requeue will be caused by update
-	return &Result{Result: reconcile.Result{Requeue: false}, Err: err}
+	// Requeue is disabled for Failed objects
+	// wait for 30 second and invoke error-handler
+	return &Result{Result: reconcile.Result{RequeueAfter: 30 * time.Second}}
 }
 
 func (action *BaseAction) Return() *Result {
