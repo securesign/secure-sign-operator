@@ -34,6 +34,9 @@ func (i createPvcAction) Name() string {
 
 func (i createPvcAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	if c == nil {
+		return false
+	}
 	return c.Reason == constants.Creating && instance.Status.PvcName == ""
 }
 
@@ -45,7 +48,7 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rek
 	}
 
 	if instance.Spec.Pvc.Size == nil {
-		return i.Failed(fmt.Errorf("PVC size is not set"))
+		return i.Error(fmt.Errorf("PVC size is not set"))
 	}
 
 	// PVC does not exist, create a new one
@@ -53,7 +56,7 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rek
 	pvc := k8sutils.CreatePVC(instance.Namespace, fmt.Sprintf(PvcNameFormat, instance.Name), *instance.Spec.Pvc.Size, instance.Spec.Pvc.StorageClass, constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name))
 	if !utils.OptionalBool(instance.Spec.Pvc.Retain) {
 		if err = controllerutil.SetControllerReference(instance, pvc, i.Client.Scheme()); err != nil {
-			return i.Failed(fmt.Errorf("could not set controller reference for PVC: %w", err))
+			return i.Error(fmt.Errorf("could not set controller reference for PVC: %w", err))
 		}
 	}
 
@@ -64,15 +67,18 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rek
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create DB PVC: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create DB PVC: %w", err), instance)
 	}
 	i.Recorder.Event(instance, v1.EventTypeNormal, "PersistentVolumeCreated", "New PersistentVolume created")
 	instance.Status.PvcName = pvc.Name
 	return i.StatusUpdate(ctx, instance)
+}
+
+func (i createPvcAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Rekor) bool {
+	// do not delete any PCV
+	return false
+}
+
+func (i createPvcAction) HandleError(_ context.Context, _ *rhtasv1alpha1.Rekor) *action.Result {
+	return i.Continue()
 }

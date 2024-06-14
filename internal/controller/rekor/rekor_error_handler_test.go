@@ -24,18 +24,18 @@ import (
 	"os"
 	"time"
 
+	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/rekor/actions/server"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	httpmock "github.com/securesign/operator/internal/testing/http"
 	appsv1 "k8s.io/api/apps/v1"
-	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/constants"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -116,7 +116,7 @@ var _ = Describe("Rekor ErrorHandler", func() {
 				err = k8sClient.Create(ctx, instance)
 				Expect(err).To(Not(HaveOccurred()))
 			}
-			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
+			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, trillian.ServerPort, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
 
 			found := &v1alpha1.Rekor{}
 
@@ -139,12 +139,12 @@ var _ = Describe("Rekor ErrorHandler", func() {
 			Eventually(func(g Gomega) v1alpha1.RekorStatus {
 				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status
-			}).WithPolling(1 * time.Second).WithTimeout(5 * time.Minute).Should(And(
+			}).Should(And(
 				WithTransform(
 					func(status v1alpha1.RekorStatus) string {
 						return meta.FindStatusCondition(status.Conditions, constants.Ready).Reason
 					}, Not(Equal(constants.Error))),
-				WithTransform(func(status v1alpha1.RekorStatus) int {
+				WithTransform(func(status v1alpha1.RekorStatus) int64 {
 					return status.RecoveryAttempts
 				}, BeNumerically(">=", 1))))
 			Eventually(func(g Gomega) string {
@@ -166,25 +166,6 @@ var _ = Describe("Rekor ErrorHandler", func() {
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Initialize))
 
-			By("Mock http client to return public key on /api/v1/log/publicKey call")
-			pubKeyData, err := kubernetes.GetSecretData(k8sClient, Namespace, &v1alpha1.SecretKeySelector{
-				LocalObjectReference: v1alpha1.LocalObjectReference{
-					Name: found.Status.Signer.KeyRef.Name,
-				},
-				Key: "public",
-			})
-			Expect(err).To(Succeed())
-
-			httpmock.SetMockTransport(http.DefaultClient, map[string]httpmock.RoundTripFunc{
-				"http://rekor-server.errorhandler.svc/api/v1/log/publicKey": func(req *http.Request) *http.Response {
-					return &http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(bytes.NewReader(pubKeyData)),
-						Header:     make(http.Header),
-					}
-				},
-			})
-
 			deployments := &appsv1.DeploymentList{}
 			Expect(k8sClient.List(ctx, deployments, runtimeClient.InNamespace(Namespace))).To(Succeed())
 			By("Move to Ready phase")
@@ -195,17 +176,39 @@ var _ = Describe("Rekor ErrorHandler", func() {
 			}
 			// Workaround to succeed condition for Ready phase
 
+			By("Deployment should fail - public key can't be downloaded")
+			Eventually(func() string {
+				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				condition := meta.FindStatusCondition(found.Status.Conditions, constants.Ready)
+				if condition == nil {
+					return ""
+				}
+				return condition.Reason
+			}).Should(Equal(constants.Error))
+
+			By("Fix the error. Deployment should reach Ready phase")
+			httpmock.SetMockTransport(server.HttpClient, map[string]httpmock.RoundTripFunc{
+				"http://rekor-server.errorhandler.svc/api/v1/log/publicKey": func(req *http.Request) *http.Response {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewReader([]byte("-----BEGIN PUBLIC KEY-----\nMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEy5wMSNagtqLsSF+zf8gBVHm2VThGP69D\ngWyhhIm/BkemPBoD/BNq+/yvD2IjsV4unLp5Lcpv4UAGAPJHL/wm+tHD1nS4QKo/\nsXJ8Ezy1K+bM5DUEilcu4hGgQ7+RCG/H\n-----END PUBLIC KEY-----"))),
+						Header:     make(http.Header),
+					}
+				},
+			})
+			defer httpmock.RestoreDefaultTransport(server.HttpClient)
+
 			Eventually(func(g Gomega) v1alpha1.RekorStatus {
 				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status
-			}).WithPolling(1 * time.Second).WithTimeout(5 * time.Minute).Should(And(
+			}).Should(And(
 				WithTransform(
 					func(status v1alpha1.RekorStatus) bool {
 						return meta.IsStatusConditionTrue(status.Conditions, constants.Ready)
 					}, Equal(true)),
-				WithTransform(func(status v1alpha1.RekorStatus) int {
+				WithTransform(func(status v1alpha1.RekorStatus) int64 {
 					return status.RecoveryAttempts
-				}, Equal(0))))
+				}, BeNumerically("==", 0))))
 
 			By("Pregenerated resources are reused")
 			Expect(signerName).To(Equal(found.Status.Signer.KeyRef.Name))

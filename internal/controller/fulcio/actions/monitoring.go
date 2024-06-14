@@ -53,7 +53,7 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fu
 	)
 
 	if err = controllerutil.SetControllerReference(instance, role, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for role: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for role: %w", err))
 	}
 
 	if _, err = i.Ensure(ctx, role); err != nil {
@@ -63,7 +63,7 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fu
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create monitoring role: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create monitoring role: %w", err), instance)
 	}
 
 	roleBinding := kubernetes.CreateRoleBinding(
@@ -80,7 +80,7 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fu
 		},
 	)
 	if err = controllerutil.SetControllerReference(instance, roleBinding, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for role: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for role: %w", err))
 	}
 
 	if _, err = i.Ensure(ctx, roleBinding); err != nil {
@@ -90,7 +90,7 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fu
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create monitoring RoleBinding: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create monitoring RoleBinding: %w", err), instance)
 	}
 
 	serviceMonitor := kubernetes.CreateServiceMonitor(
@@ -108,7 +108,7 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fu
 	)
 
 	if err = controllerutil.SetControllerReference(instance, serviceMonitor, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for serviceMonitor: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for serviceMonitor: %w", err))
 	}
 
 	if _, err = i.Ensure(ctx, serviceMonitor); err != nil {
@@ -118,9 +118,17 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fu
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create serviceMonitor: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create serviceMonitor: %w", err), instance)
 	}
 
 	// monitors & RBAC are not watched - do not need to re-enqueue
+	return i.Continue()
+}
+
+func (i monitoringAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Fulcio) bool {
+	return false
+}
+
+func (i monitoringAction) HandleError(_ context.Context, _ *rhtasv1alpha1.Fulcio) *action.Result {
 	return i.Continue()
 }

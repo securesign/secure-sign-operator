@@ -23,6 +23,10 @@ spec:
       jsonPath: .status.url
       name: URL
       type: string
+    - description: The component recovery attempts
+      jsonPath: .status.recoveryAttempts
+      name: Recovery Attempts
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -321,6 +325,11 @@ spec:
                 x-kubernetes-map-type: atomic
               pvcName:
                 type: string
+              recoveryAttempts:
+                default: 0
+                description: Number of component recovery attempts.
+                format: int64
+                type: integer
               rekorSearchUIUrl:
                 type: string
               serverConfigRef:

@@ -107,7 +107,7 @@ var _ = Describe("CTlog ErrorHandler", func() {
 				map[string]string{fulcio.FulcioCALabel: "cert"},
 			))).To(Succeed())
 
-			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
+			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, trillian.ServerPort, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
 
 			found := &v1alpha1.CTlog{}
 
@@ -119,6 +119,7 @@ var _ = Describe("CTlog ErrorHandler", func() {
 				if condition == nil {
 					return ""
 				}
+
 				return condition.Reason
 			}).Should(Equal(constants.Error))
 
@@ -129,12 +130,12 @@ var _ = Describe("CTlog ErrorHandler", func() {
 			Eventually(func(g Gomega) v1alpha1.CTlogStatus {
 				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status
-			}).WithPolling(1 * time.Second).WithTimeout(5 * time.Minute).Should(And(
+			}).Should(And(
 				WithTransform(
 					func(status v1alpha1.CTlogStatus) string {
 						return meta.FindStatusCondition(status.Conditions, constants.Ready).Reason
 					}, Not(Equal(constants.Error))),
-				WithTransform(func(status v1alpha1.CTlogStatus) int {
+				WithTransform(func(status v1alpha1.CTlogStatus) int64 {
 					return status.RecoveryAttempts
 				}, BeNumerically(">=", 1))))
 			Eventually(func(g Gomega) string {

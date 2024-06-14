@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
+	"testing"
+
 	"github.com/google/trillian"
 	. "github.com/onsi/gomega"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -14,8 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
-	"reflect"
-	"testing"
 )
 
 func TestResolveTree_CanHandle(t *testing.T) {
@@ -187,7 +188,7 @@ func TestResolveTree_Handle(t *testing.T) {
 				createTree: mockCreateTree(nil, errors.New("timeout error"), nil),
 			},
 			want: want{
-				result: testAction.FailedWithStatusUpdate(fmt.Errorf("could not create trillian tree: timeout error")),
+				result: testAction.ErrorWithStatusUpdate(fmt.Errorf("could not create trillian tree: timeout error")),
 				verify: func(g Gomega, rekor *rhtasv1alpha1.CTlog) {
 					g.Expect(rekor.Spec.TreeID).Should(BeNil())
 					g.Expect(rekor.Status.TreeID).Should(BeNil())

@@ -44,3 +44,11 @@ func (i pendingAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog
 	}
 	return i.Continue()
 }
+
+func (i pendingAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.CTlog) bool {
+	return false
+}
+
+func (i pendingAction) HandleError(_ context.Context, _ *rhtasv1alpha1.CTlog) *action.Result {
+	return i.Continue()
+}

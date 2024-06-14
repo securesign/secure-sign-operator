@@ -50,6 +50,11 @@ func getDefaultKubeConfigFile() (string, error) {
 }
 
 func ContainerMode() (bool, error) {
+	if containerMode := os.Getenv("CONTAINER_MODE"); containerMode != "" {
+		if b, _ := strconv.ParseBool(containerMode); b {
+			return true, nil
+		}
+	}
 	// When kube config is set, container mode is not used
 	if os.Getenv(kubeConfigEnvVar) != "" {
 		return false, nil

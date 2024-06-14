@@ -36,12 +36,18 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CT
 	labels := constants.LabelsForComponent(ComponentName, instance.Name)
 	ok, err = commonUtils.DeploymentIsRunning(ctx, i.Client, instance.Namespace, labels)
 	if err != nil {
-		return i.Failed(err)
+		return i.Error(err)
 	}
 	if !ok {
 		i.Logger.Info("Waiting for deployment")
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Initialize,
+			Message: "Waiting for deployment to be ready",
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    ServerCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Initialize,
 			Message: "Waiting for deployment to be ready",
@@ -53,5 +59,18 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CT
 		Status: metav1.ConditionTrue,
 		Reason: constants.Ready,
 	})
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:   ServerCondition,
+		Status: metav1.ConditionTrue,
+		Reason: constants.Ready,
+	})
 	return i.StatusUpdate(ctx, instance)
+}
+
+func (i initializeAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.CTlog) bool {
+	return false
+}
+
+func (i initializeAction) HandleError(_ context.Context, _ *rhtasv1alpha1.CTlog) *action.Result {
+	return i.Continue()
 }

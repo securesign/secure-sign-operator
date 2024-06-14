@@ -1,9 +1,10 @@
 package action
 
 import (
+	"time"
+
 	"github.com/securesign/operator/internal/controller/common/action"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 )
 
 func Continue() *action.Result {
@@ -16,13 +17,16 @@ func StatusUpdate() *action.Result {
 
 func Failed(err error) *action.Result {
 	return &action.Result{
-		Result: reconcile.Result{RequeueAfter: time.Duration(5) * time.Second},
-		Err:    err,
+		Err: err,
 	}
 }
 
-func FailedWithStatusUpdate(err error) *action.Result {
-	return &action.Result{Result: reconcile.Result{Requeue: false}, Err: err}
+func ErrorWithStatusUpdate(_ error) *action.Result {
+	return &action.Result{Result: reconcile.Result{RequeueAfter: 10 * time.Second}}
+}
+
+func FailWithStatusUpdate(_ error) *action.Result {
+	return &action.Result{Result: reconcile.Result{Requeue: false}}
 }
 
 func Return() *action.Result {

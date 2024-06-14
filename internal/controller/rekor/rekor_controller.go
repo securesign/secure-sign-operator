@@ -18,11 +18,17 @@ package rekor
 
 import (
 	"context"
+
+	"github.com/securesign/operator/internal/controller/common/utils"
 	"k8s.io/apimachinery/pkg/types"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
+	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/action/transitions"
+	tasPredicate "github.com/securesign/operator/internal/controller/common/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	actions2 "github.com/securesign/operator/internal/controller/rekor/actions"
 	backfillredis "github.com/securesign/operator/internal/controller/rekor/actions/backfillRedis"
@@ -75,7 +81,7 @@ type RekorReconciler struct {
 func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var instance rhtasv1alpha1.Rekor
 	log := ctrllog.FromContext(ctx)
-	log.V(1).Info("Reconciling Rekor", "request", req)
+	log.V(2).Info("Reconciling Rekor", "request", req)
 
 	if err := r.Client.Get(ctx, req.NamespacedName, &instance); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
@@ -97,8 +103,11 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	actions := []action.Action[*rhtasv1alpha1.Rekor]{
 		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Rekor](func(rekor *rhtasv1alpha1.Rekor) []string {
 			components := []string{actions2.ServerCondition, actions2.RedisCondition, actions2.SignerCondition}
-			if *rekor.Spec.RekorSearchUI.Enabled {
+			if utils.IsEnabled(rekor.Spec.RekorSearchUI.Enabled) {
 				components = append(components, actions2.UICondition)
+			}
+			if utils.IsEnabled(rekor.Spec.BackFillRedis.Enabled) {
+				components = append(components, actions2.BackfillRedisCondition)
 			}
 			return components
 		}),
@@ -129,13 +138,17 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.Rekor](),
 		// INITIALIZE
 		server.NewInitializeAction(),
-		server.NewResolvePubKeyAction(),
 
 		ui.NewInitializeAction(),
 		redis.NewInitializeAction(),
 
+		server.NewResolvePubKeyAction(),
+
 		// INITIALIZE -> READY
 		actions2.NewInitializeAction(),
+
+		// this should be always the last one
+		transitions.NewRestartOnErrorAction[*rhtasv1alpha1.Rekor](),
 	}
 
 	for _, a := range actions {
@@ -143,11 +156,21 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		a.InjectLogger(log.WithName(a.Name()))
 		a.InjectRecorder(r.Recorder)
 
-		if a.CanHandle(ctx, target) {
-			log.V(2).Info("Executing " + a.Name())
-			result := a.Handle(ctx, target)
-			if result != nil {
-				return result.Result, result.Err
+		if apis.IsError(&instance) {
+			if a.CanHandleError(ctx, target) {
+				log.V(1).Info("Executing error handling action " + a.Name())
+				result := a.HandleError(ctx, target)
+				if result != nil {
+					return result.Result, result.Err
+				}
+			}
+		} else {
+			if a.CanHandle(ctx, target) {
+				log.V(1).Info("Executing " + a.Name())
+				result := a.Handle(ctx, target)
+				if result != nil {
+					return result.Result, result.Err
+				}
 			}
 		}
 	}
@@ -164,7 +187,10 @@ func (r *RekorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
-		For(&rhtasv1alpha1.Rekor{}).
+		For(&rhtasv1alpha1.Rekor{}, builder.WithPredicates(predicate.And(
+			predicate.Or(predicate.GenerationChangedPredicate{}, tasPredicate.WaitOnError[*rhtasv1alpha1.Rekor]()),
+			tasPredicate.StopOnFailure[*rhtasv1alpha1.Rekor]()),
+		)).
 		Owns(&v12.Deployment{}).
 		Owns(&v13.Service{}).
 		Owns(&v1.Ingress{}).

@@ -81,13 +81,13 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 
 	config, err := json.Marshal(ConvertToFulcioMapConfig(instance.Spec.Config))
 	if err != nil {
-		return i.FailedWithStatusUpdate(ctx, err, instance)
+		return i.ErrorWithStatusUpdate(ctx, err, instance)
 	}
 	expected := kubernetes.CreateImmutableConfigmap(fmt.Sprintf("fulcio-config-%s", instance.Name), instance.Namespace, labels, map[string]string{
 		"config.json": string(config),
 	})
 	if err = controllerutil.SetControllerReference(instance, expected, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for ConfigMap: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for ConfigMap: %w", err))
 	}
 
 	// invalidate config
@@ -98,7 +98,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 				Namespace: instance.Namespace,
 			},
 		}); err != nil {
-			return i.Failed(err)
+			return i.Error(err)
 		}
 		instance.Status.ServerConfigRef = nil
 	}
@@ -116,7 +116,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, err, instance)
+		return i.ErrorWithStatusUpdate(ctx, err, instance)
 	}
 
 	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: expected.Name}
@@ -125,5 +125,12 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
 		Status: metav1.ConditionFalse, Reason: constants.Creating, Message: "Server config created"})
 	return i.StatusUpdate(ctx, instance)
+}
 
+func (i serverConfig) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Fulcio) bool {
+	return false
+}
+
+func (i serverConfig) HandleError(_ context.Context, _ *rhtasv1alpha1.Fulcio) *action.Result {
+	return i.Continue()
 }

@@ -9,7 +9,8 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"github.com/securesign/operator/api/v1alpha1"
+
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -22,7 +23,7 @@ import (
 
 const secretNameFormat = "rekor-signer-%s-"
 
-func NewGenerateSignerAction() action.Action[*v1alpha1.Rekor] {
+func NewGenerateSignerAction() action.Action[*rhtasv1alpha1.Rekor] {
 	return &generateSigner{}
 }
 
@@ -34,7 +35,7 @@ func (g generateSigner) Name() string {
 	return "generate-signer"
 }
 
-func (g generateSigner) CanHandle(_ context.Context, instance *v1alpha1.Rekor) bool {
+func (g generateSigner) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	if c == nil {
 		return false
@@ -47,17 +48,11 @@ func (g generateSigner) CanHandle(_ context.Context, instance *v1alpha1.Rekor) b
 
 }
 
-func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *action.Result {
+func (g generateSigner) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
 	if instance.Spec.Signer.KMS != "secret" && instance.Spec.Signer.KMS != "" {
 		instance.Status.Signer = instance.Spec.Signer
 		// force recreation of public key ref
 		instance.Status.PublicKeyRef = nil
-		// skip signer resolution and move to creating
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:   constants.Ready,
-			Status: metav1.ConditionFalse,
-			Reason: constants.Creating,
-		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.SignerCondition,
 			Status:  metav1.ConditionTrue,
@@ -98,12 +93,6 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 				Reason:  constants.Pending,
 				Message: "resolving keys",
 			})
-			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:    constants.Ready,
-				Status:  metav1.ConditionFalse,
-				Reason:  constants.Pending,
-				Message: "resolving keys",
-			})
 			return g.StatusUpdate(ctx, instance)
 		}
 		// swallow error and retry
@@ -124,6 +113,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 	}
 	secret := k8sutils.CreateImmutableSecret(fmt.Sprintf(secretNameFormat, instance.Name), instance.Namespace,
 		data, labels)
+
 	if _, err = g.Ensure(ctx, secret); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ServerCondition,
@@ -131,29 +121,23 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return g.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create secret: %w", err), instance)
+		return g.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create secret: %w", err), instance)
 	}
 	g.Recorder.Eventf(instance, v1.EventTypeNormal, "SignerKeyCreated", "Signer private key created: %s", secret.Name)
 
 	instance.Status.Signer = instance.Spec.Signer
 	if instance.Spec.Signer.KeyRef == nil {
-		instance.Status.Signer.KeyRef = &v1alpha1.SecretKeySelector{
+		instance.Status.Signer.KeyRef = &rhtasv1alpha1.SecretKeySelector{
 			Key: "private",
-			LocalObjectReference: v1alpha1.LocalObjectReference{
+			LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
 				Name: secret.Name,
 			},
 		}
 	}
 	if _, ok := secret.Data["password"]; instance.Spec.Signer.PasswordRef == nil && ok {
-		instance.Status.Signer.PasswordRef = &v1alpha1.SecretKeySelector{
+		instance.Status.Signer.PasswordRef = &rhtasv1alpha1.SecretKeySelector{
 			Key: "password",
-			LocalObjectReference: v1alpha1.LocalObjectReference{
+			LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
 				Name: secret.Name,
 			},
 		}
@@ -179,7 +163,7 @@ type RekorCertConfig struct {
 	RekorKeyPassword []byte
 }
 
-func (g generateSigner) CreateRekorKey(instance *v1alpha1.Rekor) (*RekorCertConfig, error) {
+func (g generateSigner) CreateRekorKey(instance *rhtasv1alpha1.Rekor) (*RekorCertConfig, error) {
 	var err error
 	if instance.Spec.Signer.KeyRef != nil {
 		config := &RekorCertConfig{}
@@ -234,4 +218,22 @@ func (g generateSigner) CreateRekorKey(instance *v1alpha1.Rekor) (*RekorCertConf
 		RekorKey:    pemRekorKey.Bytes(),
 		RekorPubKey: pemPubKey.Bytes(),
 	}, nil
+}
+
+func (g generateSigner) CanHandleError(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
+	return !meta.IsStatusConditionTrue(instance.GetConditions(), actions.SignerCondition) &&
+		(instance.Status.Signer.KeyRef != nil || instance.Status.Signer.PasswordRef != nil)
+}
+
+func (g generateSigner) HandleError(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
+	instance.Status.Signer.PasswordRef = nil
+	instance.Status.Signer.KeyRef = nil
+
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:    actions.SignerCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  constants.Recovering,
+		Message: "signer will be re-loaded",
+	})
+	return g.StatusUpdate(ctx, instance)
 }

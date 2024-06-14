@@ -58,7 +58,7 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulci
 	}
 
 	if err = controllerutil.SetControllerReference(instance, svc, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for Service: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for Service: %w", err))
 	}
 	if updated, err = i.Ensure(ctx, svc); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -67,7 +67,7 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulci
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create service: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create service: %w", err), instance)
 	}
 
 	if updated {
@@ -77,5 +77,12 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulci
 	} else {
 		return i.Continue()
 	}
+}
 
+func (i serviceAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Fulcio) bool {
+	return false
+}
+
+func (i serviceAction) HandleError(_ context.Context, _ *rhtasv1alpha1.Fulcio) *action.Result {
+	return i.Continue()
 }

@@ -36,7 +36,7 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Re
 	labels := constants.LabelsForComponent(actions.RedisComponentName, instance.Name)
 	ok, err = commonUtils.DeploymentIsRunning(ctx, i.Client, instance.Namespace, labels)
 	if err != nil {
-		return i.Failed(err)
+		return i.Error(err)
 	}
 	if !ok {
 		i.Logger.Info("Waiting for deployment")
@@ -53,4 +53,12 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Re
 		Status: metav1.ConditionTrue, Reason: constants.Ready})
 
 	return i.StatusUpdate(ctx, instance)
+}
+
+func (i initializeAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Rekor) bool {
+	return false
+}
+
+func (i initializeAction) HandleError(_ context.Context, _ *rhtasv1alpha1.Rekor) *action.Result {
+	return i.Continue()
 }

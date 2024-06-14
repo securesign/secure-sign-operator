@@ -95,12 +95,12 @@ func (i segmentBackupJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Se
 
 	job := kubernetes.CreateJob(instance.Namespace, SegmentBackupJobName, labels, constants.SegmentBackupImage, SegmentRBACName, parallelism, completions, activeDeadlineSeconds, backoffLimit, command, env)
 	if err = ctrl.SetControllerReference(instance, job, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for Job: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for Job: %w", err))
 	}
 
 	_, err = i.Ensure(ctx, job)
 	if err != nil {
-		return i.Failed(fmt.Errorf("failed to Ensure the job: %w", err))
+		return i.Error(fmt.Errorf("failed to Ensure the job: %w", err))
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -110,5 +110,13 @@ func (i segmentBackupJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Se
 		Message: "Segment Backup Job Created",
 	})
 
+	return i.Continue()
+}
+
+func (i segmentBackupJob) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Securesign) bool {
+	return false
+}
+
+func (i segmentBackupJob) HandleError(_ context.Context, _ *rhtasv1alpha1.Securesign) *action.Result {
 	return i.Continue()
 }

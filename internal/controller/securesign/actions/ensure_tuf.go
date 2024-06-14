@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+
 	"github.com/securesign/operator/internal/controller/annotations"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -45,7 +46,7 @@ func (i tufAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 	tuf.Spec = instance.Spec.Tuf
 
 	if err = controllerutil.SetControllerReference(instance, tuf, i.Client.Scheme()); err != nil {
-		return i.Failed(err)
+		return i.Error(err)
 	}
 
 	if updated, err = i.Ensure(ctx, tuf); err != nil {
@@ -55,7 +56,7 @@ func (i tufAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, err, instance)
+		return i.ErrorWithStatusUpdate(ctx, err, instance)
 	}
 
 	if updated {
@@ -74,7 +75,7 @@ func (i tufAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 func (i tufAction) CopyStatus(ctx context.Context, ok client.ObjectKey, instance *rhtasv1alpha1.Securesign) *action.Result {
 	object := &rhtasv1alpha1.Tuf{}
 	if err := i.Client.Get(ctx, ok, object); err != nil {
-		return i.Failed(err)
+		return i.Error(err)
 	}
 	objectStatus := meta.FindStatusCondition(object.Status.Conditions, constants.Ready)
 	if objectStatus == nil {
@@ -92,5 +93,13 @@ func (i tufAction) CopyStatus(ctx context.Context, ok client.ObjectKey, instance
 		}
 		return i.StatusUpdate(ctx, instance)
 	}
+	return i.Continue()
+}
+
+func (i tufAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Securesign) bool {
+	return false
+}
+
+func (i tufAction) HandleError(_ context.Context, _ *rhtasv1alpha1.Securesign) *action.Result {
 	return i.Continue()
 }

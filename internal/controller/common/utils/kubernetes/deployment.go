@@ -10,17 +10,18 @@ import (
 
 func DeploymentIsRunning(ctx context.Context, cli client.Client, namespace string, labels map[string]string) (bool, error) {
 	var err error
-	list := &v1.DeploymentList{}
+	deploymentList := &v1.DeploymentList{}
 
-	if err = cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels(labels)); err != nil {
+	if err = cli.List(ctx, deploymentList, client.InNamespace(namespace), client.MatchingLabels(labels)); err != nil {
 		return false, err
 	}
-	for _, d := range list.Items {
+	for _, d := range deploymentList.Items {
 		c := getDeploymentCondition(d.Status, v1.DeploymentAvailable)
 		if c == nil || c.Status == corev1.ConditionFalse {
 			return false, nil
 		}
 	}
+
 	return true, nil
 }
 

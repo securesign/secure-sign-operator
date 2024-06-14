@@ -40,7 +40,7 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tu
 	labels := constants.LabelsForComponent(ComponentName, instance.Name)
 	ok, err = commonUtils.DeploymentIsRunning(ctx, i.Client, instance.Namespace, labels)
 	if err != nil {
-		return i.Failed(err)
+		return i.Error(err)
 	}
 	if !ok {
 		i.Logger.Info("Waiting for deployment")
@@ -58,7 +58,7 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tu
 		ingress := &v12.Ingress{}
 		err = i.Client.Get(ctx, types.NamespacedName{Name: ComponentName, Namespace: instance.Namespace}, ingress)
 		if err != nil {
-			return i.Failed(err)
+			return i.Error(err)
 		}
 		if len(ingress.Spec.TLS) > 0 {
 			protocol = "https://"
@@ -72,4 +72,12 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tu
 		Status: metav1.ConditionTrue, Reason: constants.Ready})
 
 	return i.StatusUpdate(ctx, instance)
+}
+
+func (i initializeAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Tuf) bool {
+	return false
+}
+
+func (i initializeAction) HandleError(_ context.Context, _ *rhtasv1alpha1.Tuf) *action.Result {
+	return i.Continue()
 }

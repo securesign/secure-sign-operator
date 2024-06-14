@@ -20,14 +20,15 @@ import (
 	"context"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
+	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/action/transitions"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
+	tasPredicate "github.com/securesign/operator/internal/controller/common/predicate"
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcioActions "github.com/securesign/operator/internal/controller/fulcio/actions"
 	v12 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -90,7 +91,7 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	target := instance.DeepCopy()
 	acs := []action.Action[*rhtasv1alpha1.CTlog]{
 		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.CTlog](func(_ *rhtasv1alpha1.CTlog) []string {
-			return []string{actions.CertCondition}
+			return []string{actions.CertCondition, actions.KeyCondition, actions.ServerCondition}
 		}),
 
 		actions.NewPendingAction(),
@@ -110,19 +111,31 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.CTlog](),
 
 		actions.NewInitializeAction(),
+
+		// this should be always the last one
+		transitions.NewRestartOnErrorAction[*rhtasv1alpha1.CTlog](),
 	}
 
 	for _, a := range acs {
-		rlog.V(2).Info("Executing " + a.Name())
 		a.InjectClient(r.Client)
 		a.InjectLogger(rlog.WithName(a.Name()))
 		a.InjectRecorder(r.Recorder)
 
-		if a.CanHandle(ctx, target) {
-			rlog.V(1).Info("Executing " + a.Name())
-			result := a.Handle(ctx, target)
-			if result != nil {
-				return result.Result, result.Err
+		if apis.IsError(&instance) {
+			if a.CanHandleError(ctx, target) {
+				rlog.V(2).Info("Executing error handling action " + a.Name())
+				result := a.HandleError(ctx, target)
+				if result != nil {
+					return result.Result, result.Err
+				}
+			}
+		} else {
+			if a.CanHandle(ctx, target) {
+				rlog.V(2).Info("Executing " + a.Name())
+				result := a.Handle(ctx, target)
+				if result != nil {
+					return result.Result, result.Err
+				}
 			}
 		}
 	}
@@ -156,7 +169,10 @@ func (r *CTlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
-		For(&rhtasv1alpha1.CTlog{}).
+		For(&rhtasv1alpha1.CTlog{}, builder.WithPredicates(predicate.And(
+			predicate.Or(predicate.GenerationChangedPredicate{}, tasPredicate.WaitOnError[*rhtasv1alpha1.CTlog]()),
+			tasPredicate.StopOnFailure[*rhtasv1alpha1.CTlog]()),
+		)).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		WatchesMetadata(partialSecret, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {

@@ -21,7 +21,7 @@ type restartAction[T apis.ConditionsAwareObject] struct {
 }
 
 func (i restartAction[T]) Name() string {
-	return "restart deployment"
+	return "restart on error"
 }
 
 func (i restartAction[T]) CanHandle(_ context.Context, instance T) bool {
@@ -54,11 +54,11 @@ func (i restartAction[T]) HandleError(ctx context.Context, instance T) *action.R
 	if err != nil {
 		return i.Error(err)
 	}
-	if restarts < constants.AllowedRestarts {
+	if restarts < constants.AllowedRecoveryAttempts {
 		instance.SetCondition(metav1.Condition{Type: constants.Ready,
 			Status: metav1.ConditionFalse, Reason: constants.Pending})
 	} else {
-		return i.FailWithStatusUpdate(ctx, fmt.Errorf("restart threshold reached"), instance)
+		return i.FailWithStatusUpdate(ctx, fmt.Errorf("recovery threshold reached"), instance)
 	}
 
 	return i.StatusUpdate(ctx, instance)

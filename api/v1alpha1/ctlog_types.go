@@ -49,6 +49,9 @@ type CTlogStatus struct {
 	RootCertificates      []SecretKeySelector   `json:"rootCertificates,omitempty"`
 	// The ID of a Trillian tree that stores the log data.
 	TreeID *int64 `json:"treeID,omitempty"`
+	// Number of component recovery attempts.
+	//+kubebuilder:default:=0
+	RecoveryAttempts int64 `json:"recoveryAttempts,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge
@@ -60,6 +63,7 @@ type CTlogStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
+//+kubebuilder:printcolumn:name="Recovery Attempts",type=string,JSONPath=`.status.recoveryAttempts`,description="The component recovery attempts"
 
 // CTlog is the Schema for the ctlogs API
 type CTlog struct {

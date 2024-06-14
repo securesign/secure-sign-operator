@@ -52,7 +52,7 @@ func (i segmentBackupCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 	)
 
 	if _, err := cron.ParseStandard(AnalyiticsCronSchedule); err != nil {
-		return i.Failed(fmt.Errorf("could not create segment backuup cron job due to errors with parsing the cron schedule: %w", err))
+		return i.Error(fmt.Errorf("could not create segment backuup cron job due to errors with parsing the cron schedule: %w", err))
 	}
 
 	labels := constants.LabelsFor(SegmentBackupCronJobName, SegmentBackupCronJobName, instance.Name)
@@ -101,7 +101,7 @@ func (i segmentBackupCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 	}
 
 	if err = controllerutil.SetControllerReference(instance, segmentBackupCronJob, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for segment backup cron job: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for segment backup cron job: %w", err))
 	}
 
 	if updated, err = i.Ensure(ctx, segmentBackupCronJob); err != nil {
@@ -117,7 +117,7 @@ func (i segmentBackupCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create segment backup cron job: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create segment backup cron job: %w", err), instance)
 	}
 
 	if updated {
@@ -131,4 +131,12 @@ func (i segmentBackupCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 	} else {
 		return i.Continue()
 	}
+}
+
+func (i segmentBackupCronJob) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Securesign) bool {
+	return false
+}
+
+func (i segmentBackupCronJob) HandleError(_ context.Context, _ *rhtasv1alpha1.Securesign) *action.Result {
+	return i.Continue()
 }

@@ -40,16 +40,16 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulci
 
 	svc := &v1.Service{}
 	if err := i.Client.Get(ctx, ok, svc); err != nil {
-		return i.Failed(fmt.Errorf("could not find service for ingress: %w", err))
+		return i.Error(fmt.Errorf("could not find service for ingress: %w", err))
 	}
 
 	ingress, err := kubernetes.CreateIngress(ctx, i.Client, *svc, instance.Spec.ExternalAccess, ServerPortName, labels)
 	if err != nil {
-		return i.Failed(fmt.Errorf("could not create ingress object: %w", err))
+		return i.Error(fmt.Errorf("could not create ingress object: %w", err))
 	}
 
 	if err = controllerutil.SetControllerReference(instance, ingress, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for Ingress: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for Ingress: %w", err))
 	}
 
 	if updated, err = i.Ensure(ctx, ingress); err != nil {
@@ -68,4 +68,12 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulci
 	} else {
 		return i.Continue()
 	}
+}
+
+func (i ingressAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Fulcio) bool {
+	return false
+}
+
+func (i ingressAction) HandleError(_ context.Context, _ *rhtasv1alpha1.Fulcio) *action.Result {
+	return i.Continue()
 }

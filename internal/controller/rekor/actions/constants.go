@@ -23,4 +23,5 @@ const (
 	ServerCondition            = "ServerAvailable"
 	RedisCondition             = "RedisAvailable"
 	SignerCondition            = "SignerAvailable"
+	BackfillRedisCondition     = "BackfillRedisCronJobAvailable"
 )

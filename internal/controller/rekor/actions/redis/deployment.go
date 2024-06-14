@@ -8,8 +8,11 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/controller/rekor/utils"
+	v1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -40,7 +43,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 	labels := constants.LabelsFor(actions.RedisComponentName, actions.RedisDeploymentName, instance.Name)
 	dp := utils.CreateRedisDeployment(instance.Namespace, actions.RedisDeploymentName, actions.RBACName, labels)
 	if err = controllerutil.SetControllerReference(instance, dp, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for Deployment: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for Deployment: %w", err))
 	}
 
 	if updated, err = i.Ensure(ctx, dp); err != nil {
@@ -50,13 +53,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Rekor redis: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create Rekor redis: %w", err), instance)
 	}
 
 	if updated {
@@ -71,4 +68,27 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		return i.Continue()
 	}
 
+}
+
+func (i deployAction) CanHandleError(ctx context.Context, instance *rhtasv1alpha1.Rekor) bool {
+	err := i.Client.Get(ctx, types.NamespacedName{Name: actions.RedisDeploymentName, Namespace: instance.Namespace}, &v1.Deployment{})
+	return !meta.IsStatusConditionTrue(instance.GetConditions(), actions.RedisCondition) && (err == nil || !errors.IsNotFound(err))
+}
+
+func (i deployAction) HandleError(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
+	redisDeployment := &v1.Deployment{}
+	if err := i.Client.Get(ctx, types.NamespacedName{Name: actions.RedisDeploymentName, Namespace: instance.Namespace}, redisDeployment); err != nil {
+		return i.Error(err)
+	}
+	if err := i.Client.Delete(ctx, redisDeployment); err != nil {
+		i.Logger.V(1).Info("Can't delete Redis deployment", "error", err.Error())
+	}
+
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:    actions.RedisCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  constants.Recovering,
+		Message: "Redis deployment will be recreated",
+	})
+	return i.StatusUpdate(ctx, instance)
 }

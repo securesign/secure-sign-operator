@@ -45,7 +45,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	mysql := k8sutils.CreateService(instance.Namespace, host, host, port, port, labels)
 
 	if err = controllerutil.SetControllerReference(instance, mysql, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for DB service: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for DB service: %w", err))
 	}
 
 	if updated, err = i.Ensure(ctx, mysql); err != nil {
@@ -61,7 +61,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Trillian DB service: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create Trillian DB service: %w", err), instance)
 	}
 
 	if updated {
@@ -75,4 +75,12 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	} else {
 		return i.Continue()
 	}
+}
+
+func (i createServiceAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Trillian) bool {
+	return false
+}
+
+func (i createServiceAction) HandleError(_ context.Context, _ *rhtasv1alpha1.Trillian) *action.Result {
+	return i.Continue()
 }
