@@ -88,6 +88,98 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 		})
 	}
 
+	volumes := []corev1.Volume{
+		{
+			Name: "fulcio-config",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: instance.Status.ServerConfigRef.Name,
+					},
+				},
+			},
+		},
+		{
+			Name: "oidc-info",
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: oidcInfo,
+				},
+			},
+		},
+		{
+			Name: "fulcio-cert",
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{
+						{
+							Secret: &corev1.SecretProjection{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: instance.Status.Certificate.PrivateKeyRef.Name,
+								},
+								Items: []corev1.KeyToPath{
+									{
+										Key:  instance.Status.Certificate.PrivateKeyRef.Key,
+										Path: "key.pem",
+									},
+								},
+							},
+						},
+						{
+							Secret: &corev1.SecretProjection{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: instance.Status.Certificate.CARef.Name,
+								},
+								Items: []corev1.KeyToPath{
+									{
+										Key:  instance.Status.Certificate.CARef.Key,
+										Path: "cert.pem",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "fulcio-config",
+			MountPath: "/etc/fulcio-config",
+		},
+		{
+			Name:      "oidc-info",
+			MountPath: "/var/run/fulcio",
+			ReadOnly:  true,
+		},
+		{
+			Name:      "fulcio-cert",
+			MountPath: "/var/run/fulcio-secrets",
+			ReadOnly:  true,
+		},
+	}
+
+	if instance.Spec.Config.Proxy.Enabled {
+		volumes = append(volumes, corev1.Volume{
+			Name: "trusted-ca",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "ca-inject",
+					},
+				},
+			},
+		})
+
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      "trusted-ca",
+			MountPath: "/etc/ssl/certs",
+			ReadOnly:  true,
+		})
+	}
+
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
@@ -152,80 +244,11 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 								SuccessThreshold:    1,
 								FailureThreshold:    3,
 							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "fulcio-config",
-									MountPath: "/etc/fulcio-config",
-								},
-								{
-									Name:      "oidc-info",
-									MountPath: "/var/run/fulcio",
-									ReadOnly:  true,
-								},
-								{
-									Name:      "fulcio-cert",
-									MountPath: "/var/run/fulcio-secrets",
-									ReadOnly:  true,
-								},
-							},
+							VolumeMounts: volumeMounts,
 						},
 					},
 					AutomountServiceAccountToken: &[]bool{true}[0],
-					Volumes: []corev1.Volume{
-						{
-							Name: "fulcio-config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: instance.Status.ServerConfigRef.Name,
-									},
-								},
-							},
-						},
-						{
-							Name: "oidc-info",
-							VolumeSource: corev1.VolumeSource{
-								Projected: &corev1.ProjectedVolumeSource{
-									Sources: oidcInfo,
-								},
-							},
-						},
-						{
-							Name: "fulcio-cert",
-							VolumeSource: corev1.VolumeSource{
-								Projected: &corev1.ProjectedVolumeSource{
-									Sources: []corev1.VolumeProjection{
-										{
-											Secret: &corev1.SecretProjection{
-												LocalObjectReference: corev1.LocalObjectReference{
-													Name: instance.Status.Certificate.PrivateKeyRef.Name,
-												},
-												Items: []corev1.KeyToPath{
-													{
-														Key:  instance.Status.Certificate.PrivateKeyRef.Key,
-														Path: "key.pem",
-													},
-												},
-											},
-										},
-										{
-											Secret: &corev1.SecretProjection{
-												LocalObjectReference: corev1.LocalObjectReference{
-													Name: instance.Status.Certificate.CARef.Name,
-												},
-												Items: []corev1.KeyToPath{
-													{
-														Key:  instance.Status.Certificate.CARef.Key,
-														Path: "cert.pem",
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
+					Volumes:                      volumes,
 				},
 			},
 		},

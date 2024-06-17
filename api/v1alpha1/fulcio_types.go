@@ -55,6 +55,9 @@ type FulcioConfig struct {
 	// +optional
 	OIDCIssuers []OIDCIssuer `json:"OIDCIssuers,omitempty"`
 
+	// Define whether you want to use cluster-wide proxy or not
+	Proxy Proxy `json:"proxy,omitempty"`
+
 	// A meta issuer has a templated URL of the form:
 	//   https://oidc.eks.*.amazonaws.com/id/*
 	// Where * can match a single hostname or URI path parts
@@ -64,6 +67,12 @@ type FulcioConfig struct {
 	// * https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster
 	// +optional
 	MetaIssuers []OIDCIssuer `json:"MetaIssuers,omitempty"`
+}
+type Proxy struct {
+	// If set to true, the Operator will create a configMap containing certificates bundle.
+	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
+	//+kubebuilder:default:=false
+	Enabled bool `json:"enabled"`
 }
 
 type OIDCIssuer struct {

@@ -120,6 +120,7 @@ var _ = Describe("Fulcio", func() {
 			It("config is not empty", func() {
 				invalidObject := generateFulcioObject("config-invalid")
 				invalidObject.Spec.Config.OIDCIssuers = []OIDCIssuer{}
+				invalidObject.Spec.Config.Proxy = Proxy{Enabled: false}
 				invalidObject.Spec.Config.MetaIssuers = []OIDCIssuer{}
 
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
@@ -130,6 +131,7 @@ var _ = Describe("Fulcio", func() {
 			It("only MetaIssuer is set", func() {
 				validObject := generateFulcioObject("config-metaissuer")
 				validObject.Spec.Config.OIDCIssuers = []OIDCIssuer{}
+				validObject.Spec.Config.Proxy = Proxy{Enabled: false}
 				validObject.Spec.Config.MetaIssuers = []OIDCIssuer{
 					{
 						ClientID: "client",
@@ -236,6 +238,9 @@ func generateFulcioObject(name string) *Fulcio {
 						IssuerURL: "url",
 						Issuer:    "url",
 					},
+				},
+				Proxy: Proxy{
+					Enabled: false,
 				},
 				MetaIssuers: []OIDCIssuer{
 					{
