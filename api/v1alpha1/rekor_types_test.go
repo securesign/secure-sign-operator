@@ -198,6 +198,8 @@ var _ = Describe("Rekor", func() {
 				It("outputs the CR", func() {
 					storage := k8sresource.MustParse("987Gi")
 					tree := int64(1269875)
+					port := int32(8091)
+
 					rekorInstance = Rekor{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "rekor-full-manifest",
@@ -240,6 +242,10 @@ var _ = Describe("Rekor", func() {
 									Key: "key",
 								},
 							},
+							Trillian: TrillianService{
+								Address: "trillian-system.default.svc",
+								Port:    &port,
+							},
 						},
 					}
 
@@ -253,7 +259,6 @@ var _ = Describe("Rekor", func() {
 			When("CR is partially set", func() {
 
 				It("sets spec.pvc.storage if spec.pvc is partially set", func() {
-
 					rekorInstance = Rekor{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "rekor-storage",
@@ -298,6 +303,9 @@ func generateRekorObject(name string) *Rekor {
 			Pvc: Pvc{
 				Retain: utils.Pointer(true),
 				Size:   &storage,
+			},
+			Trillian: TrillianService{
+				Port: utils.Pointer(int32(8091)),
 			},
 		},
 	}

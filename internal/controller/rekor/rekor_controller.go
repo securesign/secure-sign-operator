@@ -91,8 +91,6 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		// NONE -> PENDING
 		actions2.NewInitializeConditions(),
 
-		// PENDING
-		actions2.NewPendingAction(),
 		// PENDING -> CREATE
 		server.NewGenerateSignerAction(),
 

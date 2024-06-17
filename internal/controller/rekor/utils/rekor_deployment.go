@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"errors"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -14,17 +13,23 @@ import (
 )
 
 func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, labels map[string]string) (*apps.Deployment, error) {
-	if instance.Status.ServerConfigRef == nil {
-		return nil, errors.New("server config name not specified")
+	switch {
+	case instance.Status.ServerConfigRef == nil:
+		return nil, fmt.Errorf("CreateRekorDeployment: %w", ServerConfigNotSpecified)
+	case instance.Status.TreeID == nil:
+		return nil, fmt.Errorf("CreateRekorDeployment: %w", TreeNotSpecified)
+	case instance.Spec.Trillian.Address == "":
+		return nil, fmt.Errorf("CreateRekorDeployment: %w", TrillianAddressNotSpecified)
+	case instance.Spec.Trillian.Port == nil:
+		return nil, fmt.Errorf("CreateRekorDeployment: %w", TrillianPortNotSpecified)
 	}
-	if instance.Status.TreeID == nil {
-		return nil, errors.New("reference to trillian TreeID not set")
-	}
+
 	env := make([]core.EnvVar, 0)
+
 	appArgs := []string{
 		"serve",
-		"--trillian_log_server.address=trillian-logserver." + instance.Namespace + ".svc",
-		"--trillian_log_server.port=8091",
+		fmt.Sprintf("--trillian_log_server.address=%s", instance.Spec.Trillian.Address),
+		fmt.Sprintf("--trillian_log_server.port=%d", *instance.Spec.Trillian.Port),
 		"--trillian_log_server.sharding_config=/sharding/sharding-config.yaml",
 		"--redis_server.address=rekor-redis",
 		"--redis_server.port=6379",
@@ -73,7 +78,7 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 	// KMS secret
 	if instance.Spec.Signer.KMS == "secret" || instance.Spec.Signer.KMS == "" {
 		if instance.Status.Signer.KeyRef == nil {
-			return nil, errors.New("signer key ref not specified")
+			return nil, SignerKeyNotSpecified
 		}
 		svsPrivate := &core.SecretVolumeSource{
 			SecretName: instance.Status.Signer.KeyRef.Name,

@@ -13,6 +13,9 @@ type RekorSpec struct {
 	// If it is unset, the operator will create new Merkle tree in the Trillian backend
 	//+optional
 	TreeID *int64 `json:"treeID,omitempty"`
+	// Trillian service configuration
+	//+kubebuilder:default:={port: 8091}
+	Trillian TrillianService `json:"trillian,omitempty"`
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
 	//Enable Service monitors for rekor

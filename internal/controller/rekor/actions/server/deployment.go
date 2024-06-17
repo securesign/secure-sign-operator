@@ -8,6 +8,7 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/controller/rekor/utils"
+	actions2 "github.com/securesign/operator/internal/controller/trillian/actions"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -38,7 +39,14 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		updated bool
 	)
 	labels := constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
-	dp, err := utils.CreateRekorDeployment(instance, actions.ServerDeploymentName, actions.RBACName, labels)
+
+	insCopy := instance.DeepCopy()
+	if insCopy.Spec.Trillian.Address == "" {
+		insCopy.Spec.Trillian.Address = fmt.Sprintf("%s.%s.svc", actions2.LogserverDeploymentName, instance.Namespace)
+	}
+	i.Logger.V(1).Info("trillian logserver", "address", insCopy.Spec.Trillian.Address)
+	dp, err := utils.CreateRekorDeployment(insCopy, actions.ServerDeploymentName, actions.RBACName, labels)
+
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ServerCondition,
