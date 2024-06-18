@@ -10,6 +10,8 @@ spec:
   externalAccess:
     enabled: true
   config:
+    proxy:
+      enabled: false
     OIDCIssuers:
       - ClientID: "trusted-artifact-signer"
         IssuerURL: "https://your-oidc-issuer-url"

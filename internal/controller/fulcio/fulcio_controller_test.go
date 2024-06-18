@@ -104,6 +104,9 @@ var _ = Describe("Fulcio controller", func() {
 									Type:      "email",
 								},
 							},
+							Proxy: v1alpha1.Proxy{
+								Enabled: true,
+							},
 						},
 						Certificate: v1alpha1.FulcioCert{
 							OrganizationName:  "MyOrg",
@@ -218,6 +221,12 @@ var _ = Describe("Fulcio controller", func() {
 			Expect(ingress.Spec.Rules[0].Host).Should(Equal("fulcio.localhost"))
 			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Name).Should(Equal(service.Name))
 			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Port.Name).Should(Equal("80-tcp"))
+
+			By("Checking if ConfigMap was successfully created in the reconciliation")
+			configMap := &corev1.ConfigMap{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: "ca-inject", Namespace: Namespace}, configMap)
+			}).Should(Succeed())
 
 			By("Checking if controller will return deployment to desired state")
 			deployment = &appsv1.Deployment{}

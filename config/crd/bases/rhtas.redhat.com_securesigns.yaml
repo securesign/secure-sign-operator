@@ -336,6 +336,21 @@ spec:
                           - Type
                           type: object
                         type: array
+                      proxy:
+                        description: Define whether you want to use cluster-wide proxy
+                          or not
+                        properties:
+                          enabled:
+                            default: false
+                            description: If set to true, the Operator will create
+                              a configMap containing certificates bundle.
+                            type: boolean
+                            x-kubernetes-validations:
+                            - message: Feature cannot be disabled
+                              rule: (self || !oldSelf)
+                        required:
+                        - enabled
+                        type: object
                     type: object
                     x-kubernetes-validations:
                     - message: At least one of OIDCIssuers or MetaIssuers must be
