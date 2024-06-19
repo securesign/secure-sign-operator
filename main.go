@@ -17,16 +17,14 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
-	"fmt"
 	"os"
 
 	consolev1 "github.com/openshift/api/console/v1"
 	v1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
+	"github.com/securesign/operator/controllers/clidownload"
 	"github.com/securesign/operator/controllers/common/utils"
-	"github.com/securesign/operator/controllers/common/utils/kubernetes"
 	"github.com/securesign/operator/controllers/constants"
 	"github.com/securesign/operator/controllers/ctlog"
 	"github.com/securesign/operator/controllers/fulcio"
@@ -34,14 +32,7 @@ import (
 	"github.com/securesign/operator/controllers/securesign"
 	"github.com/securesign/operator/controllers/trillian"
 	"github.com/securesign/operator/controllers/tuf"
-	apps "k8s.io/api/apps/v1"
-	core "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -58,17 +49,6 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
-)
-
-const (
-	cliServerNs        = "trusted-artifact-signer"
-	cliServerName      = "cli-server"
-	cliServerComponent = "client-server"
-	sharedVolumeName   = "shared-data"
-	cliBinaryPath      = "/opt/app-root/src/clients/*"
-	cliWebServerPath   = "/var/www/html/clients/"
-
-	crdName = "securesigns.rhtas.redhat.com"
 )
 
 var (
@@ -219,228 +199,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	setupLog.Info("installing client server resources")
-	_, err = createClientserver(ctx)
-	if err != nil {
-		setupLog.Error(err, "unable to create client-server resources")
+	if err := mgr.Add(&clidownload.Component{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Log:    setupLog.WithName("clidownload"),
+	}); err != nil {
+		setupLog.Error(err, "unable to set up CLIDownload component")
+		os.Exit(1)
 	}
-	defer cancel()
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
-}
-
-func createClientserver(ctx context.Context) ([]client.Object, error) {
-	var (
-		err    error
-		obj    []client.Object
-		labels = map[string]string{
-			"app.kubernetes.io/part-of": constants.AppName,
-			kubernetes.ComponentLabel:   cliServerComponent,
-		}
-	)
-
-	// create new client - the manager's one is not initialized yet ))
-	cli, err := client.New(ctrl.GetConfigOrDie(), client.Options{Scheme: scheme})
-	if err != nil {
-		return []client.Object{}, err
-	}
-
-	ns := &core.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: cliServerNs,
-		},
-	}
-
-	obj = append(obj, ns)
-	obj = append(obj, createClientserverDeployment(ns.Name, labels))
-	svc := kubernetes.CreateService(ns.Name, cliServerName, 8080, labels)
-	obj = append(obj, svc)
-	ingress, err := kubernetes.CreateIngress(ctx, cli, *svc, rhtasv1alpha1.ExternalAccess{}, cliServerName, labels)
-	if err != nil {
-		return obj, err
-	}
-	obj = append(obj, ingress)
-
-	if kubernetes.IsOpenShift(cli) {
-		protocol := "http://"
-		if len(ingress.Spec.TLS) > 0 {
-			protocol = "https://"
-		}
-		for name, description := range map[string]string{
-			"cosign":    "cosign is a CLI tool that allows you to manage sigstore artifacts.",
-			"rekor-cli": "rekor-cli is a CLI tool that allows you to interact with rekor server.",
-			"gitsign":   "gitsign is a CLI tool that allows you to digitally sign and verify git commits.",
-			"ec":        "Enterprise Contract CLI. Set of commands to help validate resources with the Enterprise Contract.",
-		} {
-			obj = append(obj, createConsoleCLIDownload(ns.Name, name, protocol+ingress.Spec.Rules[0].Host, description, labels))
-		}
-	}
-
-	owner, err := getSecureSignCRD(ctx, cli)
-	if err != nil {
-		return nil, err
-	}
-	for _, o := range obj {
-		err = controllerutil.SetOwnerReference(owner, o, scheme)
-		if err != nil {
-			return nil, err
-		}
-		err = replaceResource(ctx, cli, o)
-		if err != nil {
-			return obj, err
-		}
-	}
-
-	return obj, nil
-}
-
-func createClientserverDeployment(namespace string, labels map[string]string) *apps.Deployment {
-	replicas := int32(1)
-
-	return &apps.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cliServerName,
-			Namespace: namespace,
-			Labels:    labels,
-		},
-		Spec: apps.DeploymentSpec{
-			Replicas: &replicas,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-			Template: core.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
-				},
-				Spec: core.PodSpec{
-					Volumes: []core.Volume{
-						{
-							Name: sharedVolumeName,
-							VolumeSource: core.VolumeSource{
-								EmptyDir: &core.EmptyDirVolumeSource{},
-							},
-						},
-					},
-					InitContainers: []core.Container{
-						{
-							Name:    "init-shared-data-cg",
-							Image:   constants.ClientServerImage_cg,
-							Command: []string{"sh", "-c", fmt.Sprintf("cp -r %s %s", cliBinaryPath, cliWebServerPath)},
-							VolumeMounts: []core.VolumeMount{
-								{
-									Name:      sharedVolumeName,
-									MountPath: cliWebServerPath,
-								},
-							},
-						},
-						{
-							Name:    "init-shared-data-re",
-							Image:   constants.ClientServerImage_re,
-							Command: []string{"sh", "-c", fmt.Sprintf("cp -r %s %s", cliBinaryPath, cliWebServerPath)},
-							VolumeMounts: []core.VolumeMount{
-								{
-									Name:      sharedVolumeName,
-									MountPath: cliWebServerPath,
-								},
-							},
-						},
-					},
-					Containers: []core.Container{
-						{
-							Name:            cliServerName,
-							Image:           constants.ClientServerImage,
-							ImagePullPolicy: core.PullAlways,
-							Ports: []core.ContainerPort{
-								{
-									ContainerPort: 8080,
-									Protocol:      core.ProtocolTCP,
-								},
-							},
-							VolumeMounts: []core.VolumeMount{
-								{
-									Name:      sharedVolumeName,
-									MountPath: cliWebServerPath,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func createConsoleCLIDownload(namespace, name, clientServerUrl, description string, labels map[string]string) *consolev1.ConsoleCLIDownload {
-	return &consolev1.ConsoleCLIDownload{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    labels,
-		},
-		Spec: consolev1.ConsoleCLIDownloadSpec{
-			Description: description,
-			DisplayName: fmt.Sprintf("%s - Command Line Interface (CLI)", name),
-			Links: []consolev1.CLIDownloadLink{
-				{
-					Href: fmt.Sprintf("%s/clients/linux/%s-amd64.gz", clientServerUrl, name),
-					Text: fmt.Sprintf("Download %s for Linux x86_64", name),
-				},
-				{
-					Href: fmt.Sprintf("%s/clients/linux/%s-arm64.gz", clientServerUrl, name),
-					Text: fmt.Sprintf("Download %s for Linux arm64", name),
-				},
-				{
-					Href: fmt.Sprintf("%s/clients/linux/%s-ppc64le.gz", clientServerUrl, name),
-					Text: fmt.Sprintf("Download %s for Linux ppc64le", name),
-				},
-				{
-					Href: fmt.Sprintf("%s/clients/linux/%s-s390x.gz", clientServerUrl, name),
-					Text: fmt.Sprintf("Download %s for Linux s390x", name),
-				},
-				{
-					Href: fmt.Sprintf("%s/clients/darwin/%s-amd64.gz", clientServerUrl, name),
-					Text: fmt.Sprintf("Download %s for Mac x86_64", name),
-				},
-				{
-					Href: fmt.Sprintf("%s/clients/darwin/%s-arm64.gz", clientServerUrl, name),
-					Text: fmt.Sprintf("Download %s for Mac arm64", name),
-				},
-				{
-					Href: fmt.Sprintf("%s/clients/windows/%s-amd64.gz", clientServerUrl, name),
-					Text: fmt.Sprintf("Download %s for Windows x86_64", name),
-				},
-			},
-		},
-	}
-}
-
-func getSecureSignCRD(ctx context.Context, cli client.Client) (*apiextensions.CustomResourceDefinition, error) {
-	crd := &apiextensions.CustomResourceDefinition{}
-	err := cli.Get(ctx, types.NamespacedName{Name: crdName}, crd)
-	return crd, err
-}
-
-func replaceResource(ctx context.Context, c client.Client, res client.Object) error {
-	err := c.Create(ctx, res)
-	if err != nil && apierrors.IsAlreadyExists(err) {
-		existing, ok := res.DeepCopyObject().(client.Object)
-		if !ok {
-			return fmt.Errorf("type assertion failed: %v", res.DeepCopyObject())
-		}
-		err = c.Get(ctx, client.ObjectKeyFromObject(existing), existing)
-		if err != nil {
-			return err
-		}
-		res.SetResourceVersion(existing.GetResourceVersion())
-		err = c.Update(ctx, res)
-	}
-	if err != nil {
-		return fmt.Errorf("could not create or replace %s: %w"+res.GetObjectKind().GroupVersionKind().String(), err)
-	}
-	return nil
 }
