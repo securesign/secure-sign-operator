@@ -3,10 +3,14 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"os"
 	"path/filepath"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	"strconv"
 	"sync"
+	"time"
 
 	v13 "github.com/openshift/api/operator/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -20,6 +24,9 @@ const (
 
 	ComponentLabel = "app.kubernetes.io/component"
 	NameLabel      = "app.kubernetes.io/name"
+
+	openshiftCheckLimit = 10
+	openshiftCheckDelay = time.Second
 )
 
 func FilterCommonLabels(labels map[string]string) map[string]string {
@@ -75,21 +82,36 @@ func IsOpenShift(client client.Client) bool {
 	// atomic
 	onceIsOpenshift.Do(func() {
 		log := ctrllog.Log.WithName("IsOpenshift")
-		_, err := client.RESTMapper().ResourceFor(schema.GroupVersionResource{
-			Group:    "security.openshift.io",
-			Resource: "SecurityContextConstraints",
-		})
-		if err != nil {
-			// continue with non-ocp standard
-			log.Info("no")
-			log.V(1).Info(err.Error())
-			isOpenshift = false
-			return
-		}
-		isOpenshift = true
-		log.Info("yes")
+		isOpenshift = checkIsOpenshift(client, log)
+		log.Info(strconv.FormatBool(isOpenshift))
 	})
+
 	return isOpenshift
+}
+
+func checkIsOpenshift(client client.Client, logger logr.Logger) bool {
+
+	_, err := client.RESTMapper().ResourceFor(schema.GroupVersionResource{
+		Group:    "security.openshift.io",
+		Resource: "SecurityContextConstraints",
+	})
+
+	for i := 0; i < openshiftCheckLimit; i++ {
+		if err != nil {
+			if meta.IsNoMatchError(err) {
+				// continue with non-ocp standard
+				return false
+			}
+
+			logger.Info("failed to identify", "retry", fmt.Sprintf("%d/%d", i, openshiftCheckLimit))
+			logger.V(1).Info(err.Error())
+			time.Sleep(time.Duration(i) * openshiftCheckDelay)
+			continue
+		}
+		return true
+	}
+
+	return false
 }
 
 func CalculateHostname(ctx context.Context, client client.Client, svcName, ns string) (string, error) {
