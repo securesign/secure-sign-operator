@@ -19,8 +19,9 @@ var (
 
 	CTLogImage = "registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:1588b8e97456806b4f76f8e1e63f3c089f2bc3b898f18f43c22d03dbc03b4c15"
 
-	ClientServerImage    = "registry.access.redhat.com/ubi9/httpd-24@sha256:7874b82335a80269dcf99e5983c2330876f5fe8bdc33dc6aa4374958a2ffaaee"
-	ClientServerImage_cg = "registry.redhat.io/rhtas/client-server-cg-rhel9@sha256:105abb4bc44fc15b62df386be45d75bea40429aee5d2cbb3d599b8614e1f7b13"
-	ClientServerImage_re = "registry.redhat.io/rhtas/client-server-re-rhel9@sha256:c39bec557d519aaaedf09dfa6c54587914c6a253ed3c121bcbb4ae1827d1ec2d"
-	SegmentBackupImage   = "registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:5b7006f686f9b0c7cbed8ee5b599c72b952fd0f02d0388aa90c2b420bb7a78ba"
+	ClientServerImage       = "registry.access.redhat.com/ubi9/httpd-24@sha256:7874b82335a80269dcf99e5983c2330876f5fe8bdc33dc6aa4374958a2ffaaee"
+	ClientServerImage_cg    = "registry.redhat.io/rhtas/client-server-cg-rhel9@sha256:105abb4bc44fc15b62df386be45d75bea40429aee5d2cbb3d599b8614e1f7b13"
+	ClientServerImage_re    = "registry.redhat.io/rhtas/client-server-re-rhel9@sha256:c39bec557d519aaaedf09dfa6c54587914c6a253ed3c121bcbb4ae1827d1ec2d"
+	SegmentBackupImage      = "registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:5b7006f686f9b0c7cbed8ee5b599c72b952fd0f02d0388aa90c2b420bb7a78ba"
+	TimestampAuthorityImage = "quay.io/redhat-user-workloads/rhtas-tenant/timestamp-authority/timestamp-authority-release-next@sha256:83a574fd857e7f1b21d46189e55c8e5b7c9b452a046f46733bc9283fd05aefa7"
 )

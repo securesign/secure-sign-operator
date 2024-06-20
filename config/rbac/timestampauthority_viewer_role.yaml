@@ -1,0 +1,27 @@
+# permissions for end users to view timestampauthorities.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: timestampauthority-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: rhtas-operator
+    app.kubernetes.io/part-of: rhtas-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: timestampauthority-viewer-role
+rules:
+- apiGroups:
+  - rhtas.redhat.com
+  resources:
+  - timestampauthorities
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - rhtas.redhat.com
+  resources:
+  - timestampauthorities/status
+  verbs:
+  - get
