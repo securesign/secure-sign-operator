@@ -1,0 +1,13 @@
+apiVersion: rhtas.redhat.com/v1alpha1
+kind: TimestampAuthority
+metadata:
+  labels:
+    app.kubernetes.io/name: timestampauthority
+    app.kubernetes.io/instance: timestampauthority-sample
+    app.kubernetes.io/part-of: rhtas-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: rhtas-operator
+  name: timestampauthority-sample
+spec:
+  externalAccess:
+    enabled: true 

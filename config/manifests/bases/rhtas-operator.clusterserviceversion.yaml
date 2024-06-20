@@ -44,6 +44,11 @@ spec:
       kind: Securesign
       name: securesigns.rhtas.redhat.com
       version: v1alpha1
+    - description: TimestampAuthority is the Schema for the timestampauthorities API
+      displayName: Timestamp Authority
+      kind: TimestampAuthority
+      name: timestampauthorities.rhtas.redhat.com
+      version: v1alpha1
     - description: Trillian is the Schema for the trillians API
       displayName: Trillian
       kind: Trillian
