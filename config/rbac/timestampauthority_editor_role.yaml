@@ -1,0 +1,31 @@
+# permissions for end users to edit timestampauthorities.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: timestampauthority-editor-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: rhtas-operator
+    app.kubernetes.io/part-of: rhtas-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: timestampauthority-editor-role
+rules:
+- apiGroups:
+  - rhtas.redhat.com
+  resources:
+  - timestampauthorities
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rhtas.redhat.com
+  resources:
+  - timestampauthorities/status
+  verbs:
+  - get

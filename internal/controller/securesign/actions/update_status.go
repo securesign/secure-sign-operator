@@ -50,7 +50,7 @@ func (i updateStatusAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 }
 
 func sortByStatus(conditions []v1.Condition) []string {
-	sorted := []string{TrillianCondition, FulcioCondition, RekorCondition, CTlogCondition, TufCondition}
+	sorted := []string{TrillianCondition, FulcioCondition, RekorCondition, CTlogCondition, TufCondition, TSACondition}
 	sort.SliceStable(sorted, func(i, j int) bool {
 		iCondition := meta.FindStatusCondition(conditions, sorted[i])
 		jCondition := meta.FindStatusCondition(conditions, sorted[j])

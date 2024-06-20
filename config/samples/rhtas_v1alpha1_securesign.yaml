@@ -40,3 +40,6 @@ spec:
       - name: ctfe.pub
       - name: fulcio_v1.crt.pem
   ctlog:
+  tsa:
+    externalAccess:
+      enabled: true   

@@ -129,6 +129,7 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		actions.NewRekorAction(),
 		actions.NewCtlogAction(),
 		actions.NewTufAction(),
+		actions.NewTsaAction(),
 		actions.NewRBACAction(),
 		actions.NewSegmentBackupJobAction(),
 		actions.NewSegmentBackupCronJobAction(),

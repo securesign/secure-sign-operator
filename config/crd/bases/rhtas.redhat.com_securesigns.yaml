@@ -751,6 +751,28 @@ spec:
                     - enabled
                     type: object
                 type: object
+              tsa:
+                description: TimestampAuthoritySpec defines the desired state of TimestampAuthority
+                properties:
+                  externalAccess:
+                    description: Define whether you want to export service or not
+                    properties:
+                      enabled:
+                        default: false
+                        description: |-
+                          If set to true, the Operator will create an Ingress or a Route resource.
+                          For the plain Ingress there is no TLS configuration provided Route object uses "edge" termination by default.
+                        type: boolean
+                        x-kubernetes-validations:
+                        - message: Feature cannot be disabled
+                          rule: (self || !oldSelf)
+                      host:
+                        description: Set hostname for your Ingress/Route.
+                        type: string
+                    required:
+                    - enabled
+                    type: object
+                type: object
               tuf:
                 default:
                   keys:
@@ -904,6 +926,11 @@ spec:
                     type: string
                 type: object
               rekor:
+                properties:
+                  url:
+                    type: string
+                type: object
+              tsa:
                 properties:
                   url:
                     type: string
