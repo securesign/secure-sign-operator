@@ -29,8 +29,9 @@ type SecuresignSpec struct {
 	Fulcio   FulcioSpec   `json:"fulcio,omitempty"`
 	Trillian TrillianSpec `json:"trillian,omitempty"`
 	//+kubebuilder:default:={keys:{{name: rekor.pub},{name: ctfe.pub},{name: fulcio_v1.crt.pem}}}
-	Tuf   TufSpec   `json:"tuf,omitempty"`
-	Ctlog CTlogSpec `json:"ctlog,omitempty"`
+	Tuf                TufSpec                `json:"tuf,omitempty"`
+	Ctlog              CTlogSpec              `json:"ctlog,omitempty"`
+	TimestampAuthority TimestampAuthoritySpec `json:"tsa,omitempty"`
 }
 
 // SecuresignStatus defines the observed state of Securesign
@@ -44,6 +45,7 @@ type SecuresignStatus struct {
 	RekorStatus  SecuresignRekorStatus  `json:"rekor,omitempty"`
 	FulcioStatus SecuresignFulcioStatus `json:"fulcio,omitempty"`
 	TufStatus    SecuresignTufStatus    `json:"tuf,omitempty"`
+	TSAStatus    SecuresignTSAStatus    `json:"tsa,omitempty"`
 }
 
 type SecuresignRekorStatus struct {
@@ -55,6 +57,10 @@ type SecuresignFulcioStatus struct {
 }
 
 type SecuresignTufStatus struct {
+	Url string `json:"url,omitempty"`
+}
+
+type SecuresignTSAStatus struct {
 	Url string `json:"url,omitempty"`
 }
 

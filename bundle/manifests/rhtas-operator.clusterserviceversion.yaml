@@ -118,6 +118,11 @@ metadata:
                 "create": true
               }
             },
+            "tsa": {
+              "externalAccess": {
+                "enabled": true
+              }
+            },
             "tuf": {
               "externalAccess": {
                 "enabled": true
@@ -133,6 +138,25 @@ metadata:
                   "name": "fulcio_v1.crt.pem"
                 }
               ]
+            }
+          }
+        },
+        {
+          "apiVersion": "rhtas.redhat.com/v1alpha1",
+          "kind": "TimestampAuthority",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "rhtas-operator",
+              "app.kubernetes.io/instance": "timestampauthority-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "timestampauthority",
+              "app.kubernetes.io/part-of": "rhtas-operator"
+            },
+            "name": "timestampauthority-sample"
+          },
+          "spec": {
+            "externalAccess": {
+              "enabled": true
             }
           }
         },
@@ -233,6 +257,11 @@ spec:
       displayName: Securesign
       kind: Securesign
       name: securesigns.rhtas.redhat.com
+      version: v1alpha1
+    - description: TimestampAuthority is the Schema for the timestampauthorities API
+      displayName: Timestamp Authority
+      kind: TimestampAuthority
+      name: timestampauthorities.rhtas.redhat.com
       version: v1alpha1
     - description: Trillian is the Schema for the trillians API
       displayName: Trillian
@@ -640,6 +669,32 @@ spec:
           - rhtas.redhat.com
           resources:
           - securesigns/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - timestampauthorities
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - timestampauthorities/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - timestampauthorities/status
           verbs:
           - get
           - patch
