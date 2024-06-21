@@ -130,6 +130,11 @@ test: manifests generate fmt vet envtest ## Run tests.
 test-e2e:
 	go test ./test/e2e/... -v -ginkgo.v -tags=integration -timeout 20m
 
+# Switch images from `registry.redhat.io` images to the dev images
+.PHONY: dev-images
+dev-images:
+	sed -f ci/dev-images.sed  -i internal/controller/constants/images.go
+
 GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
 GOLANGCI_LINT_VERSION ?= v1.54.2
 golangci-lint:

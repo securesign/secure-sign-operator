@@ -1,0 +1,13 @@
+s#registry.redhat.io/rhtas/trillian-logsigner-rhel9#quay.io/redhat-user-workloads/rhtas-tenant/trillian/logsigner#
+s#registry.redhat.io/rhtas/trillian-logserver-rhel9#quay.io/redhat-user-workloads/rhtas-tenant/trillian/logserver#
+s#registry.redhat.io/rhtas/trillian-database-rhel9#quay.io/redhat-user-workloads/rhtas-tenant/trillian/database#
+s#registry.redhat.io/rhtas/fulcio-rhel9#quay.io/redhat-user-workloads/rhtas-tenant/fulcio/fulcio-server#
+s#registry.redhat.io/rhtas/trillian-redis-rhel9#quay.io/redhat-user-workloads/rhtas-tenant/trillian/redis#
+s#registry.redhat.io/rhtas/rekor-server-rhel9#quay.io/redhat-user-workloads/rhtas-tenant/rekor/rekor-server#
+s#registry.redhat.io/rhtas/rekor-search-ui-rhel9#quay.io/redhat-user-workloads/rhtas-tenant/rekor-search/rekor-search#
+s#registry.redhat.io/rhtas/rekor-backfill-redis-rhel9#quay.io/redhat-user-workloads/rhtas-tenant/trillian/redis#
+s#registry.redhat.io/rhtas/tuf-server-rhel9#quay.io/redhat-user-workloads/rhtas-tenant/scaffold/tuf-server#
+s#registry.redhat.io/rhtas/certificate-transparency-rhel9#quay.io/redhat-user-workloads/rhtas-tenant/certificate-transparency-go/certificate-transparency-go#
+s#registry.redhat.io/rhtas/client-server-cg-rhel9#quay.io/redhat-user-workloads/rhtas-tenant/cli/client-server-cg#
+s#registry.redhat.io/rhtas/client-server-re-rhel9#quay.io/redhat-user-workloads/rhtas-tenant/cli/client-server-re#
+s#registry.redhat.io/rhtas/segment-reporting-rhel9#quay.io/redhat-user-workloads/rhtas-tenant/segment-backup-job/segment-backup-job#
