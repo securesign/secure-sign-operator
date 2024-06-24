@@ -12,6 +12,9 @@ env:
   AWS_REGION: us-east-2
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  IMG: ttl.sh/securesign/secure-sign-operator-${{github.run_number}}:1h
+  BUNDLE_IMG: ttl.sh/securesign/bundle-secure-sign-${{github.run_number}}:1h
+  CATALOG_IMG: ttl.sh/securesign/catalog-${{github.run_number}}:1h
 
 jobs:
   build-operator:
@@ -35,96 +38,75 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Remove rhel9 suffix from images.go
-        uses: jacobtomlinson/gha-find-replace@v3
-        with:
-          find: "-rhel9@"
-          replace: "@"
-          include: "**images.go"
-          regex: false
-
-      - name: Replace trillian images
-        uses: jacobtomlinson/gha-find-replace@v3
-        with:
-          find: "registry.redhat.io/rhtas/trillian-"
-          replace: "quay.io/redhat-user-workloads/rhtas-tenant/trillian/"
-          include: "**images.go"
-          regex: false
-
-      - name: replace Fulcio images
-        uses: jacobtomlinson/gha-find-replace@v3
-        with:
-          find: "registry.redhat.io/rhtas/fulcio"
-          replace: "quay.io/redhat-user-workloads/rhtas-tenant/fulcio/fulcio-server"
-          include: "**images.go"
-          regex: false
-
-      - name: replace Rekor-search images
-        uses: jacobtomlinson/gha-find-replace@v3
-        with:
-          find: "registry.redhat.io/rhtas/rekor-search-ui"
-          replace: "quay.io/redhat-user-workloads/rhtas-tenant/rekor-search/rekor-search"
-          include: "**images.go"
-          regex: false
-
-      - name: replace Rekor images
-        uses: jacobtomlinson/gha-find-replace@v3
-        with:
-          find: 'registry.redhat.io/rhtas/rekor-'
-          replace: "quay.io/redhat-user-workloads/rhtas-tenant/rekor/rekor-"
-          include: "**images.go"
-          regex: false
-
-      - name: replace Tuf images
-        uses: jacobtomlinson/gha-find-replace@v3
-        with:
-          find: "registry.redhat.io/rhtas/tuf-"
-          replace: "quay.io/redhat-user-workloads/rhtas-tenant/scaffold/tuf-"
-          include: "**images.go"
-          regex: false
-
-      - name: replace CTL images
-        uses: jacobtomlinson/gha-find-replace@v3
-        with:
-          find: "registry.redhat.io/rhtas/certificate-transparency"
-          replace: "quay.io/redhat-user-workloads/rhtas-tenant/certificate-transparency-go/certificate-transparency-go"
-          include: "**images.go"
-          regex: false
-
-      - name: replace server-cg image
-        uses: jacobtomlinson/gha-find-replace@v3
-        with:
-          find: "registry.redhat.io/rhtas/client-server-cg"
-          replace: "quay.io/redhat-user-workloads/rhtas-tenant/cli/client-server-cg"
-          include: "**images.go"
-          regex: false
-      - name: replace server-re image
-        uses: jacobtomlinson/gha-find-replace@v3
-        with:
-          find: "registry.redhat.io/rhtas/client-server-re"
-          replace: "quay.io/redhat-user-workloads/rhtas-tenant/cli/client-server-re"
-          include: "**images.go"
-          regex: false
-
-      - name: replace segment job image
-        uses: jacobtomlinson/gha-find-replace@v3
-        with:
-          find: "registry.redhat.io/rhtas/segment-reporting"
-          replace: "quay.io/redhat-user-workloads/rhtas-tenant/segment-backup-job/segment-backup-job"
-          include: "**images.go"
-          regex: false
-
-      - name: Print Resulting images.go file
-        run: cat internal/controller/constants/images.go
+      - name: Replace images
+        run: make dev-images && cat internal/controller/constants/images.go
 
       - name: Build operator container
-        run: IMG=ttl.sh/securesign/secure-sign-operator-${GITHUB_SHA}:1h make docker-build docker-push
+        run: make docker-build docker-push
+
+  build-bundle:
+    name: Build-bundle-image
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v2
+
+      - name: Replace images
+        run: make dev-images && cat internal/controller/constants/images.go
+
+      - name: Build operator bundle
+        run: make bundle bundle-build bundle-push
+
+  build-fbc:
+    name: Build-fbc
+    runs-on: ubuntu-20.04
+    needs: build-bundle
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v2
+
+      - name: Log in to registry.redhat.io
+        uses: redhat-actions/podman-login@9184318aae1ee5034fbfbacc0388acf12669171f # v1
+        with:
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+          registry: registry.redhat.io
+          auth_file_path: /tmp/config.json
+
+      - name: Install OPM
+        run: |
+          make opm
+          echo "OPM=${{ github.workspace }}/bin/opm" >> $GITHUB_ENV
+
+      - name: Checkout FBC source
+        uses: actions/checkout@v2
+        with:
+          repository: "securesign/fbc"
+          path: fbc
+
+      - name: Build catalog
+        run: |
+          cd fbc
+          chmod +x ./generate-fbc.sh && OPM_CMD=${{ env.OPM }} ./generate-fbc.sh --init-basic v4.14 jq
+          cat << EOF >> v4.14/graph.json
+          {
+             "schema": "olm.bundle",
+             "image": "$BUNDLE_IMG"
+          }
+          EOF
+          #TODO: versions needs to be maintained - try to eliminate
+          cat <<< $(jq  'select(.schema == "olm.channel" and .name == "stable").entries += [{"name":"rhtas-operator.v1.1.0", "replaces": "rhtas-operator.v1.0.1"}]' v4.14/graph.json) > v4.14/graph.json
+          cat v4.14/graph.json
+          ${{ env.OPM }} alpha render-template basic v4.14/graph.json > v4.14/catalog/rhtas-operator/catalog.json
+          ${{ env.OPM }} validate v4.14/catalog/rhtas-operator
+          docker build v4.14 -f v4.14/catalog.Dockerfile -t $CATALOG_IMG
+          docker push $CATALOG_IMG
 
   test-kind:
     name: Test kind deployment
     runs-on: ubuntu-20.04
     needs: build-operator
-    steps:  
+    steps:
       - name: Checkout source
         uses: actions/checkout@v2
 
@@ -165,8 +147,9 @@ jobs:
           kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
 
       - name: Deploy operator container
-        run: |
-          IMG=ttl.sh/securesign/secure-sign-operator-${GITHUB_SHA}:1h OPENSHIFT=false make deploy
+        env:
+          OPENSHIFT: false
+        run: make deploy
 
       - name: Wait for operator to be ready
         run: | 
@@ -223,12 +206,128 @@ jobs:
       - name: Install cosign
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.2.2
 
+      - name: Replace images
+        run: make dev-images && cat internal/controller/constants/images.go
+
       - name: Run tests
         run: make test-e2e
 
       - name: dump the logs of the operator
         run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
         if: always()
+
+  test-upgrade:
+    name: Test upgrade operator
+    runs-on: ubuntu-20.04
+    needs:
+      - build-operator
+      - build-bundle
+      - build-fbc
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+      - name: Checkout source
+        uses: actions/checkout@v2
+
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Log in to registry.redhat.io
+        uses: redhat-actions/podman-login@9184318aae1ee5034fbfbacc0388acf12669171f # v1
+        with:
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+          registry: registry.redhat.io
+          auth_file_path: /tmp/config.json
+
+      - name: Image prune
+        run: docker image prune -af
+
+      - name: Install Cluster
+        uses: container-tools/kind-action@v2.0.1
+        with:
+          version: v0.20.0
+          node_image: kindest/node:v1.26.6@sha256:6e2d8b28a5b601defe327b98bd1c2d1930b49e5d8c512e1895099e4504007adb
+          cpu: 3
+          registry: false
+          config: ./ci/config.yaml
+
+      - name: Configure cluster
+        run: |
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+          kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
+
+          #install OLM
+          kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.25.0/crds.yaml
+          # wait for a while to be sure CRDs are installed
+          sleep 1
+          kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.25.0/olm.yaml
+
+          kubectl create --kustomize ci/keycloak/operator/overlay/kind
+          until [ ! -z "$(kubectl get pod -l name=keycloak-operator -n keycloak-system 2>/dev/null)" ]
+          do
+            echo "Waiting for keycloak operator. Pods in keycloak-system namespace:"
+            kubectl get pods -n keycloak-system
+            sleep 10
+          done
+          kubectl create --kustomize ci/keycloak/resources/overlay/kind
+          until [[ $( oc get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system 2>/dev/null) == "true" ]]
+          do
+            printf "Waiting for keycloak deployment. \n Keycloak ready: %s\n" $(oc get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system)
+            sleep 10
+          done
+
+          # HACK - expose keycloak under the same name as the internal SVC has so it will be accessible:
+          # - within the cluster (where the localhost does not work)
+          # - outside the cluster (resolved from /etc/hosts and redirect to the localhost)
+          kubectl create -n keycloak-system -f - <<EOF
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: keycloak
+          spec:
+            rules:
+            - host: keycloak-internal.keycloak-system.svc
+              http:
+                paths:
+                - backend:
+                    service:
+                      name: keycloak-internal
+                      port:
+                        number: 80
+                  path: /
+                  pathType: Prefix
+          EOF
+        shell: bash
+
+      - name: Add service hosts to /etc/hosts
+        run: |
+          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local cli-server.local" | sudo tee -a /etc/hosts
+      - name: Install cosign
+        run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.2.2
+
+      - name: Replace images
+        run: make dev-images && cat internal/controller/constants/images.go
+
+      - name: Run tests
+        env:
+          TEST_BASE_CATALOG: registry.redhat.io/redhat/redhat-operator-index:v4.14
+          TEST_TARGET_CATALOG: ${{ env.CATALOG_IMG }}
+          OPENSHIFT: false
+        run: go test ./test/e2e/... -tags=upgrade -timeout 20m
 
   test-eks:
     name: Test EKS deployment
@@ -280,7 +379,9 @@ jobs:
           kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/aws/deploy.yaml
 
       - name: Deploy operator container
-        run: IMG=ttl.sh/securesign/secure-sign-operator-${GITHUB_SHA}:1h make deploy
+        env:
+          OPENSHIFT: false
+        run: make deploy
 
       - name: Wait for operator to be ready
         run: | 
@@ -335,7 +436,8 @@ jobs:
           kubectl wait --for=condition=available deployment/rekor-server -n test --timeout=60s
 
       - name: dump the logs of the operator
-        run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
+        run: |
+          kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
         if: always()
 
       - name: delete the cluster
