@@ -1,3 +1,6 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
 # Adds namespace to all resources.
 namespace: openshift-rhtas-operator
 
@@ -12,7 +15,7 @@ namePrefix: rhtas-
 #commonLabels:
 #  someName: someValue
 
-bases:
+resources:
 - ../crd
 - ../rbac
 - ../manager
@@ -25,6 +28,10 @@ bases:
 #- ../prometheus
 
 patches:
+  - path: manager_openshift_patch.yaml
+    target:
+      kind: Deployment
+      name: operator-controller-manager
 # Protect the /metrics endpoint by putting it behind auth.
 # If you want your controller-manager to expose the /metrics
 # endpoint w/o any authn/z, please comment the following line.

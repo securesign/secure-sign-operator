@@ -16,7 +16,7 @@ func CreateIngress(ctx context.Context, cli client.Client, svc v12.Service, conf
 	var tlsConfig []networkingv1.IngressTLS
 	var annotations map[string]string
 
-	if IsOpenShift(cli) {
+	if IsOpenShift() {
 		annotations = map[string]string{"route.openshift.io/termination": "edge"}
 		// ocp is able to autogenerate TLS
 		tlsConfig = []networkingv1.IngressTLS{

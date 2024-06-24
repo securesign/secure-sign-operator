@@ -3,17 +3,12 @@ package kubernetes
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/api/meta"
+	"github.com/securesign/operator/internal/controller/constants"
 	"os"
 	"path/filepath"
-	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
-	"strconv"
-	"sync"
 	"time"
 
 	v13 "github.com/openshift/api/operator/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -75,47 +70,12 @@ func ContainerMode() (bool, error) {
 	return false, nil
 }
 
-var onceIsOpenshift sync.Once
-var isOpenshift bool
-
-func IsOpenShift(client client.Client) bool {
-	// atomic
-	onceIsOpenshift.Do(func() {
-		log := ctrllog.Log.WithName("IsOpenshift")
-		isOpenshift = checkIsOpenshift(client, log)
-		log.Info(strconv.FormatBool(isOpenshift))
-	})
-
-	return isOpenshift
-}
-
-func checkIsOpenshift(client client.Client, logger logr.Logger) bool {
-
-	_, err := client.RESTMapper().ResourceFor(schema.GroupVersionResource{
-		Group:    "security.openshift.io",
-		Resource: "SecurityContextConstraints",
-	})
-
-	for i := 0; i < openshiftCheckLimit; i++ {
-		if err != nil {
-			if meta.IsNoMatchError(err) {
-				// continue with non-ocp standard
-				return false
-			}
-
-			logger.Info("failed to identify", "retry", fmt.Sprintf("%d/%d", i, openshiftCheckLimit))
-			logger.V(1).Info(err.Error())
-			time.Sleep(time.Duration(i) * openshiftCheckDelay)
-			continue
-		}
-		return true
-	}
-
-	return false
+func IsOpenShift() bool {
+	return constants.Openshift
 }
 
 func CalculateHostname(ctx context.Context, client client.Client, svcName, ns string) (string, error) {
-	if IsOpenShift(client) {
+	if IsOpenShift() {
 		ctrl := &v13.IngressController{}
 		if err := client.Get(ctx, types.NamespacedName{Namespace: "openshift-ingress-operator", Name: "default"}, ctrl); err != nil {
 			return "", err

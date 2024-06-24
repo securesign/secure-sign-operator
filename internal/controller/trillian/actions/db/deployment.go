@@ -41,7 +41,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		updated   bool
 		openshift bool
 	)
-	openshift = kubernetes.IsOpenShift(i.Client)
+	openshift = kubernetes.IsOpenShift()
 
 	labels := constants.LabelsFor(actions.DbComponentName, actions.DbDeploymentName, instance.Name)
 	db, err := trillianUtils.CreateTrillDb(instance, actions.DbDeploymentName, actions.RBACName, openshift, labels)
