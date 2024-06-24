@@ -192,7 +192,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:1988280e920b5832f6c9b71f3ef3ea9c618c83046113db8738dffece44ecaecf
-    createdAt: "2024-06-19T13:25:03Z"
+    createdAt: "2024-06-25T09:02:55Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -204,7 +204,7 @@ metadata:
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
     operators.openshift.io/valid-subscription: '["Red Hat Trusted Artifact Signer"]'
-    operators.operatorframework.io/builder: operator-sdk-v1.34.1
+    operators.operatorframework.io/builder: operator-sdk-v1.34.2
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/securesign/secure-sign-operator
     support: Red Hat
@@ -737,6 +737,9 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
+                env:
+                - name: OPENSHIFT
+                  value: "true"
                 image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:1988280e920b5832f6c9b71f3ef3ea9c618c83046113db8738dffece44ecaecf
                 livenessProbe:
                   httpGet:

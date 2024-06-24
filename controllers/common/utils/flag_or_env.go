@@ -3,9 +3,10 @@ package utils
 import (
 	"flag"
 	"os"
+	"strconv"
 )
 
-// stringFlagOrEnv defines a string flag which can be set by an environment variable.
+// StringFlagOrEnv defines a string flag which can be set by an environment variable.
 // Precedence: flag > env var > default value.
 func StringFlagOrEnv(p *string, name string, envName string, defaultValue string, usage string) {
 	envValue := os.Getenv(envName)
@@ -13,4 +14,14 @@ func StringFlagOrEnv(p *string, name string, envName string, defaultValue string
 		defaultValue = envValue
 	}
 	flag.StringVar(p, name, defaultValue, usage)
+}
+
+// BoolFlagOrEnv defines a bool flag which can be set by an environment variable.
+// Precedence: flag > env var > default value.
+func BoolFlagOrEnv(p *bool, name string, envName string, defaultValue bool, usage string) {
+	envValue := os.Getenv(envName)
+	if envName != "" {
+		defaultValue, _ = strconv.ParseBool(envValue)
+	}
+	flag.BoolVar(p, name, defaultValue, usage)
 }
