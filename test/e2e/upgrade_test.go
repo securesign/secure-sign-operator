@@ -136,7 +136,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 				Config: &v1alpha1.SubscriptionConfig{
 					Env: []v1.EnvVar{
 						{
-							Name: "OPENSHIFT",
+							Name:  "OPENSHIFT",
 							Value: strconv.FormatBool(openshift),
 						},
 					},
