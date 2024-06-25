@@ -88,7 +88,7 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 		})
 	}
 
-	return &appsv1.Deployment{
+	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
 			Namespace: instance.Namespace,
@@ -229,5 +229,7 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 				},
 			},
 		},
-	}, nil
+	}
+	utils.SetProxyEnvs(dep)
+	return dep, nil
 }

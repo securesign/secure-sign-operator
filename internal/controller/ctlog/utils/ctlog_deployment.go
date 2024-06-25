@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/constants"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -17,7 +18,7 @@ func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string
 	}
 	replicas := int32(1)
 	// Define a new Deployment object
-	return &appsv1.Deployment{
+	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
 			Namespace: instance.Namespace,
@@ -102,5 +103,7 @@ func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string
 				},
 			},
 		},
-	}, nil
+	}
+	utils.SetProxyEnvs(dep)
+	return dep, nil
 }

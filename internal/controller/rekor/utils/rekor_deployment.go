@@ -6,6 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/constants"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -124,7 +125,7 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 	//TODO mount additional ENV variables and secrets to enable cloud KMS service
 
 	replicas := int32(1)
-	return &apps.Deployment{
+	dep := &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpName,
 			Namespace: instance.Namespace,
@@ -193,5 +194,7 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 				Type: "Recreate",
 			},
 		},
-	}, nil
+	}
+	utils.SetProxyEnvs(dep)
+	return dep, nil
 }
