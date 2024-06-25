@@ -83,6 +83,8 @@ CONTAINER_TOOL ?= docker
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
+OPENSHIFT ?= true
+
 .PHONY: all
 all: build
 
@@ -206,6 +208,9 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
+	@if [ "$(OPENSHIFT)" == "false" ]; then \
+		$(KUBECTL) patch deploy -n openshift-rhtas-operator -p '{"spec": {"template": {"spec": {"containers": [{"name": "manager","env": [{"name": "OPENSHIFT","value":"false"}]}]}}}}' rhtas-operator-controller-manager; \
+	fi
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.

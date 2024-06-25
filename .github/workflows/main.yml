@@ -26,6 +26,15 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
       - name: Remove rhel9 suffix from images.go
         uses: jacobtomlinson/gha-find-replace@v3
         with:
@@ -109,7 +118,7 @@ jobs:
         run: cat internal/controller/constants/images.go
 
       - name: Build operator container
-        run: IMG=ttl.sh/securesign/secure-sign-operator:1h make docker-build docker-push
+        run: IMG=ttl.sh/securesign/secure-sign-operator-${GITHUB_SHA}:1h make docker-build docker-push
 
   test-kind:
     name: Test kind deployment
@@ -123,7 +132,16 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
-            
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go- 
+
       - name: Log in to registry.redhat.io
         uses: redhat-actions/podman-login@9184318aae1ee5034fbfbacc0388acf12669171f # v1
         with:
@@ -147,7 +165,8 @@ jobs:
           kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
 
       - name: Deploy operator container
-        run: IMG=ttl.sh/securesign/secure-sign-operator:1h make deploy
+        run: |
+          IMG=ttl.sh/securesign/secure-sign-operator-${GITHUB_SHA}:1h OPENSHIFT=false make deploy
 
       - name: Wait for operator to be ready
         run: | 
@@ -227,6 +246,15 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
       - name: Install eksctl
         run: |
           ARCH=amd64
@@ -252,7 +280,7 @@ jobs:
           kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/aws/deploy.yaml
 
       - name: Deploy operator container
-        run: IMG=ttl.sh/securesign/secure-sign-operator:1h make deploy
+        run: IMG=ttl.sh/securesign/secure-sign-operator-${GITHUB_SHA}:1h make deploy
 
       - name: Wait for operator to be ready
         run: | 

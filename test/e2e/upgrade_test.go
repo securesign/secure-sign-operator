@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -51,6 +52,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		rtuf                                   *tasv1alpha.Tuf
 		oidcToken                              string
 		prevImageName, newImageName            string
+		openshift                              bool
 	)
 
 	AfterEach(func() {
@@ -79,6 +81,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 
 		baseCatalogImage = os.Getenv("TEST_BASE_CATALOG")
 		targetedCatalogImage = os.Getenv("TEST_TARGET_CATALOG")
+		openshift, _ = strconv.ParseBool(os.Getenv("OPENSHIFT"))
 
 		namespace = support.CreateTestNamespace(ctx, cli)
 		DeferCleanup(func() {
@@ -130,6 +133,14 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 				CatalogSourceNamespace: namespace.Name,
 				Package:                "rhtas-operator",
 				Channel:                "stable",
+				Config: &v1alpha1.SubscriptionConfig{
+					Env: []v1.EnvVar{
+						{
+							Name:  "OPENSHIFT",
+							Value: strconv.FormatBool(openshift),
+						},
+					},
+				},
 			},
 			Status: v1alpha1.SubscriptionStatus{},
 		}
