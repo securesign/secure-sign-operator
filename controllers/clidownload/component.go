@@ -60,7 +60,7 @@ func (c *Component) Start(ctx context.Context) error {
 	}
 	obj = append(obj, ingress)
 
-	if kubernetes.IsOpenShift(c.Client) {
+	if kubernetes.IsOpenShift() {
 		protocol := "http://"
 		if len(ingress.Spec.TLS) > 0 {
 			protocol = "https://"

@@ -31,6 +31,15 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
       - name: Log in to registry.redhat.io
         uses: redhat-actions/podman-login@9184318aae1ee5034fbfbacc0388acf12669171f # v1
         with:
@@ -223,5 +232,5 @@ jobs:
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.2.2
 
       - name: Run tests
-        run: TEST_BASE_CATALOG=registry.redhat.io/redhat/redhat-operator-index:v4.14 TEST_TARGET_CATALOG=$CATALOG_IMG go test ./e2e/... -tags=upgrade -timeout 20m
+        run: TEST_BASE_CATALOG=registry.redhat.io/redhat/redhat-operator-index:v4.14 TEST_TARGET_CATALOG=$CATALOG_IMG OPENSHIFT=false go test ./e2e/... -tags=upgrade -timeout 20m
 
