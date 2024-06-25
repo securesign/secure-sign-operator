@@ -11,6 +11,10 @@ import (
 // +kubebuilder:validation:XValidation:rule=(!has(self.publicKeyRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
 // +kubebuilder:validation:XValidation:rule=(!has(self.privateKeyPasswordRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
 type CTlogSpec struct {
+	// Define whether you want to use external CTlog service
+	//+optional
+	ExternalCtlog ExternalCtlog `json:"externalCtlog,omitempty"`
+
 	// The ID of a Trillian tree that stores the log data.
 	// If it is unset, the operator will create new Merkle tree in the Trillian backend
 	//+optional
@@ -37,6 +41,12 @@ type CTlogSpec struct {
 
 	//Enable Service monitors for ctlog
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
+}
+type ExternalCtlog struct {
+	// If set to true, the Operator will use external CTlog service for fulcio.
+	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
+	//+kubebuilder:default:=false
+	Enabled bool `json:"enabled"`
 }
 
 // CTlogStatus defines the observed state of CTlog component

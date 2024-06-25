@@ -22,6 +22,9 @@ import (
 
 // TrillianSpec defines the desired state of Trillian
 type TrillianSpec struct {
+	// Define whether you want to export service or not
+	//+optional
+	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
 	// Define your database connection
 	//+kubebuilder:validation:XValidation:rule=((!self.create && self.databaseSecretRef != null) || self.create),message=databaseSecretRef cannot be empty
 	//+kubebuilder:default:={create: true, pvc: {size: "5Gi", retain: true}}

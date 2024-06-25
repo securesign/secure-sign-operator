@@ -3,10 +3,11 @@ package kubernetes
 import (
 	"context"
 	"fmt"
-	"github.com/securesign/operator/internal/controller/constants"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/securesign/operator/internal/controller/constants"
 
 	v13 "github.com/openshift/api/operator/v1"
 	"k8s.io/apimachinery/pkg/types"

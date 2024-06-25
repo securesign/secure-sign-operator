@@ -16,8 +16,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-const serverPort = 8091
-
 func NewDeployAction() action.Action[rhtasv1alpha1.Trillian] {
 	return &deployAction{}
 }

@@ -34,6 +34,19 @@ type TrillianService struct {
 	Port *int32 `json:"port,omitempty"`
 }
 
+// CtlogService configuration to connect Ctlog server
+type CtlogService struct {
+	// Address to Ctlog Log Server End point
+	//+optional
+	Address string `json:"address,omitempty"`
+	// Port of Ctlog Log Server End point
+	//+kubebuilder:validation:Minimum:=1
+	//+kubebuilder:validation:Maximum:=65535
+	//+kubebuilder:default:=6963
+	//+optional
+	Port *int32 `json:"port,omitempty"`
+}
+
 // LocalObjectReference contains enough information to let you locate the
 // referenced object inside the same namespace.
 // +structType=atomic

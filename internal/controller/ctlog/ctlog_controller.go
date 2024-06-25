@@ -82,22 +82,27 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return reconcile.Result{}, err
 	}
 	target := instance.DeepCopy()
-	acs := []action.Action[rhtasv1alpha1.CTlog]{
-		actions.NewPendingAction(),
 
-		actions.NewHandleFulcioCertAction(),
-		actions.NewHandleKeysAction(),
-		actions.NewCreateTrillianTreeAction(),
-		actions.NewServerConfigAction(),
+	// If instance.Spec.ExternalCtlog.Enabled, Ctlog shouldn't be deployed.
+	acs := []action.Action[rhtasv1alpha1.CTlog]{}
+	if !instance.Spec.ExternalCtlog.Enabled {
+		acs = []action.Action[rhtasv1alpha1.CTlog]{
+			actions.NewPendingAction(),
 
-		actions.NewRBACAction(),
-		actions.NewDeployAction(),
-		actions.NewServiceAction(),
-		actions.NewCreateMonitorAction(),
+			actions.NewHandleFulcioCertAction(),
+			actions.NewHandleKeysAction(),
+			actions.NewCreateTrillianTreeAction(),
+			actions.NewServerConfigAction(),
 
-		actions.NewToInitializeAction(),
+			actions.NewRBACAction(),
+			actions.NewDeployAction(),
+			actions.NewServiceAction(),
+			actions.NewCreateMonitorAction(),
 
-		actions.NewInitializeAction(),
+			actions.NewToInitializeAction(),
+
+			actions.NewInitializeAction(),
+		}
 	}
 
 	for _, a := range acs {

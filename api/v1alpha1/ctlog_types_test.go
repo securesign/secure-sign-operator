@@ -42,6 +42,36 @@ var _ = Describe("CTlog", func() {
 			Expect(k8sClient.Get(context.Background(), getKey(created), created)).ToNot(Succeed())
 		})
 
+		When("changing External Ctlog setting", func() {
+			It("enabled false->true", func() {
+				created := generateCTlogObject("ctlog-access-1")
+				created.Spec.ExternalCtlog.Enabled = false
+				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
+
+				fetched := &CTlog{}
+				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+				Expect(fetched).To(Equal(created))
+
+				fetched.Spec.ExternalCtlog.Enabled = true
+				Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
+			})
+
+			It("enabled true->false", func() {
+				created := generateCTlogObject("ctlog-access-2")
+				created.Spec.ExternalCtlog.Enabled = true
+				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
+
+				fetched := &CTlog{}
+				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+				Expect(fetched).To(Equal(created))
+
+				fetched.Spec.ExternalCtlog.Enabled = false
+				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), fetched))).To(BeTrue())
+				Expect(k8sClient.Update(context.Background(), fetched)).
+					To(MatchError(ContainSubstring("Feature cannot be disabled")))
+			})
+		})
+
 		Context("is validated", func() {
 			It("public key", func() {
 				invalidObject := generateCTlogObject("public-key-invalid")
@@ -129,6 +159,9 @@ var _ = Describe("CTlog", func() {
 										Name: "name",
 									},
 								},
+							},
+							ExternalCtlog: ExternalCtlog{
+								Enabled: true,
 							},
 						},
 					}

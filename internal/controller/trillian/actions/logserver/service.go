@@ -17,10 +17,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-const (
-	monitoringPort = 8090
-)
-
 func NewCreateServiceAction() action.Action[rhtasv1alpha1.Trillian] {
 	return &createServiceAction{}
 }
@@ -46,14 +42,14 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	)
 
 	labels := constants.LabelsFor(actions.LogServerComponentName, actions.LogserverDeploymentName, instance.Name)
-	logserverService := k8sutils.CreateService(instance.Namespace, actions.LogserverDeploymentName, serverPort, labels)
+	logserverService := k8sutils.CreateService(instance.Namespace, actions.LogserverDeploymentName, actions.ServerPortName, actions.ServerPort, labels)
 
 	if instance.Spec.Monitoring.Enabled {
 		logserverService.Spec.Ports = append(logserverService.Spec.Ports, corev1.ServicePort{
 			Name:       actions.LogServerMonitoringName,
 			Protocol:   corev1.ProtocolTCP,
-			Port:       int32(monitoringPort),
-			TargetPort: intstr.FromInt(monitoringPort),
+			Port:       int32(actions.MonitoringPort),
+			TargetPort: intstr.FromInt(actions.MonitoringPort),
 		})
 	}
 

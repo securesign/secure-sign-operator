@@ -118,7 +118,7 @@ var _ = Describe("Rekor hot update test", func() {
 			}).Should(Succeed())
 
 			By("Move to CreatingPhase by creating trillian service")
-			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, 8091, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
+			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
 
 			By("Waiting until Rekor instance is Initialization")
 			Eventually(func() string {

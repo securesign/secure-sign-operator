@@ -59,6 +59,20 @@ spec:
               ctlog:
                 description: CTlogSpec defines the desired state of CTlog component
                 properties:
+                  externalCtlog:
+                    description: Define whether you want to use external CTlog service
+                    properties:
+                      enabled:
+                        default: false
+                        description: If set to true, the Operator will use external
+                          CTlog service for fulcio.
+                        type: boolean
+                        x-kubernetes-validations:
+                        - message: Feature cannot be disabled
+                          rule: (self || !oldSelf)
+                    required:
+                    - enabled
+                    type: object
                   monitoring:
                     description: Enable Service monitors for ctlog
                     properties:
@@ -342,6 +356,22 @@ spec:
                         defined
                       rule: (has(self.OIDCIssuers) && (size(self.OIDCIssuers) > 0))
                         || (has(self.MetaIssuers) && (size(self.MetaIssuers) > 0))
+                  ctlog:
+                    default:
+                      port: 6963
+                    description: Ctlog service configuration
+                    properties:
+                      address:
+                        description: Address to Ctlog Log Server End point
+                        type: string
+                      port:
+                        default: 6963
+                        description: Port of Ctlog Log Server End point
+                        format: int32
+                        maximum: 65535
+                        minimum: 1
+                        type: integer
+                    type: object
                   externalAccess:
                     description: Define whether you want to export service or not
                     properties:
@@ -648,6 +678,24 @@ spec:
                     x-kubernetes-validations:
                     - message: databaseSecretRef cannot be empty
                       rule: ((!self.create && self.databaseSecretRef != null) || self.create)
+                  externalAccess:
+                    description: Define whether you want to export service or not
+                    properties:
+                      enabled:
+                        default: false
+                        description: |-
+                          If set to true, the Operator will create an Ingress or a Route resource.
+                          For the plain Ingress there is no TLS configuration provided Route object uses "edge" termination by default.
+                        type: boolean
+                        x-kubernetes-validations:
+                        - message: Feature cannot be disabled
+                          rule: (self || !oldSelf)
+                      host:
+                        description: Set hostname for your Ingress/Route.
+                        type: string
+                    required:
+                    - enabled
+                    type: object
                   monitoring:
                     description: Enable Monitoring for Logsigner and Logserver
                     properties:

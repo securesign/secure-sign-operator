@@ -40,7 +40,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	)
 
 	labels := constants.LabelsFor(actions.RedisComponentName, actions.RedisDeploymentName, instance.Name)
-	svc := k8sutils.CreateService(instance.Namespace, actions.RedisDeploymentName, 6379, labels)
+	svc := k8sutils.CreateService(instance.Namespace, actions.RedisDeploymentName, actions.RedisDeploymentName, 6379, labels)
 
 	if err = controllerutil.SetControllerReference(instance, svc, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Redis service: %w", err))

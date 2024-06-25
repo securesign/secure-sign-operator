@@ -42,7 +42,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	)
 
 	labels := constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
-	svc := k8sutils.CreateService(instance.Namespace, actions.ServerDeploymentName, 2112, labels)
+	svc := k8sutils.CreateService(instance.Namespace, actions.ServerDeploymentName, actions.ServerDeploymentName, 2112, labels)
 	svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
 		Name:       "80-tcp",
 		Protocol:   corev1.ProtocolTCP,
