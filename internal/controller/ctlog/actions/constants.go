@@ -7,5 +7,7 @@ const (
 	MonitoringRoleName = "prometheus-k8s-ctlog"
 	ServerCondition    = "ServerAvailable"
 
-	CertCondition = "FulcioCertAvailable"
+	CertCondition   = "FulcioCertAvailable"
+	MetricsPortName = "metrics"
+	MetricsPort     = 6963
 )
