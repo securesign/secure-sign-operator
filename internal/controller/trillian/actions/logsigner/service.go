@@ -15,10 +15,6 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 )
 
-const (
-	monitoringPort = 8090
-)
-
 func NewCreateServiceAction() action.Action[rhtasv1alpha1.Trillian] {
 	return &createServiceAction{}
 }
@@ -44,7 +40,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	)
 
 	labels := constants.LabelsFor(actions.LogSignerComponentName, actions.LogsignerDeploymentName, instance.Name)
-	logsignerService := k8sutils.CreateService(instance.Namespace, actions.LogsignerDeploymentName, monitoringPort, labels)
+	logsignerService := k8sutils.CreateService(instance.Namespace, actions.LogsignerDeploymentName, actions.MonitoringPortName, actions.MonitoringPort, labels)
 
 	if err = controllerutil.SetControllerReference(instance, logsignerService, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for logsigner Service: %w", err))

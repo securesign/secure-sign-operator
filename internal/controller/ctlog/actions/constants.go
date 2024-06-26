@@ -8,4 +8,9 @@ const (
 	ServerCondition    = "ServerAvailable"
 
 	CertCondition = "FulcioCertAvailable"
+
+	PortName        = "http"
+	Port            = 80
+	MetricsPortName = "metrics"
+	MetricsPort     = 6963
 )

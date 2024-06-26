@@ -3,6 +3,7 @@ package clidownload
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	consolev1 "github.com/openshift/api/console/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -19,6 +20,8 @@ import (
 const (
 	cliServerNs        = "trusted-artifact-signer"
 	cliServerName      = "cli-server"
+	cliServerPortName  = "http"
+	cliServerPort      = 8080
 	cliServerComponent = "client-server"
 	sharedVolumeName   = "shared-data"
 	cliBinaryPath      = "/opt/app-root/src/clients/*"
@@ -51,7 +54,7 @@ func (c *Component) Start(ctx context.Context) error {
 
 	obj = append(obj, ns)
 	obj = append(obj, c.createDeployment(ns.Name, labels))
-	svc := kubernetes.CreateService(ns.Name, cliServerName, 8080, labels)
+	svc := kubernetes.CreateService(ns.Name, cliServerName, cliServerPortName, cliServerPort, labels)
 	obj = append(obj, svc)
 	ingress, err := kubernetes.CreateIngress(ctx, c.Client, *svc, rhtasv1alpha1.ExternalAccess{}, cliServerName, labels)
 	if err != nil {
