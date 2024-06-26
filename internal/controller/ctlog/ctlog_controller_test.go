@@ -123,7 +123,7 @@ var _ = Describe("CTlog controller", func() {
 			}).Should(Equal(constants.Pending))
 
 			By("Creating trillian service")
-			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, 8091, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
+			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
 			Eventually(func() string {
 				found := &v1alpha1.CTlog{}
 				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())

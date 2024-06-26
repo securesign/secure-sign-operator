@@ -196,7 +196,7 @@ var _ = Describe("TUF controller", func() {
 			}).Should(Succeed())
 			Expect(ingress.Spec.Rules[0].Host).Should(Equal("tuf.localhost"))
 			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Name).Should(Equal(service.Name))
-			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Port.Name).Should(Equal("tuf"))
+			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Port.Name).Should(Equal(actions.PortName))
 
 			By("Checking the latest Status Condition added to the Tuf instance")
 			Eventually(func() error {

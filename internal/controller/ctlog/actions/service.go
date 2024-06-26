@@ -40,7 +40,7 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog
 
 	labels := constants.LabelsFor(ComponentName, ComponentName, instance.Name)
 
-	svc := kubernetes.CreateService(instance.Namespace, ComponentName, 6963, labels)
+	svc := kubernetes.CreateService(instance.Namespace, ComponentName, MetricsPortName, MetricsPort, labels)
 	svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
 		Name:       "80-tcp",
 		Protocol:   corev1.ProtocolTCP,

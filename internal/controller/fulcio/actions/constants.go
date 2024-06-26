@@ -8,4 +8,7 @@ const (
 	RBACName           = "fulcio"
 
 	CertCondition = "FulcioCertAvailable"
+
+	PortName = "metrics"
+	Port     = 2112
 )

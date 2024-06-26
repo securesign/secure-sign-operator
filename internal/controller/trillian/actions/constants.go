@@ -17,4 +17,9 @@ const (
 	DbCondition     = "DBAvailable"
 	ServerCondition = "LogServerAvailable"
 	SignerCondition = "LogSignerAvailable"
+
+	ServerPort         = 8091
+	ServerPortName     = "grpc"
+	MonitoringPort     = 8090
+	MonitoringPortName = "metrics"
 )
