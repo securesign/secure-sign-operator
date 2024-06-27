@@ -191,8 +191,8 @@ metadata:
         }
       ]
     capabilities: Seamless Upgrades
-    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:92729a45f59cb77a7dfcd9d7d1c6878d7991de19e1a8378c4af0720bfc70919f
-    createdAt: "2024-06-27T07:35:03Z"
+    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:5732ee2f19e5d23470def73a3939b6729a4a28081513e0b5f610d5dcb21ced71
+    createdAt: "2024-06-27T08:20:58Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -740,7 +740,7 @@ spec:
                 env:
                 - name: OPENSHIFT
                   value: "true"
-                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:92729a45f59cb77a7dfcd9d7d1c6878d7991de19e1a8378c4af0720bfc70919f
+                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:5732ee2f19e5d23470def73a3939b6729a4a28081513e0b5f610d5dcb21ced71
                 livenessProbe:
                   httpGet:
                     path: /healthz
