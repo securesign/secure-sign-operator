@@ -205,10 +205,6 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 						OrganizationEmail: "my@email.org",
 						CommonName:        "fulcio",
 					},
-					TLSCertificate: tasv1alpha.TLSCert{
-						CertRef:       &tasv1alpha.SecretKeySelector{Key: "key", LocalObjectReference: tasv1alpha.LocalObjectReference{Name: "name"}},
-						PrivateKeyRef: &tasv1alpha.SecretKeySelector{Key: "key", LocalObjectReference: tasv1alpha.LocalObjectReference{Name: "name"}},
-					},
 				},
 				Ctlog: tasv1alpha.CTlogSpec{},
 				Tuf: tasv1alpha.TufSpec{
