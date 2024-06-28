@@ -130,6 +130,16 @@ var _ = Describe("CTlog", func() {
 									},
 								},
 							},
+							TLSCertificate: TLSCert{
+								CertRef: &SecretKeySelector{
+									Key:                  "cert",
+									LocalObjectReference: LocalObjectReference{Name: "secret"},
+								},
+								PrivateKeyRef: &SecretKeySelector{
+									Key:                  "key",
+									LocalObjectReference: LocalObjectReference{Name: "secret"},
+								},
+							},
 						},
 					}
 

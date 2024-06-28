@@ -37,6 +37,10 @@ type CTlogSpec struct {
 
 	//Enable Service monitors for ctlog
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
+
+	// Secret with TLS signed certificate
+	//+optional
+	TLSCertificate TLSCert `json:"tlsCertificate"`
 }
 
 // CTlogStatus defines the observed state of CTlog component
@@ -46,6 +50,7 @@ type CTlogStatus struct {
 	PrivateKeyPasswordRef *SecretKeySelector    `json:"privateKeyPasswordRef,omitempty"`
 	PublicKeyRef          *SecretKeySelector    `json:"publicKeyRef,omitempty"`
 	RootCertificates      []SecretKeySelector   `json:"rootCertificates,omitempty"`
+	TLSCertificate        *TLSCert              `json:"tlsCertificate,omitempty"`
 	// The ID of a Trillian tree that stores the log data.
 	TreeID *int64 `json:"treeID,omitempty"`
 	// +listType=map

@@ -77,3 +77,14 @@ type Pvc struct {
 	//+optional
 	StorageClass string `json:"storageClass,omitempty"`
 }
+
+// TLSCert defines fields for TLS certificate
+// +kubebuilder:validation:XValidation:rule=(!has(self.certRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
+type TLSCert struct {
+	// Reference to the private key
+	//+optional
+	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+	// Reference to certificate
+	//+optional
+	CertRef *SecretKeySelector `json:"certRef,omitempty"`
+}

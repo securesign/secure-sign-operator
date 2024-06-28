@@ -153,6 +153,49 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     type: array
+                  tlsCertificate:
+                    description: Secret with TLS signed certificate
+                    properties:
+                      certRef:
+                        description: Reference to certificate
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      privateKeyRef:
+                        description: Reference to the private key
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
+                    x-kubernetes-validations:
+                    - message: privateKeyRef cannot be empty
+                      rule: (!has(self.certRef) || has(self.privateKeyRef))
                   treeID:
                     description: |-
                       The ID of a Trillian tree that stores the log data.
@@ -374,6 +417,49 @@ spec:
                     required:
                     - enabled
                     type: object
+                  tlsCertificate:
+                    description: Secret with TLS signed certificate
+                    properties:
+                      certRef:
+                        description: Reference to certificate
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      privateKeyRef:
+                        description: Reference to the private key
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
+                    x-kubernetes-validations:
+                    - message: privateKeyRef cannot be empty
+                      rule: (!has(self.certRef) || has(self.privateKeyRef))
                   trustedCA:
                     description: ConfigMap with additional bundle of trusted CA
                     properties:

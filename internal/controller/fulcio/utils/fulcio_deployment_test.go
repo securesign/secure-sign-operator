@@ -123,6 +123,16 @@ func createInstance() *v1alpha1.Fulcio {
 					LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
 				},
 			},
+			TLSCertificate: &v1alpha1.TLSCert{
+				CertRef: &v1alpha1.SecretKeySelector{
+					Key:                  "cert",
+					LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
+				},
+				PrivateKeyRef: &v1alpha1.SecretKeySelector{
+					Key:                  "key",
+					LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
+				},
+			},
 		},
 	}
 }

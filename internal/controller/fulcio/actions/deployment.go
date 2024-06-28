@@ -6,8 +6,10 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
+	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	futils "github.com/securesign/operator/internal/controller/fulcio/utils"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -48,6 +50,73 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 			})
 			return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could create server Deployment: %w", err), instance)
 		}
+	}
+	// TLS certificate
+	signingKeySecret, _ := k8sutils.GetSecret(i.Client, "openshift-service-ca", "signing-key")
+	if instance.Spec.TLSCertificate.CertRef != nil {
+		dp.Spec.Template.Spec.Volumes = append(dp.Spec.Template.Spec.Volumes,
+			corev1.Volume{
+				Name: "tls-cert",
+				VolumeSource: corev1.VolumeSource{
+					Projected: &corev1.ProjectedVolumeSource{
+						Sources: []corev1.VolumeProjection{
+							{
+								Secret: &corev1.SecretProjection{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: instance.Spec.TLSCertificate.CertRef.Name,
+									},
+									Items: []corev1.KeyToPath{
+										{
+											Key:  instance.Spec.TLSCertificate.CertRef.Key,
+											Path: "tls.crt",
+										},
+									},
+								},
+							},
+							{
+								Secret: &corev1.SecretProjection{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: instance.Spec.TLSCertificate.PrivateKeyRef.Name,
+									},
+									Items: []corev1.KeyToPath{
+										{
+											Key:  instance.Spec.TLSCertificate.PrivateKeyRef.Key,
+											Path: "tls.key",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			})
+
+		dp.Spec.Template.Spec.Containers[0].VolumeMounts = append(dp.Spec.Template.Spec.Containers[0].VolumeMounts,
+			corev1.VolumeMount{
+				Name:      "tls-cert",
+				MountPath: "/etc/ssl/certs",
+				ReadOnly:  true,
+			})
+	} else if signingKeySecret != nil {
+		i.Logger.V(1).Info("TLS: Using secrets/signing-key secret")
+		dp.Spec.Template.Spec.Volumes = append(dp.Spec.Template.Spec.Volumes,
+			corev1.Volume{
+				Name: "tls-cert",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: instance.Name + "-tls-secret",
+					},
+				},
+			})
+
+		dp.Spec.Template.Spec.Containers[0].VolumeMounts = append(dp.Spec.Template.Spec.Containers[0].VolumeMounts,
+			corev1.VolumeMount{
+				Name:      "tls-cert",
+				MountPath: "/etc/ssl/certs",
+				ReadOnly:  true,
+			})
+	} else {
+		i.Logger.V(1).Info("Communication between services is insecure")
 	}
 
 	if err = controllerutil.SetControllerReference(instance, dp, i.Client.Scheme()); err != nil {

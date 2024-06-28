@@ -98,6 +98,10 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 							Key: "cert",
 						},
 					},
+					TLSCertificate: v1alpha1.TLSCert{
+						CertRef:       &v1alpha1.SecretKeySelector{Key: "key", LocalObjectReference: v1alpha1.LocalObjectReference{Name: "name"}},
+						PrivateKeyRef: &v1alpha1.SecretKeySelector{Key: "key", LocalObjectReference: v1alpha1.LocalObjectReference{Name: "name"}},
+					},
 				},
 				Ctlog: v1alpha1.CTlogSpec{
 					PrivateKeyRef: &v1alpha1.SecretKeySelector{

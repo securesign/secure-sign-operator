@@ -109,6 +109,10 @@ var _ = Describe("Fulcio hot update", func() {
 							OrganizationEmail: "my@email.com",
 							CommonName:        "local",
 						},
+						TLSCertificate: v1alpha1.TLSCert{
+							CertRef:       &v1alpha1.SecretKeySelector{Key: "key", LocalObjectReference: v1alpha1.LocalObjectReference{Name: "name"}},
+							PrivateKeyRef: &v1alpha1.SecretKeySelector{Key: "key", LocalObjectReference: v1alpha1.LocalObjectReference{Name: "name"}},
+						},
 						Monitoring: v1alpha1.MonitoringConfig{Enabled: false},
 					},
 				}

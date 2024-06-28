@@ -208,6 +208,10 @@ var _ = Describe("Fulcio", func() {
 								PrivateKeyRef:         &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
 								PrivateKeyPasswordRef: &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
 							},
+							TLSCertificate: TLSCert{
+								CertRef:       &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
+								PrivateKeyRef: &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
+							},
 						},
 					}
 
@@ -254,6 +258,16 @@ func generateFulcioObject(name string) *Fulcio {
 			Certificate: FulcioCert{
 				CommonName:       "hostname",
 				OrganizationName: "organization",
+			},
+			TLSCertificate: TLSCert{
+				CertRef: &SecretKeySelector{
+					Key:                  "cert",
+					LocalObjectReference: LocalObjectReference{Name: "secret"},
+				},
+				PrivateKeyRef: &SecretKeySelector{
+					Key:                  "key",
+					LocalObjectReference: LocalObjectReference{Name: "secret"},
+				},
 			},
 		},
 	}

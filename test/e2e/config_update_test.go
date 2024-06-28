@@ -83,6 +83,10 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 						OrganizationEmail: "my@email.org",
 						CommonName:        "fulcio",
 					},
+					TLSCertificate: v1alpha1.TLSCert{
+						CertRef:       &v1alpha1.SecretKeySelector{Key: "key", LocalObjectReference: v1alpha1.LocalObjectReference{Name: "name"}},
+						PrivateKeyRef: &v1alpha1.SecretKeySelector{Key: "key", LocalObjectReference: v1alpha1.LocalObjectReference{Name: "name"}},
+					},
 				},
 				Ctlog: v1alpha1.CTlogSpec{},
 				Tuf: v1alpha1.TufSpec{

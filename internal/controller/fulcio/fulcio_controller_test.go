@@ -116,6 +116,10 @@ var _ = Describe("Fulcio controller", func() {
 								Key: "password",
 							},
 						},
+						TLSCertificate: v1alpha1.TLSCert{
+							CertRef:       &v1alpha1.SecretKeySelector{Key: "key", LocalObjectReference: v1alpha1.LocalObjectReference{Name: "name"}},
+							PrivateKeyRef: &v1alpha1.SecretKeySelector{Key: "key", LocalObjectReference: v1alpha1.LocalObjectReference{Name: "name"}},
+						},
 						Monitoring: v1alpha1.MonitoringConfig{Enabled: false},
 						TrustedCA: &v1alpha1.LocalObjectReference{
 							Name: "trusted-ca-bundle",
