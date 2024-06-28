@@ -41,5 +41,11 @@ spec:
       - name: fulcio_v1.crt.pem
   ctlog:
   tsa:
+    signer:
+      type: file
+      certificateChain:
+        organizationName: Red Hat
+        organizationEmail: jdoe@redhat.com
+        commonName: tsa.hostname
     externalAccess:
-      enabled: true   
+      enabled: true
