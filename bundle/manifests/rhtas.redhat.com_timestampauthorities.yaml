@@ -58,6 +58,165 @@ spec:
                 required:
                 - enabled
                 type: object
+              signer:
+                description: Signer configuration
+                properties:
+                  certificateChain:
+                    description: Configuration for the Certificate Chain
+                    properties:
+                      certificateChainRef:
+                        description: Reference to the certificate chain
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      commonName:
+                        description: |-
+                          CommonName specifies the common name for the TimeStampAuthorities cert chain.
+                          If not provided, the common name will default to the host name.
+                        type: string
+                      interPasswordRef:
+                        description: Password to decrypt the signer's Intermediate
+                          private key
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      interPrivateKeyRef:
+                        description: Reference to the signer's Intermediate private
+                          key
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      organizationEmail:
+                        description: Organization Email specifies the Organization
+                          Email for the TimeStampAuthorities cert chain.
+                        type: string
+                      organizationName:
+                        description: OrganizationName specifies the Organization Name
+                          for the TimeStampAuthorities cert chain.
+                        type: string
+                      rootPasswordRef:
+                        description: Password to decrypt the signer's root private
+                          key
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      rootPrivateKeyRef:
+                        description: Reference to the signer's root private key
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
+                  fileSigner:
+                    description: Configuration for file-based signer
+                    properties:
+                      passwordRef:
+                        description: Password to decrypt the signer's root private
+                          key
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      privateKeyRef:
+                        description: Reference to the signer's root private key
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
+                  type:
+                    description: 'Timestamping authority signer. Valid options include:
+                      [kms, tink, file].'
+                    type: string
+                type: object
             type: object
           status:
             description: TimestampAuthorityStatus defines the observed state of TimestampAuthority
@@ -134,6 +293,164 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              signer:
+                properties:
+                  certificateChain:
+                    description: Configuration for the Certificate Chain
+                    properties:
+                      certificateChainRef:
+                        description: Reference to the certificate chain
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      commonName:
+                        description: |-
+                          CommonName specifies the common name for the TimeStampAuthorities cert chain.
+                          If not provided, the common name will default to the host name.
+                        type: string
+                      interPasswordRef:
+                        description: Password to decrypt the signer's Intermediate
+                          private key
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      interPrivateKeyRef:
+                        description: Reference to the signer's Intermediate private
+                          key
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      organizationEmail:
+                        description: Organization Email specifies the Organization
+                          Email for the TimeStampAuthorities cert chain.
+                        type: string
+                      organizationName:
+                        description: OrganizationName specifies the Organization Name
+                          for the TimeStampAuthorities cert chain.
+                        type: string
+                      rootPasswordRef:
+                        description: Password to decrypt the signer's root private
+                          key
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      rootPrivateKeyRef:
+                        description: Reference to the signer's root private key
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
+                  fileSigner:
+                    description: Configuration for file-based signer
+                    properties:
+                      passwordRef:
+                        description: Password to decrypt the signer's root private
+                          key
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      privateKeyRef:
+                        description: Reference to the signer's root private key
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
+                  type:
+                    description: 'Timestamping authority signer. Valid options include:
+                      [kms, tink, file].'
+                    type: string
+                type: object
               url:
                 type: string
             type: object

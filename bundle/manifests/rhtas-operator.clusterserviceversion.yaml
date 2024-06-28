@@ -121,6 +121,14 @@ metadata:
             "tsa": {
               "externalAccess": {
                 "enabled": true
+              },
+              "signer": {
+                "certificateChain": {
+                  "commonName": "tsa.hostname",
+                  "organizationEmail": "jdoe@redhat.com",
+                  "organizationName": "Red Hat"
+                },
+                "type": "file"
               }
             },
             "tuf": {

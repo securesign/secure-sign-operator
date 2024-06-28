@@ -33,5 +33,11 @@ func (i toPending) Handle(ctx context.Context, instance *rhtasv1alpha1.Timestamp
 			Status: metav1.ConditionFalse,
 			Reason: constants.Pending})
 
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:   CertChainCondition,
+		Status: metav1.ConditionUnknown,
+		Reason: constants.Pending,
+	})
+
 	return i.StatusUpdate(ctx, instance)
 }
