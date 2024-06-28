@@ -72,6 +72,7 @@ func (r *TimestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 	target := instance.DeepCopy()
 	actions := []action.Action[rhtasv1alpha1.TimestampAuthority]{
 		actions.NewToPendingPhaseAction(),
+		actions.NewHandleCertsAction(),
 		actions.NewToCreatePhaseAction(),
 		actions.NewRBACAction(),
 		actions.NewDeployAction(),
