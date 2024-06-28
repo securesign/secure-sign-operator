@@ -206,8 +206,8 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 						CommonName:        "fulcio",
 					},
 					TLSCertificate: tasv1alpha.TLSCert{
-						CertRef:       &v1alpha1.SecretKeySelector{Key: "key", LocalObjectReference: v1alpha1.LocalObjectReference{Name: "name"}},
-						PrivateKeyRef: &v1alpha1.SecretKeySelector{Key: "key", LocalObjectReference: v1alpha1.LocalObjectReference{Name: "name"}},
+						CertRef:       &tasv1alpha.SecretKeySelector{Key: "key", LocalObjectReference: tasv1alpha.LocalObjectReference{Name: "name"}},
+						PrivateKeyRef: &tasv1alpha.SecretKeySelector{Key: "key", LocalObjectReference: tasv1alpha.LocalObjectReference{Name: "name"}},
 					},
 				},
 				Ctlog: tasv1alpha.CTlogSpec{},
