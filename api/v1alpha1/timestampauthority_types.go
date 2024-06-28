@@ -24,11 +24,61 @@ import (
 type TimestampAuthoritySpec struct {
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
+	// Signer configuration
+	Signer TimestampAuthoritySigner `json:"signer,omitempty"`
+}
+
+type TimestampAuthoritySigner struct {
+	// Timestamping authority signer. Valid options include: [kms, tink, file].
+	Type string `json:"type,omitempty"`
+	// Configuration for the Certificate Chain
+	CertificateChain CertificateChain `json:"certificateChain,omitempty"`
+	// Configuration for file-based signer
+	//+optional
+	FileSigner FileSigner `json:"fileSigner,omitempty"`
+}
+
+type CertificateChain struct {
+	// CommonName specifies the common name for the TimeStampAuthorities cert chain.
+	// If not provided, the common name will default to the host name.
+	//+optional
+	CommonName string `json:"commonName,omitempty"`
+	//+optional
+	//OrganizationName specifies the Organization Name for the TimeStampAuthorities cert chain.
+	OrganizationName string `json:"organizationName,omitempty"`
+	//+optional
+	//Organization Email specifies the Organization Email for the TimeStampAuthorities cert chain.
+	OrganizationEmail string `json:"organizationEmail,omitempty"`
+	//Reference to the certificate chain
+	//+optional
+	CertificateChainRef *SecretKeySelector `json:"certificateChainRef,omitempty"`
+	// Password to decrypt the signer's root private key
+	//+optional
+	RootPasswordRef *SecretKeySelector `json:"rootPasswordRef,omitempty"`
+	// Reference to the signer's root private key
+	//+optional
+	RootPrivateKeyRef *SecretKeySelector `json:"rootPrivateKeyRef,omitempty"`
+	// Password to decrypt the signer's Intermediate private key
+	//+optional
+	InterPasswordRef *SecretKeySelector `json:"interPasswordRef,omitempty"`
+	// Reference to the signer's Intermediate private key
+	//+optional
+	InterPrivateKeyRef *SecretKeySelector `json:"interPrivateKeyRef,omitempty"`
+}
+
+type FileSigner struct {
+	// Password to decrypt the signer's root private key
+	//+optional
+	PasswordRef *SecretKeySelector `json:"passwordRef,omitempty"`
+	// Reference to the signer's root private key
+	//+optional
+	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
 }
 
 // TimestampAuthorityStatus defines the observed state of TimestampAuthority
 type TimestampAuthorityStatus struct {
-	Url string `json:"url,omitempty"`
+	Signer *TimestampAuthoritySigner `json:"signer,omitempty"`
+	Url    string                    `json:"url,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge

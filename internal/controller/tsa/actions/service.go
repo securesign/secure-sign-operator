@@ -37,7 +37,7 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Times
 	)
 
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
-	svc := kubernetes.CreateService(instance.Namespace, DeploymentName, 3000, labels)
+	svc := kubernetes.CreateService(instance.Namespace, DeploymentName, DeploymentName, 3000, labels)
 	if err = controllerutil.SetControllerReference(instance, svc, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Service: %w", err))
 	}

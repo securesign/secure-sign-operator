@@ -23,5 +23,5 @@ var (
 	ClientServerImage_cg    = "registry.redhat.io/rhtas/client-server-cg-rhel9@sha256:046029a9a2028efa9dcbf8eff9b41fe5ac4e9ad64caf0241f5680a5cb36bf36b"
 	ClientServerImage_re    = "registry.redhat.io/rhtas/client-server-re-rhel9@sha256:7254f4c94182d21159162ea850e1ed14332fa5dee987103d54e7e4096a6fea31"
 	SegmentBackupImage      = "registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:54be793ea9e2af996e5e5c6f9156ee02d5d915adb53b4ab028cb3030f64b1496"
-	TimestampAuthorityImage = "quay.io/redhat-user-workloads/rhtas-tenant/timestamp-authority/timestamp-authority-release-next@sha256:83a574fd857e7f1b21d46189e55c8e5b7c9b452a046f46733bc9283fd05aefa7"
+	TimestampAuthorityImage = "quay.io/redhat-user-workloads/rhtas-tenant/timestamp-authority/timestamp-authority@sha256:a13834438c2b7f9441535783880daa01e1cdb1f26255311352b38ebbb154abac"
 )
