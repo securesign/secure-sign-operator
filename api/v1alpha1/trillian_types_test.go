@@ -51,6 +51,36 @@ var _ = Describe("Trillian", func() {
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 		})
 
+		When("changing external access setting", func() {
+			It("enabled false->true", func() {
+				created := generateTrillianObject("trillian-access-1")
+				created.Spec.ExternalAccess.Enabled = false
+				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
+
+				fetched := &Trillian{}
+				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+				Expect(fetched).To(Equal(created))
+
+				fetched.Spec.ExternalAccess.Enabled = true
+				Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
+			})
+
+			It("enabled true->false", func() {
+				created := generateTrillianObject("trillian-access-2")
+				created.Spec.ExternalAccess.Enabled = true
+				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
+
+				fetched := &Trillian{}
+				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+				Expect(fetched).To(Equal(created))
+
+				fetched.Spec.ExternalAccess.Enabled = false
+				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), fetched))).To(BeTrue())
+				Expect(k8sClient.Update(context.Background(), fetched)).
+					To(MatchError(ContainSubstring("Feature cannot be disabled")))
+			})
+		})
+
 		Context("is validated", func() {
 			It("immutable database create", func() {
 				validObject := generateTrillianObject("immutable-create")
