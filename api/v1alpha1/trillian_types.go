@@ -26,6 +26,10 @@ type TrillianSpec struct {
 	//+kubebuilder:validation:XValidation:rule=((!self.create && self.databaseSecretRef != null) || self.create),message=databaseSecretRef cannot be empty
 	//+kubebuilder:default:={create: true, pvc: {size: "5Gi", retain: true}}
 	Db TrillianDB `json:"database,omitempty"`
+	//+optional
+	TrillianServer TrillianServer `json:"server,omitempty"`
+	//+optional
+	TrillianSigner TrillianSigner `json:"signer,omitempty"`
 	// Enable Monitoring for Logsigner and Logserver
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
 }
@@ -48,9 +52,23 @@ type TrillianDB struct {
 	Pvc Pvc `json:"pvc,omitempty"`
 }
 
+type TrillianServer struct {
+	// Secret with TLS server certificate and private key
+	//+optional
+	TLSCertificate TLSCert `json:"tlsCertificate"`
+}
+
+type TrillianSigner struct {
+	// Secret with TLS server certificate and private key
+	//+optional
+	TLSCertificate TLSCert `json:"tlsCertificate"`
+}
+
 // TrillianStatus defines the observed state of Trillian
 type TrillianStatus struct {
-	Db TrillianDB `json:"database,omitempty"`
+	Db             TrillianDB     `json:"database,omitempty"`
+	TrillianServer TrillianServer `json:"server,omitempty"`
+	TrillianSigner TrillianSigner `json:"signer,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge

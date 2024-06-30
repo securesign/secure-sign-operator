@@ -21,7 +21,7 @@ type FulcioSpec struct {
 	// ConfigMap with additional bundle of trusted CA
 	//+optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
-	// Secret with TLS signed certificate
+	// Secret with TLS server certificates and private key
 	//+optional
 	TLSCertificate TLSCert `json:"tlsCertificate"`
 }

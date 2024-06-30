@@ -87,4 +87,7 @@ type TLSCert struct {
 	// Reference to certificate
 	//+optional
 	CertRef *SecretKeySelector `json:"certRef,omitempty"`
+	// Reference to CA certificate
+	//+optional
+	CACertRef *LocalObjectReference `json:"CACertRef,omitempty"`
 }

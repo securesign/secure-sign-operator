@@ -38,7 +38,7 @@ type CTlogSpec struct {
 	//Enable Service monitors for ctlog
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
 
-	// Secret with TLS signed certificate
+	// Secret with TLS server certificates and private key
 	//+optional
 	TLSCertificate TLSCert `json:"tlsCertificate"`
 }

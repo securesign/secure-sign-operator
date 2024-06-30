@@ -79,6 +79,7 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulci
 			return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not annotate service: %w", err), instance)
 		}
 	}
+
 	if updated {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
 			Status: metav1.ConditionFalse, Reason: constants.Creating, Message: "Service created"})

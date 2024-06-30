@@ -55,7 +55,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 
 	// TLS certificate
 	signingKeySecret, _ := k8sutils.GetSecret(i.Client, "openshift-service-ca", "signing-key")
-	if instance.Spec.TLSCertificate.CertRef != nil {
+	if instance.Spec.TLSCertificate.CertRef != nil && instance.Spec.TLSCertificate.CACertRef != nil {
 		dp.Spec.Template.Spec.Volumes = append(dp.Spec.Template.Spec.Volumes,
 			corev1.Volume{
 				Name: "tls-cert",
@@ -88,16 +88,22 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 									},
 								},
 							},
+							{
+								ConfigMap: &corev1.ConfigMapProjection{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: instance.Spec.TLSCertificate.CACertRef.Name,
+									},
+									Items: []corev1.KeyToPath{
+										{
+											Key:  "ca.crt", // User should use this key.
+											Path: "ca.crt",
+										},
+									},
+								},
+							},
 						},
 					},
 				},
-			})
-
-		dp.Spec.Template.Spec.Containers[0].VolumeMounts = append(dp.Spec.Template.Spec.Containers[0].VolumeMounts,
-			corev1.VolumeMount{
-				Name:      "tls-cert",
-				MountPath: "/etc/ssl/certs",
-				ReadOnly:  true,
 			})
 	} else if signingKeySecret != nil {
 		i.Logger.V(1).Info("TLS: Using secrets/signing-key secret")
@@ -105,20 +111,46 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 			corev1.Volume{
 				Name: "tls-cert",
 				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: instance.Name + "-tls-secret",
+					Projected: &corev1.ProjectedVolumeSource{
+						Sources: []corev1.VolumeProjection{
+							{
+								Secret: &corev1.SecretProjection{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: instance.Name + "-tls-secret",
+									},
+								},
+							},
+							{
+								ConfigMap: &corev1.ConfigMapProjection{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "ca-configmap",
+									},
+									Items: []corev1.KeyToPath{
+										{
+											Key:  "service-ca.crt",
+											Path: "ca.crt",
+										},
+									},
+								},
+							},
+						},
 					},
 				},
 			})
+	} else {
+		i.Logger.V(1).Info("Communication between services is insecure")
+	}
 
+	if instance.Spec.TLSCertificate.CertRef != nil || signingKeySecret != nil {
 		dp.Spec.Template.Spec.Containers[0].VolumeMounts = append(dp.Spec.Template.Spec.Containers[0].VolumeMounts,
 			corev1.VolumeMount{
 				Name:      "tls-cert",
 				MountPath: "/etc/ssl/certs",
 				ReadOnly:  true,
 			})
-	} else {
-		i.Logger.V(1).Info("Communication between services is insecure")
+		dp.Spec.Template.Spec.Containers[0].Args = append(dp.Spec.Template.Spec.Containers[0].Args, "--tls-certificate", "/etc/ssl/certs/tls.crt")
+		dp.Spec.Template.Spec.Containers[0].Args = append(dp.Spec.Template.Spec.Containers[0].Args, "--tls-key", "/etc/ssl/certs/tls.key")
+		dp.Spec.Template.Spec.Containers[0].Args = append(dp.Spec.Template.Spec.Containers[0].Args, "--tls-ca-cert", "/etc/ssl/certs/ca.crt")
 	}
 
 	if err = controllerutil.SetControllerReference(instance, dp, i.Client.Scheme()); err != nil {

@@ -138,8 +138,20 @@ spec:
                   x-kubernetes-map-type: atomic
                 type: array
               tlsCertificate:
-                description: Secret with TLS signed certificate
+                description: Secret with TLS server certificates and private key
                 properties:
+                  CACertRef:
+                    description: Reference to CA certificate
+                    properties:
+                      name:
+                        description: |-
+                          Name of the referent.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
                   certRef:
                     description: Reference to certificate
                     properties:
@@ -358,6 +370,18 @@ spec:
               tlsCertificate:
                 description: TLSCert defines fields for TLS certificate
                 properties:
+                  CACertRef:
+                    description: Reference to CA certificate
+                    properties:
+                      name:
+                        description: |-
+                          Name of the referent.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
                   certRef:
                     description: Reference to certificate
                     properties:
