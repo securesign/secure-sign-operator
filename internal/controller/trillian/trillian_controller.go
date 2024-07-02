@@ -28,6 +28,7 @@ import (
 	"github.com/securesign/operator/internal/controller/trillian/actions/logserver"
 	"github.com/securesign/operator/internal/controller/trillian/actions/logsigner"
 	v12 "k8s.io/api/core/v1"
+	v13 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/record"
 
 	v1 "k8s.io/api/apps/v1"
@@ -90,6 +91,7 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 		logserver.NewDeployAction(),
 		logserver.NewCreateServiceAction(),
+		logserver.NewCreateIngressAction(),
 		logserver.NewCreateMonitorAction(),
 
 		logsigner.NewDeployAction(),
@@ -133,5 +135,6 @@ func (r *TrillianReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&rhtasv1alpha1.Trillian{}).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
+		Owns(&v13.Ingress{}).
 		Complete(r)
 }
