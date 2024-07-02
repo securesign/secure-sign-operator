@@ -30,7 +30,7 @@ type handleCerts struct {
 	action.BaseAction
 }
 
-func NewHandleCertsAction() action.Action[v1alpha1.TimestampAuthority] {
+func NewHandleCertsAction() action.Action[*v1alpha1.TimestampAuthority] {
 	return &handleCerts{}
 }
 
@@ -39,7 +39,7 @@ func (g handleCerts) Name() string {
 }
 
 func (g handleCerts) CanHandle(_ context.Context, instance *v1alpha1.TimestampAuthority) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
 	return (c.Reason == constants.Pending || c.Reason == constants.Ready) && (instance.Status.Signer == nil ||
 		!equality.Semantic.DeepDerivative(instance.Spec.Signer, *instance.Status.Signer))
 }
@@ -64,7 +64,7 @@ func (g handleCerts) Handle(ctx context.Context, instance *v1alpha1.TimestampAut
 	tsaCertChainConfig, err := g.setupCertificateChain(ctx, instance)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    CertChainCondition,
+			Type:    TSAServerCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Failure,
 			Message: err.Error(),
@@ -87,7 +87,7 @@ func (g handleCerts) Handle(ctx context.Context, instance *v1alpha1.TimestampAut
 	}
 	if _, err := g.Ensure(ctx, certificateChain); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    CertChainCondition,
+			Type:    TSAServerCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Failure,
 			Message: err.Error(),
@@ -115,7 +115,7 @@ func (g handleCerts) Handle(ctx context.Context, instance *v1alpha1.TimestampAut
 		}
 	}
 
-	if instance.Spec.Signer.FileSigner.PrivateKeyRef == nil {
+	if instance.Spec.Signer.FileSigner.PrivateKeyRef == nil && tsaUtils.IsFileType(instance) {
 		instance.Status.Signer.FileSigner.PrivateKeyRef = &v1alpha1.SecretKeySelector{
 			Key: "interPrivateKey",
 			LocalObjectReference: v1alpha1.LocalObjectReference{
@@ -124,7 +124,7 @@ func (g handleCerts) Handle(ctx context.Context, instance *v1alpha1.TimestampAut
 		}
 	}
 
-	if instance.Spec.Signer.FileSigner.PasswordRef == nil && len(tsaCertChainConfig.InterPrivateKeyPassword) > 0 {
+	if instance.Spec.Signer.FileSigner.PasswordRef == nil && len(tsaCertChainConfig.InterPrivateKeyPassword) > 0 && tsaUtils.IsFileType(instance) {
 		instance.Status.Signer.FileSigner.PasswordRef = &v1alpha1.SecretKeySelector{
 			Key: "interPrivateKeyPassword",
 			LocalObjectReference: v1alpha1.LocalObjectReference{
@@ -134,7 +134,7 @@ func (g handleCerts) Handle(ctx context.Context, instance *v1alpha1.TimestampAut
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:   CertChainCondition,
+		Type:   TSAServerCondition,
 		Status: metav1.ConditionTrue,
 		Reason: "Resolved",
 	})
@@ -144,88 +144,90 @@ func (g handleCerts) Handle(ctx context.Context, instance *v1alpha1.TimestampAut
 func (g handleCerts) setupCertificateChain(ctx context.Context, instance *v1alpha1.TimestampAuthority) (*tsaUtils.TsaCertChainConfig, error) {
 	config := &tsaUtils.TsaCertChainConfig{}
 
-	if instance.Spec.Signer.FileSigner.PrivateKeyRef != nil {
+	if tsaUtils.IsFileType(instance) {
+		if instance.Spec.Signer.FileSigner.PrivateKeyRef != nil {
 
-		key, err := k8sutils.GetSecretData(g.Client, instance.Namespace, instance.Spec.Signer.FileSigner.PrivateKeyRef)
-		if err != nil {
-			return nil, err
-		}
-		config.InterPrivateKey = key
-
-		if ref := instance.Spec.Signer.FileSigner.PasswordRef; ref != nil {
-			password, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
-			if err != nil {
-				return nil, err
-			}
-			config.InterPrivateKeyPassword = password
-		}
-
-		if ref := instance.Spec.Signer.CertificateChain.CertificateChainRef; ref == nil {
-			config.RootPrivateKeyPassword = common.GeneratePassword(8)
-			key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
-			if err != nil {
-				return nil, err
-			}
-			rootCAPrivKey, err := tsaUtils.CreatePrivateKey(key, config.RootPrivateKeyPassword)
-			if err != nil {
-				return nil, err
-			}
-			config.RootPrivateKey = rootCAPrivKey
-		}
-
-	} else {
-		if ref := instance.Spec.Signer.CertificateChain.RootPrivateKeyRef; ref != nil {
-			key, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
-			if err != nil {
-				return nil, err
-			}
-			config.RootPrivateKey = key
-
-			if ref := instance.Spec.Signer.CertificateChain.RootPasswordRef; ref != nil {
-				password, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
-				if err != nil {
-					return nil, err
-				}
-				config.RootPrivateKeyPassword = password
-			}
-		} else {
-			config.RootPrivateKeyPassword = common.GeneratePassword(8)
-			key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
-			if err != nil {
-				return nil, err
-			}
-			rootCAPrivKey, err := tsaUtils.CreatePrivateKey(key, config.RootPrivateKeyPassword)
-			if err != nil {
-				return nil, err
-			}
-			config.RootPrivateKey = rootCAPrivKey
-		}
-
-		if ref := instance.Spec.Signer.CertificateChain.InterPrivateKeyRef; ref != nil {
-			key, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
+			key, err := k8sutils.GetSecretData(g.Client, instance.Namespace, instance.Spec.Signer.FileSigner.PrivateKeyRef)
 			if err != nil {
 				return nil, err
 			}
 			config.InterPrivateKey = key
 
-			if ref := instance.Spec.Signer.CertificateChain.InterPasswordRef; ref != nil {
+			if ref := instance.Spec.Signer.FileSigner.PasswordRef; ref != nil {
 				password, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
 				if err != nil {
 					return nil, err
 				}
 				config.InterPrivateKeyPassword = password
 			}
+
+			if ref := instance.Spec.Signer.CertificateChain.CertificateChainRef; ref == nil {
+				config.RootPrivateKeyPassword = common.GeneratePassword(8)
+				key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+				if err != nil {
+					return nil, err
+				}
+				rootCAPrivKey, err := tsaUtils.CreatePrivateKey(key, config.RootPrivateKeyPassword)
+				if err != nil {
+					return nil, err
+				}
+				config.RootPrivateKey = rootCAPrivKey
+			}
+
 		} else {
-			config.InterPrivateKeyPassword = common.GeneratePassword(8)
-			key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
-			if err != nil {
-				return nil, err
+			if ref := instance.Spec.Signer.CertificateChain.RootPrivateKeyRef; ref != nil {
+				key, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
+				if err != nil {
+					return nil, err
+				}
+				config.RootPrivateKey = key
+
+				if ref := instance.Spec.Signer.CertificateChain.RootPasswordRef; ref != nil {
+					password, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
+					if err != nil {
+						return nil, err
+					}
+					config.RootPrivateKeyPassword = password
+				}
+			} else {
+				config.RootPrivateKeyPassword = common.GeneratePassword(8)
+				key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+				if err != nil {
+					return nil, err
+				}
+				rootCAPrivKey, err := tsaUtils.CreatePrivateKey(key, config.RootPrivateKeyPassword)
+				if err != nil {
+					return nil, err
+				}
+				config.RootPrivateKey = rootCAPrivKey
 			}
-			interCAPrivKey, err := tsaUtils.CreatePrivateKey(key, config.InterPrivateKeyPassword)
-			if err != nil {
-				return nil, err
+
+			if ref := instance.Spec.Signer.CertificateChain.InterPrivateKeyRef; ref != nil {
+				key, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
+				if err != nil {
+					return nil, err
+				}
+				config.InterPrivateKey = key
+
+				if ref := instance.Spec.Signer.CertificateChain.InterPasswordRef; ref != nil {
+					password, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
+					if err != nil {
+						return nil, err
+					}
+					config.InterPrivateKeyPassword = password
+				}
+			} else {
+				config.InterPrivateKeyPassword = common.GeneratePassword(8)
+				key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+				if err != nil {
+					return nil, err
+				}
+				interCAPrivKey, err := tsaUtils.CreatePrivateKey(key, config.InterPrivateKeyPassword)
+				if err != nil {
+					return nil, err
+				}
+				config.InterPrivateKey = interCAPrivKey
 			}
-			config.InterPrivateKey = interCAPrivKey
 		}
 	}
 
@@ -236,11 +238,13 @@ func (g handleCerts) setupCertificateChain(ctx context.Context, instance *v1alph
 		}
 		config.CertificateChain = certificateChain
 	} else {
-		certificateChain, err := tsaUtils.CreateTSACertChain(ctx, instance, DeploymentName, g.Client, config)
-		if err != nil {
-			return nil, err
+		if tsaUtils.IsFileType(instance) {
+			certificateChain, err := tsaUtils.CreateTSACertChain(ctx, instance, DeploymentName, g.Client, config)
+			if err != nil {
+				return nil, err
+			}
+			config.CertificateChain = certificateChain
 		}
-		config.CertificateChain = certificateChain
 	}
 	return config, nil
 }

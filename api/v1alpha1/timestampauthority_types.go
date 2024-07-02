@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	core "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -36,6 +38,9 @@ type TimestampAuthoritySigner struct {
 	// Configuration for file-based signer
 	//+optional
 	FileSigner FileSigner `json:"fileSigner,omitempty"`
+	// Configuration for KMS based signer
+	//+optional
+	KmsSigner KmsSigner `json:"kmsSigner,omitempty"`
 }
 
 type CertificateChain struct {
@@ -73,6 +78,23 @@ type FileSigner struct {
 	// Reference to the signer's root private key
 	//+optional
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+}
+
+type KmsSigner struct {
+	// KMS key for signing timestamp responses. Valid options include: [gcpkms://resource, azurekms://resource, hashivault://resource, awskms://resource]
+	//+optional
+	KmsKeyResource string `json:"kmsKeyResource,omitempty"`
+	// KmsAuthEnv is a slice of core.EnvVar that specifies environment variables for KMS authentication.
+	//+optional
+	KmsAuthEnv []core.EnvVar `json:"kmsAuthEnv,omitempty"`
+}
+
+func (i *TimestampAuthority) GetConditions() []metav1.Condition {
+	return i.Status.Conditions
+}
+
+func (i *TimestampAuthority) SetCondition(newCondition metav1.Condition) {
+	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
 }
 
 // TimestampAuthorityStatus defines the observed state of TimestampAuthority
