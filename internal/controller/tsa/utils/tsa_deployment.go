@@ -1,11 +1,18 @@
 package tsaUtils
 
 import (
+	"fmt"
+
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/constants"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	chainVolume      = "tsa-cert-chain"
+	fileSignerVolume = "tsa-file-signer-config"
 )
 
 func CreateTimestampAuthorityDeployment(instance *v1alpha1.TimestampAuthority, name string, sa string, labels map[string]string) *apps.Deployment {
@@ -23,7 +30,7 @@ func CreateTimestampAuthorityDeployment(instance *v1alpha1.TimestampAuthority, n
 	}
 
 	volumes = append(volumes, core.Volume{
-		Name: "tsa-cert-chain",
+		Name: chainVolume,
 		VolumeSource: core.VolumeSource{
 			Secret: &core.SecretVolumeSource{
 				SecretName: instance.Status.Signer.CertificateChain.CertificateChainRef.Name,
@@ -38,15 +45,15 @@ func CreateTimestampAuthorityDeployment(instance *v1alpha1.TimestampAuthority, n
 	})
 
 	volumeMounts = append(volumeMounts, core.VolumeMount{
-		Name:      "tsa-cert-chain",
+		Name:      chainVolume,
 		MountPath: "/etc/secrets/cert_chain",
 		ReadOnly:  true,
 	})
 
 	switch instance.Spec.Signer.Type {
-	case "file":
+	case FileType:
 		volumes = append(volumes, core.Volume{
-			Name: "tsa-file-signer-config",
+			Name: fileSignerVolume,
 			VolumeSource: core.VolumeSource{
 				Secret: &core.SecretVolumeSource{
 					SecretName: instance.Status.Signer.FileSigner.PrivateKeyRef.Name,
@@ -61,7 +68,7 @@ func CreateTimestampAuthorityDeployment(instance *v1alpha1.TimestampAuthority, n
 		})
 
 		volumeMounts = append(volumeMounts, core.VolumeMount{
-			Name:      "tsa-file-signer-config",
+			Name:      fileSignerVolume,
 			MountPath: "/etc/secrets/keys",
 			ReadOnly:  true,
 		})
@@ -85,6 +92,12 @@ func CreateTimestampAuthorityDeployment(instance *v1alpha1.TimestampAuthority, n
 			"--file-signer-key-path=/etc/secrets/keys/private_key.pem",
 			"--file-signer-passwd=$(SIGNER_PASSWORD)",
 		)
+	case KmsType:
+		appArgs = append(appArgs,
+			"--timestamp-signer=kms",
+			fmt.Sprintf("--kms-key-resource=%s", instance.Spec.Signer.KmsSigner.KmsKeyResource),
+		)
+		env = append(env, instance.Spec.Signer.KmsSigner.KmsAuthEnv...)
 	}
 
 	return &apps.Deployment{

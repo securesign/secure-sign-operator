@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func NewIngressAction() action.Action[rhtasv1alpha1.TimestampAuthority] {
+func NewIngressAction() action.Action[*rhtasv1alpha1.TimestampAuthority] {
 	return &ingressAction{}
 }
 
@@ -28,7 +28,7 @@ func (i ingressAction) Name() string {
 }
 
 func (i ingressAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.TimestampAuthority) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
 	return c.Reason == constants.Creating || c.Reason == constants.Ready && instance.Spec.ExternalAccess.Enabled
 }
 
@@ -52,7 +52,7 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Times
 
 	if updated, err = i.Ensure(ctx, ingress); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    TSACondition,
+			Type:    TSAServerCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Failure,
 			Message: err.Error(),
@@ -68,7 +68,7 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Times
 
 	if updated {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    TSACondition,
+			Type:    TSAServerCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Creating,
 			Message: "Ingress created",

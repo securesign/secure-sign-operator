@@ -13,7 +13,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func NewRBACAction() action.Action[rhtasv1alpha1.TimestampAuthority] {
+func NewRBACAction() action.Action[*rhtasv1alpha1.TimestampAuthority] {
 	return &rbacAction{}
 }
 
@@ -26,7 +26,7 @@ func (i rbacAction) Name() string {
 }
 
 func (i rbacAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.TimestampAuthority) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
 	return c.Reason == constants.Creating || c.Reason == constants.Ready
 }
 

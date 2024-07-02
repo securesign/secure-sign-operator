@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func NewInitializeAction() action.Action[rhtasv1alpha1.TimestampAuthority] {
+func NewInitializeAction() action.Action[*rhtasv1alpha1.TimestampAuthority] {
 	return &initializeAction{}
 }
 
@@ -27,7 +27,7 @@ func (i initializeAction) Name() string {
 }
 
 func (i initializeAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.TimestampAuthority) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
 	if c == nil {
 		return false
 	}
