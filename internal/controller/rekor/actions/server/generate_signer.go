@@ -43,6 +43,9 @@ func (g generateSigner) Name() string {
 
 func (g generateSigner) CanHandle(_ context.Context, instance *v1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	if c == nil {
+		return false
+	}
 	if c.Reason != constants.Pending && c.Reason != constants.Ready {
 		return false
 	}
@@ -165,12 +168,6 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 	} else {
 		instance.Status.Signer.PasswordRef = instance.Spec.Signer.PasswordRef
 	}
-	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:    constants.Ready,
-		Status:  metav1.ConditionFalse,
-		Reason:  constants.Creating,
-		Message: "Signer resolved",
-	})
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:   actions.ServerCondition,
 		Status: metav1.ConditionFalse,

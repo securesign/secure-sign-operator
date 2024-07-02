@@ -37,6 +37,9 @@ func (i resolvePubKeyAction) Name() string {
 
 func (i resolvePubKeyAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	if c == nil {
+		return false
+	}
 	if (c.Reason != constants.Initialize && c.Reason != constants.Ready) || !meta.IsStatusConditionTrue(instance.Status.Conditions, actions.ServerCondition) {
 		return false
 	}

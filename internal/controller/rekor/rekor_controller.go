@@ -21,15 +21,20 @@ import (
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/securesign/operator/internal/controller/annotations"
-
+	"github.com/securesign/operator/internal/controller/constants"
 	actions2 "github.com/securesign/operator/internal/controller/rekor/actions"
 	backfillredis "github.com/securesign/operator/internal/controller/rekor/actions/backfillRedis"
 	"github.com/securesign/operator/internal/controller/rekor/actions/redis"
 	"github.com/securesign/operator/internal/controller/rekor/actions/server"
+	"github.com/securesign/operator/internal/controller/rekor/actions/transitions"
 	"github.com/securesign/operator/internal/controller/rekor/actions/ui"
 	v13 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/securesign/operator/internal/controller/common/action"
 	v12 "k8s.io/api/apps/v1"
@@ -88,12 +93,16 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 	target := instance.DeepCopy()
 	actions := []action.Action[rhtasv1alpha1.Rekor]{
+		// register error handler
+		actions2.NewHandleErrorAction(),
+
 		// NONE -> PENDING
 		actions2.NewInitializeConditions(),
 
 		// PENDING -> CREATE
 		server.NewGenerateSignerAction(),
 
+		transitions.NewToCreateAction(),
 		// CREATE
 		actions2.NewRBACAction(),
 		server.NewServerConfigAction(),
@@ -115,7 +124,7 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		backfillredis.NewBackfillRedisCronJobAction(),
 
 		// CREATE -> INITIALIZE
-		actions2.NewToInitializeAction(),
+		transitions.NewToInitializeAction(),
 		// INITIALIZE
 		server.NewInitializeAction(),
 		server.NewResolvePubKeyAction(),
@@ -153,7 +162,17 @@ func (r *RekorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
-		For(&rhtasv1alpha1.Rekor{}).
+		For(&rhtasv1alpha1.Rekor{}, builder.WithPredicates(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.Funcs{UpdateFunc: func(event event.UpdateEvent) bool {
+			// do not requeue failed object updates
+			rekor, ok := event.ObjectNew.(*rhtasv1alpha1.Rekor)
+			if !ok {
+				return false
+			}
+			if c := meta.FindStatusCondition(rekor.Status.Conditions, constants.Ready); c != nil {
+				return c.Reason != constants.Failure
+			}
+			return true
+		}}))).
 		Owns(&v12.Deployment{}).
 		Owns(&v13.Service{}).
 		Owns(&v1.Ingress{}).
