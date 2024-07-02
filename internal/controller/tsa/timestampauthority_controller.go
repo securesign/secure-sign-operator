@@ -31,6 +31,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/action"
+	"github.com/securesign/operator/internal/controller/common/action/transitions"
 	"github.com/securesign/operator/internal/controller/tsa/actions"
 	v1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
@@ -70,16 +71,19 @@ func (r *TimestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	target := instance.DeepCopy()
-	actions := []action.Action[rhtasv1alpha1.TimestampAuthority]{
-		actions.NewToPendingPhaseAction(),
+	actions := []action.Action[*rhtasv1alpha1.TimestampAuthority]{
+		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.TimestampAuthority](func(ta *rhtasv1alpha1.TimestampAuthority) []string {
+			components := []string{actions.TSASignerCondition, actions.TSAServerCondition}
+			return components
+		}),
 		actions.NewHandleCertsAction(),
-		actions.NewToCreatePhaseAction(),
+		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.TimestampAuthority](),
 		actions.NewRBACAction(),
 		actions.NewDeployAction(),
 		actions.NewServiceAction(),
 		actions.NewIngressAction(),
 
-		actions.NewToInitializeAction(),
+		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.TimestampAuthority](),
 		actions.NewInitializeAction(),
 	}
 

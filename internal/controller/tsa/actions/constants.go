@@ -4,6 +4,6 @@ const (
 	DeploymentName     = "tsa-server"
 	ComponentName      = "timestamp-authority"
 	RBACName           = "tsa"
-	TSACondition       = "TsaAvailable"
-	CertChainCondition = "TSACertChainAvailable"
+	TSAServerCondition = "TSAServerCondition"
+	TSASignerCondition = "TSASignerCondition"
 )

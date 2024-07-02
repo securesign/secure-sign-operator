@@ -17,7 +17,7 @@ type deployAction struct {
 	action.BaseAction
 }
 
-func NewDeployAction() action.Action[rhtasv1alpha1.TimestampAuthority] {
+func NewDeployAction() action.Action[*rhtasv1alpha1.TimestampAuthority] {
 	return &deployAction{}
 }
 
@@ -26,7 +26,7 @@ func (i deployAction) Name() string {
 }
 
 func (i deployAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.TimestampAuthority) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
 	return (c.Reason == constants.Ready || c.Reason == constants.Creating)
 }
 
@@ -44,7 +44,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Timest
 
 	if updated, err = i.Ensure(ctx, deployment); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    TSACondition,
+			Type:    TSAServerCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Failure,
 			Message: err.Error(),
@@ -60,7 +60,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Timest
 
 	if updated {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    TSACondition,
+			Type:    TSAServerCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Creating,
 			Message: "TSA server deployment created",

@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func NewServiceAction() action.Action[rhtasv1alpha1.TimestampAuthority] {
+func NewServiceAction() action.Action[*rhtasv1alpha1.TimestampAuthority] {
 	return &serviceAction{}
 }
 
@@ -26,7 +26,7 @@ func (i serviceAction) Name() string {
 }
 
 func (i serviceAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.TimestampAuthority) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
 	return c.Reason == constants.Creating || c.Reason == constants.Ready
 }
 
@@ -43,7 +43,7 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Times
 	}
 	if updated, err = i.Ensure(ctx, svc); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    TSACondition,
+			Type:    TSAServerCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Failure,
 			Message: err.Error(),
@@ -59,7 +59,7 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Times
 
 	if updated {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    TSACondition,
+			Type:    TSAServerCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Creating,
 			Message: "Service created",
