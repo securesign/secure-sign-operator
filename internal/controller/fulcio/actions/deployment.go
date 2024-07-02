@@ -37,6 +37,12 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	)
 
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
+
+	if instance.Spec.Ctlog.Address == "" {
+		port := int32(80)
+		instance.Spec.Ctlog.Address = fmt.Sprintf("http://ctlog.%s.svc", instance.Namespace)
+		instance.Spec.Ctlog.Port = &port
+	}
 	dp, err := futils.CreateDeployment(instance, DeploymentName, RBACName, labels)
 	if err != nil {
 		if err != nil {
