@@ -6,6 +6,7 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/controller/common/action"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -30,7 +31,7 @@ func FakeClientBuilder() *fake.ClientBuilder {
 	return cl
 }
 
-func PrepareAction[T interface{}](c client.Client, a action.Action[T]) action.Action[T] {
+func PrepareAction[T apis.ConditionsAwareObject](c client.Client, a action.Action[T]) action.Action[T] {
 	a.InjectClient(c)
 	a.InjectLogger(logr.Logger{})
 	a.InjectRecorder(record.NewFakeRecorder(10))

@@ -20,7 +20,7 @@ import (
 
 const PvcNameFormat = "rekor-%s-pvc"
 
-func NewCreatePvcAction() action.Action[rhtasv1alpha1.Rekor] {
+func NewCreatePvcAction() action.Action[*rhtasv1alpha1.Rekor] {
 	return &createPvcAction{}
 }
 

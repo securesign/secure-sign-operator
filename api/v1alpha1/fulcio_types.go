@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -130,4 +131,12 @@ type FulcioList struct {
 
 func init() {
 	SchemeBuilder.Register(&Fulcio{}, &FulcioList{})
+}
+
+func (i *Fulcio) GetConditions() []metav1.Condition {
+	return i.Status.Conditions
+}
+
+func (i *Fulcio) SetCondition(newCondition metav1.Condition) {
+	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
 }

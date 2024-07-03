@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func NewServiceAction() action.Action[rhtasv1alpha1.Fulcio] {
+func NewServiceAction() action.Action[*rhtasv1alpha1.Fulcio] {
 	return &serviceAction{}
 }
 

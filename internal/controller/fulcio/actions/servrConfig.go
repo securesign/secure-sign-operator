@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func NewServerConfigAction() action.Action[rhtasv1alpha1.Fulcio] {
+func NewServerConfigAction() action.Action[*rhtasv1alpha1.Fulcio] {
 	return &serverConfig{}
 }
 

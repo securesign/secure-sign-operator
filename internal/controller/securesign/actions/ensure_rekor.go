@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func NewRekorAction() action.Action[rhtasv1alpha1.Securesign] {
+func NewRekorAction() action.Action[*rhtasv1alpha1.Securesign] {
 	return &rekorAction{}
 }
 

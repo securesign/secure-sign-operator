@@ -2,8 +2,9 @@ package actions
 
 import (
 	"fmt"
-	"github.com/securesign/operator/internal/controller/annotations"
 	"strconv"
+
+	"github.com/securesign/operator/internal/controller/annotations"
 
 	"context"
 
@@ -16,7 +17,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 )
 
-func NewSegmentBackupJobAction() action.Action[rhtasv1alpha1.Securesign] {
+func NewSegmentBackupJobAction() action.Action[*rhtasv1alpha1.Securesign] {
 	return &segmentBackupJob{}
 }
 

@@ -21,7 +21,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 )
 
-func NewBackfillRedisCronJobAction() action.Action[rhtasv1alpha1.Rekor] {
+func NewBackfillRedisCronJobAction() action.Action[*rhtasv1alpha1.Rekor] {
 	return &backfillRedisCronJob{}
 }
 

@@ -18,7 +18,7 @@ import (
 
 const serverPort = 8091
 
-func NewDeployAction() action.Action[rhtasv1alpha1.Trillian] {
+func NewDeployAction() action.Action[*rhtasv1alpha1.Trillian] {
 	return &deployAction{}
 }
 

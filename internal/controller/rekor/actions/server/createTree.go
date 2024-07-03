@@ -17,7 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewCreateTrillianTreeAction() action.Action[rhtasv1alpha1.Rekor] {
+func NewCreateTrillianTreeAction() action.Action[*rhtasv1alpha1.Rekor] {
 	return &createTrillianTreeAction{}
 }
 

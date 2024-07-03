@@ -15,7 +15,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func NewRBACAction() action.Action[rhtasv1alpha1.Trillian] {
+func NewRBACAction() action.Action[*rhtasv1alpha1.Trillian] {
 	return &rbacAction{}
 }
 

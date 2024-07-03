@@ -17,7 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func NewCreateServiceAction() action.Action[rhtasv1alpha1.Trillian] {
+func NewCreateServiceAction() action.Action[*rhtasv1alpha1.Trillian] {
 	return &createServiceAction{}
 }
 

@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func NewServiceAction() action.Action[rhtasv1alpha1.Tuf] {
+func NewServiceAction() action.Action[*rhtasv1alpha1.Tuf] {
 	return &serviceAction{}
 }
 

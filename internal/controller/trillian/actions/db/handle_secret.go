@@ -24,7 +24,7 @@ const (
 	host = "trillian-mysql"
 )
 
-func NewHandleSecretAction() action.Action[rhtasv1alpha1.Trillian] {
+func NewHandleSecretAction() action.Action[*rhtasv1alpha1.Trillian] {
 	return &handleSecretAction{}
 }
 

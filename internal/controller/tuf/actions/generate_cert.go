@@ -15,7 +15,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewResolveKeysAction() action.Action[rhtasv1alpha1.Tuf] {
+func NewResolveKeysAction() action.Action[*rhtasv1alpha1.Tuf] {
 	return &resolveKeysAction{}
 }
 
@@ -93,9 +93,8 @@ func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1alpha1.T
 				})
 			}
 		}
-		if index == len(instance.Status.Keys)-1 {
-			meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{Type: constants.Ready,
-				Status: v1.ConditionFalse, Reason: constants.Creating, Message: "Keys resolved"})
+		if index == len(instance.Spec.Keys)-1 {
+			return i.Continue()
 		}
 	}
 	return i.StatusUpdate(ctx, instance)

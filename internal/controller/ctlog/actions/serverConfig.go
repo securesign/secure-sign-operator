@@ -21,7 +21,7 @@ const (
 	CTLPubLabel = constants.LabelNamespace + "/ctfe.pub"
 )
 
-func NewServerConfigAction() action.Action[rhtasv1alpha1.CTlog] {
+func NewServerConfigAction() action.Action[*rhtasv1alpha1.CTlog] {
 	return &serverConfig{}
 }
 

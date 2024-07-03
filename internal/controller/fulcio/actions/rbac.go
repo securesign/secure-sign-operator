@@ -15,7 +15,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func NewRBACAction() action.Action[rhtasv1alpha1.Fulcio] {
+func NewRBACAction() action.Action[*rhtasv1alpha1.Fulcio] {
 	return &rbacAction{}
 }
 

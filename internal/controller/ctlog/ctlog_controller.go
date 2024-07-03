@@ -21,10 +21,11 @@ import (
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/securesign/operator/internal/controller/annotations"
+	"github.com/securesign/operator/internal/controller/common/action/transitions"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
-	actions2 "github.com/securesign/operator/internal/controller/fulcio/actions"
+	fulcioActions "github.com/securesign/operator/internal/controller/fulcio/actions"
 	v12 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -82,8 +83,14 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return reconcile.Result{}, err
 	}
 	target := instance.DeepCopy()
-	acs := []action.Action[rhtasv1alpha1.CTlog]{
+	acs := []action.Action[*rhtasv1alpha1.CTlog]{
+		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.CTlog](func(_ *rhtasv1alpha1.CTlog) []string {
+			return []string{actions.CertCondition}
+		}),
+
 		actions.NewPendingAction(),
+
+		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.CTlog](),
 
 		actions.NewHandleFulcioCertAction(),
 		actions.NewHandleKeysAction(),
@@ -95,7 +102,7 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		actions.NewServiceAction(),
 		actions.NewCreateMonitorAction(),
 
-		actions.NewToInitializeAction(),
+		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.CTlog](),
 
 		actions.NewInitializeAction(),
 	}
@@ -127,7 +134,7 @@ func (r *CTlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	secretPredicate, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      actions2.FulcioCALabel,
+			Key:      fulcioActions.FulcioCALabel,
 			Operator: metav1.LabelSelectorOpExists,
 		},
 	}})

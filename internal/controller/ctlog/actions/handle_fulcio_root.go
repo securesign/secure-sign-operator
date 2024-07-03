@@ -16,7 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewHandleFulcioCertAction() action.Action[v1alpha1.CTlog] {
+func NewHandleFulcioCertAction() action.Action[*v1alpha1.CTlog] {
 	return &handleFulcioCert{}
 }
 
@@ -29,7 +29,7 @@ func (g handleFulcioCert) Name() string {
 }
 
 func (g handleFulcioCert) CanHandle(ctx context.Context, instance *v1alpha1.CTlog) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
 	if c.Reason != constants.Creating && c.Reason != constants.Ready {
 		return false
 	}

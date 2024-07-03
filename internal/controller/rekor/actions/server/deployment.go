@@ -16,7 +16,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 )
 
-func NewDeployAction() action.Action[rhtasv1alpha1.Rekor] {
+func NewDeployAction() action.Action[*rhtasv1alpha1.Rekor] {
 	return &deployAction{}
 }
 

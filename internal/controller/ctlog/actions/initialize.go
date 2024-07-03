@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewInitializeAction() action.Action[rhtasv1alpha1.CTlog] {
+func NewInitializeAction() action.Action[*rhtasv1alpha1.CTlog] {
 	return &initializeAction{}
 }
 

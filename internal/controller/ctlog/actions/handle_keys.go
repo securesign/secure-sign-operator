@@ -20,7 +20,7 @@ import (
 
 const KeySecretNameFormat = "ctlog-%s-keys-"
 
-func NewHandleKeysAction() action.Action[v1alpha1.CTlog] {
+func NewHandleKeysAction() action.Action[*v1alpha1.CTlog] {
 	return &handleKeys{}
 }
 

@@ -21,6 +21,7 @@ import (
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/securesign/operator/internal/controller/annotations"
+	"github.com/securesign/operator/internal/controller/common/action/transitions"
 
 	actions2 "github.com/securesign/operator/internal/controller/rekor/actions"
 	backfillredis "github.com/securesign/operator/internal/controller/rekor/actions/backfillRedis"
@@ -87,14 +88,19 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return reconcile.Result{}, err
 	}
 	target := instance.DeepCopy()
-	actions := []action.Action[rhtasv1alpha1.Rekor]{
-		// NONE -> PENDING
-		actions2.NewInitializeConditions(),
+	actions := []action.Action[*rhtasv1alpha1.Rekor]{
+		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Rekor](func(rekor *rhtasv1alpha1.Rekor) []string {
+			components := []string{actions2.ServerCondition, actions2.RedisCondition, actions2.SignerCondition}
+			if *rekor.Spec.RekorSearchUI.Enabled {
+				components = append(components, actions2.UICondition)
+			}
+			return components
+		}),
 
-		// PENDING -> CREATE
 		server.NewGenerateSignerAction(),
 
-		// CREATE
+		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.Rekor](),
+
 		actions2.NewRBACAction(),
 		server.NewServerConfigAction(),
 		server.NewCreatePvcAction(),
@@ -114,8 +120,7 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		backfillredis.NewBackfillRedisCronJobAction(),
 
-		// CREATE -> INITIALIZE
-		actions2.NewToInitializeAction(),
+		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.Rekor](),
 		// INITIALIZE
 		server.NewInitializeAction(),
 		server.NewResolvePubKeyAction(),

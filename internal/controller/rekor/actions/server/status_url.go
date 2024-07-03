@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func NewStatusUrlAction() action.Action[rhtasv1alpha1.Rekor] {
+func NewStatusUrlAction() action.Action[*rhtasv1alpha1.Rekor] {
 	return &statusUrlAction{}
 }
 

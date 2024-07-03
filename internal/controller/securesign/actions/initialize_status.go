@@ -10,7 +10,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewInitializeStatusAction() action.Action[rhtasv1alpha1.Securesign] {
+func NewInitializeStatusAction() action.Action[*rhtasv1alpha1.Securesign] {
 	return &initializeStatus{}
 }
 
