@@ -105,12 +105,18 @@ func findVolume(name string, volumes []v12.Volume) *v12.Volume {
 }
 
 func createInstance() *v1alpha1.Fulcio {
+	port := int32(80)
 	return &v1alpha1.Fulcio{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "name",
 			Namespace: "default",
 		},
-		Spec: v1alpha1.FulcioSpec{},
+		Spec: v1alpha1.FulcioSpec{
+			Ctlog: v1alpha1.CtlogService{
+				Address: "http://ctlog.default.svc",
+				Port:    &port,
+			},
+		},
 		Status: v1alpha1.FulcioStatus{
 			ServerConfigRef: &v1alpha1.LocalObjectReference{Name: "config"},
 			Certificate: &v1alpha1.FulcioCert{
