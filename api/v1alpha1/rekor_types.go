@@ -51,6 +51,8 @@ type RekorSearchUI struct {
 	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
 	//+kubebuilder:default:=true
 	Enabled *bool `json:"enabled"`
+	// Set hostname for your Ingress/Route.
+	Host string `json:"host,omitempty"`
 }
 
 type BackFillRedis struct {
