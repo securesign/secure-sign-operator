@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	cutils "github.com/securesign/operator/internal/controller/common/utils"
 
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -46,6 +47,9 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 	}
 	i.Logger.V(1).Info("trillian logserver", "address", insCopy.Spec.Trillian.Address)
 	dp, err := utils.CreateRekorDeployment(insCopy, actions.ServerDeploymentName, actions.RBACName, labels)
+	if err == nil {
+		err = cutils.SetTrustedCA(&dp.Spec.Template, cutils.TrustedCAAnnotationToReference(instance.Annotations))
+	}
 
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{

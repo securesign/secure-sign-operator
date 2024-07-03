@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"github.com/securesign/operator/internal/controller/annotations"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -38,6 +39,7 @@ func (i rekorAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secures
 	rekor.Name = instance.Name
 	rekor.Namespace = instance.Namespace
 	rekor.Labels = constants.LabelsFor("rekor", rekor.Name, instance.Name)
+	rekor.Annotations = annotations.FilterInheritable(instance.Annotations)
 
 	rekor.Spec = instance.Spec.Rekor
 

@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"github.com/securesign/operator/internal/controller/annotations"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -39,6 +40,7 @@ func (i fulcioAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secure
 	fulcio.Name = instance.Name
 	fulcio.Namespace = instance.Namespace
 	fulcio.Labels = constants.LabelsFor(actions.ComponentName, fulcio.Name, instance.Name)
+	fulcio.Annotations = annotations.FilterInheritable(instance.Annotations)
 
 	fulcio.Spec = instance.Spec.Fulcio
 

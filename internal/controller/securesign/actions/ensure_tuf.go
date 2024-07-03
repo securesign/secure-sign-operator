@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"github.com/securesign/operator/internal/controller/annotations"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -39,6 +40,7 @@ func (i tufAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 	tuf.Name = instance.Name
 	tuf.Namespace = instance.Namespace
 	tuf.Labels = constants.LabelsFor(actions.ComponentName, tuf.Name, instance.Name)
+	tuf.Annotations = annotations.FilterInheritable(instance.Annotations)
 
 	tuf.Spec = instance.Spec.Tuf
 
