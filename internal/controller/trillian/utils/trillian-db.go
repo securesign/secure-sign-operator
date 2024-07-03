@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, secCont *core.PodSecurityContext, labels map[string]string) (*apps.Deployment, error) {
+func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, openshift bool, labels map[string]string) (*apps.Deployment, error) {
 	if instance.Status.Db.DatabaseSecretRef == nil {
 		return nil, errors.New("reference to database secret is not set")
 	}
@@ -18,7 +18,15 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, secCon
 		return nil, errors.New("reference to database pvc is not set")
 	}
 	replicas := int32(1)
-
+	var secCont *core.PodSecurityContext
+	if !openshift {
+		uid := int64(1001)
+		fsid := int64(1001)
+		secCont = &core.PodSecurityContext{
+			RunAsUser: &uid,
+			FSGroup:   &fsid,
+		}
+	}
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpName,

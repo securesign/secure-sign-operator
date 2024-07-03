@@ -48,7 +48,7 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor
 		return i.Failed(fmt.Errorf("could not find service for ingress: %w", err))
 	}
 
-	ingress, err := kubernetes.CreateIngress(ctx, i.Client, *svc, rhtasv1alpha1.ExternalAccess{}, actions.SearchUiDeploymentPortName, labels)
+	ingress, err := kubernetes.CreateIngress(ctx, i.Client, *svc, rhtasv1alpha1.ExternalAccess{Host: instance.Spec.RekorSearchUI.Host}, actions.SearchUiDeploymentPortName, labels)
 	if err != nil {
 		return i.Failed(fmt.Errorf("could not create ingress object: %w", err))
 	}

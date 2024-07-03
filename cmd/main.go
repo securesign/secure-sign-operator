@@ -109,6 +109,7 @@ func main() {
 	utils.StringFlagOrEnv(&constants.ClientServerImage_cg, "client-server-cg-image", "CLIENT_SERVER_CG_IMAGE", constants.ClientServerImage_cg, "The image used to serve cosign and gitsign.")
 	utils.StringFlagOrEnv(&constants.ClientServerImage_re, "client-server-re-image", "CLIENT_SERVER_RE_IMAGE", constants.ClientServerImage_re, "The image used to serve rekor-cli and the ec binary.")
 	utils.StringFlagOrEnv(&constants.SegmentBackupImage, "segment-backup-job-image", "SEGMENT_BACKUP_JOB_IMAGE", constants.SegmentBackupImage, "The image used for the segment backup job")
+	flag.StringVar(&clidownload.CliHostName, "cli-server-hostname", "", "The hostname for the cli server")
 
 	opts := zap.Options{
 		Development: true,

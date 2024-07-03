@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
-	v1 "k8s.io/api/core/v1"
 
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
@@ -38,18 +37,14 @@ func (i deployAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Tri
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
 	var (
-		err     error
-		updated bool
+		err       error
+		updated   bool
+		openshift bool
 	)
+	openshift = kubernetes.IsOpenShift()
 
 	labels := constants.LabelsFor(actions.DbComponentName, actions.DbDeploymentName, instance.Name)
-	scc, err := kubernetes.GetOpenshiftPodSecurityContextRestricted(ctx, i.Client, instance.Namespace)
-	if err != nil {
-		i.Logger.Info("Can't resolve OpenShift scc - using default values", "Error", err.Error(), "Fallback FSGroup", "1001")
-		scc = &v1.PodSecurityContext{FSGroup: utils.Pointer(int64(1001)), FSGroupChangePolicy: utils.Pointer(v1.FSGroupChangeOnRootMismatch)}
-	}
-
-	db, err := trillianUtils.CreateTrillDb(instance, actions.DbDeploymentName, actions.RBACName, scc, labels)
+	db, err := trillianUtils.CreateTrillDb(instance, actions.DbDeploymentName, actions.RBACName, openshift, labels)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.DbCondition,
