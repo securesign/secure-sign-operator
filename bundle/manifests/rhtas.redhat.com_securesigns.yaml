@@ -342,6 +342,20 @@ spec:
                         defined
                       rule: (has(self.OIDCIssuers) && (size(self.OIDCIssuers) > 0))
                         || (has(self.MetaIssuers) && (size(self.MetaIssuers) > 0))
+                  ctlog:
+                    description: Ctlog service configuration
+                    properties:
+                      address:
+                        description: Address to Ctlog Log Server End point
+                        type: string
+                      port:
+                        default: 80
+                        description: Port of Ctlog Log Server End point
+                        format: int32
+                        maximum: 65535
+                        minimum: 1
+                        type: integer
+                    type: object
                   externalAccess:
                     description: Define whether you want to export service or not
                     properties:

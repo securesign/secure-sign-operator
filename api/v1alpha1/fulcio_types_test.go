@@ -165,6 +165,7 @@ var _ = Describe("Fulcio", func() {
 
 			When("CR is fully populated", func() {
 				It("outputs the CR", func() {
+					port := int32(80)
 					fulcioInstance = Fulcio{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "fulcio-full-manifest",
@@ -207,6 +208,10 @@ var _ = Describe("Fulcio", func() {
 								CARef:                 &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
 								PrivateKeyRef:         &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
 								PrivateKeyPasswordRef: &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
+							},
+							Ctlog: CtlogService{
+								Address: "http://ctlog.default.svc",
+								Port:    &port,
 							},
 						},
 					}

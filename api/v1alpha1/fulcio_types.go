@@ -11,6 +11,9 @@ import (
 type FulcioSpec struct {
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
+	// Ctlog service configuration
+	//+optional
+	Ctlog CtlogService `json:"ctlog,omitempty"`
 	// Fulcio Configuration
 	//+required
 	Config FulcioConfig `json:"config"`
