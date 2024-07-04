@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func NewDeployAction() action.Action[rhtasv1alpha1.Tuf] {
+func NewDeployAction() action.Action[*rhtasv1alpha1.Tuf] {
 	return &deployAction{}
 }
 

@@ -26,7 +26,7 @@ const (
 	FulcioCALabel = constants.LabelNamespace + "/fulcio_v1.crt.pem"
 )
 
-func NewHandleCertAction() action.Action[v1alpha1.Fulcio] {
+func NewHandleCertAction() action.Action[*v1alpha1.Fulcio] {
 	return &handleCert{}
 }
 
@@ -158,9 +158,6 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 		Status: metav1.ConditionTrue,
 		Reason: "Resolved",
 	})
-	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
-		Status: metav1.ConditionFalse, Reason: constants.Creating, Message: "Keys resolved"})
-
 	return g.StatusUpdate(ctx, instance)
 }
 

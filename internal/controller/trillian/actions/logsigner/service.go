@@ -19,7 +19,7 @@ const (
 	monitoringPort = 8090
 )
 
-func NewCreateServiceAction() action.Action[rhtasv1alpha1.Trillian] {
+func NewCreateServiceAction() action.Action[*rhtasv1alpha1.Trillian] {
 	return &createServiceAction{}
 }
 

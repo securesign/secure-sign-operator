@@ -5,7 +5,6 @@ const (
 	ComponentName      = "ctlog"
 	RBACName           = "ctlog"
 	MonitoringRoleName = "prometheus-k8s-ctlog"
-	ServerCondition    = "ServerAvailable"
 
 	CertCondition   = "FulcioCertAvailable"
 	MetricsPortName = "metrics"

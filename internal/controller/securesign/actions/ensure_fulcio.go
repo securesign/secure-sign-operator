@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func NewFulcioAction() action.Action[rhtasv1alpha1.Securesign] {
+func NewFulcioAction() action.Action[*rhtasv1alpha1.Securesign] {
 	return &fulcioAction{}
 }
 

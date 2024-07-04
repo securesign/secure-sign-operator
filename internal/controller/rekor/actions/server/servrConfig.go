@@ -18,7 +18,7 @@ const (
 	cmName = "rekor-sharding-config"
 )
 
-func NewServerConfigAction() action.Action[rhtasv1alpha1.Rekor] {
+func NewServerConfigAction() action.Action[*rhtasv1alpha1.Rekor] {
 	return &serverConfig{}
 }
 

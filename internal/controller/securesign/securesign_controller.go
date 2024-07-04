@@ -114,7 +114,7 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, r.Update(ctx, target)
 	}
 
-	acs := []action.Action[rhtasv1alpha1.Securesign]{
+	acs := []action.Action[*rhtasv1alpha1.Securesign]{
 		actions.NewInitializeStatusAction(),
 		actions.NewTrillianAction(),
 		actions.NewFulcioAction(),

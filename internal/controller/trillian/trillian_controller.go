@@ -21,6 +21,7 @@ import (
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/securesign/operator/internal/controller/annotations"
+	"github.com/securesign/operator/internal/controller/common/action/transitions"
 
 	"github.com/securesign/operator/internal/controller/common/action"
 	actions2 "github.com/securesign/operator/internal/controller/trillian/actions"
@@ -78,9 +79,11 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return reconcile.Result{}, err
 	}
 	target := instance.DeepCopy()
-	actions := []action.Action[rhtasv1alpha1.Trillian]{
-		actions2.NewToPendingPhaseAction(),
-		actions2.NewToCreatePhaseAction(),
+	actions := []action.Action[*rhtasv1alpha1.Trillian]{
+		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Trillian](func(_ *rhtasv1alpha1.Trillian) []string {
+			return nil
+		}),
+		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.Trillian](),
 		actions2.NewRBACAction(),
 
 		db.NewHandleSecretAction(),
@@ -96,7 +99,7 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		logsigner.NewCreateServiceAction(),
 		logsigner.NewCreateMonitorAction(),
 
-		actions2.NewToInitializePhaseAction(),
+		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.Trillian](),
 
 		db.NewInitializeAction(),
 		logserver.NewInitializeAction(),

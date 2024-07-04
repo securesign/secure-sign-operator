@@ -29,7 +29,7 @@ const (
 	RekorPubLabel = constants.LabelNamespace + "/rekor.pub"
 )
 
-func NewGenerateSignerAction() action.Action[v1alpha1.Rekor] {
+func NewGenerateSignerAction() action.Action[*v1alpha1.Rekor] {
 	return &generateSigner{}
 }
 
@@ -165,12 +165,6 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 	} else {
 		instance.Status.Signer.PasswordRef = instance.Spec.Signer.PasswordRef
 	}
-	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:    constants.Ready,
-		Status:  metav1.ConditionFalse,
-		Reason:  constants.Creating,
-		Message: "Signer resolved",
-	})
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:   actions.ServerCondition,
 		Status: metav1.ConditionFalse,

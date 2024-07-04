@@ -16,7 +16,7 @@ import (
 	commonUtils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 )
 
-func NewInitializeAction() action.Action[rhtasv1alpha1.Rekor] {
+func NewInitializeAction() action.Action[*rhtasv1alpha1.Rekor] {
 	return &initializeAction{}
 }
 

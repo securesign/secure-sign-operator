@@ -18,7 +18,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 )
 
-func NewCreatePvcAction() action.Action[rhtasv1alpha1.Trillian] {
+func NewCreatePvcAction() action.Action[*rhtasv1alpha1.Trillian] {
 	return &createPvcAction{}
 }
 

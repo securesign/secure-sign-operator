@@ -2,8 +2,9 @@ package actions
 
 import (
 	"fmt"
-	"github.com/securesign/operator/internal/controller/annotations"
 	"strconv"
+
+	"github.com/securesign/operator/internal/controller/annotations"
 
 	"github.com/robfig/cron/v3"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -20,7 +21,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 )
 
-func NewSegmentBackupCronJobAction() action.Action[rhtasv1alpha1.Securesign] {
+func NewSegmentBackupCronJobAction() action.Action[*rhtasv1alpha1.Securesign] {
 	return &segmentBackupCronJob{}
 }
 

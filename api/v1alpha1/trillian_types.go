@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -83,4 +84,12 @@ type TrillianList struct {
 
 func init() {
 	SchemeBuilder.Register(&Trillian{}, &TrillianList{})
+}
+
+func (i *Trillian) GetConditions() []metav1.Condition {
+	return i.Status.Conditions
+}
+
+func (i *Trillian) SetCondition(newCondition metav1.Condition) {
+	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
 }

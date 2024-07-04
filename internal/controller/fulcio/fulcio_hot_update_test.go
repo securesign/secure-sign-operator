@@ -142,14 +142,16 @@ var _ = Describe("Fulcio hot update", func() {
 			}).Should(BeTrue())
 
 			By("Key rotation")
-			Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-			found.Spec.Certificate.PrivateKeyPasswordRef = &v1alpha1.SecretKeySelector{
-				LocalObjectReference: v1alpha1.LocalObjectReference{
-					Name: "password-secret",
-				},
-				Key: "password",
-			}
-			Expect(k8sClient.Update(ctx, found)).To(Succeed())
+			Eventually(func() error {
+				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				found.Spec.Certificate.PrivateKeyPasswordRef = &v1alpha1.SecretKeySelector{
+					LocalObjectReference: v1alpha1.LocalObjectReference{
+						Name: "password-secret",
+					},
+					Key: "password",
+				}
+				return k8sClient.Update(ctx, found)
+			}).Should(Succeed())
 
 			By("Pending phase until password key is resolved")
 			Eventually(func() string {

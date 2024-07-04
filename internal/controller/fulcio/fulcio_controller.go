@@ -22,6 +22,7 @@ import (
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/securesign/operator/internal/controller/annotations"
+	"github.com/securesign/operator/internal/controller/common/action/transitions"
 
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
 	v12 "k8s.io/api/core/v1"
@@ -87,16 +88,19 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	target := instance.DeepCopy()
-	acs := []action.Action[rhtasv1alpha1.Fulcio]{
-		actions.NewToPendingPhaseAction(),
+	acs := []action.Action[*rhtasv1alpha1.Fulcio]{
+		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Fulcio](func(_ *rhtasv1alpha1.Fulcio) []string {
+			return []string{actions.CertCondition}
+		}),
 		actions.NewHandleCertAction(),
+		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.Fulcio](),
 		actions.NewRBACAction(),
 		actions.NewServerConfigAction(),
 		actions.NewDeployAction(),
 		actions.NewCreateMonitorAction(),
 		actions.NewServiceAction(),
 		actions.NewIngressAction(),
-		actions.NewToInitializeAction(),
+		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.Fulcio](),
 		actions.NewInitializeAction(),
 	}
 

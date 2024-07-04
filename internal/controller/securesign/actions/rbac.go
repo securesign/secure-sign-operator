@@ -3,8 +3,9 @@ package actions
 import (
 	"context"
 	"fmt"
-	"github.com/securesign/operator/internal/controller/annotations"
 	"strconv"
+
+	"github.com/securesign/operator/internal/controller/annotations"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -23,7 +24,7 @@ const (
 	OpenshiftMonitoringNS  = "openshift-monitoring"
 )
 
-func NewRBACAction() action.Action[rhtasv1alpha1.Securesign] {
+func NewRBACAction() action.Action[*rhtasv1alpha1.Securesign] {
 	return &rbacAction{}
 }
 

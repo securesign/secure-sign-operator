@@ -23,7 +23,7 @@ import (
 
 const pubSecretNameFormat = "rekor-public-%s-"
 
-func NewResolvePubKeyAction() action.Action[rhtasv1alpha1.Rekor] {
+func NewResolvePubKeyAction() action.Action[*rhtasv1alpha1.Rekor] {
 	return &resolvePubKeyAction{}
 }
 

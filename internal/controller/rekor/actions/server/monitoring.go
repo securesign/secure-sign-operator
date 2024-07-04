@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func NewCreateMonitorAction() action.Action[rhtasv1alpha1.Rekor] {
+func NewCreateMonitorAction() action.Action[*rhtasv1alpha1.Rekor] {
 	return &monitoringAction{}
 }
 

@@ -15,7 +15,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 )
 
-func NewCreateServiceAction() action.Action[rhtasv1alpha1.Rekor] {
+func NewCreateServiceAction() action.Action[*rhtasv1alpha1.Rekor] {
 	return &createServiceAction{}
 }
 

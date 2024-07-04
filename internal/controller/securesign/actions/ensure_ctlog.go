@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func NewCtlogAction() action.Action[rhtasv1alpha1.Securesign] {
+func NewCtlogAction() action.Action[*rhtasv1alpha1.Securesign] {
 	return &ctlogAction{}
 }
 

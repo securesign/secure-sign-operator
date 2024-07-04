@@ -15,7 +15,7 @@ import (
 	commonUtils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 )
 
-func NewInitializeAction() action.Action[rhtasv1alpha1.Fulcio] {
+func NewInitializeAction() action.Action[*rhtasv1alpha1.Fulcio] {
 	return &initializeAction{}
 }
 

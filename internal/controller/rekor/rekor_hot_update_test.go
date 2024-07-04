@@ -150,14 +150,17 @@ var _ = Describe("Rekor hot update test", func() {
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
 
 			By("Patch the signer key")
-			Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-			found.Spec.Signer.KeyRef = &v1alpha1.SecretKeySelector{
-				LocalObjectReference: v1alpha1.LocalObjectReference{
-					Name: "key-secret",
-				},
-				Key: "private",
-			}
-			Expect(k8sClient.Update(ctx, found)).To(Succeed())
+			Eventually(func() error {
+				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				found.Spec.Signer.KeyRef = &v1alpha1.SecretKeySelector{
+					LocalObjectReference: v1alpha1.LocalObjectReference{
+						Name: "key-secret",
+					},
+					Key: "private",
+				}
+				return k8sClient.Update(ctx, found)
+			}).Should(Succeed())
+
 			By("Move to CreatingPhase by creating trillian service")
 			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("key-secret", Namespace, map[string][]byte{"private": []byte("fake")}, constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)))).To(Succeed())
 

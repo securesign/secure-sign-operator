@@ -23,6 +23,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/action"
+	"github.com/securesign/operator/internal/controller/common/action/transitions"
 	ctl "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
 	"github.com/securesign/operator/internal/controller/rekor/actions/server"
@@ -87,16 +88,23 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	target := instance.DeepCopy()
-	acs := []action.Action[rhtasv1alpha1.Tuf]{
-		actions.NewToPendingPhaseAction(),
+	acs := []action.Action[*rhtasv1alpha1.Tuf]{
+		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Tuf](func(tuf *rhtasv1alpha1.Tuf) []string {
+			keys := make([]string, len(tuf.Spec.Keys))
+			for i, k := range tuf.Spec.Keys {
+				keys[i] = k.Name
+			}
+			return keys
+		}),
 
 		actions.NewResolveKeysAction(),
+		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.Tuf](),
 		actions.NewRBACAction(),
 		actions.NewDeployAction(),
 		actions.NewServiceAction(),
 		actions.NewIngressAction(),
 
-		actions.NewToInitializePhaseAction(),
+		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.Tuf](),
 
 		actions.NewInitializeAction(),
 	}
