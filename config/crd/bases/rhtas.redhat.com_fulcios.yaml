@@ -59,6 +59,9 @@ spec:
                           a valid secret key.
                         pattern: ^[-._a-zA-Z0-9]+$
                         type: string
+                      mountPath:
+                        description: MountPath for the secret
+                        type: string
                       name:
                         description: |-
                           Name of the referent.
@@ -86,6 +89,9 @@ spec:
                           a valid secret key.
                         pattern: ^[-._a-zA-Z0-9]+$
                         type: string
+                      mountPath:
+                        description: MountPath for the secret
+                        type: string
                       name:
                         description: |-
                           Name of the referent.
@@ -103,6 +109,9 @@ spec:
                         description: The key of the secret to select from. Must be
                           a valid secret key.
                         pattern: ^[-._a-zA-Z0-9]+$
+                        type: string
+                      mountPath:
+                        description: MountPath for the secret
                         type: string
                       name:
                         description: |-
@@ -306,6 +315,9 @@ spec:
                           a valid secret key.
                         pattern: ^[-._a-zA-Z0-9]+$
                         type: string
+                      mountPath:
+                        description: MountPath for the secret
+                        type: string
                       name:
                         description: |-
                           Name of the referent.
@@ -333,6 +345,9 @@ spec:
                           a valid secret key.
                         pattern: ^[-._a-zA-Z0-9]+$
                         type: string
+                      mountPath:
+                        description: MountPath for the secret
+                        type: string
                       name:
                         description: |-
                           Name of the referent.
@@ -350,6 +365,9 @@ spec:
                         description: The key of the secret to select from. Must be
                           a valid secret key.
                         pattern: ^[-._a-zA-Z0-9]+$
+                        type: string
+                      mountPath:
+                        description: MountPath for the secret
                         type: string
                       name:
                         description: |-

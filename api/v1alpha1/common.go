@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	core "k8s.io/api/core/v1"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -72,6 +73,9 @@ type SecretKeySelector struct {
 	//+required
 	//+kubebuilder:validation:Pattern:="^[-._a-zA-Z0-9]+$"
 	Key string `json:"key" protobuf:"bytes,2,opt,name=key"`
+	// MountPath for the secret
+	//+optional
+	MountPath string `json:"mountPath,omitempty"`
 }
 
 // Pvc configuration of the persistent storage claim for deployment in the cluster.
@@ -95,4 +99,13 @@ type Pvc struct {
 	// The name of the StorageClass to claim a PersistentVolume from.
 	//+optional
 	StorageClass string `json:"storageClass,omitempty"`
+}
+
+type KmsAuthConfig struct {
+	// KmsAuthEnv is a slice of core.EnvVar that specifies environment variables for KMS authentication.
+	//+optional
+	KmsAuthEnv []core.EnvVar `json:"kmsAuthEnv,omitempty"`
+	// KmsAuthFileRef is a secret reference for a kms auth config file.
+	//+optional
+	KmsAuthFileRef *SecretKeySelector `json:"kmsAuthFileRef,omitempty"`
 }

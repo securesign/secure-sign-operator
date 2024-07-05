@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -41,6 +40,9 @@ type TimestampAuthoritySigner struct {
 	// Configuration for KMS based signer
 	//+optional
 	KmsSigner KmsSigner `json:"kmsSigner,omitempty"`
+	//Configuration for Tink based signer
+	//+optional
+	TinkSigner TinkSigner `json:"tinkSigner,omitempty"`
 }
 
 type CertificateChain struct {
@@ -84,9 +86,24 @@ type KmsSigner struct {
 	// KMS key for signing timestamp responses. Valid options include: [gcpkms://resource, azurekms://resource, hashivault://resource, awskms://resource]
 	//+optional
 	KmsKeyResource string `json:"kmsKeyResource,omitempty"`
-	// KmsAuthEnv is a slice of core.EnvVar that specifies environment variables for KMS authentication.
+	// Configuration for authentication for key managment services
 	//+optional
-	KmsAuthEnv []core.EnvVar `json:"kmsAuthEnv,omitempty"`
+	KmsAuthConfig KmsAuthConfig `json:"kmsAuthConfig,omitempty"`
+}
+
+type TinkSigner struct {
+	//KMS key for signing timestamp responses for Tink keysets. Valid options include: [gcp-kms://resource, aws-kms://resource, hcvault://]"
+	//+optional
+	TinkKeyResource string `json:"tinkKeyResource,omitempty"`
+	//+optional
+	//Path to KMS-encrypted keyset for Tink, decrypted by TinkKeyResource
+	TinkKeysetRef *SecretKeySelector `json:"tinkKeysetRef,omitempty"`
+	//Authentication token for Hashicorp Vault API calls
+	//+optional
+	TinkHcvaultTokenRef *SecretKeySelector `json:"tinkHcvaultTokenRef,omitempty"`
+	// Configuration for authentication for key managment services
+	//+optional
+	KmsAuthConfig KmsAuthConfig `json:"kmsAuthConfig,omitempty"`
 }
 
 func (i *TimestampAuthority) GetConditions() []metav1.Condition {
