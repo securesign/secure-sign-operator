@@ -11,8 +11,12 @@ import (
 )
 
 const (
+	FileType         = "file"
+	KmsType          = "kms"
+	TinkType         = "tink"
 	chainVolume      = "tsa-cert-chain"
 	fileSignerVolume = "tsa-file-signer-config"
+	tinkSignerVolume = "tsa-tink-signer-config"
 )
 
 func CreateTimestampAuthorityDeployment(instance *v1alpha1.TimestampAuthority, name string, sa string, labels map[string]string) *apps.Deployment {
@@ -52,52 +56,129 @@ func CreateTimestampAuthorityDeployment(instance *v1alpha1.TimestampAuthority, n
 
 	switch instance.Spec.Signer.Type {
 	case FileType:
-		volumes = append(volumes, core.Volume{
-			Name: fileSignerVolume,
-			VolumeSource: core.VolumeSource{
-				Secret: &core.SecretVolumeSource{
-					SecretName: instance.Status.Signer.FileSigner.PrivateKeyRef.Name,
-					Items: []core.KeyToPath{
-						{
-							Key:  instance.Status.Signer.FileSigner.PrivateKeyRef.Key,
-							Path: "private_key.pem",
+		{
+			volumes = append(volumes, core.Volume{
+				Name: fileSignerVolume,
+				VolumeSource: core.VolumeSource{
+					Secret: &core.SecretVolumeSource{
+						SecretName: instance.Status.Signer.FileSigner.PrivateKeyRef.Name,
+						Items: []core.KeyToPath{
+							{
+								Key:  instance.Status.Signer.FileSigner.PrivateKeyRef.Key,
+								Path: "private_key.pem",
+							},
 						},
-					},
-				},
-			},
-		})
-
-		volumeMounts = append(volumeMounts, core.VolumeMount{
-			Name:      fileSignerVolume,
-			MountPath: "/etc/secrets/keys",
-			ReadOnly:  true,
-		})
-
-		if instance.Status.Signer.FileSigner.PasswordRef != nil {
-			env = append(env, core.EnvVar{
-				Name: "SIGNER_PASSWORD",
-				ValueFrom: &core.EnvVarSource{
-					SecretKeyRef: &core.SecretKeySelector{
-						LocalObjectReference: core.LocalObjectReference{
-							Name: instance.Status.Signer.FileSigner.PasswordRef.Name,
-						},
-						Key: instance.Status.Signer.FileSigner.PasswordRef.Key,
 					},
 				},
 			})
-		}
 
-		appArgs = append(appArgs,
-			"--timestamp-signer=file",
-			"--file-signer-key-path=/etc/secrets/keys/private_key.pem",
-			"--file-signer-passwd=$(SIGNER_PASSWORD)",
-		)
+			volumeMounts = append(volumeMounts, core.VolumeMount{
+				Name:      fileSignerVolume,
+				MountPath: "/etc/secrets/keys",
+				ReadOnly:  true,
+			})
+
+			if instance.Status.Signer.FileSigner.PasswordRef != nil {
+				env = append(env, core.EnvVar{
+					Name: "SIGNER_PASSWORD",
+					ValueFrom: &core.EnvVarSource{
+						SecretKeyRef: &core.SecretKeySelector{
+							LocalObjectReference: core.LocalObjectReference{
+								Name: instance.Status.Signer.FileSigner.PasswordRef.Name,
+							},
+							Key: instance.Status.Signer.FileSigner.PasswordRef.Key,
+						},
+					},
+				})
+			}
+
+			appArgs = append(appArgs,
+				"--timestamp-signer=file",
+				"--file-signer-key-path=/etc/secrets/keys/private_key.pem",
+				"--file-signer-passwd=$(SIGNER_PASSWORD)",
+			)
+		}
 	case KmsType:
-		appArgs = append(appArgs,
-			"--timestamp-signer=kms",
-			fmt.Sprintf("--kms-key-resource=%s", instance.Spec.Signer.KmsSigner.KmsKeyResource),
-		)
-		env = append(env, instance.Spec.Signer.KmsSigner.KmsAuthEnv...)
+		{
+			appArgs = append(appArgs,
+				"--timestamp-signer=kms",
+				fmt.Sprintf("--kms-key-resource=%s", instance.Spec.Signer.KmsSigner.KmsKeyResource),
+			)
+			if len(instance.Spec.Signer.KmsSigner.KmsAuthConfig.KmsAuthEnv) > 0 {
+				env = append(env, instance.Spec.Signer.KmsSigner.KmsAuthConfig.KmsAuthEnv...)
+			}
+		}
+	case TinkType:
+		{
+			volumes = append(volumes, core.Volume{
+				Name: tinkSignerVolume,
+				VolumeSource: core.VolumeSource{
+					Secret: &core.SecretVolumeSource{
+						SecretName: instance.Spec.Signer.TinkSigner.TinkKeysetRef.Name,
+						Items: []core.KeyToPath{
+							{
+								Key:  instance.Spec.Signer.TinkSigner.TinkKeysetRef.Key,
+								Path: "encrypted_key_set",
+							},
+						},
+					},
+				},
+			})
+
+			volumeMounts = append(volumeMounts, core.VolumeMount{
+				Name:      tinkSignerVolume,
+				MountPath: "/etc/secrets/keys",
+				ReadOnly:  true,
+			})
+
+			if instance.Spec.Signer.TinkSigner.KmsAuthConfig.KmsAuthFileRef != nil {
+				volumes = append(volumes, core.Volume{
+					Name: "kms-auth-config",
+					VolumeSource: core.VolumeSource{
+						Secret: &core.SecretVolumeSource{
+							SecretName: instance.Spec.Signer.TinkSigner.KmsAuthConfig.KmsAuthFileRef.Name,
+							Items: []core.KeyToPath{
+								{
+									Key:  instance.Spec.Signer.TinkSigner.KmsAuthConfig.KmsAuthFileRef.Key,
+									Path: instance.Spec.Signer.TinkSigner.KmsAuthConfig.KmsAuthFileRef.Key,
+								},
+							},
+						},
+					},
+				})
+
+				volumeMounts = append(volumeMounts, core.VolumeMount{
+					Name:      "kms-auth-config",
+					MountPath: instance.Spec.Signer.TinkSigner.KmsAuthConfig.KmsAuthFileRef.MountPath,
+					ReadOnly:  true,
+				})
+			}
+
+			if len(instance.Spec.Signer.TinkSigner.KmsAuthConfig.KmsAuthEnv) > 0 {
+				env = append(env, instance.Spec.Signer.TinkSigner.KmsAuthConfig.KmsAuthEnv...)
+			}
+
+			if instance.Spec.Signer.TinkSigner.TinkHcvaultTokenRef != nil {
+				env = append(env, core.EnvVar{
+					Name: "VAULT_TOKEN",
+					ValueFrom: &core.EnvVarSource{
+						SecretKeyRef: &core.SecretKeySelector{
+							LocalObjectReference: core.LocalObjectReference{
+								Name: instance.Spec.Signer.TinkSigner.TinkHcvaultTokenRef.Name,
+							},
+							Key: instance.Spec.Signer.TinkSigner.TinkHcvaultTokenRef.Key,
+						},
+					},
+				})
+			}
+
+			appArgs = append(appArgs,
+				"--timestamp-signer=tink",
+				fmt.Sprintf("--tink-key-resource=%s", instance.Spec.Signer.TinkSigner.TinkKeyResource),
+				"--tink-keyset-path=/etc/secrets/keys/encrypted_key_set",
+				"--tink-hcvault-token=$(VAULT_TOKEN)",
+			)
+		}
 	}
 
 	return &apps.Deployment{
