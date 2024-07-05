@@ -7,6 +7,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -68,6 +69,19 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulci
 			Message: err.Error(),
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create service: %w", err), instance)
+	}
+
+	//TLS: Annotate service
+	signingKeySecret, _ := k8sutils.GetSecret(i.Client, "openshift-service-ca", "signing-key")
+	if signingKeySecret != nil && instance.Spec.TLSCertificate.CertRef == nil {
+		if svc.Annotations == nil {
+			svc.Annotations = make(map[string]string)
+		}
+		svc.Annotations["service.beta.openshift.io/serving-cert-secret-name"] = instance.Name + "-tls-secret"
+		err := i.Client.Update(ctx, svc)
+		if err != nil {
+			return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not annotate service: %w", err), instance)
+		}
 	}
 
 	if updated {

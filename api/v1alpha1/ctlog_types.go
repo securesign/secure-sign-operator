@@ -48,6 +48,9 @@ type CTlogSpec struct {
 	// publicKeyRef, rootCertificates and trillian will be overridden.
 	//+optional
 	ServerConfigRef *LocalObjectReference `json:"serverConfigRef,omitempty"`
+	// Reference to TLS server certificate, private key and CA certificate
+	//+optional
+	TLSCertificate TLSCert `json:"tls"`
 }
 
 // CTlogStatus defines the observed state of CTlog component
@@ -57,6 +60,7 @@ type CTlogStatus struct {
 	PrivateKeyPasswordRef *SecretKeySelector    `json:"privateKeyPasswordRef,omitempty"`
 	PublicKeyRef          *SecretKeySelector    `json:"publicKeyRef,omitempty"`
 	RootCertificates      []SecretKeySelector   `json:"rootCertificates,omitempty"`
+	TLSCertificate        *TLSCert              `json:"tls,omitempty"`
 	// The ID of a Trillian tree that stores the log data.
 	TreeID *int64 `json:"treeID,omitempty"`
 	// +listType=map
