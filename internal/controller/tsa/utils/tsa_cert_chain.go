@@ -29,6 +29,11 @@ type TsaCertChainConfig struct {
 	CertificateChain        []byte
 }
 
+type issuer struct {
+	subject        pkix.Name
+	emailAddresses []string
+}
+
 func (c TsaCertChainConfig) ToMap() map[string][]byte {
 	result := make(map[string][]byte)
 
@@ -73,51 +78,26 @@ func CreatePrivateKey(key *ecdsa.PrivateKey, password []byte) ([]byte, error) {
 func CreateTSACertChain(ctx context.Context, instance *rhtasv1alpha1.TimestampAuthority, deploymentName string, client client.Client, config *TsaCertChainConfig) ([]byte, error) {
 	var err error
 
-	if instance.Spec.Signer.CertificateChain.OrganizationName == "" {
-		return nil, fmt.Errorf("could not create certificate: missing OrganizationName from config")
+	rootIssuer, err := CreateCAIssuer(instance, &instance.Spec.Signer.CertificateChain.RootCA, ctx, deploymentName, client)
+	if err != nil {
+		return nil, err
 	}
 
 	notBefore := time.Now()
 	notAfter := notBefore.Add(365 * 24 * 10 * time.Hour)
-
-	if instance.Spec.Signer.CertificateChain.CommonName == "" {
-		if instance.Spec.ExternalAccess.Enabled {
-			if instance.Spec.ExternalAccess.Host != "" {
-				instance.Spec.Signer.CertificateChain.CommonName = instance.Spec.ExternalAccess.Host
-			} else {
-				if instance.Spec.Signer.CertificateChain.CommonName, err = kubernetes.CalculateHostname(ctx, client, deploymentName, instance.Namespace); err != nil {
-					return nil, err
-				}
-			}
-		} else {
-			instance.Spec.Signer.CertificateChain.CommonName = fmt.Sprintf("%s.%s.svc.local", deploymentName, instance.Namespace)
-		}
-	}
-
-	issuer := pkix.Name{
-		CommonName:   instance.Spec.Signer.CertificateChain.CommonName,
-		Organization: []string{instance.Spec.Signer.CertificateChain.OrganizationName},
-	}
-
 	rootSerialNumber, err := GenerateSerialNumber()
 	if err != nil {
 		return nil, err
 	}
 
-	emailAddresses := make([]string, 0)
-
-	if instance.Spec.Signer.CertificateChain.OrganizationEmail != "" {
-		emailAddresses = append(emailAddresses, instance.Spec.Signer.CertificateChain.OrganizationEmail)
-	}
-
 	rootCertTemplate := x509.Certificate{
 		SerialNumber:          rootSerialNumber,
-		Subject:               issuer,
-		EmailAddresses:        emailAddresses,
+		Subject:               rootIssuer.subject,
+		EmailAddresses:        rootIssuer.emailAddresses,
 		BasicConstraintsValid: true,
 		IsCA:                  true,
 		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
-		Issuer:                issuer,
+		Issuer:                rootIssuer.subject,
 		NotBefore:             notBefore,
 		NotAfter:              notAfter,
 	}
@@ -139,16 +119,21 @@ func CreateTSACertChain(ctx context.Context, instance *rhtasv1alpha1.TimestampAu
 		return nil, err
 	}
 
+	intermediateIssuer, err := CreateCAIssuer(instance, &instance.Spec.Signer.CertificateChain.RootCA, ctx, deploymentName, client)
+	if err != nil {
+		return nil, err
+	}
+
 	intermediateCertTemplate := x509.Certificate{
 		SerialNumber:          interSerialNumber,
-		Subject:               issuer,
-		EmailAddresses:        emailAddresses,
+		Subject:               intermediateIssuer.subject,
+		EmailAddresses:        intermediateIssuer.emailAddresses,
 		BasicConstraintsValid: true,
 		IsCA:                  true,
 		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping},
 		ExtraExtensions:       []pkix.Extension{ekuExtension},
-		Issuer:                issuer,
+		Issuer:                intermediateIssuer.subject,
 		NotBefore:             notBefore,
 		NotAfter:              notAfter,
 	}
@@ -203,7 +188,6 @@ func CreateTSACertChain(ctx context.Context, instance *rhtasv1alpha1.TimestampAu
 }
 
 func GenerateSerialNumber() (*big.Int, error) {
-	// Pick a random number from 0 to 2^159.
 	serial, err := rand.Int(rand.Reader, (&big.Int{}).Exp(big.NewInt(2), big.NewInt(159), nil))
 	if err != nil {
 		return nil, errors.New("error generating serial number")
@@ -258,4 +242,42 @@ func createRootAndIntermediateCertificates(rootCertTemplate, intermediateCertTem
 	}
 
 	return rootCert, intermediateCert, nil
+}
+
+func CreateCAIssuer(instance *rhtasv1alpha1.TimestampAuthority, tsaCA *rhtasv1alpha1.TsaCertificateAuthority, ctx context.Context, deploymentName string, client client.Client) (*issuer, error) {
+	issuer := &issuer{}
+	var err error
+
+	if tsaCA.OrganizationName == "" {
+		return nil, fmt.Errorf("could not create certificate: missing OrganizationName from config")
+	}
+
+	if tsaCA.CommonName == "" {
+		if instance.Spec.ExternalAccess.Enabled {
+			if instance.Spec.ExternalAccess.Host != "" {
+				issuer.subject.CommonName = instance.Spec.ExternalAccess.Host
+			} else {
+				if issuer.subject.CommonName, err = kubernetes.CalculateHostname(ctx, client, deploymentName, instance.Namespace); err != nil {
+					return nil, err
+				}
+			}
+		} else {
+			issuer.subject.CommonName = fmt.Sprintf("%s.%s.svc.local", deploymentName, instance.Namespace)
+		}
+	} else {
+		issuer.subject.CommonName = tsaCA.CommonName
+	}
+
+	orgNames := make([]string, 0)
+	if tsaCA.OrganizationEmail != "" {
+		orgNames = append(orgNames, tsaCA.OrganizationName)
+	}
+	issuer.subject.Organization = orgNames
+
+	emailAddresses := make([]string, 0)
+	if tsaCA.OrganizationEmail != "" {
+		emailAddresses = append(emailAddresses, tsaCA.OrganizationEmail)
+	}
+	issuer.emailAddresses = emailAddresses
+	return issuer, nil
 }
