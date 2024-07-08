@@ -3,12 +3,12 @@ package v1alpha1
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/internal/controller/common/utils"
 	"golang.org/x/net/context"
 	_ "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("Trillian", func() {
@@ -58,7 +58,7 @@ var _ = Describe("Trillian", func() {
 
 				invalidObject := &Trillian{}
 				Expect(k8sClient.Get(context.Background(), getKey(validObject), invalidObject)).To(Succeed())
-				invalidObject.Spec.Db.Create = utils.Pointer(false)
+				invalidObject.Spec.Db.Create = pointer.Bool(false)
 
 				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Update(context.Background(), invalidObject)).
@@ -71,7 +71,7 @@ var _ = Describe("Trillian", func() {
 
 				invalidObject := &Trillian{}
 				Expect(k8sClient.Get(context.Background(), getKey(validObject), invalidObject)).To(Succeed())
-				invalidObject.Spec.Db.Pvc.Retain = utils.Pointer(false)
+				invalidObject.Spec.Db.Pvc.Retain = pointer.Bool(false)
 
 				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Update(context.Background(), invalidObject)).
@@ -82,7 +82,7 @@ var _ = Describe("Trillian", func() {
 				It("true", func() {
 					By("databaseSecretRef is empty", func() {
 						validObject := generateTrillianObject("database-secret-1")
-						validObject.Spec.Db.Create = utils.Pointer(true)
+						validObject.Spec.Db.Create = pointer.Bool(true)
 						validObject.Spec.Db.DatabaseSecretRef = nil
 						Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 					})
@@ -91,7 +91,7 @@ var _ = Describe("Trillian", func() {
 				It("false", func() {
 					By("databaseSecretRef is mandatory", func() {
 						invalidObject := generateTrillianObject("database-secret-2")
-						invalidObject.Spec.Db.Create = utils.Pointer(false)
+						invalidObject.Spec.Db.Create = pointer.Bool(false)
 						invalidObject.Spec.Db.DatabaseSecretRef = nil
 						Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 						Expect(k8sClient.Create(context.Background(), invalidObject)).
@@ -146,9 +146,9 @@ var _ = Describe("Trillian", func() {
 						},
 						Spec: TrillianSpec{
 							Db: TrillianDB{
-								Create: utils.Pointer(true),
+								Create: pointer.Bool(true),
 								Pvc: Pvc{
-									Retain:       utils.Pointer(true),
+									Retain:       pointer.Bool(true),
 									Name:         "storage",
 									StorageClass: "storage-class",
 									Size:         &storage,
@@ -208,9 +208,9 @@ func generateTrillianObject(name string) *Trillian {
 		},
 		Spec: TrillianSpec{
 			Db: TrillianDB{
-				Create: utils.Pointer(true),
+				Create: pointer.Bool(true),
 				Pvc: Pvc{
-					Retain: utils.Pointer(true),
+					Retain: pointer.Bool(true),
 					Size:   &storage,
 				},
 			},

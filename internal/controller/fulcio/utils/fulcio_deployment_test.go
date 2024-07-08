@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"github.com/securesign/operator/internal/controller/annotations"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -37,10 +38,9 @@ func TestSimpleDeploymen(t *testing.T) {
 	})), "PASSWORD env should not be set")
 
 	// oidc-info volume
-	oidcVolume := findVolume("oidc-info", deployment.Spec.Template.Spec.Volumes)
+	oidcVolume := findVolume("ca-trust", deployment.Spec.Template.Spec.Volumes)
 	g.Expect(oidcVolume).ShouldNot(BeNil())
-	g.Expect(len(oidcVolume.VolumeSource.Projected.Sources)).Should(Equal(1))
-	g.Expect(oidcVolume.VolumeSource.Projected.Sources[0].ConfigMap.Name).Should(Equal("kube-root-ca.crt"))
+	g.Expect(len(oidcVolume.VolumeSource.Projected.Sources)).Should(Equal(0))
 }
 
 func TestPrivateKeyPassword(t *testing.T) {
@@ -61,6 +61,9 @@ func TestPrivateKeyPassword(t *testing.T) {
 	g.Expect(deployment.Spec.Template.Spec.Containers[0].Env).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 		"Name": Equal("PASSWORD"),
 	})), "PASSWORD env should be set")
+	g.Expect(deployment.Spec.Template.Spec.Containers[0].Env).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"Name": Equal("SSL_CERT_DIR"),
+	})))
 }
 
 func TestTrustedCA(t *testing.T) {
@@ -77,11 +80,31 @@ func TestTrustedCA(t *testing.T) {
 		"Name": Equal("SSL_CERT_DIR"),
 	})))
 
-	oidcVolume := findVolume("oidc-info", deployment.Spec.Template.Spec.Volumes)
+	oidcVolume := findVolume("ca-trust", deployment.Spec.Template.Spec.Volumes)
 	g.Expect(oidcVolume).ShouldNot(BeNil())
-	g.Expect(len(oidcVolume.VolumeSource.Projected.Sources)).Should(Equal(2))
-	g.Expect(oidcVolume.VolumeSource.Projected.Sources[0].ConfigMap.Name).Should(Equal("kube-root-ca.crt"))
-	g.Expect(oidcVolume.VolumeSource.Projected.Sources[1].ConfigMap.Name).Should(Equal("trusted"))
+	g.Expect(len(oidcVolume.VolumeSource.Projected.Sources)).Should(Equal(1))
+	g.Expect(oidcVolume.VolumeSource.Projected.Sources[0].ConfigMap.Name).Should(Equal("trusted"))
+}
+
+func TestTrustedCAByAnnotation(t *testing.T) {
+	g := NewWithT(t)
+
+	instance := createInstance()
+	instance.Annotations = make(map[string]string)
+	instance.Annotations[annotations.TrustedCA] = "trusted-annotation"
+	labels := constants.LabelsFor(componentName, deploymentName, instance.Name)
+	deployment, err := CreateDeployment(instance, deploymentName, rbacName, labels)
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(deployment).ShouldNot(BeNil())
+
+	g.Expect(deployment.Spec.Template.Spec.Containers[0].Env).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"Name": Equal("SSL_CERT_DIR"),
+	})))
+
+	oidcVolume := findVolume("ca-trust", deployment.Spec.Template.Spec.Volumes)
+	g.Expect(oidcVolume).ShouldNot(BeNil())
+	g.Expect(len(oidcVolume.VolumeSource.Projected.Sources)).Should(Equal(1))
+	g.Expect(oidcVolume.VolumeSource.Projected.Sources[0].ConfigMap.Name).Should(Equal("trusted-annotation"))
 }
 
 func TestMissingPrivateKey(t *testing.T) {

@@ -57,11 +57,6 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 	args = append(args, fmt.Sprintf("--ct-log-url=%s", ctlogUrl))
 
 	env := make([]corev1.EnvVar, 0)
-	env = append(env, corev1.EnvVar{
-		Name:  "SSL_CERT_DIR",
-		Value: "/var/run/fulcio",
-	})
-
 	if instance.Status.Certificate.PrivateKeyPasswordRef != nil {
 		env = append(env, corev1.EnvVar{
 			Name: "PASSWORD",
@@ -75,33 +70,6 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 			},
 		})
 		args = append(args, "--fileca-key-passwd", "$(PASSWORD)")
-	}
-
-	oidcInfo := make([]corev1.VolumeProjection, 0)
-	// Integration with https://kubernetes.default.svc" OIDC issuer and ctlog service
-	oidcInfo = append(oidcInfo, corev1.VolumeProjection{
-		ConfigMap: &corev1.ConfigMapProjection{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: "kube-root-ca.crt",
-			},
-			Items: []corev1.KeyToPath{
-				{
-					Key:  "ca.crt",
-					Path: "ca.crt",
-					Mode: utils.Pointer(int32(0444)),
-				},
-			},
-		},
-	})
-
-	if instance.Spec.TrustedCA != nil {
-		oidcInfo = append(oidcInfo, corev1.VolumeProjection{
-			ConfigMap: &corev1.ConfigMapProjection{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: instance.Spec.TrustedCA.Name,
-				},
-			},
-		})
 	}
 
 	dep := &appsv1.Deployment{
@@ -174,11 +142,6 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 									MountPath: "/etc/fulcio-config",
 								},
 								{
-									Name:      "oidc-info",
-									MountPath: "/var/run/fulcio",
-									ReadOnly:  true,
-								},
-								{
 									Name:      "fulcio-cert",
 									MountPath: "/var/run/fulcio-secrets",
 									ReadOnly:  true,
@@ -195,14 +158,6 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 									LocalObjectReference: corev1.LocalObjectReference{
 										Name: instance.Status.ServerConfigRef.Name,
 									},
-								},
-							},
-						},
-						{
-							Name: "oidc-info",
-							VolumeSource: corev1.VolumeSource{
-								Projected: &corev1.ProjectedVolumeSource{
-									Sources: oidcInfo,
 								},
 							},
 						},
@@ -247,5 +202,16 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 		},
 	}
 	utils.SetProxyEnvs(dep)
+
+	caRef := utils.TrustedCAAnnotationToReference(instance.Annotations)
+	// override if spec.trustedCA is defined
+	if instance.Spec.TrustedCA != nil {
+		caRef = instance.Spec.TrustedCA
+	}
+	err = utils.SetTrustedCA(&dep.Spec.Template, caRef)
+	if err != nil {
+		return nil, err
+	}
+
 	return dep, nil
 }

@@ -57,6 +57,10 @@ func (i segmentBackupJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Se
 			Name:  "RUN_TYPE",
 			Value: "installation",
 		},
+		{
+			Name:  "REQUESTS_CA_BUNDLE",
+			Value: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
+		},
 	}
 
 	job := kubernetes.CreateJob(instance.Namespace, SegmentBackupJobName, labels, constants.SegmentBackupImage, SegmentRBACName, parallelism, completions, activeDeadlineSeconds, backoffLimit, command, env)

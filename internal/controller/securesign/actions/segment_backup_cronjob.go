@@ -79,6 +79,10 @@ func (i segmentBackupCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 											Name:  "RUN_TYPE",
 											Value: "nightly",
 										},
+										{
+											Name:  "REQUESTS_CA_BUNDLE",
+											Value: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
+										},
 									},
 								},
 							},

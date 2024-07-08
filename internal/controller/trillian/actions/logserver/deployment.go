@@ -3,6 +3,7 @@ package logserver
 import (
 	"context"
 	"fmt"
+	"github.com/securesign/operator/internal/controller/common/utils"
 
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -50,6 +51,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		Protocol:      corev1.ProtocolTCP,
 		ContainerPort: 8090,
 	})
+	err = utils.SetTrustedCA(&server.Spec.Template, utils.TrustedCAAnnotationToReference(instance.Annotations))
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ServerCondition,

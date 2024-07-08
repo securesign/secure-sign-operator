@@ -3,12 +3,12 @@ package v1alpha1
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/internal/controller/common/utils"
 	"golang.org/x/net/context"
 	_ "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("Rekor", func() {
@@ -77,27 +77,27 @@ var _ = Describe("Rekor", func() {
 		When("changing Rekor Search UI", func() {
 			It("enabled false->true", func() {
 				created := generateRekorObject("rekor-ui-1")
-				created.Spec.RekorSearchUI.Enabled = utils.Pointer(false)
+				created.Spec.RekorSearchUI.Enabled = pointer.Bool(false)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Rekor{}
 				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
-				fetched.Spec.RekorSearchUI.Enabled = utils.Pointer(true)
+				fetched.Spec.RekorSearchUI.Enabled = pointer.Bool(true)
 				Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
 			})
 
 			It("enabled true->false", func() {
 				created := generateRekorObject("rekor-ui-2")
-				created.Spec.RekorSearchUI.Enabled = utils.Pointer(true)
+				created.Spec.RekorSearchUI.Enabled = pointer.Bool(true)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Rekor{}
 				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
-				fetched.Spec.RekorSearchUI.Enabled = utils.Pointer(false)
+				fetched.Spec.RekorSearchUI.Enabled = pointer.Bool(false)
 				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), fetched))).To(BeTrue())
 				Expect(k8sClient.Update(context.Background(), fetched)).
 					To(MatchError(ContainSubstring("Feature cannot be disabled")))
@@ -150,7 +150,7 @@ var _ = Describe("Rekor", func() {
 
 				invalidObject := &Rekor{}
 				Expect(k8sClient.Get(context.Background(), getKey(validObject), invalidObject)).To(Succeed())
-				invalidObject.Spec.Pvc.Retain = utils.Pointer(false)
+				invalidObject.Spec.Pvc.Retain = pointer.Bool(false)
 
 				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Update(context.Background(), invalidObject)).
@@ -214,10 +214,10 @@ var _ = Describe("Rekor", func() {
 								Host:    "hostname",
 							},
 							RekorSearchUI: RekorSearchUI{
-								Enabled: utils.Pointer(true),
+								Enabled: pointer.Bool(true),
 							},
 							BackFillRedis: BackFillRedis{
-								Enabled:  utils.Pointer(true),
+								Enabled:  pointer.Bool(true),
 								Schedule: "* */2 * * 0-3",
 							},
 							TreeID: &tree,
@@ -225,7 +225,7 @@ var _ = Describe("Rekor", func() {
 								Name:         "name",
 								Size:         &storage,
 								StorageClass: "name",
-								Retain:       utils.Pointer(true),
+								Retain:       pointer.Bool(true),
 							},
 							Signer: RekorSigner{
 								KMS: "secret",
@@ -294,18 +294,18 @@ func generateRekorObject(name string) *Rekor {
 		},
 		Spec: RekorSpec{
 			BackFillRedis: BackFillRedis{
-				Enabled:  utils.Pointer(true),
+				Enabled:  pointer.Bool(true),
 				Schedule: "0 0 * * *",
 			},
 			Signer: RekorSigner{
 				KMS: "secret",
 			},
 			Pvc: Pvc{
-				Retain: utils.Pointer(true),
+				Retain: pointer.Bool(true),
 				Size:   &storage,
 			},
 			Trillian: TrillianService{
-				Port: utils.Pointer(int32(8091)),
+				Port: pointer.Int32(int32(8091)),
 			},
 		},
 	}

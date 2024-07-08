@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"github.com/securesign/operator/internal/controller/annotations"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -38,6 +39,7 @@ func (i trillianAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secu
 	trillian.Name = instance.Name
 	trillian.Namespace = instance.Namespace
 	trillian.Labels = constants.LabelsFor("trillian", trillian.Name, instance.Name)
+	trillian.Annotations = annotations.FilterInheritable(instance.Annotations)
 
 	trillian.Spec = instance.Spec.Trillian
 

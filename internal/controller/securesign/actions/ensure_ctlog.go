@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"github.com/securesign/operator/internal/controller/annotations"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -39,6 +40,7 @@ func (i ctlogAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secures
 	ctlog.Name = instance.Name
 	ctlog.Namespace = instance.Namespace
 	ctlog.Labels = constants.LabelsFor(actions.ComponentName, ctlog.Name, instance.Name)
+	ctlog.Annotations = annotations.FilterInheritable(instance.Annotations)
 
 	ctlog.Spec = instance.Spec.Ctlog
 
