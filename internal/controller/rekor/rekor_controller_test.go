@@ -120,30 +120,30 @@ var _ = Describe("Rekor controller", func() {
 			}).Should(Succeed())
 
 			By("Status conditions are initialized")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Rekor{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
 			}).Should(BeTrue())
 
 			By("Rekor signer created")
 			found := &v1alpha1.Rekor{}
-			Eventually(func() *v1alpha1.SecretKeySelector {
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).To(Succeed())
+			Eventually(func(g Gomega) *v1alpha1.SecretKeySelector {
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).To(Succeed())
 				return found.Status.Signer.KeyRef
 			}).Should(Not(BeNil()))
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Status.Signer.KeyRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
 
 			By("Rekor public key secret created")
-			Eventually(func() []corev1.Secret {
+			Eventually(func(g Gomega) []corev1.Secret {
 				scr := &corev1.SecretList{}
-				Expect(k8sClient.List(ctx, scr, runtimeClient.InNamespace(Namespace), runtimeClient.MatchingLabels{server.RekorPubLabel: "public"})).Should(Succeed())
+				g.Expect(k8sClient.List(ctx, scr, runtimeClient.InNamespace(Namespace), runtimeClient.MatchingLabels{server.RekorPubLabel: "public"})).Should(Succeed())
 				return scr.Items
 			}).Should(Not(BeEmpty()))
 
 			By("Rekor server PVC created")
-			Eventually(func() string {
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+			Eventually(func(g Gomega) string {
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.PvcName
 			}).Should(Not(BeEmpty()))
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Status.PvcName, Namespace: Namespace}, &corev1.PersistentVolumeClaim{})).Should(Succeed())
@@ -184,9 +184,9 @@ var _ = Describe("Rekor controller", func() {
 			}).Should(Succeed())
 
 			By("Waiting until Rekor instance is Initialization")
-			Eventually(func() string {
+			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Rekor{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Initialize))
 
@@ -201,9 +201,9 @@ var _ = Describe("Rekor controller", func() {
 			// Workaround to succeed condition for Ready phase
 
 			By("Waiting until Rekor instance is Ready")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Rekor{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
 			}).Should(BeTrue())
 
@@ -215,9 +215,9 @@ var _ = Describe("Rekor controller", func() {
 			replicas := int32(99)
 			deployment.Spec.Replicas = &replicas
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
-			Eventually(func() int32 {
+			Eventually(func(g Gomega) int32 {
 				deployment = &appsv1.Deployment{}
-				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
 				return *deployment.Spec.Replicas
 			}).Should(Equal(int32(1)))
 		})

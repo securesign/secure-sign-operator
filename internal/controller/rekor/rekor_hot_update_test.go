@@ -121,9 +121,9 @@ var _ = Describe("Rekor hot update test", func() {
 			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
 
 			By("Waiting until Rekor instance is Initialization")
-			Eventually(func() string {
+			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Rekor{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Initialize))
 
@@ -139,9 +139,9 @@ var _ = Describe("Rekor hot update test", func() {
 
 			By("Waiting until Rekor instance is Ready")
 			found := &v1alpha1.Rekor{}
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
 			}).Should(BeTrue())
 
@@ -150,8 +150,8 @@ var _ = Describe("Rekor hot update test", func() {
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
 
 			By("Patch the signer key")
-			Eventually(func() error {
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+			Eventually(func(g Gomega) error {
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				found.Spec.Signer.KeyRef = &v1alpha1.SecretKeySelector{
 					LocalObjectReference: v1alpha1.LocalObjectReference{
 						Name: "key-secret",
@@ -165,12 +165,12 @@ var _ = Describe("Rekor hot update test", func() {
 			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("key-secret", Namespace, map[string][]byte{"private": []byte("fake")}, constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)))).To(Succeed())
 
 			By("Secret key is resolved")
-			Eventually(func() *v1alpha1.SecretKeySelector {
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+			Eventually(func(g Gomega) *v1alpha1.SecretKeySelector {
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Signer.KeyRef
 			}).Should(Not(BeNil()))
-			Eventually(func() string {
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+			Eventually(func(g Gomega) string {
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Signer.KeyRef.Name
 			}).Should(Equal("key-secret"))
 

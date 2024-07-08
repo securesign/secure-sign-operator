@@ -108,23 +108,23 @@ var _ = Describe("Trillian controller", func() {
 			}).Should(Succeed())
 
 			By("Status conditions are initialized")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Trillian{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
 			}).Should(BeTrue())
 			found := &v1alpha1.Trillian{}
 
 			By("Database secret created")
-			Eventually(func() *v1alpha1.LocalObjectReference {
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+			Eventually(func(g Gomega) *v1alpha1.LocalObjectReference {
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Db.DatabaseSecretRef
 			}).Should(Not(BeNil()))
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Status.Db.DatabaseSecretRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
 
 			By("Database PVC created")
-			Eventually(func() string {
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+			Eventually(func(g Gomega) string {
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Db.Pvc.Name
 			}).Should(Not(BeEmpty()))
 
@@ -156,9 +156,9 @@ var _ = Describe("Trillian controller", func() {
 			}).Should(Succeed())
 
 			By("Waiting until Trillian instance is Initialization")
-			Eventually(func() string {
+			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Trillian{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Initialize))
 
@@ -173,9 +173,9 @@ var _ = Describe("Trillian controller", func() {
 			// Workaround to succeed condition for Ready phase
 
 			By("Waiting until Trillian instance is Ready")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Trillian{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
 			}).Should(BeTrue())
 
@@ -187,9 +187,9 @@ var _ = Describe("Trillian controller", func() {
 			replicas := int32(99)
 			deployment.Spec.Replicas = &replicas
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
-			Eventually(func() int32 {
+			Eventually(func(g Gomega) int32 {
 				deployment = &appsv1.Deployment{}
-				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.LogserverDeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.LogserverDeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
 				return *deployment.Spec.Replicas
 			}).Should(Equal(int32(1)))
 		})

@@ -136,14 +136,14 @@ var _ = Describe("Fulcio hot update", func() {
 
 			By("Waiting until Fulcio instance is Ready")
 			found := &v1alpha1.Fulcio{}
-			Eventually(func() bool {
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+			Eventually(func(g Gomega) bool {
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
 			}).Should(BeTrue())
 
 			By("Key rotation")
-			Eventually(func() error {
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+			Eventually(func(g Gomega) error {
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				found.Spec.Certificate.PrivateKeyPasswordRef = &v1alpha1.SecretKeySelector{
 					LocalObjectReference: v1alpha1.LocalObjectReference{
 						Name: "password-secret",
@@ -154,9 +154,9 @@ var _ = Describe("Fulcio hot update", func() {
 			}).Should(Succeed())
 
 			By("Pending phase until password key is resolved")
-			Eventually(func() string {
+			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Fulcio{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Pending))
 
@@ -166,15 +166,15 @@ var _ = Describe("Fulcio hot update", func() {
 			}, constants.LabelsForComponent(actions.ComponentName, instance.Name)))).To(Succeed())
 
 			By("Status field changed")
-			Eventually(func() string {
+			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Fulcio{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Certificate.PrivateKeyPasswordRef.Name
 			}).Should(Equal("password-secret"))
 
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Fulcio{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, actions.CertCondition)
 			}).Should(BeTrue())
 

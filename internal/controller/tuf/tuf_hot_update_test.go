@@ -134,9 +134,9 @@ var _ = Describe("TUF update test", func() {
 			}).Should(Succeed())
 
 			By("Status conditions are initialized")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Tuf{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
 			}).Should(BeTrue())
 
@@ -150,9 +150,9 @@ var _ = Describe("TUF update test", func() {
 			}, secretLabels))
 
 			By("Waiting until Tuf instance is Initialization")
-			Eventually(func() string {
+			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Tuf{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Initialize))
 
@@ -169,24 +169,24 @@ var _ = Describe("TUF update test", func() {
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
 
 			By("Waiting until Tuf instance is Ready")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Tuf{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
 			}).Should(BeTrue())
 
 			By("Checking the latest Status Condition added to the Tuf instance")
-			Eventually(func() error {
+			Eventually(func(g Gomega) error {
 				found := &v1alpha1.Tuf{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				rekorCondition := meta.FindStatusCondition(found.Status.Conditions, "rekor.pub")
-				Expect(rekorCondition).Should(Not(BeNil()))
-				Expect(rekorCondition.Status).Should(Equal(metav1.ConditionTrue))
-				Expect(rekorCondition.Reason).Should(Equal("Ready"))
+				g.Expect(rekorCondition).Should(Not(BeNil()))
+				g.Expect(rekorCondition.Status).Should(Equal(metav1.ConditionTrue))
+				g.Expect(rekorCondition.Reason).Should(Equal("Ready"))
 				ctlogCondition := meta.FindStatusCondition(found.Status.Conditions, "ctfe.pub")
-				Expect(ctlogCondition).Should(Not(BeNil()))
-				Expect(ctlogCondition.Status).Should(Equal(metav1.ConditionTrue))
-				Expect(ctlogCondition.Reason).Should(Equal("Ready"))
+				g.Expect(ctlogCondition).Should(Not(BeNil()))
+				g.Expect(ctlogCondition.Status).Should(Equal(metav1.ConditionTrue))
+				g.Expect(ctlogCondition.Reason).Should(Equal("Ready"))
 				return nil
 			}).Should(Succeed())
 
@@ -194,9 +194,9 @@ var _ = Describe("TUF update test", func() {
 			Expect(k8sClient.DeleteAllOf(ctx, &corev1.Secret{}, runtimeCli.InNamespace(TufNamespace), runtimeCli.MatchingLabels(secretLabels)))
 
 			By("Pending phase until ctlog public key is resolved")
-			Eventually(func() string {
+			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Tuf{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Pending))
 
@@ -205,15 +205,15 @@ var _ = Describe("TUF update test", func() {
 			}, secretLabels))).To(Succeed())
 
 			By("Recreate ctlog secret")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Tuf{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, "ctfe.pub")
 			}).Should(BeTrue())
 
-			Eventually(func() []v1alpha1.TufKey {
+			Eventually(func(g Gomega) []v1alpha1.TufKey {
 				found := &v1alpha1.Tuf{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Keys
 			}).Should(ContainElements(WithTransform(func(k v1alpha1.TufKey) string { return k.SecretRef.Name }, Equal("ctlog-update"))))
 
