@@ -124,9 +124,16 @@ metadata:
               },
               "signer": {
                 "certificateChain": {
-                  "commonName": "tsa.hostname",
-                  "organizationEmail": "jdoe@redhat.com",
-                  "organizationName": "Red Hat"
+                  "intermediateCA": {
+                    "commonName": "tsa.hostname",
+                    "organizationEmail": "jdoe@redhat.com",
+                    "organizationName": "Red Hat"
+                  },
+                  "rootCA": {
+                    "commonName": "tsa.hostname",
+                    "organizationEmail": "jdoe@redhat.com",
+                    "organizationName": "Red Hat"
+                  }
                 },
                 "type": "file"
               }

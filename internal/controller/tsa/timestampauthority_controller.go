@@ -76,7 +76,7 @@ func (r *TimestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 			components := []string{actions.TSASignerCondition, actions.TSAServerCondition}
 			return components
 		}),
-		actions.NewHandleCertsAction(),
+		actions.NewGenerateSignerAction(),
 		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.TimestampAuthority](),
 		actions.NewRBACAction(),
 		actions.NewDeployAction(),

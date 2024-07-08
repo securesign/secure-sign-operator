@@ -22,3 +22,7 @@ spec:
       secretRef:
         name: ctlog-pub-key
         key: public
+    - name: tsa_cert_chain.pem
+      secretRef:
+        name: tsa-cert-chain
+        key: certificateChain
