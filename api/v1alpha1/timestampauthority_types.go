@@ -30,22 +30,32 @@ type TimestampAuthoritySpec struct {
 }
 
 type TimestampAuthoritySigner struct {
-	// Timestamping authority signer. Valid options include: [kms, tink, file].
-	Type string `json:"type,omitempty"`
 	// Configuration for the Certificate Chain
 	CertificateChain CertificateChain `json:"certificateChain,omitempty"`
 	// Configuration for file-based signer
 	//+optional
-	FileSigner FileSigner `json:"fileSigner,omitempty"`
+	FileSigner *FileSigner `json:"fileSigner,omitempty"`
 	// Configuration for KMS based signer
 	//+optional
-	KmsSigner KmsSigner `json:"kmsSigner,omitempty"`
+	KmsSigner *KmsSigner `json:"kmsSigner,omitempty"`
 	//Configuration for Tink based signer
 	//+optional
-	TinkSigner TinkSigner `json:"tinkSigner,omitempty"`
+	TinkSigner *TinkSigner `json:"tinkSigner,omitempty"`
 }
 
 type CertificateChain struct {
+	//Reference to the certificate chain
+	//+optional
+	CertificateChainRef *SecretKeySelector `json:"certificateChainRef,omitempty"`
+	//Root Certificate Authority Config
+	//+optional
+	RootCA TsaCertificateAuthority `json:"rootCA,omitempty"`
+	//Intermediate Certificate Authority Config
+	//+optional
+	IntermediateCA TsaCertificateAuthority `json:"intermediateCA,omitempty"`
+}
+
+type TsaCertificateAuthority struct {
 	// CommonName specifies the common name for the TimeStampAuthorities cert chain.
 	// If not provided, the common name will default to the host name.
 	//+optional
@@ -56,21 +66,12 @@ type CertificateChain struct {
 	//+optional
 	//Organization Email specifies the Organization Email for the TimeStampAuthorities cert chain.
 	OrganizationEmail string `json:"organizationEmail,omitempty"`
-	//Reference to the certificate chain
-	//+optional
-	CertificateChainRef *SecretKeySelector `json:"certificateChainRef,omitempty"`
 	// Password to decrypt the signer's root private key
 	//+optional
-	RootPasswordRef *SecretKeySelector `json:"rootPasswordRef,omitempty"`
+	PasswordRef *SecretKeySelector `json:"passwordRef,omitempty"`
 	// Reference to the signer's root private key
 	//+optional
-	RootPrivateKeyRef *SecretKeySelector `json:"rootPrivateKeyRef,omitempty"`
-	// Password to decrypt the signer's Intermediate private key
-	//+optional
-	InterPasswordRef *SecretKeySelector `json:"interPasswordRef,omitempty"`
-	// Reference to the signer's Intermediate private key
-	//+optional
-	InterPrivateKeyRef *SecretKeySelector `json:"interPrivateKeyRef,omitempty"`
+	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
 }
 
 type FileSigner struct {

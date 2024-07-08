@@ -54,7 +54,7 @@ func CreateTimestampAuthorityDeployment(instance *v1alpha1.TimestampAuthority, n
 		ReadOnly:  true,
 	})
 
-	switch instance.Spec.Signer.Type {
+	switch GetSignerType(&instance.Spec.Signer) {
 	case FileType:
 		{
 			volumes = append(volumes, core.Volume{

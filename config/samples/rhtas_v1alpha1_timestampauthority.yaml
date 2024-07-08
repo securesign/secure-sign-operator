@@ -9,5 +9,15 @@ metadata:
     app.kubernetes.io/created-by: rhtas-operator
   name: timestampauthority-sample
 spec:
+  signer:
+    certificateChain:
+      rootCA:
+        organizationName: Red Hat
+        organizationEmail: jdoe@redhat.com
+        commonName: tsa.hostname
+      intermediateCA:
+        organizationName: Red Hat
+        organizationEmail: jdoe@redhat.com
+        commonName: tsa.hostname
   externalAccess:
-    enabled: true 
+    enabled: true

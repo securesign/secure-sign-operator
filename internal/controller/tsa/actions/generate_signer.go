@@ -23,28 +23,28 @@ import (
 )
 
 const (
-	TSACertCALabel = constants.LabelNamespace + "/certificate_chain.pem"
+	TSACertCALabel = constants.LabelNamespace + "/tsa_cert_chain.pem"
 )
 
-type handleCerts struct {
+type generateSigner struct {
 	action.BaseAction
 }
 
-func NewHandleCertsAction() action.Action[*v1alpha1.TimestampAuthority] {
-	return &handleCerts{}
+func NewGenerateSignerAction() action.Action[*v1alpha1.TimestampAuthority] {
+	return &generateSigner{}
 }
 
-func (g handleCerts) Name() string {
+func (g generateSigner) Name() string {
 	return "handle certificate chain"
 }
 
-func (g handleCerts) CanHandle(_ context.Context, instance *v1alpha1.TimestampAuthority) bool {
+func (g generateSigner) CanHandle(_ context.Context, instance *v1alpha1.TimestampAuthority) bool {
 	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
 	return (c.Reason == constants.Pending || c.Reason == constants.Ready) && (instance.Status.Signer == nil ||
 		!equality.Semantic.DeepDerivative(instance.Spec.Signer, *instance.Status.Signer))
 }
 
-func (g handleCerts) Handle(ctx context.Context, instance *v1alpha1.TimestampAuthority) *action.Result {
+func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.TimestampAuthority) *action.Result {
 	if meta.FindStatusCondition(instance.Status.Conditions, constants.Ready).Reason != constants.Pending {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:   constants.Ready,
@@ -56,11 +56,6 @@ func (g handleCerts) Handle(ctx context.Context, instance *v1alpha1.TimestampAut
 	}
 
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
-	secretLabels := map[string]string{
-		TSACertCALabel: "cert_chain",
-	}
-	maps.Copy(secretLabels, labels)
-
 	tsaCertChainConfig, err := g.setupCertificateChain(ctx, instance)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -78,7 +73,12 @@ func (g handleCerts) Handle(ctx context.Context, instance *v1alpha1.TimestampAut
 		return g.FailedWithStatusUpdate(ctx, err, instance)
 	}
 
-	certificateChain := k8sutils.CreateImmutableSecret(fmt.Sprintf("signer-key-config-%s", instance.Name), instance.Namespace, tsaCertChainConfig.ToMap(), labels)
+	secretLabels := map[string]string{
+		TSACertCALabel: "certificateChain",
+	}
+	maps.Copy(secretLabels, labels)
+
+	certificateChain := k8sutils.CreateImmutableSecret(fmt.Sprintf("tsa-signer-config-%s", instance.Name), instance.Namespace, tsaCertChainConfig.ToMap(), secretLabels)
 	if err = controllerutil.SetControllerReference(instance, certificateChain, g.Client.Scheme()); err != nil {
 		return g.Failed(fmt.Errorf("could not set controller reference for Secret: %w", err))
 	}
@@ -103,6 +103,9 @@ func (g handleCerts) Handle(ctx context.Context, instance *v1alpha1.TimestampAut
 
 	if instance.Status.Signer == nil {
 		instance.Status.Signer = new(v1alpha1.TimestampAuthoritySigner)
+	}
+	if instance.Spec.Signer.FileSigner == nil && tsaUtils.IsFileType(instance) {
+		instance.Spec.Signer.FileSigner = new(v1alpha1.FileSigner)
 	}
 	instance.Spec.Signer.DeepCopyInto(instance.Status.Signer)
 
@@ -141,24 +144,26 @@ func (g handleCerts) Handle(ctx context.Context, instance *v1alpha1.TimestampAut
 	return g.StatusUpdate(ctx, instance)
 }
 
-func (g handleCerts) setupCertificateChain(ctx context.Context, instance *v1alpha1.TimestampAuthority) (*tsaUtils.TsaCertChainConfig, error) {
+func (g generateSigner) setupCertificateChain(ctx context.Context, instance *v1alpha1.TimestampAuthority) (*tsaUtils.TsaCertChainConfig, error) {
 	config := &tsaUtils.TsaCertChainConfig{}
 
 	if tsaUtils.IsFileType(instance) {
-		if instance.Spec.Signer.FileSigner.PrivateKeyRef != nil {
+		if instance.Spec.Signer.FileSigner != nil {
 
-			key, err := k8sutils.GetSecretData(g.Client, instance.Namespace, instance.Spec.Signer.FileSigner.PrivateKeyRef)
-			if err != nil {
-				return nil, err
-			}
-			config.InterPrivateKey = key
-
-			if ref := instance.Spec.Signer.FileSigner.PasswordRef; ref != nil {
-				password, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
+			if instance.Spec.Signer.FileSigner.PrivateKeyRef != nil {
+				key, err := k8sutils.GetSecretData(g.Client, instance.Namespace, instance.Spec.Signer.FileSigner.PrivateKeyRef)
 				if err != nil {
 					return nil, err
 				}
-				config.InterPrivateKeyPassword = password
+				config.InterPrivateKey = key
+
+				if ref := instance.Spec.Signer.FileSigner.PasswordRef; ref != nil {
+					password, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
+					if err != nil {
+						return nil, err
+					}
+					config.InterPrivateKeyPassword = password
+				}
 			}
 
 			if ref := instance.Spec.Signer.CertificateChain.CertificateChainRef; ref == nil {
@@ -175,14 +180,14 @@ func (g handleCerts) setupCertificateChain(ctx context.Context, instance *v1alph
 			}
 
 		} else {
-			if ref := instance.Spec.Signer.CertificateChain.RootPrivateKeyRef; ref != nil {
+			if ref := instance.Spec.Signer.CertificateChain.RootCA.PrivateKeyRef; ref != nil {
 				key, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
 				if err != nil {
 					return nil, err
 				}
 				config.RootPrivateKey = key
 
-				if ref := instance.Spec.Signer.CertificateChain.RootPasswordRef; ref != nil {
+				if ref := instance.Spec.Signer.CertificateChain.RootCA.PasswordRef; ref != nil {
 					password, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
 					if err != nil {
 						return nil, err
@@ -202,14 +207,14 @@ func (g handleCerts) setupCertificateChain(ctx context.Context, instance *v1alph
 				config.RootPrivateKey = rootCAPrivKey
 			}
 
-			if ref := instance.Spec.Signer.CertificateChain.InterPrivateKeyRef; ref != nil {
+			if ref := instance.Spec.Signer.CertificateChain.IntermediateCA.PrivateKeyRef; ref != nil {
 				key, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
 				if err != nil {
 					return nil, err
 				}
 				config.InterPrivateKey = key
 
-				if ref := instance.Spec.Signer.CertificateChain.InterPasswordRef; ref != nil {
+				if ref := instance.Spec.Signer.CertificateChain.IntermediateCA.PasswordRef; ref != nil {
 					password, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
 					if err != nil {
 						return nil, err

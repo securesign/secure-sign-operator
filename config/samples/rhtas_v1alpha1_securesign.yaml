@@ -39,13 +39,18 @@ spec:
       - name: rekor.pub
       - name: ctfe.pub
       - name: fulcio_v1.crt.pem
+      - name: tsa_cert_chain.pem
   ctlog:
   tsa:
     signer:
-      type: file
       certificateChain:
-        organizationName: Red Hat
-        organizationEmail: jdoe@redhat.com
-        commonName: tsa.hostname
+        rootCA:
+          organizationName: Red Hat
+          organizationEmail: jdoe@redhat.com
+          commonName: tsa.hostname
+        intermediateCA:
+          organizationName: Red Hat
+          organizationEmail: jdoe@redhat.com
+          commonName: tsa.hostname
     externalAccess:
       enabled: true
