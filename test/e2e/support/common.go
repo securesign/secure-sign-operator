@@ -4,7 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	v12 "k8s.io/api/apps/v1"
+	v13 "k8s.io/api/batch/v1"
+	"log"
 	"os"
+	"reflect"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -72,69 +77,71 @@ func EnvOrDefault(env string, def string) string {
 
 func DumpNamespace(ctx context.Context, cli client.Client, ns string) {
 
+	// Example usage with mock data
+	k8s := map[string]logTarget{}
+
+	toDump := map[string]client.ObjectList{
+		"securesign.yaml": &v1alpha1.SecuresignList{},
+		"fulcio.yaml": &v1alpha1.FulcioList{},
+		"rekor.yaml": &v1alpha1.RekorList{},
+		"tuf.yaml": &v1alpha1.TufList{},
+		"ctlog.yaml": &v1alpha1.CTlogList{},
+		"trillian.yaml": &v1alpha1.TrillianList{},
+		"pod.yaml": &v1.PodList{},
+		"configmap.yaml": &v1.ConfigMapList{},
+		"deployment.yaml": &v12.DeploymentList{},
+		"job.yaml": &v13.JobList{},
+		"cronjob.yaml": &v13.CronJobList{},
+	}
+
 	core.GinkgoWriter.Println("----------------------- Dumping namespace " + ns + " -----------------------")
-	securesigns := &v1alpha1.SecuresignList{}
-	cli.List(ctx, securesigns, client.InNamespace(ns))
-	core.GinkgoWriter.Println("\n\nSecuresigns:")
-	for _, p := range securesigns.Items {
-		core.GinkgoWriter.Println(toYAMLNoManagedFields(&p))
+
+	for key, obj := range toDump {
+		if dump, err := dumpK8sObjects(ctx, cli, obj, ns); err == nil {
+			k8s[key] = logTarget{
+				reader: strings.NewReader(dump),
+				size: int64(len(dump)),
+			}
+		} else {
+			log.Println(fmt.Errorf("dump failed for %s: %w", key, err))
+		}
 	}
 
-	fulcios := &v1alpha1.FulcioList{}
-	cli.List(ctx, fulcios, client.InNamespace(ns))
-	core.GinkgoWriter.Println("\n\nFulcios:")
-	for _, p := range fulcios.Items {
-		core.GinkgoWriter.Println(toYAMLNoManagedFields(&p))
+	// Create the output file
+	fileName := "k8s-dump-" + ns + ".tar.gz"
+	outFile, err := os.Create(fileName)
+	if err != nil {
+		log.Fatalf("Failed to create %s file: %v", fileName, err)
 	}
 
-	rekors := &v1alpha1.RekorList{}
-	cli.List(ctx, rekors, client.InNamespace(ns))
-	core.GinkgoWriter.Println("\n\nRekors:")
-	for _, p := range rekors.Items {
-		core.GinkgoWriter.Println(toYAMLNoManagedFields(&p))
+	if err := createArchive(outFile, k8s) ; err != nil {
+		log.Fatalf("Failed to create %s: %v", fileName, err)
+	}
+}
+
+func dumpK8sObjects(ctx context.Context, cli client.Client, list client.ObjectList, namespace string) (string, error) {
+	var builder strings.Builder
+
+	if err := cli.List(ctx, list, client.InNamespace(namespace)); err != nil {
+		return "", err
 	}
 
-	tufs := &v1alpha1.TufList{}
-	cli.List(ctx, tufs, client.InNamespace(ns))
-	core.GinkgoWriter.Println("\n\nTufs:")
-	for _, p := range tufs.Items {
-		core.GinkgoWriter.Println(toYAMLNoManagedFields(&p))
+	// Use reflection to access the Items field
+	items := reflect.ValueOf(list).Elem().FieldByName("Items")
+
+	// Check if Items field is valid and is a slice
+	if !items.IsValid() || items.Kind() != reflect.Slice {
+		return "", fmt.Errorf("invalid items field in list: %v", items)
 	}
 
-	ctlogs := &v1alpha1.CTlogList{}
-	cli.List(ctx, ctlogs, client.InNamespace(ns))
-	core.GinkgoWriter.Println("\n\nCTLogs:")
-	for _, p := range ctlogs.Items {
-		core.GinkgoWriter.Println(toYAMLNoManagedFields(&p))
+	// Iterate over the items slice
+	for i := 0; i < items.Len(); i++ {
+		item := items.Index(i).Addr().Interface().(client.Object)
+		yamlData := toYAMLNoManagedFields(item)
+		builder.WriteString("\n---\n")
+		builder.WriteString(yamlData)
 	}
-
-	trillians := &v1alpha1.TrillianList{}
-	cli.List(ctx, trillians, client.InNamespace(ns))
-	core.GinkgoWriter.Println("\n\nTrillians:")
-	for _, p := range trillians.Items {
-		core.GinkgoWriter.Println(toYAMLNoManagedFields(&p))
-	}
-
-	pods := &v1.PodList{}
-	cli.List(ctx, pods, client.InNamespace(ns))
-	core.GinkgoWriter.Println("\n\nPods:")
-	for _, p := range pods.Items {
-		core.GinkgoWriter.Println(toYAMLNoManagedFields(&p))
-	}
-
-	secrets := &v1.SecretList{}
-	cli.List(ctx, secrets, client.InNamespace(ns))
-	core.GinkgoWriter.Println("Secrets:")
-	for _, p := range secrets.Items {
-		core.GinkgoWriter.Println(toYAMLNoManagedFields(&p))
-	}
-
-	cm := &v1.ConfigMapList{}
-	cli.List(ctx, cm, client.InNamespace(ns))
-	core.GinkgoWriter.Println("ConfigMaps:")
-	for _, p := range cm.Items {
-		core.GinkgoWriter.Println(toYAMLNoManagedFields(&p))
-	}
+	return builder.String(), nil
 }
 
 func toYAMLNoManagedFields(value runtime.Object) string {

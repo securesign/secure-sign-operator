@@ -209,6 +209,13 @@ jobs:
       - name: Run tests
         run: make test-e2e
 
+      - name: Archive test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-kind
+          path: test/**/k8s-dump-*.tar.gz
+
       - name: dump the logs of the operator
         run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
         if: always()
@@ -325,6 +332,13 @@ jobs:
           TEST_TARGET_CATALOG: ${{ env.CATALOG_IMG }}
           OPENSHIFT: false
         run: go test ./test/e2e/... -tags=upgrade -timeout 20m
+
+      - name: Archive test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-upgrade
+          path: test/**/k8s-dump-*.tar.gz
 
   test-eks:
     name: Test EKS deployment
@@ -450,6 +464,13 @@ jobs:
           kubectl wait --for=condition=available deployment/rekor-search-ui -n ${{ env.TEST_NAMESPACE }}
           kubectl wait --for=condition=available deployment/tuf -n ${{ env.TEST_NAMESPACE }}
           kubectl wait --for=condition=available deployment/ctlog -n ${{ env.TEST_NAMESPACE }}
+
+      - name: Archive test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-eks
+          path: test/**/k8s-dump-*.tar.gz
 
       - name: dump the logs of the operator
         run: |
