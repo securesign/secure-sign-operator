@@ -19,6 +19,8 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
+
+	"github.com/operator-framework/operator-lib/proxy"
 )
 
 func NewSegmentBackupCronJobAction() action.Action[*rhtasv1alpha1.Securesign] {
@@ -91,6 +93,11 @@ func (i segmentBackupCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 				},
 			},
 		},
+	}
+
+	// Adding proxy variables to operand
+	for i, container := range segmentBackupCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
+		segmentBackupCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[i].Env = append(container.Env, proxy.ReadProxyVarsFromEnv()...)
 	}
 
 	if err = controllerutil.SetControllerReference(instance, segmentBackupCronJob, i.Client.Scheme()); err != nil {

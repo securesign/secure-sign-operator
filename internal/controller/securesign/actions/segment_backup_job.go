@@ -15,6 +15,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+
+	"github.com/operator-framework/operator-lib/proxy"
 )
 
 func NewSegmentBackupJobAction() action.Action[*rhtasv1alpha1.Securesign] {
@@ -62,6 +64,9 @@ func (i segmentBackupJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Se
 			Value: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
 		},
 	}
+
+	// Adding proxy variables to operand
+	env = append(env, proxy.ReadProxyVarsFromEnv()...)
 
 	job := kubernetes.CreateJob(instance.Namespace, SegmentBackupJobName, labels, constants.SegmentBackupImage, SegmentRBACName, parallelism, completions, activeDeadlineSeconds, backoffLimit, command, env)
 	if err = ctrl.SetControllerReference(instance, job, i.Client.Scheme()); err != nil {
