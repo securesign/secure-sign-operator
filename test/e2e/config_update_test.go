@@ -14,12 +14,12 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
+	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	clients "github.com/securesign/operator/test/e2e/support/tas/cli"
@@ -104,6 +104,25 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 				Trillian: v1alpha1.TrillianSpec{Db: v1alpha1.TrillianDB{
 					Create: utils.Pointer(true),
 				}},
+				TimestampAuthority: v1alpha1.TimestampAuthoritySpec{
+					ExternalAccess: v1alpha1.ExternalAccess{
+						Enabled: true,
+					},
+					Signer: v1alpha1.TimestampAuthoritySigner{
+						CertificateChain: v1alpha1.CertificateChain{
+							RootCA: v1alpha1.TsaCertificateAuthority{
+								OrganizationName:  "MyOrg",
+								OrganizationEmail: "my@email.org",
+								CommonName:        "tsa.hostname",
+							},
+							IntermediateCA: v1alpha1.TsaCertificateAuthority{
+								OrganizationName:  "MyOrg",
+								OrganizationEmail: "my@email.org",
+								CommonName:        "tsa.hostname",
+							},
+						},
+					},
+				},
 			},
 		}
 	})
@@ -124,9 +143,11 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 			tas.VerifyTuf(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyRekor(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyFulcio(ctx, cli, namespace.Name, securesign.Name)
+			tas.VerifyTSA(ctx, cli, namespace.Name, securesign.Name)
 		})
 
 	})
+
 	Describe("Inject Fulcio CA", func() {
 		It("Pods are restarted after update", func() {
 			By("Storing current deployment observed generations")
@@ -165,7 +186,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 				return meta.FindStatusCondition(fulcio.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Pending))
 
-			Expect(cli.Create(ctx, initFulcioSecret(namespace.Name, "my-fulcio-secret"))).Should(Succeed())
+			Expect(cli.Create(ctx, support.InitFulcioSecret(namespace.Name, "my-fulcio-secret")))
 
 			Eventually(func() int64 {
 				return getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tuf.DeploymentName})
@@ -271,7 +292,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 				return meta.FindStatusCondition(rekor.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Pending))
 
-			Expect(cli.Create(ctx, initRekorSecret(namespace.Name, "my-rekor-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, support.InitRekorSecret(namespace.Name, "my-rekor-secret")))
 
 			Eventually(func() int64 {
 				return getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tuf.DeploymentName})
@@ -324,7 +345,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 				ctl := tas.GetCTLog(ctx, cli, namespace.Name, securesign.Name)()
 				return meta.FindStatusCondition(ctl.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Creating))
-			Expect(cli.Create(ctx, initCTSecret(namespace.Name, "my-ctlog-secret"))).Should(Succeed())
+			Expect(cli.Create(ctx, support.InitCTSecret(namespace.Name, "my-ctlog-secret")))
 
 			Eventually(func() int64 {
 				return getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tuf.DeploymentName})
@@ -360,6 +381,71 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 		})
 	})
 
+	Describe("Inject tsa signer and certificate chain", func() {
+		It("Pods are restarted after update", func() {
+			Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(securesign), securesign)).To(Succeed())
+			securesign.Spec.TimestampAuthority.Signer = v1alpha1.TimestampAuthoritySigner{
+				CertificateChain: v1alpha1.CertificateChain{
+					CertificateChainRef: &v1alpha1.SecretKeySelector{
+						LocalObjectReference: v1alpha1.LocalObjectReference{
+							Name: "test-tsa-secret",
+						},
+						Key: "certificateChain",
+					},
+				},
+				File: &v1alpha1.File{
+					PrivateKeyRef: &v1alpha1.SecretKeySelector{
+						LocalObjectReference: v1alpha1.LocalObjectReference{
+							Name: "test-tsa-secret",
+						},
+						Key: "private",
+					},
+					PasswordRef: &v1alpha1.SecretKeySelector{
+						LocalObjectReference: v1alpha1.LocalObjectReference{
+							Name: "test-tsa-secret",
+						},
+						Key: "password",
+					},
+				},
+			}
+			Expect(cli.Update(ctx, securesign)).To(Succeed())
+			Eventually(func() string {
+				tsa := tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)()
+				return meta.FindStatusCondition(tsa.Status.Conditions, constants.Ready).Reason
+			}).Should(Equal(constants.Pending))
+
+			Expect(cli.Create(ctx, support.InitTsaSecrets(namespace.Name, "test-tsa-secret")))
+
+			tsaPod := tas.GetTSAServerPod(ctx, cli, namespace.Name)()
+			Eventually(func() error {
+				return cli.Get(ctx, runtimeCli.ObjectKeyFromObject(tsaPod), &v1.Pod{})
+			}).Should(HaveOccurred())
+
+			tas.VerifyTSA(ctx, cli, namespace.Name, securesign.Name)
+		})
+		It("Verify new configuration", func() {
+			tsa := tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)()
+			tsaPod := tas.GetTSAServerPod(ctx, cli, namespace.Name)()
+
+			Expect(tsaPod.Spec.Volumes).To(ContainElement(And(
+				WithTransform(func(v v1.Volume) string { return v.Name }, Equal("tsa-cert-chain")),
+				WithTransform(func(v v1.Volume) string { return v.VolumeSource.Secret.SecretName }, Equal("test-tsa-secret")),
+			)))
+
+			Expect(tsaPod.Spec.Volumes).To(ContainElement(And(
+				WithTransform(func(v v1.Volume) string { return v.Name }, Equal("tsa-file-signer-config")),
+				WithTransform(func(v v1.Volume) string { return v.VolumeSource.Secret.SecretName }, Equal("test-tsa-secret")),
+			)))
+
+			certChainSecret := &v1.Secret{}
+			privateKeySecret := &v1.Secret{}
+			expectedSecret := &v1.Secret{}
+			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: tsa.Status.Signer.CertificateChain.CertificateChainRef.Name}, certChainSecret)).To(Succeed())
+			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: tsa.Status.Signer.File.PrivateKeyRef.Name}, privateKeySecret)).To(Succeed())
+			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: "test-tsa-secret"}, expectedSecret)).To(Succeed())
+		})
+	})
+
 	It("Use cosign cli", func() {
 		fulcio := tas.GetFulcio(ctx, cli, namespace.Name, securesign.Name)()
 		Expect(fulcio).ToNot(BeNil())
@@ -369,6 +455,11 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 
 		tuf := tas.GetTuf(ctx, cli, namespace.Name, securesign.Name)()
 		Expect(tuf).ToNot(BeNil())
+
+		tsa := tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)()
+		Expect(tsa).ToNot(BeNil())
+		err := tas.GetTSACertificateChain(ctx, cli, tsa.Namespace, tsa.Name, tsa.Status.Url)
+		Expect(err).To(BeNil())
 
 		oidcToken, err := support.OidcToken(ctx)
 		Expect(err).ToNot(HaveOccurred())
@@ -383,6 +474,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 			"cosign", "sign", "-y",
 			"--fulcio-url="+fulcio.Status.Url,
 			"--rekor-url="+rekor.Status.Url,
+			"--timestamp-server-url="+tsa.Status.Url+"/api/v1/timestamp",
 			"--oidc-issuer="+support.OidcIssuerUrl(),
 			"--oidc-client-id="+support.OidcClientID(),
 			"--identity-token="+oidcToken,
@@ -392,6 +484,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 		Expect(clients.Execute(
 			"cosign", "verify",
 			"--rekor-url="+rekor.Status.Url,
+			"--timestamp-certificate-chain=ts_chain.pem",
 			"--certificate-identity-regexp", ".*@redhat",
 			"--certificate-oidc-issuer-regexp", ".*keycloak.*",
 			targetImageName,

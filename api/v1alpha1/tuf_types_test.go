@@ -206,6 +206,9 @@ func generateTufObject(name string) *Tuf {
 				{
 					Name: "fulcio_v1.crt.pem",
 				},
+				{
+					Name: "tsa.certchain.pem",
+				},
 			},
 		},
 	}

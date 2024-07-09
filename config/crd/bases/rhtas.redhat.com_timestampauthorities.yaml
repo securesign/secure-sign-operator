@@ -58,6 +58,77 @@ spec:
                 required:
                 - enabled
                 type: object
+              monitoring:
+                description: Enable Service monitors for Timestamp Authority
+                properties:
+                  enabled:
+                    default: true
+                    description: If true, the Operator will create monitoring resources
+                    type: boolean
+                    x-kubernetes-validations:
+                    - message: Feature cannot be disabled
+                      rule: (self || !oldSelf)
+                required:
+                - enabled
+                type: object
+              ntpMonitoring:
+                description: Configuration for NTP monitoring
+                properties:
+                  config:
+                    description: Configuration for Network time protocol monitoring
+                    properties:
+                      maxTimeDelta:
+                        description: |-
+                          Maximum number of seconds the local time is allowed to drift from the
+                          response of a ntp server
+                        type: integer
+                      ntpConfigRef:
+                        description: |-
+                          ConfigMap containing YAML configuration for NTP monitoring
+                          Default configuration: https://github.com/securesign/timestamp-authority/blob/main/pkg/ntpmonitor/ntpsync.yaml
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      numServers:
+                        description: Number of randomly selected ntp servers to interrogate.
+                        type: integer
+                      period:
+                        description: Period (in seconds) for polling ntp servers
+                        type: integer
+                      requestAttempts:
+                        description: Number of attempts to contact a ntp server before
+                          giving up.
+                        type: integer
+                      requestTimeout:
+                        description: |-
+                          The timeout in seconds for a request to respond. This value must be
+                          smaller than max_time_delta.
+                        type: integer
+                      serverThreshold:
+                        description: Number of servers who must agree with local time.
+                        type: integer
+                      servers:
+                        description: List of servers to contact. Many DNS names resolves
+                          to multiple A records.
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  enabled:
+                    default: true
+                    description: Enable or disable NTP(Network Time Protocol) Monitoring,
+                      Enabled by default
+                    type: boolean
+                required:
+                - enabled
+                type: object
               signer:
                 description: Signer configuration
                 properties:
@@ -71,9 +142,6 @@ spec:
                             description: The key of the secret to select from. Must
                               be a valid secret key.
                             pattern: ^[-._a-zA-Z0-9]+$
-                            type: string
-                          mountPath:
-                            description: MountPath for the secret
                             type: string
                           name:
                             description: |-
@@ -110,9 +178,6 @@ spec:
                                   Must be a valid secret key.
                                 pattern: ^[-._a-zA-Z0-9]+$
                                 type: string
-                              mountPath:
-                                description: MountPath for the secret
-                                type: string
                               name:
                                 description: |-
                                   Name of the referent.
@@ -130,9 +195,6 @@ spec:
                                 description: The key of the secret to select from.
                                   Must be a valid secret key.
                                 pattern: ^[-._a-zA-Z0-9]+$
-                                type: string
-                              mountPath:
-                                description: MountPath for the secret
                                 type: string
                               name:
                                 description: |-
@@ -170,9 +232,6 @@ spec:
                                   Must be a valid secret key.
                                 pattern: ^[-._a-zA-Z0-9]+$
                                 type: string
-                              mountPath:
-                                description: MountPath for the secret
-                                type: string
                               name:
                                 description: |-
                                   Name of the referent.
@@ -191,9 +250,6 @@ spec:
                                   Must be a valid secret key.
                                 pattern: ^[-._a-zA-Z0-9]+$
                                 type: string
-                              mountPath:
-                                description: MountPath for the secret
-                                type: string
                               name:
                                 description: |-
                                   Name of the referent.
@@ -206,7 +262,20 @@ spec:
                             x-kubernetes-map-type: atomic
                         type: object
                     type: object
-                  fileSigner:
+                    x-kubernetes-validations:
+                    - message: must provide private keys for both root and intermediate
+                        certificate authorities
+                      rule: (!has(self.rootCA) && !has(self.intermediateCA)) || (has(self.rootCA.privateKeyRef)
+                        == has(self.intermediateCA.privateKeyRef))
+                    - message: organizationName cannot be empty for root certificate
+                        authority
+                      rule: (has(self.certificateChainRef) || self.rootCA.organizationName
+                        != "")
+                    - message: organizationName cannot be empty for intermediate certificate
+                        authority
+                      rule: (has(self.certificateChainRef) || self.intermediateCA.organizationName
+                        != "")
+                  file:
                     description: Configuration for file-based signer
                     properties:
                       passwordRef:
@@ -217,9 +286,6 @@ spec:
                             description: The key of the secret to select from. Must
                               be a valid secret key.
                             pattern: ^[-._a-zA-Z0-9]+$
-                            type: string
-                          mountPath:
-                            description: MountPath for the secret
                             type: string
                           name:
                             description: |-
@@ -239,9 +305,6 @@ spec:
                               be a valid secret key.
                             pattern: ^[-._a-zA-Z0-9]+$
                             type: string
-                          mountPath:
-                            description: MountPath for the secret
-                            type: string
                           name:
                             description: |-
                               Name of the referent.
@@ -253,16 +316,16 @@ spec:
                         type: object
                         x-kubernetes-map-type: atomic
                     type: object
-                  kmsSigner:
+                  kms:
                     description: Configuration for KMS based signer
                     properties:
-                      kmsAuthConfig:
+                      auth:
                         description: Configuration for authentication for key managment
                           services
                         properties:
-                          kmsAuthEnv:
-                            description: KmsAuthEnv is a slice of core.EnvVar that
-                              specifies environment variables for KMS authentication.
+                          env:
+                            description: Environmental variables used to define authentication
+                              parameters
                             items:
                               description: EnvVar represents an environment variable
                                 present in a Container.
@@ -376,45 +439,45 @@ spec:
                               - name
                               type: object
                             type: array
-                          kmsAuthFileRef:
-                            description: KmsAuthFileRef is a secret reference for
-                              a kms auth config file.
-                            properties:
-                              key:
-                                description: The key of the secret to select from.
-                                  Must be a valid secret key.
-                                pattern: ^[-._a-zA-Z0-9]+$
-                                type: string
-                              mountPath:
-                                description: MountPath for the secret
-                                type: string
-                              name:
-                                description: |-
-                                  Name of the referent.
-                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                type: string
-                            required:
-                            - key
-                            - name
-                            type: object
-                            x-kubernetes-map-type: atomic
+                          secretMount:
+                            description: Secret ref to be mounted inside a pod, Mount
+                              path defaults to /var/run/secrets/tas/auth
+                            items:
+                              description: SecretKeySelector selects a key of a Secret.
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.
+                                    Must be a valid secret key.
+                                  pattern: ^[-._a-zA-Z0-9]+$
+                                  type: string
+                                name:
+                                  description: |-
+                                    Name of the referent.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            type: array
                         type: object
-                      kmsKeyResource:
+                      keyResource:
                         description: 'KMS key for signing timestamp responses. Valid
                           options include: [gcpkms://resource, azurekms://resource,
                           hashivault://resource, awskms://resource]'
                         type: string
                     type: object
-                  tinkSigner:
+                  tink:
                     description: Configuration for Tink based signer
                     properties:
-                      kmsAuthConfig:
+                      auth:
                         description: Configuration for authentication for key managment
                           services
                         properties:
-                          kmsAuthEnv:
-                            description: KmsAuthEnv is a slice of core.EnvVar that
-                              specifies environment variables for KMS authentication.
+                          env:
+                            description: Environmental variables used to define authentication
+                              parameters
                             items:
                               description: EnvVar represents an environment variable
                                 present in a Container.
@@ -528,57 +591,35 @@ spec:
                               - name
                               type: object
                             type: array
-                          kmsAuthFileRef:
-                            description: KmsAuthFileRef is a secret reference for
-                              a kms auth config file.
-                            properties:
-                              key:
-                                description: The key of the secret to select from.
-                                  Must be a valid secret key.
-                                pattern: ^[-._a-zA-Z0-9]+$
-                                type: string
-                              mountPath:
-                                description: MountPath for the secret
-                                type: string
-                              name:
-                                description: |-
-                                  Name of the referent.
-                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                type: string
-                            required:
-                            - key
-                            - name
-                            type: object
-                            x-kubernetes-map-type: atomic
+                          secretMount:
+                            description: Secret ref to be mounted inside a pod, Mount
+                              path defaults to /var/run/secrets/tas/auth
+                            items:
+                              description: SecretKeySelector selects a key of a Secret.
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.
+                                    Must be a valid secret key.
+                                  pattern: ^[-._a-zA-Z0-9]+$
+                                  type: string
+                                name:
+                                  description: |-
+                                    Name of the referent.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            type: array
                         type: object
-                      tinkHcvaultTokenRef:
-                        description: Authentication token for Hashicorp Vault API
-                          calls
-                        properties:
-                          key:
-                            description: The key of the secret to select from. Must
-                              be a valid secret key.
-                            pattern: ^[-._a-zA-Z0-9]+$
-                            type: string
-                          mountPath:
-                            description: MountPath for the secret
-                            type: string
-                          name:
-                            description: |-
-                              Name of the referent.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        required:
-                        - key
-                        - name
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      tinkKeyResource:
+                      keyResource:
                         description: 'KMS key for signing timestamp responses for
                           Tink keysets. Valid options include: [gcp-kms://resource,
                           aws-kms://resource, hcvault://]"'
                         type: string
-                      tinkKeysetRef:
+                      keysetRef:
                         description: Path to KMS-encrypted keyset for Tink, decrypted
                           by TinkKeyResource
                         properties:
@@ -587,9 +628,6 @@ spec:
                               be a valid secret key.
                             pattern: ^[-._a-zA-Z0-9]+$
                             type: string
-                          mountPath:
-                            description: MountPath for the secret
-                            type: string
                           name:
                             description: |-
                               Name of the referent.
@@ -601,7 +639,32 @@ spec:
                         type: object
                         x-kubernetes-map-type: atomic
                     type: object
+                required:
+                - certificateChain
                 type: object
+                x-kubernetes-validations:
+                - message: signer config needs a matching cert chain in certificateChain.certificateChainRef
+                  rule: (!(has(self.file) || has(self.kms) || has(self.tink)) || has(self.certificateChain.certificateChainRef))
+                - message: certificateChainRef should not be present if no signers
+                    are configured
+                  rule: (has(self.file) || has(self.kms) || has(self.tink) || !has(self.certificateChain.certificateChainRef))
+                - message: only one signer should be configured at any time
+                  rule: (!(has(self.file) && has(self.kms)) && !(has(self.file) &&
+                    has(self.tink)) && !(has(self.kms) && has(self.tink)))
+              trustedCA:
+                description: ConfigMap with additional bundle of trusted CA
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
+            required:
+            - signer
             type: object
           status:
             description: TimestampAuthorityStatus defines the observed state of TimestampAuthority
@@ -678,7 +741,66 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              ntpMonitoring:
+                properties:
+                  config:
+                    description: Configuration for Network time protocol monitoring
+                    properties:
+                      maxTimeDelta:
+                        description: |-
+                          Maximum number of seconds the local time is allowed to drift from the
+                          response of a ntp server
+                        type: integer
+                      ntpConfigRef:
+                        description: |-
+                          ConfigMap containing YAML configuration for NTP monitoring
+                          Default configuration: https://github.com/securesign/timestamp-authority/blob/main/pkg/ntpmonitor/ntpsync.yaml
+                        properties:
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      numServers:
+                        description: Number of randomly selected ntp servers to interrogate.
+                        type: integer
+                      period:
+                        description: Period (in seconds) for polling ntp servers
+                        type: integer
+                      requestAttempts:
+                        description: Number of attempts to contact a ntp server before
+                          giving up.
+                        type: integer
+                      requestTimeout:
+                        description: |-
+                          The timeout in seconds for a request to respond. This value must be
+                          smaller than max_time_delta.
+                        type: integer
+                      serverThreshold:
+                        description: Number of servers who must agree with local time.
+                        type: integer
+                      servers:
+                        description: List of servers to contact. Many DNS names resolves
+                          to multiple A records.
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  enabled:
+                    default: true
+                    description: Enable or disable NTP(Network Time Protocol) Monitoring,
+                      Enabled by default
+                    type: boolean
+                required:
+                - enabled
+                type: object
               signer:
+                description: TimestampAuthoritySigner defines the desired state of
+                  the Timestamp Authority Signer
                 properties:
                   certificateChain:
                     description: Configuration for the Certificate Chain
@@ -690,9 +812,6 @@ spec:
                             description: The key of the secret to select from. Must
                               be a valid secret key.
                             pattern: ^[-._a-zA-Z0-9]+$
-                            type: string
-                          mountPath:
-                            description: MountPath for the secret
                             type: string
                           name:
                             description: |-
@@ -729,9 +848,6 @@ spec:
                                   Must be a valid secret key.
                                 pattern: ^[-._a-zA-Z0-9]+$
                                 type: string
-                              mountPath:
-                                description: MountPath for the secret
-                                type: string
                               name:
                                 description: |-
                                   Name of the referent.
@@ -749,9 +865,6 @@ spec:
                                 description: The key of the secret to select from.
                                   Must be a valid secret key.
                                 pattern: ^[-._a-zA-Z0-9]+$
-                                type: string
-                              mountPath:
-                                description: MountPath for the secret
                                 type: string
                               name:
                                 description: |-
@@ -789,9 +902,6 @@ spec:
                                   Must be a valid secret key.
                                 pattern: ^[-._a-zA-Z0-9]+$
                                 type: string
-                              mountPath:
-                                description: MountPath for the secret
-                                type: string
                               name:
                                 description: |-
                                   Name of the referent.
@@ -810,9 +920,6 @@ spec:
                                   Must be a valid secret key.
                                 pattern: ^[-._a-zA-Z0-9]+$
                                 type: string
-                              mountPath:
-                                description: MountPath for the secret
-                                type: string
                               name:
                                 description: |-
                                   Name of the referent.
@@ -825,7 +932,20 @@ spec:
                             x-kubernetes-map-type: atomic
                         type: object
                     type: object
-                  fileSigner:
+                    x-kubernetes-validations:
+                    - message: must provide private keys for both root and intermediate
+                        certificate authorities
+                      rule: (!has(self.rootCA) && !has(self.intermediateCA)) || (has(self.rootCA.privateKeyRef)
+                        == has(self.intermediateCA.privateKeyRef))
+                    - message: organizationName cannot be empty for root certificate
+                        authority
+                      rule: (has(self.certificateChainRef) || self.rootCA.organizationName
+                        != "")
+                    - message: organizationName cannot be empty for intermediate certificate
+                        authority
+                      rule: (has(self.certificateChainRef) || self.intermediateCA.organizationName
+                        != "")
+                  file:
                     description: Configuration for file-based signer
                     properties:
                       passwordRef:
@@ -836,9 +956,6 @@ spec:
                             description: The key of the secret to select from. Must
                               be a valid secret key.
                             pattern: ^[-._a-zA-Z0-9]+$
-                            type: string
-                          mountPath:
-                            description: MountPath for the secret
                             type: string
                           name:
                             description: |-
@@ -858,9 +975,6 @@ spec:
                               be a valid secret key.
                             pattern: ^[-._a-zA-Z0-9]+$
                             type: string
-                          mountPath:
-                            description: MountPath for the secret
-                            type: string
                           name:
                             description: |-
                               Name of the referent.
@@ -872,16 +986,16 @@ spec:
                         type: object
                         x-kubernetes-map-type: atomic
                     type: object
-                  kmsSigner:
+                  kms:
                     description: Configuration for KMS based signer
                     properties:
-                      kmsAuthConfig:
+                      auth:
                         description: Configuration for authentication for key managment
                           services
                         properties:
-                          kmsAuthEnv:
-                            description: KmsAuthEnv is a slice of core.EnvVar that
-                              specifies environment variables for KMS authentication.
+                          env:
+                            description: Environmental variables used to define authentication
+                              parameters
                             items:
                               description: EnvVar represents an environment variable
                                 present in a Container.
@@ -995,45 +1109,45 @@ spec:
                               - name
                               type: object
                             type: array
-                          kmsAuthFileRef:
-                            description: KmsAuthFileRef is a secret reference for
-                              a kms auth config file.
-                            properties:
-                              key:
-                                description: The key of the secret to select from.
-                                  Must be a valid secret key.
-                                pattern: ^[-._a-zA-Z0-9]+$
-                                type: string
-                              mountPath:
-                                description: MountPath for the secret
-                                type: string
-                              name:
-                                description: |-
-                                  Name of the referent.
-                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                type: string
-                            required:
-                            - key
-                            - name
-                            type: object
-                            x-kubernetes-map-type: atomic
+                          secretMount:
+                            description: Secret ref to be mounted inside a pod, Mount
+                              path defaults to /var/run/secrets/tas/auth
+                            items:
+                              description: SecretKeySelector selects a key of a Secret.
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.
+                                    Must be a valid secret key.
+                                  pattern: ^[-._a-zA-Z0-9]+$
+                                  type: string
+                                name:
+                                  description: |-
+                                    Name of the referent.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            type: array
                         type: object
-                      kmsKeyResource:
+                      keyResource:
                         description: 'KMS key for signing timestamp responses. Valid
                           options include: [gcpkms://resource, azurekms://resource,
                           hashivault://resource, awskms://resource]'
                         type: string
                     type: object
-                  tinkSigner:
+                  tink:
                     description: Configuration for Tink based signer
                     properties:
-                      kmsAuthConfig:
+                      auth:
                         description: Configuration for authentication for key managment
                           services
                         properties:
-                          kmsAuthEnv:
-                            description: KmsAuthEnv is a slice of core.EnvVar that
-                              specifies environment variables for KMS authentication.
+                          env:
+                            description: Environmental variables used to define authentication
+                              parameters
                             items:
                               description: EnvVar represents an environment variable
                                 present in a Container.
@@ -1147,57 +1261,35 @@ spec:
                               - name
                               type: object
                             type: array
-                          kmsAuthFileRef:
-                            description: KmsAuthFileRef is a secret reference for
-                              a kms auth config file.
-                            properties:
-                              key:
-                                description: The key of the secret to select from.
-                                  Must be a valid secret key.
-                                pattern: ^[-._a-zA-Z0-9]+$
-                                type: string
-                              mountPath:
-                                description: MountPath for the secret
-                                type: string
-                              name:
-                                description: |-
-                                  Name of the referent.
-                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                type: string
-                            required:
-                            - key
-                            - name
-                            type: object
-                            x-kubernetes-map-type: atomic
+                          secretMount:
+                            description: Secret ref to be mounted inside a pod, Mount
+                              path defaults to /var/run/secrets/tas/auth
+                            items:
+                              description: SecretKeySelector selects a key of a Secret.
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.
+                                    Must be a valid secret key.
+                                  pattern: ^[-._a-zA-Z0-9]+$
+                                  type: string
+                                name:
+                                  description: |-
+                                    Name of the referent.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            type: array
                         type: object
-                      tinkHcvaultTokenRef:
-                        description: Authentication token for Hashicorp Vault API
-                          calls
-                        properties:
-                          key:
-                            description: The key of the secret to select from. Must
-                              be a valid secret key.
-                            pattern: ^[-._a-zA-Z0-9]+$
-                            type: string
-                          mountPath:
-                            description: MountPath for the secret
-                            type: string
-                          name:
-                            description: |-
-                              Name of the referent.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        required:
-                        - key
-                        - name
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      tinkKeyResource:
+                      keyResource:
                         description: 'KMS key for signing timestamp responses for
                           Tink keysets. Valid options include: [gcp-kms://resource,
                           aws-kms://resource, hcvault://]"'
                         type: string
-                      tinkKeysetRef:
+                      keysetRef:
                         description: Path to KMS-encrypted keyset for Tink, decrypted
                           by TinkKeyResource
                         properties:
@@ -1206,9 +1298,6 @@ spec:
                               be a valid secret key.
                             pattern: ^[-._a-zA-Z0-9]+$
                             type: string
-                          mountPath:
-                            description: MountPath for the secret
-                            type: string
                           name:
                             description: |-
                               Name of the referent.
@@ -1220,7 +1309,18 @@ spec:
                         type: object
                         x-kubernetes-map-type: atomic
                     type: object
+                required:
+                - certificateChain
                 type: object
+                x-kubernetes-validations:
+                - message: signer config needs a matching cert chain in certificateChain.certificateChainRef
+                  rule: (!(has(self.file) || has(self.kms) || has(self.tink)) || has(self.certificateChain.certificateChainRef))
+                - message: certificateChainRef should not be present if no signers
+                    are configured
+                  rule: (has(self.file) || has(self.kms) || has(self.tink) || !has(self.certificateChain.certificateChainRef))
+                - message: only one signer should be configured at any time
+                  rule: (!(has(self.file) && has(self.kms)) && !(has(self.file) &&
+                    has(self.tink)) && !(has(self.kms) && has(self.tink)))
               url:
                 type: string
             type: object

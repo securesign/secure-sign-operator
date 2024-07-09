@@ -19,7 +19,7 @@ package tsa
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -65,9 +65,19 @@ func (r *TimestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 	log.V(1).Info("Reconciling Timestamp Authority", "request", req)
 
 	if err := r.Client.Get(ctx, req.NamespacedName, &instance); err != nil {
-		if errors.IsNotFound(err) {
-			return reconcile.Result{}, nil
-		}
+		return reconcile.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// Fetch the namespace
+	var namespace v12.Namespace
+	if err := r.Get(ctx, types.NamespacedName{Name: req.Namespace}, &namespace); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// Check if the namespace is marked for deletion
+	if !namespace.DeletionTimestamp.IsZero() {
+		log.Info("namespace is marked for deletion, stopping reconciliation", "namespace", req.Namespace)
+		return ctrl.Result{}, nil
 	}
 
 	target := instance.DeepCopy()
@@ -79,9 +89,11 @@ func (r *TimestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 		actions.NewGenerateSignerAction(),
 		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.TimestampAuthority](),
 		actions.NewRBACAction(),
+		actions.NewNtpMonitoringAction(),
 		actions.NewDeployAction(),
 		actions.NewServiceAction(),
 		actions.NewIngressAction(),
+		actions.NewMonitoringAction(),
 
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.TimestampAuthority](),
 		actions.NewInitializeAction(),

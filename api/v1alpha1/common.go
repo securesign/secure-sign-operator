@@ -73,9 +73,6 @@ type SecretKeySelector struct {
 	//+required
 	//+kubebuilder:validation:Pattern:="^[-._a-zA-Z0-9]+$"
 	Key string `json:"key" protobuf:"bytes,2,opt,name=key"`
-	// MountPath for the secret
-	//+optional
-	MountPath string `json:"mountPath,omitempty"`
 }
 
 // Pvc configuration of the persistent storage claim for deployment in the cluster.
@@ -101,11 +98,11 @@ type Pvc struct {
 	StorageClass string `json:"storageClass,omitempty"`
 }
 
-type KmsAuthConfig struct {
-	// KmsAuthEnv is a slice of core.EnvVar that specifies environment variables for KMS authentication.
+type Auth struct {
+	// Environmental variables used to define authentication parameters
 	//+optional
-	KmsAuthEnv []core.EnvVar `json:"kmsAuthEnv,omitempty"`
-	// KmsAuthFileRef is a secret reference for a kms auth config file.
+	Env []core.EnvVar `json:"env,omitempty"`
+	// Secret ref to be mounted inside a pod, Mount path defaults to /var/run/secrets/tas/auth
 	//+optional
-	KmsAuthFileRef *SecretKeySelector `json:"kmsAuthFileRef,omitempty"`
+	SecretMount []SecretKeySelector `json:"secretMount,omitempty"`
 }

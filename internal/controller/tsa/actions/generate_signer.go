@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	TSACertCALabel = constants.LabelNamespace + "/tsa_cert_chain.pem"
+	TSACertCALabel = constants.LabelNamespace + "/tsa.certchain.pem"
 )
 
 type generateSigner struct {
@@ -58,6 +58,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 	tsaCertChainConfig, err := g.setupCertificateChain(ctx, instance)
 	if err != nil {
+		g.Logger.Error(err, "error resolving keys for timestamp authority")
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    TSAServerCondition,
 			Status:  metav1.ConditionFalse,
@@ -70,7 +71,9 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 			Reason:  constants.Pending,
 			Message: "Resolving keys",
 		})
-		return g.FailedWithStatusUpdate(ctx, err, instance)
+		g.StatusUpdate(ctx, instance)
+		// swallow error and retry
+		return g.Requeue()
 	}
 
 	secretLabels := map[string]string{
@@ -104,8 +107,8 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 	if instance.Status.Signer == nil {
 		instance.Status.Signer = new(v1alpha1.TimestampAuthoritySigner)
 	}
-	if instance.Spec.Signer.FileSigner == nil && tsaUtils.IsFileType(instance) {
-		instance.Spec.Signer.FileSigner = new(v1alpha1.FileSigner)
+	if instance.Spec.Signer.File == nil && instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
+		instance.Spec.Signer.File = new(v1alpha1.File)
 	}
 	instance.Spec.Signer.DeepCopyInto(instance.Status.Signer)
 
@@ -116,23 +119,23 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 				Name: certificateChain.Name,
 			},
 		}
-	}
 
-	if instance.Spec.Signer.FileSigner.PrivateKeyRef == nil && tsaUtils.IsFileType(instance) {
-		instance.Status.Signer.FileSigner.PrivateKeyRef = &v1alpha1.SecretKeySelector{
-			Key: "interPrivateKey",
-			LocalObjectReference: v1alpha1.LocalObjectReference{
-				Name: certificateChain.Name,
-			},
+		if instance.Spec.Signer.File.PrivateKeyRef == nil {
+			instance.Status.Signer.File.PrivateKeyRef = &v1alpha1.SecretKeySelector{
+				Key: "interPrivateKey",
+				LocalObjectReference: v1alpha1.LocalObjectReference{
+					Name: certificateChain.Name,
+				},
+			}
 		}
-	}
 
-	if instance.Spec.Signer.FileSigner.PasswordRef == nil && len(tsaCertChainConfig.InterPrivateKeyPassword) > 0 && tsaUtils.IsFileType(instance) {
-		instance.Status.Signer.FileSigner.PasswordRef = &v1alpha1.SecretKeySelector{
-			Key: "interPrivateKeyPassword",
-			LocalObjectReference: v1alpha1.LocalObjectReference{
-				Name: certificateChain.Name,
-			},
+		if instance.Spec.Signer.File.PasswordRef == nil && len(tsaCertChainConfig.InterPrivateKeyPassword) > 0 {
+			instance.Status.Signer.File.PasswordRef = &v1alpha1.SecretKeySelector{
+				Key: "interPrivateKeyPassword",
+				LocalObjectReference: v1alpha1.LocalObjectReference{
+					Name: certificateChain.Name,
+				},
+			}
 		}
 	}
 
@@ -148,16 +151,16 @@ func (g generateSigner) setupCertificateChain(ctx context.Context, instance *v1a
 	config := &tsaUtils.TsaCertChainConfig{}
 
 	if tsaUtils.IsFileType(instance) {
-		if instance.Spec.Signer.FileSigner != nil {
+		if instance.Spec.Signer.File != nil {
 
-			if instance.Spec.Signer.FileSigner.PrivateKeyRef != nil {
-				key, err := k8sutils.GetSecretData(g.Client, instance.Namespace, instance.Spec.Signer.FileSigner.PrivateKeyRef)
+			if instance.Spec.Signer.File.PrivateKeyRef != nil {
+				key, err := k8sutils.GetSecretData(g.Client, instance.Namespace, instance.Spec.Signer.File.PrivateKeyRef)
 				if err != nil {
 					return nil, err
 				}
 				config.InterPrivateKey = key
 
-				if ref := instance.Spec.Signer.FileSigner.PasswordRef; ref != nil {
+				if ref := instance.Spec.Signer.File.PasswordRef; ref != nil {
 					password, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
 					if err != nil {
 						return nil, err

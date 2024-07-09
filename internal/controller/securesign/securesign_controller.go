@@ -63,7 +63,7 @@ type SecuresignReconciler struct {
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;list;watch;create;update;patch;delete;deletecollection
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;list;watch;create;update;patch;delete;deletecollection
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;update;patch;delete;deletecollection
-//+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete;deletecollection
 //+kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=create;get;list;watch;update;patch;delete
@@ -166,5 +166,6 @@ func (r *SecuresignReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&rhtasv1alpha1.Tuf{}).
 		Owns(&rhtasv1alpha1.Trillian{}).
 		Owns(&rhtasv1alpha1.CTlog{}).
+		Owns(&rhtasv1alpha1.TimestampAuthority{}).
 		Complete(r)
 }

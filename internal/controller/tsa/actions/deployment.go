@@ -37,7 +37,21 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Timest
 	)
 
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
-	deployment := tsaUtils.CreateTimestampAuthorityDeployment(instance, DeploymentName, RBACName, labels)
+	deployment, err := tsaUtils.CreateTimestampAuthorityDeployment(instance, DeploymentName, RBACName, labels)
+	if err != nil {
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    TSAServerCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+	}
 	if err = controllerutil.SetControllerReference(instance, deployment, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Deployment: %w", err))
 	}

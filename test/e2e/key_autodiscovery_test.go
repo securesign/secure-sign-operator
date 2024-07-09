@@ -120,6 +120,35 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 				Trillian: v1alpha1.TrillianSpec{Db: v1alpha1.TrillianDB{
 					Create: utils.Pointer(true),
 				}},
+				TimestampAuthority: v1alpha1.TimestampAuthoritySpec{
+					ExternalAccess: v1alpha1.ExternalAccess{
+						Enabled: true,
+					},
+					Signer: v1alpha1.TimestampAuthoritySigner{
+						CertificateChain: v1alpha1.CertificateChain{
+							CertificateChainRef: &v1alpha1.SecretKeySelector{
+								LocalObjectReference: v1alpha1.LocalObjectReference{
+									Name: "test-tsa-secret",
+								},
+								Key: "certificateChain",
+							},
+						},
+						File: &v1alpha1.File{
+							PrivateKeyRef: &v1alpha1.SecretKeySelector{
+								LocalObjectReference: v1alpha1.LocalObjectReference{
+									Name: "test-tsa-secret",
+								},
+								Key: "private",
+							},
+							PasswordRef: &v1alpha1.SecretKeySelector{
+								LocalObjectReference: v1alpha1.LocalObjectReference{
+									Name: "test-tsa-secret",
+								},
+								Key: "password",
+							},
+						},
+					},
+				},
 			},
 		}
 	})
@@ -130,9 +159,10 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 
 	Describe("Install with provided certificates", func() {
 		BeforeAll(func() {
-			Expect(cli.Create(ctx, initCTSecret(namespace.Name, "my-ctlog-secret"))).To(Succeed())
-			Expect(cli.Create(ctx, initFulcioSecret(namespace.Name, "my-fulcio-secret"))).To(Succeed())
-			Expect(cli.Create(ctx, initRekorSecret(namespace.Name, "my-rekor-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, support.InitCTSecret(namespace.Name, "my-ctlog-secret")))
+			Expect(cli.Create(ctx, support.InitFulcioSecret(namespace.Name, "my-fulcio-secret")))
+			Expect(cli.Create(ctx, support.InitRekorSecret(namespace.Name, "my-rekor-secret")))
+			Expect(cli.Create(ctx, support.InitTsaSecrets(namespace.Name, "test-tsa-secret")))
 			Expect(cli.Create(ctx, securesign)).To(Succeed())
 		})
 
@@ -143,6 +173,7 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 			tas.VerifyCTLog(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyTrillian(ctx, cli, namespace.Name, securesign.Name, true)
 			tas.VerifyTuf(ctx, cli, namespace.Name, securesign.Name)
+			tas.VerifyTSA(ctx, cli, namespace.Name, securesign.Name)
 		})
 
 		It("Verify TUF keys", func() {
@@ -170,6 +201,13 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 					expectedKeyRef.Key = "public"
 					expected, err = kubernetes.GetSecretData(cli, namespace.Name, expectedKeyRef)
 					Expect(err).To(Not(HaveOccurred()))
+					break
+				case "tsa.certchain.pem":
+					expectedKeyRef := securesign.Spec.TimestampAuthority.Signer.CertificateChain.CertificateChainRef.DeepCopy()
+					expectedKeyRef.Key = "certificateChain"
+					expected, err = kubernetes.GetSecretData(cli, namespace.Name, expectedKeyRef)
+					Expect(err).To(Not(HaveOccurred()))
+					break
 				}
 				Expect(expected).To(Equal(actual))
 			}
@@ -185,6 +223,11 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 			tuf := tas.GetTuf(ctx, cli, namespace.Name, securesign.Name)()
 			Expect(tuf).ToNot(BeNil())
 
+			tsa := tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)()
+			Expect(tsa).ToNot(BeNil())
+			err := tas.GetTSACertificateChain(ctx, cli, tsa.Namespace, tsa.Name, tsa.Status.Url)
+			Expect(err).To(BeNil())
+
 			oidcToken, err := support.OidcToken(ctx)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(oidcToken).ToNot(BeEmpty())
@@ -198,6 +241,7 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 				"cosign", "sign", "-y",
 				"--fulcio-url="+fulcio.Status.Url,
 				"--rekor-url="+rekor.Status.Url,
+				"--timestamp-server-url="+tsa.Status.Url+"/api/v1/timestamp",
 				"--oidc-issuer="+support.OidcIssuerUrl(),
 				"--oidc-client-id="+support.OidcClientID(),
 				"--identity-token="+oidcToken,
@@ -207,6 +251,7 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 			Expect(clients.Execute(
 				"cosign", "verify",
 				"--rekor-url="+rekor.Status.Url,
+				"--timestamp-certificate-chain=ts_chain.pem",
 				"--certificate-identity-regexp", ".*@redhat",
 				"--certificate-oidc-issuer-regexp", ".*keycloak.*",
 				targetImageName,

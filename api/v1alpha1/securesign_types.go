@@ -29,7 +29,7 @@ type SecuresignSpec struct {
 	Rekor    RekorSpec    `json:"rekor,omitempty"`
 	Fulcio   FulcioSpec   `json:"fulcio,omitempty"`
 	Trillian TrillianSpec `json:"trillian,omitempty"`
-	//+kubebuilder:default:={keys:{{name: rekor.pub},{name: ctfe.pub},{name: fulcio_v1.crt.pem}}}
+	//+kubebuilder:default:={keys:{{name: rekor.pub},{name: ctfe.pub},{name: fulcio_v1.crt.pem},{name: tsa.certchain.pem}}}
 	Tuf                TufSpec                `json:"tuf,omitempty"`
 	Ctlog              CTlogSpec              `json:"ctlog,omitempty"`
 	TimestampAuthority TimestampAuthoritySpec `json:"tsa,omitempty"`

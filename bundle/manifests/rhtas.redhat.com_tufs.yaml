@@ -71,6 +71,7 @@ spec:
                 - name: rekor.pub
                 - name: ctfe.pub
                 - name: fulcio_v1.crt.pem
+                - name: tsa.certchain.pem
                 description: List of TUF targets which will be added to TUF root
                 items:
                   properties:
@@ -88,9 +89,6 @@ spec:
                           description: The key of the secret to select from. Must
                             be a valid secret key.
                           pattern: ^[-._a-zA-Z0-9]+$
-                          type: string
-                        mountPath:
-                          description: MountPath for the secret
                           type: string
                         name:
                           description: |-
@@ -206,9 +204,6 @@ spec:
                           description: The key of the secret to select from. Must
                             be a valid secret key.
                           pattern: ^[-._a-zA-Z0-9]+$
-                          type: string
-                        mountPath:
-                          description: MountPath for the secret
                           type: string
                         name:
                           description: |-
