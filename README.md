@@ -5,6 +5,7 @@ The RHTAS(Red Hat Trusted Artifact Signer) operator allows for the deployment of
 Red Hat Trusted Artifact Signer enhances software supply chain security by simplifying cryptographic signing and verifying of software artifacts, such as container images, binaries and documents. Trusted Artifact Signer provides a production ready deployment of the Sigstore project within an enterprise. Enterprises adopting it can meet signing-related criteria for achieving Supply Chain Levels for Software Artifacts (SLSA) compliance and have greater confidence in the security and trustworthiness of their software supply chains.
 
 ## Getting Started
+
 You’ll need a Kubernetes cluster to run against. You can use an OpenShift Cluster or a Kubernetes cluster to install this operator.
 
 ### Running on the cluster
