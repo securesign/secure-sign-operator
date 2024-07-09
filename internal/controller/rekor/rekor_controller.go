@@ -110,6 +110,7 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		actions2.NewRBACAction(),
 		server.NewShardingConfigAction(),
 		server.NewResolveTreeAction(),
+		server.NewCAConfigMapAction(),
 		server.NewCreatePvcAction(),
 		server.NewDeployAction(),
 		server.NewCreateServiceAction(),
@@ -167,6 +168,7 @@ func (r *RekorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&rhtasv1alpha1.Rekor{}).
 		Owns(&v12.Deployment{}).
 		Owns(&v13.Service{}).
+		Owns(&v13.ConfigMap{}).
 		Owns(&v1.Ingress{}).
 		Owns(&batchv1.CronJob{}).
 		Complete(r)
