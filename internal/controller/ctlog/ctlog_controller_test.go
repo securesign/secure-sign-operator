@@ -109,24 +109,24 @@ var _ = Describe("CTlog controller", func() {
 			}).Should(Succeed())
 
 			By("Status conditions are initialized")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.CTlog{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
 			}).Should(BeTrue())
 
 			By("Pending phase until Trillian svc is created")
-			Eventually(func() string {
+			Eventually(func(g Gomega) string {
 				found := &v1alpha1.CTlog{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Pending))
 
 			By("Creating trillian service")
 			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
-			Eventually(func() string {
+			Eventually(func(g Gomega) string {
 				found := &v1alpha1.CTlog{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Creating))
 
@@ -136,16 +136,16 @@ var _ = Describe("CTlog controller", func() {
 				map[string]string{fulcio.FulcioCALabel: "cert"},
 			))).To(Succeed())
 
-			Eventually(func() string {
+			Eventually(func(g Gomega) string {
 				found := &v1alpha1.CTlog{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Creating))
 
 			By("Key Secret is created")
 			found := &v1alpha1.CTlog{}
-			Eventually(func() *v1alpha1.SecretKeySelector {
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+			Eventually(func(g Gomega) *v1alpha1.SecretKeySelector {
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.PrivateKeyRef
 			}).Should(Not(BeNil()))
 			Eventually(func() error {
@@ -173,9 +173,9 @@ var _ = Describe("CTlog controller", func() {
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
 
 			By("Waiting until CTlog instance is Ready")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.CTlog{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
 			}).Should(BeTrue())
 
@@ -187,9 +187,9 @@ var _ = Describe("CTlog controller", func() {
 			replicas := int32(99)
 			deployment.Spec.Replicas = &replicas
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
-			Eventually(func() int32 {
+			Eventually(func(g Gomega) int32 {
 				deployment = &appsv1.Deployment{}
-				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
 				return *deployment.Spec.Replicas
 			}).Should(Equal(int32(1)))
 		})

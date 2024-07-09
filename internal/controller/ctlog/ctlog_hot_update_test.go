@@ -133,9 +133,9 @@ var _ = Describe("CTlog update test", func() {
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
 
 			By("Waiting until CTlog instance is Ready")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.CTlog{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
 			}).Should(BeTrue())
 
@@ -148,9 +148,9 @@ var _ = Describe("CTlog update test", func() {
 			Expect(k8sClient.Create(ctx, fulcioCa)).To(Succeed())
 
 			By("CA has changed in status field")
-			Eventually(func() []v1alpha1.SecretKeySelector {
+			Eventually(func(g Gomega) []v1alpha1.SecretKeySelector {
 				found := &v1alpha1.CTlog{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.RootCertificates
 			}).Should(HaveExactElements(WithTransform(func(ks v1alpha1.SecretKeySelector) string {
 				return ks.Name
@@ -171,8 +171,8 @@ var _ = Describe("CTlog update test", func() {
 
 			k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
 			found := &v1alpha1.CTlog{}
-			Eventually(func() error {
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+			Eventually(func(g Gomega) error {
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				found.Spec.PrivateKeyRef = &v1alpha1.SecretKeySelector{
 					LocalObjectReference: v1alpha1.LocalObjectReference{
 						Name: "key-secret",
@@ -183,9 +183,9 @@ var _ = Describe("CTlog update test", func() {
 			}).Should(Succeed())
 
 			By("CTLog status field changed")
-			Eventually(func() string {
+			Eventually(func(g Gomega) string {
 				found := &v1alpha1.CTlog{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.PrivateKeyRef.Name
 			}).Should(Equal("key-secret"))
 

@@ -107,10 +107,10 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 		})
 
 		It("operator should generate fulcio secret", func() {
-			Eventually(func() *v1.Secret {
+			Eventually(func(g Gomega) *v1.Secret {
 				fulcio := tas.GetFulcio(ctx, cli, namespace.Name, securesign.Name)()
 				scr := &v1.Secret{}
-				Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: fulcio.Status.Certificate.PrivateKeyRef.Name}, scr)).To(Succeed())
+				g.Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: fulcio.Status.Certificate.PrivateKeyRef.Name}, scr)).To(Succeed())
 				return scr
 			}).Should(
 				WithTransform(func(secret *v1.Secret) map[string][]byte { return secret.Data },
@@ -126,10 +126,10 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			Eventually(func() *v1alpha1.SecretKeySelector {
 				return tas.GetRekor(ctx, cli, namespace.Name, securesign.Name)().Status.Signer.KeyRef
 			}).Should(Not(BeNil()))
-			Eventually(func() *v1.Secret {
+			Eventually(func(g Gomega) *v1.Secret {
 				rekor := tas.GetRekor(ctx, cli, namespace.Name, securesign.Name)()
 				scr := &v1.Secret{}
-				Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: rekor.Status.Signer.KeyRef.Name}, scr)).To(Succeed())
+				g.Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: rekor.Status.Signer.KeyRef.Name}, scr)).To(Succeed())
 				return scr
 			}).Should(
 				WithTransform(func(secret *v1.Secret) map[string][]byte { return secret.Data },

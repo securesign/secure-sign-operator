@@ -134,16 +134,16 @@ var _ = Describe("TUF controller", func() {
 			}).Should(Succeed())
 
 			By("Status conditions are initialized")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Tuf{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
 			}).Should(BeTrue())
 
 			By("Pending phase until ctlog public key is resolved")
-			Eventually(func() string {
+			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Tuf{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Pending))
 
@@ -157,9 +157,9 @@ var _ = Describe("TUF controller", func() {
 			}, secretLabels))
 
 			By("Waiting until Tuf instance is Initialization")
-			Eventually(func() string {
+			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Tuf{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Initialize))
 
@@ -176,9 +176,9 @@ var _ = Describe("TUF controller", func() {
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
 
 			By("Waiting until Tuf instance is Ready")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Tuf{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
 			}).Should(BeTrue())
 
@@ -199,17 +199,17 @@ var _ = Describe("TUF controller", func() {
 			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Port.Name).Should(Equal(actions.PortName))
 
 			By("Checking the latest Status Condition added to the Tuf instance")
-			Eventually(func() error {
+			Eventually(func(g Gomega) error {
 				found := &v1alpha1.Tuf{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				rekorCondition := meta.FindStatusCondition(found.Status.Conditions, "rekor.pub")
-				Expect(rekorCondition).Should(Not(BeNil()))
-				Expect(rekorCondition.Status).Should(Equal(metav1.ConditionTrue))
-				Expect(rekorCondition.Reason).Should(Equal("Ready"))
+				g.Expect(rekorCondition).Should(Not(BeNil()))
+				g.Expect(rekorCondition.Status).Should(Equal(metav1.ConditionTrue))
+				g.Expect(rekorCondition.Reason).Should(Equal("Ready"))
 				ctlogCondition := meta.FindStatusCondition(found.Status.Conditions, "ctfe.pub")
-				Expect(ctlogCondition).Should(Not(BeNil()))
-				Expect(ctlogCondition.Status).Should(Equal(metav1.ConditionTrue))
-				Expect(ctlogCondition.Reason).Should(Equal("Ready"))
+				g.Expect(ctlogCondition).Should(Not(BeNil()))
+				g.Expect(ctlogCondition.Status).Should(Equal(metav1.ConditionTrue))
+				g.Expect(ctlogCondition.Reason).Should(Equal("Ready"))
 				return nil
 			}).Should(Succeed())
 
@@ -221,9 +221,9 @@ var _ = Describe("TUF controller", func() {
 			replicas := int32(99)
 			deployment.Spec.Replicas = &replicas
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
-			Eventually(func() int32 {
+			Eventually(func(g Gomega) int32 {
 				deployment = &appsv1.Deployment{}
-				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: TufNamespace}, deployment)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: TufNamespace}, deployment)).Should(Succeed())
 				return *deployment.Spec.Replicas
 			}).Should(Equal(int32(1)))
 		})

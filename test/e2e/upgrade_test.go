@@ -147,9 +147,9 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 
 		gomega.Expect(cli.Create(ctx, subscription)).To(gomega.Succeed())
 
-		gomega.Eventually(func() {
+		gomega.Eventually(func(g gomega.Gomega) {
 			csvs := &v1alpha1.ClusterServiceVersionList{}
-			gomega.Expect(cli.List(ctx, csvs, runtimeCli.InNamespace(namespace.Name))).To(gomega.Succeed())
+			g.Expect(cli.List(ctx, csvs, runtimeCli.InNamespace(namespace.Name))).To(gomega.Succeed())
 		})
 
 		gomega.Eventually(findClusterServiceVersion(ctx, cli, func(_ v1alpha1.ClusterServiceVersion) bool {
@@ -160,9 +160,9 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 			return true
 		}, namespace.Name)().Spec.Version.Version
 
-		gomega.Eventually(func() []v13.Deployment {
+		gomega.Eventually(func(g gomega.Gomega) []v13.Deployment {
 			list := &v13.DeploymentList{}
-			gomega.Expect(cli.List(ctx, list, runtimeCli.InNamespace(namespace.Name), runtimeCli.MatchingLabels{"app.kubernetes.io/part-of": "rhtas-operator"})).To(gomega.Succeed())
+			g.Expect(cli.List(ctx, list, runtimeCli.InNamespace(namespace.Name), runtimeCli.MatchingLabels{"app.kubernetes.io/part-of": "rhtas-operator"})).To(gomega.Succeed())
 			return list.Items
 		}).Should(gomega.And(gomega.HaveLen(1), gomega.WithTransform(func(items []v13.Deployment) int32 {
 			return items[0].Status.AvailableReplicas
@@ -303,9 +303,9 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 			trillian.LogsignerDeploymentName: constants.TrillianLogSignerImage,
 			trillian.LogserverDeploymentName: constants.TrillianServerImage,
 		} {
-			gomega.Eventually(func() string {
+			gomega.Eventually(func(g gomega.Gomega) string {
 				d := &v13.Deployment{}
-				gomega.Expect(cli.Get(ctx, types.NamespacedName{
+				g.Expect(cli.Get(ctx, types.NamespacedName{
 					Namespace: namespace.Name,
 					Name:      k,
 				}, d)).To(gomega.Succeed())

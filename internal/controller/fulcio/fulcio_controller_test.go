@@ -133,16 +133,16 @@ var _ = Describe("Fulcio controller", func() {
 			}).Should(Succeed())
 
 			By("Status conditions are initialized")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Fulcio{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
 			}).Should(BeTrue())
 
 			By("Pending phase until password key is resolved")
-			Eventually(func() string {
+			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Fulcio{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Pending))
 
@@ -153,30 +153,30 @@ var _ = Describe("Fulcio controller", func() {
 
 			By("Secrets are resolved")
 			var certSecret *corev1.Secret
-			Eventually(func() *corev1.Secret {
+			Eventually(func(g Gomega) *corev1.Secret {
 				certSecret, err = kubernetes.FindSecret(ctx, k8sClient, Namespace, actions.FulcioCALabel)
-				Expect(err).To(Not(HaveOccurred()))
+				g.Expect(err).To(Not(HaveOccurred()))
 				return certSecret
 			}).Should(Not(BeNil()))
 
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Fulcio{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, actions.CertCondition)
 			}).Should(BeTrue())
-			Eventually(func() string {
+			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Fulcio{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Certificate.CARef.Name
 			}).Should(Equal(certSecret.Name))
-			Eventually(func() string {
+			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Fulcio{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Certificate.PrivateKeyRef.Name
 			}).Should(Equal(certSecret.Name))
-			Eventually(func() string {
+			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Fulcio{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Certificate.PrivateKeyPasswordRef.Name
 			}).Should(Equal("password-secret"))
 
@@ -195,9 +195,9 @@ var _ = Describe("Fulcio controller", func() {
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
 
 			By("Waiting until Fulcio instance is Ready")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Fulcio{}
-				Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
 			}).Should(BeTrue())
 
@@ -227,9 +227,9 @@ var _ = Describe("Fulcio controller", func() {
 			replicas := int32(99)
 			deployment.Spec.Replicas = &replicas
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
-			Eventually(func() int32 {
+			Eventually(func(g Gomega) int32 {
 				deployment = &appsv1.Deployment{}
-				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
 				return *deployment.Spec.Replicas
 			}).Should(Equal(int32(1)))
 		})
