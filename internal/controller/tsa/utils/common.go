@@ -9,10 +9,10 @@ func IsFileType(instance *v1alpha1.TimestampAuthority) bool {
 }
 
 func GetSignerType(signer *v1alpha1.TimestampAuthoritySigner) string {
-	if signer.KmsSigner != nil {
+	if signer.Kms != nil {
 		return KmsType
 	}
-	if signer.TinkSigner != nil {
+	if signer.Tink != nil {
 		return TinkType
 	}
 	return FileType

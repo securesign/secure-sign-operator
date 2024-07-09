@@ -9,6 +9,12 @@ metadata:
     app.kubernetes.io/created-by: rhtas-operator
   name: timestampauthority-sample
 spec:
+  externalAccess:
+    enabled: true
+  monitoring:
+    enabled: true
+  ntpMonitoring:
+    enabled: true
   signer:
     certificateChain:
       rootCA:
@@ -19,5 +25,3 @@ spec:
         organizationName: Red Hat
         organizationEmail: jdoe@redhat.com
         commonName: tsa.hostname
-  externalAccess:
-    enabled: true

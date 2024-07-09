@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"reflect"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -35,11 +36,19 @@ func (i tsaAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 		updated bool
 	)
 	tsa := &rhtasv1alpha1.TimestampAuthority{}
-
 	tsa.Name = instance.Name
 	tsa.Namespace = instance.Namespace
 	tsa.Labels = constants.LabelsFor(actions.ComponentName, tsa.Name, instance.Name)
 
+	if reflect.ValueOf(instance.Spec.TimestampAuthority).IsZero() {
+		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
+			Type:    TSACondition,
+			Status:  v1.ConditionFalse,
+			Reason:  constants.NotDefined,
+			Message: "TSA resource is undefined",
+		})
+		return i.StatusUpdate(ctx, instance)
+	}
 	tsa.Spec = instance.Spec.TimestampAuthority
 
 	if err = controllerutil.SetControllerReference(instance, tsa, i.Client.Scheme()); err != nil {

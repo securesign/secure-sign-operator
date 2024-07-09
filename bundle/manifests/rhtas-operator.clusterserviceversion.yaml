@@ -122,6 +122,12 @@ metadata:
               "externalAccess": {
                 "enabled": true
               },
+              "monitoring": {
+                "enabled": true
+              },
+              "ntpMonitoring": {
+                "enabled": true
+              },
               "signer": {
                 "certificateChain": {
                   "intermediateCA": {
@@ -134,8 +140,7 @@ metadata:
                     "organizationEmail": "jdoe@redhat.com",
                     "organizationName": "Red Hat"
                   }
-                },
-                "type": "file"
+                }
               }
             },
             "tuf": {
@@ -151,6 +156,9 @@ metadata:
                 },
                 {
                   "name": "fulcio_v1.crt.pem"
+                },
+                {
+                  "name": "tsa.certchain.pem"
                 }
               ]
             }
@@ -172,6 +180,26 @@ metadata:
           "spec": {
             "externalAccess": {
               "enabled": true
+            },
+            "monitoring": {
+              "enabled": true
+            },
+            "ntpMonitoring": {
+              "enabled": true
+            },
+            "signer": {
+              "certificateChain": {
+                "intermediateCA": {
+                  "commonName": "tsa.hostname",
+                  "organizationEmail": "jdoe@redhat.com",
+                  "organizationName": "Red Hat"
+                },
+                "rootCA": {
+                  "commonName": "tsa.hostname",
+                  "organizationEmail": "jdoe@redhat.com",
+                  "organizationName": "Red Hat"
+                }
+              }
             }
           }
         },
@@ -223,6 +251,13 @@ metadata:
                 "secretRef": {
                   "key": "public",
                   "name": "ctlog-pub-key"
+                }
+              },
+              {
+                "name": "tsa.certchain.pem",
+                "secretRef": {
+                  "key": "certificateChain",
+                  "name": "tsa-cert-chain"
                 }
               }
             ]
@@ -391,6 +426,7 @@ spec:
           verbs:
           - create
           - delete
+          - deletecollection
           - get
           - list
           - patch

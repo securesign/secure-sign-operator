@@ -51,7 +51,22 @@ var _ = Describe("TimestampAuthority Controller", func() {
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: rhtasv1alpha1.TimestampAuthoritySpec{
+						Signer: rhtasv1alpha1.TimestampAuthoritySigner{
+							CertificateChain: rhtasv1alpha1.CertificateChain{
+								RootCA: rhtasv1alpha1.TsaCertificateAuthority{
+									CommonName:        "root_test.com",
+									OrganizationName:  "root_test",
+									OrganizationEmail: "root_test@test.com",
+								},
+								IntermediateCA: rhtasv1alpha1.TsaCertificateAuthority{
+									CommonName:        "inter_test.com",
+									OrganizationName:  "inter_test",
+									OrganizationEmail: "inter_test@test.com",
+								},
+							},
+						},
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}

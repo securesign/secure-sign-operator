@@ -34,6 +34,18 @@ func CreateImmutableConfigmap(namePrefix string, namespace string, labels map[st
 		Immutable: &immutable,
 	}
 }
+
+func CreateConfigMap(namePrefix string, namespace string, labels map[string]string, data map[string]string) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: namePrefix,
+			Namespace:    namespace,
+			Labels:       labels,
+		},
+		Data: data,
+	}
+}
+
 func GetConfigMap(ctx context.Context, client client.Client, namespace, secretName string) (*corev1.ConfigMap, error) {
 	var cm corev1.ConfigMap
 
@@ -47,6 +59,7 @@ func GetConfigMap(ctx context.Context, client client.Client, namespace, secretNa
 	}
 	return &cm, nil
 }
+
 func FindConfigMap(ctx context.Context, c client.Client, namespace string, label string) (*corev1.ConfigMap, error) {
 	list := &corev1.ConfigMapList{}
 
