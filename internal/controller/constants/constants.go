@@ -9,4 +9,5 @@ const (
 	Creating   = "Creating"
 	Initialize = "Initialize"
 	Failure    = "Failure"
+	NotDefined = "NotDefined"
 )

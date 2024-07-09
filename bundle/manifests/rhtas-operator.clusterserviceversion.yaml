@@ -122,6 +122,12 @@ metadata:
               "externalAccess": {
                 "enabled": true
               },
+              "monitoring": {
+                "enabled": true
+              },
+              "ntpMonitoring": {
+                "enabled": true
+              },
               "signer": {
                 "certificateChain": {
                   "intermediateCA": {
@@ -134,8 +140,7 @@ metadata:
                     "organizationEmail": "jdoe@redhat.com",
                     "organizationName": "Red Hat"
                   }
-                },
-                "type": "file"
+                }
               }
             },
             "tuf": {
@@ -151,6 +156,9 @@ metadata:
                 },
                 {
                   "name": "fulcio_v1.crt.pem"
+                },
+                {
+                  "name": "tsa.certchain.pem"
                 }
               ]
             }
@@ -172,6 +180,26 @@ metadata:
           "spec": {
             "externalAccess": {
               "enabled": true
+            },
+            "monitoring": {
+              "enabled": true
+            },
+            "ntpMonitoring": {
+              "enabled": true
+            },
+            "signer": {
+              "certificateChain": {
+                "intermediateCA": {
+                  "commonName": "tsa.hostname",
+                  "organizationEmail": "jdoe@redhat.com",
+                  "organizationName": "Red Hat"
+                },
+                "rootCA": {
+                  "commonName": "tsa.hostname",
+                  "organizationEmail": "jdoe@redhat.com",
+                  "organizationName": "Red Hat"
+                }
+              }
             }
           }
         },
@@ -224,6 +252,13 @@ metadata:
                   "key": "public",
                   "name": "ctlog-pub-key"
                 }
+              },
+              {
+                "name": "tsa.certchain.pem",
+                "secretRef": {
+                  "key": "certificateChain",
+                  "name": "tsa-cert-chain"
+                }
               }
             ]
           }
@@ -231,7 +266,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:a21f7128694a64989bf0d84a7a7da4c1ffc89edf62d594dc8bea7bcfe9ac08d3
-    createdAt: "2024-07-10T17:23:58Z"
+    createdAt: "2024-07-23T16:26:17Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -391,6 +426,7 @@ spec:
           verbs:
           - create
           - delete
+          - deletecollection
           - get
           - list
           - patch

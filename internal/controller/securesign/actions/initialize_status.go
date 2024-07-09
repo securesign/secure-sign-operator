@@ -27,7 +27,7 @@ func (i initializeStatus) CanHandle(_ context.Context, instance *rhtasv1alpha1.S
 }
 
 func (i initializeStatus) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
-	for _, conditionType := range []string{constants.Ready, TrillianCondition, FulcioCondition, RekorCondition, CTlogCondition, TufCondition} {
+	for _, conditionType := range []string{constants.Ready, TrillianCondition, FulcioCondition, RekorCondition, CTlogCondition, TufCondition, TSACondition} {
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 			Type:   conditionType,
 			Status: v1.ConditionUnknown,
