@@ -48,6 +48,7 @@ var (
 	testEnv   *envtest.Environment
 	ctx       context.Context
 	cancel    context.CancelFunc
+	Recorder  *record.FakeRecorder
 )
 
 func TestAPIs(t *testing.T) {
@@ -99,12 +100,21 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	Recorder = record.NewFakeRecorder(1000)
+
 	err = (&RekorReconciler{
 		Client:   k8sManager.GetClient(),
 		Scheme:   k8sManager.GetScheme(),
-		Recorder: record.NewFakeRecorder(1000),
+		Recorder: Recorder,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
+
+	go func() {
+		elog := logf.FromContext(context.TODO()).WithName("Event")
+		for msg := range Recorder.Events {
+			elog.Info(msg)
+		}
+	}()
 
 	go func() {
 		defer GinkgoRecover()

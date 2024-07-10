@@ -9,7 +9,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
@@ -19,15 +18,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const secretNameFormat = "rekor-signer-%s-"
-
-const (
-	RekorPubLabel = constants.LabelNamespace + "/rekor.pub"
-)
 
 func NewGenerateSignerAction() action.Action[*v1alpha1.Rekor] {
 	return &generateSigner{}
@@ -43,6 +36,9 @@ func (g generateSigner) Name() string {
 
 func (g generateSigner) CanHandle(_ context.Context, instance *v1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	if c == nil {
+		return false
+	}
 	if c.Reason != constants.Pending && c.Reason != constants.Ready {
 		return false
 	}
@@ -54,6 +50,8 @@ func (g generateSigner) CanHandle(_ context.Context, instance *v1alpha1.Rekor) b
 func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *action.Result {
 	if instance.Spec.Signer.KMS != "secret" && instance.Spec.Signer.KMS != "" {
 		instance.Status.Signer = instance.Spec.Signer
+		// force recreation of public key ref
+		instance.Status.PublicKeyRef = nil
 		// skip signer resolution and move to creating
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:   constants.Ready,
@@ -68,7 +66,11 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 		})
 		return g.StatusUpdate(ctx, instance)
 	}
+
+	// Return to pending state because Signer spec changed
 	if meta.FindStatusCondition(instance.Status.Conditions, constants.Ready).Reason != constants.Pending {
+		// force recreation of public key ref
+		instance.Status.PublicKeyRef = nil
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:   constants.Ready,
 			Status: metav1.ConditionFalse,
@@ -109,9 +111,6 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 	}
 
 	labels := constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
-	if err = g.Client.DeleteAllOf(ctx, &v1.Secret{}, client.InNamespace(instance.Namespace), client.MatchingLabels(labels), client.HasLabels{RekorPubLabel}); err != nil {
-		return g.Failed(err)
-	}
 
 	data := make(map[string][]byte)
 	if certConfig.RekorKey != nil {
@@ -121,14 +120,10 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 		data["password"] = certConfig.RekorKeyPassword
 	}
 	if certConfig.RekorPubKey != nil {
-		labels[RekorPubLabel] = "public"
 		data["public"] = certConfig.RekorPubKey
 	}
 	secret := k8sutils.CreateImmutableSecret(fmt.Sprintf(secretNameFormat, instance.Name), instance.Namespace,
 		data, labels)
-	if err = controllerutil.SetControllerReference(instance, secret, g.Client.Scheme()); err != nil {
-		return g.Failed(fmt.Errorf("could not set controller reference for Secret: %w", err))
-	}
 	if _, err = g.Ensure(ctx, secret); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ServerCondition,
@@ -144,7 +139,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 		})
 		return g.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create secret: %w", err), instance)
 	}
-	g.Recorder.Event(instance, v1.EventTypeNormal, "SignerKeyCreated", "Signer private key created")
+	g.Recorder.Eventf(instance, v1.EventTypeNormal, "SignerKeyCreated", "Signer private key created: %s", secret.Name)
 
 	instance.Status.Signer = instance.Spec.Signer
 	if instance.Spec.Signer.KeyRef == nil {

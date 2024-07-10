@@ -2,12 +2,12 @@ package actions
 
 import (
 	"context"
+	testAction "github.com/securesign/operator/internal/testing/action"
 	"testing"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
-	testAction "github.com/securesign/operator/internal/controller/common/test/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
@@ -94,7 +94,7 @@ func Test_HandleFulcioCert_Empty(t *testing.T) {
 
 	result := a.Handle(context.TODO(), i)
 	var dummyAction = action.BaseAction{}
-	g.Expect(result).To(Equal(dummyAction.Requeue()))
+	g.Expect(result).Should(Equal(dummyAction.Requeue()))
 }
 
 func Test_HandleFulcioCert_Configured(t *testing.T) {

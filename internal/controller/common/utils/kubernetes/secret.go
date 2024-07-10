@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -67,15 +67,17 @@ func GetSecretData(client client.Client, namespace string, selector *rhtasv1alph
 	return nil, nil
 }
 
-func FindSecret(ctx context.Context, c client.Client, namespace string, label string) (*corev1.Secret, error) {
-	list := &corev1.SecretList{}
-
-	selector, err := labels.Parse(label)
-	listOptions := &client.ListOptions{
-		LabelSelector: selector,
+func FindSecret(ctx context.Context, c client.Client, namespace string, label string) (*metav1.PartialObjectMetadata, error) {
+	gvk := schema.GroupVersionKind{
+		Group:   "",
+		Version: "v1",
+		Kind:    "Secret",
 	}
 
-	err = c.List(ctx, list, client.InNamespace(namespace), listOptions)
+	list := &metav1.PartialObjectMetadataList{}
+	list.SetGroupVersionKind(gvk)
+
+	err := FindByLabelSelector(ctx, c, list, namespace, label)
 
 	if err != nil {
 		return nil, err
@@ -87,5 +89,9 @@ func FindSecret(ctx context.Context, c client.Client, namespace string, label st
 	if len(list.Items) == 1 {
 		return &list.Items[0], nil
 	}
-	return nil, nil
+
+	return nil, apierrors.NewNotFound(schema.GroupResource{
+		Group:    gvk.Group,
+		Resource: gvk.Kind,
+	}, "")
 }

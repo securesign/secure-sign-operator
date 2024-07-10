@@ -70,9 +70,10 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) 
 	if len(instance.Spec.RootCertificates) == 0 {
 		scr, err := k8sutils.FindSecret(ctx, g.Client, instance.Namespace, actions.FulcioCALabel)
 		if err != nil {
-			return g.Failed(err)
-		}
-		if scr == nil {
+			if !k8sErrors.IsNotFound(err) {
+				return g.Failed(err)
+			}
+
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:    CertCondition,
 				Status:  metav1.ConditionFalse,
