@@ -10,7 +10,7 @@ import (
 
 type logTarget struct {
 	reader io.Reader
-	size int64
+	size   int64
 }
 
 func createArchive(file *os.File, logs map[string]logTarget) error {
@@ -36,12 +36,12 @@ func createArchive(file *os.File, logs map[string]logTarget) error {
 
 		// Write the header to the tar file
 		if err := tarWriter.WriteHeader(tarHeader); err != nil {
-			return fmt.Errorf("tar write header: %w",err)
+			return fmt.Errorf("tar write header: %w", err)
 		}
 
 		// Copy the logTarget data to the tar file
 		if _, err := io.Copy(tarWriter, log.reader); err != nil {
-			return fmt.Errorf("tar write content: %w",err)
+			return fmt.Errorf("tar write content: %w", err)
 		}
 	}
 	return nil

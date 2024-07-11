@@ -18,6 +18,8 @@ package securesign
 
 import (
 	"context"
+	v12 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/operator-framework/operator-lib/predicate"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -26,7 +28,6 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/securesign/actions"
 	v1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -77,14 +78,19 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	log := ctrllog.FromContext(ctx)
 
 	if err := r.Client.Get(ctx, req.NamespacedName, &instance); err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
+		return reconcile.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// Fetch the namespace
+	var namespace v12.Namespace
+	if err := r.Get(ctx, types.NamespacedName{Name: req.Namespace}, &namespace); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// Check if the namespace is marked for deletion
+	if !namespace.DeletionTimestamp.IsZero() {
+		log.Info("namespace is marked for deletion, stopping reconciliation", "namespace", req.Namespace)
+		return ctrl.Result{}, nil
 	}
 	target := instance.DeepCopy()
 

@@ -82,16 +82,16 @@ func DumpNamespace(ctx context.Context, cli client.Client, ns string) {
 
 	toDump := map[string]client.ObjectList{
 		"securesign.yaml": &v1alpha1.SecuresignList{},
-		"fulcio.yaml": &v1alpha1.FulcioList{},
-		"rekor.yaml": &v1alpha1.RekorList{},
-		"tuf.yaml": &v1alpha1.TufList{},
-		"ctlog.yaml": &v1alpha1.CTlogList{},
-		"trillian.yaml": &v1alpha1.TrillianList{},
-		"pod.yaml": &v1.PodList{},
-		"configmap.yaml": &v1.ConfigMapList{},
+		"fulcio.yaml":     &v1alpha1.FulcioList{},
+		"rekor.yaml":      &v1alpha1.RekorList{},
+		"tuf.yaml":        &v1alpha1.TufList{},
+		"ctlog.yaml":      &v1alpha1.CTlogList{},
+		"trillian.yaml":   &v1alpha1.TrillianList{},
+		"pod.yaml":        &v1.PodList{},
+		"configmap.yaml":  &v1.ConfigMapList{},
 		"deployment.yaml": &v12.DeploymentList{},
-		"job.yaml": &v13.JobList{},
-		"cronjob.yaml": &v13.CronJobList{},
+		"job.yaml":        &v13.JobList{},
+		"cronjob.yaml":    &v13.CronJobList{},
 	}
 
 	core.GinkgoWriter.Println("----------------------- Dumping namespace " + ns + " -----------------------")
@@ -100,7 +100,7 @@ func DumpNamespace(ctx context.Context, cli client.Client, ns string) {
 		if dump, err := dumpK8sObjects(ctx, cli, obj, ns); err == nil {
 			k8s[key] = logTarget{
 				reader: strings.NewReader(dump),
-				size: int64(len(dump)),
+				size:   int64(len(dump)),
 			}
 		} else {
 			log.Println(fmt.Errorf("dump failed for %s: %w", key, err))
@@ -114,7 +114,7 @@ func DumpNamespace(ctx context.Context, cli client.Client, ns string) {
 		log.Fatalf("Failed to create %s file: %v", fileName, err)
 	}
 
-	if err := createArchive(outFile, k8s) ; err != nil {
+	if err := createArchive(outFile, k8s); err != nil {
 		log.Fatalf("Failed to create %s: %v", fileName, err)
 	}
 }

@@ -26,7 +26,6 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
-	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -117,13 +116,11 @@ var _ = Describe("Rekor hot update test", func() {
 				return k8sClient.Get(ctx, typeNamespaceName, found)
 			}).Should(Succeed())
 
-			By("Move to CreatingPhase by creating trillian service")
-			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
-
 			By("Waiting until Rekor instance is Initialization")
 			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Rekor{}
 				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)).Should(BeTrue())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Initialize))
 
