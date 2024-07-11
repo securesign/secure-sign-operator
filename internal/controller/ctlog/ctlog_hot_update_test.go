@@ -148,13 +148,14 @@ var _ = Describe("CTlog update test", func() {
 			Expect(k8sClient.Create(ctx, fulcioCa)).To(Succeed())
 
 			By("CA has changed in status field")
-			Eventually(func(g Gomega) []v1alpha1.SecretKeySelector {
+			Eventually(func(g Gomega) {
 				found := &v1alpha1.CTlog{}
 				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.RootCertificates
-			}).Should(HaveExactElements(WithTransform(func(ks v1alpha1.SecretKeySelector) string {
-				return ks.Name
-			}, Equal("test2"))))
+				g.Expect(found.Status.RootCertificates).
+					Should(HaveExactElements(WithTransform(func(ks v1alpha1.SecretKeySelector) string {
+						return ks.Name
+					}, Equal("test2"))))
+			}).Should(Succeed())
 
 			By("CTL deployment is updated")
 			Eventually(func() bool {

@@ -18,6 +18,7 @@ package trillian
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/types"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/securesign/operator/internal/controller/annotations"
@@ -32,7 +33,6 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	v1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -69,15 +69,21 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	log.V(1).Info("Reconciling Trillian", "request", req)
 
 	if err := r.Client.Get(ctx, req.NamespacedName, &instance); err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
+
+	// Fetch the namespace
+	var namespace v12.Namespace
+	if err := r.Get(ctx, types.NamespacedName{Name: req.Namespace}, &namespace); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// Check if the namespace is marked for deletion
+	if !namespace.DeletionTimestamp.IsZero() {
+		log.Info("namespace is marked for deletion, stopping reconciliation", "namespace", req.Namespace)
+		return ctrl.Result{}, nil
+	}
+
 	target := instance.DeepCopy()
 	actions := []action.Action[*rhtasv1alpha1.Trillian]{
 		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Trillian](func(_ *rhtasv1alpha1.Trillian) []string {
