@@ -512,6 +512,9 @@ spec:
                         x-kubernetes-validations:
                         - message: Feature cannot be disabled
                           rule: (self || !oldSelf)
+                      host:
+                        description: Set hostname for your Ingress/Route.
+                        type: string
                     required:
                     - enabled
                     type: object

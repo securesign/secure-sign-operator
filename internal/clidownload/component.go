@@ -28,6 +28,10 @@ const (
 	cliWebServerPath   = "/var/www/html/clients/"
 )
 
+var (
+	CliHostName string
+)
+
 type Component struct {
 	Client client.Client
 	Scheme *runtime.Scheme
@@ -56,7 +60,7 @@ func (c *Component) Start(ctx context.Context) error {
 	obj = append(obj, c.createDeployment(ns.Name, labels))
 	svc := kubernetes.CreateService(ns.Name, cliServerName, cliServerPortName, cliServerPort, labels)
 	obj = append(obj, svc)
-	ingress, err := kubernetes.CreateIngress(ctx, c.Client, *svc, rhtasv1alpha1.ExternalAccess{}, cliServerPortName, labels)
+	ingress, err := kubernetes.CreateIngress(ctx, c.Client, *svc, rhtasv1alpha1.ExternalAccess{Host: CliHostName}, cliServerPortName, labels)
 	if err != nil {
 		c.Log.Error(err, "unable to prepare ingress resources")
 		return err
