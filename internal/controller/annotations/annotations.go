@@ -9,6 +9,9 @@ const (
 
 	// TrustedCA Annotation to specify name of ConfigMap with additional bundle of trusted CA
 	TrustedCA = "rhtas.redhat.com/trusted-ca"
+
+	// TreeId Annotation inform that resource is associated with specific Merkle Tree
+	TreeId = "rhtas.redhat.com/treeId"
 )
 
 var inheritable = []string{

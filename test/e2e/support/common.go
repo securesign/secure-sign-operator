@@ -92,6 +92,7 @@ func DumpNamespace(ctx context.Context, cli client.Client, ns string) {
 		"deployment.yaml": &v12.DeploymentList{},
 		"job.yaml":        &v13.JobList{},
 		"cronjob.yaml":    &v13.CronJobList{},
+		"event.yaml":      &v1.EventList{},
 	}
 
 	core.GinkgoWriter.Println("----------------------- Dumping namespace " + ns + " -----------------------")

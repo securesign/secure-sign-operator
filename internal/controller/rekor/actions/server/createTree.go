@@ -69,7 +69,7 @@ func (i createTrillianTreeAction) Handle(ctx context.Context, instance *rhtasv1a
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create trillian tree: %w", err), instance)
 	}
-	i.Recorder.Event(instance, v1.EventTypeNormal, "TreeID", "New Trillian tree created")
+	i.Recorder.Eventf(instance, v1.EventTypeNormal, "TrillianTreeCreated", "New Trillian tree created: %d", tree.TreeId)
 	instance.Status.TreeID = &tree.TreeId
 
 	return i.StatusUpdate(ctx, instance)

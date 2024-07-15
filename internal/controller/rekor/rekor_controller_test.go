@@ -17,7 +17,13 @@ limitations under the License.
 package rekor
 
 import (
+	"bytes"
 	"context"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/rekor/actions/server"
+	httpmock "github.com/securesign/operator/internal/testing/http"
+	"io"
+	"net/http"
 	"time"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
@@ -25,7 +31,6 @@ import (
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
-	"github.com/securesign/operator/internal/controller/rekor/actions/server"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -66,6 +71,11 @@ var _ = Describe("Rekor controller", func() {
 		})
 
 		AfterEach(func() {
+			DeferCleanup(func() {
+				// Ensure that we reset the DefaultClient's transport after the test
+				httpmock.RestoreDefaultTransport(http.DefaultClient)
+			})
+
 			By("removing the custom resource for the Kind Rekor")
 			found := &v1alpha1.Rekor{}
 			err := k8sClient.Get(ctx, typeNamespaceName, found)
@@ -134,12 +144,24 @@ var _ = Describe("Rekor controller", func() {
 			}).Should(Not(BeNil()))
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Status.Signer.KeyRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
 
-			By("Rekor public key secret created")
-			Eventually(func(g Gomega) []corev1.Secret {
-				scr := &corev1.SecretList{}
-				g.Expect(k8sClient.List(ctx, scr, runtimeClient.InNamespace(Namespace), runtimeClient.MatchingLabels{server.RekorPubLabel: "public"})).Should(Succeed())
-				return scr.Items
-			}).Should(Not(BeEmpty()))
+			By("Mock http client to return public key on /api/v1/log/publicKey call")
+			pubKeyData, err := kubernetes.GetSecretData(k8sClient, Namespace, &v1alpha1.SecretKeySelector{
+				LocalObjectReference: v1alpha1.LocalObjectReference{
+					Name: found.Status.Signer.KeyRef.Name,
+				},
+				Key: "public",
+			})
+			Expect(err).To(Succeed())
+
+			httpmock.SetMockTransport(http.DefaultClient, map[string]httpmock.RoundTripFunc{
+				"http://rekor-server.default.svc/api/v1/log/publicKey": func(req *http.Request) *http.Response {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewReader(pubKeyData)),
+						Header:     make(http.Header),
+					}
+				},
+			})
 
 			By("Rekor server PVC created")
 			Eventually(func(g Gomega) string {
@@ -190,6 +212,7 @@ var _ = Describe("Rekor controller", func() {
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Initialize))
 
+			// Workaround to succeed condition for Ready phase
 			deployments := &appsv1.DeploymentList{}
 			Expect(k8sClient.List(ctx, deployments, runtimeClient.InNamespace(Namespace))).To(Succeed())
 			By("Move to Ready phase")
@@ -198,7 +221,20 @@ var _ = Describe("Rekor controller", func() {
 					{Status: corev1.ConditionTrue, Type: appsv1.DeploymentAvailable, Reason: constants.Ready}}
 				Expect(k8sClient.Status().Update(ctx, &d)).Should(Succeed())
 			}
-			// Workaround to succeed condition for Ready phase
+
+			By("Rekor public key secret created")
+			Eventually(func(g Gomega) []corev1.Secret {
+				scr := &corev1.SecretList{}
+				g.Expect(k8sClient.List(ctx, scr, runtimeClient.InNamespace(Namespace), runtimeClient.MatchingLabels{server.RekorPubLabel: "public"})).Should(Succeed())
+				return scr.Items
+			}).Should(HaveLen(1))
+
+			By("Public key status has been set")
+			Eventually(func(g Gomega) {
+				found := &v1alpha1.Rekor{}
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).To(Succeed())
+				g.Expect(found.Status.PublicKeyRef).ShouldNot(BeNil())
+			}).Should(Succeed())
 
 			By("Waiting until Rekor instance is Ready")
 			Eventually(func(g Gomega) bool {

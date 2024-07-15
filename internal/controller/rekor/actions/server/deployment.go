@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	cutils "github.com/securesign/operator/internal/controller/common/utils"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -87,12 +88,16 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 	}
 
 	if updated {
+		// Regenerate secret with public key
+		instance.Status.PublicKeyRef = nil
+
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ServerCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Creating,
 			Message: "Deployment created",
 		})
+		i.Recorder.Eventf(instance, v1.EventTypeNormal, "DeploymentUpdated", "Deployment updated: %s", instance.Name)
 		return i.StatusUpdate(ctx, instance)
 	} else {
 		return i.Continue()

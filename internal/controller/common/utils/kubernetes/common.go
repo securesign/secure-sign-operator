@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/labels"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -122,4 +123,16 @@ func CalculateHostname(ctx context.Context, client client.Client, svcName, ns st
 		return fmt.Sprintf("%s-%s.%s", svcName, ns, ctrl.Status.Domain), nil
 	}
 	return svcName + ".local", nil
+}
+
+func FindByLabelSelector(ctx context.Context, c client.Client, list client.ObjectList, namespace, labelSelector string) error {
+	selector, err := labels.Parse(labelSelector)
+	listOptions := &client.ListOptions{
+		LabelSelector: selector,
+	}
+	if err != nil {
+		return err
+	}
+
+	return c.List(ctx, list, client.InNamespace(namespace), listOptions)
 }
