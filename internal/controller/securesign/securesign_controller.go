@@ -87,11 +87,6 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// Check if the namespace is marked for deletion
-	if !namespace.DeletionTimestamp.IsZero() {
-		log.Info("namespace is marked for deletion, stopping reconciliation", "namespace", req.Namespace)
-		return ctrl.Result{}, nil
-	}
 	target := instance.DeepCopy()
 
 	//Add finalizer for this CR
@@ -118,6 +113,12 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 		controllerutil.RemoveFinalizer(target, finalizer)
 		return ctrl.Result{}, r.Update(ctx, target)
+	}
+
+	// Check if the namespace is marked for deletion
+	if !namespace.DeletionTimestamp.IsZero() {
+		log.Info("namespace is marked for deletion, stopping reconciliation", "namespace", req.Namespace)
+		return ctrl.Result{}, nil
 	}
 
 	acs := []action.Action[*rhtasv1alpha1.Securesign]{
