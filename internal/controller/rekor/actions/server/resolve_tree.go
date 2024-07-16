@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-
 	"github.com/google/trillian"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common"
@@ -13,28 +12,50 @@ import (
 	"github.com/securesign/operator/internal/controller/rekor/utils"
 	actions2 "github.com/securesign/operator/internal/controller/trillian/actions"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewCreateTrillianTreeAction() action.Action[*rhtasv1alpha1.Rekor] {
-	return &createTrillianTreeAction{}
+type createTree func(ctx context.Context, displayName string, trillianURL string, deadline int64) (*trillian.Tree, error)
+
+func NewResolveTreeAction(opts ...func(*resolveTreeAction)) action.Action[*rhtasv1alpha1.Rekor] {
+	a := &resolveTreeAction{
+		createTree: common.CreateTrillianTree,
+	}
+
+	for _, opt := range opts {
+		opt(a)
+	}
+	return a
 }
 
-type createTrillianTreeAction struct {
+type resolveTreeAction struct {
 	action.BaseAction
+	createTree createTree
 }
 
-func (i createTrillianTreeAction) Name() string {
-	return "create Trillian tree"
+func (i resolveTreeAction) Name() string {
+	return "resolve treeID"
 }
 
-func (i createTrillianTreeAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
+func (i resolveTreeAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Creating && instance.Status.TreeID == nil
+	switch {
+	case c == nil:
+		return false
+	case c.Reason != constants.Creating && c.Reason != constants.Ready:
+		return false
+	case instance.Status.TreeID == nil:
+		return true
+	case instance.Spec.TreeID != nil:
+		return !equality.Semantic.DeepEqual(instance.Spec.TreeID, instance.Status.TreeID)
+	default:
+		return false
+	}
 }
 
-func (i createTrillianTreeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
+func (i resolveTreeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
 	if instance.Spec.TreeID != nil && *instance.Spec.TreeID != int64(0) {
 		instance.Status.TreeID = instance.Spec.TreeID
 		return i.StatusUpdate(ctx, instance)
@@ -45,15 +66,18 @@ func (i createTrillianTreeAction) Handle(ctx context.Context, instance *rhtasv1a
 
 	switch {
 	case instance.Spec.Trillian.Port == nil:
-		err = fmt.Errorf("%s: %w", i.Name(), utils.TrillianPortNotSpecified)
+		err = fmt.Errorf("%s: %v", i.Name(), utils.TrillianPortNotSpecified)
 	case instance.Spec.Trillian.Address == "":
 		trillUrl = fmt.Sprintf("%s.%s.svc:%d", actions2.LogserverDeploymentName, instance.Namespace, *instance.Spec.Trillian.Port)
 	default:
 		trillUrl = fmt.Sprintf("%s:%d", instance.Spec.Trillian.Address, *instance.Spec.Trillian.Port)
 	}
+	if err != nil {
+		return i.Failed(err)
+	}
 	i.Logger.V(1).Info("trillian logserver", "address", trillUrl)
 
-	tree, err = common.CreateTrillianTree(ctx, "rekor-tree", trillUrl, constants.CreateTreeDeadline)
+	tree, err = i.createTree(ctx, "rekor-tree", trillUrl, constants.CreateTreeDeadline)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ServerCondition,
@@ -67,7 +91,7 @@ func (i createTrillianTreeAction) Handle(ctx context.Context, instance *rhtasv1a
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create trillian tree: %w", err), instance)
+		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create trillian tree: %v", err), instance)
 	}
 	i.Recorder.Eventf(instance, v1.EventTypeNormal, "TrillianTreeCreated", "New Trillian tree created: %d", tree.TreeId)
 	instance.Status.TreeID = &tree.TreeId

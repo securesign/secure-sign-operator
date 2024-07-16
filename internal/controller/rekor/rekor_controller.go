@@ -109,8 +109,8 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		actions2.NewRBACAction(),
 		server.NewServerConfigAction(),
+		server.NewResolveTreeAction(),
 		server.NewCreatePvcAction(),
-		server.NewCreateTrillianTreeAction(),
 		server.NewDeployAction(),
 		server.NewCreateServiceAction(),
 		server.NewCreateMonitorAction(),
