@@ -166,6 +166,68 @@ var _ = Describe("Rekor", func() {
 			})
 		})
 
+		Context("sharding", func() {
+			It("require treeId", func() {
+				invalidObject := generateRekorObject("sharding-treeid")
+				invalidObject.Spec.Sharding = []RekorLogRange{
+					{},
+				}
+
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("treeID in body should be greater than or equal to 1")))
+			})
+
+			It("base64 encoded public key", func() {
+				invalidObject := generateRekorObject("sharding-bas64")
+				invalidObject.Spec.Sharding = []RekorLogRange{
+					{
+						TreeID:           1,
+						EncodedPublicKey: "-----BEGIN PUBLIC KEY-----\nABCD\n-----END PUBLIC KEY-----",
+					},
+				}
+
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("body should match '^[A-Za-z0-9+/\\n]+={0,2}\\n*$'")))
+			})
+
+			It("base64 encoded public key line wrapper", func() {
+				created := generateRekorObject("sharding-bas64")
+				created.Spec.Sharding = []RekorLogRange{
+					{
+						TreeID: 1,
+						EncodedPublicKey: "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFR\n" +
+							"Y0RRZ0FFWkZ0Nk5FcU14YWVVNzZsbmxZekZVTmpGUUdIcQpORjQ2QlBDVGxQL0ZnZk1aak42MDhj\n" +
+							"RFhmM0xNNWhUYnZOeUNFYWJFKzRNYk9jRU1YaERRVWxZRnZBPT0KLS0tLS1FTkQgUFVCTElDIEtF\n" +
+							"WS0tLS0tCg==\n",
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
+
+				fetched := &Rekor{}
+				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+				Expect(fetched).To(Equal(created))
+			})
+
+			It("duplicate trees", func() {
+				invalidObject := generateRekorObject("sharding-duplicate")
+				invalidObject.Spec.Sharding = []RekorLogRange{
+					{
+						TreeID: 123,
+					},
+					{
+						TreeID:     123,
+						TreeLength: 1,
+					},
+				}
+
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("Duplicate value")))
+			})
+		})
+
 		Context("Default settings", func() {
 			var (
 				rekorInstance         Rekor
@@ -245,6 +307,13 @@ var _ = Describe("Rekor", func() {
 							Trillian: TrillianService{
 								Address: "trillian-system.default.svc",
 								Port:    &port,
+							},
+							Sharding: []RekorLogRange{
+								{
+									TreeID:           123456789,
+									TreeLength:       1,
+									EncodedPublicKey: "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFWkZ0Nk5FcU14YWVVNzZsbmxZekZVTmpGUUdIcQpORjQ2QlBDVGxQL0ZnZk1aak42MDhjRFhmM0xNNWhUYnZOeUNFYWJFKzRNYk9jRU1YaERRVWxZRnZBPT0KLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==",
+								},
 							},
 						},
 					}

@@ -156,6 +156,36 @@ spec:
                 required:
                 - enabled
                 type: object
+              sharding:
+                default: []
+                description: Inactive shards
+                items:
+                  description: RekorLogRange defines the range and details of a log
+                    shard
+                  properties:
+                    encodedPublicKey:
+                      description: The public key for the log shard, encoded in Base64
+                        format
+                      pattern: ^[A-Za-z0-9+/\n]+={0,2}\n*$
+                      type: string
+                    treeID:
+                      description: ID of Merkle tree in Trillian backend
+                      format: int64
+                      minimum: 1
+                      type: integer
+                    treeLength:
+                      description: Length of the tree
+                      format: int64
+                      minimum: 0
+                      type: integer
+                  required:
+                  - treeID
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
+                x-kubernetes-list-map-keys:
+                - treeID
+                x-kubernetes-list-type: map
               signer:
                 description: Signer configuration
                 properties:
