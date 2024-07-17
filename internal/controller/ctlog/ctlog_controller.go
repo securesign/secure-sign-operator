@@ -99,7 +99,7 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		actions.NewHandleFulcioCertAction(),
 		actions.NewHandleKeysAction(),
-		actions.NewCreateTrillianTreeAction(),
+		actions.NewResolveTreeAction(),
 		actions.NewServerConfigAction(),
 
 		actions.NewRBACAction(),
