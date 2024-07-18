@@ -7,7 +7,7 @@ metadata:
     build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: | 
+    pipelinesascode.tekton.dev/on-cel-expression: |
       event == "pull_request" && target_branch == "main" && (".tekton/rhtas-operator-pull-request.yaml".pathChanged() || "api/***".pathChanged() || "internal/***".pathChanged() || "Dockerfile.rhtas-operator.rh".pathChanged() || "go.mod".pathChanged() || "cmd/***".pathChanged() || "go.sum".pathChanged() || "trigger-konflux-builds.txt".pathChanged() )
   creationTimestamp: null
   labels:
@@ -333,6 +333,19 @@ spec:
       workspaces:
       - name: workspace
         workspace: workspace
+    - name: ecosystem-cert-preflight-checks
+      when:
+      - input: $(params.skip-checks)
+        operator: in
+        values: ["false"]
+      runAfter:
+        - build-container
+      taskRef:
+        name: ecosystem-cert-preflight-checks
+        version: "0.1"
+      params:
+      - name: image-url
+        value: $(tasks.build-container.results.IMAGE_URL)
     - name: clamav-scan
       params:
       - name: image-digest

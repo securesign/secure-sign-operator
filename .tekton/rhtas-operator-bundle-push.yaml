@@ -330,6 +330,19 @@ spec:
       workspaces:
       - name: workspace
         workspace: workspace
+    - name: ecosystem-cert-preflight-checks
+      when:
+      - input: $(params.skip-checks)
+        operator: in
+        values: ["false"]
+      runAfter:
+        - build-container
+      taskRef:
+        name: ecosystem-cert-preflight-checks
+        version: "0.1"
+      params:
+      - name: image-url
+        value: $(tasks.build-container.results.IMAGE_URL)
     - name: clamav-scan
       params:
       - name: image-digest
