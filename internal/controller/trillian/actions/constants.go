@@ -18,8 +18,8 @@ const (
 	ServerCondition = "LogServerAvailable"
 	SignerCondition = "LogSignerAvailable"
 
-	ServerPort         = 8091
-	ServerPortName     = "grpc"
-	MonitoringPort     = 8090
-	MonitoringPortName = "metrics"
+	ServerPort      = 8091
+	ServerPortName  = "grpc"
+	MetricsPort     = 8090
+	MetricsPortName = "metrics"
 )

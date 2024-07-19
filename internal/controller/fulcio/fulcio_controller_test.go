@@ -209,9 +209,8 @@ var _ = Describe("Fulcio controller", func() {
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, service)
 			}).Should(Succeed())
-			Expect(service.Spec.Ports[0].Port).Should(Equal(int32(2112)))
+			Expect(service.Spec.Ports[0].Port).Should(Equal(int32(80)))
 			Expect(service.Spec.Ports[1].Port).Should(Equal(int32(5554)))
-			Expect(service.Spec.Ports[2].Port).Should(Equal(int32(80)))
 
 			By("Checking if Ingress was successfully created in the reconciliation")
 			ingress := &v1.Ingress{}
@@ -220,7 +219,7 @@ var _ = Describe("Fulcio controller", func() {
 			}).Should(Succeed())
 			Expect(ingress.Spec.Rules[0].Host).Should(Equal("fulcio.localhost"))
 			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Name).Should(Equal(service.Name))
-			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Port.Name).Should(Equal("80-tcp"))
+			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Port.Name).Should(Equal(actions.ServerPortName))
 
 			By("Checking if controller will return deployment to desired state")
 			deployment = &appsv1.Deployment{}

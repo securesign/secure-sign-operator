@@ -42,7 +42,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	)
 
 	labels := constants.LabelsFor(actions.DbComponentName, actions.DbDeploymentName, instance.Name)
-	mysql := k8sutils.CreateService(instance.Namespace, host, host, port, labels)
+	mysql := k8sutils.CreateService(instance.Namespace, host, host, port, port, labels)
 
 	if err = controllerutil.SetControllerReference(instance, mysql, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for DB service: %w", err))

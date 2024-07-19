@@ -29,6 +29,24 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 		return nil, errors.New("CA secret is not specified")
 	}
 
+	containerPorts := []corev1.ContainerPort{
+		{
+			Protocol:      corev1.ProtocolTCP,
+			ContainerPort: 5555,
+		},
+		{
+			Protocol:      corev1.ProtocolTCP,
+			ContainerPort: 5554,
+		},
+	}
+
+	if instance.Spec.Monitoring.Enabled {
+		containerPorts = append(containerPorts, corev1.ContainerPort{
+			Protocol:      corev1.ProtocolTCP,
+			ContainerPort: 2112,
+		})
+	}
+
 	args := []string{
 		"serve",
 		"--port=5555",
@@ -95,20 +113,7 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 							Image: constants.FulcioServerImage,
 							Args:  args,
 							Env:   env,
-							Ports: []corev1.ContainerPort{
-								{
-									Protocol:      corev1.ProtocolTCP,
-									ContainerPort: 5555,
-								},
-								{
-									Protocol:      corev1.ProtocolTCP,
-									ContainerPort: 5554,
-								},
-								{
-									Protocol:      corev1.ProtocolTCP,
-									ContainerPort: 2112,
-								},
-							},
+							Ports: containerPorts,
 							LivenessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{

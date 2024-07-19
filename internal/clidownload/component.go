@@ -58,7 +58,7 @@ func (c *Component) Start(ctx context.Context) error {
 
 	obj = append(obj, ns)
 	obj = append(obj, c.createDeployment(ns.Name, labels))
-	svc := kubernetes.CreateService(ns.Name, cliServerName, cliServerPortName, cliServerPort, labels)
+	svc := kubernetes.CreateService(ns.Name, cliServerName, cliServerPortName, cliServerPort, cliServerPort, labels)
 	obj = append(obj, svc)
 	ingress, err := kubernetes.CreateIngress(ctx, c.Client, *svc, rhtasv1alpha1.ExternalAccess{Host: CliHostName}, cliServerPortName, labels)
 	if err != nil {

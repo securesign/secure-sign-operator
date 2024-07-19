@@ -41,7 +41,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	)
 
 	labels := constants.LabelsFor(actions.UIComponentName, actions.SearchUiDeploymentName, instance.Name)
-	svc := k8sutils.CreateService(instance.Namespace, actions.SearchUiDeploymentName, actions.SearchUiDeploymentPortName, actions.SearchUiDeploymentPort, labels)
+	svc := k8sutils.CreateService(instance.Namespace, actions.SearchUiDeploymentName, actions.SearchUiDeploymentPortName, actions.SearchUiDeploymentPort, actions.SearchUiDeploymentPort, labels)
 	svc.Spec.Ports[0].Port = 80
 
 	if err = controllerutil.SetControllerReference(instance, svc, i.Client.Scheme()); err != nil {

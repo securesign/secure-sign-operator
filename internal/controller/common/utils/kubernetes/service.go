@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func CreateService(namespace string, name string, portName string, port int, labels map[string]string) *corev1.Service {
+func CreateService(namespace string, name string, portName string, port int, targetPort int32, labels map[string]string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -26,7 +26,7 @@ func CreateService(namespace string, name string, portName string, port int, lab
 					Name:       portName,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       int32(port),
-					TargetPort: intstr.FromInt(port),
+					TargetPort: intstr.FromInt32(targetPort),
 				},
 			},
 		},

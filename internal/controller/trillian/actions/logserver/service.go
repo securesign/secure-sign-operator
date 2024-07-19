@@ -42,14 +42,14 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	)
 
 	labels := constants.LabelsFor(actions.LogServerComponentName, actions.LogserverDeploymentName, instance.Name)
-	logserverService := k8sutils.CreateService(instance.Namespace, actions.LogserverDeploymentName, actions.ServerPortName, actions.ServerPort, labels)
+	logserverService := k8sutils.CreateService(instance.Namespace, actions.LogserverDeploymentName, actions.ServerPortName, actions.ServerPort, actions.ServerPort, labels)
 
 	if instance.Spec.Monitoring.Enabled {
 		logserverService.Spec.Ports = append(logserverService.Spec.Ports, corev1.ServicePort{
-			Name:       actions.LogServerMonitoringName,
+			Name:       actions.MetricsPortName,
 			Protocol:   corev1.ProtocolTCP,
-			Port:       int32(actions.MonitoringPort),
-			TargetPort: intstr.FromInt(actions.MonitoringPort),
+			Port:       int32(actions.MetricsPort),
+			TargetPort: intstr.FromInt32(actions.MetricsPort),
 		})
 	}
 

@@ -38,7 +38,7 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) 
 
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 
-	svc := kubernetes.CreateService(instance.Namespace, DeploymentName, PortName, Port, labels)
+	svc := kubernetes.CreateService(instance.Namespace, DeploymentName, PortName, Port, Port, labels)
 	//patch the pregenerated service
 	svc.Spec.Ports[0].Port = instance.Spec.Port
 	if err = controllerutil.SetControllerReference(instance, svc, i.Client.Scheme()); err != nil {

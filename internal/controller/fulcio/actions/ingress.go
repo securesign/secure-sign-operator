@@ -43,7 +43,7 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulci
 		return i.Failed(fmt.Errorf("could not find service for ingress: %w", err))
 	}
 
-	ingress, err := kubernetes.CreateIngress(ctx, i.Client, *svc, instance.Spec.ExternalAccess, "80-tcp", labels)
+	ingress, err := kubernetes.CreateIngress(ctx, i.Client, *svc, instance.Spec.ExternalAccess, ServerPortName, labels)
 	if err != nil {
 		return i.Failed(fmt.Errorf("could not create ingress object: %w", err))
 	}
