@@ -2,6 +2,7 @@ package actions
 
 import (
 	"fmt"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 
 	"github.com/securesign/operator/internal/controller/annotations"
@@ -85,11 +86,11 @@ func (i segmentBackupJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Se
 
 	// Logic to delete old SBJ to avoid SECURESIGN-1207, can be removed after next release
 	if sbj, err := kubernetes.GetJob(ctx, i.Client, instance.Namespace, SegmentBackupJobName); sbj != nil {
-		if err := i.Client.Delete(ctx, sbj); err != nil {
-			i.Logger.Error(err, "problem with removing SBJ resources in %s", instance.Namespace)
+		if err = i.Client.Delete(ctx, sbj); err != nil {
+			i.Logger.Error(err, "problem with removing SBJ resources", "namespace", instance.Namespace, "name", SegmentBackupJobName)
 		}
-	} else if err != nil {
-		i.Logger.Error(err, "unable to retrieve SBJ resource in %s", instance.Namespace)
+	} else if client.IgnoreNotFound(err) != nil {
+		i.Logger.Error(err, "unable to retrieve SBJ resource", "namespace", instance.Namespace, "name", SegmentBackupJobName)
 	}
 
 	job := kubernetes.CreateJob(instance.Namespace, SegmentBackupJobName, labels, constants.SegmentBackupImage, SegmentRBACName, parallelism, completions, activeDeadlineSeconds, backoffLimit, command, env)
