@@ -100,7 +100,7 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CT
 		[]monitoringv1.Endpoint{
 			{
 				Interval: monitoringv1.Duration("30s"),
-				Port:     ComponentName,
+				Port:     MetricsPortName,
 				Scheme:   "http",
 			},
 		},

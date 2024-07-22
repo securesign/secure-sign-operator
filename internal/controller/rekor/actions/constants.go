@@ -2,8 +2,11 @@ package actions
 
 const (
 	ServerDeploymentName       = "rekor-server"
-	ServerDeploymentPortName   = "metrics"
-	ServerDeploymentPort       = 2112
+	ServerDeploymentPortName   = "http"
+	ServerDeploymentPort       = 80
+	ServerTargetDeploymentPort = 3000
+	MetricsPortName            = "metrics"
+	MetricsPort                = 2112
 	RedisDeploymentName        = "rekor-redis"
 	RedisDeploymentPortName    = "resp"
 	RedisDeploymentPort        = 6379

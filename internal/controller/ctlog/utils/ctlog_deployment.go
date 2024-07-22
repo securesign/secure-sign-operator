@@ -2,6 +2,7 @@ package utils
 
 import (
 	"errors"
+	"strconv"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils"
@@ -12,12 +13,34 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string, labels map[string]string) (*appsv1.Deployment, error) {
+func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string, labels map[string]string, serverPort, metricsPort int32) (*appsv1.Deployment, error) {
 	if instance.Status.ServerConfigRef == nil {
 		return nil, errors.New("server config name not specified")
 	}
 	replicas := int32(1)
 	// Define a new Deployment object
+
+	containerPorts := []corev1.ContainerPort{
+		{
+			ContainerPort: serverPort,
+			Protocol:      corev1.ProtocolTCP,
+		},
+	}
+
+	appArgs := []string{
+		"--http_endpoint=0.0.0.0:" + strconv.Itoa(int(serverPort)),
+		"--log_config=/ctfe-keys/config",
+		"--alsologtostderr",
+	}
+
+	if instance.Spec.Monitoring.Enabled {
+		appArgs = append(appArgs, "--metrics_endpoint=0.0.0.0:"+strconv.Itoa(int(metricsPort)))
+		containerPorts = append(containerPorts, corev1.ContainerPort{
+			ContainerPort: metricsPort,
+			Protocol:      corev1.ProtocolTCP,
+		})
+	}
+
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
@@ -39,17 +62,12 @@ func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string
 						{
 							Name:  "ctlog",
 							Image: constants.CTLogImage,
-							Args: []string{
-								"--http_endpoint=0.0.0.0:6962",
-								"--metrics_endpoint=0.0.0.0:6963",
-								"--log_config=/ctfe-keys/config",
-								"--alsologtostderr",
-							},
+							Args:  appArgs,
 							LivenessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/healthz",
-										Port: intstr.FromInt32(6962),
+										Port: intstr.FromInt32(serverPort),
 									},
 								},
 								InitialDelaySeconds: 10,
@@ -62,7 +80,7 @@ func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/healthz",
-										Port: intstr.FromInt32(6962),
+										Port: intstr.FromInt32(serverPort),
 									},
 								},
 								InitialDelaySeconds: 10,
@@ -78,16 +96,7 @@ func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string
 									ReadOnly:  true,
 								},
 							},
-							Ports: []corev1.ContainerPort{
-								{
-									ContainerPort: 6962,
-									Protocol:      corev1.ProtocolTCP,
-								},
-								{
-									ContainerPort: 6963,
-									Protocol:      corev1.ProtocolTCP,
-								},
-							},
+							Ports: containerPorts,
 						},
 					},
 					Volumes: []corev1.Volume{

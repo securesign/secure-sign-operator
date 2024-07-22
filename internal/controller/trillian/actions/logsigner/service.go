@@ -8,15 +8,13 @@ import (
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-)
-
-const (
-	monitoringPort = 8090
 )
 
 func NewCreateServiceAction() action.Action[*rhtasv1alpha1.Trillian] {
@@ -44,7 +42,15 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	)
 
 	labels := constants.LabelsFor(actions.LogSignerComponentName, actions.LogsignerDeploymentName, instance.Name)
-	logsignerService := k8sutils.CreateService(instance.Namespace, actions.LogsignerDeploymentName, actions.MonitoringPortName, actions.MonitoringPort, labels)
+	logsignerService := k8sutils.CreateService(instance.Namespace, actions.LogsignerDeploymentName, actions.ServerPortName, actions.ServerPort, actions.ServerPort, labels)
+	if instance.Spec.Monitoring.Enabled {
+		logsignerService.Spec.Ports = append(logsignerService.Spec.Ports, v1.ServicePort{
+			Name:       actions.MetricsPortName,
+			Protocol:   v1.ProtocolTCP,
+			Port:       actions.MetricsPort,
+			TargetPort: intstr.FromInt32(actions.MetricsPort),
+		})
+	}
 
 	if err = controllerutil.SetControllerReference(instance, logsignerService, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for logsigner Service: %w", err))

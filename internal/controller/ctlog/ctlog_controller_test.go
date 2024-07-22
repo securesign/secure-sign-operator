@@ -123,7 +123,7 @@ var _ = Describe("CTlog controller", func() {
 			}).Should(Equal(constants.Pending))
 
 			By("Creating trillian service")
-			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
+			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, trillian.ServerPort, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
 			Eventually(func(g Gomega) string {
 				found := &v1alpha1.CTlog{}
 				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
@@ -163,8 +163,7 @@ var _ = Describe("CTlog controller", func() {
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.ComponentName, Namespace: Namespace}, service)
 			}).Should(Succeed())
-			Expect(service.Spec.Ports[0].Port).Should(Equal(int32(6963)))
-			Expect(service.Spec.Ports[1].Port).Should(Equal(int32(80)))
+			Expect(service.Spec.Ports[0].Port).Should(Equal(int32(80)))
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase

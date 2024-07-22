@@ -42,13 +42,16 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	)
 
 	labels := constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
-	svc := k8sutils.CreateService(instance.Namespace, actions.ServerDeploymentName, actions.ServerDeploymentPortName, actions.ServerDeploymentPort, labels)
-	svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
-		Name:       "80-tcp",
-		Protocol:   corev1.ProtocolTCP,
-		Port:       80,
-		TargetPort: intstr.FromInt(3000),
-	})
+	svc := k8sutils.CreateService(instance.Namespace, actions.ServerDeploymentName, actions.ServerDeploymentPortName, actions.ServerDeploymentPort, actions.ServerTargetDeploymentPort, labels)
+
+	if instance.Spec.Monitoring.Enabled {
+		svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
+			Name:       actions.MetricsPortName,
+			Protocol:   corev1.ProtocolTCP,
+			Port:       actions.MetricsPort,
+			TargetPort: intstr.FromInt32(actions.MetricsPort),
+		})
+	}
 
 	if err = controllerutil.SetControllerReference(instance, svc, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for service: %w", err))

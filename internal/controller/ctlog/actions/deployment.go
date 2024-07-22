@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"fmt"
+
 	cutils "github.com/securesign/operator/internal/controller/common/utils"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -39,17 +40,15 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 
-	dp, err := utils.CreateDeployment(instance, DeploymentName, RBACName, labels)
+	dp, err := utils.CreateDeployment(instance, DeploymentName, RBACName, labels, ServerTargetPort, MetricsPort)
 	if err != nil {
-		if err != nil {
-			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:    constants.Ready,
-				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
-				Message: err.Error(),
-			})
-			return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could create server Deployment: %w", err), instance)
-		}
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could create server Deployment: %w", err), instance)
 	}
 	err = cutils.SetTrustedCA(&dp.Spec.Template, cutils.TrustedCAAnnotationToReference(instance.Annotations))
 	if err != nil {

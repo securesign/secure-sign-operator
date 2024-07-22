@@ -3,6 +3,7 @@ package logserver
 import (
 	"context"
 	"fmt"
+
 	"github.com/securesign/operator/internal/controller/common/utils"
 
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -14,7 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
 )
 
 const serverPort = 8091
@@ -43,14 +43,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	)
 
 	labels := constants.LabelsFor(actions.LogServerComponentName, actions.LogserverDeploymentName, instance.Name)
-	server, err := trillianUtils.CreateTrillDeployment(instance, constants.TrillianServerImage,
-		actions.LogserverDeploymentName,
-		actions.RBACName,
-		labels)
-	server.Spec.Template.Spec.Containers[0].Ports = append(server.Spec.Template.Spec.Containers[0].Ports, corev1.ContainerPort{
-		Protocol:      corev1.ProtocolTCP,
-		ContainerPort: 8090,
-	})
+	server, err := trillianUtils.CreateTrillDeployment(instance, constants.TrillianServerImage, actions.LogserverDeploymentName, actions.RBACName, labels)
 	err = utils.SetTrustedCA(&server.Spec.Template, utils.TrustedCAAnnotationToReference(instance.Annotations))
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{

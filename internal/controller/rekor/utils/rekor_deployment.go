@@ -71,6 +71,20 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 		},
 	}
 
+	containerPorts := []core.ContainerPort{
+		{
+			ContainerPort: 3000,
+			Name:          "rekor-server",
+		},
+	}
+
+	if instance.Spec.Monitoring.Enabled {
+		containerPorts = append(containerPorts, core.ContainerPort{
+			ContainerPort: 2112,
+			Protocol:      "TCP",
+		})
+	}
+
 	// KMS memory
 	if instance.Spec.Signer.KMS == "memory" {
 		appArgs = append(appArgs, "--rekor_server.signer=memory")
@@ -145,18 +159,9 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 					Volumes:            volumes,
 					Containers: []core.Container{
 						{
-							Name:  dpName,
-							Image: constants.RekorServerImage,
-							Ports: []core.ContainerPort{
-								{
-									ContainerPort: 3000,
-									Name:          "rekor-server",
-								},
-								{
-									ContainerPort: 2112,
-									Protocol:      "TCP",
-								},
-							},
+							Name:         dpName,
+							Image:        constants.RekorServerImage,
+							Ports:        containerPorts,
 							Env:          env,
 							Args:         appArgs,
 							VolumeMounts: volumeMounts,

@@ -40,19 +40,23 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulci
 
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 
-	svc := kubernetes.CreateService(instance.Namespace, DeploymentName, PortName, Port, labels)
+	svc := kubernetes.CreateService(instance.Namespace, DeploymentName, ServerPortName, ServerPort, TargetServerPort, labels)
 	svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
-		Name:       "5554-tcp",
+		Name:       GRPCPortName,
 		Protocol:   corev1.ProtocolTCP,
-		Port:       5554,
-		TargetPort: intstr.FromInt32(5554),
+		Port:       GRPCPort,
+		TargetPort: intstr.FromInt32(GRPCPort),
 	})
-	svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
-		Name:       "80-tcp",
-		Protocol:   corev1.ProtocolTCP,
-		Port:       80,
-		TargetPort: intstr.FromInt32(5555),
-	})
+
+	if instance.Spec.Monitoring.Enabled {
+		svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
+			Name:       MetricsPortName,
+			Protocol:   corev1.ProtocolTCP,
+			Port:       MetricsPort,
+			TargetPort: intstr.FromInt32(MetricsPort),
+		})
+	}
+
 	if err = controllerutil.SetControllerReference(instance, svc, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Service: %w", err))
 	}
