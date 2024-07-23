@@ -5,6 +5,11 @@ package e2e
 import (
 	"context"
 	"encoding/json"
+	ctlog "github.com/securesign/operator/internal/controller/ctlog/actions"
+	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
+	rekor "github.com/securesign/operator/internal/controller/rekor/actions"
+	tuf "github.com/securesign/operator/internal/controller/tuf/actions"
+	appsv1 "k8s.io/api/apps/v1"
 	"os"
 	"time"
 
@@ -33,6 +38,14 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 	var targetImageName string
 	var namespace *v1.Namespace
 	var securesign *v1alpha1.Securesign
+
+	getDeploymentGeneration := func(nn types.NamespacedName) int64 {
+		deployment := appsv1.Deployment{}
+		if err := cli.Get(ctx, nn, &deployment); err != nil {
+			return -1
+		}
+		return deployment.Status.ObservedGeneration
+	}
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
@@ -118,6 +131,14 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 	})
 	Describe("Inject Fulcio CA", func() {
 		It("Pods are restarted after update", func() {
+			By("Storing current deployment observed generations")
+			tufGeneration := getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tuf.DeploymentName})
+			Expect(tufGeneration).Should(BeNumerically(">", 0))
+			ctlogGeneration := getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: ctlog.DeploymentName})
+			Expect(ctlogGeneration).Should(BeNumerically(">", 0))
+			fulcioGeneration := getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: fulcio.DeploymentName})
+			Expect(fulcioGeneration).Should(BeNumerically(">", 0))
+
 			Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(securesign), securesign)).To(Succeed())
 			securesign.Spec.Fulcio.Certificate = v1alpha1.FulcioCert{
 				PrivateKeyRef: &v1alpha1.SecretKeySelector{
@@ -139,9 +160,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 					Key: "cert",
 				},
 			}
-			tufPod := tas.GetTufServerPod(ctx, cli, namespace.Name)()
-			ctlPod := tas.GetCTLogServerPod(ctx, cli, namespace.Name)()
-			fulcioPod := tas.GetFulcioServerPod(ctx, cli, namespace.Name)()
+
 			Expect(cli.Update(ctx, securesign)).To(Succeed())
 			Eventually(func() string {
 				fulcio := tas.GetFulcio(ctx, cli, namespace.Name, securesign.Name)()
@@ -150,24 +169,28 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 
 			Expect(cli.Create(ctx, initFulcioSecret(namespace.Name, "my-fulcio-secret")))
 
-			Eventually(func() error {
-				return cli.Get(ctx, runtimeCli.ObjectKeyFromObject(tufPod), &v1.Pod{})
-			}).Should(HaveOccurred())
+			Eventually(func() int64 {
+				return getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tuf.DeploymentName})
+			}).Should(BeNumerically(">", tufGeneration))
 
-			Eventually(func() error {
-				return cli.Get(ctx, runtimeCli.ObjectKeyFromObject(ctlPod), &v1.Pod{})
-			}).Should(HaveOccurred())
+			Eventually(func() int64 {
+				return getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: ctlog.DeploymentName})
+			}).Should(BeNumerically(">", ctlogGeneration))
 
-			Eventually(func() error {
-				return cli.Get(ctx, runtimeCli.ObjectKeyFromObject(fulcioPod), &v1.Pod{})
-			}).Should(HaveOccurred())
+			Eventually(func() int64 {
+				return getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: fulcio.DeploymentName})
+			}).Should(BeNumerically(">", fulcioGeneration))
 
 			tas.VerifyTuf(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyFulcio(ctx, cli, namespace.Name, securesign.Name)
 		})
 
 		It("Verify new configuration", func() {
-			fulcioPod := tas.GetFulcioServerPod(ctx, cli, namespace.Name)()
+			var fulcioPod *v1.Pod
+			Eventually(func(g Gomega) {
+				fulcioPod = tas.GetFulcioServerPod(ctx, cli, namespace.Name)()
+				g.Expect(fulcioPod).ToNot(BeNil())
+			}).Should(Succeed())
 			Expect(fulcioPod.Spec.Volumes).To(ContainElements(And(
 				WithTransform(func(v v1.Volume) string { return v.Name }, Equal("fulcio-cert")),
 				WithTransform(func(v v1.Volume) string { return v.VolumeSource.Projected.Sources[0].Secret.Name }, Equal("my-fulcio-secret")))))
@@ -178,6 +201,10 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 
 	Describe("Fulcio Config update", func() {
 		It("Pods are restarted after update", func() {
+			By("Storing current deployment observed generations")
+			fulcioGeneration := getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: fulcio.DeploymentName})
+			Expect(fulcioGeneration).Should(BeNumerically(">", 0))
+
 			Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(securesign), securesign)).To(Succeed())
 			securesign.Spec.Fulcio.Config.OIDCIssuers = []v1alpha1.OIDCIssuer{
 				{
@@ -193,16 +220,24 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 					Type:      "email",
 				},
 			}
-			fulcioPod := tas.GetFulcioServerPod(ctx, cli, namespace.Name)()
 			Expect(cli.Update(ctx, securesign)).To(Succeed())
-			Eventually(func() error {
-				return cli.Get(ctx, runtimeCli.ObjectKeyFromObject(fulcioPod), &v1.Pod{})
-			}).Should(HaveOccurred())
+
+			Eventually(func() int64 {
+				return getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: fulcio.DeploymentName})
+			}).Should(BeNumerically(">", fulcioGeneration))
+
 			tas.VerifyFulcio(ctx, cli, namespace.Name, securesign.Name)
 		})
 		It("Verify new configuration", func() {
-			fulcio := tas.GetFulcio(ctx, cli, namespace.Name, securesign.Name)()
-			fulcioPod := tas.GetFulcioServerPod(ctx, cli, namespace.Name)()
+			var fulcio *v1alpha1.Fulcio
+			var fulcioPod *v1.Pod
+			Eventually(func(g Gomega) {
+				fulcio = tas.GetFulcio(ctx, cli, namespace.Name, securesign.Name)()
+				g.Expect(fulcio).NotTo(BeNil())
+				fulcioPod = tas.GetFulcioServerPod(ctx, cli, namespace.Name)()
+				g.Expect(fulcioPod).NotTo(BeNil())
+			}).Should(Succeed())
+
 			Expect(fulcioPod.Spec.Volumes[0].VolumeSource.ConfigMap.Name).To(Equal(fulcio.Status.ServerConfigRef.Name))
 
 			cm := &v1.ConfigMap{}
@@ -215,6 +250,12 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 
 	Describe("Inject Rekor signer", func() {
 		It("Pods are restarted after update", func() {
+			By("Storing current deployment observed generations")
+			tufGeneration := getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tuf.DeploymentName})
+			Expect(tufGeneration).Should(BeNumerically(">", 0))
+			rekorGeneration := getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: rekor.ServerComponentName})
+			Expect(rekorGeneration).Should(BeNumerically(">", 0))
+
 			Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(securesign), securesign)).To(Succeed())
 			securesign.Spec.Rekor.Signer = v1alpha1.RekorSigner{
 				KMS: "secret",
@@ -225,8 +266,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 					Key: "private",
 				},
 			}
-			tufPod := tas.GetTufServerPod(ctx, cli, namespace.Name)()
-			rekor := tas.GetRekorServerPod(ctx, cli, namespace.Name)()
+
 			Expect(cli.Update(ctx, securesign)).To(Succeed())
 			Eventually(func() string {
 				rekor := tas.GetRekor(ctx, cli, namespace.Name, securesign.Name)()
@@ -235,19 +275,23 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 
 			Expect(cli.Create(ctx, initRekorSecret(namespace.Name, "my-rekor-secret")))
 
-			Eventually(func() error {
-				return cli.Get(ctx, runtimeCli.ObjectKeyFromObject(tufPod), &v1.Pod{})
-			}).Should(HaveOccurred())
+			Eventually(func() int64 {
+				return getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tuf.DeploymentName})
+			}).Should(BeNumerically(">", tufGeneration))
 
-			Eventually(func() error {
-				return cli.Get(ctx, runtimeCli.ObjectKeyFromObject(rekor), &v1.Pod{})
-			}).Should(HaveOccurred())
+			Eventually(func() int64 {
+				return getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: rekor.ServerComponentName})
+			}).Should(BeNumerically(">", rekorGeneration))
 
 			tas.VerifyTuf(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyRekor(ctx, cli, namespace.Name, securesign.Name)
 		})
 		It("Verify new configuration", func() {
-			rekor := tas.GetRekorServerPod(ctx, cli, namespace.Name)()
+			var rekor *v1.Pod
+			Eventually(func(g Gomega) {
+				rekor = tas.GetRekorServerPod(ctx, cli, namespace.Name)()
+				g.Expect(rekor).NotTo(BeNil())
+			}).Should(Succeed())
 			Expect(rekor.Spec.Volumes).To(ContainElements(And(
 				WithTransform(func(v v1.Volume) string { return v.Name }, Equal("rekor-private-key-volume")),
 				WithTransform(func(v v1.Volume) string { return v.VolumeSource.Secret.SecretName }, Equal("my-rekor-secret")))))
@@ -257,6 +301,12 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 
 	Describe("Inject CTL secret", func() {
 		It("Pods are restarted after update", func() {
+			By("Storing current deployment observed generations")
+			tufGeneration := getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tuf.DeploymentName})
+			Expect(tufGeneration).Should(BeNumerically(">", 0))
+			ctlogGeneration := getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: ctlog.DeploymentName})
+			Expect(ctlogGeneration).Should(BeNumerically(">", 0))
+
 			Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(securesign), securesign)).To(Succeed())
 			securesign.Spec.Ctlog.PrivateKeyRef = &v1alpha1.SecretKeySelector{
 				LocalObjectReference: v1alpha1.LocalObjectReference{
@@ -270,8 +320,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 				},
 				Key: "public",
 			}
-			tufPod := tas.GetTufServerPod(ctx, cli, namespace.Name)()
-			ctlPod := tas.GetCTLogServerPod(ctx, cli, namespace.Name)()
+
 			Expect(cli.Update(ctx, securesign)).To(Succeed())
 			Eventually(func() string {
 				ctl := tas.GetCTLog(ctx, cli, namespace.Name, securesign.Name)()
@@ -279,20 +328,27 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 			}).Should(Equal(constants.Creating))
 			Expect(cli.Create(ctx, initCTSecret(namespace.Name, "my-ctlog-secret")))
 
-			Eventually(func() error {
-				return cli.Get(ctx, runtimeCli.ObjectKeyFromObject(tufPod), &v1.Pod{})
-			}).Should(HaveOccurred())
+			Eventually(func() int64 {
+				return getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tuf.DeploymentName})
+			}).Should(BeNumerically(">", tufGeneration))
 
-			Eventually(func() error {
-				return cli.Get(ctx, runtimeCli.ObjectKeyFromObject(ctlPod), &v1.Pod{})
-			}).Should(HaveOccurred())
+			Eventually(func() int64 {
+				return getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: ctlog.DeploymentName})
+			}).Should(BeNumerically(">", ctlogGeneration))
 
 			tas.VerifyTuf(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyCTLog(ctx, cli, namespace.Name, securesign.Name)
 		})
 		It("Verify new configuration", func() {
-			ctl := tas.GetCTLog(ctx, cli, namespace.Name, securesign.Name)()
-			ctlPod := tas.GetCTLogServerPod(ctx, cli, namespace.Name)()
+			var ctl *v1alpha1.CTlog
+			var ctlPod *v1.Pod
+			Eventually(func(g Gomega) {
+				ctl = tas.GetCTLog(ctx, cli, namespace.Name, securesign.Name)()
+				g.Expect(ctl).NotTo(BeNil())
+				ctlPod = tas.GetCTLogServerPod(ctx, cli, namespace.Name)()
+				g.Expect(ctlPod).NotTo(BeNil())
+			}).Should(Succeed())
+
 			Expect(ctlPod.Spec.Volumes).To(ContainElements(And(
 				WithTransform(func(v v1.Volume) string { return v.Name }, Equal("keys")),
 				WithTransform(func(v v1.Volume) string { return v.VolumeSource.Secret.SecretName }, Equal(ctl.Status.ServerConfigRef.Name)))))
