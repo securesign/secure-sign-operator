@@ -38,6 +38,10 @@ type CTlogSpec struct {
 
 	//Enable Service monitors for ctlog
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
+
+	// Trillian service configuration
+	//+kubebuilder:default:={port: 8091}
+	Trillian TrillianService `json:"trillian,omitempty"`
 }
 
 // CTlogStatus defines the observed state of CTlog component
