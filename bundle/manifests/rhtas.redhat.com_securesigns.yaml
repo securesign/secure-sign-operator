@@ -159,6 +159,22 @@ spec:
                       If it is unset, the operator will create new Merkle tree in the Trillian backend
                     format: int64
                     type: integer
+                  trillian:
+                    default:
+                      port: 8091
+                    description: Trillian service configuration
+                    properties:
+                      address:
+                        description: Address to Trillian Log Server End point
+                        type: string
+                      port:
+                        default: 8091
+                        description: Port of Trillian Log Server End point
+                        format: int32
+                        maximum: 65535
+                        minimum: 1
+                        type: integer
+                    type: object
                 type: object
                 x-kubernetes-validations:
                 - message: privateKeyRef cannot be empty

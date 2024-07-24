@@ -204,7 +204,7 @@ metadata:
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
     operators.openshift.io/valid-subscription: '["Red Hat Trusted Artifact Signer"]'
-    operators.operatorframework.io/builder: operator-sdk-v1.34.2
+    operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/securesign/secure-sign-operator
     support: Red Hat
