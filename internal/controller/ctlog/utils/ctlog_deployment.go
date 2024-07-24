@@ -1,9 +1,7 @@
 package utils
 
 import (
-	"errors"
-	"strconv"
-
+	"fmt"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -11,11 +9,19 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"strconv"
 )
 
 func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string, labels map[string]string, serverPort, metricsPort int32) (*appsv1.Deployment, error) {
-	if instance.Status.ServerConfigRef == nil {
-		return nil, errors.New("server config name not specified")
+	switch {
+	case instance.Status.ServerConfigRef == nil:
+		return nil, fmt.Errorf("CreateCTLogDeployment: %w", ServerConfigNotSpecified)
+	case instance.Status.TreeID == nil:
+		return nil, fmt.Errorf("CreateCTLogDeployment: %w", TreeNotSpecified)
+	case instance.Spec.Trillian.Address == "":
+		return nil, fmt.Errorf("CreateCTLogDeployment: %w", TrillianAddressNotSpecified)
+	case instance.Spec.Trillian.Port == nil:
+		return nil, fmt.Errorf("CreateCTLogDeployment: %w", TrillianPortNotSpecified)
 	}
 	replicas := int32(1)
 	// Define a new Deployment object

@@ -9,6 +9,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -128,17 +129,18 @@ func TestResolveTree_Handle(t *testing.T) {
 			name: "create a new tree",
 			env: env{
 				spec: rhtasv1alpha1.CTlogSpec{
-					TreeID: nil,
+					TreeID:   nil,
+					Trillian: rhtasv1alpha1.TrillianService{Port: pointer.Int32(8091)},
 				},
 				createTree: mockCreateTree(&trillian.Tree{TreeId: 5555555}, nil, nil),
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, rekor *rhtasv1alpha1.CTlog) {
-					g.Expect(rekor.Spec.TreeID).Should(BeNil())
-					g.Expect(rekor.Status.TreeID).ShouldNot(BeNil())
-					g.Expect(rekor.Status.TreeID).To(HaveValue(BeNumerically(">", 0)))
-					g.Expect(rekor.Status.TreeID).To(HaveValue(BeNumerically("==", 5555555)))
+				verify: func(g Gomega, ctlog *rhtasv1alpha1.CTlog) {
+					g.Expect(ctlog.Spec.TreeID).Should(BeNil())
+					g.Expect(ctlog.Status.TreeID).ShouldNot(BeNil())
+					g.Expect(ctlog.Status.TreeID).To(HaveValue(BeNumerically(">", 0)))
+					g.Expect(ctlog.Status.TreeID).To(HaveValue(BeNumerically("==", 5555555)))
 				},
 			},
 		},
@@ -146,17 +148,18 @@ func TestResolveTree_Handle(t *testing.T) {
 			name: "update tree",
 			env: env{
 				spec: rhtasv1alpha1.CTlogSpec{
-					TreeID: pointer.Int64(123456),
+					TreeID:   pointer.Int64(123456),
+					Trillian: rhtasv1alpha1.TrillianService{Port: pointer.Int32(8091)},
 				},
 				statusTreeId: pointer.Int64(654321),
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, rekor *rhtasv1alpha1.CTlog) {
-					g.Expect(rekor.Spec.TreeID).ShouldNot(BeNil())
-					g.Expect(rekor.Status.TreeID).ShouldNot(BeNil())
-					g.Expect(rekor.Spec.TreeID).To(HaveValue(BeNumerically(">", 0)))
-					g.Expect(rekor.Spec.TreeID).To(HaveValue(BeNumerically("==", *rekor.Status.TreeID)))
+				verify: func(g Gomega, ctlog *rhtasv1alpha1.CTlog) {
+					g.Expect(ctlog.Spec.TreeID).ShouldNot(BeNil())
+					g.Expect(ctlog.Status.TreeID).ShouldNot(BeNil())
+					g.Expect(ctlog.Spec.TreeID).To(HaveValue(BeNumerically(">", 0)))
+					g.Expect(ctlog.Spec.TreeID).To(HaveValue(BeNumerically("==", *ctlog.Status.TreeID)))
 				},
 			},
 		},
@@ -164,17 +167,18 @@ func TestResolveTree_Handle(t *testing.T) {
 			name: "use tree from spec",
 			env: env{
 				spec: rhtasv1alpha1.CTlogSpec{
-					TreeID: pointer.Int64(123456),
+					TreeID:   pointer.Int64(123456),
+					Trillian: rhtasv1alpha1.TrillianService{Port: pointer.Int32(8091)},
 				},
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, rekor *rhtasv1alpha1.CTlog) {
-					g.Expect(rekor.Spec.TreeID).ShouldNot(BeNil())
-					g.Expect(rekor.Status.TreeID).ShouldNot(BeNil())
-					g.Expect(rekor.Spec.TreeID).To(HaveValue(BeNumerically(">", 0)))
-					g.Expect(rekor.Spec.TreeID).To(HaveValue(BeNumerically("==", *rekor.Status.TreeID)))
-					g.Expect(rekor.Status.TreeID).To(HaveValue(BeNumerically("==", 123456)))
+				verify: func(g Gomega, ctlog *rhtasv1alpha1.CTlog) {
+					g.Expect(ctlog.Spec.TreeID).ShouldNot(BeNil())
+					g.Expect(ctlog.Status.TreeID).ShouldNot(BeNil())
+					g.Expect(ctlog.Spec.TreeID).To(HaveValue(BeNumerically(">", 0)))
+					g.Expect(ctlog.Spec.TreeID).To(HaveValue(BeNumerically("==", *ctlog.Status.TreeID)))
+					g.Expect(ctlog.Status.TreeID).To(HaveValue(BeNumerically("==", 123456)))
 				},
 			},
 		},
@@ -182,28 +186,56 @@ func TestResolveTree_Handle(t *testing.T) {
 			name: "unable to create a new tree",
 			env: env{
 				spec: rhtasv1alpha1.CTlogSpec{
-					TreeID: nil,
+					TreeID:   nil,
+					Trillian: rhtasv1alpha1.TrillianService{Port: pointer.Int32(8091)},
 				},
 				createTree: mockCreateTree(nil, errors.New("timeout error"), nil),
 			},
 			want: want{
 				result: testAction.FailedWithStatusUpdate(fmt.Errorf("could not create trillian tree: timeout error")),
-				verify: func(g Gomega, rekor *rhtasv1alpha1.CTlog) {
-					g.Expect(rekor.Spec.TreeID).Should(BeNil())
-					g.Expect(rekor.Status.TreeID).Should(BeNil())
+				verify: func(g Gomega, ctlog *rhtasv1alpha1.CTlog) {
+					g.Expect(ctlog.Spec.TreeID).Should(BeNil())
+					g.Expect(ctlog.Status.TreeID).Should(BeNil())
 				},
 			},
 		},
 		{
 			name: "resolve trillian address",
 			env: env{
-				spec: rhtasv1alpha1.CTlogSpec{},
+				spec: rhtasv1alpha1.CTlogSpec{
+					Trillian: rhtasv1alpha1.TrillianService{Port: pointer.Int32(8091)},
+				},
 				createTree: mockCreateTree(&trillian.Tree{TreeId: 5555555}, nil, func(displayName string, trillianURL string, deadline int64) {
 					g.Expect(trillianURL).Should(Equal(fmt.Sprintf("%s.%s.svc:%d", actions.LogserverDeploymentName, "default", 8091)))
 				}),
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
+			},
+		},
+		{
+			name: "custom trillian address",
+			env: env{
+				spec: rhtasv1alpha1.CTlogSpec{
+					Trillian: rhtasv1alpha1.TrillianService{Port: pointer.Int32(1234), Address: "custom-address.namespace.svc"},
+				},
+				createTree: mockCreateTree(&trillian.Tree{TreeId: 5555555}, nil, func(displayName string, trillianURL string, deadline int64) {
+					g.Expect(trillianURL).Should(Equal(fmt.Sprintf("custom-address.namespace.svc:%d", 1234)))
+				}),
+			},
+			want: want{
+				result: testAction.StatusUpdate(),
+			},
+		},
+		{
+			name: "trillian port not specified",
+			env: env{
+				spec: rhtasv1alpha1.CTlogSpec{
+					Trillian: rhtasv1alpha1.TrillianService{Port: nil},
+				},
+			},
+			want: want{
+				result: testAction.Failed(fmt.Errorf("resolve treeID: %v", utils.TrillianPortNotSpecified)),
 			},
 		},
 	}
