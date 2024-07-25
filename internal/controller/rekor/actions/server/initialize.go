@@ -24,11 +24,12 @@ func (i initializeAction) Name() string {
 	return "initialize"
 }
 
+// CanHandle check if ServerAvailable condition status is false. It is sign that some previous server action make some change.
 func (i initializeAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Initialize && !meta.IsStatusConditionTrue(instance.Status.Conditions, actions.ServerCondition)
+	return meta.IsStatusConditionFalse(instance.Status.Conditions, actions.ServerCondition)
 }
 
+// Handle set ServerAvailable status to true if server's deployment is available.
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
 	var (
 		ok  bool
@@ -55,5 +56,5 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Re
 		Status: metav1.ConditionTrue,
 		Reason: constants.Ready,
 	})
-	return i.Continue()
+	return i.StatusUpdate(ctx, instance)
 }

@@ -29,46 +29,35 @@ var testPublicKey2 = []byte("-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZ
 
 func TestResolvePubKey_CanHandle(t *testing.T) {
 	tests := []struct {
-		name            string
-		serverCondition string
-		canHandle       bool
-		ref             *v1alpha1.SecretKeySelector
+		name      string
+		status    metav1.ConditionStatus
+		canHandle bool
+		ref       *v1alpha1.SecretKeySelector
 	}{
 		{
-			name:            "ref set",
-			serverCondition: constants.Initialize,
-			canHandle:       false,
-			ref:             &v1alpha1.SecretKeySelector{},
+			name:      "ref set",
+			status:    metav1.ConditionFalse,
+			canHandle: false,
+			ref:       &v1alpha1.SecretKeySelector{},
 		},
 		{
-			name:            "no server condition",
-			serverCondition: "",
-			canHandle:       false,
+			name:      "no server condition",
+			canHandle: false,
 		},
 		{
-			name:            constants.Ready,
-			serverCondition: constants.Ready,
-			canHandle:       true,
+			name:      "ServerAvailable == True",
+			status:    metav1.ConditionTrue,
+			canHandle: true,
 		},
 		{
-			name:            constants.Pending,
-			serverCondition: constants.Pending,
-			canHandle:       false,
+			name:      "ServerAvailable == False",
+			status:    metav1.ConditionFalse,
+			canHandle: false,
 		},
 		{
-			name:            constants.Creating,
-			serverCondition: constants.Creating,
-			canHandle:       false,
-		},
-		{
-			name:            constants.Initialize,
-			serverCondition: constants.Initialize,
-			canHandle:       true,
-		},
-		{
-			name:            constants.Failure,
-			serverCondition: constants.Failure,
-			canHandle:       false,
+			name:      "ServerAvailable == Unknown",
+			status:    metav1.ConditionUnknown,
+			canHandle: false,
 		},
 	}
 	for _, tt := range tests {
@@ -79,10 +68,10 @@ func TestResolvePubKey_CanHandle(t *testing.T) {
 					PublicKeyRef: tt.ref,
 				},
 			}
-			if tt.serverCondition != "" {
+			if tt.status != "" {
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 					Type:   actions.ServerCondition,
-					Reason: tt.serverCondition,
+					Status: tt.status,
 				})
 			}
 
@@ -173,6 +162,7 @@ func TestResolvePubKey_Handle(t *testing.T) {
 						{
 							Type:   actions.ServerCondition,
 							Reason: constants.Initialize,
+							Status: metav1.ConditionFalse,
 						},
 					},
 				},
