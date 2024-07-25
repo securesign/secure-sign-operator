@@ -8,13 +8,16 @@ import (
 	v13 "k8s.io/api/batch/v1"
 	"log"
 	"os"
+	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
 	docker "github.com/docker/docker/client"
 	"github.com/google/uuid"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/dsl/core"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
@@ -29,9 +32,15 @@ import (
 const fromImage = "alpine:latest"
 
 func CreateTestNamespace(ctx context.Context, cli client.Client) *v1.Namespace {
+	sp := ginkgo.CurrentSpecReport()
+	fn := filepath.Base(sp.LeafNodeLocation.FileName)
+	// Replace invalid characters with '-'
+	re := regexp.MustCompile("[^a-z0-9-]")
+	name := re.ReplaceAllString(strings.TrimSuffix(fn, filepath.Ext(fn)), "-")
+
 	ns := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-" + uuid.New().String(),
+			GenerateName: name + "-",
 		},
 	}
 	Expect(cli.Create(ctx, ns)).To(Succeed())

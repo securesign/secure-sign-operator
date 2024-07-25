@@ -25,8 +25,7 @@ func (i initializeAction) Name() string {
 }
 
 func (i initializeAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Initialize && !meta.IsStatusConditionTrue(instance.Status.Conditions, actions.RedisCondition)
+	return meta.IsStatusConditionFalse(instance.Status.Conditions, actions.RedisCondition)
 }
 
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
