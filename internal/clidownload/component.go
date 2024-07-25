@@ -73,10 +73,11 @@ func (c *Component) Start(ctx context.Context) error {
 			protocol = "https://"
 		}
 		for name, description := range map[string]string{
-			"cosign":    "cosign is a CLI tool that allows you to manage sigstore artifacts.",
-			"rekor-cli": "rekor-cli is a CLI tool that allows you to interact with rekor server.",
-			"gitsign":   "gitsign is a CLI tool that allows you to digitally sign and verify git commits.",
-			"ec":        "Enterprise Contract CLI. Set of commands to help validate resources with the Enterprise Contract.",
+			"cosign":          "cosign is a CLI tool that allows you to manage sigstore artifacts.",
+			"rekor-cli":       "rekor-cli is a CLI tool that allows you to interact with rekor server.",
+			"gitsign":         "gitsign is a CLI tool that allows you to digitally sign and verify git commits.",
+			"ec":              "Enterprise Contract CLI. Set of commands to help validate resources with the Enterprise Contract.",
+			"fetch-tsa-certs": "fetch-tsa-certs is a cli used to configure the kms and tink signer types for Timestamp Authority.",
 		} {
 			obj = append(obj, c.createConsoleCLIDownload(ns.Name, name, protocol+ingress.Spec.Rules[0].Host, description, labels))
 		}
@@ -136,6 +137,17 @@ func (c *Component) createDeployment(namespace string, labels map[string]string)
 						{
 							Name:    "init-shared-data-re",
 							Image:   constants.ClientServerImage_re,
+							Command: []string{"sh", "-c", fmt.Sprintf("cp -r %s %s", cliBinaryPath, cliWebServerPath)},
+							VolumeMounts: []core.VolumeMount{
+								{
+									Name:      sharedVolumeName,
+									MountPath: cliWebServerPath,
+								},
+							},
+						},
+						{
+							Name:    "init-shared-data-f",
+							Image:   constants.ClientServerImage_f,
 							Command: []string{"sh", "-c", fmt.Sprintf("cp -r %s %s", cliBinaryPath, cliWebServerPath)},
 							VolumeMounts: []core.VolumeMount{
 								{
