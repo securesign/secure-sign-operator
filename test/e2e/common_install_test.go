@@ -97,7 +97,14 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 								OrganizationEmail: "my@email.org",
 								CommonName:        "tsa.hostname",
 							},
-							IntermediateCA: v1alpha1.TsaCertificateAuthority{
+							IntermediateCA: []v1alpha1.TsaCertificateAuthority{
+								{
+									OrganizationName:  "MyOrg",
+									OrganizationEmail: "my@email.org",
+									CommonName:        "tsa.hostname",
+								},
+							},
+							LeafCA: v1alpha1.TsaCertificateAuthority{
 								OrganizationName:  "MyOrg",
 								OrganizationEmail: "my@email.org",
 								CommonName:        "tsa.hostname",
@@ -165,8 +172,10 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 					And(
 						&matchers.HaveKeyMatcher{Key: "rootPrivateKey"},
 						&matchers.HaveKeyMatcher{Key: "rootPrivateKeyPassword"},
-						&matchers.HaveKeyMatcher{Key: "interPrivateKey"},
-						&matchers.HaveKeyMatcher{Key: "interPrivateKeyPassword"},
+						&matchers.HaveKeyMatcher{Key: "interPrivateKey-0"},
+						&matchers.HaveKeyMatcher{Key: "interPrivateKeyPassword-0"},
+						&matchers.HaveKeyMatcher{Key: "leafPrivateKey"},
+						&matchers.HaveKeyMatcher{Key: "leafPrivateKeyPassword"},
 						&matchers.HaveKeyMatcher{Key: "certificateChain"},
 					)))
 		})

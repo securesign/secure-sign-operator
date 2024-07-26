@@ -872,6 +872,64 @@ spec:
                             x-kubernetes-map-type: atomic
                           intermediateCA:
                             description: Intermediate Certificate Authority Config
+                            items:
+                              description: TSA Certificate Authority configuration
+                              properties:
+                                commonName:
+                                  description: |-
+                                    CommonName specifies the common name for the TimeStampAuthorities cert chain.
+                                    If not provided, the common name will default to the host name.
+                                  type: string
+                                organizationEmail:
+                                  description: Organization Email specifies the Organization
+                                    Email for the TimeStampAuthorities cert chain.
+                                  type: string
+                                organizationName:
+                                  description: OrganizationName specifies the Organization
+                                    Name for the TimeStampAuthorities cert chain.
+                                  type: string
+                                passwordRef:
+                                  description: Password to decrypt the signer's root
+                                    private key
+                                  properties:
+                                    key:
+                                      description: The key of the secret to select
+                                        from. Must be a valid secret key.
+                                      pattern: ^[-._a-zA-Z0-9]+$
+                                      type: string
+                                    name:
+                                      description: |-
+                                        Name of the referent.
+                                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      type: string
+                                  required:
+                                  - key
+                                  - name
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                privateKeyRef:
+                                  description: Reference to the signer's root private
+                                    key
+                                  properties:
+                                    key:
+                                      description: The key of the secret to select
+                                        from. Must be a valid secret key.
+                                      pattern: ^[-._a-zA-Z0-9]+$
+                                      type: string
+                                    name:
+                                      description: |-
+                                        Name of the referent.
+                                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      type: string
+                                  required:
+                                  - key
+                                  - name
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                              type: object
+                            type: array
+                          leafCA:
+                            description: Leaf Certificate Authority Config
                             properties:
                               commonName:
                                 description: |-
@@ -982,17 +1040,17 @@ spec:
                             type: object
                         type: object
                         x-kubernetes-validations:
-                        - message: must provide private keys for both root and intermediate
+                        - message: must provide private keys for both root and leaf
                             certificate authorities
-                          rule: (!has(self.rootCA) && !has(self.intermediateCA)) ||
-                            (has(self.rootCA.privateKeyRef) == has(self.intermediateCA.privateKeyRef))
+                          rule: (!has(self.rootCA) && !has(self.leafCA)) || (has(self.rootCA.privateKeyRef)
+                            == has(self.leafCA.privateKeyRef))
                         - message: organizationName cannot be empty for root certificate
                             authority
                           rule: (has(self.certificateChainRef) || self.rootCA.organizationName
                             != "")
-                        - message: organizationName cannot be empty for intermediate
-                            certificate authority
-                          rule: (has(self.certificateChainRef) || self.intermediateCA.organizationName
+                        - message: organizationName cannot be empty for leaf certificate
+                            authority
+                          rule: (has(self.certificateChainRef) || self.leafCA.organizationName
                             != "")
                       file:
                         description: Configuration for file-based signer

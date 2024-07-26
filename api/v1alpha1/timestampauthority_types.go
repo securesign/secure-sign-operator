@@ -58,9 +58,9 @@ type TimestampAuthoritySigner struct {
 }
 
 // Certificate chain config
-// +kubebuilder:validation:XValidation:rule="(!has(self.rootCA) && !has(self.intermediateCA)) || (has(self.rootCA.privateKeyRef) == has(self.intermediateCA.privateKeyRef))",message="must provide private keys for both root and intermediate certificate authorities"
+// +kubebuilder:validation:XValidation:rule="(!has(self.rootCA) && !has(self.leafCA)) || (has(self.rootCA.privateKeyRef) == has(self.leafCA.privateKeyRef))",message="must provide private keys for both root and leaf certificate authorities"
 // +kubebuilder:validation:XValidation:rule=(has(self.certificateChainRef) || self.rootCA.organizationName != ""),message=organizationName cannot be empty for root certificate authority
-// +kubebuilder:validation:XValidation:rule=(has(self.certificateChainRef) || self.intermediateCA.organizationName != ""),message=organizationName cannot be empty for intermediate certificate authority
+// +kubebuilder:validation:XValidation:rule=(has(self.certificateChainRef) || self.leafCA.organizationName != ""),message=organizationName cannot be empty for leaf certificate authority
 type CertificateChain struct {
 	//Reference to the certificate chain
 	//+optional
@@ -70,7 +70,10 @@ type CertificateChain struct {
 	RootCA TsaCertificateAuthority `json:"rootCA,omitempty"`
 	//Intermediate Certificate Authority Config
 	//+optional
-	IntermediateCA TsaCertificateAuthority `json:"intermediateCA,omitempty"`
+	IntermediateCA []TsaCertificateAuthority `json:"intermediateCA,omitempty"`
+	//Leaf Certificate Authority Config
+	//+optional
+	LeafCA TsaCertificateAuthority `json:"leafCA,omitempty"`
 }
 
 // TSA Certificate Authority configuration

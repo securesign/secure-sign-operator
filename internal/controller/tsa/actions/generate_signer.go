@@ -122,16 +122,16 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 
 		if instance.Spec.Signer.File.PrivateKeyRef == nil {
 			instance.Status.Signer.File.PrivateKeyRef = &v1alpha1.SecretKeySelector{
-				Key: "interPrivateKey",
+				Key: "leafPrivateKey",
 				LocalObjectReference: v1alpha1.LocalObjectReference{
 					Name: certificateChain.Name,
 				},
 			}
 		}
 
-		if instance.Spec.Signer.File.PasswordRef == nil && len(tsaCertChainConfig.InterPrivateKeyPassword) > 0 {
+		if instance.Spec.Signer.File.PasswordRef == nil && len(tsaCertChainConfig.LeafPrivateKeyPassword) > 0 {
 			instance.Status.Signer.File.PasswordRef = &v1alpha1.SecretKeySelector{
-				Key: "interPrivateKeyPassword",
+				Key: "leafPrivateKeyPassword",
 				LocalObjectReference: v1alpha1.LocalObjectReference{
 					Name: certificateChain.Name,
 				},
@@ -158,14 +158,14 @@ func (g generateSigner) setupCertificateChain(ctx context.Context, instance *v1a
 				if err != nil {
 					return nil, err
 				}
-				config.InterPrivateKey = key
+				config.LeafPrivateKey = key
 
 				if ref := instance.Spec.Signer.File.PasswordRef; ref != nil {
 					password, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
 					if err != nil {
 						return nil, err
 					}
-					config.InterPrivateKeyPassword = password
+					config.LeafPrivateKeyPassword = password
 				}
 			}
 
@@ -210,32 +210,64 @@ func (g generateSigner) setupCertificateChain(ctx context.Context, instance *v1a
 				config.RootPrivateKey = rootCAPrivKey
 			}
 
-			if ref := instance.Spec.Signer.CertificateChain.IntermediateCA.PrivateKeyRef; ref != nil {
+			for index, intermediateCA := range instance.Spec.Signer.CertificateChain.IntermediateCA {
+				if ref := intermediateCA.PrivateKeyRef; ref != nil {
+					key, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
+					if err != nil {
+						return nil, err
+					}
+					config.IntermediatePrivateKeys = append(config.IntermediatePrivateKeys, key)
+
+					if ref := intermediateCA.PasswordRef; ref != nil {
+						password, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
+						if err != nil {
+							return nil, err
+						}
+						config.IntermediatePrivateKeyPasswords = append(config.IntermediatePrivateKeyPasswords, password)
+					} else {
+						config.IntermediatePrivateKeyPasswords = append(config.IntermediatePrivateKeyPasswords, []byte(""))
+					}
+				} else {
+					config.IntermediatePrivateKeyPasswords = append(config.IntermediatePrivateKeyPasswords, common.GeneratePassword(8))
+					key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+					if err != nil {
+						return nil, err
+					}
+					interCAPrivKey, err := tsaUtils.CreatePrivateKey(key, config.IntermediatePrivateKeyPasswords[index])
+					if err != nil {
+						return nil, err
+					}
+					config.IntermediatePrivateKeys = append(config.IntermediatePrivateKeys, interCAPrivKey)
+				}
+			}
+
+			if ref := instance.Spec.Signer.CertificateChain.LeafCA.PrivateKeyRef; ref != nil {
 				key, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
 				if err != nil {
 					return nil, err
 				}
-				config.InterPrivateKey = key
+				config.LeafPrivateKey = key
 
-				if ref := instance.Spec.Signer.CertificateChain.IntermediateCA.PasswordRef; ref != nil {
+				if ref := instance.Spec.Signer.CertificateChain.LeafCA.PasswordRef; ref != nil {
 					password, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
 					if err != nil {
 						return nil, err
 					}
-					config.InterPrivateKeyPassword = password
+					config.LeafPrivateKeyPassword = password
 				}
 			} else {
-				config.InterPrivateKeyPassword = common.GeneratePassword(8)
+				config.LeafPrivateKeyPassword = common.GeneratePassword(8)
 				key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 				if err != nil {
 					return nil, err
 				}
-				interCAPrivKey, err := tsaUtils.CreatePrivateKey(key, config.InterPrivateKeyPassword)
+				leafCAPrivKey, err := tsaUtils.CreatePrivateKey(key, config.LeafPrivateKeyPassword)
 				if err != nil {
 					return nil, err
 				}
-				config.InterPrivateKey = interCAPrivKey
+				config.LeafPrivateKey = leafCAPrivKey
 			}
+
 		}
 	}
 

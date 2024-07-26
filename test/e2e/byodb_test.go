@@ -95,7 +95,14 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 								OrganizationEmail: "my@email.org",
 								CommonName:        "tsa.hostname",
 							},
-							IntermediateCA: v1alpha1.TsaCertificateAuthority{
+							IntermediateCA: []v1alpha1.TsaCertificateAuthority{
+								{
+									OrganizationName:  "MyOrg",
+									OrganizationEmail: "my@email.org",
+									CommonName:        "tsa.hostname",
+								},
+							},
+							LeafCA: v1alpha1.TsaCertificateAuthority{
 								OrganizationName:  "MyOrg",
 								OrganizationEmail: "my@email.org",
 								CommonName:        "tsa.hostname",

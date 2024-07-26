@@ -59,10 +59,17 @@ var _ = Describe("TimestampAuthority Controller", func() {
 									OrganizationName:  "root_test",
 									OrganizationEmail: "root_test@test.com",
 								},
-								IntermediateCA: rhtasv1alpha1.TsaCertificateAuthority{
-									CommonName:        "inter_test.com",
-									OrganizationName:  "inter_test",
-									OrganizationEmail: "inter_test@test.com",
+								IntermediateCA: []rhtasv1alpha1.TsaCertificateAuthority{
+									{
+										CommonName:        "intermediate_test.com",
+										OrganizationName:  "intermediate_test",
+										OrganizationEmail: "intermediate_test@test.com",
+									},
+								},
+								LeafCA: rhtasv1alpha1.TsaCertificateAuthority{
+									CommonName:        "leaf_test.com",
+									OrganizationName:  "leaf_test",
+									OrganizationEmail: "leaf_test@test.com",
 								},
 							},
 						},

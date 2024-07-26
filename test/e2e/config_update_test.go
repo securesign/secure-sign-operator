@@ -5,6 +5,7 @@ package e2e
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"time"
 
 	ctlog "github.com/securesign/operator/internal/controller/ctlog/actions"
@@ -115,7 +116,14 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 								OrganizationEmail: "my@email.org",
 								CommonName:        "tsa.hostname",
 							},
-							IntermediateCA: v1alpha1.TsaCertificateAuthority{
+							IntermediateCA: []v1alpha1.TsaCertificateAuthority{
+								{
+									OrganizationName:  "MyOrg",
+									OrganizationEmail: "my@email.org",
+									CommonName:        "tsa.hostname",
+								},
+							},
+							LeafCA: v1alpha1.TsaCertificateAuthority{
 								OrganizationName:  "MyOrg",
 								OrganizationEmail: "my@email.org",
 								CommonName:        "tsa.hostname",
