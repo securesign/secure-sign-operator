@@ -5,13 +5,14 @@ package e2e
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"time"
+
 	ctlog "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
 	rekor "github.com/securesign/operator/internal/controller/rekor/actions"
 	tuf "github.com/securesign/operator/internal/controller/tuf/actions"
 	appsv1 "k8s.io/api/apps/v1"
-	"os"
-	"time"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -117,7 +118,14 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 								OrganizationEmail: "my@email.org",
 								CommonName:        "tsa.hostname",
 							},
-							IntermediateCA: v1alpha1.TsaCertificateAuthority{
+							IntermediateCA: []v1alpha1.TsaCertificateAuthority{
+								{
+									OrganizationName:  "MyOrg",
+									OrganizationEmail: "my@email.org",
+									CommonName:        "tsa.hostname",
+								},
+							},
+							LeafCA: v1alpha1.TsaCertificateAuthority{
 								OrganizationName:  "MyOrg",
 								OrganizationEmail: "my@email.org",
 								CommonName:        "tsa.hostname",

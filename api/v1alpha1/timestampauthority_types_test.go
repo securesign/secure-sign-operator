@@ -34,10 +34,17 @@ var _ = Describe("TSA", func() {
 			}
 			Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
 
-			fetched.Spec.Signer.CertificateChain.IntermediateCA = TsaCertificateAuthority{
+			fetched.Spec.Signer.CertificateChain.IntermediateCA[0] = TsaCertificateAuthority{
 				CommonName:        "intermediate_test1.com",
 				OrganizationName:  "intermediate_test1",
 				OrganizationEmail: "intermediate_test1@test.com",
+			}
+			Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
+
+			fetched.Spec.Signer.CertificateChain.LeafCA = TsaCertificateAuthority{
+				CommonName:        "leaf_test1.com",
+				OrganizationName:  "leaf_test1",
+				OrganizationEmail: "leaf_test1@test.com",
 			}
 			Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
 		})
@@ -119,45 +126,45 @@ var _ = Describe("TSA", func() {
 					To(MatchError(ContainSubstring("organizationName cannot be empty for root certificate authority")))
 			})
 
-			It("missing org name for root CA", func() {
+			It("missing org name for leaf CA", func() {
 				invalidObject := generateTSAObject("missing-org-name")
-				invalidObject.Spec.Signer.CertificateChain.IntermediateCA.OrganizationName = ""
+				invalidObject.Spec.Signer.CertificateChain.LeafCA.OrganizationName = ""
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("organizationName cannot be empty for intermediate certificate authority")))
+					To(MatchError(ContainSubstring("organizationName cannot be empty for leaf certificate authority")))
 			})
 
-			It("missing inter private key", func() {
-				invalidObject := generateTSAObject("missing-inter-private-key")
+			It("missing leaf private key", func() {
+				invalidObject := generateTSAObject("missing-leaf-private-key")
 				invalidObject.Spec.Signer.CertificateChain.RootCA.PrivateKeyRef = &SecretKeySelector{
 					Key:                  "private",
 					LocalObjectReference: LocalObjectReference{Name: "root-private-key"},
 				}
 				invalidObject.Spec.Signer.CertificateChain.RootCA.OrganizationName = "root_test1"
-				invalidObject.Spec.Signer.CertificateChain.IntermediateCA.OrganizationName = "inter_test1"
+				invalidObject.Spec.Signer.CertificateChain.LeafCA.OrganizationName = "leaf_test1"
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("must provide private keys for both root and intermediate certificate authorities")))
+					To(MatchError(ContainSubstring("must provide private keys for both root and leaf certificate authorities")))
 			})
 
 			It("missing root private key", func() {
 				invalidObject := generateTSAObject("missing-root-private-key")
-				invalidObject.Spec.Signer.CertificateChain.IntermediateCA.PrivateKeyRef = &SecretKeySelector{
+				invalidObject.Spec.Signer.CertificateChain.LeafCA.PrivateKeyRef = &SecretKeySelector{
 					Key:                  "private",
-					LocalObjectReference: LocalObjectReference{Name: "inter-private-key"},
+					LocalObjectReference: LocalObjectReference{Name: "leaf-private-key"},
 				}
 				invalidObject.Spec.Signer.CertificateChain.RootCA.OrganizationName = "root_test1"
-				invalidObject.Spec.Signer.CertificateChain.IntermediateCA.OrganizationName = "inter_test1"
+				invalidObject.Spec.Signer.CertificateChain.LeafCA.OrganizationName = "leaf_test1"
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("must provide private keys for both root and intermediate certificate authorities")))
+					To(MatchError(ContainSubstring("must provide private keys for both root and leaf certificate authorities")))
 			})
 
 			It("only cert chain passed in", func() {
 				invalidObject := generateTSAObject("just-cert-chain")
 				invalidObject.Spec.Signer.CertificateChain.CertificateChainRef = &SecretKeySelector{
 					Key:                  "private",
-					LocalObjectReference: LocalObjectReference{Name: "inter-private-key"},
+					LocalObjectReference: LocalObjectReference{Name: "leaf-private-key"},
 				}
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
@@ -239,10 +246,17 @@ func generateTSAObject(name string) *TimestampAuthority {
 						OrganizationName:  "root_test",
 						OrganizationEmail: "root_test@test.com",
 					},
-					IntermediateCA: TsaCertificateAuthority{
-						CommonName:        "inter_test.com",
-						OrganizationName:  "inter_test",
-						OrganizationEmail: "inter_test@test.com",
+					IntermediateCA: []TsaCertificateAuthority{
+						{
+							CommonName:        "intermediate_test.com",
+							OrganizationName:  "intermediate_test",
+							OrganizationEmail: "intermediate_test@test.com",
+						},
+					},
+					LeafCA: TsaCertificateAuthority{
+						CommonName:        "leaf_test.com",
+						OrganizationName:  "leaf_test",
+						OrganizationEmail: "leaf_test@test.com",
 					},
 				},
 			},
