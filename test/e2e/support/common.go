@@ -3,30 +3,28 @@ package support
 import (
 	"context"
 	"fmt"
-	"io"
-	v12 "k8s.io/api/apps/v1"
-	v13 "k8s.io/api/batch/v1"
-	"log"
-	"os"
-	"path/filepath"
-	"reflect"
-	"regexp"
-	"strings"
-	"time"
-
-	"github.com/docker/docker/api/types"
-	docker "github.com/docker/docker/client"
+	"github.com/containers/image/v5/copy"
+	"github.com/containers/image/v5/docker"
+	"github.com/containers/image/v5/signature"
 	"github.com/google/uuid"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/dsl/core"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	"gopkg.in/yaml.v2"
+	v12 "k8s.io/api/apps/v1"
+	v13 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/json"
+	"log"
+	"os"
+	"path/filepath"
+	"reflect"
+	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 const fromImage = "alpine:latest"
@@ -54,25 +52,23 @@ func PrepareImage(ctx context.Context) string {
 	}
 	targetImageName := fmt.Sprintf("ttl.sh/%s:15m", uuid.New().String())
 
-	dockerCli, err := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
+	policyContext, err := signature.NewPolicyContext(&signature.Policy{
+		Default: []signature.PolicyRequirement{signature.NewPRInsecureAcceptAnything()},
+	})
+
+	options := copy.Options{
+		ImageListSelection: copy.CopyAllImages,
+	}
+
+	destRef, err := docker.ParseReference("//" + targetImageName)
 	Expect(err).ToNot(HaveOccurred())
 
-	var pull io.ReadCloser
-	pull, err = dockerCli.ImagePull(ctx, fromImage, types.ImagePullOptions{})
+	srcRef, err := docker.ParseReference("//" + fromImage)
 	Expect(err).ToNot(HaveOccurred())
-	_, err = io.Copy(core.GinkgoWriter, pull)
-	Expect(err).ToNot(HaveOccurred())
-	defer pull.Close()
 
-	Expect(dockerCli.ImageTag(ctx, fromImage, targetImageName)).To(Succeed())
-	var push io.ReadCloser
-	push, err = dockerCli.ImagePush(ctx, targetImageName, types.ImagePushOptions{RegistryAuth: types.RegistryAuthFromSpec})
+	_, err = copy.Image(ctx, policyContext, destRef, srcRef, &options)
 	Expect(err).ToNot(HaveOccurred())
-	_, err = io.Copy(core.GinkgoWriter, push)
-	Expect(err).ToNot(HaveOccurred())
-	defer push.Close()
-	// wait for a while to be sure that the image landed in the registry
-	time.Sleep(10 * time.Second)
+
 	return targetImageName
 }
 
