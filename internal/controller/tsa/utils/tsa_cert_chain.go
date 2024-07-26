@@ -22,14 +22,16 @@ import (
 )
 
 type TsaCertChainConfig struct {
-	RootPrivateKey          []byte
-	RootPrivateKeyPassword  []byte
-	InterPrivateKey         []byte
-	InterPrivateKeyPassword []byte
-	CertificateChain        []byte
+	RootPrivateKey                  []byte
+	RootPrivateKeyPassword          []byte
+	IntermediatePrivateKeys         [][]byte
+	IntermediatePrivateKeyPasswords [][]byte
+	LeafPrivateKey                  []byte
+	LeafPrivateKeyPassword          []byte
+	CertificateChain                []byte
 }
 
-type issuer struct {
+type Issuer struct {
 	subject        pkix.Name
 	emailAddresses []string
 }
@@ -43,11 +45,21 @@ func (c TsaCertChainConfig) ToMap() map[string][]byte {
 	if len(c.RootPrivateKeyPassword) > 0 {
 		result["rootPrivateKeyPassword"] = c.RootPrivateKeyPassword
 	}
-	if len(c.InterPrivateKey) > 0 {
-		result["interPrivateKey"] = c.InterPrivateKey
+	for i, interPrivateKey := range c.IntermediatePrivateKeys {
+		if len(interPrivateKey) > 0 {
+			result[fmt.Sprintf("interPrivateKey-%d", i)] = interPrivateKey
+		}
 	}
-	if len(c.InterPrivateKeyPassword) > 0 {
-		result["interPrivateKeyPassword"] = c.InterPrivateKeyPassword
+	for i, interPrivateKeyPassword := range c.IntermediatePrivateKeyPasswords {
+		if len(interPrivateKeyPassword) > 0 {
+			result[fmt.Sprintf("interPrivateKeyPassword-%d", i)] = interPrivateKeyPassword
+		}
+	}
+	if len(c.LeafPrivateKey) > 0 {
+		result["leafPrivateKey"] = c.LeafPrivateKey
+	}
+	if len(c.LeafPrivateKeyPassword) > 0 {
+		result["leafPrivateKeyPassword"] = c.LeafPrivateKeyPassword
 	}
 	if len(c.CertificateChain) > 0 {
 		result["certificateChain"] = c.CertificateChain
@@ -83,24 +95,25 @@ func CreateTSACertChain(ctx context.Context, instance *rhtasv1alpha1.TimestampAu
 		return nil, err
 	}
 
-	notBefore := time.Now()
-	notAfter := notBefore.Add(365 * 24 * 10 * time.Hour)
-	rootSerialNumber, err := GenerateSerialNumber()
+	rootCertTemplate, err := generateCertTemplate(*rootIssuer, true, x509.KeyUsageCertSign|x509.KeyUsageCRLSign, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	rootCertTemplate := x509.Certificate{
-		SerialNumber:          rootSerialNumber,
-		Subject:               rootIssuer.subject,
-		EmailAddresses:        rootIssuer.emailAddresses,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
-		Issuer:                rootIssuer.subject,
-		NotBefore:             notBefore,
-		NotAfter:              notAfter,
+	rootPrivKey, err := parsePrivateKey(config.RootPrivateKey, config.RootPrivateKeyPassword)
+	if err != nil {
+		return nil, err
 	}
+
+	rootCert, err := createCertificate(rootCertTemplate, rootCertTemplate, rootPrivKey, rootPrivKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create root CA certificate: %v", err)
+	}
+
+	rootPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: rootCert,
+	})
 
 	oidExtendedKeyUsage := asn1.ObjectIdentifier{2, 5, 29, 37}
 	oidTimeStamping := asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 3, 8}
@@ -114,76 +127,64 @@ func CreateTSACertChain(ctx context.Context, instance *rhtasv1alpha1.TimestampAu
 		Value:    ekuValues,
 	}
 
-	interSerialNumber, err := GenerateSerialNumber()
-	if err != nil {
-		return nil, err
-	}
-
-	intermediateIssuer, err := CreateCAIssuer(instance, &instance.Spec.Signer.CertificateChain.RootCA, ctx, deploymentName, client)
-	if err != nil {
-		return nil, err
-	}
-
-	intermediateCertTemplate := x509.Certificate{
-		SerialNumber:          interSerialNumber,
-		Subject:               intermediateIssuer.subject,
-		EmailAddresses:        intermediateIssuer.emailAddresses,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping},
-		ExtraExtensions:       []pkix.Extension{ekuExtension},
-		Issuer:                intermediateIssuer.subject,
-		NotBefore:             notBefore,
-		NotAfter:              notAfter,
-	}
-
-	rootPrivKey, err := parsePrivateKey(config.RootPrivateKey, config.RootPrivateKeyPassword)
-	if err != nil {
-		return nil, err
-	}
-
-	interPrivKey, err := parsePrivateKey(config.InterPrivateKey, config.InterPrivateKeyPassword)
-	if err != nil {
-		return nil, err
-	}
-
-	var rootCert []byte
-	var intermediateCert []byte
-	switch rootPrivKey := rootPrivKey.(type) {
-	case *rsa.PrivateKey:
-		if interPrivKey, ok := interPrivKey.(*rsa.PrivateKey); ok {
-			rootCert, intermediateCert, err = createRootAndIntermediateCertificates(rootCertTemplate, intermediateCertTemplate, rootPrivKey, rootPrivKey.Public(), interPrivKey.Public())
-			if err != nil {
-				return nil, fmt.Errorf("Failed to create root and intermediate CA: %s", err)
-			}
-		} else {
-			return nil, fmt.Errorf("intermediate private key is not of type *rsa.PrivateKey")
+	var intermediateCerts []byte
+	for index, intermediateKey := range instance.Spec.Signer.CertificateChain.IntermediateCA {
+		intermediateIssuer, err := CreateCAIssuer(instance, &intermediateKey, ctx, deploymentName, client)
+		if err != nil {
+			return nil, err
 		}
-	case *ecdsa.PrivateKey:
-		if interPrivKey, ok := interPrivKey.(*ecdsa.PrivateKey); ok {
-			rootCert, intermediateCert, err = createRootAndIntermediateCertificates(rootCertTemplate, intermediateCertTemplate, rootPrivKey, rootPrivKey.Public(), interPrivKey.Public())
-			if err != nil {
-				return nil, fmt.Errorf("Failed to create root and intermediate CA: %s", err)
-			}
-		} else {
-			return nil, fmt.Errorf("intermediate private key is not of type *ecdsa.PrivateKey")
+
+		intermediateCertTemplate, err := generateCertTemplate(*intermediateIssuer, true, x509.KeyUsageCertSign|x509.KeyUsageCRLSign, []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping}, []pkix.Extension{ekuExtension})
+		if err != nil {
+			return nil, err
 		}
-	default:
-		return nil, fmt.Errorf("unknown private key type")
+
+		intermediatePrivateKey, err := parsePrivateKey(config.IntermediatePrivateKeys[index], config.IntermediatePrivateKeyPasswords[index])
+		if err != nil {
+			return nil, err
+		}
+
+		intermediateCert, err := createCertificate(intermediateCertTemplate, rootCertTemplate, intermediatePrivateKey, rootPrivKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create leaf CA certificate: %v", err)
+		}
+
+		intermediatePEM := pem.EncodeToMemory(&pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: intermediateCert,
+		})
+
+		intermediateCerts = append(intermediateCerts, intermediatePEM...)
 	}
 
-	rootPEM := pem.EncodeToMemory(&pem.Block{
+	leafIssuer, err := CreateCAIssuer(instance, &instance.Spec.Signer.CertificateChain.LeafCA, ctx, deploymentName, client)
+	if err != nil {
+		return nil, err
+	}
+
+	leafCertTemplate, err := generateCertTemplate(*leafIssuer, true, x509.KeyUsageCertSign|x509.KeyUsageCRLSign, []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping}, []pkix.Extension{ekuExtension})
+	if err != nil {
+		return nil, err
+	}
+
+	leafPrivKey, err := parsePrivateKey(config.LeafPrivateKey, config.LeafPrivateKeyPassword)
+	if err != nil {
+		return nil, err
+	}
+
+	leafCert, err := createCertificate(leafCertTemplate, rootCertTemplate, leafPrivKey, rootPrivKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create leaf CA certificate: %v", err)
+	}
+
+	leafPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
-		Bytes: rootCert,
+		Bytes: leafCert,
 	})
 
-	intermediatePEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: intermediateCert,
-	})
+	certificateChain := append(leafPEM, intermediateCerts...)
+	certificateChain = append(certificateChain, rootPEM...)
 
-	certificateChain := append(intermediatePEM, rootPEM...)
 	return certificateChain, nil
 }
 
@@ -230,22 +231,8 @@ func parsePrivateKey(privateKeyPEM []byte, password []byte) (crypto.PrivateKey, 
 	}
 }
 
-func createRootAndIntermediateCertificates(rootCertTemplate, intermediateCertTemplate x509.Certificate, rootPrivKey, rootPubKey, interPubKey any) ([]byte, []byte, error) {
-	rootCert, err := x509.CreateCertificate(rand.Reader, &rootCertTemplate, &rootCertTemplate, rootPubKey, rootPrivKey)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Failed to create root CA certificate: %v", err)
-	}
-
-	intermediateCert, err := x509.CreateCertificate(rand.Reader, &intermediateCertTemplate, &rootCertTemplate, interPubKey, rootPrivKey)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Failed to create intermediate CA certificate: %v", err)
-	}
-
-	return rootCert, intermediateCert, nil
-}
-
-func CreateCAIssuer(instance *rhtasv1alpha1.TimestampAuthority, tsaCA *rhtasv1alpha1.TsaCertificateAuthority, ctx context.Context, deploymentName string, client client.Client) (*issuer, error) {
-	issuer := &issuer{}
+func CreateCAIssuer(instance *rhtasv1alpha1.TimestampAuthority, tsaCA *rhtasv1alpha1.TsaCertificateAuthority, ctx context.Context, deploymentName string, client client.Client) (*Issuer, error) {
+	issuer := &Issuer{}
 	var err error
 
 	if tsaCA.OrganizationName == "" {
@@ -280,4 +267,54 @@ func CreateCAIssuer(instance *rhtasv1alpha1.TimestampAuthority, tsaCA *rhtasv1al
 	}
 	issuer.emailAddresses = emailAddresses
 	return issuer, nil
+}
+
+func generateCertTemplate(issuer Issuer, isCA bool, keyUsage x509.KeyUsage, extKeyUsage []x509.ExtKeyUsage, extraExtensions []pkix.Extension) (x509.Certificate, error) {
+	notBefore := time.Now()
+	notAfter := notBefore.Add(365 * 24 * 10 * time.Hour)
+	serialNumber, err := GenerateSerialNumber()
+	if err != nil {
+		return x509.Certificate{}, err
+	}
+
+	return x509.Certificate{
+		SerialNumber:          serialNumber,
+		Subject:               issuer.subject,
+		EmailAddresses:        issuer.emailAddresses,
+		BasicConstraintsValid: true,
+		IsCA:                  isCA,
+		KeyUsage:              keyUsage,
+		ExtKeyUsage:           extKeyUsage,
+		ExtraExtensions:       extraExtensions,
+		Issuer:                issuer.subject,
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+	}, nil
+}
+
+func createCertificate(certTemplate, parentTemplate x509.Certificate, privKey, rootPrivKey interface{}) ([]byte, error) {
+	var cert []byte
+	var err error
+
+	switch rootPrivKey := rootPrivKey.(type) {
+	case *rsa.PrivateKey:
+		rsaPubKey, ok := privKey.(*rsa.PrivateKey)
+		if !ok {
+			return nil, fmt.Errorf("invalid private key type for RSA")
+		}
+		cert, err = x509.CreateCertificate(rand.Reader, &certTemplate, &parentTemplate, &rsaPubKey.PublicKey, rootPrivKey)
+	case *ecdsa.PrivateKey:
+		ecdsaPubKey, ok := privKey.(*ecdsa.PrivateKey)
+		if !ok {
+			return nil, fmt.Errorf("invalid private key type for ECDSA")
+		}
+		cert, err = x509.CreateCertificate(rand.Reader, &certTemplate, &parentTemplate, &ecdsaPubKey.PublicKey, rootPrivKey)
+	default:
+		return nil, fmt.Errorf("unsupported private key type")
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	return cert, nil
 }

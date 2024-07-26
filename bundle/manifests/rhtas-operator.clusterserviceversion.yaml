@@ -130,7 +130,14 @@ metadata:
               },
               "signer": {
                 "certificateChain": {
-                  "intermediateCA": {
+                  "intermediateCA": [
+                    {
+                      "commonName": "tsa.hostname",
+                      "organizationEmail": "jdoe@redhat.com",
+                      "organizationName": "Red Hat"
+                    }
+                  ],
+                  "leafCA": {
                     "commonName": "tsa.hostname",
                     "organizationEmail": "jdoe@redhat.com",
                     "organizationName": "Red Hat"
@@ -189,7 +196,14 @@ metadata:
             },
             "signer": {
               "certificateChain": {
-                "intermediateCA": {
+                "intermediateCA": [
+                  {
+                    "commonName": "tsa.hostname",
+                    "organizationEmail": "jdoe@redhat.com",
+                    "organizationName": "Red Hat"
+                  }
+                ],
+                "leafCA": {
                   "commonName": "tsa.hostname",
                   "organizationEmail": "jdoe@redhat.com",
                   "organizationName": "Red Hat"
