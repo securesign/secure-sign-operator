@@ -71,6 +71,7 @@ spec:
                 - name: rekor.pub
                 - name: ctfe.pub
                 - name: fulcio_v1.crt.pem
+                - name: tsa.certchain.pem
                 description: List of TUF targets which will be added to TUF root
                 items:
                   properties:

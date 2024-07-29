@@ -17,7 +17,7 @@ type TufSpec struct {
 	//+kubebuilder:validation:Maximum:=65535
 	Port int32 `json:"port,omitempty"`
 	// List of TUF targets which will be added to TUF root
-	//+kubebuilder:default:={{name: rekor.pub},{name: ctfe.pub},{name: fulcio_v1.crt.pem}}
+	//+kubebuilder:default:={{name: rekor.pub},{name: ctfe.pub},{name: fulcio_v1.crt.pem},{name: tsa.certchain.pem}}
 	//+kubebuilder:validation:MinItems:=1
 	Keys []TufKey `json:"keys,omitempty"`
 }

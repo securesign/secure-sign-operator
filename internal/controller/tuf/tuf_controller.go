@@ -27,6 +27,7 @@ import (
 	ctl "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
 	"github.com/securesign/operator/internal/controller/rekor/actions/server"
+	tsa "github.com/securesign/operator/internal/controller/tsa/actions"
 	"github.com/securesign/operator/internal/controller/tuf/actions"
 	v1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
@@ -155,6 +156,13 @@ func (r *TufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 	}})
 
+	tsa, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+		{
+			Key:      tsa.TSACertCALabel,
+			Operator: metav1.LabelSelectorOpExists,
+		},
+	}})
+
 	if err != nil {
 		return err
 	}
@@ -193,6 +201,6 @@ func (r *TufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			}
 			return requests
 
-		}), builder.WithPredicates(predicate.Or(fulcio, rekor, ctl))).
+		}), builder.WithPredicates(predicate.Or(fulcio, rekor, ctl, tsa))).
 		Complete(r)
 }

@@ -30,6 +30,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/constants"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -49,6 +50,7 @@ import (
 	"github.com/securesign/operator/internal/controller/rekor"
 	"github.com/securesign/operator/internal/controller/securesign"
 	"github.com/securesign/operator/internal/controller/trillian"
+	"github.com/securesign/operator/internal/controller/tsa"
 	"github.com/securesign/operator/internal/controller/tuf"
 	//+kubebuilder:scaffold:imports
 )
@@ -108,8 +110,11 @@ func main() {
 	utils.StringFlagOrEnv(&constants.ClientServerImage, "client-server-image", "CLIENT_SERVER_IMAGE", constants.ClientServerImage, "The image used to serve our cli binary's.")
 	utils.StringFlagOrEnv(&constants.ClientServerImage_cg, "client-server-cg-image", "CLIENT_SERVER_CG_IMAGE", constants.ClientServerImage_cg, "The image used to serve cosign and gitsign.")
 	utils.StringFlagOrEnv(&constants.ClientServerImage_re, "client-server-re-image", "CLIENT_SERVER_RE_IMAGE", constants.ClientServerImage_re, "The image used to serve rekor-cli and the ec binary.")
+	utils.StringFlagOrEnv(&constants.ClientServerImage_f, "client-server-f-image", "CLIENT_SERVER_F_IMAGE", constants.ClientServerImage_f, "The image used to serve fetch-tsa-certs binary.")
 	utils.StringFlagOrEnv(&constants.SegmentBackupImage, "segment-backup-job-image", "SEGMENT_BACKUP_JOB_IMAGE", constants.SegmentBackupImage, "The image used for the segment backup job")
 	flag.StringVar(&clidownload.CliHostName, "cli-server-hostname", "", "The hostname for the cli server")
+	utils.StringFlagOrEnv(&constants.TimestampAuthorityImage, "timestamp-authority-image", "TIMESTAMP_AUTHORITY_IMAGE", constants.TimestampAuthorityImage, "The image used foR Timestamp Authority")
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -212,6 +217,13 @@ func main() {
 		Recorder: mgr.GetEventRecorderFor("ctlog-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CTlog")
+		os.Exit(1)
+	}
+	if err = (&tsa.TimestampAuthorityReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "TimestampAuthority")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

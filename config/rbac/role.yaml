@@ -92,6 +92,7 @@ rules:
   verbs:
   - create
   - delete
+  - deletecollection
   - get
   - list
   - patch
@@ -385,6 +386,32 @@ rules:
   - rhtas.redhat.com
   resources:
   - securesigns/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - rhtas.redhat.com
+  resources:
+  - timestampauthorities
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rhtas.redhat.com
+  resources:
+  - timestampauthorities/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - rhtas.redhat.com
+  resources:
+  - timestampauthorities/status
   verbs:
   - get
   - patch
