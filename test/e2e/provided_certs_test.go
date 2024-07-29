@@ -4,7 +4,6 @@ package e2e
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
@@ -176,14 +175,26 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 								LocalObjectReference: v1alpha1.LocalObjectReference{
 									Name: "test-tsa-secret",
 								},
-								Key: "private",
+								Key: "leafPrivateKey",
 							},
 							PasswordRef: &v1alpha1.SecretKeySelector{
 								LocalObjectReference: v1alpha1.LocalObjectReference{
 									Name: "test-tsa-secret",
 								},
-								Key: "password",
+								Key: "leafPrivateKeyPassword",
 							},
+						},
+					},
+					NTPMonitoring: v1alpha1.NTPMonitoring{
+						Enabled: true,
+						Config: &v1alpha1.NtpMonitoringConfig{
+							RequestAttempts: 3,
+							RequestTimeout:  5,
+							NumServers:      4,
+							ServerThreshold: 3,
+							MaxTimeDelta:    6,
+							Period:          60,
+							Servers:         []string{"time.apple.com", "time.google.com", "time-a-b.nist.gov", "time-b-b.nist.gov", "gbg1.ntp.se"},
 						},
 					},
 				},
@@ -197,10 +208,10 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 
 	Describe("Install with provided certificates", func() {
 		BeforeAll(func() {
-			Expect(cli.Create(ctx, support.InitCTSecret(namespace.Name, "my-ctlog-secret")))
-			Expect(cli.Create(ctx, support.InitFulcioSecret(namespace.Name, "my-fulcio-secret")))
-			Expect(cli.Create(ctx, support.InitRekorSecret(namespace.Name, "my-rekor-secret")))
-			Expect(cli.Create(ctx, support.InitTsaSecrets(namespace.Name, "test-tsa-secret")))
+			Expect(cli.Create(ctx, support.InitCTSecret(namespace.Name, "my-ctlog-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, support.InitFulcioSecret(namespace.Name, "my-fulcio-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, support.InitRekorSecret(namespace.Name, "my-rekor-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, support.InitTsaSecrets(namespace.Name, "test-tsa-secret"))).To(Succeed())
 			Expect(cli.Create(ctx, securesign)).To(Succeed())
 		})
 
@@ -279,7 +290,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 			tsa := tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)()
 			Expect(tsa).ToNot(BeNil())
 			err := tas.GetTSACertificateChain(ctx, cli, tsa.Namespace, tsa.Name, tsa.Status.Url)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			oidcToken, err := support.OidcToken(ctx)
 			Expect(err).ToNot(HaveOccurred())

@@ -292,7 +292,7 @@ jobs:
 
       - name: Add service hosts to /etc/hosts
         run: |
-          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local cli-server.local" | sudo tee -a /etc/hosts
+          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local cli-server.local tsa-server.local" | sudo tee -a /etc/hosts
       - name: Install cosign
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.2.4
 
@@ -371,7 +371,7 @@ jobs:
           kubectl create ns ${{ env.TEST_NAMESPACE }}
           kubectl create secret generic redhat-registry -n ${{ env.TEST_NAMESPACE }} --from-file=.dockerconfigjson=/tmp/config.json --type=kubernetes.io/dockerconfigjson
           kubectl patch serviceaccount default  --type=merge -p '{"imagePullSecrets": [{"name":"redhat-registry"}]}' -n ${{ env.TEST_NAMESPACE }}
-          for NAME in "fulcio" "ctlog" "trillian" "rekor" "tuf"
+          for NAME in "fulcio" "ctlog" "trillian" "rekor" "tuf" "tsa"
           do
             echo """
             apiVersion: v1
@@ -400,7 +400,7 @@ jobs:
 
       - name: Until shell script to wait for deployment to be created
         run: |
-          for i in trillian fulcio rekor tuf ctlog; do
+          for i in trillian fulcio rekor tuf ctlog timestampAuthority; do
             until [ ! -z "$(kubectl get $i -n ${{ env.TEST_NAMESPACE }} 2>/dev/null)" ]
             do
               echo "Waiting for $i to be created."
@@ -416,6 +416,7 @@ jobs:
           kubectl wait --for=condition=ready rekor/securesign-sample -n ${{ env.TEST_NAMESPACE }} --timeout=5m
           kubectl wait --for=condition=ready ctlog/securesign-sample -n ${{ env.TEST_NAMESPACE }} --timeout=5m
           kubectl wait --for=condition=ready tuf/securesign-sample -n ${{ env.TEST_NAMESPACE }} --timeout=5m
+          kubectl wait --for=condition=ready timestampAuthority/securesign-sample -n ${{ env.TEST_NAMESPACE }} --timeout=5m
 
       - name: Test deployments are ready
         run: |
@@ -428,6 +429,7 @@ jobs:
           kubectl wait --for=condition=available deployment/rekor-search-ui -n ${{ env.TEST_NAMESPACE }}
           kubectl wait --for=condition=available deployment/tuf -n ${{ env.TEST_NAMESPACE }}
           kubectl wait --for=condition=available deployment/ctlog -n ${{ env.TEST_NAMESPACE }}
+          kubectl wait --for=condition=available deployment/tsa-server -n ${{ env.TEST_NAMESPACE }}
 
       - name: Archive test artifacts
         uses: actions/upload-artifact@v4

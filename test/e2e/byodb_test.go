@@ -109,6 +109,18 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 							},
 						},
 					},
+					NTPMonitoring: v1alpha1.NTPMonitoring{
+						Enabled: true,
+						Config: &v1alpha1.NtpMonitoringConfig{
+							RequestAttempts: 3,
+							RequestTimeout:  5,
+							NumServers:      4,
+							ServerThreshold: 3,
+							MaxTimeDelta:    6,
+							Period:          60,
+							Servers:         []string{"time.apple.com", "time.google.com", "time-a-b.nist.gov", "time-b-b.nist.gov", "gbg1.ntp.se"},
+						},
+					},
 				},
 			},
 		}
@@ -153,7 +165,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 			tsa := tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)()
 			Expect(tsa).ToNot(BeNil())
 			err := tas.GetTSACertificateChain(ctx, cli, tsa.Namespace, tsa.Name, tsa.Status.Url)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			oidcToken, err := support.OidcToken(ctx)
 			Expect(err).ToNot(HaveOccurred())

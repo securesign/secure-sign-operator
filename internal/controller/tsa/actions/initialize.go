@@ -52,6 +52,12 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Ti
 			Reason:  constants.Initialize,
 			Message: "Waiting for deployment to be ready",
 		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    TSAServerCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Initialize,
+			Message: "Waiting for deployment to be ready",
+		})
 		return i.StatusUpdate(ctx, instance)
 	}
 
@@ -69,6 +75,9 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Ti
 	} else {
 		instance.Status.Url = fmt.Sprintf("http://%s.%s.svc", DeploymentName, instance.Namespace)
 	}
+
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: TSAServerCondition,
+		Status: metav1.ConditionTrue, Reason: constants.Ready})
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
 		Status: metav1.ConditionTrue, Reason: constants.Ready})

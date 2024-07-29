@@ -26,7 +26,7 @@ func VerifyTSA(ctx context.Context, cli client.Client, namespace string, name st
 
 	list := &v1.PodList{}
 	Eventually(func() []v1.Pod {
-		cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels{kubernetes.ComponentLabel: actions.ComponentName})
+		Expect(cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels{kubernetes.ComponentLabel: actions.ComponentName})).To(Succeed())
 		return list.Items
 	}).Should(And(Not(BeEmpty()), HaveEach(WithTransform(func(p v1.Pod) v1.PodPhase { return p.Status.Phase }, Equal(v1.PodRunning)))))
 }
@@ -34,7 +34,7 @@ func VerifyTSA(ctx context.Context, cli client.Client, namespace string, name st
 func GetTSAServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {
 	return func() *v1.Pod {
 		list := &v1.PodList{}
-		cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{kubernetes.ComponentLabel: actions.ComponentName, kubernetes.NameLabel: "tsa-server"})
+		_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{kubernetes.ComponentLabel: actions.ComponentName, kubernetes.NameLabel: "tsa-server"})
 		if len(list.Items) != 1 {
 			return nil
 		}
@@ -45,7 +45,7 @@ func GetTSAServerPod(ctx context.Context, cli client.Client, ns string) func() *
 func GetTSA(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.TimestampAuthority {
 	return func() *v1alpha1.TimestampAuthority {
 		instance := &v1alpha1.TimestampAuthority{}
-		cli.Get(ctx, types.NamespacedName{
+		_ = cli.Get(ctx, types.NamespacedName{
 			Namespace: ns,
 			Name:      name,
 		}, instance)
@@ -63,7 +63,13 @@ func GetTSACertificateChain(ctx context.Context, cli client.Client, ns string, n
 	if err != nil {
 		return fmt.Errorf("failed to perform HTTP request: %w", err)
 	}
-	defer resp.Body.Close()
+
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			fmt.Println("Error closing response body:", closeErr)
+		}
+	}()
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected HTTP status: %s", resp.Status)
 	}

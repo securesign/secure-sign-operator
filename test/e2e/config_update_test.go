@@ -5,13 +5,15 @@ package e2e
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"time"
 
 	ctlog "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
 	rekor "github.com/securesign/operator/internal/controller/rekor/actions"
+	tsa "github.com/securesign/operator/internal/controller/tsa/actions"
+	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
 	tuf "github.com/securesign/operator/internal/controller/tuf/actions"
+	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
@@ -130,6 +132,18 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 							},
 						},
 					},
+					NTPMonitoring: v1alpha1.NTPMonitoring{
+						Enabled: true,
+						Config: &v1alpha1.NtpMonitoringConfig{
+							RequestAttempts: 3,
+							RequestTimeout:  5,
+							NumServers:      4,
+							ServerThreshold: 3,
+							MaxTimeDelta:    6,
+							Period:          60,
+							Servers:         []string{"time.apple.com", "time.google.com", "time-a-b.nist.gov", "time-b-b.nist.gov", "gbg1.ntp.se"},
+						},
+					},
 				},
 			},
 		}
@@ -194,7 +208,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 				return meta.FindStatusCondition(fulcio.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Pending))
 
-			Expect(cli.Create(ctx, support.InitFulcioSecret(namespace.Name, "my-fulcio-secret")))
+			Expect(cli.Create(ctx, support.InitFulcioSecret(namespace.Name, "my-fulcio-secret"))).To(Succeed())
 
 			Eventually(func() int64 {
 				return getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tuf.DeploymentName})
@@ -300,7 +314,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 				return meta.FindStatusCondition(rekor.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Pending))
 
-			Expect(cli.Create(ctx, support.InitRekorSecret(namespace.Name, "my-rekor-secret")))
+			Expect(cli.Create(ctx, support.InitRekorSecret(namespace.Name, "my-rekor-secret"))).To(Succeed())
 
 			Eventually(func() int64 {
 				return getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tuf.DeploymentName})
@@ -353,7 +367,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 				ctl := tas.GetCTLog(ctx, cli, namespace.Name, securesign.Name)()
 				return meta.FindStatusCondition(ctl.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Creating))
-			Expect(cli.Create(ctx, support.InitCTSecret(namespace.Name, "my-ctlog-secret")))
+			Expect(cli.Create(ctx, support.InitCTSecret(namespace.Name, "my-ctlog-secret"))).To(Succeed())
 
 			Eventually(func() int64 {
 				return getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tuf.DeploymentName})
@@ -391,6 +405,11 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 
 	Describe("Inject tsa signer and certificate chain", func() {
 		It("Pods are restarted after update", func() {
+			By("Storing current deployment observed generations")
+			tufGeneration := getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tuf.DeploymentName})
+			Expect(tufGeneration).Should(BeNumerically(">", 0))
+			tsaGeneration := getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tsa.DeploymentName})
+			Expect(tsaGeneration).Should(BeNumerically(">", 0))
 			Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(securesign), securesign)).To(Succeed())
 			securesign.Spec.TimestampAuthority.Signer = v1alpha1.TimestampAuthoritySigner{
 				CertificateChain: v1alpha1.CertificateChain{
@@ -406,13 +425,13 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 						LocalObjectReference: v1alpha1.LocalObjectReference{
 							Name: "test-tsa-secret",
 						},
-						Key: "private",
+						Key: "leafPrivateKey",
 					},
 					PasswordRef: &v1alpha1.SecretKeySelector{
 						LocalObjectReference: v1alpha1.LocalObjectReference{
 							Name: "test-tsa-secret",
 						},
-						Key: "password",
+						Key: "leafPrivateKeyPassword",
 					},
 				},
 			}
@@ -422,12 +441,20 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 				return meta.FindStatusCondition(tsa.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Pending))
 
-			Expect(cli.Create(ctx, support.InitTsaSecrets(namespace.Name, "test-tsa-secret")))
+			Expect(cli.Create(ctx, support.InitTsaSecrets(namespace.Name, "test-tsa-secret"))).To(Succeed())
 
 			tsaPod := tas.GetTSAServerPod(ctx, cli, namespace.Name)()
 			Eventually(func() error {
 				return cli.Get(ctx, runtimeCli.ObjectKeyFromObject(tsaPod), &v1.Pod{})
 			}).Should(HaveOccurred())
+
+			Eventually(func() int64 {
+				return getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tuf.DeploymentName})
+			}).Should(BeNumerically(">", tufGeneration))
+
+			Eventually(func() int64 {
+				return getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tsa.DeploymentName})
+			}).Should(BeNumerically(">", tsaGeneration))
 
 			tas.VerifyTSA(ctx, cli, namespace.Name, securesign.Name)
 		})
@@ -454,6 +481,55 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 		})
 	})
 
+	Describe("Update NTP config", func() {
+		It("Pods are restarted after update", func() {
+			By("Storing current deployment observed generations")
+			tsaGeneration := getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tsa.DeploymentName})
+			Expect(tsaGeneration).Should(BeNumerically(">", 0))
+
+			Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(securesign), securesign)).To(Succeed())
+			securesign.Spec.TimestampAuthority.NTPMonitoring = v1alpha1.NTPMonitoring{
+				Enabled: true,
+				Config: &v1alpha1.NtpMonitoringConfig{
+					RequestAttempts: 3,
+					RequestTimeout:  5,
+					NumServers:      4,
+					ServerThreshold: 3,
+					MaxTimeDelta:    6,
+					Period:          40,
+					Servers:         []string{"time.apple.com", "time.google.com", "time-a-b.nist.gov", "time-b-b.nist.gov", "gbg1.ntp.se"},
+				},
+			}
+			Expect(cli.Update(ctx, securesign)).To(Succeed())
+
+			Eventually(func() int64 {
+				return getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tsa.DeploymentName})
+			}).Should(BeNumerically(">", tsaGeneration))
+
+			tas.VerifyTSA(ctx, cli, namespace.Name, securesign.Name)
+		})
+		It("Verify new configuration", func() {
+			var tsa *v1alpha1.TimestampAuthority
+			var tsaPod *v1.Pod
+			Eventually(func(g Gomega) {
+				tsa = tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)()
+				g.Expect(tsa).NotTo(BeNil())
+				tsaPod = tas.GetTSAServerPod(ctx, cli, namespace.Name)()
+				g.Expect(tsaPod).NotTo(BeNil())
+			}).Should(Succeed())
+
+			Expect(tsaPod.Spec.Volumes).To(ContainElements(And(
+				WithTransform(func(v v1.Volume) string { return v.Name }, Equal("ntp-config")),
+				WithTransform(func(v v1.Volume) string { return v.VolumeSource.ConfigMap.Name }, Equal(tsa.Status.NTPMonitoring.Config.NtpConfigRef.Name)))))
+
+			cm := &v1.ConfigMap{}
+			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: tsa.Status.NTPMonitoring.Config.NtpConfigRef.Name}, cm)).To(Succeed())
+			config := &tsaUtils.NtpConfig{}
+			Expect(yaml.Unmarshal([]byte(cm.Data["ntp-config.yaml"]), config)).To(Succeed())
+			Expect(config.Period).To(Equal(40))
+		})
+	})
+
 	It("Use cosign cli", func() {
 		fulcio := tas.GetFulcio(ctx, cli, namespace.Name, securesign.Name)()
 		Expect(fulcio).ToNot(BeNil())
@@ -467,7 +543,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 		tsa := tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)()
 		Expect(tsa).ToNot(BeNil())
 		err := tas.GetTSACertificateChain(ctx, cli, tsa.Namespace, tsa.Name, tsa.Status.Url)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		oidcToken, err := support.OidcToken(ctx)
 		Expect(err).ToNot(HaveOccurred())

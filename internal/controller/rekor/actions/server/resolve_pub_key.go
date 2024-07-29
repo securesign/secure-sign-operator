@@ -3,12 +3,10 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"k8s.io/utils/ptr"
 
@@ -22,8 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -98,7 +94,7 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		}
 
 		// Remove label from secret
-		if err = i.removeLabel(ctx, &secret); err != nil {
+		if err = constants.RemoveLabel(ctx, &secret, i.Client, RekorPubLabel); err != nil {
 			return i.Failed(fmt.Errorf("ResolvePubKey: %w", err))
 		}
 
@@ -176,28 +172,4 @@ func (i resolvePubKeyAction) requestPublicKey(basePath string) ([]byte, error) {
 		return io.ReadAll(response.Body)
 	}
 	return nil, fmt.Errorf("unexpected http response %s", response.Status)
-}
-
-func (i resolvePubKeyAction) removeLabel(ctx context.Context, object *metav1.PartialObjectMetadata) error {
-	object.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "",
-		Version: "v1",
-		Kind:    "Secret",
-	})
-	patch, err := json.Marshal([]map[string]string{
-		{
-			"op":   "remove",
-			"path": fmt.Sprintf("/metadata/labels/%s", strings.ReplaceAll(RekorPubLabel, "/", "~1")),
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to marshal patch: %v", err)
-	}
-
-	err = i.Client.Patch(ctx, object, client.RawPatch(types.JSONPatchType, patch))
-	if err != nil {
-		return fmt.Errorf("unable to remove '%s' label from secret: %w", RekorPubLabel, err)
-	}
-
-	return nil
 }

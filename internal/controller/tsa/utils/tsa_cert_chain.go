@@ -74,7 +74,7 @@ func CreatePrivateKey(key *ecdsa.PrivateKey, password []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	block, err := x509.EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", mKey, password, x509.PEMCipherAES256)
+	block, err := x509.EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", mKey, password, x509.PEMCipherAES256) //nolint:staticcheck
 	if err != nil {
 		return nil, err
 	}
@@ -206,8 +206,8 @@ func parsePrivateKey(privateKeyPEM []byte, password []byte) (crypto.PrivateKey, 
 	}
 
 	keyBytes := block.Bytes
-	if x509.IsEncryptedPEMBlock(block) {
-		keyBytes, err = x509.DecryptPEMBlock(block, password)
+	if x509.IsEncryptedPEMBlock(block) { //nolint:staticcheck
+		keyBytes, err = x509.DecryptPEMBlock(block, password) //nolint:staticcheck
 		if err != nil {
 			return nil, err
 		}

@@ -35,17 +35,6 @@ func CreateImmutableConfigmap(namePrefix string, namespace string, labels map[st
 	}
 }
 
-func CreateConfigMap(namePrefix string, namespace string, labels map[string]string, data map[string]string) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: namePrefix,
-			Namespace:    namespace,
-			Labels:       labels,
-		},
-		Data: data,
-	}
-}
-
 func GetConfigMap(ctx context.Context, client client.Client, namespace, secretName string) (*corev1.ConfigMap, error) {
 	var cm corev1.ConfigMap
 

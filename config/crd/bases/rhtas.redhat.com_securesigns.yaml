@@ -1098,7 +1098,7 @@ spec:
                         properties:
                           auth:
                             description: Configuration for authentication for key
-                              managment services
+                              management services
                             properties:
                               env:
                                 description: Environmental variables used to define
@@ -1254,7 +1254,7 @@ spec:
                         properties:
                           auth:
                             description: Configuration for authentication for key
-                              managment services
+                              management services
                             properties:
                               env:
                                 description: Environmental variables used to define

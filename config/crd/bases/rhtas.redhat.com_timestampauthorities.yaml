@@ -14,7 +14,16 @@ spec:
     singular: timestampauthority
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: The component status
+      jsonPath: .status.conditions[?(@.type=="Ready")].reason
+      name: Status
+      type: string
+    - description: The component url
+      jsonPath: .status.url
+      name: URL
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: TimestampAuthority is the Schema for the timestampauthorities
@@ -378,7 +387,7 @@ spec:
                     description: Configuration for KMS based signer
                     properties:
                       auth:
-                        description: Configuration for authentication for key managment
+                        description: Configuration for authentication for key management
                           services
                         properties:
                           env:
@@ -530,7 +539,7 @@ spec:
                     description: Configuration for Tink based signer
                     properties:
                       auth:
-                        description: Configuration for authentication for key managment
+                        description: Configuration for authentication for key management
                           services
                         properties:
                           env:
@@ -1106,7 +1115,7 @@ spec:
                     description: Configuration for KMS based signer
                     properties:
                       auth:
-                        description: Configuration for authentication for key managment
+                        description: Configuration for authentication for key management
                           services
                         properties:
                           env:
@@ -1258,7 +1267,7 @@ spec:
                     description: Configuration for Tink based signer
                     properties:
                       auth:
-                        description: Configuration for authentication for key managment
+                        description: Configuration for authentication for key management
                           services
                         properties:
                           env:
