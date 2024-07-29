@@ -11,15 +11,15 @@ import (
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common"
 	"github.com/securesign/operator/internal/controller/common/action"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -82,12 +82,33 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 	maps.Copy(secretLabels, labels)
 
 	certificateChain := k8sutils.CreateImmutableSecret(fmt.Sprintf("tsa-signer-config-%s", instance.Name), instance.Namespace, tsaCertChainConfig.ToMap(), secretLabels)
-	if err = controllerutil.SetControllerReference(instance, certificateChain, g.Client.Scheme()); err != nil {
-		return g.Failed(fmt.Errorf("could not set controller reference for Secret: %w", err))
+	//Check if a secret for the signer config already exists, if it does remove the label
+	secret, err := kubernetes.FindSecret(ctx, g.Client, instance.Namespace, TSACertCALabel)
+	if err != nil && !apierrors.IsNotFound(err) {
+		g.Logger.Error(err, "problem with finding secret", "namespace", instance.Namespace)
 	}
-	if err = g.Client.DeleteAllOf(ctx, &v1.Secret{}, client.InNamespace(instance.Namespace), client.MatchingLabels(constants.LabelsFor(ComponentName, DeploymentName, instance.Name)), client.HasLabels{TSACertCALabel}); err != nil {
-		return g.Failed(err)
+
+	if secret != nil {
+		if err := constants.RemoveLabel(ctx, secret, g.Client, TSACertCALabel); err != nil {
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:    TSAServerCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			})
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:    constants.Ready,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			})
+			return g.FailedWithStatusUpdate(ctx, err, instance)
+		}
+		message := fmt.Sprintf("Removed '%s' label from %s secret", TSACertCALabel, secret.Name)
+		g.Recorder.Event(instance, v1.EventTypeNormal, "CertificateChainSecretLabelRemoved", message)
+		g.Logger.Info(message)
 	}
+
 	if _, err := g.Ensure(ctx, certificateChain); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    TSAServerCondition,
@@ -140,7 +161,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:   TSAServerCondition,
+		Type:   TSASignerCondition,
 		Status: metav1.ConditionTrue,
 		Reason: "Resolved",
 	})

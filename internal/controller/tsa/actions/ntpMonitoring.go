@@ -55,7 +55,7 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 
 	if ntpConfig != nil {
 		labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
-		configMap := kubernetes.CreateConfigMap(NtpCMName, instance.Namespace, labels, map[string]string{"ntp-config.yaml": string(ntpConfig)})
+		configMap := kubernetes.CreateImmutableConfigmap(NtpCMName, instance.Namespace, labels, map[string]string{"ntp-config.yaml": string(ntpConfig)})
 		if err = controllerutil.SetControllerReference(instance, configMap, i.Client.Scheme()); err != nil {
 			return i.Failed(fmt.Errorf("could not set controller reference for ConfigMap: %w", err))
 		}

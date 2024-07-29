@@ -416,6 +416,7 @@ jobs:
           kubectl wait --for=condition=ready rekor/securesign-sample -n ${{ env.TEST_NAMESPACE }} --timeout=5m
           kubectl wait --for=condition=ready ctlog/securesign-sample -n ${{ env.TEST_NAMESPACE }} --timeout=5m
           kubectl wait --for=condition=ready tuf/securesign-sample -n ${{ env.TEST_NAMESPACE }} --timeout=5m
+          kubectl wait --for=condition=ready timestampAuthority/securesign-sample -n ${{ env.TEST_NAMESPACE }} --timeout=5m
 
       - name: Test deployments are ready
         run: |
@@ -428,6 +429,7 @@ jobs:
           kubectl wait --for=condition=available deployment/rekor-search-ui -n ${{ env.TEST_NAMESPACE }}
           kubectl wait --for=condition=available deployment/tuf -n ${{ env.TEST_NAMESPACE }}
           kubectl wait --for=condition=available deployment/ctlog -n ${{ env.TEST_NAMESPACE }}
+          kubectl wait --for=condition=available deployment/tsa-server -n ${{ env.TEST_NAMESPACE }}
 
       - name: Archive test artifacts
         uses: actions/upload-artifact@v4

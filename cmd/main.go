@@ -241,8 +241,9 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&tsa.TimestampAuthorityReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("tsa-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TimestampAuthority")
 		os.Exit(1)

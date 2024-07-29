@@ -182,6 +182,8 @@ type TimestampAuthorityStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
+//+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
 
 // TimestampAuthority is the Schema for the timestampauthorities API
 type TimestampAuthority struct {

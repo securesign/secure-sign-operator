@@ -27,6 +27,7 @@ import (
 	ctl "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
 	"github.com/securesign/operator/internal/controller/rekor/actions/server"
+	tsa "github.com/securesign/operator/internal/controller/tsa/actions"
 	"github.com/securesign/operator/internal/controller/tuf/actions"
 	v1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
@@ -130,8 +131,8 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 // SetupWithManager sets up the controller with the Manager.
 func (r *TufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	var (
-		fulcioP, rekorP, ctlP predicate.Predicate
-		err                   error
+		fulcioP, rekorP, ctlP, tsaP predicate.Predicate
+		err                         error
 	)
 
 	// Filter out with the pause annotation.
@@ -159,6 +160,15 @@ func (r *TufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if ctlP, err = predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      ctl.CTLPubLabel,
+			Operator: metav1.LabelSelectorOpExists,
+		},
+	}}); err != nil {
+		return err
+	}
+
+	if tsaP, err = predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+		{
+			Key:      tsa.TSACertCALabel,
 			Operator: metav1.LabelSelectorOpExists,
 		},
 	}}); err != nil {
@@ -203,6 +213,6 @@ func (r *TufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			}
 			return requests
 
-		}), builder.WithPredicates(predicate.Or(fulcioP, rekorP, ctlP))).
+		}), builder.WithPredicates(predicate.Or(fulcioP, rekorP, ctlP, tsaP))).
 		Complete(r)
 }
