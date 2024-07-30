@@ -54,7 +54,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	}
 
 	if err = controllerutil.SetControllerReference(instance, logserverService, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for logserver Service: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for logserver Service: %w", err))
 	}
 
 	if updated, err = i.Ensure(ctx, logserverService); err != nil {
@@ -70,7 +70,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create logserver Service: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create logserver Service: %w", err), instance)
 	}
 
 	if updated {
@@ -84,5 +84,12 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	} else {
 		return i.Continue()
 	}
+}
 
+func (i createServiceAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Trillian) bool {
+	return false
+}
+
+func (i createServiceAction) HandleError(_ context.Context, _ *rhtasv1alpha1.Trillian) *action.Result {
+	return i.Continue()
 }

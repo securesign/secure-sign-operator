@@ -138,3 +138,11 @@ func (i resolveKeysAction) discoverSecret(ctx context.Context, namespace string,
 
 	return nil, errors.New("secret not found")
 }
+
+func (i resolveKeysAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Tuf) bool {
+	return false
+}
+
+func (i resolveKeysAction) HandleError(_ context.Context, _ *rhtasv1alpha1.Tuf) *action.Result {
+	return i.Continue()
+}

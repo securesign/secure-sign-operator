@@ -19,11 +19,12 @@ package rekor
 import (
 	"bytes"
 	"context"
-	"github.com/securesign/operator/internal/controller/rekor/actions/server"
-	httpmock "github.com/securesign/operator/internal/testing/http"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/securesign/operator/internal/controller/rekor/actions/server"
+	httpmock "github.com/securesign/operator/internal/testing/http"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
 
@@ -134,25 +135,6 @@ var _ = Describe("Rekor hot update test", func() {
 			}).Should(Not(BeNil()))
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Status.Signer.KeyRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
 
-			By("Mock http client to return public key on /api/v1/log/publicKey call")
-			pubKeyData, err := kubernetes.GetSecretData(k8sClient, Namespace, &v1alpha1.SecretKeySelector{
-				LocalObjectReference: v1alpha1.LocalObjectReference{
-					Name: found.Status.Signer.KeyRef.Name,
-				},
-				Key: "public",
-			})
-			Expect(err).To(Succeed())
-
-			httpmock.SetMockTransport(http.DefaultClient, map[string]httpmock.RoundTripFunc{
-				"http://rekor-server." + Namespace + ".svc/api/v1/log/publicKey": func(req *http.Request) *http.Response {
-					return &http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(bytes.NewReader(pubKeyData)),
-						Header:     make(http.Header),
-					}
-				},
-			})
-
 			By("Waiting until Rekor instance is Initialization")
 			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Rekor{}
@@ -161,6 +143,16 @@ var _ = Describe("Rekor hot update test", func() {
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Initialize))
 
+			httpmock.SetMockTransport(server.HttpClient, map[string]httpmock.RoundTripFunc{
+				"http://rekor-server.update.svc/api/v1/log/publicKey": func(req *http.Request) *http.Response {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewReader([]byte("-----BEGIN PUBLIC KEY-----\nMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEy5wMSNagtqLsSF+zf8gBVHm2VThGP69D\ngWyhhIm/BkemPBoD/BNq+/yvD2IjsV4unLp5Lcpv4UAGAPJHL/wm+tHD1nS4QKo/\nsXJ8Ezy1K+bM5DUEilcu4hGgQ7+RCG/H\n-----END PUBLIC KEY-----"))),
+						Header:     make(http.Header),
+					}
+				},
+			})
+			defer httpmock.RestoreDefaultTransport(server.HttpClient)
 			deployments := &appsv1.DeploymentList{}
 			Expect(k8sClient.List(ctx, deployments, runtimeClient.InNamespace(Namespace))).To(Succeed())
 			By("Move to Ready phase")
@@ -171,19 +163,19 @@ var _ = Describe("Rekor hot update test", func() {
 			}
 			// Workaround to succeed condition for Ready phase
 
-			By("Rekor public key secret created")
-			Eventually(func(g Gomega) {
-				scr := &corev1.SecretList{}
-				g.Expect(k8sClient.List(ctx, scr, runtimeClient.InNamespace(Namespace), runtimeClient.MatchingLabels{server.RekorPubLabel: "public"})).Should(Succeed())
-				g.Expect(scr.Items).Should(HaveLen(1))
-			}).Should(Succeed())
-
 			By("Waiting until Rekor instance is Ready")
 			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Rekor{}
 				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
 			}).Should(BeTrue())
+
+			By("Rekor public key secret created")
+			Eventually(func(g Gomega) {
+				scr := &corev1.SecretList{}
+				g.Expect(k8sClient.List(ctx, scr, runtimeClient.InNamespace(Namespace), runtimeClient.MatchingLabels{server.RekorPubLabel: "public"})).Should(Succeed())
+				g.Expect(scr.Items).Should(HaveLen(1))
+			}).Should(Succeed())
 
 			By("Save the Deployment configuration")
 			deployment := &appsv1.Deployment{}
@@ -202,18 +194,8 @@ var _ = Describe("Rekor hot update test", func() {
 				return k8sClient.Update(ctx, found)
 			}).Should(Succeed())
 
-			By("Move to CreatingPhase by creating trillian service")
+			By("Move to CreatingPhase by creating new private key")
 			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("key-secret", Namespace, map[string][]byte{"private": []byte("fake")}, constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)))).To(Succeed())
-
-			httpmock.SetMockTransport(http.DefaultClient, map[string]httpmock.RoundTripFunc{
-				"http://rekor-server." + Namespace + ".svc/api/v1/log/publicKey": func(req *http.Request) *http.Response {
-					return &http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(bytes.NewReader([]byte("newPublicKey"))),
-						Header:     make(http.Header),
-					}
-				},
-			})
 
 			By("Secret key is resolved")
 			Eventually(func(g Gomega) *v1alpha1.SecretKeySelector {
@@ -224,6 +206,17 @@ var _ = Describe("Rekor hot update test", func() {
 				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Signer.KeyRef.Name
 			}).Should(Equal("key-secret"))
+
+			httpmock.SetMockTransport(server.HttpClient, map[string]httpmock.RoundTripFunc{
+				"http://rekor-server.update.svc/api/v1/log/publicKey": func(req *http.Request) *http.Response {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewReader([]byte("newPublicKey"))),
+						Header:     make(http.Header),
+					}
+				},
+			})
+			defer httpmock.RestoreDefaultTransport(server.HttpClient)
 
 			By("Rekor deployment is updated")
 			Eventually(func() bool {

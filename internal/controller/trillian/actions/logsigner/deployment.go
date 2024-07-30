@@ -3,6 +3,7 @@ package logsigner
 import (
 	"context"
 	"fmt"
+
 	"github.com/securesign/operator/internal/controller/common/utils"
 
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -56,11 +57,11 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Trillian LogSigner: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create Trillian LogSigner: %w", err), instance)
 	}
 
 	if err = controllerutil.SetControllerReference(instance, signer, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for LogSigner deployment: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for LogSigner deployment: %w", err))
 	}
 
 	if updated, err = i.Ensure(ctx, signer); err != nil {
@@ -76,7 +77,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Trillian LogSigner deployment: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create Trillian LogSigner deployment: %w", err), instance)
 	}
 
 	if updated {
@@ -90,4 +91,12 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	} else {
 		return i.Continue()
 	}
+}
+
+func (i deployAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Trillian) bool {
+	return false
+}
+
+func (i deployAction) HandleError(_ context.Context, _ *rhtasv1alpha1.Trillian) *action.Result {
+	return i.Continue()
 }

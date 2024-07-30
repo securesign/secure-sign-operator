@@ -5,6 +5,8 @@ import (
 
 	"github.com/robfig/cron/v3"
 	"github.com/securesign/operator/internal/controller/common/utils"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
@@ -45,7 +47,7 @@ func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 	)
 
 	if _, err := cron.ParseStandard(instance.Spec.BackFillRedis.Schedule); err != nil {
-		return i.Failed(fmt.Errorf("could not create backfill redis cron job: %w", err))
+		return i.Error(fmt.Errorf("could not create backfill redis cron job: %w", err))
 	}
 
 	labels := constants.LabelsFor(actions.BackfillRedisCronJobName, actions.BackfillRedisCronJobName, instance.Name)
@@ -81,34 +83,52 @@ func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 	}
 
 	if err = controllerutil.SetControllerReference(instance, backfillRedisCronJob, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for backfill redis cron job: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for backfill redis cron job: %w", err))
 	}
 
 	if updated, err = i.Ensure(ctx, backfillRedisCronJob); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.RedisCondition,
+			Type:    actions.BackfillRedisCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create backfill redis cron job: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create backfill redis cron job: %w", err), instance)
 	}
 
 	if updated {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Creating,
-			Message: "Backfill redis job created",
+			Type:    actions.BackfillRedisCondition,
+			Status:  metav1.ConditionTrue,
+			Reason:  constants.Ready,
+			Message: "Backfill created",
 		})
 		return i.StatusUpdate(ctx, instance)
 	} else {
 		return i.Continue()
 	}
+}
+
+func (i backfillRedisCronJob) CanHandleError(ctx context.Context, instance *rhtasv1alpha1.Rekor) bool {
+	err := i.Client.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: instance.Namespace}, &batchv1.CronJob{})
+	return utils.OptionalBool(instance.Spec.BackFillRedis.Enabled) &&
+		!meta.IsStatusConditionTrue(instance.GetConditions(), actions.BackfillRedisCondition) && (err == nil || !errors.IsNotFound(err))
+}
+
+func (i backfillRedisCronJob) HandleError(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
+	bacfillCronJob := &batchv1.CronJob{}
+	if err := i.Client.Get(ctx, types.NamespacedName{Name: actions.BackfillRedisCronJobName, Namespace: instance.Namespace}, bacfillCronJob); err != nil {
+		return i.Error(err)
+	}
+	if err := i.Client.Delete(ctx, bacfillCronJob); err != nil {
+		i.Logger.V(1).Info("Can't delete BacfillCronJob", "error", err.Error())
+	}
+
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:    actions.BackfillRedisCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  constants.Recovering,
+		Message: "Backfill redis job will be recreated",
+	})
+	return i.StatusUpdate(ctx, instance)
 }

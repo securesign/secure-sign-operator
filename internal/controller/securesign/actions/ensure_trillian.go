@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+
 	"github.com/securesign/operator/internal/controller/annotations"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -44,7 +45,7 @@ func (i trillianAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secu
 	trillian.Spec = instance.Spec.Trillian
 
 	if err = controllerutil.SetControllerReference(instance, trillian, i.Client.Scheme()); err != nil {
-		return i.Failed(err)
+		return i.Error(err)
 	}
 
 	if updated, err = i.Ensure(ctx, trillian); err != nil {
@@ -54,7 +55,7 @@ func (i trillianAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secu
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, err, instance)
+		return i.ErrorWithStatusUpdate(ctx, err, instance)
 	}
 
 	if updated {
@@ -73,7 +74,7 @@ func (i trillianAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secu
 func (i trillianAction) CopyStatus(ctx context.Context, ok client.ObjectKey, instance *rhtasv1alpha1.Securesign) *action.Result {
 	object := &rhtasv1alpha1.Trillian{}
 	if err := i.Client.Get(ctx, ok, object); err != nil {
-		return i.Failed(err)
+		return i.Error(err)
 	}
 	objectStatus := meta.FindStatusCondition(object.Status.Conditions, constants.Ready)
 	if objectStatus == nil {
@@ -88,5 +89,13 @@ func (i trillianAction) CopyStatus(ctx context.Context, ok client.ObjectKey, ins
 		})
 		return i.StatusUpdate(ctx, instance)
 	}
+	return i.Continue()
+}
+
+func (i trillianAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Securesign) bool {
+	return false
+}
+
+func (i trillianAction) HandleError(_ context.Context, _ *rhtasv1alpha1.Securesign) *action.Result {
 	return i.Continue()
 }

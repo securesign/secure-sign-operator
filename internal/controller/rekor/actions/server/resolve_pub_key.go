@@ -5,29 +5,33 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
-	"io"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
-	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
-	"strings"
 )
 
 const (
 	RekorPubLabel       = constants.LabelNamespace + "/rekor.pub"
 	pubSecretNameFormat = "rekor-public-%s-"
 )
+
+var HttpClient = &http.Client{Timeout: 10 * time.Second}
 
 func NewResolvePubKeyAction() action.Action[*rhtasv1alpha1.Rekor] {
 	return &resolvePubKeyAction{}
@@ -56,13 +60,7 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	publicKey, err = i.resolvePubKey(*instance)
 	if err != nil {
 		errf := fmt.Errorf("ResolvePubKey: unable to resolve public key: %v", err)
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.ServerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: errf.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, errf, instance)
+		return i.ErrorWithStatusUpdate(ctx, errf, instance)
 	}
 
 	scrl := &metav1.PartialObjectMetadataList{}
@@ -73,7 +71,7 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	})
 
 	if err = k8sutils.FindByLabelSelector(ctx, i.Client, scrl, instance.Namespace, RekorPubLabel); err != nil {
-		return i.Failed(fmt.Errorf("ResolvePubKey: find secrets failed: %w", err))
+		return i.Error(fmt.Errorf("ResolvePubKey: find secrets failed: %w", err))
 	}
 
 	// Search if exists a secret with rhtas.redhat.com/rekor.pub label
@@ -87,7 +85,7 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		var sksPublicKey []byte
 		sksPublicKey, err = k8sutils.GetSecretData(i.Client, instance.Namespace, &sks)
 		if err != nil {
-			return i.Failed(fmt.Errorf("ResolvePubKey: failed to read `%s` secret's data: %w", sks.Name, err))
+			return i.Error(fmt.Errorf("ResolvePubKey: failed to read `%s` secret's data: %w", sks.Name, err))
 		}
 
 		if bytes.Equal(sksPublicKey, publicKey) {
@@ -97,7 +95,7 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 
 		// Remove label from secret
 		if err = i.removeLabel(ctx, &secret); err != nil {
-			return i.Failed(fmt.Errorf("ResolvePubKey: %w", err))
+			return i.Error(fmt.Errorf("ResolvePubKey: %w", err))
 		}
 
 		message := fmt.Sprintf("Removed '%s' label from %s secret", RekorPubLabel, secret.Name)
@@ -128,13 +126,7 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	newConfig.Annotations[annotations.TreeId] = strconv.FormatInt(pointer.Int64Deref(instance.Status.TreeID, 0), 10)
 
 	if err = i.Client.Create(ctx, newConfig); err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.ServerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, err, instance)
+		return i.ErrorWithStatusUpdate(ctx, err, instance)
 	}
 
 	i.Recorder.Eventf(instance, v1.EventTypeNormal, "PublicKeySecretCreated", "New Rekor public key created: %s", newConfig.Name)
@@ -153,13 +145,13 @@ func (i resolvePubKeyAction) resolvePubKey(instance rhtasv1alpha1.Rekor) ([]byte
 	if data, err = i.requestPublicKey(fmt.Sprintf("http://%s.%s.svc", actions.ServerDeploymentName, instance.Namespace)); err == nil {
 		return data, nil
 	}
-	i.Logger.Info("retrying to get rekor public key")
 
 	return nil, err
 }
 
 func (i resolvePubKeyAction) requestPublicKey(basePath string) ([]byte, error) {
-	response, err := http.Get(fmt.Sprintf("%s/api/v1/log/publicKey", basePath))
+
+	response, err := HttpClient.Get(fmt.Sprintf("%s/api/v1/log/publicKey", basePath))
 	if err != nil {
 		return nil, err
 	}
@@ -198,4 +190,13 @@ func (i resolvePubKeyAction) removeLabel(ctx context.Context, object *metav1.Par
 	}
 
 	return nil
+}
+
+func (i resolvePubKeyAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Rekor) bool {
+	// all leftovers are removed in generate_signer action
+	return false
+}
+
+func (i resolvePubKeyAction) HandleError(_ context.Context, _ *rhtasv1alpha1.Rekor) *action.Result {
+	return i.Continue()
 }

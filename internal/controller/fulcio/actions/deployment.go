@@ -25,8 +25,8 @@ func (i deployAction) Name() string {
 	return "deploy"
 }
 
-func (i deployAction) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Fulcio) bool {
-	c := meta.FindStatusCondition(tuf.Status.Conditions, constants.Ready)
+func (i deployAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Fulcio) bool {
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	return c.Reason == constants.Creating || c.Reason == constants.Ready
 }
 
@@ -54,12 +54,12 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 				Reason:  constants.Failure,
 				Message: err.Error(),
 			})
-			return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could create server Deployment: %w", err), instance)
+			return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could create server Deployment: %w", err), instance)
 		}
 	}
 
 	if err = controllerutil.SetControllerReference(instance, dp, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for Deployment: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for Deployment: %w", err))
 	}
 
 	if updated, err = i.Ensure(ctx, dp); err != nil {
@@ -69,7 +69,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Fulcio: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create Fulcio: %w", err), instance)
 	}
 
 	if updated {
@@ -79,4 +79,12 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	} else {
 		return i.Continue()
 	}
+}
+
+func (i deployAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Fulcio) bool {
+	return false
+}
+
+func (i deployAction) HandleError(_ context.Context, _ *rhtasv1alpha1.Fulcio) *action.Result {
+	return i.Continue()
 }

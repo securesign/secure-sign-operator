@@ -10,8 +10,10 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	v1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -53,17 +55,17 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CT
 	)
 
 	if err = controllerutil.SetControllerReference(instance, role, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for role: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for role: %w", err))
 	}
 
 	if _, err = i.Ensure(ctx, role); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
+			Type:    ServerCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create monitoring role: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create monitoring role: %w", err), instance)
 	}
 
 	roleBinding := kubernetes.CreateRoleBinding(
@@ -80,17 +82,17 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CT
 		},
 	)
 	if err = controllerutil.SetControllerReference(instance, roleBinding, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for role: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for role: %w", err))
 	}
 
 	if _, err = i.Ensure(ctx, roleBinding); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
+			Type:    ServerCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create monitoring RoleBinding: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create monitoring RoleBinding: %w", err), instance)
 	}
 
 	serviceMonitor := kubernetes.CreateServiceMonitor(
@@ -108,19 +110,41 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CT
 	)
 
 	if err = controllerutil.SetControllerReference(instance, serviceMonitor, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for serviceMonitor: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for serviceMonitor: %w", err))
 	}
 
 	if _, err = i.Ensure(ctx, serviceMonitor); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
+			Type:    ServerCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create serviceMonitor: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create serviceMonitor: %w", err), instance)
 	}
 
 	// monitors & RBAC are not watched - do not need to re-enqueue
 	return i.Continue()
+}
+
+func (i monitoringAction) CanHandleError(ctx context.Context, instance *rhtasv1alpha1.CTlog) bool {
+	err := i.Client.Get(ctx, types.NamespacedName{Name: DeploymentName, Namespace: instance.Namespace}, &monitoringv1.ServiceMonitor{})
+	return !meta.IsStatusConditionTrue(instance.GetConditions(), ServerCondition) && instance.Spec.Monitoring.Enabled && (err == nil || !errors.IsNotFound(err))
+}
+
+func (i monitoringAction) HandleError(ctx context.Context, instance *rhtasv1alpha1.CTlog) *action.Result {
+	deployment := &monitoringv1.ServiceMonitor{}
+	if err := i.Client.Get(ctx, types.NamespacedName{Name: DeploymentName, Namespace: instance.Namespace}, deployment); err != nil {
+		return i.Error(err)
+	}
+	if err := i.Client.Delete(ctx, deployment); err != nil {
+		i.Logger.V(1).Info("Can't delete server deployment", "error", err.Error())
+	}
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:    ServerCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  constants.Recovering,
+		Message: "servicemonitor will be recreated",
+	})
+	return i.StatusUpdate(ctx, instance)
 }

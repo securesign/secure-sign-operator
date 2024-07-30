@@ -60,7 +60,7 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 
 	dbSecret := i.createDbSecret(instance.Namespace, dbLabels)
 	if err = controllerutil.SetControllerReference(instance, dbSecret, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for secret: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for secret: %w", err))
 	}
 
 	// no watch on secret - continue if no error
@@ -77,7 +77,7 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create DB secret: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create DB secret: %w", err), instance)
 	}
 
 	instance.Status.Db.DatabaseSecretRef = &rhtasv1alpha1.LocalObjectReference{
@@ -107,4 +107,12 @@ func (i handleSecretAction) createDbSecret(namespace string, labels map[string]s
 			"mysql-host":          []byte(host),
 		},
 	}
+}
+
+func (i handleSecretAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Trillian) bool {
+	return false
+}
+
+func (i handleSecretAction) HandleError(_ context.Context, _ *rhtasv1alpha1.Trillian) *action.Result {
+	return i.Continue()
 }

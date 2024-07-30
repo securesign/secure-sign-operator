@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	v12 "k8s.io/api/apps/v1"
-	v13 "k8s.io/api/batch/v1"
 	"log"
 	"os"
 	"path/filepath"
@@ -13,6 +11,9 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	v12 "k8s.io/api/apps/v1"
+	v13 "k8s.io/api/batch/v1"
 
 	"github.com/docker/docker/api/types"
 	docker "github.com/docker/docker/client"
@@ -99,6 +100,7 @@ func DumpNamespace(ctx context.Context, cli client.Client, ns string) {
 		"pod.yaml":        &v1.PodList{},
 		"configmap.yaml":  &v1.ConfigMapList{},
 		"deployment.yaml": &v12.DeploymentList{},
+		"service.yaml":    &v1.ServiceList{},
 		"job.yaml":        &v13.JobList{},
 		"cronjob.yaml":    &v13.CronJobList{},
 		"event.yaml":      &v1.EventList{},

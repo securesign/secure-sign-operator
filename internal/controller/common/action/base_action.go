@@ -8,11 +8,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/securesign/operator/internal/controller/annotations"
-
 	"github.com/go-logr/logr"
+	"github.com/securesign/operator/internal/apis"
+	"github.com/securesign/operator/internal/controller/annotations"
+	"github.com/securesign/operator/internal/controller/constants"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,21 +52,52 @@ func (action *BaseAction) StatusUpdate(ctx context.Context, obj client2.Object) 
 		if strings.Contains(err.Error(), OptimisticLockErrorMsg) {
 			return &Result{Result: reconcile.Result{RequeueAfter: 1 * time.Second}, Err: nil}
 		}
-		return action.Failed(err)
+		return action.Error(err)
 	}
 	// Requeue will be caused by update
 	return &Result{Result: reconcile.Result{Requeue: false}}
 }
 
-func (action *BaseAction) Failed(err error) *Result {
+func (action *BaseAction) Error(err error) *Result {
 	action.Logger.Error(err, "error during action execution")
 	return &Result{
-		Result: reconcile.Result{RequeueAfter: time.Duration(5) * time.Second},
-		Err:    err,
+		Err: err,
 	}
 }
 
-func (action *BaseAction) FailedWithStatusUpdate(ctx context.Context, err error, instance client2.Object) *Result {
+// ErrorWithStatusUpdate - Set `Error` status on deployment and execute error-recovery loop in 10 second
+func (action *BaseAction) ErrorWithStatusUpdate(ctx context.Context, err error, instance apis.ConditionsAwareObject) *Result {
+	action.Recorder.Event(instance, v1.EventTypeWarning, constants.Error, err.Error())
+
+	instance.SetCondition(metav1.Condition{
+		Type:    constants.Ready,
+		Status:  metav1.ConditionFalse,
+		Reason:  constants.Error,
+		Message: err.Error(),
+	})
+
+	if e := action.Client.Status().Update(ctx, instance); e != nil {
+		if strings.Contains(err.Error(), OptimisticLockErrorMsg) {
+			return &Result{Result: reconcile.Result{RequeueAfter: 1 * time.Second}, Err: err}
+		}
+		err = errors.Join(e, err)
+	}
+	// Requeue is disabled for Error objects
+	// wait for 10 seconds and invoke error-handler
+	return &Result{Result: reconcile.Result{RequeueAfter: 10 * time.Second}}
+}
+
+// FailWithStatusUpdate - Throw deployment to the Failure state with no error-recovery attempts
+func (action *BaseAction) FailWithStatusUpdate(ctx context.Context, err error, instance apis.ConditionsAwareObject) *Result {
+	action.Recorder.Event(instance, v1.EventTypeWarning, constants.Failure, err.Error())
+
+	instance.SetCondition(metav1.Condition{
+		Type:    constants.Ready,
+		Status:  metav1.ConditionFalse,
+		Reason:  constants.Failure,
+		Message: err.Error(),
+	})
+
 	if e := action.Client.Status().Update(ctx, instance); e != nil {
 		if strings.Contains(err.Error(), OptimisticLockErrorMsg) {
 			return &Result{Result: reconcile.Result{RequeueAfter: 1 * time.Second}, Err: err}
@@ -71,7 +105,7 @@ func (action *BaseAction) FailedWithStatusUpdate(ctx context.Context, err error,
 		err = errors.Join(e, err)
 	}
 	// Requeue will be caused by update
-	return &Result{Result: reconcile.Result{Requeue: false}, Err: err}
+	return &Result{Result: reconcile.Result{Requeue: false}}
 }
 
 func (action *BaseAction) Return() *Result {

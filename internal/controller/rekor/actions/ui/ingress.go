@@ -11,6 +11,8 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	v1 "k8s.io/api/core/v1"
+	v12 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -45,16 +47,16 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor
 
 	svc := &v1.Service{}
 	if err := i.Client.Get(ctx, ok, svc); err != nil {
-		return i.Failed(fmt.Errorf("could not find service for ingress: %w", err))
+		return i.Error(fmt.Errorf("could not find service for ingress: %w", err))
 	}
 
 	ingress, err := kubernetes.CreateIngress(ctx, i.Client, *svc, rhtasv1alpha1.ExternalAccess{Host: instance.Spec.ExternalAccess.Host}, actions.SearchUiDeploymentPortName, labels)
 	if err != nil {
-		return i.Failed(fmt.Errorf("could not create ingress object: %w", err))
+		return i.Error(fmt.Errorf("could not create ingress object: %w", err))
 	}
 
 	if err = controllerutil.SetControllerReference(instance, ingress, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for Ingress: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for Ingress: %w", err))
 	}
 
 	if updated, err = i.Ensure(ctx, ingress); err != nil {
@@ -70,7 +72,7 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.Failed(fmt.Errorf("could not create Ingress: %w", err))
+		return i.Error(fmt.Errorf("could not create Ingress: %w", err))
 	}
 
 	if updated {
@@ -84,4 +86,27 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor
 	} else {
 		return i.Continue()
 	}
+}
+
+func (i ingressAction) CanHandleError(ctx context.Context, instance *rhtasv1alpha1.Rekor) bool {
+	err := i.Client.Get(ctx, types.NamespacedName{Name: actions.SearchUiDeploymentName, Namespace: instance.Namespace}, &v12.Ingress{})
+	return utils.IsEnabled(instance.Spec.RekorSearchUI.Enabled) && !meta.IsStatusConditionTrue(instance.GetConditions(), actions.UICondition) && (err == nil || !errors.IsNotFound(err))
+}
+
+func (i ingressAction) HandleError(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
+	deployment := &v12.Ingress{}
+	if err := i.Client.Get(ctx, types.NamespacedName{Name: actions.SearchUiDeploymentName, Namespace: instance.Namespace}, deployment); err != nil {
+		return i.Error(err)
+	}
+	if err := i.Client.Delete(ctx, deployment); err != nil {
+		i.Logger.V(1).Info("Can't delete UI ingress", "error", err.Error())
+	}
+
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:    actions.UICondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  constants.Recovering,
+		Message: "UI ingress will be recreated",
+	})
+	return i.StatusUpdate(ctx, instance)
 }

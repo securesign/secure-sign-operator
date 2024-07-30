@@ -36,3 +36,11 @@ func (i initializeStatus) Handle(ctx context.Context, instance *rhtasv1alpha1.Se
 	}
 	return i.StatusUpdate(ctx, instance)
 }
+
+func (i initializeStatus) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Securesign) bool {
+	return false
+}
+
+func (i initializeStatus) HandleError(_ context.Context, _ *rhtasv1alpha1.Securesign) *action.Result {
+	return i.Continue()
+}

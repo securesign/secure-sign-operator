@@ -20,12 +20,18 @@ type Action[T apis.ConditionsAwareObject] interface {
 	InjectRecorder(recorder record.EventRecorder)
 	InjectLogger(logger logr.Logger)
 
-	// a user friendly name for the action
+	// Name a user friendly name for the action
 	Name() string
 
-	// returns true if the action can handle the integration
+	// CanHandle returns true if the action can handle
 	CanHandle(context.Context, T) bool
 
-	// executes the handling function
+	// Handle executes the handling function
 	Handle(context.Context, T) *Result
+
+	// CanHandleError returns true if the action can handle the error
+	CanHandleError(context.Context, T) bool
+
+	// HandleError executes the error handling function for specific action
+	HandleError(context.Context, T) *Result
 }

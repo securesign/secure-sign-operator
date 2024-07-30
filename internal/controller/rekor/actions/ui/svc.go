@@ -9,8 +9,11 @@ import (
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -45,7 +48,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	svc.Spec.Ports[0].Port = 80
 
 	if err = controllerutil.SetControllerReference(instance, svc, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for service: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for service: %w", err))
 	}
 
 	if updated, err = i.Ensure(ctx, svc); err != nil {
@@ -55,13 +58,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create service: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create service: %w", err), instance)
 	}
 
 	if updated {
@@ -75,4 +72,27 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	} else {
 		return i.Continue()
 	}
+}
+
+func (i createServiceAction) CanHandleError(ctx context.Context, instance *rhtasv1alpha1.Rekor) bool {
+	err := i.Client.Get(ctx, types.NamespacedName{Name: actions.SearchUiDeploymentName, Namespace: instance.Namespace}, &v1.Service{})
+	return utils.IsEnabled(instance.Spec.RekorSearchUI.Enabled) && !meta.IsStatusConditionTrue(instance.GetConditions(), actions.UICondition) && (err == nil || !errors.IsNotFound(err))
+}
+
+func (i createServiceAction) HandleError(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
+	deployment := &v1.Service{}
+	if err := i.Client.Get(ctx, types.NamespacedName{Name: actions.SearchUiDeploymentName, Namespace: instance.Namespace}, deployment); err != nil {
+		return i.Error(err)
+	}
+	if err := i.Client.Delete(ctx, deployment); err != nil {
+		i.Logger.V(1).Info("Can't delete UI service", "error", err.Error())
+	}
+
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:    actions.UICondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  constants.Recovering,
+		Message: "UI service will be recreated",
+	})
+	return i.StatusUpdate(ctx, instance)
 }

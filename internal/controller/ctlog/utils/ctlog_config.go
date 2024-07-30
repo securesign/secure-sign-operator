@@ -179,13 +179,13 @@ func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertifi
 
 	for _, cert := range rootCerts {
 		if err = ctlogConfig.AddRootCertificate(cert); err != nil {
-			return nil, fmt.Errorf("Failed to add fulcio root: %v", err)
+			return nil, fmt.Errorf("Error to add fulcio root: %v", err)
 		}
 	}
 
 	config, err := ctlogConfig.MarshalConfig()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to marshal ctlog config: %v", err)
+		return nil, fmt.Errorf("Error to marshal ctlog config: %v", err)
 	}
 
 	data := map[string][]byte{

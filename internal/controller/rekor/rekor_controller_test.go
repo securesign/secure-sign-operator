@@ -19,12 +19,13 @@ package rekor
 import (
 	"bytes"
 	"context"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/rekor/actions/server"
-	httpmock "github.com/securesign/operator/internal/testing/http"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/rekor/actions/server"
+	httpmock "github.com/securesign/operator/internal/testing/http"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
 
@@ -49,15 +50,14 @@ var _ = Describe("Rekor controller", func() {
 
 		const (
 			Name      = "test"
-			Namespace = "default"
+			Namespace = "controller"
 		)
 
 		ctx := context.Background()
 
 		namespace := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      Name,
-				Namespace: Namespace,
+				Name: Namespace,
 			},
 		}
 
@@ -153,8 +153,8 @@ var _ = Describe("Rekor controller", func() {
 			})
 			Expect(err).To(Succeed())
 
-			httpmock.SetMockTransport(http.DefaultClient, map[string]httpmock.RoundTripFunc{
-				"http://rekor-server.default.svc/api/v1/log/publicKey": func(req *http.Request) *http.Response {
+			httpmock.SetMockTransport(server.HttpClient, map[string]httpmock.RoundTripFunc{
+				"http://rekor-server.controller.svc/api/v1/log/publicKey": func(req *http.Request) *http.Response {
 					return &http.Response{
 						StatusCode: http.StatusOK,
 						Body:       io.NopCloser(bytes.NewReader(pubKeyData)),
@@ -162,6 +162,7 @@ var _ = Describe("Rekor controller", func() {
 					}
 				},
 			})
+			defer httpmock.RestoreDefaultTransport(server.HttpClient)
 
 			By("Rekor server PVC created")
 			Eventually(func(g Gomega) string {

@@ -31,3 +31,12 @@ func (i toCreate[T]) Handle(ctx context.Context, instance T) *action.Result {
 		Status: metav1.ConditionFalse, Reason: constants.Creating})
 	return i.StatusUpdate(ctx, instance)
 }
+
+func (i toCreate[T]) CanHandleError(_ context.Context, _ T) bool {
+	return false
+}
+
+func (i toCreate[T]) HandleError(_ context.Context, _ T) *action.Result {
+	// NO-OP
+	return i.Continue()
+}

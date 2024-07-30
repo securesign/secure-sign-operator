@@ -28,6 +28,9 @@ func (i statusUrlAction) Name() string {
 
 func (i statusUrlAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	if c == nil {
+		return false
+	}
 	return c.Reason == constants.Creating || c.Reason == constants.Ready
 }
 
@@ -38,7 +41,7 @@ func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rek
 		ingress := &v12.Ingress{}
 		err := i.Client.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: instance.Namespace}, ingress)
 		if err != nil {
-			return i.Failed(err)
+			return i.Error(err)
 		}
 		if len(ingress.Spec.TLS) > 0 {
 			protocol = "https://"
@@ -54,4 +57,12 @@ func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rek
 
 	instance.Status.Url = url
 	return i.StatusUpdate(ctx, instance)
+}
+
+func (i statusUrlAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Rekor) bool {
+	return false
+}
+
+func (i statusUrlAction) HandleError(_ context.Context, _ *rhtasv1alpha1.Rekor) *action.Result {
+	return i.Continue()
 }

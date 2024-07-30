@@ -33,3 +33,12 @@ func (i toInitializeAction[T]) Handle(ctx context.Context, instance T) *action.R
 
 	return i.StatusUpdate(ctx, instance)
 }
+
+func (i toInitializeAction[T]) CanHandleError(_ context.Context, _ T) bool {
+	return false
+}
+
+func (i toInitializeAction[T]) HandleError(_ context.Context, _ T) *action.Result {
+	// NO-OP
+	return i.Continue()
+}

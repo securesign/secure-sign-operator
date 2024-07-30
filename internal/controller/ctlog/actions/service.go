@@ -9,8 +9,10 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -50,24 +52,50 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog
 		})
 	}
 	if err = controllerutil.SetControllerReference(instance, svc, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for Service: %w", err))
+		return i.Error(fmt.Errorf("could not set controller reference for Service: %w", err))
 	}
 	if updated, err = i.Ensure(ctx, svc); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
+			Type:    ServerCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create service: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create service: %w", err), instance)
 	}
 
 	if updated {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
-			Status: metav1.ConditionFalse, Reason: constants.Creating, Message: "Service created"})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    ServerCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Creating,
+			Message: "Service created",
+		})
 		return i.StatusUpdate(ctx, instance)
 	} else {
 		return i.Continue()
 	}
 
+}
+
+func (i serviceAction) CanHandleError(ctx context.Context, instance *rhtasv1alpha1.CTlog) bool {
+	err := i.Client.Get(ctx, types.NamespacedName{Name: DeploymentName, Namespace: instance.Namespace}, &corev1.Service{})
+	return !meta.IsStatusConditionTrue(instance.GetConditions(), ServerCondition) && (err == nil || !errors.IsNotFound(err))
+}
+
+func (i serviceAction) HandleError(ctx context.Context, instance *rhtasv1alpha1.CTlog) *action.Result {
+	redisDeployment := &corev1.Service{}
+	if err := i.Client.Get(ctx, types.NamespacedName{Name: DeploymentName, Namespace: instance.Namespace}, redisDeployment); err != nil {
+		return i.Error(err)
+	}
+	if err := i.Client.Delete(ctx, redisDeployment); err != nil {
+		i.Logger.V(1).Info("Can't delete server service", "error", err.Error())
+	}
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:    ServerCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  constants.Recovering,
+		Message: "server service will be recreated",
+	})
+	return i.StatusUpdate(ctx, instance)
 }

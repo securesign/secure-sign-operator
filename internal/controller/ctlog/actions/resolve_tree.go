@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"fmt"
+
 	"github.com/google/trillian"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common"
@@ -12,7 +13,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type createTree func(ctx context.Context, displayName string, trillianURL string, deadline int64) (*trillian.Tree, error)
@@ -65,16 +65,20 @@ func (i resolveTreeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.C
 
 	tree, err = i.createTree(ctx, "ctlog-tree", trillUrl, constants.CreateTreeDeadline)
 	if err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create trillian tree: %v", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create trillian tree: %v", err), instance)
 	}
 	i.Recorder.Eventf(instance, v1.EventTypeNormal, "TrillianTreeCreated", "New Trillian tree created: %d", tree.TreeId)
 	instance.Status.TreeID = &tree.TreeId
 
 	return i.StatusUpdate(ctx, instance)
+}
+
+func (i resolveTreeAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.CTlog) bool {
+	// instance.Status.TreeID == nil in case of failure
+	// no need to recover
+	return false
+}
+
+func (i resolveTreeAction) HandleError(_ context.Context, _ *rhtasv1alpha1.CTlog) *action.Result {
+	return i.Continue()
 }

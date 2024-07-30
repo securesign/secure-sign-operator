@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"maps"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common"
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
@@ -26,7 +26,7 @@ const (
 	FulcioCALabel = constants.LabelNamespace + "/fulcio_v1.crt.pem"
 )
 
-func NewHandleCertAction() action.Action[*v1alpha1.Fulcio] {
+func NewHandleCertAction() action.Action[*rhtasv1alpha1.Fulcio] {
 	return &handleCert{}
 }
 
@@ -38,13 +38,13 @@ func (g handleCert) Name() string {
 	return "handle-cert"
 }
 
-func (g handleCert) CanHandle(_ context.Context, instance *v1alpha1.Fulcio) bool {
+func (g handleCert) CanHandle(_ context.Context, instance *rhtasv1alpha1.Fulcio) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	return (c.Reason == constants.Pending || c.Reason == constants.Ready) && (instance.Status.Certificate == nil ||
 		!equality.Semantic.DeepDerivative(instance.Spec.Certificate, *instance.Status.Certificate))
 }
 
-func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *action.Result {
+func (g handleCert) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) *action.Result {
 	if meta.FindStatusCondition(instance.Status.Conditions, constants.Ready).Reason != constants.Pending {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:   constants.Ready,
@@ -68,7 +68,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return g.FailedWithStatusUpdate(ctx, err, instance)
+		return g.ErrorWithStatusUpdate(ctx, err, instance)
 	}
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 
@@ -98,11 +98,11 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 
 	newCert := k8sutils.CreateImmutableSecret(fmt.Sprintf("fulcio-cert-%s", instance.Name), instance.Namespace, cert.ToMap(), secretLabels)
 	if err = controllerutil.SetControllerReference(instance, newCert, g.Client.Scheme()); err != nil {
-		return g.Failed(fmt.Errorf("could not set controller reference for Secret: %w", err))
+		return g.Error(fmt.Errorf("could not set controller reference for Secret: %w", err))
 	}
 	// ensure that only new key is exposed
 	if err = g.Client.DeleteAllOf(ctx, &v1.Secret{}, client.InNamespace(instance.Namespace), client.MatchingLabels(constants.LabelsFor(ComponentName, DeploymentName, instance.Name)), client.HasLabels{FulcioCALabel}); err != nil {
-		return g.Failed(err)
+		return g.Error(err)
 	}
 	if _, err := g.Ensure(ctx, newCert); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -117,37 +117,37 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return g.FailedWithStatusUpdate(ctx, err, instance)
+		return g.ErrorWithStatusUpdate(ctx, err, instance)
 	}
 	g.Recorder.Event(instance, v1.EventTypeNormal, "FulcioCertUpdated", "Fulcio certificate secret updated")
 
 	if instance.Status.Certificate == nil {
-		instance.Status.Certificate = new(v1alpha1.FulcioCert)
+		instance.Status.Certificate = new(rhtasv1alpha1.FulcioCert)
 	}
 
 	instance.Spec.Certificate.DeepCopyInto(instance.Status.Certificate)
 	if instance.Spec.Certificate.PrivateKeyRef == nil {
-		instance.Status.Certificate.PrivateKeyRef = &v1alpha1.SecretKeySelector{
+		instance.Status.Certificate.PrivateKeyRef = &rhtasv1alpha1.SecretKeySelector{
 			Key: "private",
-			LocalObjectReference: v1alpha1.LocalObjectReference{
+			LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
 				Name: newCert.Name,
 			},
 		}
 	}
 
 	if instance.Spec.Certificate.PrivateKeyPasswordRef == nil && len(cert.PrivateKeyPassword) > 0 {
-		instance.Status.Certificate.PrivateKeyPasswordRef = &v1alpha1.SecretKeySelector{
+		instance.Status.Certificate.PrivateKeyPasswordRef = &rhtasv1alpha1.SecretKeySelector{
 			Key: "password",
-			LocalObjectReference: v1alpha1.LocalObjectReference{
+			LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
 				Name: newCert.Name,
 			},
 		}
 	}
 
 	if instance.Spec.Certificate.CARef == nil {
-		instance.Status.Certificate.CARef = &v1alpha1.SecretKeySelector{
+		instance.Status.Certificate.CARef = &rhtasv1alpha1.SecretKeySelector{
 			Key: "cert",
-			LocalObjectReference: v1alpha1.LocalObjectReference{
+			LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
 				Name: newCert.Name,
 			},
 		}
@@ -161,7 +161,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 	return g.StatusUpdate(ctx, instance)
 }
 
-func (g handleCert) setupCert(ctx context.Context, instance *v1alpha1.Fulcio) (*utils.FulcioCertConfig, error) {
+func (g handleCert) setupCert(ctx context.Context, instance *rhtasv1alpha1.Fulcio) (*utils.FulcioCertConfig, error) {
 	config := &utils.FulcioCertConfig{}
 
 	if ref := instance.Spec.Certificate.PrivateKeyPasswordRef; ref != nil {
@@ -213,4 +213,12 @@ func (g handleCert) setupCert(ctx context.Context, instance *v1alpha1.Fulcio) (*
 	}
 
 	return config, nil
+}
+
+func (i handleCert) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Fulcio) bool {
+	return false
+}
+
+func (i handleCert) HandleError(_ context.Context, _ *rhtasv1alpha1.Fulcio) *action.Result {
+	return i.Continue()
 }

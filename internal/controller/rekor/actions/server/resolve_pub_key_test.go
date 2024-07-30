@@ -4,19 +4,20 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"reflect"
+	"testing"
+
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	httpmock "github.com/securesign/operator/internal/testing/http"
-	"io"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
-	"net/http"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"testing"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -142,7 +143,7 @@ func TestResolvePubKey_Handle(t *testing.T) {
 		{
 			name: "unable to resolve public key",
 			want: want{
-				result:    testAction.FailedWithStatusUpdate(fmt.Errorf("ResolvePubKey: unable to resolve public key: unexpected http response ")),
+				result:    testAction.ErrorWithStatusUpdate(fmt.Errorf("ResolvePubKey: unable to resolve public key: unexpected http response ")),
 				publicKey: nil,
 			},
 		},
@@ -172,7 +173,7 @@ func TestResolvePubKey_Handle(t *testing.T) {
 				WithObjects(instance).
 				WithStatusSubresource(instance).
 				WithObjects(tt.env.objects...).Build()
-			httpmock.SetMockTransport(http.DefaultClient, map[string]httpmock.RoundTripFunc{
+			httpmock.SetMockTransport(HttpClient, map[string]httpmock.RoundTripFunc{
 				"http://rekor-server.default.svc/api/v1/log/publicKey": func(req *http.Request) *http.Response {
 					if tt.want.publicKey == nil {
 						return &http.Response{
@@ -187,7 +188,7 @@ func TestResolvePubKey_Handle(t *testing.T) {
 					}
 				},
 			})
-			defer httpmock.RestoreDefaultTransport(http.DefaultClient)
+			defer httpmock.RestoreDefaultTransport(HttpClient)
 
 			a := testAction.PrepareAction(c, NewResolvePubKeyAction())
 

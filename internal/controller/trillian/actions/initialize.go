@@ -38,3 +38,11 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tr
 	return i.Requeue()
 
 }
+
+func (i initializeAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Trillian) bool {
+	return false
+}
+
+func (i initializeAction) HandleError(_ context.Context, _ *rhtasv1alpha1.Trillian) *action.Result {
+	return i.Continue()
+}

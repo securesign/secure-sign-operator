@@ -29,6 +29,9 @@ func (i rbacAction) Name() string {
 
 func (i rbacAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	if c == nil {
+		return false
+	}
 	return c.Reason == constants.Creating || c.Reason == constants.Ready
 }
 
@@ -47,18 +50,12 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *
 	}
 
 	if err = ctrl.SetControllerReference(instance, sa, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controll reference for SA: %w", err))
+		return i.Error(fmt.Errorf("could not set controll reference for SA: %w", err))
 	}
 	// don't re-enqueue for RBAC in any case (except failure)
 	_, err = i.Ensure(ctx, sa)
 	if err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create SA: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create SA: %w", err), instance)
 	}
 	role := kubernetes.CreateRole(instance.Namespace, RBACName, labels, []rbacv1.PolicyRule{
 		{
@@ -74,17 +71,11 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *
 	})
 
 	if err = ctrl.SetControllerReference(instance, role, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controll reference for role: %w", err))
+		return i.Error(fmt.Errorf("could not set controll reference for role: %w", err))
 	}
 	_, err = i.Ensure(ctx, role)
 	if err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Role: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create Role: %w", err), instance)
 	}
 	rb := kubernetes.CreateRoleBinding(instance.Namespace, RBACName, labels, rbacv1.RoleRef{
 		APIGroup: v1.SchemeGroupVersion.Group,
@@ -96,17 +87,19 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *
 		})
 
 	if err = ctrl.SetControllerReference(instance, rb, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controll reference for roleBinding: %w", err))
+		return i.Error(fmt.Errorf("could not set controll reference for roleBinding: %w", err))
 	}
 	_, err = i.Ensure(ctx, rb)
 	if err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create RoleBinding: %w", err), instance)
+		return i.ErrorWithStatusUpdate(ctx, fmt.Errorf("could not create RoleBinding: %w", err), instance)
 	}
+	return i.Continue()
+}
+
+func (i rbacAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Rekor) bool {
+	return false
+}
+
+func (i rbacAction) HandleError(_ context.Context, _ *rhtasv1alpha1.Rekor) *action.Result {
 	return i.Continue()
 }

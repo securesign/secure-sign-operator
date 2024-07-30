@@ -4,7 +4,7 @@ import (
 	"context"
 	"slices"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -16,7 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewHandleFulcioCertAction() action.Action[*v1alpha1.CTlog] {
+func NewHandleFulcioCertAction() action.Action[*rhtasv1alpha1.CTlog] {
 	return &handleFulcioCert{}
 }
 
@@ -28,7 +28,7 @@ func (g handleFulcioCert) Name() string {
 	return "handle-fulcio-cert"
 }
 
-func (g handleFulcioCert) CanHandle(ctx context.Context, instance *v1alpha1.CTlog) bool {
+func (g handleFulcioCert) CanHandle(ctx context.Context, instance *rhtasv1alpha1.CTlog) bool {
 	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
 	if c.Reason != constants.Creating && c.Reason != constants.Ready {
 		return false
@@ -45,8 +45,8 @@ func (g handleFulcioCert) CanHandle(ctx context.Context, instance *v1alpha1.CTlo
 	if len(instance.Spec.RootCertificates) == 0 {
 		// test if autodiscovery find new secret
 		if scr, _ := k8sutils.FindSecret(ctx, g.Client, instance.Namespace, actions.FulcioCALabel); scr != nil {
-			return !slices.Contains(instance.Status.RootCertificates, v1alpha1.SecretKeySelector{
-				LocalObjectReference: v1alpha1.LocalObjectReference{Name: scr.Name},
+			return !slices.Contains(instance.Status.RootCertificates, rhtasv1alpha1.SecretKeySelector{
+				LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: scr.Name},
 				Key:                  scr.Labels[actions.FulcioCALabel],
 			})
 		}
@@ -55,7 +55,7 @@ func (g handleFulcioCert) CanHandle(ctx context.Context, instance *v1alpha1.CTlo
 	return false
 }
 
-func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) *action.Result {
+func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) *action.Result {
 
 	if meta.FindStatusCondition(instance.Status.Conditions, constants.Ready).Reason != constants.Creating {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -71,9 +71,10 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) 
 		scr, err := k8sutils.FindSecret(ctx, g.Client, instance.Namespace, actions.FulcioCALabel)
 		if err != nil {
 			if !k8sErrors.IsNotFound(err) {
-				return g.Failed(err)
+				return g.Error(err)
 			}
-
+		}
+		if scr == nil {
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:    CertCondition,
 				Status:  metav1.ConditionFalse,
@@ -83,9 +84,9 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) 
 			g.StatusUpdate(ctx, instance)
 			return g.Requeue()
 		}
-		instance.Status.RootCertificates = []v1alpha1.SecretKeySelector{
+		instance.Status.RootCertificates = []rhtasv1alpha1.SecretKeySelector{
 			{
-				LocalObjectReference: v1alpha1.LocalObjectReference{
+				LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
 					Name: scr.Name,
 				},
 				Key: scr.Labels[actions.FulcioCALabel],
@@ -104,7 +105,7 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) 
 			},
 		}); err != nil {
 			if !k8sErrors.IsNotFound(err) {
-				return g.Failed(err)
+				return g.Error(err)
 			}
 		}
 		instance.Status.ServerConfigRef = nil
@@ -117,4 +118,13 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) 
 	},
 	)
 	return g.StatusUpdate(ctx, instance)
+}
+
+func (i handleFulcioCert) CanHandleError(_ context.Context, instance *rhtasv1alpha1.CTlog) bool {
+	return len(instance.Status.RootCertificates) > 0 && !meta.IsStatusConditionTrue(instance.GetConditions(), CertCondition)
+}
+
+func (i handleFulcioCert) HandleError(ctx context.Context, instance *rhtasv1alpha1.CTlog) *action.Result {
+	instance.Status.RootCertificates = nil
+	return i.StatusUpdate(ctx, instance)
 }

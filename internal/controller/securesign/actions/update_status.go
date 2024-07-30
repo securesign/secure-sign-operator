@@ -67,3 +67,11 @@ func sortByStatus(conditions []v1.Condition) []string {
 	})
 	return sorted
 }
+
+func (i updateStatusAction) CanHandleError(_ context.Context, _ *rhtasv1alpha1.Securesign) bool {
+	return false
+}
+
+func (i updateStatusAction) HandleError(_ context.Context, _ *rhtasv1alpha1.Securesign) *action.Result {
+	return i.Continue()
+}
