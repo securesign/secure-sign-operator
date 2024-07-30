@@ -19,7 +19,11 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"github.com/securesign/operator/internal/metrics"
+	"k8s.io/utils/pointer"
+	"net/http"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/config"
 	"strconv"
 
 	consolev1 "github.com/openshift/api/console/v1"
@@ -118,6 +122,19 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	// Register custom panic handlers
+	utilruntime.PanicHandlers = append(utilruntime.PanicHandlers, func(r interface{}) {
+		if r == http.ErrAbortHandler {
+			// honor the http.ErrAbortHandler sentinel panic value:
+			//   ErrAbortHandler is a sentinel panic value to abort a handler.
+			//   While any panic from ServeHTTP aborts the response to the client,
+			//   panicking with ErrAbortHandler also suppresses .
+			return
+		}
+
+		metrics.ReconcilePanics.Inc()
+	})
+
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
 	// prevent from being vulnerable to the HTTP/2 Stream Cancelation and
@@ -161,6 +178,9 @@ func main() {
 		// if you are doing or is intended to do any operation such as perform cleanups
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
+		Controller: config.Controller{
+			RecoverPanic: pointer.Bool(true),
+		},
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
