@@ -49,14 +49,14 @@ These variables are necessary for the subsequent steps to successfully rotate th
        {
            "op": "replace",
            "path": "/spec/rekor/treeID",
-           "value": "$NEW_TREE_ID"
+           "value": $NEW_TREE_ID
        },
        {
            "op": "add",
            "path": "/spec/rekor/sharding",
            "value": {
-               "treeID": "$CURRENT_TREE_ID",
-               "treeLength": "$CURRENT_SHARD_LENGTH",
+               "treeID": $CURRENT_TREE_ID,
+               "treeLength": $CURRENT_SHARD_LENGTH,
                "encodedPublicKey": "$CURRENT_SHARD_PUBLIC_KEY"
            }
        },
@@ -87,7 +87,7 @@ These variables are necessary for the subsequent steps to successfully rotate th
    After the Rekor server is redeployed, retrieve the new public key of the signer.
 
    ```bash
-   NEW_SHARD_PUBLIC_KEY=$(curl $(oc get rekor -o jsonpath='{.items[0].status.url}')/api/v1/log/publicKey | base64)
+   NEW_SHARD_PUBLIC_KEY=$(curl $(oc get rekor -o jsonpath='{.items[0].status.url}')/api/v1/log/publicKey | base64 | tr -d '\n')
    ```
 
 5. **Update TUF Service:**

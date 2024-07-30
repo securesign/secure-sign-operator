@@ -32,6 +32,13 @@ type RekorSpec struct {
 	// BackFillRedis CronJob Configuration
 	//+kubebuilder:default:={enabled: true, schedule: "0 0 * * *"}
 	BackFillRedis BackFillRedis `json:"backFillRedis,omitempty"`
+	// Inactive shards
+	// +listType=map
+	// +listMapKey=treeID
+	// +patchStrategy=merge
+	// +patchMergeKey=treeID
+	// +kubebuilder:default:={}
+	Sharding []RekorLogRange `json:"sharding,omitempty"`
 }
 
 type RekorSigner struct {
@@ -65,6 +72,23 @@ type BackFillRedis struct {
 	//+kubebuilder:default:="0 0 * * *"
 	//+kubebuilder:validation:Pattern:="^(@(?i)(yearly|annually|monthly|weekly|daily|hourly)|((\\*(\\/[1-9][0-9]*)?|[0-9,-]+)+\\s){4}(\\*(\\/[1-9][0-9]*)?|[0-9,-]+)+)$"
 	Schedule string `json:"schedule,omitempty"`
+}
+
+// RekorLogRange defines the range and details of a log shard
+// +structType=atomic
+type RekorLogRange struct {
+	// ID of Merkle tree in Trillian backend
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=1
+	TreeID int64 `json:"treeID"`
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=0
+	// Length of the tree
+	TreeLength int64 `json:"treeLength"`
+	// The public key for the log shard, encoded in Base64 format
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9+/\n]+={0,2}\n*$`
+	EncodedPublicKey string `json:"encodedPublicKey,omitempty"`
 }
 
 // RekorStatus defines the observed state of Rekor
