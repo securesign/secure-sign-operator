@@ -9,6 +9,7 @@ import (
 	utils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
+	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,12 +46,14 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		return i.Failed(errors.New("reference to Trillian TreeID not set"))
 	case instance.Status.PrivateKeyRef == nil:
 		return i.Failed(errors.New("status reference to private key not set"))
+	case instance.Spec.Trillian.Address == "":
+		instance.Spec.Trillian.Address = fmt.Sprintf("%s.%s.svc", trillian.LogserverDeploymentName, instance.Namespace)
 	}
 
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 
 	//trillUrl, err := utils.GetInternalUrl(ctx, i.Client, instance.Namespace, trillian.LogserverDeploymentName)
-	trillianService := instance.Spec.Trillian
+	trillianService := instance.DeepCopy().Spec.Trillian
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    constants.Ready,
@@ -80,7 +83,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	}
 
 	var cfg map[string][]byte
-	if cfg, err = ctlogUtils.CreateCtlogConfig(trillianService.Address+":"+fmt.Sprintf("%d", *trillianService.Port), *instance.Status.TreeID, rootCerts, certConfig); err != nil {
+	if cfg, err = ctlogUtils.CreateCtlogConfig(fmt.Sprintf("%s:%d", trillianService.Address, *trillianService.Port), *instance.Status.TreeID, rootCerts, certConfig); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
