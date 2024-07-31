@@ -6,6 +6,10 @@ import (
 	"runtime"
 	"testing"
 
+	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/test"
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -16,8 +20,6 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -28,13 +30,16 @@ var k8sClient client.Client
 var testEnv *envtest.Environment
 
 func TestAPIs(t *testing.T) {
+	fs := test.InitKlog(t)
+	_ = fs.Set("v", "5")
+	klog.SetOutput(GinkgoWriter)
+	ctrl.SetLogger(klog.NewKlogr())
+
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "v1alpha1 Suite")
 }
 
 var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
-
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{filepath.Join("..", "..", "config", "crd", "bases")},

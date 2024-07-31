@@ -69,7 +69,6 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	var instance rhtasv1alpha1.CTlog
 	rlog := log.FromContext(ctx)
-	rlog.V(1).Info("Reconciling CTlog", "request", req)
 
 	if err := r.Client.Get(ctx, req.NamespacedName, &instance); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)

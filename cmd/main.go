@@ -19,9 +19,12 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+
 	"net/http"
 	"os"
 	"strconv"
+
+	"k8s.io/klog/v2"
 
 	"k8s.io/utils/ptr"
 
@@ -46,7 +49,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -117,13 +119,11 @@ func main() {
 	utils.StringFlagOrEnv(&constants.ClientServerImage_re, "client-server-re-image", "CLIENT_SERVER_RE_IMAGE", constants.ClientServerImage_re, "The image used to serve rekor-cli and the ec binary.")
 	utils.StringFlagOrEnv(&constants.SegmentBackupImage, "segment-backup-job-image", "SEGMENT_BACKUP_JOB_IMAGE", constants.SegmentBackupImage, "The image used for the segment backup job")
 	flag.StringVar(&clidownload.CliHostName, "cli-server-hostname", "", "The hostname for the cli server")
-	opts := zap.Options{
-		Development: true,
-	}
-	opts.BindFlags(flag.CommandLine)
+
+	klog.InitFlags(flag.CommandLine)
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	ctrl.SetLogger(klog.NewKlogr())
 
 	// Register custom panic handlers
 	utilruntime.PanicHandlers = append(utilruntime.PanicHandlers, func(r interface{}) {
