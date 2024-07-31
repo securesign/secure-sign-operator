@@ -40,7 +40,7 @@ func TestSimpleDeploymen(t *testing.T) {
 	// oidc-info volume
 	oidcVolume := findVolume("ca-trust", deployment.Spec.Template.Spec.Volumes)
 	g.Expect(oidcVolume).ShouldNot(BeNil())
-	g.Expect(len(oidcVolume.VolumeSource.Projected.Sources)).Should(Equal(0))
+	g.Expect(oidcVolume.VolumeSource.Projected.Sources).Should(BeEmpty())
 }
 
 func TestPrivateKeyPassword(t *testing.T) {
@@ -82,7 +82,7 @@ func TestTrustedCA(t *testing.T) {
 
 	oidcVolume := findVolume("ca-trust", deployment.Spec.Template.Spec.Volumes)
 	g.Expect(oidcVolume).ShouldNot(BeNil())
-	g.Expect(len(oidcVolume.VolumeSource.Projected.Sources)).Should(Equal(1))
+	g.Expect(oidcVolume.VolumeSource.Projected.Sources).Should(HaveLen(1))
 	g.Expect(oidcVolume.VolumeSource.Projected.Sources[0].ConfigMap.Name).Should(Equal("trusted"))
 }
 
@@ -103,7 +103,7 @@ func TestTrustedCAByAnnotation(t *testing.T) {
 
 	oidcVolume := findVolume("ca-trust", deployment.Spec.Template.Spec.Volumes)
 	g.Expect(oidcVolume).ShouldNot(BeNil())
-	g.Expect(len(oidcVolume.VolumeSource.Projected.Sources)).Should(Equal(1))
+	g.Expect(oidcVolume.VolumeSource.Projected.Sources).Should(HaveLen(1))
 	g.Expect(oidcVolume.VolumeSource.Projected.Sources[0].ConfigMap.Name).Should(Equal("trusted-annotation"))
 }
 

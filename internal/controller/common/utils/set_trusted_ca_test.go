@@ -111,7 +111,7 @@ func TestSetTrustedCA(t *testing.T) {
 				g.Expect(spec.Spec.Volumes).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Name": Equal("ca-trust"),
 				})))
-				g.Expect(spec.Spec.Volumes[1].VolumeSource.Projected.Sources).Should(HaveLen(0))
+				g.Expect(spec.Spec.Volumes[1].VolumeSource.Projected.Sources).Should(BeEmpty())
 			},
 		},
 		{
@@ -188,9 +188,9 @@ func TestSetTrustedCA(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := SetTrustedCA(tt.args.dep, tt.args.lor)
 			if tt.error {
-				g.Expect(err).ShouldNot(BeNil())
+				g.Expect(err).Should(HaveOccurred())
 			} else {
-				g.Expect(err).Should(BeNil())
+				g.Expect(err).ShouldNot(HaveOccurred())
 			}
 			tt.want(tt.args.dep, err)
 		})

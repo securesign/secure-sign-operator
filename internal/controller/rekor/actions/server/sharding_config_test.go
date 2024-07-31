@@ -280,7 +280,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 
 					rlr := make([]rhtasv1alpha1.RekorLogRange, 0)
 					g.Expect(yaml.Unmarshal([]byte(cm.Data[shardingConfigName]), &rlr)).To(Succeed())
-					g.Expect(rlr).Should(HaveLen(0))
+					g.Expect(rlr).Should(BeEmpty())
 				},
 			},
 		},

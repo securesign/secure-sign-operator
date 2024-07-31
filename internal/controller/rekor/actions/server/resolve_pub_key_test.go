@@ -198,7 +198,7 @@ func TestResolvePubKey_Handle(t *testing.T) {
 			if tt.want.publicKey == nil {
 				secrets := v1.SecretList{}
 				g.Expect(kubernetes.FindByLabelSelector(ctx, c, &secrets, instance.Namespace, RekorPubLabel)).To(Succeed())
-				g.Expect(secrets.Items).Should(HaveLen(0))
+				g.Expect(secrets.Items).Should(BeEmpty())
 			} else {
 				secrets := v1.SecretList{}
 				g.Expect(kubernetes.FindByLabelSelector(ctx, c, &secrets, instance.Namespace, RekorPubLabel)).To(Succeed())

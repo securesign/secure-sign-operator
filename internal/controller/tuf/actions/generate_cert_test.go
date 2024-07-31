@@ -45,7 +45,7 @@ func TestKeyAutogenerate(t *testing.T) {
 		}}}
 	testAction.Handle(testContext, instance)
 
-	g.Expect(len(instance.Status.Keys)).To(Equal(1))
+	g.Expect(instance.Status.Keys).To(HaveLen(1))
 	g.Expect(instance.Status.Keys[0].SecretRef.Name).To(Equal("testSecret"))
 	g.Expect(instance.Status.Keys[0].SecretRef.Key).To(Equal("key"))
 
@@ -73,7 +73,7 @@ func TestKeyProvided(t *testing.T) {
 			}}}}
 	testAction.Handle(testContext, instance)
 
-	g.Expect(len(instance.Status.Keys)).To(Equal(1))
+	g.Expect(instance.Status.Keys).To(HaveLen(1))
 	g.Expect(instance.Status.Keys[0]).To(Equal(instance.Spec.Keys[0]))
 
 	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, "rekor.pub")).To(BeTrue())
@@ -113,7 +113,7 @@ func TestKeyUpdate(t *testing.T) {
 
 	testAction.Handle(testContext, instance)
 
-	g.Expect(len(instance.Status.Keys)).To(Equal(1))
+	g.Expect(instance.Status.Keys).To(HaveLen(1))
 	g.Expect(instance.Status.Keys[0].SecretRef.Name).To(Equal("new"))
 	g.Expect(instance.Status.Keys[0]).To(Equal(instance.Spec.Keys[0]))
 
@@ -152,7 +152,7 @@ func TestKeyDelete(t *testing.T) {
 
 	testAction.Handle(testContext, instance)
 
-	g.Expect(len(instance.Status.Keys)).To(Equal(1))
+	g.Expect(instance.Status.Keys).To(HaveLen(1))
 	g.Expect(instance.Status.Keys[0].SecretRef).To(Not(BeNil()))
 	g.Expect(instance.Status.Keys[0].SecretRef.Name).To(Equal("new"))
 

@@ -191,7 +191,7 @@ var _ = Describe("TUF update test", func() {
 			}).Should(Succeed())
 
 			By("Recreate ctlog secret")
-			Expect(k8sClient.DeleteAllOf(ctx, &corev1.Secret{}, runtimeCli.InNamespace(TufNamespace), runtimeCli.MatchingLabels(secretLabels)))
+			Expect(k8sClient.DeleteAllOf(ctx, &corev1.Secret{}, runtimeCli.InNamespace(TufNamespace), runtimeCli.MatchingLabels(secretLabels))).To(Succeed())
 
 			By("Pending phase until ctlog public key is resolved")
 			Eventually(func(g Gomega) string {
