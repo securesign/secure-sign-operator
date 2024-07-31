@@ -7,6 +7,7 @@ import (
 	_ "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("CTlog", func() {
@@ -97,6 +98,7 @@ var _ = Describe("CTlog", func() {
 			When("CR is fully populated", func() {
 				It("outputs the CR", func() {
 					tree := int64(1269875)
+					port := int32(8091)
 					ctlogInstance = CTlog{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "ctlog-full-manifest",
@@ -129,6 +131,10 @@ var _ = Describe("CTlog", func() {
 										Name: "name",
 									},
 								},
+							},
+							Trillian: TrillianService{
+								Address: "trillian-system.default.svc",
+								Port:    &port,
 							},
 						},
 					}
@@ -171,6 +177,10 @@ func generateCTlogObject(name string) *CTlog {
 			Name:      name,
 			Namespace: "default",
 		},
-		Spec: CTlogSpec{},
+		Spec: CTlogSpec{
+			Trillian: TrillianService{
+				Port: pointer.Int32(int32(8091)),
+			},
+		},
 	}
 }

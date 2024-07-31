@@ -8,7 +8,8 @@ import (
 	"github.com/securesign/operator/internal/controller/common"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
-	trillian2 "github.com/securesign/operator/internal/controller/trillian/actions"
+	"github.com/securesign/operator/internal/controller/ctlog/utils"
+	actions2 "github.com/securesign/operator/internal/controller/trillian/actions"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -60,11 +61,29 @@ func (i resolveTreeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.C
 	}
 	var err error
 	var tree *trillian.Tree
-	trillUrl := fmt.Sprintf("%s.%s.svc:8091", trillian2.LogserverDeploymentName, instance.Namespace)
+	var trillUrl string
+
+	switch {
+	case instance.Spec.Trillian.Port == nil:
+		err = fmt.Errorf("%s: %v", i.Name(), utils.TrillianPortNotSpecified)
+	case instance.Spec.Trillian.Address == "":
+		trillUrl = fmt.Sprintf("%s.%s.svc:%d", actions2.LogserverDeploymentName, instance.Namespace, *instance.Spec.Trillian.Port)
+	default:
+		trillUrl = fmt.Sprintf("%s:%d", instance.Spec.Trillian.Address, *instance.Spec.Trillian.Port)
+	}
+	if err != nil {
+		return i.Failed(err)
+	}
 	i.Logger.V(1).Info("trillian logserver", "address", trillUrl)
 
 	tree, err = i.createTree(ctx, "ctlog-tree", trillUrl, constants.CreateTreeDeadline)
 	if err != nil {
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    ServerCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,

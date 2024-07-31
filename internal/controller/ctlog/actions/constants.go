@@ -12,4 +12,5 @@ const (
 	ServerTargetPort = 6962
 	MetricsPortName  = "metrics"
 	MetricsPort      = 6963
+	ServerCondition  = "ServerAvailable"
 )
