@@ -2,6 +2,7 @@ package utils
 
 import (
 	"errors"
+
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/annotations"
 	corev1 "k8s.io/api/core/v1"

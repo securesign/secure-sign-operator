@@ -3,6 +3,7 @@ package logsigner
 import (
 	"context"
 	"fmt"
+
 	"github.com/securesign/operator/internal/controller/common/utils"
 
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -41,6 +42,10 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 
 	labels := constants.LabelsFor(actions.LogSignerComponentName, actions.LogsignerDeploymentName, instance.Name)
 	signer, err := trillianUtils.CreateTrillDeployment(instance, constants.TrillianLogSignerImage, actions.LogsignerDeploymentName, actions.RBACName, labels)
+	if err != nil {
+		return i.Failed(err)
+	}
+
 	signer.Spec.Template.Spec.Containers[0].Args = append(signer.Spec.Template.Spec.Containers[0].Args, "--force_master=true")
 	err = utils.SetTrustedCA(&signer.Spec.Template, utils.TrustedCAAnnotationToReference(instance.Annotations))
 	if err != nil {

@@ -191,7 +191,7 @@ var _ = Describe("TUF update test", func() {
 			}).Should(Succeed())
 
 			By("Recreate ctlog secret")
-			Expect(k8sClient.DeleteAllOf(ctx, &corev1.Secret{}, runtimeCli.InNamespace(TufNamespace), runtimeCli.MatchingLabels(secretLabels)))
+			Expect(k8sClient.DeleteAllOf(ctx, &corev1.Secret{}, runtimeCli.InNamespace(TufNamespace), runtimeCli.MatchingLabels(secretLabels))).To(Succeed())
 
 			By("Pending phase until ctlog public key is resolved")
 			Eventually(func(g Gomega) string {
@@ -218,9 +218,9 @@ var _ = Describe("TUF update test", func() {
 			}).Should(ContainElements(WithTransform(func(k v1alpha1.TufKey) string { return k.SecretRef.Name }, Equal("ctlog-update"))))
 
 			By("CTL deployment is updated")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				updated := &appsv1.Deployment{}
-				k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: TufNamespace}, updated)
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: TufNamespace}, updated)).To(Succeed())
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
 			}).Should(BeFalse())
 		})

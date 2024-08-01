@@ -112,7 +112,7 @@ func (i resolveKeysAction) handleKey(ctx context.Context, instance *rhtasv1alpha
 	case key.SecretRef != nil:
 		return key, nil
 	default:
-		return nil, errors.New(fmt.Sprintf("Unable to resolve %s key. Enable autodiscovery or set secret reference.", key.Name))
+		return nil, fmt.Errorf("unable to resolve %s key. Enable autodiscovery or set secret reference", key.Name)
 	}
 }
 
@@ -125,7 +125,7 @@ func (i resolveKeysAction) discoverSecret(ctx context.Context, namespace string,
 	if s != nil {
 		keySelector := s.Labels[labelName]
 		if keySelector == "" {
-			err = errors.New(fmt.Sprintf("label %s is empty", labelName))
+			err = fmt.Errorf("label %s is empty", labelName)
 			return nil, err
 		}
 		return &rhtasv1alpha1.SecretKeySelector{

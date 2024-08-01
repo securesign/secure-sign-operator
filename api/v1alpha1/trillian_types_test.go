@@ -8,7 +8,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("Trillian", func() {
@@ -58,7 +58,7 @@ var _ = Describe("Trillian", func() {
 
 				invalidObject := &Trillian{}
 				Expect(k8sClient.Get(context.Background(), getKey(validObject), invalidObject)).To(Succeed())
-				invalidObject.Spec.Db.Create = pointer.Bool(false)
+				invalidObject.Spec.Db.Create = ptr.To(false)
 
 				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Update(context.Background(), invalidObject)).
@@ -71,7 +71,7 @@ var _ = Describe("Trillian", func() {
 
 				invalidObject := &Trillian{}
 				Expect(k8sClient.Get(context.Background(), getKey(validObject), invalidObject)).To(Succeed())
-				invalidObject.Spec.Db.Pvc.Retain = pointer.Bool(false)
+				invalidObject.Spec.Db.Pvc.Retain = ptr.To(false)
 
 				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Update(context.Background(), invalidObject)).
@@ -82,7 +82,7 @@ var _ = Describe("Trillian", func() {
 				It("true", func() {
 					By("databaseSecretRef is empty", func() {
 						validObject := generateTrillianObject("database-secret-1")
-						validObject.Spec.Db.Create = pointer.Bool(true)
+						validObject.Spec.Db.Create = ptr.To(true)
 						validObject.Spec.Db.DatabaseSecretRef = nil
 						Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 					})
@@ -91,7 +91,7 @@ var _ = Describe("Trillian", func() {
 				It("false", func() {
 					By("databaseSecretRef is mandatory", func() {
 						invalidObject := generateTrillianObject("database-secret-2")
-						invalidObject.Spec.Db.Create = pointer.Bool(false)
+						invalidObject.Spec.Db.Create = ptr.To(false)
 						invalidObject.Spec.Db.DatabaseSecretRef = nil
 						Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 						Expect(k8sClient.Create(context.Background(), invalidObject)).
@@ -146,9 +146,9 @@ var _ = Describe("Trillian", func() {
 						},
 						Spec: TrillianSpec{
 							Db: TrillianDB{
-								Create: pointer.Bool(true),
+								Create: ptr.To(true),
 								Pvc: Pvc{
-									Retain:       pointer.Bool(true),
+									Retain:       ptr.To(true),
 									Name:         "storage",
 									StorageClass: "storage-class",
 									Size:         &storage,
@@ -208,9 +208,9 @@ func generateTrillianObject(name string) *Trillian {
 		},
 		Spec: TrillianSpec{
 			Db: TrillianDB{
-				Create: pointer.Bool(true),
+				Create: ptr.To(true),
 				Pvc: Pvc{
-					Retain: pointer.Bool(true),
+					Retain: ptr.To(true),
 					Size:   &storage,
 				},
 			},

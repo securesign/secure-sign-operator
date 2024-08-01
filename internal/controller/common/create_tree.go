@@ -48,12 +48,12 @@ func CreateTrillianTree(ctx context.Context, displayName string, trillianURL str
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	adminClient := trillian.NewTrillianAdminClient(conn)
 	logClient := trillian.NewTrillianLogClient(conn)
 
-	timeout := time.Duration(time.Duration(deadline) * time.Second)
+	timeout := time.Duration(deadline) * time.Second
 	ctx2, cancel := context.WithTimeout(ctx, timeout)
 	tree, err := client.CreateAndInitTree(ctx2, req, adminClient, logClient)
 	defer cancel()
@@ -70,7 +70,7 @@ func rawConnect(host string, port string) bool {
 		return false
 	}
 	if conn != nil {
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		return true
 	}
 	return false

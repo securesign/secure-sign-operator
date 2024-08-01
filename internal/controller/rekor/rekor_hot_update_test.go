@@ -19,11 +19,12 @@ package rekor
 import (
 	"bytes"
 	"context"
-	"github.com/securesign/operator/internal/controller/rekor/actions/server"
-	httpmock "github.com/securesign/operator/internal/testing/http"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/securesign/operator/internal/controller/rekor/actions/server"
+	httpmock "github.com/securesign/operator/internal/testing/http"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
 
@@ -226,9 +227,9 @@ var _ = Describe("Rekor hot update test", func() {
 			}).Should(Equal("key-secret"))
 
 			By("Rekor deployment is updated")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				updated := &appsv1.Deployment{}
-				k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, updated)
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, updated)).To(Succeed())
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
 			}).Should(BeFalse())
 

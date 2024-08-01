@@ -2,6 +2,9 @@ package server
 
 import (
 	"context"
+	"reflect"
+	"testing"
+
 	. "github.com/onsi/gomega"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -14,10 +17,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
-	"testing"
 )
 
 func TestShardingConfig_CanHandle(t *testing.T) {
@@ -94,9 +95,8 @@ func TestShardingConfig_Handle(t *testing.T) {
 		status  rhtasv1alpha1.RekorStatus
 	}
 	type want struct {
-		result          *action.Result
-		serverCondition string
-		verify          func(Gomega, client.WithWatch)
+		result *action.Result
+		verify func(Gomega, client.WithWatch)
 	}
 	tests := []struct {
 		name string
@@ -280,7 +280,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 
 					rlr := make([]rhtasv1alpha1.RekorLogRange, 0)
 					g.Expect(yaml.Unmarshal([]byte(cm.Data[shardingConfigName]), &rlr)).To(Succeed())
-					g.Expect(rlr).Should(HaveLen(0))
+					g.Expect(rlr).Should(BeEmpty())
 				},
 			},
 		},

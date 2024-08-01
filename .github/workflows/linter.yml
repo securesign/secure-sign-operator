@@ -1,0 +1,24 @@
+name: linter
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main", "release*" ]
+    tags: [ "*" ]
+  pull_request:
+    branches: [ "main", "release*" ]
+
+jobs:
+  golangci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.59
+          args: --verbose --timeout=15m

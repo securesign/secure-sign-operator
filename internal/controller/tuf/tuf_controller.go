@@ -130,32 +130,39 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *TufReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	var (
+		fulcioP, rekorP, ctlP predicate.Predicate
+		err                   error
+	)
+
 	// Filter out with the pause annotation.
 	pause, err := olpredicate.NewPause(annotations.PausedReconciliation)
 	if err != nil {
 		return err
 	}
 
-	fulcio, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+	if fulcioP, err = predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      fulcio.FulcioCALabel,
 			Operator: metav1.LabelSelectorOpExists,
 		},
-	}})
-	rekor, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+	}}); err != nil {
+		return err
+	}
+	if rekorP, err = predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      server.RekorPubLabel,
 			Operator: metav1.LabelSelectorOpExists,
 		},
-	}})
-	ctl, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+	}}); err != nil {
+		return err
+	}
+	if ctlP, err = predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      ctl.CTLPubLabel,
 			Operator: metav1.LabelSelectorOpExists,
 		},
-	}})
-
-	if err != nil {
+	}}); err != nil {
 		return err
 	}
 
@@ -186,13 +193,17 @@ func (r *TufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			}
 
 			list := &rhtasv1alpha1.TufList{}
-			mgr.GetClient().List(ctx, list, client.InNamespace(object.GetNamespace()))
+			err := mgr.GetClient().List(ctx, list, client.InNamespace(object.GetNamespace()))
+			if err != nil {
+				return make([]reconcile.Request, 0)
+			}
+
 			requests := make([]reconcile.Request, len(list.Items))
 			for i, k := range list.Items {
 				requests[i] = reconcile.Request{NamespacedName: types.NamespacedName{Namespace: object.GetNamespace(), Name: k.Name}}
 			}
 			return requests
 
-		}), builder.WithPredicates(predicate.Or(fulcio, rekor, ctl))).
+		}), builder.WithPredicates(predicate.Or(fulcioP, rekorP, ctlP))).
 		Complete(r)
 }

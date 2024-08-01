@@ -1,9 +1,10 @@
 package action
 
 import (
+	"time"
+
 	"github.com/securesign/operator/internal/controller/common/action"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 )
 
 func Continue() *action.Result {

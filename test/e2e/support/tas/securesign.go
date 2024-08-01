@@ -21,7 +21,7 @@ func VerifySecuresign(ctx context.Context, cli client.Client, namespace string, 
 func GetSecuresign(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.Securesign {
 	return func() *v1alpha1.Securesign {
 		instance := &v1alpha1.Securesign{}
-		cli.Get(ctx, types.NamespacedName{
+		_ = cli.Get(ctx, types.NamespacedName{
 			Namespace: ns,
 			Name:      name,
 		}, instance)

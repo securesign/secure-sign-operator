@@ -4,19 +4,21 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"reflect"
+	"testing"
+
+	"k8s.io/utils/ptr"
+
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	httpmock "github.com/securesign/operator/internal/testing/http"
-	"io"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
-	"net/http"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"testing"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -88,9 +90,8 @@ func TestResolvePubKey_Handle(t *testing.T) {
 		objects []client.Object
 	}
 	type want struct {
-		result          *action.Result
-		publicKey       []byte
-		serverCondition string
+		result    *action.Result
+		publicKey []byte
 	}
 	tests := []struct {
 		name string
@@ -156,7 +157,7 @@ func TestResolvePubKey_Handle(t *testing.T) {
 					Namespace: "default",
 				},
 				Status: v1alpha1.RekorStatus{
-					TreeID:       pointer.Int64(123456789),
+					TreeID:       ptr.To(int64(123456789)),
 					PublicKeyRef: nil,
 					Conditions: []metav1.Condition{
 						{
@@ -198,7 +199,7 @@ func TestResolvePubKey_Handle(t *testing.T) {
 			if tt.want.publicKey == nil {
 				secrets := v1.SecretList{}
 				g.Expect(kubernetes.FindByLabelSelector(ctx, c, &secrets, instance.Namespace, RekorPubLabel)).To(Succeed())
-				g.Expect(secrets.Items).Should(HaveLen(0))
+				g.Expect(secrets.Items).Should(BeEmpty())
 			} else {
 				secrets := v1.SecretList{}
 				g.Expect(kubernetes.FindByLabelSelector(ctx, c, &secrets, instance.Namespace, RekorPubLabel)).To(Succeed())

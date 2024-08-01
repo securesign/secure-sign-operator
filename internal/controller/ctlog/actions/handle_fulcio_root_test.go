@@ -2,8 +2,9 @@ package actions
 
 import (
 	"context"
-	testAction "github.com/securesign/operator/internal/testing/action"
 	"testing"
+
+	testAction "github.com/securesign/operator/internal/testing/action"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
@@ -53,7 +54,7 @@ func Test_HandleFulcioCert_Autodiscover(t *testing.T) {
 
 	_ = a.Handle(context.TODO(), i)
 
-	g.Expect(len(i.Status.RootCertificates)).Should(Equal(1))
+	g.Expect(i.Status.RootCertificates).Should(HaveLen(1))
 	g.Expect(i.Status.RootCertificates[0].Key).Should(Equal("key"))
 	g.Expect(i.Status.RootCertificates[0].Name).Should(Equal("secret"))
 
@@ -143,7 +144,7 @@ func Test_HandleFulcioCert_Configured(t *testing.T) {
 	g.Expect(a.CanHandle(context.TODO(), i)).To(BeTrue())
 
 	_ = a.Handle(context.TODO(), i)
-	g.Expect(len(i.Status.RootCertificates)).Should(Equal(2))
+	g.Expect(i.Status.RootCertificates).Should(HaveLen(2))
 	g.Expect(i.Status.RootCertificates[0].Key).Should(Equal("key"))
 	g.Expect(i.Status.RootCertificates[0].Name).Should(Equal("secret"))
 	g.Expect(i.Status.RootCertificates[1].Key).Should(Equal("key"))
@@ -196,7 +197,7 @@ func Test_HandleFulcioCert_Configured_Priority(t *testing.T) {
 	g.Expect(a.CanHandle(context.TODO(), i)).To(BeTrue())
 
 	_ = a.Handle(context.TODO(), i)
-	g.Expect(len(i.Status.RootCertificates)).Should(Equal(1))
+	g.Expect(i.Status.RootCertificates).Should(HaveLen(1))
 	g.Expect(i.Status.RootCertificates[0].Key).Should(Equal("key"))
 	g.Expect(i.Status.RootCertificates[0].Name).Should(Equal("my-secret"))
 

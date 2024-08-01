@@ -47,7 +47,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *
 	}
 
 	if err = ctrl.SetControllerReference(instance, sa, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controll reference for SA: %w", err))
+		return i.Failed(fmt.Errorf("could not set control reference for SA: %w", err))
 	}
 	// don't re-enqueue for RBAC in any case (except failure)
 	_, err = i.Ensure(ctx, sa)
@@ -74,7 +74,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *
 	})
 
 	if err = ctrl.SetControllerReference(instance, role, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controll reference for role: %w", err))
+		return i.Failed(fmt.Errorf("could not set control reference for role: %w", err))
 	}
 	_, err = i.Ensure(ctx, role)
 	if err != nil {
@@ -96,7 +96,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *
 		})
 
 	if err = ctrl.SetControllerReference(instance, rb, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controll reference for roleBinding: %w", err))
+		return i.Failed(fmt.Errorf("could not set control reference for roleBinding: %w", err))
 	}
 	_, err = i.Ensure(ctx, rb)
 	if err != nil {

@@ -11,8 +11,6 @@ import (
 )
 
 const (
-	bitSize = 4096
-
 	curveType = "p256"
 )
 
@@ -73,11 +71,11 @@ func GeneratePublicKey(certConfig *PrivateKeyConfig) (*PrivateKeyConfig, error) 
 		return nil, fmt.Errorf("failed to decode private key")
 	}
 
-	if x509.IsEncryptedPEMBlock(privatePEMBlock) {
+	if x509.IsEncryptedPEMBlock(privatePEMBlock) { //nolint:staticcheck
 		if certConfig.PrivateKeyPass == nil {
 			return nil, fmt.Errorf("can't find private key password")
 		}
-		privatePEMBlock.Bytes, err = x509.DecryptPEMBlock(privatePEMBlock, certConfig.PrivateKeyPass)
+		privatePEMBlock.Bytes, err = x509.DecryptPEMBlock(privatePEMBlock, certConfig.PrivateKeyPass) //nolint:staticcheck
 		if err != nil {
 			return nil, fmt.Errorf("failed to decrypt private key: %w", err)
 		}

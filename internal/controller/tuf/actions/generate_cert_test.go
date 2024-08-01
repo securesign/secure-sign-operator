@@ -29,8 +29,8 @@ var testContext = context.TODO()
 func TestKeyAutogenerate(t *testing.T) {
 	g := NewWithT(t)
 
-	testAction.Client.Create(testContext, kubernetes.CreateSecret("testSecret", t.Name(),
-		map[string][]byte{"key": nil}, map[string]string{constants.LabelNamespace + "/rekor.pub": "key"}))
+	g.Expect(testAction.Client.Create(testContext, kubernetes.CreateSecret("testSecret", t.Name(),
+		map[string][]byte{"key": nil}, map[string]string{constants.LabelNamespace + "/rekor.pub": "key"}))).To(Succeed())
 	instance := &v1alpha1.Tuf{Spec: v1alpha1.TufSpec{Keys: []v1alpha1.TufKey{
 		{
 			Name: "rekor.pub",
@@ -45,7 +45,7 @@ func TestKeyAutogenerate(t *testing.T) {
 		}}}
 	testAction.Handle(testContext, instance)
 
-	g.Expect(len(instance.Status.Keys)).To(Equal(1))
+	g.Expect(instance.Status.Keys).To(HaveLen(1))
 	g.Expect(instance.Status.Keys[0].SecretRef.Name).To(Equal("testSecret"))
 	g.Expect(instance.Status.Keys[0].SecretRef.Key).To(Equal("key"))
 
@@ -73,7 +73,7 @@ func TestKeyProvided(t *testing.T) {
 			}}}}
 	testAction.Handle(testContext, instance)
 
-	g.Expect(len(instance.Status.Keys)).To(Equal(1))
+	g.Expect(instance.Status.Keys).To(HaveLen(1))
 	g.Expect(instance.Status.Keys[0]).To(Equal(instance.Spec.Keys[0]))
 
 	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, "rekor.pub")).To(BeTrue())
@@ -113,7 +113,7 @@ func TestKeyUpdate(t *testing.T) {
 
 	testAction.Handle(testContext, instance)
 
-	g.Expect(len(instance.Status.Keys)).To(Equal(1))
+	g.Expect(instance.Status.Keys).To(HaveLen(1))
 	g.Expect(instance.Status.Keys[0].SecretRef.Name).To(Equal("new"))
 	g.Expect(instance.Status.Keys[0]).To(Equal(instance.Spec.Keys[0]))
 
@@ -122,8 +122,8 @@ func TestKeyUpdate(t *testing.T) {
 
 func TestKeyDelete(t *testing.T) {
 	g := NewWithT(t)
-	testAction.Client.Create(testContext, kubernetes.CreateSecret("new", t.Name(),
-		map[string][]byte{"key": nil}, map[string]string{constants.LabelNamespace + "/ctfe.pub": "key"}))
+	g.Expect(testAction.Client.Create(testContext, kubernetes.CreateSecret("new", t.Name(),
+		map[string][]byte{"key": nil}, map[string]string{constants.LabelNamespace + "/ctfe.pub": "key"}))).To(Succeed())
 	instance := &v1alpha1.Tuf{
 		Spec: v1alpha1.TufSpec{Keys: []v1alpha1.TufKey{
 			{
@@ -152,7 +152,7 @@ func TestKeyDelete(t *testing.T) {
 
 	testAction.Handle(testContext, instance)
 
-	g.Expect(len(instance.Status.Keys)).To(Equal(1))
+	g.Expect(instance.Status.Keys).To(HaveLen(1))
 	g.Expect(instance.Status.Keys[0].SecretRef).To(Not(BeNil()))
 	g.Expect(instance.Status.Keys[0].SecretRef.Name).To(Equal("new"))
 

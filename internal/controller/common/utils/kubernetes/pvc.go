@@ -30,7 +30,7 @@ func CreatePVC(namespace string, pvcName string, pvcSize resource.Quantity, stor
 			},
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceName(corev1.ResourceStorage): pvcSize,
+					corev1.ResourceStorage: pvcSize,
 				},
 			},
 			StorageClassName: computedStorageClass,

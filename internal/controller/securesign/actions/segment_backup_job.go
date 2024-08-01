@@ -2,8 +2,9 @@ package actions
 
 import (
 	"fmt"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/securesign/operator/internal/controller/annotations"
 
