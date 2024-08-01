@@ -1,4 +1,4 @@
-package e2e
+package custom_install
 
 import (
 	"testing"
@@ -10,11 +10,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func TestE2e(t *testing.T) {
+func TestCustomInstall(t *testing.T) {
 	RegisterFailHandler(Fail)
 	log.SetLogger(GinkgoLogr)
 	SetDefaultEventuallyTimeout(time.Duration(3) * time.Minute)
-	RunSpecs(t, "Trusted Artifact Signer E2E Suite")
+	RunSpecs(t, "With customized install")
 
 	// print whole stack in case of failure
 	format.MaxLength = 0

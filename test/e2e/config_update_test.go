@@ -35,7 +35,7 @@ import (
 
 var _ = Describe("Securesign hot update", Ordered, func() {
 	SetDefaultEventuallyTimeout(time.Duration(5) * time.Minute)
-	cli, _ := CreateClient()
+	cli, _ := support.CreateClient()
 	ctx := context.TODO()
 
 	var targetImageName string
