@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"k8s.io/apimachinery/pkg/labels"
 
@@ -26,9 +25,6 @@ const (
 
 	ComponentLabel = "app.kubernetes.io/component"
 	NameLabel      = "app.kubernetes.io/name"
-
-	openshiftCheckLimit = 10
-	openshiftCheckDelay = time.Second
 )
 
 func FilterCommonLabels(labels map[string]string) map[string]string {

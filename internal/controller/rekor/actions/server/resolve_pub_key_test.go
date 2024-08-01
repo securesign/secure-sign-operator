@@ -90,9 +90,8 @@ func TestResolvePubKey_Handle(t *testing.T) {
 		objects []client.Object
 	}
 	type want struct {
-		result          *action.Result
-		publicKey       []byte
-		serverCondition string
+		result    *action.Result
+		publicKey []byte
 	}
 	tests := []struct {
 		name string

@@ -11,8 +11,6 @@ import (
 )
 
 const (
-	bitSize = 4096
-
 	curveType = "p256"
 )
 

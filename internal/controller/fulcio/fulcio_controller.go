@@ -18,7 +18,6 @@ package fulcio
 
 import (
 	"context"
-	"errors"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -42,8 +41,6 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 )
-
-var requeueError = errors.New("requeue the reconcile key")
 
 // FulcioReconciler reconciles a Fulcio object
 type FulcioReconciler struct {

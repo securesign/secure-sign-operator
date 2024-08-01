@@ -118,9 +118,8 @@ func TestResolveTree_Handle(t *testing.T) {
 		createTree   createTree
 	}
 	type want struct {
-		result          *action.Result
-		serverCondition string
-		verify          func(Gomega, *rhtasv1alpha1.CTlog)
+		result *action.Result
+		verify func(Gomega, *rhtasv1alpha1.CTlog)
 	}
 	tests := []struct {
 		name string

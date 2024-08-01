@@ -95,9 +95,8 @@ func TestShardingConfig_Handle(t *testing.T) {
 		status  rhtasv1alpha1.RekorStatus
 	}
 	type want struct {
-		result          *action.Result
-		serverCondition string
-		verify          func(Gomega, client.WithWatch)
+		result *action.Result
+		verify func(Gomega, client.WithWatch)
 	}
 	tests := []struct {
 		name string

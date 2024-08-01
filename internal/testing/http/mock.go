@@ -8,7 +8,6 @@ type RoundTripFunc func(req *http.Request) *http.Response
 
 // MockTransport is an implementation of http.RoundTripper to mock HTTP responses for specific URLs.
 type MockTransport struct {
-	client           http.Client
 	defaultTransport http.RoundTripper
 	mock             map[string]RoundTripFunc
 }
