@@ -69,7 +69,6 @@ type TufReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	rlog := log.FromContext(ctx).WithName("controller").WithName("tuf")
-	rlog.V(1).Info("Reconciling TUF", "request", req)
 
 	// Fetch the Tuf instance
 	instance := &rhtasv1alpha1.Tuf{}

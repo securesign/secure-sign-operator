@@ -67,7 +67,6 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// Fetch the Trillian instance
 	var instance rhtasv1alpha1.Trillian
 	log := ctrllog.FromContext(ctx)
-	log.V(1).Info("Reconciling Trillian", "request", req)
 
 	if err := r.Client.Get(ctx, req.NamespacedName, &instance); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)

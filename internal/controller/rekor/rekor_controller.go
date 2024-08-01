@@ -76,7 +76,6 @@ type RekorReconciler struct {
 func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var instance rhtasv1alpha1.Rekor
 	log := ctrllog.FromContext(ctx)
-	log.V(1).Info("Reconciling Rekor", "request", req)
 
 	if err := r.Client.Get(ctx, req.NamespacedName, &instance); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)

@@ -24,18 +24,18 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/test"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"go.uber.org/zap/zapcore"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -51,14 +51,17 @@ var (
 )
 
 func TestAPIs(t *testing.T) {
+	fs := test.InitKlog(t)
+	_ = fs.Set("v", "5")
+	klog.SetOutput(GinkgoWriter)
+	ctrl.SetLogger(klog.NewKlogr())
+
 	RegisterFailHandler(Fail)
 	SetDefaultEventuallyTimeout(2 * time.Minute)
 	RunSpecs(t, "Controller Suite")
 }
 
 var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true), zap.Level(zapcore.Level(-2))))
-
 	ctx, cancel = context.WithCancel(context.TODO())
 
 	By("bootstrapping test environment")
