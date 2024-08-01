@@ -173,7 +173,11 @@ func (r *CTlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			}
 
 			list := &rhtasv1alpha1.CTlogList{}
-			mgr.GetClient().List(ctx, list, client.InNamespace(object.GetNamespace()))
+			err := mgr.GetClient().List(ctx, list, client.InNamespace(object.GetNamespace()))
+			if err != nil {
+				return make([]reconcile.Request, 0)
+			}
+
 			requests := make([]reconcile.Request, len(list.Items))
 			for i, k := range list.Items {
 				requests[i] = reconcile.Request{NamespacedName: types.NamespacedName{Namespace: object.GetNamespace(), Name: k.Name}}

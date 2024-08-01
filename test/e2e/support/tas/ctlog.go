@@ -2,7 +2,6 @@ package tas
 
 import (
 	"context"
-
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
@@ -15,19 +14,19 @@ import (
 )
 
 func VerifyCTLog(ctx context.Context, cli client.Client, namespace string, name string) {
-	Eventually(func() bool {
+	Eventually(func(g Gomega) bool {
 		instance := &v1alpha1.CTlog{}
-		cli.Get(ctx, types.NamespacedName{
+		g.Expect(cli.Get(ctx, types.NamespacedName{
 			Namespace: namespace,
 			Name:      name,
-		}, instance)
+		}, instance)).To(Succeed())
 		return meta.IsStatusConditionTrue(instance.Status.Conditions, constants.Ready)
 	}).Should(BeTrue())
 
 	list := &v1.PodList{}
 
-	Eventually(func() []v1.Pod {
-		cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels{kubernetes.ComponentLabel: actions.ComponentName})
+	Eventually(func(g Gomega) []v1.Pod {
+		g.Expect(cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels{kubernetes.ComponentLabel: actions.ComponentName})).To(Succeed())
 		return list.Items
 	}).Should(And(Not(BeEmpty()), HaveEach(WithTransform(func(p v1.Pod) v1.PodPhase { return p.Status.Phase }, Equal(v1.PodRunning)))))
 }
@@ -35,7 +34,7 @@ func VerifyCTLog(ctx context.Context, cli client.Client, namespace string, name 
 func GetCTLogServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {
 	return func() *v1.Pod {
 		list := &v1.PodList{}
-		cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{kubernetes.ComponentLabel: actions.ComponentName, kubernetes.NameLabel: "ctlog"})
+		_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{kubernetes.ComponentLabel: actions.ComponentName, kubernetes.NameLabel: "ctlog"})
 		if len(list.Items) != 1 {
 			return nil
 		}
@@ -46,10 +45,10 @@ func GetCTLogServerPod(ctx context.Context, cli client.Client, ns string) func()
 func GetCTLog(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.CTlog {
 	return func() *v1alpha1.CTlog {
 		instance := &v1alpha1.CTlog{}
-		cli.Get(ctx, types.NamespacedName{
+		Expect(cli.Get(ctx, types.NamespacedName{
 			Namespace: ns,
 			Name:      name,
-		}, instance)
+		}, instance)).To(Succeed())
 		return instance
 	}
 }

@@ -160,7 +160,7 @@ var _ = Describe("CTlog update test", func() {
 			By("CTL deployment is updated")
 			Eventually(func() bool {
 				updated := &appsv1.Deployment{}
-				k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)
+				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)).To(Succeed())
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
 			}).Should(BeFalse())
 
@@ -170,7 +170,7 @@ var _ = Describe("CTlog update test", func() {
 			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("key-secret", Namespace,
 				map[string][]byte{"private": key.PrivateKey}, constants.LabelsFor(actions.ComponentName, Name, instance.Name)))).To(Succeed())
 
-			k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
 			found := &v1alpha1.CTlog{}
 			Eventually(func(g Gomega) error {
 				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
@@ -191,9 +191,9 @@ var _ = Describe("CTlog update test", func() {
 			}).Should(Equal("key-secret"))
 
 			By("CTL deployment is updated")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				updated := &appsv1.Deployment{}
-				k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)).To(Succeed())
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
 			}).Should(BeFalse())
 		})

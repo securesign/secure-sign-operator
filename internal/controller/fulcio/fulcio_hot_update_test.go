@@ -179,9 +179,9 @@ var _ = Describe("Fulcio hot update", func() {
 			}).Should(BeTrue())
 
 			By("Fulcio deployment is updated")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				updated := &appsv1.Deployment{}
-				k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)).To(Succeed())
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
 			}).Should(BeFalse())
 
@@ -201,9 +201,9 @@ var _ = Describe("Fulcio hot update", func() {
 			Expect(k8sClient.Update(ctx, found)).To(Succeed())
 
 			By("Fulcio deployment is updated")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				updated := &appsv1.Deployment{}
-				k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)).To(Succeed())
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
 			}).Should(BeFalse())
 		})

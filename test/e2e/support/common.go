@@ -62,7 +62,7 @@ func PrepareImage(ctx context.Context) string {
 	Expect(err).ToNot(HaveOccurred())
 	_, err = io.Copy(core.GinkgoWriter, pull)
 	Expect(err).ToNot(HaveOccurred())
-	defer pull.Close()
+	defer func() { _ = pull.Close() }()
 
 	Expect(dockerCli.ImageTag(ctx, fromImage, targetImageName)).To(Succeed())
 	var push io.ReadCloser
@@ -70,7 +70,7 @@ func PrepareImage(ctx context.Context) string {
 	Expect(err).ToNot(HaveOccurred())
 	_, err = io.Copy(core.GinkgoWriter, push)
 	Expect(err).ToNot(HaveOccurred())
-	defer push.Close()
+	defer func() { _ = push.Close() }()
 	// wait for a while to be sure that the image landed in the registry
 	time.Sleep(10 * time.Second)
 	return targetImageName
@@ -158,7 +158,7 @@ func toYAMLNoManagedFields(value runtime.Object) string {
 	object, _ := json.Marshal(value)
 
 	mapdata := map[string]interface{}{}
-	json.Unmarshal(object, &mapdata)
+	_ = json.Unmarshal(object, &mapdata)
 
 	if m, ok := mapdata["metadata"].(map[string]interface{}); ok {
 		delete(m, "managedFields")

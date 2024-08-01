@@ -14,15 +14,15 @@ type logTarget struct {
 }
 
 func createArchive(file *os.File, logs map[string]logTarget) error {
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Create a new gzip writer
 	gzipWriter := gzip.NewWriter(file)
-	defer gzipWriter.Close()
+	defer func() { _ = gzipWriter.Close() }()
 
 	// Create a new tar writer
 	tarWriter := tar.NewWriter(gzipWriter)
-	defer tarWriter.Close()
+	defer func() { _ = tarWriter.Close() }()
 
 	// Iterate over the logs map
 	for componentName, log := range logs {

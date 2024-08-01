@@ -29,8 +29,8 @@ var testContext = context.TODO()
 func TestKeyAutogenerate(t *testing.T) {
 	g := NewWithT(t)
 
-	testAction.Client.Create(testContext, kubernetes.CreateSecret("testSecret", t.Name(),
-		map[string][]byte{"key": nil}, map[string]string{constants.LabelNamespace + "/rekor.pub": "key"}))
+	g.Expect(testAction.Client.Create(testContext, kubernetes.CreateSecret("testSecret", t.Name(),
+		map[string][]byte{"key": nil}, map[string]string{constants.LabelNamespace + "/rekor.pub": "key"}))).To(Succeed())
 	instance := &v1alpha1.Tuf{Spec: v1alpha1.TufSpec{Keys: []v1alpha1.TufKey{
 		{
 			Name: "rekor.pub",
@@ -122,8 +122,8 @@ func TestKeyUpdate(t *testing.T) {
 
 func TestKeyDelete(t *testing.T) {
 	g := NewWithT(t)
-	testAction.Client.Create(testContext, kubernetes.CreateSecret("new", t.Name(),
-		map[string][]byte{"key": nil}, map[string]string{constants.LabelNamespace + "/ctfe.pub": "key"}))
+	g.Expect(testAction.Client.Create(testContext, kubernetes.CreateSecret("new", t.Name(),
+		map[string][]byte{"key": nil}, map[string]string{constants.LabelNamespace + "/ctfe.pub": "key"}))).To(Succeed())
 	instance := &v1alpha1.Tuf{
 		Spec: v1alpha1.TufSpec{Keys: []v1alpha1.TufKey{
 			{

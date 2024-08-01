@@ -15,30 +15,30 @@ import (
 )
 
 func VerifyTrillian(ctx context.Context, cli client.Client, namespace string, name string, dbPresent bool) {
-	Eventually(func() bool {
+	Eventually(func(g Gomega) bool {
 		instance := &v1alpha1.Trillian{}
-		cli.Get(ctx, types.NamespacedName{
+		g.Expect(cli.Get(ctx, types.NamespacedName{
 			Namespace: namespace,
 			Name:      name,
-		}, instance)
+		}, instance)).To(Succeed())
 		return meta.IsStatusConditionTrue(instance.Status.Conditions, constants.Ready)
 	}).Should(BeTrue())
 
 	list := &v1.PodList{}
 	if dbPresent {
-		Eventually(func() []v1.Pod {
-			cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels{kubernetes.ComponentLabel: actions.DbComponentName})
+		Eventually(func(g Gomega) []v1.Pod {
+			g.Expect(cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels{kubernetes.ComponentLabel: actions.DbComponentName})).To(Succeed())
 			return list.Items
 		}).Should(And(Not(BeEmpty()), HaveEach(WithTransform(func(p v1.Pod) v1.PodPhase { return p.Status.Phase }, Equal(v1.PodRunning)))))
 	}
 
-	Eventually(func() []v1.Pod {
-		cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels{kubernetes.ComponentLabel: actions.LogServerComponentName})
+	Eventually(func(g Gomega) []v1.Pod {
+		g.Expect(cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels{kubernetes.ComponentLabel: actions.LogServerComponentName})).To(Succeed())
 		return list.Items
 	}).Should(And(Not(BeEmpty()), HaveEach(WithTransform(func(p v1.Pod) v1.PodPhase { return p.Status.Phase }, Equal(v1.PodRunning)))))
 
-	Eventually(func() []v1.Pod {
-		cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels{kubernetes.ComponentLabel: actions.LogSignerComponentName})
+	Eventually(func(g Gomega) []v1.Pod {
+		g.Expect(cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels{kubernetes.ComponentLabel: actions.LogSignerComponentName})).To(Succeed())
 		return list.Items
 	}).Should(And(Not(BeEmpty()), HaveEach(WithTransform(func(p v1.Pod) v1.PodPhase { return p.Status.Phase }, Equal(v1.PodRunning)))))
 }
