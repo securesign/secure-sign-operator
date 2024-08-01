@@ -44,6 +44,10 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 
 	labels := constants.LabelsFor(actions.LogServerComponentName, actions.LogserverDeploymentName, instance.Name)
 	server, err := trillianUtils.CreateTrillDeployment(instance, constants.TrillianServerImage, actions.LogserverDeploymentName, actions.RBACName, labels)
+	if err != nil {
+		return i.Failed(err)
+	}
+
 	err = utils.SetTrustedCA(&server.Spec.Template, utils.TrustedCAAnnotationToReference(instance.Annotations))
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{

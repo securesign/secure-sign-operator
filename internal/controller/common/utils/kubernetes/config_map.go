@@ -51,6 +51,9 @@ func FindConfigMap(ctx context.Context, c client.Client, namespace string, label
 	list := &corev1.ConfigMapList{}
 
 	selector, err := labels.Parse(label)
+	if err != nil {
+		return nil, err
+	}
 	listOptions := &client.ListOptions{
 		LabelSelector: selector,
 	}
