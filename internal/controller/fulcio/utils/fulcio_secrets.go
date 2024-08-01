@@ -51,7 +51,7 @@ func CreateCAKey(key *ecdsa.PrivateKey, password []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	block, err := x509.EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", mKey, password, x509.PEMCipherAES256)
+	block, err := x509.EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", mKey, password, x509.PEMCipherAES256) //nolint:staticcheck
 	if err != nil {
 		return nil, err
 	}
@@ -91,8 +91,8 @@ func CreateFulcioCA(ctx context.Context, client client.Client, config *FulcioCer
 
 	block, _ := pem.Decode(config.PrivateKey)
 	keyBytes := block.Bytes
-	if x509.IsEncryptedPEMBlock(block) {
-		keyBytes, err = x509.DecryptPEMBlock(block, config.PrivateKeyPassword)
+	if x509.IsEncryptedPEMBlock(block) { //nolint:staticcheck
+		keyBytes, err = x509.DecryptPEMBlock(block, config.PrivateKeyPassword) //nolint:staticcheck
 		if err != nil {
 			return nil, err
 		}

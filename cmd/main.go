@@ -23,8 +23,9 @@ import (
 	"os"
 	"strconv"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/securesign/operator/internal/metrics"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/config"
 
 	consolev1 "github.com/openshift/api/console/v1"
@@ -181,7 +182,7 @@ func main() {
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
 		Controller: config.Controller{
-			RecoverPanic: pointer.Bool(true),
+			RecoverPanic: ptr.To(true),
 		},
 	})
 	if err != nil {

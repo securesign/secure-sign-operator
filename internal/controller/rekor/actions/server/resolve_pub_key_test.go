@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"testing"
 
+	"k8s.io/utils/ptr"
+
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
@@ -16,7 +18,6 @@ import (
 	testAction "github.com/securesign/operator/internal/testing/action"
 	httpmock "github.com/securesign/operator/internal/testing/http"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/securesign/operator/api/v1alpha1"
@@ -157,7 +158,7 @@ func TestResolvePubKey_Handle(t *testing.T) {
 					Namespace: "default",
 				},
 				Status: v1alpha1.RekorStatus{
-					TreeID:       pointer.Int64(123456789),
+					TreeID:       ptr.To(int64(123456789)),
 					PublicKeyRef: nil,
 					Conditions: []metav1.Condition{
 						{

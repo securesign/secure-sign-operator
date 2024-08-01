@@ -17,7 +17,7 @@ import (
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 func TestResolveTree_CanHandle(t *testing.T) {
@@ -32,20 +32,20 @@ func TestResolveTree_CanHandle(t *testing.T) {
 			name:      "spec.treeID is not nil and status.treeID is nil",
 			phase:     constants.Creating,
 			canHandle: true,
-			treeID:    pointer.Int64(123456),
+			treeID:    ptr.To(int64(123456)),
 		},
 		{
 			name:         "spec.treeID != status.treeID",
 			phase:        constants.Creating,
 			canHandle:    true,
-			treeID:       pointer.Int64(123456),
-			statusTreeID: pointer.Int64(654321),
+			treeID:       ptr.To(int64(123456)),
+			statusTreeID: ptr.To(int64(654321)),
 		},
 		{
 			name:         "spec.treeID is nil and status.treeID is not nil",
 			phase:        constants.Creating,
 			canHandle:    false,
-			statusTreeID: pointer.Int64(654321),
+			statusTreeID: ptr.To(int64(654321)),
 		},
 		{
 			name:      "spec.treeID is nil and status.treeID is nil",
@@ -131,7 +131,7 @@ func TestResolveTree_Handle(t *testing.T) {
 			env: env{
 				spec: rhtasv1alpha1.RekorSpec{
 					TreeID:   nil,
-					Trillian: rhtasv1alpha1.TrillianService{Port: pointer.Int32(8091)},
+					Trillian: rhtasv1alpha1.TrillianService{Port: ptr.To(int32(8091))},
 				},
 				createTree: mockCreateTree(&trillian.Tree{TreeId: 5555555}, nil, nil),
 			},
@@ -149,10 +149,10 @@ func TestResolveTree_Handle(t *testing.T) {
 			name: "update tree",
 			env: env{
 				spec: rhtasv1alpha1.RekorSpec{
-					TreeID:   pointer.Int64(123456),
-					Trillian: rhtasv1alpha1.TrillianService{Port: pointer.Int32(8091)},
+					TreeID:   ptr.To(int64(123456)),
+					Trillian: rhtasv1alpha1.TrillianService{Port: ptr.To(int32(8091))},
 				},
-				statusTreeId: pointer.Int64(654321),
+				statusTreeId: ptr.To(int64(654321)),
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
@@ -168,8 +168,8 @@ func TestResolveTree_Handle(t *testing.T) {
 			name: "use tree from spec",
 			env: env{
 				spec: rhtasv1alpha1.RekorSpec{
-					TreeID:   pointer.Int64(123456),
-					Trillian: rhtasv1alpha1.TrillianService{Port: pointer.Int32(8091)},
+					TreeID:   ptr.To(int64(123456)),
+					Trillian: rhtasv1alpha1.TrillianService{Port: ptr.To(int32(8091))},
 				},
 			},
 			want: want{
@@ -188,7 +188,7 @@ func TestResolveTree_Handle(t *testing.T) {
 			env: env{
 				spec: rhtasv1alpha1.RekorSpec{
 					TreeID:   nil,
-					Trillian: rhtasv1alpha1.TrillianService{Port: pointer.Int32(8091)},
+					Trillian: rhtasv1alpha1.TrillianService{Port: ptr.To(int32(8091))},
 				},
 				createTree: mockCreateTree(nil, errors.New("timeout error"), nil),
 			},
@@ -204,7 +204,7 @@ func TestResolveTree_Handle(t *testing.T) {
 			name: "resolve trillian address",
 			env: env{
 				spec: rhtasv1alpha1.RekorSpec{
-					Trillian: rhtasv1alpha1.TrillianService{Port: pointer.Int32(1234)},
+					Trillian: rhtasv1alpha1.TrillianService{Port: ptr.To(int32(1234))},
 				},
 				createTree: mockCreateTree(&trillian.Tree{TreeId: 5555555}, nil, func(displayName string, trillianURL string, deadline int64) {
 					g.Expect(trillianURL).Should(Equal(fmt.Sprintf("%s.%s.svc:%d", actions.LogserverDeploymentName, "default", 1234)))
@@ -218,7 +218,7 @@ func TestResolveTree_Handle(t *testing.T) {
 			name: "custom trillian address",
 			env: env{
 				spec: rhtasv1alpha1.RekorSpec{
-					Trillian: rhtasv1alpha1.TrillianService{Port: pointer.Int32(1234), Address: "custom-address.namespace.svc"},
+					Trillian: rhtasv1alpha1.TrillianService{Port: ptr.To(int32(1234)), Address: "custom-address.namespace.svc"},
 				},
 				createTree: mockCreateTree(&trillian.Tree{TreeId: 5555555}, nil, func(displayName string, trillianURL string, deadline int64) {
 					g.Expect(trillianURL).Should(Equal(fmt.Sprintf("custom-address.namespace.svc:%d", 1234)))

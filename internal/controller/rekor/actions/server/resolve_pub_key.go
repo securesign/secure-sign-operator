@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/utils/ptr"
+
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -21,7 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -126,7 +127,7 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	if newConfig.Annotations == nil {
 		newConfig.Annotations = make(map[string]string)
 	}
-	newConfig.Annotations[annotations.TreeId] = strconv.FormatInt(pointer.Int64Deref(instance.Status.TreeID, 0), 10)
+	newConfig.Annotations[annotations.TreeId] = strconv.FormatInt(ptr.Deref(instance.Status.TreeID, 0), 10)
 
 	if err = i.Client.Create(ctx, newConfig); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{

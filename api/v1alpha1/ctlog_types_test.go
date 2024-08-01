@@ -7,7 +7,7 @@ import (
 	_ "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("CTlog", func() {
@@ -179,7 +179,7 @@ func generateCTlogObject(name string) *CTlog {
 		},
 		Spec: CTlogSpec{
 			Trillian: TrillianService{
-				Port: pointer.Int32(int32(8091)),
+				Port: ptr.To(int32(8091)),
 			},
 		},
 	}
