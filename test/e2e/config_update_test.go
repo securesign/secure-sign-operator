@@ -5,13 +5,14 @@ package e2e
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"time"
+
 	ctlog "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
 	rekor "github.com/securesign/operator/internal/controller/rekor/actions"
 	tuf "github.com/securesign/operator/internal/controller/tuf/actions"
 	appsv1 "k8s.io/api/apps/v1"
-	"os"
-	"time"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
@@ -32,7 +33,7 @@ import (
 
 var _ = Describe("Securesign hot update", Ordered, func() {
 	SetDefaultEventuallyTimeout(time.Duration(5) * time.Minute)
-	cli, _ := CreateClient()
+	cli, _ := support.CreateClient()
 	ctx := context.TODO()
 
 	var targetImageName string
