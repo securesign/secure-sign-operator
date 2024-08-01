@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"fmt"
+
 	"github.com/google/trillian"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common"

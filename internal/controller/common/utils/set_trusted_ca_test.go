@@ -1,13 +1,14 @@
 package utils
 
 import (
+	"reflect"
+	"testing"
+
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/annotations"
 	corev1 "k8s.io/api/core/v1"
-	"reflect"
-	"testing"
 )
 
 func TestSetTrustedCA(t *testing.T) {

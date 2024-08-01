@@ -19,12 +19,13 @@ package main
 import (
 	"crypto/tls"
 	"flag"
-	"github.com/securesign/operator/internal/metrics"
-	"k8s.io/utils/pointer"
 	"net/http"
 	"os"
-	"sigs.k8s.io/controller-runtime/pkg/config"
 	"strconv"
+
+	"github.com/securesign/operator/internal/metrics"
+	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/config"
 
 	consolev1 "github.com/openshift/api/console/v1"
 	v1 "github.com/openshift/api/operator/v1"
@@ -34,6 +35,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/constants"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"

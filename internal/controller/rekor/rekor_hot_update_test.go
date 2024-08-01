@@ -19,11 +19,12 @@ package rekor
 import (
 	"bytes"
 	"context"
-	"github.com/securesign/operator/internal/controller/rekor/actions/server"
-	httpmock "github.com/securesign/operator/internal/testing/http"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/securesign/operator/internal/controller/rekor/actions/server"
+	httpmock "github.com/securesign/operator/internal/testing/http"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
 

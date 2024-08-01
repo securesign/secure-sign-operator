@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+
 	"github.com/securesign/operator/internal/controller/annotations"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"

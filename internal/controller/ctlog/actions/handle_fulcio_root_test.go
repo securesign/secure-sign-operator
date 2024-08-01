@@ -2,8 +2,9 @@ package actions
 
 import (
 	"context"
-	testAction "github.com/securesign/operator/internal/testing/action"
 	"testing"
+
+	testAction "github.com/securesign/operator/internal/testing/action"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"

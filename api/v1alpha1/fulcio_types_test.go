@@ -186,7 +186,7 @@ var _ = Describe("Fulcio", func() {
 										Type:              "email",
 										IssuerURL:         "url",
 										IssuerClaim:       "claim",
-										ChallengeClaim:    "challange",
+										ChallengeClaim:    "challenge",
 										SPIFFETrustDomain: "SPIFFE",
 										SubjectDomain:     "domain",
 									},

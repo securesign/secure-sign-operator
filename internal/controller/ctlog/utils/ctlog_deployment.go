@@ -2,6 +2,8 @@ package utils
 
 import (
 	"fmt"
+	"strconv"
+
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -9,7 +11,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"strconv"
 )
 
 func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string, labels map[string]string, serverPort, metricsPort int32) (*appsv1.Deployment, error) {

@@ -19,6 +19,7 @@ package fulcio
 import (
 	"context"
 	"errors"
+
 	"k8s.io/apimachinery/pkg/types"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"

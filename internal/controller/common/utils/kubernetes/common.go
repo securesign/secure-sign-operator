@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"k8s.io/apimachinery/pkg/labels"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/labels"
 
 	v13 "github.com/openshift/api/operator/v1"
 	"github.com/securesign/operator/internal/controller/common/utils"

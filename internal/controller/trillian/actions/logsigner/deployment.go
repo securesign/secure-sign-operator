@@ -3,6 +3,7 @@ package logsigner
 import (
 	"context"
 	"fmt"
+
 	"github.com/securesign/operator/internal/controller/common/utils"
 
 	"github.com/securesign/operator/internal/controller/common/action"

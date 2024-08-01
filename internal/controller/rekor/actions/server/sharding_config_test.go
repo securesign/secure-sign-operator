@@ -2,6 +2,9 @@ package server
 
 import (
 	"context"
+	"reflect"
+	"testing"
+
 	. "github.com/onsi/gomega"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -14,10 +17,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
-	"testing"
 )
 
 func TestShardingConfig_CanHandle(t *testing.T) {

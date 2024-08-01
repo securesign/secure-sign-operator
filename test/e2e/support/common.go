@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	v12 "k8s.io/api/apps/v1"
-	v13 "k8s.io/api/batch/v1"
 	"log"
 	"os"
 	"path/filepath"
@@ -13,6 +11,9 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	v12 "k8s.io/api/apps/v1"
+	v13 "k8s.io/api/batch/v1"
 
 	"github.com/docker/docker/api/types"
 	docker "github.com/docker/docker/client"

@@ -1,8 +1,9 @@
 package utils
 
 import (
-	"github.com/securesign/operator/internal/controller/annotations"
 	"testing"
+
+	"github.com/securesign/operator/internal/controller/annotations"
 
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
