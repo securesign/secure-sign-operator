@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+<<<<<<< HEAD
 func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string, labels map[string]string, serverPort, metricsPort int32) (*appsv1.Deployment, error) {
 	switch {
 	case instance.Status.ServerConfigRef == nil:
@@ -23,8 +24,17 @@ func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string
 		return nil, fmt.Errorf("CreateCTLogDeployment: %w", TrillianAddressNotSpecified)
 	case instance.Spec.Trillian.Port == nil:
 		return nil, fmt.Errorf("CreateCTLogDeployment: %w", TrillianPortNotSpecified)
+=======
+func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string, labels map[string]string, useHTTPS bool) (*appsv1.Deployment, error) {
+	if instance.Status.ServerConfigRef == nil {
+		return nil, errors.New("server config name not specified")
+>>>>>>> df48e12 (updates-1)
 	}
 	replicas := int32(1)
+	scheme := corev1.URISchemeHTTP
+	if useHTTPS {
+		scheme = corev1.URISchemeHTTPS
+	}
 	// Define a new Deployment object
 
 	containerPorts := []corev1.ContainerPort{
@@ -73,8 +83,14 @@ func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string
 							LivenessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
+<<<<<<< HEAD
 										Path: "/healthz",
 										Port: intstr.FromInt32(serverPort),
+=======
+										Path:   "/healthz",
+										Port:   intstr.FromInt32(6962),
+										Scheme: scheme,
+>>>>>>> df48e12 (updates-1)
 									},
 								},
 								InitialDelaySeconds: 10,
@@ -86,8 +102,14 @@ func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string
 							ReadinessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
+<<<<<<< HEAD
 										Path: "/healthz",
 										Port: intstr.FromInt32(serverPort),
+=======
+										Path:   "/healthz",
+										Port:   intstr.FromInt32(6962),
+										Scheme: scheme,
+>>>>>>> df48e12 (updates-1)
 									},
 								},
 								InitialDelaySeconds: 10,

@@ -41,18 +41,17 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 
 	signingKeySecret, _ := k8sutils.GetSecret(i.Client, "openshift-service-ca", "signing-key")
-	switch {
-	case instance.Spec.Ctlog.Address == "":
+	if instance.Spec.Ctlog.Address == "" {
 		if instance.Spec.TLSCertificate.CACertRef != nil || signingKeySecret != nil {
 			instance.Spec.Ctlog.Address = fmt.Sprintf("https://ctlog.%s.svc", instance.Namespace)
 		} else {
 			instance.Spec.Ctlog.Address = fmt.Sprintf("http://ctlog.%s.svc", instance.Namespace)
 		}
-	case instance.Spec.Ctlog.Port == nil:
+	}
+	if instance.Spec.Ctlog.Port == nil || *instance.Spec.Ctlog.Port == 0 {
 		var port int32
 		if instance.Spec.TLSCertificate.CACertRef != nil || signingKeySecret != nil {
 			port = int32(443)
-
 		} else {
 			port = int32(80)
 		}
@@ -72,39 +71,13 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	}
 
 	// TLS certificate
-	if instance.Spec.TLSCertificate.CertRef != nil && instance.Spec.TLSCertificate.CACertRef != nil {
+	if instance.Spec.TLSCertificate.CACertRef != nil {
 		dp.Spec.Template.Spec.Volumes = append(dp.Spec.Template.Spec.Volumes,
 			corev1.Volume{
 				Name: "tls-cert",
 				VolumeSource: corev1.VolumeSource{
 					Projected: &corev1.ProjectedVolumeSource{
 						Sources: []corev1.VolumeProjection{
-							{
-								Secret: &corev1.SecretProjection{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: instance.Spec.TLSCertificate.CertRef.Name,
-									},
-									Items: []corev1.KeyToPath{
-										{
-											Key:  instance.Spec.TLSCertificate.CertRef.Key,
-											Path: "tls.crt",
-										},
-									},
-								},
-							},
-							{
-								Secret: &corev1.SecretProjection{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: instance.Spec.TLSCertificate.PrivateKeyRef.Name,
-									},
-									Items: []corev1.KeyToPath{
-										{
-											Key:  instance.Spec.TLSCertificate.PrivateKeyRef.Key,
-											Path: "tls.key",
-										},
-									},
-								},
-							},
 							{
 								ConfigMap: &corev1.ConfigMapProjection{
 									LocalObjectReference: corev1.LocalObjectReference{
@@ -130,13 +103,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 				VolumeSource: corev1.VolumeSource{
 					Projected: &corev1.ProjectedVolumeSource{
 						Sources: []corev1.VolumeProjection{
-							{
-								Secret: &corev1.SecretProjection{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: instance.Name + "-tls-secret",
-									},
-								},
-							},
 							{
 								ConfigMap: &corev1.ConfigMapProjection{
 									LocalObjectReference: corev1.LocalObjectReference{
@@ -166,9 +132,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 				ReadOnly:  true,
 			})
 
-		dp.Spec.Template.Spec.Containers[0].Args = append(dp.Spec.Template.Spec.Containers[0].Args, "--grpc-tls-certificate", "/etc/ssl/certs/tls.crt")
-		dp.Spec.Template.Spec.Containers[0].Args = append(dp.Spec.Template.Spec.Containers[0].Args, "--grpc-tls-key", "/etc/ssl/certs/tls.key")
-		dp.Spec.Template.Spec.Containers[0].Args = append(dp.Spec.Template.Spec.Containers[0].Args, "--tls-ca-cert", "/etc/ssl/certs/ca.crt")
+		dp.Spec.Template.Spec.Containers[0].Args = append(dp.Spec.Template.Spec.Containers[0].Args, "--ct-log.tls-ca-cert", "/etc/ssl/certs/ca.crt")
 	}
 
 	if err = controllerutil.SetControllerReference(instance, dp, i.Client.Scheme()); err != nil {

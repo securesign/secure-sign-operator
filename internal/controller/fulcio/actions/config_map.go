@@ -29,7 +29,7 @@ func (i configMapAction) Name() string {
 func (i configMapAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	cm, _ := k8sutils.GetConfigMap(ctx, i.Client, instance.Namespace, "ca-configmap")
-	return c.Reason == constants.Creating || c.Reason == constants.Ready && cm == nil
+	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && cm == nil && instance.Spec.TLSCertificate.CACertRef == nil
 }
 
 func (i configMapAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) *action.Result {

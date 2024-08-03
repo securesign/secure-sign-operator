@@ -41,6 +41,7 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog
 
 	labels := constants.LabelsFor(ComponentName, ComponentName, instance.Name)
 
+<<<<<<< HEAD
 	svc := kubernetes.CreateService(instance.Namespace, ComponentName, ServerPortName, ServerPort, ServerTargetPort, labels)
 	if instance.Spec.Monitoring.Enabled {
 		svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
@@ -50,6 +51,23 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog
 			TargetPort: intstr.FromInt32(MetricsPort),
 		})
 	}
+=======
+	signingKeySecret, _ := k8sutils.GetSecret(i.Client, "openshift-service-ca", "signing-key")
+	var port int32
+	if instance.Spec.TLSCertificate.CertRef != nil || signingKeySecret != nil {
+		port = int32(443)
+	} else {
+		port = int32(80)
+	}
+	portName := fmt.Sprintf("%d-tcp", port)
+	svc := kubernetes.CreateService(instance.Namespace, ComponentName, MetricsPortName, MetricsPort, labels)
+	svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
+		Name:       portName,
+		Protocol:   corev1.ProtocolTCP,
+		Port:       port,
+		TargetPort: intstr.FromInt32(6962),
+	})
+>>>>>>> df48e12 (updates-1)
 	if err = controllerutil.SetControllerReference(instance, svc, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Service: %w", err))
 	}
@@ -64,12 +82,11 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog
 	}
 
 	//TLS: Annotate service
-	signingKeySecret, _ := k8sutils.GetSecret(i.Client, "openshift-service-ca", "signing-key")
 	if signingKeySecret != nil && instance.Spec.TLSCertificate.CertRef == nil {
 		if svc.Annotations == nil {
 			svc.Annotations = make(map[string]string)
 		}
-		svc.Annotations["service.beta.openshift.io/serving-cert-secret-name"] = instance.Name + "-tls-secret"
+		svc.Annotations["service.beta.openshift.io/serving-cert-secret-name"] = instance.Name + "-ctlog-tls-secret"
 		err := i.Client.Update(ctx, svc)
 		if err != nil {
 			return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not annotate service: %w", err), instance)
