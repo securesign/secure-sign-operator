@@ -135,6 +135,7 @@ var _ = Describe("CTlog", func() {
 							Trillian: TrillianService{
 								Address: "trillian-system.default.svc",
 								Port:    &port,
+							},
 							TLSCertificate: TLSCert{
 								CertRef: &SecretKeySelector{
 									Key:                  "cert",
