@@ -29,8 +29,6 @@ type TrillianSpec struct {
 	Db TrillianDB `json:"database,omitempty"`
 	//+optional
 	TrillianServer TrillianServer `json:"server,omitempty"`
-	//+optional
-	TrillianSigner TrillianSigner `json:"signer,omitempty"`
 	// Enable Monitoring for Logsigner and Logserver
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
 	// ConfigMap with additional bundle of trusted CA
@@ -60,10 +58,6 @@ type TrillianDB struct {
 }
 
 type TrillianServer struct {
-	// Secret with TLS server certificate, private key and CA certificate
-	TLSCertificate TLSCert `json:"tls"`
-}
-type TrillianSigner struct {
 	// Secret with TLS server certificate, private key and CA certificate
 	TLSCertificate TLSCert `json:"tls"`
 }
