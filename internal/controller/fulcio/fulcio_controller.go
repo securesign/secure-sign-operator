@@ -96,6 +96,7 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}),
 		actions.NewHandleCertAction(),
 		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.Fulcio](),
+		actions.NewCAConfigMapAction(),
 		actions.NewRBACAction(),
 		actions.NewServerConfigAction(),
 		actions.NewDeployAction(),
@@ -135,6 +136,7 @@ func (r *FulcioReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&rhtasv1alpha1.Fulcio{}).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
+		Owns(&v12.ConfigMap{}).
 		Owns(&v13.Ingress{}).
 		Complete(r)
 }

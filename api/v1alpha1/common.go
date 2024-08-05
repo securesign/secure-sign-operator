@@ -40,9 +40,9 @@ type CtlogService struct {
 	//+optional
 	Address string `json:"address,omitempty"`
 	// Port of Ctlog Log Server End point
-	//+kubebuilder:validation:Minimum:=1
+	//+kubebuilder:validation:Minimum:=0
 	//+kubebuilder:validation:Maximum:=65535
-	//+kubebuilder:default:=80
+	//+kubebuilder:default:=0
 	//+optional
 	Port *int32 `json:"port,omitempty"`
 }
@@ -89,4 +89,18 @@ type Pvc struct {
 	// The name of the StorageClass to claim a PersistentVolume from.
 	//+optional
 	StorageClass string `json:"storageClass,omitempty"`
+}
+
+// TLSCert defines fields for TLS certificate
+// +kubebuilder:validation:XValidation:rule=(!has(self.certRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
+type TLSCert struct {
+	// Reference to the private key
+	//+optional
+	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+	// Reference to service certificate
+	//+optional
+	CertRef *SecretKeySelector `json:"certRef,omitempty"`
+	// Reference to CA certificate
+	//+optional
+	CACertRef *LocalObjectReference `json:"CACertRef,omitempty"`
 }
