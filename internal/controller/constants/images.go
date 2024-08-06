@@ -1,26 +1,26 @@
 package constants
 
 var (
-	TrillianLogSignerImage = "registry.redhat.io/rhtas/trillian-logsigner-rhel9@sha256:920f2fd735525dd612546a874e24d301761ca83c79ddb6898ee7d31470ffc467"
-	TrillianServerImage    = "registry.redhat.io/rhtas/trillian-logserver-rhel9@sha256:4478e867e59b5c2d7a4e2630f76fad7899205de611a6f4648d9ca7389392780d"
-	TrillianDbImage        = "registry.redhat.io/rhtas/trillian-database-rhel9@sha256:221b4cb0f86d73606520c708499f0e6686838054fb0a759ba323c3f3ac8b7fed"
+	TrillianLogSignerImage = "registry.redhat.io/rhtas/trillian-logsigner-rhel9@sha256:37028258a88bba4dfaadb59fc88b6efe9c119a808e212ad5214d65072abb29d0"
+	TrillianServerImage    = "registry.redhat.io/rhtas/trillian-logserver-rhel9@sha256:994a860e569f2200211b01f9919de11d14b86c669230184c4997f3d875c79208"
+	TrillianDbImage        = "registry.redhat.io/rhtas/trillian-database-rhel9@sha256:909f584804245f8a9e05ecc4d6874c26d56c0d742ba793c1a4357a14f5e67eb0"
 
 	// TODO: remove and check the DB pod status
 	TrillianNetcatImage = "registry.redhat.io/openshift4/ose-tools-rhel8@sha256:486b4d2dd0d10c5ef0212714c94334e04fe8a3d36cf619881986201a50f123c7"
 
-	FulcioServerImage = "registry.redhat.io/rhtas/fulcio-rhel9@sha256:c4abc6342b39701d237ab3f0f25b75b677214b3ede00540b2488f524ad112179"
+	FulcioServerImage = "registry.redhat.io/rhtas/fulcio-rhel9@sha256:1ebf0160eadd707bd087d46e08272cab5ec2935446c3ddb6b9a2da24ad5c84bf"
 
-	RekorRedisImage    = "registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:5f0630c7aa29eeee28668f7ad451f129c9fb2feb86ec21b6b1b0b5cc42b44f4a"
-	RekorServerImage   = "registry.redhat.io/rhtas/rekor-server-rhel9@sha256:d4ea970447f3b4c18c309d2f0090a5d02260dd5257a0d41f87fefc4f014a9526"
-	RekorSearchUiImage = "registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:5eabf561c0549d81862e521ddc1f0ab91a3f2c9d99dcd83ab5a2cf648a95dd19"
-	BackfillRedisImage = "registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:5c7460ab3cd13b2ecf2b979f5061cb384174d6714b7630879e53d063e4cb69d2"
+	RekorRedisImage    = "registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:5ee318e1f13b3e4bbabc4c4250c12d986cacfce28978203e502f4d91d023592c"
+	RekorServerImage   = "registry.redhat.io/rhtas/rekor-server-rhel9@sha256:73767ee1df9c9e63d5d20f5eee83dcb828fea4c5400ee771114577c02f335f66"
+	RekorSearchUiImage = "registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:8486888c1af02c4d6bade9d00e2c84589b206e2e195f266c03ed1937babcdaa7"
+	BackfillRedisImage = "registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:fd88470986177361fa58b5283ed807c19638c30be9f1391252f727db768543f8"
 
-	TufImage = "registry.redhat.io/rhtas/tuf-server-rhel9@sha256:8c229e2c7f9d6cc0ebf4f23dd944373d497be2ed31960f0383b1bb43f16de0db"
+	TufImage = "registry.redhat.io/rhtas/tuf-server-rhel9@sha256:3c9f0639534786f05a5b2a12ebadeb3c9c13fa66785e0e0470fe271406fe6a7c"
 
-	CTLogImage = "registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:44906b1e52b0b5e324f23cae088837caf15444fd34679e6d2f3cc018d4e093fe"
+	CTLogImage = "registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:1588b8e97456806b4f76f8e1e63f3c089f2bc3b898f18f43c22d03dbc03b4c15"
 
 	ClientServerImage    = "registry.access.redhat.com/ubi9/httpd-24@sha256:7874b82335a80269dcf99e5983c2330876f5fe8bdc33dc6aa4374958a2ffaaee"
-	ClientServerImage_cg = "registry.redhat.io/rhtas/client-server-cg-rhel9@sha256:046029a9a2028efa9dcbf8eff9b41fe5ac4e9ad64caf0241f5680a5cb36bf36b"
-	ClientServerImage_re = "registry.redhat.io/rhtas/client-server-re-rhel9@sha256:7254f4c94182d21159162ea850e1ed14332fa5dee987103d54e7e4096a6fea31"
-	SegmentBackupImage   = "registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:54be793ea9e2af996e5e5c6f9156ee02d5d915adb53b4ab028cb3030f64b1496"
+	ClientServerImage_cg = "registry.redhat.io/rhtas/client-server-cg-rhel9@sha256:105abb4bc44fc15b62df386be45d75bea40429aee5d2cbb3d599b8614e1f7b13"
+	ClientServerImage_re = "registry.redhat.io/rhtas/client-server-re-rhel9@sha256:c39bec557d519aaaedf09dfa6c54587914c6a253ed3c121bcbb4ae1827d1ec2d"
+	SegmentBackupImage   = "registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:5b7006f686f9b0c7cbed8ee5b599c72b952fd0f02d0388aa90c2b420bb7a78ba"
 )
