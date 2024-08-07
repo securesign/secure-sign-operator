@@ -7,6 +7,7 @@ import (
 	_ "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("Fulcio", func() {
@@ -143,6 +144,26 @@ var _ = Describe("Fulcio", func() {
 				Expect(k8sClient.Get(context.Background(), getKey(validObject), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(validObject))
 			})
+
+			It("prefix with /", func() {
+				validObject := generateFulcioObject("prefix-valid")
+				validObject.Spec.Ctlog.Prefix = "logs/prefix"
+
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+
+				fetched := &Fulcio{}
+				Expect(k8sClient.Get(context.Background(), getKey(validObject), fetched)).To(Succeed())
+				Expect(fetched).To(Equal(validObject))
+			})
+
+			It("prefix with invalid chars", func() {
+				invalidObject := generateFulcioObject("prefix-invalid")
+				invalidObject.Spec.Ctlog.Prefix = "prefix.log"
+
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("spec.ctlog.prefix in body should match")))
+			})
 		})
 
 		Context("Default settings", func() {
@@ -165,7 +186,6 @@ var _ = Describe("Fulcio", func() {
 
 			When("CR is fully populated", func() {
 				It("outputs the CR", func() {
-					port := int32(80)
 					fulcioInstance = Fulcio{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "fulcio-full-manifest",
@@ -211,7 +231,8 @@ var _ = Describe("Fulcio", func() {
 							},
 							Ctlog: CtlogService{
 								Address: "ctlog.default.svc",
-								Port:    &port,
+								Port:    ptr.To(int32(80)),
+								Prefix:  "trusted-artifact-signer",
 							},
 						},
 					}
@@ -259,6 +280,11 @@ func generateFulcioObject(name string) *Fulcio {
 			Certificate: FulcioCert{
 				CommonName:       "hostname",
 				OrganizationName: "organization",
+			},
+			Ctlog: CtlogService{
+				Address: "",
+				Port:    ptr.To(int32(80)),
+				Prefix:  "trusted-artifact-signer",
 			},
 		},
 	}

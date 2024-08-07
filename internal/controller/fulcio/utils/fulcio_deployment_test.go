@@ -3,6 +3,9 @@ package utils
 import (
 	"testing"
 
+	v13 "k8s.io/api/apps/v1"
+	"k8s.io/utils/ptr"
+
 	"github.com/securesign/operator/internal/controller/annotations"
 
 	. "github.com/onsi/gomega"
@@ -119,6 +122,69 @@ func TestMissingPrivateKey(t *testing.T) {
 	g.Expect(deployment).Should(BeNil())
 }
 
+func TestCtlogConfig(t *testing.T) {
+	tests := []struct {
+		name   string
+		args   v1alpha1.CtlogService
+		verify func(Gomega, *v13.Deployment, error)
+	}{
+		{
+			name: "missing address",
+			args: v1alpha1.CtlogService{
+				Port:   ptr.To(int32(1234)),
+				Prefix: "prefix",
+			},
+			verify: func(g Gomega, deployment *v13.Deployment, err error) {
+				g.Expect(err).Should(HaveOccurred())
+				g.Expect(err).Should(MatchError(CtlogAddressNotSpecified))
+			},
+		},
+		{
+			name: "missing port",
+			args: v1alpha1.CtlogService{
+				Address: "http://address",
+				Prefix:  "prefix",
+			},
+			verify: func(g Gomega, deployment *v13.Deployment, err error) {
+				g.Expect(err).Should(HaveOccurred())
+				g.Expect(err).Should(MatchError(CtlogPortNotSpecified))
+			},
+		},
+		{
+			name: "missing prefix",
+			args: v1alpha1.CtlogService{
+				Address: "http://address",
+				Port:    ptr.To(int32(1234)),
+			},
+			verify: func(g Gomega, deployment *v13.Deployment, err error) {
+				g.Expect(err).Should(HaveOccurred())
+				g.Expect(err).Should(MatchError(CtlogPrefixNotSpecified))
+			},
+		},
+		{
+			name: "valid",
+			args: v1alpha1.CtlogService{
+				Address: "http://address",
+				Port:    ptr.To(int32(1234)),
+				Prefix:  "prefix",
+			},
+			verify: func(g Gomega, deployment *v13.Deployment, err error) {
+				g.Expect(err).Should(Succeed())
+				g.Expect(deployment.Spec.Template.Spec.Containers[0].Args).Should(ContainElement(Equal("--ct-log-url=http://address:1234/prefix")))
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			instance := createInstance()
+			instance.Spec.Ctlog = tt.args
+			deployment, err := CreateDeployment(instance, deploymentName, rbacName, map[string]string{})
+			tt.verify(g, deployment, err)
+		})
+	}
+}
+
 func findVolume(name string, volumes []v12.Volume) *v12.Volume {
 	for _, v := range volumes {
 		if v.Name == name {
@@ -139,6 +205,7 @@ func createInstance() *v1alpha1.Fulcio {
 			Ctlog: v1alpha1.CtlogService{
 				Address: "http://ctlog.default.svc",
 				Port:    &port,
+				Prefix:  "prefix",
 			},
 		},
 		Status: v1alpha1.FulcioStatus{

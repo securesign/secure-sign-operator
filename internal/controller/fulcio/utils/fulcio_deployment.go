@@ -65,8 +65,10 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 		err = fmt.Errorf("CreateDeployment: %w", CtlogAddressNotSpecified)
 	case instance.Spec.Ctlog.Port == nil:
 		err = fmt.Errorf("CreateDeployment: %w", CtlogPortNotSpecified)
+	case instance.Spec.Ctlog.Prefix == "":
+		err = fmt.Errorf("CreateDeployment: %w", CtlogPrefixNotSpecified)
 	default:
-		ctlogUrl = fmt.Sprintf("%s:%d/trusted-artifact-signer", instance.Spec.Ctlog.Address, *instance.Spec.Ctlog.Port)
+		ctlogUrl = fmt.Sprintf("%s:%d/%s", instance.Spec.Ctlog.Address, *instance.Spec.Ctlog.Port, instance.Spec.Ctlog.Prefix)
 	}
 
 	if err != nil {
