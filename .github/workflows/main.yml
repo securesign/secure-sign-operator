@@ -463,7 +463,8 @@ jobs:
       - name: Deploy operator container
         env:
           OPENSHIFT: false
-        run: make deploy
+        # run: make deploy
+        run: make deploy IMG=quay.io/fghanmi/my_operator:v4.6.1
 
       # TODO: deploy ingress and execute e2e
       - name: Deploy RTHAS
