@@ -120,7 +120,7 @@ func (i createTreeJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 			echo "TREE_ID=$TREE_ID"
 			TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
 			NAMESPACE=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
-			API_SERVER=https://openshift.default.svc
+			API_SERVER=https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT}
 			curl -k -X PATCH $API_SERVER/api/v1/namespaces/$NAMESPACE/configmaps/"%s" \
 				-H "Authorization: Bearer $TOKEN" \
 				-H "Content-Type: application/merge-patch+json" \
