@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/test/e2e/support"
+	"github.com/securesign/operator/test/e2e/support/tas"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -141,12 +142,12 @@ var _ = Describe("Securesign TLS Configuration", Ordered, func() {
 			}
 			createSecret(ctx, cli, namespace.Name, "trillian-server-secret", trillian_data)
 
-			// Expect(cli.Create(ctx, securesign)).To(Succeed())
+			Expect(cli.Create(ctx, securesign)).To(Succeed())
 		})
 
 		It("All components are running", func() {
 			// tas.VerifySecuresign(ctx, cli, namespace.Name, securesign.Name)
-			// tas.VerifyTrillian(ctx, cli, namespace.Name, securesign.Name, true)
+			tas.VerifyTrillian(ctx, cli, namespace.Name, securesign.Name, true)
 			// tas.VerifyCTLog(ctx, cli, namespace.Name, securesign.Name)
 			// tas.VerifyTuf(ctx, cli, namespace.Name, securesign.Name)
 			// tas.VerifyRekor(ctx, cli, namespace.Name, securesign.Name)
