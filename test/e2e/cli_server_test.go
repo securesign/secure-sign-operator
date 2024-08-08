@@ -37,7 +37,7 @@ var _ = Describe("CliServer", Ordered, func() {
 		It("is available", func() {
 			lst := &v1.IngressList{}
 			Expect(cli.List(ctx, lst, ctrl.InNamespace(cliServerNs))).To(Succeed())
-			Expect(len(lst.Items)).To(Equal(1))
+			Expect(lst.Items).To(HaveLen(1))
 			protocol := "http://"
 			if len(lst.Items[0].Spec.TLS) > 0 {
 				protocol = "https://"
@@ -48,7 +48,7 @@ var _ = Describe("CliServer", Ordered, func() {
 			Eventually(func(g Gomega) {
 				resp, err := httpClient.Get(testUrl)
 				g.Expect(err).ToNot(HaveOccurred())
-				defer resp.Body.Close()
+				defer func() { _ = resp.Body.Close() }()
 				g.Expect(resp.StatusCode).To(Equal(200), fmt.Sprintf("http server is not available at %s", testUrl))
 			}).WithTimeout(1 * time.Minute).Should(Succeed())
 		})
@@ -67,7 +67,7 @@ var _ = Describe("CliServer", Ordered, func() {
 			} {
 				resp, err := httpClient.Head(fmt.Sprintf(url+path, cli))
 				Expect(err).ToNot(HaveOccurred())
-				defer resp.Body.Close()
+				defer func() { _ = resp.Body.Close() }()
 				Expect(resp.StatusCode).To(Equal(200), fmt.Sprintf("Client for %s on %s not found", cli, path))
 			}
 		},
