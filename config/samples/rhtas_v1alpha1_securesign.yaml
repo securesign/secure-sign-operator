@@ -23,8 +23,8 @@ spec:
     config:
       OIDCIssuers:
         - ClientID: "trusted-artifact-signer"
-          IssuerURL: "https://keycloak-keycloak-system.apps.rosa.iduhn-ah6m6-dk9.o468.p3.openshiftapps.com/auth/realms/trusted-artifact-signer"
-          Issuer: "https://keycloak-keycloak-system.apps.rosa.iduhn-ah6m6-dk9.o468.p3.openshiftapps.com/auth/realms/trusted-artifact-signer"
+          IssuerURL: "https://your-oidc-issuer-url"
+          Issuer: "https://your-oidc-issuer-url"
           Type: "email"
     certificate:
       organizationName: Red Hat

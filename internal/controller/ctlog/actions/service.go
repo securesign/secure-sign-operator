@@ -41,19 +41,8 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog
 
 	labels := constants.LabelsFor(ComponentName, ComponentName, instance.Name)
 
+	svc := kubernetes.CreateService(instance.Namespace, ComponentName, ServerPortName, ServerPort, ServerTargetPort, labels)
 	signingKeySecret, _ := k8sutils.GetSecret(i.Client, "openshift-service-ca", "signing-key")
-	var port int
-	var portName string
-	if instance.Spec.TLSCertificate.CertRef != nil || signingKeySecret != nil {
-		// port = HttpsServerPort // TODO
-		// portName = HttpsServerPortName
-		port = ServerPort
-		portName = ServerPortName
-	} else {
-		port = ServerPort
-		portName = ServerPortName
-	}
-	svc := kubernetes.CreateService(instance.Namespace, ComponentName, portName, port, ServerTargetPort, labels)
 	if instance.Spec.Monitoring.Enabled {
 		svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
 			Name:       MetricsPortName,
