@@ -255,7 +255,10 @@ func TestResolveTree_Handle(t *testing.T) {
 				Build()
 
 			if tt.env.configMap != nil {
-				c.Create(ctx, tt.env.configMap)
+				err := c.Create(ctx, tt.env.configMap)
+				if err != nil {
+					t.Fatalf("failed to create config map: %v", err)
+				}
 			}
 
 			a := testAction.PrepareAction(c, NewResolveTreeAction(func(a *resolveTreeAction) {
