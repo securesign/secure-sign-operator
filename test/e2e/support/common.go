@@ -12,8 +12,13 @@ import (
 	"strings"
 	"time"
 
+	routev1 "github.com/openshift/api/route/v1"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	v12 "k8s.io/api/apps/v1"
 	v13 "k8s.io/api/batch/v1"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/docker/docker/api/types"
 	docker "github.com/docker/docker/client"
@@ -21,17 +26,38 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/dsl/core"
 	. "github.com/onsi/gomega"
+	olm "github.com/operator-framework/api/pkg/operators/v1"
+	olmAlpha "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/json"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	runtimeCli "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const fromImage = "alpine:latest"
 
+func CreateClient() (runtimeCli.Client, error) {
+	scheme := runtime.NewScheme()
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(monitoringv1.AddToScheme(scheme))
+	utilruntime.Must(rhtasv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(routev1.AddToScheme(scheme))
+	utilruntime.Must(olmAlpha.AddToScheme(scheme))
+	utilruntime.Must(olm.AddToScheme(scheme))
+
+	cfg, err := config.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return runtimeCli.New(cfg, runtimeCli.Options{Scheme: scheme})
+
+}
 func CreateTestNamespace(ctx context.Context, cli client.Client) *v1.Namespace {
 	sp := ginkgo.CurrentSpecReport()
 	fn := filepath.Base(sp.LeafNodeLocation.FileName)

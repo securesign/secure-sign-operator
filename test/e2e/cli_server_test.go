@@ -11,6 +11,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/networking/v1"
 	ctrl "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -26,7 +27,7 @@ var _ = Describe("CliServer", Ordered, func() {
 	)
 
 	BeforeAll(func() {
-		cli, _ = CreateClient()
+		cli, _ = support.CreateClient()
 		tr := &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}

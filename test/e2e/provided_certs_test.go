@@ -29,7 +29,7 @@ import (
 const CertPassword = "LetMeIn123"
 
 var _ = Describe("Securesign install with provided certs", Ordered, func() {
-	cli, _ := CreateClient()
+	cli, _ := support.CreateClient()
 	ctx := context.TODO()
 
 	var targetImageName string
