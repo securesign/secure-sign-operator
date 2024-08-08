@@ -224,6 +224,7 @@ spec:
               ctlog:
                 default:
                   port: 80
+                  prefix: trusted-artifact-signer
                 description: Ctlog service configuration
                 properties:
                   address:
@@ -236,6 +237,13 @@ spec:
                     maximum: 65535
                     minimum: 1
                     type: integer
+                  prefix:
+                    default: trusted-artifact-signer
+                    description: |-
+                      Prefix is the name of the log. The prefix cannot be empty and can
+                      contain "/" path separator characters to define global override handler prefix.
+                    pattern: ^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$
+                    type: string
                 type: object
               externalAccess:
                 description: Define whether you want to export service or not

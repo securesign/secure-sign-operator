@@ -45,6 +45,12 @@ type CtlogService struct {
 	//+kubebuilder:default:=80
 	//+optional
 	Port *int32 `json:"port,omitempty"`
+	// Prefix is the name of the log. The prefix cannot be empty and can
+	// contain "/" path separator characters to define global override handler prefix.
+	//+kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$"
+	//+kubebuilder:default:=trusted-artifact-signer
+	//+optional
+	Prefix string `json:"prefix,omitempty"`
 }
 
 // LocalObjectReference contains enough information to let you locate the
