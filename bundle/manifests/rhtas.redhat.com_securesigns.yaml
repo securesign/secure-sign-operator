@@ -153,6 +153,21 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     type: array
+                  serverConfigRef:
+                    description: |-
+                      Secret holding Certificate Transparency server config in text proto format
+                      If it is set then any setting of treeID, privateKeyRef, privateKeyPasswordRef,
+                      publicKeyRef, rootCertificates and trillian will be overridden.
+                    properties:
+                      name:
+                        description: |-
+                          Name of the referent.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
                   treeID:
                     description: |-
                       The ID of a Trillian tree that stores the log data.

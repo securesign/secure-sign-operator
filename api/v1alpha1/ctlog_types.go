@@ -42,6 +42,12 @@ type CTlogSpec struct {
 	// Trillian service configuration
 	//+kubebuilder:default:={port: 8091}
 	Trillian TrillianService `json:"trillian,omitempty"`
+
+	// Secret holding Certificate Transparency server config in text proto format
+	// If it is set then any setting of treeID, privateKeyRef, privateKeyPasswordRef,
+	// publicKeyRef, rootCertificates and trillian will be overridden.
+	//+optional
+	ServerConfigRef *LocalObjectReference `json:"serverConfigRef,omitempty"`
 }
 
 // CTlogStatus defines the observed state of CTlog component
