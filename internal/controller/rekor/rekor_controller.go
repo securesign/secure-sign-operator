@@ -109,6 +109,7 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		actions2.NewRBACAction(),
 		server.NewShardingConfigAction(),
+		server.NewCreateTreeJobAction(),
 		server.NewResolveTreeAction(),
 		server.NewCAConfigMapAction(),
 		server.NewCreatePvcAction(),

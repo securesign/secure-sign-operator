@@ -64,7 +64,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *
 		{
 			APIGroups: []string{""},
 			Resources: []string{"configmaps"},
-			Verbs:     []string{"create", "get", "update"},
+			Verbs:     []string{"create", "get", "update", "patch"},
 		},
 		{
 			APIGroups: []string{""},

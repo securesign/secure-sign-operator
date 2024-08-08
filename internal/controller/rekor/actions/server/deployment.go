@@ -132,7 +132,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 				MountPath: "/etc/ssl/certs",
 				ReadOnly:  true,
 			})
-		dp.Spec.Template.Spec.Containers[0].Args = append(dp.Spec.Template.Spec.Containers[0].Args, "--tls_ca_cert", "/etc/ssl/certs/ca.crt")
+		dp.Spec.Template.Spec.Containers[0].Args = append(dp.Spec.Template.Spec.Containers[0].Args, "--trillian_log_server.tls_ca_cert", "/etc/ssl/certs/ca.crt")
 	}
 
 	if err = controllerutil.SetControllerReference(instance, dp, i.Client.Scheme()); err != nil {

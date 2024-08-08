@@ -3,25 +3,23 @@ package actions
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/google/trillian"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
-	"github.com/securesign/operator/internal/controller/ctlog/utils"
-	actions2 "github.com/securesign/operator/internal/controller/trillian/actions"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
-
-type createTree func(ctx context.Context, displayName string, trillianURL string, deadline int64) (*trillian.Tree, error)
 
 func NewResolveTreeAction(opts ...func(*resolveTreeAction)) action.Action[*rhtasv1alpha1.CTlog] {
 	a := &resolveTreeAction{
-		createTree: common.CreateTrillianTree,
+		timeout: time.Duration(constants.CreateTreeDeadline) * time.Second,
 	}
 
 	for _, opt := range opts {
@@ -32,7 +30,7 @@ func NewResolveTreeAction(opts ...func(*resolveTreeAction)) action.Action[*rhtas
 
 type resolveTreeAction struct {
 	action.BaseAction
-	createTree createTree
+	timeout time.Duration
 }
 
 func (i resolveTreeAction) Name() string {
@@ -62,23 +60,58 @@ func (i resolveTreeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.C
 	}
 	var err error
 	var tree *trillian.Tree
-	var trillUrl string
 
-	switch {
-	case instance.Spec.Trillian.Port == nil:
-		err = fmt.Errorf("%s: %v", i.Name(), utils.TrillianPortNotSpecified)
-	case instance.Spec.Trillian.Address == "":
-		trillUrl = fmt.Sprintf("%s.%s.svc:%d", actions2.LogserverDeploymentName, instance.Namespace, *instance.Spec.Trillian.Port)
-	default:
-		trillUrl = fmt.Sprintf("%s:%d", instance.Spec.Trillian.Address, *instance.Spec.Trillian.Port)
+	cm := &v1.ConfigMap{}
+	deadline := time.Now().Add(i.timeout)
+	for time.Now().Before(deadline) {
+		err = i.Client.Get(ctx, types.NamespacedName{Name: "ctlog-tree-id-config", Namespace: instance.Namespace}, cm)
+		if err == nil && cm.Data != nil {
+			break
+		}
+		if err != nil {
+			i.Logger.V(1).Error(fmt.Errorf("waiting for the ConfigMap"), err.Error())
+		}
+		time.Sleep(2 * time.Second)
 	}
+
 	if err != nil {
+		i.Logger.V(1).Error(fmt.Errorf("timed out waiting for the ConfigMap"), err.Error())
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: fmt.Sprintf("timed out waiting for the ConfigMap: %v", err),
+		})
+		return i.Failed(fmt.Errorf("timed out waiting for the ConfigMap: %s", "configmap not found"))
+	}
+
+	if cm.Data == nil {
+		err = fmt.Errorf("ConfigMap data is empty")
+		i.Logger.V(1).Error(err, err.Error())
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
 		return i.Failed(err)
 	}
-	i.Logger.V(1).Info("trillian logserver", "address", trillUrl)
 
-	tree, err = i.createTree(ctx, "ctlog-tree", trillUrl, constants.CreateTreeDeadline)
-	if err != nil {
+	treeId, exists := cm.Data["tree_id"]
+	treeIdInt, err := strconv.ParseInt(treeId, 10, 64)
+	tree = &trillian.Tree{TreeId: treeIdInt}
+	if !exists {
+		i.Logger.V(1).Error(err, err.Error())
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		return i.Failed(err)
+	}
+
+	if !exists {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    ServerCondition,
 			Status:  metav1.ConditionFalse,
