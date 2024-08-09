@@ -2,7 +2,6 @@ package actions
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -12,13 +11,10 @@ import (
 	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-)
-
-const (
-	CTLPubLabel = constants.LabelNamespace + "/ctfe.pub"
 )
 
 func NewServerConfigAction() action.Action[*rhtasv1alpha1.CTlog] {
@@ -30,45 +26,64 @@ type serverConfig struct {
 }
 
 func (i serverConfig) Name() string {
-	return "create server config"
+	return "server config"
 }
 
 func (i serverConfig) CanHandle(_ context.Context, instance *rhtasv1alpha1.CTlog) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Creating && instance.Status.ServerConfigRef == nil
+
+	switch {
+	case c == nil:
+		return false
+	case c.Reason != constants.Creating && c.Reason != constants.Ready:
+		return false
+	case instance.Status.ServerConfigRef == nil:
+		return true
+	case instance.Spec.ServerConfigRef != nil:
+		return !equality.Semantic.DeepEqual(instance.Spec.ServerConfigRef, instance.Status.ServerConfigRef)
+	default:
+		return false
+	}
 }
 
 func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) *action.Result {
 	var (
 		err error
 	)
+
+	if instance.Spec.ServerConfigRef != nil {
+		instance.Status.ServerConfigRef = instance.Spec.ServerConfigRef
+		i.Recorder.Event(instance, corev1.EventTypeNormal, "CTLogConfigUpdated", "CTLog config updated")
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
+			Status: metav1.ConditionFalse, Reason: constants.Creating, Message: "CTLog config updated"})
+		return i.StatusUpdate(ctx, instance)
+	}
+
 	switch {
 	case instance.Status.TreeID == nil:
-		return i.Failed(errors.New("reference to Trillian TreeID not set"))
+		return i.Failed(fmt.Errorf("%s: %v", i.Name(), ctlogUtils.TreeNotSpecified))
 	case instance.Status.PrivateKeyRef == nil:
-		return i.Failed(errors.New("status reference to private key not set"))
+		return i.Failed(fmt.Errorf("%s: %v", i.Name(), ctlogUtils.PrivateKeyNotSpecified))
+	case instance.Spec.Trillian.Port == nil:
+		return i.Failed(fmt.Errorf("%s: %v", i.Name(), ctlogUtils.TrillianPortNotSpecified))
 	case instance.Spec.Trillian.Address == "":
 		instance.Spec.Trillian.Address = fmt.Sprintf("%s.%s.svc", trillian.LogserverDeploymentName, instance.Namespace)
 	}
 
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 
-	//trillUrl, err := utils.GetInternalUrl(ctx, i.Client, instance.Namespace, trillian.LogserverDeploymentName)
 	trillianService := instance.DeepCopy().Spec.Trillian
+
+	rootCerts, err := i.handleRootCertificates(instance)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Creating,
-			Message: "Waiting for Trillian logserver",
+			Message: fmt.Sprintf("Waiting for Fulcio root certificate: %v", err.Error()),
 		})
 		i.StatusUpdate(ctx, instance)
 		return i.Requeue()
-	}
-
-	rootCerts, err := i.handleRootCertificates(instance)
-	if err != nil {
-		return i.Failed(err)
 	}
 
 	certConfig, err := i.handlePrivateKey(instance)
@@ -120,6 +135,9 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 }
 
 func (i serverConfig) handlePrivateKey(instance *rhtasv1alpha1.CTlog) (*ctlogUtils.PrivateKeyConfig, error) {
+	if instance == nil {
+		return nil, nil
+	}
 	private, err := utils.GetSecretData(i.Client, instance.Namespace, instance.Status.PrivateKeyRef)
 	if err != nil {
 		return nil, err
@@ -146,7 +164,7 @@ func (i serverConfig) handleRootCertificates(instance *rhtasv1alpha1.CTlog) ([]c
 	for _, selector := range instance.Status.RootCertificates {
 		data, err := utils.GetSecretData(i.Client, instance.Namespace, &selector)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%s/%s: %w", selector.Name, selector.Key, err)
 		}
 		certs = append(certs, data)
 	}

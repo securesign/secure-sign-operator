@@ -7,4 +7,5 @@ var (
 	TreeNotSpecified            = errors.New("tree not specified")
 	TrillianAddressNotSpecified = errors.New("trillian address not specified")
 	TrillianPortNotSpecified    = errors.New("trillian port not specified")
+	PrivateKeyNotSpecified      = errors.New("private key not specified")
 )
