@@ -4,14 +4,14 @@ package e2e
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
-	"math/big"
 	"time"
+
+	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
+	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
+	"github.com/securesign/operator/test/e2e/support/tas/rekor"
+	"github.com/securesign/operator/test/e2e/support/tas/securesign"
+	"github.com/securesign/operator/test/e2e/support/tas/trillian"
+	"github.com/securesign/operator/test/e2e/support/tas/tuf"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
 
@@ -19,13 +19,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/test/e2e/support"
-	"github.com/securesign/operator/test/e2e/support/tas"
 	clients "github.com/securesign/operator/test/e2e/support/tas/cli"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-const CertPassword = "LetMeIn123"
 
 var _ = Describe("Securesign install with provided certs", Ordered, func() {
 	cli, _ := CreateClient()
@@ -33,7 +30,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 
 	var targetImageName string
 	var namespace *v1.Namespace
-	var securesign *v1alpha1.Securesign
+	var s *v1alpha1.Securesign
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() && support.IsCIEnvironment() {
@@ -47,7 +44,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 			_ = cli.Delete(ctx, namespace)
 		})
 
-		securesign = &v1alpha1.Securesign{
+		s = &v1alpha1.Securesign{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace.Name,
 				Name:      "test",
@@ -167,15 +164,15 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 
 	Describe("Install with provided certificates", func() {
 		BeforeAll(func() {
-			Expect(cli.Create(ctx, initCTSecret(namespace.Name, "my-ctlog-secret"))).To(Succeed())
-			Expect(cli.Create(ctx, initFulcioSecret(namespace.Name, "my-fulcio-secret"))).To(Succeed())
-			Expect(cli.Create(ctx, initRekorSecret(namespace.Name, "my-rekor-secret"))).To(Succeed())
-			Expect(cli.Create(ctx, securesign)).To(Succeed())
+			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 
 		It("fulcio is running with mounted certs", func() {
-			tas.VerifyFulcio(ctx, cli, namespace.Name, securesign.Name)
-			server := tas.GetFulcioServerPod(ctx, cli, namespace.Name)()
+			fulcio.Verify(ctx, cli, namespace.Name, s.Name)
+			server := fulcio.GetServerPod(ctx, cli, namespace.Name)()
 			Expect(server).NotTo(BeNil())
 
 			sp := []v1.SecretProjection{}
@@ -197,8 +194,8 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 		})
 
 		It("rekor is running with mounted certs", func() {
-			tas.VerifyRekor(ctx, cli, namespace.Name, securesign.Name)
-			server := tas.GetRekorServerPod(ctx, cli, namespace.Name)()
+			rekor.Verify(ctx, cli, namespace.Name, s.Name)
+			server := rekor.GetServerPod(ctx, cli, namespace.Name)()
 			Expect(server).NotTo(BeNil())
 			Expect(server.Spec.Volumes).To(
 				ContainElement(
@@ -213,20 +210,20 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 		})
 
 		It("All other components are running", func() {
-			tas.VerifySecuresign(ctx, cli, namespace.Name, securesign.Name)
-			tas.VerifyCTLog(ctx, cli, namespace.Name, securesign.Name)
-			tas.VerifyTrillian(ctx, cli, namespace.Name, securesign.Name, true)
-			tas.VerifyTuf(ctx, cli, namespace.Name, securesign.Name)
+			securesign.Verify(ctx, cli, namespace.Name, s.Name)
+			ctlog.Verify(ctx, cli, namespace.Name, s.Name)
+			trillian.Verify(ctx, cli, namespace.Name, s.Name, true)
+			tuf.Verify(ctx, cli, namespace.Name, s.Name)
 		})
 
 		It("Use cosign cli", func() {
-			fulcio := tas.GetFulcio(ctx, cli, namespace.Name, securesign.Name)()
+			fulcio := fulcio.Get(ctx, cli, namespace.Name, s.Name)()
 			Expect(fulcio).ToNot(BeNil())
 
-			rekor := tas.GetRekor(ctx, cli, namespace.Name, securesign.Name)()
+			rekor := rekor.Get(ctx, cli, namespace.Name, s.Name)()
 			Expect(rekor).ToNot(BeNil())
 
-			tuf := tas.GetTuf(ctx, cli, namespace.Name, securesign.Name)()
+			tuf := tuf.Get(ctx, cli, namespace.Name, s.Name)()
 			Expect(tuf).ToNot(BeNil())
 
 			oidcToken, err := support.OidcToken(ctx)
@@ -258,132 +255,3 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 		})
 	})
 })
-
-func initFulcioSecret(ns string, name string) *v1.Secret {
-	public, private, root, err := initCertificates(true)
-	if err != nil {
-		return nil
-	}
-	return &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: ns,
-		},
-		Data: map[string][]byte{
-			"password": []byte(CertPassword),
-			"private":  private,
-			"public":   public,
-			"cert":     root,
-		},
-	}
-}
-
-func initRekorSecret(ns string, name string) *v1.Secret {
-	public, private, _, err := initCertificates(false)
-	if err != nil {
-		return nil
-	}
-	return &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: ns,
-		},
-		Data: map[string][]byte{
-			"private": private,
-			"public":  public,
-		},
-	}
-}
-
-func initCTSecret(ns string, name string) *v1.Secret {
-	public, private, _, err := initCertificates(false)
-	if err != nil {
-		return nil
-	}
-	return &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: ns,
-		},
-		Data: map[string][]byte{
-			"private": private,
-			"public":  public,
-		},
-	}
-}
-
-func initCertificates(passwordProtected bool) ([]byte, []byte, []byte, error) {
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	// private
-	privateKeyBytes, err := x509.MarshalECPrivateKey(key)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	var block *pem.Block
-	if passwordProtected {
-		block, err = x509.EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", privateKeyBytes, []byte(CertPassword), x509.PEMCipher3DES) //nolint:staticcheck
-		if err != nil {
-			return nil, nil, nil, err
-		}
-	} else {
-		block = &pem.Block{
-			Type:  "EC PRIVATE KEY",
-			Bytes: privateKeyBytes,
-		}
-	}
-	privateKeyPem := pem.EncodeToMemory(block)
-
-	// public key
-	publicKeyBytes, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	publicKeyPem := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "PUBLIC KEY",
-			Bytes: publicKeyBytes,
-		},
-	)
-
-	notBefore := time.Now()
-	notAfter := notBefore.Add(365 * 24 * 10 * time.Hour)
-
-	issuer := pkix.Name{
-		CommonName:         "local",
-		Country:            []string{"CR"},
-		Organization:       []string{"RedHat"},
-		Province:           []string{"Czech Republic"},
-		Locality:           []string{"Brno"},
-		OrganizationalUnit: []string{"QE"},
-	}
-	//Create certificate templet
-	template := x509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               issuer,
-		SignatureAlgorithm:    x509.ECDSAWithSHA256,
-		NotBefore:             notBefore,
-		NotAfter:              notAfter,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
-		Issuer:                issuer,
-	}
-	//Create certificate using templet
-	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
-	if err != nil {
-		return nil, nil, nil, err
-
-	}
-	//pem encoding of certificate
-	root := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "CERTIFICATE",
-			Bytes: derBytes,
-		},
-	)
-	return publicKeyPem, privateKeyPem, root, err
-}

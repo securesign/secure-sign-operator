@@ -1,7 +1,10 @@
-package tas
+package ctlog
 
 import (
 	"context"
+
+	"github.com/securesign/operator/test/e2e/support"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
@@ -14,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func VerifyCTLog(ctx context.Context, cli client.Client, namespace string, name string) {
+func Verify(ctx context.Context, cli client.Client, namespace string, name string) {
 	Eventually(func(g Gomega) bool {
 		instance := &v1alpha1.CTlog{}
 		g.Expect(cli.Get(ctx, types.NamespacedName{
@@ -32,7 +35,7 @@ func VerifyCTLog(ctx context.Context, cli client.Client, namespace string, name 
 	}).Should(And(Not(BeEmpty()), HaveEach(WithTransform(func(p v1.Pod) v1.PodPhase { return p.Status.Phase }, Equal(v1.PodRunning)))))
 }
 
-func GetCTLogServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {
+func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {
 	return func() *v1.Pod {
 		list := &v1.PodList{}
 		_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{kubernetes.ComponentLabel: actions.ComponentName, kubernetes.NameLabel: "ctlog"})
@@ -43,7 +46,7 @@ func GetCTLogServerPod(ctx context.Context, cli client.Client, ns string) func()
 	}
 }
 
-func GetCTLog(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.CTlog {
+func Get(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.CTlog {
 	return func() *v1alpha1.CTlog {
 		instance := &v1alpha1.CTlog{}
 		Expect(cli.Get(ctx, types.NamespacedName{
@@ -51,5 +54,22 @@ func GetCTLog(ctx context.Context, cli client.Client, ns string, name string) fu
 			Name:      name,
 		}, instance)).To(Succeed())
 		return instance
+	}
+}
+
+func CreateSecret(ns string, name string) *v1.Secret {
+	public, private, _, err := support.CreateCertificates(false)
+	if err != nil {
+		return nil
+	}
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Data: map[string][]byte{
+			"private": private,
+			"public":  public,
+		},
 	}
 }

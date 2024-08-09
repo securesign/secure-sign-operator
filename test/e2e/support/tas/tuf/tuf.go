@@ -1,4 +1,4 @@
-package tas
+package tuf
 
 import (
 	"context"
@@ -14,8 +14,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func VerifyTuf(ctx context.Context, cli client.Client, namespace string, name string) {
-	Eventually(GetTuf(ctx, cli, namespace, name)).Should(
+func Verify(ctx context.Context, cli client.Client, namespace string, name string) {
+	Eventually(Get(ctx, cli, namespace, name)).Should(
 		WithTransform(func(f *v1alpha1.Tuf) string {
 			return meta.FindStatusCondition(f.Status.Conditions, constants.Ready).Reason
 		}, Equal(constants.Ready)))
@@ -27,7 +27,7 @@ func VerifyTuf(ctx context.Context, cli client.Client, namespace string, name st
 	}).Should(And(Not(BeEmpty()), HaveEach(WithTransform(func(p v1.Pod) v1.PodPhase { return p.Status.Phase }, Equal(v1.PodRunning)))))
 }
 
-func GetTuf(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.Tuf {
+func Get(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.Tuf {
 	return func() *v1alpha1.Tuf {
 		instance := &v1alpha1.Tuf{}
 		_ = cli.Get(ctx, types.NamespacedName{
@@ -38,7 +38,7 @@ func GetTuf(ctx context.Context, cli client.Client, ns string, name string) func
 	}
 }
 
-func GetTufServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {
+func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {
 	return func() *v1.Pod {
 		list := &v1.PodList{}
 		_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{kubernetes.ComponentLabel: actions.ComponentName})

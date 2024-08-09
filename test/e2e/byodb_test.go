@@ -6,12 +6,18 @@ import (
 	"context"
 	"time"
 
+	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
+	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
+	"github.com/securesign/operator/test/e2e/support/tas/rekor"
+	"github.com/securesign/operator/test/e2e/support/tas/securesign"
+	"github.com/securesign/operator/test/e2e/support/tas/trillian"
+	"github.com/securesign/operator/test/e2e/support/tas/tuf"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/test/e2e/support"
-	"github.com/securesign/operator/test/e2e/support/tas"
 	clients "github.com/securesign/operator/test/e2e/support/tas/cli"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,7 +31,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 
 	var targetImageName string
 	var namespace *v1.Namespace
-	var securesign *v1alpha1.Securesign
+	var s *v1alpha1.Securesign
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() && support.IsCIEnvironment() {
@@ -39,7 +45,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 			_ = cli.Delete(ctx, namespace)
 		})
 
-		securesign = &v1alpha1.Securesign{
+		s = &v1alpha1.Securesign{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace.Name,
 				Name:      "test",
@@ -94,17 +100,17 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 
 	Describe("Install with byodb", func() {
 		BeforeAll(func() {
-			Expect(createDB(ctx, cli, namespace.Name, securesign.Spec.Trillian.Db.DatabaseSecretRef.Name)).To(Succeed())
-			Expect(cli.Create(ctx, securesign)).To(Succeed())
+			Expect(createDB(ctx, cli, namespace.Name, s.Spec.Trillian.Db.DatabaseSecretRef.Name)).To(Succeed())
+			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 
 		It("All components are running", func() {
-			tas.VerifySecuresign(ctx, cli, namespace.Name, securesign.Name)
-			tas.VerifyTrillian(ctx, cli, namespace.Name, securesign.Name, false)
-			tas.VerifyFulcio(ctx, cli, namespace.Name, securesign.Name)
-			tas.VerifyRekor(ctx, cli, namespace.Name, securesign.Name)
-			tas.VerifyCTLog(ctx, cli, namespace.Name, securesign.Name)
-			tas.VerifyTuf(ctx, cli, namespace.Name, securesign.Name)
+			securesign.Verify(ctx, cli, namespace.Name, s.Name)
+			trillian.Verify(ctx, cli, namespace.Name, s.Name, false)
+			fulcio.Verify(ctx, cli, namespace.Name, s.Name)
+			rekor.Verify(ctx, cli, namespace.Name, s.Name)
+			ctlog.Verify(ctx, cli, namespace.Name, s.Name)
+			tuf.Verify(ctx, cli, namespace.Name, s.Name)
 		})
 
 		It("No other DB is created", func() {
@@ -114,13 +120,13 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 		})
 
 		It("Use cosign cli", func() {
-			fulcio := tas.GetFulcio(ctx, cli, namespace.Name, securesign.Name)()
+			fulcio := fulcio.Get(ctx, cli, namespace.Name, s.Name)()
 			Expect(fulcio).ToNot(BeNil())
 
-			rekor := tas.GetRekor(ctx, cli, namespace.Name, securesign.Name)()
+			rekor := rekor.Get(ctx, cli, namespace.Name, s.Name)()
 			Expect(rekor).ToNot(BeNil())
 
-			tuf := tas.GetTuf(ctx, cli, namespace.Name, securesign.Name)()
+			tuf := tuf.Get(ctx, cli, namespace.Name, s.Name)()
 			Expect(tuf).ToNot(BeNil())
 
 			oidcToken, err := support.OidcToken(ctx)
