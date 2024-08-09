@@ -10,6 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
+	fulcio2 "github.com/securesign/operator/test/e2e/support/tas/fulcio"
+	rekor2 "github.com/securesign/operator/test/e2e/support/tas/rekor"
+	"github.com/securesign/operator/test/e2e/support/tas/securesign"
+	trillian2 "github.com/securesign/operator/test/e2e/support/tas/trillian"
+	tuf2 "github.com/securesign/operator/test/e2e/support/tas/tuf"
+
 	semver "github.com/blang/semver/v4"
 	"github.com/onsi/ginkgo/v2/dsl/core"
 	v12 "github.com/operator-framework/api/pkg/operators/v1"
@@ -21,7 +28,6 @@ import (
 	rekor "github.com/securesign/operator/internal/controller/rekor/actions"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	tuf "github.com/securesign/operator/internal/controller/tuf/actions"
-	"github.com/securesign/operator/test/e2e/support/tas"
 	clients "github.com/securesign/operator/test/e2e/support/tas/cli"
 	v13 "k8s.io/api/apps/v1"
 
@@ -56,23 +62,20 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 	)
 
 	AfterEach(func() {
-		if CurrentSpecReport().Failed() {
+		if CurrentSpecReport().Failed() && support.IsCIEnvironment() {
+			support.DumpNamespace(ctx, cli, namespace.Name)
+			csvs := &v1alpha1.ClusterServiceVersionList{}
+			gomega.Expect(cli.List(ctx, csvs, runtimeCli.InNamespace(namespace.Name))).To(gomega.Succeed())
+			core.GinkgoWriter.Println("\n\nClusterServiceVersions:")
+			for _, p := range csvs.Items {
+				core.GinkgoWriter.Printf("%s %s %s\n", p.Name, p.Spec.Version, p.Status.Phase)
+			}
 
-			if val, present := os.LookupEnv("CI"); present && val == "true" {
-				support.DumpNamespace(ctx, cli, namespace.Name)
-				csvs := &v1alpha1.ClusterServiceVersionList{}
-				cli.List(ctx, csvs, runtimeCli.InNamespace(namespace.Name))
-				core.GinkgoWriter.Println("\n\nClusterServiceVersions:")
-				for _, p := range csvs.Items {
-					core.GinkgoWriter.Printf("%s %s %s\n", p.Name, p.Spec.Version, p.Status.Phase)
-				}
-
-				catalogs := &v1alpha1.CatalogSourceList{}
-				cli.List(ctx, catalogs, runtimeCli.InNamespace(namespace.Name))
-				core.GinkgoWriter.Println("\n\nCatalogSources:")
-				for _, p := range catalogs.Items {
-					core.GinkgoWriter.Printf("%s %s %s\n", p.Name, p.Spec.Image, p.Status.GRPCConnectionState.LastObservedState)
-				}
+			catalogs := &v1alpha1.CatalogSourceList{}
+			gomega.Expect(cli.List(ctx, catalogs, runtimeCli.InNamespace(namespace.Name))).To(gomega.Succeed())
+			core.GinkgoWriter.Println("\n\nCatalogSources:")
+			for _, p := range catalogs.Items {
+				core.GinkgoWriter.Printf("%s %s %s\n", p.Name, p.Spec.Image, p.Status.GRPCConnectionState.LastObservedState)
 			}
 		}
 	})
@@ -85,7 +88,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 
 		namespace = support.CreateTestNamespace(ctx, cli)
 		DeferCleanup(func() {
-			cli.Delete(ctx, namespace)
+			_ = cli.Delete(ctx, namespace)
 		})
 	})
 
@@ -100,9 +103,9 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 
 		gomega.Expect(support.CreateOrUpdateCatalogSource(ctx, cli, namespace.Name, testCatalog, baseCatalogImage)).To(gomega.Succeed())
 
-		gomega.Eventually(func() *v1alpha1.CatalogSource {
+		gomega.Eventually(func(g gomega.Gomega) *v1alpha1.CatalogSource {
 			c := &v1alpha1.CatalogSource{}
-			cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: testCatalog}, c)
+			g.Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: testCatalog}, c)).To(gomega.Succeed())
 			return c
 		}).Should(gomega.And(gomega.Not(gomega.BeNil()), gomega.WithTransform(func(c *v1alpha1.CatalogSource) string {
 			if c.Status.GRPCConnectionState == nil {
@@ -150,7 +153,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		gomega.Eventually(func(g gomega.Gomega) {
 			csvs := &v1alpha1.ClusterServiceVersionList{}
 			g.Expect(cli.List(ctx, csvs, runtimeCli.InNamespace(namespace.Name))).To(gomega.Succeed())
-		})
+		}).Should(gomega.Succeed())
 
 		gomega.Eventually(findClusterServiceVersion(ctx, cli, func(_ v1alpha1.ClusterServiceVersion) bool {
 			return true
@@ -220,23 +223,23 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 
 		gomega.Expect(cli.Create(ctx, securesignDeployment)).To(gomega.Succeed())
 
-		tas.VerifySecuresign(ctx, cli, namespace.Name, securesignDeployment.Name)
-		tas.VerifyFulcio(ctx, cli, namespace.Name, securesignDeployment.Name)
-		tas.VerifyRekor(ctx, cli, namespace.Name, securesignDeployment.Name)
-		tas.VerifyTrillian(ctx, cli, namespace.Name, securesignDeployment.Name, true)
-		tas.VerifyCTLog(ctx, cli, namespace.Name, securesignDeployment.Name)
-		tas.VerifyTuf(ctx, cli, namespace.Name, securesignDeployment.Name)
-		tas.VerifyRekorSearchUI(ctx, cli, namespace.Name, securesignDeployment.Name)
+		securesign.Verify(ctx, cli, namespace.Name, securesignDeployment.Name)
+		fulcio2.Verify(ctx, cli, namespace.Name, securesignDeployment.Name)
+		rekor2.Verify(ctx, cli, namespace.Name, securesignDeployment.Name)
+		trillian2.Verify(ctx, cli, namespace.Name, securesignDeployment.Name, true)
+		ctlog.Verify(ctx, cli, namespace.Name, securesignDeployment.Name)
+		tuf2.Verify(ctx, cli, namespace.Name, securesignDeployment.Name)
+		rekor2.VerifySearchUI(ctx, cli, namespace.Name)
 	})
 
 	It("Sign image with cosign cli", func() {
-		rfulcio = tas.GetFulcio(ctx, cli, namespace.Name, securesignDeployment.Name)()
+		rfulcio = fulcio2.Get(ctx, cli, namespace.Name, securesignDeployment.Name)()
 		gomega.Expect(rfulcio).ToNot(gomega.BeNil())
 
-		rrekor = tas.GetRekor(ctx, cli, namespace.Name, securesignDeployment.Name)()
+		rrekor = rekor2.Get(ctx, cli, namespace.Name, securesignDeployment.Name)()
 		gomega.Expect(rrekor).ToNot(gomega.BeNil())
 
-		rtuf = tas.GetTuf(ctx, cli, namespace.Name, securesignDeployment.Name)()
+		rtuf = tuf2.Get(ctx, cli, namespace.Name, securesignDeployment.Name)()
 		gomega.Expect(rtuf).ToNot(gomega.BeNil())
 
 		var err error
@@ -263,9 +266,9 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 	It("Upgrade operator", func() {
 		gomega.Expect(support.CreateOrUpdateCatalogSource(ctx, cli, namespace.Name, testCatalog, targetedCatalogImage)).To(gomega.Succeed())
 
-		gomega.Eventually(func() *v1alpha1.CatalogSource {
+		gomega.Eventually(func(g gomega.Gomega) *v1alpha1.CatalogSource {
 			c := &v1alpha1.CatalogSource{}
-			cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: testCatalog}, c)
+			g.Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: testCatalog}, c)).To(gomega.Succeed())
 			return c
 		}).Should(gomega.And(gomega.Not(gomega.BeNil()), gomega.WithTransform(func(c *v1alpha1.CatalogSource) string {
 			if c.Status.GRPCConnectionState == nil {
@@ -314,13 +317,13 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 			}).Should(gomega.Equal(v), fmt.Sprintf("Expected %s deployment image to be equal to %s", k, v))
 		}
 
-		tas.VerifySecuresign(ctx, cli, namespace.Name, securesignDeployment.Name)
-		tas.VerifyFulcio(ctx, cli, namespace.Name, securesignDeployment.Name)
-		tas.VerifyRekor(ctx, cli, namespace.Name, securesignDeployment.Name)
-		tas.VerifyTrillian(ctx, cli, namespace.Name, securesignDeployment.Name, true)
-		tas.VerifyCTLog(ctx, cli, namespace.Name, securesignDeployment.Name)
-		tas.VerifyTuf(ctx, cli, namespace.Name, securesignDeployment.Name)
-		tas.VerifyRekorSearchUI(ctx, cli, namespace.Name, securesignDeployment.Name)
+		securesign.Verify(ctx, cli, namespace.Name, securesignDeployment.Name)
+		fulcio2.Verify(ctx, cli, namespace.Name, securesignDeployment.Name)
+		rekor2.Verify(ctx, cli, namespace.Name, securesignDeployment.Name)
+		trillian2.Verify(ctx, cli, namespace.Name, securesignDeployment.Name, true)
+		ctlog.Verify(ctx, cli, namespace.Name, securesignDeployment.Name)
+		tuf2.Verify(ctx, cli, namespace.Name, securesignDeployment.Name)
+		rekor2.VerifySearchUI(ctx, cli, namespace.Name)
 	})
 
 	It("Verify image signature after upgrade", func() {

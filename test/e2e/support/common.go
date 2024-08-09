@@ -9,13 +9,14 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	v12 "k8s.io/api/apps/v1"
 	v13 "k8s.io/api/batch/v1"
 
-	"github.com/docker/docker/api/types"
+	dockerTypes "github.com/docker/docker/api/types"
 	docker "github.com/docker/docker/client"
 	"github.com/google/uuid"
 	"github.com/onsi/ginkgo/v2"
@@ -31,6 +32,14 @@ import (
 )
 
 const fromImage = "alpine:latest"
+
+func IsCIEnvironment() bool {
+	if val, present := os.LookupEnv("CI"); present {
+		b, _ := strconv.ParseBool(val)
+		return b
+	}
+	return false
+}
 
 func CreateTestNamespace(ctx context.Context, cli client.Client) *v1.Namespace {
 	sp := ginkgo.CurrentSpecReport()
@@ -59,7 +68,7 @@ func PrepareImage(ctx context.Context) string {
 	Expect(err).ToNot(HaveOccurred())
 
 	var pull io.ReadCloser
-	pull, err = dockerCli.ImagePull(ctx, fromImage, types.ImagePullOptions{})
+	pull, err = dockerCli.ImagePull(ctx, fromImage, dockerTypes.ImagePullOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	_, err = io.Copy(core.GinkgoWriter, pull)
 	Expect(err).ToNot(HaveOccurred())
@@ -67,7 +76,7 @@ func PrepareImage(ctx context.Context) string {
 
 	Expect(dockerCli.ImageTag(ctx, fromImage, targetImageName)).To(Succeed())
 	var push io.ReadCloser
-	push, err = dockerCli.ImagePush(ctx, targetImageName, types.ImagePushOptions{RegistryAuth: types.RegistryAuthFromSpec})
+	push, err = dockerCli.ImagePush(ctx, targetImageName, dockerTypes.ImagePushOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	_, err = io.Copy(core.GinkgoWriter, push)
 	Expect(err).ToNot(HaveOccurred())

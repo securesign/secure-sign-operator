@@ -1,4 +1,4 @@
-package tas
+package trillian
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func VerifyTrillian(ctx context.Context, cli client.Client, namespace string, name string, dbPresent bool) {
+func Verify(ctx context.Context, cli client.Client, namespace string, name string, dbPresent bool) {
 	Eventually(func(g Gomega) bool {
 		instance := &v1alpha1.Trillian{}
 		g.Expect(cli.Get(ctx, types.NamespacedName{
