@@ -1,4 +1,4 @@
-package tas
+package fulcio
 
 import (
 	"context"
@@ -8,26 +8,28 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
+	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func VerifyFulcio(ctx context.Context, cli client.Client, namespace string, name string) {
-	Eventually(GetFulcio(ctx, cli, namespace, name)).Should(
+func Verify(ctx context.Context, cli client.Client, namespace string, name string) {
+	Eventually(Get(ctx, cli, namespace, name)).Should(
 		WithTransform(func(f *v1alpha1.Fulcio) bool {
 			return meta.IsStatusConditionTrue(f.Status.Conditions, constants.Ready)
 		}, BeTrue()))
 
-	list := &v1.PodList{}
-	Eventually(func(g Gomega) []v1.Pod {
-		g.Expect(cli.List(ctx, list, client.InNamespace(namespace), client.MatchingLabels{kubernetes.ComponentLabel: actions.ComponentName})).To(Succeed())
-		return list.Items
-	}).Should(And(Not(BeEmpty()), HaveEach(WithTransform(func(p v1.Pod) v1.PodPhase { return p.Status.Phase }, Equal(v1.PodRunning)))))
+	Eventually(func(g Gomega) (bool, error) {
+		return kubernetes.DeploymentIsRunning(ctx, cli, namespace, map[string]string{
+			kubernetes.ComponentLabel: actions.ComponentName,
+		})
+	}).Should(BeTrue())
 }
 
-func GetFulcioServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {
+func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {
 	return func() *v1.Pod {
 		list := &v1.PodList{}
 		_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{kubernetes.ComponentLabel: actions.ComponentName, kubernetes.NameLabel: "fulcio-server"})
@@ -38,7 +40,7 @@ func GetFulcioServerPod(ctx context.Context, cli client.Client, ns string) func(
 	}
 }
 
-func GetFulcio(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.Fulcio {
+func Get(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.Fulcio {
 	return func() *v1alpha1.Fulcio {
 		instance := &v1alpha1.Fulcio{}
 		_ = cli.Get(ctx, types.NamespacedName{
@@ -46,5 +48,24 @@ func GetFulcio(ctx context.Context, cli client.Client, ns string, name string) f
 			Name:      name,
 		}, instance)
 		return instance
+	}
+}
+
+func CreateSecret(ns string, name string) *v1.Secret {
+	public, private, root, err := support.CreateCertificates(true)
+	if err != nil {
+		return nil
+	}
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Data: map[string][]byte{
+			"password": []byte(support.CertPassword),
+			"private":  private,
+			"public":   public,
+			"cert":     root,
+		},
 	}
 }

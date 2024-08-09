@@ -20,6 +20,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/securesign/operator/test/e2e/support/tas/tsa"
+
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,7 +29,6 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/tsa/actions"
-	"github.com/securesign/operator/test/e2e/support"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -186,7 +187,7 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			}).Should(Equal(constants.Pending))
 
 			By("Creating new certificate chain and signer keys")
-			secret := support.InitTsaSecrets(Namespace, "tsa-test-secret")
+			secret := tsa.CreateSecrets(Namespace, "tsa-test-secret")
 			Expect(k8sClient.Create(context.TODO(), secret)).NotTo(HaveOccurred())
 
 			By("Status field changed for cert chain")

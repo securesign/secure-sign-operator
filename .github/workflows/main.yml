@@ -315,7 +315,7 @@ jobs:
           TEST_BASE_CATALOG: registry.redhat.io/redhat/redhat-operator-index:v4.14
           TEST_TARGET_CATALOG: ${{ env.CATALOG_IMG }}
           OPENSHIFT: false
-        run: go test ./test/e2e/... -tags=upgrade -timeout 20m
+        run: go test -p 1 ./test/e2e/... -tags=upgrade -timeout 20m
 
       - name: Archive test artifacts
         uses: actions/upload-artifact@v4

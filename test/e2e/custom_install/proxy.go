@@ -157,12 +157,7 @@ var _ = Describe("Securesign install in proxy-env", Ordered, func() {
 		})
 
 		It("All components are running", func() {
-			tas.VerifySecuresign(ctx, cli, namespace.Name, securesign.Name)
-			tas.VerifyTrillian(ctx, cli, namespace.Name, securesign.Name, true)
-			tas.VerifyFulcio(ctx, cli, namespace.Name, securesign.Name)
-			tas.VerifyRekor(ctx, cli, namespace.Name, securesign.Name)
-			tas.VerifyCTLog(ctx, cli, namespace.Name, securesign.Name)
-			tas.VerifyTuf(ctx, cli, namespace.Name, securesign.Name)
+			tas.VerifyAllComponents(ctx, cli, securesign, true)
 		})
 
 		It("OIDC connection run through proxy", func() {
