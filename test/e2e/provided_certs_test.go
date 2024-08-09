@@ -11,7 +11,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"math/big"
-	"os"
 	"time"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
@@ -37,17 +36,15 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 	var securesign *v1alpha1.Securesign
 
 	AfterEach(func() {
-		if CurrentSpecReport().Failed() {
-			if val, present := os.LookupEnv("CI"); present && val == "true" {
-				support.DumpNamespace(ctx, cli, namespace.Name)
-			}
+		if CurrentSpecReport().Failed() && support.IsCIEnvironment() {
+			support.DumpNamespace(ctx, cli, namespace.Name)
 		}
 	})
 
 	BeforeAll(func() {
 		namespace = support.CreateTestNamespace(ctx, cli)
 		DeferCleanup(func() {
-			cli.Delete(ctx, namespace)
+			_ = cli.Delete(ctx, namespace)
 		})
 
 		securesign = &v1alpha1.Securesign{
@@ -170,9 +167,9 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 
 	Describe("Install with provided certificates", func() {
 		BeforeAll(func() {
-			Expect(cli.Create(ctx, initCTSecret(namespace.Name, "my-ctlog-secret")))
-			Expect(cli.Create(ctx, initFulcioSecret(namespace.Name, "my-fulcio-secret")))
-			Expect(cli.Create(ctx, initRekorSecret(namespace.Name, "my-rekor-secret")))
+			Expect(cli.Create(ctx, initCTSecret(namespace.Name, "my-ctlog-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, initFulcioSecret(namespace.Name, "my-fulcio-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, initRekorSecret(namespace.Name, "my-rekor-secret"))).To(Succeed())
 			Expect(cli.Create(ctx, securesign)).To(Succeed())
 		})
 
@@ -328,7 +325,7 @@ func initCertificates(passwordProtected bool) ([]byte, []byte, []byte, error) {
 	}
 	var block *pem.Block
 	if passwordProtected {
-		block, err = x509.EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", privateKeyBytes, []byte(CertPassword), x509.PEMCipher3DES)
+		block, err = x509.EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", privateKeyBytes, []byte(CertPassword), x509.PEMCipher3DES) //nolint:staticcheck
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -342,6 +339,9 @@ func initCertificates(passwordProtected bool) ([]byte, []byte, []byte, error) {
 
 	// public key
 	publicKeyBytes, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	publicKeyPem := pem.EncodeToMemory(
 		&pem.Block{
 			Type:  "PUBLIC KEY",

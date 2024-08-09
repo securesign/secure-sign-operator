@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,6 +32,14 @@ import (
 )
 
 const fromImage = "alpine:latest"
+
+func IsCIEnvironment() bool {
+	if val, present := os.LookupEnv("CI"); present {
+		b, _ := strconv.ParseBool(val)
+		return b
+	}
+	return false
+}
 
 func CreateTestNamespace(ctx context.Context, cli client.Client) *v1.Namespace {
 	sp := ginkgo.CurrentSpecReport()

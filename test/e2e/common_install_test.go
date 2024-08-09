@@ -5,7 +5,6 @@ package e2e
 import (
 	"context"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
@@ -31,17 +30,15 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 	var securesign *v1alpha1.Securesign
 
 	AfterEach(func() {
-		if CurrentSpecReport().Failed() {
-			if val, present := os.LookupEnv("CI"); present && val == "true" {
-				support.DumpNamespace(ctx, cli, namespace.Name)
-			}
+		if CurrentSpecReport().Failed() && support.IsCIEnvironment() {
+			support.DumpNamespace(ctx, cli, namespace.Name)
 		}
 	})
 
 	BeforeAll(func() {
 		namespace = support.CreateTestNamespace(ctx, cli)
 		DeferCleanup(func() {
-			cli.Delete(ctx, namespace)
+			_ = cli.Delete(ctx, namespace)
 		})
 
 		securesign = &v1alpha1.Securesign{
@@ -196,7 +193,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				if err != nil {
 					return false
 				}
-				defer resp.Body.Close()
+				defer func() { _ = resp.Body.Close() }()
 				return resp.StatusCode == http.StatusOK
 			}, "30s", "1s").Should(BeTrue(), "Rekor UI should be accessible and return a status code of 200")
 		})
