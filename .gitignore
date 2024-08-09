@@ -32,6 +32,7 @@ go.work
 *.swp
 *.swo
 *~
+.DS_Store
 
 # K8s dump from e2e tests
 k8s-dump-*.tar.gz

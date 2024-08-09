@@ -130,12 +130,12 @@ test: manifests generate fmt vet envtest ## Run tests.
 # Utilize Kind or modify the e2e tests to load the image locally, enabling compatibility with other vendors.
 .PHONY: test-e2e  # Run the e2e tests against a Kind k8s instance that is spun up.
 test-e2e:
-	go test ./test/e2e/... -v -ginkgo.v -tags=integration -timeout 20m
+	go test -p 1 ./test/e2e/... -tags=integration -timeout 20m
 
 # Switch images from `registry.redhat.io` images to the dev images
 .PHONY: dev-images
 dev-images:
-	sed -E -f ci/dev-images.sed  -i internal/controller/constants/images.go
+	sed -E -f ci/dev-images.sed -i internal/controller/constants/images.go
 
 GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
 GOLANGCI_LINT_VERSION ?= v1.54.2
