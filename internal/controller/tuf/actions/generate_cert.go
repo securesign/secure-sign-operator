@@ -33,23 +33,7 @@ func (i resolveKeysAction) CanHandle(ctx context.Context, instance *rhtasv1alpha
 		return false
 	}
 
-	if !equality.Semantic.DeepDerivative(instance.Spec.Keys, instance.Status.Keys) {
-		return true
-	}
-	for index, k := range instance.Spec.Keys {
-		if k.SecretRef == nil {
-			if scr, _ := k8sutils.FindSecret(ctx, i.Client, instance.Namespace, fmt.Sprintf("%s/%s", constants.LabelNamespace, k.Name)); scr != nil {
-				if instance.Status.Keys[index].SecretRef == nil ||
-					instance.Status.Keys[index].SecretRef.Name != scr.Name ||
-					instance.Status.Keys[index].SecretRef.Key != scr.Labels[fmt.Sprintf("%s/%s", constants.LabelNamespace, k.Name)] {
-					return true
-				}
-			} else {
-				return true
-			}
-		}
-	}
-	return false
+	return !equality.Semantic.DeepDerivative(instance.Spec.Keys, instance.Status.Keys)
 }
 
 func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {

@@ -28,6 +28,7 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	actions2 "github.com/securesign/operator/internal/controller/ctlog/actions"
 	"github.com/securesign/operator/internal/controller/tuf/actions"
+	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -45,15 +46,14 @@ var _ = Describe("TUF controller", func() {
 
 		const (
 			TufName      = "test-tuf"
-			TufNamespace = "default"
+			TufNamespace = "controller"
 		)
 
 		ctx := context.Background()
 
 		namespace := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      TufName,
-				Namespace: TufNamespace,
+				Name: TufNamespace,
 			},
 		}
 
@@ -157,6 +157,26 @@ var _ = Describe("TUF controller", func() {
 			_ = k8sClient.Create(ctx, kubernetes.CreateSecret("ctlog-test", typeNamespaceName.Namespace, map[string][]byte{
 				"public": []byte("secret"),
 			}, secretLabels))
+
+			By("Waiting until Tuf init job is created")
+			initJob := &batchv1.Job{}
+			Eventually(func() error {
+				e := k8sClient.Get(ctx, types.NamespacedName{Name: actions.InitJobName, Namespace: namespace.Name}, initJob)
+				return e
+			}).Should(Not(HaveOccurred()))
+
+			By("Move to Job to completed")
+			// Workaround to succeed condition for Ready phase
+			initJob.Status.Conditions = []batchv1.JobCondition{
+				{Status: corev1.ConditionTrue, Type: batchv1.JobComplete, Reason: constants.Ready}}
+			Expect(k8sClient.Status().Update(ctx, initJob)).Should(Succeed())
+
+			By("Repository condition gets ready")
+			Eventually(func(g Gomega) bool {
+				found := &v1alpha1.Tuf{}
+				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return meta.IsStatusConditionTrue(found.Status.Conditions, actions.RepositoryCondition)
+			}).Should(BeTrue())
 
 			By("Waiting until Tuf instance is Initialization")
 			Eventually(func(g Gomega) string {

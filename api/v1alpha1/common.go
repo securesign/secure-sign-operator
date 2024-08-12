@@ -77,6 +77,9 @@ type SecretKeySelector struct {
 	Key string `json:"key" protobuf:"bytes,2,opt,name=key"`
 }
 
+// +kubebuilder:validation:Enum:=ReadWriteOnce;ReadOnlyMany;ReadWriteMany;ReadWriteOncePod
+type PersistentVolumeAccessMode core.PersistentVolumeAccessMode
+
 // Pvc configuration of the persistent storage claim for deployment in the cluster.
 type Pvc struct {
 	// The requested size of the persistent volume attached to Pod.
@@ -98,6 +101,10 @@ type Pvc struct {
 	// The name of the StorageClass to claim a PersistentVolume from.
 	//+optional
 	StorageClass string `json:"storageClass,omitempty"`
+	// PVC AccessModes
+	//+kubebuilder:default:={ReadWriteOnce}
+	//+kubebuilder:validation:MinItems:=1
+	AccessModes []PersistentVolumeAccessMode `json:"accessModes,omitempty"`
 }
 
 type Auth struct {

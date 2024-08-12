@@ -117,10 +117,36 @@ var _ = Describe("Rekor update", Ordered, func() {
 			}).Should(BeNumerically(">", rekorGeneration))
 		})
 
-		It("updated TUF deployment", func() {
-			Eventually(func() int64 {
-				return getDeploymentGeneration(ctx, cli, types.NamespacedName{Namespace: namespace.Name, Name: tufAction.DeploymentName})
-			}).Should(BeNumerically(">", tufGeneration))
+		It("update TUF deployment", func() {
+			Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
+			s.Spec.Tuf.Keys = []v1alpha1.TufKey{
+				{
+					Name: "rekor.pub",
+					SecretRef: &v1alpha1.SecretKeySelector{
+						LocalObjectReference: v1alpha1.LocalObjectReference{
+							Name: "my-rekor-secret",
+						},
+						Key: "public",
+					},
+				},
+				{
+					Name: "fulcio_v1.crt.pem",
+				},
+				{
+					Name: "tsa.certchain.pem",
+				},
+				{
+					Name: "ctfe.pub",
+				},
+			}
+			Expect(cli.Update(ctx, s)).To(Succeed())
+			Eventually(func(g Gomega) []v1alpha1.TufKey {
+				t := tuf.Get(ctx, cli, namespace.Name, s.Name)()
+				return t.Status.Keys
+			}).Should(And(HaveLen(4), WithTransform(func(keys []v1alpha1.TufKey) string {
+				return keys[0].SecretRef.Name
+			}, Equal("my-rekor-secret"))))
+			tuf.RefreshTufRepository(ctx, cli, namespace.Name, s.Name)
 		})
 
 		It("verify CTlog and TUF", func() {

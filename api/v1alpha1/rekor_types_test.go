@@ -372,6 +372,9 @@ func generateRekorObject(name string) *Rekor {
 			Pvc: Pvc{
 				Retain: ptr.To(true),
 				Size:   &storage,
+				AccessModes: []PersistentVolumeAccessMode{
+					"ReadWriteOnce",
+				},
 			},
 			Trillian: TrillianService{
 				Port: ptr.To(int32(8091)),

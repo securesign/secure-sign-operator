@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
+	"github.com/securesign/operator/test/e2e/support/tas/tuf"
 
 	"k8s.io/utils/ptr"
 
@@ -276,6 +277,13 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 						return ""
 					}, Equal(tsa.Get(ctx, cli, namespace.Name, s.Name)().Status.NTPMonitoring.Config.NtpConfigRef.Name))),
 			)
+		})
+
+		It("Tuf repository root key secret was created", func() {
+			tuf.Verify(ctx, cli, namespace.Name, s.Name)
+			tuf := tuf.Get(ctx, cli, namespace.Name, s.Name)()
+			Expect(tuf.Spec.RootKeySecretRef).NotTo(BeEmpty())
+			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: tuf.Spec.RootKeySecretRef}, &v1.Secret{})).To(Succeed())
 		})
 
 		It("All other components are running", func() {

@@ -1,4 +1,4 @@
-package kubernetes
+package job
 
 import (
 	"context"
@@ -51,4 +51,29 @@ func GetJob(ctx context.Context, c client.Client, namespace, jobName string) (*b
 		return nil, err
 	}
 	return job, nil
+}
+
+func IsCompleted(job batchv1.Job) bool {
+	completed := getJobCondition(job.Status.Conditions, batchv1.JobComplete)
+	if completed != nil {
+		return completed.Status == corev1.ConditionTrue
+	}
+	return false
+}
+
+func IsFailed(job batchv1.Job) bool {
+	fail := getJobCondition(job.Status.Conditions, batchv1.JobFailed)
+	if fail != nil {
+		return fail.Status == corev1.ConditionTrue
+	}
+	return false
+}
+
+func getJobCondition(conditions []batchv1.JobCondition, condType batchv1.JobConditionType) *batchv1.JobCondition {
+	for _, c := range conditions {
+		if c.Type == condType {
+			return &c
+		}
+	}
+	return nil
 }

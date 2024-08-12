@@ -167,7 +167,17 @@ metadata:
                 {
                   "name": "tsa.certchain.pem"
                 }
-              ]
+              ],
+              "pvc": {
+                "accessModes": [
+                  "ReadWriteMany"
+                ],
+                "retain": true,
+                "size": "100Mi"
+              },
+              "rootKeySecretReference": {
+                "name": "RootKeysSecret"
+              }
             }
           }
         },
@@ -274,13 +284,20 @@ metadata:
                   "name": "tsa-cert-chain"
                 }
               }
-            ]
+            ],
+            "pvc": {
+              "accessModes": [
+                "ReadWriteMany"
+              ],
+              "retain": true,
+              "size": "100Mi"
+            }
           }
         }
       ]
     capabilities: Seamless Upgrades
     containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:028b6eec7f821b18cf710237a7613ef76d2bacdeff56462368e4e186f26627cc
-    createdAt: "2024-08-29T15:39:45Z"
+    createdAt: "2024-08-30T15:27:45Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"

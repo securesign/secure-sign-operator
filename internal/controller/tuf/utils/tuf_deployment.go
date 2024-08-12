@@ -7,35 +7,8 @@ import (
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
-
-func secretsVolumeProjection(keys []v1alpha1.TufKey) *core.ProjectedVolumeSource {
-
-	projections := make([]core.VolumeProjection, 0)
-
-	for _, key := range keys {
-		p := core.VolumeProjection{Secret: selectorToProjection(key.SecretRef, key.Name)}
-		projections = append(projections, p)
-	}
-
-	return &core.ProjectedVolumeSource{
-		Sources: projections,
-	}
-}
-
-func selectorToProjection(secret *v1alpha1.SecretKeySelector, path string) *core.SecretProjection {
-	return &core.SecretProjection{
-		LocalObjectReference: core.LocalObjectReference{
-			Name: secret.Name,
-		},
-		Items: []core.KeyToPath{
-			{
-				Key:  secret.Key,
-				Path: path,
-			},
-		},
-	}
-}
 
 func CreateTufDeployment(instance *v1alpha1.Tuf, dpName string, sa string, labels map[string]string) *apps.Deployment {
 	replicas := int32(1)
@@ -58,15 +31,17 @@ func CreateTufDeployment(instance *v1alpha1.Tuf, dpName string, sa string, label
 					ServiceAccountName: sa,
 					Volumes: []core.Volume{
 						{
-							Name: "tuf-secrets",
+							Name: "repository",
 							VolumeSource: core.VolumeSource{
-								Projected: secretsVolumeProjection(instance.Status.Keys),
+								PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
+									ClaimName: instance.Status.PvcName,
+								},
 							},
 						},
 					},
 					Containers: []core.Container{
 						{
-							Name:  "tuf",
+							Name:  "tuf-server",
 							Image: constants.TufImage,
 							Ports: []core.ContainerPort{
 								{
@@ -80,15 +55,49 @@ func CreateTufDeployment(instance *v1alpha1.Tuf, dpName string, sa string, label
 									Value: instance.Namespace,
 								},
 							},
+							Args: []string{
+								"-mode", "serve",
+								"-target-dir", "/var/run/target",
+							},
 							VolumeMounts: []core.VolumeMount{
 								{
-									Name:      "tuf-secrets",
-									MountPath: "/var/run/tuf-secrets",
+									Name:      "repository",
+									MountPath: "/var/run/target",
+									ReadOnly:  true,
+								},
+							},
+							LivenessProbe: &core.Probe{
+								InitialDelaySeconds: 30,
+								PeriodSeconds:       10,
+								TimeoutSeconds:      1,
+								FailureThreshold:    3,
+								SuccessThreshold:    1,
+								ProbeHandler: core.ProbeHandler{
+									HTTPGet: &core.HTTPGetAction{
+										Port: intstr.FromInt32(8080),
+										Path: "/",
+									},
+								},
+							},
+							ReadinessProbe: &core.Probe{
+								InitialDelaySeconds: 10,
+								PeriodSeconds:       10,
+								TimeoutSeconds:      1,
+								FailureThreshold:    10,
+								SuccessThreshold:    1,
+								ProbeHandler: core.ProbeHandler{
+									HTTPGet: &core.HTTPGetAction{
+										Port: intstr.FromInt32(8080),
+										Path: "/root.json",
+									},
 								},
 							},
 						},
 					},
 				},
+			},
+			Strategy: apps.DeploymentStrategy{
+				Type: "Recreate",
 			},
 		},
 	}
