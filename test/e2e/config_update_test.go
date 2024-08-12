@@ -5,13 +5,13 @@ package e2e
 import (
 	"context"
 	"encoding/json"
+	"time"
+
 	ctlog "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
 	rekor "github.com/securesign/operator/internal/controller/rekor/actions"
 	tuf "github.com/securesign/operator/internal/controller/tuf/actions"
 	appsv1 "k8s.io/api/apps/v1"
-	"os"
-	"time"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
@@ -48,17 +48,15 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 	}
 
 	AfterEach(func() {
-		if CurrentSpecReport().Failed() {
-			if val, present := os.LookupEnv("CI"); present && val == "true" {
-				support.DumpNamespace(ctx, cli, namespace.Name)
-			}
+		if CurrentSpecReport().Failed() && support.IsCIEnvironment() {
+			support.DumpNamespace(ctx, cli, namespace.Name)
 		}
 	})
 
 	BeforeAll(func() {
 		namespace = support.CreateTestNamespace(ctx, cli)
 		DeferCleanup(func() {
-			cli.Delete(ctx, namespace)
+			_ = cli.Delete(ctx, namespace)
 		})
 
 		securesign = &v1alpha1.Securesign{
@@ -167,7 +165,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 				return meta.FindStatusCondition(fulcio.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Pending))
 
-			Expect(cli.Create(ctx, initFulcioSecret(namespace.Name, "my-fulcio-secret")))
+			Expect(cli.Create(ctx, initFulcioSecret(namespace.Name, "my-fulcio-secret"))).Should(Succeed())
 
 			Eventually(func() int64 {
 				return getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tuf.DeploymentName})
@@ -273,7 +271,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 				return meta.FindStatusCondition(rekor.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Pending))
 
-			Expect(cli.Create(ctx, initRekorSecret(namespace.Name, "my-rekor-secret")))
+			Expect(cli.Create(ctx, initRekorSecret(namespace.Name, "my-rekor-secret"))).To(Succeed())
 
 			Eventually(func() int64 {
 				return getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tuf.DeploymentName})
@@ -326,7 +324,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 				ctl := tas.GetCTLog(ctx, cli, namespace.Name, securesign.Name)()
 				return meta.FindStatusCondition(ctl.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Creating))
-			Expect(cli.Create(ctx, initCTSecret(namespace.Name, "my-ctlog-secret")))
+			Expect(cli.Create(ctx, initCTSecret(namespace.Name, "my-ctlog-secret"))).Should(Succeed())
 
 			Eventually(func() int64 {
 				return getDeploymentGeneration(types.NamespacedName{Namespace: namespace.Name, Name: tuf.DeploymentName})

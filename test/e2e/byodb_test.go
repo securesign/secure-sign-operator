@@ -4,7 +4,6 @@ package e2e
 
 import (
 	"context"
-	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,19 +28,15 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 	var securesign *v1alpha1.Securesign
 
 	AfterEach(func() {
-		if CurrentSpecReport().Failed() {
-			if val, present := os.LookupEnv("CI"); present && val == "true" {
-				if val, present := os.LookupEnv("CI"); present && val == "true" {
-					support.DumpNamespace(ctx, cli, namespace.Name)
-				}
-			}
+		if CurrentSpecReport().Failed() && support.IsCIEnvironment() {
+			support.DumpNamespace(ctx, cli, namespace.Name)
 		}
 	})
 
 	BeforeAll(func() {
 		namespace = support.CreateTestNamespace(ctx, cli)
 		DeferCleanup(func() {
-			cli.Delete(ctx, namespace)
+			_ = cli.Delete(ctx, namespace)
 		})
 
 		securesign = &v1alpha1.Securesign{
