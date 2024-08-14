@@ -11,7 +11,7 @@ var (
 	FulcioServerImage = "registry.redhat.io/rhtas/fulcio-rhel9@sha256:67495de82e2fcd2ab4ad0e53442884c392da1aa3f5dd56d9488a1ed5df97f513"
 
 	RekorRedisImage    = "registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:01736bdd96acbc646334a1109409862210e5273394c35fb244f21a143af9f83e"
-	RekorServerImage   = "registry.redhat.io/rhtas/rekor-server-rhel9@sha256:66bfcd039d5efa4c72317312f259f1776c802e0b09d1857f6081d0fa24dce27e"
+	RekorServerImage   = "registry.redhat.io/rhtas/rekor-server-rhel9@sha256:133ee0153e12e6562cfea1a74914ebdd7ee76ae131ec7ca0c3e674c2848150ae"
 	RekorSearchUiImage = "registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:8c478fc6122377c6c9df0fddf0ae42b6f6b1648e3c6cf96a0558f366e7921b2b"
 	BackfillRedisImage = "registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:88869eb582cbb94baa50c212689c50ed405cc94669c2c03f781b12ad867827ce"
 
