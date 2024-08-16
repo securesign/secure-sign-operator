@@ -25,10 +25,14 @@ resources:
 # [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER'. 'WEBHOOK' components are required.
 #- ../certmanager
 # [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
-#- ../prometheus
+- ../prometheus
 
 patches:
   - path: manager_openshift_patch.yaml
+    target:
+      kind: Deployment
+      name: operator-controller-manager
+  - path: manager_metrics_patch.yaml
     target:
       kind: Deployment
       name: operator-controller-manager
