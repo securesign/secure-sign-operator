@@ -854,6 +854,7 @@ spec:
             spec:
               containers:
               - args:
+                - --leader-elect
                 - --metrics-bind-address=0.0.0.0:8080
                 command:
                 - /manager
