@@ -92,8 +92,8 @@ metadata:
                 "OIDCIssuers": [
                   {
                     "ClientID": "trusted-artifact-signer",
-                    "Issuer": "https://your-oidc-issuer-url",
-                    "IssuerURL": "https://your-oidc-issuer-url",
+                    "Issuer": "https://keycloak-keycloak-system.apps.rosa.tbc2f-pzqvt-33r.f86b.p3.openshiftapps.com/auth/realms/trusted-artifact-signer",
+                    "IssuerURL": "https://keycloak-keycloak-system.apps.rosa.tbc2f-pzqvt-33r.f86b.p3.openshiftapps.com/auth/realms/trusted-artifact-signer",
                     "Type": "email"
                   }
                 ]
@@ -309,7 +309,7 @@ metadata:
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
     operators.openshift.io/valid-subscription: '["Red Hat Trusted Artifact Signer"]'
-    operators.operatorframework.io/builder: operator-sdk-v1.34.2
+    operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/securesign/secure-sign-operator
     support: Red Hat

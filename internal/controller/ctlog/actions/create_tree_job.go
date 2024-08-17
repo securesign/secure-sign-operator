@@ -105,11 +105,11 @@ func (i createTreeJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	cmd := ""
 	switch {
 	case trustedCAAnnotation != nil:
-		cmd = fmt.Sprintf("./createtree --admin_server=%s --display_name=ctlog-tree --tls_cert_file=/var/run/configs/tas/ca-trust/ca-bundle.crt", trillUrl)
+		cmd = fmt.Sprintf("/createtree --admin_server=%s --display_name=ctlog-tree --tls_cert_file=/var/run/configs/tas/ca-trust/ca-bundle.crt", trillUrl)
 	case signingKeySecret != nil:
-		cmd = fmt.Sprintf("./createtree --admin_server=%s --display_name=ctlog-tree --tls_cert_file=/etc/ssl/certs/tls.crt", trillUrl)
+		cmd = fmt.Sprintf("/createtree --admin_server=%s --display_name=ctlog-tree --tls_cert_file=/etc/ssl/certs/tls.crt", trillUrl)
 	default:
-		cmd = fmt.Sprintf("./createtree --admin_server=%s --display_name=ctlog-tree", trillUrl)
+		cmd = fmt.Sprintf("/createtree --admin_server=%s --display_name=ctlog-tree", trillUrl)
 	}
 	command := []string{
 		"/bin/sh",
