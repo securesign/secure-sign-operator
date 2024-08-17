@@ -15,6 +15,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func NewDeployAction() action.Action[*rhtasv1alpha1.Trillian] {
@@ -66,6 +68,105 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 
 	if err = controllerutil.SetControllerReference(instance, signer, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for LogSigner deployment: %w", err))
+	}
+
+	// TLS certificate
+	signingKeySecret, _ := k8sutils.GetSecret(i.Client, "openshift-service-ca", "signing-key")
+	if instance.Spec.TrillianServerTLS.TLSCertificate.CertRef != nil {
+		signer.Spec.Template.Spec.Volumes = append(signer.Spec.Template.Spec.Volumes,
+			corev1.Volume{
+				Name: "tls-cert",
+				VolumeSource: corev1.VolumeSource{
+					Projected: &corev1.ProjectedVolumeSource{
+						Sources: []corev1.VolumeProjection{
+							{
+								Secret: &corev1.SecretProjection{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: instance.Spec.TrillianServerTLS.TLSCertificate.CertRef.Name,
+									},
+									Items: []corev1.KeyToPath{
+										{
+											Key:  instance.Spec.TrillianServerTLS.TLSCertificate.CertRef.Key,
+											Path: "tls.crt",
+										},
+									},
+								},
+							},
+							{
+								Secret: &corev1.SecretProjection{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: instance.Spec.TrillianServerTLS.TLSCertificate.PrivateKeyRef.Name,
+									},
+									Items: []corev1.KeyToPath{
+										{
+											Key:  instance.Spec.TrillianServerTLS.TLSCertificate.PrivateKeyRef.Key,
+											Path: "tls.key",
+										},
+									},
+								},
+							},
+							{
+								ConfigMap: &corev1.ConfigMapProjection{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: instance.Spec.TrillianServerTLS.TLSCertificate.CACertRef.Name,
+									},
+									Items: []corev1.KeyToPath{
+										{
+											Key:  "ca.crt", // User should use this key.
+											Path: "ca.crt",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			})
+	} else if signingKeySecret != nil {
+		i.Logger.V(1).Info("TLS: Using secrets/signing-key secret")
+		signer.Spec.Template.Spec.Volumes = append(signer.Spec.Template.Spec.Volumes,
+			corev1.Volume{
+				Name: "tls-cert",
+				VolumeSource: corev1.VolumeSource{
+					Projected: &corev1.ProjectedVolumeSource{
+						Sources: []corev1.VolumeProjection{
+							{
+								Secret: &corev1.SecretProjection{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: instance.Name + "-trillian-log-server-tls-secret",
+									},
+								},
+							},
+							{
+								ConfigMap: &corev1.ConfigMapProjection{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "ca-configmap",
+									},
+									Items: []corev1.KeyToPath{
+										{
+											Key:  "service-ca.crt",
+											Path: "ca.crt",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			})
+	} else {
+		i.Logger.V(1).Info("Communication between services is insecure")
+	}
+
+	if instance.Spec.TrillianServerTLS.TLSCertificate.CertRef != nil || signingKeySecret != nil {
+		signer.Spec.Template.Spec.Containers[0].VolumeMounts = append(signer.Spec.Template.Spec.Containers[0].VolumeMounts,
+			corev1.VolumeMount{
+				Name:      "tls-cert",
+				MountPath: "/etc/ssl/certs",
+				ReadOnly:  true,
+			})
+		signer.Spec.Template.Spec.Containers[0].Args = append(signer.Spec.Template.Spec.Containers[0].Args, "--mysql_tls_ca", "/etc/ssl/certs/ca.crt")
+		signer.Spec.Template.Spec.Containers[0].Args = append(signer.Spec.Template.Spec.Containers[0].Args, "--mysql_server_name", "$(MYSQL_HOSTNAME)."+instance.Namespace+".svc")
 	}
 
 	if updated, err = i.Ensure(ctx, signer); err != nil {

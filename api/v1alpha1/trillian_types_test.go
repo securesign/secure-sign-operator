@@ -157,6 +157,18 @@ var _ = Describe("Trillian", func() {
 									Name: "secret",
 								},
 							},
+							TrillianServerTLS: TrillianServerTLS{
+								TLSCertificate: TLSCert{
+									CertRef: &SecretKeySelector{
+										Key:                  "cert",
+										LocalObjectReference: LocalObjectReference{Name: "server-secret"},
+									},
+									PrivateKeyRef: &SecretKeySelector{
+										Key:                  "key",
+										LocalObjectReference: LocalObjectReference{Name: "server-secret"},
+									},
+								},
+							},
 						},
 					}
 

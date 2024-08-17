@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 )
 
 func NewDeployAction() action.Action[*rhtasv1alpha1.Trillian] {
@@ -49,7 +50,9 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		scc = &v1.PodSecurityContext{FSGroup: utils.Pointer(int64(1001)), FSGroupChangePolicy: utils.Pointer(v1.FSGroupChangeOnRootMismatch)}
 	}
 
-	db, err := trillianUtils.CreateTrillDb(instance, actions.DbDeploymentName, actions.RBACName, scc, labels)
+	signingKeySecret, _ := k8sutils.GetSecret(i.Client, "openshift-service-ca", "signing-key")
+	useTLS := (instance.Spec.TrillianDbTLS.TLSCertificate.CertRef != nil) || (signingKeySecret != nil)
+	db, err := trillianUtils.CreateTrillDb(instance, actions.DbDeploymentName, actions.RBACName, scc, labels, useTLS)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.DbCondition,
@@ -65,6 +68,92 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Trillian DB: %w", err), instance)
 	}
+
+	// TLS certificate
+	if instance.Spec.TrillianServerTLS.TLSCertificate.CertRef != nil {
+		db.Spec.Template.Spec.Volumes = append(db.Spec.Template.Spec.Volumes,
+			v1.Volume{
+				Name: "tls-cert",
+				VolumeSource: v1.VolumeSource{
+					Projected: &v1.ProjectedVolumeSource{
+						Sources: []v1.VolumeProjection{
+							{
+								Secret: &v1.SecretProjection{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: instance.Spec.TrillianServerTLS.TLSCertificate.CertRef.Name,
+									},
+									Items: []v1.KeyToPath{
+										{
+											Key:  instance.Spec.TrillianServerTLS.TLSCertificate.CertRef.Key,
+											Path: "tls.crt",
+										},
+									},
+								},
+							},
+							{
+								Secret: &v1.SecretProjection{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: instance.Spec.TrillianServerTLS.TLSCertificate.PrivateKeyRef.Name,
+									},
+									Items: []v1.KeyToPath{
+										{
+											Key:  instance.Spec.TrillianServerTLS.TLSCertificate.PrivateKeyRef.Key,
+											Path: "tls.key",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			})
+	} else if signingKeySecret != nil {
+		i.Logger.V(1).Info("TLS: Using secrets/signing-key secret")
+		db.Spec.Template.Spec.Volumes = append(db.Spec.Template.Spec.Volumes,
+			v1.Volume{
+				Name: "tls-cert",
+				VolumeSource: v1.VolumeSource{
+					Projected: &v1.ProjectedVolumeSource{
+						Sources: []v1.VolumeProjection{
+							{
+								Secret: &v1.SecretProjection{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: instance.Name + "-trillian-db-tls-secret",
+									},
+								},
+							},
+							{
+								ConfigMap: &v1.ConfigMapProjection{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: "ca-configmap",
+									},
+									Items: []v1.KeyToPath{
+										{
+											Key:  "service-ca.crt",
+											Path: "ca.crt",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			})
+	} else {
+		i.Logger.V(1).Info("Communication between services is insecure")
+	}
+
+	if instance.Spec.TrillianServerTLS.TLSCertificate.CertRef != nil || signingKeySecret != nil {
+		db.Spec.Template.Spec.Containers[0].VolumeMounts = append(db.Spec.Template.Spec.Containers[0].VolumeMounts,
+			v1.VolumeMount{
+				Name:      "tls-cert",
+				MountPath: "/etc/ssl/certs",
+				ReadOnly:  true,
+			})
+		db.Spec.Template.Spec.Containers[0].Args = append(db.Spec.Template.Spec.Containers[0].Args, "--ssl-cert", "/etc/ssl/certs/tls.crt")
+		db.Spec.Template.Spec.Containers[0].Args = append(db.Spec.Template.Spec.Containers[0].Args, "--ssl-key", "/etc/ssl/certs/tls.key")
+	}
+
 	if err = controllerutil.SetControllerReference(instance, db, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for DB Deployment: %w", err))
 	}
