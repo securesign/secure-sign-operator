@@ -92,8 +92,8 @@ metadata:
                 "OIDCIssuers": [
                   {
                     "ClientID": "trusted-artifact-signer",
-                    "Issuer": "https://keycloak-keycloak-system.apps.rosa.ebh6v-tpwpi-a4f.ohpr.p3.openshiftapps.com/auth/realms/trusted-artifact-signer",
-                    "IssuerURL": "https://keycloak-keycloak-system.apps.rosa.ebh6v-tpwpi-a4f.ohpr.p3.openshiftapps.com/auth/realms/trusted-artifact-signer",
+                    "Issuer": "https://your-oidc-issuer-url",
+                    "IssuerURL": "https://your-oidc-issuer-url",
                     "Type": "email"
                   }
                 ]
