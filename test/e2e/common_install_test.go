@@ -86,6 +86,44 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				Trillian: v1alpha1.TrillianSpec{Db: v1alpha1.TrillianDB{
 					Create: utils.Pointer(true),
 				}},
+				TimestampAuthority: v1alpha1.TimestampAuthoritySpec{
+					ExternalAccess: v1alpha1.ExternalAccess{
+						Enabled: true,
+					},
+					Signer: v1alpha1.TimestampAuthoritySigner{
+						CertificateChain: v1alpha1.CertificateChain{
+							RootCA: v1alpha1.TsaCertificateAuthority{
+								OrganizationName:  "MyOrg",
+								OrganizationEmail: "my@email.org",
+								CommonName:        "tsa.hostname",
+							},
+							IntermediateCA: []v1alpha1.TsaCertificateAuthority{
+								{
+									OrganizationName:  "MyOrg",
+									OrganizationEmail: "my@email.org",
+									CommonName:        "tsa.hostname",
+								},
+							},
+							LeafCA: v1alpha1.TsaCertificateAuthority{
+								OrganizationName:  "MyOrg",
+								OrganizationEmail: "my@email.org",
+								CommonName:        "tsa.hostname",
+							},
+						},
+					},
+					NTPMonitoring: v1alpha1.NTPMonitoring{
+						Enabled: true,
+						Config: &v1alpha1.NtpMonitoringConfig{
+							RequestAttempts: 3,
+							RequestTimeout:  5,
+							NumServers:      4,
+							ServerThreshold: 3,
+							MaxTimeDelta:    6,
+							Period:          60,
+							Servers:         []string{"time.apple.com", "time.google.com", "time-a-b.nist.gov", "time-b-b.nist.gov", "gbg1.ntp.se"},
+						},
+					},
+				},
 			},
 		}
 	})
@@ -135,6 +173,25 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 					)))
 		})
 
+		It("operator should generate TSA secret", func() {
+			Eventually(func() *v1.Secret {
+				tsa := tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)()
+				scr := &v1.Secret{}
+				Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: tsa.Status.Signer.File.PrivateKeyRef.Name}, scr)).To(Succeed())
+				return scr
+			}).Should(
+				WithTransform(func(secret *v1.Secret) map[string][]byte { return secret.Data },
+					And(
+						&matchers.HaveKeyMatcher{Key: "rootPrivateKey"},
+						&matchers.HaveKeyMatcher{Key: "rootPrivateKeyPassword"},
+						&matchers.HaveKeyMatcher{Key: "interPrivateKey-0"},
+						&matchers.HaveKeyMatcher{Key: "interPrivateKeyPassword-0"},
+						&matchers.HaveKeyMatcher{Key: "leafPrivateKey"},
+						&matchers.HaveKeyMatcher{Key: "leafPrivateKeyPassword"},
+						&matchers.HaveKeyMatcher{Key: "certificateChain"},
+					)))
+		})
+
 		It("fulcio is running with mounted certs", func() {
 			server := tas.GetFulcioServerPod(ctx, cli, namespace.Name)()
 			Expect(server).NotTo(BeNil())
@@ -172,12 +229,52 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 
 		})
 
+		It("tsa is running with mounted keys and certs", func() {
+			tas.VerifyTSA(ctx, cli, namespace.Name, securesign.Name)
+			server := tas.GetTSAServerPod(ctx, cli, namespace.Name)()
+			Expect(server).NotTo(BeNil())
+			Expect(server.Spec.Volumes).To(
+				ContainElement(
+					WithTransform(func(volume v1.Volume) string {
+						if volume.VolumeSource.Secret != nil {
+							return volume.VolumeSource.Secret.SecretName
+						}
+						return ""
+					}, Equal(tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)().Status.Signer.CertificateChain.CertificateChainRef.Name))),
+			)
+			Expect(server.Spec.Volumes).To(
+				ContainElement(
+					WithTransform(func(volume v1.Volume) string {
+						if volume.VolumeSource.Secret != nil {
+							return volume.VolumeSource.Secret.SecretName
+						}
+						return ""
+					}, Equal(tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)().Status.Signer.File.PrivateKeyRef.Name))),
+			)
+		})
+
+		It("ntp monitoring config created", func() {
+			tas.VerifyTSA(ctx, cli, namespace.Name, securesign.Name)
+			server := tas.GetTSAServerPod(ctx, cli, namespace.Name)()
+			Expect(server).NotTo(BeNil())
+			Expect(server.Spec.Volumes).To(
+				ContainElement(
+					WithTransform(func(volume v1.Volume) string {
+						if volume.VolumeSource.ConfigMap != nil {
+							return volume.VolumeSource.ConfigMap.Name
+						}
+						return ""
+					}, Equal(tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)().Status.NTPMonitoring.Config.NtpConfigRef.Name))),
+			)
+		})
+
 		It("All other components are running", func() {
 			tas.VerifySecuresign(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyTrillian(ctx, cli, namespace.Name, securesign.Name, true)
 			tas.VerifyCTLog(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyTuf(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyRekorSearchUI(ctx, cli, namespace.Name, securesign.Name)
+			tas.VerifyTSA(ctx, cli, namespace.Name, securesign.Name)
 		})
 
 		It("Verify Rekor Search UI is accessible", func() {
@@ -208,6 +305,11 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			tuf := tas.GetTuf(ctx, cli, namespace.Name, securesign.Name)()
 			Expect(tuf).ToNot(BeNil())
 
+			tsa := tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)()
+			Expect(tsa).ToNot(BeNil())
+			err := tas.GetTSACertificateChain(ctx, cli, tsa.Namespace, tsa.Name, tsa.Status.Url)
+			Expect(err).ToNot(HaveOccurred())
+
 			oidcToken, err := support.OidcToken(ctx)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(oidcToken).ToNot(BeEmpty())
@@ -221,6 +323,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				"cosign", "sign", "-y",
 				"--fulcio-url="+fulcio.Status.Url,
 				"--rekor-url="+rekor.Status.Url,
+				"--timestamp-server-url="+tsa.Status.Url+"/api/v1/timestamp",
 				"--oidc-issuer="+support.OidcIssuerUrl(),
 				"--oidc-client-id="+support.OidcClientID(),
 				"--identity-token="+oidcToken,
@@ -230,6 +333,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			Expect(clients.Execute(
 				"cosign", "verify",
 				"--rekor-url="+rekor.Status.Url,
+				"--timestamp-certificate-chain=ts_chain.pem",
 				"--certificate-identity-regexp", ".*@redhat",
 				"--certificate-oidc-issuer-regexp", ".*keycloak.*",
 				targetImageName,

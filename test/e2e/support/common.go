@@ -2,9 +2,17 @@ package support
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"log"
+	"math/big"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -23,6 +31,7 @@ import (
 	"github.com/onsi/ginkgo/v2/dsl/core"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
+	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,7 +40,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const fromImage = "alpine:latest"
+const (
+	fromImage    = "alpine:latest"
+	CertPassword = "LetMeIn123"
+)
 
 func IsCIEnvironment() bool {
 	if val, present := os.LookupEnv("CI"); present {
@@ -106,6 +118,7 @@ func DumpNamespace(ctx context.Context, cli client.Client, ns string) {
 		"tuf.yaml":        &v1alpha1.TufList{},
 		"ctlog.yaml":      &v1alpha1.CTlogList{},
 		"trillian.yaml":   &v1alpha1.TrillianList{},
+		"tsa.yaml":        &v1alpha1.TimestampAuthorityList{},
 		"pod.yaml":        &v1.PodList{},
 		"configmap.yaml":  &v1.ConfigMapList{},
 		"deployment.yaml": &v12.DeploymentList{},
@@ -176,4 +189,268 @@ func toYAMLNoManagedFields(value runtime.Object) string {
 	out, _ := yaml.Marshal(mapdata)
 
 	return fmt.Sprintf("%s\n", out)
+}
+
+func InitFulcioSecret(ns string, name string) *v1.Secret {
+	public, private, root, err := InitCertificates(true)
+	if err != nil {
+		return nil
+	}
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Data: map[string][]byte{
+			"password": []byte(CertPassword),
+			"private":  private,
+			"public":   public,
+			"cert":     root,
+		},
+	}
+}
+
+func InitRekorSecret(ns string, name string) *v1.Secret {
+	public, private, _, err := InitCertificates(false)
+	if err != nil {
+		return nil
+	}
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Data: map[string][]byte{
+			"private": private,
+			"public":  public,
+		},
+	}
+}
+
+func InitCTSecret(ns string, name string) *v1.Secret {
+	public, private, _, err := InitCertificates(false)
+	if err != nil {
+		return nil
+	}
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Data: map[string][]byte{
+			"private": private,
+			"public":  public,
+		},
+	}
+}
+
+func InitCertificates(passwordProtected bool) ([]byte, []byte, []byte, error) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// private
+	privateKeyBytes, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	var block *pem.Block
+	if passwordProtected {
+		block, err = x509.EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", privateKeyBytes, []byte(CertPassword), x509.PEMCipher3DES) //nolint:staticcheck
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	} else {
+		block = &pem.Block{
+			Type:  "EC PRIVATE KEY",
+			Bytes: privateKeyBytes,
+		}
+	}
+	privateKeyPem := pem.EncodeToMemory(block)
+
+	// public key
+	publicKeyBytes, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	publicKeyPem := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "PUBLIC KEY",
+			Bytes: publicKeyBytes,
+		},
+	)
+
+	notBefore := time.Now()
+	notAfter := notBefore.Add(365 * 24 * 10 * time.Hour)
+
+	issuer := pkix.Name{
+		CommonName:         "local",
+		Country:            []string{"CR"},
+		Organization:       []string{"RedHat"},
+		Province:           []string{"Czech Republic"},
+		Locality:           []string{"Brno"},
+		OrganizationalUnit: []string{"QE"},
+	}
+	//Create certificate templet
+	template := x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               issuer,
+		SignatureAlgorithm:    x509.ECDSAWithSHA256,
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		Issuer:                issuer,
+	}
+	//Create certificate using templet
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
+	if err != nil {
+		return nil, nil, nil, err
+
+	}
+	//pem encoding of certificate
+	root := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: derBytes,
+		},
+	)
+	return publicKeyPem, privateKeyPem, root, err
+}
+
+func InitTsaSecrets(ns string, name string) *v1.Secret {
+	config := &tsaUtils.TsaCertChainConfig{
+		RootPrivateKeyPassword:          []byte(CertPassword),
+		IntermediatePrivateKeyPasswords: [][]byte{[]byte(CertPassword)},
+		LeafPrivateKeyPassword:          []byte(CertPassword),
+	}
+	_, rootPrivateKey, rootCA, err := InitCertificates(true)
+	if err != nil {
+		return nil
+	}
+	config.RootPrivateKey = rootPrivateKey
+
+	intermediatePublicKey, intermediatePrivateKey, _, err := InitCertificates(true)
+	if err != nil {
+		return nil
+	}
+	config.IntermediatePrivateKeys = append(config.IntermediatePrivateKeys, intermediatePrivateKey)
+
+	leafPublicKey, leafPrivateKey, _, err := InitCertificates(true)
+	if err != nil {
+		return nil
+	}
+	config.LeafPrivateKey = leafPrivateKey
+
+	notBefore := time.Now()
+	notAfter := notBefore.Add(365 * 24 * 10 * time.Hour)
+	oidExtendedKeyUsage := asn1.ObjectIdentifier{2, 5, 29, 37}
+	oidTimeStamping := asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 3, 8}
+	ekuValues, err := asn1.Marshal([]asn1.ObjectIdentifier{oidTimeStamping})
+	if err != nil {
+		return nil
+	}
+
+	ekuExtension := pkix.Extension{
+		Id:       oidExtendedKeyUsage,
+		Critical: true,
+		Value:    ekuValues,
+	}
+
+	issuer := pkix.Name{
+		CommonName:         "local",
+		Country:            []string{"CR"},
+		Organization:       []string{"RedHat"},
+		Province:           []string{"Czech Republic"},
+		Locality:           []string{"Brno"},
+		OrganizationalUnit: []string{"QE"},
+	}
+
+	certTemplate := x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               issuer,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping},
+		ExtraExtensions:       []pkix.Extension{ekuExtension},
+		Issuer:                issuer,
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+	}
+
+	block, _ := pem.Decode(rootPrivateKey)
+	keyBytes := block.Bytes
+	if x509.IsEncryptedPEMBlock(block) { //nolint:staticcheck
+		keyBytes, err = x509.DecryptPEMBlock(block, []byte(CertPassword)) //nolint:staticcheck
+		if err != nil {
+			return nil
+		}
+	}
+
+	rootPrivKey, err := x509.ParseECPrivateKey(keyBytes)
+	if err != nil {
+		return nil
+	}
+
+	block, _ = pem.Decode(intermediatePublicKey)
+	keyBytes = block.Bytes
+	interPubKey, err := x509.ParsePKIXPublicKey(keyBytes)
+	if err != nil {
+		return nil
+	}
+
+	block, _ = pem.Decode(rootCA)
+	rootCert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil
+	}
+
+	intermediateCert, err := x509.CreateCertificate(rand.Reader, &certTemplate, rootCert, interPubKey, rootPrivKey)
+	if err != nil {
+		return nil
+	}
+
+	block, _ = pem.Decode(leafPublicKey)
+	keyBytes = block.Bytes
+	leafPuKey, err := x509.ParsePKIXPublicKey(keyBytes)
+	if err != nil {
+		return nil
+	}
+
+	leafCert, err := x509.CreateCertificate(rand.Reader, &certTemplate, rootCert, leafPuKey, rootPrivKey)
+	if err != nil {
+		return nil
+	}
+
+	intermediatePEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: intermediateCert,
+	})
+
+	leafPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: leafCert,
+	})
+	certificateChain := append(leafPEM, intermediatePEM...)
+	certificateChain = append(certificateChain, rootCA...)
+	config.CertificateChain = certificateChain
+
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Data: map[string][]byte{
+			"rootPrivateKey":            config.RootPrivateKey,
+			"rootPrivateKeyPassword":    config.RootPrivateKeyPassword,
+			"interPrivateKey-0":         config.IntermediatePrivateKeys[0],
+			"interPrivateKeyPassword-0": config.IntermediatePrivateKeyPasswords[0],
+			"leafPrivateKey":            config.LeafPrivateKey,
+			"leafPrivateKeyPassword":    config.LeafPrivateKeyPassword,
+			"certificateChain":          config.CertificateChain,
+		},
+	}
 }

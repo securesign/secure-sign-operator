@@ -6,4 +6,5 @@ resources:
 - rhtas_v1alpha1_rekor.yaml
 - rhtas_v1alpha1_tuf.yaml
 - rhtas_v1alpha1_ctlog.yaml
+- rhtas_v1alpha1_timestampauthority.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

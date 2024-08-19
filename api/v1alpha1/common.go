@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	core "k8s.io/api/core/v1"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -95,4 +96,13 @@ type Pvc struct {
 	// The name of the StorageClass to claim a PersistentVolume from.
 	//+optional
 	StorageClass string `json:"storageClass,omitempty"`
+}
+
+type Auth struct {
+	// Environmental variables used to define authentication parameters
+	//+optional
+	Env []core.EnvVar `json:"env,omitempty"`
+	// Secret ref to be mounted inside a pod, Mount path defaults to /var/run/secrets/tas/auth
+	//+optional
+	SecretMount []SecretKeySelector `json:"secretMount,omitempty"`
 }

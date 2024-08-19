@@ -84,6 +84,44 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 						Name: "my-db",
 					},
 				}},
+				TimestampAuthority: v1alpha1.TimestampAuthoritySpec{
+					ExternalAccess: v1alpha1.ExternalAccess{
+						Enabled: true,
+					},
+					Signer: v1alpha1.TimestampAuthoritySigner{
+						CertificateChain: v1alpha1.CertificateChain{
+							RootCA: v1alpha1.TsaCertificateAuthority{
+								OrganizationName:  "MyOrg",
+								OrganizationEmail: "my@email.org",
+								CommonName:        "tsa.hostname",
+							},
+							IntermediateCA: []v1alpha1.TsaCertificateAuthority{
+								{
+									OrganizationName:  "MyOrg",
+									OrganizationEmail: "my@email.org",
+									CommonName:        "tsa.hostname",
+								},
+							},
+							LeafCA: v1alpha1.TsaCertificateAuthority{
+								OrganizationName:  "MyOrg",
+								OrganizationEmail: "my@email.org",
+								CommonName:        "tsa.hostname",
+							},
+						},
+					},
+					NTPMonitoring: v1alpha1.NTPMonitoring{
+						Enabled: true,
+						Config: &v1alpha1.NtpMonitoringConfig{
+							RequestAttempts: 3,
+							RequestTimeout:  5,
+							NumServers:      4,
+							ServerThreshold: 3,
+							MaxTimeDelta:    6,
+							Period:          60,
+							Servers:         []string{"time.apple.com", "time.google.com", "time-a-b.nist.gov", "time-b-b.nist.gov", "gbg1.ntp.se"},
+						},
+					},
+				},
 			},
 		}
 	})
@@ -105,6 +143,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 			tas.VerifyRekor(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyCTLog(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyTuf(ctx, cli, namespace.Name, securesign.Name)
+			tas.VerifyTSA(ctx, cli, namespace.Name, securesign.Name)
 		})
 
 		It("No other DB is created", func() {
@@ -123,6 +162,11 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 			tuf := tas.GetTuf(ctx, cli, namespace.Name, securesign.Name)()
 			Expect(tuf).ToNot(BeNil())
 
+			tsa := tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)()
+			Expect(tsa).ToNot(BeNil())
+			err := tas.GetTSACertificateChain(ctx, cli, tsa.Namespace, tsa.Name, tsa.Status.Url)
+			Expect(err).ToNot(HaveOccurred())
+
 			oidcToken, err := support.OidcToken(ctx)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(oidcToken).ToNot(BeEmpty())
@@ -136,6 +180,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 				"cosign", "sign", "-y",
 				"--fulcio-url="+fulcio.Status.Url,
 				"--rekor-url="+rekor.Status.Url,
+				"--timestamp-server-url="+tsa.Status.Url+"/api/v1/timestamp",
 				"--oidc-issuer="+support.OidcIssuerUrl(),
 				"--oidc-client-id="+support.OidcClientID(),
 				"--identity-token="+oidcToken,
@@ -145,6 +190,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 			Expect(clients.Execute(
 				"cosign", "verify",
 				"--rekor-url="+rekor.Status.Url,
+				"--timestamp-certificate-chain=ts_chain.pem",
 				"--certificate-identity-regexp", ".*@redhat",
 				"--certificate-oidc-issuer-regexp", ".*keycloak.*",
 				targetImageName,

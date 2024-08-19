@@ -2,6 +2,7 @@ package actions
 
 const (
 	TufCondition             = "TufAvailable"
+	TSACondition             = "TsaAvailable"
 	FulcioCondition          = "FulcioAvailable"
 	RekorCondition           = "RekorAvailable"
 	TrillianCondition        = "TrillianAvailable"

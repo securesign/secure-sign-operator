@@ -12,6 +12,7 @@ import (
 
 	semver "github.com/blang/semver/v4"
 	"github.com/onsi/ginkgo/v2/dsl/core"
+	"github.com/onsi/gomega/matchers"
 	v12 "github.com/operator-framework/api/pkg/operators/v1"
 	tasv1alpha "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils"
@@ -19,6 +20,7 @@ import (
 	ctl "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
 	rekor "github.com/securesign/operator/internal/controller/rekor/actions"
+	"github.com/securesign/operator/internal/controller/securesign/actions"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	tuf "github.com/securesign/operator/internal/controller/tuf/actions"
 	"github.com/securesign/operator/test/e2e/support/tas"
@@ -30,6 +32,7 @@ import (
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	runtimeCli "sigs.k8s.io/controller-runtime/pkg/client"
@@ -344,6 +347,179 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		gomega.Expect(clients.Execute(
 			"cosign", "verify",
 			"--rekor-url="+rrekor.Status.Url,
+			"--certificate-identity-regexp", ".*@redhat",
+			"--certificate-oidc-issuer-regexp", ".*keycloak.*",
+			newImageName,
+		)).To(gomega.Succeed())
+	})
+
+	It("Install Timestamp Authority after upgrade", func() {
+		securesign := tas.GetSecuresign(ctx, cli, namespace.Name, securesignDeployment.Name)()
+		gomega.Expect(securesign).ToNot(gomega.BeNil())
+		gomega.Expect(meta.FindStatusCondition(securesign.GetConditions(), actions.TSACondition).Reason).To(gomega.Equal(constants.NotDefined))
+
+		securesign.Spec.TimestampAuthority = tasv1alpha.TimestampAuthoritySpec{
+			ExternalAccess: tasv1alpha.ExternalAccess{
+				Enabled: true,
+			},
+			Signer: tasv1alpha.TimestampAuthoritySigner{
+				CertificateChain: tasv1alpha.CertificateChain{
+					RootCA: tasv1alpha.TsaCertificateAuthority{
+						OrganizationName:  "MyOrg",
+						OrganizationEmail: "my@email.org",
+						CommonName:        "tsa.hostname",
+					},
+					IntermediateCA: []tasv1alpha.TsaCertificateAuthority{
+						{
+							OrganizationName:  "MyOrg",
+							OrganizationEmail: "my@email.org",
+							CommonName:        "tsa.hostname",
+						},
+					},
+					LeafCA: tasv1alpha.TsaCertificateAuthority{
+						OrganizationName:  "MyOrg",
+						OrganizationEmail: "my@email.org",
+						CommonName:        "tsa.hostname",
+					},
+				},
+			},
+			NTPMonitoring: tasv1alpha.NTPMonitoring{
+				Enabled: true,
+				Config: &tasv1alpha.NtpMonitoringConfig{
+					RequestAttempts: 3,
+					RequestTimeout:  5,
+					NumServers:      4,
+					ServerThreshold: 3,
+					MaxTimeDelta:    6,
+					Period:          60,
+					Servers:         []string{"time.apple.com", "time.google.com", "time-a-b.nist.gov", "time-b-b.nist.gov", "gbg1.ntp.se"},
+				},
+			},
+		}
+		gomega.Expect(cli.Update(ctx, securesign)).Should(gomega.Succeed())
+	})
+
+	It("tsa should reach a ready state", func() {
+		gomega.Eventually(func() string {
+			securesign := tas.GetSecuresign(ctx, cli, namespace.Name, securesignDeployment.Name)()
+			gomega.Expect(securesign).ToNot(gomega.BeNil())
+			return meta.FindStatusCondition(securesign.Status.Conditions, actions.TSACondition).Reason
+		}).Should(gomega.Equal(constants.Ready))
+	})
+
+	It("operator should generate TSA secret", func() {
+		securesign := tas.GetSecuresign(ctx, cli, namespace.Name, securesignDeployment.Name)()
+		gomega.Expect(securesign).ToNot(gomega.BeNil())
+		tsa := tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)()
+
+		gomega.Eventually(func() *v1.Secret {
+			scr := &v1.Secret{}
+			gomega.Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: tsa.Status.Signer.File.PrivateKeyRef.Name}, scr)).To(gomega.Succeed())
+			return scr
+		}).Should(
+			gomega.WithTransform(func(secret *v1.Secret) map[string][]byte { return secret.Data },
+				gomega.And(
+					&matchers.HaveKeyMatcher{Key: "rootPrivateKey"},
+					&matchers.HaveKeyMatcher{Key: "rootPrivateKeyPassword"},
+					&matchers.HaveKeyMatcher{Key: "interPrivateKey-0"},
+					&matchers.HaveKeyMatcher{Key: "interPrivateKeyPassword-0"},
+					&matchers.HaveKeyMatcher{Key: "leafPrivateKey"},
+					&matchers.HaveKeyMatcher{Key: "leafPrivateKeyPassword"},
+					&matchers.HaveKeyMatcher{Key: "certificateChain"},
+				)))
+	})
+
+	It("tsa is running with operator generated certs and keys", func() {
+		securesign := tas.GetSecuresign(ctx, cli, namespace.Name, securesignDeployment.Name)()
+		gomega.Expect(securesign).ToNot(gomega.BeNil())
+		tsa := tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)()
+		server := tas.GetTSAServerPod(ctx, cli, namespace.Name)()
+
+		gomega.Expect(server).NotTo(gomega.BeNil())
+		gomega.Expect(server.Spec.Volumes).To(
+			gomega.ContainElement(
+				gomega.WithTransform(func(volume v1.Volume) string {
+					if volume.VolumeSource.Secret != nil {
+						return volume.VolumeSource.Secret.SecretName
+					}
+					return ""
+				}, gomega.Equal(tsa.Status.Signer.CertificateChain.CertificateChainRef.Name))),
+		)
+		gomega.Expect(server.Spec.Volumes).To(
+			gomega.ContainElement(
+				gomega.WithTransform(func(volume v1.Volume) string {
+					if volume.VolumeSource.Secret != nil {
+						return volume.VolumeSource.Secret.SecretName
+					}
+					return ""
+				}, gomega.Equal(tsa.Status.Signer.File.PrivateKeyRef.Name))),
+		)
+	})
+
+	It("ntp monitoring config created", func() {
+		securesign := tas.GetSecuresign(ctx, cli, namespace.Name, securesignDeployment.Name)()
+		gomega.Expect(securesign).ToNot(gomega.BeNil())
+		tsa := tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)()
+
+		server := tas.GetTSAServerPod(ctx, cli, namespace.Name)()
+		gomega.Expect(server).NotTo(gomega.BeNil())
+		gomega.Expect(server.Spec.Volumes).To(
+			gomega.ContainElement(
+				gomega.WithTransform(func(volume v1.Volume) string {
+					if volume.VolumeSource.ConfigMap != nil {
+						return volume.VolumeSource.ConfigMap.Name
+					}
+					return ""
+				}, gomega.Equal(tsa.Status.NTPMonitoring.Config.NtpConfigRef.Name))),
+		)
+	})
+
+	It("Update tuf root with tsa certificate chain", func() {
+		securesign := tas.GetSecuresign(ctx, cli, namespace.Name, securesignDeployment.Name)()
+		gomega.Expect(securesign).ToNot(gomega.BeNil())
+
+		securesign.Spec.Tuf.Keys = append(securesign.Spec.Tuf.Keys, tasv1alpha.TufKey{Name: "tsa.certchain.pem"})
+		gomega.Expect(cli.Update(ctx, securesign)).To(gomega.Succeed())
+		gomega.Eventually(func() string {
+			tuf := tas.GetTuf(ctx, cli, namespace.Name, securesign.Name)()
+			return meta.FindStatusCondition(tuf.Status.Conditions, constants.Ready).Reason
+		}).Should(gomega.Equal(constants.Ready))
+	})
+
+	It("Sign and Verify image after tsa install", func() {
+		securesign := tas.GetSecuresign(ctx, cli, namespace.Name, securesignDeployment.Name)()
+		gomega.Expect(securesign).ToNot(gomega.BeNil())
+		tsa := tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)()
+
+		gomega.Expect(tsa).ToNot(gomega.BeNil())
+		err := tas.GetTSACertificateChain(ctx, cli, tsa.Namespace, tsa.Name, tsa.Status.Url)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+		gomega.Expect(clients.Execute("cosign", "initialize", "--mirror="+rtuf.Status.Url, "--root="+rtuf.Status.Url+"/root.json")).To(gomega.Succeed())
+
+		gomega.Expect(clients.Execute(
+			"cosign", "verify",
+			"--rekor-url="+rrekor.Status.Url,
+			"--certificate-identity-regexp", ".*@redhat",
+			"--certificate-oidc-issuer-regexp", ".*keycloak.*",
+			prevImageName,
+		)).To(gomega.Succeed())
+
+		gomega.Expect(clients.Execute(
+			"cosign", "sign", "-y",
+			"--fulcio-url="+rfulcio.Status.Url,
+			"--rekor-url="+rrekor.Status.Url,
+			"--timestamp-server-url="+tsa.Status.Url+"/api/v1/timestamp",
+			"--oidc-issuer="+support.OidcIssuerUrl(),
+			"--oidc-client-id="+support.OidcClientID(),
+			"--identity-token="+oidcToken,
+			newImageName,
+		)).To(gomega.Succeed())
+
+		gomega.Expect(clients.Execute(
+			"cosign", "verify",
+			"--rekor-url="+rrekor.Status.Url,
+			"--timestamp-certificate-chain=ts_chain.pem",
 			"--certificate-identity-regexp", ".*@redhat",
 			"--certificate-oidc-issuer-regexp", ".*keycloak.*",
 			newImageName,

@@ -118,6 +118,38 @@ metadata:
                 "create": true
               }
             },
+            "tsa": {
+              "externalAccess": {
+                "enabled": true
+              },
+              "monitoring": {
+                "enabled": true
+              },
+              "ntpMonitoring": {
+                "enabled": true
+              },
+              "signer": {
+                "certificateChain": {
+                  "intermediateCA": [
+                    {
+                      "commonName": "tsa.hostname",
+                      "organizationEmail": "jdoe@redhat.com",
+                      "organizationName": "Red Hat"
+                    }
+                  ],
+                  "leafCA": {
+                    "commonName": "tsa.hostname",
+                    "organizationEmail": "jdoe@redhat.com",
+                    "organizationName": "Red Hat"
+                  },
+                  "rootCA": {
+                    "commonName": "tsa.hostname",
+                    "organizationEmail": "jdoe@redhat.com",
+                    "organizationName": "Red Hat"
+                  }
+                }
+              }
+            },
             "tuf": {
               "externalAccess": {
                 "enabled": true
@@ -131,8 +163,57 @@ metadata:
                 },
                 {
                   "name": "fulcio_v1.crt.pem"
+                },
+                {
+                  "name": "tsa.certchain.pem"
                 }
               ]
+            }
+          }
+        },
+        {
+          "apiVersion": "rhtas.redhat.com/v1alpha1",
+          "kind": "TimestampAuthority",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "rhtas-operator",
+              "app.kubernetes.io/instance": "timestampauthority-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "timestampauthority",
+              "app.kubernetes.io/part-of": "rhtas-operator"
+            },
+            "name": "timestampauthority-sample"
+          },
+          "spec": {
+            "externalAccess": {
+              "enabled": true
+            },
+            "monitoring": {
+              "enabled": true
+            },
+            "ntpMonitoring": {
+              "enabled": true
+            },
+            "signer": {
+              "certificateChain": {
+                "intermediateCA": [
+                  {
+                    "commonName": "tsa.hostname",
+                    "organizationEmail": "jdoe@redhat.com",
+                    "organizationName": "Red Hat"
+                  }
+                ],
+                "leafCA": {
+                  "commonName": "tsa.hostname",
+                  "organizationEmail": "jdoe@redhat.com",
+                  "organizationName": "Red Hat"
+                },
+                "rootCA": {
+                  "commonName": "tsa.hostname",
+                  "organizationEmail": "jdoe@redhat.com",
+                  "organizationName": "Red Hat"
+                }
+              }
             }
           }
         },
@@ -185,6 +266,13 @@ metadata:
                   "key": "public",
                   "name": "ctlog-pub-key"
                 }
+              },
+              {
+                "name": "tsa.certchain.pem",
+                "secretRef": {
+                  "key": "certificateChain",
+                  "name": "tsa-cert-chain"
+                }
               }
             ]
           }
@@ -233,6 +321,11 @@ spec:
       displayName: Securesign
       kind: Securesign
       name: securesigns.rhtas.redhat.com
+      version: v1alpha1
+    - description: TimestampAuthority is the Schema for the timestampauthorities API
+      displayName: Timestamp Authority
+      kind: TimestampAuthority
+      name: timestampauthorities.rhtas.redhat.com
       version: v1alpha1
     - description: Trillian is the Schema for the trillians API
       displayName: Trillian
@@ -347,6 +440,7 @@ spec:
           verbs:
           - create
           - delete
+          - deletecollection
           - get
           - list
           - patch
@@ -640,6 +734,32 @@ spec:
           - rhtas.redhat.com
           resources:
           - securesigns/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - timestampauthorities
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - timestampauthorities/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - rhtas.redhat.com
+          resources:
+          - timestampauthorities/status
           verbs:
           - get
           - patch

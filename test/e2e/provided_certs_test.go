@@ -4,13 +4,6 @@ package e2e
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
-	"math/big"
 	"time"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
@@ -24,8 +17,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-const CertPassword = "LetMeIn123"
 
 var _ = Describe("Securesign install with provided certs", Ordered, func() {
 	cli, _ := CreateClient()
@@ -152,11 +143,61 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 								Key: "public",
 							},
 						},
+						{
+							Name: "tsa.certchain.pem",
+							SecretRef: &v1alpha1.SecretKeySelector{
+								LocalObjectReference: v1alpha1.LocalObjectReference{
+									Name: "test-tsa-secret",
+								},
+								Key: "certificateChain",
+							},
+						},
 					},
 				},
 				Trillian: v1alpha1.TrillianSpec{Db: v1alpha1.TrillianDB{
 					Create: utils.Pointer(true),
 				}},
+				TimestampAuthority: v1alpha1.TimestampAuthoritySpec{
+					ExternalAccess: v1alpha1.ExternalAccess{
+						Enabled: true,
+					},
+					Signer: v1alpha1.TimestampAuthoritySigner{
+						CertificateChain: v1alpha1.CertificateChain{
+							CertificateChainRef: &v1alpha1.SecretKeySelector{
+								LocalObjectReference: v1alpha1.LocalObjectReference{
+									Name: "test-tsa-secret",
+								},
+								Key: "certificateChain",
+							},
+						},
+						File: &v1alpha1.File{
+							PrivateKeyRef: &v1alpha1.SecretKeySelector{
+								LocalObjectReference: v1alpha1.LocalObjectReference{
+									Name: "test-tsa-secret",
+								},
+								Key: "leafPrivateKey",
+							},
+							PasswordRef: &v1alpha1.SecretKeySelector{
+								LocalObjectReference: v1alpha1.LocalObjectReference{
+									Name: "test-tsa-secret",
+								},
+								Key: "leafPrivateKeyPassword",
+							},
+						},
+					},
+					NTPMonitoring: v1alpha1.NTPMonitoring{
+						Enabled: true,
+						Config: &v1alpha1.NtpMonitoringConfig{
+							RequestAttempts: 3,
+							RequestTimeout:  5,
+							NumServers:      4,
+							ServerThreshold: 3,
+							MaxTimeDelta:    6,
+							Period:          60,
+							Servers:         []string{"time.apple.com", "time.google.com", "time-a-b.nist.gov", "time-b-b.nist.gov", "gbg1.ntp.se"},
+						},
+					},
+				},
 			},
 		}
 	})
@@ -167,9 +208,10 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 
 	Describe("Install with provided certificates", func() {
 		BeforeAll(func() {
-			Expect(cli.Create(ctx, initCTSecret(namespace.Name, "my-ctlog-secret"))).To(Succeed())
-			Expect(cli.Create(ctx, initFulcioSecret(namespace.Name, "my-fulcio-secret"))).To(Succeed())
-			Expect(cli.Create(ctx, initRekorSecret(namespace.Name, "my-rekor-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, support.InitCTSecret(namespace.Name, "my-ctlog-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, support.InitFulcioSecret(namespace.Name, "my-fulcio-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, support.InitRekorSecret(namespace.Name, "my-rekor-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, support.InitTsaSecrets(namespace.Name, "test-tsa-secret"))).To(Succeed())
 			Expect(cli.Create(ctx, securesign)).To(Succeed())
 		})
 
@@ -212,11 +254,27 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 
 		})
 
+		It("tsa is running with mounted certs", func() {
+			tas.VerifyTSA(ctx, cli, namespace.Name, securesign.Name)
+			tsa := tas.GetTSAServerPod(ctx, cli, namespace.Name)()
+			Expect(tsa).NotTo(BeNil())
+			Expect(tsa.Spec.Volumes).To(
+				ContainElement(
+					WithTransform(func(volume v1.Volume) string {
+						if volume.VolumeSource.Secret != nil {
+							return volume.VolumeSource.Secret.SecretName
+						}
+						return ""
+					}, Equal("test-tsa-secret")),
+				))
+		})
+
 		It("All other components are running", func() {
 			tas.VerifySecuresign(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyCTLog(ctx, cli, namespace.Name, securesign.Name)
 			tas.VerifyTrillian(ctx, cli, namespace.Name, securesign.Name, true)
 			tas.VerifyTuf(ctx, cli, namespace.Name, securesign.Name)
+			tas.VerifyTSA(ctx, cli, namespace.Name, securesign.Name)
 		})
 
 		It("Use cosign cli", func() {
@@ -228,6 +286,11 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 
 			tuf := tas.GetTuf(ctx, cli, namespace.Name, securesign.Name)()
 			Expect(tuf).ToNot(BeNil())
+
+			tsa := tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)()
+			Expect(tsa).ToNot(BeNil())
+			err := tas.GetTSACertificateChain(ctx, cli, tsa.Namespace, tsa.Name, tsa.Status.Url)
+			Expect(err).ToNot(HaveOccurred())
 
 			oidcToken, err := support.OidcToken(ctx)
 			Expect(err).ToNot(HaveOccurred())
@@ -242,6 +305,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 				"cosign", "sign", "-y",
 				"--fulcio-url="+fulcio.Status.Url,
 				"--rekor-url="+rekor.Status.Url,
+				"--timestamp-server-url="+tsa.Status.Url+"/api/v1/timestamp",
 				"--oidc-issuer="+support.OidcIssuerUrl(),
 				"--oidc-client-id="+support.OidcClientID(),
 				"--identity-token="+oidcToken,
@@ -251,6 +315,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 			Expect(clients.Execute(
 				"cosign", "verify",
 				"--rekor-url="+rekor.Status.Url,
+				"--timestamp-certificate-chain=ts_chain.pem",
 				"--certificate-identity-regexp", ".*@redhat",
 				"--certificate-oidc-issuer-regexp", ".*keycloak.*",
 				targetImageName,
@@ -258,132 +323,3 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 		})
 	})
 })
-
-func initFulcioSecret(ns string, name string) *v1.Secret {
-	public, private, root, err := initCertificates(true)
-	if err != nil {
-		return nil
-	}
-	return &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: ns,
-		},
-		Data: map[string][]byte{
-			"password": []byte(CertPassword),
-			"private":  private,
-			"public":   public,
-			"cert":     root,
-		},
-	}
-}
-
-func initRekorSecret(ns string, name string) *v1.Secret {
-	public, private, _, err := initCertificates(false)
-	if err != nil {
-		return nil
-	}
-	return &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: ns,
-		},
-		Data: map[string][]byte{
-			"private": private,
-			"public":  public,
-		},
-	}
-}
-
-func initCTSecret(ns string, name string) *v1.Secret {
-	public, private, _, err := initCertificates(false)
-	if err != nil {
-		return nil
-	}
-	return &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: ns,
-		},
-		Data: map[string][]byte{
-			"private": private,
-			"public":  public,
-		},
-	}
-}
-
-func initCertificates(passwordProtected bool) ([]byte, []byte, []byte, error) {
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	// private
-	privateKeyBytes, err := x509.MarshalECPrivateKey(key)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	var block *pem.Block
-	if passwordProtected {
-		block, err = x509.EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", privateKeyBytes, []byte(CertPassword), x509.PEMCipher3DES) //nolint:staticcheck
-		if err != nil {
-			return nil, nil, nil, err
-		}
-	} else {
-		block = &pem.Block{
-			Type:  "EC PRIVATE KEY",
-			Bytes: privateKeyBytes,
-		}
-	}
-	privateKeyPem := pem.EncodeToMemory(block)
-
-	// public key
-	publicKeyBytes, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	publicKeyPem := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "PUBLIC KEY",
-			Bytes: publicKeyBytes,
-		},
-	)
-
-	notBefore := time.Now()
-	notAfter := notBefore.Add(365 * 24 * 10 * time.Hour)
-
-	issuer := pkix.Name{
-		CommonName:         "local",
-		Country:            []string{"CR"},
-		Organization:       []string{"RedHat"},
-		Province:           []string{"Czech Republic"},
-		Locality:           []string{"Brno"},
-		OrganizationalUnit: []string{"QE"},
-	}
-	//Create certificate templet
-	template := x509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               issuer,
-		SignatureAlgorithm:    x509.ECDSAWithSHA256,
-		NotBefore:             notBefore,
-		NotAfter:              notAfter,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
-		Issuer:                issuer,
-	}
-	//Create certificate using templet
-	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
-	if err != nil {
-		return nil, nil, nil, err
-
-	}
-	//pem encoding of certificate
-	root := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "CERTIFICATE",
-			Bytes: derBytes,
-		},
-	)
-	return publicKeyPem, privateKeyPem, root, err
-}

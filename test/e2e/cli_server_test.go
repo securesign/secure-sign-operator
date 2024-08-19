@@ -75,5 +75,6 @@ var _ = Describe("CliServer", Ordered, func() {
 		Entry("rekor-cli", "rekor-cli"),
 		Entry("gitsign", "gitsign"),
 		Entry("ec", "ec"),
+		Entry("fetch-tsa-certs", "fetch-tsa-certs"),
 	)
 })
