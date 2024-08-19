@@ -492,8 +492,10 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		tsa := tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)()
 
 		gomega.Expect(tsa).ToNot(gomega.BeNil())
-		err := tas.GetTSACertificateChain(ctx, cli, tsa.Namespace, tsa.Name, tsa.Status.Url)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+		gomega.Eventually(func() error {
+			return tas.GetTSACertificateChain(ctx, cli, tsa.Namespace, tsa.Name, tsa.Status.Url)
+		}).Should(gomega.Succeed())
 
 		gomega.Expect(clients.Execute("cosign", "initialize", "--mirror="+rtuf.Status.Url, "--root="+rtuf.Status.Url+"/root.json")).To(gomega.Succeed())
 

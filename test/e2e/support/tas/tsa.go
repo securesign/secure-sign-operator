@@ -54,14 +54,19 @@ func GetTSA(ctx context.Context, cli client.Client, ns string, name string) func
 }
 
 func GetTSACertificateChain(ctx context.Context, cli client.Client, ns string, name string, url string) error {
+	var resp *http.Response
+	var err error
 	req, err := http.NewRequestWithContext(ctx, "GET", url+"/api/v1/timestamp/certchain", nil)
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request: %w", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err = http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to perform HTTP request: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected HTTP status: %s", resp.Status)
 	}
 
 	defer func() {
@@ -69,10 +74,6 @@ func GetTSACertificateChain(ctx context.Context, cli client.Client, ns string, n
 			fmt.Println("Error closing response body:", closeErr)
 		}
 	}()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected HTTP status: %s", resp.Status)
-	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
