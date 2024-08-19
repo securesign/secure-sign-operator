@@ -542,8 +542,10 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 
 		tsa := tas.GetTSA(ctx, cli, namespace.Name, securesign.Name)()
 		Expect(tsa).ToNot(BeNil())
-		err := tas.GetTSACertificateChain(ctx, cli, tsa.Namespace, tsa.Name, tsa.Status.Url)
-		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(func() error {
+			return tas.GetTSACertificateChain(ctx, cli, tsa.Namespace, tsa.Name, tsa.Status.Url)
+		}).Should(Succeed())
 
 		oidcToken, err := support.OidcToken(ctx)
 		Expect(err).ToNot(HaveOccurred())
