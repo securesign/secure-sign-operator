@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -39,7 +40,10 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fu
 	)
 	labels := constants.LabelsForComponent(ComponentName, instance.Name)
 	ok, err = commonUtils.DeploymentIsRunning(ctx, i.Client, instance.Namespace, labels)
-	if err != nil {
+	switch {
+	case errors.Is(err, commonUtils.ErrDeploymentNotReady):
+		i.Logger.Error(err, "deployment is not ready")
+	case err != nil:
 		return i.Failed(err)
 	}
 	if !ok {

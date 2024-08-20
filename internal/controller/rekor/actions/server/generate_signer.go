@@ -76,8 +76,13 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 			Type:   constants.Ready,
 			Status: metav1.ConditionFalse,
 			Reason: constants.Pending,
-		},
-		)
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    actions.ServerCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Pending,
+			Message: "resolving keys",
+		})
 		return g.StatusUpdate(ctx, instance)
 	}
 	var (

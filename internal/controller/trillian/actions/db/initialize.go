@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
 
@@ -34,7 +35,10 @@ func (i initializeAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
 	labels := constants.LabelsForComponent(actions.DbComponentName, instance.Name)
 	ok, err := commonUtils.DeploymentIsRunning(ctx, i.Client, instance.Namespace, labels)
-	if err != nil {
+	switch {
+	case errors.Is(err, commonUtils.ErrDeploymentNotReady):
+		i.Logger.Error(err, "deployment is not ready")
+	case err != nil:
 		return i.Failed(err)
 	}
 	if !ok {

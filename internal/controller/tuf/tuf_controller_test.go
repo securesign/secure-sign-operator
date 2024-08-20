@@ -21,6 +21,8 @@ import (
 	"maps"
 	"time"
 
+	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
+
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -171,9 +173,7 @@ var _ = Describe("TUF controller", func() {
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase
-			deployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{Status: corev1.ConditionTrue, Type: appsv1.DeploymentAvailable, Reason: constants.Ready}}
-			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
+			Expect(k8sTest.SetDeploymentToReady(ctx, k8sClient, deployment)).To(Succeed())
 
 			By("Waiting until Tuf instance is Ready")
 			Eventually(func(g Gomega) bool {

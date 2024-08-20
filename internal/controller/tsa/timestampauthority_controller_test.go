@@ -20,6 +20,8 @@ import (
 	"context"
 	"time"
 
+	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -203,9 +205,7 @@ var _ = Describe("TimestampAuthority Controller", func() {
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase
-			deployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{Status: corev1.ConditionTrue, Type: appsv1.DeploymentAvailable, Reason: constants.Ready}}
-			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
+			Expect(k8sTest.SetDeploymentToReady(ctx, k8sClient, deployment)).To(Succeed())
 
 			By("Waiting until Timestamp Authority instance is Ready")
 			Eventually(func(g Gomega) bool {
