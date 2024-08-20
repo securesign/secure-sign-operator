@@ -30,6 +30,13 @@ func CreateIngress(ctx context.Context, cli client.Client, svc v12.Service, conf
 			return nil, err
 		}
 	}
+
+	if len(conf.RouteSelectorLabels) > 0 {
+		for key, value := range conf.RouteSelectorLabels {
+			labels[key] = value
+		}
+	}
+
 	return &networkingv1.Ingress{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        svc.Name,
