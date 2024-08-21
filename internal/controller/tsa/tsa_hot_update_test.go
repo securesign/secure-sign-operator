@@ -20,6 +20,8 @@ import (
 	"context"
 	"time"
 
+	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -140,9 +142,7 @@ var _ = Describe("Timestamp Authority hot update", func() {
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase
-			deployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{Status: corev1.ConditionTrue, Type: appsv1.DeploymentAvailable, Reason: constants.Ready}}
-			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
+			Expect(k8sTest.SetDeploymentToReady(ctx, k8sClient, deployment)).To(Succeed())
 
 			By("Waiting until Timestamp Authority is Ready")
 			Eventually(func(g Gomega) bool {
@@ -213,6 +213,11 @@ var _ = Describe("Timestamp Authority hot update", func() {
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
 			}).Should(BeFalse())
 
+			By("Move to Ready phase")
+			deployment = &appsv1.Deployment{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
+			Expect(k8sTest.SetDeploymentToReady(ctx, k8sClient, deployment)).To(Succeed())
+
 			time.Sleep(10 * time.Second)
 
 			By("NTP Monitoring update")
@@ -241,6 +246,10 @@ var _ = Describe("Timestamp Authority hot update", func() {
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
 			}).Should(BeFalse())
 
+			By("Move to Ready phase")
+			deployment = &appsv1.Deployment{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
+			Expect(k8sTest.SetDeploymentToReady(ctx, k8sClient, deployment)).To(Succeed())
 		})
 	})
 })

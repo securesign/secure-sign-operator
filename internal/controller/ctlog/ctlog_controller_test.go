@@ -26,6 +26,7 @@ import (
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
+	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 
@@ -167,9 +168,7 @@ var _ = Describe("CTlog controller", func() {
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase
-			deployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{Status: corev1.ConditionTrue, Type: appsv1.DeploymentAvailable, Reason: constants.Ready}}
-			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
+			Expect(k8sTest.SetDeploymentToReady(ctx, k8sClient, deployment)).To(Succeed())
 
 			By("Waiting until CTlog instance is Ready")
 			Eventually(func(g Gomega) bool {

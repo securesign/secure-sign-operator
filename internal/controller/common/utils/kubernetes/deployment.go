@@ -2,10 +2,19 @@ package kubernetes
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+var (
+	ErrDeploymentNotReady        = errors.New("deployment not ready")
+	ErrDeploymentNotObserved     = errors.New("not observed")
+	ErrDeploymentNotAvailable    = errors.New("not available")
+	ErrNewReplicaSetNotAvailable = errors.New("new ReplicaSet not available")
 )
 
 func DeploymentIsRunning(ctx context.Context, cli client.Client, namespace string, labels map[string]string) (bool, error) {
@@ -16,9 +25,19 @@ func DeploymentIsRunning(ctx context.Context, cli client.Client, namespace strin
 		return false, err
 	}
 	for _, d := range list.Items {
+
+		if d.Generation != d.Status.ObservedGeneration {
+			return false, fmt.Errorf("%w(%s): %w: generation %d", ErrDeploymentNotReady, d.Name, ErrDeploymentNotObserved, d.Generation)
+		}
+
 		c := getDeploymentCondition(d.Status, v1.DeploymentAvailable)
 		if c == nil || c.Status == corev1.ConditionFalse {
-			return false, nil
+			return false, fmt.Errorf("%w(%s): %w", ErrDeploymentNotReady, d.Name, ErrDeploymentNotAvailable)
+		}
+
+		c = getDeploymentCondition(d.Status, v1.DeploymentProgressing)
+		if c == nil || c.Status != corev1.ConditionTrue || c.Reason != "NewReplicaSetAvailable" {
+			return false, fmt.Errorf("%w(%s): %w", ErrDeploymentNotReady, d.Name, ErrNewReplicaSetNotAvailable)
 		}
 	}
 	return true, nil

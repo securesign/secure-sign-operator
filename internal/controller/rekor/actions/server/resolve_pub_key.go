@@ -90,6 +90,7 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 
 		if bytes.Equal(sksPublicKey, publicKey) {
 			instance.Status.PublicKeyRef = &sks
+			i.Recorder.Eventf(instance, v1.EventTypeNormal, "PublicKeySecretDiscovered", "Existing public key discovered: %s", sks.Name)
 			continue
 		}
 
