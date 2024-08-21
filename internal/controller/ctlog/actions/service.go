@@ -7,7 +7,6 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -42,7 +41,6 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog
 	labels := constants.LabelsFor(ComponentName, ComponentName, instance.Name)
 
 	svc := kubernetes.CreateService(instance.Namespace, ComponentName, ServerPortName, ServerPort, ServerTargetPort, labels)
-	signingKeySecret, _ := k8sutils.GetSecret(i.Client, "openshift-service-ca", "signing-key")
 	if instance.Spec.Monitoring.Enabled {
 		svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
 			Name:       MetricsPortName,
@@ -65,7 +63,7 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog
 	}
 
 	//TLS: Annotate service
-	if signingKeySecret != nil && instance.Spec.TLSCertificate.CertRef == nil {
+	if kubernetes.IsOpenShift() && instance.Spec.TLSCertificate.CertRef == nil {
 		if svc.Annotations == nil {
 			svc.Annotations = make(map[string]string)
 		}

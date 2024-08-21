@@ -71,7 +71,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	}
 
 	// TLS certificate
-	signingKeySecret, _ := k8sutils.GetSecret(i.Client, "openshift-service-ca", "signing-key")
 	if instance.Spec.TrillianServer.TLSCertificate.CertRef != nil {
 		server.Spec.Template.Spec.Volumes = append(server.Spec.Template.Spec.Volumes,
 			corev1.Volume{
@@ -109,7 +108,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 					},
 				},
 			})
-	} else if signingKeySecret != nil {
+	} else if k8sutils.IsOpenShift() {
 		i.Logger.V(1).Info("TLS: Using secrets/signing-key secret")
 		server.Spec.Template.Spec.Volumes = append(server.Spec.Template.Spec.Volumes,
 			corev1.Volume{
@@ -124,15 +123,15 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		i.Logger.V(1).Info("Communication between services is insecure")
 	}
 
-	if instance.Spec.TrillianServer.TLSCertificate.CertRef != nil || signingKeySecret != nil {
+	if instance.Spec.TrillianServer.TLSCertificate.CertRef != nil || k8sutils.IsOpenShift() {
 		server.Spec.Template.Spec.Containers[0].VolumeMounts = append(server.Spec.Template.Spec.Containers[0].VolumeMounts,
 			corev1.VolumeMount{
 				Name:      "tls-cert",
-				MountPath: "/etc/ssl/certs",
+				MountPath: "/var/run/secrets/tas",
 				ReadOnly:  true,
 			})
-		server.Spec.Template.Spec.Containers[0].Args = append(server.Spec.Template.Spec.Containers[0].Args, "--tls_cert_file", "/etc/ssl/certs/tls.crt")
-		server.Spec.Template.Spec.Containers[0].Args = append(server.Spec.Template.Spec.Containers[0].Args, "--tls_key_file", "/etc/ssl/certs/tls.key")
+		server.Spec.Template.Spec.Containers[0].Args = append(server.Spec.Template.Spec.Containers[0].Args, "--tls_cert_file", "/var/run/secrets/tas/tls.crt")
+		server.Spec.Template.Spec.Containers[0].Args = append(server.Spec.Template.Spec.Containers[0].Args, "--tls_key_file", "/var/run/secrets/tas/tls.key")
 	}
 
 	if err = controllerutil.SetControllerReference(instance, server, i.Client.Scheme()); err != nil {

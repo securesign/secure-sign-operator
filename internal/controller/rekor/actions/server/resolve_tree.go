@@ -72,7 +72,6 @@ func (i resolveTreeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.R
 		if err != nil {
 			i.Logger.V(1).Error(fmt.Errorf("waiting for the ConfigMap"), err.Error())
 		}
-		time.Sleep(2 * time.Second)
 	}
 
 	if err != nil {

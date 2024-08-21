@@ -8,7 +8,7 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
-	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
@@ -43,7 +43,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 
-	signingKeySecret, _ := k8sutils.GetSecret(i.Client, "openshift-service-ca", "signing-key")
 	switch {
 	case instance.Spec.Trillian.Address == "":
 		instance.Spec.Trillian.Address = fmt.Sprintf("%s.%s.svc", trillian.LogserverDeploymentName, instance.Namespace)
@@ -115,7 +114,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 					},
 				},
 			})
-	} else if signingKeySecret != nil {
+	} else if kubernetes.IsOpenShift() {
 		i.Logger.V(1).Info("TLS: Using secrets/signing-key secret")
 		dp.Spec.Template.Spec.Volumes = append(dp.Spec.Template.Spec.Volumes,
 			corev1.Volume{
@@ -151,16 +150,16 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		i.Logger.V(1).Info("Communication between services is insecure")
 	}
 
-	if instance.Spec.TLSCertificate.CertRef != nil && instance.Spec.TLSCertificate.CACertRef != nil || signingKeySecret != nil {
+	if instance.Spec.TLSCertificate.CertRef != nil && instance.Spec.TLSCertificate.CACertRef != nil || kubernetes.IsOpenShift() {
 		dp.Spec.Template.Spec.Containers[0].VolumeMounts = append(dp.Spec.Template.Spec.Containers[0].VolumeMounts,
 			corev1.VolumeMount{
 				Name:      "tls-cert",
-				MountPath: "/etc/ssl/certs",
+				MountPath: "/var/run/secrets/tas",
 				ReadOnly:  true,
 			})
-		// dp.Spec.Template.Spec.Containers[0].Args = append(dp.Spec.Template.Spec.Containers[0].Args, "--tls_certificate", "/etc/ssl/certs/tls.crt")
-		// dp.Spec.Template.Spec.Containers[0].Args = append(dp.Spec.Template.Spec.Containers[0].Args, "--tls_key", "/etc/ssl/certs/tls.key")
-		dp.Spec.Template.Spec.Containers[0].Args = append(dp.Spec.Template.Spec.Containers[0].Args, "--trillian_tls_ca_cert_file", "/etc/ssl/certs/ca.crt")
+		// dp.Spec.Template.Spec.Containers[0].Args = append(dp.Spec.Template.Spec.Containers[0].Args, "--tls_certificate", "/var/run/secrets/tas/tls.crt")
+		// dp.Spec.Template.Spec.Containers[0].Args = append(dp.Spec.Template.Spec.Containers[0].Args, "--tls_key", "/var/run/secrets/tas/tls.key")
+		dp.Spec.Template.Spec.Containers[0].Args = append(dp.Spec.Template.Spec.Containers[0].Args, "--trillian_tls_ca_cert_file", "/var/run/secrets/tas/ca.crt")
 	}
 
 	if err = controllerutil.SetControllerReference(instance, dp, i.Client.Scheme()); err != nil {

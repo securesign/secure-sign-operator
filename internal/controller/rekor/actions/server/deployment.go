@@ -72,7 +72,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 	}
 
 	// TLS certificate
-	signingKeySecret, _ := k8sutils.GetSecret(i.Client, "openshift-service-ca", "signing-key")
 	if instance.Spec.TLSCertificate.CACertRef != nil {
 		dp.Spec.Template.Spec.Volumes = append(dp.Spec.Template.Spec.Volumes,
 			corev1.Volume{
@@ -97,7 +96,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 					},
 				},
 			})
-	} else if signingKeySecret != nil {
+	} else if k8sutils.IsOpenShift() {
 		dp.Spec.Template.Spec.Volumes = append(dp.Spec.Template.Spec.Volumes,
 			corev1.Volume{
 				Name: "tls-cert",
@@ -125,14 +124,14 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		i.Logger.V(1).Info("Communication between services is insecure")
 	}
 
-	if instance.Spec.TLSCertificate.CACertRef != nil || signingKeySecret != nil {
+	if instance.Spec.TLSCertificate.CACertRef != nil || k8sutils.IsOpenShift() {
 		dp.Spec.Template.Spec.Containers[0].VolumeMounts = append(dp.Spec.Template.Spec.Containers[0].VolumeMounts,
 			corev1.VolumeMount{
 				Name:      "tls-cert",
-				MountPath: "/etc/ssl/certs",
+				MountPath: "/var/run/secrets/tas",
 				ReadOnly:  true,
 			})
-		dp.Spec.Template.Spec.Containers[0].Args = append(dp.Spec.Template.Spec.Containers[0].Args, "--trillian_log_server.tls_ca_cert", "/etc/ssl/certs/ca.crt")
+		dp.Spec.Template.Spec.Containers[0].Args = append(dp.Spec.Template.Spec.Containers[0].Args, "--trillian_log_server.tls_ca_cert", "/var/run/secrets/tas/ca.crt")
 	}
 
 	if err = controllerutil.SetControllerReference(instance, dp, i.Client.Scheme()); err != nil {

@@ -92,8 +92,8 @@ metadata:
                 "OIDCIssuers": [
                   {
                     "ClientID": "trusted-artifact-signer",
-                    "Issuer": "https://keycloak-keycloak-system.apps.rosa.tbc2f-pzqvt-33r.f86b.p3.openshiftapps.com/auth/realms/trusted-artifact-signer",
-                    "IssuerURL": "https://keycloak-keycloak-system.apps.rosa.tbc2f-pzqvt-33r.f86b.p3.openshiftapps.com/auth/realms/trusted-artifact-signer",
+                    "Issuer": "https://keycloak-keycloak-system.apps.rosa.ersmh-9o3fp-99x.qre7.p3.openshiftapps.com/auth/realms/trusted-artifact-signer",
+                    "IssuerURL": "https://keycloak-keycloak-system.apps.rosa.ersmh-9o3fp-99x.qre7.p3.openshiftapps.com/auth/realms/trusted-artifact-signer",
                     "Type": "email"
                   }
                 ]

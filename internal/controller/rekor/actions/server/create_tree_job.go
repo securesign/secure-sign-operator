@@ -101,14 +101,13 @@ func (i createTreeJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	activeDeadlineSeconds := int64(600)
 	backoffLimit := int32(5)
 
-	signingKeySecret, _ := kubernetes.GetSecret(i.Client, "openshift-service-ca", "signing-key")
 	trustedCAAnnotation := cutils.TrustedCAAnnotationToReference(instance.Annotations)
 	cmd := ""
 	switch {
 	case trustedCAAnnotation != nil:
 		cmd = fmt.Sprintf("/createtree --admin_server=%s --display_name=rekor-tree --tls_cert_file=/var/run/configs/tas/ca-trust/ca-bundle.crt", trillUrl)
-	case signingKeySecret != nil:
-		cmd = fmt.Sprintf("/createtree --admin_server=%s --display_name=rekor-tree --tls_cert_file=/etc/ssl/certs/tls.crt", trillUrl)
+	case kubernetes.IsOpenShift():
+		cmd = fmt.Sprintf("/createtree --admin_server=%s --display_name=rekor-tree --tls_cert_file=/var/run/secrets/tas/tls.crt", trillUrl)
 	default:
 		cmd = fmt.Sprintf("/createtree --admin_server=%s --display_name=rekor-tree", trillUrl)
 	}
@@ -147,14 +146,12 @@ func (i createTreeJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		return i.Failed(fmt.Errorf("could not set controller reference for Job: %w", err))
 	}
 
-	if trustedCAAnnotation != nil {
-		err = cutils.SetTrustedCA(&job.Spec.Template, cutils.TrustedCAAnnotationToReference(instance.Annotations))
-		if err != nil {
-			return i.Failed(err)
-		}
+	err = cutils.SetTrustedCA(&job.Spec.Template, cutils.TrustedCAAnnotationToReference(instance.Annotations))
+	if err != nil {
+		return i.Failed(err)
 	}
 
-	if signingKeySecret != nil && trustedCAAnnotation == nil {
+	if kubernetes.IsOpenShift() && trustedCAAnnotation == nil {
 		job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes,
 			corev1.Volume{
 				Name: "tls-cert",
@@ -167,7 +164,7 @@ func (i createTreeJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		job.Spec.Template.Spec.Containers[0].VolumeMounts = append(job.Spec.Template.Spec.Containers[0].VolumeMounts,
 			corev1.VolumeMount{
 				Name:      "tls-cert",
-				MountPath: "/etc/ssl/certs",
+				MountPath: "/var/run/secrets/tas",
 				ReadOnly:  true,
 			})
 	}
