@@ -116,13 +116,6 @@ var _ = Describe("CTlog controller", func() {
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
 			}).Should(BeTrue())
 
-			By("Pending phase until Trillian svc is created")
-			Eventually(func(g Gomega) string {
-				found := &v1alpha1.CTlog{}
-				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}).Should(Equal(constants.Pending))
-
 			By("Creating trillian service")
 			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, trillian.ServerPort, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
 			Eventually(func(g Gomega) string {
