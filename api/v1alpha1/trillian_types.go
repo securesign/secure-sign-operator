@@ -51,6 +51,7 @@ type TrillianDB struct {
 	// PVC configuration
 	//+kubebuilder:default:={size: "5Gi", retain: true}
 	Pvc Pvc `json:"pvc,omitempty"`
+	//+optional
 	// Secret with TLS server certificate, private key and CA certificate
 	TLSCertificate TLSCert `json:"tls"`
 }

@@ -804,7 +804,6 @@ spec:
                           rule: (!has(self.certRef) || has(self.privateKeyRef))
                     required:
                     - create
-                    - tls
                     type: object
                     x-kubernetes-validations:
                     - message: databaseSecretRef cannot be empty
