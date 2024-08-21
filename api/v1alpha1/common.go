@@ -100,7 +100,6 @@ type Pvc struct {
 	StorageClass string `json:"storageClass,omitempty"`
 }
 
-<<<<<<< HEAD
 type Auth struct {
 	// Environmental variables used to define authentication parameters
 	//+optional
@@ -108,7 +107,8 @@ type Auth struct {
 	// Secret ref to be mounted inside a pod, Mount path defaults to /var/run/secrets/tas/auth
 	//+optional
 	SecretMount []SecretKeySelector `json:"secretMount,omitempty"`
-=======
+}
+
 // TLSCert defines fields for TLS certificate
 // +kubebuilder:validation:XValidation:rule=(!has(self.certRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
 type TLSCert struct {
@@ -121,5 +121,4 @@ type TLSCert struct {
 	// Reference to CA certificate
 	//+optional
 	CACertRef *LocalObjectReference `json:"caCertRef,omitempty"`
->>>>>>> ca41927 (add TLS to trillian DB)
 }
