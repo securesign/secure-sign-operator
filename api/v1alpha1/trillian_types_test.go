@@ -157,7 +157,7 @@ var _ = Describe("Trillian", func() {
 									Name: "secret",
 								},
 							},
-							TrillianServerTLS: TrillianServerTLS{
+							TrillianServer: TrillianServer{
 								TLSCertificate: TLSCert{
 									CertRef: &SecretKeySelector{
 										Key:                  "cert",

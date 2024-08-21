@@ -1,4 +1,4 @@
-package trillianUtils
+package actions
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
-	"github.com/securesign/operator/internal/controller/trillian/actions"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,12 +29,10 @@ func (i configMapAction) Name() string {
 func (i configMapAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	cm, _ := k8sutils.GetConfigMap(ctx, i.Client, instance.Namespace, "ca-configmap")
-	// signingKeySecret: OCP
-	signingKeySecret, _ := k8sutils.GetSecret(i.Client, "openshift-service-ca", "signing-key")
 	return (c.Reason == constants.Creating || c.Reason == constants.Ready) &&
-		cm == nil && signingKeySecret != nil &&
-		instance.Spec.TrillianServerTLS.TLSCertificate.CACertRef == nil &&
-		instance.Spec.TrillianSignerTLS.TLSCertificate.CACertRef == nil
+		cm == nil && k8sutils.IsOpenShift() &&
+		instance.Spec.TrillianServer.TLSCertificate.CACertRef == nil &&
+		instance.Spec.TrillianSigner.TLSCertificate.CACertRef == nil
 }
 
 func (i configMapAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
@@ -44,7 +41,7 @@ func (i configMapAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tri
 		updated bool
 	)
 
-	labels := constants.LabelsFor(actions.LogServerComponentName, actions.LogserverDeploymentName, instance.Name)
+	labels := constants.LabelsFor(LogServerComponentName, LogserverDeploymentName, instance.Name)
 
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{

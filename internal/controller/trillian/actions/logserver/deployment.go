@@ -66,8 +66,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	}
 
 	// TLS certificate
-	signingKeySecret, _ := k8sutils.GetSecret(i.Client, "openshift-service-ca", "signing-key")
-	if instance.Spec.TrillianServerTLS.TLSCertificate.CertRef != nil {
+	if instance.Spec.TrillianServer.TLSCertificate.CertRef != nil {
 		server.Spec.Template.Spec.Volumes = append(server.Spec.Template.Spec.Volumes,
 			corev1.Volume{
 				Name: "tls-cert",
@@ -77,11 +76,11 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 							{
 								Secret: &corev1.SecretProjection{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: instance.Spec.TrillianServerTLS.TLSCertificate.CertRef.Name,
+										Name: instance.Spec.TrillianServer.TLSCertificate.CertRef.Name,
 									},
 									Items: []corev1.KeyToPath{
 										{
-											Key:  instance.Spec.TrillianServerTLS.TLSCertificate.CertRef.Key,
+											Key:  instance.Spec.TrillianServer.TLSCertificate.CertRef.Key,
 											Path: "tls.crt",
 										},
 									},
@@ -90,11 +89,11 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 							{
 								Secret: &corev1.SecretProjection{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: instance.Spec.TrillianServerTLS.TLSCertificate.PrivateKeyRef.Name,
+										Name: instance.Spec.TrillianServer.TLSCertificate.PrivateKeyRef.Name,
 									},
 									Items: []corev1.KeyToPath{
 										{
-											Key:  instance.Spec.TrillianServerTLS.TLSCertificate.PrivateKeyRef.Key,
+											Key:  instance.Spec.TrillianServer.TLSCertificate.PrivateKeyRef.Key,
 											Path: "tls.key",
 										},
 									},
@@ -103,7 +102,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 							{
 								ConfigMap: &corev1.ConfigMapProjection{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: instance.Spec.TrillianServerTLS.TLSCertificate.CACertRef.Name,
+										Name: instance.Spec.TrillianServer.TLSCertificate.CACertRef.Name,
 									},
 									Items: []corev1.KeyToPath{
 										{
@@ -117,7 +116,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 					},
 				},
 			})
-	} else if signingKeySecret != nil {
+	} else if k8sutils.IsOpenShift() {
 		i.Logger.V(1).Info("TLS: Using secrets/signing-key secret")
 		server.Spec.Template.Spec.Volumes = append(server.Spec.Template.Spec.Volumes,
 			corev1.Volume{
@@ -153,7 +152,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		i.Logger.V(1).Info("Communication between services is insecure")
 	}
 
-	if instance.Spec.TrillianServerTLS.TLSCertificate.CertRef != nil || signingKeySecret != nil {
+	if instance.Spec.TrillianServer.TLSCertificate.CertRef != nil || k8sutils.IsOpenShift() {
 		server.Spec.Template.Spec.Containers[0].VolumeMounts = append(server.Spec.Template.Spec.Containers[0].VolumeMounts,
 			corev1.VolumeMount{
 				Name:      "tls-cert",

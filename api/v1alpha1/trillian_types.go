@@ -28,11 +28,9 @@ type TrillianSpec struct {
 	//+kubebuilder:default:={create: true, pvc: {size: "5Gi", retain: true}}
 	Db TrillianDB `json:"database,omitempty"`
 	//+optional
-	TrillianServerTLS TrillianServerTLS `json:"serverTLS,omitempty"`
+	TrillianServer TrillianServer `json:"server,omitempty"`
 	//+optional
-	TrillianSignerTLS TrillianSignerTLS `json:"signerTLS,omitempty"`
-	//+optional
-	TrillianDbTLS TrillianDbTLS `json:"databaseTLS,omitempty"`
+	TrillianSigner TrillianSigner `json:"signer,omitempty"`
 	// Enable Monitoring for Logsigner and Logserver
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
 }
@@ -53,17 +51,15 @@ type TrillianDB struct {
 	// PVC configuration
 	//+kubebuilder:default:={size: "5Gi", retain: true}
 	Pvc Pvc `json:"pvc,omitempty"`
+	// Secret with TLS server certificate, private key and CA certificate
+	TLSCertificate TLSCert `json:"tls"`
 }
 
-type TrillianServerTLS struct {
+type TrillianServer struct {
 	// Secret with TLS server certificate, private key and CA certificate
 	TLSCertificate TLSCert `json:"tls"`
 }
-type TrillianSignerTLS struct {
-	// Secret with TLS server certificate, private key and CA certificate
-	TLSCertificate TLSCert `json:"tls"`
-}
-type TrillianDbTLS struct {
+type TrillianSigner struct {
 	// Secret with TLS server certificate, private key and CA certificate
 	TLSCertificate TLSCert `json:"tls"`
 }

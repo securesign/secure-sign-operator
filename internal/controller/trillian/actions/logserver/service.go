@@ -74,8 +74,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	}
 
 	//TLS: Annotate service
-	signingKeySecret, _ := k8sutils.GetSecret(i.Client, "openshift-service-ca", "signing-key")
-	if signingKeySecret != nil && instance.Spec.TrillianServerTLS.TLSCertificate.CertRef == nil {
+	if k8sutils.IsOpenShift() && instance.Spec.TrillianServer.TLSCertificate.CertRef == nil {
 		if logserverService.Annotations == nil {
 			logserverService.Annotations = make(map[string]string)
 		}

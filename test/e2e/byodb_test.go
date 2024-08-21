@@ -176,9 +176,7 @@ func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef s
 		return err
 	}
 
-	signingKeySecret, _ := kubernetes.GetSecret(cli, "openshift-service-ca", "signing-key")
-
-	if signingKeySecret != nil {
+	if kubernetes.IsOpenShift() {
 		if mysql.Annotations == nil {
 			mysql.Annotations = make(map[string]string)
 		}
@@ -219,7 +217,7 @@ func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef s
 	}
 	args := []string{}
 
-	if signingKeySecret != nil {
+	if kubernetes.IsOpenShift() {
 		volumesMounts = append(volumesMounts, v1.VolumeMount{
 			Name:      "tls-cert",
 			MountPath: "/etc/ssl/certs",

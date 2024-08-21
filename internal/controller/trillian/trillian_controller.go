@@ -32,7 +32,6 @@ import (
 	"github.com/securesign/operator/internal/controller/trillian/actions/db"
 	"github.com/securesign/operator/internal/controller/trillian/actions/logserver"
 	"github.com/securesign/operator/internal/controller/trillian/actions/logsigner"
-	trillianUtils "github.com/securesign/operator/internal/controller/trillian/utils"
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
 
@@ -99,8 +98,8 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.Trillian](),
 		actions.NewRBACAction(),
+		actions.NewCAConfigMapAction(),
 
-		trillianUtils.NewCAConfigMapAction(),
 		db.NewHandleSecretAction(),
 		db.NewCreatePvcAction(),
 		db.NewDeployAction(),
