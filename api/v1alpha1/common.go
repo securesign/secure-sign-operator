@@ -13,6 +13,8 @@ type ExternalAccess struct {
 	Enabled bool `json:"enabled"`
 	// Set hostname for your Ingress/Route.
 	Host string `json:"host,omitempty"`
+	// Set Route Selector Labels for ingress sharding.
+	RouteSelectorLabels map[string]string `json:"routeSelectorLabels,omitempty"`
 }
 
 type MonitoringConfig struct {

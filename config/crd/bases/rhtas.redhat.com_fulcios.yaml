@@ -260,6 +260,11 @@ spec:
                   host:
                     description: Set hostname for your Ingress/Route.
                     type: string
+                  routeSelectorLabels:
+                    additionalProperties:
+                      type: string
+                    description: Set Route Selector Labels for ingress sharding.
+                    type: object
                 required:
                 - enabled
                 type: object
