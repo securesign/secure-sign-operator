@@ -78,7 +78,11 @@ func (i segmentBackupJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Se
 		},
 		{
 			Name:  "REQUESTS_CA_BUNDLE",
-			Value: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
+			Value: "/etc/pki/tls/certs/ca-bundle.crt", // Certificate used to verify requests externally i.e communication with segment
+		},
+		{
+			Name:  "REQUESTS_CA_BUNDLE_INTERNAL",
+			Value: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", // Certificate used to verify requests internally i.e queries to thanos
 		},
 	}
 
