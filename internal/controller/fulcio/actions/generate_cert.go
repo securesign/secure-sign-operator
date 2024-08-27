@@ -11,15 +11,15 @@ import (
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common"
 	"github.com/securesign/operator/internal/controller/common/action"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -79,6 +79,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 
 	cert, err := g.setupCert(ctx, instance)
 	if err != nil {
+		g.Logger.Error(err, "error resolving certificate for fulcio")
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    CertCondition,
 			Status:  metav1.ConditionFalse,
@@ -97,13 +98,33 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 	}
 
 	newCert := k8sutils.CreateImmutableSecret(fmt.Sprintf("fulcio-cert-%s", instance.Name), instance.Namespace, cert.ToMap(), secretLabels)
-	if err = controllerutil.SetControllerReference(instance, newCert, g.Client.Scheme()); err != nil {
-		return g.Failed(fmt.Errorf("could not set controller reference for Secret: %w", err))
+	//Check if a secret for the the fulcio cert already exists anf if so remove the label
+	secret, err := kubernetes.FindSecret(ctx, g.Client, instance.Namespace, FulcioCALabel)
+	if err != nil && !apierrors.IsNotFound(err) {
+		g.Logger.Error(err, "problem with finding secret", "namespace", instance.Namespace)
 	}
-	// ensure that only new key is exposed
-	if err = g.Client.DeleteAllOf(ctx, &v1.Secret{}, client.InNamespace(instance.Namespace), client.MatchingLabels(constants.LabelsFor(ComponentName, DeploymentName, instance.Name)), client.HasLabels{FulcioCALabel}); err != nil {
-		return g.Failed(err)
+
+	if secret != nil {
+		if err := constants.RemoveLabel(ctx, secret, g.Client, FulcioCALabel); err != nil {
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:    CertCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			})
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:    constants.Ready,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			})
+			return g.FailedWithStatusUpdate(ctx, err, instance)
+		}
+		message := fmt.Sprintf("Removed '%s' label from %s secret", FulcioCALabel, secret.Name)
+		g.Recorder.Event(instance, v1.EventTypeNormal, "CertificateSecretLabelRemoved", message)
+		g.Logger.Info(message)
 	}
+
 	if _, err := g.Ensure(ctx, newCert); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    CertCondition,
