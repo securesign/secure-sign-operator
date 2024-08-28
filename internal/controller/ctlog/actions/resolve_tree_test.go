@@ -2,10 +2,8 @@ package actions
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"testing"
-	"time"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
@@ -165,7 +163,7 @@ func TestResolveTree_Handle(t *testing.T) {
 				verify: func(g Gomega, ctlog *rhtasv1alpha1.CTlog) {
 					g.Expect(ctlog.Spec.TreeID).ShouldNot(BeNil())
 					g.Expect(ctlog.Status.TreeID).ShouldNot(BeNil())
-					g.Expect(ctlog.Spec.TreeID).To(HaveValue(BeNumerically(">", 0)))
+					g.Expect(ctlog.Status.TreeID).To(HaveValue(BeNumerically(">", 0)))
 					g.Expect(ctlog.Spec.TreeID).To(HaveValue(BeNumerically("==", *ctlog.Status.TreeID)))
 				},
 			},
@@ -183,7 +181,7 @@ func TestResolveTree_Handle(t *testing.T) {
 				verify: func(g Gomega, ctlog *rhtasv1alpha1.CTlog) {
 					g.Expect(ctlog.Spec.TreeID).ShouldNot(BeNil())
 					g.Expect(ctlog.Status.TreeID).ShouldNot(BeNil())
-					g.Expect(ctlog.Spec.TreeID).To(HaveValue(BeNumerically(">", 0)))
+					g.Expect(ctlog.Status.TreeID).To(HaveValue(BeNumerically(">", 0)))
 					g.Expect(ctlog.Spec.TreeID).To(HaveValue(BeNumerically("==", *ctlog.Status.TreeID)))
 					g.Expect(ctlog.Status.TreeID).To(HaveValue(BeNumerically("==", 123456)))
 				},
@@ -205,7 +203,7 @@ func TestResolveTree_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.Failed(fmt.Errorf("ConfigMap data is empty")),
+				result: testAction.Requeue(),
 				verify: func(g Gomega, ctlog *rhtasv1alpha1.CTlog) {
 					g.Expect(ctlog.Spec.TreeID).Should(BeNil())
 					g.Expect(ctlog.Status.TreeID).Should(BeNil())
@@ -220,11 +218,10 @@ func TestResolveTree_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.Failed(fmt.Errorf("timed out waiting for the ConfigMap: configmap not found")),
+				result: testAction.Requeue(),
 				verify: func(g Gomega, ctlog *rhtasv1alpha1.CTlog) {
-					g.Expect(ctlog.Status.Conditions).To(ContainElement(
-						WithTransform(func(c metav1.Condition) string { return c.Message }, ContainSubstring("timed out waiting for the ConfigMap:")),
-					))
+					g.Expect(ctlog.Spec.TreeID).Should(BeNil())
+					g.Expect(ctlog.Status.TreeID).Should(BeNil())
 				},
 			},
 		},
@@ -261,12 +258,10 @@ func TestResolveTree_Handle(t *testing.T) {
 				}
 			}
 
-			a := testAction.PrepareAction(c, NewResolveTreeAction(func(a *resolveTreeAction) {
-				a.timeout = 5 * time.Second // Reduced timeout for testing
-			}))
+			a := testAction.PrepareAction(c, NewResolveTreeAction())
 
 			if got := a.Handle(ctx, instance); !reflect.DeepEqual(got, tt.want.result) {
-				t.Errorf("CanHandle() = %v, want %v", got, tt.want.result)
+				t.Errorf("Handle() = %v, want %v", got, tt.want.result)
 			}
 			if tt.want.verify != nil {
 				tt.want.verify(g, instance)

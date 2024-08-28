@@ -2,10 +2,8 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"testing"
-	"time"
 
 	. "github.com/onsi/gomega"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -204,7 +202,7 @@ func TestResolveTree_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.Failed(fmt.Errorf("ConfigMap data is empty")),
+				result: testAction.Requeue(),
 				verify: func(g Gomega, rekor *rhtasv1alpha1.Rekor) {
 					g.Expect(rekor.Spec.TreeID).Should(BeNil())
 					g.Expect(rekor.Status.TreeID).Should(BeNil())
@@ -219,11 +217,10 @@ func TestResolveTree_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.Failed(fmt.Errorf("timed out waiting for the ConfigMap: configmap not found")),
+				result: testAction.Requeue(),
 				verify: func(g Gomega, rekor *rhtasv1alpha1.Rekor) {
-					g.Expect(rekor.Status.Conditions).To(ContainElement(
-						WithTransform(func(c metav1.Condition) string { return c.Message }, ContainSubstring("timed out waiting for the ConfigMap:")),
-					))
+					g.Expect(rekor.Spec.TreeID).Should(BeNil())
+					g.Expect(rekor.Status.TreeID).Should(BeNil())
 				},
 			},
 		},
@@ -260,9 +257,7 @@ func TestResolveTree_Handle(t *testing.T) {
 				}
 			}
 
-			a := testAction.PrepareAction(c, NewResolveTreeAction(func(a *resolveTreeAction) {
-				a.timeout = 5 * time.Second // Reduced timeout for testing
-			}))
+			a := testAction.PrepareAction(c, NewResolveTreeAction())
 
 			if got := a.Handle(ctx, instance); !reflect.DeepEqual(got, tt.want.result) {
 				t.Errorf("CanHandle() = %v, want %v", got, tt.want.result)

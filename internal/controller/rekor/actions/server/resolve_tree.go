@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/google/trillian"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -19,9 +18,7 @@ import (
 )
 
 func NewResolveTreeAction(opts ...func(*resolveTreeAction)) action.Action[*rhtasv1alpha1.Rekor] {
-	a := &resolveTreeAction{
-		timeout: time.Duration(constants.CreateTreeDeadline) * time.Second,
-	}
+	a := &resolveTreeAction{}
 
 	for _, opt := range opts {
 		opt(a)
@@ -31,7 +28,6 @@ func NewResolveTreeAction(opts ...func(*resolveTreeAction)) action.Action[*rhtas
 
 type resolveTreeAction struct {
 	action.BaseAction
-	timeout time.Duration
 }
 
 func (i resolveTreeAction) Name() string {
@@ -63,55 +59,16 @@ func (i resolveTreeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.R
 	var tree *trillian.Tree
 
 	cm := &v1.ConfigMap{}
-	deadline := time.Now().Add(i.timeout)
-	for time.Now().Before(deadline) {
-		err = i.Client.Get(ctx, types.NamespacedName{Name: "rekor-tree-id-config", Namespace: instance.Namespace}, cm)
-		if err == nil && cm.Data != nil {
-			break
-		}
-		if err != nil {
-			i.Logger.V(1).Error(fmt.Errorf("waiting for the ConfigMap"), err.Error())
-		}
-	}
-
-	if err != nil {
-		i.Logger.V(1).Error(fmt.Errorf("timed out waiting for the ConfigMap"), err.Error())
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: fmt.Sprintf("timed out waiting for the ConfigMap: %v", err),
-		})
-		return i.Failed(fmt.Errorf("timed out waiting for the ConfigMap: %s", "configmap not found"))
-	}
-
-	if cm.Data == nil {
-		err = fmt.Errorf("ConfigMap data is empty")
-		i.Logger.V(1).Error(err, err.Error())
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.Failed(err)
+	err = i.Client.Get(ctx, types.NamespacedName{Name: "rekor-tree-id-config", Namespace: instance.Namespace}, cm)
+	if err != nil || cm.Data == nil {
+		i.Logger.Info("ConfigMap not ready or data is empty, requeuing reconciliation")
+		return i.Requeue()
 	}
 
 	treeId, exists := cm.Data["tree_id"]
-	treeIdInt, err := strconv.ParseInt(treeId, 10, 64)
-	tree = &trillian.Tree{TreeId: treeIdInt}
 	if !exists {
+		err = fmt.Errorf("ConfigMap missing tree_id")
 		i.Logger.V(1).Error(err, err.Error())
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.Failed(err)
-	}
-
-	if !exists {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ServerCondition,
 			Status:  metav1.ConditionFalse,
@@ -126,6 +83,24 @@ func (i resolveTreeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.R
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create trillian tree: %v", err), instance)
 	}
+	treeIdInt, err := strconv.ParseInt(treeId, 10, 64)
+	if err != nil {
+		i.Logger.V(1).Error(err, err.Error())
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    actions.ServerCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create trillian tree: %v", err), instance)
+	}
+	tree = &trillian.Tree{TreeId: treeIdInt}
 	i.Recorder.Eventf(instance, v1.EventTypeNormal, "TrillianTreeCreated", "New Trillian tree created: %d", tree.TreeId)
 	instance.Status.TreeID = &tree.TreeId
 
