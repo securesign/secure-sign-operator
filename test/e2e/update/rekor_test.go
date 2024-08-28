@@ -93,7 +93,7 @@ var _ = Describe("Rekor update", Ordered, func() {
 			Eventually(func(g Gomega) string {
 				ctl := rekor.Get(ctx, cli, namespace.Name, s.Name)()
 				g.Expect(ctl).NotTo(BeNil())
-				c := meta.FindStatusCondition(ctl.Status.Conditions, constants.Ready)
+				c := meta.FindStatusCondition(ctl.Status.Conditions, rekorAction.ServerCondition)
 				g.Expect(c).ToNot(BeNil())
 				return c.Reason
 			}).Should(Equal(constants.Initialize))
