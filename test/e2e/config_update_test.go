@@ -312,7 +312,7 @@ var _ = Describe("Securesign hot update", Ordered, func() {
 			Eventually(func() string {
 				rekor := tas.GetRekor(ctx, cli, namespace.Name, securesign.Name)()
 				return meta.FindStatusCondition(rekor.Status.Conditions, constants.Ready).Reason
-			}).Should(Equal(constants.Pending))
+			}).Should(Equal(constants.Initialize))
 
 			Expect(cli.Create(ctx, support.InitRekorSecret(namespace.Name, "my-rekor-secret"))).To(Succeed())
 
