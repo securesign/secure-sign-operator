@@ -25,4 +25,5 @@ var (
 	ClientServerImage_f     = "registry.redhat.io/rhtas/client-server-f-rhel9@sha256:aca918e6994ad5f95c71f725428fc3f2865299b1860c2740d1c18f03324cc3c9"
 	SegmentBackupImage      = "registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:625b5beef8b97d0e9fdf1d92bacd31a51de6b8c172e9aac2c98167253738bb61"
 	TimestampAuthorityImage = "registry.redhat.io/rhtas/timestamp-authority-rhel9@sha256:788f298596b5c0c70e06ac210f8e68ce7bf3348c56b7f36eb6b84cdd85f0d01d"
+	CreateTreeImage         = "registry.redhat.io/rhtas/trillian-createtree-rhel9@sha256:0a793e68b9398d73a47012cab0f9edf7b0b917060d59b4afdc9efc5e034595c8"
 )
