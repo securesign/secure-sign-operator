@@ -2,8 +2,15 @@ package kubernetes
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"hash"
+	"hash/fnv"
+	"strings"
+
+	"k8s.io/apimachinery/pkg/util/dump"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -52,8 +59,9 @@ func DeploymentIsRunning(ctx context.Context, cli client.Client, namespace strin
 			return false, fmt.Errorf("%w(%s): %w", ErrDeploymentNotReady, d.Name, ErrDeploymentNotAvailable)
 		}
 
+		templateHash := ComputeHash(&d.Spec.Template, d.Status.CollisionCount)
 		c = getDeploymentCondition(d.Status, v1.DeploymentProgressing)
-		if c == nil || c.Status != corev1.ConditionTrue || c.Reason != "NewReplicaSetAvailable" {
+		if c == nil || c.Status != corev1.ConditionTrue || c.Reason != "NewReplicaSetAvailable" || !strings.Contains(c.Message, templateHash) {
 			return false, fmt.Errorf("%w(%s): %w", ErrDeploymentNotReady, d.Name, ErrNewReplicaSetNotAvailable)
 		}
 	}
@@ -68,4 +76,29 @@ func getDeploymentCondition(status v1.DeploymentStatus, condType v1.DeploymentCo
 		}
 	}
 	return nil
+}
+
+// ComputeHash returns a hash value calculated from pod template and
+// a collisionCount to avoid hash collision. The hash will be safe encoded to
+// avoid bad words.
+func ComputeHash(template *corev1.PodTemplateSpec, collisionCount *int32) string {
+	podTemplateSpecHasher := fnv.New32a()
+	DeepHashObject(podTemplateSpecHasher, *template)
+
+	// Add collisionCount in the hash if it exists.
+	if collisionCount != nil {
+		collisionCountBytes := make([]byte, 8)
+		binary.LittleEndian.PutUint32(collisionCountBytes, uint32(*collisionCount))
+		_, _ = podTemplateSpecHasher.Write(collisionCountBytes)
+	}
+
+	return rand.SafeEncodeString(fmt.Sprint(podTemplateSpecHasher.Sum32()))
+}
+
+// DeepHashObject writes specified object to hash using the spew library
+// which follows pointers and prints actual values of the nested objects
+// ensuring the hash does not change when a pointer changes.
+func DeepHashObject(hasher hash.Hash, objectToWrite interface{}) {
+	hasher.Reset()
+	_, _ = fmt.Fprintf(hasher, "%v", dump.ForHash(objectToWrite))
 }
