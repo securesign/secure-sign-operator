@@ -324,6 +324,70 @@ jobs:
           name: test-upgrade
           path: test/**/k8s-dump-*.tar.gz
 
+  test-custom-install:
+    name: Test with custom operator installation
+    runs-on: ubuntu-20.04
+    needs:
+      - build-operator
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Log in to registry.redhat.io
+        uses: redhat-actions/podman-login@9184318aae1ee5034fbfbacc0388acf12669171f # v1
+        with:
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+          registry: registry.redhat.io
+          auth_file_path: /tmp/config.json
+
+      - name: Image prune
+        run: docker image prune -af
+
+      - name: Install Cluster
+        uses: container-tools/kind-action@v2.0.1
+        with:
+          version: v0.20.0
+          node_image: kindest/node:v1.26.6@sha256:6e2d8b28a5b601defe327b98bd1c2d1930b49e5d8c512e1895099e4504007adb
+          cpu: 3
+          registry: false
+          config: ./ci/config.yaml
+
+      - name: Configure cluster
+        run: |
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+          kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
+        shell: bash
+
+      - name: Add service hosts to /etc/hosts
+        run: |
+          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local rekor-search-ui.local cli-server.local" | sudo tee -a /etc/hosts
+
+      - name: Replace images
+        run: make dev-images && cat internal/controller/constants/images.go
+
+      - name: Run tests
+        env:
+          TEST_MANAGER_IMAGE: ${{ env.IMG }}
+          OPENSHIFT: false
+        run: make install && go test ./test/e2e/... -tags=custom_install -p 1 -timeout 20m
+
+      - name: Archive test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-upgrade
+          path: test/**/k8s-dump-*.tar.gz
+
   test-eks:
     name: Test EKS deployment
     runs-on: ubuntu-20.04

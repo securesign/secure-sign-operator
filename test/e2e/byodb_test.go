@@ -20,7 +20,7 @@ import (
 )
 
 var _ = Describe("Securesign install with byodb", Ordered, func() {
-	cli, _ := CreateClient()
+	cli, _ := support.CreateClient()
 	ctx := context.TODO()
 
 	var targetImageName string
