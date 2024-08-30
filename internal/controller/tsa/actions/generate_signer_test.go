@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/securesign/operator/test/e2e/support/tas/tsa"
+
 	. "github.com/onsi/gomega"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -11,7 +13,6 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	common "github.com/securesign/operator/internal/testing/common/tsa"
-	"github.com/securesign/operator/test/e2e/support"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -183,7 +184,7 @@ func Test_SignerHandle(t *testing.T) {
 
 				obj := []client.Object{}
 				client := testAction.FakeClientBuilder().WithObjects(instance).Build()
-				secret := support.InitTsaSecrets(instance.Namespace, "tsa-test-secret")
+				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret")
 				obj = append(obj, secret)
 				return common.TsaTestSetup(instance, t, client, NewGenerateSignerAction(), obj...)
 			},
@@ -239,7 +240,7 @@ func Test_SignerHandle(t *testing.T) {
 				}
 				obj := []client.Object{}
 				client := testAction.FakeClientBuilder().WithObjects(instance).Build()
-				secret := support.InitTsaSecrets(instance.Namespace, "tsa-test-secret")
+				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret")
 				obj = append(obj, secret)
 				return common.TsaTestSetup(instance, t, client, NewGenerateSignerAction(), obj...)
 			},
@@ -263,7 +264,7 @@ func Test_SignerHandle(t *testing.T) {
 			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
 				instance.Status.Conditions[0].Reason = constants.Pending
 				client := testAction.FakeClientBuilder().WithObjects(instance).Build()
-				secret := support.InitTsaSecrets(instance.Namespace, "tsa-test-secret")
+				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret")
 				return common.TsaTestSetup(instance, t, client, NewGenerateSignerAction(), secret)
 			},
 			testCase: func(g Gomega, a action.Action[*rhtasv1alpha1.TimestampAuthority], client client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {
@@ -332,7 +333,7 @@ func Test_SignerHandle(t *testing.T) {
 			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
 				instance.Status.Conditions[0].Reason = constants.Pending
 				client := testAction.FakeClientBuilder().WithObjects(instance).Build()
-				secret := support.InitTsaSecrets(instance.Namespace, "tsa-test-secret")
+				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret")
 				return common.TsaTestSetup(instance, t, client, NewGenerateSignerAction(), secret)
 			},
 			testCase: func(g Gomega, a action.Action[*rhtasv1alpha1.TimestampAuthority], client client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {

@@ -1,4 +1,4 @@
-package tas
+package securesign
 
 import (
 	"context"
@@ -11,14 +11,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func VerifySecuresign(ctx context.Context, cli client.Client, namespace string, name string) {
-	Eventually(GetSecuresign(ctx, cli, namespace, name)).Should(
+func Verify(ctx context.Context, cli client.Client, namespace string, name string) {
+	Eventually(Get(ctx, cli, namespace, name)).Should(
 		WithTransform(func(f *v1alpha1.Securesign) bool {
 			return meta.IsStatusConditionTrue(f.Status.Conditions, constants.Ready)
 		}, BeTrue()))
 }
 
-func GetSecuresign(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.Securesign {
+func Get(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.Securesign {
 	return func() *v1alpha1.Securesign {
 		instance := &v1alpha1.Securesign{}
 		_ = cli.Get(ctx, types.NamespacedName{
