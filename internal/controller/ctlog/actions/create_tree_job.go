@@ -176,7 +176,7 @@ func (i createTreeJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:    CtlogTreeJobName,
 		Status:  metav1.ConditionTrue,
-		Reason:  constants.Ready,
+		Reason:  constants.Creating,
 		Message: "ctlog tree Job Created",
 	})
 
