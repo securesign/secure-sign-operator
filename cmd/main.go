@@ -122,6 +122,7 @@ func main() {
 	utils.StringFlagOrEnv(&constants.SegmentBackupImage, "segment-backup-job-image", "SEGMENT_BACKUP_JOB_IMAGE", constants.SegmentBackupImage, "The image used for the segment backup job")
 	flag.StringVar(&clidownload.CliHostName, "cli-server-hostname", "", "The hostname for the cli server")
 	utils.StringFlagOrEnv(&constants.TimestampAuthorityImage, "timestamp-authority-image", "TIMESTAMP_AUTHORITY_IMAGE", constants.TimestampAuthorityImage, "The image used for Timestamp Authority")
+	utils.StringFlagOrEnv(&constants.CreateTreeImage, "create-tree-image", "CREATE_TREE_IMAGE", constants.CreateTreeImage, "The image used for the Trillian create tree job")
 
 	klog.InitFlags(flag.CommandLine)
 	flag.Parse()
