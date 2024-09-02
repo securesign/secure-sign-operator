@@ -123,43 +123,6 @@ func CreateSecrets(ns string, name string) *v1.Secret {
 	}
 	config.LeafPrivateKey = leafPrivateKey
 
-	notBefore := time.Now()
-	notAfter := notBefore.Add(365 * 24 * 10 * time.Hour)
-	oidExtendedKeyUsage := asn1.ObjectIdentifier{2, 5, 29, 37}
-	oidTimeStamping := asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 3, 8}
-	ekuValues, err := asn1.Marshal([]asn1.ObjectIdentifier{oidTimeStamping})
-	if err != nil {
-		return nil
-	}
-
-	ekuExtension := pkix.Extension{
-		Id:       oidExtendedKeyUsage,
-		Critical: true,
-		Value:    ekuValues,
-	}
-
-	issuer := pkix.Name{
-		CommonName:         "local",
-		Country:            []string{"CR"},
-		Organization:       []string{"RedHat"},
-		Province:           []string{"Czech Republic"},
-		Locality:           []string{"Brno"},
-		OrganizationalUnit: []string{"QE"},
-	}
-
-	certTemplate := x509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               issuer,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping},
-		ExtraExtensions:       []pkix.Extension{ekuExtension},
-		Issuer:                issuer,
-		NotBefore:             notBefore,
-		NotAfter:              notAfter,
-	}
-
 	block, _ := pem.Decode(rootPrivateKey)
 	keyBytes := block.Bytes
 	if x509.IsEncryptedPEMBlock(block) { //nolint:staticcheck
@@ -187,7 +150,7 @@ func CreateSecrets(ns string, name string) *v1.Secret {
 		return nil
 	}
 
-	intermediateCert, err := x509.CreateCertificate(rand.Reader, &certTemplate, rootCert, interPubKey, rootPrivKey)
+	intermediateCert, err := x509.CreateCertificate(rand.Reader, getCertTemplate(true), rootCert, interPubKey, rootPrivKey)
 	if err != nil {
 		return nil
 	}
@@ -199,7 +162,7 @@ func CreateSecrets(ns string, name string) *v1.Secret {
 		return nil
 	}
 
-	leafCert, err := x509.CreateCertificate(rand.Reader, &certTemplate, rootCert, leafPuKey, rootPrivKey)
+	leafCert, err := x509.CreateCertificate(rand.Reader, getCertTemplate(false), rootCert, leafPuKey, rootPrivKey)
 	if err != nil {
 		return nil
 	}
@@ -231,5 +194,44 @@ func CreateSecrets(ns string, name string) *v1.Secret {
 			"leafPrivateKeyPassword":    config.LeafPrivateKeyPassword,
 			"certificateChain":          config.CertificateChain,
 		},
+	}
+}
+
+func getCertTemplate(isCA bool) *x509.Certificate {
+	notBefore := time.Now()
+	notAfter := notBefore.Add(365 * 24 * 10 * time.Hour)
+	oidExtendedKeyUsage := asn1.ObjectIdentifier{2, 5, 29, 37}
+	oidTimeStamping := asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 3, 8}
+	ekuValues, err := asn1.Marshal([]asn1.ObjectIdentifier{oidTimeStamping})
+	if err != nil {
+		return nil
+	}
+
+	ekuExtension := pkix.Extension{
+		Id:       oidExtendedKeyUsage,
+		Critical: true,
+		Value:    ekuValues,
+	}
+
+	issuer := pkix.Name{
+		CommonName:         "local",
+		Country:            []string{"CR"},
+		Organization:       []string{"RedHat"},
+		Province:           []string{"Czech Republic"},
+		Locality:           []string{"Brno"},
+		OrganizationalUnit: []string{"QE"},
+	}
+
+	return &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               issuer,
+		BasicConstraintsValid: true,
+		IsCA:                  isCA,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping},
+		ExtraExtensions:       []pkix.Extension{ekuExtension},
+		Issuer:                issuer,
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
 	}
 }
