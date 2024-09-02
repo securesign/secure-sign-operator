@@ -162,7 +162,7 @@ func CreateTSACertChain(ctx context.Context, instance *rhtasv1alpha1.TimestampAu
 		return nil, err
 	}
 
-	leafCertTemplate, err := generateCertTemplate(*leafIssuer, true, x509.KeyUsageCertSign|x509.KeyUsageCRLSign, []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping}, []pkix.Extension{ekuExtension})
+	leafCertTemplate, err := generateCertTemplate(*leafIssuer, false, x509.KeyUsageCertSign|x509.KeyUsageCRLSign, []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping}, []pkix.Extension{ekuExtension})
 	if err != nil {
 		return nil, err
 	}
