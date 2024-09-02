@@ -30,8 +30,6 @@ import (
 	olmAlpha "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/securesign/operator/api/v1alpha1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/utils"
-	"github.com/securesign/operator/internal/controller/constants"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,7 +55,6 @@ func CreateClient() (runtimeCli.Client, error) {
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(olmAlpha.AddToScheme(scheme))
 	utilruntime.Must(olm.AddToScheme(scheme))
-	utils.BoolFlagOrEnv(&constants.Openshift, "openshift", "OPENSHIFT", false, "Enable to ensures the operator applies OpenShift specific configurations.")
 
 	cfg, err := config.GetConfig()
 	if err != nil {
