@@ -16,7 +16,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -37,8 +36,8 @@ func (i segmentBackupJob) Name() string {
 }
 
 func (i segmentBackupJob) CanHandle(_ context.Context, instance *rhtasv1alpha1.Securesign) bool {
-	if c := meta.FindStatusCondition(instance.Status.Conditions, SegmentBackupJobName); c != nil {
-		return c.Reason != constants.Ready
+	if c := meta.FindStatusCondition(instance.Status.Conditions, SBJCondition); c != nil {
+		return c.Status != metav1.ConditionTrue
 	}
 
 	val, found := instance.Annotations[annotations.Metrics]
@@ -55,15 +54,6 @@ func (i segmentBackupJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Se
 	var (
 		err error
 	)
-
-	if c := meta.FindStatusCondition(instance.Status.Conditions, SegmentBackupJobName); c == nil {
-		instance.SetCondition(v1.Condition{
-			Type:    SegmentBackupJobName,
-			Status:  v1.ConditionFalse,
-			Reason:  constants.Creating,
-			Message: "Creating Segment Backup Job",
-		})
-	}
 
 	labels := constants.LabelsFor(SegmentBackupJobName, SegmentBackupJobName, instance.Name)
 	parallelism := int32(1)
@@ -109,11 +99,11 @@ func (i segmentBackupJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Se
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:    SegmentBackupJobName,
+		Type:    SBJCondition,
 		Status:  metav1.ConditionTrue,
 		Reason:  constants.Ready,
 		Message: "Segment Backup Job Created",
 	})
 
-	return i.Continue()
+	return i.StatusUpdate(ctx, instance)
 }
