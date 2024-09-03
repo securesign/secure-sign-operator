@@ -76,17 +76,19 @@ var _ = Describe("Rekor update", Ordered, func() {
 		})
 
 		It("modified signer.keyRef", func() {
-			Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-			s.Spec.Rekor.Signer = v1alpha1.RekorSigner{
-				KMS: "secret",
-				KeyRef: &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
-						Name: "my-rekor-secret",
+			Eventually(func(g Gomega) error {
+				Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
+				s.Spec.Rekor.Signer = v1alpha1.RekorSigner{
+					KMS: "secret",
+					KeyRef: &v1alpha1.SecretKeySelector{
+						LocalObjectReference: v1alpha1.LocalObjectReference{
+							Name: "my-rekor-secret",
+						},
+						Key: "private",
 					},
-					Key: "private",
-				},
-			}
-			Expect(cli.Update(ctx, s)).To(Succeed())
+				}
+				return cli.Update(ctx, s)
+			}).WithTimeout(1 * time.Second).Should(Succeed())
 		})
 
 		It("has status SignerAvailable == Failure: waiting on my-rekor-secret", func() {
@@ -118,28 +120,30 @@ var _ = Describe("Rekor update", Ordered, func() {
 		})
 
 		It("update TUF deployment", func() {
-			Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-			s.Spec.Tuf.Keys = []v1alpha1.TufKey{
-				{
-					Name: "rekor.pub",
-					SecretRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
-							Name: "my-rekor-secret",
+			Eventually(func(g Gomega) error {
+				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
+				s.Spec.Tuf.Keys = []v1alpha1.TufKey{
+					{
+						Name: "rekor.pub",
+						SecretRef: &v1alpha1.SecretKeySelector{
+							LocalObjectReference: v1alpha1.LocalObjectReference{
+								Name: "my-rekor-secret",
+							},
+							Key: "public",
 						},
-						Key: "public",
 					},
-				},
-				{
-					Name: "fulcio_v1.crt.pem",
-				},
-				{
-					Name: "tsa.certchain.pem",
-				},
-				{
-					Name: "ctfe.pub",
-				},
-			}
-			Expect(cli.Update(ctx, s)).To(Succeed())
+					{
+						Name: "fulcio_v1.crt.pem",
+					},
+					{
+						Name: "tsa.certchain.pem",
+					},
+					{
+						Name: "ctfe.pub",
+					},
+				}
+				return cli.Update(ctx, s)
+			}).WithTimeout(1 * time.Second).Should(Succeed())
 			Eventually(func(g Gomega) []v1alpha1.TufKey {
 				t := tuf.Get(ctx, cli, namespace.Name, s.Name)()
 				return t.Status.Keys

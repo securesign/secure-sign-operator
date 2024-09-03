@@ -213,7 +213,9 @@ func generateTufObject(name string) *Tuf {
 					Name: "tsa.certchain.pem",
 				},
 			},
-			RootKeySecretRef: "tuf-root-keys",
+			RootKeySecretRef: &LocalObjectReference{
+				Name: "tuf-root-keys",
+			},
 			Pvc: TufPvc{
 				Retain: ptr.To(true),
 				Size:   &storage,

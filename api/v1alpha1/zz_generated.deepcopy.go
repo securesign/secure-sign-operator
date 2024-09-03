@@ -1477,6 +1477,11 @@ func (in *TufSpec) DeepCopyInto(out *TufSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.RootKeySecretRef != nil {
+		in, out := &in.RootKeySecretRef, &out.RootKeySecretRef
+		*out = new(LocalObjectReference)
+		**out = **in
+	}
 	in.Pvc.DeepCopyInto(&out.Pvc)
 }
 

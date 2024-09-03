@@ -79,12 +79,11 @@ func (i initJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) 
 		return i.Failed(err)
 
 	}
-
-	job := utils.CreateTufInitJob(instance, InitJobName, RBACName, constants.LabelsForComponent(ComponentName, instance.Name))
-	if err := controllerutil.SetControllerReference(instance, job, i.Client.Scheme()); err != nil {
+	j := utils.CreateTufInitJob(instance, InitJobName, RBACName, constants.LabelsForComponent(ComponentName, instance.Name))
+	if err := controllerutil.SetControllerReference(instance, j, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Job: %w", err))
 	}
-	if err := i.Client.Create(ctx, job); err != nil {
+	if err := i.Client.Create(ctx, j); err != nil {
 		return i.Failed(err)
 	}
 	i.Recorder.Event(instance, v1.EventTypeNormal, "JobCreated", "Tuf init-repository job created.")

@@ -171,11 +171,21 @@ spec:
                 - retain
                 type: object
               rootKeySecretRef:
-                default: tuf-root-keys
+                default:
+                  name: tuf-root-keys
                 description: Secret object reference that will hold you repository
                   root keys. This parameter will be used only with operator-managed
                   repository.
-                type: string
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
             type: object
           status:
             description: TufStatus defines the observed state of Tuf

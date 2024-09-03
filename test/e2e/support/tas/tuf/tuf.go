@@ -16,7 +16,6 @@ import (
 	v12 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -59,17 +58,19 @@ func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.
 
 func RefreshTufRepository(ctx context.Context, cli client.Client, ns string, name string) {
 	tufDeployment := &appsv1.Deployment{}
-	Expect(cli.Get(ctx, types.NamespacedName{Namespace: ns, Name: actions.DeploymentName}, tufDeployment)).To(Succeed())
+	Eventually(func(g Gomega) error {
+		g.Expect(cli.Get(ctx, types.NamespacedName{Namespace: ns, Name: actions.DeploymentName}, tufDeployment)).To(Succeed())
 
-	// pause deployment reconciliation
-	if tufDeployment.Annotations == nil {
-		tufDeployment.Annotations = make(map[string]string)
-	}
-	tufDeployment.Annotations[annotations.PausedReconciliation] = "true"
+		// pause deployment reconciliation
+		if tufDeployment.Annotations == nil {
+			tufDeployment.Annotations = make(map[string]string)
+		}
+		tufDeployment.Annotations[annotations.PausedReconciliation] = "true"
 
-	// scale deployment down to release PV
-	tufDeployment.Spec.Replicas = ptr.To(int32(0))
-	Expect(cli.Update(ctx, tufDeployment)).To(Succeed())
+		// scale deployment down to release PV
+		tufDeployment.Spec.Replicas = ptr.To(int32(0))
+		return cli.Update(ctx, tufDeployment)
+	}).WithTimeout(1 * time.Second).Should(Succeed())
 
 	t := Get(ctx, cli, ns, name)()
 	Expect(t).ToNot(BeNil())
@@ -83,72 +84,23 @@ func RefreshTufRepository(ctx context.Context, cli client.Client, ns string, nam
 	}).Should(BeTrue())
 
 	// unpause reconciliation
-	Expect(cli.Get(ctx, types.NamespacedName{Namespace: ns, Name: actions.DeploymentName}, tufDeployment)).To(Succeed())
-	tufDeployment.Annotations[annotations.PausedReconciliation] = "false"
-	Expect(cli.Update(ctx, tufDeployment)).To(Succeed())
+	Eventually(func(g Gomega) error {
+		g.Expect(cli.Get(ctx, types.NamespacedName{Namespace: ns, Name: actions.DeploymentName}, tufDeployment)).To(Succeed())
+		tufDeployment.Annotations[annotations.PausedReconciliation] = "false"
+		return cli.Update(ctx, tufDeployment)
+	},
+	).WithTimeout(1 * time.Second).Should(Succeed())
 
 	// wait for controller to start loop again
 	time.Sleep(5 * time.Second)
 }
 
 func refreshTufJob(instance *v1alpha1.Tuf) *v12.Job {
-	return &v12.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "tuf-refresh-",
-			Namespace:    instance.Namespace,
-		},
-		Spec: v12.JobSpec{
-			Parallelism: ptr.To[int32](1),
-			Completions: ptr.To[int32](1),
-			Template: v1.PodTemplateSpec{
-				Spec: v1.PodSpec{
-					ServiceAccountName: actions.RBACName,
-					RestartPolicy:      v1.RestartPolicyNever,
-					Volumes: []v1.Volume{
-						{
-							Name: "tuf-secrets",
-							VolumeSource: v1.VolumeSource{
-								Projected: utils2.SecretsVolumeProjection(instance.Status.Keys),
-							},
-						},
-						{
-							Name: "repository",
-							VolumeSource: v1.VolumeSource{
-								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-									ClaimName: instance.Status.PvcName,
-								},
-							},
-						},
-					},
-					Containers: []v1.Container{
-						{
-							Name:  "tuf-init",
-							Image: constants.TufImage,
-							Env: []v1.EnvVar{
-								{
-									Name:  "NAMESPACE",
-									Value: instance.Namespace,
-								},
-							},
-							Args: []string{
-								"-mode", "init",
-								"-target-dir", "/var/run/target",
-							},
-							VolumeMounts: []v1.VolumeMount{
-								{
-									Name:      "tuf-secrets",
-									MountPath: "/var/run/tuf-secrets",
-								},
-								{
-									Name:      "repository",
-									MountPath: "/var/run/target",
-									ReadOnly:  false,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
+	j := utils2.CreateTufInitJob(instance, "", actions.RBACName, instance.Labels)
+	j.GenerateName = "tuf-refresh-"
+	j.Spec.Template.Spec.Containers[0].Args = []string{
+		"-mode", "init",
+		"-target-dir", "/var/run/target",
 	}
+	return j
 }

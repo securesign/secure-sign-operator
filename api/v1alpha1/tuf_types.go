@@ -22,8 +22,8 @@ type TufSpec struct {
 	//+kubebuilder:validation:MinItems:=1
 	Keys []TufKey `json:"keys,omitempty"`
 	// Secret object reference that will hold you repository root keys. This parameter will be used only with operator-managed repository.
-	//+kubebuilder:default:=tuf-root-keys
-	RootKeySecretRef string `json:"rootKeySecretRef,omitempty"`
+	//+kubebuilder:default:={name: tuf-root-keys}
+	RootKeySecretRef *LocalObjectReference `json:"rootKeySecretRef,omitempty"`
 	// Pvc configuration of the persistent storage claim for deployment in the cluster.
 	// You can use ReadWriteOnce accessMode if you don't have suitable storage provider but your deployment will not support HA mode
 	//+kubebuilder:default:={size: "100Mi",retain: true,accessModes: {ReadWriteOnce}}

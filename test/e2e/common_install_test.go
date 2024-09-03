@@ -282,8 +282,8 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 		It("Tuf repository root key secret was created", func() {
 			tuf.Verify(ctx, cli, namespace.Name, s.Name)
 			tuf := tuf.Get(ctx, cli, namespace.Name, s.Name)()
-			Expect(tuf.Spec.RootKeySecretRef).NotTo(BeEmpty())
-			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: tuf.Spec.RootKeySecretRef}, &v1.Secret{})).To(Succeed())
+			Expect(tuf.Spec.RootKeySecretRef).NotTo(BeNil())
+			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: tuf.Spec.RootKeySecretRef.Name}, &v1.Secret{})).To(Succeed())
 		})
 
 		It("All other components are running", func() {

@@ -35,7 +35,7 @@ func CreateTufInitJob(instance *v1alpha1.Tuf, name string, sa string, labels map
 						{
 							Name: "tuf-secrets",
 							VolumeSource: core.VolumeSource{
-								Projected: SecretsVolumeProjection(instance.Status.Keys),
+								Projected: secretsVolumeProjection(instance.Status.Keys),
 							},
 						},
 						{
@@ -55,7 +55,7 @@ func CreateTufInitJob(instance *v1alpha1.Tuf, name string, sa string, labels map
 							Args: []string{
 								"-mode", "init-no-overwrite",
 								"-target-dir", "/var/run/target",
-								"-keyssecret", instance.Spec.RootKeySecretRef,
+								"-keyssecret", instance.Spec.RootKeySecretRef.Name,
 							},
 							VolumeMounts: []core.VolumeMount{
 								{

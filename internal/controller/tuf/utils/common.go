@@ -5,7 +5,7 @@ import (
 	core "k8s.io/api/core/v1"
 )
 
-func SecretsVolumeProjection(keys []v1alpha1.TufKey) *core.ProjectedVolumeSource {
+func secretsVolumeProjection(keys []v1alpha1.TufKey) *core.ProjectedVolumeSource {
 
 	projections := make([]core.VolumeProjection, 0)
 

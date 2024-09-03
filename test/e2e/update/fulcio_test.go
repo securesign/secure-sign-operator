@@ -83,28 +83,30 @@ var _ = Describe("Fulcio update", Ordered, func() {
 		})
 
 		It("modified fulcio.certificate", func() {
-			Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-			s.Spec.Fulcio.Certificate = v1alpha1.FulcioCert{
-				PrivateKeyRef: &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
-						Name: "my-fulcio-secret",
+			Eventually(func(g Gomega) error {
+				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
+				s.Spec.Fulcio.Certificate = v1alpha1.FulcioCert{
+					PrivateKeyRef: &v1alpha1.SecretKeySelector{
+						LocalObjectReference: v1alpha1.LocalObjectReference{
+							Name: "my-fulcio-secret",
+						},
+						Key: "private",
 					},
-					Key: "private",
-				},
-				PrivateKeyPasswordRef: &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
-						Name: "my-fulcio-secret",
+					PrivateKeyPasswordRef: &v1alpha1.SecretKeySelector{
+						LocalObjectReference: v1alpha1.LocalObjectReference{
+							Name: "my-fulcio-secret",
+						},
+						Key: "password",
 					},
-					Key: "password",
-				},
-				CARef: &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
-						Name: "my-fulcio-secret",
+					CARef: &v1alpha1.SecretKeySelector{
+						LocalObjectReference: v1alpha1.LocalObjectReference{
+							Name: "my-fulcio-secret",
+						},
+						Key: "cert",
 					},
-					Key: "cert",
-				},
-			}
-			Expect(cli.Update(ctx, s)).To(Succeed())
+				}
+				return cli.Update(ctx, s)
+			}).WithTimeout(1 * time.Second).Should(Succeed())
 		})
 
 		It("has status FulcioCertAvailable == Failure: waiting on my-fulcio-secret", func() {
@@ -142,28 +144,30 @@ var _ = Describe("Fulcio update", Ordered, func() {
 		})
 
 		It("update TUF deployment", func() {
-			Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-			s.Spec.Tuf.Keys = []v1alpha1.TufKey{
-				{
-					Name: "rekor.pub",
-				},
-				{
-					Name: "fulcio_v1.crt.pem",
-					SecretRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
-							Name: "my-fulcio-secret",
-						},
-						Key: "cert",
+			Eventually(func(g Gomega) error {
+				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
+				s.Spec.Tuf.Keys = []v1alpha1.TufKey{
+					{
+						Name: "rekor.pub",
 					},
-				},
-				{
-					Name: "tsa.certchain.pem",
-				},
-				{
-					Name: "ctfe.pub",
-				},
-			}
-			Expect(cli.Update(ctx, s)).To(Succeed())
+					{
+						Name: "fulcio_v1.crt.pem",
+						SecretRef: &v1alpha1.SecretKeySelector{
+							LocalObjectReference: v1alpha1.LocalObjectReference{
+								Name: "my-fulcio-secret",
+							},
+							Key: "cert",
+						},
+					},
+					{
+						Name: "tsa.certchain.pem",
+					},
+					{
+						Name: "ctfe.pub",
+					},
+				}
+				return cli.Update(ctx, s)
+			}).WithTimeout(1 * time.Second).Should(Succeed())
 			Eventually(func(g Gomega) []v1alpha1.TufKey {
 				t := tuf.Get(ctx, cli, namespace.Name, s.Name)()
 				return t.Status.Keys
@@ -207,14 +211,16 @@ var _ = Describe("Fulcio update", Ordered, func() {
 		})
 
 		It("adds new OIDCIssuers", func() {
-			Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-			s.Spec.Fulcio.Config.OIDCIssuers = append(s.Spec.Fulcio.Config.OIDCIssuers, v1alpha1.OIDCIssuer{
-				ClientID:  "fake",
-				IssuerURL: "fake",
-				Issuer:    "fake",
-				Type:      "email",
-			})
-			Expect(cli.Update(ctx, s)).To(Succeed())
+			Eventually(func(g Gomega) error {
+				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
+				s.Spec.Fulcio.Config.OIDCIssuers = append(s.Spec.Fulcio.Config.OIDCIssuers, v1alpha1.OIDCIssuer{
+					ClientID:  "fake",
+					IssuerURL: "fake",
+					Issuer:    "fake",
+					Type:      "email",
+				})
+				return cli.Update(ctx, s)
+			}).WithTimeout(1 * time.Second).Should(Succeed())
 		})
 
 		It("has status Ready", func() {

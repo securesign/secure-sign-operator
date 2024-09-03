@@ -48,6 +48,8 @@ spec:
                 default:
                   create: true
                   pvc:
+                    accessModes:
+                    - ReadWriteOnce
                     retain: true
                     size: 5Gi
                 description: Define your database connection
