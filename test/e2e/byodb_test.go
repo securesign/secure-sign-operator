@@ -151,7 +151,43 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 })
 
 func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef string) error {
-	err := cli.Create(ctx, &v1.Secret{
+
+	mysql := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: ns,
+			Name:      "my-trillian-mysql",
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
+				{
+					Name:       "3306-tcp",
+					Port:       3300,
+					TargetPort: intstr.IntOrString{IntVal: 3306},
+					Protocol:   "TCP",
+				},
+			},
+			Selector: map[string]string{
+				kubernetes.NameLabel: "my-db",
+			},
+		},
+	}
+	err := cli.Create(ctx, mysql)
+	if err != nil {
+		return err
+	}
+
+	if kubernetes.IsOpenShift() {
+		if mysql.Annotations == nil {
+			mysql.Annotations = make(map[string]string)
+		}
+		mysql.Annotations["service.beta.openshift.io/serving-cert-secret-name"] = "my-trillian-db-tls-secret"
+		err := cli.Update(ctx, mysql)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = cli.Create(ctx, &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: secretRef},
 		Data: map[string][]byte{
 			"mysql-database":      []byte("my_trillian"),
@@ -165,6 +201,50 @@ func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef s
 	if err != nil {
 		return err
 	}
+	volumesMounts := []v1.VolumeMount{
+		{
+			Name:      "storage",
+			MountPath: "/var/lib/mysql",
+		},
+	}
+	volumes := []v1.Volume{
+		{
+			Name: "storage",
+			VolumeSource: v1.VolumeSource{
+				EmptyDir: &v1.EmptyDirVolumeSource{},
+			},
+		},
+	}
+	args := []string{}
+
+	if kubernetes.IsOpenShift() {
+		volumesMounts = append(volumesMounts, v1.VolumeMount{
+			Name:      "tls-cert",
+			MountPath: "/etc/ssl/certs",
+			ReadOnly:  true,
+		})
+
+		volumes = append(volumes,
+			v1.Volume{
+				Name: "tls-cert",
+				VolumeSource: v1.VolumeSource{
+					Projected: &v1.ProjectedVolumeSource{
+						Sources: []v1.VolumeProjection{
+							{
+								Secret: &v1.SecretProjection{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: "my-trillian-db-tls-secret",
+									},
+								},
+							},
+						},
+					},
+				},
+			})
+
+		args = append(args, "--ssl-cert", "/etc/ssl/certs/tls.crt")
+		args = append(args, "--ssl-key", "/etc/ssl/certs/tls.key")
+	}
 
 	err = cli.Create(ctx, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -173,18 +253,15 @@ func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef s
 			Labels:    map[string]string{kubernetes.NameLabel: "my-db"},
 		},
 		Spec: v1.PodSpec{
-			Volumes: []v1.Volume{
-				{
-					Name: "storage",
-					VolumeSource: v1.VolumeSource{
-						EmptyDir: &v1.EmptyDirVolumeSource{},
-					},
-				},
-			},
+			Volumes: volumes,
 			Containers: []v1.Container{
 				{
 					Name:  "mysql",
 					Image: "registry.redhat.io/rhtas-tech-preview/trillian-database-rhel9@sha256:fe4758ff57a9a6943a4655b21af63fb579384dc51838af85d0089c04290b4957",
+					Command: []string{
+						"run-mysqld",
+					},
+					Args: args,
 					Env: []v1.EnvVar{
 						{
 							Name: "MYSQL_ROOT_PASSWORD",
@@ -241,12 +318,7 @@ func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef s
 						SuccessThreshold:    1,
 						FailureThreshold:    3,
 					},
-					VolumeMounts: []v1.VolumeMount{
-						{
-							Name:      "storage",
-							MountPath: "/var/lib/mysql",
-						},
-					},
+					VolumeMounts: volumesMounts,
 				},
 			},
 		},
@@ -254,25 +326,5 @@ func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef s
 	if err != nil {
 		return err
 	}
-
-	err = cli.Create(ctx, &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: ns,
-			Name:      "my-trillian-mysql",
-		},
-		Spec: v1.ServiceSpec{
-			Ports: []v1.ServicePort{
-				{
-					Name:       "3306-tcp",
-					Port:       3300,
-					TargetPort: intstr.IntOrString{IntVal: 3306},
-					Protocol:   "TCP",
-				},
-			},
-			Selector: map[string]string{
-				kubernetes.NameLabel: "my-db",
-			},
-		},
-	})
 	return err
 }
