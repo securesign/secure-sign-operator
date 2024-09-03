@@ -3,6 +3,8 @@ package actions
 import (
 	"context"
 
+	"github.com/securesign/operator/internal/controller/common/utils"
+
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -23,18 +25,26 @@ func (i initializeAction) Name() string {
 }
 
 func (i initializeAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Trillian) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Initialize
+	return meta.IsStatusConditionFalse(instance.Status.Conditions, constants.Ready)
 }
 
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
-	if meta.IsStatusConditionTrue(instance.Status.Conditions, DbCondition) &&
-		meta.IsStatusConditionTrue(instance.Status.Conditions, SignerCondition) &&
-		meta.IsStatusConditionTrue(instance.Status.Conditions, ServerCondition) {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
-			Status: metav1.ConditionTrue, Reason: constants.Ready})
-		return i.StatusUpdate(ctx, instance)
-	}
-	return i.Requeue()
 
+	if !meta.IsStatusConditionTrue(instance.Status.Conditions, SignerCondition) {
+		return i.Requeue()
+	}
+
+	if !meta.IsStatusConditionTrue(instance.Status.Conditions, ServerCondition) {
+		return i.Requeue()
+	}
+
+	if utils.IsEnabled(instance.Spec.Db.Create) {
+		if !meta.IsStatusConditionTrue(instance.Status.Conditions, DbCondition) {
+			return i.Requeue()
+		}
+	}
+
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
+		Status: metav1.ConditionTrue, Reason: constants.Ready})
+	return i.StatusUpdate(ctx, instance)
 }

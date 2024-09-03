@@ -493,6 +493,27 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		}).Should(gomega.Equal(constants.Ready))
 	})
 
+	It("Trillian components are Ready", func() {
+		gomega.Eventually(func(g gomega.Gomega) {
+			t := trillian.Get(ctx, cli, namespace.Name, securesignDeployment.Name)()
+			g.Expect(t).ToNot(gomega.BeNil())
+			g.Expect(meta.IsStatusConditionTrue(t.Status.Conditions, trillianAction.DbCondition)).To(gomega.BeTrue())
+			g.Expect(meta.IsStatusConditionTrue(t.Status.Conditions, trillianAction.ServerCondition)).To(gomega.BeTrue())
+			g.Expect(meta.IsStatusConditionTrue(t.Status.Conditions, trillianAction.SignerCondition)).To(gomega.BeTrue())
+		}).Should(gomega.Succeed())
+	})
+
+	It("Rekor components are Ready", func() {
+		gomega.Eventually(func(g gomega.Gomega) {
+			t := rekor.Get(ctx, cli, namespace.Name, securesignDeployment.Name)()
+			g.Expect(t).ToNot(gomega.BeNil())
+			g.Expect(meta.IsStatusConditionTrue(t.Status.Conditions, rekorAction.ServerCondition)).To(gomega.BeTrue())
+			g.Expect(meta.IsStatusConditionTrue(t.Status.Conditions, rekorAction.SignerCondition)).To(gomega.BeTrue())
+			g.Expect(meta.IsStatusConditionTrue(t.Status.Conditions, rekorAction.UICondition)).To(gomega.BeTrue())
+			g.Expect(meta.IsStatusConditionTrue(t.Status.Conditions, rekorAction.RedisCondition)).To(gomega.BeTrue())
+		}).Should(gomega.Succeed())
+	})
+
 	It("Sign and Verify image after tsa install", func() {
 		s := securesign.Get(ctx, cli, namespace.Name, securesignDeployment.Name)()
 		gomega.Expect(s).ToNot(gomega.BeNil())
