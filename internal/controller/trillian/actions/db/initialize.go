@@ -28,8 +28,8 @@ func (i initializeAction) Name() string {
 }
 
 func (i initializeAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Trillian) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Initialize && utils.OptionalBool(instance.Spec.Db.Create) && !meta.IsStatusConditionTrue(instance.Status.Conditions, actions.DbCondition)
+	return !meta.IsStatusConditionTrue(instance.Status.Conditions, actions.DbCondition) &&
+		utils.OptionalBool(instance.Spec.Db.Create)
 }
 
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {

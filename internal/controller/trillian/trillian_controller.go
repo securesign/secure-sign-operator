@@ -19,6 +19,8 @@ package trillian
 import (
 	"context"
 
+	"github.com/securesign/operator/internal/controller/common/utils"
+
 	"k8s.io/apimachinery/pkg/types"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
@@ -26,7 +28,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action/transitions"
 
 	"github.com/securesign/operator/internal/controller/common/action"
-	actions2 "github.com/securesign/operator/internal/controller/trillian/actions"
+	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/controller/trillian/actions/db"
 	"github.com/securesign/operator/internal/controller/trillian/actions/logserver"
 	"github.com/securesign/operator/internal/controller/trillian/actions/logsigner"
@@ -86,11 +88,16 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	target := instance.DeepCopy()
 	actions := []action.Action[*rhtasv1alpha1.Trillian]{
-		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Trillian](func(_ *rhtasv1alpha1.Trillian) []string {
-			return nil
+		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Trillian](func(t *rhtasv1alpha1.Trillian) []string {
+			components := []string{actions.ServerCondition, actions.SignerCondition}
+			if utils.IsEnabled(t.Spec.Db.Create) {
+				components = append(components, actions.DbCondition)
+			}
+			return components
 		}),
+
 		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.Trillian](),
-		actions2.NewRBACAction(),
+		actions.NewRBACAction(),
 
 		db.NewHandleSecretAction(),
 		db.NewCreatePvcAction(),
@@ -110,7 +117,7 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		db.NewInitializeAction(),
 		logserver.NewInitializeAction(),
 		logsigner.NewInitializeAction(),
-		actions2.NewInitializeAction(),
+		actions.NewInitializeAction(),
 	}
 
 	for _, a := range actions {
