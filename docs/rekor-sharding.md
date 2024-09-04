@@ -38,7 +38,7 @@ Follow these steps to shard the log:
 1. Store the tree ID of the current active shard:
 
    ```bash
-   CURRENT_TREE_ID=$(rekor-cli loginfo --format json | jq -r .TreeID)
+   CURRENT_TREE_ID=$(rekor-cli loginfo --rekor_server $REKOR_URL --format json | jq -r .TreeID)
    ```
 
 1. Stop all traffic to Rekor so new entries can't be added by setting the log tree to a `DRAINING` state.
@@ -64,7 +64,7 @@ Follow these steps to shard the log:
 1. Store the length of the frozen tree:
 
    ```bash
-   CURRENT_SHARD_LENGTH=$(rekor-cli loginfo --format json | jq -r .ActiveTreeSize)
+   CURRENT_SHARD_LENGTH=$(rekor-cli loginfo --rekor_server $REKOR_URL --format json | jq -r .ActiveTreeSize)
    ```
 
 1. Store the public key of the signer key used for the current active shard:
@@ -129,13 +129,13 @@ Once you've completed the sharding process, it's important to ensure everything 
 1. **Verify Entries**: Submit new entries to the Rekor log and ensure they are being added to the new shard. You can use the `rekor-cli` to add entries and then query them to verify they are correctly stored.
 
    ```bash
-   rekor-cli upload --artifact <path_to_artifact> --public-key <path_to_public_key>
+   rekor-cli upload --rekor_server $REKOR_URL --artifact <path_to_artifact> --public-key <path_to_public_key>
    ```
 
 1. **Query the Shard**: Use the `rekor-cli` to query the log by UUID and log index to ensure the entries are retrievable from the new shard.
 
    ```bash
-   rekor-cli get --uuid <uuid>
+   rekor-cli get --rekor_server $REKOR_URL --uuid <uuid>
    ```
 
 By following these steps, you can confirm that the sharding process was successful and that your Rekor server is operating as expected with the new shard configuration.
