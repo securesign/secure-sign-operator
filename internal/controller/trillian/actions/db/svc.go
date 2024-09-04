@@ -64,6 +64,18 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Trillian DB service: %w", err), instance)
 	}
 
+	//TLS: Annotate service
+	if k8sutils.IsOpenShift() && instance.Spec.Db.TLSCertificate.CertRef == nil {
+		if mysql.Annotations == nil {
+			mysql.Annotations = make(map[string]string)
+		}
+		mysql.Annotations["service.beta.openshift.io/serving-cert-secret-name"] = instance.Name + "-trillian-db-tls-secret"
+		err := i.Client.Update(ctx, mysql)
+		if err != nil {
+			return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not annotate logserver service: %w", err), instance)
+		}
+	}
+
 	if updated {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.DbCondition,

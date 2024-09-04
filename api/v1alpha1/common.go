@@ -115,3 +115,17 @@ type Auth struct {
 	//+optional
 	SecretMount []SecretKeySelector `json:"secretMount,omitempty"`
 }
+
+// TLSCert defines fields for TLS certificate
+// +kubebuilder:validation:XValidation:rule=(!has(self.certRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
+type TLSCert struct {
+	// Reference to the private key
+	//+optional
+	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+	// Reference to service certificate
+	//+optional
+	CertRef *SecretKeySelector `json:"certRef,omitempty"`
+	// Reference to CA certificate
+	//+optional
+	CACertRef *LocalObjectReference `json:"caCertRef,omitempty"`
+}

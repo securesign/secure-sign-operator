@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, secCont *core.PodSecurityContext, labels map[string]string) (*apps.Deployment, error) {
+func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, secCont *core.PodSecurityContext, labels map[string]string, useTLS bool) (*apps.Deployment, error) {
 	if instance.Status.Db.DatabaseSecretRef == nil {
 		return nil, errors.New("reference to database secret is not set")
 	}
@@ -18,6 +18,12 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, secCon
 		return nil, errors.New("reference to database pvc is not set")
 	}
 	replicas := int32(1)
+	readinessProbeCommand := "mariadb -u ${MYSQL_USER} -p${MYSQL_PASSWORD} -e \"SELECT 1;\""
+	livenessProbeCommand := "mariadb-admin -u ${MYSQL_USER} -p${MYSQL_PASSWORD} ping"
+	if useTLS {
+		readinessProbeCommand += " --ssl-ca=/etc/ssl/certs/ca.crt"
+		livenessProbeCommand += " --ssl-ca=/etc/ssl/certs/ca.crt"
+	}
 
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -49,6 +55,10 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, secCon
 					},
 					Containers: []core.Container{
 						{
+							Command: []string{
+								"run-mysqld",
+							},
+							Args:  []string{},
 							Name:  dpName,
 							Image: constants.TrillianDbImage,
 							ReadinessProbe: &core.Probe{
@@ -57,7 +67,7 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, secCon
 										Command: []string{
 											"bash",
 											"-c",
-											"mariadb -u ${MYSQL_USER} -p${MYSQL_PASSWORD} -e \"SELECT 1;\"",
+											readinessProbeCommand,
 										},
 									},
 								},
@@ -73,7 +83,7 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, secCon
 										Command: []string{
 											"bash",
 											"-c",
-											"mariadb-admin -u ${MYSQL_USER} -p${MYSQL_PASSWORD} ping",
+											livenessProbeCommand,
 										},
 									},
 								},
