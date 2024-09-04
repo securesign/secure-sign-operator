@@ -80,35 +80,37 @@ var _ = Describe("TSA update", Ordered, func() {
 		})
 
 		It("modified signer and certificate chain", func() {
-			Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-			s.Spec.TimestampAuthority.Signer = v1alpha1.TimestampAuthoritySigner{
-				CertificateChain: v1alpha1.CertificateChain{
-					CertificateChainRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
-							Name: "test-tsa-secret",
+			Eventually(func(g Gomega) error {
+				Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
+				s.Spec.TimestampAuthority.Signer = v1alpha1.TimestampAuthoritySigner{
+					CertificateChain: v1alpha1.CertificateChain{
+						CertificateChainRef: &v1alpha1.SecretKeySelector{
+							LocalObjectReference: v1alpha1.LocalObjectReference{
+								Name: "my-tsa-secret",
+							},
+							Key: "certificateChain",
 						},
-						Key: "certificateChain",
 					},
-				},
-				File: &v1alpha1.File{
-					PrivateKeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
-							Name: "test-tsa-secret",
+					File: &v1alpha1.File{
+						PrivateKeyRef: &v1alpha1.SecretKeySelector{
+							LocalObjectReference: v1alpha1.LocalObjectReference{
+								Name: "my-tsa-secret",
+							},
+							Key: "leafPrivateKey",
 						},
-						Key: "leafPrivateKey",
-					},
-					PasswordRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
-							Name: "test-tsa-secret",
+						PasswordRef: &v1alpha1.SecretKeySelector{
+							LocalObjectReference: v1alpha1.LocalObjectReference{
+								Name: "my-tsa-secret",
+							},
+							Key: "leafPrivateKeyPassword",
 						},
-						Key: "leafPrivateKeyPassword",
 					},
-				},
-			}
-			Expect(cli.Update(ctx, s)).To(Succeed())
+				}
+				return cli.Update(ctx, s)
+			}).WithTimeout(1 * time.Second).Should(Succeed())
 		})
 
-		It("has status Pending: waiting on test-tsa-secret", func() {
+		It("has status Pending: waiting on my-tsa-secret", func() {
 			Eventually(func(g Gomega) string {
 				ctl := tsa.Get(ctx, cli, namespace.Name, s.Name)()
 				g.Expect(ctl).NotTo(BeNil())
@@ -118,8 +120,8 @@ var _ = Describe("TSA update", Ordered, func() {
 			}).Should(Equal(constants.Pending))
 		})
 
-		It("created test-tsa-secret", func() {
-			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tsa-secret"))).Should(Succeed())
+		It("created my-tsa-secret", func() {
+			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "my-tsa-secret"))).Should(Succeed())
 		})
 
 		It("has status Ready", func() {
@@ -136,10 +138,38 @@ var _ = Describe("TSA update", Ordered, func() {
 			}).Should(BeNumerically(">", tsaGeneration))
 		})
 
-		It("updated TUF deployment", func() {
-			Eventually(func() int64 {
-				return getDeploymentGeneration(ctx, cli, types.NamespacedName{Namespace: namespace.Name, Name: tufAction.DeploymentName})
-			}).Should(BeNumerically(">", tufGeneration))
+		It("update TUF deployment", func() {
+			Eventually(func(g Gomega) error {
+				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
+				s.Spec.Tuf.Keys = []v1alpha1.TufKey{
+					{
+						Name: "rekor.pub",
+					},
+					{
+						Name: "fulcio_v1.crt.pem",
+					},
+					{
+						Name: "tsa.certchain.pem",
+						SecretRef: &v1alpha1.SecretKeySelector{
+							LocalObjectReference: v1alpha1.LocalObjectReference{
+								Name: "my-tsa-secret",
+							},
+							Key: "certificateChain",
+						},
+					},
+					{
+						Name: "ctfe.pub",
+					},
+				}
+				return cli.Update(ctx, s)
+			}).WithTimeout(1 * time.Second).Should(Succeed())
+			Eventually(func(g Gomega) []v1alpha1.TufKey {
+				t := tuf.Get(ctx, cli, namespace.Name, s.Name)()
+				return t.Status.Keys
+			}).Should(And(HaveLen(4), WithTransform(func(keys []v1alpha1.TufKey) string {
+				return keys[2].SecretRef.Name
+			}, Equal("my-tsa-secret"))))
+			tuf.RefreshTufRepository(ctx, cli, namespace.Name, s.Name)
 		})
 
 		It("verify TSA and TUF", func() {
@@ -159,12 +189,12 @@ var _ = Describe("TSA update", Ordered, func() {
 
 			Expect(pod.Spec.Volumes).To(ContainElement(And(
 				WithTransform(func(v v1.Volume) string { return v.Name }, Equal("tsa-cert-chain")),
-				WithTransform(func(v v1.Volume) string { return v.VolumeSource.Secret.SecretName }, Equal("test-tsa-secret")),
+				WithTransform(func(v v1.Volume) string { return v.VolumeSource.Secret.SecretName }, Equal("my-tsa-secret")),
 			)))
 
 			Expect(pod.Spec.Volumes).To(ContainElement(And(
 				WithTransform(func(v v1.Volume) string { return v.Name }, Equal("tsa-file-signer-config")),
-				WithTransform(func(v v1.Volume) string { return v.VolumeSource.Secret.SecretName }, Equal("test-tsa-secret")),
+				WithTransform(func(v v1.Volume) string { return v.VolumeSource.Secret.SecretName }, Equal("my-tsa-secret")),
 			)))
 
 			certChainSecret := &v1.Secret{}
@@ -172,7 +202,7 @@ var _ = Describe("TSA update", Ordered, func() {
 			expectedSecret := &v1.Secret{}
 			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: t.Status.Signer.CertificateChain.CertificateChainRef.Name}, certChainSecret)).To(Succeed())
 			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: t.Status.Signer.File.PrivateKeyRef.Name}, privateKeySecret)).To(Succeed())
-			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: "test-tsa-secret"}, expectedSecret)).To(Succeed())
+			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: "my-tsa-secret"}, expectedSecret)).To(Succeed())
 		})
 
 		It("verify by cosign", func() {
@@ -192,20 +222,22 @@ var _ = Describe("TSA update", Ordered, func() {
 		})
 
 		It("modified NTP config", func() {
-			Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-			s.Spec.TimestampAuthority.NTPMonitoring = v1alpha1.NTPMonitoring{
-				Enabled: true,
-				Config: &v1alpha1.NtpMonitoringConfig{
-					RequestAttempts: 3,
-					RequestTimeout:  5,
-					NumServers:      4,
-					ServerThreshold: 3,
-					MaxTimeDelta:    6,
-					Period:          40,
-					Servers:         []string{"time.apple.com", "time.google.com", "time-a-b.nist.gov", "time-b-b.nist.gov", "gbg1.ntp.se"},
-				},
-			}
-			Expect(cli.Update(ctx, s)).To(Succeed())
+			Eventually(func(g Gomega) error {
+				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
+				s.Spec.TimestampAuthority.NTPMonitoring = v1alpha1.NTPMonitoring{
+					Enabled: true,
+					Config: &v1alpha1.NtpMonitoringConfig{
+						RequestAttempts: 3,
+						RequestTimeout:  5,
+						NumServers:      4,
+						ServerThreshold: 3,
+						MaxTimeDelta:    6,
+						Period:          40,
+						Servers:         []string{"time.apple.com", "time.google.com", "time-a-b.nist.gov", "time-b-b.nist.gov", "gbg1.ntp.se"},
+					},
+				}
+				return cli.Update(ctx, s)
+			}).WithTimeout(1 * time.Second).Should(Succeed())
 		})
 
 		It("has status Ready", func() {

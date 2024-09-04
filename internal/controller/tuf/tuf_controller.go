@@ -24,25 +24,16 @@ import (
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/action/transitions"
-	ctl "github.com/securesign/operator/internal/controller/ctlog/actions"
-	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
-	"github.com/securesign/operator/internal/controller/rekor/actions/server"
-	tsa "github.com/securesign/operator/internal/controller/tsa/actions"
 	"github.com/securesign/operator/internal/controller/tuf/actions"
 	v1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
 	v13 "k8s.io/api/networking/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -93,16 +84,19 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	target := instance.DeepCopy()
 	acs := []action.Action[*rhtasv1alpha1.Tuf]{
 		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Tuf](func(tuf *rhtasv1alpha1.Tuf) []string {
-			keys := make([]string, len(tuf.Spec.Keys))
+			conditions := make([]string, len(tuf.Spec.Keys))
 			for i, k := range tuf.Spec.Keys {
-				keys[i] = k.Name
+				conditions[i] = k.Name
 			}
-			return keys
+			conditions = append(conditions, actions.RepositoryCondition)
+			return conditions
 		}),
 
 		actions.NewResolveKeysAction(),
 		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.Tuf](),
 		actions.NewRBACAction(),
+		actions.NewCreatePvcAction(),
+		actions.NewInitJobAction(),
 		actions.NewDeployAction(),
 		actions.NewServiceAction(),
 		actions.NewIngressAction(),
@@ -131,8 +125,7 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 // SetupWithManager sets up the controller with the Manager.
 func (r *TufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	var (
-		fulcioP, rekorP, ctlP, tsaP predicate.Predicate
-		err                         error
+		err error
 	)
 
 	// Filter out with the pause annotation.
@@ -141,78 +134,11 @@ func (r *TufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	if fulcioP, err = predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
-		{
-			Key:      fulcio.FulcioCALabel,
-			Operator: metav1.LabelSelectorOpExists,
-		},
-	}}); err != nil {
-		return err
-	}
-	if rekorP, err = predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
-		{
-			Key:      server.RekorPubLabel,
-			Operator: metav1.LabelSelectorOpExists,
-		},
-	}}); err != nil {
-		return err
-	}
-	if ctlP, err = predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
-		{
-			Key:      ctl.CTLPubLabel,
-			Operator: metav1.LabelSelectorOpExists,
-		},
-	}}); err != nil {
-		return err
-	}
-
-	if tsaP, err = predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
-		{
-			Key:      tsa.TSACertCALabel,
-			Operator: metav1.LabelSelectorOpExists,
-		},
-	}}); err != nil {
-		return err
-	}
-
-	partialSecret := &metav1.PartialObjectMetadata{}
-	partialSecret.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "",
-		Version: "v1",
-		Kind:    "Secret",
-	})
-
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
 		For(&rhtasv1alpha1.Tuf{}).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		Owns(&v13.Ingress{}).
-		WatchesMetadata(partialSecret, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
-			val, ok := object.GetLabels()["app.kubernetes.io/instance"]
-			if ok {
-				return []reconcile.Request{
-					{
-						NamespacedName: types.NamespacedName{
-							Namespace: object.GetNamespace(),
-							Name:      val,
-						},
-					},
-				}
-			}
-
-			list := &rhtasv1alpha1.TufList{}
-			err := mgr.GetClient().List(ctx, list, client.InNamespace(object.GetNamespace()))
-			if err != nil {
-				return make([]reconcile.Request, 0)
-			}
-
-			requests := make([]reconcile.Request, len(list.Items))
-			for i, k := range list.Items {
-				requests[i] = reconcile.Request{NamespacedName: types.NamespacedName{Namespace: object.GetNamespace(), Name: k.Name}}
-			}
-			return requests
-
-		}), builder.WithPredicates(predicate.Or(fulcioP, rekorP, ctlP, tsaP))).
 		Complete(r)
 }

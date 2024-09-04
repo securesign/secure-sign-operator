@@ -48,6 +48,8 @@ spec:
                 default:
                   create: true
                   pvc:
+                    accessModes:
+                    - ReadWriteOnce
                     retain: true
                     size: 5Gi
                 description: Define your database connection
@@ -84,6 +86,19 @@ spec:
                       size: 5Gi
                     description: PVC configuration
                     properties:
+                      accessModes:
+                        default:
+                        - ReadWriteOnce
+                        description: PVC AccessModes
+                        items:
+                          enum:
+                          - ReadWriteOnce
+                          - ReadOnlyMany
+                          - ReadWriteMany
+                          - ReadWriteOncePod
+                          type: string
+                        minItems: 1
+                        type: array
                       name:
                         description: Name of the PVC
                         maxLength: 253
@@ -244,6 +259,19 @@ spec:
                       size: 5Gi
                     description: PVC configuration
                     properties:
+                      accessModes:
+                        default:
+                        - ReadWriteOnce
+                        description: PVC AccessModes
+                        items:
+                          enum:
+                          - ReadWriteOnce
+                          - ReadOnlyMany
+                          - ReadWriteMany
+                          - ReadWriteOncePod
+                          type: string
+                        minItems: 1
+                        type: array
                       name:
                         description: Name of the PVC
                         maxLength: 253

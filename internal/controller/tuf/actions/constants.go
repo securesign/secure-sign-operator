@@ -6,4 +6,7 @@ const (
 	RBACName       = "tuf"
 	PortName       = "http"
 	Port           = 8080
+	InitJobName    = "tuf-repository-init"
+
+	RepositoryCondition = "repository"
 )

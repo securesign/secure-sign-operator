@@ -107,10 +107,25 @@ spec:
                 type: object
               pvc:
                 default:
+                  accessModes:
+                  - ReadWriteOnce
                   retain: true
                   size: 5Gi
                 description: PVC configuration
                 properties:
+                  accessModes:
+                    default:
+                    - ReadWriteOnce
+                    description: PVC AccessModes
+                    items:
+                      enum:
+                      - ReadWriteOnce
+                      - ReadOnlyMany
+                      - ReadWriteMany
+                      - ReadWriteOncePod
+                      type: string
+                    minItems: 1
+                    type: array
                   name:
                     description: Name of the PVC
                     maxLength: 253

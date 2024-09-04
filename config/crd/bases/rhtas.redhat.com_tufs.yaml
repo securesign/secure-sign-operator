@@ -116,6 +116,76 @@ spec:
                 maximum: 65535
                 minimum: 1
                 type: integer
+              pvc:
+                default:
+                  accessModes:
+                  - ReadWriteOnce
+                  retain: true
+                  size: 100Mi
+                description: |-
+                  Pvc configuration of the persistent storage claim for deployment in the cluster.
+                  You can use ReadWriteOnce accessMode if you don't have suitable storage provider but your deployment will not support HA mode
+                properties:
+                  accessModes:
+                    default:
+                    - ReadWriteOnce
+                    description: PVC AccessModes
+                    items:
+                      enum:
+                      - ReadWriteOnce
+                      - ReadOnlyMany
+                      - ReadWriteMany
+                      - ReadWriteOncePod
+                      type: string
+                    minItems: 1
+                    type: array
+                  name:
+                    description: Name of the PVC
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                  retain:
+                    default: true
+                    description: Retain policy for the PVC
+                    type: boolean
+                    x-kubernetes-validations:
+                    - message: Field is immutable
+                      rule: (self == oldSelf)
+                  size:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    default: 100Mi
+                    description: |-
+                      The requested size of the persistent volume attached to Pod.
+                      The format of this field matches that defined by kubernetes/apimachinery.
+                      See https://pkg.go.dev/k8s.io/apimachinery/pkg/api/resource#Quantity for more info on the format of this field.
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  storageClass:
+                    description: The name of the StorageClass to claim a PersistentVolume
+                      from.
+                    type: string
+                required:
+                - retain
+                type: object
+              rootKeySecretRef:
+                default:
+                  name: tuf-root-keys
+                description: Secret object reference that will hold you repository
+                  root keys. This parameter will be used only with operator-managed
+                  repository.
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
             type: object
           status:
             description: TufStatus defines the observed state of Tuf
@@ -224,6 +294,8 @@ spec:
                   - name
                   type: object
                 type: array
+              pvcName:
+                type: string
               url:
                 type: string
             type: object

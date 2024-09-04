@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/api/meta"
+	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -20,6 +21,39 @@ type TufSpec struct {
 	//+kubebuilder:default:={{name: rekor.pub},{name: ctfe.pub},{name: fulcio_v1.crt.pem},{name: tsa.certchain.pem}}
 	//+kubebuilder:validation:MinItems:=1
 	Keys []TufKey `json:"keys,omitempty"`
+	// Secret object reference that will hold you repository root keys. This parameter will be used only with operator-managed repository.
+	//+kubebuilder:default:={name: tuf-root-keys}
+	RootKeySecretRef *LocalObjectReference `json:"rootKeySecretRef,omitempty"`
+	// Pvc configuration of the persistent storage claim for deployment in the cluster.
+	// You can use ReadWriteOnce accessMode if you don't have suitable storage provider but your deployment will not support HA mode
+	//+kubebuilder:default:={size: "100Mi",retain: true,accessModes: {ReadWriteOnce}}
+	Pvc TufPvc `json:"pvc,omitempty"`
+}
+
+type TufPvc struct {
+	// The requested size of the persistent volume attached to Pod.
+	// The format of this field matches that defined by kubernetes/apimachinery.
+	// See https://pkg.go.dev/k8s.io/apimachinery/pkg/api/resource#Quantity for more info on the format of this field.
+	//+kubebuilder:default:="100Mi"
+	Size *k8sresource.Quantity `json:"size,omitempty"`
+
+	// Retain policy for the PVC
+	//+kubebuilder:default:=true
+	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
+	Retain *bool `json:"retain"`
+	// Name of the PVC
+	//+optional
+	//+kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+	//+kubebuilder:validation:MinLength=1
+	//+kubebuilder:validation:MaxLength=253
+	Name string `json:"name,omitempty"`
+	// The name of the StorageClass to claim a PersistentVolume from.
+	//+optional
+	StorageClass string `json:"storageClass,omitempty"`
+	// PVC AccessModes
+	//+kubebuilder:default:={ReadWriteOnce}
+	//+kubebuilder:validation:MinItems:=1
+	AccessModes []PersistentVolumeAccessMode `json:"accessModes,omitempty"`
 }
 
 type TufKey struct {
@@ -36,8 +70,9 @@ type TufKey struct {
 
 // TufStatus defines the observed state of Tuf
 type TufStatus struct {
-	Keys []TufKey `json:"keys,omitempty"`
-	Url  string   `json:"url,omitempty"`
+	Keys    []TufKey `json:"keys,omitempty"`
+	PvcName string   `json:"pvcName,omitempty"`
+	Url     string   `json:"url,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge

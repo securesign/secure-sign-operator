@@ -210,8 +210,9 @@ func generateTrillianObject(name string) *Trillian {
 			Db: TrillianDB{
 				Create: ptr.To(true),
 				Pvc: Pvc{
-					Retain: ptr.To(true),
-					Size:   &storage,
+					Retain:      ptr.To(true),
+					Size:        &storage,
+					AccessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"},
 				},
 			},
 		},

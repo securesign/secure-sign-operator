@@ -76,20 +76,22 @@ var _ = Describe("CTlog update", Ordered, func() {
 		})
 
 		It("modified ctlog.privateKeyRef and ctlog.publicKeyRef", func() {
-			Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-			s.Spec.Ctlog.PrivateKeyRef = &v1alpha1.SecretKeySelector{
-				LocalObjectReference: v1alpha1.LocalObjectReference{
-					Name: "my-ctlog-secret",
-				},
-				Key: "private",
-			}
-			s.Spec.Ctlog.PublicKeyRef = &v1alpha1.SecretKeySelector{
-				LocalObjectReference: v1alpha1.LocalObjectReference{
-					Name: "my-ctlog-secret",
-				},
-				Key: "public",
-			}
-			Expect(cli.Update(ctx, s)).To(Succeed())
+			Eventually(func(g Gomega) error {
+				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
+				s.Spec.Ctlog.PrivateKeyRef = &v1alpha1.SecretKeySelector{
+					LocalObjectReference: v1alpha1.LocalObjectReference{
+						Name: "my-ctlog-secret",
+					},
+					Key: "private",
+				}
+				s.Spec.Ctlog.PublicKeyRef = &v1alpha1.SecretKeySelector{
+					LocalObjectReference: v1alpha1.LocalObjectReference{
+						Name: "my-ctlog-secret",
+					},
+					Key: "public",
+				}
+				return cli.Update(ctx, s)
+			}).WithTimeout(1 * time.Second).Should(Succeed())
 		})
 
 		It("has status Creating: waiting on my-ctlog-secret", func() {
@@ -118,10 +120,38 @@ var _ = Describe("CTlog update", Ordered, func() {
 			}).Should(BeNumerically(">", ctlogGeneration))
 		})
 
-		It("updated TUF deployment", func() {
-			Eventually(func() int64 {
-				return getDeploymentGeneration(ctx, cli, types.NamespacedName{Namespace: namespace.Name, Name: tufAction.DeploymentName})
-			}).Should(BeNumerically(">", tufGeneration))
+		It("update TUF deployment", func() {
+			Eventually(func(g Gomega) error {
+				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
+				s.Spec.Tuf.Keys = []v1alpha1.TufKey{
+					{
+						Name: "rekor.pub",
+					},
+					{
+						Name: "fulcio_v1.crt.pem",
+					},
+					{
+						Name: "tsa.certchain.pem",
+					},
+					{
+						Name: "ctfe.pub",
+						SecretRef: &v1alpha1.SecretKeySelector{
+							LocalObjectReference: v1alpha1.LocalObjectReference{
+								Name: "my-ctlog-secret",
+							},
+							Key: "public",
+						},
+					},
+				}
+				return cli.Update(ctx, s)
+			}).WithTimeout(1 * time.Second).Should(Succeed())
+			Eventually(func(g Gomega) []v1alpha1.TufKey {
+				t := tuf.Get(ctx, cli, namespace.Name, s.Name)()
+				return t.Status.Keys
+			}).Should(And(HaveLen(4), WithTransform(func(keys []v1alpha1.TufKey) string {
+				return keys[3].SecretRef.Name
+			}, Equal("my-ctlog-secret"))))
+			tuf.RefreshTufRepository(ctx, cli, namespace.Name, s.Name)
 		})
 
 		It("verify CTlog and TUF", func() {

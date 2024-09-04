@@ -3,19 +3,23 @@ package kubernetes
 import (
 	"context"
 
+	"github.com/securesign/operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreatePVC(namespace string, pvcName string, pvcSize resource.Quantity, storageClass string, labels map[string]string) *corev1.PersistentVolumeClaim {
+func CreatePVC(namespace string, pvcName string, pvc v1alpha1.Pvc, labels map[string]string) *corev1.PersistentVolumeClaim {
+	modes := make([]corev1.PersistentVolumeAccessMode, len(pvc.AccessModes))
+	for i, m := range pvc.AccessModes {
+		modes[i] = corev1.PersistentVolumeAccessMode(m)
+	}
 	var computedStorageClass *string
-	if storageClass == "" {
+	if pvc.StorageClass == "" {
 		computedStorageClass = nil
 	} else {
-		computedStorageClass = &storageClass
+		computedStorageClass = &pvc.StorageClass
 	}
 
 	return &corev1.PersistentVolumeClaim{
@@ -25,12 +29,10 @@ func CreatePVC(namespace string, pvcName string, pvcSize resource.Quantity, stor
 			Labels:    labels,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{
-				"ReadWriteOnce",
-			},
+			AccessModes: modes,
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: pvcSize,
+					corev1.ResourceStorage: *pvc.Size,
 				},
 			},
 			StorageClassName: computedStorageClass,
