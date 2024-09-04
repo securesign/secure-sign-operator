@@ -126,10 +126,18 @@ Once you've completed the sharding process, it's important to ensure everything 
    kubectl logs -f deploy/rekor-server
    ```
 
+1. **Create signature**: use cosign to sign artifact data with generated key-pair
+
+   ```bash
+   cosign generate generate-key-pair
+   cosign sign-blob <path_to_artifact> --key cosign.key --output-signature base64.sig
+   base64 -d < base64.sig > artifact.sig
+   ```
+
 1. **Verify Entries**: Submit new entries to the Rekor log and ensure they are being added to the new shard. You can use the `rekor-cli` to add entries and then query them to verify they are correctly stored.
 
    ```bash
-   rekor-cli upload --rekor_server $REKOR_URL --artifact <path_to_artifact> --public-key <path_to_public_key>
+   rekor-cli upload --rekor_server $REKOR_URL --artifact <path_to_artifact> --signature artifact.sig --pki-format=x509 --public-key cosign.pub
    ```
 
 1. **Query the Shard**: Use the `rekor-cli` to query the log by UUID and log index to ensure the entries are retrievable from the new shard.
