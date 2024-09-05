@@ -141,7 +141,8 @@ kubectl create secret generic ctlog-config \
    --from-file=public=new-ctlog-public.pem \
    --from-file=fulcio-0=fulcio-0.pem \
    --from-file=private-0=private.pem \
-   --from-file=public-0=public.pem
+   --from-file=public-0=public.pem \
+   --from-literal=password=changeit
 ```
 
 ### 11. Update Securesign resource
@@ -163,6 +164,11 @@ read -r -d '' SECURESIGN_PATCH <<EOF
     },
     {
         "op": "replace",
+        "path": "/spec/ctlog/privateKeyPasswordRef",
+        "value": {"name": "ctlog-config", "key": "password"}
+    },
+    {
+        "op": "replace",
         "path": "/spec/ctlog/publicKeyRef",
         "value": {"name": "ctlog-config", "key": "public"}
     }
@@ -176,7 +182,7 @@ kubectl patch securesign securesign-sample --type='json' -p="$SECURESIGN_PATCH"
 Monitor the Kubernetes deployment to ensure the CT log server is redeployed with the updated configuration.
 
 ```bash
-kubectl get pods -w -l app.kubernetes.io/name=ctlog-server
+kubectl get pods -w -l app.kubernetes.io/name=ctlog
 ```
 
 ### 13. Update TUF Service
