@@ -129,7 +129,7 @@ Once you've completed the sharding process, it's important to ensure everything 
 1. **Create signature**: use cosign to sign artifact data with generated key-pair
 
    ```bash
-   cosign generate generate-key-pair
+   cosign generate-key-pair
    cosign sign-blob <path_to_artifact> --key cosign.key --output-signature base64.sig
    base64 -d < base64.sig > artifact.sig
    ```
