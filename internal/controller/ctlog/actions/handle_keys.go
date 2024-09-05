@@ -41,7 +41,7 @@ func (g handleKeys) CanHandle(ctx context.Context, instance *v1alpha1.CTlog) boo
 	return instance.Status.PrivateKeyRef == nil || instance.Status.PublicKeyRef == nil ||
 		!equality.Semantic.DeepDerivative(instance.Spec.PrivateKeyRef, instance.Status.PrivateKeyRef) ||
 		!equality.Semantic.DeepDerivative(instance.Spec.PublicKeyRef, instance.Status.PublicKeyRef) ||
-		!equality.Semantic.DeepDerivative(instance.Spec.PrivateKeyPasswordRef, instance.Status.PublicKeyRef)
+		!equality.Semantic.DeepDerivative(instance.Spec.PrivateKeyPasswordRef, instance.Status.PrivateKeyPasswordRef)
 }
 
 func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *action.Result {
