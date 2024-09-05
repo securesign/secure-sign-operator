@@ -27,12 +27,11 @@ type TrillianSpec struct {
 	//+kubebuilder:validation:XValidation:rule=((!self.create && self.databaseSecretRef != null) || self.create),message=databaseSecretRef cannot be empty
 	//+kubebuilder:default:={create: true, pvc: {size: "5Gi", retain: true, accessModes: {ReadWriteOnce}}}
 	Db TrillianDB `json:"database,omitempty"`
-	//+optional
-	TrillianServer TrillianServer `json:"server,omitempty"`
-	//+optional
-	TrillianSigner TrillianSigner `json:"signer,omitempty"`
 	// Enable Monitoring for Logsigner and Logserver
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
+	// ConfigMap with additional bundle of trusted CA
+	//+optional
+	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
 }
 
 type TrillianDB struct {
@@ -51,18 +50,9 @@ type TrillianDB struct {
 	// PVC configuration
 	//+kubebuilder:default:={size: "5Gi", retain: true}
 	Pvc Pvc `json:"pvc,omitempty"`
+	// Configuration for enabling TLS (Transport Layer Security) encryption for manged database.
 	//+optional
-	// Secret with TLS server certificate, private key and CA certificate
-	TLSCertificate TLSCert `json:"tls"`
-}
-
-type TrillianServer struct {
-	// Secret with TLS server certificate, private key and CA certificate
-	TLSCertificate TLSCert `json:"tls"`
-}
-type TrillianSigner struct {
-	// Secret with TLS server certificate, private key and CA certificate
-	TLSCertificate TLSCert `json:"tls"`
+	TLS TLS `json:"tls,omitempty"`
 }
 
 // TrillianStatus defines the observed state of Trillian

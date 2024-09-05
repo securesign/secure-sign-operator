@@ -49,7 +49,26 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		scc = &v1.PodSecurityContext{FSGroup: utils.Pointer(int64(1001)), FSGroupChangePolicy: utils.Pointer(v1.FSGroupChangeOnRootMismatch)}
 	}
 
-	useTLS := (instance.Spec.Db.TLSCertificate.CertRef != nil) || kubernetes.IsOpenShift()
+	// TLS
+	switch {
+	case instance.Spec.Db.TLS.CertRef != nil:
+		instance.Status.Db.TLS = instance.Spec.Db.TLS
+	case kubernetes.IsOpenShift():
+		instance.Status.Db.TLS = rhtasv1alpha1.TLS{
+			CertRef: &rhtasv1alpha1.SecretKeySelector{
+				LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: instance.Name + "-trillian-db-tls"},
+				Key:                  "tls.crt",
+			},
+			PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
+				LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: instance.Name + "-trillian-db-tls"},
+				Key:                  "tls.key",
+			},
+		}
+	default:
+		i.Logger.V(1).Info("Communication to trillian-db is insecure")
+	}
+
+	useTLS := trillianUtils.UseTLS(instance)
 	db, err := trillianUtils.CreateTrillDb(instance, actions.DbDeploymentName, actions.RBACName, scc, labels, useTLS)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -67,89 +86,13 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Trillian DB: %w", err), instance)
 	}
 
-	// TLS certificate
-	if instance.Spec.Db.TLSCertificate.CertRef != nil {
-		db.Spec.Template.Spec.Volumes = append(db.Spec.Template.Spec.Volumes,
-			v1.Volume{
-				Name: "tls-cert",
-				VolumeSource: v1.VolumeSource{
-					Projected: &v1.ProjectedVolumeSource{
-						Sources: []v1.VolumeProjection{
-							{
-								Secret: &v1.SecretProjection{
-									LocalObjectReference: v1.LocalObjectReference{
-										Name: instance.Spec.Db.TLSCertificate.CertRef.Name,
-									},
-									Items: []v1.KeyToPath{
-										{
-											Key:  instance.Spec.Db.TLSCertificate.CertRef.Key,
-											Path: "tls.crt",
-										},
-									},
-								},
-							},
-							{
-								Secret: &v1.SecretProjection{
-									LocalObjectReference: v1.LocalObjectReference{
-										Name: instance.Spec.Db.TLSCertificate.PrivateKeyRef.Name,
-									},
-									Items: []v1.KeyToPath{
-										{
-											Key:  instance.Spec.Db.TLSCertificate.PrivateKeyRef.Key,
-											Path: "tls.key",
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			})
-	} else if kubernetes.IsOpenShift() {
-		i.Logger.V(1).Info("TLS: Using secrets/signing-key secret")
-		db.Spec.Template.Spec.Volumes = append(db.Spec.Template.Spec.Volumes,
-			v1.Volume{
-				Name: "tls-cert",
-				VolumeSource: v1.VolumeSource{
-					Projected: &v1.ProjectedVolumeSource{
-						Sources: []v1.VolumeProjection{
-							{
-								Secret: &v1.SecretProjection{
-									LocalObjectReference: v1.LocalObjectReference{
-										Name: instance.Name + "-trillian-db-tls-secret",
-									},
-								},
-							},
-							{
-								ConfigMap: &v1.ConfigMapProjection{
-									LocalObjectReference: v1.LocalObjectReference{
-										Name: "ca-configmap",
-									},
-									Items: []v1.KeyToPath{
-										{
-											Key:  "service-ca.crt",
-											Path: "ca.crt",
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			})
-	} else {
-		i.Logger.V(1).Info("Communication between services is insecure")
+	if err = utils.SetTLS(&db.Spec.Template, instance.Status.Db.TLS); err != nil {
+		return i.Failed(fmt.Errorf("could not set TLS: %w", err))
 	}
 
-	if instance.Spec.Db.TLSCertificate.CertRef != nil || kubernetes.IsOpenShift() {
-		db.Spec.Template.Spec.Containers[0].VolumeMounts = append(db.Spec.Template.Spec.Containers[0].VolumeMounts,
-			v1.VolumeMount{
-				Name:      "tls-cert",
-				MountPath: "/etc/ssl/certs",
-				ReadOnly:  true,
-			})
-		db.Spec.Template.Spec.Containers[0].Args = append(db.Spec.Template.Spec.Containers[0].Args, "--ssl-cert", "/etc/ssl/certs/tls.crt")
-		db.Spec.Template.Spec.Containers[0].Args = append(db.Spec.Template.Spec.Containers[0].Args, "--ssl-key", "/etc/ssl/certs/tls.key")
+	if useTLS {
+		db.Spec.Template.Spec.Containers[0].Args = append(db.Spec.Template.Spec.Containers[0].Args, "--ssl-cert", "/var/run/secrets/tas/tls.crt")
+		db.Spec.Template.Spec.Containers[0].Args = append(db.Spec.Template.Spec.Containers[0].Args, "--ssl-key", "/var/run/secrets/tas/tls.key")
 	}
 
 	if err = controllerutil.SetControllerReference(instance, db, i.Client.Scheme()); err != nil {

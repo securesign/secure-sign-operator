@@ -131,23 +131,12 @@ spec:
                     - retain
                     type: object
                   tls:
-                    description: Secret with TLS server certificate, private key and
-                      CA certificate
+                    description: Configuration for enabling TLS (Transport Layer Security)
+                      encryption for manged database.
                     properties:
-                      caCertRef:
-                        description: Reference to CA certificate
-                        properties:
-                          name:
-                            description: |-
-                              Name of the referent.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        required:
-                        - name
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      certRef:
-                        description: Reference to service certificate
+                      certificateRef:
+                        description: Reference to the certificate secret used for
+                          TLS encryption.
                         properties:
                           key:
                             description: The key of the secret to select from. Must
@@ -165,7 +154,8 @@ spec:
                         type: object
                         x-kubernetes-map-type: atomic
                       privateKeyRef:
-                        description: Reference to the private key
+                        description: Reference to the private key secret used for
+                          TLS encryption.
                         properties:
                           key:
                             description: The key of the secret to select from. Must
@@ -185,7 +175,7 @@ spec:
                     type: object
                     x-kubernetes-validations:
                     - message: privateKeyRef cannot be empty
-                      rule: (!has(self.certRef) || has(self.privateKeyRef))
+                      rule: (!has(self.certificateRef) || has(self.privateKeyRef))
                 required:
                 - create
                 type: object
@@ -205,128 +195,18 @@ spec:
                 required:
                 - enabled
                 type: object
-              server:
+              trustedCA:
+                description: ConfigMap with additional bundle of trusted CA
                 properties:
-                  tls:
-                    description: Secret with TLS server certificate, private key and
-                      CA certificate
-                    properties:
-                      caCertRef:
-                        description: Reference to CA certificate
-                        properties:
-                          name:
-                            description: |-
-                              Name of the referent.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        required:
-                        - name
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      certRef:
-                        description: Reference to service certificate
-                        properties:
-                          key:
-                            description: The key of the secret to select from. Must
-                              be a valid secret key.
-                            pattern: ^[-._a-zA-Z0-9]+$
-                            type: string
-                          name:
-                            description: |-
-                              Name of the referent.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        required:
-                        - key
-                        - name
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      privateKeyRef:
-                        description: Reference to the private key
-                        properties:
-                          key:
-                            description: The key of the secret to select from. Must
-                              be a valid secret key.
-                            pattern: ^[-._a-zA-Z0-9]+$
-                            type: string
-                          name:
-                            description: |-
-                              Name of the referent.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        required:
-                        - key
-                        - name
-                        type: object
-                        x-kubernetes-map-type: atomic
-                    type: object
-                    x-kubernetes-validations:
-                    - message: privateKeyRef cannot be empty
-                      rule: (!has(self.certRef) || has(self.privateKeyRef))
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
                 required:
-                - tls
+                - name
                 type: object
-              signer:
-                properties:
-                  tls:
-                    description: Secret with TLS server certificate, private key and
-                      CA certificate
-                    properties:
-                      caCertRef:
-                        description: Reference to CA certificate
-                        properties:
-                          name:
-                            description: |-
-                              Name of the referent.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        required:
-                        - name
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      certRef:
-                        description: Reference to service certificate
-                        properties:
-                          key:
-                            description: The key of the secret to select from. Must
-                              be a valid secret key.
-                            pattern: ^[-._a-zA-Z0-9]+$
-                            type: string
-                          name:
-                            description: |-
-                              Name of the referent.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        required:
-                        - key
-                        - name
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      privateKeyRef:
-                        description: Reference to the private key
-                        properties:
-                          key:
-                            description: The key of the secret to select from. Must
-                              be a valid secret key.
-                            pattern: ^[-._a-zA-Z0-9]+$
-                            type: string
-                          name:
-                            description: |-
-                              Name of the referent.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        required:
-                        - key
-                        - name
-                        type: object
-                        x-kubernetes-map-type: atomic
-                    type: object
-                    x-kubernetes-validations:
-                    - message: privateKeyRef cannot be empty
-                      rule: (!has(self.certRef) || has(self.privateKeyRef))
-                required:
-                - tls
-                type: object
+                x-kubernetes-map-type: atomic
             type: object
           status:
             description: TrillianStatus defines the observed state of Trillian
@@ -482,23 +362,12 @@ spec:
                     - retain
                     type: object
                   tls:
-                    description: Secret with TLS server certificate, private key and
-                      CA certificate
+                    description: Configuration for enabling TLS (Transport Layer Security)
+                      encryption for manged database.
                     properties:
-                      caCertRef:
-                        description: Reference to CA certificate
-                        properties:
-                          name:
-                            description: |-
-                              Name of the referent.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        required:
-                        - name
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      certRef:
-                        description: Reference to service certificate
+                      certificateRef:
+                        description: Reference to the certificate secret used for
+                          TLS encryption.
                         properties:
                           key:
                             description: The key of the secret to select from. Must
@@ -516,7 +385,8 @@ spec:
                         type: object
                         x-kubernetes-map-type: atomic
                       privateKeyRef:
-                        description: Reference to the private key
+                        description: Reference to the private key secret used for
+                          TLS encryption.
                         properties:
                           key:
                             description: The key of the secret to select from. Must
@@ -536,7 +406,7 @@ spec:
                     type: object
                     x-kubernetes-validations:
                     - message: privateKeyRef cannot be empty
-                      rule: (!has(self.certRef) || has(self.privateKeyRef))
+                      rule: (!has(self.certificateRef) || has(self.privateKeyRef))
                 required:
                 - create
                 type: object

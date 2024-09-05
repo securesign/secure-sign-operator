@@ -20,9 +20,10 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, secCon
 	replicas := int32(1)
 	readinessProbeCommand := "mariadb -u ${MYSQL_USER} -p${MYSQL_PASSWORD} -e \"SELECT 1;\""
 	livenessProbeCommand := "mariadb-admin -u ${MYSQL_USER} -p${MYSQL_PASSWORD} ping"
+
 	if useTLS {
-		readinessProbeCommand += " --ssl-ca=/etc/ssl/certs/ca.crt"
-		livenessProbeCommand += " --ssl-ca=/etc/ssl/certs/ca.crt"
+		readinessProbeCommand += " --ssl"
+		livenessProbeCommand += " --ssl"
 	}
 
 	return &apps.Deployment{
