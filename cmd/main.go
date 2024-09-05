@@ -115,7 +115,7 @@ func main() {
 	utils.StringFlagOrEnv(&constants.BackfillRedisImage, "backfill-redis-image", "BACKFILL_REDIS_IMAGE", constants.BackfillRedisImage, "The image used for backfill redis.")
 	utils.StringFlagOrEnv(&constants.TufImage, "tuf-image", "TUF_IMAGE", constants.TufImage, "The image used for TUF.")
 	utils.StringFlagOrEnv(&constants.CTLogImage, "ctlog-image", "CTLOG_IMAGE", constants.CTLogImage, "The image used for ctlog.")
-	utils.StringFlagOrEnv(&constants.ClientServerImage, "client-server-image", "CLIENT_SERVER_IMAGE", constants.ClientServerImage, "The image used to serve our cli binary's.")
+	utils.StringFlagOrEnv(&constants.HttpServerImage, "client-server-image", "CLIENT_SERVER_IMAGE", constants.HttpServerImage, "The image used to serve our cli binary's.")
 	utils.StringFlagOrEnv(&constants.ClientServerImage_cg, "client-server-cg-image", "CLIENT_SERVER_CG_IMAGE", constants.ClientServerImage_cg, "The image used to serve cosign and gitsign.")
 	utils.StringFlagOrEnv(&constants.ClientServerImage_re, "client-server-re-image", "CLIENT_SERVER_RE_IMAGE", constants.ClientServerImage_re, "The image used to serve rekor-cli and the ec binary.")
 	utils.StringFlagOrEnv(&constants.ClientServerImage_f, "client-server-f-image", "CLIENT_SERVER_F_IMAGE", constants.ClientServerImage_f, "The image used to serve fetch-tsa-certs binary.")

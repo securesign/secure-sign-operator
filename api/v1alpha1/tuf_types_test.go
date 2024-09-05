@@ -90,12 +90,22 @@ var _ = Describe("TUF", func() {
 					To(MatchError(ContainSubstring("should be less than or equal to 65535")))
 			})
 
-			It("key name", func() {
-				invalidObject := generateTufObject("key-name")
-				invalidObject.Spec.Keys[0].Name = "!@#$-name"
+			It("tuf key with unsupported name", func() {
+				invalidObject := generateTufObject("unsupported-key")
+				invalidObject.Spec.Keys = []TufKey{
+					{
+						Name: "unsupported",
+						SecretRef: &SecretKeySelector{
+							LocalObjectReference: LocalObjectReference{
+								Name: "fake",
+							},
+							Key: "fake",
+						},
+					},
+				}
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("body should match '^[-._a-zA-Z0-9]+$'")))
+					To(MatchError(And(ContainSubstring("Unsupported value:"), ContainSubstring("supported values: \"rekor.pub\", \"ctfe.pub\", \"fulcio_v1.crt.pem\", \"tsa.certchain.pem\""))))
 			})
 		})
 

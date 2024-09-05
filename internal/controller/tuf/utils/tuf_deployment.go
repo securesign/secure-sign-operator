@@ -42,27 +42,17 @@ func CreateTufDeployment(instance *v1alpha1.Tuf, dpName string, sa string, label
 					Containers: []core.Container{
 						{
 							Name:  "tuf-server",
-							Image: constants.TufImage,
+							Image: constants.HttpServerImage,
 							Ports: []core.ContainerPort{
 								{
 									Protocol:      core.ProtocolTCP,
 									ContainerPort: 8080,
 								},
 							},
-							Env: []core.EnvVar{
-								{
-									Name:  "NAMESPACE",
-									Value: instance.Namespace,
-								},
-							},
-							Args: []string{
-								"-mode", "serve",
-								"-target-dir", "/var/run/target",
-							},
 							VolumeMounts: []core.VolumeMount{
 								{
 									Name:      "repository",
-									MountPath: "/var/run/target",
+									MountPath: "/var/www/html",
 									ReadOnly:  true,
 								},
 							},
@@ -73,10 +63,8 @@ func CreateTufDeployment(instance *v1alpha1.Tuf, dpName string, sa string, label
 								FailureThreshold:    3,
 								SuccessThreshold:    1,
 								ProbeHandler: core.ProbeHandler{
-									HTTPGet: &core.HTTPGetAction{
-										Port: intstr.FromInt32(8080),
-										Path: "/",
-									},
+									// server is running returning any status code (including 403 - noindex.html)
+									Exec: &core.ExecAction{Command: []string{"curl", "localhost:8080"}},
 								},
 							},
 							ReadinessProbe: &core.Probe{
