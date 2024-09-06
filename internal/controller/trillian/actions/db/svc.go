@@ -44,6 +44,14 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	labels := constants.LabelsFor(actions.DbComponentName, actions.DbDeploymentName, instance.Name)
 	mysql := k8sutils.CreateService(instance.Namespace, host, host, port, port, labels)
 
+	//TLS: Annotate service
+	if k8sutils.IsOpenShift() && instance.Spec.Db.TLS.CertRef == nil {
+		if mysql.Annotations == nil {
+			mysql.Annotations = make(map[string]string)
+		}
+		mysql.Annotations["service.beta.openshift.io/serving-cert-secret-name"] = instance.Name + "-trillian-db-tls"
+	}
+
 	if err = controllerutil.SetControllerReference(instance, mysql, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for DB service: %w", err))
 	}

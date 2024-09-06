@@ -29,6 +29,9 @@ type TrillianSpec struct {
 	Db TrillianDB `json:"database,omitempty"`
 	// Enable Monitoring for Logsigner and Logserver
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
+	// ConfigMap with additional bundle of trusted CA
+	//+optional
+	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
 }
 
 type TrillianDB struct {
@@ -47,6 +50,9 @@ type TrillianDB struct {
 	// PVC configuration
 	//+kubebuilder:default:={size: "5Gi", retain: true}
 	Pvc Pvc `json:"pvc,omitempty"`
+	// Configuration for enabling TLS (Transport Layer Security) encryption for manged database.
+	//+optional
+	TLS TLS `json:"tls,omitempty"`
 }
 
 // TrillianStatus defines the observed state of Trillian
