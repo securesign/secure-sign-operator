@@ -164,7 +164,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 						Retain: ptr.To(false),
 					},
 				}},
-				TimestampAuthority: v1alpha1.TimestampAuthoritySpec{
+				TimestampAuthority: &v1alpha1.TimestampAuthoritySpec{
 					ExternalAccess: v1alpha1.ExternalAccess{
 						Enabled: true,
 					},

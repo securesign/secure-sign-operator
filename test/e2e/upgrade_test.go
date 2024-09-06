@@ -365,7 +365,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		gomega.Expect(s).ToNot(gomega.BeNil())
 		gomega.Expect(meta.FindStatusCondition(s.GetConditions(), actions.TSACondition).Reason).To(gomega.Equal(constants.NotDefined))
 
-		s.Spec.TimestampAuthority = tasv1alpha.TimestampAuthoritySpec{
+		s.Spec.TimestampAuthority = &tasv1alpha.TimestampAuthoritySpec{
 			ExternalAccess: tasv1alpha.ExternalAccess{
 				Enabled: true,
 			},
@@ -554,6 +554,13 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 			"--certificate-oidc-issuer-regexp", ".*keycloak.*",
 			newImageName,
 		)).To(gomega.Succeed())
+	})
+
+	It("Make sure securesign can be deleted after upgrade", func() {
+		gomega.Eventually(func(g gomega.Gomega) {
+			s := securesign.Get(ctx, cli, namespace.Name, securesignDeployment.Name)()
+			gomega.Expect(cli.Delete(ctx, s)).Should(gomega.Succeed())
+		}).Should(gomega.Succeed())
 	})
 })
 

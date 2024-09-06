@@ -347,6 +347,10 @@ spec:
                         authority
                       rule: (has(self.certificateChainRef) || self.leafCA.organizationName
                         != "")
+                    - message: organizationName cannot be empty for intermediate certificate
+                        authority, please make sure all are in place
+                      rule: (has(self.certificateChainRef) || self.intermediateCA[0].organizationName
+                        != "")
                   file:
                     description: Configuration for file-based signer
                     properties:
@@ -1074,6 +1078,10 @@ spec:
                     - message: organizationName cannot be empty for leaf certificate
                         authority
                       rule: (has(self.certificateChainRef) || self.leafCA.organizationName
+                        != "")
+                    - message: organizationName cannot be empty for intermediate certificate
+                        authority, please make sure all are in place
+                      rule: (has(self.certificateChainRef) || self.intermediateCA[0].organizationName
                         != "")
                   file:
                     description: Configuration for file-based signer
