@@ -17,12 +17,12 @@ func UseTLS(instance *rhtasv1alpha1.Trillian) bool {
 	}
 
 	// when DB is managed by operator
-	if utils.IsEnabled(instance.Status.Db.Create) && instance.Status.Db.TLS.CertRef != nil {
+	if utils.IsEnabled(instance.Spec.Db.Create) && instance.Status.Db.TLS.CertRef != nil {
 		return true
 	}
 
 	// external DB
-	if !utils.IsEnabled(instance.Status.Db.Create) && instance.Spec.TrustedCA != nil {
+	if !utils.IsEnabled(instance.Spec.Db.Create) && instance.Spec.TrustedCA != nil {
 		return true
 	}
 

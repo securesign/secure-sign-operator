@@ -94,7 +94,11 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		}
 
 		signer.Spec.Template.Spec.Containers[0].Args = append(signer.Spec.Template.Spec.Containers[0].Args, "--mysql_tls_ca", caPath)
-		signer.Spec.Template.Spec.Containers[0].Args = append(signer.Spec.Template.Spec.Containers[0].Args, "--mysql_server_name", "$(MYSQL_HOSTNAME)."+instance.Namespace+".svc")
+		mysql_server_name := "$(MYSQL_HOSTNAME)." + instance.Namespace + ".svc"
+		if !*instance.Spec.Db.Create {
+			mysql_server_name = "$(MYSQL_HOSTNAME)"
+		}
+		signer.Spec.Template.Spec.Containers[0].Args = append(signer.Spec.Template.Spec.Containers[0].Args, "--mysql_server_name", mysql_server_name)
 	}
 
 	if updated, err = i.Ensure(ctx, signer); err != nil {

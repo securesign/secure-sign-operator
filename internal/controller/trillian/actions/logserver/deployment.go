@@ -88,7 +88,11 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		}
 
 		server.Spec.Template.Spec.Containers[0].Args = append(server.Spec.Template.Spec.Containers[0].Args, "--mysql_tls_ca", caPath)
-		server.Spec.Template.Spec.Containers[0].Args = append(server.Spec.Template.Spec.Containers[0].Args, "--mysql_server_name", "$(MYSQL_HOSTNAME)."+instance.Namespace+".svc")
+		mysql_server_name := "$(MYSQL_HOSTNAME)." + instance.Namespace + ".svc"
+		if !*instance.Spec.Db.Create {
+			mysql_server_name = "$(MYSQL_HOSTNAME)"
+		}
+		server.Spec.Template.Spec.Containers[0].Args = append(server.Spec.Template.Spec.Containers[0].Args, "--mysql_server_name", mysql_server_name)
 	}
 
 	if err = controllerutil.SetControllerReference(instance, server, i.Client.Scheme()); err != nil {
