@@ -1,4 +1,4 @@
-//go:build integration
+//go:build integrationdb
 
 package e2e
 
@@ -174,20 +174,15 @@ func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef s
 			},
 		},
 	}
-	err := cli.Create(ctx, mysql)
-	if err != nil {
-		return err
-	}
-
 	if kubernetes.IsOpenShift() {
 		if mysql.Annotations == nil {
 			mysql.Annotations = make(map[string]string)
 		}
 		mysql.Annotations["service.beta.openshift.io/serving-cert-secret-name"] = "my-trillian-db-tls-secret"
-		err := cli.Update(ctx, mysql)
-		if err != nil {
-			return err
-		}
+	}
+	err := cli.Create(ctx, mysql)
+	if err != nil {
+		return err
 	}
 
 	err = cli.Create(ctx, &v1.Secret{

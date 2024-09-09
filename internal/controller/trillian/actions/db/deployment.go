@@ -86,15 +86,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Trillian DB: %w", err), instance)
 	}
 
-	if err = utils.SetTLS(&db.Spec.Template, instance.Status.Db.TLS); err != nil {
-		return i.Failed(fmt.Errorf("could not set TLS: %w", err))
-	}
-
-	if useTLS {
-		db.Spec.Template.Spec.Containers[0].Args = append(db.Spec.Template.Spec.Containers[0].Args, "--ssl-cert", "/var/run/secrets/tas/tls.crt")
-		db.Spec.Template.Spec.Containers[0].Args = append(db.Spec.Template.Spec.Containers[0].Args, "--ssl-key", "/var/run/secrets/tas/tls.key")
-	}
-
 	if err = controllerutil.SetControllerReference(instance, db, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for DB Deployment: %w", err))
 	}
