@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -64,6 +65,24 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Times
 			Message: err.Error(),
 		})
 		return i.FailedWithStatusUpdate(ctx, err, instance)
+	}
+
+	if route, err := kubernetes.GetRoute(ctx, i.Client, instance.Namespace, labels); route != nil && err == nil {
+		if !equality.Semantic.DeepEqual(ingress.GetLabels(), route.GetLabels()) {
+			route.SetLabels(ingress.GetLabels())
+			if _, err = i.Ensure(ctx, route); err != nil {
+				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+					Type:    constants.Ready,
+					Status:  metav1.ConditionFalse,
+					Reason:  constants.Failure,
+					Message: err.Error(),
+				})
+			}
+			for key, value := range ingress.GetLabels() {
+				labels[key] = value
+			}
+			i.Logger.Info("Updating object", "kind", "Route", "Namespace", route.Namespace, "Name", route.Name)
+		}
 	}
 
 	if updated {
