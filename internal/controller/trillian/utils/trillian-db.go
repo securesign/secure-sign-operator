@@ -162,7 +162,9 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, secCon
 		},
 	}
 
-	utils.SetTLS(&template, instance.Status.Db.TLS)
+	if err := utils.SetTLS(&template, instance.Status.Db.TLS); err != nil {
+		return nil, errors.New("could not set TLS: " + err.Error())
+	}
 
 	return &apps.Deployment{
 		ObjectMeta: metav1.ObjectMeta{

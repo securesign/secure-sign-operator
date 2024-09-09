@@ -1,4 +1,4 @@
-//go:build integrationdb
+//go:build integration
 
 package e2e
 
