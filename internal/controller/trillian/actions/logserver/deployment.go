@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	apiErrors "k8s.io/apimachinery/pkg/api/errors"
-
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -42,7 +40,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	)
 
 	labels := constants.LabelsFor(actions.LogServerComponentName, actions.LogserverDeploymentName, instance.Name)
-	server, err := trillianUtils.CreateTrillDeployment(instance, constants.TrillianServerImage, actions.LogserverDeploymentName, actions.RBACName, labels)
+	server, err := trillianUtils.CreateLogServerDeployment(ctx, i.Client, instance, constants.TrillianServerImage, actions.LogserverDeploymentName, actions.RBACName, labels)
 	if err != nil {
 		return i.Failed(err)
 	}
@@ -68,31 +66,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 			Message: err.Error(),
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Trillian server: %w", err), instance)
-	}
-
-	// TLS communication to database
-	if trillianUtils.UseTLS(instance) {
-		caPath, err := trillianUtils.CAPath(ctx, i.Client, instance)
-		if err != nil {
-			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:    actions.SignerCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
-				Message: err.Error(),
-			})
-			i.StatusUpdate(ctx, instance)
-			if apiErrors.IsNotFound(err) {
-				return i.Requeue()
-			}
-			return i.Failed(err)
-		}
-
-		server.Spec.Template.Spec.Containers[0].Args = append(server.Spec.Template.Spec.Containers[0].Args, "--mysql_tls_ca", caPath)
-		mysql_server_name := "$(MYSQL_HOSTNAME)." + instance.Namespace + ".svc"
-		if !*instance.Spec.Db.Create {
-			mysql_server_name = "$(MYSQL_HOSTNAME)"
-		}
-		server.Spec.Template.Spec.Containers[0].Args = append(server.Spec.Template.Spec.Containers[0].Args, "--mysql_server_name", mysql_server_name)
 	}
 
 	if err = controllerutil.SetControllerReference(instance, server, i.Client.Scheme()); err != nil {

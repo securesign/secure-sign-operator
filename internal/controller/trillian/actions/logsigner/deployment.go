@@ -42,7 +42,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	)
 
 	labels := constants.LabelsFor(actions.LogSignerComponentName, actions.LogsignerDeploymentName, instance.Name)
-	signer, err := trillianUtils.CreateTrillDeployment(instance, constants.TrillianLogSignerImage, actions.LogsignerDeploymentName, actions.RBACName, labels)
+	signer, err := trillianUtils.CreateLogServerDeployment(ctx, i.Client, instance, constants.TrillianLogSignerImage, actions.LogsignerDeploymentName, actions.RBACName, labels)
 	if err != nil {
 		return i.Failed(err)
 	}
