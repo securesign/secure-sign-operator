@@ -1,6 +1,7 @@
 package trillianUtils
 
 import (
+	"context"
 	"errors"
 	"strconv"
 
@@ -11,9 +12,10 @@ import (
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateTrillDeployment(instance *v1alpha1.Trillian, image string, dpName string, sa string, labels map[string]string) (*apps.Deployment, error) {
+func CreateLogSignerDeployment(ctx context.Context, client client.Client, instance *v1alpha1.Trillian, image string, dpName string, sa string, labels map[string]string) (*apps.Deployment, error) {
 	if instance.Status.Db.DatabaseSecretRef == nil {
 		return nil, errors.New("reference to database secret is not set")
 	}
@@ -161,6 +163,23 @@ func CreateTrillDeployment(instance *v1alpha1.Trillian, image string, dpName str
 			},
 		},
 	}
+
+	// TLS communication to database
+	if UseTLS(instance) {
+		caPath, err := CAPath(ctx, client, instance)
+		if err != nil {
+			return nil, errors.New("failed to get CA path: " + err.Error())
+		}
+
+		dep.Spec.Template.Spec.Containers[0].Args = append(dep.Spec.Template.Spec.Containers[0].Args, "--mysql_tls_ca", caPath)
+
+		mysqlServerName := "$(MYSQL_HOSTNAME)." + instance.Namespace + ".svc"
+		if !*instance.Spec.Db.Create {
+			mysqlServerName = "$(MYSQL_HOSTNAME)"
+		}
+		dep.Spec.Template.Spec.Containers[0].Args = append(dep.Spec.Template.Spec.Containers[0].Args, "--mysql_server_name", mysqlServerName)
+	}
+
 	utils.SetProxyEnvs(dep)
 	return dep, nil
 }

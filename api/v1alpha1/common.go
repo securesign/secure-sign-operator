@@ -115,3 +115,14 @@ type Auth struct {
 	//+optional
 	SecretMount []SecretKeySelector `json:"secretMount,omitempty"`
 }
+
+// TLS (Transport Layer Security) Configuration for enabling service encryption.
+// +kubebuilder:validation:XValidation:rule=(!has(self.certificateRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
+type TLS struct {
+	// Reference to the private key secret used for TLS encryption.
+	//+optional
+	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+	// Reference to the certificate secret used for TLS encryption.
+	//+optional
+	CertRef *SecretKeySelector `json:"certificateRef,omitempty"`
+}

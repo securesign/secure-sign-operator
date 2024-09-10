@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/securesign/operator/internal/controller/common/utils"
-
 	"github.com/securesign/operator/internal/controller/common/action"
+	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	trillianUtils "github.com/securesign/operator/internal/controller/trillian/utils"
@@ -41,13 +40,20 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	)
 
 	labels := constants.LabelsFor(actions.LogSignerComponentName, actions.LogsignerDeploymentName, instance.Name)
-	signer, err := trillianUtils.CreateTrillDeployment(instance, constants.TrillianLogSignerImage, actions.LogsignerDeploymentName, actions.RBACName, labels)
+	signer, err := trillianUtils.CreateLogServerDeployment(ctx, i.Client, instance, constants.TrillianLogSignerImage, actions.LogsignerDeploymentName, actions.RBACName, labels)
 	if err != nil {
 		return i.Failed(err)
 	}
 
 	signer.Spec.Template.Spec.Containers[0].Args = append(signer.Spec.Template.Spec.Containers[0].Args, "--force_master=true")
-	err = utils.SetTrustedCA(&signer.Spec.Template, utils.TrustedCAAnnotationToReference(instance.Annotations))
+
+	caTrustRef := utils.TrustedCAAnnotationToReference(instance.Annotations)
+	// override if spec.trustedCA is defined
+	if instance.Spec.TrustedCA != nil {
+		caTrustRef = instance.Spec.TrustedCA
+	}
+	err = utils.SetTrustedCA(&signer.Spec.Template, caTrustRef)
+
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.SignerCondition,
