@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	apiErrors "k8s.io/apimachinery/pkg/api/errors"
-
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -74,31 +72,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 
 	if err = controllerutil.SetControllerReference(instance, signer, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for LogSigner deployment: %w", err))
-	}
-
-	// TLS communication to database
-	if trillianUtils.UseTLS(instance) {
-		caPath, err := trillianUtils.CAPath(ctx, i.Client, instance)
-		if err != nil {
-			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:    actions.SignerCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
-				Message: err.Error(),
-			})
-			i.StatusUpdate(ctx, instance)
-			if apiErrors.IsNotFound(err) {
-				return i.Requeue()
-			}
-			return i.Failed(err)
-		}
-
-		signer.Spec.Template.Spec.Containers[0].Args = append(signer.Spec.Template.Spec.Containers[0].Args, "--mysql_tls_ca", caPath)
-		mysql_server_name := "$(MYSQL_HOSTNAME)." + instance.Namespace + ".svc"
-		if !*instance.Spec.Db.Create {
-			mysql_server_name = "$(MYSQL_HOSTNAME)"
-		}
-		signer.Spec.Template.Spec.Containers[0].Args = append(signer.Spec.Template.Spec.Containers[0].Args, "--mysql_server_name", mysql_server_name)
 	}
 
 	if updated, err = i.Ensure(ctx, signer); err != nil {
