@@ -159,6 +159,11 @@ read -r -d '' SECURESIGN_PATCH <<EOF
     },
     {
         "op": "replace",
+        "path": "/spec/ctlog/treeID",
+        "value": $NEW_TREE_ID
+    },
+    {
+        "op": "replace",
         "path": "/spec/ctlog/privateKeyRef",
         "value": {"name": "ctlog-config", "key": "private"}
     },
