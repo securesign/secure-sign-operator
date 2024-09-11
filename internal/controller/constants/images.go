@@ -15,11 +15,11 @@ var (
 	RekorSearchUiImage = "registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:8ed9d49539e2305c2c41e2ad6b9f5763a53e93ab7590de1c413d846544091009"
 	BackfillRedisImage = "registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:22016378cf4a312ac7b15067e560ea42805c168ddf2ae64adb2fcc784bb9ba15"
 
-	TufImage = "registry.redhat.io/rhtas/tuf-server-rhel9@sha256:4028bc65c1ea0346f01b1e2dfe5b6251c36ae1d528ed88d46177ce4be3db55ba"
+	TufImage = "registry.redhat.io/rhtas/tuffer@sha256:fc0160028b0bcbc03c69156584ead3dfec6d517dab305386ee238cc0e87433de"
 
 	CTLogImage = "registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:671c5ea4de7184f0dcdd6c6583d74dc8b0b039799c57efb5e8a31981cd9b415e"
 
-	ClientServerImage       = "registry.access.redhat.com/ubi9/httpd-24@sha256:7874b82335a80269dcf99e5983c2330876f5fe8bdc33dc6aa4374958a2ffaaee"
+	HttpServerImage         = "registry.access.redhat.com/ubi9/httpd-24@sha256:7874b82335a80269dcf99e5983c2330876f5fe8bdc33dc6aa4374958a2ffaaee"
 	ClientServerImage_cg    = "registry.redhat.io/rhtas/client-server-cg-rhel9@sha256:0469bef1617c60481beda30947f279a0b106d0e54c600e823064a2b5b89bc120"
 	ClientServerImage_re    = "registry.redhat.io/rhtas/client-server-re-rhel9@sha256:7990157e558dc5ff6e315c84a107bbadc7aeb3aaed39a9171e751671be5d89f0"
 	ClientServerImage_f     = "registry.redhat.io/rhtas/client-server-f-rhel9@sha256:aca918e6994ad5f95c71f725428fc3f2865299b1860c2740d1c18f03324cc3c9"

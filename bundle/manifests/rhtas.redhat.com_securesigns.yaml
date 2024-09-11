@@ -1605,7 +1605,11 @@ spec:
                       properties:
                         name:
                           description: File name which will be used as TUF target.
-                          pattern: ^[-._a-zA-Z0-9]+$
+                          enum:
+                          - rekor.pub
+                          - ctfe.pub
+                          - fulcio_v1.crt.pem
+                          - tsa.certchain.pem
                           type: string
                         secretRef:
                           description: |-

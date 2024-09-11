@@ -22,11 +22,11 @@ import (
 func VerifyAllComponents(ctx context.Context, cli runtimeCli.Client, s *rhtasv1alpha1.Securesign, dbPresent bool) {
 	securesign.Verify(ctx, cli, s.Namespace, s.Name)
 	trillian.Verify(ctx, cli, s.Namespace, s.Name, dbPresent)
-	ctlog.Verify(ctx, cli, s.Namespace, s.Name)
-	tuf.Verify(ctx, cli, s.Namespace, s.Name)
-	rekor.Verify(ctx, cli, s.Namespace, s.Name)
 	fulcio.Verify(ctx, cli, s.Namespace, s.Name)
 	tsa.Verify(ctx, cli, s.Namespace, s.Name)
+	rekor.Verify(ctx, cli, s.Namespace, s.Name)
+	ctlog.Verify(ctx, cli, s.Namespace, s.Name)
+	tuf.Verify(ctx, cli, s.Namespace, s.Name)
 }
 
 func VerifyByCosign(ctx context.Context, cli runtimeCli.Client, s *rhtasv1alpha1.Securesign, targetImageName string) {

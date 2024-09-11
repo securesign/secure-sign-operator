@@ -133,6 +133,12 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - persistentvolumeclaims/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - ""
+  resources:
   - secrets
   verbs:
   - create

@@ -5,7 +5,6 @@ import (
 
 	"github.com/securesign/operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -40,17 +39,8 @@ func CreatePVC(namespace string, pvcName string, pvc v1alpha1.Pvc, labels map[st
 	}
 }
 
-func GetPVC(ctx context.Context, c client.Client, namespace, pvcName string) (bool, error) {
+func GetPVC(ctx context.Context, c client.Client, namespace, pvcName string) (*corev1.PersistentVolumeClaim, error) {
 	pvc := &corev1.PersistentVolumeClaim{}
 	err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: pvcName}, pvc)
-	if err == nil {
-		// PVC exists
-		return true, nil
-	} else if errors.IsNotFound(err) {
-		// PVC does not exist
-		return false, nil
-	} else {
-		// Error while checking for PVC existence
-		return false, err
-	}
+	return pvc, err
 }

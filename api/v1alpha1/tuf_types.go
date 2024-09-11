@@ -59,7 +59,7 @@ type TufPvc struct {
 type TufKey struct {
 	// File name which will be used as TUF target.
 	//+required
-	//+kubebuilder:validation:Pattern:="^[-._a-zA-Z0-9]+$"
+	// +kubebuilder:validation:Enum:=rekor.pub;ctfe.pub;fulcio_v1.crt.pem;tsa.certchain.pem
 	Name string `json:"name"`
 	// Reference to secret object
 	// If it is unset, the operator will try to autoconfigure secret reference, by searching secrets in namespace which

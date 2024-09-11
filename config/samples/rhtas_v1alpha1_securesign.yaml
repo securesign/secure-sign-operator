@@ -40,8 +40,8 @@ spec:
       - name: ctfe.pub
       - name: fulcio_v1.crt.pem
       - name: tsa.certchain.pem
-    rootKeySecretReference:
-      name: RootKeysSecret
+    rootKeySecretRef:
+      name: tuf-root-keys
     pvc:
       accessModes:
         - ReadWriteMany

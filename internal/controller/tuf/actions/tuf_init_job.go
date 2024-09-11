@@ -6,6 +6,7 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/job"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/tuf/utils"
@@ -80,7 +81,11 @@ func (i initJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) 
 
 	}
 	j := utils.CreateTufInitJob(instance, InitJobName, RBACName, constants.LabelsForComponent(ComponentName, instance.Name))
-	if err := controllerutil.SetControllerReference(instance, j, i.Client.Scheme()); err != nil {
+	pvc, err := kubernetes.GetPVC(ctx, i.Client, instance.Namespace, instance.Status.PvcName)
+	if err != nil {
+		return i.Failed(fmt.Errorf("could not resolve PVC: %w", err))
+	}
+	if err := controllerutil.SetControllerReference(pvc, j, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Job: %w", err))
 	}
 	if err := i.Client.Create(ctx, j); err != nil {

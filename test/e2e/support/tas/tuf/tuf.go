@@ -2,6 +2,7 @@ package tuf
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	. "github.com/onsi/gomega"
@@ -98,9 +99,8 @@ func RefreshTufRepository(ctx context.Context, cli client.Client, ns string, nam
 func refreshTufJob(instance *v1alpha1.Tuf) *v12.Job {
 	j := utils2.CreateTufInitJob(instance, "", actions.RBACName, instance.Labels)
 	j.GenerateName = "tuf-refresh-"
-	j.Spec.Template.Spec.Containers[0].Args = []string{
-		"-mode", "init",
-		"-target-dir", "/var/run/target",
-	}
+	j.Spec.Template.Spec.Containers[0].Command = []string{"/bin/sh", "-c"}
+	args := j.Spec.Template.Spec.Containers[0].Args
+	j.Spec.Template.Spec.Containers[0].Args = []string{"rm -rf /var/run/target/* && /usr/bin/tuf-repo-init.sh " + strings.Join(args, " ")}
 	return j
 }

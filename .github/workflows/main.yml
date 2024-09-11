@@ -385,7 +385,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-upgrade
+          name: test-custom-install
           path: test/**/k8s-dump-*.tar.gz
 
   test-eks:

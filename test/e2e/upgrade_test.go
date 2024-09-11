@@ -304,7 +304,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		for k, v := range map[string]string{
 			fulcioAction.DeploymentName:            constants.FulcioServerImage,
 			ctl.DeploymentName:                     constants.CTLogImage,
-			tufAction.DeploymentName:               constants.TufImage,
+			tufAction.DeploymentName:               constants.HttpServerImage,
 			rekorAction.ServerDeploymentName:       constants.RekorServerImage,
 			rekorAction.SearchUiDeploymentName:     constants.RekorSearchUiImage,
 			trillianAction.LogsignerDeploymentName: constants.TrillianLogSignerImage,

@@ -160,7 +160,7 @@ func (c *Component) createDeployment(namespace string, labels map[string]string)
 					Containers: []core.Container{
 						{
 							Name:            cliServerName,
-							Image:           constants.ClientServerImage,
+							Image:           constants.HttpServerImage,
 							ImagePullPolicy: core.PullAlways,
 							Ports: []core.ContainerPort{
 								{
