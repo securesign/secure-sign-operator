@@ -96,17 +96,6 @@ var _ = Describe("CTlog controller", func() {
 
 					Spec: v1alpha1.CTlogSpec{
 						TreeID: &ptr,
-						TLSCertificate: v1alpha1.TLSCert{
-							CertRef: &v1alpha1.SecretKeySelector{
-								Key:                  "cert",
-								LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret-crt"},
-							},
-							PrivateKeyRef: &v1alpha1.SecretKeySelector{
-								Key:                  "key",
-								LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret-key"},
-							},
-							CACertRef: &v1alpha1.LocalObjectReference{Name: "ca-configmap"},
-						},
 					},
 				}
 				err = k8sClient.Create(ctx, instance)

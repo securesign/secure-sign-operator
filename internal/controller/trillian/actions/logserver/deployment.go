@@ -14,8 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	corev1 "k8s.io/api/core/v1"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 )
 
 func NewDeployAction() action.Action[*rhtasv1alpha1.Trillian] {
@@ -40,6 +39,25 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		err     error
 		updated bool
 	)
+
+	// TLS
+	switch {
+	case instance.Spec.Server.TLS.CertRef != nil:
+		instance.Status.Server.TLS = instance.Spec.Server.TLS
+	case kubernetes.IsOpenShift():
+		instance.Status.Server.TLS = rhtasv1alpha1.TLS{
+			CertRef: &rhtasv1alpha1.SecretKeySelector{
+				LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: instance.Name + "-trillian-server-tls"},
+				Key:                  "tls.crt",
+			},
+			PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
+				LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: instance.Name + "-trillian-server-tls"},
+				Key:                  "tls.key",
+			},
+		}
+	default:
+		i.Logger.V(1).Info("Communication to trillian log server is insecure")
+	}
 
 	labels := constants.LabelsFor(actions.LogServerComponentName, actions.LogserverDeploymentName, instance.Name)
 	server, err := trillianUtils.CreateLogServerDeployment(ctx, i.Client, instance, constants.TrillianServerImage, actions.LogserverDeploymentName, actions.RBACName, labels)
@@ -68,70 +86,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 			Message: err.Error(),
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Trillian server: %w", err), instance)
-	}
-
-	// TLS certificate
-	if instance.Spec.TrillianServer.TLSCertificate.CertRef != nil {
-		server.Spec.Template.Spec.Volumes = append(server.Spec.Template.Spec.Volumes,
-			corev1.Volume{
-				Name: "tls-cert",
-				VolumeSource: corev1.VolumeSource{
-					Projected: &corev1.ProjectedVolumeSource{
-						Sources: []corev1.VolumeProjection{
-							{
-								Secret: &corev1.SecretProjection{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: instance.Spec.TrillianServer.TLSCertificate.CertRef.Name,
-									},
-									Items: []corev1.KeyToPath{
-										{
-											Key:  instance.Spec.TrillianServer.TLSCertificate.CertRef.Key,
-											Path: "tls.crt",
-										},
-									},
-								},
-							},
-							{
-								Secret: &corev1.SecretProjection{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: instance.Spec.TrillianServer.TLSCertificate.PrivateKeyRef.Name,
-									},
-									Items: []corev1.KeyToPath{
-										{
-											Key:  instance.Spec.TrillianServer.TLSCertificate.PrivateKeyRef.Key,
-											Path: "tls.key",
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			})
-	} else if k8sutils.IsOpenShift() {
-		i.Logger.V(1).Info("TLS: Using secrets/signing-key secret")
-		server.Spec.Template.Spec.Volumes = append(server.Spec.Template.Spec.Volumes,
-			corev1.Volume{
-				Name: "tls-cert",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: instance.Name + "-trillian-log-server-tls-secret",
-					},
-				},
-			})
-	} else {
-		i.Logger.V(1).Info("Communication between services is insecure")
-	}
-
-	if instance.Spec.TrillianServer.TLSCertificate.CertRef != nil || k8sutils.IsOpenShift() {
-		server.Spec.Template.Spec.Containers[0].VolumeMounts = append(server.Spec.Template.Spec.Containers[0].VolumeMounts,
-			corev1.VolumeMount{
-				Name:      "tls-cert",
-				MountPath: "/var/run/secrets/tas",
-				ReadOnly:  true,
-			})
-		server.Spec.Template.Spec.Containers[0].Args = append(server.Spec.Template.Spec.Containers[0].Args, "--tls_cert_file", "/var/run/secrets/tas/tls.crt")
-		server.Spec.Template.Spec.Containers[0].Args = append(server.Spec.Template.Spec.Containers[0].Args, "--tls_key_file", "/var/run/secrets/tas/tls.key")
 	}
 
 	if err = controllerutil.SetControllerReference(instance, server, i.Client.Scheme()); err != nil {

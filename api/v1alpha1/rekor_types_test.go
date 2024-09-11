@@ -315,11 +315,6 @@ var _ = Describe("Rekor", func() {
 									EncodedPublicKey: "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFWkZ0Nk5FcU14YWVVNzZsbmxZekZVTmpGUUdIcQpORjQ2QlBDVGxQL0ZnZk1aak42MDhjRFhmM0xNNWhUYnZOeUNFYWJFKzRNYk9jRU1YaERRVWxZRnZBPT0KLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==",
 								},
 							},
-							TLSCertificate: TLSCert{
-								CACertRef: &LocalObjectReference{
-									Name: "ca-configmap",
-								},
-							},
 						},
 					}
 

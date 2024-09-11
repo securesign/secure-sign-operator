@@ -8,11 +8,13 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	cutils "github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/job"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/controller/rekor/utils"
 	actions2 "github.com/securesign/operator/internal/controller/trillian/actions"
 	corev1 "k8s.io/api/core/v1"
+	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -102,10 +104,24 @@ func (i createTreeJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	backoffLimit := int32(5)
 
 	trustedCAAnnotation := cutils.TrustedCAAnnotationToReference(instance.Annotations)
+	caPath, err := utils.CAPath(ctx, i.Client, instance)
+	if err != nil {
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		i.StatusUpdate(ctx, instance)
+		if apiErrors.IsNotFound(err) {
+			return i.Requeue()
+		}
+		return i.Failed(err)
+	}
 	cmd := ""
 	switch {
 	case trustedCAAnnotation != nil:
-		cmd = fmt.Sprintf("/createtree --admin_server=%s --display_name=rekor-tree --tls_cert_file=/var/run/configs/tas/ca-trust/ca-bundle.crt", trillUrl)
+		cmd = fmt.Sprintf("/createtree --admin_server=%s --display_name=rekor-tree --tls_cert_file=%s", trillUrl, caPath)
 	case kubernetes.IsOpenShift():
 		cmd = fmt.Sprintf("/createtree --admin_server=%s --display_name=rekor-tree --tls_cert_file=/var/run/secrets/tas/tls.crt", trillUrl)
 	default:
@@ -141,12 +157,12 @@ func (i createTreeJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	}
 	env := []corev1.EnvVar{}
 
-	job := kubernetes.CreateJob(instance.Namespace, RekorTreeJobName, labels, constants.CreateTreeImage, actions.RBACName, parallelism, completions, activeDeadlineSeconds, backoffLimit, command, env)
+	job := job.CreateJob(instance.Namespace, RekorTreeJobName, labels, constants.CreateTreeImage, actions.RBACName, parallelism, completions, activeDeadlineSeconds, backoffLimit, command, env)
 	if err = ctrl.SetControllerReference(instance, job, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Job: %w", err))
 	}
 
-	err = cutils.SetTrustedCA(&job.Spec.Template, cutils.TrustedCAAnnotationToReference(instance.Annotations))
+	err = cutils.SetTrustedCA(&job.Spec.Template, trustedCAAnnotation)
 	if err != nil {
 		return i.Failed(err)
 	}
@@ -157,7 +173,7 @@ func (i createTreeJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 				Name: "tls-cert",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: instance.Name + "-trillian-log-server-tls-secret",
+						SecretName: instance.Name + "-trillian-server-tls",
 					},
 				},
 			})

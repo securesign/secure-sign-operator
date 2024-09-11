@@ -180,6 +180,15 @@ func CreateLogServerDeployment(ctx context.Context, client client.Client, instan
 		dep.Spec.Template.Spec.Containers[0].Args = append(dep.Spec.Template.Spec.Containers[0].Args, "--mysql_server_name", mysqlServerName)
 	}
 
+	// Server TLS communication
+	if err := utils.SetTLS(&dep.Spec.Template, instance.Status.Server.TLS); err != nil {
+		return nil, errors.New("could not set TLS: " + err.Error())
+	}
+	if instance.Status.Server.TLS.CertRef != nil {
+		dep.Spec.Template.Spec.Containers[0].Args = append(dep.Spec.Template.Spec.Containers[0].Args, "--tls_cert_file", "/var/run/secrets/tas/tls.crt")
+		dep.Spec.Template.Spec.Containers[0].Args = append(dep.Spec.Template.Spec.Containers[0].Args, "--tls_key_file", "/var/run/secrets/tas/tls.key")
+	}
+
 	utils.SetProxyEnvs(dep)
 	return dep, nil
 }

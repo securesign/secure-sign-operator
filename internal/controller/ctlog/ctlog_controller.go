@@ -94,7 +94,6 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.CTlog](),
 
 		actions.NewRBACAction(),
-		actions.NewCAConfigMapAction(),
 		actions.NewHandleFulcioCertAction(),
 		actions.NewHandleKeysAction(),
 		actions.NewCreateTreeJobAction(),
@@ -157,7 +156,6 @@ func (r *CTlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&rhtasv1alpha1.CTlog{}).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
-		Owns(&v12.ConfigMap{}).
 		WatchesMetadata(partialSecret, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
 			val, ok := object.GetLabels()["app.kubernetes.io/instance"]
 			if ok {

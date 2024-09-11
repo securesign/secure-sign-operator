@@ -1,9 +1,12 @@
 package utils
 
 import (
+	"context"
+	"errors"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils"
@@ -13,7 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, labels map[string]string) (*apps.Deployment, error) {
+func CreateRekorDeployment(ctx context.Context, client client.Client, instance *v1alpha1.Rekor, dpName string, sa string, labels map[string]string) (*apps.Deployment, error) {
 	switch {
 	case instance.Status.ServerConfigRef == nil:
 		return nil, fmt.Errorf("CreateRekorDeployment: %w", ServerConfigNotSpecified)
@@ -200,6 +203,16 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 			},
 		},
 	}
+
+	// TLS communication to Trillian logserver
+	if UseTLS(instance) {
+		caPath, err := CAPath(ctx, client, instance)
+		if err != nil {
+			return nil, errors.New("failed to get CA path: " + err.Error())
+		}
+		dep.Spec.Template.Spec.Containers[0].Args = append(dep.Spec.Template.Spec.Containers[0].Args, "--trillian_log_server.tls_ca_cert", caPath)
+	}
+
 	utils.SetProxyEnvs(dep)
 	return dep, nil
 }

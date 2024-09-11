@@ -39,9 +39,9 @@ type RekorSpec struct {
 	// +patchMergeKey=treeID
 	// +kubebuilder:default:={}
 	Sharding []RekorLogRange `json:"sharding,omitempty"`
-	// Reference to TLS server certificate, private key and CA certificate
+	// ConfigMap with additional bundle of trusted CA
 	//+optional
-	TLSCertificate TLSCert `json:"tls"`
+	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
 }
 
 type RekorSigner struct {
