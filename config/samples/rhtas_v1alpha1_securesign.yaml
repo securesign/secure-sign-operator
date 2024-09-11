@@ -44,7 +44,7 @@ spec:
       name: tuf-root-keys
     pvc:
       accessModes:
-        - ReadWriteMany
+        - ReadWriteOnce
       retain: true
       size: 100Mi
   ctlog:

@@ -50,7 +50,7 @@ type TufPvc struct {
 	// The name of the StorageClass to claim a PersistentVolume from.
 	//+optional
 	StorageClass string `json:"storageClass,omitempty"`
-	// PVC AccessModes
+	// PersistentVolume AccessModes. Configure ReadWriteMany for HA deployment.
 	//+kubebuilder:default:={ReadWriteOnce}
 	//+kubebuilder:validation:MinItems:=1
 	AccessModes []PersistentVolumeAccessMode `json:"accessModes,omitempty"`

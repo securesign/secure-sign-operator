@@ -133,7 +133,8 @@ spec:
                   accessModes:
                     default:
                     - ReadWriteOnce
-                    description: PVC AccessModes
+                    description: PersistentVolume AccessModes. Configure ReadWriteMany
+                      for HA deployment.
                     items:
                       enum:
                       - ReadWriteOnce
