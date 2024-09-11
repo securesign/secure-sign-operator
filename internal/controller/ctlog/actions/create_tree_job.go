@@ -120,7 +120,7 @@ func (i createTreeJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	cmd := ""
 	switch {
 	case trustedCAAnnotation != nil:
-		cmd = fmt.Sprintf("/createtree --admin_server=%s --display_name=rekor-tree --tls_cert_file=%s", trillUrl, caPath)
+		cmd = fmt.Sprintf("/createtree --admin_server=%s --display_name=ctlog-tree --tls_cert_file=%s", trillUrl, caPath)
 	case kubernetes.IsOpenShift():
 		cmd = fmt.Sprintf("/createtree --admin_server=%s --display_name=ctlog-tree --tls_cert_file=/var/run/secrets/tas/tls.crt", trillUrl)
 	default:

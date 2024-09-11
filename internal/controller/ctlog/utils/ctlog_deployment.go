@@ -1,19 +1,23 @@
 package utils
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strconv"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string, labels map[string]string, serverPort, metricsPort int32) (*appsv1.Deployment, error) {
+func CreateDeployment(ctx context.Context, client client.Client, instance *v1alpha1.CTlog, deploymentName string, sa string, labels map[string]string, serverPort, metricsPort int32) (*appsv1.Deployment, error) {
 	switch {
 	case instance.Status.ServerConfigRef == nil:
 		return nil, fmt.Errorf("CreateCTLogDeployment: %w", ServerConfigNotSpecified)
@@ -120,6 +124,15 @@ func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string
 			},
 		},
 	}
+
+	if instance.Spec.TrustedCA != nil || kubernetes.IsOpenShift() {
+		caPath, err := CAPath(ctx, client, instance)
+		if err != nil {
+			return nil, errors.New("failed to get CA path: " + err.Error())
+		}
+		dep.Spec.Template.Spec.Containers[0].Args = append(dep.Spec.Template.Spec.Containers[0].Args, "--trillian_tls_ca_cert_file", caPath)
+	}
+
 	utils.SetProxyEnvs(dep)
 	return dep, nil
 }
