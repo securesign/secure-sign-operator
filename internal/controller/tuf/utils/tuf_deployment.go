@@ -53,7 +53,8 @@ func CreateTufDeployment(instance *v1alpha1.Tuf, dpName string, sa string, label
 								{
 									Name:      "repository",
 									MountPath: "/var/www/html",
-									ReadOnly:  true,
+									// let user to upload manual update using `oc rsync` command
+									ReadOnly: false,
 								},
 							},
 							LivenessProbe: &core.Probe{
