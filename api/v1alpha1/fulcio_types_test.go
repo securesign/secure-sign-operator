@@ -229,7 +229,6 @@ var _ = Describe("Fulcio", func() {
 								PrivateKeyRef:         &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
 								PrivateKeyPasswordRef: &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
 							},
-
 							Ctlog: CtlogService{
 								Address: "ctlog.default.svc",
 								Port:    ptr.To(int32(80)),
