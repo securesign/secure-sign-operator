@@ -158,7 +158,6 @@ var _ = Describe("CTlog controller", func() {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.ComponentName, Namespace: Namespace}, service)
 			}).Should(Succeed())
 			Expect(service.Spec.Ports[0].Port).Should(Equal(int32(80)))
-			// Expect(service.Spec.Ports[0].Port).Should(Equal(int32(443))) // TODO
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase
