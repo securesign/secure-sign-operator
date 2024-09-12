@@ -48,7 +48,7 @@ type CTlogSpec struct {
 	// publicKeyRef, rootCertificates and trillian will be overridden.
 	//+optional
 	ServerConfigRef *LocalObjectReference `json:"serverConfigRef,omitempty"`
-	// Configuration for enabling TLS (Transport Layer Security) encryption for manged database.
+	// Configuration for enabling TLS (Transport Layer Security) encryption for CTlog.
 	//+optional
 	TLS TLS `json:"tls,omitempty"`
 }
