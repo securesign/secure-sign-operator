@@ -346,7 +346,7 @@ spec:
               treeID:
                 description: The ID of a Trillian tree that stores the log data.
                 format: int64
-                type: integer
+                type: number
             type: object
         type: object
     served: true
