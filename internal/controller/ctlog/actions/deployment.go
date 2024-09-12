@@ -61,8 +61,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 
-	// signingKeySecret, _ := k8sutils.GetSecret(i.Client, "openshift-service-ca", "signing-key")
-	// useHTTPS := (instance.Spec.TLSCertificate.CertRef != nil && instance.Spec.TLSCertificate.CACertRef != nil) || (signingKeySecret != nil)
 	switch {
 	case instance.Spec.Trillian.Address == "":
 		instance.Spec.Trillian.Address = fmt.Sprintf("%s.%s.svc", trillian.LogserverDeploymentName, instance.Namespace)
@@ -82,19 +80,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	if err != nil {
 		return i.Failed(err)
 	}
-
-	//TLS
-	// if instance.Spec.TLSCertificate.CertRef != nil && instance.Spec.TLSCertificate.CACertRef != nil || signingKeySecret != nil {
-	// 	dp.Spec.Template.Spec.Containers[0].VolumeMounts = append(dp.Spec.Template.Spec.Containers[0].VolumeMounts,
-	// 		corev1.VolumeMount{
-	// 			Name:      "tls-cert",
-	// 			MountPath: "/etc/ssl/certs",
-	// 			ReadOnly:  true,
-	// 		})
-	// 	dp.Spec.Template.Spec.Containers[0].Args = append(dp.Spec.Template.Spec.Containers[0].Args, "--tls_certificate", "/etc/ssl/certs/tls.crt")
-	// 	dp.Spec.Template.Spec.Containers[0].Args = append(dp.Spec.Template.Spec.Containers[0].Args, "--tls_key", "/etc/ssl/certs/tls.key")
-	// 	// dp.Spec.Template.Spec.Containers[0].Args = append(dp.Spec.Template.Spec.Containers[0].Args, "--trillian_tls_ca_cert_file", "/etc/ssl/certs/ca.crt")
-	// }
 
 	if err = controllerutil.SetControllerReference(instance, dp, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Deployment: %w", err))
