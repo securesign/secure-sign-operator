@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -13,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string, labels map[string]string, serverPort, metricsPort int32, useHTTPS bool) (*appsv1.Deployment, error) {
+func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string, labels map[string]string, serverPort, metricsPort int32) (*appsv1.Deployment, error) {
 	switch {
 	case instance.Status.ServerConfigRef == nil:
 		return nil, fmt.Errorf("CreateCTLogDeployment: %w", ServerConfigNotSpecified)
@@ -25,23 +26,22 @@ func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string
 		return nil, fmt.Errorf("CreateCTLogDeployment: %w", TrillianPortNotSpecified)
 	}
 	replicas := int32(1)
-	scheme := corev1.URISchemeHTTP
-	if useHTTPS {
-		scheme = corev1.URISchemeHTTPS
-	}
-	// Define a new Deployment object
-
 	containerPorts := []corev1.ContainerPort{
 		{
 			ContainerPort: serverPort,
 			Protocol:      corev1.ProtocolTCP,
 		},
 	}
-
+	scheme := corev1.URISchemeHTTP
 	appArgs := []string{
 		"--http_endpoint=0.0.0.0:" + strconv.Itoa(int(serverPort)),
 		"--log_config=/ctfe-keys/config",
 		"--alsologtostderr",
+	}
+	if UseTLS(instance) {
+		scheme = corev1.URISchemeHTTPS
+		appArgs = append(appArgs, "--tls_certificate", "/var/run/secrets/tas/tls.crt")
+		appArgs = append(appArgs, "--tls_key", "/var/run/secrets/tas/tls.key")
 	}
 
 	if instance.Spec.Monitoring.Enabled {
@@ -52,6 +52,7 @@ func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string
 		})
 	}
 
+	// Define a new Deployment object
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
@@ -127,5 +128,10 @@ func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string
 		},
 	}
 	utils.SetProxyEnvs(dep)
+
+	if err := utils.SetTLS(&dep.Spec.Template, instance.Status.TLS); err != nil {
+		return nil, errors.New("could not set TLS: " + err.Error())
+	}
+
 	return dep, nil
 }

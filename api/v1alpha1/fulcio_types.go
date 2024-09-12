@@ -26,9 +26,6 @@ type FulcioSpec struct {
 	// ConfigMap with additional bundle of trusted CA
 	//+optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
-	// Reference to TLS server certificate, private key and CA certificate
-	//+optional
-	TLSCertificate TLSCert `json:"tls"`
 }
 
 // FulcioCert defines fields for system-generated certificate
@@ -104,7 +101,6 @@ type OIDCIssuer struct {
 type FulcioStatus struct {
 	ServerConfigRef *LocalObjectReference `json:"serverConfigRef,omitempty"`
 	Certificate     *FulcioCert           `json:"certificate,omitempty"`
-	TLSCertificate  *TLSCert              `json:"tls,omitempty"`
 	Url             string                `json:"url,omitempty"`
 	// +listType=map
 	// +listMapKey=type

@@ -40,13 +40,13 @@ spec:
       - name: ctfe.pub
       - name: fulcio_v1.crt.pem
       - name: tsa.certchain.pem
-    rootKeySecretRef:
-      name: tuf-root-keys
-    pvc:
-      accessModes:
-        - ReadWriteOnce
-      retain: true
-      size: 100Mi
+    # rootKeySecretRef:
+    #   name: tuf-root-keys
+    # pvc:
+    #   accessModes:
+    #     - ReadWriteOnce
+    #   retain: true
+    #   size: 100Mi
   ctlog:
   tsa:
     externalAccess:

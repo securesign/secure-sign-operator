@@ -122,19 +122,9 @@ var _ = Describe("Fulcio controller", func() {
 						TrustedCA: &v1alpha1.LocalObjectReference{
 							Name: "trusted-ca-bundle",
 						},
-						TLSCertificate: v1alpha1.TLSCert{
-							CertRef: &v1alpha1.SecretKeySelector{
-								Key:                  "cert",
-								LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret-crt"},
-							},
-							PrivateKeyRef: &v1alpha1.SecretKeySelector{
-								Key:                  "key",
-								LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret-key"},
-							},
-							CACertRef: &v1alpha1.LocalObjectReference{Name: "ca-configmap"},
-						},
 					},
 				}
+				Expect(k8sClient.Create(ctx, kubernetes.CreateConfigmap(Namespace, "trusted-ca-bundle", map[string]string{}, map[string]string{"ca-cert": "ca-cert-data"}))).To(Succeed())
 				err = k8sClient.Create(ctx, instance)
 				Expect(err).To(Not(HaveOccurred()))
 			}
