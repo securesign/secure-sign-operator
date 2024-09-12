@@ -66,7 +66,7 @@ type CTlogStatus struct {
 	PublicKeyRef          *SecretKeySelector    `json:"publicKeyRef,omitempty"`
 	RootCertificates      []SecretKeySelector   `json:"rootCertificates,omitempty"`
 	TrustedCA             *LocalObjectReference `json:"trustedCA,omitempty"`
-	TLSCertificate        *TLS                  `json:"tls,omitempty"`
+	TLS                   TLS                   `json:"tls,omitempty"`
 	// The ID of a Trillian tree that stores the log data.
 	// +kubebuilder:validation:Type=number
 	TreeID *int64 `json:"treeID,omitempty"`
