@@ -218,11 +218,7 @@ func (in *CTlogStatus) DeepCopyInto(out *CTlogStatus) {
 		*out = new(LocalObjectReference)
 		**out = **in
 	}
-	if in.TLSCertificate != nil {
-		in, out := &in.TLSCertificate, &out.TLSCertificate
-		*out = new(TLS)
-		(*in).DeepCopyInto(*out)
-	}
+	in.TLS.DeepCopyInto(&out.TLS)
 	if in.TreeID != nil {
 		in, out := &in.TreeID, &out.TreeID
 		*out = new(int64)
