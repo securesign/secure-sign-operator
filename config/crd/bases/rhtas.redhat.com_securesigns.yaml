@@ -170,7 +170,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   tls:
                     description: Configuration for enabling TLS (Transport Layer Security)
-                      encryption for manged database.
+                      encryption for CTlog.
                     properties:
                       certificateRef:
                         description: Reference to the certificate secret used for
@@ -915,7 +915,7 @@ spec:
                     properties:
                       tls:
                         description: Configuration for enabling TLS (Transport Layer
-                          Security) encryption for manged database.
+                          Security) encryption for Trillian server.
                         properties:
                           certificateRef:
                             description: Reference to the certificate secret used
