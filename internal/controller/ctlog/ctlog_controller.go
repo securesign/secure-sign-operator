@@ -92,6 +92,7 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			return []string{actions.CertCondition}
 		}),
 		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.CTlog](),
+
 		actions.NewHandleFulcioCertAction(),
 		actions.NewHandleKeysAction(),
 		actions.NewResolveTreeAction(),

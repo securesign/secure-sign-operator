@@ -26,6 +26,8 @@ func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string
 		return nil, fmt.Errorf("CreateCTLogDeployment: %w", TrillianPortNotSpecified)
 	}
 	replicas := int32(1)
+	// Define a new Deployment object
+
 	containerPorts := []corev1.ContainerPort{
 		{
 			ContainerPort: serverPort,
@@ -52,7 +54,6 @@ func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string
 		})
 	}
 
-	// Define a new Deployment object
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
