@@ -53,7 +53,7 @@ type CTlogSpec struct {
 	//+optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
 
-	// Configuration for enabling TLS (Transport Layer Security) encryption for manged database.
+	// Configuration for enabling TLS (Transport Layer Security) encryption CTlog.
 	//+optional
 	TLS TLS `json:"tls,omitempty"`
 }

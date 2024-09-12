@@ -58,7 +58,7 @@ type TrillianDB struct {
 }
 
 type TrillianServer struct {
-	// Configuration for enabling TLS (Transport Layer Security) encryption for manged database.
+	// Configuration for enabling TLS (Transport Layer Security) encryption for Trillian server.
 	//+optional
 	TLS TLS `json:"tls,omitempty"`
 }
