@@ -93,6 +93,7 @@ func (i createTreeJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	if updated {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: CtlogTreeJobName,
 			Status: metav1.ConditionFalse, Reason: constants.Creating, Message: "ConfigMap created"})
+		i.Recorder.Event(instance, corev1.EventTypeNormal, "ConfigMapCreated", "New ConfigMap created")
 	}
 
 	parallelism := int32(1)
