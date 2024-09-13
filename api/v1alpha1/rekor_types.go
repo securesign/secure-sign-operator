@@ -104,6 +104,7 @@ type RekorStatus struct {
 	Url              string                `json:"url,omitempty"`
 	RekorSearchUIUrl string                `json:"rekorSearchUIUrl,omitempty"`
 	// The ID of a Trillian tree that stores the log data.
+	// +kubebuilder:validation:Type=number
 	TreeID *int64 `json:"treeID,omitempty"`
 	// +listType=map
 	// +listMapKey=type
