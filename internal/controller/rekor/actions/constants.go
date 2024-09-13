@@ -23,4 +23,8 @@ const (
 	ServerCondition            = "ServerAvailable"
 	RedisCondition             = "RedisAvailable"
 	SignerCondition            = "SignerAvailable"
+	RekorTreeName              = "rekor-tree"
+	RekorTreeJobName           = "rekor-create-tree"
+	RekorTreeJobCondition      = "RekorTreeJobAvailable"
+	RekorTreeJobConfigMapName  = "rekor-tree-id-config"
 )

@@ -34,7 +34,7 @@ func (i createTreeJobAction) Name() string {
 }
 
 func (i createTreeJobAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Rekor) bool {
-	cm, _ := kubernetes.GetConfigMap(ctx, i.Client, instance.Namespace, "rekor-tree-id-config")
+	cm, _ := kubernetes.GetConfigMap(ctx, i.Client, instance.Namespace, actions.RekorTreeJobConfigMapName)
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && cm == nil && instance.Status.TreeID == nil
 }
@@ -45,8 +45,6 @@ func (i createTreeJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		updated bool
 	)
 
-	RekorTreeJobName := "rekor-create-tree"
-	configMapName := "rekor-tree-id-config"
 	var trillUrl string
 
 	switch {
@@ -62,12 +60,12 @@ func (i createTreeJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	}
 	i.Logger.V(1).Info("trillian logserver", "address", trillUrl)
 
-	if c := meta.FindStatusCondition(instance.Status.Conditions, RekorTreeJobName); c == nil {
+	if c := meta.FindStatusCondition(instance.Status.Conditions, actions.RekorTreeJobName); c == nil {
 		instance.SetCondition(metav1.Condition{
-			Type:    RekorTreeJobName,
+			Type:    actions.RekorTreeJobName,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Creating,
-			Message: "Creating rekor tree Job",
+			Message: "Creating tree Job",
 		})
 	}
 
@@ -76,7 +74,7 @@ func (i createTreeJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	// Needed for configMap clean-up
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      configMapName,
+			Name:      actions.RekorTreeJobConfigMapName,
 			Namespace: instance.Namespace,
 			Labels:    labels,
 		},
@@ -87,7 +85,7 @@ func (i createTreeJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	}
 	if updated, err = i.Ensure(ctx, configMap); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
+			Type:    actions.RekorTreeJobName,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Failure,
 			Message: err.Error(),
@@ -107,7 +105,7 @@ func (i createTreeJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	caPath, err := utils.CAPath(ctx, i.Client, instance)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
+			Type:    actions.RekorTreeJobName,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Failure,
 			Message: err.Error(),
@@ -121,11 +119,11 @@ func (i createTreeJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	cmd := ""
 	switch {
 	case trustedCAAnnotation != nil:
-		cmd = fmt.Sprintf("/createtree --admin_server=%s --display_name=rekor-tree --tls_cert_file=%s", trillUrl, caPath)
+		cmd = fmt.Sprintf("/createtree --admin_server=%s --display_name=%s --tls_cert_file=%s", trillUrl, actions.RekorTreeName, caPath)
 	case kubernetes.IsOpenShift():
-		cmd = fmt.Sprintf("/createtree --admin_server=%s --display_name=rekor-tree --tls_cert_file=/var/run/secrets/tas/tls.crt", trillUrl)
+		cmd = fmt.Sprintf("/createtree --admin_server=%s --display_name=%s --tls_cert_file=/var/run/secrets/tas/tls.crt", trillUrl, actions.RekorTreeName)
 	default:
-		cmd = fmt.Sprintf("/createtree --admin_server=%s --display_name=rekor-tree", trillUrl)
+		cmd = fmt.Sprintf("/createtree --admin_server=%s --display_name=%s", trillUrl, actions.RekorTreeName)
 	}
 	command := []string{
 		"/bin/sh",
@@ -153,11 +151,11 @@ func (i createTreeJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 			echo "Failed to create tree" >&2
 			exit 1
 		fi
-		`, cmd, configMapName),
+		`, cmd, actions.RekorTreeJobConfigMapName),
 	}
 	env := []corev1.EnvVar{}
 
-	job := job.CreateJob(instance.Namespace, RekorTreeJobName, labels, constants.CreateTreeImage, actions.RBACName, parallelism, completions, activeDeadlineSeconds, backoffLimit, command, env)
+	job := job.CreateJob(instance.Namespace, actions.RekorTreeJobName, labels, constants.CreateTreeImage, actions.RBACName, parallelism, completions, activeDeadlineSeconds, backoffLimit, command, env)
 	if err = ctrl.SetControllerReference(instance, job, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Job: %w", err))
 	}
@@ -191,10 +189,10 @@ func (i createTreeJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:    RekorTreeJobName,
+		Type:    actions.RekorTreeJobName,
 		Status:  metav1.ConditionTrue,
 		Reason:  constants.Creating,
-		Message: "rekor tree Job Created",
+		Message: "tree Job Created",
 	})
 
 	return i.Continue()
