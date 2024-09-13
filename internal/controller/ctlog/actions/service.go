@@ -50,14 +50,6 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog
 		})
 	}
 
-	//TLS: Annotate service
-	if kubernetes.IsOpenShift() && instance.Spec.TLS.CertRef == nil {
-		if svc.Annotations == nil {
-			svc.Annotations = make(map[string]string)
-		}
-		svc.Annotations["service.beta.openshift.io/serving-cert-secret-name"] = instance.Name + "-ctlog-tls"
-	}
-
 	if err = controllerutil.SetControllerReference(instance, svc, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Service: %w", err))
 	}

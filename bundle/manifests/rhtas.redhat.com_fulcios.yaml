@@ -223,6 +223,7 @@ spec:
                     (has(self.MetaIssuers) && (size(self.MetaIssuers) > 0))
               ctlog:
                 default:
+                  port: 80
                   prefix: trusted-artifact-signer
                 description: Ctlog service configuration
                 properties:

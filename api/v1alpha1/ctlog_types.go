@@ -52,10 +52,6 @@ type CTlogSpec struct {
 	// ConfigMap with additional bundle of trusted CA
 	//+optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
-
-	// Configuration for enabling TLS (Transport Layer Security) encryption for CTlog.
-	//+optional
-	TLS TLS `json:"tls,omitempty"`
 }
 
 // CTlogStatus defines the observed state of CTlog component
@@ -66,7 +62,6 @@ type CTlogStatus struct {
 	PublicKeyRef          *SecretKeySelector    `json:"publicKeyRef,omitempty"`
 	RootCertificates      []SecretKeySelector   `json:"rootCertificates,omitempty"`
 	TrustedCA             *LocalObjectReference `json:"trustedCA,omitempty"`
-	TLS                   TLS                   `json:"tls,omitempty"`
 	// The ID of a Trillian tree that stores the log data.
 	// +kubebuilder:validation:Type=number
 	TreeID *int64 `json:"treeID,omitempty"`
