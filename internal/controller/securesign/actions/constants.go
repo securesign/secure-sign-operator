@@ -7,7 +7,6 @@ const (
 	RekorCondition           = "RekorAvailable"
 	TrillianCondition        = "TrillianAvailable"
 	CTlogCondition           = "CTlogAvailable"
-	SBJCondition             = "SBJCondition"
 	SegmentBackupCronJobName = "segment-backup-nightly-metrics"
 	SegmentBackupJobName     = "segment-backup-installation"
 	SegmentRBACName          = "rhtas-segment-backup-job"

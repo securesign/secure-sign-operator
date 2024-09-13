@@ -20,6 +20,7 @@ import (
 	"context"
 
 	v12 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/operator-framework/operator-lib/predicate"
@@ -126,21 +127,27 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	acs := []action.Action[*rhtasv1alpha1.Securesign]{
 		actions.NewInitializeStatusAction(),
+		actions.NewSBJRBACAction(),
+		actions.NewSegmentBackupJobAction(),
+		actions.NewSegmentBackupCronJobAction(),
 		actions.NewTrillianAction(),
 		actions.NewFulcioAction(),
 		actions.NewRekorAction(),
 		actions.NewCtlogAction(),
 		actions.NewTufAction(),
 		actions.NewTsaAction(),
-		actions.NewRBACAction(),
-		actions.NewSegmentBackupJobAction(),
-		actions.NewSegmentBackupCronJobAction(),
 		actions.NewUpdateStatusAction(),
 	}
 
 	for _, a := range acs {
 		a.InjectClient(r.Client)
 		a.InjectLogger(log.WithName(a.Name()))
+
+		if a.Name() == actions.SegmentBackupJobName {
+			if c := meta.FindStatusCondition(instance.GetConditions(), actions.MetricsCondition); c != nil && c.Reason == constants.Creating {
+				continue
+			}
+		}
 
 		if a.CanHandle(ctx, target) {
 			result := a.Handle(ctx, target)

@@ -24,7 +24,7 @@ const (
 	OpenshiftMonitoringNS  = "openshift-monitoring"
 )
 
-func NewRBACAction() action.Action[*rhtasv1alpha1.Securesign] {
+func NewSBJRBACAction() action.Action[*rhtasv1alpha1.Securesign] {
 	return &rbacAction{}
 }
 
@@ -37,6 +37,10 @@ func (i rbacAction) Name() string {
 }
 
 func (i rbacAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Securesign) bool {
+	c := meta.FindStatusCondition(instance.Status.Conditions, MetricsCondition)
+	if c == nil || c.Reason == constants.Ready {
+		return false
+	}
 	val, found := instance.Annotations[annotations.Metrics]
 	if !found {
 		return true
@@ -226,6 +230,13 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create openshift-console ClusterRoleBinding for SBJ: %w", err), instance)
 	}
+
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:    MetricsCondition,
+		Status:  metav1.ConditionTrue,
+		Reason:  constants.Creating,
+		Message: "Segment Backup Job Creating",
+	})
 
 	return i.Continue()
 }
