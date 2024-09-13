@@ -51,3 +51,17 @@ func GetInternalUrl(ctx context.Context, cli client.Client, namespace, serviceNa
 	}
 	return fmt.Sprintf("%s.%s.svc.cluster.local", svc.Name, svc.Namespace), nil
 }
+
+func GetService(client client.Client, namespace, serviceName string) (*corev1.Service, error) {
+	var service corev1.Service
+
+	err := client.Get(context.TODO(), types.NamespacedName{
+		Name:      serviceName,
+		Namespace: namespace,
+	}, &service)
+
+	if err != nil {
+		return nil, err
+	}
+	return &service, nil
+}

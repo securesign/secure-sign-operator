@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,7 +44,7 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog
 
 	var port int
 	var portName string
-	if instance.Spec.TLS.CertRef != nil || k8sutils.IsOpenShift() { // TODO: replace with useTLS
+	if utils.UseTLS(instance) {
 		port = HttpsServerPort
 		portName = HttpsServerPortName
 	} else {

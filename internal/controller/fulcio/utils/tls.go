@@ -9,18 +9,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func UseTLS(instance *rhtasv1alpha1.Fulcio) bool {
+func UseTLS(ctx context.Context, client client.Client, instance *rhtasv1alpha1.Fulcio) (bool, error) {
 
 	if instance == nil {
-		return false
+		return false, nil
 	}
 
-	// TLS enabled on Ctlog
-	if instance.Spec.TrustedCA != nil || kubernetes.IsOpenShift() {
-		return true
+	service, err := kubernetes.GetService(client, instance.Namespace, "ctlog")
+	if err != nil {
+		return false, fmt.Errorf("failed to get ctlog service: %w", err)
 	}
 
-	return false
+	for _, port := range service.Spec.Ports {
+		if port.Name == "https" || port.Port == 443 {
+			return true, nil
+		}
+	}
+	return kubernetes.IsOpenShift(), nil
 }
 
 func CAPath(ctx context.Context, cli client.Client, instance *rhtasv1alpha1.Fulcio) (string, error) {

@@ -8,6 +8,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
 	futils "github.com/securesign/operator/internal/controller/fulcio/utils"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -37,17 +38,21 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	)
 
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
+	useTLS, err := futils.UseTLS(ctx, i.Client, instance)
+	if err != nil {
+		return i.Requeue()
+	}
 
 	if instance.Spec.Ctlog.Address == "" {
-		if futils.UseTLS(instance) {
+		if useTLS {
 			instance.Spec.Ctlog.Address = fmt.Sprintf("https://ctlog.%s.svc", instance.Namespace)
 		} else {
 			instance.Spec.Ctlog.Address = fmt.Sprintf("http://ctlog.%s.svc", instance.Namespace)
 		}
 	}
-	if instance.Spec.Ctlog.Port == nil || *instance.Spec.Ctlog.Port == 0 {
+	if instance.Spec.Ctlog.Port == nil {
 		var port int32
-		if futils.UseTLS(instance) {
+		if useTLS {
 			port = int32(443)
 		} else {
 			port = int32(80)
@@ -67,7 +72,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		}
 	}
 
-	if futils.UseTLS(instance) {
+	if useTLS {
 		caPath, err := futils.CAPath(ctx, i.Client, instance)
 		if err != nil {
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
