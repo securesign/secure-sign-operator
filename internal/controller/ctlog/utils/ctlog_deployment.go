@@ -8,7 +8,6 @@ import (
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -125,7 +124,8 @@ func CreateDeployment(ctx context.Context, client client.Client, instance *v1alp
 		},
 	}
 
-	if instance.Spec.TrustedCA != nil || kubernetes.IsOpenShift() {
+	useTLS := UseTLS(instance)
+	if useTLS {
 		caPath, err := CAPath(ctx, client, instance)
 		if err != nil {
 			return nil, errors.New("failed to get CA path: " + err.Error())

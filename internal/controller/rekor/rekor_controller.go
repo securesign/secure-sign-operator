@@ -24,12 +24,14 @@ import (
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/action/transitions"
+	"github.com/securesign/operator/internal/controller/constants"
 
 	actions2 "github.com/securesign/operator/internal/controller/rekor/actions"
 	backfillredis "github.com/securesign/operator/internal/controller/rekor/actions/backfillRedis"
 	"github.com/securesign/operator/internal/controller/rekor/actions/redis"
 	"github.com/securesign/operator/internal/controller/rekor/actions/server"
 	"github.com/securesign/operator/internal/controller/rekor/actions/ui"
+	"github.com/securesign/operator/internal/controller/rekor/utils"
 	v13 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/record"
@@ -43,6 +45,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	actions3 "github.com/securesign/operator/internal/controller/trillian/actions"
 	batchv1 "k8s.io/api/batch/v1"
 )
 
@@ -109,7 +112,28 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		actions2.NewRBACAction(),
 		server.NewShardingConfigAction(),
-		server.NewCreateTreeJobAction(),
+		transitions.NewCreateTreeJobAction[*rhtasv1alpha1.Rekor](func(instance *rhtasv1alpha1.Rekor) (
+			trillianAddress, instanceName, treeJobConfigMapName, treeJobName, treeDisplayName, trillianDeploymentName string,
+			namespace string, trillianPort *int32, caPath string, rbac string, labels map[string]string, annotations map[string]string,
+			treeID *int64, err error,
+		) {
+			caPath, err = utils.CAPath(ctx, r.Client, instance)
+			labels = constants.LabelsFor(actions2.ServerComponentName, actions2.ServerDeploymentName, instance.Name)
+			return instance.Spec.Trillian.Address,
+				instance.Name,
+				actions2.RekorTreeJobConfigMapName,
+				actions2.RekorTreeJobName,
+				actions2.RekorTreeName,
+				actions3.LogserverDeploymentName,
+				instance.Namespace,
+				instance.Spec.Trillian.Port,
+				caPath,
+				actions2.RBACName,
+				labels,
+				instance.Annotations,
+				instance.Status.TreeID,
+				err
+		}),
 		server.NewResolveTreeAction(),
 		server.NewCreatePvcAction(),
 		server.NewDeployAction(),

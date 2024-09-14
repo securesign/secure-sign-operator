@@ -22,9 +22,11 @@ import (
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/action/transitions"
+	"github.com/securesign/operator/internal/controller/constants"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
+	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	fulcioActions "github.com/securesign/operator/internal/controller/fulcio/actions"
 	v12 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,6 +45,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	actions2 "github.com/securesign/operator/internal/controller/trillian/actions"
 )
 
 // CTlogReconciler reconciles a CTlog object
@@ -96,7 +99,28 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		actions.NewRBACAction(),
 		actions.NewHandleFulcioCertAction(),
 		actions.NewHandleKeysAction(),
-		actions.NewCreateTreeJobAction(),
+		transitions.NewCreateTreeJobAction[*rhtasv1alpha1.CTlog](func(instance *rhtasv1alpha1.CTlog) (
+			trillianAddress, instanceName, treeJobConfigMapName, treeJobName, treeDisplayName, trillianDeploymentName string,
+			namespace string, trillianPort *int32, caPath string, rbac string, labels map[string]string, annotations map[string]string,
+			treeID *int64, err error,
+		) {
+			caPath, err = utils.CAPath(ctx, r.Client, instance)
+			labels = constants.LabelsFor(actions.ComponentName, actions.ComponentName, instance.Name)
+			return instance.Spec.Trillian.Address,
+				instance.Name,
+				actions.CtlogTreeJobConfigMapName,
+				actions.CtlogTreeJobName,
+				actions.CtlogTreeName,
+				actions2.LogserverDeploymentName,
+				instance.Namespace,
+				instance.Spec.Trillian.Port,
+				caPath,
+				actions.RBACName,
+				labels,
+				instance.Annotations,
+				instance.Status.TreeID,
+				err
+		}),
 		actions.NewResolveTreeAction(),
 		actions.NewServerConfigAction(),
 

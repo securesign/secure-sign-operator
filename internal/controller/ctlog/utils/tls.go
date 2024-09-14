@@ -9,6 +9,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+func UseTLS(instance *rhtasv1alpha1.CTlog) bool {
+
+	if instance == nil {
+		return false
+	}
+	// TLS enabled on Trillian logserver
+	if instance.Spec.TrustedCA != nil || kubernetes.IsOpenShift() {
+		return true
+	}
+
+	return false
+}
+
 func CAPath(ctx context.Context, cli client.Client, instance *rhtasv1alpha1.CTlog) (string, error) {
 	if instance.Spec.TrustedCA != nil {
 		cfgTrust, err := kubernetes.GetConfigMap(ctx, cli, instance.Namespace, instance.Spec.TrustedCA.Name)
