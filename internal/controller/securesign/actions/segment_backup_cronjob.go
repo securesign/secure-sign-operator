@@ -35,6 +35,10 @@ func (i segmentBackupCronJob) Name() string {
 	return "segment-backup-nightly-metrics"
 }
 func (i segmentBackupCronJob) CanHandle(_ context.Context, instance *rhtasv1alpha1.Securesign) bool {
+	c := meta.FindStatusCondition(instance.Status.Conditions, MetricsCondition)
+	if c == nil || c.Reason == constants.Ready {
+		return false
+	}
 	val, found := instance.Annotations[annotations.Metrics]
 	if !found {
 		return true
@@ -115,24 +119,24 @@ func (i segmentBackupCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create segment backup cron job: %w", err), instance)
 	}
 
 	if updated {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
+			Type:    MetricsCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Creating,
-			Message: "Segment backup Cron Job created",
+			Message: "Segment backup Cron Job creating",
 		})
 		return i.StatusUpdate(ctx, instance)
-	} else {
-		return i.Continue()
 	}
+
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:    MetricsCondition,
+		Status:  metav1.ConditionTrue,
+		Reason:  constants.Ready,
+		Message: "Segment backup Cron Job created",
+	})
+	return i.Continue()
 }

@@ -10,6 +10,10 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var conditions = []string{
+	constants.Ready, TrillianCondition, FulcioCondition, RekorCondition, CTlogCondition, TufCondition, TSACondition, MetricsCondition,
+}
+
 func NewInitializeStatusAction() action.Action[*rhtasv1alpha1.Securesign] {
 	return &initializeStatus{}
 }
@@ -23,16 +27,23 @@ func (i initializeStatus) Name() string {
 }
 
 func (i initializeStatus) CanHandle(_ context.Context, instance *rhtasv1alpha1.Securesign) bool {
-	return meta.FindStatusCondition(instance.Status.Conditions, constants.Ready) == nil
+	for _, condition := range conditions {
+		if c := meta.FindStatusCondition(instance.Status.Conditions, condition); c == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func (i initializeStatus) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
-	for _, conditionType := range []string{constants.Ready, TrillianCondition, FulcioCondition, RekorCondition, CTlogCondition, TufCondition, TSACondition, SBJCondition} {
-		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
-			Type:   conditionType,
-			Status: v1.ConditionUnknown,
-			Reason: constants.Pending,
-		})
+	for _, conditionType := range conditions {
+		if c := meta.FindStatusCondition(instance.Status.Conditions, conditionType); c == nil {
+			meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
+				Type:   conditionType,
+				Status: v1.ConditionUnknown,
+				Reason: constants.Pending,
+			})
+		}
 	}
 	return i.StatusUpdate(ctx, instance)
 }

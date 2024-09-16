@@ -32,12 +32,13 @@ type segmentBackupJob struct {
 }
 
 func (i segmentBackupJob) Name() string {
-	return "segment-backup-installation"
+	return SegmentBackupJobName
 }
 
 func (i segmentBackupJob) CanHandle(_ context.Context, instance *rhtasv1alpha1.Securesign) bool {
-	if c := meta.FindStatusCondition(instance.Status.Conditions, SBJCondition); c != nil {
-		return c.Status != metav1.ConditionTrue
+	c := meta.FindStatusCondition(instance.Status.Conditions, MetricsCondition)
+	if c == nil || c.Reason == constants.Ready {
+		return false
 	}
 
 	val, found := instance.Annotations[annotations.Metrics]
@@ -92,18 +93,15 @@ func (i segmentBackupJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Se
 	if err = ctrl.SetControllerReference(instance, job, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Job: %w", err))
 	}
-
 	_, err = i.Ensure(ctx, job)
 	if err != nil {
-		return i.Failed(fmt.Errorf("failed to Ensure the job: %w", err))
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    MetricsCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Creating,
+			Message: err.Error(),
+		})
+		return i.StatusUpdate(ctx, instance)
 	}
-
-	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:    SBJCondition,
-		Status:  metav1.ConditionTrue,
-		Reason:  constants.Ready,
-		Message: "Segment Backup Job Created",
-	})
-
-	return i.StatusUpdate(ctx, instance)
+	return i.Continue()
 }
