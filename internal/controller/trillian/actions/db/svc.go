@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/utils"
 
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -49,7 +50,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		if mysql.Annotations == nil {
 			mysql.Annotations = make(map[string]string)
 		}
-		mysql.Annotations["service.beta.openshift.io/serving-cert-secret-name"] = instance.Name + "-trillian-db-tls"
+		mysql.Annotations[annotations.TLS] = instance.Name + "-trillian-db-tls"
 	}
 
 	if err = controllerutil.SetControllerReference(instance, mysql, i.Client.Scheme()); err != nil {

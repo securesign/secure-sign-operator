@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -178,7 +179,7 @@ func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef s
 		if mysql.Annotations == nil {
 			mysql.Annotations = make(map[string]string)
 		}
-		mysql.Annotations["service.beta.openshift.io/serving-cert-secret-name"] = "my-trillian-db-tls-secret"
+		mysql.Annotations[annotations.TLS] = "my-trillian-db-tls-secret"
 	}
 	err := cli.Create(ctx, mysql)
 	if err != nil {

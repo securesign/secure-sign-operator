@@ -13,6 +13,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
@@ -89,6 +90,20 @@ func (action *BaseAction) Requeue() *Result {
 	}
 }
 
+func (action *BaseAction) Update(ctx context.Context, key types.NamespacedName, currentObj client2.Object, obj client2.Object) (bool, error) {
+	action.Logger.Info("Updating object",
+		"kind", reflect.TypeOf(currentObj).Elem().Name(), "Namespace", key.Namespace, "Name", key.Name)
+	if err := action.Client.Update(ctx, currentObj); err != nil {
+		if strings.Contains(err.Error(), OptimisticLockErrorMsg) {
+			return action.Ensure(ctx, obj)
+		}
+		action.Logger.Error(err, "Failed to update object",
+			"kind", reflect.TypeOf(obj).Elem().Name(), "Namespace", key.Namespace, "Name", key.Name)
+		return false, err
+	}
+	return true, nil
+}
+
 func (action *BaseAction) Ensure(ctx context.Context, obj client2.Object) (bool, error) {
 	key := client2.ObjectKeyFromObject(obj)
 	var (
@@ -96,7 +111,7 @@ func (action *BaseAction) Ensure(ctx context.Context, obj client2.Object) (bool,
 		ok         bool
 	)
 	if currentObj, ok = obj.DeepCopyObject().(client2.Object); !ok {
-		return false, errors.New("Can't create DeepCopy object")
+		return false, errors.New("can't create DeepCopy object")
 	}
 	if err := action.Client.Get(ctx, key, currentObj); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -125,6 +140,19 @@ func (action *BaseAction) Ensure(ctx context.Context, obj client2.Object) (bool,
 		}
 	}
 
+	// Normalize both current and desired annotations
+	currentAnnotations := normalizeAnnotations(annotations.FilterManaged(currentObj.GetAnnotations()))
+	desiredAnnotations := normalizeAnnotations(annotations.FilterManaged(obj.GetAnnotations()))
+	// Compare annotations, and update if they are different
+	if !reflect.DeepEqual(currentAnnotations, desiredAnnotations) {
+		currentObj.SetAnnotations(desiredAnnotations)
+		action.Logger.Info("Updating Annotations",
+			"kind", reflect.TypeOf(obj).Elem().Name(), "Namespace", key.Namespace, "Name", key.Name)
+		if ok, err := action.Update(ctx, key, currentObj, obj); !ok || err != nil {
+			return false, err
+		}
+	}
+
 	currentSpec := reflect.ValueOf(currentObj).Elem().FieldByName("Spec")
 	expectedSpec := reflect.ValueOf(obj).Elem().FieldByName("Spec")
 	if currentSpec == reflect.ValueOf(nil) {
@@ -143,15 +171,12 @@ func (action *BaseAction) Ensure(ctx context.Context, obj client2.Object) (bool,
 		return false, errors.New("can't set expected spec to current object")
 	}
 	currentSpec.Set(expectedSpec)
-	action.Logger.Info("Updating object",
-		"kind", reflect.TypeOf(currentObj).Elem().Name(), "Namespace", key.Namespace, "Name", key.Name)
-	if err := action.Client.Update(ctx, currentObj); err != nil {
-		if strings.Contains(err.Error(), OptimisticLockErrorMsg) {
-			return action.Ensure(ctx, obj)
-		}
-		action.Logger.Error(err, "Failed to update object",
-			"kind", reflect.TypeOf(obj).Elem().Name(), "Namespace", key.Namespace, "Name", key.Name)
-		return false, err
+	return action.Update(ctx, key, currentObj, obj)
+}
+
+func normalizeAnnotations(annotations map[string]string) map[string]string {
+	if annotations == nil {
+		return map[string]string{}
 	}
-	return true, nil
+	return annotations
 }
