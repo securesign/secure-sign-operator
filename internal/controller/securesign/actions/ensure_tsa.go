@@ -49,7 +49,7 @@ func (i tsaAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 		})
 		return i.StatusUpdate(ctx, instance)
 	}
-	tsa.Spec = instance.Spec.TimestampAuthority
+	tsa.Spec = *instance.Spec.TimestampAuthority
 
 	if err = controllerutil.SetControllerReference(instance, tsa, i.Client.Scheme()); err != nil {
 		return i.Failed(err)

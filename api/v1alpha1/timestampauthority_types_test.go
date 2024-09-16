@@ -57,6 +57,15 @@ var _ = Describe("TSA", func() {
 			Expect(k8sClient.Get(context.Background(), getKey(created), created)).ToNot(Succeed())
 		})
 
+		It("can be empty", func() {
+			created := Securesign{
+				Spec: SecuresignSpec{
+					TimestampAuthority: nil,
+				},
+			}
+			Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), &created))).To(BeFalse())
+		})
+
 		When("changing external access setting", func() {
 			It("enabled false->true", func() {
 				created := generateTSAObject("tsa-access-1")
@@ -124,6 +133,14 @@ var _ = Describe("TSA", func() {
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
 					To(MatchError(ContainSubstring("organizationName cannot be empty for root certificate authority")))
+			})
+
+			It("missing org name for intermediate CA", func() {
+				invalidObject := generateTSAObject("missing-org-name")
+				invalidObject.Spec.Signer.CertificateChain.IntermediateCA[0].OrganizationName = ""
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("organizationName cannot be empty for intermediate certificate authority, please make sure all are in place")))
 			})
 
 			It("missing org name for leaf CA", func() {

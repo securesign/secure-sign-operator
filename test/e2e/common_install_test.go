@@ -93,7 +93,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				Trillian: v1alpha1.TrillianSpec{Db: v1alpha1.TrillianDB{
 					Create: ptr.To(true),
 				}},
-				TimestampAuthority: v1alpha1.TimestampAuthoritySpec{
+				TimestampAuthority: &v1alpha1.TimestampAuthoritySpec{
 					ExternalAccess: v1alpha1.ExternalAccess{
 						Enabled: true,
 					},

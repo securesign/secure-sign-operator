@@ -85,7 +85,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 						Name: "my-db",
 					},
 				}},
-				TimestampAuthority: v1alpha1.TimestampAuthoritySpec{
+				TimestampAuthority: &v1alpha1.TimestampAuthoritySpec{
 					ExternalAccess: v1alpha1.ExternalAccess{
 						Enabled: true,
 					},

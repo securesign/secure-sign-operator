@@ -83,7 +83,7 @@ func securesignResource(namespace *v1.Namespace) *rhtasv1alpha1.Securesign {
 					Retain: ptr.To(false),
 				},
 			}},
-			TimestampAuthority: rhtasv1alpha1.TimestampAuthoritySpec{
+			TimestampAuthority: &rhtasv1alpha1.TimestampAuthoritySpec{
 				ExternalAccess: rhtasv1alpha1.ExternalAccess{
 					Enabled: true,
 				},

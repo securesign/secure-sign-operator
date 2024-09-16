@@ -113,7 +113,7 @@ var _ = Describe("Securesign install in proxy-env", Ordered, func() {
 					},
 					Ctlog:    v1alpha1.CTlogSpec{},
 					Trillian: v1alpha1.TrillianSpec{},
-					TimestampAuthority: v1alpha1.TimestampAuthoritySpec{
+					TimestampAuthority: &v1alpha1.TimestampAuthoritySpec{
 						ExternalAccess: v1alpha1.ExternalAccess{
 							Enabled: true,
 						},
