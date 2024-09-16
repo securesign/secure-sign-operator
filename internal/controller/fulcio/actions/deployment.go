@@ -111,7 +111,8 @@ func resolveCtlAddress(ctx context.Context, cli client.Client, instance *rhtasv1
 	for _, port := range svc.Spec.Ports {
 		if port.Name == ctlogAction.ServerPortName {
 			var protocol string
-			instance.Spec.Ctlog.Port = &port.Port
+			portCopy := port
+			instance.Spec.Ctlog.Port = &portCopy.Port
 			switch port.Port {
 			case 443:
 				protocol = "https://"
