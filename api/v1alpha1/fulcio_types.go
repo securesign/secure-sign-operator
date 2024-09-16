@@ -73,28 +73,28 @@ type FulcioConfig struct {
 
 type OIDCIssuer struct {
 	// The expected issuer of an OIDC token
-	IssuerURL string `json:"IssuerURL,omitempty"`
+	IssuerURL string `json:"IssuerURL,omitempty" yaml:"issuer-url,omitempty"`
 	// The expected issuer of an OIDC token
 	//+required
-	Issuer string `json:"Issuer"`
+	Issuer string `json:"Issuer" yaml:"issuer"`
 	//+required
-	ClientID string `json:"ClientID"`
+	ClientID string `json:"ClientID" yaml:"client-id"`
 	// Used to determine the subject of the certificate and if additional
 	// certificate values are needed
 	//+required
-	Type string `json:"Type"`
+	Type string `json:"Type" yaml:"type"`
 	// Optional, if the issuer is in a different claim in the OIDC token
-	IssuerClaim string `json:"IssuerClaim,omitempty"`
+	IssuerClaim string `json:"IssuerClaim,omitempty" yaml:"issuer-claim,omitempty"`
 	// The domain that must be present in the subject for 'uri' issuer types
 	// Also used to create an email for 'username' issuer types
-	SubjectDomain string `json:"SubjectDomain,omitempty"`
+	SubjectDomain string `json:"SubjectDomain,omitempty" yaml:"subject-domain,omitempty"`
 	// SPIFFETrustDomain specifies the trust domain that 'spiffe' issuer types
 	// issue ID tokens for. Tokens with a different trust domain will be
 	// rejected.
-	SPIFFETrustDomain string `json:"SPIFFETrustDomain,omitempty"`
+	SPIFFETrustDomain string `json:"SPIFFETrustDomain,omitempty" yaml:"spiffe-trust-domain,omitempty"`
 	// Optional, the challenge claim expected for the issuer
 	// Set if using a custom issuer
-	ChallengeClaim string `json:"ChallengeClaim,omitempty"`
+	ChallengeClaim string `json:"ChallengeClaim,omitempty" yaml:"challenge-claim,omitempty"`
 }
 
 // FulcioStatus defines the observed state of Fulcio

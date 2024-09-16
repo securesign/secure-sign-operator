@@ -2,8 +2,9 @@ package actions
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+
+	"gopkg.in/yaml.v2"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -28,8 +29,8 @@ func (i serverConfig) Name() string {
 }
 
 type FulcioMapConfig struct {
-	OIDCIssuers map[string]rhtasv1alpha1.OIDCIssuer
-	MetaIssuers map[string]rhtasv1alpha1.OIDCIssuer
+	OIDCIssuers map[string]rhtasv1alpha1.OIDCIssuer `yaml:"oidc-issuers"`
+	MetaIssuers map[string]rhtasv1alpha1.OIDCIssuer `yaml:"meta-issuers"`
 }
 
 func (i serverConfig) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) bool {
@@ -46,12 +47,12 @@ func (i serverConfig) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Ful
 		i.Logger.Error(err, "Cant load existing configuration")
 		return false
 	}
-	expected, err := json.Marshal(ConvertToFulcioMapConfig(instance.Spec.Config))
+	expected, err := yaml.Marshal(ConvertToFulcioMapConfig(instance.Spec.Config))
 	if err != nil {
 		i.Logger.Error(err, "Cant parse expected configuration")
 		return false
 	}
-	return existing.Data["config.json"] != string(expected)
+	return existing.Data["config.yaml"] != string(expected)
 }
 
 func ConvertToFulcioMapConfig(fulcioConfig rhtasv1alpha1.FulcioConfig) *FulcioMapConfig {
@@ -79,12 +80,12 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	)
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 
-	config, err := json.Marshal(ConvertToFulcioMapConfig(instance.Spec.Config))
+	config, err := yaml.Marshal(ConvertToFulcioMapConfig(instance.Spec.Config))
 	if err != nil {
 		return i.FailedWithStatusUpdate(ctx, err, instance)
 	}
 	expected := kubernetes.CreateImmutableConfigmap(fmt.Sprintf("fulcio-config-%s", instance.Name), instance.Namespace, labels, map[string]string{
-		"config.json": string(config),
+		"config.yaml": string(config),
 	})
 	if err = controllerutil.SetControllerReference(instance, expected, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for ConfigMap: %w", err))
