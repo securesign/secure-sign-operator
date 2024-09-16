@@ -76,8 +76,8 @@ func (c *Component) Start(ctx context.Context) error {
 			"gitsign":         "gitsign is a CLI tool that allows you to digitally sign and verify git commits.",
 			"ec":              "Enterprise Contract CLI. Set of commands to help validate resources with the Enterprise Contract.",
 			"fetch-tsa-certs": "fetch-tsa-certs is a cli used to configure the kms and tink signer types for Timestamp Authority.",
-			"create-tree":     "create-tree is a CLI tool which is used for creating new trees within trillian.",
-			"update-tree":     "update-tree is a CLI tool which is used for managing existing tress within trillian.",
+			"createtree":     "create-tree is a CLI tool which is used for creating new trees within trillian.",
+			"updatetree":     "update-tree is a CLI tool which is used for managing existing tress within trillian.",
 		} {
 			obj = append(obj, c.createConsoleCLIDownload(ns.Name, name, protocol+ingress.Spec.Rules[0].Host, description, labels))
 		}
