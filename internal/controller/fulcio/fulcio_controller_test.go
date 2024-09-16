@@ -32,7 +32,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	actions2 "github.com/securesign/operator/internal/controller/ctlog/actions"
+	ctlogAction "github.com/securesign/operator/internal/controller/ctlog/constants"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -126,7 +126,7 @@ var _ = Describe("Fulcio controller", func() {
 					},
 				}
 				Expect(k8sClient.Create(ctx, kubernetes.CreateConfigmap(Namespace, "trusted-ca-bundle", map[string]string{}, map[string]string{"ca-cert": "ca-cert-data"}))).To(Succeed())
-				Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, actions2.ComponentName, actions2.ServerPortName, actions2.ServerPort, actions2.ServerPort, map[string]string{}))).To(Succeed())
+				Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, ctlogAction.ComponentName, ctlogAction.ServerPortName, ctlogAction.ServerPort, ctlogAction.ServerPort, constants.LabelsForComponent(ctlogAction.ComponentName, instance.Name)))).To(Succeed())
 				err = k8sClient.Create(ctx, instance)
 				Expect(err).To(Not(HaveOccurred()))
 			}
