@@ -68,7 +68,7 @@ var _ = Describe("Securesign install in proxy-env", Ordered, func() {
 			installOperatorWithProxyConf(ctx, cli, hostname, namespace.Name)
 
 			DeferCleanup(func() {
-				cli.Delete(ctx, namespace)
+				_ = cli.Delete(ctx, namespace)
 			})
 		})
 
@@ -173,7 +173,7 @@ var _ = Describe("Securesign install in proxy-env", Ordered, func() {
 				if err != nil {
 					Fail(err.Error())
 				}
-				defer podLogs.Close()
+				defer func() { _ = podLogs.Close() }()
 
 				buf := new(bytes.Buffer)
 				_, err = io.Copy(buf, podLogs)
@@ -202,7 +202,7 @@ func deploymentCertificate(hostname string, ns string) *v1.Secret {
 
 	// generate the certificate private key
 	certPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	Expect(err).To(BeNil())
+	Expect(err).ToNot(HaveOccurred())
 
 	privateKeyBytes := x509.MarshalPKCS1PrivateKey(certPrivateKey)
 	// encode for storing into a Secret
@@ -213,7 +213,7 @@ func deploymentCertificate(hostname string, ns string) *v1.Secret {
 		},
 	)
 	certBytes, err := x509.CreateCertificate(rand.Reader, cert, cert, &certPrivateKey.PublicKey, certPrivateKey)
-	Expect(err).To(BeNil())
+	Expect(err).ToNot(HaveOccurred())
 
 	// encode for storing into a Secret
 	certPem := pem.EncodeToMemory(&pem.Block{
@@ -437,7 +437,7 @@ func rbac(ns string) []runtimeCli.Object {
 		if u.GetObjectKind().GroupVersionKind().Kind == "ClusterRoleBinding" {
 			binding := &v12.ClusterRoleBinding{}
 			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, binding); err == nil {
-				for i, _ := range binding.Subjects {
+				for i := range binding.Subjects {
 					binding.Subjects[i].Namespace = ns
 				}
 				objects = append(objects, binding)
