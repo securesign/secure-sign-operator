@@ -135,7 +135,11 @@ test-e2e:
 # Switch images from `registry.redhat.io` images to the dev images
 .PHONY: dev-images
 dev-images:
-	sed -E -f ci/dev-images.sed -i internal/controller/constants/images.go
+	@if [ "$(shell uname)" = "Darwin" ]; then \
+		sed -E -i '' -f ci/dev-images.sed internal/controller/constants/images.go; \
+	else \
+		sed -E -i -f ci/dev-images.sed internal/controller/constants/images.go; \
+	fi
 
 GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
 GOLANGCI_LINT_VERSION ?= v1.54.2
