@@ -4,8 +4,9 @@ package update
 
 import (
 	"context"
-	"encoding/json"
 	"time"
+
+	"gopkg.in/yaml.v2"
 
 	"github.com/securesign/operator/test/e2e/support/tas"
 
@@ -256,7 +257,7 @@ var _ = Describe("Fulcio update", Ordered, func() {
 			cm := &v1.ConfigMap{}
 			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: f.Status.ServerConfigRef.Name}, cm)).To(Succeed())
 			config := &fulcioAction.FulcioMapConfig{}
-			Expect(json.Unmarshal([]byte(cm.Data["config.json"]), config)).To(Succeed())
+			Expect(yaml.Unmarshal([]byte(cm.Data["config.yaml"]), config)).To(Succeed())
 			Expect(config.OIDCIssuers).To(HaveKey("fake"))
 		})
 

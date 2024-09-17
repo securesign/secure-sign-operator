@@ -1,0 +1,7 @@
+oidc-issuers:
+  https://example.com:
+    issuer-url: https://example.com
+    issuer: https://example.com
+    client-id: client-id
+    type: email
+meta-issuers: {}

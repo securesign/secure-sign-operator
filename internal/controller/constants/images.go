@@ -1,28 +1,28 @@
 package constants
 
 var (
-	TrillianLogSignerImage = "registry.redhat.io/rhtas/trillian-logsigner-rhel9@sha256:3a73910e112cb7b8ad04c4063e3840fb70f97ed07fc3eb907573a46b2f8f6b7b"
-	TrillianServerImage    = "registry.redhat.io/rhtas/trillian-logserver-rhel9@sha256:23579db8db307a14cad37f5cb1bdf759611decd72d875241184549e31353387f"
-	TrillianDbImage        = "registry.redhat.io/rhtas/trillian-database-rhel9@sha256:310ecbd9247a2af587dd6bca1b262cf5d753938409fb74c59a53622e22eb1c31"
+	TrillianLogSignerImage = "registry.redhat.io/rhtas/trillian-logsigner-rhel9@sha256:b83d806de7d9653d4ce4cf2c1db7b5f8aa607f3888a99c4924477b5cfb48c930"
+	TrillianServerImage    = "registry.redhat.io/rhtas/trillian-logserver-rhel9@sha256:3d017de5adf2ab58f5a87dcad5ccd38a2a40003834ef09d3bc17d8946387fa05"
+	TrillianDbImage        = "registry.redhat.io/rhtas/trillian-database-rhel9@sha256:2f20f41d6646d3b3fe816663491a4fa86b362d1c42b8bd1968a6be301eeb11fe"
 
 	// TODO: remove and check the DB pod status
 	TrillianNetcatImage = "registry.redhat.io/openshift4/ose-tools-rhel8@sha256:486b4d2dd0d10c5ef0212714c94334e04fe8a3d36cf619881986201a50f123c7"
 
-	FulcioServerImage = "registry.redhat.io/rhtas/fulcio-rhel9@sha256:a384c19951fb77813cdefb8057bbe3670ef489eb61172d8fd2dde47b23aecebc"
+	FulcioServerImage = "registry.redhat.io/rhtas/fulcio-rhel9@sha256:02dc2af135b4eaa16deec597187fc9c4eb1d7e395631d0566df80eb3e0aaa84e"
 
-	RekorRedisImage    = "registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:c936589847e5658e3be01bf7251da6372712bf98f4d100024a18ea59cfec5975"
-	RekorServerImage   = "registry.redhat.io/rhtas/rekor-server-rhel9@sha256:96efc463b5f5fa631cca2e1a2195bb0abbd72da0c5083a9d90371d245d01387d"
-	RekorSearchUiImage = "registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:8ed9d49539e2305c2c41e2ad6b9f5763a53e93ab7590de1c413d846544091009"
-	BackfillRedisImage = "registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:22016378cf4a312ac7b15067e560ea42805c168ddf2ae64adb2fcc784bb9ba15"
+	RekorRedisImage    = "registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:16ad1b2a0fc40792e26b3b84868315064469250b24321d5ffb7980c0e7b029da"
+	RekorServerImage   = "registry.redhat.io/rhtas/rekor-server-rhel9@sha256:7f7ede4c0a51d3f8c459cc86bcd33c8858992764f910d4c882c55bf7bcbeb91f"
+	RekorSearchUiImage = "registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:9973ce7c5ceed4a6f5b45c69a22ba98f5c6ad324e212ba882415b85488528fc1"
+	BackfillRedisImage = "registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:02d409438a038007f831abaf9eac3cd86f203fbb6b6dece4d0f70dc1b52cd79c"
 
-	TufImage = "registry.redhat.io/rhtas/tuffer@sha256:fc0160028b0bcbc03c69156584ead3dfec6d517dab305386ee238cc0e87433de"
+	TufImage = "registry.redhat.io/rhtas/tuffer@sha256:1beb250dfc24a0c094799afda075989cf6f7eb1212d655571fc9054f74961f89"
 
-	CTLogImage = "registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:671c5ea4de7184f0dcdd6c6583d74dc8b0b039799c57efb5e8a31981cd9b415e"
+	CTLogImage = "registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:6fef78c77e6b2a926d7535d46d86e7bbda3e30ad9d5d6653bcb96698b56594fc"
 
 	HttpServerImage         = "registry.access.redhat.com/ubi9/httpd-24@sha256:7874b82335a80269dcf99e5983c2330876f5fe8bdc33dc6aa4374958a2ffaaee"
-	ClientServerImage_cg    = "registry.redhat.io/rhtas/client-server-cg-rhel9@sha256:0469bef1617c60481beda30947f279a0b106d0e54c600e823064a2b5b89bc120"
-	ClientServerImage_re    = "registry.redhat.io/rhtas/client-server-re-rhel9@sha256:7990157e558dc5ff6e315c84a107bbadc7aeb3aaed39a9171e751671be5d89f0"
-	ClientServerImage_f     = "registry.redhat.io/rhtas/client-server-f-rhel9@sha256:aca918e6994ad5f95c71f725428fc3f2865299b1860c2740d1c18f03324cc3c9"
-	SegmentBackupImage      = "registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:625b5beef8b97d0e9fdf1d92bacd31a51de6b8c172e9aac2c98167253738bb61"
-	TimestampAuthorityImage = "registry.redhat.io/rhtas/timestamp-authority-rhel9@sha256:788f298596b5c0c70e06ac210f8e68ce7bf3348c56b7f36eb6b84cdd85f0d01d"
+	ClientServerImage_cg    = "registry.redhat.io/rhtas/client-server-cg-rhel9@sha256:f0669481c6483c6025d925ec9ad64199acc44cee2aaf7ea6aab64e2bd5d85485"
+	ClientServerImage_re    = "registry.redhat.io/rhtas/client-server-re-rhel9@sha256:bde7470ea648ffd77fda2ea362858115b8086b92ffb8c2e3a74107f955f7c644"
+	ClientServerImage_f     = "registry.redhat.io/rhtas/client-server-f-rhel9@sha256:8c8c4bfcbc8728ee46a427a4179622e4437e3502aa4b29af7539bf2eee999ff6"
+	SegmentBackupImage      = "registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:c7fa18f6dec1fdd308d5a6ed74f5f6bf2bd30d6759d7d2464875b6e80f269fb2"
+	TimestampAuthorityImage = "registry.redhat.io/rhtas/timestamp-authority-rhel9@sha256:d957041e1f10faf087333b9f1d39b2bb4b26edd37a812192e67771c423950def"
 )

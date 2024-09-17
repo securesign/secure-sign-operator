@@ -1,0 +1,10 @@
+{
+    "OIDCIssuers": {
+      "https://example.com": {
+        "IssuerURL": "https://example.com",
+        "ClientID": "client-id",
+        "Type": "email"
+      }
+    },
+    "MetaIssuers": {}
+  }
