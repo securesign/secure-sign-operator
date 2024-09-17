@@ -2,6 +2,9 @@ package action
 
 import (
 	"context"
+
+	"golang.org/x/exp/maps"
+
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -111,6 +114,36 @@ func TestBaseAction_Ensure(t *testing.T) {
 			},
 		},
 		{
+			name: "remove managed label",
+			env: env{
+				objects: []client.Object{
+					kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{
+						"managed":   "value",
+						"unmanaged": "value",
+					}),
+				},
+			},
+			object: kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{
+				"unmanaged": "value",
+			}),
+			verify: func(g Gomega, cli client.WithWatch, result bool, err error) {
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(result).To(BeTrue())
+				nn := types.NamespacedName{
+					Namespace: "default",
+					Name:      "service",
+				}
+				obj := &v1.Service{}
+				g.Expect(cli.Get(context.TODO(), nn, obj)).To(Succeed())
+				g.Expect(obj.Labels).Should(HaveKeyWithValue("unmanaged", "value"))
+				g.Expect(obj.Labels).ShouldNot(HaveKeyWithValue("managed", "value"))
+				g.Expect(obj.Spec.Ports).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Port":       Equal(int32(80)),
+					"TargetPort": Equal(intstr.FromInt32(80)),
+				})))
+			},
+		},
+		{
 			name: "update: annotations",
 			env: env{
 				objects: []client.Object{
@@ -138,6 +171,38 @@ func TestBaseAction_Ensure(t *testing.T) {
 				g.Expect(cli.Get(context.TODO(), nn, obj)).To(Succeed())
 				g.Expect(obj.Annotations).Should(HaveKeyWithValue("new", "annotation"))
 				g.Expect(obj.Annotations).ShouldNot(HaveKey("old"))
+
+				g.Expect(obj.Spec.Ports).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Port":       Equal(int32(80)),
+					"TargetPort": Equal(intstr.FromInt32(80)),
+				})))
+			},
+		},
+		{
+			name: "remove managed annotation",
+			env: env{
+				objects: []client.Object{
+					addAnnotations(
+						kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{}),
+						map[string]string{
+							"managed":   "value",
+							"unmanaged": "value",
+						},
+					),
+				},
+			},
+			object: addAnnotations(kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{}), map[string]string{}),
+			verify: func(g Gomega, cli client.WithWatch, result bool, err error) {
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(result).To(BeTrue())
+				nn := types.NamespacedName{
+					Namespace: "default",
+					Name:      "service",
+				}
+				obj := &v1.Service{}
+				g.Expect(cli.Get(context.TODO(), nn, obj)).To(Succeed())
+				g.Expect(obj.Annotations).Should(HaveKeyWithValue("unmanaged", "value"))
+				g.Expect(obj.Annotations).ShouldNot(HaveKeyWithValue("managed", "value"))
 
 				g.Expect(obj.Spec.Ports).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Port":       Equal(int32(80)),
@@ -302,7 +367,9 @@ func TestBaseAction_Ensure(t *testing.T) {
 			a.InjectRecorder(record.NewFakeRecorder(10))
 
 			da := a.(*dumpAction)
-			got, err := da.Ensure(ctx, tt.object)
+			labelKeys := maps.Keys(map[string]string{"new": "label", "managed": "value"})
+			annoKeys := maps.Keys(map[string]string{"old": "annotation", "new": "annotation", "managed": "value"})
+			got, err := da.Ensure(ctx, tt.object, EnsureSpec(), EnsureLabels(labelKeys...), EnsureAnnotations(annoKeys...))
 			tt.verify(g, c, got, err)
 		})
 	}

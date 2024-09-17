@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/utils"
 
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -49,14 +50,14 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		if mysql.Annotations == nil {
 			mysql.Annotations = make(map[string]string)
 		}
-		mysql.Annotations["service.beta.openshift.io/serving-cert-secret-name"] = instance.Name + "-trillian-db-tls"
+		mysql.Annotations[annotations.TLS] = instance.Name + "-trillian-db-tls"
 	}
 
 	if err = controllerutil.SetControllerReference(instance, mysql, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for DB service: %w", err))
 	}
 
-	if updated, err = i.Ensure(ctx, mysql, action.EnsureSpec(), action.EnsureAnnotations("service.beta.openshift.io/serving-cert-secret-name")); err != nil {
+	if updated, err = i.Ensure(ctx, mysql, action.EnsureSpec(), action.EnsureAnnotations(annotations.TLS)); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.DbCondition,
 			Status:  metav1.ConditionFalse,

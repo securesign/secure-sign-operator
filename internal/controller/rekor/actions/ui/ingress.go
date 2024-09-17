@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"golang.org/x/exp/maps"
+
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils"
@@ -57,8 +59,8 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor
 	if err = controllerutil.SetControllerReference(instance, ingress, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Ingress: %w", err))
 	}
-
-	if updated, err = i.Ensure(ctx, ingress); err != nil {
+	labelKeys := maps.Keys(instance.Spec.RekorSearchUI.RouteSelectorLabels)
+	if updated, err = i.Ensure(ctx, ingress, action.EnsureSpec(), action.EnsureRouteSelectorLabels(labelKeys...)); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.UICondition,
 			Status:  metav1.ConditionFalse,
@@ -77,7 +79,7 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor
 	if route, err := kubernetes.GetRoute(ctx, i.Client, instance.Namespace, labels); route != nil && err == nil {
 		if !equality.Semantic.DeepEqual(ingress.GetLabels(), route.GetLabels()) {
 			route.SetLabels(ingress.GetLabels())
-			if _, err = i.Ensure(ctx, route); err != nil {
+			if _, err = i.Ensure(ctx, route, action.EnsureRouteSelectorLabels(labelKeys...)); err != nil {
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 					Type:    constants.Ready,
 					Status:  metav1.ConditionFalse,

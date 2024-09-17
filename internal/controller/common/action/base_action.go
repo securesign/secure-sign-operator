@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"strconv"
 	"strings"
@@ -177,6 +178,7 @@ func EnsureRouteSelectorLabels(managedLabels ...string) EnsureOption {
 			return nil
 		}
 
+		//Current workaround for DeepEqual vs DeepDerivative, more info here https://issues.redhat.com/browse/SECURESIGN-1393
 		currentRouteSelectorLabels, expectedRouteSelectorLabels := getRouteSelectorLabels(currentSpec, expectedSpec)
 		if currentRouteSelectorLabels.CanSet() &&
 			!equality.Semantic.DeepEqual(currentRouteSelectorLabels.Interface(), expectedRouteSelectorLabels.Interface()) {
@@ -205,18 +207,20 @@ func EnsureLabels(managedLabels ...string) EnsureOption {
 		if currentLabels == nil {
 			currentLabels = map[string]string{}
 		}
+		mergedLabels := make(map[string]string)
+		maps.Copy(mergedLabels, currentLabels)
 
-		for label := range currentLabels {
-			if _, ok := expectedLabels[label]; !ok {
-				delete(currentLabels, label)
+		maps.DeleteFunc(mergedLabels, func(k, v string) bool {
+			_, existsInExpected := expectedLabels[k]
+			return !existsInExpected
+		})
+
+		for _, managedLabel := range managedLabels {
+			if val, exists := expectedLabels[managedLabel]; exists {
+				mergedLabels[managedLabel] = val
 			}
 		}
-		for _, label := range managedLabels {
-			if val, ok := expectedLabels[label]; ok {
-				currentLabels[label] = val
-			}
-		}
-		current.SetLabels(currentLabels)
+		current.SetLabels(mergedLabels)
 		return nil
 	}
 }
@@ -231,18 +235,17 @@ func EnsureAnnotations(managedAnnotations ...string) EnsureOption {
 		if currentAnno == nil {
 			currentAnno = map[string]string{}
 		}
+		mergedAnnotations := make(map[string]string)
+		maps.Copy(mergedAnnotations, currentAnno)
 
-		for anno := range currentAnno {
-			if _, ok := expectedAnno[anno]; !ok {
-				delete(currentAnno, anno)
+		for _, managedAnno := range managedAnnotations {
+			if val, exists := expectedAnno[managedAnno]; exists {
+				mergedAnnotations[managedAnno] = val
+			} else {
+				delete(mergedAnnotations, managedAnno)
 			}
 		}
-		for _, anno := range managedAnnotations {
-			if val, ok := expectedAnno[anno]; ok {
-				currentAnno[anno] = val
-			}
-		}
-		current.SetAnnotations(currentAnno)
+		current.SetAnnotations(mergedAnnotations)
 		return nil
 	}
 }

@@ -49,7 +49,7 @@ func (i tufAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 		return i.Failed(err)
 	}
 
-	if updated, err = i.Ensure(ctx, tuf); err != nil {
+	if updated, err = i.Ensure(ctx, tuf, action.EnsureSpec(), action.EnsureRouteSelectorLabels()); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 			Type:    TufCondition,
 			Status:  v1.ConditionFalse,

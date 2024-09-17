@@ -49,7 +49,7 @@ func (i fulcioAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secure
 		return i.Failed(err)
 	}
 
-	if updated, err = i.Ensure(ctx, fulcio); err != nil {
+	if updated, err = i.Ensure(ctx, fulcio, action.EnsureSpec(), action.EnsureRouteSelectorLabels()); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 			Type:    FulcioCondition,
 			Status:  v1.ConditionFalse,

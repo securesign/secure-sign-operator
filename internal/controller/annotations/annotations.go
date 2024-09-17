@@ -12,6 +12,8 @@ const (
 
 	// TreeId Annotation inform that resource is associated with specific Merkle Tree
 	TreeId = "rhtas.redhat.com/treeId"
+
+	TLS = "service.beta.openshift.io/serving-cert-secret-name"
 )
 
 var inheritable = []string{

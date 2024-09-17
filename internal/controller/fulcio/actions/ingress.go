@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"fmt"
+
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
@@ -52,10 +53,8 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulci
 	if err = controllerutil.SetControllerReference(instance, ingress, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Ingress: %w", err))
 	}
-
 	labelKeys := maps.Keys(instance.Spec.ExternalAccess.RouteSelectorLabels)
-	labelKeys = append(labelKeys, maps.Keys(labels)...)
-	if updated, err = i.Ensure(ctx, ingress, action.EnsureSpec(), action.EnsureLabels(labelKeys...)); err != nil {
+	if updated, err = i.Ensure(ctx, ingress, action.EnsureSpec(), action.EnsureRouteSelectorLabels(labelKeys...)); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
@@ -67,7 +66,7 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulci
 	if route, err := kubernetes.GetRoute(ctx, i.Client, instance.Namespace, labels); route != nil && err == nil {
 		if !equality.Semantic.DeepEqual(ingress.GetLabels(), route.GetLabels()) {
 			route.SetLabels(ingress.GetLabels())
-			if _, err = i.Ensure(ctx, route); err != nil {
+			if _, err = i.Ensure(ctx, route, action.EnsureRouteSelectorLabels(labelKeys...)); err != nil {
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 					Type:    constants.Ready,
 					Status:  metav1.ConditionFalse,
