@@ -9,10 +9,11 @@ import (
 	"time"
 
 	"github.com/securesign/operator/internal/controller/annotations"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/api/equality"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
@@ -90,68 +91,54 @@ func (action *BaseAction) Requeue() *Result {
 }
 
 func (action *BaseAction) Ensure(ctx context.Context, obj client2.Object) (bool, error) {
-	key := client2.ObjectKeyFromObject(obj)
 	var (
-		currentObj client2.Object
-		ok         bool
+		expected client2.Object
+		ok       bool
+		err      error
+		result   controllerutil.OperationResult
 	)
-	if currentObj, ok = obj.DeepCopyObject().(client2.Object); !ok {
+
+	if expected, ok = obj.DeepCopyObject().(client2.Object); !ok {
 		return false, errors.New("Can't create DeepCopy object")
 	}
-	if err := action.Client.Get(ctx, key, currentObj); err != nil {
-		if apierrors.IsNotFound(err) {
-			action.Logger.Info("Creating object",
-				"kind", reflect.TypeOf(obj).Elem().Name(), "name", key.Name)
-			if err = action.Client.Create(ctx, obj); err != nil {
-				if apierrors.IsAlreadyExists(err) {
-					action.Logger.Info("Object already exists",
-						"kind", reflect.TypeOf(obj).Elem().Name(), "Namespace", key.Namespace, "Name", key.Name)
-					return false, nil
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		result, err = controllerutil.CreateOrUpdate(ctx, action.Client, obj, func() error {
+			annoStr, find := obj.GetAnnotations()[annotations.PausedReconciliation]
+			if find {
+				annoBool, _ := strconv.ParseBool(annoStr)
+				if annoBool {
+					return nil
 				}
-				action.Logger.Error(err, "Failed to create new object",
-					"kind", reflect.TypeOf(obj).Elem().Name(), "Namespace", key.Namespace, "Name", key.Name)
-				return false, err
 			}
-			return true, nil
-		}
+
+			currentSpec := reflect.ValueOf(obj).Elem().FieldByName("Spec")
+			expectedSpec := reflect.ValueOf(expected).Elem().FieldByName("Spec")
+			if currentSpec == reflect.ValueOf(nil) {
+				// object without spec
+				// return without update
+				return nil
+			}
+			if !expectedSpec.IsValid() || !currentSpec.IsValid() {
+				return errors.New("spec is not valid")
+			}
+			if !currentSpec.CanSet() {
+				return errors.New("can't set expected spec to current object")
+			}
+
+			// WORKAROUND: CreateOrUpdate uses DeepEqual to compare
+			// DeepEqual does not honor default values
+			if !equality.Semantic.DeepDerivative(expectedSpec.Interface(), currentSpec.Interface()) {
+				currentSpec.Set(expectedSpec)
+			}
+
+			return nil
+		})
+		return err
+	})
+
+	if err != nil {
 		return false, err
 	}
 
-	annoStr, find := currentObj.GetAnnotations()[annotations.PausedReconciliation]
-	if find {
-		annoBool, _ := strconv.ParseBool(annoStr)
-		if annoBool {
-			return false, nil
-		}
-	}
-
-	currentSpec := reflect.ValueOf(currentObj).Elem().FieldByName("Spec")
-	expectedSpec := reflect.ValueOf(obj).Elem().FieldByName("Spec")
-	if currentSpec == reflect.ValueOf(nil) {
-		// object without spec
-		// return without update
-		return false, nil
-	}
-	if !expectedSpec.IsValid() || !currentSpec.IsValid() {
-		return false, errors.New("spec is not valid")
-	}
-
-	if equality.Semantic.DeepDerivative(expectedSpec.Interface(), currentSpec.Interface()) {
-		return false, nil
-	}
-	if !currentSpec.CanSet() {
-		return false, errors.New("can't set expected spec to current object")
-	}
-	currentSpec.Set(expectedSpec)
-	action.Logger.Info("Updating object",
-		"kind", reflect.TypeOf(currentObj).Elem().Name(), "Namespace", key.Namespace, "Name", key.Name)
-	if err := action.Client.Update(ctx, currentObj); err != nil {
-		if strings.Contains(err.Error(), OptimisticLockErrorMsg) {
-			return action.Ensure(ctx, obj)
-		}
-		action.Logger.Error(err, "Failed to update object",
-			"kind", reflect.TypeOf(obj).Elem().Name(), "Namespace", key.Namespace, "Name", key.Name)
-		return false, err
-	}
-	return true, nil
+	return result != controllerutil.OperationResultNone, nil
 }
