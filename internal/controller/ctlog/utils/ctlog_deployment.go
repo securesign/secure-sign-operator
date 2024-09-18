@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/constants"
+	rutils "github.com/securesign/operator/internal/controller/rekor/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -124,12 +125,18 @@ func CreateDeployment(ctx context.Context, client client.Client, instance *v1alp
 		},
 	}
 
-	useTLS := UseTLS(instance)
+	// TLS communication to Trillian logserver
+	trillianSvc := fmt.Sprintf(instance.Spec.Trillian.Address+":%d", *instance.Spec.Trillian.Port)
+	caPath, err := CAPath(ctx, client, instance)
+	if err != nil {
+		return nil, errors.New("failed to get CA path: " + err.Error())
+	}
+
+	useTLS := false
+	if useTLS, err = rutils.UseTrillianTLS(ctx, trillianSvc, caPath); err != nil {
+		return nil, errors.New("failed to check TLS: " + err.Error())
+	}
 	if useTLS {
-		caPath, err := CAPath(ctx, client, instance)
-		if err != nil {
-			return nil, errors.New("failed to get CA path: " + err.Error())
-		}
 		dep.Spec.Template.Spec.Containers[0].Args = append(dep.Spec.Template.Spec.Containers[0].Args, "--trillian_tls_ca_cert_file", caPath)
 	}
 

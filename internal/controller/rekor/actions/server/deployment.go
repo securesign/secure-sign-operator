@@ -73,7 +73,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could create server Deployment: %w", err), instance)
 	}
-
 	if err = controllerutil.SetControllerReference(instance, dp, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Deployment: %w", err))
 	}

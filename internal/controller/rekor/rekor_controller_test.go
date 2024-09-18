@@ -41,6 +41,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	utils2 "github.com/securesign/operator/internal/controller/rekor/utils"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -96,6 +97,12 @@ var _ = Describe("Rekor controller", func() {
 		})
 
 		It("should successfully reconcile a custom resource for Rekor", func() {
+
+			By("mocking UseTrillianTLS")
+			utils2.MockUseTrillianTLS = func(ctx context.Context, serviceAddr string, tlsCACertFile string) (bool, error) {
+				return false, nil
+			}
+
 			By("creating the custom resource for the Kind Rekor")
 			err := k8sClient.Get(ctx, typeNamespaceName, instance)
 			if err != nil && errors.IsNotFound(err) {

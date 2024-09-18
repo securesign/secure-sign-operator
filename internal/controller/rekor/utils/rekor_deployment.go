@@ -205,12 +205,17 @@ func CreateRekorDeployment(ctx context.Context, client client.Client, instance *
 	}
 
 	// TLS communication to Trillian logserver
-	if UseTLS(instance) {
-		caPath, err := CAPath(ctx, client, instance)
-		if err != nil {
-			return nil, errors.New("failed to get CA path: " + err.Error())
-		}
-		dep.Spec.Template.Spec.Containers[0].Args = append(dep.Spec.Template.Spec.Containers[0].Args, "--trillian_log_server.tls_ca_cert", caPath)
+	trillianSvc := fmt.Sprintf(instance.Spec.Trillian.Address+":%d", *instance.Spec.Trillian.Port)
+	caPath, err := CAPath(ctx, client, instance)
+	if err != nil {
+		return nil, errors.New("failed to get CA path: " + err.Error())
+	}
+	useTLS := false
+	if useTLS, err = UseTrillianTLS(ctx, trillianSvc, caPath); err != nil {
+		return nil, errors.New("failed to check TLS: " + err.Error())
+	}
+	if useTLS {
+		dep.Spec.Template.Spec.Containers[0].Args = append(dep.Spec.Template.Spec.Containers[0].Args, "--trillian_log_server.tls=true")
 	}
 
 	utils.SetProxyEnvs(dep)
