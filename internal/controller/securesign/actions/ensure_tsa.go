@@ -55,7 +55,7 @@ func (i tsaAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 		return i.Failed(err)
 	}
 
-	if updated, err = i.Ensure(ctx, tsa); err != nil {
+	if updated, err = i.Ensure(ctx, tsa, action.EnsureSpec(), action.EnsureRouteSelectorLabels()); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 			Type:    TSACondition,
 			Status:  v1.ConditionFalse,

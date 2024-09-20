@@ -48,7 +48,7 @@ func (i rekorAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secures
 		return i.Failed(err)
 	}
 
-	if updated, err = i.Ensure(ctx, rekor); err != nil {
+	if updated, err = i.Ensure(ctx, rekor, action.EnsureSpec(), action.EnsureRouteSelectorLabels()); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 			Type:    RekorCondition,
 			Status:  v1.ConditionFalse,

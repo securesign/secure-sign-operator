@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"golang.org/x/exp/maps"
+
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils"
@@ -11,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -56,8 +59,8 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor
 	if err = controllerutil.SetControllerReference(instance, ingress, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Ingress: %w", err))
 	}
-
-	if updated, err = i.Ensure(ctx, ingress); err != nil {
+	labelKeys := maps.Keys(instance.Spec.RekorSearchUI.RouteSelectorLabels)
+	if updated, err = i.Ensure(ctx, ingress, action.EnsureSpec(), action.EnsureRouteSelectorLabels(labelKeys...)); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.UICondition,
 			Status:  metav1.ConditionFalse,
@@ -71,6 +74,24 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor
 			Message: err.Error(),
 		})
 		return i.Failed(fmt.Errorf("could not create Ingress: %w", err))
+	}
+
+	if route, err := kubernetes.GetRoute(ctx, i.Client, instance.Namespace, labels); route != nil && err == nil {
+		if !equality.Semantic.DeepEqual(ingress.GetLabels(), route.GetLabels()) {
+			route.SetLabels(ingress.GetLabels())
+			if _, err = i.Ensure(ctx, route, action.EnsureRouteSelectorLabels(labelKeys...)); err != nil {
+				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+					Type:    constants.Ready,
+					Status:  metav1.ConditionFalse,
+					Reason:  constants.Failure,
+					Message: err.Error(),
+				})
+			}
+			for key, value := range ingress.GetLabels() {
+				labels[key] = value
+			}
+			i.Logger.Info("Updating object", "kind", "Route", "Namespace", route.Namespace, "Name", route.Name)
+		}
 	}
 
 	if updated {

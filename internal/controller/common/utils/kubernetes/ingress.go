@@ -31,9 +31,22 @@ func CreateIngress(ctx context.Context, cli client.Client, svc v12.Service, conf
 		}
 	}
 
-	if len(conf.RouteSelectorLabels) > 0 {
-		for key, value := range conf.RouteSelectorLabels {
-			labels[key] = value
+	// Create a copy of the labels
+	copy := make(map[string]string)
+	for k, v := range labels {
+		copy[k] = v
+	}
+
+	// Add/Update new selector labels from RouteSelectorLabels
+	for k, v := range conf.RouteSelectorLabels {
+		copy[k] = v
+	}
+
+	//Remove labels
+	filteredRouteSelectorLabels := FilterOutCommonLabels(copy)
+	for key := range conf.RouteSelectorLabels {
+		if _, ok := filteredRouteSelectorLabels[key]; !ok {
+			delete(labels, key)
 		}
 	}
 
@@ -41,7 +54,7 @@ func CreateIngress(ctx context.Context, cli client.Client, svc v12.Service, conf
 		ObjectMeta: v1.ObjectMeta{
 			Name:        svc.Name,
 			Namespace:   svc.Namespace,
-			Labels:      labels,
+			Labels:      copy,
 			Annotations: annotations,
 		},
 		Spec: networkingv1.IngressSpec{
