@@ -81,7 +81,7 @@ func (c *Component) Start(ctx context.Context) error {
 		} {
 			obj = append(obj, c.createConsoleCLIDownload(ns.Name, name, protocol+ingress.Spec.Rules[0].Host, description, labels))
 		}
-		x := &consolev1.ConsoleCLIDownload{
+		tufftool := &consolev1.ConsoleCLIDownload{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "tuftool",
 				Namespace: ns.Name,
@@ -98,7 +98,7 @@ func (c *Component) Start(ctx context.Context) error {
 				},
 			},
 		}
-		obj = append(obj, x)
+		obj = append(obj, tufftool)
 	}
 
 	for _, o := range obj {
