@@ -24,8 +24,6 @@ const (
 	sharedVolumeName   = "shared-data"
 	cliServerPortName  = "http"
 	cliServerPort      = 8080
-	cliBinaryPath      = "/opt/app-root/src/clients/*"
-	cliWebServerPath   = "/var/www/html/clients/"
 )
 
 var (
@@ -78,9 +76,29 @@ func (c *Component) Start(ctx context.Context) error {
 			"gitsign":         "gitsign is a CLI tool that allows you to digitally sign and verify git commits.",
 			"ec":              "Enterprise Contract CLI. Set of commands to help validate resources with the Enterprise Contract.",
 			"fetch-tsa-certs": "fetch-tsa-certs is a cli used to configure the kms and tink signer types for Timestamp Authority.",
+			"createtree":      "create-tree is a CLI tool which is used for creating new trees within trillian.",
+			"updatetree":      "update-tree is a CLI tool which is used for managing existing tress within trillian.",
 		} {
 			obj = append(obj, c.createConsoleCLIDownload(ns.Name, name, protocol+ingress.Spec.Rules[0].Host, description, labels))
 		}
+		tufftool := &consolev1.ConsoleCLIDownload{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "tuftool",
+				Namespace: ns.Name,
+				Labels:    labels,
+			},
+			Spec: consolev1.ConsoleCLIDownloadSpec{
+				Description: "tuftool is a Rust command-line utility for generating and signing TUF repositories.",
+				DisplayName: fmt.Sprintf("%s - Command Line Interface (CLI)", "tuftool-amd64.gz"),
+				Links: []consolev1.CLIDownloadLink{
+					{
+						Href: fmt.Sprintf("%s/clients/linux/%s-amd64.gz", protocol+ingress.Spec.Rules[0].Host, "tuftool"),
+						Text: fmt.Sprintf("Download %s for Linux x86_64", "tuftool"),
+					},
+				},
+			},
+		}
+		obj = append(obj, tufftool)
 	}
 
 	for _, o := range obj {
@@ -114,64 +132,15 @@ func (c *Component) createDeployment(namespace string, labels map[string]string)
 					Labels: labels,
 				},
 				Spec: core.PodSpec{
-					Volumes: []core.Volume{
-						{
-							Name: sharedVolumeName,
-							VolumeSource: core.VolumeSource{
-								EmptyDir: &core.EmptyDirVolumeSource{},
-							},
-						},
-					},
-					InitContainers: []core.Container{
-						{
-							Name:    "init-shared-data-cg",
-							Image:   constants.ClientServerImage_cg,
-							Command: []string{"sh", "-c", fmt.Sprintf("cp -r %s %s", cliBinaryPath, cliWebServerPath)},
-							VolumeMounts: []core.VolumeMount{
-								{
-									Name:      sharedVolumeName,
-									MountPath: cliWebServerPath,
-								},
-							},
-						},
-						{
-							Name:    "init-shared-data-re",
-							Image:   constants.ClientServerImage_re,
-							Command: []string{"sh", "-c", fmt.Sprintf("cp -r %s %s", cliBinaryPath, cliWebServerPath)},
-							VolumeMounts: []core.VolumeMount{
-								{
-									Name:      sharedVolumeName,
-									MountPath: cliWebServerPath,
-								},
-							},
-						},
-						{
-							Name:    "init-shared-data-f",
-							Image:   constants.ClientServerImage_f,
-							Command: []string{"sh", "-c", fmt.Sprintf("cp -r %s %s", cliBinaryPath, cliWebServerPath)},
-							VolumeMounts: []core.VolumeMount{
-								{
-									Name:      sharedVolumeName,
-									MountPath: cliWebServerPath,
-								},
-							},
-						},
-					},
 					Containers: []core.Container{
 						{
 							Name:            cliServerName,
-							Image:           constants.HttpServerImage,
+							Image:           constants.ClientServerImage,
 							ImagePullPolicy: core.PullAlways,
 							Ports: []core.ContainerPort{
 								{
 									ContainerPort: 8080,
 									Protocol:      core.ProtocolTCP,
-								},
-							},
-							VolumeMounts: []core.VolumeMount{
-								{
-									Name:      sharedVolumeName,
-									MountPath: cliWebServerPath,
 								},
 							},
 						},
