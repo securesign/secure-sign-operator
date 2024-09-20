@@ -15,7 +15,7 @@ var (
 	RekorSearchUiImage = "registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:9973ce7c5ceed4a6f5b45c69a22ba98f5c6ad324e212ba882415b85488528fc1"
 	BackfillRedisImage = "registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:02d409438a038007f831abaf9eac3cd86f203fbb6b6dece4d0f70dc1b52cd79c"
 
-	TufImage = "registry.redhat.io/rhtas/tuffer@sha256:1beb250dfc24a0c094799afda075989cf6f7eb1212d655571fc9054f74961f89"
+	TufImage = "registry.redhat.io/rhtas/tuffer-rhel9@sha256:1beb250dfc24a0c094799afda075989cf6f7eb1212d655571fc9054f74961f89"
 
 	CTLogImage = "registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:6fef78c77e6b2a926d7535d46d86e7bbda3e30ad9d5d6653bcb96698b56594fc"
 
