@@ -26,6 +26,12 @@ var _ = Describe("CliServer", Ordered, func() {
 		ctx        = context.TODO()
 	)
 
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() && support.IsCIEnvironment() {
+			support.DumpNamespace(ctx, cli, "trusted-artifact-signer")
+		}
+	})
+
 	BeforeAll(func() {
 		cli, _ = support.CreateClient()
 		tr := &http.Transport{
