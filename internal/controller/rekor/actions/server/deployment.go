@@ -48,9 +48,14 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		insCopy.Spec.Trillian.Address = fmt.Sprintf("%s.%s.svc", actions2.LogserverDeploymentName, instance.Namespace)
 	}
 	i.Logger.V(1).Info("trillian logserver", "address", insCopy.Spec.Trillian.Address)
-	dp, err := utils.CreateRekorDeployment(insCopy, actions.ServerDeploymentName, actions.RBACName, labels)
+	dp, err := utils.CreateRekorDeployment(ctx, i.Client, insCopy, actions.ServerDeploymentName, actions.RBACName, labels)
 	if err == nil {
-		err = cutils.SetTrustedCA(&dp.Spec.Template, cutils.TrustedCAAnnotationToReference(instance.Annotations))
+		caTrustRef := cutils.TrustedCAAnnotationToReference(instance.Annotations)
+		// override if spec.trustedCA is defined
+		if instance.Spec.TrustedCA != nil {
+			caTrustRef = instance.Spec.TrustedCA
+		}
+		err = cutils.SetTrustedCA(&dp.Spec.Template, caTrustRef)
 	}
 
 	if err != nil {

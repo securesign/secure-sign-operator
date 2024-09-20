@@ -2,19 +2,15 @@ package server
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"reflect"
 	"testing"
 
-	"github.com/google/trillian"
 	. "github.com/onsi/gomega"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
-	"github.com/securesign/operator/internal/controller/rekor/utils"
-	"github.com/securesign/operator/internal/controller/trillian/actions"
 	testAction "github.com/securesign/operator/internal/testing/action"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -114,7 +110,7 @@ func TestResolveTree_Handle(t *testing.T) {
 	type env struct {
 		spec         rhtasv1alpha1.RekorSpec
 		statusTreeId *int64
-		createTree   createTree
+		configMap    *v1.ConfigMap
 	}
 	type want struct {
 		result *action.Result
@@ -132,7 +128,15 @@ func TestResolveTree_Handle(t *testing.T) {
 					TreeID:   nil,
 					Trillian: rhtasv1alpha1.TrillianService{Port: ptr.To(int32(8091))},
 				},
-				createTree: mockCreateTree(&trillian.Tree{TreeId: 5555555}, nil, nil),
+				configMap: &v1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "rekor-tree-id-config",
+						Namespace: "default",
+					},
+					Data: map[string]string{
+						"tree_id": "5555555",
+					},
+				},
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
@@ -145,7 +149,7 @@ func TestResolveTree_Handle(t *testing.T) {
 			},
 		},
 		{
-			name: "update tree",
+			name: "update tree from spec",
 			env: env{
 				spec: rhtasv1alpha1.RekorSpec{
 					TreeID:   ptr.To(int64(123456)),
@@ -183,16 +187,22 @@ func TestResolveTree_Handle(t *testing.T) {
 			},
 		},
 		{
-			name: "unable to create a new tree",
+			name: "ConfigMap data is empty",
 			env: env{
 				spec: rhtasv1alpha1.RekorSpec{
 					TreeID:   nil,
 					Trillian: rhtasv1alpha1.TrillianService{Port: ptr.To(int32(8091))},
 				},
-				createTree: mockCreateTree(nil, errors.New("timeout error"), nil),
+				configMap: &v1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "rekor-tree-id-config",
+						Namespace: "default",
+					},
+					Data: map[string]string{},
+				},
 			},
 			want: want{
-				result: testAction.FailedWithStatusUpdate(fmt.Errorf("could not create trillian tree: timeout error")),
+				result: testAction.Requeue(),
 				verify: func(g Gomega, rekor *rhtasv1alpha1.Rekor) {
 					g.Expect(rekor.Spec.TreeID).Should(BeNil())
 					g.Expect(rekor.Status.TreeID).Should(BeNil())
@@ -200,42 +210,18 @@ func TestResolveTree_Handle(t *testing.T) {
 			},
 		},
 		{
-			name: "resolve trillian address",
+			name: "ConfigMap not found",
 			env: env{
 				spec: rhtasv1alpha1.RekorSpec{
-					Trillian: rhtasv1alpha1.TrillianService{Port: ptr.To(int32(1234))},
-				},
-				createTree: mockCreateTree(&trillian.Tree{TreeId: 5555555}, nil, func(displayName string, trillianURL string, deadline int64) {
-					g.Expect(trillianURL).Should(Equal(fmt.Sprintf("%s.%s.svc:%d", actions.LogserverDeploymentName, "default", 1234)))
-				}),
-			},
-			want: want{
-				result: testAction.StatusUpdate(),
-			},
-		},
-		{
-			name: "custom trillian address",
-			env: env{
-				spec: rhtasv1alpha1.RekorSpec{
-					Trillian: rhtasv1alpha1.TrillianService{Port: ptr.To(int32(1234)), Address: "custom-address.namespace.svc"},
-				},
-				createTree: mockCreateTree(&trillian.Tree{TreeId: 5555555}, nil, func(displayName string, trillianURL string, deadline int64) {
-					g.Expect(trillianURL).Should(Equal(fmt.Sprintf("custom-address.namespace.svc:%d", 1234)))
-				}),
-			},
-			want: want{
-				result: testAction.StatusUpdate(),
-			},
-		},
-		{
-			name: "trillian port not specified",
-			env: env{
-				spec: rhtasv1alpha1.RekorSpec{
-					Trillian: rhtasv1alpha1.TrillianService{Port: nil},
+					Trillian: rhtasv1alpha1.TrillianService{Port: ptr.To(int32(8091))},
 				},
 			},
 			want: want{
-				result: testAction.Failed(fmt.Errorf("resolve treeID: %v", utils.TrillianPortNotSpecified)),
+				result: testAction.Requeue(),
+				verify: func(g Gomega, rekor *rhtasv1alpha1.Rekor) {
+					g.Expect(rekor.Spec.TreeID).Should(BeNil())
+					g.Expect(rekor.Status.TreeID).Should(BeNil())
+				},
 			},
 		},
 	}
@@ -264,13 +250,14 @@ func TestResolveTree_Handle(t *testing.T) {
 				WithStatusSubresource(instance).
 				Build()
 
-			a := testAction.PrepareAction(c, NewResolveTreeAction(func(t *resolveTreeAction) {
-				if tt.env.createTree == nil {
-					t.createTree = mockCreateTree(nil, errors.New("createTree should not be executed"), nil)
-				} else {
-					t.createTree = tt.env.createTree
+			if tt.env.configMap != nil {
+				err := c.Create(ctx, tt.env.configMap)
+				if err != nil {
+					t.Fatalf("failed to create config map: %v", err)
 				}
-			}))
+			}
+
+			a := testAction.PrepareAction(c, NewResolveTreeAction())
 
 			if got := a.Handle(ctx, instance); !reflect.DeepEqual(got, tt.want.result) {
 				t.Errorf("CanHandle() = %v, want %v", got, tt.want.result)
@@ -279,14 +266,5 @@ func TestResolveTree_Handle(t *testing.T) {
 				tt.want.verify(g, instance)
 			}
 		})
-	}
-}
-
-func mockCreateTree(tree *trillian.Tree, err error, verify func(displayName string, trillianURL string, deadline int64)) createTree {
-	return func(ctx context.Context, displayName string, trillianURL string, deadline int64) (*trillian.Tree, error) {
-		if verify != nil {
-			verify(displayName, trillianURL, deadline)
-		}
-		return tree, err
 	}
 }

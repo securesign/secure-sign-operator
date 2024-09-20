@@ -32,6 +32,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	rutils "github.com/securesign/operator/internal/controller/rekor/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,6 +83,12 @@ var _ = Describe("CTlog controller", func() {
 		})
 
 		It("should successfully reconcile a custom resource for CTlog", func() {
+
+			By("mocking UseTrillianTLS")
+			rutils.MockUseTrillianTLS = func(ctx context.Context, serviceAddr string, tlsCACertFile string) (bool, error) {
+				return false, nil
+			}
+
 			By("creating the custom resource for the Kind CTlog")
 			err := k8sClient.Get(ctx, typeNamespaceName, instance)
 			if err != nil && errors.IsNotFound(err) {

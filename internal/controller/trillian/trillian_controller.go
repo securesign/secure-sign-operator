@@ -28,6 +28,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action/transitions"
 
 	"github.com/securesign/operator/internal/controller/common/action"
+	actions2 "github.com/securesign/operator/internal/controller/ctlog/actions"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/controller/trillian/actions/db"
 	"github.com/securesign/operator/internal/controller/trillian/actions/logserver"
@@ -89,7 +90,7 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	target := instance.DeepCopy()
 	actions := []action.Action[*rhtasv1alpha1.Trillian]{
 		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Trillian](func(t *rhtasv1alpha1.Trillian) []string {
-			components := []string{actions.ServerCondition, actions.SignerCondition}
+			components := []string{actions.ServerCondition, actions.SignerCondition, actions2.CtlogTreeJobCondition}
 			if utils.IsEnabled(t.Spec.Db.Create) {
 				components = append(components, actions.DbCondition)
 			}

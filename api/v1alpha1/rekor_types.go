@@ -39,6 +39,9 @@ type RekorSpec struct {
 	// +patchMergeKey=treeID
 	// +kubebuilder:default:={}
 	Sharding []RekorLogRange `json:"sharding,omitempty"`
+	// ConfigMap with additional bundle of trusted CA
+	//+optional
+	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
 }
 
 type RekorSigner struct {

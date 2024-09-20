@@ -53,6 +53,14 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		})
 	}
 
+	//TLS: Annotate service
+	if k8sutils.IsOpenShift() && instance.Spec.Server.TLS.CertRef == nil {
+		if logserverService.Annotations == nil {
+			logserverService.Annotations = make(map[string]string)
+		}
+		logserverService.Annotations["service.beta.openshift.io/serving-cert-secret-name"] = instance.Name + "-trillian-server-tls"
+	}
+
 	if err = controllerutil.SetControllerReference(instance, logserverService, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for logserver Service: %w", err))
 	}

@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 )
 
 func NewDeployAction() action.Action[*rhtasv1alpha1.Trillian] {
@@ -38,6 +39,25 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		err     error
 		updated bool
 	)
+
+	// TLS
+	switch {
+	case instance.Spec.Server.TLS.CertRef != nil:
+		instance.Status.Server.TLS = instance.Spec.Server.TLS
+	case kubernetes.IsOpenShift():
+		instance.Status.Server.TLS = rhtasv1alpha1.TLS{
+			CertRef: &rhtasv1alpha1.SecretKeySelector{
+				LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: instance.Name + "-trillian-server-tls"},
+				Key:                  "tls.crt",
+			},
+			PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
+				LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: instance.Name + "-trillian-server-tls"},
+				Key:                  "tls.key",
+			},
+		}
+	default:
+		i.Logger.V(1).Info("Communication to trillian log server is insecure")
+	}
 
 	labels := constants.LabelsFor(actions.LogServerComponentName, actions.LogserverDeploymentName, instance.Name)
 	server, err := trillianUtils.CreateLogServerDeployment(ctx, i.Client, instance, constants.TrillianServerImage, actions.LogserverDeploymentName, actions.RBACName, labels)

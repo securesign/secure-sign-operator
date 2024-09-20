@@ -46,7 +46,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		instance.Spec.Trillian.Address = fmt.Sprintf("%s.%s.svc", trillian.LogserverDeploymentName, instance.Namespace)
 	}
 
-	dp, err := utils.CreateDeployment(instance, DeploymentName, RBACName, labels, ServerTargetPort, MetricsPort)
+	dp, err := utils.CreateDeployment(ctx, i.Client, instance, DeploymentName, RBACName, labels, ServerTargetPort, MetricsPort)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    constants.Ready,
@@ -56,7 +56,12 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could create server Deployment: %w", err), instance)
 	}
-	err = cutils.SetTrustedCA(&dp.Spec.Template, cutils.TrustedCAAnnotationToReference(instance.Annotations))
+	caTrustRef := cutils.TrustedCAAnnotationToReference(instance.Annotations)
+	// override if spec.trustedCA is defined
+	if instance.Spec.TrustedCA != nil {
+		caTrustRef = instance.Spec.TrustedCA
+	}
+	err = cutils.SetTrustedCA(&dp.Spec.Template, caTrustRef)
 	if err != nil {
 		return i.Failed(err)
 	}
