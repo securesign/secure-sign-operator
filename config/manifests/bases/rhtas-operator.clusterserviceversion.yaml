@@ -108,6 +108,7 @@ spec:
   - email: lball@redhat.com
     name: Lance Ball
   maturity: stable
+  minKubeVersion: 1.26.0
   provider:
     name: Red Hat
     url: https://github.com/securesign/secure-sign-operator
