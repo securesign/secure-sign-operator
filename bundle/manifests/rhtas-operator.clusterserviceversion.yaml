@@ -297,7 +297,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:ce6a8fe1713af02979c429ca7315a0e981fa77d27c6b3bf2a858c05227d83ebf
-    createdAt: "2024-09-17T15:49:52Z"
+    createdAt: "2024-09-24T13:55:34Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -994,6 +994,7 @@ spec:
   - email: lball@redhat.com
     name: Lance Ball
   maturity: stable
+  minKubeVersion: 1.26.0
   provider:
     name: Red Hat
     url: https://github.com/securesign/secure-sign-operator
