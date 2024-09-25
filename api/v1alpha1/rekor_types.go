@@ -42,15 +42,31 @@ type RekorSpec struct {
 }
 
 type RekorSigner struct {
-	// KMS Signer provider. Valid options are secret, memory or any supported KMS provider defined by go-cloud style URI
-	//+kubebuilder:default:=secret
+
+	// KMS Signer provider. Specifies the key management system (KMS) used for signing operations.
+	//
+	// Valid values:
+	// - "secret" (default): The signer key is stored in a Kubernetes Secret.
+	// - "memory": Ephemeral signer key stored in memory. Recommended for development use only.
+	// - KMS URI: A URI to a cloud-based KMS, following the Go Cloud Development Kit (Go Cloud) URI format. Supported URIs include:
+	//   - awskms://keyname
+	//   - azurekms://keyname
+	//   - gcpkms://keyname
+	//   - hashivault://keyname
+	// +kubebuilder:default:=secret
 	KMS string `json:"kms,omitempty"`
 
-	// Password to decrypt signer private key
-	//+optional
+	// Password to decrypt the signer private key.
+	//
+	// Optional field. This should be set only if the private key referenced by `keyRef` is encrypted with a password.
+	// If KMS is set to a value other than "secret", this field is ignored.
+	// +optional
 	PasswordRef *SecretKeySelector `json:"passwordRef,omitempty"`
-	// Reference to signer private key
-	//+optional
+
+	// Reference to the signer private key.
+	//
+	// Optional field. When KMS is set to "secret", this field can be left empty, in which case the operator will automatically generate a signer key.
+	// +optional
 	KeyRef *SecretKeySelector `json:"keyRef,omitempty"`
 }
 
