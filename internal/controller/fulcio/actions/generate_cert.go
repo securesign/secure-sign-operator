@@ -40,8 +40,10 @@ func (g handleCert) Name() string {
 
 func (g handleCert) CanHandle(_ context.Context, instance *v1alpha1.Fulcio) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	cert := meta.FindStatusCondition(instance.Status.Conditions, CertCondition)
 	return (c.Reason == constants.Pending || c.Reason == constants.Ready) && (instance.Status.Certificate == nil ||
-		!equality.Semantic.DeepDerivative(instance.Spec.Certificate, *instance.Status.Certificate))
+		!equality.Semantic.DeepDerivative(instance.Spec.Certificate, *instance.Status.Certificate)) &&
+		cert.Reason != constants.Creating
 }
 
 func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *action.Result {
@@ -54,6 +56,9 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 		)
 		return g.StatusUpdate(ctx, instance)
 	}
+	meta.FindStatusCondition(instance.Status.Conditions, CertCondition).Reason = constants.Creating
+	g.StatusUpdate(ctx, instance)
+
 	if instance.Spec.Certificate.PrivateKeyRef == nil && instance.Spec.Certificate.CARef != nil {
 		err := fmt.Errorf("missing private key for CA certificate")
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
