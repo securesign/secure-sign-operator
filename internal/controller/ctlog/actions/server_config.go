@@ -41,6 +41,8 @@ func (i serverConfig) CanHandle(_ context.Context, instance *rhtasv1alpha1.CTlog
 		return true
 	case instance.Spec.ServerConfigRef != nil:
 		return !equality.Semantic.DeepEqual(instance.Spec.ServerConfigRef, instance.Status.ServerConfigRef)
+	case c.Reason == constants.Ready:
+		return instance.Generation != c.ObservedGeneration
 	default:
 		return false
 	}
@@ -54,8 +56,13 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	if instance.Spec.ServerConfigRef != nil {
 		instance.Status.ServerConfigRef = instance.Spec.ServerConfigRef
 		i.Recorder.Event(instance, corev1.EventTypeNormal, "CTLogConfigUpdated", "CTLog config updated")
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
-			Status: metav1.ConditionFalse, Reason: constants.Creating, Message: "CTLog config updated"})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Creating,
+			Message:            "CTLog config updated",
+			ObservedGeneration: instance.Generation,
+		})
 		return i.StatusUpdate(ctx, instance)
 	}
 
@@ -77,10 +84,11 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	rootCerts, err := i.handleRootCertificates(instance)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Creating,
-			Message: fmt.Sprintf("Waiting for Fulcio root certificate: %v", err.Error()),
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Creating,
+			Message:            fmt.Sprintf("Waiting for Fulcio root certificate: %v", err.Error()),
+			ObservedGeneration: instance.Generation,
 		})
 		i.StatusUpdate(ctx, instance)
 		return i.Requeue()
@@ -89,10 +97,11 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	certConfig, err := i.handlePrivateKey(instance)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Creating,
-			Message: "Waiting for Ctlog private key secret",
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Creating,
+			Message:            "Waiting for Ctlog private key secret",
+			ObservedGeneration: instance.Generation,
 		})
 		i.StatusUpdate(ctx, instance)
 		return i.Requeue()
@@ -101,10 +110,11 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	var cfg map[string][]byte
 	if cfg, err = ctlogUtils.CreateCtlogConfig(fmt.Sprintf("%s:%d", trillianService.Address, *trillianService.Port), *instance.Status.TreeID, rootCerts, certConfig); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Failure,
+			Message:            err.Error(),
+			ObservedGeneration: instance.Generation,
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create CTLog configuration: %w", err), instance)
 	}
@@ -118,10 +128,11 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	_, err = i.Ensure(ctx, newConfig)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Failure,
+			Message:            err.Error(),
+			ObservedGeneration: instance.Generation,
 		})
 		return i.FailedWithStatusUpdate(ctx, err, instance)
 	}
@@ -129,8 +140,13 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
 
 	i.Recorder.Event(instance, corev1.EventTypeNormal, "CTLogConfigUpdated", "CTLog config updated")
-	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
-		Status: metav1.ConditionFalse, Reason: constants.Creating, Message: "Server config created"})
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:               constants.Ready,
+		Status:             metav1.ConditionFalse,
+		Reason:             constants.Creating,
+		Message:            "Server config created",
+		ObservedGeneration: instance.Generation,
+	})
 	return i.StatusUpdate(ctx, instance)
 }
 
