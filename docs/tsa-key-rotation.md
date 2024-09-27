@@ -4,7 +4,6 @@ This document provides detailed instructions on how to rotate the certificate ch
 
 1. To verify images signed before the rotation, you can find the previous certificate chain in secrets with a prefix of tsa-signer-config-*.
 2. The certificate chain currently used by the Timestamp Authority Service will have the label rhtas.redhat.com/tsa.certchain.pem: certificateChain.
-3. The new certificate chain will be propagated to the TUF targets/ directory and the targets.json file.
 
 ## Prerequisites
 Before you begin, ensure that:
@@ -13,6 +12,66 @@ Before you begin, ensure that:
 2. An instance of the Timestamp Authority Service is running.
 
 # File-based Signer
+## Generating a Certificate Chain and Signer Key for the Timestamp Authority
+Optional but recommended: Create a directory for your certificates:
+
+```bash
+mkdir certs && cd certs
+```
+
+### Generate a Root CA
+Create the Root CA's private key and certificate, setting a password for the private key:
+```bash
+openssl req -x509 -newkey rsa:2048 -days 365 -sha256 -nodes \
+  -keyout rootCA.key.pem -out rootCA.crt.pem \
+  -passout pass:"CHANGE_ME" \
+  -subj "/C=CC/ST=state/L=Locality/O=RH/OU=RootCA/CN=RootCA" \
+  -addext "basicConstraints=CA:true" -addext "keyUsage=cRLSign, keyCertSign"
+```
+
+### Generate an Intermediate CA
+Create the Intermediate CA's private key and certificate signing request (CSR), setting a password for the private key:
+```bash
+openssl req -newkey rsa:2048 -sha256 \
+  -keyout intermediateCA.key.pem -out intermediateCA.csr.pem \
+  -passout pass:"CHANGE_ME" \
+  -subj "/C=CC/ST=state/L=Locality/O=RH/OU=IntermediateCA/CN=IntermediateCA"
+```
+Sign the Intermediate CA's certificate with the Root CA (provide the Root CA's private key password):
+
+```bash
+openssl x509 -req -in intermediateCA.csr.pem -CA rootCA.crt.pem -CAkey rootCA.key.pem \
+  -CAcreateserial -out intermediateCA.crt.pem -days 365 -sha256 \
+  -extfile <(echo "basicConstraints=CA:true\nkeyUsage=cRLSign, keyCertSign\nextendedKeyUsage=critical,timeStamping") \
+  -passin pass:"CHANGE_ME"
+```
+
+### Generate a Leaf CA
+Create the Leaf CA's private key and CSR, setting a password for the private key:
+```bash
+openssl req -newkey rsa:2048 -sha256 \
+  -keyout leafCA.key.pem -out leafCA.csr.pem \
+  -passout pass:"CHANGE_ME" \
+  -subj "/C=CC/ST=state/L=Locality/O=RH/OU=LeafCA/CN=LeafCA"
+```
+
+Sign the Leaf CA's certificate with the Intermediate CA (provide the Intermediate CA's private key password):
+```bash
+openssl x509 -req -in leafCA.csr.pem -CA intermediateCA.crt.pem -CAkey intermediateCA.key.pem \
+  -CAcreateserial -out leafCA.crt.pem -days 365 -sha256 \
+  -extfile <(echo "basicConstraints=CA:false\nkeyUsage=cRLSign, keyCertSign\nextendedKeyUsage=critical,timeStamping") \
+  -passin pass:"CHANGE_ME"
+```
+
+### Create a Certificate Chain
+Combine the certificates to form a chain:
+
+```bash
+cat leafCA.crt.pem intermediateCA.crt.pem rootCA.crt.pem > chain.pem
+```
+
+Note: Replace "CHANGE_ME" with your desired password. Ensure you keep your private keys secure and handle passwords carefully.
+
 ## Operator-Generated Signer Keys and Certificate Chain
 If you have deployed the operator with the default configuration found [here](https://github.com/securesign/secure-sign-operator/blob/fc9c5b01a487c263033faf6599467f8a676c412c/config/samples/rhtas_v1alpha1_securesign.yaml#L51), rotating the keys is a straightforward process. Simply delete the Timestamp Authority instance using the following command:
     ```
@@ -47,7 +106,7 @@ If you have deployed the Timestamp Authority Service with self-generated private
             name: rotated-leaf-key
             key: rotated-leaf-key
     ```
-3. After patching the securesign resource, you should see the Timestamp Authority Service and the TUF service redeployed with the new certificate chain and private keys.
+3. After patching the securesign resource, you should see the Timestamp Authority Service redeployed with the new certificate chain and private keys.
 
 ## User-Created Keys and Certificate Chain
 If you have deployed the Timestamp Authority Service with a self-generated certificate chain and signer keys, the process is similar to the above:
@@ -64,7 +123,7 @@ If you have deployed the Timestamp Authority Service with a self-generated certi
             name: rotated-signer-key
             key: rotated-signer-key
     ```
-3. After patching the securesign resource, you should see the Timestamp Authority Service and the TUF service redeployed with the new certificate chain and private keys.
+3. After patching the securesign resource, you should see the Timestamp Authority Service redeployed with the new certificate chain and private keys.
 
 # KMS (Key Management Service)
 If you have deployed the Timestamp Authority Service using a KMS provider following these [steps](https://github.com/securesign/timestamp-authority?tab=readme-ov-file#cloud-kms), the process for rotating the keys is similar to the above:
@@ -82,7 +141,7 @@ If you have deployed the Timestamp Authority Service using a KMS provider follow
       kms:
         keyResource: gcpkms://<new-key-resource>
     ```
-5. After patching the securesign resource, you should see the Timestamp Authority Service and the TUF service redeployed with the new certificate chain and private keys.
+5. After patching the securesign resource, you should see the Timestamp Authority Service redeployed with the new certificate chain and private keys.
 
 # Tink
 If you have deployed the Timestamp Authority Service using the Tink signer, following these [steps](https://github.com/securesign/timestamp-authority?tab=readme-ov-file#tink), the process for rotating the keys is similar to the previous methods:
