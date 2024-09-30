@@ -54,17 +54,23 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog
 	}
 	if updated, err = i.Ensure(ctx, svc); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Failure,
+			Message:            err.Error(),
+			ObservedGeneration: instance.Generation,
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create service: %w", err), instance)
 	}
 
 	if updated {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
-			Status: metav1.ConditionFalse, Reason: constants.Creating, Message: "Service created"})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Creating,
+			Message:            "Service created",
+			ObservedGeneration: instance.Generation,
+		})
 		return i.StatusUpdate(ctx, instance)
 	} else {
 		return i.Continue()

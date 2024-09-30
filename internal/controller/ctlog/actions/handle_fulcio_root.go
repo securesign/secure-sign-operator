@@ -59,9 +59,10 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) 
 
 	if meta.FindStatusCondition(instance.Status.Conditions, constants.Ready).Reason != constants.Creating {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:   constants.Ready,
-			Status: metav1.ConditionFalse,
-			Reason: constants.Creating,
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Creating,
+			ObservedGeneration: instance.Generation,
 		},
 		)
 		return g.StatusUpdate(ctx, instance)

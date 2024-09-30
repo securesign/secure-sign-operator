@@ -47,9 +47,10 @@ func (g handleKeys) CanHandle(ctx context.Context, instance *v1alpha1.CTlog) boo
 func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *action.Result {
 	if meta.FindStatusCondition(instance.Status.Conditions, constants.Ready).Reason != constants.Creating {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:   constants.Ready,
-			Status: metav1.ConditionFalse,
-			Reason: constants.Creating,
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Creating,
+			ObservedGeneration: instance.Generation,
 		},
 		)
 		return g.StatusUpdate(ctx, instance)
@@ -77,10 +78,11 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 		private, err = k8sutils.GetSecretData(g.Client, instance.Namespace, instance.Spec.PrivateKeyRef)
 		if err != nil {
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:    constants.Ready,
-				Status:  metav1.ConditionFalse,
-				Reason:  constants.Pending,
-				Message: "Waiting for secret " + instance.Spec.PrivateKeyRef.Name,
+				Type:               constants.Ready,
+				Status:             metav1.ConditionFalse,
+				Reason:             constants.Pending,
+				Message:            "Waiting for secret " + instance.Spec.PrivateKeyRef.Name,
+				ObservedGeneration: instance.Generation,
 			})
 			g.StatusUpdate(ctx, instance)
 			// busy waiting - no watch on provided secrets
@@ -90,10 +92,11 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 			password, err = k8sutils.GetSecretData(g.Client, instance.Namespace, instance.Spec.PrivateKeyPasswordRef)
 			if err != nil {
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-					Type:    constants.Ready,
-					Status:  constants.Creating,
-					Reason:  constants.Pending,
-					Message: "Waiting for secret " + instance.Spec.PrivateKeyPasswordRef.Name,
+					Type:               constants.Ready,
+					Status:             constants.Creating,
+					Reason:             constants.Pending,
+					Message:            "Waiting for secret " + instance.Spec.PrivateKeyPasswordRef.Name,
+					ObservedGeneration: instance.Generation,
 				})
 				g.StatusUpdate(ctx, instance)
 				// busy waiting - no watch on provided secrets
@@ -123,10 +126,11 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 
 	if _, err := g.Ensure(ctx, secret); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Failure,
+			Message:            err.Error(),
+			ObservedGeneration: instance.Generation,
 		})
 		return g.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Secret: %w", err), instance)
 	}
@@ -180,10 +184,11 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:    constants.Ready,
-		Status:  metav1.ConditionFalse,
-		Reason:  constants.Creating,
-		Message: "Keys resolved",
+		Type:               constants.Ready,
+		Status:             metav1.ConditionFalse,
+		Reason:             constants.Creating,
+		Message:            "Keys resolved",
+		ObservedGeneration: instance.Generation,
 	})
 	return g.StatusUpdate(ctx, instance)
 }
