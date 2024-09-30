@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	utils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
@@ -135,6 +137,18 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 			ObservedGeneration: instance.Generation,
 		})
 		return i.FailedWithStatusUpdate(ctx, err, instance)
+	}
+
+	if instance.Status.ServerConfigRef != nil {
+		if err := i.Client.Delete(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      instance.Status.ServerConfigRef.Name,
+				Namespace: instance.Namespace,
+			},
+		}); client.IgnoreNotFound(err) != nil {
+			return i.Failed(err)
+		}
+		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigDeleted", "CTLog config deleted %s", instance.Status.ServerConfigRef.Name)
 	}
 
 	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}

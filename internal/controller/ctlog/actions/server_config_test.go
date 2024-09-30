@@ -6,6 +6,11 @@ import (
 	"reflect"
 	"testing"
 
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+
+	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
+	"github.com/securesign/operator/internal/testing/errors"
+
 	"github.com/onsi/gomega/gstruct"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,6 +42,8 @@ func TestServerConfig_CanHandle(t *testing.T) {
 		canHandle             bool
 		serverConfigRef       *rhtasv1alpha1.LocalObjectReference
 		statusServerConfigRef *rhtasv1alpha1.LocalObjectReference
+		observedGeneration    int64
+		generation            int64
 	}{
 		{
 			name:                  "spec.serverConfigRef is not nil and status.serverConfigRef is nil",
@@ -74,6 +81,30 @@ func TestServerConfig_CanHandle(t *testing.T) {
 			statusServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "config"},
 		},
 		{
+			name:                  "Ready: observedGeneration == generation",
+			phase:                 constants.Ready,
+			canHandle:             false,
+			statusServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "config"},
+			observedGeneration:    1,
+			generation:            1,
+		},
+		{
+			name:                  "Ready: observedGeneration != generation",
+			phase:                 constants.Ready,
+			canHandle:             true,
+			statusServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "config"},
+			observedGeneration:    1,
+			generation:            2,
+		},
+		{
+			name:                  "Creating: observedGeneration != generation",
+			phase:                 constants.Creating,
+			canHandle:             false,
+			statusServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "config"},
+			observedGeneration:    1,
+			generation:            2,
+		},
+		{
 			name:      "no phase condition",
 			phase:     "",
 			canHandle: false,
@@ -109,6 +140,11 @@ func TestServerConfig_CanHandle(t *testing.T) {
 			c := testAction.FakeClientBuilder().Build()
 			a := testAction.PrepareAction(c, NewServerConfigAction())
 			instance := rhtasv1alpha1.CTlog{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test",
+					Namespace:  "default",
+					Generation: tt.generation,
+				},
 				Spec: rhtasv1alpha1.CTlogSpec{
 					ServerConfigRef: tt.serverConfigRef,
 				},
@@ -118,8 +154,9 @@ func TestServerConfig_CanHandle(t *testing.T) {
 			}
 			if tt.phase != "" {
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-					Type:   constants.Ready,
-					Reason: tt.phase,
+					Type:               constants.Ready,
+					Reason:             tt.phase,
+					ObservedGeneration: tt.observedGeneration,
 				})
 			}
 
@@ -314,6 +351,165 @@ func TestServerConfig_Handle(t *testing.T) {
 			}
 			if tt.want.verify != nil {
 				tt.want.verify(g, instance)
+			}
+		})
+	}
+}
+
+func TestServerConfig_Update(t *testing.T) {
+	g := NewWithT(t)
+	type env struct {
+		instance rhtasv1alpha1.CTlog
+		objects  []client.Object
+	}
+	type want struct {
+		result *action.Result
+		verify func(Gomega, client.Client, *rhtasv1alpha1.CTlog)
+	}
+	tests := []struct {
+		name string
+		env  env
+		want want
+	}{
+		{
+			name: "new secret with config created",
+			env: env{
+				instance: rhtasv1alpha1.CTlog{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test",
+						Namespace:  "default",
+						Generation: 2,
+					},
+					Spec: rhtasv1alpha1.CTlogSpec{
+						Trillian: rhtasv1alpha1.TrillianService{Port: ptr.To(int32(443))},
+						TreeID:   ptr.To(int64(123456)),
+					},
+					Status: rhtasv1alpha1.CTlogStatus{
+						ServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "old_secret"},
+						TreeID:          ptr.To(int64(123456)),
+						RootCertificates: []rhtasv1alpha1.SecretKeySelector{
+							{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+						},
+						PrivateKeyRef:         &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "private"},
+						PrivateKeyPasswordRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "password"},
+						PublicKeyRef:          &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "public"},
+						Conditions: []metav1.Condition{
+							{
+								Type:               constants.Ready,
+								Reason:             constants.Ready,
+								ObservedGeneration: 1,
+							},
+						},
+					},
+				},
+				objects: []client.Object{
+					kubernetes.CreateSecret("secret", "default", map[string][]byte{
+						"cert":     cert,
+						"private":  privateKey,
+						"public":   publicKey,
+						"password": []byte("secure"),
+					}, map[string]string{}),
+					kubernetes.CreateSecret("old_secret", "default",
+						errors.IgnoreError(ctlogUtils.CreateCtlogConfig(
+							"trillian-logserver.default.svc:80",
+							654321,
+							[]ctlogUtils.RootCertificate{cert},
+							&ctlogUtils.PrivateKeyConfig{
+								PrivateKey:     privateKey,
+								PublicKey:      publicKey,
+								PrivateKeyPass: []byte("secure"),
+							})),
+						map[string]string{}),
+				},
+			},
+			want: want{
+				result: testAction.StatusUpdate(),
+				verify: func(g Gomega, cli client.Client, current *rhtasv1alpha1.CTlog) {
+					g.Expect(current.Status.ServerConfigRef).ShouldNot(BeNil())
+					g.Expect(current.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
+
+					data, err := kubernetes.GetSecretData(cli, "default", &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: *current.Status.ServerConfigRef, Key: "config"})
+					g.Expect(err).ShouldNot(HaveOccurred())
+					g.Expect(data).To(And(ContainSubstring("trillian-logserver.default.svc:443"), ContainSubstring("123456")))
+
+					_, err = kubernetes.GetSecret(cli, "default", "old_config")
+					g.Expect(err).To(WithTransform(k8sErrors.IsNotFound, BeTrue()), "old_config should be deleted")
+				},
+			},
+		},
+		{
+			name: "use custom config and ignore other changes",
+			env: env{
+				instance: rhtasv1alpha1.CTlog{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test",
+						Namespace:  "default",
+						Generation: 2,
+					},
+					Spec: rhtasv1alpha1.CTlogSpec{
+						ServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "custom_config"},
+					},
+					Status: rhtasv1alpha1.CTlogStatus{
+						ServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "old_secret"},
+						TreeID:          ptr.To(int64(123456)),
+						RootCertificates: []rhtasv1alpha1.SecretKeySelector{
+							{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+						},
+						PrivateKeyRef:         &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "private"},
+						PrivateKeyPasswordRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "password"},
+						PublicKeyRef:          &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "public"},
+						Conditions: []metav1.Condition{
+							{
+								Type:               constants.Ready,
+								Reason:             constants.Ready,
+								ObservedGeneration: 1,
+							},
+						},
+					},
+				},
+				objects: []client.Object{
+					kubernetes.CreateSecret("custom_config", "default",
+						errors.IgnoreError(ctlogUtils.CreateCtlogConfig(
+							"trillian-logserver.custom.svc:80",
+							9999999,
+							[]ctlogUtils.RootCertificate{cert},
+							&ctlogUtils.PrivateKeyConfig{
+								PrivateKey:     privateKey,
+								PublicKey:      publicKey,
+								PrivateKeyPass: []byte("secure"),
+							})),
+						map[string]string{}),
+				},
+			},
+			want: want{
+				result: testAction.StatusUpdate(),
+				verify: func(g Gomega, cli client.Client, current *rhtasv1alpha1.CTlog) {
+					g.Expect(current.Status.ServerConfigRef).ShouldNot(BeNil())
+					g.Expect(current.Status.ServerConfigRef.Name).Should(Equal("custom_config"))
+
+					data, err := kubernetes.GetSecretData(cli, "default", &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: *current.Status.ServerConfigRef, Key: "config"})
+					g.Expect(err).ShouldNot(HaveOccurred())
+					g.Expect(data).To(And(ContainSubstring("trillian-logserver.custom.svc:80"), ContainSubstring("9999999")))
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.TODO()
+			c := testAction.FakeClientBuilder().
+				WithObjects(&tt.env.instance).
+				WithStatusSubresource(&tt.env.instance).
+				WithObjects(tt.env.objects...).
+				Build()
+
+			a := testAction.PrepareAction(c, NewServerConfigAction())
+
+			if got := a.Handle(ctx, &tt.env.instance); !reflect.DeepEqual(got, tt.want.result) {
+				t.Errorf("CanHandle() = %v, want %v", got, tt.want.result)
+			}
+			if tt.want.verify != nil {
+				tt.want.verify(g, c, &tt.env.instance)
 			}
 		})
 	}
