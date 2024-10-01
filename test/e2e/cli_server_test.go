@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -72,6 +73,11 @@ var _ = Describe("CliServer", Ordered, func() {
 				"/clients/darwin/%s-arm64.gz",
 				"/clients/windows/%s-amd64.gz",
 			} {
+				// currently we are distributing tuftool only for Linux amd64
+				if cli == "tuftool" && (!strings.Contains(path, "linux") || !strings.Contains(path, "amd64")) {
+					continue
+				}
+
 				resp, err := httpClient.Head(fmt.Sprintf(url+path, cli))
 				Expect(err).ToNot(HaveOccurred())
 				defer func() { _ = resp.Body.Close() }()
@@ -83,5 +89,8 @@ var _ = Describe("CliServer", Ordered, func() {
 		Entry("gitsign", "gitsign"),
 		Entry("ec", "ec"),
 		Entry("fetch-tsa-certs", "fetch-tsa-certs"),
+		Entry("tuftool", "tuftool"),
+		Entry("updatetree", "updatetree"),
+		Entry("createtree", "createtree"),
 	)
 })
