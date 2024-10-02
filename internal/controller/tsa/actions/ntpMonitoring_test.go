@@ -174,6 +174,7 @@ func Test_NTPHandle(t *testing.T) {
 
 				g.Expect(instance.Status.NTPMonitoring.Config.NtpConfigRef.Name).To(Equal(cm.Name), "Config Map name mismatch")
 
+				g.Expect(client.Get(context.TODO(), types.NamespacedName{Name: instance.GetName(), Namespace: instance.GetNamespace()}, instance)).To(Succeed())
 				instance.Spec.NTPMonitoring.Config.NumServers = 2
 				err = client.Update(context.TODO(), instance)
 				g.Expect(err).NotTo(HaveOccurred(), "Error updating instance")
@@ -205,6 +206,7 @@ func Test_NTPHandle(t *testing.T) {
 
 				oldConfigMapName := instance.Status.NTPMonitoring.Config.NtpConfigRef.Name
 
+				g.Expect(client.Get(context.TODO(), types.NamespacedName{Name: instance.GetName(), Namespace: instance.GetNamespace()}, instance)).To(Succeed())
 				instance.Spec.NTPMonitoring.Config.NumServers = 2
 				err = client.Update(context.TODO(), instance)
 				g.Expect(err).NotTo(HaveOccurred(), "Error updating instance")
