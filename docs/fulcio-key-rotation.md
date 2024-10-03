@@ -14,10 +14,15 @@ Before you begin, ensure that:
 2. An instance of the Fulcio Service is running.
 
 # Operator-Generated Private keys and Certificate
-If you have deployed the operator with the default configuration found [here](https://github.com/securesign/secure-sign-operator/blob/fc9c5b01a487c263033faf6599467f8a676c412c/config/samples/rhtas_v1alpha1_securesign.yaml#L29), rotating the private keys and certificate is a straightforward process. Simply delete the Fulcio instance using the following command:
-    ```
-    oc delete fulcio <securesign_name> -n <namespace>
-    ```
+If you have deployed the operator with the default configuration found [here](https://github.com/securesign/secure-sign-operator/blob/fc9c5b01a487c263033faf6599467f8a676c412c/config/samples/rhtas_v1alpha1_securesign.yaml#L29), rotating the private keys and certificate is a straightforward process.
+Invalidate actual certificate by removing `rhtas.redhat.com/fulcio_v1.crt.pem` label:
+```
+oc label secret -l rhtas.redhat.com/fulcio_v1.crt.pem  rhtas.redhat.com/fulcio_v1.crt.pem- -n <namespace>
+```
+Remove the Fulcio resource:
+```
+oc delete fulcio <securesign_name> -n <namespace>
+```
 The operator will then automatically generate a new set of private keys and a new certificate, as well as redeploy the Fulcio Service.
 
 # Operator-Generated Certificate
