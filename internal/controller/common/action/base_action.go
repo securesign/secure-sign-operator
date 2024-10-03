@@ -12,6 +12,7 @@ import (
 
 	"github.com/securesign/operator/internal/controller/annotations"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -112,7 +113,9 @@ func (action *BaseAction) Ensure(ctx context.Context, obj client2.Object, opts .
 		return false, errors.New("can't create DeepCopy object")
 	}
 
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	err = retry.OnError(retry.DefaultRetry, func(err error) bool {
+		return apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err)
+	}, func() error {
 		result, err = controllerutil.CreateOrUpdate(ctx, action.Client, obj, func() error {
 			annoStr, find := obj.GetAnnotations()[annotations.PausedReconciliation]
 			if find {
