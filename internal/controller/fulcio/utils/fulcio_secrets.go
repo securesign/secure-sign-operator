@@ -2,7 +2,6 @@ package utils
 
 import (
 	"bytes"
-	"context"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rand"
@@ -13,10 +12,6 @@ import (
 	"fmt"
 	"math/big"
 	"time"
-
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type FulcioCertConfig struct {
@@ -24,9 +19,12 @@ type FulcioCertConfig struct {
 	PublicKey          []byte
 	RootCert           []byte
 	PrivateKeyPassword []byte
+	OrganizationName   string
+	CommonName         string
+	OrganizationEmail  string
 }
 
-func (c FulcioCertConfig) ToMap() map[string][]byte {
+func (c FulcioCertConfig) ToData() map[string][]byte {
 	result := make(map[string][]byte)
 
 	if len(c.PrivateKey) > 0 {
@@ -82,10 +80,10 @@ func CreateCAPub(key crypto.PublicKey) ([]byte, error) {
 	return pemPubKey.Bytes(), nil
 }
 
-func CreateFulcioCA(ctx context.Context, client client.Client, config *FulcioCertConfig, instance *rhtasv1alpha1.Fulcio, deploymentName string) ([]byte, error) {
+func CreateFulcioCA(config *FulcioCertConfig) ([]byte, error) {
 	var err error
 
-	if instance.Spec.Certificate.OrganizationName == "" {
+	if config.OrganizationName == "" {
 		return nil, fmt.Errorf("could not create certificate: missing OrganizationName from config")
 	}
 
@@ -106,23 +104,9 @@ func CreateFulcioCA(ctx context.Context, client client.Client, config *FulcioCer
 	notBefore := time.Now()
 	notAfter := notBefore.Add(365 * 24 * 10 * time.Hour)
 
-	if instance.Spec.Certificate.CommonName == "" {
-		if instance.Spec.ExternalAccess.Enabled {
-			if instance.Spec.ExternalAccess.Host != "" {
-				instance.Spec.Certificate.CommonName = instance.Spec.ExternalAccess.Host
-			} else {
-				if instance.Spec.Certificate.CommonName, err = kubernetes.CalculateHostname(ctx, client, deploymentName, instance.Namespace); err != nil {
-					return nil, err
-				}
-			}
-		} else {
-			instance.Spec.Certificate.CommonName = fmt.Sprintf("%s.%s.svc.local", deploymentName, instance.Namespace)
-		}
-	}
-
 	issuer := pkix.Name{
-		CommonName:   instance.Spec.Certificate.CommonName,
-		Organization: []string{instance.Spec.Certificate.OrganizationName},
+		CommonName:   config.CommonName,
+		Organization: []string{config.OrganizationName},
 	}
 
 	serialNumber, err := GenerateSerialNumber()
@@ -132,8 +116,8 @@ func CreateFulcioCA(ctx context.Context, client client.Client, config *FulcioCer
 
 	emailAddresses := make([]string, 0)
 
-	if instance.Spec.Certificate.OrganizationEmail != "" {
-		emailAddresses = append(emailAddresses, instance.Spec.Certificate.OrganizationEmail)
+	if config.OrganizationEmail != "" {
+		emailAddresses = append(emailAddresses, config.OrganizationEmail)
 	}
 
 	template := x509.Certificate{
