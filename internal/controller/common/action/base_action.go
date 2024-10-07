@@ -12,7 +12,7 @@ import (
 
 	"github.com/securesign/operator/internal/controller/annotations"
 	"k8s.io/apimachinery/pkg/api/equality"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -99,7 +99,6 @@ func (action *BaseAction) Ensure(ctx context.Context, obj client2.Object, opts .
 	var (
 		expected client2.Object
 		ok       bool
-		err      error
 		result   controllerutil.OperationResult
 	)
 
@@ -113,10 +112,11 @@ func (action *BaseAction) Ensure(ctx context.Context, obj client2.Object, opts .
 		return false, errors.New("can't create DeepCopy object")
 	}
 
-	err = retry.OnError(retry.DefaultRetry, func(err error) bool {
-		return apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err)
+	err := retry.OnError(retry.DefaultRetry, func(err error) bool {
+		return apiErrors.IsConflict(err) || apiErrors.IsAlreadyExists(err)
 	}, func() error {
-		result, err = controllerutil.CreateOrUpdate(ctx, action.Client, obj, func() error {
+		var createUpdateError error
+		result, createUpdateError = controllerutil.CreateOrUpdate(ctx, action.Client, obj, func() error {
 			annoStr, find := obj.GetAnnotations()[annotations.PausedReconciliation]
 			if find {
 				annoBool, _ := strconv.ParseBool(annoStr)
@@ -126,15 +126,15 @@ func (action *BaseAction) Ensure(ctx context.Context, obj client2.Object, opts .
 			}
 
 			for _, opt := range opts {
-				err = opt(obj, expected)
-				if err != nil {
-					return err
+				optError := opt(obj, expected)
+				if optError != nil {
+					return optError
 				}
 			}
 
 			return nil
 		})
-		return err
+		return createUpdateError
 	})
 
 	if err != nil {
