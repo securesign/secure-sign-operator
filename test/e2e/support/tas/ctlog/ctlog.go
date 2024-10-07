@@ -20,7 +20,7 @@ import (
 func Verify(ctx context.Context, cli client.Client, namespace string, name string) {
 	Eventually(Get(ctx, cli, namespace, name)).Should(
 		WithTransform(func(f *v1alpha1.CTlog) bool {
-			return meta.IsStatusConditionTrue(f.Status.Conditions, constants.Ready)
+			return meta.IsStatusConditionTrue(f.GetConditions(), constants.Ready)
 		}, BeTrue()))
 
 	Eventually(func(g Gomega) (bool, error) {

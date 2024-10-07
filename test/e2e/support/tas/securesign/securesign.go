@@ -14,17 +14,17 @@ import (
 func Verify(ctx context.Context, cli client.Client, namespace string, name string) {
 	Eventually(Get(ctx, cli, namespace, name)).Should(
 		WithTransform(func(f *v1alpha1.Securesign) bool {
-			return meta.IsStatusConditionTrue(f.Status.Conditions, constants.Ready)
+			return meta.IsStatusConditionTrue(f.GetConditions(), constants.Ready)
 		}, BeTrue()))
 }
 
 func Get(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.Securesign {
 	return func() *v1alpha1.Securesign {
 		instance := &v1alpha1.Securesign{}
-		_ = cli.Get(ctx, types.NamespacedName{
+		Expect(cli.Get(ctx, types.NamespacedName{
 			Namespace: ns,
 			Name:      name,
-		}, instance)
+		}, instance)).To(Succeed())
 		return instance
 	}
 }

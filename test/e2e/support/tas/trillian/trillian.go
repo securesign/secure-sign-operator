@@ -16,7 +16,7 @@ import (
 func Verify(ctx context.Context, cli client.Client, namespace string, name string, dbPresent bool) {
 	Eventually(Get(ctx, cli, namespace, name)).Should(
 		WithTransform(func(f *v1alpha1.Trillian) bool {
-			return meta.IsStatusConditionTrue(f.Status.Conditions, constants.Ready)
+			return meta.IsStatusConditionTrue(f.GetConditions(), constants.Ready)
 		}, BeTrue()))
 
 	if dbPresent {

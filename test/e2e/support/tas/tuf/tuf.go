@@ -25,7 +25,7 @@ import (
 func Verify(ctx context.Context, cli client.Client, namespace string, name string) {
 	Eventually(Get(ctx, cli, namespace, name)).Should(
 		WithTransform(func(f *v1alpha1.Tuf) string {
-			return meta.FindStatusCondition(f.Status.Conditions, constants.Ready).Reason
+			return meta.FindStatusCondition(f.GetConditions(), constants.Ready).Reason
 		}, Equal(constants.Ready)))
 
 	Eventually(func(g Gomega) (bool, error) {
@@ -38,10 +38,10 @@ func Verify(ctx context.Context, cli client.Client, namespace string, name strin
 func Get(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.Tuf {
 	return func() *v1alpha1.Tuf {
 		instance := &v1alpha1.Tuf{}
-		_ = cli.Get(ctx, types.NamespacedName{
+		Expect(cli.Get(ctx, types.NamespacedName{
 			Namespace: ns,
 			Name:      name,
-		}, instance)
+		}, instance)).To(Succeed())
 		return instance
 	}
 }

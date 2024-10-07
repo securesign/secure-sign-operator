@@ -19,7 +19,7 @@ import (
 func Verify(ctx context.Context, cli client.Client, namespace string, name string) {
 	Eventually(Get(ctx, cli, namespace, name)).Should(
 		WithTransform(func(f *v1alpha1.Fulcio) bool {
-			return meta.IsStatusConditionTrue(f.Status.Conditions, constants.Ready)
+			return meta.IsStatusConditionTrue(f.GetConditions(), constants.Ready)
 		}, BeTrue()))
 
 	Eventually(func(g Gomega) (bool, error) {
@@ -43,10 +43,10 @@ func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.
 func Get(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.Fulcio {
 	return func() *v1alpha1.Fulcio {
 		instance := &v1alpha1.Fulcio{}
-		_ = cli.Get(ctx, types.NamespacedName{
+		Expect(cli.Get(ctx, types.NamespacedName{
 			Namespace: ns,
 			Name:      name,
-		}, instance)
+		}, instance)).To(Succeed())
 		return instance
 	}
 }
