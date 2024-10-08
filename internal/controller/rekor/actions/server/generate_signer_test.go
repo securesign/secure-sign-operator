@@ -6,6 +6,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
+	v1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"reflect"
 	"testing"
@@ -240,8 +242,9 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 func TestGenerateSigner_Handle(t *testing.T) {
 	g := NewWithT(t)
 	type env struct {
-		spec   rhtasv1alpha1.RekorSigner
-		status rhtasv1alpha1.RekorSigner
+		spec    rhtasv1alpha1.RekorSigner
+		status  rhtasv1alpha1.RekorSigner
+		objects []client.Object
 	}
 	type want struct {
 		result *action.Result
@@ -297,15 +300,40 @@ func TestGenerateSigner_Handle(t *testing.T) {
 				spec: rhtasv1alpha1.RekorSigner{
 					KeyRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "new_secret"}, Key: "private"},
 				},
-				status: rhtasv1alpha1.RekorSigner{
-					KeyRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "old_secret"}, Key: "private"},
-				},
+				status: rhtasv1alpha1.RekorSigner{},
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
 				verify: func(g Gomega, instance *rhtasv1alpha1.Rekor) {
 					g.Expect(instance.Status.Signer.KeyRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.Signer.KeyRef.Name).Should(Equal("new_secret"))
+
+					g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, actions.SignerCondition)).Should(BeTrue())
+					g.Expect(meta.IsStatusConditionFalse(instance.Status.Conditions, actions.ServerCondition)).Should(BeTrue())
+				},
+			},
+		},
+		{
+			name: "use existing signer key",
+			env: env{
+				spec:   rhtasv1alpha1.RekorSigner{},
+				status: rhtasv1alpha1.RekorSigner{},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+							Labels:    map[string]string{RekorSignerLabel: "private"},
+						},
+					},
+				},
+			},
+			want: want{
+				result: testAction.StatusUpdate(),
+				verify: func(g Gomega, instance *rhtasv1alpha1.Rekor) {
+					g.Expect(instance.Status.Signer.KeyRef).ShouldNot(BeNil())
+					g.Expect(instance.Status.Signer.KeyRef.Name).Should(Equal("secret"))
+					g.Expect(instance.Status.Signer.KeyRef.Key).Should(Equal("private"))
 
 					g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, actions.SignerCondition)).Should(BeTrue())
 					g.Expect(meta.IsStatusConditionFalse(instance.Status.Conditions, actions.ServerCondition)).Should(BeTrue())
@@ -414,6 +442,7 @@ func TestGenerateSigner_Handle(t *testing.T) {
 			c := testAction.FakeClientBuilder().
 				WithObjects(instance).
 				WithStatusSubresource(instance).
+				WithObjects(tt.env.objects...).
 				Build()
 
 			a := testAction.PrepareAction(c, NewGenerateSignerAction())

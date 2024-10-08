@@ -17,11 +17,14 @@ import (
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const secretNameFormat = "rekor-signer-%s-"
+
+const RekorSignerLabel = constants.LabelNamespace + "/rekor.signer.pem"
 
 func NewGenerateSignerAction() action.Action[*v1alpha1.Rekor] {
 	return &generateSigner{}
@@ -87,9 +90,10 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 			Message: "resolving keys",
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.ServerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Pending,
+			Type:   actions.ServerCondition,
+			Status: metav1.ConditionFalse,
+			Reason: constants.Pending,
+
 			Message: "resolving keys",
 		})
 		return g.StatusUpdate(ctx, instance)
@@ -98,44 +102,58 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 	newSigner := *instance.Spec.Signer.DeepCopy()
 
 	if instance.Spec.Signer.KeyRef == nil {
-		privateKey, publicKey, err := g.createSignerKey()
-		if err != nil {
-			if !meta.IsStatusConditionFalse(instance.Status.Conditions, actions.SignerCondition) {
+
+		partialSecret, err := k8sutils.FindSecret(ctx, g.Client, instance.Namespace, RekorSignerLabel)
+		if err != nil && !apierrors.IsNotFound(err) {
+			g.Logger.Error(err, "problem with finding secret", "namespace", instance.Namespace)
+		}
+		if partialSecret != nil {
+			newSigner.KeyRef = &v1alpha1.SecretKeySelector{
+				Key: "private",
+				LocalObjectReference: v1alpha1.LocalObjectReference{
+					Name: partialSecret.Name,
+				},
+			}
+		} else {
+			labels := constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
+			labels[RekorSignerLabel] = "private"
+			privateKey, publicKey, err := g.createSignerKey()
+			if err != nil {
+				if !meta.IsStatusConditionFalse(instance.Status.Conditions, actions.SignerCondition) {
+					meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+						Type:    actions.SignerCondition,
+						Status:  metav1.ConditionFalse,
+						Reason:  constants.Failure,
+						Message: err.Error(),
+					})
+					return g.StatusUpdate(ctx, instance)
+				}
+				// swallow error and retry
+				return g.Requeue()
+			}
+
+			data := map[string][]byte{
+				"private": privateKey,
+				"public":  publicKey,
+			}
+			secret := k8sutils.CreateImmutableSecret(fmt.Sprintf(secretNameFormat, instance.Name), instance.Namespace,
+				data, labels)
+			if _, err = g.Ensure(ctx, secret); err != nil {
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 					Type:    actions.SignerCondition,
 					Status:  metav1.ConditionFalse,
 					Reason:  constants.Failure,
 					Message: err.Error(),
 				})
-				return g.StatusUpdate(ctx, instance)
+				return g.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create secret: %w", err), instance)
 			}
-			// swallow error and retry
-			return g.Requeue()
-		}
-
-		labels := constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
-
-		data := map[string][]byte{
-			"private": privateKey,
-			"public":  publicKey,
-		}
-		secret := k8sutils.CreateImmutableSecret(fmt.Sprintf(secretNameFormat, instance.Name), instance.Namespace,
-			data, labels)
-		if _, err = g.Ensure(ctx, secret); err != nil {
-			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:    actions.SignerCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
-				Message: err.Error(),
-			})
-			return g.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create secret: %w", err), instance)
-		}
-		g.Recorder.Eventf(instance, v1.EventTypeNormal, "SignerKeyCreated", "Signer private key created: %s", secret.Name)
-		newSigner.KeyRef = &v1alpha1.SecretKeySelector{
-			Key: "private",
-			LocalObjectReference: v1alpha1.LocalObjectReference{
-				Name: secret.Name,
-			},
+			g.Recorder.Eventf(instance, v1.EventTypeNormal, "SignerKeyCreated", "Signer private key created: %s", secret.Name)
+			newSigner.KeyRef = &v1alpha1.SecretKeySelector{
+				Key: "private",
+				LocalObjectReference: v1alpha1.LocalObjectReference{
+					Name: secret.Name,
+				},
+			}
 		}
 	}
 	instance.Status.Signer = newSigner

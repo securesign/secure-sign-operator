@@ -96,3 +96,22 @@ func FindSecret(ctx context.Context, c client.Client, namespace string, label st
 		Resource: gvk.Kind,
 	}, "")
 }
+
+func ListSecrets(ctx context.Context, c client.Client, namespace string, labelSelector string) (*metav1.PartialObjectMetadataList, error) {
+	gvk := schema.GroupVersionKind{
+		Group:   "",
+		Version: "v1",
+		Kind:    "Secret",
+	}
+
+	list := &metav1.PartialObjectMetadataList{}
+	list.SetGroupVersionKind(gvk)
+
+	err := FindByLabelSelector(ctx, c, list, namespace, labelSelector)
+
+	if err != nil {
+		return nil, err
+	}
+	return list, nil
+
+}

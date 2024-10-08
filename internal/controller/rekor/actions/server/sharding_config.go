@@ -13,6 +13,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	labels2 "k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/yaml"
@@ -20,6 +21,7 @@ import (
 
 const (
 	cmName             = "rekor-sharding-config-"
+	rekorConfigLabel   = constants.LabelNamespace + "/rekor-sharding-conf"
 	shardingConfigName = "sharding-config.yaml"
 )
 
@@ -49,12 +51,14 @@ func (i shardingConfig) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rek
 
 func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
 	labels := constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
+	labels[rekorConfigLabel] = shardingConfigName
 
 	content, err := createShardingConfigData(instance.Spec.Sharding)
 	if err != nil {
 		i.Failed(fmt.Errorf("ShardingConfig: %w", err))
 	}
 
+	// verify existing config
 	if instance.Status.ServerConfigRef != nil {
 		cfg, err := kubernetes.GetConfigMap(ctx, i.Client, instance.Namespace, instance.Status.ServerConfigRef.Name)
 		if client.IgnoreNotFound(err) != nil {
@@ -63,10 +67,44 @@ func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Reko
 		if cfg != nil {
 			if reflect.DeepEqual(cfg.Data, content) {
 				return i.Continue()
+			} else {
+				i.Logger.Info("Remove invalid ConfigMap with rekor-server configuration", "Name", cfg.Name)
+				_ = i.Client.Delete(ctx, cfg)
 			}
 		}
 	}
+	// invalidate
+	instance.Status.ServerConfigRef = nil
 
+	// try to discover existing config
+	partialConfigs, err := kubernetes.ListConfigMaps(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(labels).String())
+	if err != nil {
+		i.Logger.Error(err, "problem with finding configmap", "namespace", instance.Namespace)
+	}
+	for _, partialSecret := range partialConfigs.Items {
+		cm, err := kubernetes.GetConfigMap(ctx, i.Client, partialSecret.Namespace, partialSecret.Name)
+		if err != nil {
+			return i.Failed(fmt.Errorf("can't load configMap data %w", err))
+		}
+		if reflect.DeepEqual(cm.Data, content) && instance.Status.ServerConfigRef == nil {
+			i.Recorder.Eventf(instance, v1.EventTypeNormal, "ShardingConfigDiscovered", "Existing ConfigMap with sharding configuration discovered: %s", cm.Name)
+			instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: cm.Name}
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:    actions.ServerCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Creating,
+				Message: "Sharding config discovered",
+			})
+		} else {
+			i.Logger.Info("Remove invalid ConfigMap with rekor-server configuration", "Name", cm.Name)
+			_ = i.Client.Delete(ctx, cm)
+		}
+	}
+	if instance.Status.ServerConfigRef != nil {
+		return i.StatusUpdate(ctx, instance)
+	}
+
+	// create new config
 	newConfig := kubernetes.CreateImmutableConfigmap(cmName, instance.Namespace, labels, content)
 	if err = controllerutil.SetControllerReference(instance, newConfig, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("ShardingConfig: could not set controller reference for ConfigMap: %w", err))
@@ -82,7 +120,7 @@ func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Reko
 		})
 		return i.FailedWithStatusUpdate(ctx, err, instance)
 	}
-
+	i.Recorder.Eventf(instance, v1.EventTypeNormal, "ShardingConfigCreated", "ConfigMap with sharding configuration created: %s", newConfig.Name)
 	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -91,7 +129,6 @@ func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Reko
 		Reason:  constants.Creating,
 		Message: "Sharding config created",
 	})
-	i.Recorder.Eventf(instance, v1.EventTypeNormal, "ShardingConfigCreated", "ConfigMap with sharding configuration created: %s", newConfig.Name)
 	return i.StatusUpdate(ctx, instance)
 }
 
