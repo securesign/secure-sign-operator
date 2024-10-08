@@ -22,6 +22,7 @@ import (
 )
 
 // TimestampAuthoritySpec defines the desired state of TimestampAuthority
+// +kubebuilder:validation:XValidation:rule=!(has(self.signer.certificateChain.certificateChainRef) && (has(self.signer.certificateChain.intermediateCA) || has(self.signer.certificateChain.leafCA) || has(self.signer.certificateChain.rootCA))),message="when certificateChainRef is set, intermediateCA, leafCA, and rootCA must not be set"
 type TimestampAuthoritySpec struct {
 	//Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
@@ -68,13 +69,13 @@ type CertificateChain struct {
 	CertificateChainRef *SecretKeySelector `json:"certificateChainRef,omitempty"`
 	//Root Certificate Authority Config
 	//+optional
-	RootCA TsaCertificateAuthority `json:"rootCA,omitempty"`
+	RootCA *TsaCertificateAuthority `json:"rootCA,omitempty"`
 	//Intermediate Certificate Authority Config
 	//+optional
-	IntermediateCA []TsaCertificateAuthority `json:"intermediateCA,omitempty"`
+	IntermediateCA []*TsaCertificateAuthority `json:"intermediateCA,omitempty"`
 	//Leaf Certificate Authority Config
 	//+optional
-	LeafCA TsaCertificateAuthority `json:"leafCA,omitempty"`
+	LeafCA *TsaCertificateAuthority `json:"leafCA,omitempty"`
 }
 
 // TSA Certificate Authority configuration

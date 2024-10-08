@@ -371,19 +371,19 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 			},
 			Signer: tasv1alpha.TimestampAuthoritySigner{
 				CertificateChain: tasv1alpha.CertificateChain{
-					RootCA: tasv1alpha.TsaCertificateAuthority{
+					RootCA: &tasv1alpha.TsaCertificateAuthority{
 						OrganizationName:  "MyOrg",
 						OrganizationEmail: "my@email.org",
 						CommonName:        "tsa.hostname",
 					},
-					IntermediateCA: []tasv1alpha.TsaCertificateAuthority{
+					IntermediateCA: []*tasv1alpha.TsaCertificateAuthority{
 						{
 							OrganizationName:  "MyOrg",
 							OrganizationEmail: "my@email.org",
 							CommonName:        "tsa.hostname",
 						},
 					},
-					LeafCA: tasv1alpha.TsaCertificateAuthority{
+					LeafCA: &tasv1alpha.TsaCertificateAuthority{
 						OrganizationName:  "MyOrg",
 						OrganizationEmail: "my@email.org",
 						CommonName:        "tsa.hostname",

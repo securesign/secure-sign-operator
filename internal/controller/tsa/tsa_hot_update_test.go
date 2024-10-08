@@ -99,15 +99,15 @@ var _ = Describe("Timestamp Authority hot update", func() {
 						Monitoring: rhtasv1alpha1.MonitoringConfig{Enabled: false},
 						Signer: rhtasv1alpha1.TimestampAuthoritySigner{
 							CertificateChain: rhtasv1alpha1.CertificateChain{
-								RootCA: rhtasv1alpha1.TsaCertificateAuthority{
+								RootCA: &rhtasv1alpha1.TsaCertificateAuthority{
 									OrganizationName: "Red Hat",
 								},
-								IntermediateCA: []rhtasv1alpha1.TsaCertificateAuthority{
+								IntermediateCA: []*rhtasv1alpha1.TsaCertificateAuthority{
 									{
 										OrganizationName: "Red Hat",
 									},
 								},
-								LeafCA: rhtasv1alpha1.TsaCertificateAuthority{
+								LeafCA: &rhtasv1alpha1.TsaCertificateAuthority{
 									OrganizationName: "Red Hat",
 								},
 							},
@@ -230,9 +230,14 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: found.Status.NTPMonitoring.Config.NtpConfigRef.Name, Namespace: Namespace}, &corev1.ConfigMap{})).Should(Succeed())
 
 			By("Update NTP Config")
-			Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-			found.Spec.NTPMonitoring.Config.NumServers = 2
-			Expect(k8sClient.Update(ctx, found)).To(Succeed())
+			Eventually(func(g Gomega) error {
+				err := k8sClient.Get(ctx, typeNamespaceName, found)
+				if err != nil {
+					return err
+				}
+				found.Spec.NTPMonitoring.Config.NumServers = 2
+				return k8sClient.Update(ctx, found)
+			}).WithTimeout(1 * time.Second).Should(Succeed())
 
 			By("NTP monitoring should be resolved")
 			Eventually(func(g Gomega) string {

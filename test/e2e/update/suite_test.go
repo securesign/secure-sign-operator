@@ -89,19 +89,19 @@ func securesignResource(namespace *v1.Namespace) *rhtasv1alpha1.Securesign {
 				},
 				Signer: rhtasv1alpha1.TimestampAuthoritySigner{
 					CertificateChain: rhtasv1alpha1.CertificateChain{
-						RootCA: rhtasv1alpha1.TsaCertificateAuthority{
+						RootCA: &rhtasv1alpha1.TsaCertificateAuthority{
 							OrganizationName:  "MyOrg",
 							OrganizationEmail: "my@email.org",
 							CommonName:        "tsa.hostname",
 						},
-						IntermediateCA: []rhtasv1alpha1.TsaCertificateAuthority{
+						IntermediateCA: []*rhtasv1alpha1.TsaCertificateAuthority{
 							{
 								OrganizationName:  "MyOrg",
 								OrganizationEmail: "my@email.org",
 								CommonName:        "tsa.hostname",
 							},
 						},
-						LeafCA: rhtasv1alpha1.TsaCertificateAuthority{
+						LeafCA: &rhtasv1alpha1.TsaCertificateAuthority{
 							OrganizationName:  "MyOrg",
 							OrganizationEmail: "my@email.org",
 							CommonName:        "tsa.hostname",

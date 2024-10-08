@@ -90,7 +90,7 @@ func CreatePrivateKey(key *ecdsa.PrivateKey, password []byte) ([]byte, error) {
 func CreateTSACertChain(ctx context.Context, instance *rhtasv1alpha1.TimestampAuthority, deploymentName string, client client.Client, config *TsaCertChainConfig) ([]byte, error) {
 	var err error
 
-	rootIssuer, err := CreateCAIssuer(instance, &instance.Spec.Signer.CertificateChain.RootCA, ctx, deploymentName, client)
+	rootIssuer, err := CreateCAIssuer(instance, instance.Spec.Signer.CertificateChain.RootCA, ctx, deploymentName, client)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func CreateTSACertChain(ctx context.Context, instance *rhtasv1alpha1.TimestampAu
 
 	var intermediateCerts []byte
 	for index, intermediateKey := range instance.Spec.Signer.CertificateChain.IntermediateCA {
-		intermediateIssuer, err := CreateCAIssuer(instance, &intermediateKey, ctx, deploymentName, client)
+		intermediateIssuer, err := CreateCAIssuer(instance, intermediateKey, ctx, deploymentName, client)
 		if err != nil {
 			return nil, err
 		}
@@ -157,7 +157,7 @@ func CreateTSACertChain(ctx context.Context, instance *rhtasv1alpha1.TimestampAu
 		intermediateCerts = append(intermediateCerts, intermediatePEM...)
 	}
 
-	leafIssuer, err := CreateCAIssuer(instance, &instance.Spec.Signer.CertificateChain.LeafCA, ctx, deploymentName, client)
+	leafIssuer, err := CreateCAIssuer(instance, instance.Spec.Signer.CertificateChain.LeafCA, ctx, deploymentName, client)
 	if err != nil {
 		return nil, err
 	}

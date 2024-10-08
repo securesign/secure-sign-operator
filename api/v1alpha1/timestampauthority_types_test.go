@@ -27,21 +27,21 @@ var _ = Describe("TSA", func() {
 			Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
 			Expect(fetched).To(Equal(created))
 
-			fetched.Spec.Signer.CertificateChain.RootCA = TsaCertificateAuthority{
+			fetched.Spec.Signer.CertificateChain.RootCA = &TsaCertificateAuthority{
 				CommonName:        "root_test1.com",
 				OrganizationName:  "root_test1",
 				OrganizationEmail: "root_test1@test.com",
 			}
 			Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
 
-			fetched.Spec.Signer.CertificateChain.IntermediateCA[0] = TsaCertificateAuthority{
+			fetched.Spec.Signer.CertificateChain.IntermediateCA[0] = &TsaCertificateAuthority{
 				CommonName:        "intermediate_test1.com",
 				OrganizationName:  "intermediate_test1",
 				OrganizationEmail: "intermediate_test1@test.com",
 			}
 			Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
 
-			fetched.Spec.Signer.CertificateChain.LeafCA = TsaCertificateAuthority{
+			fetched.Spec.Signer.CertificateChain.LeafCA = &TsaCertificateAuthority{
 				CommonName:        "leaf_test1.com",
 				OrganizationName:  "leaf_test1",
 				OrganizationEmail: "leaf_test1@test.com",
@@ -244,8 +244,42 @@ var _ = Describe("TSA", func() {
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
 					To(MatchError(ContainSubstring("only one signer should be configured at any time")))
 			})
-		})
 
+			It("intermediateCA, leafCA and rootCA cant be set if certificateChainRef is", func() {
+				invalidObject := generateTSAObject("invalidObj")
+				invalidObject.Spec.Signer = TimestampAuthoritySigner{
+					CertificateChain: CertificateChain{
+						CertificateChainRef: &SecretKeySelector{
+							Key:                  "cert_chain",
+							LocalObjectReference: LocalObjectReference{Name: "cert_chain"},
+						},
+						RootCA: &TsaCertificateAuthority{
+							CommonName:        "root_test.com",
+							OrganizationName:  "root_test",
+							OrganizationEmail: "root_test@test.com",
+						},
+						IntermediateCA: []*TsaCertificateAuthority{
+							{
+								CommonName:        "intermediate_test.com",
+								OrganizationName:  "intermediate_test",
+								OrganizationEmail: "intermediate_test@test.com",
+							},
+						},
+						LeafCA: &TsaCertificateAuthority{
+							CommonName:        "leaf_test.com",
+							OrganizationName:  "leaf_test",
+							OrganizationEmail: "leaf_test@test.com",
+						},
+					},
+					Kms: &KMS{
+						KeyResource: "Key_resource",
+					},
+				}
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("when certificateChainRef is set, intermediateCA, leafCA, and rootCA must not be set")))
+			})
+		})
 	})
 })
 
@@ -258,19 +292,19 @@ func generateTSAObject(name string) *TimestampAuthority {
 		Spec: TimestampAuthoritySpec{
 			Signer: TimestampAuthoritySigner{
 				CertificateChain: CertificateChain{
-					RootCA: TsaCertificateAuthority{
+					RootCA: &TsaCertificateAuthority{
 						CommonName:        "root_test.com",
 						OrganizationName:  "root_test",
 						OrganizationEmail: "root_test@test.com",
 					},
-					IntermediateCA: []TsaCertificateAuthority{
+					IntermediateCA: []*TsaCertificateAuthority{
 						{
 							CommonName:        "intermediate_test.com",
 							OrganizationName:  "intermediate_test",
 							OrganizationEmail: "intermediate_test@test.com",
 						},
 					},
-					LeafCA: TsaCertificateAuthority{
+					LeafCA: &TsaCertificateAuthority{
 						CommonName:        "leaf_test.com",
 						OrganizationName:  "leaf_test",
 						OrganizationEmail: "leaf_test@test.com",
