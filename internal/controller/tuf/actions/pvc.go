@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -35,7 +35,10 @@ func (i createPvcAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.
 }
 
 func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
-	var err error
+	var (
+		updated bool
+		err     error
+	)
 
 	if instance.Spec.Pvc.Name != "" {
 		instance.Status.PvcName = instance.Spec.Pvc.Name
@@ -65,7 +68,7 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf
 			return i.Failed(fmt.Errorf("could not set controller reference for PVC: %w", err))
 		}
 	}
-	if _, err = i.Ensure(ctx, pvc); err != nil {
+	if updated, err = i.Ensure(ctx, pvc); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    constants.Ready,
 			Status:  metav1.ConditionFalse,
@@ -74,7 +77,9 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create DB PVC: %w", err), instance)
 	}
-	i.Recorder.Event(instance, v1.EventTypeNormal, "PersistentVolumeCreated", "New PersistentVolume created")
+	if updated {
+		i.Recorder.Event(instance, v1.EventTypeNormal, "PersistentVolumeCreated", "New PersistentVolume created")
+	}
 
 	instance.Status.PvcName = pvc.Name
 	return i.StatusUpdate(ctx, instance)
