@@ -52,13 +52,6 @@ func Test_SignerCanHandle(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "status is not nil",
-			testCase: func(instance *rhtasv1alpha1.TimestampAuthority) {
-				instance.Status.Signer = &instance.Spec.Signer
-			},
-			expected: false,
-		},
-		{
 			name: "spec and status differ",
 			testCase: func(instance *rhtasv1alpha1.TimestampAuthority) {
 				instance.Status.Signer = &rhtasv1alpha1.TimestampAuthoritySigner{
