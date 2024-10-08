@@ -22,25 +22,14 @@ import (
 const (
 	inContainerNamespaceFile = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 	kubeConfigEnvVar         = "KUBECONFIG"
-
-	ComponentLabel = "app.kubernetes.io/component"
-	NameLabel      = "app.kubernetes.io/name"
 )
-
-func FilterCommonLabels(labels map[string]string) map[string]string {
-	out := map[string]string{}
-	for key, value := range labels {
-		if key == "app.kubernetes.io/part-of" || key == "app.kubernetes.io/instance" {
-			out[key] = value
-		}
-	}
-	return out
-}
 
 func FilterOutCommonLabels(labels map[string]string) map[string]string {
 	out := map[string]string{}
 	for key, value := range labels {
-		if key != "app.kubernetes.io/part-of" && key != "app.kubernetes.io/instance" && key != "" && key != "app.kubernetes.io/component" && key != "app.kubernetes.io/managed-by" && key != "app.kubernetes.io/name" {
+		switch key {
+		case constants.LabelAppPartOf, constants.LabelAppInstance, constants.LabelAppComponent, constants.LabelAppManagedBy, constants.LabelAppName:
+		default:
 			out[key] = value
 		}
 	}

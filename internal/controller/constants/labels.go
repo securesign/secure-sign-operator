@@ -14,28 +14,29 @@ import (
 
 const (
 	LabelNamespace = "rhtas.redhat.com"
+	LabelResource  = LabelNamespace + "/resource"
+
+	LabelAppName      = "app.kubernetes.io/name"
+	LabelAppInstance  = "app.kubernetes.io/instance"
+	LabelAppComponent = "app.kubernetes.io/component"
+	LabelAppPartOf    = "app.kubernetes.io/part-of"
+	LabelAppManagedBy = "app.kubernetes.io/managed-by"
+	LabelAppNamespace = "app.kubernetes.io/instance-namespace"
 )
 
 func LabelsFor(component, name, instance string) map[string]string {
 	labels := LabelsForComponent(component, instance)
-	labels["app.kubernetes.io/name"] = name
+	labels[LabelAppName] = name
 
 	return labels
 }
 
 func LabelsForComponent(component, instance string) map[string]string {
 	return map[string]string{
-		"app.kubernetes.io/instance":   instance,
-		"app.kubernetes.io/component":  component,
-		"app.kubernetes.io/part-of":    "trusted-artifact-signer",
-		"app.kubernetes.io/managed-by": "controller-manager",
-	}
-}
-
-func LabelsRHTAS() map[string]string {
-	return map[string]string{
-		"app.kubernetes.io/part-of":    "trusted-artifact-signer",
-		"app.kubernetes.io/managed-by": "controller-manager",
+		LabelAppInstance:  instance,
+		LabelAppComponent: component,
+		LabelAppPartOf:    AppName,
+		LabelAppManagedBy: "controller-manager",
 	}
 }
 

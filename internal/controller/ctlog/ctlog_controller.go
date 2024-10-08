@@ -19,6 +19,8 @@ package ctlog
 import (
 	"context"
 
+	"github.com/securesign/operator/internal/controller/constants"
+
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/action/transitions"
@@ -156,7 +158,7 @@ func (r *CTlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		WatchesMetadata(partialSecret, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
-			val, ok := object.GetLabels()["app.kubernetes.io/instance"]
+			val, ok := object.GetLabels()[constants.LabelAppInstance]
 			if ok {
 				return []reconcile.Request{
 					{

@@ -41,8 +41,8 @@ func (c *Component) Start(ctx context.Context) error {
 		err    error
 		obj    []client.Object
 		labels = map[string]string{
-			"app.kubernetes.io/part-of": constants.AppName,
-			kubernetes.ComponentLabel:   cliServerComponent,
+			constants.LabelAppPartOf:    constants.AppName,
+			constants.LabelAppComponent: cliServerComponent,
 		}
 	)
 
