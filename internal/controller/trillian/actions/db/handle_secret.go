@@ -17,6 +17,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
+	trillianUtils "github.com/securesign/operator/internal/controller/trillian/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -28,13 +29,15 @@ import (
 const (
 	port                   = 3306
 	host                   = "trillian-mysql"
+	user                   = "mysql"
+	databaseName           = "trillian"
 	dbConnectionResource   = "trillian-db-connection"
 	dbConnectionSecretName = "trillian-db-connection-"
 
-	annotationDatabase = constants.LabelNamespace + "/mysql-database"
-	annotationUser     = constants.LabelNamespace + "/mysql-user"
-	annotationPort     = constants.LabelNamespace + "/mysql-port"
-	annotationHost     = constants.LabelNamespace + "/mysql-host"
+	annotationDatabase = constants.LabelNamespace + "/" + trillianUtils.SecretDatabaseName
+	annotationUser     = constants.LabelNamespace + "/" + trillianUtils.SecretUser
+	annotationPort     = constants.LabelNamespace + "/" + trillianUtils.SecretPort
+	annotationHost     = constants.LabelNamespace + "/" + trillianUtils.SecretHost
 )
 
 var ErrMissingDBConfiguration = errors.New("expecting external DB configuration")
@@ -182,20 +185,20 @@ func (i handleSecretAction) createDbSecret(namespace string, labels map[string]s
 		},
 		Type: "Opaque",
 		Data: map[string][]byte{
-			"mysql-root-password": rootPass,
-			"mysql-password":      mysqlPass,
-			"mysql-database":      []byte("trillian"),
-			"mysql-user":          []byte("mysql"),
-			"mysql-port":          []byte(strconv.Itoa(port)),
-			"mysql-host":          []byte(host),
+			trillianUtils.SecretRootPassword: rootPass,
+			trillianUtils.SecretPassword:     mysqlPass,
+			trillianUtils.SecretDatabaseName: []byte(databaseName),
+			trillianUtils.SecretUser:         []byte(user),
+			trillianUtils.SecretPort:         []byte(strconv.Itoa(port)),
+			trillianUtils.SecretHost:         []byte(host),
 		},
 	}
 }
 
 func (i handleSecretAction) secretAnnotations() map[string]string {
 	return map[string]string{
-		annotationDatabase: "trillian",
-		annotationUser:     "mysql",
+		annotationDatabase: databaseName,
+		annotationUser:     user,
 		annotationPort:     strconv.Itoa(port),
 		annotationHost:     host,
 	}
