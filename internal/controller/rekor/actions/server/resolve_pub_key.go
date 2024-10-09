@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"k8s.io/utils/ptr"
-
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -19,7 +17,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -46,8 +44,9 @@ func (i resolvePubKeyAction) CanHandle(_ context.Context, instance *rhtasv1alpha
 
 func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
 	var (
-		err       error
-		publicKey []byte
+		err            error
+		publicKey      []byte
+		partialSecrets *metav1.PartialObjectMetadataList
 	)
 
 	// Resolve public key from Rekors API
@@ -63,47 +62,28 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		return i.FailedWithStatusUpdate(ctx, errf, instance)
 	}
 
-	scrl := &metav1.PartialObjectMetadataList{}
-	scrl.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "",
-		Version: "v1",
-		Kind:    "Secret",
-	})
-
-	if err = k8sutils.FindByLabelSelector(ctx, i.Client, scrl, instance.Namespace, RekorPubLabel); err != nil {
+	if partialSecrets, err = k8sutils.ListSecrets(ctx, i.Client, instance.Namespace, RekorPubLabel); err != nil {
 		return i.Failed(fmt.Errorf("ResolvePubKey: find secrets failed: %w", err))
 	}
 
-	// Search if exists a secret with rhtas.redhat.com/rekor.pub label
-	for _, secret := range scrl.Items {
-		sks := rhtasv1alpha1.SecretKeySelector{
-			LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: secret.Name},
-			Key:                  secret.Labels[RekorPubLabel],
-		}
-
-		// Compare key from API and from discovered secret
-		var sksPublicKey []byte
-		sksPublicKey, err = k8sutils.GetSecretData(i.Client, instance.Namespace, &sks)
+	for _, partialSecret := range partialSecrets.Items {
+		sks := &rhtasv1alpha1.SecretKeySelector{Key: partialSecret.Labels[RekorPubLabel], LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: partialSecret.Name}}
+		existingPublicKey, err := k8sutils.GetSecretData(i.Client, instance.Namespace, sks)
 		if err != nil {
 			return i.Failed(fmt.Errorf("ResolvePubKey: failed to read `%s` secret's data: %w", sks.Name, err))
 		}
-
-		if bytes.Equal(sksPublicKey, publicKey) {
-			instance.Status.PublicKeyRef = &sks
+		if bytes.Equal(existingPublicKey, publicKey) && instance.Status.PublicKeyRef == nil {
+			instance.Status.PublicKeyRef = sks
 			i.Recorder.Eventf(instance, v1.EventTypeNormal, "PublicKeySecretDiscovered", "Existing public key discovered: %s", sks.Name)
-			continue
+		} else {
+			if err = constants.RemoveLabel(ctx, &partialSecret, i.Client, RekorPubLabel); err != nil {
+				return i.Failed(fmt.Errorf("ResolvePubKey: %w", err))
+			}
+			message := fmt.Sprintf("Removed '%s' label from %s secret", RekorPubLabel, partialSecret.Name)
+			i.Recorder.Event(instance, v1.EventTypeNormal, "PublicKeySecretLabelRemoved", message)
+			i.Logger.Info(message)
 		}
-
-		// Remove label from secret
-		if err = constants.RemoveLabel(ctx, &secret, i.Client, RekorPubLabel); err != nil {
-			return i.Failed(fmt.Errorf("ResolvePubKey: %w", err))
-		}
-
-		message := fmt.Sprintf("Removed '%s' label from %s secret", RekorPubLabel, secret.Name)
-		i.Recorder.Event(instance, v1.EventTypeNormal, "PublicKeySecretLabelRemoved", message)
-		i.Logger.Info(message)
 	}
-
 	if instance.Status.PublicKeyRef != nil {
 		return i.StatusUpdate(ctx, instance)
 	}

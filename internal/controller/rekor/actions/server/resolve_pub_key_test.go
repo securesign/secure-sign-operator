@@ -141,6 +141,32 @@ func TestResolvePubKey_Handle(t *testing.T) {
 			},
 		},
 		{
+			name: "remove label from old secret and use existing secret",
+			env: env{
+				objects: []client.Object{
+					kubernetes.CreateSecret("old-secret-1", "default", map[string][]byte{
+						"public": testPublicKey2,
+					}, map[string]string{
+						RekorPubLabel: "public",
+					}),
+					kubernetes.CreateSecret("secret", "default", map[string][]byte{
+						"public": testPublicKey,
+					}, map[string]string{
+						RekorPubLabel: "public",
+					}),
+					kubernetes.CreateSecret("old-secret-2", "default", map[string][]byte{
+						"public": testPublicKey2,
+					}, map[string]string{
+						RekorPubLabel: "public",
+					}),
+				},
+			},
+			want: want{
+				result:    testAction.StatusUpdate(),
+				publicKey: testPublicKey,
+			},
+		},
+		{
 			name: "unable to resolve public key",
 			want: want{
 				result:    testAction.FailedWithStatusUpdate(fmt.Errorf("ResolvePubKey: unable to resolve public key: unexpected http response ")),

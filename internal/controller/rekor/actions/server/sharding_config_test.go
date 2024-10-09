@@ -89,6 +89,9 @@ func TestShardingConfig_CanHandle(t *testing.T) {
 func TestShardingConfig_Handle(t *testing.T) {
 	rekorNN := types.NamespacedName{Name: "rekor", Namespace: "default"}
 
+	shardingConfigLabels := constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, "rekor")
+	shardingConfigLabels[constants.LabelResource] = shardingConfigLabel
+
 	type env struct {
 		spec    rhtasv1alpha1.RekorSpec
 		objects []client.Object
@@ -349,6 +352,60 @@ func TestShardingConfig_Handle(t *testing.T) {
 					cm := v1.ConfigMap{}
 					g.Expect(c.Get(context.TODO(), types.NamespacedName{Name: r.Status.ServerConfigRef.Name, Namespace: rekorNN.Namespace}, &cm)).To(Succeed())
 					g.Expect(cm.Data).Should(HaveKeyWithValue(shardingConfigName, ""))
+				},
+			},
+		},
+		{
+			name: "use existing config",
+			env: env{
+				spec:   rhtasv1alpha1.RekorSpec{},
+				status: rhtasv1alpha1.RekorStatus{},
+				objects: []client.Object{
+					kubernetes.CreateConfigmap(
+						"default",
+						cmName+"old",
+						shardingConfigLabels,
+						map[string]string{shardingConfigName: ""}),
+				},
+			},
+			want: want{
+				result: testAction.StatusUpdate(),
+				verify: func(g Gomega, c client.WithWatch) {
+					r := rhtasv1alpha1.Rekor{}
+					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
+					g.Expect(r.Status.ServerConfigRef).ShouldNot(BeNil())
+					g.Expect(r.Status.ServerConfigRef.Name).Should(Equal(cmName + "old"))
+				},
+			},
+		},
+		{
+			name: "remove invalid config and keep other CM",
+			env: env{
+				spec:   rhtasv1alpha1.RekorSpec{},
+				status: rhtasv1alpha1.RekorStatus{},
+				objects: []client.Object{
+					kubernetes.CreateConfigmap(
+						"default",
+						"keep",
+						constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, "rekor"),
+						map[string]string{}),
+					kubernetes.CreateConfigmap(
+						"default",
+						cmName+"old",
+						shardingConfigLabels,
+						map[string]string{shardingConfigName: "fake"}),
+				},
+			},
+			want: want{
+				result: testAction.StatusUpdate(),
+				verify: func(g Gomega, c client.WithWatch) {
+					r := rhtasv1alpha1.Rekor{}
+					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
+					g.Expect(r.Status.ServerConfigRef).ShouldNot(BeNil())
+					g.Expect(r.Status.ServerConfigRef.Name).Should(Not(Equal(cmName + "old")))
+
+					g.Expect(c.Get(context.TODO(), types.NamespacedName{Name: cmName + "old", Namespace: rekorNN.Namespace}, &v1.ConfigMap{})).To(HaveOccurred())
+					g.Expect(c.Get(context.TODO(), types.NamespacedName{Name: "keep", Namespace: rekorNN.Namespace}, &v1.ConfigMap{})).To(Succeed())
 				},
 			},
 		},

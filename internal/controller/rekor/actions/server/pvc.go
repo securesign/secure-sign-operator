@@ -38,7 +38,10 @@ func (i createPvcAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Re
 }
 
 func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
-	var err error
+	var (
+		update bool
+		err    error
+	)
 	if instance.Spec.Pvc.Name != "" {
 		instance.Status.PvcName = instance.Spec.Pvc.Name
 		return i.StatusUpdate(ctx, instance)
@@ -58,7 +61,7 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rek
 		}
 	}
 
-	if _, err = i.Ensure(ctx, pvc); err != nil {
+	if update, err = i.Ensure(ctx, pvc); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ServerCondition,
 			Status:  metav1.ConditionFalse,
@@ -73,7 +76,11 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rek
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create DB PVC: %w", err), instance)
 	}
-	i.Recorder.Event(instance, v1.EventTypeNormal, "PersistentVolumeCreated", "New PersistentVolume created")
+	if update {
+		i.Recorder.Event(instance, v1.EventTypeNormal, "PersistentVolumeCreated", "New PersistentVolume created")
+	}
+
 	instance.Status.PvcName = pvc.Name
 	return i.StatusUpdate(ctx, instance)
+
 }
