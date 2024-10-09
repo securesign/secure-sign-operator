@@ -2,6 +2,11 @@ package server
 
 import (
 	"context"
+	"fmt"
+
+	core "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -452,6 +457,137 @@ func TestGenerateSigner_Handle(t *testing.T) {
 			}
 			if tt.want.verify != nil {
 				tt.want.verify(g, instance)
+			}
+		})
+	}
+}
+
+func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
+	g := NewWithT(t)
+	rekorNN := types.NamespacedName{Name: "rekor", Namespace: "default"}
+	type env struct {
+		status  rhtasv1alpha1.RekorSigner
+		objects []client.Object
+	}
+	type want struct {
+		result *action.Result
+		verify func(Gomega, client.WithWatch, <-chan watch.Event)
+	}
+	tests := []struct {
+		name string
+		env  env
+		want want
+	}{
+		{
+			name: "link unassigned signer secret by rekor.signer.pem label",
+			env: env{
+				status: rhtasv1alpha1.RekorSigner{},
+				objects: []client.Object{
+					&core.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "unassigned-secret",
+							Namespace: "default",
+							Labels: map[string]string{
+								RekorSignerLabel: "private",
+							},
+						},
+					},
+				},
+			},
+			want: want{
+				result: testAction.StatusUpdate(),
+				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
+					rekor := &rhtasv1alpha1.Rekor{}
+					g.Expect(cli.Get(context.TODO(), rekorNN, rekor)).Should(Succeed())
+					g.Expect(rekor.Status.Signer.KeyRef).ShouldNot(BeNil())
+					g.Expect(rekor.Status.Signer.KeyRef.Name).Should(Equal("unassigned-secret"))
+
+					g.Expect(events).To(BeEmpty())
+					for event := range events {
+						g.Expect(event.Type).ShouldNot(Equal(watch.Added))
+					}
+				},
+			},
+		},
+		{
+			name: "create new signer secret",
+			env: env{
+				status: rhtasv1alpha1.RekorSigner{},
+				objects: []client.Object{
+					&core.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "unassigned-secret",
+							Namespace: "default",
+							Labels:    map[string]string{},
+						},
+					},
+				},
+			},
+			want: want{
+				result: testAction.StatusUpdate(),
+				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
+					rekor := &rhtasv1alpha1.Rekor{}
+					g.Expect(cli.Get(context.TODO(), rekorNN, rekor)).Should(Succeed())
+					g.Expect(rekor.Status.Signer.KeyRef).ShouldNot(BeNil())
+					g.Expect(rekor.Status.Signer.KeyRef.Name).ShouldNot(Equal("unassigned-secret"))
+
+					g.Expect(events).To(HaveLen(1))
+					for event := range events {
+						g.Expect(event.Type).Should(Equal(watch.Added))
+						g.Expect(event.Object.(*core.Secret).GenerateName).Should(Equal(fmt.Sprintf(secretNameFormat, "rekor")))
+					}
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.TODO()
+			instance := &rhtasv1alpha1.Rekor{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "rekor",
+					Namespace: "default",
+				},
+				Status: rhtasv1alpha1.RekorStatus{
+					Signer: tt.env.status,
+				},
+			}
+
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:   constants.Ready,
+				Reason: constants.Pending,
+			})
+
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:   actions.SignerCondition,
+				Status: metav1.ConditionFalse,
+				Reason: constants.Pending,
+			})
+
+			c := testAction.FakeClientBuilder().
+				WithObjects(instance).
+				WithStatusSubresource(instance).
+				WithObjects(tt.env.objects...).
+				Build()
+
+			watchSecrets, err := c.Watch(ctx, &core.SecretList{}, client.InNamespace(instance.Namespace))
+			g.Expect(err).ShouldNot(HaveOccurred())
+
+			a := testAction.PrepareAction(c, NewGenerateSignerAction())
+
+			if got := a.Handle(ctx, instance); !reflect.DeepEqual(got, tt.want.result) {
+				t.Errorf("CanHandle() = %v, want %v", got, tt.want.result)
+			}
+
+			// secound execution should not modify result
+			if got := a.Handle(ctx, instance); !reflect.DeepEqual(got, tt.want.result) {
+				t.Errorf("CanHandle() = %v, want %v", got, tt.want.result)
+			}
+
+			watchSecrets.Stop()
+			if tt.want.verify != nil {
+				tt.want.verify(g, c, watchSecrets.ResultChan())
 			}
 		})
 	}
