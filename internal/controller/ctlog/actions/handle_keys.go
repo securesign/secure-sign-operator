@@ -114,7 +114,7 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 					Name: secret.Name,
 				},
 			}
-
+			instance.Status.PrivateKeyRef = newKey
 		}
 
 	} else {
@@ -159,7 +159,6 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 		data = map[string][]byte{"public": config.PublicKey}
 	}
 
-	instance.Status.PrivateKeyRef = newKey
 	secret, _ := k8sutils.FindSecret(ctx, g.Client, instance.Namespace, CTLPubLabel)
 	if instance.Spec.PrivateKeyRef == nil {
 		instance.Status.PrivateKeyRef = &v1alpha1.SecretKeySelector{
