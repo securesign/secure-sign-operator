@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"maps"
 
@@ -82,7 +83,24 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 		if err != nil {
 			return g.Failed(fmt.Errorf("can't load CA secret %w", err))
 		}
-		if g.validateExistingObject(secret, instance) {
+
+		anno, err := g.secretAnnotations(instance)
+		if err != nil {
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:    TSASignerCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			})
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:    constants.Ready,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			})
+			return g.FailedWithStatusUpdate(ctx, err, instance)
+		}
+		if equality.Semantic.DeepDerivative(anno, partialSecret.GetAnnotations()) {
 			g.alignStatusFields(secret, instance)
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:   TSASignerCondition,
@@ -156,7 +174,22 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 		return g.Requeue()
 	}
 
-	annotations := g.computeObjectAnnotations(instance)
+	anno, err := g.secretAnnotations(instance)
+	if err != nil {
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    TSASignerCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		return g.FailedWithStatusUpdate(ctx, err, instance)
+	}
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 	secretLabels := map[string]string{
 		TSACertCALabel: "certificateChain",
@@ -164,7 +197,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 	maps.Copy(secretLabels, labels)
 
 	certificateChain := k8sutils.CreateImmutableSecret(fmt.Sprintf("tsa-signer-config-%s", instance.Name), instance.Namespace, tsaCertChainConfig.ToMap(), secretLabels)
-	certificateChain.Annotations = annotations
+	certificateChain.Annotations = anno
 	if _, err := g.Ensure(ctx, certificateChain); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    TSASignerCondition,
@@ -363,4 +396,47 @@ func (g generateSigner) alignStatusFields(secret *v1.Secret, instance *v1alpha1.
 			}
 		}
 	}
+}
+
+func (g generateSigner) secretAnnotations(instance *v1alpha1.TimestampAuthority) (map[string]string, error) {
+	annotations := make(map[string]string)
+	chain := instance.Status.Signer.CertificateChain
+
+	marshalAndSetAnnotation := func(key string, value interface{}) error {
+		bytes, err := json.Marshal(value)
+		if err != nil {
+			return fmt.Errorf("failed to marshal %s: %w", key, err)
+		}
+		annotations[constants.LabelNamespace+"/"+key] = string(bytes)
+		return nil
+	}
+
+	if chain.CertificateChainRef != nil {
+		if err := marshalAndSetAnnotation("CertificateChainRef", chain.CertificateChainRef); err != nil {
+			return nil, err
+		}
+
+		if instance.Status.Signer.File != nil {
+			if err := marshalAndSetAnnotation("fileSignerRef", instance.Status.Signer.File); err != nil {
+				return nil, err
+			}
+		}
+		return annotations, nil
+	}
+
+	if err := marshalAndSetAnnotation("rootCA", chain.RootCA); err != nil {
+		return nil, err
+	}
+
+	for index, intermediateCA := range chain.IntermediateCA {
+		key := fmt.Sprintf("intermediateCA-%d", index)
+		if err := marshalAndSetAnnotation(key, intermediateCA); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := marshalAndSetAnnotation("leafCA", chain.LeafCA); err != nil {
+		return nil, err
+	}
+	return annotations, nil
 }
