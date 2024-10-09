@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,15 +60,63 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 		data map[string][]byte
 	)
 
+	newKey := instance.Spec.PrivateKeyRef.DeepCopy()
+
 	if instance.Spec.PrivateKeyRef == nil {
-		config, err := utils.CreatePrivateKey()
-		if err != nil {
-			return g.Failed(err)
+
+		partialSecret, err := k8sutils.FindSecret(ctx, g.Client, instance.Namespace, CTLPubLabel)
+		if err != nil && apierrors.IsNotFound(err) {
+			g.Logger.Error(err, "problem with findin secret", "namespace", instance.Namespace)
 		}
-		data = map[string][]byte{
-			"private": config.PrivateKey,
-			"public":  config.PublicKey,
+		if partialSecret != nil {
+			newKey = &v1alpha1.SecretKeySelector{
+				Key: "private",
+				LocalObjectReference: v1alpha1.LocalObjectReference{
+					Name: partialSecret.Name,
+				},
+			}
+		} else {
+			labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
+			labels[CTLPubLabel] = "public"
+			config, err := utils.CreatePrivateKey()
+			if err != nil {
+				return g.Failed(err)
+			}
+			data = map[string][]byte{
+				"private": config.PrivateKey,
+				"public":  config.PublicKey,
+			}
+			secret := k8sutils.CreateImmutableSecret(fmt.Sprintf(KeySecretNameFormat, instance.Name), instance.Namespace,
+				data, labels)
+
+			if err := controllerutil.SetControllerReference(instance, secret, g.Client.Scheme()); err != nil {
+				return g.Failed(fmt.Errorf("could not set controller reference for Secret: %w", err))
+			}
+
+			// ensure that only new key is exposed
+			if err := g.Client.DeleteAllOf(ctx, &v1.Secret{}, client.InNamespace(instance.Namespace), client.MatchingLabels(constants.LabelsFor(ComponentName, DeploymentName, instance.Name)), client.HasLabels{CTLPubLabel}); err != nil {
+				return g.Failed(err)
+			}
+
+			if _, err := g.Ensure(ctx, secret); err != nil {
+				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+					Type:               constants.Ready,
+					Status:             metav1.ConditionFalse,
+					Reason:             constants.Failure,
+					Message:            err.Error(),
+					ObservedGeneration: instance.Generation,
+				})
+				return g.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Secret: %w", err), instance)
+			}
+			newKey = &v1alpha1.SecretKeySelector{
+				Key: "private",
+				LocalObjectReference: v1alpha1.LocalObjectReference{
+					Name: secret.Name,
+				},
+			}
+
 		}
+
 	} else {
 		var (
 			private, password []byte
@@ -110,31 +159,8 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 		data = map[string][]byte{"public": config.PublicKey}
 	}
 
-	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
-	labels[CTLPubLabel] = "public"
-	secret := k8sutils.CreateImmutableSecret(fmt.Sprintf(KeySecretNameFormat, instance.Name), instance.Namespace,
-		data, labels)
-
-	if err := controllerutil.SetControllerReference(instance, secret, g.Client.Scheme()); err != nil {
-		return g.Failed(fmt.Errorf("could not set controller reference for Secret: %w", err))
-	}
-
-	// ensure that only new key is exposed
-	if err := g.Client.DeleteAllOf(ctx, &v1.Secret{}, client.InNamespace(instance.Namespace), client.MatchingLabels(constants.LabelsFor(ComponentName, DeploymentName, instance.Name)), client.HasLabels{CTLPubLabel}); err != nil {
-		return g.Failed(err)
-	}
-
-	if _, err := g.Ensure(ctx, secret); err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               constants.Ready,
-			Status:             metav1.ConditionFalse,
-			Reason:             constants.Failure,
-			Message:            err.Error(),
-			ObservedGeneration: instance.Generation,
-		})
-		return g.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Secret: %w", err), instance)
-	}
-
+	instance.Status.PrivateKeyRef = newKey
+	secret, _ := k8sutils.FindSecret(ctx, g.Client, instance.Namespace, CTLPubLabel)
 	if instance.Spec.PrivateKeyRef == nil {
 		instance.Status.PrivateKeyRef = &v1alpha1.SecretKeySelector{
 			Key: "private",
