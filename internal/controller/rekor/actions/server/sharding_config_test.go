@@ -90,7 +90,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 	rekorNN := types.NamespacedName{Name: "rekor", Namespace: "default"}
 
 	shardingConfigLabels := constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, "rekor")
-	shardingConfigLabels[rekorConfigLabel] = shardingConfigName
+	shardingConfigLabels[constants.LabelResource] = shardingConfigLabel
 
 	type env struct {
 		spec    rhtasv1alpha1.RekorSpec

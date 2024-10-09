@@ -20,9 +20,9 @@ import (
 )
 
 const (
-	cmName             = "rekor-sharding-config-"
-	rekorConfigLabel   = constants.LabelNamespace + "/rekor-sharding-conf"
-	shardingConfigName = "sharding-config.yaml"
+	cmName              = "rekor-sharding-config-"
+	shardingConfigLabel = "rekor-sharding-conf"
+	shardingConfigName  = "sharding-config.yaml"
 )
 
 func NewShardingConfigAction() action.Action[*rhtasv1alpha1.Rekor] {
@@ -51,7 +51,7 @@ func (i shardingConfig) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rek
 
 func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
 	labels := constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
-	labels[rekorConfigLabel] = shardingConfigName
+	labels[constants.LabelResource] = shardingConfigLabel
 
 	content, err := createShardingConfigData(instance.Spec.Sharding)
 	if err != nil {
