@@ -23,7 +23,7 @@ func Verify(ctx context.Context, cli client.Client, namespace string, name strin
 		// trillian-db
 		Eventually(func(g Gomega) (bool, error) {
 			return kubernetes.DeploymentIsRunning(ctx, cli, namespace, map[string]string{
-				kubernetes.ComponentLabel: actions.DbComponentName,
+				constants.LabelAppComponent: actions.DbComponentName,
 			})
 		}).Should(BeTrue())
 	}
@@ -31,14 +31,14 @@ func Verify(ctx context.Context, cli client.Client, namespace string, name strin
 	// log server
 	Eventually(func(g Gomega) (bool, error) {
 		return kubernetes.DeploymentIsRunning(ctx, cli, namespace, map[string]string{
-			kubernetes.ComponentLabel: actions.LogServerComponentName,
+			constants.LabelAppComponent: actions.LogServerComponentName,
 		})
 	}).Should(BeTrue())
 
 	// log signer
 	Eventually(func(g Gomega) (bool, error) {
 		return kubernetes.DeploymentIsRunning(ctx, cli, namespace, map[string]string{
-			kubernetes.ComponentLabel: actions.LogSignerComponentName,
+			constants.LabelAppComponent: actions.LogSignerComponentName,
 		})
 	}).Should(BeTrue())
 }

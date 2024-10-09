@@ -101,7 +101,7 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	if instance.DeletionTimestamp != nil {
 		labels := constants.LabelsFor(actions.SegmentBackupJobName, actions.SegmentBackupCronJobName, instance.Name)
-		labels["app.kubernetes.io/instance-namespace"] = instance.Namespace
+		labels[constants.LabelAppNamespace] = instance.Namespace
 		if err := r.Client.DeleteAllOf(ctx, &v1.ClusterRoleBinding{}, client.MatchingLabels(labels)); err != nil {
 			log.Error(err, "problem with removing clusterRoleBinding resource")
 		}

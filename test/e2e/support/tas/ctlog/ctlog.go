@@ -25,7 +25,7 @@ func Verify(ctx context.Context, cli client.Client, namespace string, name strin
 
 	Eventually(func(g Gomega) (bool, error) {
 		return kubernetes.DeploymentIsRunning(ctx, cli, namespace, map[string]string{
-			kubernetes.ComponentLabel: actions.ComponentName,
+			constants.LabelAppComponent: actions.ComponentName,
 		})
 	}).Should(BeTrue())
 }
@@ -33,7 +33,7 @@ func Verify(ctx context.Context, cli client.Client, namespace string, name strin
 func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {
 	return func() *v1.Pod {
 		list := &v1.PodList{}
-		_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{kubernetes.ComponentLabel: actions.ComponentName, kubernetes.NameLabel: "ctlog"})
+		_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{constants.LabelAppComponent: actions.ComponentName, constants.LabelAppName: "ctlog"})
 		if len(list.Items) != 1 {
 			return nil
 		}

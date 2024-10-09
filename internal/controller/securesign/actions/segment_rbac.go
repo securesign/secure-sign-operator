@@ -55,7 +55,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 	var err error
 
 	labels := constants.LabelsFor(SegmentBackupJobName, SegmentBackupCronJobName, instance.Name)
-	labels["app.kubernetes.io/instance-namespace"] = instance.Namespace
+	labels[constants.LabelAppNamespace] = instance.Namespace
 
 	serviceAccount := &v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
