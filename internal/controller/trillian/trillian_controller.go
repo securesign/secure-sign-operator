@@ -19,8 +19,6 @@ package trillian
 import (
 	"context"
 
-	"github.com/securesign/operator/internal/controller/common/utils"
-
 	"k8s.io/apimachinery/pkg/types"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
@@ -89,11 +87,7 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	target := instance.DeepCopy()
 	actions := []action.Action[*rhtasv1alpha1.Trillian]{
 		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Trillian](func(t *rhtasv1alpha1.Trillian) []string {
-			components := []string{actions.ServerCondition, actions.SignerCondition}
-			if utils.IsEnabled(t.Spec.Db.Create) {
-				components = append(components, actions.DbCondition)
-			}
-			return components
+			return []string{actions.ServerCondition, actions.SignerCondition, actions.DbCondition}
 		}),
 
 		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.Trillian](),

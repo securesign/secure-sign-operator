@@ -99,7 +99,7 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, secCon
 							Name: "MYSQL_USER",
 							ValueFrom: &core.EnvVarSource{
 								SecretKeyRef: &core.SecretKeySelector{
-									Key: "mysql-user",
+									Key: SecretUser,
 									LocalObjectReference: core.LocalObjectReference{
 										Name: instance.Status.Db.DatabaseSecretRef.Name,
 									},
@@ -110,7 +110,7 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, secCon
 							Name: "MYSQL_PASSWORD",
 							ValueFrom: &core.EnvVarSource{
 								SecretKeyRef: &core.SecretKeySelector{
-									Key: "mysql-password",
+									Key: SecretPassword,
 									LocalObjectReference: core.LocalObjectReference{
 										Name: instance.Status.Db.DatabaseSecretRef.Name,
 									},
@@ -121,7 +121,7 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, secCon
 							Name: "MYSQL_ROOT_PASSWORD",
 							ValueFrom: &core.EnvVarSource{
 								SecretKeyRef: &core.SecretKeySelector{
-									Key: "mysql-root-password",
+									Key: SecretRootPassword,
 									LocalObjectReference: core.LocalObjectReference{
 										Name: instance.Status.Db.DatabaseSecretRef.Name,
 									},
@@ -132,7 +132,7 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, secCon
 							Name: "MYSQL_PORT",
 							ValueFrom: &core.EnvVarSource{
 								SecretKeyRef: &core.SecretKeySelector{
-									Key: "mysql-port",
+									Key: SecretPort,
 									LocalObjectReference: core.LocalObjectReference{
 										Name: instance.Status.Db.DatabaseSecretRef.Name,
 									},
@@ -143,7 +143,7 @@ func CreateTrillDb(instance *v1alpha1.Trillian, dpName string, sa string, secCon
 							Name: "MYSQL_DATABASE",
 							ValueFrom: &core.EnvVarSource{
 								SecretKeyRef: &core.SecretKeySelector{
-									Key: "mysql-database",
+									Key: SecretDatabaseName,
 									LocalObjectReference: core.LocalObjectReference{
 										Name: instance.Status.Db.DatabaseSecretRef.Name,
 									},
