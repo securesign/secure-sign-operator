@@ -6,7 +6,11 @@ import (
 	"reflect"
 	"testing"
 
+	. "github.com/onsi/gomega"
+	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	core "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -78,11 +82,11 @@ func TestServerConfig_CanHandle(t *testing.T) {
 			env: env{
 				objects: []client.Object{
 					kubernetes.CreateConfigmap("default", "config", map[string]string{}, map[string]string{
-						"config.yaml": string(configYaml),
+						serverConfigName: string(configYaml),
 					}),
 				},
 			},
-			canHandle: false,
+			canHandle: true,
 			phase:     constants.Ready,
 		},
 		{
@@ -103,7 +107,7 @@ func TestServerConfig_CanHandle(t *testing.T) {
 			env: env{
 				objects: []client.Object{
 					kubernetes.CreateConfigmap("default", "config", map[string]string{}, map[string]string{
-						"config.yaml": string(configYaml),
+						serverConfigName: string(configYaml),
 					}),
 				},
 			},
@@ -140,6 +144,339 @@ func TestServerConfig_CanHandle(t *testing.T) {
 
 			if got := a.CanHandle(context.TODO(), &instance); !reflect.DeepEqual(got, tt.canHandle) {
 				t.Errorf("CanHandle() = %v, want %v", got, tt.canHandle)
+			}
+		})
+	}
+}
+
+func TestConfig_Handle(t *testing.T) {
+	labels := constants.LabelsFor(ComponentName, DeploymentName, "fulcio")
+	labels[constants.LabelResource] = configResourceLabel
+
+	type env struct {
+		spec    rhtasv1alpha1.FulcioConfig
+		objects []client.Object
+		status  rhtasv1alpha1.FulcioStatus
+	}
+	type want struct {
+		result *action.Result
+		verify func(Gomega, rhtasv1alpha1.FulcioStatus, client.WithWatch, <-chan watch.Event)
+	}
+	tests := []struct {
+		name string
+		env  env
+		want want
+	}{
+		{
+			name: "create empty config",
+			env: env{
+				spec: rhtasv1alpha1.FulcioConfig{
+					OIDCIssuers: []rhtasv1alpha1.OIDCIssuer{
+						{
+							Issuer:    "https://example.com",
+							IssuerURL: "https://example.com",
+							ClientID:  "client-id",
+							Type:      "email",
+						},
+					},
+				},
+				status: rhtasv1alpha1.FulcioStatus{
+					Conditions: []metav1.Condition{
+						{Type: constants.Ready, Reason: constants.Creating},
+					},
+				},
+			},
+			want: want{
+				result: testAction.StatusUpdate(),
+				verify: func(g Gomega, status rhtasv1alpha1.FulcioStatus, cli client.WithWatch, events <-chan watch.Event) {
+
+					g.Expect(status.ServerConfigRef).ShouldNot(BeNil())
+					g.Expect(status.ServerConfigRef.Name).Should(ContainSubstring("fulcio-config-"))
+
+					g.Expect(events).To(HaveLen(1))
+					g.Expect(events).To(Receive(WithTransform(func(e watch.Event) watch.EventType { return e.Type }, Equal(watch.Added))))
+				},
+			},
+		},
+		{
+			name: "update existing json config",
+			env: env{
+				spec: rhtasv1alpha1.FulcioConfig{
+					OIDCIssuers: []rhtasv1alpha1.OIDCIssuer{
+						{
+							Issuer:    "https://example.com",
+							IssuerURL: "https://example.com",
+							ClientID:  "client-id",
+							Type:      "email",
+						},
+					},
+				},
+				status: rhtasv1alpha1.FulcioStatus{
+					ServerConfigRef: &rhtasv1alpha1.LocalObjectReference{
+						Name: "config",
+					},
+					Conditions: []metav1.Condition{
+						{Type: constants.Ready, Reason: constants.Creating},
+					},
+				},
+				objects: []client.Object{
+					kubernetes.CreateConfigmap("default", "config", map[string]string{}, map[string]string{
+						"config.json": string(configJson),
+					}),
+				},
+			},
+			want: want{
+				result: testAction.StatusUpdate(),
+				verify: func(g Gomega, status rhtasv1alpha1.FulcioStatus, cli client.WithWatch, events <-chan watch.Event) {
+					g.Expect(status.ServerConfigRef).ShouldNot(BeNil())
+					g.Expect(status.ServerConfigRef.Name).Should(Not(Equal("config")))
+
+					g.Expect(events).To(HaveLen(2))
+					for e := range events {
+						g.Expect(e).To(Or(
+							WithTransform(func(e watch.Event) watch.EventType { return e.Type }, Equal(watch.Added)),
+							WithTransform(func(e watch.Event) watch.EventType { return e.Type }, Equal(watch.Deleted))),
+						)
+					}
+					cm, err := kubernetes.GetConfigMap(context.TODO(), cli, "default", status.ServerConfigRef.Name)
+					g.Expect(err).To(Not(HaveOccurred()))
+					g.Expect(cm.Data[serverConfigName]).To(Equal(string(configYaml)))
+				},
+			},
+		},
+		{
+			name: "no update on existing yaml config",
+			env: env{
+				spec: rhtasv1alpha1.FulcioConfig{
+					OIDCIssuers: []rhtasv1alpha1.OIDCIssuer{
+						{
+							Issuer:    "https://example.com",
+							IssuerURL: "https://example.com",
+							ClientID:  "client-id",
+							Type:      "email",
+						},
+					},
+				},
+				status: rhtasv1alpha1.FulcioStatus{
+					ServerConfigRef: &rhtasv1alpha1.LocalObjectReference{
+						Name: "config",
+					},
+					Conditions: []metav1.Condition{
+						{Type: constants.Ready, Reason: constants.Creating},
+					},
+				},
+				objects: []client.Object{
+					kubernetes.CreateConfigmap("default", "config", labels, map[string]string{
+						serverConfigName: string(configYaml),
+					}),
+				},
+			},
+			want: want{
+				result: testAction.Continue(),
+				verify: func(g Gomega, status rhtasv1alpha1.FulcioStatus, cli client.WithWatch, events <-chan watch.Event) {
+					g.Expect(status.ServerConfigRef).ShouldNot(BeNil())
+					g.Expect(status.ServerConfigRef.Name).Should(Equal("config"))
+
+					g.Expect(events).To(BeEmpty())
+				},
+			},
+		},
+		{
+			name: "spec update",
+			env: env{
+				spec: rhtasv1alpha1.FulcioConfig{
+					OIDCIssuers: []rhtasv1alpha1.OIDCIssuer{
+						{
+							Issuer:    "https://example.com",
+							IssuerURL: "https://example.com",
+							ClientID:  "clientIdUpdated",
+							Type:      "email",
+						},
+					},
+				},
+				status: rhtasv1alpha1.FulcioStatus{
+					ServerConfigRef: &rhtasv1alpha1.LocalObjectReference{
+						Name: "config",
+					},
+					Conditions: []metav1.Condition{
+						{Type: constants.Ready, Reason: constants.Creating},
+					},
+				},
+				objects: []client.Object{
+					kubernetes.CreateConfigmap("default", "config", labels, map[string]string{
+						serverConfigName: string(configJson),
+					}),
+				},
+			},
+			want: want{
+				result: testAction.StatusUpdate(),
+				verify: func(g Gomega, status rhtasv1alpha1.FulcioStatus, cli client.WithWatch, events <-chan watch.Event) {
+					g.Expect(status.ServerConfigRef).ShouldNot(BeNil())
+					g.Expect(status.ServerConfigRef.Name).Should(Not(Equal("config")))
+
+					g.Expect(events).To(HaveLen(2))
+					for e := range events {
+						g.Expect(e).To(Or(
+							WithTransform(func(e watch.Event) watch.EventType { return e.Type }, Equal(watch.Added)),
+							WithTransform(func(e watch.Event) watch.EventType { return e.Type }, Equal(watch.Deleted)),
+						))
+					}
+					cm, err := kubernetes.GetConfigMap(context.TODO(), cli, "default", status.ServerConfigRef.Name)
+					g.Expect(err).To(Not(HaveOccurred()))
+					g.Expect(cm.Data[serverConfigName]).To(ContainSubstring("clientIdUpdated"))
+				},
+			},
+		},
+		{
+			name: "discover existing",
+			env: env{
+				spec: rhtasv1alpha1.FulcioConfig{
+					OIDCIssuers: []rhtasv1alpha1.OIDCIssuer{
+						{
+							Issuer:    "https://example.com",
+							IssuerURL: "https://example.com",
+							ClientID:  "client-id",
+							Type:      "email",
+						},
+					},
+				},
+				status: rhtasv1alpha1.FulcioStatus{
+					Conditions: []metav1.Condition{
+						{Type: constants.Ready, Reason: constants.Creating},
+					},
+				},
+				objects: []client.Object{
+					kubernetes.CreateConfigmap("default", "config", labels, map[string]string{
+						serverConfigName: string(configYaml),
+					}),
+				},
+			},
+			want: want{
+				result: testAction.StatusUpdate(),
+				verify: func(g Gomega, status rhtasv1alpha1.FulcioStatus, cli client.WithWatch, events <-chan watch.Event) {
+					g.Expect(status.ServerConfigRef).ShouldNot(BeNil())
+					g.Expect(status.ServerConfigRef.Name).Should(Equal("config"))
+
+					g.Expect(events).To(BeEmpty())
+				},
+			},
+		},
+		{
+			name: "discover existing and remove non-valid",
+			env: env{
+				spec: rhtasv1alpha1.FulcioConfig{
+					OIDCIssuers: []rhtasv1alpha1.OIDCIssuer{
+						{
+							Issuer:    "https://example.com",
+							IssuerURL: "https://example.com",
+							ClientID:  "client-id",
+							Type:      "email",
+						},
+					},
+				},
+				status: rhtasv1alpha1.FulcioStatus{
+					Conditions: []metav1.Condition{
+						{Type: constants.Ready, Reason: constants.Creating},
+					},
+				},
+				objects: []client.Object{
+					kubernetes.CreateConfigmap("default", "config", labels, map[string]string{
+						serverConfigName: string(configYaml),
+					}),
+					kubernetes.CreateConfigmap("default", "fake", labels, map[string]string{
+						serverConfigName: "fake",
+					}),
+				},
+			},
+			want: want{
+				result: testAction.StatusUpdate(),
+				verify: func(g Gomega, status rhtasv1alpha1.FulcioStatus, cli client.WithWatch, events <-chan watch.Event) {
+					g.Expect(status.ServerConfigRef).ShouldNot(BeNil())
+					g.Expect(status.ServerConfigRef.Name).Should(Equal("config"))
+
+					g.Expect(events).To(HaveLen(1))
+					g.Expect(events).To(Receive(
+						And(
+							WithTransform(func(e watch.Event) watch.EventType { return e.Type }, Equal(watch.Deleted)),
+							WithTransform(func(e watch.Event) string {
+								return e.Object.(client.Object).GetName()
+							}, Equal("fake")),
+						)),
+					)
+				},
+			},
+		},
+		{
+			name: "overwrite non-existing",
+			env: env{
+				spec: rhtasv1alpha1.FulcioConfig{
+					OIDCIssuers: []rhtasv1alpha1.OIDCIssuer{
+						{
+							Issuer:    "https://example.com",
+							IssuerURL: "https://example.com",
+							ClientID:  "client-id",
+							Type:      "email",
+						},
+					},
+				},
+				status: rhtasv1alpha1.FulcioStatus{
+					ServerConfigRef: &rhtasv1alpha1.LocalObjectReference{
+						Name: "config",
+					},
+					Conditions: []metav1.Condition{
+						{Type: constants.Ready, Reason: constants.Creating},
+					},
+				},
+			},
+			want: want{
+				result: testAction.StatusUpdate(),
+				verify: func(g Gomega, status rhtasv1alpha1.FulcioStatus, cli client.WithWatch, events <-chan watch.Event) {
+					g.Expect(status.ServerConfigRef).ShouldNot(BeNil())
+					g.Expect(status.ServerConfigRef.Name).Should(Not(Equal("config")))
+
+					g.Expect(events).To(HaveLen(1))
+					g.Expect(events).To(Receive(
+						WithTransform(func(e watch.Event) watch.EventType { return e.Type }, Equal(watch.Added)),
+					),
+					)
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			ctx := context.TODO()
+			instance := &rhtasv1alpha1.Fulcio{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "fulcio",
+					Namespace: "default",
+				},
+				Spec: rhtasv1alpha1.FulcioSpec{
+					Config: tt.env.spec,
+				},
+				Status: tt.env.status,
+			}
+
+			c := testAction.FakeClientBuilder().
+				WithObjects(instance).
+				WithStatusSubresource(instance).
+				WithObjects(tt.env.objects...).
+				Build()
+
+			watchCm, err := c.Watch(ctx, &core.ConfigMapList{}, client.InNamespace("default"))
+			g.Expect(err).To(Not(HaveOccurred()))
+
+			a := testAction.PrepareAction(c, NewServerConfigAction())
+
+			if got := a.Handle(ctx, instance); !reflect.DeepEqual(got, tt.want.result) {
+				t.Errorf("Handle() = %v, want %v", got, tt.want.result)
+			}
+			watchCm.Stop()
+			if tt.want.verify != nil {
+				find := &rhtasv1alpha1.Fulcio{}
+				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(instance), find)).To(Succeed())
+				tt.want.verify(g, find.Status, c, watchCm.ResultChan())
 			}
 		})
 	}

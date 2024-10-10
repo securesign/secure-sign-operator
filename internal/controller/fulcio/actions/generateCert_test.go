@@ -8,12 +8,14 @@ import (
 	_ "embed"
 	"testing"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/internal/controller/common/action"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -21,12 +23,13 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 )
 
-func TestGenerateCert_CanHandle(t *testing.T) {
-	g := gomega.NewWithT(t)
+func TestGenerateCert_Handle(t *testing.T) {
+	ctx := context.TODO()
+	g := NewWithT(t)
 	key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
-	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(err).ToNot(HaveOccurred())
 	pemKey, err := utils.CreateCAKey(key, nil)
-	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(err).ToNot(HaveOccurred())
 	type env struct {
 		certSpec rhtasv1alpha1.FulcioCert
 		status   rhtasv1alpha1.FulcioStatus
@@ -36,7 +39,7 @@ func TestGenerateCert_CanHandle(t *testing.T) {
 		canHandle     bool
 		result        *action.Result
 		certCondition metav1.ConditionStatus
-		verify        func(gomega.Gomega, rhtasv1alpha1.FulcioStatus)
+		verify        func(Gomega, rhtasv1alpha1.FulcioStatus, client.WithWatch)
 	}
 	tests := []struct {
 		name string
@@ -56,13 +59,17 @@ func TestGenerateCert_CanHandle(t *testing.T) {
 				canHandle:     true,
 				result:        testAction.StatusUpdate(),
 				certCondition: metav1.ConditionTrue,
-				verify: func(g gomega.Gomega, fulcio rhtasv1alpha1.FulcioStatus) {
-					g.Expect(fulcio.Certificate.CommonName).ToNot(gomega.BeEmpty())
-					g.Expect(fulcio.Certificate.OrganizationEmail).To(gomega.Equal("jdoe@redhat.com"))
-					g.Expect(fulcio.Certificate.OrganizationName).To(gomega.Equal("RH"))
-					g.Expect(fulcio.Certificate.PrivateKeyPasswordRef.Name).ToNot(gomega.BeEmpty())
-					g.Expect(fulcio.Certificate.PrivateKeyRef.Name).ToNot(gomega.BeEmpty())
-					g.Expect(fulcio.Certificate.CARef.Name).ToNot(gomega.BeEmpty())
+				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
+					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
+					g.Expect(fulcio.Certificate.OrganizationEmail).To(Equal("jdoe@redhat.com"))
+					g.Expect(fulcio.Certificate.OrganizationName).To(Equal("RH"))
+					g.Expect(fulcio.Certificate.PrivateKeyPasswordRef.Name).ToNot(BeEmpty())
+					g.Expect(fulcio.Certificate.PrivateKeyRef.Name).ToNot(BeEmpty())
+					g.Expect(fulcio.Certificate.CARef.Name).ToNot(BeEmpty())
+
+					scr, err := kubernetes.FindSecret(ctx, cli, "default", FulcioCALabel)
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(scr.Name).To(Equal(fulcio.Certificate.CARef.Name))
 				},
 			},
 		},
@@ -85,12 +92,15 @@ func TestGenerateCert_CanHandle(t *testing.T) {
 				canHandle:     true,
 				result:        testAction.Requeue(),
 				certCondition: metav1.ConditionFalse,
-				verify: func(g gomega.Gomega, fulcio rhtasv1alpha1.FulcioStatus) {
-					g.Expect(fulcio.Certificate.CommonName).ToNot(gomega.BeEmpty())
-					g.Expect(fulcio.Certificate.OrganizationEmail).To(gomega.Equal("jdoe@redhat.com"))
-					g.Expect(fulcio.Certificate.OrganizationName).To(gomega.Equal("RH"))
-					g.Expect(fulcio.Certificate.PrivateKeyRef.Name).ToNot(gomega.BeEmpty())
-					g.Expect(fulcio.Certificate.CARef).To(gomega.BeNil())
+				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
+					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
+					g.Expect(fulcio.Certificate.OrganizationEmail).To(Equal("jdoe@redhat.com"))
+					g.Expect(fulcio.Certificate.OrganizationName).To(Equal("RH"))
+					g.Expect(fulcio.Certificate.PrivateKeyRef.Name).ToNot(BeEmpty())
+					g.Expect(fulcio.Certificate.CARef).To(BeNil())
+
+					_, err := kubernetes.FindSecret(ctx, cli, "default", FulcioCALabel)
+					g.Expect(errors.IsNotFound(err)).To(BeTrue())
 				},
 			},
 		},
@@ -119,12 +129,16 @@ func TestGenerateCert_CanHandle(t *testing.T) {
 				canHandle:     true,
 				result:        testAction.StatusUpdate(),
 				certCondition: metav1.ConditionTrue,
-				verify: func(g gomega.Gomega, fulcio rhtasv1alpha1.FulcioStatus) {
-					g.Expect(fulcio.Certificate.CommonName).ToNot(gomega.BeEmpty())
-					g.Expect(fulcio.Certificate.OrganizationEmail).To(gomega.Equal("jdoe@redhat.com"))
-					g.Expect(fulcio.Certificate.OrganizationName).To(gomega.Equal("RH"))
-					g.Expect(fulcio.Certificate.PrivateKeyRef.Name).To(gomega.Equal("fulcio-private"))
-					g.Expect(fulcio.Certificate.CARef.Name).ToNot(gomega.BeEmpty())
+				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
+					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
+					g.Expect(fulcio.Certificate.OrganizationEmail).To(Equal("jdoe@redhat.com"))
+					g.Expect(fulcio.Certificate.OrganizationName).To(Equal("RH"))
+					g.Expect(fulcio.Certificate.PrivateKeyRef.Name).To(Equal("fulcio-private"))
+					g.Expect(fulcio.Certificate.CARef.Name).ToNot(BeEmpty())
+
+					scr, err := kubernetes.FindSecret(ctx, cli, "default", FulcioCALabel)
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(scr.Name).To(Equal(fulcio.Certificate.CARef.Name))
 				},
 			},
 		},
@@ -146,16 +160,29 @@ func TestGenerateCert_CanHandle(t *testing.T) {
 							Key: "cert",
 						},
 					}},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: "certificate-old", Namespace: "default"},
+						Data:       map[string][]byte{"private": pemKey},
+					},
+				},
 			},
 			want: want{
 				canHandle:     true,
 				result:        testAction.StatusUpdate(),
 				certCondition: metav1.ConditionTrue,
-				verify: func(g gomega.Gomega, fulcio rhtasv1alpha1.FulcioStatus) {
-					g.Expect(fulcio.Certificate.CommonName).ToNot(gomega.BeEmpty())
-					g.Expect(fulcio.Certificate.OrganizationEmail).To(gomega.Equal("jdoe1@redhat.com"))
-					g.Expect(fulcio.Certificate.OrganizationName).To(gomega.Equal("RH"))
-					g.Expect(fulcio.Certificate.CARef.Name).ToNot(gomega.Equal("certificate-old"))
+				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
+					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
+					g.Expect(fulcio.Certificate.OrganizationEmail).To(Equal("jdoe1@redhat.com"))
+					g.Expect(fulcio.Certificate.OrganizationName).To(Equal("RH"))
+					g.Expect(fulcio.Certificate.CARef.Name).ToNot(Equal("certificate-old"))
+
+					scr, err := kubernetes.FindSecret(ctx, cli, "default", FulcioCALabel)
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(scr.Name).To(Equal(fulcio.Certificate.CARef.Name))
+
+					// old secret should not be removed
+					g.Expect(cli.Get(ctx, client.ObjectKey{Name: "certificate-old", Namespace: "default"}, &v1.Secret{})).To(Succeed())
 				},
 			},
 		},
@@ -192,6 +219,10 @@ func TestGenerateCert_CanHandle(t *testing.T) {
 				},
 				objects: []client.Object{
 					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: "certificate-old", Namespace: "default"},
+						Data:       map[string][]byte{"private": pemKey},
+					},
+					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{Name: "fulcio-private-new", Namespace: "default"},
 						Data:       map[string][]byte{"private": pemKey},
 					},
@@ -201,12 +232,19 @@ func TestGenerateCert_CanHandle(t *testing.T) {
 				canHandle:     true,
 				result:        testAction.StatusUpdate(),
 				certCondition: metav1.ConditionTrue,
-				verify: func(g gomega.Gomega, fulcio rhtasv1alpha1.FulcioStatus) {
-					g.Expect(fulcio.Certificate.CommonName).ToNot(gomega.BeEmpty())
-					g.Expect(fulcio.Certificate.OrganizationEmail).To(gomega.Equal("jdoe@redhat.com"))
-					g.Expect(fulcio.Certificate.OrganizationName).To(gomega.Equal("RH"))
-					g.Expect(fulcio.Certificate.PrivateKeyRef.Name).To(gomega.Equal("fulcio-private-new"))
-					g.Expect(fulcio.Certificate.CARef.Name).ToNot(gomega.Equal("certificate-old"))
+				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
+					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
+					g.Expect(fulcio.Certificate.OrganizationEmail).To(Equal("jdoe@redhat.com"))
+					g.Expect(fulcio.Certificate.OrganizationName).To(Equal("RH"))
+					g.Expect(fulcio.Certificate.PrivateKeyRef.Name).To(Equal("fulcio-private-new"))
+					g.Expect(fulcio.Certificate.CARef.Name).ToNot(Equal("certificate-old"))
+
+					scr, err := kubernetes.FindSecret(ctx, cli, "default", FulcioCALabel)
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(scr.Name).To(Equal(fulcio.Certificate.CARef.Name))
+
+					// old secret should not be removed
+					g.Expect(cli.Get(ctx, client.ObjectKey{Name: "certificate-old", Namespace: "default"}, &v1.Secret{})).To(Succeed())
 				},
 			},
 		},
@@ -243,6 +281,10 @@ func TestGenerateCert_CanHandle(t *testing.T) {
 				},
 				objects: []client.Object{
 					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: "certificate-old", Namespace: "default"},
+						Data:       map[string][]byte{"private": pemKey},
+					},
+					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{Name: "fulcio-password-new", Namespace: "default"},
 						Data:       map[string][]byte{"password": pemKey},
 					},
@@ -252,12 +294,19 @@ func TestGenerateCert_CanHandle(t *testing.T) {
 				canHandle:     true,
 				result:        testAction.StatusUpdate(),
 				certCondition: metav1.ConditionTrue,
-				verify: func(g gomega.Gomega, fulcio rhtasv1alpha1.FulcioStatus) {
-					g.Expect(fulcio.Certificate.CommonName).ToNot(gomega.BeEmpty())
-					g.Expect(fulcio.Certificate.OrganizationEmail).To(gomega.Equal("jdoe@redhat.com"))
-					g.Expect(fulcio.Certificate.OrganizationName).To(gomega.Equal("RH"))
-					g.Expect(fulcio.Certificate.PrivateKeyPasswordRef.Name).To(gomega.Equal("fulcio-password-new"))
-					g.Expect(fulcio.Certificate.CARef.Name).ToNot(gomega.Equal("certificate-old"))
+				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
+					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
+					g.Expect(fulcio.Certificate.OrganizationEmail).To(Equal("jdoe@redhat.com"))
+					g.Expect(fulcio.Certificate.OrganizationName).To(Equal("RH"))
+					g.Expect(fulcio.Certificate.PrivateKeyPasswordRef.Name).To(Equal("fulcio-password-new"))
+					g.Expect(fulcio.Certificate.CARef.Name).ToNot(Equal("certificate-old"))
+
+					scr, err := kubernetes.FindSecret(ctx, cli, "default", FulcioCALabel)
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(scr.Name).To(Equal(fulcio.Certificate.CARef.Name))
+
+					// old secret should not be removed
+					g.Expect(cli.Get(ctx, client.ObjectKey{Name: "certificate-old", Namespace: "default"}, &v1.Secret{})).To(Succeed())
 				},
 			},
 		},
@@ -300,9 +349,13 @@ func TestGenerateCert_CanHandle(t *testing.T) {
 				canHandle:     true,
 				result:        testAction.StatusUpdate(),
 				certCondition: metav1.ConditionTrue,
-				verify: func(g gomega.Gomega, fulcio rhtasv1alpha1.FulcioStatus) {
-					g.Expect(fulcio.Certificate.CommonName).To(gomega.Equal("fulcio.local"))
-					g.Expect(fulcio.Certificate.CARef.Name).To(gomega.Equal("fulcio-cert"))
+				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
+					g.Expect(fulcio.Certificate.CommonName).To(Equal("fulcio.local"))
+					g.Expect(fulcio.Certificate.CARef.Name).To(Equal("fulcio-cert"))
+
+					scr, err := kubernetes.FindSecret(ctx, cli, "default", FulcioCALabel)
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(scr.Name).To(Equal(fulcio.Certificate.CARef.Name))
 				},
 			},
 		},
@@ -376,16 +429,20 @@ func TestGenerateCert_CanHandle(t *testing.T) {
 				WithStatusSubresource(instance).
 				WithObjects(tt.env.objects...).
 				Build()
+
 			a := testAction.PrepareAction(c, NewHandleCertAction())
+			g.Expect(tt.want.canHandle).To(Equal(a.CanHandle(ctx, instance)))
 
-			g.Expect(tt.want.canHandle).To(gomega.Equal(a.CanHandle(context.TODO(), instance)))
+			if tt.want.canHandle {
 
-			if !tt.want.canHandle {
-				return
+				g.Expect(a.Handle(ctx, instance)).To(Equal(tt.want.result))
+				g.Expect(meta.IsStatusConditionPresentAndEqual(instance.Status.Conditions, CertCondition, tt.want.certCondition)).To(BeTrue())
+				g.Expect(err).ShouldNot(HaveOccurred())
+
+				found := &rhtasv1alpha1.Fulcio{}
+				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(instance), found)).To(Succeed())
+				tt.want.verify(g, found.Status, c)
 			}
-			g.Expect(a.Handle(context.TODO(), instance)).To(gomega.Equal(tt.want.result))
-			g.Expect(meta.IsStatusConditionPresentAndEqual(instance.Status.Conditions, CertCondition, tt.want.certCondition)).To(gomega.BeTrue())
-			tt.want.verify(g, instance.Status)
 		})
 	}
 }
