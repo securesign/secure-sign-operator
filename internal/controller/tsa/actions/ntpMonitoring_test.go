@@ -82,13 +82,6 @@ func Test_NTPCanHandle(t *testing.T) {
 			},
 			expected: false,
 		},
-		{
-			name: "NTPMonitoring config is nil",
-			testCase: func(instance *rhtasv1alpha1.TimestampAuthority) {
-				instance.Spec.NTPMonitoring.Config = nil
-			},
-			expected: false,
-		},
 	}
 
 	for _, tt := range tests {

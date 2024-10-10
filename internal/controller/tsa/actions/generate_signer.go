@@ -5,13 +5,13 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"maps"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common"
 	"github.com/securesign/operator/internal/controller/common/action"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
@@ -40,8 +40,16 @@ func (g generateSigner) Name() string {
 
 func (g generateSigner) CanHandle(_ context.Context, instance *v1alpha1.TimestampAuthority) bool {
 	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
-	return (c.Reason == constants.Pending || c.Reason == constants.Ready) && (instance.Status.Signer == nil ||
-		!equality.Semantic.DeepDerivative(instance.Spec.Signer, *instance.Status.Signer))
+	switch {
+	case c == nil:
+		return false
+	case !(c.Reason == constants.Pending || c.Reason == constants.Ready):
+		return false
+	case !meta.IsStatusConditionTrue(instance.GetConditions(), TSASignerCondition):
+		return true
+	default:
+		return !equality.Semantic.DeepDerivative(instance.Spec.Signer, *instance.Status.Signer)
+	}
 }
 
 func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.TimestampAuthority) *action.Result {
@@ -54,9 +62,73 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 			Type:   constants.Ready,
 			Status: metav1.ConditionFalse,
 			Reason: constants.Pending,
-		},
-		)
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:   TSASignerCondition,
+			Status: metav1.ConditionFalse,
+			Reason: constants.Creating,
+		})
 		return g.StatusUpdate(ctx, instance)
+	}
+
+	instance.Status.Signer = instance.Spec.Signer.DeepCopy()
+	//Check if a secret for the TSA cert already exists and validate
+	partialSecret, err := k8sutils.FindSecret(ctx, g.Client, instance.Namespace, TSACertCALabel)
+	if err != nil && !apierrors.IsNotFound(err) {
+		g.Logger.Error(err, "problem with finding secret", "namespace", instance.Namespace)
+	}
+
+	if partialSecret != nil {
+		secret, err := k8sutils.GetSecret(g.Client, partialSecret.Namespace, partialSecret.Name)
+		if err != nil {
+			return g.Failed(fmt.Errorf("can't load CA secret %w", err))
+		}
+
+		anno, err := g.secretAnnotations(instance)
+		if err != nil {
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:    TSASignerCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			})
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:    constants.Ready,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			})
+			return g.FailedWithStatusUpdate(ctx, err, instance)
+		}
+		if equality.Semantic.DeepDerivative(anno, partialSecret.GetAnnotations()) {
+			g.alignStatusFields(secret, instance)
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:   TSASignerCondition,
+				Status: metav1.ConditionTrue,
+				Reason: "Resolved",
+			})
+			return g.StatusUpdate(ctx, instance)
+		}
+
+		// invalidate certificate
+		if err := constants.RemoveLabel(ctx, partialSecret, g.Client, TSACertCALabel); err != nil {
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:    TSASignerCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			})
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:    constants.Ready,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			})
+			return g.FailedWithStatusUpdate(ctx, err, instance)
+		}
+		message := fmt.Sprintf("Removed '%s' label from %s secret", TSACertCALabel, partialSecret.Name)
+		g.Recorder.Event(instance, v1.EventTypeNormal, "CertificateSecretLabelRemoved", message)
+		g.Logger.Info(message)
 	}
 
 	tsaCertChainConfig := &tsaUtils.TsaCertChainConfig{}
@@ -102,6 +174,22 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 		return g.Requeue()
 	}
 
+	anno, err := g.secretAnnotations(instance)
+	if err != nil {
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    TSASignerCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		return g.FailedWithStatusUpdate(ctx, err, instance)
+	}
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 	secretLabels := map[string]string{
 		TSACertCALabel: "certificateChain",
@@ -109,33 +197,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 	maps.Copy(secretLabels, labels)
 
 	certificateChain := k8sutils.CreateImmutableSecret(fmt.Sprintf("tsa-signer-config-%s", instance.Name), instance.Namespace, tsaCertChainConfig.ToMap(), secretLabels)
-	//Check if a secret for the signer config already exists, if it does remove the label
-	secret, err := kubernetes.FindSecret(ctx, g.Client, instance.Namespace, TSACertCALabel)
-	if err != nil && !apierrors.IsNotFound(err) {
-		g.Logger.Error(err, "problem with finding secret", "namespace", instance.Namespace)
-	}
-
-	if secret != nil {
-		if err := constants.RemoveLabel(ctx, secret, g.Client, TSACertCALabel); err != nil {
-			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:    TSASignerCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
-				Message: err.Error(),
-			})
-			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:    constants.Ready,
-				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
-				Message: err.Error(),
-			})
-			return g.FailedWithStatusUpdate(ctx, err, instance)
-		}
-		message := fmt.Sprintf("Removed '%s' label from %s secret", TSACertCALabel, secret.Name)
-		g.Recorder.Event(instance, v1.EventTypeNormal, "CertificateChainSecretLabelRemoved", message)
-		g.Logger.Info(message)
-	}
-
+	certificateChain.Annotations = anno
 	if _, err := g.Ensure(ctx, certificateChain); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    TSASignerCondition,
@@ -151,42 +213,8 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 		})
 		return g.FailedWithStatusUpdate(ctx, err, instance)
 	}
-
-	if instance.Status.Signer == nil {
-		instance.Status.Signer = new(v1alpha1.TimestampAuthoritySigner)
-	}
-	if instance.Spec.Signer.File == nil && instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
-		instance.Spec.Signer.File = new(v1alpha1.File)
-	}
-	instance.Spec.Signer.DeepCopyInto(instance.Status.Signer)
-
-	if instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
-		instance.Status.Signer.CertificateChain.CertificateChainRef = &v1alpha1.SecretKeySelector{
-			Key: "certificateChain",
-			LocalObjectReference: v1alpha1.LocalObjectReference{
-				Name: certificateChain.Name,
-			},
-		}
-
-		if instance.Spec.Signer.File.PrivateKeyRef == nil {
-			instance.Status.Signer.File.PrivateKeyRef = &v1alpha1.SecretKeySelector{
-				Key: "leafPrivateKey",
-				LocalObjectReference: v1alpha1.LocalObjectReference{
-					Name: certificateChain.Name,
-				},
-			}
-		}
-
-		if instance.Spec.Signer.File.PasswordRef == nil && len(tsaCertChainConfig.LeafPrivateKeyPassword) > 0 {
-			instance.Status.Signer.File.PasswordRef = &v1alpha1.SecretKeySelector{
-				Key: "leafPrivateKeyPassword",
-				LocalObjectReference: v1alpha1.LocalObjectReference{
-					Name: certificateChain.Name,
-				},
-			}
-		}
-	}
-
+	g.Recorder.Event(instance, v1.EventTypeNormal, "TSACertUpdated", "TSA certificate secret updated")
+	g.alignStatusFields(certificateChain, instance)
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:   TSASignerCondition,
 		Status: metav1.ConditionTrue,
@@ -331,4 +359,84 @@ func (g generateSigner) handleCertificateChain(ctx context.Context, instance *v1
 		config.CertificateChain = certificateChain
 	}
 	return config, nil
+}
+
+func (g generateSigner) alignStatusFields(secret *v1.Secret, instance *v1alpha1.TimestampAuthority) {
+	if instance.Status.Signer == nil {
+		instance.Status.Signer = new(v1alpha1.TimestampAuthoritySigner)
+	}
+	if instance.Spec.Signer.File == nil && instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
+		instance.Spec.Signer.File = new(v1alpha1.File)
+	}
+	instance.Spec.Signer.DeepCopyInto(instance.Status.Signer)
+
+	if instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
+		instance.Status.Signer.CertificateChain.CertificateChainRef = &v1alpha1.SecretKeySelector{
+			Key: "certificateChain",
+			LocalObjectReference: v1alpha1.LocalObjectReference{
+				Name: secret.Name,
+			},
+		}
+
+		if instance.Spec.Signer.File.PrivateKeyRef == nil {
+			instance.Status.Signer.File.PrivateKeyRef = &v1alpha1.SecretKeySelector{
+				Key: "leafPrivateKey",
+				LocalObjectReference: v1alpha1.LocalObjectReference{
+					Name: secret.Name,
+				},
+			}
+		}
+
+		if instance.Spec.Signer.File.PasswordRef == nil {
+			instance.Status.Signer.File.PasswordRef = &v1alpha1.SecretKeySelector{
+				Key: "leafPrivateKeyPassword",
+				LocalObjectReference: v1alpha1.LocalObjectReference{
+					Name: secret.Name,
+				},
+			}
+		}
+	}
+}
+
+func (g generateSigner) secretAnnotations(instance *v1alpha1.TimestampAuthority) (map[string]string, error) {
+	annotations := make(map[string]string)
+	chain := instance.Status.Signer.CertificateChain
+
+	marshalAndSetAnnotation := func(key string, value interface{}) error {
+		bytes, err := json.Marshal(value)
+		if err != nil {
+			return fmt.Errorf("failed to marshal %s: %w", key, err)
+		}
+		annotations[constants.LabelNamespace+"/"+key] = string(bytes)
+		return nil
+	}
+
+	if chain.CertificateChainRef != nil {
+		if err := marshalAndSetAnnotation("CertificateChainRef", chain.CertificateChainRef); err != nil {
+			return nil, err
+		}
+
+		if instance.Status.Signer.File != nil {
+			if err := marshalAndSetAnnotation("fileSignerRef", instance.Status.Signer.File); err != nil {
+				return nil, err
+			}
+		}
+		return annotations, nil
+	}
+
+	if err := marshalAndSetAnnotation("rootCA", chain.RootCA); err != nil {
+		return nil, err
+	}
+
+	for index, intermediateCA := range chain.IntermediateCA {
+		key := fmt.Sprintf("intermediateCA-%d", index)
+		if err := marshalAndSetAnnotation(key, intermediateCA); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := marshalAndSetAnnotation("leafCA", chain.LeafCA); err != nil {
+		return nil, err
+	}
+	return annotations, nil
 }
