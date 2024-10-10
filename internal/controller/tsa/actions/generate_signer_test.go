@@ -2,6 +2,8 @@ package actions
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
@@ -116,6 +118,10 @@ func Test_SignerHandle(t *testing.T) {
 					t.Errorf("Secret name mismatch: expected %v, got %v", instance.Status.Signer.File.PrivateKeyRef.Name, secret.Name)
 					return false
 				}
+				if !g.Expect(secret.Annotations).To(Equal(generateSecretAnnotations(instance))) {
+					t.Errorf("Secret annotation mismatch: expected %v, got %v", generateSecretAnnotations(instance), secret.Annotations)
+					return false
+				}
 				return g.Expect(meta.FindStatusCondition(instance.Status.Conditions, TSASignerCondition).Reason).To(Equal("Resolved"))
 			},
 		},
@@ -200,6 +206,10 @@ func Test_SignerHandle(t *testing.T) {
 					t.Errorf("Secret name mismatch: expected %v, got %v", instance.Status.Signer.File.PrivateKeyRef.Name, secret.Name)
 					return false
 				}
+				if !g.Expect(secret.Annotations).To(Equal(generateSecretAnnotations(instance))) {
+					t.Errorf("Secret annotation mismatch: expected %v, got %v", generateSecretAnnotations(instance), secret.Annotations)
+					return false
+				}
 				return g.Expect(meta.FindStatusCondition(instance.Status.Conditions, TSASignerCondition).Reason).To(Equal("Resolved"))
 			},
 		},
@@ -238,7 +248,7 @@ func Test_SignerHandle(t *testing.T) {
 				return common.TsaTestSetup(instance, t, client, NewGenerateSignerAction(), obj...)
 			},
 			testCase: func(g Gomega, a action.Action[*rhtasv1alpha1.TimestampAuthority], client client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {
-				_, err := kubernetes.FindSecret(context.TODO(), client, instance.Namespace, TSACertCALabel)
+				secret, err := kubernetes.FindSecret(context.TODO(), client, instance.Namespace, TSACertCALabel)
 				if err != nil {
 					t.Errorf("Unable to find secret: %s", err)
 					return false
@@ -248,7 +258,10 @@ func Test_SignerHandle(t *testing.T) {
 					t.Error("Status Signer should not be nil")
 					return false
 				}
-
+				if !g.Expect(secret.Annotations).To(Equal(generateSecretAnnotations(instance))) {
+					t.Errorf("Secret annotation mismatch: expected %v, got %v", generateSecretAnnotations(instance), secret.Annotations)
+					return false
+				}
 				return g.Expect(meta.FindStatusCondition(instance.Status.Conditions, TSASignerCondition).Reason).To(Equal("Resolved"))
 			},
 		},
@@ -318,6 +331,10 @@ func Test_SignerHandle(t *testing.T) {
 					t.Errorf("Secret name should have changed: old=%v, new=%v", oldSecretName, secret.Name)
 					return false
 				}
+				if !g.Expect(secret.Annotations).To(Equal(generateSecretAnnotations(instance))) {
+					t.Errorf("Secret annotation mismatch: expected %v, got %v", generateSecretAnnotations(instance), secret.Annotations)
+					return false
+				}
 				return g.Expect(meta.FindStatusCondition(instance.Status.Conditions, TSASignerCondition).Reason).To(Equal("Resolved"))
 			},
 		},
@@ -337,6 +354,10 @@ func Test_SignerHandle(t *testing.T) {
 				}
 				if _, exists := secret.Labels["rhtas.redhat.com/tsa.certchain.pem"]; !exists {
 					t.Error("Label 'rhtas.redhat.com/tsa.certchain.pem' is not present in secret")
+					return false
+				}
+				if !g.Expect(secret.Annotations).To(Equal(generateSecretAnnotations(instance))) {
+					t.Errorf("Secret annotation mismatch: expected %v, got %v", generateSecretAnnotations(instance), secret.Annotations)
 					return false
 				}
 				instance.Spec.Signer = rhtasv1alpha1.TimestampAuthoritySigner{
@@ -380,7 +401,6 @@ func Test_SignerHandle(t *testing.T) {
 					t.Error("Label 'rhtas.redhat.com/tsa.certchain.pem' should have been removed")
 					return false
 				}
-
 				return true
 			},
 		},
@@ -395,4 +415,29 @@ func Test_SignerHandle(t *testing.T) {
 			g.Expect(tt.testCase(g, action, client, instance)).To(BeTrue())
 		})
 	}
+}
+
+func generateSecretAnnotations(instance *rhtasv1alpha1.TimestampAuthority) map[string]string {
+	annotations := make(map[string]string)
+	chain := instance.Spec.Signer.CertificateChain
+
+	marshalAndSetAnnotation := func(key string, value interface{}) {
+		bytes, _ := json.Marshal(value)
+		annotations[constants.LabelNamespace+"/"+key] = string(bytes)
+	}
+	if chain.CertificateChainRef != nil {
+		marshalAndSetAnnotation("CertificateChainRef", chain.CertificateChainRef)
+
+		if instance.Status.Signer.File != nil {
+			marshalAndSetAnnotation("fileSignerRef", instance.Status.Signer.File)
+		}
+		return annotations
+	}
+	marshalAndSetAnnotation("rootCA", chain.RootCA)
+	for index, intermediateCA := range chain.IntermediateCA {
+		key := fmt.Sprintf("intermediateCA-%d", index)
+		marshalAndSetAnnotation(key, intermediateCA)
+	}
+	marshalAndSetAnnotation("leafCA", chain.LeafCA)
+	return annotations
 }
