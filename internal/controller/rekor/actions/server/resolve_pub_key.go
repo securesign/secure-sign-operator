@@ -17,6 +17,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 )
 
@@ -127,9 +128,19 @@ func (i resolvePubKeyAction) resolvePubKey(instance rhtasv1alpha1.Rekor) ([]byte
 	var (
 		data []byte
 		err  error
+		url  = fmt.Sprintf("http://%s.%s.svc", actions.ServerDeploymentName, instance.Namespace)
 	)
 
-	if data, err = i.requestPublicKey(fmt.Sprintf("http://%s.%s.svc", actions.ServerDeploymentName, instance.Namespace)); err == nil {
+	inContainer, err := k8sutils.ContainerMode()
+	if err == nil {
+		if !inContainer && instance.Status.Url != "" {
+			url = instance.Status.Url
+		}
+	} else {
+		klog.Info("Can't recognise operator mode - expecting in-container run")
+	}
+
+	if data, err = i.requestPublicKey(url); err == nil {
 		return data, nil
 	}
 	i.Logger.Info("retrying to get rekor public key")
