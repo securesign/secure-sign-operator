@@ -79,6 +79,7 @@ func Test_NTPCanHandle(t *testing.T) {
 			name: "NTPMonitoring is disabled",
 			testCase: func(instance *rhtasv1alpha1.TimestampAuthority) {
 				instance.Spec.NTPMonitoring.Enabled = false
+				instance.Spec.NTPMonitoring.Config = nil
 			},
 			expected: false,
 		},

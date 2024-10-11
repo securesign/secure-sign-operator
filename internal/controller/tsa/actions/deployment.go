@@ -40,16 +40,18 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Timest
 	deployment, err := tsaUtils.CreateTimestampAuthorityDeployment(instance, DeploymentName, RBACName, labels)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    TSAServerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
+			Type:               TSAServerCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Failure,
+			Message:            err.Error(),
+			ObservedGeneration: instance.Generation,
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Failure,
+			Message:            err.Error(),
+			ObservedGeneration: instance.Generation,
 		})
 	}
 	if err = controllerutil.SetControllerReference(instance, deployment, i.Client.Scheme()); err != nil {
@@ -58,26 +60,29 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Timest
 
 	if updated, err = i.Ensure(ctx, deployment); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    TSAServerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
+			Type:               TSAServerCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Failure,
+			Message:            err.Error(),
+			ObservedGeneration: instance.Generation,
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Failure,
+			Message:            err.Error(),
+			ObservedGeneration: instance.Generation,
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create TSA Server: %w", err), instance)
 	}
 
 	if updated {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    TSAServerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Creating,
-			Message: "TSA server deployment created",
+			Type:               TSAServerCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Creating,
+			Message:            "TSA server deployment created",
+			ObservedGeneration: instance.Generation,
 		})
 		return i.StatusUpdate(ctx, instance)
 	} else {

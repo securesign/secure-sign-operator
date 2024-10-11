@@ -59,14 +59,16 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 
 	if meta.FindStatusCondition(instance.Status.Conditions, constants.Ready).Reason != constants.Pending {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:   constants.Ready,
-			Status: metav1.ConditionFalse,
-			Reason: constants.Pending,
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Pending,
+			ObservedGeneration: instance.Generation,
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:   TSASignerCondition,
-			Status: metav1.ConditionFalse,
-			Reason: constants.Creating,
+			Type:               TSASignerCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Creating,
+			ObservedGeneration: instance.Generation,
 		})
 		return g.StatusUpdate(ctx, instance)
 	}
@@ -87,25 +89,28 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 		anno, err := g.secretAnnotations(instance)
 		if err != nil {
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:    TSASignerCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
-				Message: err.Error(),
+				Type:               TSASignerCondition,
+				Status:             metav1.ConditionFalse,
+				Reason:             constants.Failure,
+				Message:            err.Error(),
+				ObservedGeneration: instance.Generation,
 			})
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:    constants.Ready,
-				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
-				Message: err.Error(),
+				Type:               constants.Ready,
+				Status:             metav1.ConditionFalse,
+				Reason:             constants.Failure,
+				Message:            err.Error(),
+				ObservedGeneration: instance.Generation,
 			})
 			return g.FailedWithStatusUpdate(ctx, err, instance)
 		}
 		if equality.Semantic.DeepDerivative(anno, partialSecret.GetAnnotations()) {
 			g.alignStatusFields(secret, instance)
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:   TSASignerCondition,
-				Status: metav1.ConditionTrue,
-				Reason: "Resolved",
+				Type:               TSASignerCondition,
+				Status:             metav1.ConditionTrue,
+				Reason:             "Resolved",
+				ObservedGeneration: instance.Generation,
 			})
 			return g.StatusUpdate(ctx, instance)
 		}
@@ -113,16 +118,18 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 		// invalidate certificate
 		if err := constants.RemoveLabel(ctx, partialSecret, g.Client, TSACertCALabel); err != nil {
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:    TSASignerCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
-				Message: err.Error(),
+				Type:               TSASignerCondition,
+				Status:             metav1.ConditionFalse,
+				Reason:             constants.Failure,
+				Message:            err.Error(),
+				ObservedGeneration: instance.Generation,
 			})
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:    constants.Ready,
-				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
-				Message: err.Error(),
+				Type:               constants.Ready,
+				Status:             metav1.ConditionFalse,
+				Reason:             constants.Failure,
+				Message:            err.Error(),
+				ObservedGeneration: instance.Generation,
 			})
 			return g.FailedWithStatusUpdate(ctx, err, instance)
 		}
@@ -137,16 +144,18 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 		if err != nil {
 			g.Logger.Error(err, "error resolving keys for timestamp authority")
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:    TSASignerCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
-				Message: err.Error(),
+				Type:               TSASignerCondition,
+				Status:             metav1.ConditionFalse,
+				Reason:             constants.Failure,
+				Message:            err.Error(),
+				ObservedGeneration: instance.Generation,
 			})
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:    constants.Ready,
-				Status:  metav1.ConditionFalse,
-				Reason:  constants.Pending,
-				Message: "Resolving keys",
+				Type:               constants.Ready,
+				Status:             metav1.ConditionFalse,
+				Reason:             constants.Pending,
+				Message:            "Resolving keys",
+				ObservedGeneration: instance.Generation,
 			})
 			g.StatusUpdate(ctx, instance)
 			// swallow error and retry
@@ -158,16 +167,18 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 	if err != nil {
 		g.Logger.Error(err, "error resolving certificate chain for timestamp authority")
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    TSASignerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
+			Type:               TSASignerCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Failure,
+			Message:            err.Error(),
+			ObservedGeneration: instance.Generation,
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Pending,
-			Message: "Resolving keys",
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Pending,
+			Message:            "Resolving keys",
+			ObservedGeneration: instance.Generation,
 		})
 		g.StatusUpdate(ctx, instance)
 		// swallow error and retry
@@ -177,16 +188,18 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 	anno, err := g.secretAnnotations(instance)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    TSASignerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
+			Type:               TSASignerCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Failure,
+			Message:            err.Error(),
+			ObservedGeneration: instance.Generation,
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Failure,
+			Message:            err.Error(),
+			ObservedGeneration: instance.Generation,
 		})
 		return g.FailedWithStatusUpdate(ctx, err, instance)
 	}
@@ -200,25 +213,28 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 	certificateChain.Annotations = anno
 	if _, err := g.Ensure(ctx, certificateChain); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    TSASignerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
+			Type:               TSASignerCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Failure,
+			Message:            err.Error(),
+			ObservedGeneration: instance.Generation,
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Failure,
+			Message:            err.Error(),
+			ObservedGeneration: instance.Generation,
 		})
 		return g.FailedWithStatusUpdate(ctx, err, instance)
 	}
 	g.Recorder.Event(instance, v1.EventTypeNormal, "TSACertUpdated", "TSA certificate secret updated")
 	g.alignStatusFields(certificateChain, instance)
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:   TSASignerCondition,
-		Status: metav1.ConditionTrue,
-		Reason: "Resolved",
+		Type:               TSASignerCondition,
+		Status:             metav1.ConditionTrue,
+		Reason:             "Resolved",
+		ObservedGeneration: instance.Generation,
 	})
 	return g.StatusUpdate(ctx, instance)
 }
