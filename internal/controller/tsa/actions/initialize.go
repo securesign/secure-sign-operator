@@ -51,16 +51,18 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Ti
 	if !ok {
 		i.Logger.Info("Waiting for deployment")
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Initialize,
-			Message: "Waiting for deployment to be ready",
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Initialize,
+			Message:            "Waiting for deployment to be ready",
+			ObservedGeneration: instance.Generation,
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    TSAServerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Initialize,
-			Message: "Waiting for deployment to be ready",
+			Type:               TSAServerCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Initialize,
+			Message:            "Waiting for deployment to be ready",
+			ObservedGeneration: instance.Generation,
 		})
 		return i.StatusUpdate(ctx, instance)
 	}
@@ -81,10 +83,10 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Ti
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: TSAServerCondition,
-		Status: metav1.ConditionTrue, Reason: constants.Ready})
+		Status: metav1.ConditionTrue, Reason: constants.Ready, ObservedGeneration: instance.Generation})
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
-		Status: metav1.ConditionTrue, Reason: constants.Ready})
+		Status: metav1.ConditionTrue, Reason: constants.Ready, ObservedGeneration: instance.Generation})
 
 	return i.StatusUpdate(ctx, instance)
 }

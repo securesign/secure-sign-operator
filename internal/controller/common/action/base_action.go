@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/go-logr/logr"
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
@@ -249,6 +250,18 @@ func EnsureAnnotations(managedAnnotations ...string) EnsureOption {
 			}
 		}
 		current.SetAnnotations(mergedAnnotations)
+		return nil
+	}
+}
+
+func EnsureNTPConfig() EnsureOption {
+	return func(current client.Object, expected client.Object) error {
+		currentTSA, ok1 := current.(*rhtasv1alpha1.TimestampAuthority)
+		expectedTSA, ok2 := expected.(*rhtasv1alpha1.TimestampAuthority)
+		if !ok1 || !ok2 {
+			return fmt.Errorf("EnsureNTPConfig: objects are not of type *rhtasv1alpha1.TimestampAuthority")
+		}
+		currentTSA.Spec.NTPMonitoring = expectedTSA.Spec.NTPMonitoring
 		return nil
 	}
 }
