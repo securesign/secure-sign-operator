@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	utils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
@@ -16,7 +14,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	labels2 "k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+)
+
+const (
+	serverConfigResourceName = "ctlog-server-config"
 )
 
 func NewServerConfigAction() action.Action[*rhtasv1alpha1.CTlog] {
@@ -79,9 +82,22 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		instance.Spec.Trillian.Address = fmt.Sprintf("%s.%s.svc", trillian.LogserverDeploymentName, instance.Namespace)
 	}
 
-	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
+	trillianUrl := fmt.Sprintf("%s:%d", instance.Spec.Trillian.Address, *instance.Spec.Trillian.Port)
 
-	trillianService := instance.DeepCopy().Spec.Trillian
+	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
+	labels[constants.LabelResource] = serverConfigResourceName
+
+	// try to discover existing config and clear them out
+	partialConfigs, err := utils.ListSecrets(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(labels).String())
+	if err != nil {
+		i.Logger.Error(err, "problem with listing configmaps", "namespace", instance.Namespace)
+	}
+	for _, partialConfig := range partialConfigs.Items {
+		i.Logger.Info("Remove invalid Secret with ctlog configuration", "Name", partialConfig.Name)
+		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigDeleted", "Secret with ctlog configuration deleted: %s", partialConfig.Name)
+		_ = i.Client.Delete(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: partialConfig.Name, Namespace: partialConfig.Namespace}})
+
+	}
 
 	rootCerts, err := i.handleRootCertificates(instance)
 	if err != nil {
@@ -110,7 +126,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	}
 
 	var cfg map[string][]byte
-	if cfg, err = ctlogUtils.CreateCtlogConfig(fmt.Sprintf("%s:%d", trillianService.Address, *trillianService.Port), *instance.Status.TreeID, rootCerts, certConfig); err != nil {
+	if cfg, err = ctlogUtils.CreateCtlogConfig(trillianUrl, *instance.Status.TreeID, rootCerts, certConfig); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               constants.Ready,
 			Status:             metav1.ConditionFalse,
@@ -122,7 +138,6 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	}
 
 	newConfig := utils.CreateImmutableSecret(fmt.Sprintf("ctlog-config-%s", instance.Name), instance.Namespace, cfg, labels)
-
 	if err = controllerutil.SetControllerReference(instance, newConfig, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Secret: %w", err))
 	}
@@ -139,18 +154,6 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		return i.FailedWithStatusUpdate(ctx, err, instance)
 	}
 
-	if instance.Status.ServerConfigRef != nil {
-		if err := i.Client.Delete(ctx, &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      instance.Status.ServerConfigRef.Name,
-				Namespace: instance.Namespace,
-			},
-		}); client.IgnoreNotFound(err) != nil {
-			return i.Failed(err)
-		}
-		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigDeleted", "CTLog config deleted %s", instance.Status.ServerConfigRef.Name)
-	}
-
 	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
 
 	i.Recorder.Event(instance, corev1.EventTypeNormal, "CTLogConfigUpdated", "CTLog config updated")
@@ -164,7 +167,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	return i.StatusUpdate(ctx, instance)
 }
 
-func (i serverConfig) handlePrivateKey(instance *rhtasv1alpha1.CTlog) (*ctlogUtils.PrivateKeyConfig, error) {
+func (i serverConfig) handlePrivateKey(instance *rhtasv1alpha1.CTlog) (*ctlogUtils.KeyConfig, error) {
 	if instance == nil {
 		return nil, nil
 	}
@@ -181,7 +184,7 @@ func (i serverConfig) handlePrivateKey(instance *rhtasv1alpha1.CTlog) (*ctlogUti
 		return nil, err
 	}
 
-	return &ctlogUtils.PrivateKeyConfig{
+	return &ctlogUtils.KeyConfig{
 		PrivateKey:     private,
 		PublicKey:      public,
 		PrivateKeyPass: password,

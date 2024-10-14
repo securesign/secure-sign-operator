@@ -3,22 +3,26 @@ package actions
 import (
 	"context"
 	"fmt"
+	"slices"
+	"time"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
+	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const KeySecretNameFormat = "ctlog-%s-keys-"
+const (
+	KeySecretName = "ctlog-keys-"
+)
 
 func NewHandleKeysAction() action.Action[*v1alpha1.CTlog] {
 	return &handleKeys{}
@@ -34,14 +38,22 @@ func (g handleKeys) Name() string {
 
 func (g handleKeys) CanHandle(ctx context.Context, instance *v1alpha1.CTlog) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	if c.Reason != constants.Creating && c.Reason != constants.Ready {
-		return false
-	}
 
-	return instance.Status.PrivateKeyRef == nil || instance.Status.PublicKeyRef == nil ||
-		!equality.Semantic.DeepDerivative(instance.Spec.PrivateKeyRef, instance.Status.PrivateKeyRef) ||
-		!equality.Semantic.DeepDerivative(instance.Spec.PublicKeyRef, instance.Status.PublicKeyRef) ||
-		!equality.Semantic.DeepDerivative(instance.Spec.PrivateKeyPasswordRef, instance.Status.PrivateKeyPasswordRef)
+	switch {
+	case c == nil:
+		return false
+	case c.Reason != constants.Creating && c.Reason != constants.Ready:
+		return false
+	case instance.Status.PrivateKeyRef == nil || instance.Status.PublicKeyRef == nil:
+		return true
+	case !equality.Semantic.DeepDerivative(instance.Spec.PrivateKeyRef, instance.Status.PrivateKeyRef):
+		return true
+	case !equality.Semantic.DeepDerivative(instance.Spec.PublicKeyRef, instance.Status.PublicKeyRef):
+		return true
+	case !equality.Semantic.DeepDerivative(instance.Spec.PrivateKeyPasswordRef, instance.Status.PrivateKeyPasswordRef):
+		return true
+	}
+	return false
 }
 
 func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *action.Result {
@@ -55,76 +67,20 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 		)
 		return g.StatusUpdate(ctx, instance)
 	}
-	var (
-		data map[string][]byte
-	)
 
-	if instance.Spec.PrivateKeyRef == nil {
-		config, err := utils.CreatePrivateKey()
-		if err != nil {
-			return g.Failed(err)
-		}
-		data = map[string][]byte{
-			"private": config.PrivateKey,
-			"public":  config.PublicKey,
-		}
-	} else {
-		var (
-			private, password []byte
-			err               error
-			config            *utils.PrivateKeyConfig
-		)
-
-		private, err = k8sutils.GetSecretData(g.Client, instance.Namespace, instance.Spec.PrivateKeyRef)
-		if err != nil {
-			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:               constants.Ready,
-				Status:             metav1.ConditionFalse,
-				Reason:             constants.Pending,
-				Message:            "Waiting for secret " + instance.Spec.PrivateKeyRef.Name,
-				ObservedGeneration: instance.Generation,
-			})
-			g.StatusUpdate(ctx, instance)
-			// busy waiting - no watch on provided secrets
-			return g.Requeue()
-		}
-		if instance.Spec.PrivateKeyPasswordRef != nil {
-			password, err = k8sutils.GetSecretData(g.Client, instance.Namespace, instance.Spec.PrivateKeyPasswordRef)
-			if err != nil {
-				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-					Type:               constants.Ready,
-					Status:             constants.Creating,
-					Reason:             constants.Pending,
-					Message:            "Waiting for secret " + instance.Spec.PrivateKeyPasswordRef.Name,
-					ObservedGeneration: instance.Generation,
-				})
-				g.StatusUpdate(ctx, instance)
-				// busy waiting - no watch on provided secrets
-				return g.Requeue()
-			}
-		}
-		config, err = utils.GeneratePublicKey(&utils.PrivateKeyConfig{PrivateKey: private, PrivateKeyPass: password})
-		if err != nil || config == nil {
-			return g.Failed(fmt.Errorf("unable to generate public key: %w", err))
-		}
-		data = map[string][]byte{"public": config.PublicKey}
+	newKeyStatus := instance.Status.DeepCopy()
+	if instance.Spec.PrivateKeyPasswordRef != nil {
+		newKeyStatus.PrivateKeyPasswordRef = instance.Spec.PrivateKeyPasswordRef
 	}
 
-	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
-	labels[CTLPubLabel] = "public"
-	secret := k8sutils.CreateImmutableSecret(fmt.Sprintf(KeySecretNameFormat, instance.Name), instance.Namespace,
-		data, labels)
+	g.discoverPrivateKey(ctx, instance, newKeyStatus)
+	g.discoverPubliceKey(ctx, instance, newKeyStatus)
 
-	if err := controllerutil.SetControllerReference(instance, secret, g.Client.Scheme()); err != nil {
-		return g.Failed(fmt.Errorf("could not set controller reference for Secret: %w", err))
-	}
-
-	// ensure that only new key is exposed
-	if err := g.Client.DeleteAllOf(ctx, &v1.Secret{}, client.InNamespace(instance.Namespace), client.MatchingLabels(constants.LabelsFor(ComponentName, DeploymentName, instance.Name)), client.HasLabels{CTLPubLabel}); err != nil {
+	keys, err := g.setupKeys(instance.Namespace, newKeyStatus)
+	if err != nil {
 		return g.Failed(err)
 	}
-
-	if _, err := g.Ensure(ctx, secret); err != nil {
+	if _, err = g.generateAndUploadSecret(ctx, instance, newKeyStatus, keys); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               constants.Ready,
 			Status:             metav1.ConditionFalse,
@@ -132,54 +88,13 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 			Message:            err.Error(),
 			ObservedGeneration: instance.Generation,
 		})
-		return g.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Secret: %w", err), instance)
+		return g.FailedWithStatusUpdate(ctx, fmt.Errorf("could not update Secret annotations: %w", err), instance)
 	}
 
-	if instance.Spec.PrivateKeyRef == nil {
-		instance.Status.PrivateKeyRef = &v1alpha1.SecretKeySelector{
-			Key: "private",
-			LocalObjectReference: v1alpha1.LocalObjectReference{
-				Name: secret.Name,
-			},
-		}
-	} else {
-		instance.Status.PrivateKeyRef = instance.Spec.PrivateKeyRef
-	}
-
-	if _, ok := data["password"]; instance.Spec.PrivateKeyPasswordRef == nil && ok {
-		instance.Status.PrivateKeyPasswordRef = &v1alpha1.SecretKeySelector{
-			Key: "password",
-			LocalObjectReference: v1alpha1.LocalObjectReference{
-				Name: secret.Name,
-			},
-		}
-	} else {
-		instance.Status.PrivateKeyPasswordRef = instance.Spec.PrivateKeyPasswordRef
-	}
-
-	if instance.Spec.PublicKeyRef == nil {
-		instance.Status.PublicKeyRef = &v1alpha1.SecretKeySelector{
-			Key: "public",
-			LocalObjectReference: v1alpha1.LocalObjectReference{
-				Name: secret.Name,
-			},
-		}
-	} else {
-		instance.Status.PublicKeyRef = instance.Spec.PublicKeyRef
-	}
+	instance.Status = *newKeyStatus
 
 	// invalidate server config
 	if instance.Status.ServerConfigRef != nil {
-		if err := g.Client.Delete(ctx, &v1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      instance.Status.ServerConfigRef.Name,
-				Namespace: instance.Namespace,
-			},
-		}); err != nil {
-			if !k8sErrors.IsNotFound(err) {
-				return g.Failed(err)
-			}
-		}
 		instance.Status.ServerConfigRef = nil
 	}
 
@@ -191,4 +106,182 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 		ObservedGeneration: instance.Generation,
 	})
 	return g.StatusUpdate(ctx, instance)
+}
+
+func (g handleKeys) setupKeys(ns string, instanceStatus *v1alpha1.CTlogStatus) (*utils.KeyConfig, error) {
+	var (
+		err    error
+		config = &utils.KeyConfig{}
+	)
+	if instanceStatus.PrivateKeyPasswordRef != nil {
+		config.PrivateKeyPass, err = k8sutils.GetSecretData(g.Client, ns, instanceStatus.PrivateKeyPasswordRef)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if instanceStatus.PrivateKeyRef == nil {
+		return utils.CreatePrivateKey(config.PrivateKeyPass)
+	} else {
+
+		config.PrivateKey, err = k8sutils.GetSecretData(g.Client, ns, instanceStatus.PrivateKeyRef)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if instanceStatus.PublicKeyRef == nil {
+		return utils.GeneratePublicKey(config)
+	} else {
+		config.PublicKey, err = k8sutils.GetSecretData(g.Client, ns, instanceStatus.PrivateKeyRef)
+		if err != nil {
+			return nil, err
+		}
+		return config, nil
+	}
+}
+
+func (g handleKeys) discoverPrivateKey(ctx context.Context, instance *v1alpha1.CTlog, newKeyStatus *v1alpha1.CTlogStatus) {
+	if instance.Spec.PrivateKeyRef != nil {
+		newKeyStatus.PrivateKeyRef = instance.Spec.PrivateKeyRef
+		return
+	}
+
+	partialPrivateSecrets, err := k8sutils.ListSecrets(ctx, g.Client, instance.Namespace, CTLogPrivateLabel)
+	if err != nil {
+		g.Logger.Error(err, "problem with listing secrets", "namespace", instance.Namespace)
+	}
+	for _, partialPrivateSecret := range partialPrivateSecrets.Items {
+		if newKeyStatus.PrivateKeyRef == nil {
+			// we are still searching for new key
+			passwordKeyRef, isEncrypted := partialPrivateSecret.Annotations[passwordKeyRefAnnotation]
+			if newKeyStatus.PrivateKeyPasswordRef != nil {
+				// we search for password encrypted private key
+				if isEncrypted && newKeyStatus.PrivateKeyPasswordRef.Name == passwordKeyRef {
+					g.Recorder.Event(instance, v1.EventTypeNormal, "PrivateKeyDiscovered", "Existing private key discovered")
+					newKeyStatus.PrivateKeyRef = g.sksByLabel(partialPrivateSecret, CTLogPrivateLabel)
+					continue
+				}
+			} else if !isEncrypted {
+				g.Recorder.Event(instance, v1.EventTypeNormal, "PrivateKeyDiscovered", "Existing private key discovered")
+				newKeyStatus.PrivateKeyRef = g.sksByLabel(partialPrivateSecret, CTLogPrivateLabel)
+				continue
+			}
+		}
+		err = constants.RemoveLabel(ctx, &partialPrivateSecret, g.Client, CTLogPrivateLabel)
+		if err != nil {
+			g.Logger.Error(err, "problem with invalidating private key secret", "namespace", instance.Namespace)
+		}
+		g.Recorder.Event(instance, v1.EventTypeNormal, "PrivateSecretLabelRemoved", "Private key secret invalidated")
+	}
+}
+
+func (g handleKeys) discoverPubliceKey(ctx context.Context, instance *v1alpha1.CTlog, newKeyStatus *v1alpha1.CTlogStatus) {
+	switch {
+	case instance.Spec.PublicKeyRef != nil:
+		newKeyStatus.PublicKeyRef = instance.Spec.PublicKeyRef
+		return
+	case newKeyStatus.PrivateKeyRef == nil:
+		// need to generate new pair
+		return
+	}
+
+	partialPubSecrets, err := k8sutils.ListSecrets(ctx, g.Client, instance.Namespace, CTLPubLabel)
+	if err != nil {
+		g.Logger.Error(err, "problem with listing secrets", "namespace", instance.Namespace)
+	}
+	for _, partialPubSecret := range partialPubSecrets.Items {
+		if newKeyStatus.PublicKeyRef == nil {
+			// we are still searching for new key
+			if privateKeyRef, ok := partialPubSecret.Annotations[privateKeyRefAnnotation]; ok && privateKeyRef == newKeyStatus.PrivateKeyRef.Name {
+				g.Recorder.Event(instance, v1.EventTypeNormal, "PublicKeyDiscovered", "Existing public key discovered")
+				newKeyStatus.PublicKeyRef = g.sksByLabel(partialPubSecret, CTLPubLabel)
+				continue
+			}
+		}
+		err = constants.RemoveLabel(ctx, &partialPubSecret, g.Client, CTLPubLabel)
+		if err != nil {
+			g.Logger.Error(err, "problem with invalidating public key secret", "namespace", instance.Namespace)
+		}
+		g.Recorder.Event(instance, v1.EventTypeNormal, "PrivateSecretLabelRemoved", "Public key secret invalidated")
+	}
+}
+
+func (g handleKeys) generateAndUploadSecret(ctx context.Context, instance *v1alpha1.CTlog, newKeyStatus *v1alpha1.CTlogStatus, keys *utils.KeyConfig) (*v1.Secret, error) {
+	if newKeyStatus.PublicKeyRef != nil && newKeyStatus.PrivateKeyRef != nil {
+		return nil, nil
+	}
+
+	secret := k8sutils.CreateImmutableSecret(KeySecretName, instance.Namespace, map[string][]byte{}, constants.LabelsFor(ComponentName, DeploymentName, instance.Name))
+	secret.Annotations = make(map[string]string)
+
+	if newKeyStatus.PrivateKeyRef == nil {
+		if newKeyStatus.PrivateKeyPasswordRef != nil {
+			secret.Annotations[passwordKeyRefAnnotation] = newKeyStatus.PrivateKeyPasswordRef.Name
+		}
+		secret.Data["private"] = keys.PrivateKey
+		secret.Labels[CTLogPrivateLabel] = "private"
+	}
+
+	if newKeyStatus.PublicKeyRef == nil {
+		if newKeyStatus.PrivateKeyRef != nil {
+			secret.Annotations[privateKeyRefAnnotation] = newKeyStatus.PrivateKeyRef.Name
+		}
+		secret.Data["public"] = keys.PublicKey
+		secret.Labels[CTLPubLabel] = "public"
+	}
+
+	if err := controllerutil.SetControllerReference(instance, secret, g.Client.Scheme()); err != nil {
+		return nil, err
+	}
+
+	// we need to upload secret to get secretName
+	if _, err := g.Ensure(ctx, secret); err != nil {
+		return nil, err
+	}
+	// refetch secret to avoid "resourceVersion should not be set on objects to be created"
+	time.Sleep(time.Second)
+	if err := g.Client.Get(ctx, client.ObjectKeyFromObject(secret), secret); err != nil {
+		return nil, err
+	}
+
+	if slices.Contains(maps.Keys(secret.Labels), CTLPubLabel) {
+		newKeyStatus.PublicKeyRef = &v1alpha1.SecretKeySelector{
+			LocalObjectReference: v1alpha1.LocalObjectReference{
+				Name: secret.Name,
+			},
+			Key: "public",
+		}
+	}
+
+	if slices.Contains(maps.Keys(secret.Labels), CTLogPrivateLabel) {
+		newKeyStatus.PrivateKeyRef = &v1alpha1.SecretKeySelector{
+			LocalObjectReference: v1alpha1.LocalObjectReference{
+				Name: secret.Name,
+			},
+			Key: "private",
+		}
+	}
+
+	if slices.Contains(maps.Keys(secret.Labels), CTLPubLabel) && slices.Contains(maps.Keys(secret.Labels), CTLogPrivateLabel) {
+		// need to add cyclic private key reference annotation
+		if secret.Annotations == nil {
+			secret.Annotations = make(map[string]string)
+		}
+		secret.Annotations[privateKeyRefAnnotation] = secret.Name
+		if _, err := g.Ensure(ctx, secret, action.EnsureAnnotations(privateKeyRefAnnotation)); err != nil {
+			return nil, err
+		}
+	}
+
+	return secret, nil
+}
+
+func (g handleKeys) sksByLabel(secret metav1.PartialObjectMetadata, label string) *v1alpha1.SecretKeySelector {
+	return &v1alpha1.SecretKeySelector{
+		Key: secret.Labels[label],
+		LocalObjectReference: v1alpha1.LocalObjectReference{
+			Name: secret.Name,
+		},
+	}
 }
