@@ -138,7 +138,7 @@ func mustMarshalAny(pb proto.Message) *anypb.Any {
 	return ret
 }
 
-func createConfigWithKeys(certConfig *PrivateKeyConfig) (*Config, error) {
+func createConfigWithKeys(certConfig *KeyConfig) (*Config, error) {
 	config := &Config{
 		PubKey: certConfig.PublicKey,
 	}
@@ -168,7 +168,7 @@ func createConfigWithKeys(certConfig *PrivateKeyConfig) (*Config, error) {
 	return config, nil
 }
 
-func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertificate, keyConfig *PrivateKeyConfig) (map[string][]byte, error) {
+func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertificate, keyConfig *KeyConfig) (map[string][]byte, error) {
 	ctlogConfig, err := createConfigWithKeys(keyConfig)
 	if err != nil {
 		return nil, err

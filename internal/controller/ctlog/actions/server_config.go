@@ -2,8 +2,11 @@ package actions
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strconv"
 
+	labels2 "k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -17,6 +20,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+)
+
+const (
+	serverConfigResourceName = "ctlog-server-config"
 )
 
 func NewServerConfigAction() action.Action[*rhtasv1alpha1.CTlog] {
@@ -79,9 +86,67 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		instance.Spec.Trillian.Address = fmt.Sprintf("%s.%s.svc", trillian.LogserverDeploymentName, instance.Namespace)
 	}
 
-	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
+	trillianUrl := fmt.Sprintf("%s:%d", instance.Spec.Trillian.Address, *instance.Spec.Trillian.Port)
 
-	trillianService := instance.DeepCopy().Spec.Trillian
+	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
+	labels[constants.LabelResource] = serverConfigResourceName
+
+	// verify existing config
+	if instance.Status.ServerConfigRef != nil {
+		cfg, err := utils.GetSecret(i.Client, instance.Namespace, instance.Status.ServerConfigRef.Name)
+		if client.IgnoreNotFound(err) != nil {
+			return i.Failed(fmt.Errorf("CTLogConfig: %w", err))
+		}
+		if cfg != nil {
+			// configuration contains salt - we can't use DeepEqual
+			expectedAnno, err := i.configAnnotations(trillianUrl, instance)
+			if err != nil {
+				return i.Failed(fmt.Errorf("can't compute server config annotations %w", err))
+			}
+			if !equality.Semantic.DeepDerivative(expectedAnno, cfg.Annotations) {
+				msg := "Remove invalid ConfigMap with ctlog configuration"
+				i.Logger.Info(msg, "Name", cfg.Name)
+				i.Recorder.Event(instance, corev1.EventTypeNormal, "InvalidConfigurationRemoved", msg)
+				_ = i.Client.Delete(ctx, cfg)
+			} else {
+				return i.Continue()
+			}
+		}
+	}
+	// invalidate
+	instance.Status.ServerConfigRef = nil
+
+	// try to discover existing config
+	partialConfigs, err := utils.ListSecrets(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(labels).String())
+	if err != nil {
+		i.Logger.Error(err, "problem with finding configmap", "namespace", instance.Namespace)
+	}
+	for _, partialConfig := range partialConfigs.Items {
+		if instance.Status.ServerConfigRef == nil {
+			// configuration contains salt - we can't use DeepEqual
+			expectedAnno, err := i.configAnnotations(trillianUrl, instance)
+			if err != nil {
+				return i.Failed(fmt.Errorf("can't compute server config annotations %w", err))
+			}
+			if equality.Semantic.DeepDerivative(expectedAnno, partialConfig.Annotations) {
+				i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigDiscovered", "Existing Secret with ctlog configuration discovered: %s", partialConfig.Name)
+				instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: partialConfig.Name}
+				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+					Type:    constants.Ready,
+					Status:  metav1.ConditionFalse,
+					Reason:  constants.Creating,
+					Message: "Server config discovered"})
+				continue
+			}
+		}
+		i.Logger.Info("Remove invalid Secret with ctlog configuration", "Name", partialConfig.Name)
+		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigDeleted", "Secret with ctlog configuration deleted: %s", partialConfig.Name)
+		_ = i.Client.Delete(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: partialConfig.Name, Namespace: partialConfig.Namespace}})
+
+	}
+	if instance.Status.ServerConfigRef != nil {
+		return i.StatusUpdate(ctx, instance)
+	}
 
 	rootCerts, err := i.handleRootCertificates(instance)
 	if err != nil {
@@ -110,7 +175,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	}
 
 	var cfg map[string][]byte
-	if cfg, err = ctlogUtils.CreateCtlogConfig(fmt.Sprintf("%s:%d", trillianService.Address, *trillianService.Port), *instance.Status.TreeID, rootCerts, certConfig); err != nil {
+	if cfg, err = ctlogUtils.CreateCtlogConfig(trillianUrl, *instance.Status.TreeID, rootCerts, certConfig); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               constants.Ready,
 			Status:             metav1.ConditionFalse,
@@ -122,6 +187,11 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	}
 
 	newConfig := utils.CreateImmutableSecret(fmt.Sprintf("ctlog-config-%s", instance.Name), instance.Namespace, cfg, labels)
+	expectedAnno, err := i.configAnnotations(trillianUrl, instance)
+	if err != nil {
+		return i.Failed(fmt.Errorf("can't compute server config annotations %w", err))
+	}
+	newConfig.Annotations = expectedAnno
 
 	if err = controllerutil.SetControllerReference(instance, newConfig, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Secret: %w", err))
@@ -164,7 +234,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	return i.StatusUpdate(ctx, instance)
 }
 
-func (i serverConfig) handlePrivateKey(instance *rhtasv1alpha1.CTlog) (*ctlogUtils.PrivateKeyConfig, error) {
+func (i serverConfig) handlePrivateKey(instance *rhtasv1alpha1.CTlog) (*ctlogUtils.KeyConfig, error) {
 	if instance == nil {
 		return nil, nil
 	}
@@ -181,7 +251,7 @@ func (i serverConfig) handlePrivateKey(instance *rhtasv1alpha1.CTlog) (*ctlogUti
 		return nil, err
 	}
 
-	return &ctlogUtils.PrivateKeyConfig{
+	return &ctlogUtils.KeyConfig{
 		PrivateKey:     private,
 		PublicKey:      public,
 		PrivateKeyPass: password,
@@ -200,4 +270,18 @@ func (i serverConfig) handleRootCertificates(instance *rhtasv1alpha1.CTlog) ([]c
 	}
 
 	return certs, nil
+}
+
+func (i serverConfig) configAnnotations(trillianUrl string, instance *rhtasv1alpha1.CTlog) (map[string]string, error) {
+	jsonCerts, err := json.Marshal(instance.Status.RootCertificates)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]string{
+		trillianURLAnnotation:   trillianUrl,
+		treeIDAnnotation:        strconv.FormatInt(*instance.Status.TreeID, 10),
+		privateKeyRefAnnotation: instance.Status.PrivateKeyRef.Name,
+		certAnnotation:          string(jsonCerts),
+	}, nil
+
 }
