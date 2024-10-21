@@ -18,6 +18,7 @@ package ctlog
 
 import (
 	"context"
+	"maps"
 	"time"
 
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
@@ -140,7 +141,12 @@ var _ = Describe("CTlog update test", func() {
 			}).Should(BeTrue())
 
 			By("Fulcio CA has changed")
-			Expect(k8sClient.Delete(ctx, fulcioCa)).To(Succeed())
+			// invalidate
+			maps.DeleteFunc(fulcioCa.Labels, func(key string, val string) bool {
+				return key == fulcio.FulcioCALabel
+			})
+			Expect(k8sClient.Update(ctx, fulcioCa)).To(Succeed())
+
 			fulcioCa = kubernetes.CreateSecret("test2", Namespace,
 				map[string][]byte{"cert": []byte("fakeCert2")},
 				map[string]string{fulcio.FulcioCALabel: "cert"},
@@ -151,10 +157,14 @@ var _ = Describe("CTlog update test", func() {
 			Eventually(func(g Gomega) {
 				found := &v1alpha1.CTlog{}
 				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+
+				// both certs are present
 				g.Expect(found.Status.RootCertificates).
-					Should(HaveExactElements(WithTransform(func(ks v1alpha1.SecretKeySelector) string {
-						return ks.Name
-					}, Equal("test2"))))
+					Should(And(
+						ContainElement(WithTransform(func(ks v1alpha1.SecretKeySelector) string { return ks.Name }, Equal("test"))),
+						ContainElement(WithTransform(func(ks v1alpha1.SecretKeySelector) string { return ks.Name }, Equal("test2"))),
+					),
+					)
 			}).Should(Succeed())
 
 			By("CTL deployment is updated")
@@ -170,10 +180,10 @@ var _ = Describe("CTlog update test", func() {
 			Expect(k8sTest.SetDeploymentToReady(ctx, k8sClient, deployment)).To(Succeed())
 
 			By("Private key has changed")
-			key, err := utils.CreatePrivateKey()
+			key, err := utils.CreatePrivateKey(nil)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("key-secret", Namespace,
-				map[string][]byte{"private": key.PrivateKey}, constants.LabelsFor(actions.ComponentName, Name, instance.Name)))).To(Succeed())
+				map[string][]byte{"private": key.PrivateKey, "password": key.PrivateKeyPass}, constants.LabelsFor(actions.ComponentName, Name, instance.Name)))).To(Succeed())
 
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
 			found := &v1alpha1.CTlog{}
@@ -184,6 +194,12 @@ var _ = Describe("CTlog update test", func() {
 						Name: "key-secret",
 					},
 					Key: "private",
+				}
+				found.Spec.PrivateKeyPasswordRef = &v1alpha1.SecretKeySelector{
+					LocalObjectReference: v1alpha1.LocalObjectReference{
+						Name: "key-secret",
+					},
+					Key: "password",
 				}
 				return k8sClient.Update(ctx, found)
 			}).Should(Succeed())

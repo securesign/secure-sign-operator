@@ -16,5 +16,9 @@ const (
 	MetricsPort      = 6963
 	ServerCondition  = "ServerAvailable"
 
-	CTLPubLabel = constants.LabelNamespace + "/ctfe.pub"
+	CTLPubLabel       = constants.LabelNamespace + "/ctfe.pub"
+	CTLogPrivateLabel = constants.LabelNamespace + "/ctfe.private"
+
+	privateKeyRefAnnotation  = constants.LabelNamespace + "/privateKeyRef"
+	passwordKeyRefAnnotation = constants.LabelNamespace + "/passwordKeyRef"
 )

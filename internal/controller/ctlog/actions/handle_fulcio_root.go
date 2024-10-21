@@ -30,33 +30,29 @@ func (g handleFulcioCert) Name() string {
 
 func (g handleFulcioCert) CanHandle(ctx context.Context, instance *v1alpha1.CTlog) bool {
 	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
-	if c.Reason != constants.Creating && c.Reason != constants.Ready {
+	switch {
+	case c == nil:
 		return false
-	}
-
-	if len(instance.Status.RootCertificates) == 0 {
+	case c.Reason != constants.Creating && c.Reason != constants.Ready:
+		return false
+	case len(instance.Status.RootCertificates) == 0:
 		return true
-	}
-
-	if !equality.Semantic.DeepDerivative(instance.Spec.RootCertificates, instance.Status.RootCertificates) {
-		return true
-	}
-
-	if len(instance.Spec.RootCertificates) == 0 {
-		// test if autodiscovery find new secret
+	case len(instance.Spec.RootCertificates) == 0:
+		// autodiscovery
 		if scr, _ := k8sutils.FindSecret(ctx, g.Client, instance.Namespace, actions.FulcioCALabel); scr != nil {
 			return !slices.Contains(instance.Status.RootCertificates, v1alpha1.SecretKeySelector{
 				LocalObjectReference: v1alpha1.LocalObjectReference{Name: scr.Name},
 				Key:                  scr.Labels[actions.FulcioCALabel],
 			})
+		} else {
+			return true
 		}
+	default:
+		return !equality.Semantic.DeepDerivative(instance.Spec.RootCertificates, instance.Status.RootCertificates)
 	}
-
-	return false
 }
 
 func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) *action.Result {
-
 	if meta.FindStatusCondition(instance.Status.Conditions, constants.Ready).Reason != constants.Creating {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               constants.Ready,
@@ -84,30 +80,23 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) 
 			g.StatusUpdate(ctx, instance)
 			return g.Requeue()
 		}
-		instance.Status.RootCertificates = []v1alpha1.SecretKeySelector{
-			{
-				LocalObjectReference: v1alpha1.LocalObjectReference{
-					Name: scr.Name,
-				},
-				Key: scr.Labels[actions.FulcioCALabel],
+		sks := v1alpha1.SecretKeySelector{
+			LocalObjectReference: v1alpha1.LocalObjectReference{
+				Name: scr.Name,
 			},
+			Key: scr.Labels[actions.FulcioCALabel],
 		}
+		if slices.Contains(instance.Status.RootCertificates, sks) {
+			return g.Continue()
+		}
+		g.Recorder.Event(instance, v1.EventTypeNormal, "FulcioCertDiscovered", "Fulcio certificate detected")
+		instance.Status.RootCertificates = append(instance.Status.RootCertificates, sks)
 	} else {
 		instance.Status.RootCertificates = instance.Spec.RootCertificates
 	}
 
 	// invalidate server config
 	if instance.Status.ServerConfigRef != nil {
-		if err := g.Client.Delete(ctx, &v1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      instance.Status.ServerConfigRef.Name,
-				Namespace: instance.Namespace,
-			},
-		}); err != nil {
-			if !k8sErrors.IsNotFound(err) {
-				return g.Failed(err)
-			}
-		}
 		instance.Status.ServerConfigRef = nil
 	}
 
