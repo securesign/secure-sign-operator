@@ -58,6 +58,13 @@ func (i resolveTreeAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.
 func (i resolveTreeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) *action.Result {
 	if instance.Spec.TreeID != nil && *instance.Spec.TreeID != int64(0) {
 		instance.Status.TreeID = instance.Spec.TreeID
+		// invalidate server config
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    ConfigCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  TrillianTreeReason,
+			Message: "Trillian tree changed",
+		})
 		return i.StatusUpdate(ctx, instance)
 	}
 	var err error
@@ -96,6 +103,14 @@ func (i resolveTreeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.C
 	}
 	i.Recorder.Eventf(instance, v1.EventTypeNormal, "TrillianTreeCreated", "New Trillian tree created: %d", tree.TreeId)
 	instance.Status.TreeID = &tree.TreeId
+
+	// invalidate server config
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:    ConfigCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  TrillianTreeReason,
+		Message: "Trillian tree changed",
+	})
 
 	return i.StatusUpdate(ctx, instance)
 }

@@ -94,9 +94,12 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 	instance.Status = *newKeyStatus
 
 	// invalidate server config
-	if instance.Status.ServerConfigRef != nil {
-		instance.Status.ServerConfigRef = nil
-	}
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:    ConfigCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  SignerKeyReason,
+		Message: "New signer key",
+	})
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               constants.Ready,

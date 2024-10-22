@@ -35,21 +35,19 @@ func (i serverConfig) Name() string {
 }
 
 func (i serverConfig) CanHandle(_ context.Context, instance *rhtasv1alpha1.CTlog) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	c := meta.FindStatusCondition(instance.Status.Conditions, ConfigCondition)
 
 	switch {
 	case c == nil:
 		return false
-	case c.Reason != constants.Creating && c.Reason != constants.Ready:
-		return false
+	case !meta.IsStatusConditionTrue(instance.Status.Conditions, ConfigCondition):
+		return true
 	case instance.Status.ServerConfigRef == nil:
 		return true
 	case instance.Spec.ServerConfigRef != nil:
 		return !equality.Semantic.DeepEqual(instance.Spec.ServerConfigRef, instance.Status.ServerConfigRef)
-	case c.Reason == constants.Ready:
-		return instance.Generation != c.ObservedGeneration
 	default:
-		return false
+		return instance.Generation != c.ObservedGeneration
 	}
 }
 
@@ -62,10 +60,10 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		instance.Status.ServerConfigRef = instance.Spec.ServerConfigRef
 		i.Recorder.Event(instance, corev1.EventTypeNormal, "CTLogConfigUpdated", "CTLog config updated")
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               constants.Ready,
-			Status:             metav1.ConditionFalse,
-			Reason:             constants.Creating,
-			Message:            "CTLog config updated",
+			Type:               ConfigCondition,
+			Status:             metav1.ConditionTrue,
+			Reason:             constants.Ready,
+			Message:            "Using custom server config",
 			ObservedGeneration: instance.Generation,
 		})
 		return i.StatusUpdate(ctx, instance)
@@ -87,24 +85,12 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
 	labels[constants.LabelResource] = serverConfigResourceName
 
-	// try to discover existing config and clear them out
-	partialConfigs, err := utils.ListSecrets(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(labels).String())
-	if err != nil {
-		i.Logger.Error(err, "problem with listing configmaps", "namespace", instance.Namespace)
-	}
-	for _, partialConfig := range partialConfigs.Items {
-		i.Logger.Info("Remove invalid Secret with ctlog configuration", "Name", partialConfig.Name)
-		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigDeleted", "Secret with ctlog configuration deleted: %s", partialConfig.Name)
-		_ = i.Client.Delete(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: partialConfig.Name, Namespace: partialConfig.Namespace}})
-
-	}
-
 	rootCerts, err := i.handleRootCertificates(instance)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               constants.Ready,
+			Type:               ConfigCondition,
 			Status:             metav1.ConditionFalse,
-			Reason:             constants.Creating,
+			Reason:             FulcioReason,
 			Message:            fmt.Sprintf("Waiting for Fulcio root certificate: %v", err.Error()),
 			ObservedGeneration: instance.Generation,
 		})
@@ -115,9 +101,9 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	certConfig, err := i.handlePrivateKey(instance)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               constants.Ready,
+			Type:               ConfigCondition,
 			Status:             metav1.ConditionFalse,
-			Reason:             constants.Creating,
+			Reason:             SignerKeyReason,
 			Message:            "Waiting for Ctlog private key secret",
 			ObservedGeneration: instance.Generation,
 		})
@@ -128,7 +114,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	var cfg map[string][]byte
 	if cfg, err = ctlogUtils.CreateCtlogConfig(trillianUrl, *instance.Status.TreeID, rootCerts, certConfig); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               constants.Ready,
+			Type:               ConfigCondition,
 			Status:             metav1.ConditionFalse,
 			Reason:             constants.Failure,
 			Message:            err.Error(),
@@ -145,7 +131,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	_, err = i.Ensure(ctx, newConfig)
 	if err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               constants.Ready,
+			Type:               ConfigCondition,
 			Status:             metav1.ConditionFalse,
 			Reason:             constants.Failure,
 			Message:            err.Error(),
@@ -154,13 +140,33 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		return i.FailedWithStatusUpdate(ctx, err, instance)
 	}
 
+	// try to discover existing config and clear them out
+	partialConfigs, err := utils.ListSecrets(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(labels).String())
+	if err != nil {
+		i.Logger.Error(err, "problem with listing configmaps", "namespace", instance.Namespace)
+	}
+	for _, partialConfig := range partialConfigs.Items {
+		if partialConfig.Name == newConfig.Name {
+			continue
+		}
+
+		err = i.Client.Delete(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: partialConfig.Name, Namespace: partialConfig.Namespace}})
+		if err != nil {
+			i.Logger.Error(err, "unable to delete secret", "namespace", instance.Namespace, "name", partialConfig.Name)
+			i.Recorder.Eventf(instance, corev1.EventTypeWarning, "CTLogConfigDeleted", "Unable to delete secret: %s", partialConfig.Name)
+			continue
+		}
+		i.Logger.Info("Remove invalid Secret with ctlog configuration", "Name", partialConfig.Name)
+		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigDeleted", "Secret with ctlog configuration deleted: %s", partialConfig.Name)
+	}
+
 	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
 
-	i.Recorder.Event(instance, corev1.EventTypeNormal, "CTLogConfigUpdated", "CTLog config updated")
+	i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigCreated", "Secret with ctlog configuration created: %s", newConfig.Name)
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:               constants.Ready,
-		Status:             metav1.ConditionFalse,
-		Reason:             constants.Creating,
+		Type:               ConfigCondition,
+		Status:             metav1.ConditionTrue,
+		Reason:             constants.Ready,
 		Message:            "Server config created",
 		ObservedGeneration: instance.Generation,
 	})

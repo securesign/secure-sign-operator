@@ -39,7 +39,7 @@ var (
 func TestServerConfig_CanHandle(t *testing.T) {
 	tests := []struct {
 		name                  string
-		phase                 string
+		status                metav1.ConditionStatus
 		canHandle             bool
 		serverConfigRef       *rhtasv1alpha1.LocalObjectReference
 		statusServerConfigRef *rhtasv1alpha1.LocalObjectReference
@@ -47,93 +47,79 @@ func TestServerConfig_CanHandle(t *testing.T) {
 		generation            int64
 	}{
 		{
-			name:                  "spec.serverConfigRef is not nil and status.serverConfigRef is nil",
-			phase:                 constants.Creating,
+			name:                  "ConditionTrue: spec.serverConfigRef is not nil and status.serverConfigRef is nil",
+			status:                metav1.ConditionTrue,
 			canHandle:             true,
 			serverConfigRef:       &rhtasv1alpha1.LocalObjectReference{Name: "config"},
 			statusServerConfigRef: nil,
 		},
 		{
-			name:                  "spec.serverConfigRef is nil and status.serverConfigRef is not nil",
-			phase:                 constants.Creating,
+			name:                  "ConditionTrue: spec.serverConfigRef is nil and status.serverConfigRef is not nil",
+			status:                metav1.ConditionTrue,
 			canHandle:             false,
 			serverConfigRef:       nil,
 			statusServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "config"},
 		},
 		{
-			name:                  "spec.serverConfigRef is nil and status.serverConfigRef is nil",
-			phase:                 constants.Creating,
+			name:                  "ConditionTrue: spec.serverConfigRef is nil and status.serverConfigRef is nil",
+			status:                metav1.ConditionTrue,
 			canHandle:             true,
 			serverConfigRef:       nil,
 			statusServerConfigRef: nil,
 		},
 		{
-			name:                  "spec.serverConfigRef != status.serverConfigRef",
-			phase:                 constants.Creating,
+			name:                  "ConditionTrue: spec.serverConfigRef != status.serverConfigRef",
+			status:                metav1.ConditionTrue,
 			canHandle:             true,
 			serverConfigRef:       &rhtasv1alpha1.LocalObjectReference{Name: "new_config"},
 			statusServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "old_config"},
 		},
 		{
-			name:                  "spec.serverConfigRef == status.serverConfigRef",
-			phase:                 constants.Creating,
+			name:                  "ConditionTrue: spec.serverConfigRef == status.serverConfigRef",
+			status:                metav1.ConditionTrue,
 			canHandle:             false,
 			serverConfigRef:       &rhtasv1alpha1.LocalObjectReference{Name: "config"},
 			statusServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "config"},
 		},
 		{
-			name:                  "Ready: observedGeneration == generation",
-			phase:                 constants.Ready,
+			name:                  "ConditionTrue: observedGeneration == generation",
+			status:                metav1.ConditionTrue,
 			canHandle:             false,
 			statusServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "config"},
 			observedGeneration:    1,
 			generation:            1,
 		},
 		{
-			name:                  "Ready: observedGeneration != generation",
-			phase:                 constants.Ready,
+			name:                  "ConditionTrue: observedGeneration != generation",
+			status:                metav1.ConditionTrue,
 			canHandle:             true,
 			statusServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "config"},
 			observedGeneration:    1,
 			generation:            2,
 		},
 		{
-			name:                  "Creating: observedGeneration != generation",
-			phase:                 constants.Creating,
+			name:                  "empty condition",
+			status:                "",
 			canHandle:             false,
 			statusServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "config"},
 			observedGeneration:    1,
-			generation:            2,
+			generation:            1,
 		},
 		{
-			name:      "no phase condition",
-			phase:     "",
-			canHandle: false,
+			name:                  "ConditionUnknown",
+			status:                metav1.ConditionUnknown,
+			canHandle:             true,
+			statusServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "config"},
+			observedGeneration:    1,
+			generation:            1,
 		},
 		{
-			name:      constants.Ready,
-			phase:     constants.Ready,
-			canHandle: true,
-		},
-		{
-			name:      constants.Pending,
-			phase:     constants.Pending,
-			canHandle: false,
-		},
-		{
-			name:      constants.Creating,
-			phase:     constants.Creating,
-			canHandle: true,
-		},
-		{
-			name:      constants.Initialize,
-			phase:     constants.Initialize,
-			canHandle: false,
-		},
-		{
-			name:      constants.Failure,
-			phase:     constants.Failure,
-			canHandle: false,
+			name:                  "ConditionFalse",
+			status:                metav1.ConditionFalse,
+			canHandle:             true,
+			statusServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "config"},
+			observedGeneration:    1,
+			generation:            1,
 		},
 	}
 	for _, tt := range tests {
@@ -153,10 +139,10 @@ func TestServerConfig_CanHandle(t *testing.T) {
 					ServerConfigRef: tt.statusServerConfigRef,
 				},
 			}
-			if tt.phase != "" {
+			if tt.status != "" {
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-					Type:               constants.Ready,
-					Reason:             tt.phase,
+					Type:               ConfigCondition,
+					Status:             tt.status,
 					ObservedGeneration: tt.observedGeneration,
 				})
 			}
@@ -286,6 +272,8 @@ func TestServerConfig_Handle(t *testing.T) {
 					g.Expect(instance.Status.ServerConfigRef).Should(BeNil())
 					g.Expect(instance.Status.Conditions).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"Message": ContainSubstring("Waiting for Fulcio root certificate: not-existing/cert"),
+						"Status":  Equal(metav1.ConditionFalse),
+						"Reason":  Equal(FulcioReason),
 					})))
 				},
 			},
@@ -320,6 +308,8 @@ func TestServerConfig_Handle(t *testing.T) {
 					g.Expect(instance.Status.ServerConfigRef).Should(BeNil())
 					g.Expect(instance.Status.Conditions).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"Message": ContainSubstring("Waiting for Ctlog private key secret"),
+						"Status":  Equal(metav1.ConditionFalse),
+						"Reason":  Equal(SignerKeyReason),
 					})))
 				},
 			},
@@ -332,7 +322,7 @@ func TestServerConfig_Handle(t *testing.T) {
 					Trillian:        rhtasv1alpha1.TrillianService{Port: ptr.To(int32(80))},
 				},
 				status: rhtasv1alpha1.CTlogStatus{
-					ServerConfigRef: nil,
+					ServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "config"},
 					TreeID:          ptr.To(int64(123456)),
 					RootCertificates: []rhtasv1alpha1.SecretKeySelector{
 						{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "cert"},
@@ -364,6 +354,9 @@ func TestServerConfig_Handle(t *testing.T) {
 
 					g.Expect(k8sErrors.IsNotFound(cli.Get(context.TODO(), client.ObjectKey{Name: "config", Namespace: "default"}, &v1.Secret{}))).To(BeTrue())
 
+					secret, err := kubernetes.GetSecret(cli, "default", instance.Status.ServerConfigRef.Name)
+					g.Expect(err).ShouldNot(HaveOccurred())
+					g.Expect(secret.Data).To(HaveKey("config"))
 				},
 			},
 		},
@@ -412,6 +405,10 @@ func TestServerConfig_Handle(t *testing.T) {
 
 					_, err := kubernetes.GetSecret(cli, "default", "config")
 					g.Expect(k8sErrors.IsNotFound(err)).To(BeTrue())
+
+					secret, err := kubernetes.GetSecret(cli, "default", instance.Status.ServerConfigRef.Name)
+					g.Expect(err).ShouldNot(HaveOccurred())
+					g.Expect(secret.Data).To(HaveKey("config"))
 				},
 			},
 		},

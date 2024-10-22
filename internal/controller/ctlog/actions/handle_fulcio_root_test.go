@@ -336,13 +336,14 @@ func TestCert_Handle(t *testing.T) {
 			want: want{
 				result: testAction.StatusUpdate(),
 				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
-					g.Expect(status.ServerConfigRef).Should(BeNil())
-
 					g.Expect(status.RootCertificates).Should(HaveLen(1))
 					g.Expect(status.RootCertificates[0].Key).Should(Equal("key"))
 					g.Expect(status.RootCertificates[0].Name).Should(Equal("my-secret"))
 
 					g.Expect(meta.IsStatusConditionTrue(status.Conditions, CertCondition)).To(BeTrue())
+
+					// Config condition should be invalidated
+					g.Expect(meta.IsStatusConditionFalse(status.Conditions, ConfigCondition)).Should(BeTrue())
 				},
 			},
 		},

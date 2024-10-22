@@ -8,7 +8,13 @@ const (
 	RBACName           = "ctlog"
 	MonitoringRoleName = "prometheus-k8s-ctlog"
 
-	CertCondition    = "FulcioCertAvailable"
+	CertCondition = "FulcioCertAvailable"
+
+	ConfigCondition    = "ServerConfigAvailable"
+	TrillianTreeReason = "TrillianTree"
+	SignerKeyReason    = "SignerKey"
+	FulcioReason       = "FulcioCertificate"
+
 	ServerPortName   = "http"
 	ServerPort       = 80
 	ServerTargetPort = 6962
