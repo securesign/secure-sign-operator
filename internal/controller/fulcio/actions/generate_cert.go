@@ -13,11 +13,12 @@ import (
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -91,8 +92,8 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 
 	//Check if a secret for the  fulcio cert already exists and validate
 	partialSecret, err := k8sutils.FindSecret(ctx, g.Client, instance.Namespace, FulcioCALabel)
-	if err != nil && !apierrors.IsNotFound(err) {
-		g.Logger.Error(err, "problem with finding secret", "namespace", instance.Namespace)
+	if client.IgnoreNotFound(err) != nil {
+		g.Logger.Error(err, "problem with finding secret")
 	}
 
 	if partialSecret != nil {

@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"reflect"
 
-	"gopkg.in/yaml.v2"
-	labels2 "k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+
+	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	labels2 "k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -95,40 +95,16 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 			if reflect.DeepEqual(cfg.Data[serverConfigName], string(config)) {
 				return i.Continue()
 			} else {
-				i.Logger.Info("Remove invalid ConfigMap with fulcio-server configuration", "Name", cfg.Name)
-				_ = i.Client.Delete(ctx, cfg)
+				i.Logger.Info("Remove invalid ConfigMap with fulcio-server configuration", "name", cfg.Name)
+				err = i.Client.Delete(ctx, cfg)
+				if err != nil {
+					i.Logger.Error(err, "Failed to remove ConfigMap", "name", cfg.Name)
+				}
 			}
 		}
 	}
 	// invalidate
 	instance.Status.ServerConfigRef = nil
-
-	// try to discover existing config
-	partialConfigs, err := kubernetes.ListConfigMaps(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(labels).String())
-	if err != nil {
-		i.Logger.Error(err, "problem with finding configmap", "namespace", instance.Namespace)
-	}
-	for _, partialConfig := range partialConfigs.Items {
-		cm, err := kubernetes.GetConfigMap(ctx, i.Client, partialConfig.Namespace, partialConfig.Name)
-		if err != nil {
-			return i.Failed(fmt.Errorf("can't load configMap data %w", err))
-		}
-		if reflect.DeepEqual(cm.Data[serverConfigName], string(config)) && instance.Status.ServerConfigRef == nil {
-			i.Recorder.Eventf(instance, v1.EventTypeNormal, "FulcioConfigDiscovered", "Existing ConfigMap with fulcio configuration discovered: %s", cm.Name)
-			instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: cm.Name}
-			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:    constants.Ready,
-				Status:  metav1.ConditionFalse,
-				Reason:  constants.Creating,
-				Message: "Server config discovered"})
-		} else {
-			i.Logger.Info("Remove invalid ConfigMap with rekor-server configuration", "Name", cm.Name)
-			_ = i.Client.Delete(ctx, cm)
-		}
-	}
-	if instance.Status.ServerConfigRef != nil {
-		return i.StatusUpdate(ctx, instance)
-	}
 
 	// create new config
 	newConfig := kubernetes.CreateImmutableConfigmap("fulcio-config-", instance.Namespace, labels, map[string]string{
@@ -147,7 +123,32 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		})
 		return i.FailedWithStatusUpdate(ctx, err, instance)
 	}
-	i.Recorder.Event(instance, v1.EventTypeNormal, "FulcioConfigUpdated", "Fulcio config updated")
+
+	// remove old server configmaps
+	partialConfigs, err := kubernetes.ListConfigMaps(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(labels).String())
+	if err != nil {
+		i.Logger.Error(err, "problem with finding configmap")
+	}
+	for _, partialConfig := range partialConfigs.Items {
+		if partialConfig.Name == newConfig.Name {
+			continue
+		}
+
+		err = i.Client.Delete(ctx, &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      partialConfig.Name,
+				Namespace: partialConfig.Namespace,
+			},
+		})
+		if err != nil {
+			i.Logger.Error(err, "problem with deleting configmap", "name", partialConfig.Name)
+		} else {
+			i.Logger.Info("Remove invalid ConfigMap with rekor-server configuration", "name", partialConfig.Name)
+			i.Recorder.Eventf(instance, v1.EventTypeNormal, "FulcioConfigDeleted", "Fulcio config deleted: %s", partialConfig.Name)
+		}
+	}
+
+	i.Recorder.Eventf(instance, v1.EventTypeNormal, "FulcioConfigUpdated", "Fulcio config updated: %s", newConfig.Name)
 	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
 
 	meta.SetStatusCondition(&instance.Status.Conditions,

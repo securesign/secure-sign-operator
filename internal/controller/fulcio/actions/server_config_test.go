@@ -194,7 +194,7 @@ func TestConfig_Handle(t *testing.T) {
 					g.Expect(status.ServerConfigRef.Name).Should(ContainSubstring("fulcio-config-"))
 
 					g.Expect(events).To(HaveLen(1))
-					g.Expect(events).To(Receive(WithTransform(func(e watch.Event) watch.EventType { return e.Type }, Equal(watch.Added))))
+					g.Expect(events).To(Receive(WithTransform(getEventType, Equal(watch.Added))))
 				},
 			},
 		},
@@ -234,8 +234,8 @@ func TestConfig_Handle(t *testing.T) {
 					g.Expect(events).To(HaveLen(2))
 					for e := range events {
 						g.Expect(e).To(Or(
-							WithTransform(func(e watch.Event) watch.EventType { return e.Type }, Equal(watch.Added)),
-							WithTransform(func(e watch.Event) watch.EventType { return e.Type }, Equal(watch.Deleted))),
+							WithTransform(getEventType, Equal(watch.Added)),
+							WithTransform(getEventType, Equal(watch.Deleted))),
 						)
 					}
 					cm, err := kubernetes.GetConfigMap(context.TODO(), cli, "default", status.ServerConfigRef.Name)
@@ -317,8 +317,8 @@ func TestConfig_Handle(t *testing.T) {
 					g.Expect(events).To(HaveLen(2))
 					for e := range events {
 						g.Expect(e).To(Or(
-							WithTransform(func(e watch.Event) watch.EventType { return e.Type }, Equal(watch.Added)),
-							WithTransform(func(e watch.Event) watch.EventType { return e.Type }, Equal(watch.Deleted)),
+							WithTransform(getEventType, Equal(watch.Added)),
+							WithTransform(getEventType, Equal(watch.Deleted)),
 						))
 					}
 					cm, err := kubernetes.GetConfigMap(context.TODO(), cli, "default", status.ServerConfigRef.Name)
@@ -328,7 +328,7 @@ func TestConfig_Handle(t *testing.T) {
 			},
 		},
 		{
-			name: "discover existing",
+			name: "discover unlinked configmaps and delete them",
 			env: env{
 				spec: rhtasv1alpha1.FulcioConfig{
 					OIDCIssuers: []rhtasv1alpha1.OIDCIssuer{
@@ -346,61 +346,39 @@ func TestConfig_Handle(t *testing.T) {
 					},
 				},
 				objects: []client.Object{
-					kubernetes.CreateConfigmap("default", "config", labels, map[string]string{
-						serverConfigName: string(configYaml),
-					}),
-				},
-			},
-			want: want{
-				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, status rhtasv1alpha1.FulcioStatus, cli client.WithWatch, events <-chan watch.Event) {
-					g.Expect(status.ServerConfigRef).ShouldNot(BeNil())
-					g.Expect(status.ServerConfigRef.Name).Should(Equal("config"))
-
-					g.Expect(events).To(BeEmpty())
-				},
-			},
-		},
-		{
-			name: "discover existing and remove non-valid",
-			env: env{
-				spec: rhtasv1alpha1.FulcioConfig{
-					OIDCIssuers: []rhtasv1alpha1.OIDCIssuer{
-						{
-							Issuer:    "https://example.com",
-							IssuerURL: "https://example.com",
-							ClientID:  "client-id",
-							Type:      "email",
-						},
-					},
-				},
-				status: rhtasv1alpha1.FulcioStatus{
-					Conditions: []metav1.Condition{
-						{Type: constants.Ready, Reason: constants.Creating},
-					},
-				},
-				objects: []client.Object{
-					kubernetes.CreateConfigmap("default", "config", labels, map[string]string{
-						serverConfigName: string(configYaml),
-					}),
 					kubernetes.CreateConfigmap("default", "fake", labels, map[string]string{
 						serverConfigName: "fake",
 					}),
+					kubernetes.CreateConfigmap("default", "config", labels, map[string]string{
+						serverConfigName: string(configYaml),
+					}),
 				},
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
 				verify: func(g Gomega, status rhtasv1alpha1.FulcioStatus, cli client.WithWatch, events <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).ShouldNot(BeNil())
-					g.Expect(status.ServerConfigRef.Name).Should(Equal("config"))
+					g.Expect(status.ServerConfigRef.Name).ShouldNot(Equal("config"))
 
-					g.Expect(events).To(HaveLen(1))
+					g.Expect(events).To(HaveLen(3))
 					g.Expect(events).To(Receive(
 						And(
-							WithTransform(func(e watch.Event) watch.EventType { return e.Type }, Equal(watch.Deleted)),
-							WithTransform(func(e watch.Event) string {
-								return e.Object.(client.Object).GetName()
-							}, Equal("fake")),
+							WithTransform(getEventType, Equal(watch.Added)),
+							WithTransform(getEventObjectName, Equal(status.ServerConfigRef.Name)),
+						)),
+					)
+
+					g.Expect(events).To(Receive(
+						And(
+							WithTransform(getEventType, Equal(watch.Deleted)),
+							WithTransform(getEventObjectName, Equal("config")),
+						)),
+					)
+
+					g.Expect(events).To(Receive(
+						And(
+							WithTransform(getEventType, Equal(watch.Deleted)),
+							WithTransform(getEventObjectName, Equal("fake")),
 						)),
 					)
 				},
@@ -436,7 +414,7 @@ func TestConfig_Handle(t *testing.T) {
 
 					g.Expect(events).To(HaveLen(1))
 					g.Expect(events).To(Receive(
-						WithTransform(func(e watch.Event) watch.EventType { return e.Type }, Equal(watch.Added)),
+						WithTransform(getEventType, Equal(watch.Added)),
 					),
 					)
 				},
@@ -480,4 +458,12 @@ func TestConfig_Handle(t *testing.T) {
 			}
 		})
 	}
+}
+
+func getEventType(e watch.Event) watch.EventType {
+	return e.Type
+}
+
+func getEventObjectName(e watch.Event) string {
+	return e.Object.(client.Object).GetName()
 }
