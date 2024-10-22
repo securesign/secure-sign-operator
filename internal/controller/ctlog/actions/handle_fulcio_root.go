@@ -96,9 +96,12 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) 
 	}
 
 	// invalidate server config
-	if instance.Status.ServerConfigRef != nil {
-		instance.Status.ServerConfigRef = nil
-	}
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:    ConfigCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  FulcioReason,
+		Message: "Fulcio certificate changed",
+	})
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:   CertCondition,
