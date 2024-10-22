@@ -111,6 +111,18 @@ jobs:
           registry: registry.redhat.io
           auth_file_path: /tmp/config.json
 
+        # install tuftool
+      - name: Checkout tough source
+        uses: actions/checkout@v4
+        with:
+          repository: "securesign/tough"
+          path: tough
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+      - run: cd tough && cargo build --release && echo "$PWD/target/release" >> $GITHUB_PATH
+
       - name: Install Cluster
         uses: container-tools/kind-action@v2.0.4
         with:
