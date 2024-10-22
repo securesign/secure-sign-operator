@@ -69,40 +69,15 @@ func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Reko
 				return i.Continue()
 			} else {
 				i.Logger.Info("Remove invalid ConfigMap with rekor-server configuration", "Name", cfg.Name)
-				_ = i.Client.Delete(ctx, cfg)
+				err = i.Client.Delete(ctx, cfg)
+				if err != nil {
+					i.Logger.Error(err, "Failed to remove ConfigMap", "name", cfg.Name)
+				}
 			}
 		}
 	}
 	// invalidate
 	instance.Status.ServerConfigRef = nil
-
-	// try to discover existing config
-	partialConfigs, err := kubernetes.ListConfigMaps(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(labels).String())
-	if err != nil {
-		i.Logger.Error(err, "problem with finding configmap", "namespace", instance.Namespace)
-	}
-	for _, partialSecret := range partialConfigs.Items {
-		cm, err := kubernetes.GetConfigMap(ctx, i.Client, partialSecret.Namespace, partialSecret.Name)
-		if err != nil {
-			return i.Failed(fmt.Errorf("can't load configMap data %w", err))
-		}
-		if reflect.DeepEqual(cm.Data, content) && instance.Status.ServerConfigRef == nil {
-			i.Recorder.Eventf(instance, v1.EventTypeNormal, "ShardingConfigDiscovered", "Existing ConfigMap with sharding configuration discovered: %s", cm.Name)
-			instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: cm.Name}
-			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:    actions.ServerCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  constants.Creating,
-				Message: "Sharding config discovered",
-			})
-		} else {
-			i.Logger.Info("Remove invalid ConfigMap with rekor-server configuration", "Name", cm.Name)
-			_ = i.Client.Delete(ctx, cm)
-		}
-	}
-	if instance.Status.ServerConfigRef != nil {
-		return i.StatusUpdate(ctx, instance)
-	}
 
 	// create new config
 	newConfig := kubernetes.CreateImmutableConfigmap(cmName, instance.Namespace, labels, content)
@@ -120,6 +95,31 @@ func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Reko
 		})
 		return i.FailedWithStatusUpdate(ctx, err, instance)
 	}
+
+	// remove old server configmaps
+	partialConfigs, err := kubernetes.ListConfigMaps(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(labels).String())
+	if err != nil {
+		i.Logger.Error(err, "problem with finding configmap")
+	}
+	for _, partialConfig := range partialConfigs.Items {
+		if partialConfig.Name == newConfig.Name {
+			continue
+		}
+
+		err = i.Client.Delete(ctx, &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      partialConfig.Name,
+				Namespace: partialConfig.Namespace,
+			},
+		})
+		if err != nil {
+			i.Logger.Error(err, "problem with deleting configmap", "name", partialConfig.Name)
+		} else {
+			i.Logger.Info("Remove invalid ConfigMap with rekor-sharding configuration", "name", partialConfig.Name)
+			i.Recorder.Eventf(instance, v1.EventTypeNormal, "ShardingConfigDeleted", "ConfigMap with sharding configuration deleted: %s", partialConfig.Name)
+		}
+	}
+
 	i.Recorder.Eventf(instance, v1.EventTypeNormal, "ShardingConfigCreated", "ConfigMap with sharding configuration created: %s", newConfig.Name)
 	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
 

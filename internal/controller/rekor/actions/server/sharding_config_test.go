@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
@@ -99,7 +100,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 	}
 	type want struct {
 		result *action.Result
-		verify func(Gomega, client.WithWatch)
+		verify func(Gomega, client.WithWatch, <-chan watch.Event)
 	}
 	tests := []struct {
 		name string
@@ -115,7 +116,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, c client.WithWatch) {
+				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
 					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
 					g.Expect(r.Status.ServerConfigRef).ShouldNot(BeNil())
@@ -124,6 +125,13 @@ func TestShardingConfig_Handle(t *testing.T) {
 					cm := v1.ConfigMap{}
 					g.Expect(c.Get(context.TODO(), types.NamespacedName{Name: r.Status.ServerConfigRef.Name, Namespace: rekorNN.Namespace}, &cm)).To(Succeed())
 					g.Expect(cm.Data).Should(HaveKeyWithValue(shardingConfigName, ""))
+
+					g.Expect(events).To(HaveLen(1))
+					g.Expect(events).To(Receive(
+						And(
+							WithTransform(getEventType, Equal(watch.Added)),
+							WithTransform(getEventObjectName, Equal(cm.Name)),
+						)))
 				},
 			},
 		},
@@ -147,7 +155,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, c client.WithWatch) {
+				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
 					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
 					g.Expect(r.Status.ServerConfigRef).ShouldNot(BeNil())
@@ -160,6 +168,13 @@ func TestShardingConfig_Handle(t *testing.T) {
 					rlr := make([]rhtasv1alpha1.RekorLogRange, 0)
 					g.Expect(yaml.Unmarshal([]byte(cm.Data[shardingConfigName]), &rlr)).To(Succeed())
 					g.Expect(rlr).Should(Equal(r.Spec.Sharding))
+
+					g.Expect(events).To(HaveLen(1))
+					g.Expect(events).To(Receive(
+						And(
+							WithTransform(getEventType, Equal(watch.Added)),
+							WithTransform(getEventObjectName, Equal(cm.Name)),
+						)))
 				},
 			},
 		},
@@ -196,7 +211,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, c client.WithWatch) {
+				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
 					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
 					g.Expect(r.Status.ServerConfigRef).ShouldNot(BeNil())
@@ -210,6 +225,18 @@ func TestShardingConfig_Handle(t *testing.T) {
 					rlr := make([]rhtasv1alpha1.RekorLogRange, 0)
 					g.Expect(yaml.Unmarshal([]byte(cm.Data[shardingConfigName]), &rlr)).To(Succeed())
 					g.Expect(rlr).Should(Equal(r.Spec.Sharding))
+
+					g.Expect(events).To(HaveLen(2))
+					g.Expect(events).To(Receive(
+						And(
+							WithTransform(getEventType, Equal(watch.Deleted)),
+							WithTransform(getEventObjectName, Equal(cmName+"old")),
+						)))
+					g.Expect(events).To(Receive(
+						And(
+							WithTransform(getEventType, Equal(watch.Added)),
+							WithTransform(getEventObjectName, Equal(cm.Name)),
+						)))
 				},
 			},
 		},
@@ -237,7 +264,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, c client.WithWatch) {
+				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
 					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
 					g.Expect(r.Status.ServerConfigRef).ShouldNot(BeNil())
@@ -251,6 +278,18 @@ func TestShardingConfig_Handle(t *testing.T) {
 					rlr := make([]rhtasv1alpha1.RekorLogRange, 0)
 					g.Expect(yaml.Unmarshal([]byte(cm.Data[shardingConfigName]), &rlr)).To(Succeed())
 					g.Expect(rlr).Should(Equal(r.Spec.Sharding))
+
+					g.Expect(events).To(HaveLen(2))
+					g.Expect(events).To(Receive(
+						And(
+							WithTransform(getEventType, Equal(watch.Deleted)),
+							WithTransform(getEventObjectName, Equal(cmName+"old")),
+						)))
+					g.Expect(events).To(Receive(
+						And(
+							WithTransform(getEventType, Equal(watch.Added)),
+							WithTransform(getEventObjectName, Equal(cm.Name)),
+						)))
 				},
 			},
 		},
@@ -271,7 +310,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Continue(),
-				verify: func(g Gomega, c client.WithWatch) {
+				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
 					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
 					g.Expect(r.Status.ServerConfigRef).ShouldNot(BeNil())
@@ -316,7 +355,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Continue(),
-				verify: func(g Gomega, c client.WithWatch) {
+				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
 					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
 					g.Expect(r.Status.ServerConfigRef).ShouldNot(BeNil())
@@ -329,6 +368,8 @@ func TestShardingConfig_Handle(t *testing.T) {
 					rlr := make([]rhtasv1alpha1.RekorLogRange, 0)
 					g.Expect(yaml.Unmarshal([]byte(cm.Data[shardingConfigName]), &rlr)).To(Succeed())
 					g.Expect(rlr).Should(Equal(r.Spec.Sharding))
+
+					g.Expect(events).To(BeEmpty())
 				},
 			},
 		},
@@ -342,7 +383,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, c client.WithWatch) {
+				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
 					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
 					g.Expect(r.Status.ServerConfigRef).ShouldNot(BeNil())
@@ -352,11 +393,18 @@ func TestShardingConfig_Handle(t *testing.T) {
 					cm := v1.ConfigMap{}
 					g.Expect(c.Get(context.TODO(), types.NamespacedName{Name: r.Status.ServerConfigRef.Name, Namespace: rekorNN.Namespace}, &cm)).To(Succeed())
 					g.Expect(cm.Data).Should(HaveKeyWithValue(shardingConfigName, ""))
+
+					g.Expect(events).To(HaveLen(1))
+					g.Expect(events).To(Receive(
+						And(
+							WithTransform(getEventType, Equal(watch.Added)),
+							WithTransform(getEventObjectName, Equal(cm.Name)),
+						)))
 				},
 			},
 		},
 		{
-			name: "use existing config",
+			name: "delete unassigned sharding configmap",
 			env: env{
 				spec:   rhtasv1alpha1.RekorSpec{},
 				status: rhtasv1alpha1.RekorStatus{},
@@ -370,11 +418,23 @@ func TestShardingConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, c client.WithWatch) {
+				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
 					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
 					g.Expect(r.Status.ServerConfigRef).ShouldNot(BeNil())
-					g.Expect(r.Status.ServerConfigRef.Name).Should(Equal(cmName + "old"))
+					g.Expect(r.Status.ServerConfigRef.Name).ShouldNot(Equal(cmName + "old"))
+
+					g.Expect(events).To(HaveLen(2))
+					g.Expect(events).To(Receive(
+						And(
+							WithTransform(getEventType, Equal(watch.Added)),
+							WithTransform(getEventObjectName, Equal(r.Status.ServerConfigRef.Name)),
+						)))
+					g.Expect(events).To(Receive(
+						And(
+							WithTransform(getEventType, Equal(watch.Deleted)),
+							WithTransform(getEventObjectName, Equal(cmName+"old")),
+						)))
 				},
 			},
 		},
@@ -398,7 +458,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, c client.WithWatch) {
+				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
 					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
 					g.Expect(r.Status.ServerConfigRef).ShouldNot(BeNil())
@@ -406,6 +466,18 @@ func TestShardingConfig_Handle(t *testing.T) {
 
 					g.Expect(c.Get(context.TODO(), types.NamespacedName{Name: cmName + "old", Namespace: rekorNN.Namespace}, &v1.ConfigMap{})).To(HaveOccurred())
 					g.Expect(c.Get(context.TODO(), types.NamespacedName{Name: "keep", Namespace: rekorNN.Namespace}, &v1.ConfigMap{})).To(Succeed())
+
+					g.Expect(events).To(HaveLen(2))
+					g.Expect(events).To(Receive(
+						And(
+							WithTransform(getEventType, Equal(watch.Added)),
+							WithTransform(getEventObjectName, Equal(r.Status.ServerConfigRef.Name)),
+						)))
+					g.Expect(events).To(Receive(
+						And(
+							WithTransform(getEventType, Equal(watch.Deleted)),
+							WithTransform(getEventObjectName, Equal(cmName+"old")),
+						)))
 				},
 			},
 		},
@@ -433,14 +505,26 @@ func TestShardingConfig_Handle(t *testing.T) {
 				WithObjects(tt.env.objects...).
 				Build()
 
+			watchCm, err := c.Watch(ctx, &v1.ConfigMapList{}, client.InNamespace("default"))
+			g.Expect(err).To(Not(HaveOccurred()))
+
 			a := testAction.PrepareAction(c, NewShardingConfigAction())
 
 			if got := a.Handle(ctx, instance); !reflect.DeepEqual(got, tt.want.result) {
 				t.Errorf("CanHandle() = %v, want %v", got, tt.want.result)
 			}
+			watchCm.Stop()
 			if tt.want.verify != nil {
-				tt.want.verify(g, c)
+				tt.want.verify(g, c, watchCm.ResultChan())
 			}
 		})
 	}
+}
+
+func getEventType(e watch.Event) watch.EventType {
+	return e.Type
+}
+
+func getEventObjectName(e watch.Event) string {
+	return e.Object.(client.Object).GetName()
 }
