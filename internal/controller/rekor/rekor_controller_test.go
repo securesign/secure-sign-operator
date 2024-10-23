@@ -157,7 +157,7 @@ var _ = Describe("Rekor controller", func() {
 			Expect(err).To(Succeed())
 
 			httpmock.SetMockTransport(http.DefaultClient, map[string]httpmock.RoundTripFunc{
-				"http://rekor-server.default.svc/api/v1/log/publicKey": func(req *http.Request) *http.Response {
+				"http://rekor.local/api/v1/log/publicKey": func(req *http.Request) *http.Response {
 					return &http.Response{
 						StatusCode: http.StatusOK,
 						Body:       io.NopCloser(bytes.NewReader(pubKeyData)),
