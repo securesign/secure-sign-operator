@@ -2,6 +2,7 @@ package condition
 
 import (
 	"context"
+
 	"github.com/onsi/gomega"
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"

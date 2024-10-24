@@ -2,7 +2,6 @@ package tuf
 
 import (
 	"context"
-	"github.com/securesign/operator/test/e2e/support/condition"
 	"strings"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/tuf/actions"
 	utils2 "github.com/securesign/operator/internal/controller/tuf/utils"
+	"github.com/securesign/operator/test/e2e/support/condition"
 	appsv1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"

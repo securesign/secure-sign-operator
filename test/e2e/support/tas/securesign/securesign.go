@@ -2,6 +2,7 @@ package securesign
 
 import (
 	"context"
+
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/test/e2e/support/condition"
