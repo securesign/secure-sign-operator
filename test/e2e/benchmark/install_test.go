@@ -45,6 +45,8 @@ func BenchmarkInstall(b *testing.B) {
 		if err != nil {
 			b.Fatalf("could not create namespace: %v", err)
 		}
+		defer deleteNamespace(ctx, cli, namespaceName)
+		defer dumpNamespace(ctx, cli, b, namespaceName)
 
 		targetImageName = support.PrepareImage(context.Background())
 
@@ -55,8 +57,6 @@ func BenchmarkInstall(b *testing.B) {
 		if err != nil {
 			b.Fatalf("could not install: %v", err)
 		}
-		defer removeTAS(ctx, cli, namespaceName)
-
 		tas.VerifyByCosign(ctx, cli, &v1alpha1.Securesign{ObjectMeta: metav1.ObjectMeta{Namespace: namespaceName, Name: "test"}}, targetImageName)
 	}
 
@@ -163,11 +163,17 @@ func installTAS(ctx context.Context, cli client.Client, namespace string) error 
 	return nil
 }
 
-func removeTAS(ctx context.Context, cli client.Client, namespace string) {
+func deleteNamespace(ctx context.Context, cli client.Client, namespace string) {
 	ns := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
 		},
 	}
 	_ = cli.Delete(ctx, ns)
+}
+
+func dumpNamespace(ctx context.Context, cli client.Client, b *testing.B, namespace string) {
+	if b.Failed() && support.IsCIEnvironment() {
+		support.DumpNamespace(ctx, cli, namespace)
+	}
 }
