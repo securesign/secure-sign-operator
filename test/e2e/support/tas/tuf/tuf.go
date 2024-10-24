@@ -2,13 +2,13 @@ package tuf
 
 import (
 	"context"
+	"github.com/securesign/operator/test/e2e/support/condition"
 	"strings"
 	"time"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/annotations"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/job"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/tuf/actions"
@@ -16,7 +16,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,24 +23,19 @@ import (
 
 func Verify(ctx context.Context, cli client.Client, namespace string, name string) {
 	Eventually(Get(ctx, cli, namespace, name)).Should(
-		WithTransform(func(f *v1alpha1.Tuf) string {
-			return meta.FindStatusCondition(f.GetConditions(), constants.Ready).Reason
-		}, Equal(constants.Ready)))
+		WithTransform(condition.IsReady, BeTrue()))
 
-	Eventually(func(g Gomega) (bool, error) {
-		return kubernetes.DeploymentIsRunning(ctx, cli, namespace, map[string]string{
-			constants.LabelAppComponent: actions.ComponentName,
-		})
-	}).Should(BeTrue())
+	Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, actions.ComponentName)).
+		Should(BeTrue())
 }
 
 func Get(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.Tuf {
 	return func() *v1alpha1.Tuf {
 		instance := &v1alpha1.Tuf{}
-		Expect(cli.Get(ctx, types.NamespacedName{
+		_ = cli.Get(ctx, types.NamespacedName{
 			Namespace: ns,
 			Name:      name,
-		}, instance)).To(Succeed())
+		}, instance)
 		return instance
 	}
 }

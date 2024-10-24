@@ -16,39 +16,33 @@ import (
 
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
 	"github.com/securesign/operator/test/e2e/support"
+	"github.com/securesign/operator/test/e2e/support/condition"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func Verify(ctx context.Context, cli client.Client, namespace string, name string) {
 	Eventually(Get(ctx, cli, namespace, name)).Should(
-		WithTransform(func(f *v1alpha1.TimestampAuthority) bool {
-			return meta.IsStatusConditionTrue(f.GetConditions(), constants.Ready)
-		}, BeTrue()))
+		WithTransform(condition.IsReady, BeTrue()))
 
 	// server
-	Eventually(func(g Gomega) (bool, error) {
-		return kubernetes.DeploymentIsRunning(ctx, cli, namespace, map[string]string{
-			constants.LabelAppComponent: "timestamp-authority",
-		})
-	}).Should(BeTrue())
+	Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, "timestamp-authority")).
+		Should(BeTrue())
 }
 
 func Get(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.TimestampAuthority {
 	return func() *v1alpha1.TimestampAuthority {
 		instance := &v1alpha1.TimestampAuthority{}
-		Expect(cli.Get(ctx, types.NamespacedName{
+		_ = cli.Get(ctx, types.NamespacedName{
 			Namespace: ns,
 			Name:      name,
-		}, instance)).To(Succeed())
+		}, instance)
 		return instance
 	}
 }
