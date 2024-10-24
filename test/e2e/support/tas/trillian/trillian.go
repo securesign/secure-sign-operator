@@ -5,42 +5,29 @@ import (
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
-	"k8s.io/apimachinery/pkg/api/meta"
+	"github.com/securesign/operator/test/e2e/support/condition"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func Verify(ctx context.Context, cli client.Client, namespace string, name string, dbPresent bool) {
 	Eventually(Get(ctx, cli, namespace, name)).Should(
-		WithTransform(func(f *v1alpha1.Trillian) bool {
-			return meta.IsStatusConditionTrue(f.Status.Conditions, constants.Ready)
-		}, BeTrue()))
+		WithTransform(condition.IsReady, BeTrue()))
 
 	if dbPresent {
 		// trillian-db
-		Eventually(func(g Gomega) (bool, error) {
-			return kubernetes.DeploymentIsRunning(ctx, cli, namespace, map[string]string{
-				constants.LabelAppComponent: actions.DbComponentName,
-			})
-		}).Should(BeTrue())
+		Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, actions.DbComponentName)).
+			Should(BeTrue())
 	}
 
 	// log server
-	Eventually(func(g Gomega) (bool, error) {
-		return kubernetes.DeploymentIsRunning(ctx, cli, namespace, map[string]string{
-			constants.LabelAppComponent: actions.LogServerComponentName,
-		})
-	}).Should(BeTrue())
+	Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, actions.LogServerComponentName)).
+		Should(BeTrue())
 
 	// log signer
-	Eventually(func(g Gomega) (bool, error) {
-		return kubernetes.DeploymentIsRunning(ctx, cli, namespace, map[string]string{
-			constants.LabelAppComponent: actions.LogSignerComponentName,
-		})
-	}).Should(BeTrue())
+	Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, actions.LogSignerComponentName)).
+		Should(BeTrue())
 }
 
 func Get(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.Trillian {

@@ -3,6 +3,7 @@ package support
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -53,5 +54,9 @@ func OidcToken(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if js["access_token"] == nil {
+		return "", errors.New("no access token found")
+	}
+
 	return js["access_token"].(string), nil
 }
