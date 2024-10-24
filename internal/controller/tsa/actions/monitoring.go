@@ -56,10 +56,11 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Ti
 
 	if _, err = i.Ensure(ctx, role); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Failure,
+			Message:            err.Error(),
+			ObservedGeneration: instance.Generation,
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create monitoring role: %w", err), instance)
 	}
@@ -83,10 +84,11 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Ti
 
 	if _, err = i.Ensure(ctx, roleBinding); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Failure,
+			Message:            err.Error(),
+			ObservedGeneration: instance.Generation,
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create monitoring RoleBinding: %w", err), instance)
 	}
@@ -111,10 +113,11 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Ti
 
 	if _, err = i.Ensure(ctx, serviceMonitor); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Failure,
+			Message:            err.Error(),
+			ObservedGeneration: instance.Generation,
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create serviceMonitor: %w", err), instance)
 	}

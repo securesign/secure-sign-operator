@@ -742,6 +742,11 @@ spec:
             required:
             - signer
             type: object
+            x-kubernetes-validations:
+            - message: when certificateChainRef is set, intermediateCA, leafCA, and
+                rootCA must not be set
+              rule: '!(has(self.signer.certificateChain.certificateChainRef) && (has(self.signer.certificateChain.intermediateCA)
+                || has(self.signer.certificateChain.leafCA) || has(self.signer.certificateChain.rootCA)))'
           status:
             description: TimestampAuthorityStatus defines the observed state of TimestampAuthority
             properties:

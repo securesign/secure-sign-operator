@@ -32,15 +32,15 @@ func GenerateTSAInstance() *rhtasv1alpha1.TimestampAuthority {
 		Spec: rhtasv1alpha1.TimestampAuthoritySpec{
 			Signer: rhtasv1alpha1.TimestampAuthoritySigner{
 				CertificateChain: rhtasv1alpha1.CertificateChain{
-					RootCA: rhtasv1alpha1.TsaCertificateAuthority{
+					RootCA: &rhtasv1alpha1.TsaCertificateAuthority{
 						OrganizationName: "Red Hat",
 					},
-					IntermediateCA: []rhtasv1alpha1.TsaCertificateAuthority{
+					IntermediateCA: []*rhtasv1alpha1.TsaCertificateAuthority{
 						{
 							OrganizationName: "Red Hat",
 						},
 					},
-					LeafCA: rhtasv1alpha1.TsaCertificateAuthority{
+					LeafCA: &rhtasv1alpha1.TsaCertificateAuthority{
 						OrganizationName: "Red Hat",
 					},
 				},
@@ -63,7 +63,7 @@ func GenerateTSAInstance() *rhtasv1alpha1.TimestampAuthority {
 
 func TsaTestSetup(instance *rhtasv1alpha1.TimestampAuthority, t *testing.T, client client.WithWatch, action action.Action[*rhtasv1alpha1.TimestampAuthority], initObjs ...client.Object) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
 	if client == nil {
-		client = testAction.FakeClientBuilder().WithObjects(instance).Build()
+		client = testAction.FakeClientBuilder().WithObjects(instance).WithStatusSubresource(instance).Build()
 	}
 	if err := client.Get(context.TODO(), types.NamespacedName{Name: instance.GetName(), Namespace: instance.GetNamespace()}, instance); err != nil {
 		t.Error(err)

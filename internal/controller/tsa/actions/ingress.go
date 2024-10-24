@@ -56,16 +56,18 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Times
 	labelKeys := maps.Keys(instance.Spec.ExternalAccess.RouteSelectorLabels)
 	if updated, err = i.Ensure(ctx, ingress, action.EnsureSpec(), action.EnsureRouteSelectorLabels(labelKeys...)); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    TSAServerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
+			Type:               TSAServerCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Failure,
+			Message:            err.Error(),
+			ObservedGeneration: instance.Generation,
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Failure,
+			Message:            err.Error(),
+			ObservedGeneration: instance.Generation,
 		})
 		return i.FailedWithStatusUpdate(ctx, err, instance)
 	}
@@ -75,10 +77,11 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Times
 			route.SetLabels(ingress.GetLabels())
 			if _, err = i.Ensure(ctx, route, action.EnsureRouteSelectorLabels(labelKeys...)); err != nil {
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-					Type:    constants.Ready,
-					Status:  metav1.ConditionFalse,
-					Reason:  constants.Failure,
-					Message: err.Error(),
+					Type:               constants.Ready,
+					Status:             metav1.ConditionFalse,
+					Reason:             constants.Failure,
+					Message:            err.Error(),
+					ObservedGeneration: instance.Generation,
 				})
 			}
 			for key, value := range ingress.GetLabels() {
@@ -90,10 +93,11 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Times
 
 	if updated {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    TSAServerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Creating,
-			Message: "Ingress created",
+			Type:               TSAServerCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Creating,
+			Message:            "Ingress created",
+			ObservedGeneration: instance.Generation,
 		})
 		return i.StatusUpdate(ctx, instance)
 	} else {

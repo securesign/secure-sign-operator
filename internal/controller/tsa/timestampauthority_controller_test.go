@@ -103,15 +103,15 @@ var _ = Describe("TimestampAuthority Controller", func() {
 						Monitoring: rhtasv1alpha1.MonitoringConfig{Enabled: false},
 						Signer: rhtasv1alpha1.TimestampAuthoritySigner{
 							CertificateChain: rhtasv1alpha1.CertificateChain{
-								RootCA: rhtasv1alpha1.TsaCertificateAuthority{
+								RootCA: &rhtasv1alpha1.TsaCertificateAuthority{
 									OrganizationName: "Red Hat",
 								},
-								IntermediateCA: []rhtasv1alpha1.TsaCertificateAuthority{
+								IntermediateCA: []*rhtasv1alpha1.TsaCertificateAuthority{
 									{
 										OrganizationName: "Red Hat",
 									},
 								},
-								LeafCA: rhtasv1alpha1.TsaCertificateAuthority{
+								LeafCA: &rhtasv1alpha1.TsaCertificateAuthority{
 									OrganizationName: "Red Hat",
 								},
 							},

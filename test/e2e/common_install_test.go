@@ -99,19 +99,19 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 					},
 					Signer: v1alpha1.TimestampAuthoritySigner{
 						CertificateChain: v1alpha1.CertificateChain{
-							RootCA: v1alpha1.TsaCertificateAuthority{
+							RootCA: &v1alpha1.TsaCertificateAuthority{
 								OrganizationName:  "MyOrg",
 								OrganizationEmail: "my@email.org",
 								CommonName:        "tsa.hostname",
 							},
-							IntermediateCA: []v1alpha1.TsaCertificateAuthority{
+							IntermediateCA: []*v1alpha1.TsaCertificateAuthority{
 								{
 									OrganizationName:  "MyOrg",
 									OrganizationEmail: "my@email.org",
 									CommonName:        "tsa.hostname",
 								},
 							},
-							LeafCA: v1alpha1.TsaCertificateAuthority{
+							LeafCA: &v1alpha1.TsaCertificateAuthority{
 								OrganizationName:  "MyOrg",
 								OrganizationEmail: "my@email.org",
 								CommonName:        "tsa.hostname",

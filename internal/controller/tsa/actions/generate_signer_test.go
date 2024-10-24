@@ -2,18 +2,20 @@ package actions
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
+	v1 "k8s.io/api/core/v1"
 
 	. "github.com/onsi/gomega"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
-	testAction "github.com/securesign/operator/internal/testing/action"
 	common "github.com/securesign/operator/internal/testing/common/tsa"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -54,6 +56,13 @@ func Test_SignerCanHandle(t *testing.T) {
 		{
 			name: "status is not nil",
 			testCase: func(instance *rhtasv1alpha1.TimestampAuthority) {
+				instance.Status.Conditions = []metav1.Condition{
+					{
+						Type:   "TSASignerCondition",
+						Status: metav1.ConditionTrue,
+						Reason: constants.Ready,
+					},
+				}
 				instance.Status.Signer = &instance.Spec.Signer
 			},
 			expected: false,
@@ -63,15 +72,15 @@ func Test_SignerCanHandle(t *testing.T) {
 			testCase: func(instance *rhtasv1alpha1.TimestampAuthority) {
 				instance.Status.Signer = &rhtasv1alpha1.TimestampAuthoritySigner{
 					CertificateChain: rhtasv1alpha1.CertificateChain{
-						RootCA: rhtasv1alpha1.TsaCertificateAuthority{
+						RootCA: &rhtasv1alpha1.TsaCertificateAuthority{
 							OrganizationName: "new_org",
 						},
-						IntermediateCA: []rhtasv1alpha1.TsaCertificateAuthority{
+						IntermediateCA: []*rhtasv1alpha1.TsaCertificateAuthority{
 							{
 								OrganizationName: "new_org",
 							},
 						},
-						LeafCA: rhtasv1alpha1.TsaCertificateAuthority{
+						LeafCA: &rhtasv1alpha1.TsaCertificateAuthority{
 							OrganizationName: "new_org",
 						},
 					},
@@ -99,7 +108,7 @@ func Test_SignerHandle(t *testing.T) {
 		testCase func(Gomega, action.Action[*rhtasv1alpha1.TimestampAuthority], client.WithWatch, *rhtasv1alpha1.TimestampAuthority) bool
 	}{
 		{
-			name: "generate certificate keys and certs",
+			name: "generate all resources",
 			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
 				instance.Status.Conditions[0].Reason = constants.Pending
 				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), []client.Object{}...)
@@ -107,32 +116,26 @@ func Test_SignerHandle(t *testing.T) {
 			testCase: func(g Gomega, _ action.Action[*rhtasv1alpha1.TimestampAuthority], client client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {
 
 				secret, err := kubernetes.FindSecret(context.TODO(), client, instance.Namespace, TSACertCALabel)
-				if err != nil {
-					t.Errorf("Unable to find secret: %s", err)
-					return false
-				}
-				if !g.Expect(instance.Status.Signer).NotTo(BeNil()) {
-					t.Error("Status Signer should not be nil")
-					return false
-				}
-				if !g.Expect(secret.Name).To(Equal(instance.Status.Signer.CertificateChain.CertificateChainRef.Name)) {
-					t.Errorf("Secret name mismatch: expected %v, got %v", instance.Status.Signer.CertificateChain.CertificateChainRef.Name, secret.Name)
-					return false
-				}
-				if !g.Expect(secret.Name).To(Equal(instance.Status.Signer.File.PrivateKeyRef.Name)) {
-					t.Errorf("Secret name mismatch: expected %v, got %v", instance.Status.Signer.File.PrivateKeyRef.Name, secret.Name)
-					return false
-				}
-				return g.Expect(meta.FindStatusCondition(instance.Status.Conditions, TSASignerCondition).Reason).To(Equal("Resolved"))
+				g.Expect(err).NotTo(HaveOccurred(), "Unable to find secret")
+
+				g.Expect(instance.Status.Signer).NotTo(BeNil(), "Status Signer should not be nil")
+
+				g.Expect(secret.Name).To(Equal(instance.Status.Signer.CertificateChain.CertificateChainRef.Name), "Secret name mismatch for CertificateChainRef")
+				g.Expect(secret.Name).To(Equal(instance.Status.Signer.File.PrivateKeyRef.Name), "Secret name mismatch for PrivateKeyRef")
+				g.Expect(secret.Annotations).To(Equal(generateSecretAnnotations(instance.Spec.Signer)), "Secret annotation mismatch")
+
+				g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, TSASignerCondition)).To(BeTrue())
+
+				return true
 			},
 		},
 		{
-			name: "generate certs",
+			name: "generate certs with user-specified keys",
 			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
 				instance.Status.Conditions[0].Reason = constants.Pending
 				instance.Spec.Signer = rhtasv1alpha1.TimestampAuthoritySigner{
 					CertificateChain: rhtasv1alpha1.CertificateChain{
-						RootCA: rhtasv1alpha1.TsaCertificateAuthority{
+						RootCA: &rhtasv1alpha1.TsaCertificateAuthority{
 							OrganizationName: "Red Hat",
 							PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
 								LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
@@ -147,7 +150,7 @@ func Test_SignerHandle(t *testing.T) {
 								Key: "rootPrivateKeyPassword",
 							},
 						},
-						IntermediateCA: []rhtasv1alpha1.TsaCertificateAuthority{
+						IntermediateCA: []*rhtasv1alpha1.TsaCertificateAuthority{
 							{
 								OrganizationName: "Red Hat",
 								PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
@@ -164,7 +167,7 @@ func Test_SignerHandle(t *testing.T) {
 								},
 							},
 						},
-						LeafCA: rhtasv1alpha1.TsaCertificateAuthority{
+						LeafCA: &rhtasv1alpha1.TsaCertificateAuthority{
 							OrganizationName: "Red Hat",
 							PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
 								LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
@@ -182,36 +185,32 @@ func Test_SignerHandle(t *testing.T) {
 					},
 				}
 
-				obj := []client.Object{}
-				client := testAction.FakeClientBuilder().WithObjects(instance).Build()
 				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret")
-				obj = append(obj, secret)
-				return common.TsaTestSetup(instance, t, client, NewGenerateSignerAction(), obj...)
+				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret)
 			},
 			testCase: func(g Gomega, a action.Action[*rhtasv1alpha1.TimestampAuthority], client client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {
 
 				secret, err := kubernetes.FindSecret(context.TODO(), client, instance.Namespace, TSACertCALabel)
-				if err != nil {
-					t.Errorf("Unable to find secret: %s", err)
-					return false
-				}
-				if !g.Expect(instance.Status.Signer).NotTo(BeNil()) {
-					t.Error("Status Signer should not be nil")
-					return false
-				}
-				if !g.Expect(secret.Name).To(Equal(instance.Status.Signer.CertificateChain.CertificateChainRef.Name)) {
-					t.Errorf("Secret name mismatch: expected %v, got %v", instance.Status.Signer.CertificateChain.CertificateChainRef.Name, secret.Name)
-					return false
-				}
-				if !g.Expect(secret.Name).To(Equal(instance.Status.Signer.File.PrivateKeyRef.Name)) {
-					t.Errorf("Secret name mismatch: expected %v, got %v", instance.Status.Signer.File.PrivateKeyRef.Name, secret.Name)
-					return false
-				}
-				return g.Expect(meta.FindStatusCondition(instance.Status.Conditions, TSASignerCondition).Reason).To(Equal("Resolved"))
+				g.Expect(err).NotTo(HaveOccurred(), "Unable to find secret")
+
+				g.Expect(instance.Status.Signer).NotTo(BeNil(), "Status Signer should not be nil")
+
+				g.Expect(secret.Name).To(Equal(instance.Status.Signer.CertificateChain.CertificateChainRef.Name), "Secret name mismatch for CertificateChainRef")
+				g.Expect(secret.Name).To(Equal(instance.Status.Signer.File.PrivateKeyRef.Name), "Secret name mismatch for PrivateKeyRef")
+
+				g.Expect(instance.Status.Signer.CertificateChain.RootCA.PrivateKeyRef.Name).To(Equal("tsa-test-secret"))
+				g.Expect(instance.Status.Signer.CertificateChain.LeafCA.PrivateKeyRef.Name).To(Equal("tsa-test-secret"))
+				g.Expect(instance.Status.Signer.CertificateChain.IntermediateCA[0].PrivateKeyRef.Name).To(Equal("tsa-test-secret"))
+
+				g.Expect(secret.Annotations).To(Equal(generateSecretAnnotations(instance.Spec.Signer)), "Secret annotation mismatch")
+
+				g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, TSASignerCondition)).To(BeTrue())
+
+				return true
 			},
 		},
 		{
-			name: "predefined keys and certs",
+			name: "user-spec keys and certs",
 			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
 				instance.Status.Conditions[0].Reason = constants.Pending
 				instance.Spec.Signer = rhtasv1alpha1.TimestampAuthoritySigner{
@@ -238,54 +237,28 @@ func Test_SignerHandle(t *testing.T) {
 						},
 					},
 				}
-				obj := []client.Object{}
-				client := testAction.FakeClientBuilder().WithObjects(instance).Build()
 				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret")
-				obj = append(obj, secret)
-				return common.TsaTestSetup(instance, t, client, NewGenerateSignerAction(), obj...)
-			},
-			testCase: func(g Gomega, a action.Action[*rhtasv1alpha1.TimestampAuthority], client client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {
-				_, err := kubernetes.FindSecret(context.TODO(), client, instance.Namespace, TSACertCALabel)
-				if err != nil {
-					t.Errorf("Unable to find secret: %s", err)
-					return false
-				}
-
-				if !g.Expect(instance.Status.Signer).NotTo(BeNil()) {
-					t.Error("Status Signer should not be nil")
-					return false
-				}
-
-				return g.Expect(meta.FindStatusCondition(instance.Status.Conditions, TSASignerCondition).Reason).To(Equal("Resolved"))
-			},
-		},
-		{
-			name: "should update secret resource",
-			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
-				instance.Status.Conditions[0].Reason = constants.Pending
-				client := testAction.FakeClientBuilder().WithObjects(instance).Build()
-				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret")
-				return common.TsaTestSetup(instance, t, client, NewGenerateSignerAction(), secret)
+				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret)
 			},
 			testCase: func(g Gomega, a action.Action[*rhtasv1alpha1.TimestampAuthority], client client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {
 				secret, err := kubernetes.FindSecret(context.TODO(), client, instance.Namespace, TSACertCALabel)
-				if err != nil {
-					t.Errorf("Failed to find secret: %v", err)
-					return false
-				}
-				if !g.Expect(instance.Status.Signer).NotTo(BeNil()) {
-					t.Error("Signer should not be nil")
-					return false
-				}
-				if !g.Expect(secret.Name).To(Equal(instance.Status.Signer.CertificateChain.CertificateChainRef.Name)) {
-					t.Errorf("Secret name mismatch: expected %v, got %v", instance.Status.Signer.CertificateChain.CertificateChainRef.Name, secret.Name)
-					return false
-				}
-				if !g.Expect(secret.Name).To(Equal(instance.Status.Signer.File.PrivateKeyRef.Name)) {
-					t.Errorf("Private key ref name mismatch: expected %v, got %v", instance.Status.Signer.File.PrivateKeyRef.Name, secret.Name)
-					return false
-				}
-				oldSecretName := secret.Name
+				g.Expect(err).NotTo(HaveOccurred(), "Unable to find secret")
+
+				g.Expect(instance.Status.Signer).NotTo(BeNil(), "Status Signer should not be nil")
+
+				g.Expect(instance.Status.Signer.CertificateChain.CertificateChainRef.Name).To(Equal("tsa-test-secret"))
+
+				g.Expect(secret.Annotations).To(Equal(generateSecretAnnotations(instance.Spec.Signer)), "Secret annotation mismatch")
+
+				g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, TSASignerCondition)).To(BeTrue())
+
+				return true
+			},
+		},
+		{
+			name: "update cert secret resource on key change",
+			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
+				instance.Status.Conditions[0].Reason = constants.Pending
 				instance.Spec.Signer = rhtasv1alpha1.TimestampAuthoritySigner{
 					CertificateChain: rhtasv1alpha1.CertificateChain{
 						CertificateChainRef: &rhtasv1alpha1.SecretKeySelector{
@@ -310,47 +283,11 @@ func Test_SignerHandle(t *testing.T) {
 						},
 					},
 				}
-
-				if err := client.Update(context.TODO(), instance); err != nil {
-					t.Errorf("Failed to update instance: %v", err)
-					return false
-				}
-				_ = a.Handle(context.TODO(), instance)
-				secret, err = kubernetes.FindSecret(context.TODO(), client, instance.Namespace, TSACertCALabel)
-				if err != nil {
-					t.Errorf("Failed to find updated secret: %v", err)
-					return false
-				}
-				if !g.Expect(secret.Name).ToNot(Equal(oldSecretName)) {
-					t.Errorf("Secret name should have changed: old=%v, new=%v", oldSecretName, secret.Name)
-					return false
-				}
-				return g.Expect(meta.FindStatusCondition(instance.Status.Conditions, TSASignerCondition).Reason).To(Equal("Resolved"))
-			},
-		},
-		{
-			name: "should remove label after new secret creation",
-			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
-				instance.Status.Conditions[0].Reason = constants.Pending
-				client := testAction.FakeClientBuilder().WithObjects(instance).Build()
-				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret")
-				return common.TsaTestSetup(instance, t, client, NewGenerateSignerAction(), secret)
-			},
-			testCase: func(g Gomega, a action.Action[*rhtasv1alpha1.TimestampAuthority], client client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {
-				secret, err := kubernetes.FindSecret(context.TODO(), client, instance.Namespace, TSACertCALabel)
-				if err != nil {
-					t.Errorf("Failed to find secret: %v", err)
-					return false
-				}
-				if _, exists := secret.Labels["rhtas.redhat.com/tsa.certchain.pem"]; !exists {
-					t.Error("Label 'rhtas.redhat.com/tsa.certchain.pem' is not present in secret")
-					return false
-				}
-				instance.Spec.Signer = rhtasv1alpha1.TimestampAuthoritySigner{
+				instance.Status.Signer = &rhtasv1alpha1.TimestampAuthoritySigner{
 					CertificateChain: rhtasv1alpha1.CertificateChain{
 						CertificateChainRef: &rhtasv1alpha1.SecretKeySelector{
 							LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
-								Name: "tsa-test-secret",
+								Name: "old",
 							},
 							Key: "certificateChain",
 						},
@@ -358,35 +295,149 @@ func Test_SignerHandle(t *testing.T) {
 					File: &rhtasv1alpha1.File{
 						PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
 							LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
-								Name: "tsa-test-secret",
+								Name: "old",
 							},
 							Key: "leafPrivateKey",
 						},
 						PasswordRef: &rhtasv1alpha1.SecretKeySelector{
 							LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
-								Name: "tsa-test-secret",
+								Name: "old",
 							},
 							Key: "leafPrivateKeyPassword",
 						},
 					},
 				}
 
-				if err := client.Update(context.TODO(), instance); err != nil {
-					t.Errorf("Failed to update instance: %v", err)
-					return false
-				}
-				_ = a.Handle(context.TODO(), instance)
+				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret")
+				old := tsa.CreateSecrets(instance.Namespace, "old")
+				old.Annotations = generateSecretAnnotations(*instance.Status.Signer)
+				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret, old)
+			},
+			testCase: func(g Gomega, a action.Action[*rhtasv1alpha1.TimestampAuthority], cli client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {
+				secret, err := kubernetes.FindSecret(context.TODO(), cli, instance.Namespace, TSACertCALabel)
+				g.Expect(err).NotTo(HaveOccurred(), "Failed to find secret")
 
-				oldSecret, err := kubernetes.GetSecret(client, instance.Namespace, secret.Name)
-				if err != nil {
-					t.Errorf("Failed to get old secret: %v", err)
-					return false
+				g.Expect(instance.Status.Signer).NotTo(BeNil(), "Signer should not be nil")
+
+				g.Expect(instance.Status.Signer.CertificateChain.CertificateChainRef.Name).To(Equal("tsa-test-secret"), "Secret name mismatch for CertificateChainRef")
+				g.Expect(instance.Status.Signer.File.PrivateKeyRef.Name).To(Equal("tsa-test-secret"), "Private key ref name mismatch for PrivateKeyRef")
+
+				g.Expect(secret.Annotations).To(Equal(generateSecretAnnotations(instance.Spec.Signer)), "Secret annotation mismatch")
+
+				old := &v1.Secret{}
+				g.Expect(cli.Get(context.TODO(), client.ObjectKey{Name: "old", Namespace: "default"}, old)).To(Succeed())
+				g.Expect(old.Labels).ToNot(HaveKey(TSACertCALabel))
+
+				g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, TSASignerCondition)).To(BeTrue())
+
+				return true
+			},
+		},
+		{
+			name: "update cert secret resource on cert field change",
+			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
+				instance.Status.Conditions[0].Reason = constants.Pending
+				instance.Spec.Signer = rhtasv1alpha1.TimestampAuthoritySigner{
+					CertificateChain: rhtasv1alpha1.CertificateChain{
+						RootCA: &rhtasv1alpha1.TsaCertificateAuthority{
+							OrganizationName: "Red Hat",
+						},
+						IntermediateCA: []*rhtasv1alpha1.TsaCertificateAuthority{
+							{
+								OrganizationName: "Red Hat",
+							},
+						},
+						LeafCA: &rhtasv1alpha1.TsaCertificateAuthority{
+							OrganizationName: "Red Hat",
+						},
+					},
+				}
+				instance.Status.Signer = &rhtasv1alpha1.TimestampAuthoritySigner{
+					CertificateChain: rhtasv1alpha1.CertificateChain{
+						CertificateChainRef: &rhtasv1alpha1.SecretKeySelector{
+							LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+								Name: "old",
+							},
+							Key: "certificateChain",
+						},
+					},
+					File: &rhtasv1alpha1.File{
+						PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
+							LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+								Name: "old",
+							},
+							Key: "leafPrivateKey",
+						},
+						PasswordRef: &rhtasv1alpha1.SecretKeySelector{
+							LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+								Name: "old",
+							},
+							Key: "leafPrivateKeyPassword",
+						},
+					},
 				}
 
-				if _, exists := oldSecret.Labels["rhtas.redhat.com/tsa.certchain.pem"]; exists {
-					t.Error("Label 'rhtas.redhat.com/tsa.certchain.pem' should have been removed")
-					return false
+				old := tsa.CreateSecrets(instance.Namespace, "old")
+				old.Annotations = generateSecretAnnotations(*instance.Status.Signer)
+				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), old)
+			},
+			testCase: func(g Gomega, a action.Action[*rhtasv1alpha1.TimestampAuthority], cli client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {
+				secret, err := kubernetes.FindSecret(context.TODO(), cli, instance.Namespace, TSACertCALabel)
+				g.Expect(err).NotTo(HaveOccurred(), "Failed to find secret")
+
+				g.Expect(instance.Status.Signer).NotTo(BeNil(), "Signer should not be nil")
+				g.Expect(instance.Status.Signer.CertificateChain.CertificateChainRef.Name).NotTo(Equal("old"), "Signer should be updated")
+
+				g.Expect(instance.Status.Signer.CertificateChain.RootCA.OrganizationName).To(Equal("Red Hat"), "Secret name mismatch for CertificateChainRef")
+
+				g.Expect(secret.Annotations).To(Equal(generateSecretAnnotations(instance.Spec.Signer)), "Secret annotation mismatch")
+
+				old := &v1.Secret{}
+				g.Expect(cli.Get(context.TODO(), client.ObjectKey{Name: "old", Namespace: "default"}, old)).To(Succeed())
+				g.Expect(old.Labels).ToNot(HaveKey(TSACertCALabel))
+
+				g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, TSASignerCondition)).To(BeTrue())
+
+				return true
+			},
+		},
+		{
+			name: "find existing secret",
+			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
+				instance.Status.Conditions[0].Reason = constants.Pending
+				instance.Spec.Signer = rhtasv1alpha1.TimestampAuthoritySigner{
+					CertificateChain: rhtasv1alpha1.CertificateChain{
+						RootCA: &rhtasv1alpha1.TsaCertificateAuthority{
+							OrganizationName: "Red Hat",
+						},
+						IntermediateCA: []*rhtasv1alpha1.TsaCertificateAuthority{
+							{
+								OrganizationName: "Red Hat",
+							},
+						},
+						LeafCA: &rhtasv1alpha1.TsaCertificateAuthority{
+							OrganizationName: "Red Hat",
+						},
+					},
 				}
+
+				secret := tsa.CreateSecrets(instance.Namespace, "secret")
+				secret.Annotations = generateSecretAnnotations(instance.Spec.Signer)
+				secret.Labels = map[string]string{TSACertCALabel: "fake"}
+				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret)
+			},
+			testCase: func(g Gomega, a action.Action[*rhtasv1alpha1.TimestampAuthority], cli client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {
+				secret, err := kubernetes.FindSecret(context.TODO(), cli, instance.Namespace, TSACertCALabel)
+				g.Expect(err).NotTo(HaveOccurred(), "Failed to find secret")
+
+				g.Expect(instance.Status.Signer).NotTo(BeNil(), "Signer should not be nil")
+				g.Expect(instance.Status.Signer.CertificateChain.CertificateChainRef.Name).To(Equal("secret"), "Signer should be updated")
+
+				g.Expect(instance.Status.Signer.CertificateChain.RootCA.OrganizationName).To(Equal("Red Hat"), "Secret name mismatch for CertificateChainRef")
+
+				g.Expect(secret.Labels).To(HaveKey(TSACertCALabel), "Secret labels mismatch")
+
+				g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, TSASignerCondition)).To(BeTrue())
 
 				return true
 			},
@@ -396,10 +447,18 @@ func Test_SignerHandle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
 			instance := common.GenerateTSAInstance()
-			client, action := tt.setup(instance)
-			g.Expect(client).NotTo(BeNil())
-			g.Expect(action).NotTo(BeNil())
-			g.Expect(tt.testCase(g, action, client, instance)).To(BeTrue())
+			cli, act := tt.setup(instance)
+			g.Expect(cli).NotTo(BeNil(), "Client should not be nil")
+			g.Expect(act).NotTo(BeNil(), "Action should not be nil")
+			g.Expect(cli.Get(context.TODO(), client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+			g.Expect(tt.testCase(g, act, cli, instance)).To(BeTrue())
 		})
 	}
+}
+
+func generateSecretAnnotations(signer rhtasv1alpha1.TimestampAuthoritySigner) map[string]string {
+	annotations := make(map[string]string)
+	bytes, _ := json.Marshal(signer)
+	annotations[constants.LabelNamespace+"/signerConfiguration"] = string(bytes)
+	return annotations
 }
