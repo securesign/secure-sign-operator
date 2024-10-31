@@ -389,6 +389,14 @@ spec:
         operator: in
         values:
         - "false"
+    - name: run-unit-test
+      runAfter:
+        - prefetch-dependencies
+      taskRef:
+        name: operator-unit-test
+      workspaces:
+        - name: source
+          workspace: workspace
     workspaces:
     - name: workspace
     - name: git-auth

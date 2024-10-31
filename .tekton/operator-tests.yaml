@@ -1,0 +1,19 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: operator-unit-test
+  annotations:
+    tekton.dev/title: "Operator Unit Test Task"
+spec:
+  workspaces:
+    - name: source
+      description: The workspace where source code is included.
+  steps:
+    - name: run-tests
+      image: brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_1.22@sha256:859b38e6f53f49350402ca0a8dc342402f0afd8434c2f8984a7a3e714173cdca
+      workingDir: $(workspaces.source.path)/source
+      script: |
+        #!/usr/bin/env sh
+        make test
+      securityContext:
+        runAsUser: 0
