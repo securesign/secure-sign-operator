@@ -3,39 +3,29 @@ package rekor
 import (
 	"context"
 
-	"github.com/securesign/operator/test/e2e/support"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
+	"github.com/securesign/operator/test/e2e/support"
+	"github.com/securesign/operator/test/e2e/support/condition"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func Verify(ctx context.Context, cli client.Client, namespace string, name string) {
 	Eventually(Get(ctx, cli, namespace, name)).Should(
-		WithTransform(func(f *v1alpha1.Rekor) bool {
-			return meta.IsStatusConditionTrue(f.Status.Conditions, constants.Ready)
-		}, BeTrue()))
+		WithTransform(condition.IsReady, BeTrue()))
 
 	// server
-	Eventually(func(g Gomega) (bool, error) {
-		return kubernetes.DeploymentIsRunning(ctx, cli, namespace, map[string]string{
-			constants.LabelAppComponent: actions.ServerComponentName,
-		})
-	}).Should(BeTrue())
+	Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, actions.ServerComponentName)).
+		Should(BeTrue())
 
 	// redis
-	Eventually(func(g Gomega) (bool, error) {
-		return kubernetes.DeploymentIsRunning(ctx, cli, namespace, map[string]string{
-			constants.LabelAppComponent: actions.RedisComponentName,
-		})
-	}).Should(BeTrue())
+	Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, actions.RedisComponentName)).
+		Should(BeTrue())
 }
 
 func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {
