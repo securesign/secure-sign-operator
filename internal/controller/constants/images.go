@@ -23,5 +23,5 @@ var (
 
 	SegmentBackupImage      = "registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:1b87ff1ad02c476c08e06038a26af7abe61f177e491a9ff42d507550a8587ac8"
 	TimestampAuthorityImage = "registry.redhat.io/rhtas/timestamp-authority-rhel9@sha256:fce0a22c8872309554236bab3457715dda0a83eb40dc6a9ecd3477b8023369d0"
-	ClientServerImage       = "registry.redhat.io/rhtas/client-server-rhel9@sha256:e70f9862dbee9c3046ded1d93363c2183c4c9be787e4fffb860cc63b1105c799"
+	ClientServerImage       = "registry.redhat.io/rhtas/client-server-rhel9@sha256:c0743e2165fccbd30363192cce49b63bc7dc6af16044189429e86fca1f284216"
 )
