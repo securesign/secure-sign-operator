@@ -297,7 +297,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:52ba6cd82bc400a08c6f89811e8086126596a873b9b12619de8c5064a2d4faf7
-    createdAt: "2024-11-05T16:45:32Z"
+    createdAt: "2024-11-07T15:59:23Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -313,7 +313,7 @@ metadata:
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/securesign/secure-sign-operator
     support: Red Hat
-  name: rhtas-operator.v1.1.0
+  name: rhtas-operator.v1.1.1
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -998,4 +998,4 @@ spec:
   provider:
     name: Red Hat
     url: https://github.com/securesign/secure-sign-operator
-  version: 1.1.0
+  version: 1.1.1

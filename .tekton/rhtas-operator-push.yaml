@@ -7,12 +7,12 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: |
-      event == "push" && target_branch == "main" && (".tekton/rhtas-operator-push.yaml".pathChanged() || "api/***".pathChanged() || "internal/***".pathChanged() || "Dockerfile.rhtas-operator.rh".pathChanged() || "go.mod".pathChanged() || "go.sum".pathChanged() || "cmd/***".pathChanged() || "trigger-konflux-builds.txt".pathChanged() )
+      event == "push" && target_branch == "release-1.1" && (".tekton/rhtas-operator-push.yaml".pathChanged() || "api/***".pathChanged() || "internal/***".pathChanged() || "Dockerfile.rhtas-operator.rh".pathChanged() || "go.mod".pathChanged() || "go.sum".pathChanged() || "cmd/***".pathChanged() || "trigger-konflux-builds.txt".pathChanged() )
     build.appstudio.openshift.io/build-nudge-files: "controllers/constants/*"
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: operator
-    appstudio.openshift.io/component: rhtas-operator
+    appstudio.openshift.io/application: operator-v1-1
+    appstudio.openshift.io/component: rhtas-operator-v1-1
     pipelines.appstudio.openshift.io/type: build
   name: rhtas-operator-on-push
   namespace: rhtas-tenant
@@ -23,7 +23,7 @@ spec:
   - name: git-url
     value: '{{repo_url}}'
   - name: output-image
-    value: quay.io/securesign/rhtas-operator:{{revision}}
+    value: quay.io/securesign/rhtas-operator-v1-1:{{revision}}
   - name: path-context
     value: .
   - name: revision
