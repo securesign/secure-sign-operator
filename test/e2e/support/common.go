@@ -132,6 +132,7 @@ func DumpNamespace(ctx context.Context, cli client.Client, ns string) {
 		"tsa.yaml":        &v1alpha1.TimestampAuthorityList{},
 		"pod.yaml":        &v1.PodList{},
 		"configmap.yaml":  &v1.ConfigMapList{},
+		"secret.yaml":     &v1.SecretList{},
 		"deployment.yaml": &v12.DeploymentList{},
 		"job.yaml":        &v13.JobList{},
 		"cronjob.yaml":    &v13.CronJobList{},
