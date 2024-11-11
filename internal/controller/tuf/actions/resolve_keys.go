@@ -10,6 +10,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -101,7 +102,7 @@ func (i resolveKeysAction) handleKey(ctx context.Context, instance *rhtasv1alpha
 }
 
 func (i resolveKeysAction) discoverSecret(ctx context.Context, namespace string, key *rhtasv1alpha1.TufKey) (*rhtasv1alpha1.SecretKeySelector, error) {
-	labelName := constants.LabelNamespace + "/" + key.Name
+	labelName := labels.LabelNamespace + "/" + key.Name
 	s, err := k8sutils.FindSecret(ctx, i.Client, namespace, labelName)
 	if err != nil {
 		return nil, err

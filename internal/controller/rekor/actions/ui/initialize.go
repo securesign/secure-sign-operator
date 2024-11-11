@@ -7,6 +7,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	v12 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -39,7 +40,7 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Re
 		ok  bool
 		err error
 	)
-	labels := constants.LabelsForComponent(actions.UIComponentName, instance.Name)
+	labels := labels.ForComponent(actions.UIComponentName, instance.Name)
 	ok, err = commonUtils.DeploymentIsRunning(ctx, i.Client, instance.Namespace, labels)
 	switch {
 	case errors.Is(err, commonUtils.ErrDeploymentNotReady):

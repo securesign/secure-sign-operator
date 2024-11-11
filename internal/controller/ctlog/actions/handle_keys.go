@@ -11,6 +11,7 @@ import (
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
+	"github.com/securesign/operator/internal/controller/labels"
 	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -171,7 +172,7 @@ func (g handleKeys) discoverPrivateKey(ctx context.Context, instance *v1alpha1.C
 				continue
 			}
 		}
-		err = constants.RemoveLabel(ctx, &partialPrivateSecret, g.Client, CTLogPrivateLabel)
+		err = labels.Remove(ctx, &partialPrivateSecret, g.Client, CTLogPrivateLabel)
 		if err != nil {
 			g.Logger.Error(err, "problem with invalidating private key secret", "namespace", instance.Namespace)
 		}
@@ -202,7 +203,7 @@ func (g handleKeys) discoverPubliceKey(ctx context.Context, instance *v1alpha1.C
 				continue
 			}
 		}
-		err = constants.RemoveLabel(ctx, &partialPubSecret, g.Client, CTLPubLabel)
+		err = labels.Remove(ctx, &partialPubSecret, g.Client, CTLPubLabel)
 		if err != nil {
 			g.Logger.Error(err, "problem with invalidating public key secret", "namespace", instance.Namespace)
 		}
@@ -215,7 +216,7 @@ func (g handleKeys) generateAndUploadSecret(ctx context.Context, instance *v1alp
 		return nil, nil
 	}
 
-	secret := k8sutils.CreateImmutableSecret(KeySecretName, instance.Namespace, map[string][]byte{}, constants.LabelsFor(ComponentName, DeploymentName, instance.Name))
+	secret := k8sutils.CreateImmutableSecret(KeySecretName, instance.Namespace, map[string][]byte{}, labels.For(ComponentName, DeploymentName, instance.Name))
 	secret.Annotations = make(map[string]string)
 
 	if newKeyStatus.PrivateKeyRef == nil {

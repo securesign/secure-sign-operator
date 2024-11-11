@@ -8,6 +8,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,7 +40,7 @@ func (i rekorAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secures
 
 	rekor.Name = instance.Name
 	rekor.Namespace = instance.Namespace
-	rekor.Labels = constants.LabelsFor("rekor", rekor.Name, instance.Name)
+	rekor.Labels = labels.For("rekor", rekor.Name, instance.Name)
 	rekor.Annotations = annotations.FilterInheritable(instance.Annotations)
 
 	rekor.Spec = instance.Spec.Rekor

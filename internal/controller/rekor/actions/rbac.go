@@ -8,6 +8,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -36,7 +37,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *
 	var (
 		err error
 	)
-	labels := constants.LabelsFor(ServerComponentName, RBACName, instance.Name)
+	labels := labels.For(ServerComponentName, RBACName, instance.Name)
 
 	sa := &v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{

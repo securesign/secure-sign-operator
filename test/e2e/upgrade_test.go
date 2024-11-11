@@ -27,6 +27,7 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	ctl "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcioAction "github.com/securesign/operator/internal/controller/fulcio/actions"
+	"github.com/securesign/operator/internal/controller/labels"
 	rekorAction "github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/controller/securesign/actions"
 	trillianAction "github.com/securesign/operator/internal/controller/trillian/actions"
@@ -169,7 +170,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 
 		gomega.Eventually(func(g gomega.Gomega) []v13.Deployment {
 			list := &v13.DeploymentList{}
-			g.Expect(cli.List(ctx, list, runtimeCli.InNamespace(namespace.Name), runtimeCli.MatchingLabels{constants.LabelAppPartOf: "rhtas-operator"})).To(gomega.Succeed())
+			g.Expect(cli.List(ctx, list, runtimeCli.InNamespace(namespace.Name), runtimeCli.MatchingLabels{labels.LabelAppPartOf: "rhtas-operator"})).To(gomega.Succeed())
 			return list.Items
 		}).Should(gomega.And(gomega.HaveLen(1), gomega.WithTransform(func(items []v13.Deployment) int32 {
 			return items[0].Status.AvailableReplicas

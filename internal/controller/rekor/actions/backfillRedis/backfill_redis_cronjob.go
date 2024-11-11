@@ -1,24 +1,21 @@
 package backfillredis
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/robfig/cron/v3"
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils"
-
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	"context"
-
-	"github.com/securesign/operator/internal/controller/common/action"
-
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 )
 
 func NewBackfillRedisCronJobAction() action.Action[*rhtasv1alpha1.Rekor] {
@@ -48,7 +45,7 @@ func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 		return i.Failed(fmt.Errorf("could not create backfill redis cron job: %w", err))
 	}
 
-	labels := constants.LabelsFor(actions.BackfillRedisCronJobName, actions.BackfillRedisCronJobName, instance.Name)
+	labels := labels.For(actions.BackfillRedisCronJobName, actions.BackfillRedisCronJobName, instance.Name)
 	backfillRedisCronJob := &batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      actions.BackfillRedisCronJobName,

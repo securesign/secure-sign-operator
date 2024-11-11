@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
+	"github.com/securesign/operator/internal/controller/labels"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,7 +41,7 @@ func (i fulcioAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secure
 
 	fulcio.Name = instance.Name
 	fulcio.Namespace = instance.Namespace
-	fulcio.Labels = constants.LabelsFor(actions.ComponentName, fulcio.Name, instance.Name)
+	fulcio.Labels = labels.For(actions.ComponentName, fulcio.Name, instance.Name)
 	fulcio.Annotations = annotations.FilterInheritable(instance.Annotations)
 
 	fulcio.Spec = instance.Spec.Fulcio

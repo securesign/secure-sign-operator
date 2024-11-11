@@ -12,6 +12,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	v1 "k8s.io/api/core/v1"
@@ -144,7 +145,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 
 		It("No other DB is created", func() {
 			list := &v1.PodList{}
-			Expect(cli.List(ctx, list, runtimeCli.InNamespace(namespace.Name), runtimeCli.MatchingLabels{constants.LabelAppName: "trillian-db"})).To(Succeed())
+			Expect(cli.List(ctx, list, runtimeCli.InNamespace(namespace.Name), runtimeCli.MatchingLabels{labels.LabelAppName: "trillian-db"})).To(Succeed())
 			Expect(list.Items).To(BeEmpty())
 		})
 
@@ -171,7 +172,7 @@ func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef s
 				},
 			},
 			Selector: map[string]string{
-				constants.LabelAppName: "my-db",
+				labels.LabelAppName: "my-db",
 			},
 		},
 	}
@@ -249,7 +250,7 @@ func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef s
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ns,
 			Name:      "my-db",
-			Labels:    map[string]string{constants.LabelAppName: "my-db"},
+			Labels:    map[string]string{labels.LabelAppName: "my-db"},
 		},
 		Spec: v1.PodSpec{
 			Volumes: volumes,

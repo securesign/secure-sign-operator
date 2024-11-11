@@ -13,6 +13,7 @@ import (
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
+	"github.com/securesign/operator/internal/controller/labels"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -22,7 +23,7 @@ import (
 )
 
 const (
-	FulcioCALabel = constants.LabelNamespace + "/fulcio_v1.crt.pem"
+	FulcioCALabel = labels.LabelNamespace + "/fulcio_v1.crt.pem"
 )
 
 func NewHandleCertAction() action.Action[*v1alpha1.Fulcio] {
@@ -113,7 +114,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 		}
 
 		// invalidate certificate
-		if err := constants.RemoveLabel(ctx, partialSecret, g.Client, FulcioCALabel); err != nil {
+		if err := labels.Remove(ctx, partialSecret, g.Client, FulcioCALabel); err != nil {
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:    CertCondition,
 				Status:  metav1.ConditionFalse,
@@ -153,7 +154,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 		return g.Requeue()
 	}
 
-	secretLabels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
+	secretLabels := labels.For(ComponentName, DeploymentName, instance.Name)
 	secretLabels[FulcioCALabel] = "cert"
 	newCert := k8sutils.CreateImmutableSecret(fmt.Sprintf("fulcio-cert-%s", instance.Name), instance.Namespace, cert.ToData(), secretLabels)
 	newCert.Annotations = g.certMatchingAnnotations(instance)
@@ -293,18 +294,18 @@ func (g handleCert) calculateHostname(ctx context.Context, instance *v1alpha1.Fu
 }
 func (g handleCert) certMatchingAnnotations(instance *v1alpha1.Fulcio) map[string]string {
 	m := map[string]string{
-		constants.LabelNamespace + "/commonName":        instance.Status.Certificate.CommonName,
-		constants.LabelNamespace + "/organizationEmail": instance.Status.Certificate.OrganizationEmail,
-		constants.LabelNamespace + "/organizationName":  instance.Status.Certificate.OrganizationName,
+		labels.LabelNamespace + "/commonName":        instance.Status.Certificate.CommonName,
+		labels.LabelNamespace + "/organizationEmail": instance.Status.Certificate.OrganizationEmail,
+		labels.LabelNamespace + "/organizationName":  instance.Status.Certificate.OrganizationName,
 	}
 
 	if instance.Spec.Certificate.PrivateKeyRef != nil {
 		// private key is user specified - it does matter
-		m[constants.LabelNamespace+"/privateKeyRef"] = instance.Spec.Certificate.PrivateKeyRef.Name
+		m[labels.LabelNamespace+"/privateKeyRef"] = instance.Spec.Certificate.PrivateKeyRef.Name
 	}
 	if instance.Spec.Certificate.PrivateKeyPasswordRef != nil {
 		// private key is user specified - it does matter
-		m[constants.LabelNamespace+"/passwordKeyRef"] = instance.Spec.Certificate.PrivateKeyPasswordRef.Name
+		m[labels.LabelNamespace+"/passwordKeyRef"] = instance.Spec.Certificate.PrivateKeyPasswordRef.Name
 	}
 
 	return m
