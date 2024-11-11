@@ -29,7 +29,7 @@ func CreatePVC(namespace string, pvcName string, pvc v1alpha1.Pvc, labels map[st
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: modes,
-			Resources: corev1.ResourceRequirements{
+			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceStorage: *pvc.Size,
 				},
