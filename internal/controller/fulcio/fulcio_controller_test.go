@@ -26,6 +26,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
+	"github.com/securesign/operator/internal/controller/labels"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -151,7 +152,7 @@ var _ = Describe("Fulcio controller", func() {
 			By("Creating password secret with cert password")
 			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("password-secret", typeNamespaceName.Namespace, map[string][]byte{
 				"password": []byte("secret"),
-			}, constants.LabelsForComponent(actions.ComponentName, instance.Name)))).To(Succeed())
+			}, labels.ForComponent(actions.ComponentName, instance.Name)))).To(Succeed())
 
 			By("Secrets are resolved")
 			var certSecretPartialObject *metav1.PartialObjectMetadata

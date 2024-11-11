@@ -9,6 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/securesign/operator/internal/controller/annotations"
+	"github.com/securesign/operator/internal/controller/labels"
 
 	"context"
 
@@ -57,7 +58,7 @@ func (i segmentBackupJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Se
 		err error
 	)
 
-	labels := constants.LabelsFor(SegmentBackupJobName, SegmentBackupJobName, instance.Name)
+	labels := labels.For(SegmentBackupJobName, SegmentBackupJobName, instance.Name)
 	parallelism := int32(1)
 	completions := int32(1)
 	activeDeadlineSeconds := int64(600)

@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
@@ -94,8 +95,8 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		return i.FailedWithStatusUpdate(ctx, err, instance)
 	}
 
-	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
-	labels[constants.LabelResource] = ntpConfigLabel
+	l := labels.For(ComponentName, DeploymentName, instance.Name)
+	l[labels.LabelResource] = ntpConfigLabel
 
 	if newStatus.Config.NtpConfigRef != nil {
 		cfg, err := kubernetes.GetConfigMap(ctx, i.Client, instance.Namespace, newStatus.Config.NtpConfigRef.Name)
@@ -113,7 +114,7 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	}
 	newStatus.Config.NtpConfigRef = nil
 
-	partialConfigs, err := kubernetes.ListConfigMaps(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(labels).String())
+	partialConfigs, err := kubernetes.ListConfigMaps(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(l).String())
 	if err != nil {
 		i.Logger.Error(err, "problem with finding configmap", "namespace", instance.Namespace)
 	}
@@ -142,7 +143,7 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		return i.StatusUpdate(ctx, instance)
 	}
 
-	configMap := kubernetes.CreateImmutableConfigmap(NtpCMName, instance.Namespace, labels, map[string]string{ntpConfigName: string(ntpConfig)})
+	configMap := kubernetes.CreateImmutableConfigmap(NtpCMName, instance.Namespace, l, map[string]string{ntpConfigName: string(ntpConfig)})
 	if err = controllerutil.SetControllerReference(instance, configMap, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for ConfigMap: %w", err))
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
+	"github.com/securesign/operator/internal/controller/labels"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -334,10 +335,10 @@ func TestGenerateCert_Handle(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "fulcio-cert", Namespace: "default",
 							Annotations: map[string]string{
-								constants.LabelNamespace + "/commonName":        "fulcio.local",
-								constants.LabelNamespace + "/organizationEmail": "jdoe@redhat.com",
-								constants.LabelNamespace + "/organizationName":  "RH",
-								constants.LabelNamespace + "/passwordKeyRef":    "fulcio-password",
+								labels.LabelNamespace + "/commonName":        "fulcio.local",
+								labels.LabelNamespace + "/organizationEmail": "jdoe@redhat.com",
+								labels.LabelNamespace + "/organizationName":  "RH",
+								labels.LabelNamespace + "/passwordKeyRef":    "fulcio-password",
 							},
 							Labels: map[string]string{FulcioCALabel: "cert"},
 						},

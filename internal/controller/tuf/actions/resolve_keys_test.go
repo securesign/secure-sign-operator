@@ -10,6 +10,7 @@ import (
 	common "github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
@@ -30,7 +31,7 @@ func TestKeyAutogenerate(t *testing.T) {
 	g := NewWithT(t)
 
 	g.Expect(testAction.Client.Create(testContext, kubernetes.CreateSecret("testSecret", t.Name(),
-		map[string][]byte{"key": nil}, map[string]string{constants.LabelNamespace + "/rekor.pub": "key"}))).To(Succeed())
+		map[string][]byte{"key": nil}, map[string]string{labels.LabelNamespace + "/rekor.pub": "key"}))).To(Succeed())
 	instance := &v1alpha1.Tuf{Spec: v1alpha1.TufSpec{Keys: []v1alpha1.TufKey{
 		{
 			Name: "rekor.pub",
@@ -123,7 +124,7 @@ func TestKeyUpdate(t *testing.T) {
 func TestKeyDelete(t *testing.T) {
 	g := NewWithT(t)
 	g.Expect(testAction.Client.Create(testContext, kubernetes.CreateSecret("new", t.Name(),
-		map[string][]byte{"key": nil}, map[string]string{constants.LabelNamespace + "/ctfe.pub": "key"}))).To(Succeed())
+		map[string][]byte{"key": nil}, map[string]string{labels.LabelNamespace + "/ctfe.pub": "key"}))).To(Succeed())
 	instance := &v1alpha1.Tuf{
 		Spec: v1alpha1.TufSpec{Keys: []v1alpha1.TufKey{
 			{

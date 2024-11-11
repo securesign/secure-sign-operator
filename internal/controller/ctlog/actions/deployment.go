@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	cutils "github.com/securesign/operator/internal/controller/common/utils"
-
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
+	cutils "github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
+	"github.com/securesign/operator/internal/controller/labels"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +39,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		err     error
 	)
 
-	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
+	labels := labels.For(ComponentName, DeploymentName, instance.Name)
 
 	switch {
 	case instance.Spec.Trillian.Address == "":

@@ -13,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -21,7 +22,7 @@ import (
 )
 
 const (
-	TSACertCALabel = constants.LabelNamespace + "/tsa.certchain.pem"
+	TSACertCALabel = labels.LabelNamespace + "/tsa.certchain.pem"
 )
 
 type generateSigner struct {
@@ -117,7 +118,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 		}
 
 		// invalidate certificate
-		if err := constants.RemoveLabel(ctx, &partialSecret, g.Client, TSACertCALabel); err != nil {
+		if err := labels.Remove(ctx, &partialSecret, g.Client, TSACertCALabel); err != nil {
 			g.Logger.Error(err, "can't remove label from TSA signer secret", "Name", partialSecret.Name)
 		}
 		message := fmt.Sprintf("Removed '%s' label from %s secret", TSACertCALabel, partialSecret.Name)
@@ -175,7 +176,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 		return g.Requeue()
 	}
 
-	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
+	labels := labels.For(ComponentName, DeploymentName, instance.Name)
 	labels[TSACertCALabel] = "certificateChain"
 
 	certificateChain := k8sutils.CreateImmutableSecret(fmt.Sprintf("tsa-signer-config-%s", instance.Name), instance.Namespace, tsaCertChainConfig.ToMap(), labels)
@@ -394,6 +395,6 @@ func (g generateSigner) secretAnnotations(signerConfig v1alpha1.TimestampAuthori
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal signer configuration: %w", err)
 	}
-	annotations[constants.LabelNamespace+"/signerConfiguration"] = string(bytes)
+	annotations[labels.LabelNamespace+"/signerConfiguration"] = string(bytes)
 	return annotations, nil
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/utils"
+	"github.com/securesign/operator/internal/controller/labels"
 
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
@@ -42,7 +43,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		updated bool
 	)
 
-	labels := constants.LabelsFor(actions.DbComponentName, actions.DbDeploymentName, instance.Name)
+	labels := labels.For(actions.DbComponentName, actions.DbDeploymentName, instance.Name)
 	mysql := k8sutils.CreateService(instance.Namespace, host, host, port, port, labels)
 
 	//TLS: Annotate service

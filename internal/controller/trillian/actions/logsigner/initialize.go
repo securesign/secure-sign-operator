@@ -8,6 +8,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	commonUtils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,7 +31,7 @@ func (i initializeAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.T
 }
 
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
-	labels := constants.LabelsForComponent(actions.LogSignerComponentName, instance.Name)
+	labels := labels.ForComponent(actions.LogSignerComponentName, instance.Name)
 	ok, err := commonUtils.DeploymentIsRunning(ctx, i.Client, instance.Namespace, labels)
 	switch {
 	case errors.Is(err, commonUtils.ErrDeploymentNotReady):
