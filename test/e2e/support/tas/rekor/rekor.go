@@ -5,7 +5,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/condition"
@@ -31,7 +31,7 @@ func Verify(ctx context.Context, cli client.Client, namespace string, name strin
 func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {
 	return func() *v1.Pod {
 		list := &v1.PodList{}
-		_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{constants.LabelAppComponent: actions.ServerComponentName, constants.LabelAppName: "rekor-server"})
+		_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{labels.LabelAppComponent: actions.ServerComponentName, labels.LabelAppName: "rekor-server"})
 		if len(list.Items) != 1 {
 			return nil
 		}

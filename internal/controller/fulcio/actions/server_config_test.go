@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/labels"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -150,8 +151,7 @@ func TestServerConfig_CanHandle(t *testing.T) {
 }
 
 func TestConfig_Handle(t *testing.T) {
-	labels := constants.LabelsFor(ComponentName, DeploymentName, "fulcio")
-	labels[constants.LabelResource] = configResourceLabel
+	labels := labels.ForResource(ComponentName, DeploymentName, "fulcio", configResourceLabel)
 
 	type env struct {
 		spec    rhtasv1alpha1.FulcioConfig

@@ -7,6 +7,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -41,7 +42,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		updated bool
 	)
 
-	labels := constants.LabelsFor(actions.LogSignerComponentName, actions.LogsignerDeploymentName, instance.Name)
+	labels := labels.For(actions.LogSignerComponentName, actions.LogsignerDeploymentName, instance.Name)
 	logsignerService := k8sutils.CreateService(instance.Namespace, actions.LogsignerDeploymentName, actions.ServerPortName, actions.ServerPort, actions.ServerPort, labels)
 	if instance.Spec.Monitoring.Enabled {
 		logsignerService.Spec.Ports = append(logsignerService.Spec.Ports, v1.ServicePort{

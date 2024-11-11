@@ -8,6 +8,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -39,7 +40,7 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Times
 		updated bool
 	)
 
-	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
+	labels := labels.For(ComponentName, DeploymentName, instance.Name)
 	svc := kubernetes.CreateService(instance.Namespace, DeploymentName, ServerPortName, ServerPort, ServerPort, labels)
 
 	if instance.Spec.Monitoring.Enabled {

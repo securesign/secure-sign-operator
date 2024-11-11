@@ -7,6 +7,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/tsa/actions"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +39,7 @@ func (i tsaAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 	tsa := &rhtasv1alpha1.TimestampAuthority{}
 	tsa.Name = instance.Name
 	tsa.Namespace = instance.Namespace
-	tsa.Labels = constants.LabelsFor(actions.ComponentName, tsa.Name, instance.Name)
+	tsa.Labels = labels.For(actions.ComponentName, tsa.Name, instance.Name)
 
 	if reflect.ValueOf(instance.Spec.TimestampAuthority).IsZero() {
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{

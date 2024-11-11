@@ -27,6 +27,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	actions2 "github.com/securesign/operator/internal/controller/ctlog/actions"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/tuf/actions"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/networking/v1"
@@ -151,9 +152,9 @@ var _ = Describe("TUF controller", func() {
 
 			By("Creating ctlog secret with public key")
 			secretLabels := map[string]string{
-				constants.LabelNamespace + "/ctfe.pub": "public",
+				labels.LabelNamespace + "/ctfe.pub": "public",
 			}
-			maps.Copy(secretLabels, constants.LabelsFor(actions2.ComponentName, actions2.ComponentName, actions2.ComponentName))
+			maps.Copy(secretLabels, labels.For(actions2.ComponentName, actions2.ComponentName, actions2.ComponentName))
 			_ = k8sClient.Create(ctx, kubernetes.CreateSecret("ctlog-test", typeNamespaceName.Namespace, map[string][]byte{
 				"public": []byte("secret"),
 			}, secretLabels))

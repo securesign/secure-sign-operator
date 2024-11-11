@@ -1,6 +1,8 @@
 package actions
 
-import "github.com/securesign/operator/internal/controller/constants"
+import (
+	"github.com/securesign/operator/internal/controller/labels"
+)
 
 const (
 	DeploymentName     = "ctlog"
@@ -22,9 +24,9 @@ const (
 	MetricsPort      = 6963
 	ServerCondition  = "ServerAvailable"
 
-	CTLPubLabel       = constants.LabelNamespace + "/ctfe.pub"
-	CTLogPrivateLabel = constants.LabelNamespace + "/ctfe.private"
+	CTLPubLabel       = labels.LabelNamespace + "/ctfe.pub"
+	CTLogPrivateLabel = labels.LabelNamespace + "/ctfe.private"
 
-	privateKeyRefAnnotation  = constants.LabelNamespace + "/privateKeyRef"
-	passwordKeyRefAnnotation = constants.LabelNamespace + "/passwordKeyRef"
+	privateKeyRefAnnotation  = labels.LabelNamespace + "/privateKeyRef"
+	passwordKeyRefAnnotation = labels.LabelNamespace + "/passwordKeyRef"
 )

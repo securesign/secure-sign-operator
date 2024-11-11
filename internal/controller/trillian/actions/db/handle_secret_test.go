@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/internal/controller/common/action"
+	"github.com/securesign/operator/internal/controller/labels"
 	actions2 "github.com/securesign/operator/internal/controller/trillian/actions"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -433,12 +434,12 @@ func TestHandleSecret_Handle(t *testing.T) {
 							Name:      "unlinked-connection",
 							Namespace: "default",
 							Labels: map[string]string{
-								constants.LabelAppInstance:  "trillian",
-								constants.LabelAppComponent: actions2.DbComponentName,
-								constants.LabelAppName:      actions2.DbDeploymentName,
-								constants.LabelAppPartOf:    constants.AppName,
-								constants.LabelAppManagedBy: "controller-manager",
-								constants.LabelResource:     dbConnectionResource,
+								labels.LabelAppInstance:  "trillian",
+								labels.LabelAppComponent: actions2.DbComponentName,
+								labels.LabelAppName:      actions2.DbDeploymentName,
+								labels.LabelAppPartOf:    constants.AppName,
+								labels.LabelAppManagedBy: "controller-manager",
+								labels.LabelResource:     dbConnectionResource,
 							},
 							Annotations: map[string]string{
 								annotationDatabase: "trillian",
@@ -486,12 +487,12 @@ func TestHandleSecret_Handle(t *testing.T) {
 							Name:      "old-connection-1",
 							Namespace: "default",
 							Labels: map[string]string{
-								constants.LabelAppInstance:  "trillian",
-								constants.LabelAppComponent: actions2.DbComponentName,
-								constants.LabelAppName:      actions2.DbDeploymentName,
-								constants.LabelAppPartOf:    constants.AppName,
-								constants.LabelAppManagedBy: "controller-manager",
-								constants.LabelResource:     dbConnectionResource,
+								labels.LabelAppInstance:  "trillian",
+								labels.LabelAppComponent: actions2.DbComponentName,
+								labels.LabelAppName:      actions2.DbDeploymentName,
+								labels.LabelAppPartOf:    constants.AppName,
+								labels.LabelAppManagedBy: "controller-manager",
+								labels.LabelResource:     dbConnectionResource,
 							},
 						},
 					},
@@ -500,12 +501,12 @@ func TestHandleSecret_Handle(t *testing.T) {
 							Name:      "old-connection-2",
 							Namespace: "default",
 							Labels: map[string]string{
-								constants.LabelAppInstance:  "trillian",
-								constants.LabelAppComponent: actions2.DbComponentName,
-								constants.LabelAppName:      actions2.DbDeploymentName,
-								constants.LabelAppPartOf:    constants.AppName,
-								constants.LabelAppManagedBy: "controller-manager",
-								constants.LabelResource:     dbConnectionResource,
+								labels.LabelAppInstance:  "trillian",
+								labels.LabelAppComponent: actions2.DbComponentName,
+								labels.LabelAppName:      actions2.DbDeploymentName,
+								labels.LabelAppPartOf:    constants.AppName,
+								labels.LabelAppManagedBy: "controller-manager",
+								labels.LabelResource:     dbConnectionResource,
 							},
 							Annotations: map[string]string{
 								annotationDatabase: "old",
@@ -567,12 +568,12 @@ func TestHandleSecret_Handle(t *testing.T) {
 							Name:      "unlinked-connection",
 							Namespace: "default",
 							Labels: map[string]string{
-								constants.LabelAppInstance:  "trillian",
-								constants.LabelAppComponent: actions2.DbComponentName,
-								constants.LabelAppName:      actions2.DbDeploymentName,
-								constants.LabelAppPartOf:    constants.AppName,
-								constants.LabelAppManagedBy: "controller-manager",
-								constants.LabelResource:     dbConnectionResource,
+								labels.LabelAppInstance:  "trillian",
+								labels.LabelAppComponent: actions2.DbComponentName,
+								labels.LabelAppName:      actions2.DbDeploymentName,
+								labels.LabelAppPartOf:    constants.AppName,
+								labels.LabelAppManagedBy: "controller-manager",
+								labels.LabelResource:     dbConnectionResource,
 							},
 							Annotations: map[string]string{
 								annotationDatabase: "trillian",
@@ -587,12 +588,12 @@ func TestHandleSecret_Handle(t *testing.T) {
 							Name:      "old-connection",
 							Namespace: "default",
 							Labels: map[string]string{
-								constants.LabelAppInstance:  "trillian",
-								constants.LabelAppComponent: actions2.DbComponentName,
-								constants.LabelAppName:      actions2.DbDeploymentName,
-								constants.LabelAppPartOf:    constants.AppName,
-								constants.LabelAppManagedBy: "controller-manager",
-								constants.LabelResource:     dbConnectionResource,
+								labels.LabelAppInstance:  "trillian",
+								labels.LabelAppComponent: actions2.DbComponentName,
+								labels.LabelAppName:      actions2.DbDeploymentName,
+								labels.LabelAppPartOf:    constants.AppName,
+								labels.LabelAppManagedBy: "controller-manager",
+								labels.LabelResource:     dbConnectionResource,
 							},
 							Annotations: map[string]string{
 								annotationDatabase: "old",

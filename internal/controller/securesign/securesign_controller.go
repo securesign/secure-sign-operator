@@ -28,6 +28,7 @@ import (
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/securesign/actions"
 	v1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -100,18 +101,18 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	if instance.DeletionTimestamp != nil {
-		labels := constants.LabelsFor(actions.SegmentBackupJobName, actions.SegmentBackupCronJobName, instance.Name)
-		labels[constants.LabelAppNamespace] = instance.Namespace
-		if err := r.Client.DeleteAllOf(ctx, &v1.ClusterRoleBinding{}, client.MatchingLabels(labels)); err != nil {
+		instanceLabels := labels.For(actions.SegmentBackupJobName, actions.SegmentBackupCronJobName, instance.Name)
+		instanceLabels[labels.LabelAppNamespace] = instance.Namespace
+		if err := r.Client.DeleteAllOf(ctx, &v1.ClusterRoleBinding{}, client.MatchingLabels(instanceLabels)); err != nil {
 			log.Error(err, "problem with removing clusterRoleBinding resource")
 		}
-		if err := r.Client.DeleteAllOf(ctx, &v1.ClusterRole{}, client.MatchingLabels(labels)); err != nil {
+		if err := r.Client.DeleteAllOf(ctx, &v1.ClusterRole{}, client.MatchingLabels(instanceLabels)); err != nil {
 			log.Error(err, "problem with removing ClusterRole resource")
 		}
-		if err := r.Client.DeleteAllOf(ctx, &v1.Role{}, client.InNamespace(actions.OpenshiftMonitoringNS), client.MatchingLabels(labels)); err != nil {
+		if err := r.Client.DeleteAllOf(ctx, &v1.Role{}, client.InNamespace(actions.OpenshiftMonitoringNS), client.MatchingLabels(instanceLabels)); err != nil {
 			log.Error(err, "problem with removing Role resource in %s", actions.OpenshiftMonitoringNS)
 		}
-		if err := r.Client.DeleteAllOf(ctx, &v1.RoleBinding{}, client.InNamespace(actions.OpenshiftMonitoringNS), client.MatchingLabels(labels)); err != nil {
+		if err := r.Client.DeleteAllOf(ctx, &v1.RoleBinding{}, client.InNamespace(actions.OpenshiftMonitoringNS), client.MatchingLabels(instanceLabels)); err != nil {
 			log.Error(err, "problem with removing RoleBinding resource in %s", actions.OpenshiftMonitoringNS)
 		}
 

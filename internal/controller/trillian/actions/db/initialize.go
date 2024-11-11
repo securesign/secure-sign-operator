@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
+	"github.com/securesign/operator/internal/controller/labels"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -33,7 +34,7 @@ func (i initializeAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1
 }
 
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
-	labels := constants.LabelsForComponent(actions.DbComponentName, instance.Name)
+	labels := labels.ForComponent(actions.DbComponentName, instance.Name)
 	ok, err := commonUtils.DeploymentIsRunning(ctx, i.Client, instance.Namespace, labels)
 	switch {
 	case errors.Is(err, commonUtils.ErrDeploymentNotReady):

@@ -7,6 +7,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,7 +35,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Timestam
 	var (
 		err error
 	)
-	labels := constants.LabelsFor(ComponentName, RBACName, instance.Name)
+	labels := labels.For(ComponentName, RBACName, instance.Name)
 	sa := &v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      RBACName,

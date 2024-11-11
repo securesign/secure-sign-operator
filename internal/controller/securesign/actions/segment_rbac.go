@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/securesign/operator/internal/controller/annotations"
+	"github.com/securesign/operator/internal/controller/labels"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -54,14 +55,14 @@ func (i rbacAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Secures
 func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
 	var err error
 
-	labels := constants.LabelsFor(SegmentBackupJobName, SegmentBackupCronJobName, instance.Name)
-	labels[constants.LabelAppNamespace] = instance.Namespace
+	jobLabels := labels.For(SegmentBackupJobName, SegmentBackupCronJobName, instance.Name)
+	jobLabels[labels.LabelAppNamespace] = instance.Namespace
 
 	serviceAccount := &v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      SegmentRBACName,
 			Namespace: instance.Namespace,
-			Labels:    labels,
+			Labels:    jobLabels,
 		},
 	}
 	if err = controllerutil.SetControllerReference(instance, serviceAccount, i.Client.Scheme()); err != nil {
@@ -86,7 +87,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 	openshiftMonitoringSBJRole := kubernetes.CreateRole(
 		OpenshiftMonitoringNS,
 		fmt.Sprintf(namespacedNamePattern, instance.Namespace),
-		labels,
+		jobLabels,
 		[]rbacv1.PolicyRule{
 			{
 				APIGroups:     []string{""},
@@ -119,7 +120,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 	openshiftMonitoringSBJRoleBinding := kubernetes.CreateRoleBinding(
 		OpenshiftMonitoringNS,
 		fmt.Sprintf(namespacedNamePattern, instance.Namespace),
-		labels,
+		jobLabels,
 		rbacv1.RoleRef{
 			APIGroup: v1.SchemeGroupVersion.Group,
 			Kind:     "Role",
@@ -146,7 +147,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 
 	openshiftMonitoringClusterRoleBinding := kubernetes.CreateClusterRoleBinding(
 		fmt.Sprintf(clusterWideNamePattern, instance.Namespace, "clusterMonitoringRoleBinding"),
-		labels,
+		jobLabels,
 		rbacv1.RoleRef{
 			APIGroup: v1.SchemeGroupVersion.Group,
 			Kind:     "ClusterRole",
@@ -173,7 +174,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 
 	openshiftConsoleSBJRole := kubernetes.CreateClusterRole(
 		fmt.Sprintf(clusterWideNamePattern, instance.Namespace, "clusterRole"),
-		labels,
+		jobLabels,
 		[]rbacv1.PolicyRule{
 			{
 				APIGroups:     []string{"operator.openshift.io"},
@@ -206,7 +207,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 
 	openshiftConsoleSBJRolebinding := kubernetes.CreateClusterRoleBinding(
 		fmt.Sprintf(clusterWideNamePattern, instance.Namespace, "clusterRoleBinding"),
-		labels,
+		jobLabels,
 		rbacv1.RoleRef{
 			APIGroup: v1.SchemeGroupVersion.Group,
 			Kind:     "ClusterRole",

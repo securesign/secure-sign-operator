@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	v1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -38,7 +39,7 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Re
 		err error
 	)
 
-	monitoringLabels := constants.LabelsFor(actions.ServerComponentName, actions.MonitoringRoleName, instance.Name)
+	monitoringLabels := labels.For(actions.ServerComponentName, actions.MonitoringRoleName, instance.Name)
 
 	role := kubernetes.CreateRole(
 		instance.Namespace,
@@ -117,7 +118,7 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Re
 				Scheme:   "http",
 			},
 		},
-		constants.LabelsForComponent(actions.ServerComponentName, instance.Name),
+		labels.ForComponent(actions.ServerComponentName, instance.Name),
 	)
 
 	if err = controllerutil.SetControllerReference(instance, serviceMonitor, i.Client.Scheme()); err != nil {

@@ -13,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	common "github.com/securesign/operator/internal/testing/common/tsa"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -459,6 +460,6 @@ func Test_SignerHandle(t *testing.T) {
 func generateSecretAnnotations(signer rhtasv1alpha1.TimestampAuthoritySigner) map[string]string {
 	annotations := make(map[string]string)
 	bytes, _ := json.Marshal(signer)
-	annotations[constants.LabelNamespace+"/signerConfiguration"] = string(bytes)
+	annotations[labels.LabelNamespace+"/signerConfiguration"] = string(bytes)
 	return annotations
 }

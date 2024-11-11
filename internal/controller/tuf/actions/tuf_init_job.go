@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/job"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/tuf/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -80,7 +81,7 @@ func (i initJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) 
 		return i.Failed(err)
 
 	}
-	j := utils.CreateTufInitJob(instance, InitJobName, RBACName, constants.LabelsForComponent(ComponentName, instance.Name))
+	j := utils.CreateTufInitJob(instance, InitJobName, RBACName, labels.ForComponent(ComponentName, instance.Name))
 	pvc, err := kubernetes.GetPVC(ctx, i.Client, instance.Namespace, instance.Status.PvcName)
 	if err != nil {
 		return i.Failed(fmt.Errorf("could not resolve PVC: %w", err))
