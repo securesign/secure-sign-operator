@@ -22,6 +22,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -156,8 +157,7 @@ func TestServerConfig_CanHandle(t *testing.T) {
 
 func TestServerConfig_Handle(t *testing.T) {
 	g := NewWithT(t)
-	labels := constants.LabelsFor(ComponentName, DeploymentName, "ctlog")
-	labels[constants.LabelResource] = serverConfigResourceName
+	labels := labels.ForResource(ComponentName, DeploymentName, "ctlog", serverConfigResourceName)
 
 	type env struct {
 		spec    rhtasv1alpha1.CTlogSpec

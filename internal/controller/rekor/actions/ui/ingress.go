@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -44,7 +45,7 @@ func (i ingressAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Re
 func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
 	var updated bool
 	ok := types.NamespacedName{Name: actions.SearchUiDeploymentName, Namespace: instance.Namespace}
-	labels := constants.LabelsFor(actions.UIComponentName, actions.SearchUiDeploymentName, instance.Name)
+	labels := labels.For(actions.UIComponentName, actions.SearchUiDeploymentName, instance.Name)
 
 	svc := &v1.Service{}
 	if err := i.Client.Get(ctx, ok, svc); err != nil {

@@ -30,6 +30,7 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
+	"github.com/securesign/operator/internal/controller/labels"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -114,7 +115,7 @@ var _ = Describe("CTlog update test", func() {
 			}).Should(Succeed())
 
 			By("Creating trillian service")
-			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, trillian.ServerPort, constants.LabelsForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
+			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, trillian.ServerPort, labels.ForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
 
 			By("Creating fulcio root cert")
 			fulcioCa := kubernetes.CreateSecret("test", Namespace,
@@ -183,7 +184,7 @@ var _ = Describe("CTlog update test", func() {
 			key, err := utils.CreatePrivateKey(nil)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("key-secret", Namespace,
-				map[string][]byte{"private": key.PrivateKey, "password": key.PrivateKeyPass}, constants.LabelsFor(actions.ComponentName, Name, instance.Name)))).To(Succeed())
+				map[string][]byte{"private": key.PrivateKey, "password": key.PrivateKeyPass}, labels.For(actions.ComponentName, Name, instance.Name)))).To(Succeed())
 
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
 			found := &v1alpha1.CTlog{}

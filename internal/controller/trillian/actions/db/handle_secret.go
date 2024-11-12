@@ -16,6 +16,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
+	labels2 "github.com/securesign/operator/internal/controller/labels"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	trillianUtils "github.com/securesign/operator/internal/controller/trillian/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -34,10 +35,10 @@ const (
 	dbConnectionResource   = "trillian-db-connection"
 	dbConnectionSecretName = "trillian-db-connection-"
 
-	annotationDatabase = constants.LabelNamespace + "/" + trillianUtils.SecretDatabaseName
-	annotationUser     = constants.LabelNamespace + "/" + trillianUtils.SecretUser
-	annotationPort     = constants.LabelNamespace + "/" + trillianUtils.SecretPort
-	annotationHost     = constants.LabelNamespace + "/" + trillianUtils.SecretHost
+	annotationDatabase = labels2.LabelNamespace + "/" + trillianUtils.SecretDatabaseName
+	annotationUser     = labels2.LabelNamespace + "/" + trillianUtils.SecretUser
+	annotationPort     = labels2.LabelNamespace + "/" + trillianUtils.SecretPort
+	annotationHost     = labels2.LabelNamespace + "/" + trillianUtils.SecretHost
 )
 
 var ErrMissingDBConfiguration = errors.New("expecting external DB configuration")
@@ -111,8 +112,8 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 		return i.Continue()
 	}
 
-	dbLabels := constants.LabelsFor(trillian.DbComponentName, trillian.DbDeploymentName, instance.Name)
-	dbLabels[constants.LabelResource] = dbConnectionResource
+	dbLabels := labels2.For(trillian.DbComponentName, trillian.DbDeploymentName, instance.Name)
+	dbLabels[labels2.LabelResource] = dbConnectionResource
 
 	partialSecrets, err := kubernetes.ListSecrets(ctx, i.Client, instance.Namespace, labels.SelectorFromSet(dbLabels).String())
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
+	"github.com/securesign/operator/internal/controller/labels"
 	v1 "k8s.io/api/core/v1"
 
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -62,7 +63,7 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf
 		AccessModes:  instance.Spec.Pvc.AccessModes,
 		StorageClass: instance.Spec.Pvc.StorageClass,
 	},
-		constants.LabelsFor(DeploymentName, DeploymentName, instance.Name))
+		labels.For(DeploymentName, DeploymentName, instance.Name))
 	if !utils.OptionalBool(instance.Spec.Pvc.Retain) {
 		if err = controllerutil.SetControllerReference(instance, pvc, i.Client.Scheme()); err != nil {
 			return i.Failed(fmt.Errorf("could not set controller reference for PVC: %w", err))

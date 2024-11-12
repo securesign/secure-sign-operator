@@ -8,6 +8,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,7 +41,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		updated bool
 	)
 
-	labels := constants.LabelsFor(actions.UIComponentName, actions.SearchUiDeploymentName, instance.Name)
+	labels := labels.For(actions.UIComponentName, actions.SearchUiDeploymentName, instance.Name)
 	svc := k8sutils.CreateService(instance.Namespace, actions.SearchUiDeploymentName, actions.SearchUiDeploymentPortName, actions.SearchUiDeploymentPort, actions.SearchUiDeploymentPort, labels)
 	svc.Spec.Ports[0].Port = 80
 

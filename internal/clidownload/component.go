@@ -9,6 +9,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	cLabels "github.com/securesign/operator/internal/controller/labels"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -41,8 +42,8 @@ func (c *Component) Start(ctx context.Context) error {
 		err    error
 		obj    []client.Object
 		labels = map[string]string{
-			constants.LabelAppPartOf:    constants.AppName,
-			constants.LabelAppComponent: cliServerComponent,
+			cLabels.LabelAppPartOf:    constants.AppName,
+			cLabels.LabelAppComponent: cliServerComponent,
 		}
 	)
 

@@ -16,7 +16,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/condition"
@@ -49,7 +49,7 @@ func Get(ctx context.Context, cli client.Client, ns string, name string) func() 
 func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {
 	return func() *v1.Pod {
 		list := &v1.PodList{}
-		_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{constants.LabelAppComponent: "timestamp-authority", constants.LabelAppName: "tsa-server"})
+		_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{labels.LabelAppComponent: "timestamp-authority", labels.LabelAppName: "tsa-server"})
 		if len(list.Items) != 1 {
 			return nil
 		}

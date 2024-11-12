@@ -10,6 +10,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"github.com/securesign/operator/internal/testing/errors"
@@ -90,8 +91,8 @@ func TestShardingConfig_CanHandle(t *testing.T) {
 func TestShardingConfig_Handle(t *testing.T) {
 	rekorNN := types.NamespacedName{Name: "rekor", Namespace: "default"}
 
-	shardingConfigLabels := constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, "rekor")
-	shardingConfigLabels[constants.LabelResource] = shardingConfigLabel
+	shardingConfigLabels := labels.For(actions.ServerComponentName, actions.ServerDeploymentName, "rekor")
+	shardingConfigLabels[labels.LabelResource] = shardingConfigLabel
 
 	type env struct {
 		spec    rhtasv1alpha1.RekorSpec
@@ -447,7 +448,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 					kubernetes.CreateConfigmap(
 						"default",
 						"keep",
-						constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, "rekor"),
+						labels.For(actions.ServerComponentName, actions.ServerDeploymentName, "rekor"),
 						map[string]string{}),
 					kubernetes.CreateConfigmap(
 						"default",

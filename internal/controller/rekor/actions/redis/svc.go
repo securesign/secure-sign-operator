@@ -7,6 +7,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +40,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		updated bool
 	)
 
-	labels := constants.LabelsFor(actions.RedisComponentName, actions.RedisDeploymentName, instance.Name)
+	labels := labels.For(actions.RedisComponentName, actions.RedisDeploymentName, instance.Name)
 	svc := k8sutils.CreateService(instance.Namespace, actions.RedisDeploymentName, actions.RedisDeploymentPortName, actions.RedisDeploymentPort, actions.RedisDeploymentPort, labels)
 
 	if err = controllerutil.SetControllerReference(instance, svc, i.Client.Scheme()); err != nil {
