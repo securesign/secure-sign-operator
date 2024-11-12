@@ -1,13 +1,12 @@
-package action
+package ensure
 
 import (
 	"context"
 
-	"golang.org/x/exp/maps"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"testing"
 
-	"github.com/go-logr/logr"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
 	consolev1 "github.com/openshift/api/console/v1"
@@ -24,32 +23,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-type dumpAction struct {
-	BaseAction
-}
-
-func newDumpAction() Action[*rhtasv1alpha1.Securesign] {
-	return &dumpAction{}
-}
-
-func (d dumpAction) Name() string {
-	return "dump"
-}
-
-func (d dumpAction) CanHandle(_ context.Context, _ *rhtasv1alpha1.Securesign) bool {
-	return true
-}
-
-func (d dumpAction) Handle(_ context.Context, _ *rhtasv1alpha1.Securesign) *Result {
-	return d.Continue()
-}
-
-func TestBaseAction_Ensure(t *testing.T) {
+func Test_Ensure(t *testing.T) {
 	addAnnotations := func(object client.Object, annotations map[string]string) client.Object {
 		object.SetAnnotations(annotations)
 		return object
@@ -62,15 +40,15 @@ func TestBaseAction_Ensure(t *testing.T) {
 	tests := []struct {
 		name   string
 		object client.Object
-		verify func(Gomega, client.WithWatch, bool, error)
+		verify func(Gomega, client.WithWatch, controllerutil.OperationResult, error)
 		env    env
 	}{
 		{
 			name:   "create new object",
 			object: kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{}),
-			verify: func(g Gomega, cli client.WithWatch, result bool, err error) {
+			verify: func(g Gomega, cli client.WithWatch, result controllerutil.OperationResult, err error) {
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(result).To(BeTrue())
+				g.Expect(result).To(Equal(controllerutil.OperationResultCreated))
 				nn := types.NamespacedName{
 					Namespace: "default",
 					Name:      "service",
@@ -95,9 +73,9 @@ func TestBaseAction_Ensure(t *testing.T) {
 			object: kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{
 				"new": "label",
 			}),
-			verify: func(g Gomega, cli client.WithWatch, result bool, err error) {
+			verify: func(g Gomega, cli client.WithWatch, result controllerutil.OperationResult, err error) {
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(result).To(BeTrue())
+				g.Expect(result).To(Equal(controllerutil.OperationResultUpdated))
 				nn := types.NamespacedName{
 					Namespace: "default",
 					Name:      "service",
@@ -126,9 +104,9 @@ func TestBaseAction_Ensure(t *testing.T) {
 			object: kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{
 				"unmanaged": "value",
 			}),
-			verify: func(g Gomega, cli client.WithWatch, result bool, err error) {
+			verify: func(g Gomega, cli client.WithWatch, result controllerutil.OperationResult, err error) {
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(result).To(BeTrue())
+				g.Expect(result).To(Equal(controllerutil.OperationResultUpdated))
 				nn := types.NamespacedName{
 					Namespace: "default",
 					Name:      "service",
@@ -160,9 +138,9 @@ func TestBaseAction_Ensure(t *testing.T) {
 				map[string]string{
 					"new": "annotation",
 				}),
-			verify: func(g Gomega, cli client.WithWatch, result bool, err error) {
+			verify: func(g Gomega, cli client.WithWatch, result controllerutil.OperationResult, err error) {
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(result).To(BeTrue())
+				g.Expect(result).To(Equal(controllerutil.OperationResultUpdated))
 				nn := types.NamespacedName{
 					Namespace: "default",
 					Name:      "service",
@@ -192,9 +170,9 @@ func TestBaseAction_Ensure(t *testing.T) {
 				},
 			},
 			object: addAnnotations(kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{}), map[string]string{}),
-			verify: func(g Gomega, cli client.WithWatch, result bool, err error) {
+			verify: func(g Gomega, cli client.WithWatch, result controllerutil.OperationResult, err error) {
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(result).To(BeTrue())
+				g.Expect(result).To(Equal(controllerutil.OperationResultUpdated))
 				nn := types.NamespacedName{
 					Namespace: "default",
 					Name:      "service",
@@ -218,9 +196,9 @@ func TestBaseAction_Ensure(t *testing.T) {
 				},
 			},
 			object: kubernetes.CreateService("default", "service", "https", 443, 443, map[string]string{}),
-			verify: func(g Gomega, cli client.WithWatch, result bool, err error) {
+			verify: func(g Gomega, cli client.WithWatch, result controllerutil.OperationResult, err error) {
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(result).To(BeTrue())
+				g.Expect(result).To(Equal(controllerutil.OperationResultUpdated))
 				nn := types.NamespacedName{
 					Namespace: "default",
 					Name:      "service",
@@ -260,9 +238,9 @@ func TestBaseAction_Ensure(t *testing.T) {
 					},
 				},
 			},
-			verify: func(g Gomega, cli client.WithWatch, result bool, err error) {
+			verify: func(g Gomega, cli client.WithWatch, result controllerutil.OperationResult, err error) {
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(result).To(BeFalse())
+				g.Expect(result).To(Equal(controllerutil.OperationResultNone))
 				nn := types.NamespacedName{
 					Namespace: "default",
 					Name:      "test",
@@ -280,9 +258,9 @@ func TestBaseAction_Ensure(t *testing.T) {
 				},
 			},
 			object: kubernetes.CreateService("default", "service", "http", 80, 80, map[string]string{}),
-			verify: func(g Gomega, cli client.WithWatch, result bool, err error) {
+			verify: func(g Gomega, cli client.WithWatch, result controllerutil.OperationResult, err error) {
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(result).To(BeFalse())
+				g.Expect(result).To(Equal(controllerutil.OperationResultNone))
 				nn := types.NamespacedName{
 					Namespace: "default",
 					Name:      "service",
@@ -308,9 +286,9 @@ func TestBaseAction_Ensure(t *testing.T) {
 				},
 			},
 			object: kubernetes.CreateService("default", "service", "http", 443, 443, map[string]string{}),
-			verify: func(g Gomega, cli client.WithWatch, result bool, err error) {
+			verify: func(g Gomega, cli client.WithWatch, result controllerutil.OperationResult, err error) {
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(result).To(BeFalse())
+				g.Expect(result).To(Equal(controllerutil.OperationResultNone))
 				nn := types.NamespacedName{
 					Namespace: "default",
 					Name:      "service",
@@ -336,9 +314,9 @@ func TestBaseAction_Ensure(t *testing.T) {
 				},
 			},
 			object: kubernetes.CreateService("default", "service", "http", 443, 443, map[string]string{}),
-			verify: func(g Gomega, cli client.WithWatch, result bool, err error) {
+			verify: func(g Gomega, cli client.WithWatch, result controllerutil.OperationResult, err error) {
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(result).To(BeTrue())
+				g.Expect(result).To(Equal(controllerutil.OperationResultUpdated))
 				nn := types.NamespacedName{
 					Namespace: "default",
 					Name:      "service",
@@ -361,15 +339,24 @@ func TestBaseAction_Ensure(t *testing.T) {
 				WithStatusSubresource(tt.env.objects...).
 				Build()
 
-			a := newDumpAction()
-			a.InjectClient(c)
-			a.InjectLogger(logr.Logger{})
-			a.InjectRecorder(record.NewFakeRecorder(10))
+			managed := []string{"new", "old", "managed"}
+			got, err := kubernetes.CreateOrUpdate(ctx, c, tt.object.DeepCopyObject().(client.Object),
+				Labels[client.Object](managed, tt.object.GetLabels()),
+				Annotations[client.Object](managed, tt.object.GetAnnotations()),
+				func(obj client.Object) error {
+					var (
+						svc *v1.Service
+						ok  bool
+					)
+					if svc, ok = obj.(*v1.Service); ok {
+						// svc object
+						svc.Spec.Ports = tt.object.(*v1.Service).Spec.Ports
+					}
 
-			da := a.(*dumpAction)
-			labelKeys := maps.Keys(map[string]string{"new": "label", "managed": "value"})
-			annoKeys := maps.Keys(map[string]string{"old": "annotation", "new": "annotation", "managed": "value"})
-			got, err := da.Ensure(ctx, tt.object, EnsureSpec(), EnsureLabels(labelKeys...), EnsureAnnotations(annoKeys...))
+					return nil
+
+				},
+			)
 			tt.verify(g, c, got, err)
 		})
 	}

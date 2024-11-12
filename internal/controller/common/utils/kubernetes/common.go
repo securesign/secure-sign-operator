@@ -9,7 +9,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/securesign/operator/internal/controller/annotations"
+	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	k8sLabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	v13 "github.com/openshift/api/operator/v1"
 	"github.com/securesign/operator/internal/controller/common/utils"
@@ -132,4 +136,27 @@ func FindByLabelSelector(ctx context.Context, c client.Client, list client.Objec
 	}
 
 	return c.List(ctx, list, client.InNamespace(namespace), listOptions)
+}
+
+func CreateOrUpdate[T client.Object](ctx context.Context, cli client.Client, obj T, fn ...func(object T) error) (result controllerutil.OperationResult, err error) {
+	err = retry.OnError(retry.DefaultRetry, func(err error) bool {
+		return apiErrors.IsConflict(err) || apiErrors.IsAlreadyExists(err)
+	}, func() error {
+		var createUpdateError error
+		result, createUpdateError = controllerutil.CreateOrUpdate(ctx, cli, obj, func() (fnError error) {
+			annoStr, find := obj.GetAnnotations()[annotations.PausedReconciliation]
+			if find {
+				annoBool, _ := strconv.ParseBool(annoStr)
+				if annoBool {
+					return
+				}
+			}
+			for _, f := range fn {
+				fnError = errors.Join(fnError, f(obj))
+			}
+			return
+		})
+		return createUpdateError
+	})
+	return
 }

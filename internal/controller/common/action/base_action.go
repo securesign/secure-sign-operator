@@ -10,9 +10,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/controller/annotations"
+	"github.com/securesign/operator/internal/controller/constants"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -62,6 +65,7 @@ func (action *BaseAction) StatusUpdate(ctx context.Context, obj client2.Object) 
 	return &Result{Result: reconcile.Result{Requeue: false}}
 }
 
+// Deprecated: Use Error function
 func (action *BaseAction) Failed(err error) *Result {
 	action.Logger.Error(err, "error during action execution")
 	return &Result{
@@ -70,6 +74,25 @@ func (action *BaseAction) Failed(err error) *Result {
 	}
 }
 
+func (action *BaseAction) Error(ctx context.Context, err error, instance apis.ConditionsAwareObject) *Result {
+	if errors.Is(err, reconcile.TerminalError(err)) {
+		instance.SetCondition(metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Failure,
+			Message: err.Error(),
+		})
+		if updateErr := action.Client.Status().Update(ctx, instance); updateErr != nil {
+			err = errors.Join(err, updateErr)
+		}
+	}
+	action.Logger.Error(err, "error during action execution")
+	return &Result{
+		Err: err,
+	}
+}
+
+// Deprecated: Use Error function with TerminalError passed as an argument
 func (action *BaseAction) FailedWithStatusUpdate(ctx context.Context, err error, instance client2.Object) *Result {
 	if e := action.Client.Status().Update(ctx, instance); e != nil {
 		if strings.Contains(err.Error(), OptimisticLockErrorMsg) {
@@ -96,6 +119,7 @@ func (action *BaseAction) Requeue() *Result {
 	}
 }
 
+// Deprecated: Use kubernetes.CreateOrUpdate function
 func (action *BaseAction) Ensure(ctx context.Context, obj client2.Object, opts ...EnsureOption) (bool, error) {
 	var (
 		expected client2.Object
