@@ -24,7 +24,7 @@ COPY internal/ internal/
 RUN go mod download && \
     CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -mod=readonly -a -o manager cmd/main.go
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal@sha256:f5d2c6a1e0c86e4234ea601552dbabb4ced0e013a1efcbfb439f1f6a7a9275b0
+FROM registry.access.redhat.com/ubi9/ubi-minimal@sha256:ba0d97dd43fea58f9bdcc4488c60a3869827e1e30a51c11bbfae3fb7dc91e6f5
 WORKDIR /
 COPY --from=builder /workspace/manager .
 USER 65532:65532
