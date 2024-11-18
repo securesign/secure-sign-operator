@@ -23,7 +23,7 @@ COPY controllers/ controllers/
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o manager main.go
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal@sha256:6907fbacb294ab6ba988f8bcc6bd5127f589966e5808fcb454de3e104983ae5b
+FROM registry.access.redhat.com/ubi9/ubi-minimal@sha256:d85040b6e3ed3628a89683f51a38c709185efc3fb552db2ad1b9180f2a6c38be
 WORKDIR /
 COPY --from=builder /workspace/manager .
 USER 65532:65532
