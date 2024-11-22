@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/images"
 	"k8s.io/utils/ptr"
 
 	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/controller/annotations"
+	"github.com/securesign/operator/internal/controller/common/utils"
+	"github.com/securesign/operator/internal/controller/constants"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,6 +54,7 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 		"serve",
 		"--port=5555",
 		"--grpc-port=5554",
+		fmt.Sprintf("--log_type=%s", utils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
 		"--ca=fileca",
 		"--fileca-key",
 		"/var/run/fulcio-secrets/key.pem",
