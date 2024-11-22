@@ -3,11 +3,13 @@ package utils
 import (
 	"fmt"
 
-	"github.com/securesign/operator/internal/images"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/utils"
+	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/images"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,6 +43,7 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 		// NOTE: we need to use no_tmp_dir=true with file-based storage to prevent
 		// cross-device link error - see https://github.com/google/go-cloud/issues/3314
 		"--attestation_storage_bucket=file:///var/run/attestations?no_tmp_dir=true",
+		fmt.Sprintf("--log_type=%s", utils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
 	}
 	volumes := []core.Volume{
 		{
