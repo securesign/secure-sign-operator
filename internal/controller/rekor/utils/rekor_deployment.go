@@ -6,6 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/constants"
 	apps "k8s.io/api/apps/v1"
@@ -39,6 +40,7 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 		fmt.Sprintf("--trillian_log_server.tlog_id=%d", *instance.Status.TreeID),
 		"--enable_attestation_storage",
 		"--attestation_storage_bucket=file:///var/run/attestations",
+		fmt.Sprintf("--log_type=%s", utils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
 	}
 	volumes := []core.Volume{
 		{
