@@ -117,3 +117,21 @@ func getDeploymentCondition(status v1.DeploymentStatus, condType v1.DeploymentCo
 	}
 	return nil
 }
+
+func FindContainerByName(dp *v1.Deployment, containerName string) *corev1.Container {
+	for i, c := range dp.Spec.Template.Spec.Containers {
+		if c.Name == containerName {
+			return &dp.Spec.Template.Spec.Containers[i]
+		}
+	}
+	return nil
+}
+
+func FindVolumeByName(dp *v1.Deployment, volumeName string) *corev1.Volume {
+	for i, v := range dp.Spec.Template.Spec.Volumes {
+		if v.Name == volumeName {
+			return &dp.Spec.Template.Spec.Volumes[i]
+		}
+	}
+	return nil
+}

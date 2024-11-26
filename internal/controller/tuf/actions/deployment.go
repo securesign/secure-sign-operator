@@ -6,13 +6,21 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
+	"github.com/securesign/operator/internal/controller/common/utils"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
-	tufutils "github.com/securesign/operator/internal/controller/tuf/utils"
+	"golang.org/x/exp/maps"
+	v1 "k8s.io/api/apps/v1"
+	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
+
+const volumeName, containerName = "repository", "tuf-server"
 
 func NewDeployAction() action.Action[*rhtasv1alpha1.Tuf] {
 	return &deployAction{}
@@ -32,34 +40,104 @@ func (i deployAction) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Tuf) bool 
 }
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
-	var (
-		updated bool
-		err     error
-	)
-
 	labels := labels.For(ComponentName, DeploymentName, instance.Name)
 
-	dp := tufutils.CreateTufDeployment(instance, DeploymentName, RBACName, labels)
-
-	if err = controllerutil.SetControllerReference(instance, dp, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for Deployment: %w", err))
+	var (
+		result controllerutil.OperationResult
+		err    error
+	)
+	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+		&v1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      DeploymentName,
+				Namespace: instance.Namespace,
+			},
+		},
+		i.createTufDeployment(instance, RBACName, labels),
+		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
+		ensure.Labels[*v1.Deployment](maps.Keys(labels), labels),
+		ensure.Proxy(),
+	); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create TUF: %w", err), instance)
 	}
 
-	if updated, err = i.Ensure(ctx, dp); err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create TUF: %w", err), instance)
-	}
-
-	if updated {
+	if result != controllerutil.OperationResultNone {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
 			Status: metav1.ConditionFalse, Reason: constants.Creating, Message: "Deployment created"})
 		return i.StatusUpdate(ctx, instance)
 	} else {
 		return i.Continue()
+	}
+}
+
+func (i deployAction) createTufDeployment(instance *rhtasv1alpha1.Tuf, sa string, labels map[string]string) func(*v1.Deployment) error {
+	return func(dp *v1.Deployment) error {
+
+		spec := &dp.Spec
+		spec.Replicas = utils.Pointer[int32](1)
+		spec.Selector = &metav1.LabelSelector{
+			MatchLabels: labels,
+		}
+		spec.Strategy = v1.DeploymentStrategy{
+			Type: "Recreate",
+		}
+
+		template := &spec.Template
+		template.Labels = labels
+		template.Spec.ServiceAccountName = sa
+
+		volume := kubernetes.FindVolumeByName(dp, volumeName)
+		if volume == nil {
+			template.Spec.Volumes = append(template.Spec.Volumes, core.Volume{Name: volumeName})
+			volume = &template.Spec.Volumes[len(template.Spec.Volumes)-1]
+		}
+		volume.VolumeSource = core.VolumeSource{
+			PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
+				ClaimName: instance.Status.PvcName,
+			},
+		}
+
+		container := kubernetes.FindContainerByName(dp, containerName)
+		if container == nil {
+			template.Spec.Containers = append(template.Spec.Containers, core.Container{Name: containerName})
+			container = &template.Spec.Containers[len(template.Spec.Containers)-1]
+		}
+		container.Image = constants.HttpServerImage
+		container.Ports = []core.ContainerPort{
+			{
+				Protocol:      core.ProtocolTCP,
+				ContainerPort: 8080,
+			},
+		}
+
+		container.VolumeMounts = []core.VolumeMount{
+			{
+				Name:      volumeName,
+				MountPath: "/var/www/html",
+				// let user upload manual update using `oc rsync` command
+				ReadOnly: false,
+			}}
+
+		if container.LivenessProbe == nil {
+			container.LivenessProbe = &core.Probe{}
+		}
+		// server is running returning any status code (including 403 - noindex.html)
+		container.LivenessProbe.Exec = &core.ExecAction{Command: []string{"curl", "localhost:8080"}}
+		container.LivenessProbe.InitialDelaySeconds = 30
+		container.LivenessProbe.PeriodSeconds = 10
+
+		if container.ReadinessProbe == nil {
+			container.ReadinessProbe = &core.Probe{}
+		}
+		container.ReadinessProbe.HTTPGet = &core.HTTPGetAction{
+			Path:   "/root.json",
+			Port:   intstr.FromInt32(8080),
+			Scheme: "HTTP",
+		}
+		container.ReadinessProbe.InitialDelaySeconds = 10
+		container.ReadinessProbe.PeriodSeconds = 10
+		container.ReadinessProbe.FailureThreshold = 10
+
+		return nil
 	}
 }

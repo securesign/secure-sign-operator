@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -28,6 +27,10 @@ func TestSetProxyEnvs(t *testing.T) {
 			Name:  "answer",
 			Value: "42",
 		},
+		{
+			Name:  "no_proxy",
+			Value: "toBeOverwritten",
+		},
 	}
 
 	// Define a mock deployment
@@ -49,7 +52,7 @@ func TestSetProxyEnvs(t *testing.T) {
 	SetProxyEnvs(dep)
 
 	g.Expect(dep.Spec.Template.Spec.Containers).ShouldNot(BeNil())
-	g.Expect(dep.Spec.Template.Spec.Containers[0].Env).Should(HaveLen(1))
+	g.Expect(dep.Spec.Template.Spec.Containers[0].Env).Should(HaveLen(2))
 	g.Expect(dep.Spec.Template.Spec.Containers[0].Env).Should(BeEquivalentTo(defaultEnv))
 
 	for _, e := range mockReadProxyVarsFromEnv() {
@@ -58,9 +61,17 @@ func TestSetProxyEnvs(t *testing.T) {
 
 	SetProxyEnvs(dep)
 
-	expectedEnvVars := append(defaultEnv, mockReadProxyVarsFromEnv()...)
+	expectedEnvVars := append(mockReadProxyVarsFromEnv(), corev1.EnvVar{
+		Name:  "answer",
+		Value: "42",
+	})
 
 	g.Expect(dep.Spec.Template.Spec.Containers).ShouldNot(BeNil())
 	g.Expect(dep.Spec.Template.Spec.Containers[0].Env).Should(HaveLen(7))
-	g.Expect(dep.Spec.Template.Spec.Containers[0].Env).Should(BeEquivalentTo(expectedEnvVars))
+	g.Expect(dep.Spec.Template.Spec.Containers[0].Env).Should(ConsistOf(expectedEnvVars))
+
+	// ensure no duplicates
+	SetProxyEnvs(dep)
+	g.Expect(dep.Spec.Template.Spec.Containers).ShouldNot(BeNil())
+	g.Expect(dep.Spec.Template.Spec.Containers[0].Env).Should(HaveLen(7))
 }
