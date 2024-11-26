@@ -48,7 +48,14 @@ spec:
     - name: image-expires-after
       value: 5d
   pipelineRef:
-    name: operator-build-pipeline
+    resolver: git
+    params:
+      - name: url
+        value: 'https://github.com/securesign/pipelines.git'
+      - name: revision
+        value: 'main'
+      - name: pathInRepo
+        value: 'pipelines/docker-build-multi-platform-oci-ta.yaml'
   taskRunTemplate: {}
   workspaces:
     - name: git-auth
