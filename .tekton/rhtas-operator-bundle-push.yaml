@@ -39,7 +39,14 @@ spec:
     - name: prefetch-input
       value: ''
   pipelineRef:
-    name: bundle-build-pipeline
+    resolver: git
+    params:
+      - name: url
+        value: 'https://github.com/securesign/pipelines.git'
+      - name: revision
+        value: 'main'
+      - name: pathInRepo
+        value: 'pipelines/docker-build-oci-ta.yaml'
   taskRunTemplate: {}
   workspaces:
     - name: git-auth
