@@ -12,6 +12,9 @@ issues:
   exclude-use-default: false
   # restore some of the defaults
   # (fill in the rest as needed)
+  exclude:
+  - 'SA1019: .*.Failed.* is deprecated'
+  - 'SA1019: .*.Ensure is deprecated'
 
 linters:
   disable-all: true
