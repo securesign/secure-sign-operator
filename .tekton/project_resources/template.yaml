@@ -67,3 +67,23 @@ spec:
             dockerfileUrl: bundle.Dockerfile
             revision: "{{.version}}"
             url: https://github.com/securesign/secure-sign-operator
+    - apiVersion: appstudio.redhat.com/v1beta2
+      kind: IntegrationTestScenario
+      metadata:
+        labels:
+          test.appstudio.openshift.io/optional: "false"
+        name: "rhtas-operator-e2e-test-{{.versionName}}"
+      spec:
+        application: "operator-{{.versionName}}"
+        contexts:
+        - description: execute the integration test when component bundle updates
+          name: "rhtas-operator-bundle-{{.versionName}}"
+        resolverRef:
+          params:
+          - name: url
+            value: https://github.com/securesign/pipelines.git
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: pipelines/rhtas-operator-e2e.yaml
+          resolver: git
