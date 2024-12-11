@@ -82,16 +82,18 @@ func (i fulcioAction) CopyStatus(ctx context.Context, ok client.ObjectKey, insta
 		// not initialized yet, wait for update
 		return i.Continue()
 	}
-	if !meta.IsStatusConditionPresentAndEqual(instance.Status.Conditions, FulcioCondition, objectStatus.Status) {
+	switch {
+	case !meta.IsStatusConditionPresentAndEqual(instance.Status.Conditions, FulcioCondition, objectStatus.Status):
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 			Type:   FulcioCondition,
 			Status: objectStatus.Status,
 			Reason: objectStatus.Reason,
 		})
-		if objectStatus.Status == v1.ConditionTrue {
-			instance.Status.FulcioStatus.Url = object.Status.Url
-		}
-		return i.StatusUpdate(ctx, instance)
+	case instance.Status.FulcioStatus.Url != object.Status.Url:
+		instance.Status.FulcioStatus.Url = object.Status.Url
+	default:
+		return i.Continue()
 	}
-	return i.Continue()
+
+	return i.StatusUpdate(ctx, instance)
 }

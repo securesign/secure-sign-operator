@@ -88,16 +88,18 @@ func (i tsaAction) CopyStatus(ctx context.Context, ok client.ObjectKey, instance
 		// not initialized yet, wait for update
 		return i.Continue()
 	}
-	if !meta.IsStatusConditionPresentAndEqual(instance.Status.Conditions, TSACondition, objectStatus.Status) {
+	switch {
+	case !meta.IsStatusConditionPresentAndEqual(instance.Status.Conditions, TSACondition, objectStatus.Status):
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 			Type:   TSACondition,
 			Status: objectStatus.Status,
 			Reason: objectStatus.Reason,
 		})
-		if objectStatus.Status == v1.ConditionTrue {
-			instance.Status.TSAStatus.Url = object.Status.Url
-		}
-		return i.StatusUpdate(ctx, instance)
+	case instance.Status.TSAStatus.Url != object.Status.Url:
+		instance.Status.TSAStatus.Url = object.Status.Url
+	default:
+		return i.Continue()
 	}
-	return i.Continue()
+
+	return i.StatusUpdate(ctx, instance)
 }

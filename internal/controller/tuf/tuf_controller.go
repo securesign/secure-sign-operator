@@ -100,6 +100,7 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		actions.NewDeployAction(),
 		actions.NewServiceAction(),
 		actions.NewIngressAction(),
+		actions.NewStatusUrlAction(),
 
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.Tuf](),
 
