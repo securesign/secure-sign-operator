@@ -1,4 +1,4 @@
-# RHTAS operator
+test # RHTAS operator
 The RHTAS(Red Hat Trusted Artifact Signer) operator allows for the deployment of a production ready version of the SigStore project.
 
 ## Description
