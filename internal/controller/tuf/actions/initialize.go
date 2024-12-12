@@ -3,17 +3,13 @@ package actions
 import (
 	"context"
 	"errors"
-	"fmt"
-
-	"github.com/securesign/operator/internal/controller/common/action"
-	"github.com/securesign/operator/internal/controller/constants"
-	v12 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/controller/common/action"
 	commonUtils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/constants"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func NewInitializeAction() action.Action[*rhtasv1alpha1.Tuf] {
@@ -55,21 +51,6 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tu
 			Message: "Waiting for deployment to be ready",
 		})
 		return i.StatusUpdate(ctx, instance)
-	}
-
-	if instance.Spec.ExternalAccess.Enabled {
-		protocol := "http://"
-		ingress := &v12.Ingress{}
-		err = i.Client.Get(ctx, types.NamespacedName{Name: ComponentName, Namespace: instance.Namespace}, ingress)
-		if err != nil {
-			return i.Failed(err)
-		}
-		if len(ingress.Spec.TLS) > 0 {
-			protocol = "https://"
-		}
-		instance.Status.Url = protocol + ingress.Spec.Rules[0].Host
-	} else {
-		instance.Status.Url = fmt.Sprintf("http://%s.%s.svc", DeploymentName, instance.Namespace)
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,

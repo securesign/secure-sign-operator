@@ -102,6 +102,7 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		actions.NewCreateMonitorAction(),
 		actions.NewServiceAction(),
 		actions.NewIngressAction(),
+		actions.NewStatusUrlAction(),
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.Fulcio](),
 		actions.NewInitializeAction(),
 	}
