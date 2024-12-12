@@ -4,18 +4,15 @@ import (
 	"context"
 	"errors"
 
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils"
+	commonUtils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
-	v12 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	commonUtils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 )
 
 func NewInitializeAction() action.Action[*rhtasv1alpha1.Rekor] {
@@ -59,18 +56,6 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Re
 		return i.StatusUpdate(ctx, instance)
 	}
 
-	protocol := "http://"
-	ingress := &v12.Ingress{}
-	err = i.Client.Get(ctx, types.NamespacedName{Name: actions.SearchUiDeploymentName, Namespace: instance.Namespace}, ingress)
-	if err != nil {
-		// condition error
-		return i.FailedWithStatusUpdate(ctx, err, instance)
-	}
-	if len(ingress.Spec.TLS) > 0 {
-		protocol = "https://"
-	}
-
-	instance.Status.RekorSearchUIUrl = protocol + ingress.Spec.Rules[0].Host
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: actions.UICondition,
 		Status: metav1.ConditionTrue, Reason: constants.Ready})
 

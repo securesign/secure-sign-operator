@@ -83,16 +83,19 @@ func (i tufAction) CopyStatus(ctx context.Context, ok client.ObjectKey, instance
 		// not initialized yet, wait for update
 		return i.Continue()
 	}
-	if !meta.IsStatusConditionPresentAndEqual(instance.Status.Conditions, TufCondition, objectStatus.Status) {
+
+	switch {
+	case !meta.IsStatusConditionPresentAndEqual(instance.Status.Conditions, TufCondition, objectStatus.Status):
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 			Type:   TufCondition,
 			Status: objectStatus.Status,
 			Reason: objectStatus.Reason,
 		})
-		if objectStatus.Status == v1.ConditionTrue {
-			instance.Status.TufStatus.Url = object.Status.Url
-		}
-		return i.StatusUpdate(ctx, instance)
+	case instance.Status.TufStatus.Url != object.Status.Url:
+		instance.Status.TufStatus.Url = object.Status.Url
+	default:
+		return i.Continue()
 	}
-	return i.Continue()
+
+	return i.StatusUpdate(ctx, instance)
 }
