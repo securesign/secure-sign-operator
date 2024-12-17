@@ -343,6 +343,32 @@ rules:
 - apiGroups:
   - rhtas.redhat.com
   resources:
+  - modelvalidations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rhtas.redhat.com
+  resources:
+  - modelvalidations/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - rhtas.redhat.com
+  resources:
+  - modelvalidations/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - rhtas.redhat.com
+  resources:
   - rekors
   verbs:
   - create
