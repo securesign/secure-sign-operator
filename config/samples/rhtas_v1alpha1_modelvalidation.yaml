@@ -6,4 +6,10 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: modelvalidation-sample
 spec:
-  # TODO(user): Add fields here
+  model:
+    path: "/models/example-model"
+    signaturePath: "/models/example-model/signature.sig"
+  config:
+    sigstore:
+      certificateIdentity: "name@example.com"
+      certificateOidcIssuer: "https://accounts.example.com"

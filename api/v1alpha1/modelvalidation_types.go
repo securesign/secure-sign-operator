@@ -20,22 +20,44 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
-// ModelValidationSpec defines the desired state of ModelValidation
-type ModelValidationSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of ModelValidation. Edit modelvalidation_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+// Model defines the details of the model to validate.
+type Model struct {
+	Path          string `json:"path"`
+	SignaturePath string `json:"signaturePath"`
 }
 
-// ModelValidationStatus defines the observed state of ModelValidation
+type SigstoreConfig struct {
+	CertificateIdentity   string `json:"certificateIdentity,omitempty"`
+	CertificateOidcIssuer string `json:"certificateOidcIssuer,omitempty"`
+}
+
+type PkiConfig struct {
+	// Path to the certificate authority for PKI.
+	CertificateAuthority string `json:"certificateAuthority,omitempty"`
+}
+
+type PrivateKeyConfig struct {
+	// Path to the private key.
+	KeyPath string `json:"keyPath,omitempty"`
+}
+
+type ValidationConfig struct {
+	SigstoreConfig   *SigstoreConfig   `json:"sigstoreConfig,omitempty"`
+	PkiConfig        *PkiConfig        `json:"pkiConfig,omitempty"`
+	PrivateKeyConfig *PrivateKeyConfig `json:"privateKeyConfig,omitempty"`
+}
+
+// ModelValidationSpec defines the desired state of ModelValidation.
+type ModelValidationSpec struct {
+	// Model details.
+	Model Model `json:"model"`
+	// Configuration for validation methods.
+	Config ValidationConfig `json:"config"`
+}
+
+// ModelValidationStatus defines the observed state of ModelValidation.
 type ModelValidationStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
