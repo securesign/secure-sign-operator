@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package modelvalidation
 
 import (
 	"context"
@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	rhtasv1alpha1 "github.com/securesign/secure-sign-operator/api/v1alpha1"
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 )
 
 // ModelValidationReconciler reconciles a ModelValidation object
