@@ -9,6 +9,7 @@ import (
 	commonUtils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
+	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -35,7 +36,7 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tu
 		ok  bool
 		err error
 	)
-	labels := labels.ForComponent(ComponentName, instance.Name)
+	labels := labels.ForComponent(tufConstants.ComponentName, instance.Name)
 	ok, err = commonUtils.DeploymentIsRunning(ctx, i.Client, instance.Namespace, labels)
 	switch {
 	case errors.Is(err, commonUtils.ErrDeploymentNotReady):

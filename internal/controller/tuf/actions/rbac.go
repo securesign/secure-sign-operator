@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
+	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -37,11 +38,11 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *ac
 	var (
 		err error
 	)
-	labels := labels.For(ComponentName, RBACName, instance.Name)
+	labels := labels.For(tufConstants.ComponentName, tufConstants.RBACName, instance.Name)
 
 	sa := &v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      RBACName,
+			Name:      tufConstants.RBACName,
 			Namespace: instance.Namespace,
 			Labels:    labels,
 		},
@@ -61,7 +62,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *ac
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create SA: %w", err), instance)
 	}
-	role := kubernetes.CreateRole(instance.Namespace, RBACName, labels, []rbacv1.PolicyRule{
+	role := kubernetes.CreateRole(instance.Namespace, tufConstants.RBACName, labels, []rbacv1.PolicyRule{
 		{
 			APIGroups: []string{""},
 			Resources: []string{"configmaps"},
@@ -87,13 +88,13 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *ac
 		})
 		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Role: %w", err), instance)
 	}
-	rb := kubernetes.CreateRoleBinding(instance.Namespace, RBACName, labels, rbacv1.RoleRef{
+	rb := kubernetes.CreateRoleBinding(instance.Namespace, tufConstants.RBACName, labels, rbacv1.RoleRef{
 		APIGroup: v1.SchemeGroupVersion.Group,
 		Kind:     "Role",
-		Name:     RBACName,
+		Name:     tufConstants.RBACName,
 	},
 		[]rbacv1.Subject{
-			{Kind: "ServiceAccount", Name: RBACName, Namespace: instance.Namespace},
+			{Kind: "ServiceAccount", Name: tufConstants.RBACName, Namespace: instance.Namespace},
 		})
 
 	if err = ctrl.SetControllerReference(instance, rb, i.Client.Scheme()); err != nil {

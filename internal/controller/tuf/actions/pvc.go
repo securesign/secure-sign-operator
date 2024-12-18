@@ -7,6 +7,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/labels"
+	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -63,12 +64,12 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf
 
 	pvc := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      DeploymentName,
+			Name:      tufConstants.DeploymentName,
 			Namespace: instance.Namespace,
 		},
 	}
 
-	l := labels.For(DeploymentName, DeploymentName, instance.Name)
+	l := labels.For(tufConstants.DeploymentName, tufConstants.DeploymentName, instance.Name)
 	if result, err = k8sutils.CreateOrUpdate(ctx, i.Client, pvc,
 		k8sutils.EnsurePVCSpec(rhtasv1alpha1.Pvc{
 			Size:         instance.Spec.Pvc.Size,

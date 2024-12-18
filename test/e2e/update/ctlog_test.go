@@ -6,6 +6,7 @@ import (
 	"context"
 	"time"
 
+	tufAction "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/test/e2e/support/tas"
 
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
@@ -16,7 +17,6 @@ import (
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/constants"
 	ctlogAction "github.com/securesign/operator/internal/controller/ctlog/actions"
-	tufAction "github.com/securesign/operator/internal/controller/tuf/actions"
 	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
