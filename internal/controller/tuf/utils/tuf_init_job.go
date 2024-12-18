@@ -4,11 +4,12 @@ import (
 	"path/filepath"
 
 	"github.com/operator-framework/operator-lib/proxy"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
-	v1 "k8s.io/api/batch/v1"
-	core "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	constants2 "github.com/securesign/operator/internal/controller/tuf/constants"
+	batchv1 "k8s.io/api/batch/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 )
 
@@ -17,81 +18,85 @@ const (
 	targetMonthPath  = "/var/run/target"
 )
 
-func CreateTufInitJob(instance *v1alpha1.Tuf, name string, sa string, labels map[string]string) *v1.Job {
-	env := []core.EnvVar{
-		{
-			Name:  "NAMESPACE",
-			Value: instance.Namespace,
-		},
-	}
-	env = append(env, proxy.ReadProxyVarsFromEnv()...)
+func CreateTufInitJob(instance *rhtasv1alpha1.Tuf, sa string, labels map[string]string) func(*batchv1.Job) error {
+	return func(job *batchv1.Job) error {
 
-	args := []string{"--export-keys", instance.Spec.RootKeySecretRef.Name}
-	for _, key := range instance.Spec.Keys {
-		switch key.Name {
-		case "rekor.pub":
-			args = append(args, "--rekor-key", filepath.Join(secretsMonthPath, key.Name))
-		case "ctfe.pub":
-			args = append(args, "--ctlog-key", filepath.Join(secretsMonthPath, key.Name))
-		case "fulcio_v1.crt.pem":
-			args = append(args, "--fulcio-cert", filepath.Join(secretsMonthPath, key.Name))
-		case "tsa.certchain.pem":
-			args = append(args, "--tsa-cert", filepath.Join(secretsMonthPath, key.Name))
-		}
-	}
-	args = append(args, targetMonthPath)
-	job := &v1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: instance.Namespace,
-			Labels:    labels,
-		},
-		Spec: v1.JobSpec{
-			Parallelism:  ptr.To[int32](1),
-			Completions:  ptr.To[int32](1),
-			BackoffLimit: ptr.To(int32(0)),
-			Template: core.PodTemplateSpec{
-				Spec: core.PodSpec{
-					ServiceAccountName: sa,
-					RestartPolicy:      core.RestartPolicyNever,
-					Volumes: []core.Volume{
-						{
-							Name: "tuf-secrets",
-							VolumeSource: core.VolumeSource{
-								Projected: secretsVolumeProjection(instance.Status.Keys),
-							},
-						},
-						{
-							Name: "repository",
-							VolumeSource: core.VolumeSource{
-								PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
-									ClaimName: instance.Status.PvcName,
-								},
-							},
-						},
-					},
-					Containers: []core.Container{
-						{
-							Name:  "tuf-init",
-							Image: constants.TufImage,
-							Env:   env,
-							Args:  args,
-							VolumeMounts: []core.VolumeMount{
-								{
-									Name:      "tuf-secrets",
-									MountPath: secretsMonthPath,
-								},
-								{
-									Name:      "repository",
-									MountPath: targetMonthPath,
-									ReadOnly:  false,
-								},
-							},
-						},
-					},
-				},
+		// prepare env vars
+		env := []v1.EnvVar{
+			{
+				Name:  "NAMESPACE",
+				Value: instance.Namespace,
 			},
-		},
+		}
+		env = append(env, proxy.ReadProxyVarsFromEnv()...)
+
+		// prepare args
+		args := []string{"--export-keys", instance.Spec.RootKeySecretRef.Name}
+		for _, key := range instance.Spec.Keys {
+			switch key.Name {
+			case "rekor.pub":
+				args = append(args, "--rekor-key", filepath.Join(secretsMonthPath, key.Name))
+			case "ctfe.pub":
+				args = append(args, "--ctlog-key", filepath.Join(secretsMonthPath, key.Name))
+			case "fulcio_v1.crt.pem":
+				args = append(args, "--fulcio-cert", filepath.Join(secretsMonthPath, key.Name))
+			case "tsa.certchain.pem":
+				args = append(args, "--tsa-cert", filepath.Join(secretsMonthPath, key.Name))
+			}
+		}
+		args = append(args, targetMonthPath)
+
+		jobSpec := &job.Spec
+		jobSpec.Parallelism = ptr.To[int32](1)
+		jobSpec.Completions = ptr.To[int32](1)
+		jobSpec.BackoffLimit = ptr.To(int32(0))
+		jobSpec.Template.Labels = labels
+
+		templateSpec := &jobSpec.Template.Spec
+		templateSpec.ServiceAccountName = sa
+		templateSpec.RestartPolicy = v1.RestartPolicyNever
+
+		// initialize volumes
+		secretsVolume := kubernetes.FindVolumeByName(templateSpec, "tuf-secrets")
+		if secretsVolume == nil {
+			templateSpec.Volumes = append(templateSpec.Volumes, v1.Volume{Name: "tuf-secrets"})
+			secretsVolume = &templateSpec.Volumes[len(templateSpec.Volumes)-1]
+		}
+		secretsVolume.VolumeSource = v1.VolumeSource{
+			Projected: secretsVolumeProjection(instance.Status.Keys),
+		}
+
+		repositoryVolume := kubernetes.FindVolumeByName(templateSpec, constants2.VolumeName)
+		if repositoryVolume == nil {
+			templateSpec.Volumes = append(templateSpec.Volumes, v1.Volume{Name: constants2.VolumeName})
+			repositoryVolume = &templateSpec.Volumes[len(templateSpec.Volumes)-1]
+		}
+		repositoryVolume.VolumeSource = v1.VolumeSource{
+			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+				ClaimName: instance.Status.PvcName,
+			},
+		}
+		// init containers
+		container := kubernetes.FindContainerByName(templateSpec, "tuf-init")
+		if container == nil {
+			templateSpec.Containers = append(templateSpec.Containers, v1.Container{Name: "tuf-init"})
+			container = &templateSpec.Containers[len(templateSpec.Containers)-1]
+		}
+		container.Image = constants.TufImage
+		container.Env = env
+		container.Args = args
+		container.VolumeMounts = []v1.VolumeMount{
+			{
+				Name:      "tuf-secrets",
+				MountPath: secretsMonthPath,
+			},
+			{
+				Name:      "repository",
+				MountPath: targetMonthPath,
+				ReadOnly:  false,
+			},
+		}
+
+		return nil
 	}
-	return job
 }

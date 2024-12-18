@@ -25,6 +25,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/action/transitions"
 	"github.com/securesign/operator/internal/controller/tuf/actions"
+	"github.com/securesign/operator/internal/controller/tuf/constants"
 	v1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
 	v13 "k8s.io/api/networking/v1"
@@ -88,7 +89,7 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			for i, k := range tuf.Spec.Keys {
 				conditions[i] = k.Name
 			}
-			conditions = append(conditions, actions.RepositoryCondition)
+			conditions = append(conditions, constants.RepositoryCondition)
 			return conditions
 		}),
 
