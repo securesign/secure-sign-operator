@@ -15,7 +15,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/labels"
-	tufAction "github.com/securesign/operator/internal/controller/tuf/actions"
+	tufAction "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/test/e2e/support"
 	kubernetes2 "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/tas"

@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
+	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -19,8 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
-
-const volumeName, containerName = "repository", "tuf-server"
 
 func NewDeployAction() action.Action[*rhtasv1alpha1.Tuf] {
 	return &deployAction{}
@@ -40,7 +39,7 @@ func (i deployAction) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Tuf) bool 
 }
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
-	labels := labels.For(ComponentName, DeploymentName, instance.Name)
+	labels := labels.For(tufConstants.ComponentName, tufConstants.DeploymentName, instance.Name)
 
 	var (
 		result controllerutil.OperationResult
@@ -49,11 +48,11 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		&v1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      DeploymentName,
+				Name:      tufConstants.DeploymentName,
 				Namespace: instance.Namespace,
 			},
 		},
-		i.createTufDeployment(instance, RBACName, labels),
+		i.createTufDeployment(instance, tufConstants.RBACName, labels),
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](maps.Keys(labels), labels),
 		ensure.Proxy(),
@@ -86,9 +85,9 @@ func (i deployAction) createTufDeployment(instance *rhtasv1alpha1.Tuf, sa string
 		template.Labels = labels
 		template.Spec.ServiceAccountName = sa
 
-		volume := kubernetes.FindVolumeByName(dp, volumeName)
+		volume := kubernetes.FindVolumeByName(&template.Spec, tufConstants.VolumeName)
 		if volume == nil {
-			template.Spec.Volumes = append(template.Spec.Volumes, core.Volume{Name: volumeName})
+			template.Spec.Volumes = append(template.Spec.Volumes, core.Volume{Name: tufConstants.VolumeName})
 			volume = &template.Spec.Volumes[len(template.Spec.Volumes)-1]
 		}
 		volume.VolumeSource = core.VolumeSource{
@@ -97,9 +96,9 @@ func (i deployAction) createTufDeployment(instance *rhtasv1alpha1.Tuf, sa string
 			},
 		}
 
-		container := kubernetes.FindContainerByName(dp, containerName)
+		container := kubernetes.FindContainerByName(&template.Spec, tufConstants.ContainerName)
 		if container == nil {
-			template.Spec.Containers = append(template.Spec.Containers, core.Container{Name: containerName})
+			template.Spec.Containers = append(template.Spec.Containers, core.Container{Name: tufConstants.ContainerName})
 			container = &template.Spec.Containers[len(template.Spec.Containers)-1]
 		}
 		container.Image = constants.HttpServerImage
@@ -112,7 +111,7 @@ func (i deployAction) createTufDeployment(instance *rhtasv1alpha1.Tuf, sa string
 
 		container.VolumeMounts = []core.VolumeMount{
 			{
-				Name:      volumeName,
+				Name:      tufConstants.VolumeName,
 				MountPath: "/var/www/html",
 				// let user upload manual update using `oc rsync` command
 				ReadOnly: false,

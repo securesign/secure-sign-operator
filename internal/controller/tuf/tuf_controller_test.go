@@ -21,6 +21,7 @@ import (
 	"maps"
 	"time"
 
+	constants2 "github.com/securesign/operator/internal/controller/tuf/constants"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
 
 	"github.com/securesign/operator/api/v1alpha1"
@@ -28,7 +29,6 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	actions2 "github.com/securesign/operator/internal/controller/ctlog/actions"
 	"github.com/securesign/operator/internal/controller/labels"
-	"github.com/securesign/operator/internal/controller/tuf/actions"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -162,7 +162,7 @@ var _ = Describe("TUF controller", func() {
 			By("Waiting until Tuf init job is created")
 			initJob := &batchv1.Job{}
 			Eventually(func() error {
-				e := k8sClient.Get(ctx, types.NamespacedName{Name: actions.InitJobName, Namespace: namespace.Name}, initJob)
+				e := k8sClient.Get(ctx, types.NamespacedName{Name: constants2.InitJobName, Namespace: namespace.Name}, initJob)
 				return e
 			}).Should(Not(HaveOccurred()))
 
@@ -176,7 +176,7 @@ var _ = Describe("TUF controller", func() {
 			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Tuf{}
 				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.IsStatusConditionTrue(found.Status.Conditions, actions.RepositoryCondition)
+				return meta.IsStatusConditionTrue(found.Status.Conditions, constants2.RepositoryCondition)
 			}).Should(BeTrue())
 
 			By("Waiting until Tuf instance is Initialization")
@@ -189,7 +189,7 @@ var _ = Describe("TUF controller", func() {
 			deployment := &appsv1.Deployment{}
 			By("Checking if Deployment was successfully created in the reconciliation")
 			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: TufNamespace}, deployment)
+				return k8sClient.Get(ctx, types.NamespacedName{Name: constants2.DeploymentName, Namespace: TufNamespace}, deployment)
 			}).Should(Succeed())
 
 			By("Move to Ready phase")
@@ -206,18 +206,18 @@ var _ = Describe("TUF controller", func() {
 			By("Checking if Service was successfully created in the reconciliation")
 			service := &corev1.Service{}
 			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: TufNamespace}, service)
+				return k8sClient.Get(ctx, types.NamespacedName{Name: constants2.DeploymentName, Namespace: TufNamespace}, service)
 			}).Should(Succeed())
 			Expect(service.Spec.Ports[0].Port).Should(Equal(int32(8181)))
 
 			By("Checking if Ingress was successfully created in the reconciliation")
 			ingress := &v1.Ingress{}
 			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: TufNamespace}, ingress)
+				return k8sClient.Get(ctx, types.NamespacedName{Name: constants2.DeploymentName, Namespace: TufNamespace}, ingress)
 			}).Should(Succeed())
 			Expect(ingress.Spec.Rules[0].Host).Should(Equal("tuf.localhost"))
 			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Name).Should(Equal(service.Name))
-			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Port.Name).Should(Equal(actions.PortName))
+			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Port.Name).Should(Equal(constants2.PortName))
 
 			By("Checking the latest Status Condition added to the Tuf instance")
 			Eventually(func(g Gomega) error {
@@ -237,14 +237,14 @@ var _ = Describe("TUF controller", func() {
 			By("Checking if controller will return deployment to desired state")
 			deployment = &appsv1.Deployment{}
 			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: TufNamespace}, deployment)
+				return k8sClient.Get(ctx, types.NamespacedName{Name: constants2.DeploymentName, Namespace: TufNamespace}, deployment)
 			}).Should(Succeed())
 			replicas := int32(99)
 			deployment.Spec.Replicas = &replicas
 			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
 			Eventually(func(g Gomega) int32 {
 				deployment = &appsv1.Deployment{}
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: TufNamespace}, deployment)).Should(Succeed())
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: constants2.DeploymentName, Namespace: TufNamespace}, deployment)).Should(Succeed())
 				return *deployment.Spec.Replicas
 			}).Should(Equal(int32(1)))
 		})

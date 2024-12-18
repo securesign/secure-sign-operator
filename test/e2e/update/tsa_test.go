@@ -8,6 +8,7 @@ import (
 
 	tsaAction "github.com/securesign/operator/internal/controller/tsa/actions"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
+	tufAction "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 	"sigs.k8s.io/yaml"
 
@@ -19,7 +20,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/constants"
-	tufAction "github.com/securesign/operator/internal/controller/tuf/actions"
 	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
