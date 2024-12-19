@@ -60,6 +60,7 @@ import (
 	"github.com/securesign/operator/internal/controller/trillian"
 	"github.com/securesign/operator/internal/controller/tsa"
 	"github.com/securesign/operator/internal/controller/tuf"
+	"github.com/securesign/operator/internal/controller/modelvalidation"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -244,6 +245,13 @@ func main() {
 		Recorder: mgr.GetEventRecorderFor("tsa-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TimestampAuthority")
+		os.Exit(1)
+	}
+	if err = (&modelvalidation.ModelValidationReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ModelValidation")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
