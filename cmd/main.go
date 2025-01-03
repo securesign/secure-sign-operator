@@ -55,12 +55,12 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/ctlog"
 	"github.com/securesign/operator/internal/controller/fulcio"
+	"github.com/securesign/operator/internal/controller/modelvalidation"
 	"github.com/securesign/operator/internal/controller/rekor"
 	"github.com/securesign/operator/internal/controller/securesign"
 	"github.com/securesign/operator/internal/controller/trillian"
 	"github.com/securesign/operator/internal/controller/tsa"
 	"github.com/securesign/operator/internal/controller/tuf"
-	"github.com/securesign/operator/internal/controller/modelvalidation"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -191,6 +191,10 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
+
+	webhookServer.Register("/mutate-v1-pod", &webhook.Admission{
+		Handler: modelvalidation.NewPodInterceptorWebhook(mgr.GetClient()),
+	})
 
 	if err = (&securesign.SecuresignReconciler{
 		Client: mgr.GetClient(),
