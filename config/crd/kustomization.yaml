@@ -9,6 +9,7 @@ resources:
 - bases/rhtas.redhat.com_tufs.yaml
 - bases/rhtas.redhat.com_ctlogs.yaml
 - bases/rhtas.redhat.com_timestampauthorities.yaml
+- bases/rhtas.redhat.com_modelvalidations.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patches: []
@@ -32,6 +33,7 @@ patches: []
 #- path: patches/cainjection_in_tufs.yaml
 #- path: patches/cainjection_in_ctlogs.yaml
 #- path: patches/cainjection_in_timestampauthorities.yaml
+#- path: patches/cainjection_in_modelvalidations.yaml
 #+kubebuilder:scaffold:crdkustomizecainjectionpatch
 
 # [WEBHOOK] To enable webhook, uncomment the following section

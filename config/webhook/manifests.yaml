@@ -1,0 +1,32 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: pods.model-validation.rhtas.redhat.com
+  annotations:
+    # OpenShift annotation to request certificate provisioning for the webhook
+    admission.k8s.io/webhook-cert-provisioner: "true"
+webhook:
+  admissionReviewVersions:
+    - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-v1-pod
+    caBundle: ""
+  failurePolicy: Fail
+  rules:
+    - apiGroups:
+        - ""
+      apiVersions:
+        - v1
+      resources:
+        - pods
+      operations:
+        - CREATE
+        - UPDATE
+  sideEffects: None
+  objectSelector:
+    matchExpressions:
+      - key: "validation.rhtas.redhat.com/ml"
+        operator: Exists

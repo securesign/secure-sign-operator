@@ -1,0 +1,23 @@
+# permissions for end users to view modelvalidations.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: rhtas-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: modelvalidation-viewer-role
+rules:
+- apiGroups:
+  - rhtas.redhat.com
+  resources:
+  - modelvalidations
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - rhtas.redhat.com
+  resources:
+  - modelvalidations/status
+  verbs:
+  - get

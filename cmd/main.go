@@ -55,6 +55,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/ctlog"
 	"github.com/securesign/operator/internal/controller/fulcio"
+	"github.com/securesign/operator/internal/controller/modelvalidation"
 	"github.com/securesign/operator/internal/controller/rekor"
 	"github.com/securesign/operator/internal/controller/securesign"
 	"github.com/securesign/operator/internal/controller/trillian"
@@ -191,6 +192,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	webhookServer.Register("/mutate-v1-pod", &webhook.Admission{
+		Handler: modelvalidation.NewPodInterceptorWebhook(mgr.GetClient()),
+	})
+
 	if err = (&securesign.SecuresignReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -244,6 +249,13 @@ func main() {
 		Recorder: mgr.GetEventRecorderFor("tsa-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TimestampAuthority")
+		os.Exit(1)
+	}
+	if err = (&modelvalidation.ModelValidationReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ModelValidation")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
