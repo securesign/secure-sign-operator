@@ -22,7 +22,7 @@ import (
 	rekorAction "github.com/securesign/operator/internal/controller/rekor/actions"
 	trillianAction "github.com/securesign/operator/internal/controller/trillian/actions"
 	tsaAction "github.com/securesign/operator/internal/controller/tsa/actions"
-	tufAction "github.com/securesign/operator/internal/controller/tuf/actions"
+	tufAction "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	clients "github.com/securesign/operator/test/e2e/support/tas/cli"
 	"github.com/securesign/operator/test/e2e/support/tas/rekor"
