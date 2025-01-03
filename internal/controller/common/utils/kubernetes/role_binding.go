@@ -27,3 +27,11 @@ func CreateClusterRoleBinding(name string, labels map[string]string, roleRef rba
 		Subjects: subjects,
 	}
 }
+
+func EnsureRoleBinding(role rbacv1.RoleRef, subject ...rbacv1.Subject) func(*rbacv1.RoleBinding) error {
+	return func(instance *rbacv1.RoleBinding) error {
+		instance.RoleRef = role
+		instance.Subjects = subject
+		return nil
+	}
+}

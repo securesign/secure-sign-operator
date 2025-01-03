@@ -25,3 +25,10 @@ func CreateClusterRole(name string, labels map[string]string, rules []rbacv1.Pol
 		Rules: rules,
 	}
 }
+
+func EnsureRoleRules(rules ...rbacv1.PolicyRule) func(*rbacv1.Role) error {
+	return func(instance *rbacv1.Role) error {
+		instance.Rules = rules
+		return nil
+	}
+}

@@ -236,7 +236,7 @@ var _ = Describe("Fulcio cert rotation test", Ordered, func() {
 
 			Expect(os.Mkdir(filepath.Join(tufRepoWorkdir, "tuf-repo"), 0777)).To(Succeed())
 			tufPodList := &v1.PodList{}
-			Expect(cli.List(ctx, tufPodList, runtimeCli.InNamespace(namespace.Name), runtimeCli.MatchingLabels{labels.LabelAppComponent: tufAction.ComponentName})).To(Succeed())
+			Expect(cli.List(ctx, tufPodList, runtimeCli.InNamespace(namespace.Name), runtimeCli.MatchingLabels{labels.LabelAppName: tufAction.DeploymentName})).To(Succeed())
 			Expect(tufPodList.Items).To(HaveLen(1))
 
 			Expect(kubernetes2.CopyFromPod(ctx, tufPodList.Items[0], "/var/www/html", filepath.Join(tufRepoWorkdir, "tuf-repo"))).To(Succeed())

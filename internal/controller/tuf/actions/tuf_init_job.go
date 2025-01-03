@@ -80,7 +80,7 @@ func (i initJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) 
 
 	}
 
-	l := labels.ForComponent(tufConstants.ComponentName, instance.Name)
+	l := labels.For(tufConstants.ComponentName, tufConstants.InitJobName, instance.Name)
 	pvc, err := kubernetes.GetPVC(ctx, i.Client, instance.Namespace, instance.Status.PvcName)
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not resolve PVC: %w", err), instance)

@@ -2,6 +2,7 @@ package tuf
 
 import (
 	"context"
+	"maps"
 	"strings"
 	"time"
 
@@ -99,6 +100,8 @@ func refreshTufJob(instance *v1alpha1.Tuf) *v12.Job {
 			GenerateName: "tuf-refresh-",
 		},
 	}
+	l := maps.Clone(instance.Labels)
+	l[labels.LabelAppComponent] = "test"
 	Expect(utils2.CreateTufInitJob(instance, constants.RBACName, instance.Labels)(j)).To(Succeed())
 	c := kubernetes.FindContainerByName(&j.Spec.Template.Spec, "tuf-init")
 	c.Command = []string{"/bin/sh", "-c"}
