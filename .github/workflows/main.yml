@@ -111,6 +111,26 @@ jobs:
           {
              "schema": "olm.bundle",
              "image": "$BUNDLE_IMG"
+          },
+          {
+             "schema": "olm.deprecations",
+             "package": "rhtas-operator",
+             "entries": [
+               {
+                 "reference": {
+                   "schema": "olm.bundle",
+                   "name": "rhtas-operator.v1.0.0"
+                 },
+                 "message": "rhtas-operator.v1.0.0 is deprecated. Please upgrade to v1.1.0 for continued support."
+               },
+               {
+                 "reference": {
+                   "schema": "olm.channel",
+                   "name": "stable-v1.0"
+                 },
+                 "message": "The stable-v1.0 channel is depricated. Please migrate to the stable-v1.1 channel for the latest updates."
+               }
+             ]
           }
           EOF
           #TODO: versions needs to be maintained - try to eliminate
