@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"golang.org/x/exp/maps"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -39,15 +40,15 @@ func (i ingressAction) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Tuf) bool
 
 func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
 	var updated bool
-	ok := types.NamespacedName{Name: DeploymentName, Namespace: instance.Namespace}
-	labels := labels.For(ComponentName, DeploymentName, instance.Name)
+	ok := types.NamespacedName{Name: tufConstants.DeploymentName, Namespace: instance.Namespace}
+	labels := labels.For(tufConstants.ComponentName, tufConstants.DeploymentName, instance.Name)
 
 	svc := &v1.Service{}
 	if err := i.Client.Get(ctx, ok, svc); err != nil {
 		return i.Failed(fmt.Errorf("could not find service for ingress: %w", err))
 	}
 
-	ingress, err := kubernetes.CreateIngress(ctx, i.Client, *svc, instance.Spec.ExternalAccess, PortName, labels)
+	ingress, err := kubernetes.CreateIngress(ctx, i.Client, *svc, instance.Spec.ExternalAccess, tufConstants.PortName, labels)
 	if err != nil {
 		return i.Failed(fmt.Errorf("could not create ingress object: %w", err))
 	}

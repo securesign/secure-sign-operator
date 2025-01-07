@@ -2,20 +2,23 @@ package tuf
 
 import (
 	"context"
+	"maps"
 	"strings"
 	"time"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/annotations"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/job"
 	"github.com/securesign/operator/internal/controller/labels"
-	"github.com/securesign/operator/internal/controller/tuf/actions"
+	"github.com/securesign/operator/internal/controller/tuf/constants"
 	utils2 "github.com/securesign/operator/internal/controller/tuf/utils"
 	"github.com/securesign/operator/test/e2e/support/condition"
 	appsv1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,7 +28,7 @@ func Verify(ctx context.Context, cli client.Client, namespace string, name strin
 	Eventually(Get(ctx, cli, namespace, name)).Should(
 		WithTransform(condition.IsReady, BeTrue()))
 
-	Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, actions.ComponentName)).
+	Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, constants.ComponentName)).
 		Should(BeTrue())
 }
 
@@ -43,7 +46,7 @@ func Get(ctx context.Context, cli client.Client, ns string, name string) func() 
 func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {
 	return func() *v1.Pod {
 		list := &v1.PodList{}
-		_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{labels.LabelAppComponent: actions.ComponentName})
+		_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{labels.LabelAppComponent: constants.ComponentName})
 		if len(list.Items) != 1 {
 			return nil
 		}
@@ -54,7 +57,7 @@ func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.
 func RefreshTufRepository(ctx context.Context, cli client.Client, ns string, name string) {
 	tufDeployment := &appsv1.Deployment{}
 	Eventually(func(g Gomega) error {
-		g.Expect(cli.Get(ctx, types.NamespacedName{Namespace: ns, Name: actions.DeploymentName}, tufDeployment)).To(Succeed())
+		g.Expect(cli.Get(ctx, types.NamespacedName{Namespace: ns, Name: constants.DeploymentName}, tufDeployment)).To(Succeed())
 
 		// pause deployment reconciliation
 		if tufDeployment.Annotations == nil {
@@ -80,7 +83,7 @@ func RefreshTufRepository(ctx context.Context, cli client.Client, ns string, nam
 
 	// unpause reconciliation
 	Eventually(func(g Gomega) error {
-		g.Expect(cli.Get(ctx, types.NamespacedName{Namespace: ns, Name: actions.DeploymentName}, tufDeployment)).To(Succeed())
+		g.Expect(cli.Get(ctx, types.NamespacedName{Namespace: ns, Name: constants.DeploymentName}, tufDeployment)).To(Succeed())
 		tufDeployment.Annotations[annotations.PausedReconciliation] = "false"
 		return cli.Update(ctx, tufDeployment)
 	},
@@ -91,10 +94,18 @@ func RefreshTufRepository(ctx context.Context, cli client.Client, ns string, nam
 }
 
 func refreshTufJob(instance *v1alpha1.Tuf) *v12.Job {
-	j := utils2.CreateTufInitJob(instance, "", actions.RBACName, instance.Labels)
-	j.GenerateName = "tuf-refresh-"
-	j.Spec.Template.Spec.Containers[0].Command = []string{"/bin/sh", "-c"}
-	args := j.Spec.Template.Spec.Containers[0].Args
-	j.Spec.Template.Spec.Containers[0].Args = []string{"rm -rf /var/run/target/* && /usr/bin/tuf-repo-init.sh " + strings.Join(args, " ")}
+	j := &v12.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:    instance.Namespace,
+			GenerateName: "tuf-refresh-",
+		},
+	}
+	l := maps.Clone(instance.Labels)
+	l[labels.LabelAppComponent] = "test"
+	Expect(utils2.CreateTufInitJob(instance, constants.RBACName, instance.Labels)(j)).To(Succeed())
+	c := kubernetes.FindContainerByName(&j.Spec.Template.Spec, "tuf-init")
+	c.Command = []string{"/bin/sh", "-c"}
+	args := c.Args
+	c.Args = []string{"rm -rf /var/run/target/* && /usr/bin/tuf-repo-init.sh " + strings.Join(args, " ")}
 	return j
 }
