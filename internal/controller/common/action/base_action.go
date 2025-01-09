@@ -77,10 +77,11 @@ func (action *BaseAction) Failed(err error) *Result {
 func (action *BaseAction) Error(ctx context.Context, err error, instance apis.ConditionsAwareObject) *Result {
 	if errors.Is(err, reconcile.TerminalError(err)) {
 		instance.SetCondition(metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Failure,
+			Message:            err.Error(),
+			ObservedGeneration: instance.GetGeneration(),
 		})
 		if updateErr := action.Client.Status().Update(ctx, instance); updateErr != nil {
 			err = errors.Join(err, updateErr)
