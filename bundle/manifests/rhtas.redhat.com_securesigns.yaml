@@ -417,6 +417,9 @@ spec:
                           type: string
                         description: Set Route Selector Labels for ingress sharding.
                         type: object
+                        x-kubernetes-validations:
+                        - message: RouteSelectorLabels can't be modified
+                          rule: (oldSelf.size() == 0 || self == oldSelf)
                     required:
                     - enabled
                     type: object
@@ -494,6 +497,9 @@ spec:
                           type: string
                         description: Set Route Selector Labels for ingress sharding.
                         type: object
+                        x-kubernetes-validations:
+                        - message: RouteSelectorLabels can't be modified
+                          rule: (oldSelf.size() == 0 || self == oldSelf)
                     required:
                     - enabled
                     type: object
@@ -896,6 +902,9 @@ spec:
                           type: string
                         description: Set Route Selector Labels for ingress sharding.
                         type: object
+                        x-kubernetes-validations:
+                        - message: RouteSelectorLabels can't be modified
+                          rule: (oldSelf.size() == 0 || self == oldSelf)
                     required:
                     - enabled
                     type: object
@@ -1619,6 +1628,9 @@ spec:
                           type: string
                         description: Set Route Selector Labels for ingress sharding.
                         type: object
+                        x-kubernetes-validations:
+                        - message: RouteSelectorLabels can't be modified
+                          rule: (oldSelf.size() == 0 || self == oldSelf)
                     required:
                     - enabled
                     type: object

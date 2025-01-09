@@ -17,7 +17,7 @@ func managedDeleteFunction(managed []string) func(string, string) bool {
 func Labels[T client.Object](managedLabels []string, labels map[string]string) func(T) error {
 	return func(obj T) (e error) {
 		if obj.GetLabels() == nil {
-			obj.SetLabels(labels)
+			obj.SetLabels(maps.Clone(labels))
 			return
 		}
 		maps.DeleteFunc(obj.GetLabels(), managedDeleteFunction(managedLabels))
@@ -29,7 +29,7 @@ func Labels[T client.Object](managedLabels []string, labels map[string]string) f
 func Annotations[T client.Object](managedAnnotations []string, annotations map[string]string) func(T) error {
 	return func(obj T) (e error) {
 		if obj.GetAnnotations() == nil {
-			obj.SetAnnotations(annotations)
+			obj.SetAnnotations(maps.Clone(annotations))
 			return
 		}
 		maps.DeleteFunc(obj.GetAnnotations(), managedDeleteFunction(managedAnnotations))

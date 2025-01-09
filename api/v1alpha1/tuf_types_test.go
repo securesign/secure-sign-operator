@@ -71,6 +71,21 @@ var _ = Describe("TUF", func() {
 				Expect(k8sClient.Update(context.Background(), fetched)).
 					To(MatchError(ContainSubstring("Feature cannot be disabled")))
 			})
+
+			It("edit RouteSelectorLabel", func() {
+				created := generateTufObject("tuf-access-3")
+				created.Spec.ExternalAccess.RouteSelectorLabels = map[string]string{"test": "fake", "foo": "bar"}
+				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
+
+				fetched := &Tuf{}
+				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+				Expect(fetched).To(Equal(created))
+
+				fetched.Spec.ExternalAccess.RouteSelectorLabels = map[string]string{"test": "test", "foo": "bar"}
+				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), fetched))).To(BeTrue())
+				Expect(k8sClient.Update(context.Background(), fetched)).
+					To(MatchError(ContainSubstring("RouteSelectorLabels can't be modified")))
+			})
 		})
 
 		Context("is validated", func() {

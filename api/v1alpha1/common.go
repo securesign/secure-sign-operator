@@ -14,6 +14,7 @@ type ExternalAccess struct {
 	// Set hostname for your Ingress/Route.
 	Host string `json:"host,omitempty"`
 	// Set Route Selector Labels for ingress sharding.
+	//+kubebuilder:validation:XValidation:rule="(oldSelf.size() == 0 || self == oldSelf)",message=RouteSelectorLabels can't be modified
 	RouteSelectorLabels map[string]string `json:"routeSelectorLabels,omitempty"`
 }
 

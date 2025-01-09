@@ -7,8 +7,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 	"github.com/securesign/operator/test/e2e/support/tas/tuf"
+	v2 "k8s.io/api/networking/v1"
 
 	"k8s.io/utils/ptr"
 
@@ -87,7 +91,8 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				Ctlog: v1alpha1.CTlogSpec{},
 				Tuf: v1alpha1.TufSpec{
 					ExternalAccess: v1alpha1.ExternalAccess{
-						Enabled: true,
+						Enabled:             true,
+						RouteSelectorLabels: map[string]string{"foo": "bar"},
 					},
 				},
 				Trillian: v1alpha1.TrillianSpec{Db: v1alpha1.TrillianDB{
@@ -288,6 +293,20 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 
 		It("All other components are running", func() {
 			tas.VerifyAllComponents(ctx, cli, s, true)
+		})
+
+		It("RouteSelectorLabels are passed to the ingress/route", func() {
+			ingress := &v2.Ingress{}
+			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: constants.DeploymentName}, ingress)).To(Succeed())
+			Expect(ingress.Labels).To(HaveKeyWithValue("foo", "bar"))
+
+			if kubernetes.IsOpenShift() {
+				Expect(ingress.Annotations).To(HaveKeyWithValue("route.openshift.io/termination", "edge"))
+
+				r, err := kubernetes.GetRoute(ctx, cli, namespace.Name, labels.ForComponent(constants.ComponentName, s.Name))
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(r.Labels).To(HaveKeyWithValue("foo", "bar"))
+			}
 		})
 
 		It("Verify Rekor Search UI is accessible", func() {
