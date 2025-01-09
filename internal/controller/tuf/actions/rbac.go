@@ -98,7 +98,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *ac
 			},
 			rbacv1.Subject{Kind: "ServiceAccount", Name: tufConstants.RBACName, Namespace: instance.Namespace}),
 	); err != nil {
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not set control reference for roleBinding: %w", err)), instance)
+		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create RoleBinding: %w", err)), instance)
 	}
 	return i.Continue()
 }

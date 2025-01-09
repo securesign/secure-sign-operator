@@ -8,13 +8,16 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
+	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func NewCreateMonitorAction() action.Action[*rhtasv1alpha1.Trillian] {
@@ -40,72 +43,46 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tr
 	)
 
 	monitoringLabels := labels.For(actions.LogServerComponentName, actions.LogServerMonitoringName, instance.Name)
-	role := kubernetes.CreateRole(
-		instance.Namespace,
-		actions.LogServerMonitoringName,
-		monitoringLabels,
-		[]v1.PolicyRule{
-			{
+	// Role
+	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, &v1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      actions.LogServerMonitoringName,
+			Namespace: instance.Namespace,
+		},
+	},
+		ensure.ControllerReference[*v1.Role](instance, i.Client),
+		ensure.Labels[*v1.Role](maps.Keys(monitoringLabels), monitoringLabels),
+		kubernetes.EnsureRoleRules(
+			v1.PolicyRule{
 				APIGroups: []string{""},
 				Resources: []string{"services", "endpoints", "pods"},
 				Verbs:     []string{"get", "list", "watch"},
 			},
+		),
+	); err != nil {
+		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create monitoring Role: %w", err)), instance)
+	}
+
+	// RoleBinding
+	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, &v1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      actions.LogServerMonitoringName,
+			Namespace: instance.Namespace,
 		},
-	)
-
-	if err = controllerutil.SetControllerReference(instance, role, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for role: %w", err))
+	},
+		ensure.ControllerReference[*v1.RoleBinding](instance, i.Client),
+		ensure.Labels[*v1.RoleBinding](maps.Keys(monitoringLabels), monitoringLabels),
+		kubernetes.EnsureRoleBinding(
+			v1.RoleRef{
+				APIGroup: v1.SchemeGroupVersion.Group,
+				Kind:     "Role",
+				Name:     actions.LogServerMonitoringName,
+			},
+			v1.Subject{Kind: "ServiceAccount", Name: "prometheus-k8s", Namespace: "openshift-monitoring"},
+		),
+	); err != nil {
+		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create monitoring RoleBinding: %w", err)), instance)
 	}
-
-	if _, err = i.Ensure(ctx, role); err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.ServerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create monitoring role: %w", err), instance)
-	}
-
-	roleBinding := kubernetes.CreateRoleBinding(
-		instance.Namespace,
-		actions.LogServerMonitoringName,
-		monitoringLabels,
-		v1.RoleRef{
-			APIGroup: v1.SchemeGroupVersion.Group,
-			Kind:     "Role",
-			Name:     actions.LogServerMonitoringName,
-		},
-		[]v1.Subject{
-			{Kind: "ServiceAccount", Name: "prometheus-k8s", Namespace: "openshift-monitoring"},
-		},
-	)
-	if err = controllerutil.SetControllerReference(instance, roleBinding, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for role: %w", err))
-	}
-
-	if _, err = i.Ensure(ctx, roleBinding); err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.ServerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create monitoring RoleBinding: %w", err), instance)
-	}
-
 	serviceMonitor := kubernetes.CreateServiceMonitor(
 		instance.Namespace,
 		actions.LogServerComponentName,
