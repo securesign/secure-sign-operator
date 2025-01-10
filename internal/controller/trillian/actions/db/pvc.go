@@ -5,7 +5,10 @@ import (
 	"fmt"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/labels"
+	"golang.org/x/exp/maps"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
@@ -38,8 +41,8 @@ func (i createPvcAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.
 
 func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
 	var (
-		err     error
-		updated bool
+		err    error
+		result controllerutil.OperationResult
 	)
 
 	if instance.Spec.Db.Pvc.Name != "" {
@@ -48,34 +51,29 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tri
 	}
 
 	if instance.Spec.Db.Pvc.Size == nil {
-		return i.Failed(fmt.Errorf("PVC size is not set"))
+		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("PVC size is not set")), instance)
 	}
 
 	// PVC does not exist, create a new one
 	i.Logger.V(1).Info("Creating new PVC")
-	pvc := k8sutils.CreatePVC(instance.Namespace, actions.DbPvcName, instance.Spec.Db.Pvc,
-		labels.For(actions.DbComponentName, actions.DbDeploymentName, instance.Name))
-	if !utils.OptionalBool(instance.Spec.Db.Pvc.Retain) {
-		if err = controllerutil.SetControllerReference(instance, pvc, i.Client.Scheme()); err != nil {
-			return i.Failed(fmt.Errorf("could not set controller reference for PVC: %w", err))
-		}
+
+	pvc := &v1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      actions.DbPvcName,
+			Namespace: instance.Namespace,
+		},
 	}
-	if updated, err = i.Ensure(ctx, pvc); err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.DbCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create DB PVC: %w", err), instance)
+
+	l := labels.For(actions.DbComponentName, actions.DbDeploymentName, instance.Name)
+	if result, err = k8sutils.CreateOrUpdate(ctx, i.Client, pvc,
+		k8sutils.EnsurePVCSpec(instance.Spec.Db.Pvc),
+		ensure.Optional[*v1.PersistentVolumeClaim](!utils.OptionalBool(instance.Spec.Db.Pvc.Retain), ensure.ControllerReference[*v1.PersistentVolumeClaim](instance, i.Client)),
+		ensure.Labels[*v1.PersistentVolumeClaim](maps.Keys(l), l),
+	); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create DB PVC: %w", err), instance)
 	}
-	if updated {
+
+	if result != controllerutil.OperationResultNone {
 		i.Recorder.Event(instance, v1.EventTypeNormal, "PersistentVolumeCreated", "New PersistentVolume created")
 	}
 
