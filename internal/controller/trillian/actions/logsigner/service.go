@@ -5,10 +5,12 @@ import (
 	"fmt"
 
 	"github.com/securesign/operator/internal/controller/common/action"
-	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
+	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,14 +40,22 @@ func (i createServiceAction) CanHandle(ctx context.Context, instance *rhtasv1alp
 func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
 
 	var (
-		err     error
-		updated bool
+		err    error
+		result controllerutil.OperationResult
 	)
 
 	labels := labels.For(actions.LogSignerComponentName, actions.LogsignerDeploymentName, instance.Name)
-	logsignerService := k8sutils.CreateService(instance.Namespace, actions.LogsignerDeploymentName, actions.ServerPortName, actions.ServerPort, actions.ServerPort, labels)
+
+	ports := []v1.ServicePort{
+		{
+			Name:       actions.ServerPortName,
+			Protocol:   v1.ProtocolTCP,
+			Port:       actions.ServerPort,
+			TargetPort: intstr.FromInt32(actions.ServerPort),
+		},
+	}
 	if instance.Spec.Monitoring.Enabled {
-		logsignerService.Spec.Ports = append(logsignerService.Spec.Ports, v1.ServicePort{
+		ports = append(ports, v1.ServicePort{
 			Name:       actions.MetricsPortName,
 			Protocol:   v1.ProtocolTCP,
 			Port:       actions.MetricsPort,
@@ -53,27 +63,18 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		})
 	}
 
-	if err = controllerutil.SetControllerReference(instance, logsignerService, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for logsigner Service: %w", err))
+	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+		&v1.Service{
+			ObjectMeta: metav1.ObjectMeta{Name: actions.LogsignerDeploymentName, Namespace: instance.Namespace},
+		},
+		kubernetes.EnsureServiceSpec(labels, ports...),
+		ensure.ControllerReference[*v1.Service](instance, i.Client),
+		ensure.Labels[*v1.Service](maps.Keys(labels), labels),
+	); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create service: %w", err), instance)
 	}
 
-	if updated, err = i.Ensure(ctx, logsignerService); err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.ServerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create logsigner Service: %w", err), instance)
-	}
-
-	if updated {
+	if result != controllerutil.OperationResultNone {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ServerCondition,
 			Status:  metav1.ConditionFalse,
@@ -84,5 +85,4 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	} else {
 		return i.Continue()
 	}
-
 }

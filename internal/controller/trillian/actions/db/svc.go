@@ -6,10 +6,14 @@ import (
 
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/utils"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/labels"
+	"golang.org/x/exp/maps"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/securesign/operator/internal/controller/common/action"
-	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -39,42 +43,36 @@ func (i createServiceAction) CanHandle(_ context.Context, instance *rhtasv1alpha
 func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
 
 	var (
-		err     error
-		updated bool
+		err    error
+		result controllerutil.OperationResult
 	)
 
 	labels := labels.For(actions.DbComponentName, actions.DbDeploymentName, instance.Name)
-	mysql := k8sutils.CreateService(instance.Namespace, host, host, port, port, labels)
 
-	//TLS: Annotate service
-	if k8sutils.IsOpenShift() && instance.Spec.Db.TLS.CertRef == nil {
-		if mysql.Annotations == nil {
-			mysql.Annotations = make(map[string]string)
-		}
-		mysql.Annotations[annotations.TLS] = instance.Name + "-trillian-db-tls"
+	tlsAnnotations := map[string]string{}
+	if instance.Spec.Db.TLS.CertRef == nil {
+		tlsAnnotations[annotations.TLS] = instance.Name + "-trillian-db-tls"
 	}
 
-	if err = controllerutil.SetControllerReference(instance, mysql, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for DB service: %w", err))
+	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+		&v1.Service{
+			ObjectMeta: metav1.ObjectMeta{Name: host, Namespace: instance.Namespace},
+		},
+		kubernetes.EnsureServiceSpec(labels, v1.ServicePort{
+			Name:       host,
+			Protocol:   v1.ProtocolTCP,
+			Port:       port,
+			TargetPort: intstr.FromInt32(port),
+		}),
+		ensure.ControllerReference[*v1.Service](instance, i.Client),
+		ensure.Labels[*v1.Service](maps.Keys(labels), labels),
+		//TLS: Annotate service
+		ensure.Optional(kubernetes.IsOpenShift(), ensure.Annotations[*v1.Service]([]string{annotations.TLS}, tlsAnnotations)),
+	); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create service: %w", err), instance)
 	}
 
-	if updated, err = i.Ensure(ctx, mysql, action.EnsureSpec(), action.EnsureAnnotations(annotations.TLS)); err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.DbCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Trillian DB service: %w", err), instance)
-	}
-
-	if updated {
+	if result != controllerutil.OperationResultNone {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.DbCondition,
 			Status:  metav1.ConditionFalse,
