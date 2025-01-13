@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/gomega"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
@@ -198,16 +197,18 @@ func TestShardingConfig_Handle(t *testing.T) {
 					ServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: cmName + "old"},
 				},
 				objects: []client.Object{
-					kubernetes.CreateConfigmap(
-						"default",
-						cmName+"old",
-						map[string]string{},
-						errors.IgnoreError(createShardingConfigData([]rhtasv1alpha1.RekorLogRange{
+					&v1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+							Name:      cmName + "old",
+						},
+						Data: errors.IgnoreError(createShardingConfigData([]rhtasv1alpha1.RekorLogRange{
 							{
 								TreeID:     111111,
 								TreeLength: 10,
 							},
-						}))),
+						})),
+					},
 				},
 			},
 			want: want{
@@ -256,11 +257,13 @@ func TestShardingConfig_Handle(t *testing.T) {
 					ServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: cmName + "old"},
 				},
 				objects: []client.Object{
-					kubernetes.CreateConfigmap(
-						"default",
-						cmName+"old",
-						map[string]string{},
-						errors.IgnoreError(createShardingConfigData([]rhtasv1alpha1.RekorLogRange{}))),
+					&v1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+							Name:      cmName + "old",
+						},
+						Data: errors.IgnoreError(createShardingConfigData([]rhtasv1alpha1.RekorLogRange{})),
+					},
 				},
 			},
 			want: want{
@@ -302,11 +305,13 @@ func TestShardingConfig_Handle(t *testing.T) {
 					ServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: cmName + "old"},
 				},
 				objects: []client.Object{
-					kubernetes.CreateConfigmap(
-						"default",
-						cmName+"old",
-						map[string]string{},
-						errors.IgnoreError(createShardingConfigData([]rhtasv1alpha1.RekorLogRange{}))),
+					&v1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+							Name:      cmName + "old",
+						},
+						Data: errors.IgnoreError(createShardingConfigData([]rhtasv1alpha1.RekorLogRange{})),
+					},
 				},
 			},
 			want: want{
@@ -342,16 +347,18 @@ func TestShardingConfig_Handle(t *testing.T) {
 					ServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: cmName + "old"},
 				},
 				objects: []client.Object{
-					kubernetes.CreateConfigmap(
-						"default",
-						cmName+"old",
-						map[string]string{},
-						errors.IgnoreError(createShardingConfigData([]rhtasv1alpha1.RekorLogRange{
+					&v1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+							Name:      cmName + "old",
+						},
+						Data: errors.IgnoreError(createShardingConfigData([]rhtasv1alpha1.RekorLogRange{
 							{
 								TreeID:     111111,
 								TreeLength: 10,
 							},
-						}))),
+						})),
+					},
 				},
 			},
 			want: want{
@@ -410,11 +417,14 @@ func TestShardingConfig_Handle(t *testing.T) {
 				spec:   rhtasv1alpha1.RekorSpec{},
 				status: rhtasv1alpha1.RekorStatus{},
 				objects: []client.Object{
-					kubernetes.CreateConfigmap(
-						"default",
-						cmName+"old",
-						shardingConfigLabels,
-						map[string]string{shardingConfigName: ""}),
+					&v1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+							Name:      cmName + "old",
+							Labels:    shardingConfigLabels,
+						},
+						Data: map[string]string{shardingConfigName: ""},
+					},
 				},
 			},
 			want: want{
@@ -445,16 +455,22 @@ func TestShardingConfig_Handle(t *testing.T) {
 				spec:   rhtasv1alpha1.RekorSpec{},
 				status: rhtasv1alpha1.RekorStatus{},
 				objects: []client.Object{
-					kubernetes.CreateConfigmap(
-						"default",
-						"keep",
-						labels.For(actions.ServerComponentName, actions.ServerDeploymentName, "rekor"),
-						map[string]string{}),
-					kubernetes.CreateConfigmap(
-						"default",
-						cmName+"old",
-						shardingConfigLabels,
-						map[string]string{shardingConfigName: "fake"}),
+					&v1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+							Name:      "keep",
+							Labels:    labels.For(actions.ServerComponentName, actions.ServerDeploymentName, "rekor"),
+						},
+						Data: map[string]string{},
+					},
+					&v1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+							Name:      cmName + "old",
+							Labels:    shardingConfigLabels,
+						},
+						Data: map[string]string{shardingConfigName: "fake"},
+					},
 				},
 			},
 			want: want{

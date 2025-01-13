@@ -8,15 +8,17 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
+	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels2 "k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/yaml"
 )
 
@@ -55,14 +57,14 @@ func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Reko
 
 	content, err := createShardingConfigData(instance.Spec.Sharding)
 	if err != nil {
-		i.Failed(fmt.Errorf("ShardingConfig: %w", err))
+		i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create sharding config: %w", err)), instance)
 	}
 
 	// verify existing config
 	if instance.Status.ServerConfigRef != nil {
 		cfg, err := kubernetes.GetConfigMap(ctx, i.Client, instance.Namespace, instance.Status.ServerConfigRef.Name)
 		if client.IgnoreNotFound(err) != nil {
-			return i.Failed(fmt.Errorf("ShardingConfig: %w", err))
+			return i.Error(ctx, fmt.Errorf("can't get ShardingConfig: %w", err), instance)
 		}
 		if cfg != nil {
 			if reflect.DeepEqual(cfg.Data, content) {
@@ -80,20 +82,19 @@ func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Reko
 	instance.Status.ServerConfigRef = nil
 
 	// create new config
-	newConfig := kubernetes.CreateImmutableConfigmap(cmName, instance.Namespace, labels, content)
-	if err = controllerutil.SetControllerReference(instance, newConfig, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("ShardingConfig: could not set controller reference for ConfigMap: %w", err))
+	newConfig := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: cmName,
+			Namespace:    instance.Namespace,
+		},
 	}
-
-	_, err = i.Ensure(ctx, newConfig)
-	if err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.ServerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, err, instance)
+	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+		newConfig,
+		ensure.ControllerReference[*v1.ConfigMap](instance, i.Client),
+		ensure.Labels[*v1.ConfigMap](maps.Keys(labels), labels),
+		kubernetes.EnsureConfigMapData(true, content),
+	); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create sharding config: %w", err), instance)
 	}
 
 	// remove old server configmaps
