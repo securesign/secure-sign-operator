@@ -8,9 +8,11 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
+	"golang.org/x/exp/maps"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -18,7 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels2 "k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -143,21 +144,22 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		return i.StatusUpdate(ctx, instance)
 	}
 
-	configMap := kubernetes.CreateImmutableConfigmap(NtpCMName, instance.Namespace, l, map[string]string{ntpConfigName: string(ntpConfig)})
-	if err = controllerutil.SetControllerReference(instance, configMap, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for ConfigMap: %w", err))
+	configMap := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: NtpCMName,
+			Namespace:    instance.Namespace,
+		},
 	}
-	_, err = i.Ensure(ctx, configMap)
-	if err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               constants.Ready,
-			Status:             metav1.ConditionFalse,
-			Reason:             constants.Failure,
-			Message:            err.Error(),
-			ObservedGeneration: instance.Generation,
-		})
-		return i.FailedWithStatusUpdate(ctx, err, instance)
+	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+		configMap,
+		ensure.ControllerReference[*v1.ConfigMap](instance, i.Client),
+		ensure.Labels[*v1.ConfigMap](maps.Keys(l), l),
+		kubernetes.EnsureConfigMapData(
+			true, map[string]string{ntpConfigName: string(ntpConfig)}),
+	); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create ntp config: %w", err), instance)
 	}
+
 	cmName = configMap.Name
 
 	i.alignStatusFields(instance, newStatus, cmName)

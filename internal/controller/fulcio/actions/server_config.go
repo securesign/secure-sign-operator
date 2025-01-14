@@ -8,8 +8,11 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
+	"golang.org/x/exp/maps"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
@@ -17,7 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels2 "k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -82,14 +84,14 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 
 	config, err := yaml.Marshal(ConvertToFulcioMapConfig(instance.Spec.Config))
 	if err != nil {
-		return i.FailedWithStatusUpdate(ctx, err, instance)
+		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not marshal fulcio config: %w", err)), instance)
 	}
 
 	// verify existing config
 	if instance.Status.ServerConfigRef != nil {
 		cfg, err := kubernetes.GetConfigMap(ctx, i.Client, instance.Namespace, instance.Status.ServerConfigRef.Name)
 		if client.IgnoreNotFound(err) != nil {
-			return i.Failed(fmt.Errorf("FulcioConfig: %w", err))
+			return i.Error(ctx, fmt.Errorf("can't get FulcioConfig: %w", err), instance)
 		}
 		if cfg != nil {
 			if reflect.DeepEqual(cfg.Data[serverConfigName], string(config)) {
@@ -107,21 +109,24 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	instance.Status.ServerConfigRef = nil
 
 	// create new config
-	newConfig := kubernetes.CreateImmutableConfigmap("fulcio-config-", instance.Namespace, configLabel, map[string]string{
-		serverConfigName: string(config)})
-	if err = controllerutil.SetControllerReference(instance, newConfig, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("FulcioConfig: could not set controller reference for ConfigMap: %w", err))
+	newConfig := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "fulcio-config-",
+			Namespace:    instance.Namespace,
+		},
 	}
-
-	_, err = i.Ensure(ctx, newConfig)
-	if err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, err, instance)
+	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+		newConfig,
+		ensure.ControllerReference[*v1.ConfigMap](instance, i.Client),
+		ensure.Labels[*v1.ConfigMap](maps.Keys(configLabel), configLabel),
+		kubernetes.EnsureConfigMapData(
+			true,
+			map[string]string{
+				serverConfigName: string(config),
+			},
+		),
+	); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create Server config: %w", err), instance)
 	}
 
 	// remove old server configmaps

@@ -57,9 +57,15 @@ func TestServerConfig_CanHandle(t *testing.T) {
 			},
 			env: env{
 				objects: []client.Object{
-					kubernetes.CreateConfigmap("default", "config", map[string]string{}, map[string]string{
-						"config.json": string(configJson),
-					}),
+					&core.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+							Name:      "config",
+						},
+						Data: map[string]string{
+							"config.json": string(configJson),
+						},
+					},
 				},
 			},
 			canHandle: true,
@@ -82,9 +88,15 @@ func TestServerConfig_CanHandle(t *testing.T) {
 			},
 			env: env{
 				objects: []client.Object{
-					kubernetes.CreateConfigmap("default", "config", map[string]string{}, map[string]string{
-						serverConfigName: string(configYaml),
-					}),
+					&core.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+							Name:      "config",
+						},
+						Data: map[string]string{
+							serverConfigName: string(configYaml),
+						},
+					},
 				},
 			},
 			canHandle: true,
@@ -107,9 +119,15 @@ func TestServerConfig_CanHandle(t *testing.T) {
 			},
 			env: env{
 				objects: []client.Object{
-					kubernetes.CreateConfigmap("default", "config", map[string]string{}, map[string]string{
-						serverConfigName: string(configYaml),
-					}),
+					&core.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+							Name:      "config",
+						},
+						Data: map[string]string{
+							serverConfigName: string(configYaml),
+						},
+					},
 				},
 			},
 			canHandle: true,
@@ -220,9 +238,13 @@ func TestConfig_Handle(t *testing.T) {
 					},
 				},
 				objects: []client.Object{
-					kubernetes.CreateConfigmap("default", "config", map[string]string{}, map[string]string{
-						"config.json": string(configJson),
-					}),
+					&core.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+							Name:      "config",
+						},
+						Data: map[string]string{"config.json": string(configJson)},
+					},
 				},
 			},
 			want: want{
@@ -266,9 +288,14 @@ func TestConfig_Handle(t *testing.T) {
 					},
 				},
 				objects: []client.Object{
-					kubernetes.CreateConfigmap("default", "config", labels, map[string]string{
-						serverConfigName: string(configYaml),
-					}),
+					&core.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+							Name:      "config",
+							Labels:    labels,
+						},
+						Data: map[string]string{serverConfigName: string(configYaml)},
+					},
 				},
 			},
 			want: want{
@@ -303,9 +330,14 @@ func TestConfig_Handle(t *testing.T) {
 					},
 				},
 				objects: []client.Object{
-					kubernetes.CreateConfigmap("default", "config", labels, map[string]string{
-						serverConfigName: string(configJson),
-					}),
+					&core.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+							Name:      "config",
+							Labels:    labels,
+						},
+						Data: map[string]string{serverConfigName: string(configJson)},
+					},
 				},
 			},
 			want: want{
@@ -346,12 +378,27 @@ func TestConfig_Handle(t *testing.T) {
 					},
 				},
 				objects: []client.Object{
-					kubernetes.CreateConfigmap("default", "fake", labels, map[string]string{
-						serverConfigName: "fake",
-					}),
-					kubernetes.CreateConfigmap("default", "config", labels, map[string]string{
-						serverConfigName: string(configYaml),
-					}),
+					&core.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+							Name:      "fake",
+							Labels:    labels,
+						},
+						Data: map[string]string{
+							serverConfigName: "fake",
+						},
+					},
+
+					&core.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "default",
+							Name:      "config",
+							Labels:    labels,
+						},
+						Data: map[string]string{
+							serverConfigName: string(configYaml),
+						},
+					},
 				},
 			},
 			want: want{
