@@ -219,8 +219,14 @@ func TestKeys_Handle(t *testing.T) {
 				spec:   v1alpha1.CTlogSpec{},
 				status: v1alpha1.CTlogStatus{},
 				objects: []client.Object{
-					kubernetes.CreateSecret("secret", "default",
-						map[string][]byte{"key": noPassKeyConf.PrivateKey}, map[string]string{CTLogPrivateLabel: "key"}),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+							Labels:    map[string]string{CTLogPrivateLabel: "key"},
+						},
+						Data: map[string][]byte{"key": noPassKeyConf.PrivateKey},
+					},
 				},
 			},
 			want: want{
@@ -251,14 +257,20 @@ func TestKeys_Handle(t *testing.T) {
 				status: v1alpha1.CTlogStatus{},
 				objects: []client.Object{
 					// invalid private key
-					kubernetes.CreateSecret("invalid", "default",
-						map[string][]byte{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "invalid",
+							Namespace: "default",
+							Labels: map[string]string{
+								CTLogPrivateLabel: "private",
+								CTLPubLabel:       "public",
+							},
+						},
+						Data: map[string][]byte{
 							"private": noPassKeyConf.PrivateKey,
 							"public":  noPassKeyConf.PublicKey,
-						}, map[string]string{
-							CTLogPrivateLabel: "private",
-							CTLPubLabel:       "public",
-						}),
+						},
+					},
 
 					// matching secret
 					&v1.Secret{
@@ -309,14 +321,20 @@ func TestKeys_Handle(t *testing.T) {
 				status: v1alpha1.CTlogStatus{},
 				objects: []client.Object{
 					// invalid private key
-					kubernetes.CreateSecret("invalid", "default",
-						map[string][]byte{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "invalid",
+							Namespace: "default",
+							Labels: map[string]string{
+								CTLogPrivateLabel: "private",
+								CTLPubLabel:       "public",
+							},
+						},
+						Data: map[string][]byte{
 							"private": noPassKeyConf.PrivateKey,
 							"public":  noPassKeyConf.PublicKey,
-						}, map[string]string{
-							CTLogPrivateLabel: "private",
-							CTLPubLabel:       "public",
-						}),
+						},
+					},
 
 					// matching secret
 					&v1.Secret{
@@ -376,14 +394,20 @@ func TestKeys_Handle(t *testing.T) {
 				status: v1alpha1.CTlogStatus{},
 				objects: []client.Object{
 					// invalid private key
-					kubernetes.CreateSecret("invalid", "default",
-						map[string][]byte{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "invalid",
+							Namespace: "default",
+							Labels: map[string]string{
+								CTLogPrivateLabel: "private",
+								CTLPubLabel:       "public",
+							},
+						},
+						Data: map[string][]byte{
 							"private": noPassKeyConf.PrivateKey,
 							"public":  noPassKeyConf.PublicKey,
-						}, map[string]string{
-							CTLogPrivateLabel: "private",
-							CTLPubLabel:       "public",
-						}),
+						},
+					},
 
 					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{

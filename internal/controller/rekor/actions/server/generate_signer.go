@@ -13,9 +13,11 @@ import (
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
+	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -116,8 +118,8 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 				},
 			}
 		} else {
-			labels := labels.For(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
-			labels[RekorSignerLabel] = "private"
+			componentLabels := labels.For(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
+			signerLabels := map[string]string{RekorSignerLabel: "private"}
 			privateKey, publicKey, err := g.createSignerKey()
 			if err != nil {
 				if !meta.IsStatusConditionFalse(instance.Status.Conditions, actions.SignerCondition) {
@@ -137,17 +139,29 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 				"private": privateKey,
 				"public":  publicKey,
 			}
-			secret := k8sutils.CreateImmutableSecret(fmt.Sprintf(secretNameFormat, instance.Name), instance.Namespace,
-				data, labels)
-			if _, err = g.Ensure(ctx, secret); err != nil {
-				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-					Type:    actions.SignerCondition,
-					Status:  metav1.ConditionFalse,
-					Reason:  constants.Failure,
-					Message: err.Error(),
-				})
-				return g.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create secret: %w", err), instance)
+
+			secret := &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: fmt.Sprintf(secretNameFormat, instance.Name),
+					Namespace:    instance.Namespace,
+				},
 			}
+
+			if _, err = k8sutils.CreateOrUpdate(ctx, g.Client,
+				secret,
+				ensure.Labels[*v1.Secret](maps.Keys(componentLabels), componentLabels),
+				ensure.Labels[*v1.Secret](maps.Keys(signerLabels), signerLabels),
+				k8sutils.EnsureSecretData(true, data),
+			); err != nil {
+				return g.Error(ctx, fmt.Errorf("could not create signer secret: %w", err), instance,
+					metav1.Condition{
+						Type:    actions.SignerCondition,
+						Status:  metav1.ConditionFalse,
+						Reason:  constants.Failure,
+						Message: err.Error(),
+					})
+			}
+
 			g.Recorder.Eventf(instance, v1.EventTypeNormal, "SignerKeyCreated", "Signer private key created: %s", secret.Name)
 			newSigner.KeyRef = &v1alpha1.SecretKeySelector{
 				Key: "private",

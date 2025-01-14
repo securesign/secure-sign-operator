@@ -12,7 +12,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
 	"github.com/securesign/operator/internal/controller/labels"
@@ -83,8 +82,14 @@ func TestCertCan_Handle(t *testing.T) {
 				certificates: nil,
 				status:       v1alpha1.CTlogStatus{},
 				objects: []client.Object{
-					kubernetes.CreateSecret("secret", "default",
-						map[string][]byte{"key": nil}, map[string]string{actions.FulcioCALabel: "key"}),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+							Labels:    map[string]string{actions.FulcioCALabel: "key"},
+						},
+						Data: map[string][]byte{"key": nil},
+					},
 				},
 			},
 			want: want{
@@ -105,8 +110,14 @@ func TestCertCan_Handle(t *testing.T) {
 					},
 				},
 				objects: []client.Object{
-					kubernetes.CreateSecret("secret", "default",
-						map[string][]byte{"key": nil}, map[string]string{actions.FulcioCALabel: "key"}),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+							Labels:    map[string]string{actions.FulcioCALabel: "key"},
+						},
+						Data: map[string][]byte{"key": nil},
+					},
 				},
 			},
 			want: want{
@@ -201,8 +212,14 @@ func TestCert_Handle(t *testing.T) {
 					},
 				},
 				objects: []client.Object{
-					kubernetes.CreateSecret("secret", "default",
-						map[string][]byte{"key": nil}, map[string]string{actions.FulcioCALabel: "key"}),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+							Labels:    map[string]string{actions.FulcioCALabel: "key"},
+						},
+						Data: map[string][]byte{"key": nil},
+					},
 				},
 			},
 			want: want{
@@ -245,8 +262,20 @@ func TestCert_Handle(t *testing.T) {
 			name: "configured",
 			env: env{
 				objects: []client.Object{
-					kubernetes.CreateSecret("secret", "default", map[string][]byte{"key": nil}, map[string]string{}),
-					kubernetes.CreateSecret("secret-2", "default", map[string][]byte{"key": nil}, map[string]string{}),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{"key": nil},
+					},
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret-2",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{"key": nil},
+					},
 				},
 
 				certificates: []v1alpha1.SecretKeySelector{
@@ -290,10 +319,21 @@ func TestCert_Handle(t *testing.T) {
 					},
 				},
 				objects: []client.Object{
-					kubernetes.CreateSecret("my-secret", "default",
-						map[string][]byte{"key": nil}, map[string]string{}),
-					kubernetes.CreateSecret("incorrect-secret", "default",
-						map[string][]byte{"key": nil}, map[string]string{actions.FulcioCALabel: "key"}),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "my-secret",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{"key": nil},
+					},
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "incorrect-secret",
+							Namespace: "default",
+							Labels:    map[string]string{actions.FulcioCALabel: "key"},
+						},
+						Data: map[string][]byte{"key": nil},
+					},
 				},
 				status: v1alpha1.CTlogStatus{
 					Conditions: []metav1.Condition{
@@ -324,8 +364,21 @@ func TestCert_Handle(t *testing.T) {
 					},
 				},
 				objects: []client.Object{
-					kubernetes.CreateSecret("my-secret", "default", map[string][]byte{"key": nil}, map[string]string{}),
-					kubernetes.CreateSecret("ctlog-config", "default", map[string][]byte{}, map[string]string{labels.LabelResource: serverConfigResourceName}),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "my-secret",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{"key": nil},
+					},
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "ctlog-config",
+							Namespace: "default",
+							Labels:    map[string]string{labels.LabelResource: serverConfigResourceName},
+						},
+						Data: map[string][]byte{},
+					},
 				},
 				status: v1alpha1.CTlogStatus{
 					ServerConfigRef: &v1alpha1.LocalObjectReference{Name: "ctlog-config"},
@@ -352,8 +405,21 @@ func TestCert_Handle(t *testing.T) {
 			name: "autodiscovery - add new, keep old cert",
 			env: env{
 				objects: []client.Object{
-					kubernetes.CreateSecret("old", "default", map[string][]byte{"key": nil}, map[string]string{}),
-					kubernetes.CreateSecret("new", "default", map[string][]byte{"key": nil}, map[string]string{actions.FulcioCALabel: "key"}),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "old",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{"key": nil},
+					},
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "new",
+							Namespace: "default",
+							Labels:    map[string]string{actions.FulcioCALabel: "key"},
+						},
+						Data: map[string][]byte{"key": nil},
+					},
 				},
 				status: v1alpha1.CTlogStatus{
 					RootCertificates: []v1alpha1.SecretKeySelector{

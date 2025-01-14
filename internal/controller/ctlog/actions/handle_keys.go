@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"time"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/controller/labels"
@@ -17,8 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -79,17 +77,10 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 
 	keys, err := g.setupKeys(instance.Namespace, newKeyStatus)
 	if err != nil {
-		return g.Failed(err)
+		return g.Error(ctx, fmt.Errorf("could not generate keys: %w", err), instance)
 	}
 	if _, err = g.generateAndUploadSecret(ctx, instance, newKeyStatus, keys); err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               constants.Ready,
-			Status:             metav1.ConditionFalse,
-			Reason:             constants.Failure,
-			Message:            err.Error(),
-			ObservedGeneration: instance.Generation,
-		})
-		return g.FailedWithStatusUpdate(ctx, fmt.Errorf("could not update Secret annotations: %w", err), instance)
+		return g.Error(ctx, fmt.Errorf("could not generate Secret: %w", err), instance)
 	}
 
 	instance.Status = *newKeyStatus
@@ -216,36 +207,43 @@ func (g handleKeys) generateAndUploadSecret(ctx context.Context, instance *v1alp
 		return nil, nil
 	}
 
-	secret := k8sutils.CreateImmutableSecret(KeySecretName, instance.Namespace, map[string][]byte{}, labels.For(ComponentName, DeploymentName, instance.Name))
-	secret.Annotations = make(map[string]string)
+	var err error
+
+	componentLabels := labels.For(ComponentName, DeploymentName, instance.Name)
+	keyRelatedLabels := make(map[string]string)
+	annotations := make(map[string]string)
+	data := make(map[string][]byte)
 
 	if newKeyStatus.PrivateKeyRef == nil {
 		if newKeyStatus.PrivateKeyPasswordRef != nil {
-			secret.Annotations[passwordKeyRefAnnotation] = newKeyStatus.PrivateKeyPasswordRef.Name
+			annotations[passwordKeyRefAnnotation] = newKeyStatus.PrivateKeyPasswordRef.Name
 		}
-		secret.Data["private"] = keys.PrivateKey
-		secret.Labels[CTLogPrivateLabel] = "private"
+		data["private"] = keys.PrivateKey
+		keyRelatedLabels[CTLogPrivateLabel] = "private"
 	}
 
 	if newKeyStatus.PublicKeyRef == nil {
 		if newKeyStatus.PrivateKeyRef != nil {
-			secret.Annotations[privateKeyRefAnnotation] = newKeyStatus.PrivateKeyRef.Name
+			annotations[privateKeyRefAnnotation] = newKeyStatus.PrivateKeyRef.Name
 		}
-		secret.Data["public"] = keys.PublicKey
-		secret.Labels[CTLPubLabel] = "public"
+		data["public"] = keys.PublicKey
+		keyRelatedLabels[CTLPubLabel] = "public"
 	}
 
-	if err := controllerutil.SetControllerReference(instance, secret, g.Client.Scheme()); err != nil {
-		return nil, err
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: KeySecretName,
+			Namespace:    instance.Namespace,
+		},
 	}
-
-	// we need to upload secret to get secretName
-	if _, err := g.Ensure(ctx, secret); err != nil {
-		return nil, err
-	}
-	// refetch secret to avoid "resourceVersion should not be set on objects to be created"
-	time.Sleep(time.Second)
-	if err := g.Client.Get(ctx, client.ObjectKeyFromObject(secret), secret); err != nil {
+	if _, err = k8sutils.CreateOrUpdate(ctx, g.Client,
+		secret,
+		ensure.ControllerReference[*v1.Secret](instance, g.Client),
+		ensure.Labels[*v1.Secret](maps.Keys(componentLabels), componentLabels),
+		ensure.Labels[*v1.Secret](ManagedLabels, keyRelatedLabels),
+		ensure.Annotations[*v1.Secret](ManagedAnnotations, annotations),
+		k8sutils.EnsureSecretData(true, data),
+	); err != nil {
 		return nil, err
 	}
 
@@ -269,11 +267,11 @@ func (g handleKeys) generateAndUploadSecret(ctx context.Context, instance *v1alp
 
 	if slices.Contains(maps.Keys(secret.Labels), CTLPubLabel) && slices.Contains(maps.Keys(secret.Labels), CTLogPrivateLabel) {
 		// need to add cyclic private key reference annotation
-		if secret.Annotations == nil {
-			secret.Annotations = make(map[string]string)
-		}
-		secret.Annotations[privateKeyRefAnnotation] = secret.Name
-		if _, err := g.Ensure(ctx, secret, action.EnsureAnnotations(privateKeyRefAnnotation)); err != nil {
+		annotations[privateKeyRefAnnotation] = secret.Name
+		if _, err = k8sutils.CreateOrUpdate(ctx, g.Client,
+			secret,
+			ensure.Annotations[*v1.Secret](ManagedAnnotations, annotations),
+		); err != nil {
 			return nil, err
 		}
 	}

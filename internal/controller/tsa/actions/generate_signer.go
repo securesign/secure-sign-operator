@@ -12,9 +12,11 @@ import (
 	"github.com/securesign/operator/internal/controller/common"
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
+	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -24,6 +26,8 @@ import (
 const (
 	TSACertCALabel = labels.LabelNamespace + "/tsa.certchain.pem"
 )
+
+var managedAnnotations = []string{labels.LabelNamespace + "/signerConfiguration"}
 
 type generateSigner struct {
 	action.BaseAction
@@ -74,13 +78,13 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 
 	anno, err := g.secretAnnotations(instance.Spec.Signer)
 	if err != nil {
-		return g.Failed(err)
+		return g.Error(ctx, err, instance)
 	}
 
 	if instance.Status.Signer != nil {
 		secret, err := k8sutils.GetSecret(g.Client, instance.Namespace, instance.Status.Signer.CertificateChain.CertificateChainRef.Name)
 		if err != nil {
-			return g.Failed(fmt.Errorf("can't load CA secret %w", err))
+			return g.Error(ctx, fmt.Errorf("can't load CA secret %w", err), instance)
 		}
 
 		if equality.Semantic.DeepDerivative(anno, secret.GetAnnotations()) {
@@ -176,28 +180,33 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 		return g.Requeue()
 	}
 
-	labels := labels.For(ComponentName, DeploymentName, instance.Name)
-	labels[TSACertCALabel] = "certificateChain"
+	componentLabels := labels.For(ComponentName, DeploymentName, instance.Name)
+	certLabels := map[string]string{TSACertCALabel: "certificateChain"}
 
-	certificateChain := k8sutils.CreateImmutableSecret(fmt.Sprintf("tsa-signer-config-%s", instance.Name), instance.Namespace, tsaCertChainConfig.ToMap(), labels)
-	certificateChain.Annotations = anno
-	if _, err := g.Ensure(ctx, certificateChain); err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               TSASignerCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             constants.Failure,
-			Message:            err.Error(),
-			ObservedGeneration: instance.Generation,
-		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               constants.Ready,
-			Status:             metav1.ConditionFalse,
-			Reason:             constants.Failure,
-			Message:            err.Error(),
-			ObservedGeneration: instance.Generation,
-		})
-		return g.FailedWithStatusUpdate(ctx, err, instance)
+	certificateChain := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: fmt.Sprintf("tsa-signer-config-%s", instance.Name),
+			Namespace:    instance.Namespace,
+		},
 	}
+
+	if _, err = k8sutils.CreateOrUpdate(ctx, g.Client,
+		certificateChain,
+		ensure.Labels[*v1.Secret](maps.Keys(componentLabels), componentLabels),
+		ensure.Labels[*v1.Secret](maps.Keys(certLabels), certLabels),
+		ensure.Annotations[*v1.Secret](managedAnnotations, anno),
+		k8sutils.EnsureSecretData(true, tsaCertChainConfig.ToMap()),
+	); err != nil {
+		return g.Error(ctx, fmt.Errorf("could not create signer secret: %w", err), instance,
+			metav1.Condition{
+				Type:               TSASignerCondition,
+				Status:             metav1.ConditionFalse,
+				Reason:             constants.Failure,
+				Message:            err.Error(),
+				ObservedGeneration: instance.Generation,
+			})
+	}
+
 	g.Recorder.Event(instance, v1.EventTypeNormal, "TSACertUpdated", "TSA certificate secret updated")
 	g.alignStatusFields(certificateChain.Name, instance)
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{

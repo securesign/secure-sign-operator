@@ -74,7 +74,7 @@ func (action *BaseAction) Failed(err error) *Result {
 	}
 }
 
-func (action *BaseAction) Error(ctx context.Context, err error, instance apis.ConditionsAwareObject) *Result {
+func (action *BaseAction) Error(ctx context.Context, err error, instance apis.ConditionsAwareObject, conditions ...metav1.Condition) *Result {
 	if errors.Is(err, reconcile.TerminalError(err)) {
 		instance.SetCondition(metav1.Condition{
 			Type:               constants.Ready,
@@ -83,10 +83,17 @@ func (action *BaseAction) Error(ctx context.Context, err error, instance apis.Co
 			Message:            err.Error(),
 			ObservedGeneration: instance.GetGeneration(),
 		})
+	}
+
+	for _, condition := range conditions {
+		instance.SetCondition(condition)
+	}
+	if errors.Is(err, reconcile.TerminalError(err)) || len(conditions) != 0 {
 		if updateErr := action.Client.Status().Update(ctx, instance); updateErr != nil {
 			err = errors.Join(err, updateErr)
 		}
 	}
+
 	action.Logger.Error(err, "error during action execution")
 	return &Result{
 		Err: err,

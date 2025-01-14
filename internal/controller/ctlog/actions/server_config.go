@@ -7,16 +7,17 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	utils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/controller/labels"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
+	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels2 "k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -113,31 +114,36 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 
 	var cfg map[string][]byte
 	if cfg, err = ctlogUtils.CreateCtlogConfig(trillianUrl, *instance.Status.TreeID, rootCerts, certConfig); err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		return i.Error(ctx, fmt.Errorf("could not create CTLog configuration: %w", err), instance, metav1.Condition{
 			Type:               ConfigCondition,
 			Status:             metav1.ConditionFalse,
 			Reason:             constants.Failure,
 			Message:            err.Error(),
 			ObservedGeneration: instance.Generation,
 		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create CTLog configuration: %w", err), instance)
 	}
 
-	newConfig := utils.CreateImmutableSecret(fmt.Sprintf("ctlog-config-%s", instance.Name), instance.Namespace, cfg, configLabels)
-	if err = controllerutil.SetControllerReference(instance, newConfig, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for Secret: %w", err))
+	newConfig := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: fmt.Sprintf("ctlog-config-%s", instance.Name),
+			Namespace:    instance.Namespace,
+		},
 	}
 
-	_, err = i.Ensure(ctx, newConfig)
-	if err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               ConfigCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             constants.Failure,
-			Message:            err.Error(),
-			ObservedGeneration: instance.Generation,
-		})
-		return i.FailedWithStatusUpdate(ctx, err, instance)
+	if _, err = utils.CreateOrUpdate(ctx, i.Client,
+		newConfig,
+		ensure.ControllerReference[*corev1.Secret](instance, i.Client),
+		ensure.Labels[*corev1.Secret](maps.Keys(configLabels), configLabels),
+		utils.EnsureSecretData(true, cfg),
+	); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create Server config: %w", err), instance,
+			metav1.Condition{
+				Type:               ConfigCondition,
+				Status:             metav1.ConditionFalse,
+				Reason:             constants.Failure,
+				Message:            err.Error(),
+				ObservedGeneration: instance.Generation,
+			})
 	}
 
 	// try to discover existing config and clear them out

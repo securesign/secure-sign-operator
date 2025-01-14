@@ -25,7 +25,6 @@ import (
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
 
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	actions2 "github.com/securesign/operator/internal/controller/ctlog/actions"
 	"github.com/securesign/operator/internal/controller/labels"
@@ -155,9 +154,16 @@ var _ = Describe("TUF controller", func() {
 				labels.LabelNamespace + "/ctfe.pub": "public",
 			}
 			maps.Copy(secretLabels, labels.For(actions2.ComponentName, actions2.ComponentName, actions2.ComponentName))
-			_ = k8sClient.Create(ctx, kubernetes.CreateSecret("ctlog-test", typeNamespaceName.Namespace, map[string][]byte{
-				"public": []byte("secret"),
-			}, secretLabels))
+			_ = k8sClient.Create(ctx, &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ctlog-test",
+					Namespace: typeNamespaceName.Namespace,
+					Labels:    secretLabels,
+				},
+				Data: map[string][]byte{
+					"public": []byte("secret"),
+				},
+			})
 
 			By("Waiting until Tuf init job is created")
 			initJob := &batchv1.Job{}

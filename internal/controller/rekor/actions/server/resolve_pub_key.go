@@ -12,9 +12,11 @@ import (
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
+	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -92,30 +94,33 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 
 	// Create new secret with public key
 	const keyName = "public"
-	labels := labels.For(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
-	labels[RekorPubLabel] = keyName
+	componentLabels := labels.For(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
+	keyLabels := map[string]string{RekorPubLabel: keyName}
+	anno := map[string]string{annotations.TreeId: strconv.FormatInt(ptr.Deref(instance.Status.TreeID, 0), 10)}
 
-	newConfig := k8sutils.CreateImmutableSecret(
-		fmt.Sprintf(pubSecretNameFormat, instance.Name),
-		instance.Namespace,
-		map[string][]byte{
-			keyName: publicKey,
+	newConfig := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: fmt.Sprintf(pubSecretNameFormat, instance.Name),
+			Namespace:    instance.Namespace,
 		},
-		labels)
-
-	if newConfig.Annotations == nil {
-		newConfig.Annotations = make(map[string]string)
 	}
-	newConfig.Annotations[annotations.TreeId] = strconv.FormatInt(ptr.Deref(instance.Status.TreeID, 0), 10)
 
-	if err = i.Client.Create(ctx, newConfig); err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.ServerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, err, instance)
+	if _, err = k8sutils.CreateOrUpdate(ctx, i.Client,
+		newConfig,
+		ensure.Labels[*v1.Secret](maps.Keys(componentLabels), componentLabels),
+		ensure.Labels[*v1.Secret](maps.Keys(keyLabels), keyLabels),
+		ensure.Annotations[*v1.Secret](maps.Keys(anno), anno),
+		k8sutils.EnsureSecretData(true, map[string][]byte{
+			keyName: publicKey,
+		}),
+	); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create Server config: %w", err), instance,
+			metav1.Condition{
+				Type:    actions.ServerCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			})
 	}
 
 	i.Recorder.Eventf(instance, v1.EventTypeNormal, "PublicKeySecretCreated", "New Rekor public key created: %s", newConfig.Name)
