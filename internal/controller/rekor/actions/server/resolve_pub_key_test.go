@@ -112,11 +112,18 @@ func TestResolvePubKey_Handle(t *testing.T) {
 			name: "remove label from old secret",
 			env: env{
 				objects: []client.Object{
-					kubernetes.CreateSecret("old-secret", "default", map[string][]byte{
-						"public": testPublicKey2,
-					}, map[string]string{
-						RekorPubLabel: "public",
-					}),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "old-secret",
+							Namespace: "default",
+							Labels: map[string]string{
+								RekorPubLabel: "public",
+							},
+						},
+						Data: map[string][]byte{
+							"public": testPublicKey2,
+						},
+					},
 				},
 			},
 			want: want{
@@ -128,11 +135,18 @@ func TestResolvePubKey_Handle(t *testing.T) {
 			name: "use existing secret",
 			env: env{
 				objects: []client.Object{
-					kubernetes.CreateSecret("secret", "default", map[string][]byte{
-						"public": testPublicKey,
-					}, map[string]string{
-						RekorPubLabel: "public",
-					}),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+							Labels: map[string]string{
+								RekorPubLabel: "public",
+							},
+						},
+						Data: map[string][]byte{
+							"public": testPublicKey,
+						},
+					},
 				},
 			},
 			want: want{
@@ -144,21 +158,42 @@ func TestResolvePubKey_Handle(t *testing.T) {
 			name: "remove label from old secret and use existing secret",
 			env: env{
 				objects: []client.Object{
-					kubernetes.CreateSecret("old-secret-1", "default", map[string][]byte{
-						"public": testPublicKey2,
-					}, map[string]string{
-						RekorPubLabel: "public",
-					}),
-					kubernetes.CreateSecret("secret", "default", map[string][]byte{
-						"public": testPublicKey,
-					}, map[string]string{
-						RekorPubLabel: "public",
-					}),
-					kubernetes.CreateSecret("old-secret-2", "default", map[string][]byte{
-						"public": testPublicKey2,
-					}, map[string]string{
-						RekorPubLabel: "public",
-					}),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "old-secret-1",
+							Namespace: "default",
+							Labels: map[string]string{
+								RekorPubLabel: "public",
+							},
+						},
+						Data: map[string][]byte{
+							"public": testPublicKey2,
+						},
+					},
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+							Labels: map[string]string{
+								RekorPubLabel: "public",
+							},
+						},
+						Data: map[string][]byte{
+							"public": testPublicKey,
+						},
+					},
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "old-secret-2",
+							Namespace: "default",
+							Labels: map[string]string{
+								RekorPubLabel: "public",
+							},
+						},
+						Data: map[string][]byte{
+							"public": testPublicKey2,
+						},
+					},
 				},
 			},
 			want: want{

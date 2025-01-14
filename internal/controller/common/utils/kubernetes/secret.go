@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 
+	"github.com/securesign/operator/internal/controller/common/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -14,30 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-func CreateSecret(name string, namespace string, data map[string][]byte, labels map[string]string) *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    labels,
-		},
-		Data: data,
-	}
-}
-
-func CreateImmutableSecret(namePrefix string, namespace string, data map[string][]byte, labels map[string]string) *corev1.Secret {
-	immutable := true
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: namePrefix,
-			Namespace:    namespace,
-			Labels:       labels,
-		},
-		Data:      data,
-		Immutable: &immutable,
-	}
-}
 
 func GetSecret(client client.Client, namespace, secretName string) (*corev1.Secret, error) {
 	var secret corev1.Secret
@@ -114,4 +92,19 @@ func ListSecrets(ctx context.Context, c client.Client, namespace string, labelSe
 	}
 	return list, nil
 
+}
+
+func EnsureSecretData(immutable bool, data map[string][]byte) func(secret *corev1.Secret) error {
+	return func(instance *corev1.Secret) error {
+		switch {
+		case !utils.OptionalBool(instance.Immutable):
+		case !reflect.DeepEqual(instance.Data, data):
+			return fmt.Errorf("can't update immutable Secret data")
+		case utils.OptionalBool(instance.Immutable) && !immutable:
+			return fmt.Errorf("can't make update Secret mutability")
+		}
+		instance.Immutable = utils.Pointer(immutable)
+		instance.Data = data
+		return nil
+	}
 }

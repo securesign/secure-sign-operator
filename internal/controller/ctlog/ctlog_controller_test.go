@@ -126,10 +126,14 @@ var _ = Describe("CTlog controller", func() {
 			}).Should(Equal(constants.Creating))
 
 			By("Creating fulcio root cert")
-			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("test", Namespace,
-				map[string][]byte{"cert": []byte("fakeCert")},
-				map[string]string{fulcio.FulcioCALabel: "cert"},
-			))).To(Succeed())
+			Expect(k8sClient.Create(ctx, &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: Namespace,
+					Labels:    map[string]string{fulcio.FulcioCALabel: "cert"},
+				},
+				Data: map[string][]byte{"cert": []byte("fakeCert")},
+			})).To(Succeed())
 
 			Eventually(func(g Gomega) string {
 				found := &v1alpha1.CTlog{}

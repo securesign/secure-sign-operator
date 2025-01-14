@@ -208,11 +208,17 @@ func TestServerConfig_Handle(t *testing.T) {
 					PublicKeyRef:  &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "public"},
 				},
 				objects: []client.Object{
-					kubernetes.CreateSecret("secret", "default", map[string][]byte{
-						"cert":    cert,
-						"private": privateKey,
-						"public":  publicKey,
-					}, map[string]string{}),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"cert":    cert,
+							"private": privateKey,
+							"public":  publicKey,
+						},
+					},
 				},
 			},
 			want: want{
@@ -259,11 +265,17 @@ func TestServerConfig_Handle(t *testing.T) {
 					PrivateKeyPasswordRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "password"},
 				},
 				objects: []client.Object{
-					kubernetes.CreateSecret("secret", "default", map[string][]byte{
-						"cert":    cert,
-						"private": privateKey,
-						"public":  publicKey,
-					}, map[string]string{}),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"cert":    cert,
+							"private": privateKey,
+							"public":  publicKey,
+						},
+					},
 				},
 			},
 			want: want{
@@ -295,11 +307,17 @@ func TestServerConfig_Handle(t *testing.T) {
 					PublicKeyRef:  &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "public"},
 				},
 				objects: []client.Object{
-					kubernetes.CreateSecret("secret", "default", map[string][]byte{
-						"cert":    cert,
-						"private": privateKey,
-						"public":  publicKey,
-					}, map[string]string{}),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"cert":    cert,
+							"private": privateKey,
+							"public":  publicKey,
+						},
+					},
 				},
 			},
 			want: want{
@@ -331,11 +349,17 @@ func TestServerConfig_Handle(t *testing.T) {
 					PublicKeyRef:  &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "public"},
 				},
 				objects: []client.Object{
-					kubernetes.CreateSecret("secret", "default", map[string][]byte{
-						"cert":    cert,
-						"private": privateKey,
-						"public":  publicKey,
-					}, map[string]string{}),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"cert":    cert,
+							"private": privateKey,
+							"public":  publicKey,
+						},
+					},
 
 					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
@@ -378,14 +402,26 @@ func TestServerConfig_Handle(t *testing.T) {
 					PublicKeyRef:  &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "public"},
 				},
 				objects: []client.Object{
-					kubernetes.CreateSecret("secret", "default", map[string][]byte{
-						"cert":    cert,
-						"private": privateKey,
-						"public":  publicKey,
-					}, map[string]string{}),
-					kubernetes.CreateSecret("new", "default", map[string][]byte{
-						"cert": cert,
-					}, map[string]string{}),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"cert":    cert,
+							"private": privateKey,
+							"public":  publicKey,
+						},
+					},
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "new",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"cert": cert,
+						},
+					},
 
 					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
@@ -496,14 +532,24 @@ func TestServerConfig_Update(t *testing.T) {
 					},
 				},
 				objects: []client.Object{
-					kubernetes.CreateSecret("secret", "default", map[string][]byte{
-						"cert":     cert,
-						"private":  privateKey,
-						"public":   publicKey,
-						"password": []byte("secure"),
-					}, map[string]string{}),
-					kubernetes.CreateSecret("old_secret", "default",
-						errors.IgnoreError(ctlogUtils.CreateCtlogConfig(
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"cert":     cert,
+							"private":  privateKey,
+							"public":   publicKey,
+							"password": []byte("secure"),
+						},
+					},
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "old_secret",
+							Namespace: "default",
+						},
+						Data: errors.IgnoreError(ctlogUtils.CreateCtlogConfig(
 							"trillian-logserver.default.svc:80",
 							654321,
 							[]ctlogUtils.RootCertificate{cert},
@@ -512,7 +558,7 @@ func TestServerConfig_Update(t *testing.T) {
 								PublicKey:      publicKey,
 								PrivateKeyPass: []byte("secure"),
 							})),
-						map[string]string{}),
+					},
 				},
 			},
 			want: want{
@@ -561,8 +607,12 @@ func TestServerConfig_Update(t *testing.T) {
 					},
 				},
 				objects: []client.Object{
-					kubernetes.CreateSecret("custom_config", "default",
-						errors.IgnoreError(ctlogUtils.CreateCtlogConfig(
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "custom_config",
+							Namespace: "default",
+						},
+						Data: errors.IgnoreError(ctlogUtils.CreateCtlogConfig(
 							"trillian-logserver.custom.svc:80",
 							9999999,
 							[]ctlogUtils.RootCertificate{cert},
@@ -571,7 +621,7 @@ func TestServerConfig_Update(t *testing.T) {
 								PublicKey:      publicKey,
 								PrivateKeyPass: []byte("secure"),
 							})),
-						map[string]string{}),
+					},
 				},
 			},
 			want: want{

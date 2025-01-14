@@ -11,9 +11,11 @@ import (
 	"github.com/securesign/operator/internal/controller/common"
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/controller/labels"
+	"golang.org/x/exp/maps"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -25,6 +27,14 @@ import (
 const (
 	FulcioCALabel = labels.LabelNamespace + "/fulcio_v1.crt.pem"
 )
+
+var managedAnnotations = []string{
+	labels.LabelNamespace + "/commonName",
+	labels.LabelNamespace + "/organizationEmail",
+	labels.LabelNamespace + "/organizationName",
+	labels.LabelNamespace + "/privateKeyRef",
+	labels.LabelNamespace + "/passwordKeyRef",
+}
 
 func NewHandleCertAction() action.Action[*v1alpha1.Fulcio] {
 	return &handleCert{}
@@ -154,26 +164,32 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 		return g.Requeue()
 	}
 
-	secretLabels := labels.For(ComponentName, DeploymentName, instance.Name)
-	secretLabels[FulcioCALabel] = "cert"
-	newCert := k8sutils.CreateImmutableSecret(fmt.Sprintf("fulcio-cert-%s", instance.Name), instance.Namespace, cert.ToData(), secretLabels)
-	newCert.Annotations = g.certMatchingAnnotations(instance)
+	componentLabels := labels.For(ComponentName, DeploymentName, instance.Name)
+	keyLabels := map[string]string{FulcioCALabel: "cert"}
+	annotations := g.certMatchingAnnotations(instance)
 
-	if _, err := g.Ensure(ctx, newCert); err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    CertCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return g.FailedWithStatusUpdate(ctx, err, instance)
+	newCert := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: fmt.Sprintf("fulcio-cert-%s", instance.Name),
+			Namespace:    instance.Namespace,
+		},
 	}
+	if _, err = k8sutils.CreateOrUpdate(ctx, g.Client,
+		newCert,
+		ensure.Labels[*v1.Secret](maps.Keys(componentLabels), componentLabels),
+		ensure.Labels[*v1.Secret](maps.Keys(keyLabels), keyLabels),
+		ensure.Annotations[*v1.Secret](managedAnnotations, annotations),
+		k8sutils.EnsureSecretData(true, cert.ToData()),
+	); err != nil {
+		return g.Error(ctx, fmt.Errorf("can't generate certificate secret: %w", err), instance,
+			metav1.Condition{
+				Type:    CertCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			})
+	}
+
 	g.Recorder.Event(instance, v1.EventTypeNormal, "FulcioCertUpdated", "Fulcio certificate secret updated")
 
 	g.alignStatusFields(newCert, instance)

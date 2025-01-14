@@ -150,9 +150,16 @@ var _ = Describe("Fulcio controller", func() {
 			}).Should(Equal(constants.Pending))
 
 			By("Creating password secret with cert password")
-			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("password-secret", typeNamespaceName.Namespace, map[string][]byte{
-				"password": []byte("secret"),
-			}, labels.ForComponent(actions.ComponentName, instance.Name)))).To(Succeed())
+			Expect(k8sClient.Create(ctx, &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "password-secret",
+					Namespace: typeNamespaceName.Namespace,
+					Labels:    labels.ForComponent(actions.ComponentName, instance.Name),
+				},
+				Data: map[string][]byte{
+					"password": []byte("secret"),
+				},
+			})).To(Succeed())
 
 			By("Secrets are resolved")
 			var certSecretPartialObject *metav1.PartialObjectMetadata

@@ -30,3 +30,8 @@ const (
 	privateKeyRefAnnotation  = labels.LabelNamespace + "/privateKeyRef"
 	passwordKeyRefAnnotation = labels.LabelNamespace + "/passwordKeyRef"
 )
+
+var (
+	ManagedLabels      = []string{CTLogPrivateLabel, CTLPubLabel}
+	ManagedAnnotations = []string{privateKeyRefAnnotation, passwordKeyRefAnnotation}
+)

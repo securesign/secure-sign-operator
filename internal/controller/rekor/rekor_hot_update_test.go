@@ -205,7 +205,14 @@ var _ = Describe("Rekor hot update test", func() {
 			}).Should(Succeed())
 
 			By("Move to CreatingPhase by creating trillian service")
-			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("key-secret", Namespace, map[string][]byte{"private": []byte("fake")}, labels.For(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)))).To(Succeed())
+			Expect(k8sClient.Create(ctx, &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "key-secret",
+					Namespace: Namespace,
+					Labels:    labels.For(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name),
+				},
+				Data: map[string][]byte{"private": []byte("fake")},
+			})).To(Succeed())
 
 			httpmock.SetMockTransport(http.DefaultClient, map[string]httpmock.RoundTripFunc{
 				"http://rekor-server." + Namespace + ".svc/api/v1/log/publicKey": func(req *http.Request) *http.Response {

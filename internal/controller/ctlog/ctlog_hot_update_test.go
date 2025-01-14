@@ -118,10 +118,14 @@ var _ = Describe("CTlog update test", func() {
 			Expect(k8sClient.Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, trillian.ServerPort, labels.ForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
 
 			By("Creating fulcio root cert")
-			fulcioCa := kubernetes.CreateSecret("test", Namespace,
-				map[string][]byte{"cert": []byte("fakeCert")},
-				map[string]string{fulcio.FulcioCALabel: "cert"},
-			)
+			fulcioCa := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: Namespace,
+					Labels:    map[string]string{fulcio.FulcioCALabel: "cert"},
+				},
+				Data: map[string][]byte{"cert": []byte("fakeCert")},
+			}
 			Expect(k8sClient.Create(ctx, fulcioCa)).To(Succeed())
 
 			deployment := &appsv1.Deployment{}
@@ -148,10 +152,14 @@ var _ = Describe("CTlog update test", func() {
 			})
 			Expect(k8sClient.Update(ctx, fulcioCa)).To(Succeed())
 
-			fulcioCa = kubernetes.CreateSecret("test2", Namespace,
-				map[string][]byte{"cert": []byte("fakeCert2")},
-				map[string]string{fulcio.FulcioCALabel: "cert"},
-			)
+			fulcioCa = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test2",
+					Namespace: Namespace,
+					Labels:    map[string]string{fulcio.FulcioCALabel: "cert"},
+				},
+				Data: map[string][]byte{"cert": []byte("fakeCert2")},
+			}
 			Expect(k8sClient.Create(ctx, fulcioCa)).To(Succeed())
 
 			By("CA has changed in status field")
@@ -183,8 +191,14 @@ var _ = Describe("CTlog update test", func() {
 			By("Private key has changed")
 			key, err := utils.CreatePrivateKey(nil)
 			Expect(err).To(Not(HaveOccurred()))
-			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("key-secret", Namespace,
-				map[string][]byte{"private": key.PrivateKey, "password": key.PrivateKeyPass}, labels.For(actions.ComponentName, Name, instance.Name)))).To(Succeed())
+			Expect(k8sClient.Create(ctx, &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "key-secret",
+					Namespace: Namespace,
+					Labels:    labels.For(actions.ComponentName, Name, instance.Name),
+				},
+				Data: map[string][]byte{"private": key.PrivateKey, "password": key.PrivateKeyPass},
+			})).To(Succeed())
 
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
 			found := &v1alpha1.CTlog{}
