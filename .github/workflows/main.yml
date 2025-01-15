@@ -27,11 +27,8 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Replace images
-        run: make dev-images && cat internal/images/images.env
-
       - name: Build operator container
-        run: make docker-build docker-push
+        run: QUAI_IMAGES=true make docker-build docker-push
 
       - name: Save container image
         run: podman save -o /tmp/operator-oci.tar --format oci-archive $IMG
@@ -50,11 +47,8 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Replace images
-        run: make dev-images && cat internal/images/images.env
-
       - name: Build operator bundle
-        run: make bundle bundle-build bundle-push
+        run: QUAI_IMAGES=true make bundle bundle-build bundle-push
 
       - name: Save container image
         run: podman save -o /tmp/bundle-oci.tar --format oci-archive $BUNDLE_IMG
@@ -275,11 +269,8 @@ jobs:
       - name: Install cosign
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.4.0
 
-      - name: Replace images
-        run: make dev-images && cat internal/images/images.env
-
       - name: Run tests
-        run: make test-e2e
+        run: QUAI_IMAGES=true make test-e2e
 
       - name: Archive test artifacts
         uses: actions/upload-artifact@v4
@@ -401,14 +392,12 @@ jobs:
       - name: Install cosign
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.4.0
 
-      - name: Replace images
-        run: make dev-images && cat internal/images/images.env
-
       - name: Run tests
         env:
           TEST_BASE_CATALOG: registry.redhat.io/redhat/redhat-operator-index:v4.14
           TEST_TARGET_CATALOG: ${{ env.CATALOG_IMG }}
           OPENSHIFT: false
+          QUAI_IMAGES: true
         run: go test -p 1 ./test/e2e/... -tags=upgrade -timeout 20m
 
       - name: Archive test artifacts
@@ -476,13 +465,11 @@ jobs:
         run: |
           sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local rekor-search-ui.local cli-server.local" | sudo tee -a /etc/hosts
 
-      - name: Replace images
-        run: make dev-images && cat internal/images/images.env
-
       - name: Run tests
         env:
           TEST_MANAGER_IMAGE: ${{ env.IMG }}
           OPENSHIFT: false
+          QUAI_IMAGES: true
         run: make install && go test ./test/e2e/... -tags=custom_install -p 1 -timeout 20m
 
       - name: Archive test artifacts

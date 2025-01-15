@@ -90,6 +90,9 @@ ifeq ($(OPENSHIFT), true)
 CONFIG_DEFAULT=config/env/openshift
 endif
 
+QUAI_IMAGES ?= false
+LDFLAGS ?= $(shell hack/ldflags.sh)
+
 .PHONY: all
 all: build
 
@@ -137,15 +140,6 @@ test: manifests generate fmt vet envtest ## Run tests.
 test-e2e:
 	go test -p 1 ./test/e2e/... -tags=integration -timeout 20m
 
-# Switch images from `registry.redhat.io` images to the dev images
-.PHONY: dev-images
-dev-images:
-	@if [ "$(shell uname)" = "Darwin" ]; then \
-		sed -E -i '' -f ci/dev-images.sed internal/images/images.env; \
-	else \
-		sed -E -i -f ci/dev-images.sed internal/images/images.env; \
-	fi
-
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter & yamllint
 	$(GOLANGCI_LINT) run
@@ -158,7 +152,7 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
-	go build -o bin/manager cmd/main.go
+	go build --ldflags="${LDFLAGS}" -o bin/manager cmd/main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
@@ -200,7 +194,7 @@ docker-buildx: ## Build and push docker image for the manager for cross-platform
 build-installer: manifests generate kustomize ## Generate a consolidated YAML with CRDs and deployment.
 	mkdir -p dist
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build ${CONFIG_DEFAULT} | hack/process_manifest.sh internal/images/images.env > dist/install.yaml
+	$(KUSTOMIZE) build ${CONFIG_DEFAULT} > dist/install.yaml
 
 ##@ Deployment
 
@@ -219,12 +213,12 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build ${CONFIG_DEFAULT} | hack/process_manifest.sh internal/images/images.env | $(KUBECTL) apply -f -
+	$(KUSTOMIZE) build ${CONFIG_DEFAULT} | $(KUBECTL) apply -f -
 
 
 .PHONY: undeploy
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-	$(KUSTOMIZE) build ${CONFIG_DEFAULT} | hack/process_manifest.sh internal/images/images.env | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
+	$(KUSTOMIZE) build ${CONFIG_DEFAULT} | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 ##@ Dependencies
 
@@ -301,7 +295,7 @@ endif
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | hack/process_manifest.sh internal/images/images.env | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
+	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 	$(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: bundle-build

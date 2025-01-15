@@ -34,21 +34,28 @@ const (
 	ClientServer  Image = "RELATED_IMAGE_CLIENT_SERVER"
 )
 
-//go:embed images.env
-var configFile string
-
 var Registry registry
 
 func init() {
-	data, err := parseConfigFile(configFile)
-	if err != nil {
-		panic(err)
-	}
-
 	Registry = registry{
-		data: data,
+		data: map[Image]string{
+			TrillianLogSigner:  RELATED_IMAGE_TRILLIAN_LOG_SIGNER,
+			TrillianServer:     RELATED_IMAGE_TRILLIAN_LOG_SERVER,
+			TrillianDb:         RELATED_IMAGE_TRILLIAN_DB,
+			TrillianNetcat:     RELATED_IMAGE_TRILLIAN_NETCAT,
+			FulcioServer:       RELATED_IMAGE_FULCIO_SERVER,
+			RekorRedis:         RELATED_IMAGE_REKOR_REDIS,
+			RekorServer:        RELATED_IMAGE_REKOR_SERVER,
+			RekorSearchUi:      RELATED_IMAGE_REKOR_SEARCH_UI,
+			BackfillRedis:      RELATED_IMAGE_BACKFILL_REDIS,
+			Tuf:                RELATED_IMAGE_TUF,
+			CTLog:              RELATED_IMAGE_CTLOG,
+			HttpServer:         RELATED_IMAGE_HTTP_SERVER,
+			SegmentBackup:      RELATED_IMAGE_SEGMENT_REPORTING,
+			TimestampAuthority: RELATED_IMAGE_TIMESTAMP_AUTHORITY,
+			ClientServer:       RELATED_IMAGE_CLIENT_SERVER,
+		},
 	}
-
 }
 
 // parseConfigFile parses an embedded `.env` content and returns a map of key-value pairs.
