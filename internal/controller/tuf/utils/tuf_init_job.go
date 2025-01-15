@@ -5,8 +5,8 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/constants"
 	constants2 "github.com/securesign/operator/internal/controller/tuf/constants"
+	"github.com/securesign/operator/internal/images"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
@@ -60,7 +60,7 @@ func EnsureTufInitJob(instance *rhtasv1alpha1.Tuf, sa string, labels map[string]
 		}
 		// init containers
 		container := kubernetes.FindContainerByNameOrCreate(templateSpec, "tuf-init")
-		container.Image = constants.TufImage
+		container.Image = images.Registry.Get(images.Tuf)
 		env := kubernetes.FindEnvByNameOrCreate(container, "NAMESPACE")
 		env.Value = instance.Namespace
 		container.Args = args

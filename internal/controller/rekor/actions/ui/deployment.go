@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/securesign/operator/internal/images"
+
 	"github.com/securesign/operator/internal/controller/common/action"
 	commonutils "github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
@@ -93,7 +95,7 @@ func (i deployAction) ensureUIDeployment(instance *rhtasv1alpha1.Rekor, sa strin
 		template.Spec.ServiceAccountName = sa
 
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, actions.SearchUiDeploymentName)
-		container.Image = constants.RekorSearchUiImage
+		container.Image = images.Registry.Get(images.RekorSearchUi)
 
 		env := kubernetes.FindEnvByNameOrCreate(container, "NEXT_PUBLIC_REKOR_DEFAULT_DOMAIN")
 		env.Value = instance.Status.Url

@@ -4,10 +4,11 @@ import (
 	"errors"
 	"strconv"
 
+	"github.com/securesign/operator/internal/images"
+
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -31,7 +32,7 @@ func EnsureServerDeployment(instance *v1alpha1.Trillian, image string, name stri
 		template.Spec.ServiceAccountName = sa
 
 		initContainer := kubernetes.FindInitContainerByNameOrCreate(&template.Spec, "wait-for-trillian-db")
-		initContainer.Image = constants.TrillianNetcatImage
+		initContainer.Image = images.Registry.Get(images.TrillianNetcat)
 
 		hostnameEnv := kubernetes.FindEnvByNameOrCreate(initContainer, "MYSQL_HOSTNAME")
 		hostnameEnv.ValueFrom = &core.EnvVarSource{

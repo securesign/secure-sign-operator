@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -9,10 +10,9 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/images"
 	"golang.org/x/exp/maps"
 	batchv1 "k8s.io/api/batch/v1"
-
-	"context"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -97,7 +97,7 @@ func (i segmentBackupJob) ensureSegmentBackupJob() func(*batchv1.Job) error {
 		templateSpec.RestartPolicy = "OnFailure"
 
 		container := kubernetes.FindContainerByNameOrCreate(templateSpec, SegmentBackupJobName)
-		container.Image = constants.SegmentBackupImage
+		container.Image = images.Registry.Get(images.SegmentBackup)
 		container.Command = []string{"python3", "/opt/app-root/src/src/script.py"}
 
 		runTypeEnv := kubernetes.FindEnvByNameOrCreate(container, "RUN_TYPE")

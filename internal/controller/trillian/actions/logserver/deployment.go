@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/securesign/operator/internal/images"
+
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
@@ -57,7 +59,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 				Namespace: instance.Namespace,
 			},
 		},
-		trillianUtils.EnsureServerDeployment(insCopy, constants.TrillianServerImage, actions.LogserverDeploymentName, actions.RBACName, labels),
+		trillianUtils.EnsureServerDeployment(insCopy, images.Registry.Get(images.TrillianServer), actions.LogserverDeploymentName, actions.RBACName, labels),
 		ensure.ControllerReference[*apps.Deployment](insCopy, i.Client),
 		ensure.Labels[*apps.Deployment](maps.Keys(labels), labels),
 		ensure.Proxy(),

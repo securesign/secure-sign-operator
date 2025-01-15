@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/securesign/operator/internal/images"
+
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	cutils "github.com/securesign/operator/internal/controller/common/utils"
@@ -118,7 +120,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.CTlog, sa string,
 		volume.Secret.SecretName = instance.Status.ServerConfigRef.Name
 
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, containerName)
-		container.Image = constants.CTLogImage
+		container.Image = images.Registry.Get(images.CTLog)
 
 		serverPort := kubernetes.FindPortByNameOrCreate(container, "server")
 		serverPort.ContainerPort = ServerTargetPort
