@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/securesign/operator/internal/images"
+
 	"github.com/securesign/operator/internal/controller/annotations"
 	cutils "github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
@@ -116,7 +118,7 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 		template.Spec.ServiceAccountName = sa
 
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, actions.ServerDeploymentName)
-		container.Image = constants.RekorServerImage
+		container.Image = images.Registry.Get(images.RekorServer)
 
 		args := []string{
 			"serve",

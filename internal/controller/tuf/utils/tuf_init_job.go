@@ -3,10 +3,11 @@ package utils
 import (
 	"path/filepath"
 
+	"github.com/securesign/operator/internal/images"
+
 	"github.com/operator-framework/operator-lib/proxy"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/constants"
 	constants2 "github.com/securesign/operator/internal/controller/tuf/constants"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
@@ -70,7 +71,7 @@ func CreateTufInitJob(instance *rhtasv1alpha1.Tuf, sa string, labels map[string]
 		}
 		// init containers
 		container := kubernetes.FindContainerByNameOrCreate(templateSpec, "tuf-init")
-		container.Image = constants.TufImage
+		container.Image = images.Registry.Get(images.Tuf)
 		container.Env = env
 		container.Args = args
 		container.VolumeMounts = []v1.VolumeMount{

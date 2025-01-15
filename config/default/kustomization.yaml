@@ -15,27 +15,201 @@ namePrefix: rhtas-
 #commonLabels:
 #  someName: someValue
 
-resources:
-- ../crd
-- ../rbac
-- ../manager
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
 # crd/kustomization.yaml
 #- ../webhook
 # [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER'. 'WEBHOOK' components are required.
 #- ../certmanager
 # [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
+resources:
+- ../crd
+- ../rbac
+- ../manager
 - ../prometheus
 
 patches:
-  - path: manager_openshift_patch.yaml
-    target:
+- path: manager_metrics_patch.yaml
+  target:
+    kind: Deployment
+    name: operator-controller-manager
+- path: manager_images_patch.yaml
+  target:
+    kind: Deployment
+    name: operator-controller-manager
+
+configMapGenerator:
+- behavior: create
+  envs:
+  - images.env
+  name: related-images
+
+replacements:
+- source:
+    fieldPath: data.RELATED_IMAGE_TRILLIAN_LOG_SIGNER
+    kind: ConfigMap
+    name: related-images
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=^manager$].env.[name=^RELATED_IMAGE_TRILLIAN_LOG_SIGNER$].value
+    select:
       kind: Deployment
       name: operator-controller-manager
-  - path: manager_metrics_patch.yaml
-    target:
+- source:
+    fieldPath: data.RELATED_IMAGE_TRILLIAN_LOG_SERVER
+    kind: ConfigMap
+    name: related-images
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=^manager$].env.[name=^RELATED_IMAGE_TRILLIAN_LOG_SERVER$].value
+    select:
       kind: Deployment
       name: operator-controller-manager
+- source:
+    fieldPath: data.RELATED_IMAGE_TRILLIAN_DB
+    kind: ConfigMap
+    name: related-images
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=^manager$].env.[name=^RELATED_IMAGE_TRILLIAN_DB$].value
+    select:
+      kind: Deployment
+      name: operator-controller-manager
+- source:
+    fieldPath: data.RELATED_IMAGE_TRILLIAN_NETCAT
+    kind: ConfigMap
+    name: related-images
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=^manager$].env.[name=^RELATED_IMAGE_TRILLIAN_NETCAT$].value
+    select:
+      kind: Deployment
+      name: operator-controller-manager
+- source:
+    fieldPath: data.RELATED_IMAGE_FULCIO_SERVER
+    kind: ConfigMap
+    name: related-images
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=^manager$].env.[name=^RELATED_IMAGE_FULCIO_SERVER$].value
+    select:
+      kind: Deployment
+      name: operator-controller-manager
+- source:
+    fieldPath: data.RELATED_IMAGE_REKOR_REDIS
+    kind: ConfigMap
+    name: related-images
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=^manager$].env.[name=^RELATED_IMAGE_REKOR_REDIS$].value
+    select:
+      kind: Deployment
+      name: operator-controller-manager
+- source:
+    fieldPath: data.RELATED_IMAGE_REKOR_SERVER
+    kind: ConfigMap
+    name: related-images
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=^manager$].env.[name=^RELATED_IMAGE_REKOR_SERVER$].value
+    select:
+      kind: Deployment
+      name: operator-controller-manager
+- source:
+    fieldPath: data.RELATED_IMAGE_REKOR_SEARCH_UI
+    kind: ConfigMap
+    name: related-images
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=^manager$].env.[name=^RELATED_IMAGE_REKOR_SEARCH_UI$].value
+    select:
+      kind: Deployment
+      name: operator-controller-manager
+- source:
+    fieldPath: data.RELATED_IMAGE_BACKFILL_REDIS
+    kind: ConfigMap
+    name: related-images
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=^manager$].env.[name=^RELATED_IMAGE_BACKFILL_REDIS$].value
+    select:
+      kind: Deployment
+      name: operator-controller-manager
+- source:
+    fieldPath: data.RELATED_IMAGE_TUF
+    kind: ConfigMap
+    name: related-images
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=^manager$].env.[name=^RELATED_IMAGE_TUF$].value
+    select:
+      kind: Deployment
+      name: operator-controller-manager
+- source:
+    fieldPath: data.RELATED_IMAGE_CTLOG
+    kind: ConfigMap
+    name: related-images
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=^manager$].env.[name=^RELATED_IMAGE_CTLOG$].value
+    select:
+      kind: Deployment
+      name: operator-controller-manager
+- source:
+    fieldPath: data.RELATED_IMAGE_HTTP_SERVER
+    kind: ConfigMap
+    name: related-images
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=^manager$].env.[name=^RELATED_IMAGE_HTTP_SERVER$].value
+    select:
+      kind: Deployment
+      name: operator-controller-manager
+- source:
+    fieldPath: data.RELATED_IMAGE_SEGMENT_REPORTING
+    kind: ConfigMap
+    name: related-images
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=^manager$].env.[name=^RELATED_IMAGE_SEGMENT_REPORTING$].value
+    select:
+      kind: Deployment
+      name: operator-controller-manager
+- source:
+    fieldPath: data.RELATED_IMAGE_TIMESTAMP_AUTHORITY
+    kind: ConfigMap
+    name: related-images
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=^manager$].env.[name=^RELATED_IMAGE_TIMESTAMP_AUTHORITY$].value
+    select:
+      kind: Deployment
+      name: operator-controller-manager
+- source:
+    fieldPath: data.RELATED_IMAGE_CLIENT_SERVER
+    kind: ConfigMap
+    name: related-images
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=^manager$].env.[name=^RELATED_IMAGE_CLIENT_SERVER$].value
+    select:
+      kind: Deployment
+      name: operator-controller-manager
+
 # Protect the /metrics endpoint by putting it behind auth.
 # If you want your controller-manager to expose the /metrics
 # endpoint w/o any authn/z, please comment the following line.

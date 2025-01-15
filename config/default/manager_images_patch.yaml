@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name:  operator-controller-manager
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          env:
+            - name: RELATED_IMAGE_TRILLIAN_LOG_SIGNER
+              value: PLACEHOLDER
+            - name: RELATED_IMAGE_TRILLIAN_LOG_SERVER
+              value: PLACEHOLDER
+            - name: RELATED_IMAGE_TRILLIAN_DB
+              value: PLACEHOLDER
+            - name: RELATED_IMAGE_TRILLIAN_NETCAT
+              value: PLACEHOLDER
+            - name: RELATED_IMAGE_FULCIO_SERVER
+              value: PLACEHOLDER
+            - name: RELATED_IMAGE_REKOR_REDIS
+              value: PLACEHOLDER
+            - name: RELATED_IMAGE_REKOR_SERVER
+              value: PLACEHOLDER
+            - name: RELATED_IMAGE_REKOR_SEARCH_UI
+              value: PLACEHOLDER
+            - name: RELATED_IMAGE_BACKFILL_REDIS
+              value: PLACEHOLDER
+            - name: RELATED_IMAGE_TUF
+              value: PLACEHOLDER
+            - name: RELATED_IMAGE_CTLOG
+              value: PLACEHOLDER
+            - name: RELATED_IMAGE_HTTP_SERVER
+              value: PLACEHOLDER
+            - name: RELATED_IMAGE_SEGMENT_REPORTING
+              value: PLACEHOLDER
+            - name: RELATED_IMAGE_TIMESTAMP_AUTHORITY
+              value: PLACEHOLDER
+            - name: RELATED_IMAGE_CLIENT_SERVER
+              value: PLACEHOLDER
