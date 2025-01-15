@@ -6,7 +6,7 @@ import (
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils"
-	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/images"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,7 +68,7 @@ func CreateDeployment(instance *v1alpha1.CTlog, deploymentName string, sa string
 					Containers: []corev1.Container{
 						{
 							Name:  "ctlog",
-							Image: constants.CTLogImage,
+							Image: images.Registry.Get(images.CTLog),
 							Args:  appArgs,
 							LivenessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{

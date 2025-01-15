@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/securesign/operator/internal/controller/annotations"
+	"github.com/securesign/operator/internal/images"
 
 	"github.com/robfig/cron/v3"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -78,7 +79,7 @@ func (i segmentBackupCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 							Containers: []corev1.Container{
 								{
 									Name:    SegmentBackupCronJobName,
-									Image:   constants.SegmentBackupImage,
+									Image:   images.Registry.Get(images.SegmentBackup),
 									Command: []string{"python3", "/opt/app-root/src/src/script.py"},
 									Env: []corev1.EnvVar{
 										{

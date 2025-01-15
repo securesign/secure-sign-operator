@@ -3,7 +3,7 @@ package utils
 import (
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils"
-	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/images"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,7 +42,7 @@ func CreateTufDeployment(instance *v1alpha1.Tuf, dpName string, sa string, label
 					Containers: []core.Container{
 						{
 							Name:  "tuf-server",
-							Image: constants.HttpServerImage,
+							Image: images.Registry.Get(images.HttpServer),
 							Ports: []core.ContainerPort{
 								{
 									Protocol:      core.ProtocolTCP,

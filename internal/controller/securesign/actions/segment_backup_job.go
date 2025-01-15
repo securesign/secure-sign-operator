@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/job"
+	"github.com/securesign/operator/internal/images"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/securesign/operator/internal/controller/annotations"
@@ -89,7 +90,7 @@ func (i segmentBackupJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Se
 		i.Logger.Error(err, "unable to retrieve SBJ resource", "namespace", instance.Namespace, "name", SegmentBackupJobName)
 	}
 
-	job := job.CreateJob(instance.Namespace, SegmentBackupJobName, labels, constants.SegmentBackupImage, SegmentRBACName, parallelism, completions, activeDeadlineSeconds, backoffLimit, command, env)
+	job := job.CreateJob(instance.Namespace, SegmentBackupJobName, labels, images.Registry.Get(images.SegmentBackup), SegmentRBACName, parallelism, completions, activeDeadlineSeconds, backoffLimit, command, env)
 	if err = ctrl.SetControllerReference(instance, job, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Job: %w", err))
 	}

@@ -7,8 +7,8 @@ import (
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils"
-	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
+	"github.com/securesign/operator/internal/images"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,7 +54,7 @@ func CreateLogServerDeployment(ctx context.Context, client client.Client, instan
 					InitContainers: []core.Container{
 						{
 							Name:  "wait-for-trillian-db",
-							Image: constants.TrillianNetcatImage,
+							Image: images.Registry.Get(images.TrillianNetcat),
 							Env: []core.EnvVar{
 								{
 									Name: "MYSQL_HOSTNAME",
