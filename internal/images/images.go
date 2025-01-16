@@ -92,10 +92,8 @@ func (r *registry) Get(name Image) string {
 	return r.data[name]
 }
 
-func (r *registry) Setter(name Image) func(string) {
-	return func(s string) {
-		r.mutex.Lock()
-		defer r.mutex.Unlock()
-		r.data[name] = s
-	}
+func (r *registry) Set(name Image, value string) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	r.data[name] = value
 }
