@@ -17,4 +17,4 @@ data:
   RELATED_IMAGE_TUF: registry.redhat.io/rhtas/tuffer-rhel9@sha256:79340be7918034c68a334a210ab872161827c99c2a1551a4fce8d5d27560a234
 kind: ConfigMap
 metadata:
-  name: rhtas-related-images-7tcdf9f446
+  name: rhtas-related-images
