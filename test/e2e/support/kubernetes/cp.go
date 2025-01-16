@@ -84,7 +84,7 @@ type remoteTarPipe struct {
 
 func newRemoteTarPipe(ctx context.Context, pod corev1.Pod, srcPath string) *remoteTarPipe {
 	t := new(remoteTarPipe)
-	t.maxRetries = 10
+	t.maxRetries = 20
 	t.srcPath = srcPath
 	t.pod = pod
 	t.config = controllerruntime.GetConfigOrDie()

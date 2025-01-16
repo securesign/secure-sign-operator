@@ -85,54 +85,45 @@ func (i deployAction) createTufDeployment(instance *rhtasv1alpha1.Tuf, sa string
 		template.Labels = labels
 		template.Spec.ServiceAccountName = sa
 
-		volume := kubernetes.FindVolumeByName(&template.Spec, tufConstants.VolumeName)
-		if volume == nil {
-			template.Spec.Volumes = append(template.Spec.Volumes, core.Volume{Name: tufConstants.VolumeName})
-			volume = &template.Spec.Volumes[len(template.Spec.Volumes)-1]
+		volume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, tufConstants.VolumeName)
+		if volume.PersistentVolumeClaim == nil {
+			volume.PersistentVolumeClaim = &core.PersistentVolumeClaimVolumeSource{}
 		}
-		volume.VolumeSource = core.VolumeSource{
-			PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
-				ClaimName: instance.Status.PvcName,
-			},
-		}
+		volume.PersistentVolumeClaim.ClaimName = instance.Status.PvcName
 
-		container := kubernetes.FindContainerByName(&template.Spec, tufConstants.ContainerName)
-		if container == nil {
-			template.Spec.Containers = append(template.Spec.Containers, core.Container{Name: tufConstants.ContainerName})
-			container = &template.Spec.Containers[len(template.Spec.Containers)-1]
-		}
+		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, tufConstants.ContainerName)
 		container.Image = constants.HttpServerImage
-		container.Ports = []core.ContainerPort{
-			{
-				Protocol:      core.ProtocolTCP,
-				ContainerPort: 8080,
-			},
-		}
 
-		container.VolumeMounts = []core.VolumeMount{
-			{
-				Name:      tufConstants.VolumeName,
-				MountPath: "/var/www/html",
-				// let user upload manual update using `oc rsync` command
-				ReadOnly: false,
-			}}
+		port := kubernetes.FindPortByNameOrCreate(container, tufConstants.PortName)
+		port.ContainerPort = 8080
+		port.Protocol = core.ProtocolTCP
+
+		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, tufConstants.VolumeName)
+		volumeMount.MountPath = "/var/www/html"
+		// let user upload manual update using `oc rsync` command
+		volumeMount.ReadOnly = false
 
 		if container.LivenessProbe == nil {
 			container.LivenessProbe = &core.Probe{}
 		}
+		if container.LivenessProbe.Exec == nil {
+			container.LivenessProbe.Exec = &core.ExecAction{}
+		}
 		// server is running returning any status code (including 403 - noindex.html)
-		container.LivenessProbe.Exec = &core.ExecAction{Command: []string{"curl", "localhost:8080"}}
+		container.LivenessProbe.Exec.Command = []string{"curl", "localhost:8080"}
 		container.LivenessProbe.InitialDelaySeconds = 30
 		container.LivenessProbe.PeriodSeconds = 10
 
 		if container.ReadinessProbe == nil {
 			container.ReadinessProbe = &core.Probe{}
 		}
-		container.ReadinessProbe.HTTPGet = &core.HTTPGetAction{
-			Path:   "/root.json",
-			Port:   intstr.FromInt32(8080),
-			Scheme: "HTTP",
+		if container.ReadinessProbe.HTTPGet == nil {
+			container.ReadinessProbe.HTTPGet = &core.HTTPGetAction{}
 		}
+		container.ReadinessProbe.HTTPGet.Path = "/root.json"
+		container.ReadinessProbe.HTTPGet.Port = intstr.FromInt32(8080)
+		container.ReadinessProbe.HTTPGet.Scheme = "HTTP"
+
 		container.ReadinessProbe.InitialDelaySeconds = 10
 		container.ReadinessProbe.PeriodSeconds = 10
 		container.ReadinessProbe.FailureThreshold = 10

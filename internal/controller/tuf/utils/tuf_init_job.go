@@ -57,31 +57,19 @@ func CreateTufInitJob(instance *rhtasv1alpha1.Tuf, sa string, labels map[string]
 		templateSpec.RestartPolicy = v1.RestartPolicyNever
 
 		// initialize volumes
-		secretsVolume := kubernetes.FindVolumeByName(templateSpec, "tuf-secrets")
-		if secretsVolume == nil {
-			templateSpec.Volumes = append(templateSpec.Volumes, v1.Volume{Name: "tuf-secrets"})
-			secretsVolume = &templateSpec.Volumes[len(templateSpec.Volumes)-1]
-		}
+		secretsVolume := kubernetes.FindVolumeByNameOrCreate(templateSpec, "tuf-secrets")
 		secretsVolume.VolumeSource = v1.VolumeSource{
 			Projected: secretsVolumeProjection(instance.Status.Keys),
 		}
 
-		repositoryVolume := kubernetes.FindVolumeByName(templateSpec, constants2.VolumeName)
-		if repositoryVolume == nil {
-			templateSpec.Volumes = append(templateSpec.Volumes, v1.Volume{Name: constants2.VolumeName})
-			repositoryVolume = &templateSpec.Volumes[len(templateSpec.Volumes)-1]
-		}
+		repositoryVolume := kubernetes.FindVolumeByNameOrCreate(templateSpec, constants2.VolumeName)
 		repositoryVolume.VolumeSource = v1.VolumeSource{
 			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 				ClaimName: instance.Status.PvcName,
 			},
 		}
 		// init containers
-		container := kubernetes.FindContainerByName(templateSpec, "tuf-init")
-		if container == nil {
-			templateSpec.Containers = append(templateSpec.Containers, v1.Container{Name: "tuf-init"})
-			container = &templateSpec.Containers[len(templateSpec.Containers)-1]
-		}
+		container := kubernetes.FindContainerByNameOrCreate(templateSpec, "tuf-init")
 		container.Image = constants.TufImage
 		container.Env = env
 		container.Args = args
