@@ -39,6 +39,8 @@ patches:
 
 configMapGenerator:
 - behavior: create
+  options:
+    disableNameSuffixHash: true
   envs:
   - images.env
   name: related-images
