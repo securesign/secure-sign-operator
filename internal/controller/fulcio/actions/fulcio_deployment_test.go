@@ -1,13 +1,16 @@
-package utils
+package actions
 
 import (
 	"testing"
 
+	"github.com/securesign/operator/internal/controller/annotations"
+	cutils "github.com/securesign/operator/internal/controller/common/utils"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
+	"github.com/securesign/operator/internal/controller/fulcio/utils"
+	"github.com/securesign/operator/internal/controller/labels"
+	"golang.org/x/exp/maps"
 	v13 "k8s.io/api/apps/v1"
 	"k8s.io/utils/ptr"
-
-	"github.com/securesign/operator/internal/controller/annotations"
-	"github.com/securesign/operator/internal/controller/labels"
 
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -25,15 +28,14 @@ const (
 
 func TestSimpleDeploymen(t *testing.T) {
 	g := NewWithT(t)
-
 	instance := createInstance()
-	labels := labels.For(componentName, deploymentName, instance.Name)
-	deployment, err := CreateDeployment(instance, deploymentName, rbacName, labels)
+	labels := labels.For(componentName, DeploymentName, instance.Name)
+	deployment, err := createDeployment(instance, labels)
 
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(deployment).ShouldNot(BeNil())
 	g.Expect(deployment.Labels).Should(Equal(labels))
-	g.Expect(deployment.Name).Should(Equal(deploymentName))
+	g.Expect(deployment.Name).Should(Equal(DeploymentName))
 	g.Expect(deployment.Spec.Template.Spec.ServiceAccountName).Should(Equal(rbacName))
 
 	// private key password
@@ -58,7 +60,7 @@ func TestPrivateKeyPassword(t *testing.T) {
 		Key: "key",
 	}
 	labels := labels.For(componentName, deploymentName, instance.Name)
-	deployment, err := CreateDeployment(instance, deploymentName, rbacName, labels)
+	deployment, err := createDeployment(instance, labels)
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(deployment).ShouldNot(BeNil())
 
@@ -76,7 +78,7 @@ func TestTrustedCA(t *testing.T) {
 	instance := createInstance()
 	instance.Spec.TrustedCA = &v1alpha1.LocalObjectReference{Name: "trusted"}
 	labels := labels.For(componentName, deploymentName, instance.Name)
-	deployment, err := CreateDeployment(instance, deploymentName, rbacName, labels)
+	deployment, err := createDeployment(instance, labels)
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(deployment).ShouldNot(BeNil())
 
@@ -97,7 +99,7 @@ func TestTrustedCAByAnnotation(t *testing.T) {
 	instance.Annotations = make(map[string]string)
 	instance.Annotations[annotations.TrustedCA] = "trusted-annotation"
 	labels := labels.For(componentName, deploymentName, instance.Name)
-	deployment, err := CreateDeployment(instance, deploymentName, rbacName, labels)
+	deployment, err := createDeployment(instance, labels)
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(deployment).ShouldNot(BeNil())
 
@@ -117,7 +119,7 @@ func TestMissingPrivateKey(t *testing.T) {
 	instance := createInstance()
 	instance.Status.Certificate.PrivateKeyRef = nil
 	labels := labels.For(componentName, deploymentName, instance.Name)
-	deployment, err := CreateDeployment(instance, deploymentName, rbacName, labels)
+	deployment, err := createDeployment(instance, labels)
 	g.Expect(err).Should(HaveOccurred())
 	g.Expect(deployment).Should(BeNil())
 }
@@ -136,7 +138,7 @@ func TestCtlogConfig(t *testing.T) {
 			},
 			verify: func(g Gomega, deployment *v13.Deployment, err error) {
 				g.Expect(err).Should(HaveOccurred())
-				g.Expect(err).Should(MatchError(CtlogAddressNotSpecified))
+				g.Expect(err).Should(MatchError(utils.CtlogAddressNotSpecified))
 			},
 		},
 		{
@@ -147,7 +149,7 @@ func TestCtlogConfig(t *testing.T) {
 			},
 			verify: func(g Gomega, deployment *v13.Deployment, err error) {
 				g.Expect(err).Should(HaveOccurred())
-				g.Expect(err).Should(MatchError(CtlogPortNotSpecified))
+				g.Expect(err).Should(MatchError(utils.CtlogPortNotSpecified))
 			},
 		},
 		{
@@ -158,7 +160,7 @@ func TestCtlogConfig(t *testing.T) {
 			},
 			verify: func(g Gomega, deployment *v13.Deployment, err error) {
 				g.Expect(err).Should(HaveOccurred())
-				g.Expect(err).Should(MatchError(CtlogPrefixNotSpecified))
+				g.Expect(err).Should(MatchError(utils.CtlogPrefixNotSpecified))
 			},
 		},
 		{
@@ -179,7 +181,7 @@ func TestCtlogConfig(t *testing.T) {
 			g := NewWithT(t)
 			instance := createInstance()
 			instance.Spec.Ctlog = tt.args
-			deployment, err := CreateDeployment(instance, deploymentName, rbacName, map[string]string{})
+			deployment, err := createDeployment(instance, map[string]string{})
 			tt.verify(g, deployment, err)
 		})
 	}
@@ -222,4 +224,37 @@ func createInstance() *v1alpha1.Fulcio {
 			},
 		},
 	}
+}
+
+func createDeployment(instance *v1alpha1.Fulcio, labels map[string]string) (*v13.Deployment, error) {
+	testAction := deployAction{}
+	caRef := instance.Spec.TrustedCA
+	if caRef == nil {
+		// override if spec.trustedCA is not defined
+		caRef = cutils.TrustedCAAnnotationToReference(instance.Annotations)
+	}
+	d := &v13.Deployment{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      DeploymentName,
+			Namespace: instance.Namespace,
+		},
+	}
+	if caRef == nil {
+		// override if spec.trustedCA is not defined
+		cutils.TrustedCAAnnotationToReference(instance.Annotations)
+	}
+
+	ensures := []func(*v13.Deployment) error{
+		testAction.ensureDeployment(instance, RBACName, labels),
+		ensure.Labels[*v13.Deployment](maps.Keys(labels), labels),
+		ensure.Proxy(),
+		ensure.TrustedCA(caRef),
+	}
+	for _, en := range ensures {
+		err := en(d)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return d, nil
 }
