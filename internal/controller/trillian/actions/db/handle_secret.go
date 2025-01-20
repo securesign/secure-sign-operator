@@ -18,7 +18,6 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	labels2 "github.com/securesign/operator/internal/controller/labels"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
-	trillianUtils "github.com/securesign/operator/internal/controller/trillian/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -35,10 +34,10 @@ const (
 	dbConnectionResource   = "trillian-db-connection"
 	dbConnectionSecretName = "trillian-db-connection-"
 
-	annotationDatabase = labels2.LabelNamespace + "/" + trillianUtils.SecretDatabaseName
-	annotationUser     = labels2.LabelNamespace + "/" + trillianUtils.SecretUser
-	annotationPort     = labels2.LabelNamespace + "/" + trillianUtils.SecretPort
-	annotationHost     = labels2.LabelNamespace + "/" + trillianUtils.SecretHost
+	annotationDatabase = labels2.LabelNamespace + "/" + trillian.SecretDatabaseName
+	annotationUser     = labels2.LabelNamespace + "/" + trillian.SecretUser
+	annotationPort     = labels2.LabelNamespace + "/" + trillian.SecretPort
+	annotationHost     = labels2.LabelNamespace + "/" + trillian.SecretHost
 )
 
 var ErrMissingDBConfiguration = errors.New("expecting external DB configuration")
@@ -186,12 +185,12 @@ func (i handleSecretAction) createDbSecret(namespace string, labels map[string]s
 		},
 		Type: "Opaque",
 		Data: map[string][]byte{
-			trillianUtils.SecretRootPassword: rootPass,
-			trillianUtils.SecretPassword:     mysqlPass,
-			trillianUtils.SecretDatabaseName: []byte(databaseName),
-			trillianUtils.SecretUser:         []byte(user),
-			trillianUtils.SecretPort:         []byte(strconv.Itoa(port)),
-			trillianUtils.SecretHost:         []byte(host),
+			trillian.SecretRootPassword: rootPass,
+			trillian.SecretPassword:     mysqlPass,
+			trillian.SecretDatabaseName: []byte(databaseName),
+			trillian.SecretUser:         []byte(user),
+			trillian.SecretPort:         []byte(strconv.Itoa(port)),
+			trillian.SecretHost:         []byte(host),
 		},
 	}
 }

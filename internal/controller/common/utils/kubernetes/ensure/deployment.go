@@ -8,14 +8,22 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+const (
+	CaTrustVolumeName = "ca-trust"
+	TLSVolumeName     = "tls-cert"
+
+	TLSVolumeMount = "/var/run/secrets/tas"
+
+	TLSKeyPath  = TLSVolumeMount + "/tls.key"
+	TLSCertPath = TLSVolumeMount + "/tls.crt"
+)
+
 func Proxy() func(*v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
 		utils.SetProxyEnvs(dp)
 		return nil
 	}
 }
-
-const CaTrustVolumeName = "ca-trust"
 
 // TrustedCA mount config map with trusted CA bundle to all deployment's containers.
 func TrustedCA(lor *v1alpha1.LocalObjectReference) func(dp *v1.Deployment) error {
@@ -49,6 +57,53 @@ func TrustedCA(lor *v1alpha1.LocalObjectReference) func(dp *v1.Deployment) error
 		}
 		volume.Projected.Sources = projections
 
+		return nil
+	}
+}
+
+// TLS mount secret with tls cert to all deployment's containers.
+func TLS(tls v1alpha1.TLS) func(dp *v1.Deployment) error {
+	return func(dp *v1.Deployment) error {
+		template := &dp.Spec.Template
+
+		for i := range template.Spec.Containers {
+			volumeMount := kubernetes.FindVolumeMountByNameOrCreate(&template.Spec.Containers[i], TLSVolumeName)
+			volumeMount.MountPath = TLSVolumeMount
+			volumeMount.ReadOnly = true
+		}
+
+		volume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, TLSVolumeName)
+		if volume.Projected == nil {
+			volume.Projected = &corev1.ProjectedVolumeSource{}
+		}
+		volume.Projected.Sources = []corev1.VolumeProjection{
+			{
+				Secret: &corev1.SecretProjection{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: tls.CertRef.Name,
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  tls.CertRef.Key,
+							Path: "tls.crt",
+						},
+					},
+				},
+			},
+			{
+				Secret: &corev1.SecretProjection{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: tls.PrivateKeyRef.Name,
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  tls.PrivateKeyRef.Key,
+							Path: "tls.key",
+						},
+					},
+				},
+			},
+		}
 		return nil
 	}
 }

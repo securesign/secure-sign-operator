@@ -60,7 +60,7 @@ func CreateLogSignerDeployment(ctx context.Context, client client.Client, instan
 									Name: "MYSQL_HOSTNAME",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key: SecretHost,
+											Key: actions.SecretHost,
 											LocalObjectReference: core.LocalObjectReference{
 												Name: instance.Status.Db.DatabaseSecretRef.Name,
 											},
@@ -71,7 +71,7 @@ func CreateLogSignerDeployment(ctx context.Context, client client.Client, instan
 									Name: "MYSQL_PORT",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key: SecretPort,
+											Key: actions.SecretPort,
 											LocalObjectReference: core.LocalObjectReference{
 												Name: instance.Status.Db.DatabaseSecretRef.Name,
 											},
@@ -105,7 +105,7 @@ func CreateLogSignerDeployment(ctx context.Context, client client.Client, instan
 									Name: "MYSQL_USER",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key: SecretUser,
+											Key: actions.SecretUser,
 											LocalObjectReference: core.LocalObjectReference{
 												Name: instance.Status.Db.DatabaseSecretRef.Name,
 											},
@@ -116,7 +116,7 @@ func CreateLogSignerDeployment(ctx context.Context, client client.Client, instan
 									Name: "MYSQL_PASSWORD",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key: SecretPassword,
+											Key: actions.SecretPassword,
 											LocalObjectReference: core.LocalObjectReference{
 												Name: instance.Status.Db.DatabaseSecretRef.Name,
 											},
@@ -127,7 +127,7 @@ func CreateLogSignerDeployment(ctx context.Context, client client.Client, instan
 									Name: "MYSQL_HOSTNAME",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key: SecretHost,
+											Key: actions.SecretHost,
 											LocalObjectReference: core.LocalObjectReference{
 												Name: instance.Status.Db.DatabaseSecretRef.Name,
 											},
@@ -138,7 +138,7 @@ func CreateLogSignerDeployment(ctx context.Context, client client.Client, instan
 									Name: "MYSQL_PORT",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key: SecretPort,
+											Key: actions.SecretPort,
 											LocalObjectReference: core.LocalObjectReference{
 												Name: instance.Status.Db.DatabaseSecretRef.Name,
 											},
@@ -149,7 +149,7 @@ func CreateLogSignerDeployment(ctx context.Context, client client.Client, instan
 									Name: "MYSQL_DATABASE",
 									ValueFrom: &core.EnvVarSource{
 										SecretKeyRef: &core.SecretKeySelector{
-											Key: SecretDatabaseName,
+											Key: actions.SecretDatabaseName,
 											LocalObjectReference: core.LocalObjectReference{
 												Name: instance.Status.Db.DatabaseSecretRef.Name,
 											},
