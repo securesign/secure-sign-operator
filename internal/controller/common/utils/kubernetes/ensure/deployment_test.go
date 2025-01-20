@@ -78,6 +78,7 @@ func TestEnsureTLS(t *testing.T) {
 						Spec: v3.PodSpec{
 							Containers: []v3.Container{
 								{Name: name, Image: "test"},
+								{Name: "doNotUpdate", Image: "test"},
 							},
 						},
 					},
@@ -100,7 +101,7 @@ func TestEnsureTLS(t *testing.T) {
 					},
 					Key: "cert",
 				},
-			}),
+			}, name),
 		)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -112,6 +113,8 @@ func TestEnsureTLS(t *testing.T) {
 		gomega.Expect(existing.Spec.Template.Spec.Containers[0].VolumeMounts).To(gomega.HaveLen(1))
 		gomega.Expect(existing.Spec.Template.Spec.Containers[0].VolumeMounts[0].Name).To(gomega.Equal(TLSVolumeName))
 		gomega.Expect(existing.Spec.Template.Spec.Containers[0].VolumeMounts[0].MountPath).To(gomega.Equal("/var/run/secrets/tas"))
+
+		gomega.Expect(existing.Spec.Template.Spec.Containers[1].VolumeMounts).To(gomega.BeEmpty())
 
 		gomega.Expect(existing.Spec.Template.Spec.Volumes).To(gomega.HaveLen(1))
 		gomega.Expect(existing.Spec.Template.Spec.Volumes[0].Name).To(gomega.Equal(TLSVolumeName))

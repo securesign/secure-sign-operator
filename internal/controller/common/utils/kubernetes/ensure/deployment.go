@@ -1,6 +1,8 @@
 package ensure
 
 import (
+	"slices"
+
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
@@ -11,6 +13,7 @@ import (
 const (
 	CaTrustVolumeName = "ca-trust"
 	TLSVolumeName     = "tls-cert"
+	CATRustMountPath  = "/var/run/configs/tas/ca-trust"
 
 	TLSVolumeMount = "/var/run/secrets/tas"
 
@@ -32,10 +35,10 @@ func TrustedCA(lor *v1alpha1.LocalObjectReference) func(dp *v1.Deployment) error
 		template := &dp.Spec.Template
 		for i := range template.Spec.Containers {
 			env := kubernetes.FindEnvByNameOrCreate(&template.Spec.Containers[i], "SSL_CERT_DIR")
-			env.Value = "/var/run/configs/tas/ca-trust:/var/run/secrets/kubernetes.io/serviceaccount"
+			env.Value = CATRustMountPath + ":/var/run/secrets/kubernetes.io/serviceaccount"
 
 			volumeMount := kubernetes.FindVolumeMountByNameOrCreate(&template.Spec.Containers[i], CaTrustVolumeName)
-			volumeMount.MountPath = "/var/run/configs/tas/ca-trust"
+			volumeMount.MountPath = CATRustMountPath
 			volumeMount.ReadOnly = true
 
 		}
@@ -62,14 +65,16 @@ func TrustedCA(lor *v1alpha1.LocalObjectReference) func(dp *v1.Deployment) error
 }
 
 // TLS mount secret with tls cert to all deployment's containers.
-func TLS(tls v1alpha1.TLS) func(dp *v1.Deployment) error {
+func TLS(tls v1alpha1.TLS, containerNames ...string) func(dp *v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
 		template := &dp.Spec.Template
 
-		for i := range template.Spec.Containers {
-			volumeMount := kubernetes.FindVolumeMountByNameOrCreate(&template.Spec.Containers[i], TLSVolumeName)
-			volumeMount.MountPath = TLSVolumeMount
-			volumeMount.ReadOnly = true
+		for i, c := range template.Spec.Containers {
+			if slices.Contains(containerNames, c.Name) {
+				volumeMount := kubernetes.FindVolumeMountByNameOrCreate(&template.Spec.Containers[i], TLSVolumeName)
+				volumeMount.MountPath = TLSVolumeMount
+				volumeMount.ReadOnly = true
+			}
 		}
 
 		volume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, TLSVolumeName)

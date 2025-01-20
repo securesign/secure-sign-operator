@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils"
@@ -110,7 +111,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	}
 }
 
-func (i *deployAction) ensureDbDeployment(instance *rhtasv1alpha1.Trillian, sa string, secCont *v1.PodSecurityContext, labels map[string]string) func(deployment *v2.Deployment) error {
+func (i deployAction) ensureDbDeployment(instance *rhtasv1alpha1.Trillian, sa string, secCont *v1.PodSecurityContext, labels map[string]string) func(deployment *v2.Deployment) error {
 	return func(dp *v2.Deployment) error {
 		switch {
 		case instance.Status.Db.DatabaseSecretRef == nil:
@@ -232,9 +233,9 @@ func (i *deployAction) ensureDbDeployment(instance *rhtasv1alpha1.Trillian, sa s
 	}
 }
 
-func (i *deployAction) ensureTLS(instance *rhtasv1alpha1.Trillian) func(deployment *v2.Deployment) error {
+func (i deployAction) ensureTLS(instance *rhtasv1alpha1.Trillian) func(deployment *v2.Deployment) error {
 	return func(dp *v2.Deployment) error {
-		if err := ensure.TLS(instance.Status.Db.TLS)(dp); err != nil {
+		if err := ensure.TLS(instance.Status.Db.TLS, actions.DbDeploymentName)(dp); err != nil {
 			return err
 		}
 
@@ -258,9 +259,23 @@ func (i *deployAction) ensureTLS(instance *rhtasv1alpha1.Trillian) func(deployme
 
 		container.LivenessProbe.Exec.Command = []string{"bash", "-c", livenessCommand + " --ssl"}
 
-		container.Args = append(container.Args, "--ssl-cert", ensure.TLSCertPath)
-		container.Args = append(container.Args, "--ssl-key", ensure.TLSKeyPath)
+		if i := slices.Index(container.Args, "--ssl-cert"); i == -1 {
+			container.Args = append(container.Args, "--ssl-cert", ensure.TLSCertPath)
+		} else {
+			if len(container.Args)-1 < i+1 {
+				container.Args = append(container.Args, ensure.TLSCertPath)
+			}
+			container.Args[i+1] = ensure.TLSCertPath
+		}
 
+		if i := slices.Index(container.Args, "--ssl-key"); i == -1 {
+			container.Args = append(container.Args, "--ssl-key", ensure.TLSKeyPath)
+		} else {
+			if len(container.Args)-1 < i+1 {
+				container.Args = append(container.Args, ensure.TLSKeyPath)
+			}
+			container.Args[i+1] = ensure.TLSKeyPath
+		}
 		return nil
 	}
 }
