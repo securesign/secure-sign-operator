@@ -1,6 +1,8 @@
 module github.com/securesign/operator
 
-go 1.21
+go 1.22
+
+toolchain go1.22.0
 
 require (
 	github.com/blang/semver/v4 v4.0.0
