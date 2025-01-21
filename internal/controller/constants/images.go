@@ -8,7 +8,7 @@ var (
 	// TODO: remove and check the DB pod status
 	TrillianNetcatImage = "registry.redhat.io/openshift4/ose-tools-rhel8@sha256:486b4d2dd0d10c5ef0212714c94334e04fe8a3d36cf619881986201a50f123c7"
 
-	FulcioServerImage = "registry.redhat.io/rhtas/fulcio-rhel9@sha256:ecf413ff0db920ebb03189171c4a71c2c004a2dd69551f592bc5c409ea24267d"
+	FulcioServerImage = "registry.redhat.io/rhtas/fulcio-rhel9@sha256:d974b5321a1d8dc7396983c68f4040858e9f5bd0c5aa1e79f97a1ef752ca323f"
 
 	RekorRedisImage    = "registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:78d946d1182b0d3837097de826b6b2d3f89891e0812795571adfb51194e2c469"
 	RekorServerImage   = "registry.redhat.io/rhtas/rekor-server-rhel9@sha256:2fd07c321e0a8e859d43580d060c54e453e0ba2c6f2152de9721952a852dd7d0"
@@ -23,5 +23,5 @@ var (
 
 	SegmentBackupImage      = "registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:d8e65cbeb56bcc0a2ff0cd3afea3d35448695787835fe44c85a8991e6920bdb5"
 	TimestampAuthorityImage = "registry.redhat.io/rhtas/timestamp-authority-rhel9@sha256:cd5949f18df0fea83b6ba37041c7eba7d296ff2329d3e2c985812951e4238d52"
-	ClientServerImage       = "registry.redhat.io/rhtas/client-server-rhel9@sha256:3c347538e04b876d022a084caf2bd36986ad140f800d0b02c2bbec3cc534974d"
+	ClientServerImage       = "registry.redhat.io/rhtas/client-server-rhel9@sha256:698ee5b504c25801d194435e19e31b10421118f7a91605077a290b0916401b10"
 )
