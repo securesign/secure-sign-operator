@@ -4,6 +4,12 @@ import (
 	"github.com/securesign/operator/api/v1alpha1"
 )
 
+const (
+	FileType = "file"
+	KmsType  = "kms"
+	TinkType = "tink"
+)
+
 func IsFileType(instance *v1alpha1.TimestampAuthority) bool {
 	return GetSignerType(&instance.Spec.Signer) == FileType
 }
