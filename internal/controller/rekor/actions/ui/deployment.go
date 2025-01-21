@@ -6,10 +6,13 @@ import (
 
 	"github.com/securesign/operator/internal/controller/common/action"
 	commonutils "github.com/securesign/operator/internal/controller/common/utils"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
-	"github.com/securesign/operator/internal/controller/rekor/utils"
+	"golang.org/x/exp/maps"
+	v2 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -39,32 +42,32 @@ func (i deployAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Rek
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
 	var (
-		err     error
-		updated bool
+		err    error
+		result controllerutil.OperationResult
 	)
 	labels := labels.For(actions.UIComponentName, actions.SearchUiDeploymentName, instance.Name)
-	dp := utils.CreateRekorSearchUiDeployment(instance, actions.SearchUiDeploymentName, actions.RBACName, labels)
-	if err = controllerutil.SetControllerReference(instance, dp, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for Deployment: %w", err))
+	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+		&v2.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      actions.SearchUiDeploymentName,
+				Namespace: instance.Namespace,
+			},
+		},
+		i.ensureUIDeployment(instance, actions.RBACName, labels),
+		ensure.ControllerReference[*v2.Deployment](instance, i.Client),
+		ensure.Labels[*v2.Deployment](maps.Keys(labels), labels),
+	); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create Rekor search UI: %w", err), instance,
+			metav1.Condition{
+				Type:    actions.UICondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			},
+		)
 	}
 
-	if updated, err = i.Ensure(ctx, dp); err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.UICondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Rekor search UI: %w", err), instance)
-	}
-
-	if updated {
+	if result != controllerutil.OperationResultNone {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.UICondition,
 			Status:  metav1.ConditionFalse,
@@ -75,5 +78,29 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 	} else {
 		return i.Continue()
 	}
+}
 
+func (i deployAction) ensureUIDeployment(instance *rhtasv1alpha1.Rekor, sa string, labels map[string]string) func(*v2.Deployment) error {
+	return func(dp *v2.Deployment) error {
+		spec := &dp.Spec
+		spec.Replicas = commonutils.Pointer[int32](1)
+		spec.Selector = &metav1.LabelSelector{
+			MatchLabels: labels,
+		}
+
+		template := &spec.Template
+		template.Labels = labels
+		template.Spec.ServiceAccountName = sa
+
+		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, actions.SearchUiDeploymentName)
+		container.Image = constants.RekorSearchUiImage
+
+		env := kubernetes.FindEnvByNameOrCreate(container, "NEXT_PUBLIC_REKOR_DEFAULT_DOMAIN")
+		env.Value = instance.Status.Url
+
+		serverPort := kubernetes.FindPortByNameOrCreate(container, "3000-tcp")
+		serverPort.ContainerPort = 3000
+
+		return nil
+	}
 }

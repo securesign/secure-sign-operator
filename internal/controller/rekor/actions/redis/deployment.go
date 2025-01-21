@@ -5,16 +5,23 @@ import (
 	"fmt"
 
 	"github.com/securesign/operator/internal/controller/common/action"
+	cutils "github.com/securesign/operator/internal/controller/common/utils"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
-	"github.com/securesign/operator/internal/controller/rekor/utils"
+	"golang.org/x/exp/maps"
+	v1 "k8s.io/api/apps/v1"
+	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 )
+
+const storageVolumeName = "storage"
 
 func NewDeployAction() action.Action[*rhtasv1alpha1.Rekor] {
 	return &deployAction{}
@@ -35,32 +42,34 @@ func (i deployAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
 	var (
-		err     error
-		updated bool
+		err    error
+		result controllerutil.OperationResult
 	)
 	labels := labels.For(actions.RedisComponentName, actions.RedisDeploymentName, instance.Name)
-	dp := utils.CreateRedisDeployment(instance.Namespace, actions.RedisDeploymentName, actions.RBACName, labels)
-	if err = controllerutil.SetControllerReference(instance, dp, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for Deployment: %w", err))
+
+	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+		&v1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      actions.RedisDeploymentName,
+				Namespace: instance.Namespace,
+			},
+		},
+		i.ensureRedisDeployment(actions.RBACName, labels),
+		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
+		ensure.Labels[*v1.Deployment](maps.Keys(labels), labels),
+		ensure.Proxy(),
+	); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create %s deployment: %w", actions.RedisDeploymentName, err), instance,
+			metav1.Condition{
+				Type:    actions.RedisCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			},
+		)
 	}
 
-	if updated, err = i.Ensure(ctx, dp); err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.RedisCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create Rekor redis: %w", err), instance)
-	}
-
-	if updated {
+	if result != controllerutil.OperationResultNone {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.RedisCondition,
 			Status:  metav1.ConditionFalse,
@@ -72,4 +81,49 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		return i.Continue()
 	}
 
+}
+
+func (i deployAction) ensureRedisDeployment(sa string, labels map[string]string) func(*v1.Deployment) error {
+	return func(dp *v1.Deployment) error {
+
+		spec := &dp.Spec
+		spec.Replicas = cutils.Pointer[int32](1)
+		spec.Selector = &metav1.LabelSelector{
+			MatchLabels: labels,
+		}
+
+		template := &spec.Template
+		template.Labels = labels
+		template.Spec.ServiceAccountName = sa
+
+		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, actions.RedisDeploymentName)
+		container.Image = constants.RekorRedisImage
+		port := kubernetes.FindPortByNameOrCreate(container, "redis")
+		port.Protocol = core.ProtocolTCP
+		port.ContainerPort = 6379
+
+		if container.ReadinessProbe == nil {
+			container.ReadinessProbe = &core.Probe{}
+		}
+		if container.ReadinessProbe.Exec == nil {
+			container.ReadinessProbe.Exec = &core.ExecAction{}
+		}
+
+		container.ReadinessProbe.Exec.Command = []string{
+			"/bin/sh",
+			"-c",
+			"-i",
+			"test $(redis-cli -h 127.0.0.1 ping) = 'PONG'",
+		}
+		container.ReadinessProbe.InitialDelaySeconds = 5
+
+		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, storageVolumeName)
+		volumeMount.MountPath = "/data"
+
+		volume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, storageVolumeName)
+		if volume.EmptyDir == nil {
+			volume.EmptyDir = &core.EmptyDirVolumeSource{}
+		}
+		return nil
+	}
 }
