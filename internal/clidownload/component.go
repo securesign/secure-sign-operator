@@ -7,24 +7,44 @@ import (
 	"github.com/go-logr/logr"
 	consolev1 "github.com/openshift/api/console/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	cutils "github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	cLabels "github.com/securesign/operator/internal/controller/labels"
+	"golang.org/x/exp/maps"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
 	cliServerNs        = "trusted-artifact-signer"
 	cliServerName      = "cli-server"
 	cliServerComponent = "client-server"
-	sharedVolumeName   = "shared-data"
 	cliServerPortName  = "http"
 	cliServerPort      = 8080
+)
+
+type Arch struct {
+	linkTemplate, descriptionTemplate string
+}
+
+var (
+	WINDOWS       = Arch{"%s/clients/windows/%s-amd64.gz", "Download %s for Windows x86_64"}
+	MAC_ARM       = Arch{"%s/clients/darwin/%s-arm64.gz", "Download %s for Mac arm64"}
+	MAC_X86       = Arch{"%s/clients/darwin/%s-amd64.gz", "Download %s for Mac x86_64"}
+	LINUX_S390X   = Arch{"%s/clients/linux/%s-s390x.gz", "Download %s for Linux s390x"}
+	LINUX_PPC64LE = Arch{"%s/clients/linux/%s-ppc64le.gz", "Download %s for Linux ppc64le"}
+	LINUX_ARM     = Arch{"%s/clients/linux/%s-arm64.gz", "Download %s for Linux arm64"}
+	LINUX_X86     = Arch{"%s/clients/linux/%s-amd64.gz", "Download %s for Linux x86_64"}
+
+	ALL_ARCHS = []Arch{WINDOWS, MAC_ARM, MAC_X86, LINUX_S390X, LINUX_PPC64LE, LINUX_ARM, LINUX_X86}
 )
 
 var (
@@ -38,33 +58,65 @@ type Component struct {
 }
 
 func (c *Component) Start(ctx context.Context) error {
-	var (
-		err    error
-		obj    []client.Object
-		labels = map[string]string{
-			cLabels.LabelAppPartOf:    constants.AppName,
-			cLabels.LabelAppComponent: cliServerComponent,
-		}
-	)
+	labels := map[string]string{
+		cLabels.LabelAppPartOf:    constants.AppName,
+		cLabels.LabelAppComponent: cliServerComponent,
+	}
 
 	c.Log.Info("installing client server resources")
 
-	ns := &core.Namespace{
+	svc := &core.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: cliServerNs,
+			Name:      cliServerName,
+			Namespace: cliServerNs,
 		},
 	}
 
-	obj = append(obj, ns)
-	obj = append(obj, c.createDeployment(ns.Name, labels))
-	svc := kubernetes.CreateService(ns.Name, cliServerName, cliServerPortName, cliServerPort, cliServerPort, labels)
-	obj = append(obj, svc)
-	ingress, err := kubernetes.CreateIngress(ctx, c.Client, *svc, rhtasv1alpha1.ExternalAccess{Host: CliHostName}, cliServerPortName, labels)
-	if err != nil {
-		c.Log.Error(err, "unable to prepare ingress resources")
-		return err
+	ingress := &v1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{Name: cliServerName, Namespace: cliServerNs},
 	}
-	obj = append(obj, ingress)
+
+	if e := CreateResource[*core.Namespace](ctx, c.Client, c.Log,
+		&core.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: cliServerNs,
+			}}, ensure.Labels[*core.Namespace](maps.Keys(labels), labels)); e != nil {
+		return e
+	}
+
+	if e := CreateResource[*apps.Deployment](ctx, c.Client, c.Log,
+		&apps.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cliServerName,
+				Namespace: cliServerNs,
+			}},
+		c.ensureDeployment(labels),
+		ensure.Labels[*apps.Deployment](maps.Keys(labels), labels)); e != nil {
+		return e
+	}
+
+	if e := CreateResource[*core.Service](ctx, c.Client, c.Log,
+		svc,
+		kubernetes.EnsureServiceSpec(labels,
+			core.ServicePort{
+				Name:       cliServerPortName,
+				Protocol:   core.ProtocolTCP,
+				Port:       cliServerPort,
+				TargetPort: intstr.FromInt32(cliServerPort),
+			}),
+		ensure.Labels[*core.Service](maps.Keys(labels), labels),
+	); e != nil {
+		return e
+	}
+
+	if e := CreateResource[*v1.Ingress](ctx, c.Client, c.Log,
+		ingress,
+		kubernetes.EnsureIngressSpec(ctx, c.Client, *svc, rhtasv1alpha1.ExternalAccess{Host: CliHostName}, cliServerPortName),
+		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
+		ensure.Labels[*v1.Ingress](maps.Keys(labels), labels),
+	); e != nil {
+		return e
+	}
 
 	if kubernetes.IsOpenShift() {
 		protocol := "http://"
@@ -80,138 +132,86 @@ func (c *Component) Start(ctx context.Context) error {
 			"createtree":      "create-tree is a CLI tool which is used for creating new trees within trillian.",
 			"updatetree":      "update-tree is a CLI tool which is used for managing existing tress within trillian.",
 		} {
-			obj = append(obj, c.createConsoleCLIDownload(ns.Name, name, protocol+ingress.Spec.Rules[0].Host, description, labels))
-		}
-		tufftool := &consolev1.ConsoleCLIDownload{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "tuftool",
-				Namespace: ns.Name,
-				Labels:    labels,
-			},
-			Spec: consolev1.ConsoleCLIDownloadSpec{
-				Description: "tuftool is a Rust command-line utility for generating and signing TUF repositories.",
-				DisplayName: fmt.Sprintf("%s - Command Line Interface (CLI)", "tuftool-amd64.gz"),
-				Links: []consolev1.CLIDownloadLink{
-					{
-						Href: fmt.Sprintf("%s/clients/linux/%s-amd64.gz", protocol+ingress.Spec.Rules[0].Host, "tuftool"),
-						Text: fmt.Sprintf("Download %s for Linux x86_64", "tuftool"),
+			if e := CreateResource[*consolev1.ConsoleCLIDownload](ctx, c.Client, c.Log,
+				&consolev1.ConsoleCLIDownload{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: name,
 					},
-				},
-			},
+				}, c.ensureConsoleCLIDownload(protocol+ingress.Spec.Rules[0].Host, description, name, ALL_ARCHS...),
+				ensure.Labels[*consolev1.ConsoleCLIDownload](maps.Keys(labels), labels),
+			); e != nil {
+				return e
+			}
 		}
-		obj = append(obj, tufftool)
-	}
 
-	for _, o := range obj {
-
-		err = c.replaceResource(ctx, o)
-		if err != nil {
-			c.Log.Error(err, "failed CreateOrUpdate resource", "namespace", o.GetNamespace(), "name", o.GetName())
-			return err
-		}
-		c.Log.V(1).Info("CreateOrUpdate", "name", o.GetName(), "namespace", o.GetNamespace())
-	}
-	return nil
-}
-
-func (c *Component) createDeployment(namespace string, labels map[string]string) *apps.Deployment {
-	replicas := int32(1)
-
-	return &apps.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cliServerName,
-			Namespace: namespace,
-			Labels:    labels,
-		},
-		Spec: apps.DeploymentSpec{
-			Replicas: &replicas,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-			Template: core.PodTemplateSpec{
+		if e := CreateResource[*consolev1.ConsoleCLIDownload](ctx, c.Client, c.Log,
+			&consolev1.ConsoleCLIDownload{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
+					Name: "tuftool",
 				},
-				Spec: core.PodSpec{
-					Containers: []core.Container{
-						{
-							Name:            cliServerName,
-							Image:           constants.ClientServerImage,
-							ImagePullPolicy: core.PullAlways,
-							Ports: []core.ContainerPort{
-								{
-									ContainerPort: 8080,
-									Protocol:      core.ProtocolTCP,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func (c *Component) createConsoleCLIDownload(namespace, name, clientServerUrl, description string, labels map[string]string) *consolev1.ConsoleCLIDownload {
-	return &consolev1.ConsoleCLIDownload{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    labels,
-		},
-		Spec: consolev1.ConsoleCLIDownloadSpec{
-			Description: description,
-			DisplayName: fmt.Sprintf("%s - Command Line Interface (CLI)", name),
-			Links: []consolev1.CLIDownloadLink{
-				{
-					Href: fmt.Sprintf("%s/clients/linux/%s-amd64.gz", clientServerUrl, name),
-					Text: fmt.Sprintf("Download %s for Linux x86_64", name),
-				},
-				{
-					Href: fmt.Sprintf("%s/clients/linux/%s-arm64.gz", clientServerUrl, name),
-					Text: fmt.Sprintf("Download %s for Linux arm64", name),
-				},
-				{
-					Href: fmt.Sprintf("%s/clients/linux/%s-ppc64le.gz", clientServerUrl, name),
-					Text: fmt.Sprintf("Download %s for Linux ppc64le", name),
-				},
-				{
-					Href: fmt.Sprintf("%s/clients/linux/%s-s390x.gz", clientServerUrl, name),
-					Text: fmt.Sprintf("Download %s for Linux s390x", name),
-				},
-				{
-					Href: fmt.Sprintf("%s/clients/darwin/%s-amd64.gz", clientServerUrl, name),
-					Text: fmt.Sprintf("Download %s for Mac x86_64", name),
-				},
-				{
-					Href: fmt.Sprintf("%s/clients/darwin/%s-arm64.gz", clientServerUrl, name),
-					Text: fmt.Sprintf("Download %s for Mac arm64", name),
-				},
-				{
-					Href: fmt.Sprintf("%s/clients/windows/%s-amd64.gz", clientServerUrl, name),
-					Text: fmt.Sprintf("Download %s for Windows x86_64", name),
-				},
-			},
-		},
-	}
-}
-
-func (c *Component) replaceResource(ctx context.Context, res client.Object) error {
-	err := c.Client.Create(ctx, res)
-	if err != nil && apierrors.IsAlreadyExists(err) {
-		existing, ok := res.DeepCopyObject().(client.Object)
-		if !ok {
-			return fmt.Errorf("type assertion failed: %v", res.DeepCopyObject())
+			}, c.ensureConsoleCLIDownload(
+				protocol+ingress.Spec.Rules[0].Host,
+				"tuftool is a Rust command-line utility for generating and signing TUF repositories.",
+				"tuftool", LINUX_X86),
+			ensure.Labels[*consolev1.ConsoleCLIDownload](maps.Keys(labels), labels),
+		); e != nil {
+			return e
 		}
-		err = c.Client.Get(ctx, client.ObjectKeyFromObject(existing), existing)
-		if err != nil {
-			return err
-		}
-		res.SetResourceVersion(existing.GetResourceVersion())
-		err = c.Client.Update(ctx, res)
-	}
-	if err != nil {
-		return fmt.Errorf("could not create or replace %s: %w"+res.GetObjectKind().GroupVersionKind().String(), err)
 	}
 	return nil
+}
+
+func CreateResource[T client.Object](ctx context.Context, cli client.Client, log logr.Logger, obj T, fn ...func(T) error) error {
+	if result, err := kubernetes.CreateOrUpdate(ctx, cli,
+		obj,
+		fn...,
+	); err != nil {
+		return fmt.Errorf("could not create %s: %w", obj.GetObjectKind(), err)
+	} else {
+		if result != controllerutil.OperationResultNone {
+			log.Info("resource", "name", obj.GetObjectKind(), "namespace", obj.GetNamespace(), "operation", string(result))
+		}
+	}
+	return nil
+}
+
+func (c *Component) ensureDeployment(labels map[string]string) func(*apps.Deployment) error {
+	return func(dp *apps.Deployment) error {
+
+		spec := &dp.Spec
+		spec.Replicas = cutils.Pointer[int32](1)
+		spec.Selector = &metav1.LabelSelector{
+			MatchLabels: labels,
+		}
+
+		template := &spec.Template
+		template.Labels = labels
+
+		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, cliServerName)
+		container.Image = constants.ClientServerImage
+		container.ImagePullPolicy = core.PullAlways
+
+		port := kubernetes.FindPortByNameOrCreate(container, "http")
+		port.ContainerPort = 8080
+		port.Protocol = core.ProtocolTCP
+
+		return nil
+	}
+}
+
+func (c *Component) ensureConsoleCLIDownload(clientServerUrl, cliDescription, cliName string, supportedArchs ...Arch) func(*consolev1.ConsoleCLIDownload) error {
+	return func(cd *consolev1.ConsoleCLIDownload) error {
+		spec := &cd.Spec
+		spec.Description = cliDescription
+		spec.DisplayName = fmt.Sprintf("%s - Command Line Interface (CLI)", cliName)
+
+		for _, arch := range supportedArchs {
+			spec.Links = append(spec.Links, consolev1.CLIDownloadLink{
+				Text: fmt.Sprintf(arch.descriptionTemplate, cliName),
+				Href: fmt.Sprintf(arch.linkTemplate, clientServerUrl, cliName),
+			})
+		}
+		return nil
+	}
+
 }
