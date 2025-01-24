@@ -17,7 +17,7 @@ var (
 
 	TufImage = "registry.redhat.io/rhtas/tuffer-rhel9@sha256:79340be7918034c68a334a210ab872161827c99c2a1551a4fce8d5d27560a234"
 
-	CTLogImage = "registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:31e7318a9b19ed04ef0f25949f1f1709d293b532316b27a06f83fa5174547b17"
+	CTLogImage = "registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:9c496d8d72abb379a8fc3e7531634d8d18ac9d8df6e8ed962e207a34b5cd4bab"
 
 	HttpServerImage = "registry.access.redhat.com/ubi9/httpd-24@sha256:7874b82335a80269dcf99e5983c2330876f5fe8bdc33dc6aa4374958a2ffaaee"
 
