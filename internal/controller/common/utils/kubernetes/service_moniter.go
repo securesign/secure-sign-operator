@@ -20,3 +20,13 @@ func CreateServiceMonitor(namespace, name string, labels map[string]string, endp
 		},
 	}
 }
+
+func EnsureServiceMonitorSpec(selectorLabels map[string]string, endpoints ...monitoringv1.Endpoint) func(*monitoringv1.ServiceMonitor) error {
+	return func(monitor *monitoringv1.ServiceMonitor) error {
+		monitor.Spec.Endpoints = endpoints
+		monitor.Spec.Selector = metav1.LabelSelector{
+			MatchLabels: selectorLabels,
+		}
+		return nil
+	}
+}

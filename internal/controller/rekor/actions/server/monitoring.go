@@ -16,7 +16,6 @@ import (
 	v1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -97,38 +96,27 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Re
 		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create monitoring RoleBinding: %w", err)), instance)
 	}
 
-	serviceMonitor := kubernetes.CreateServiceMonitor(
-		instance.Namespace,
-		actions.ServerDeploymentName,
-		monitoringLabels,
-		[]monitoringv1.Endpoint{
-			{
+	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, &monitoringv1.ServiceMonitor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      actions.ServerDeploymentName,
+			Namespace: instance.Namespace,
+		},
+	},
+		ensure.ControllerReference[*monitoringv1.ServiceMonitor](instance, i.Client),
+		ensure.Labels[*monitoringv1.ServiceMonitor](maps.Keys(monitoringLabels), monitoringLabels),
+		kubernetes.EnsureServiceMonitorSpec(labels.ForComponent(actions.ServerComponentName, instance.Name),
+			monitoringv1.Endpoint{
 				Interval: monitoringv1.Duration("30s"),
 				Port:     actions.MetricsPortName,
 				Scheme:   "http",
-			},
-		},
-		labels.ForComponent(actions.ServerComponentName, instance.Name),
-	)
-
-	if err = controllerutil.SetControllerReference(instance, serviceMonitor, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for serviceMonitor: %w", err))
-	}
-
-	if _, err = i.Ensure(ctx, serviceMonitor); err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			}),
+	); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create serviceMonitor: %w", err), instance, metav1.Condition{
 			Type:    actions.ServerCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create serviceMonitor: %w", err), instance)
 	}
 
 	// monitors & RBAC are not watched - do not need to re-enqueue
