@@ -128,6 +128,16 @@ func FindContainerByNameOrCreate(podSpec *corev1.PodSpec, containerName string) 
 	return &podSpec.Containers[len(podSpec.Containers)-1]
 }
 
+func FindInitContainerByNameOrCreate(podSpec *corev1.PodSpec, containerName string) *corev1.Container {
+	for i, c := range podSpec.InitContainers {
+		if c.Name == containerName {
+			return &podSpec.InitContainers[i]
+		}
+	}
+	podSpec.InitContainers = append(podSpec.InitContainers, corev1.Container{Name: containerName})
+	return &podSpec.InitContainers[len(podSpec.InitContainers)-1]
+}
+
 func FindVolumeByNameOrCreate(podSpec *corev1.PodSpec, volumeName string) *corev1.Volume {
 	for i, v := range podSpec.Volumes {
 		if v.Name == volumeName {
