@@ -205,24 +205,12 @@ jobs:
         run: podman load -i /tmp/operator-oci.tar
 
       - name: Install Cluster
-        uses: container-tools/kind-action@v2.0.4
+        uses: ./.github/actions/kind-cluster
         with:
-          version: v0.24.0
-          node_image: kindest/node:v1.27.17@sha256:3fd82731af34efe19cd54ea5c25e882985bafa2c9baefe14f8deab1737d9fabe
-          cpu: 3
-          registry: false
           config: ./ci/config.yaml
-
-      - name: Install Ingress
-        run: |
-          kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-          kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
-
-      - name: Install prometheus
-        run: |
-          LATEST=$(curl -s https://api.github.com/repos/prometheus-operator/prometheus-operator/releases/latest | jq -cr .tag_name)
-          curl -sL https://github.com/prometheus-operator/prometheus-operator/releases/download/${LATEST}/bundle.yaml | kubectl create -f -
-          kubectl wait --for=condition=Ready pods -l  app.kubernetes.io/name=prometheus-operator -n default
+          prometheus: 'true'
+          keycloak: 'true'
+          olm: 'true'
 
       - name: Deploy operator container
         env:
@@ -232,51 +220,6 @@ jobs:
       - name: Wait for operator to be ready
         run: |
           kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n openshift-rhtas-operator
-
-      - name: Install Keycloak
-        run: |
-          #install OLM
-          kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.25.0/crds.yaml
-          # wait for a while to be sure CRDs are installed
-          sleep 1
-          kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.25.0/olm.yaml
-
-          kubectl create --kustomize ci/keycloak/operator/overlay/kind
-          until [ ! -z "$(kubectl get pod -l name=keycloak-operator -n keycloak-system 2>/dev/null)" ]
-          do
-            echo "Waiting for keycloak operator. Pods in keycloak-system namespace:"
-            kubectl get pods -n keycloak-system
-            sleep 10
-          done
-          kubectl create --kustomize ci/keycloak/resources/overlay/kind
-          until [[ $( oc get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system 2>/dev/null) == "true" ]]
-          do
-            printf "Waiting for keycloak deployment. \n Keycloak ready: %s\n" $(oc get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system)
-            sleep 10
-          done
-          
-          # HACK - expose keycloak under the same name as the internal SVC has so it will be accessible:
-          # - within the cluster (where the localhost does not work)
-          # - outside the cluster (resolved from /etc/hosts and redirect to the localhost)
-          kubectl create -n keycloak-system -f - <<EOF
-          apiVersion: networking.k8s.io/v1
-          kind: Ingress
-          metadata:
-            name: keycloak
-          spec:
-            rules:
-            - host: keycloak-internal.keycloak-system.svc
-              http:
-                paths:
-                - backend:
-                    service:
-                      name: keycloak-internal
-                      port:
-                        number: 80
-                  path: /
-                  pathType: Prefix
-          EOF
-        shell: bash
 
       - name: Add service hosts to /etc/hosts
         run: |
@@ -343,66 +286,12 @@ jobs:
           podman load -i /tmp/catalog-oci.tar
 
       - name: Install Cluster
-        uses: container-tools/kind-action@v2.0.1
+        uses: ./.github/actions/kind-cluster
         with:
-          version: v0.20.0
-          node_image: kindest/node:v1.26.6@sha256:6e2d8b28a5b601defe327b98bd1c2d1930b49e5d8c512e1895099e4504007adb
-          cpu: 3
-          registry: false
           config: ./ci/config.yaml
-
-      - name: Configure cluster
-        run: |
-          kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-          kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
-
-          #install Prometheus
-          LATEST=$(curl -s https://api.github.com/repos/prometheus-operator/prometheus-operator/releases/latest | jq -cr .tag_name)
-          curl -sL https://github.com/prometheus-operator/prometheus-operator/releases/download/${LATEST}/bundle.yaml | kubectl create -f -
-          kubectl wait --for=condition=Ready pods -l  app.kubernetes.io/name=prometheus-operator -n default
-
-          #install OLM
-          kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.25.0/crds.yaml
-          # wait for a while to be sure CRDs are installed
-          sleep 1
-          kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.25.0/olm.yaml
-
-          kubectl create --kustomize ci/keycloak/operator/overlay/kind
-          until [ ! -z "$(kubectl get pod -l name=keycloak-operator -n keycloak-system 2>/dev/null)" ]
-          do
-            echo "Waiting for keycloak operator. Pods in keycloak-system namespace:"
-            kubectl get pods -n keycloak-system
-            sleep 10
-          done
-          kubectl create --kustomize ci/keycloak/resources/overlay/kind
-          until [[ $( oc get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system 2>/dev/null) == "true" ]]
-          do
-            printf "Waiting for keycloak deployment. \n Keycloak ready: %s\n" $(oc get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system)
-            sleep 10
-          done
-
-          # HACK - expose keycloak under the same name as the internal SVC has so it will be accessible:
-          # - within the cluster (where the localhost does not work)
-          # - outside the cluster (resolved from /etc/hosts and redirect to the localhost)
-          kubectl create -n keycloak-system -f - <<EOF
-          apiVersion: networking.k8s.io/v1
-          kind: Ingress
-          metadata:
-            name: keycloak
-          spec:
-            rules:
-            - host: keycloak-internal.keycloak-system.svc
-              http:
-                paths:
-                - backend:
-                    service:
-                      name: keycloak-internal
-                      port:
-                        number: 80
-                  path: /
-                  pathType: Prefix
-          EOF
-        shell: bash
+          prometheus: 'true'
+          keycloak: 'true'
+          olm: 'true'
 
       - name: Add service hosts to /etc/hosts
         run: |
@@ -467,19 +356,9 @@ jobs:
         run: podman load -i /tmp/operator-oci.tar
 
       - name: Install Cluster
-        uses: container-tools/kind-action@v2.0.1
+        uses: ./.github/actions/kind-cluster
         with:
-          version: v0.20.0
-          node_image: kindest/node:v1.26.6@sha256:6e2d8b28a5b601defe327b98bd1c2d1930b49e5d8c512e1895099e4504007adb
-          cpu: 3
-          registry: false
           config: ./ci/config.yaml
-
-      - name: Configure cluster
-        run: |
-          kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-          kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
-        shell: bash
 
       - name: Add service hosts to /etc/hosts
         run: |
@@ -500,6 +379,99 @@ jobs:
         with:
           name: test-custom-install
           path: test/**/k8s-dump-*.tar.gz
+
+  test-e2e:
+    name: Execute securesign/sigstore-e2e
+    runs-on: ubuntu-24.04
+    needs:
+      - build-operator
+    env:
+      TEST_NAMESPACE: test
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Checkout test source repository
+        uses: actions/checkout@v4
+        with:
+          repository: "securesign/sigstore-e2e"
+          path: e2e
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Log in to registry.redhat.io
+        uses: redhat-actions/podman-login@9184318aae1ee5034fbfbacc0388acf12669171f # v1
+        with:
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+          registry: registry.redhat.io
+          auth_file_path: /tmp/config.json
+
+      - name: Image prune
+        run: podman image prune -af
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "*-image"
+          merge-multiple: true
+          path: /tmp
+
+      - name: Load images
+        run: |
+          podman load -i /tmp/operator-oci.tar
+
+      - name: Install Cluster
+        id: kind
+        uses: ./.github/actions/kind-cluster
+        with:
+          config: ./ci/config.yaml
+          keycloak: 'true'
+          olm: 'true'
+          prometheus: 'true'
+
+      - name: Add service hosts to /etc/hosts
+        run: |
+          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local rekor-search-ui.local cli-server.local" | sudo tee -a /etc/hosts
+
+      - name: Deploy operator container
+        env:
+          OPENSHIFT: false
+        run: make deploy
+
+      - name: Wait for operator to be ready
+        run: |
+          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n openshift-rhtas-operator
+
+      - name: Install securesign
+        run: |
+          sed -i 's#https://your-oidc-issuer-url#${{ steps.kind.outputs.oidc_url }}#' config/samples/rhtas_v1alpha1_securesign.yaml
+          sed -i 's#rhtas.redhat.com/metrics: "true"#rhtas.redhat.com/metrics: "false"#' config/samples/rhtas_v1alpha1_securesign.yaml
+          kubectl create ns ${{ env.TEST_NAMESPACE }}
+          kubectl create -f config/samples/rhtas_v1alpha1_securesign.yaml -n ${{ env.TEST_NAMESPACE }}
+          sleep 1
+          kubectl wait --for=condition=Ready securesign/securesign-sample -n ${{ env.TEST_NAMESPACE }}
+
+      - name: Run tests
+        run: |         
+          export SIGSTORE_OIDC_ISSUER=${{ steps.kind.outputs.oidc_url }}
+          export FULCIO_URL=$(kubectl get securesign -o jsonpath='{.items[0].status.fulcio.url}' -n ${{ env.TEST_NAMESPACE }})
+          export REKOR_URL=$(kubectl get securesign -o jsonpath='{.items[0].status.rekor.url}' -n ${{ env.TEST_NAMESPACE }})
+          export TUF_URL=$(kubectl get securesign -o jsonpath='{.items[0].status.tuf.url}' -n ${{ env.TEST_NAMESPACE }})
+          export TSA_URL=$(kubectl get securesign -o jsonpath='{.items[0].status.tsa.url}' -n ${{ env.TEST_NAMESPACE }})
+          
+          export  CLI_STRATEGY=cli_server
+          export CLI_SERVER_URL="http://cli-server.local"
+          
+          cd e2e
+          go test -v ./test/...
+
+      - name: dump the logs of the operator
+        run: |
+          kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
+        if: failure()
 
   test-eks:
     name: Test EKS deployment
