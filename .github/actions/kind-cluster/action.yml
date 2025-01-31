@@ -1,4 +1,6 @@
 name: 'Install and configure Kind cluster'
+description: 'Customized Kind-action'
+
 inputs:
   config:
     description: 'Kind config'
@@ -6,18 +8,21 @@ inputs:
   olm:
     description: 'install olm'
     required: true
-    type: boolean
     default: 'false'
   keycloak:
     description: 'install keycloak'
     required: true
-    type: boolean
     default: 'false'
   prometheus:
     description: 'install prometheus'
     required: true
-    type: boolean
     default: 'false'
+
+outputs:
+  oidc_url:
+    value: keycloak_url
+    description: 'Keycloak OIDC url'
+
 runs:
   using: 'composite'
   steps:
@@ -36,7 +41,7 @@ runs:
         kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
         kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
     - name: Install prometheus
-      if: ${{ inputs.prometheus }}
+      if: ${{ inputs.prometheus == 'true'}}
       shell: bash
       run: |
         #install Prometheus
@@ -45,7 +50,7 @@ runs:
         kubectl wait --for=condition=Ready pods -l  app.kubernetes.io/name=prometheus-operator -n default
 
     - name: Install olm
-      if: ${{ inputs.olm }}
+      if: ${{ inputs.olm  == 'true'}}
       shell: bash
       run: |
         #install OLM
@@ -55,7 +60,7 @@ runs:
         kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.25.0/olm.yaml
 
     - name: Install keycloak
-      if: ${{ inputs.keycloak }}
+      if: ${{ inputs.keycloak  == 'true'}}
       shell: bash
       run: |
         kubectl create --kustomize ci/keycloak/operator/overlay/kind
@@ -66,9 +71,9 @@ runs:
           sleep 10
         done
         kubectl create --kustomize ci/keycloak/resources/overlay/kind
-        until [[ $( oc get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system 2>/dev/null) == "true" ]]
+        until [[ $( kubectl get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system 2>/dev/null) == "true" ]]
         do
-          printf "Waiting for keycloak deployment. \n Keycloak ready: %s\n" $(oc get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system)
+          printf "Waiting for keycloak deployment. \n Keycloak ready: %s\n" $(kubectl get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system)
           sleep 10
         done
 
@@ -93,3 +98,5 @@ runs:
                 path: /
                 pathType: Prefix
         EOF
+        
+        echo "keycloak_url=https://keycloak-internal.keycloak-system.svc" >> $GITHUB_OUTPUT
