@@ -205,7 +205,7 @@ jobs:
         run: podman load -i /tmp/operator-oci.tar
 
       - name: Install Cluster
-        uses: ./.github/workflows/actions/kind-cluster
+        uses: ./.github/actions/kind-cluster
         with:
           config: ./ci/config.yaml
           prometheus: 'true'
@@ -287,7 +287,7 @@ jobs:
           podman load -i /tmp/catalog-oci.tar
 
       - name: Install Cluster
-        uses: ./.github/workflows/actions/kind-cluster
+        uses: ./.github/actions/kind-cluster
         with:
           config: ./ci/config.yaml
           prometheus: 'true'
@@ -358,7 +358,7 @@ jobs:
         run: podman load -i /tmp/operator-oci.tar
 
       - name: Install Cluster
-        uses: ./.github/workflows/actions/kind-cluster
+        uses: ./.github/actions/kind-cluster
         with:
           config: ./ci/config.yaml
 
@@ -386,16 +386,17 @@ jobs:
     name: Execute securesign/sigstore-e2e
     runs-on: ubuntu-24.04
     needs:
-      - build-fbc
+      - build-operator
+    env:
+      TEST_NAMESPACE: test
     steps:
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: true
       - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Checkout test source repository
         uses: actions/checkout@v4
         with:
           repository: "securesign/sigstore-e2e"
+          path: e2e
 
       - name: Install Go
         uses: actions/setup-go@v5
@@ -423,36 +424,56 @@ jobs:
       - name: Load images
         run: |
           podman load -i /tmp/operator-oci.tar
-          podman load -i /tmp/bundle-oci.tar
-          podman load -i /tmp/catalog-oci.tar
 
       - name: Install Cluster
-        uses: ./.github/workflows/actions/kind-cluster
+        id: kind
+        uses: ./.github/actions/kind-cluster
         with:
           config: ./ci/config.yaml
           keycloak: 'true'
           olm: 'true'
+          prometheus: 'true'
 
       - name: Add service hosts to /etc/hosts
         run: |
           sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local rekor-search-ui.local cli-server.local" | sudo tee -a /etc/hosts
 
-      - name: Install operator
-        run:
+      - name: Deploy operator container
+        env:
+          OPENSHIFT: false
+        run: make deploy
+
+      - name: Wait for operator to be ready
+        run: |
+          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n openshift-rhtas-operator
+
+      - name: Install securesign
+        run: |
+          sed -i 's#https://your-oidc-issuer-url#${{ steps.kind.outputs.oidc_url }}#' config/samples/rhtas_v1alpha1_securesign.yaml
+          sed -i 's#rhtas.redhat.com/metrics: "true"#rhtas.redhat.com/metrics: "false"#' config/samples/rhtas_v1alpha1_securesign.yaml
+          kubectl create ns ${{ env.TEST_NAMESPACE }}
+          kubectl create -f config/samples/rhtas_v1alpha1_securesign.yaml -n ${{ env.TEST_NAMESPACE }}
+          sleep 1
+          kubectl wait --for=condition=Ready securesign/securesign-sample -n ${{ env.TEST_NAMESPACE }}
 
       - name: Run tests
-        env:
-          TEST_MANAGER_IMAGE: ${{ env.IMG }}
-          OPENSHIFT: false
-        run: make install && go test ./test/e2e/... -tags=custom_install -p 1 -timeout 20m
+        run: |         
+          export SIGSTORE_OIDC_ISSUER=${{ steps.kind.outputs.oidc_url }}
+          export FULCIO_URL=$(kubectl get securesign -o jsonpath='{.items[0].status.fulcio.url}' -n ${{ env.TEST_NAMESPACE }})
+          export REKOR_URL=$(kubectl get securesign -o jsonpath='{.items[0].status.rekor.url}' -n ${{ env.TEST_NAMESPACE }})
+          export TUF_URL=$(kubectl get securesign -o jsonpath='{.items[0].status.tuf.url}' -n ${{ env.TEST_NAMESPACE }})
+          export TSA_URL=$(kubectl get securesign -o jsonpath='{.items[0].status.tsa.url}' -n ${{ env.TEST_NAMESPACE }})
+          
+          export  CLI_STRATEGY=cli_server
+          export CLI_SERVER_URL="http://cli-server.local"
+          
+          cd e2e
+          go test -v ./test/...
 
-      - name: Archive test artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-custom-install
-          path: test/**/k8s-dump-*.tar.gz
-          if-no-files-found: ignore
+      - name: dump the logs of the operator
+        run: |
+          kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
+        if: failure()
 
   test-eks:
     name: Test EKS deployment
