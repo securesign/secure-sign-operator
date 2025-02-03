@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/securesign/operator/internal/images"
+
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -144,7 +146,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.Fulcio, sa string
 		template.Spec.AutomountServiceAccountToken = &[]bool{true}[0]
 
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, "fulcio-server")
-		container.Image = constants.FulcioServerImage
+		container.Image = images.Registry.Get(images.FulcioServer)
 
 		if instance.Status.Certificate.PrivateKeyPasswordRef != nil {
 			env := kubernetes.FindEnvByNameOrCreate(container, "PASSWORD")

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/securesign/operator/internal/images"
+
 	"github.com/robfig/cron/v3"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -100,7 +102,7 @@ func (i backfillRedisCronJob) ensureBacfillCronJob(instance *rhtasv1alpha1.Rekor
 
 		container := kubernetes.FindContainerByNameOrCreate(templateSpec, actions.BackfillRedisCronJobName)
 
-		container.Image = constants.BackfillRedisImage
+		container.Image = images.Registry.Get(images.BackfillRedis)
 		container.Command = []string{"/bin/sh", "-c"}
 		container.Args = []string{
 			fmt.Sprintf(`endIndex=$(curl -sS http://%s/api/v1/log | sed -E 's/.*"treeSize":([0-9]+).*/\1/'); endIndex=$((endIndex-1)); if [ $endIndex -lt 0 ]; then echo "info: no rekor entries found"; exit 0; fi; backfill-redis --redis-hostname=rekor-redis --redis-port=6379 --rekor-address=http://%s --start=0 --end=$endIndex`, actions.ServerComponentName, actions.ServerComponentName),
