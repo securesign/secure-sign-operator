@@ -4,24 +4,23 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/securesign/operator/internal/controller/annotations"
-
 	"github.com/robfig/cron/v3"
+	"github.com/securesign/operator/internal/controller/annotations"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
-
-	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"golang.org/x/exp/maps"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"context"
 
+	batchv1 "k8s.io/api/batch/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
-
-	"github.com/operator-framework/operator-lib/proxy"
 )
 
 func NewSegmentBackupCronJobAction() action.Action[*rhtasv1alpha1.Securesign] {
@@ -52,12 +51,12 @@ func (i segmentBackupCronJob) CanHandle(_ context.Context, instance *rhtasv1alph
 
 func (i segmentBackupCronJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
 	var (
-		err     error
-		updated bool
+		err    error
+		result controllerutil.OperationResult
 	)
 
 	if _, err := cron.ParseStandard(AnalyiticsCronSchedule); err != nil {
-		return i.Failed(fmt.Errorf("could not create segment backuup cron job due to errors with parsing the cron schedule: %w", err))
+		return i.Error(ctx, fmt.Errorf("could not create segment backuup cron job due to errors with parsing the cron schedule: %w", err), instance)
 	}
 
 	labels := labels.For(SegmentBackupCronJobName, SegmentBackupCronJobName, instance.Name)
@@ -68,76 +67,64 @@ func (i segmentBackupCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 			Namespace: instance.Namespace,
 			Labels:    labels,
 		},
-		Spec: batchv1.CronJobSpec{
-			Schedule: AnalyiticsCronSchedule,
-			JobTemplate: batchv1.JobTemplateSpec{
-				Spec: batchv1.JobSpec{
-					Template: corev1.PodTemplateSpec{
-						Spec: corev1.PodSpec{
-							ServiceAccountName: SegmentRBACName,
-							RestartPolicy:      "OnFailure",
-							Containers: []corev1.Container{
-								{
-									Name:    SegmentBackupCronJobName,
-									Image:   constants.SegmentBackupImage,
-									Command: []string{"python3", "/opt/app-root/src/src/script.py"},
-									Env: []corev1.EnvVar{
-										{
-											Name:  "RUN_TYPE",
-											Value: "nightly",
-										},
-										{
-											Name:  "REQUESTS_CA_BUNDLE",
-											Value: "/etc/pki/tls/certs/ca-bundle.crt", // Certificate used to verify requests externally i.e communication with segment
-										},
-										{
-											Name:  "REQUESTS_CA_BUNDLE_INTERNAL",
-											Value: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", // Certificate used to verify requests internally i.e queries to thanos
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+	}
+
+	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+		segmentBackupCronJob,
+		i.ensureSegmentBackupCronJob(),
+		ensure.ControllerReference[*batchv1.CronJob](instance, i.Client),
+		ensure.Labels[*batchv1.CronJob](maps.Keys(labels), labels),
+		func(object *batchv1.CronJob) error {
+			ensure.SetProxyEnvs(object.Spec.JobTemplate.Spec.Template.Spec.Containers)
+			return nil
 		},
+	); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create segment backup cron job: %w", err), instance,
+			metav1.Condition{
+				Type:    MetricsCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			})
 	}
 
-	// Adding proxy variables to operand
-	for i, container := range segmentBackupCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
-		segmentBackupCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[i].Env = append(container.Env, proxy.ReadProxyVarsFromEnv()...)
-	}
-
-	if err = controllerutil.SetControllerReference(instance, segmentBackupCronJob, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for segment backup cron job: %w", err))
-	}
-
-	if updated, err = i.Ensure(ctx, segmentBackupCronJob); err != nil {
+	if result != controllerutil.OperationResultNone {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    MetricsCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create segment backup cron job: %w", err), instance)
-	}
-
-	if updated {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    MetricsCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Creating,
-			Message: "Segment backup Cron Job creating",
+			Status:  metav1.ConditionTrue,
+			Reason:  constants.Ready,
+			Message: "Segment backup Cron Job created",
 		})
 		return i.StatusUpdate(ctx, instance)
 	}
 
-	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:    MetricsCondition,
-		Status:  metav1.ConditionTrue,
-		Reason:  constants.Ready,
-		Message: "Segment backup Cron Job created",
-	})
 	return i.Continue()
+}
+
+func (i segmentBackupCronJob) ensureSegmentBackupCronJob() func(job *batchv1.CronJob) error {
+	return func(job *batchv1.CronJob) error {
+		{
+			spec := &job.Spec
+			spec.Schedule = AnalyiticsCronSchedule
+
+			templateSpec := &spec.JobTemplate.Spec.Template.Spec
+			templateSpec.ServiceAccountName = SegmentRBACName
+			templateSpec.RestartPolicy = "OnFailure"
+
+			container := kubernetes.FindContainerByNameOrCreate(templateSpec, SegmentBackupCronJobName)
+			container.Image = constants.SegmentBackupImage
+			container.Command = []string{"python3", "/opt/app-root/src/src/script.py"}
+
+			runTypeEnv := kubernetes.FindEnvByNameOrCreate(container, "RUN_TYPE")
+			runTypeEnv.Value = "nightly"
+
+			caBundleEnv := kubernetes.FindEnvByNameOrCreate(container, "REQUESTS_CA_BUNDLE")
+			caBundleEnv.Value = "/etc/pki/tls/certs/ca-bundle.crt" // Certificate used to verify requests externally i.e communication with segment
+
+			internalCaBundleEnv := kubernetes.FindEnvByNameOrCreate(container, "REQUESTS_CA_BUNDLE_INTERNAL")
+			internalCaBundleEnv.Value = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt" // Certificate used to verify requests internally i.e queries to thanos
+
+		}
+		return nil
+	}
 }

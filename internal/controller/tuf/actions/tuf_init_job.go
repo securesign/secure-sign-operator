@@ -92,9 +92,13 @@ func (i initJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) 
 				Namespace: instance.Namespace,
 			},
 		},
-		utils.CreateTufInitJob(instance, tufConstants.RBACName, l),
+		utils.EnsureTufInitJob(instance, tufConstants.RBACName, l),
 		ensure.ControllerReference[*v2.Job](pvc, i.Client),
 		ensure.Labels[*v2.Job](maps.Keys(l), l),
+		func(object *v2.Job) error {
+			ensure.SetProxyEnvs(object.Spec.Template.Spec.Containers)
+			return nil
+		},
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create TUF init job: %w", err), instance)
 	}

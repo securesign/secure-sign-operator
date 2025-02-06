@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/securesign/operator/internal/controller/common/action"
-	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -46,7 +45,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 
 	labels := labels.For(actions.LogSignerComponentName, actions.LogsignerDeploymentName, instance.Name)
 
-	caTrustRef := utils.TrustedCAAnnotationToReference(instance.Annotations)
+	caTrustRef := ensure.TrustedCAAnnotationToReference(instance.Annotations)
 	// override if spec.trustedCA is defined
 	if instance.Spec.TrustedCA != nil {
 		caTrustRef = instance.Spec.TrustedCA

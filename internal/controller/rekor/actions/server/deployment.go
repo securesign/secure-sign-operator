@@ -67,7 +67,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		ensure.ControllerReference[*v2.Deployment](instance, i.Client),
 		ensure.Labels[*v2.Deployment](maps.Keys(labels), labels),
 		ensure.Proxy(),
-		ensure.TrustedCA(cutils.TrustedCAAnnotationToReference(instance.Annotations)),
+		ensure.TrustedCA(ensure.TrustedCAAnnotationToReference(instance.Annotations)),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could create server Deployment: %w", err), instance)
 	}
