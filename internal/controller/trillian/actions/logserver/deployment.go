@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/securesign/operator/internal/controller/common/action"
-	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -48,7 +47,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	insCopy := instance.DeepCopy()
 
 	if insCopy.Spec.TrustedCA == nil {
-		insCopy.Spec.TrustedCA = utils.TrustedCAAnnotationToReference(instance.Annotations)
+		insCopy.Spec.TrustedCA = ensure.TrustedCAAnnotationToReference(instance.Annotations)
 	}
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,

@@ -59,7 +59,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	caRef := instance.Spec.TrustedCA
 	if caRef == nil {
 		// override if spec.trustedCA is not defined
-		caRef = cutils.TrustedCAAnnotationToReference(instance.Annotations)
+		caRef = ensure.TrustedCAAnnotationToReference(instance.Annotations)
 	}
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,

@@ -68,7 +68,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Timest
 
 	labels := labels.For(ComponentName, DeploymentName, instance.Name)
 
-	caRef := cutils.TrustedCAAnnotationToReference(instance.Annotations)
+	caRef := ensure.TrustedCAAnnotationToReference(instance.Annotations)
 	// override if spec.trustedCA is defined
 	if instance.Spec.TrustedCA != nil {
 		caRef = instance.Spec.TrustedCA

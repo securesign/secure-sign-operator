@@ -3,7 +3,6 @@ package utils
 import (
 	"path/filepath"
 
-	"github.com/operator-framework/operator-lib/proxy"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -18,17 +17,8 @@ const (
 	targetMonthPath  = "/var/run/target"
 )
 
-func CreateTufInitJob(instance *rhtasv1alpha1.Tuf, sa string, labels map[string]string) func(*batchv1.Job) error {
+func EnsureTufInitJob(instance *rhtasv1alpha1.Tuf, sa string, labels map[string]string) func(*batchv1.Job) error {
 	return func(job *batchv1.Job) error {
-
-		// prepare env vars
-		env := []v1.EnvVar{
-			{
-				Name:  "NAMESPACE",
-				Value: instance.Namespace,
-			},
-		}
-		env = append(env, proxy.ReadProxyVarsFromEnv()...)
 
 		// prepare args
 		args := []string{"--export-keys", instance.Spec.RootKeySecretRef.Name}
@@ -71,7 +61,8 @@ func CreateTufInitJob(instance *rhtasv1alpha1.Tuf, sa string, labels map[string]
 		// init containers
 		container := kubernetes.FindContainerByNameOrCreate(templateSpec, "tuf-init")
 		container.Image = constants.TufImage
-		container.Env = env
+		env := kubernetes.FindEnvByNameOrCreate(container, "NAMESPACE")
+		env.Value = instance.Namespace
 		container.Args = args
 		container.VolumeMounts = []v1.VolumeMount{
 			{

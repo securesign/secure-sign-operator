@@ -69,7 +69,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](maps.Keys(labels), labels),
 		ensure.Proxy(),
-		ensure.TrustedCA(cutils.TrustedCAAnnotationToReference(instance.Annotations)),
+		ensure.TrustedCA(ensure.TrustedCAAnnotationToReference(instance.Annotations)),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create ctlog server deployment: %w", err), instance)
 	}

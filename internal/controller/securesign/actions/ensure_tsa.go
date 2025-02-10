@@ -2,16 +2,19 @@ package actions
 
 import (
 	"context"
-	"reflect"
+	"fmt"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/action"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/tsa/actions"
+	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -33,40 +36,37 @@ func (i tsaAction) CanHandle(context.Context, *rhtasv1alpha1.Securesign) bool {
 
 func (i tsaAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
 	var (
-		err     error
-		updated bool
+		err    error
+		result controllerutil.OperationResult
+		l      = labels.For(actions.ComponentName, instance.Name, instance.Name)
+		tsa    = &rhtasv1alpha1.TimestampAuthority{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      instance.Name,
+				Namespace: instance.Namespace,
+			},
+		}
 	)
-	tsa := &rhtasv1alpha1.TimestampAuthority{}
-	tsa.Name = instance.Name
-	tsa.Namespace = instance.Namespace
-	tsa.Labels = labels.For(actions.ComponentName, tsa.Name, instance.Name)
 
-	if reflect.ValueOf(instance.Spec.TimestampAuthority).IsZero() {
-		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
-			Type:    TSACondition,
-			Status:  v1.ConditionFalse,
-			Reason:  constants.NotDefined,
-			Message: "TSA resource is undefined",
-		})
-		return i.StatusUpdate(ctx, instance)
-	}
-	tsa.Spec = *instance.Spec.TimestampAuthority
-
-	if err = controllerutil.SetControllerReference(instance, tsa, i.Client.Scheme()); err != nil {
-		return i.Failed(err)
-	}
-
-	if updated, err = i.Ensure(ctx, tsa, action.EnsureSpec(), action.EnsureRouteSelectorLabels(), action.EnsureNTPConfig()); err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
-			Type:    TSACondition,
-			Status:  v1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, err, instance)
+	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+		tsa,
+		ensure.ControllerReference[*rhtasv1alpha1.TimestampAuthority](instance, i.Client),
+		ensure.Labels[*rhtasv1alpha1.TimestampAuthority](maps.Keys(l), l),
+		ensure.Annotations[*rhtasv1alpha1.TimestampAuthority](annotations.InheritableAnnotations, instance.Annotations),
+		func(object *rhtasv1alpha1.TimestampAuthority) error {
+			object.Spec = *instance.Spec.TimestampAuthority
+			return nil
+		},
+	); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create TimestampAuthority: %w", err), instance,
+			v1.Condition{
+				Type:    TSACondition,
+				Status:  v1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			})
 	}
 
-	if updated {
+	if result != controllerutil.OperationResultNone {
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 			Type:    TSACondition,
 			Status:  v1.ConditionFalse,
@@ -76,14 +76,10 @@ func (i tsaAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 		return i.StatusUpdate(ctx, instance)
 	}
 
-	return i.CopyStatus(ctx, client.ObjectKeyFromObject(tsa), instance)
+	return i.CopyStatus(ctx, tsa, instance)
 }
 
-func (i tsaAction) CopyStatus(ctx context.Context, ok client.ObjectKey, instance *rhtasv1alpha1.Securesign) *action.Result {
-	object := &rhtasv1alpha1.TimestampAuthority{}
-	if err := i.Client.Get(ctx, ok, object); err != nil {
-		return i.Failed(err)
-	}
+func (i tsaAction) CopyStatus(ctx context.Context, object *rhtasv1alpha1.TimestampAuthority, instance *rhtasv1alpha1.Securesign) *action.Result {
 	objectStatus := meta.FindStatusCondition(object.Status.Conditions, constants.Ready)
 	if objectStatus == nil {
 		// not initialized yet, wait for update

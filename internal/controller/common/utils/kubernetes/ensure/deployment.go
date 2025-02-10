@@ -4,7 +4,6 @@ import (
 	"slices"
 
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -23,7 +22,7 @@ const (
 
 func Proxy() func(*v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
-		utils.SetProxyEnvs(dp)
+		SetProxyEnvs(dp.Spec.Template.Spec.Containers)
 		return nil
 	}
 }
@@ -31,7 +30,6 @@ func Proxy() func(*v1.Deployment) error {
 // TrustedCA mount config map with trusted CA bundle to all deployment's containers.
 func TrustedCA(lor *v1alpha1.LocalObjectReference) func(dp *v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
-
 		template := &dp.Spec.Template
 		for i := range template.Spec.Containers {
 			env := kubernetes.FindEnvByNameOrCreate(&template.Spec.Containers[i], "SSL_CERT_DIR")

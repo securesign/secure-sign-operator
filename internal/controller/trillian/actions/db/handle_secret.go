@@ -6,23 +6,22 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
+	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierros "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 
-	"github.com/securesign/operator/internal/controller/common/utils"
-
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
 	labels2 "github.com/securesign/operator/internal/controller/labels"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -39,6 +38,8 @@ const (
 	annotationPort     = labels2.LabelNamespace + "/" + trillian.SecretPort
 	annotationHost     = labels2.LabelNamespace + "/" + trillian.SecretHost
 )
+
+var managedAnnotations = []string{annotationDatabase, annotationUser, annotationPort, annotationHost}
 
 var ErrMissingDBConfiguration = errors.New("expecting external DB configuration")
 
@@ -143,26 +144,25 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 		return i.StatusUpdate(ctx, instance)
 	}
 
-	dbSecret := i.createDbSecret(instance.Namespace, dbLabels)
-	if err = controllerutil.SetControllerReference(instance, dbSecret, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for secret: %w", err))
+	dbSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: dbConnectionSecretName,
+			Namespace:    instance.Namespace,
+		},
 	}
-
-	// no watch on secret - continue if no error
-	if _, err = i.Ensure(ctx, dbSecret); err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    trillian.DbCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, fmt.Errorf("could not create DB secret: %w", err), instance)
+	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+		dbSecret,
+		ensure.Labels[*corev1.Secret](maps.Keys(dbLabels), dbLabels),
+		ensure.Annotations[*corev1.Secret](managedAnnotations, i.secretAnnotations()),
+		kubernetes.EnsureSecretData(true, i.defaultDBData()),
+	); err != nil {
+		return i.Error(ctx, fmt.Errorf("can't generate certificate secret: %w", err), instance,
+			metav1.Condition{
+				Type:    trillian.DbCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			})
 	}
 
 	instance.Status.Db.DatabaseSecretRef = &rhtasv1alpha1.LocalObjectReference{
@@ -170,28 +170,19 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 	}
 	return i.StatusUpdate(ctx, instance)
 }
-func (i handleSecretAction) createDbSecret(namespace string, labels map[string]string) *corev1.Secret {
+func (i handleSecretAction) defaultDBData() map[string][]byte {
 	// Define a new Secret object
 	var rootPass []byte
 	var mysqlPass []byte
 	rootPass = common.GeneratePassword(12)
 	mysqlPass = common.GeneratePassword(12)
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: dbConnectionSecretName,
-			Namespace:    namespace,
-			Labels:       labels,
-			Annotations:  i.secretAnnotations(),
-		},
-		Type: "Opaque",
-		Data: map[string][]byte{
-			trillian.SecretRootPassword: rootPass,
-			trillian.SecretPassword:     mysqlPass,
-			trillian.SecretDatabaseName: []byte(databaseName),
-			trillian.SecretUser:         []byte(user),
-			trillian.SecretPort:         []byte(strconv.Itoa(port)),
-			trillian.SecretHost:         []byte(host),
-		},
+	return map[string][]byte{
+		trillian.SecretRootPassword: rootPass,
+		trillian.SecretPassword:     mysqlPass,
+		trillian.SecretDatabaseName: []byte(databaseName),
+		trillian.SecretUser:         []byte(user),
+		trillian.SecretPort:         []byte(strconv.Itoa(port)),
+		trillian.SecretHost:         []byte(host),
 	}
 }
 

@@ -2,17 +2,19 @@ package actions
 
 import (
 	"context"
-
-	"github.com/securesign/operator/internal/controller/annotations"
+	"fmt"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/action"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
 	"github.com/securesign/operator/internal/controller/labels"
+	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -34,33 +36,37 @@ func (i fulcioAction) CanHandle(context.Context, *rhtasv1alpha1.Securesign) bool
 
 func (i fulcioAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
 	var (
-		err     error
-		updated bool
+		err    error
+		result controllerutil.OperationResult
+		l      = labels.For(actions.ComponentName, instance.Name, instance.Name)
+		fulcio = &rhtasv1alpha1.Fulcio{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      instance.Name,
+				Namespace: instance.Namespace,
+			},
+		}
 	)
-	fulcio := &rhtasv1alpha1.Fulcio{}
 
-	fulcio.Name = instance.Name
-	fulcio.Namespace = instance.Namespace
-	fulcio.Labels = labels.For(actions.ComponentName, fulcio.Name, instance.Name)
-	fulcio.Annotations = annotations.FilterInheritable(instance.Annotations)
-
-	fulcio.Spec = instance.Spec.Fulcio
-
-	if err = controllerutil.SetControllerReference(instance, fulcio, i.Client.Scheme()); err != nil {
-		return i.Failed(err)
+	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+		fulcio,
+		ensure.ControllerReference[*rhtasv1alpha1.Fulcio](instance, i.Client),
+		ensure.Labels[*rhtasv1alpha1.Fulcio](maps.Keys(l), l),
+		ensure.Annotations[*rhtasv1alpha1.Fulcio](annotations.InheritableAnnotations, instance.Annotations),
+		func(object *rhtasv1alpha1.Fulcio) error {
+			object.Spec = instance.Spec.Fulcio
+			return nil
+		},
+	); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create Fulcio: %w", err), instance,
+			v1.Condition{
+				Type:    FulcioCondition,
+				Status:  v1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			})
 	}
 
-	if updated, err = i.Ensure(ctx, fulcio, action.EnsureSpec(), action.EnsureRouteSelectorLabels()); err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
-			Type:    FulcioCondition,
-			Status:  v1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return i.FailedWithStatusUpdate(ctx, err, instance)
-	}
-
-	if updated {
+	if result != controllerutil.OperationResultNone {
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 			Type:    FulcioCondition,
 			Status:  v1.ConditionFalse,
@@ -70,14 +76,10 @@ func (i fulcioAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secure
 		return i.StatusUpdate(ctx, instance)
 	}
 
-	return i.CopyStatus(ctx, client.ObjectKeyFromObject(fulcio), instance)
+	return i.CopyStatus(ctx, fulcio, instance)
 }
 
-func (i fulcioAction) CopyStatus(ctx context.Context, ok client.ObjectKey, instance *rhtasv1alpha1.Securesign) *action.Result {
-	object := &rhtasv1alpha1.Fulcio{}
-	if err := i.Client.Get(ctx, ok, object); err != nil {
-		return i.Failed(err)
-	}
+func (i fulcioAction) CopyStatus(ctx context.Context, object *rhtasv1alpha1.Fulcio, instance *rhtasv1alpha1.Securesign) *action.Result {
 	objectStatus := meta.FindStatusCondition(object.Status.Conditions, constants.Ready)
 	if objectStatus == nil {
 		// not initialized yet, wait for update

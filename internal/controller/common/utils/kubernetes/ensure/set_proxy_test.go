@@ -1,4 +1,4 @@
-package utils
+package ensure
 
 import (
 	"testing"
@@ -49,7 +49,7 @@ func TestSetProxyEnvs(t *testing.T) {
 		},
 	}
 
-	SetProxyEnvs(dep)
+	SetProxyEnvs(dep.Spec.Template.Spec.Containers)
 
 	g.Expect(dep.Spec.Template.Spec.Containers).ShouldNot(BeNil())
 	g.Expect(dep.Spec.Template.Spec.Containers[0].Env).Should(HaveLen(2))
@@ -59,7 +59,7 @@ func TestSetProxyEnvs(t *testing.T) {
 		t.Setenv(e.Name, e.Value)
 	}
 
-	SetProxyEnvs(dep)
+	SetProxyEnvs(dep.Spec.Template.Spec.Containers)
 
 	expectedEnvVars := append(mockReadProxyVarsFromEnv(), corev1.EnvVar{
 		Name:  "answer",
@@ -71,7 +71,7 @@ func TestSetProxyEnvs(t *testing.T) {
 	g.Expect(dep.Spec.Template.Spec.Containers[0].Env).Should(ConsistOf(expectedEnvVars))
 
 	// ensure no duplicates
-	SetProxyEnvs(dep)
+	SetProxyEnvs(dep.Spec.Template.Spec.Containers)
 	g.Expect(dep.Spec.Template.Spec.Containers).ShouldNot(BeNil())
 	g.Expect(dep.Spec.Template.Spec.Containers[0].Env).Should(HaveLen(7))
 }
