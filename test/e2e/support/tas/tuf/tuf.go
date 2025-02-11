@@ -102,7 +102,7 @@ func refreshTufJob(instance *v1alpha1.Tuf) *v12.Job {
 	}
 	l := maps.Clone(instance.Labels)
 	l[labels.LabelAppComponent] = "test"
-	Expect(utils2.CreateTufInitJob(instance, constants.RBACName, instance.Labels)(j)).To(Succeed())
+	Expect(utils2.EnsureTufInitJob(instance, constants.RBACName, instance.Labels)(j)).To(Succeed())
 	c := kubernetes.FindContainerByNameOrCreate(&j.Spec.Template.Spec, "tuf-init")
 	c.Command = []string{"/bin/sh", "-c"}
 	args := c.Args

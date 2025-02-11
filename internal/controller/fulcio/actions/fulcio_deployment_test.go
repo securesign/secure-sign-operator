@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/securesign/operator/internal/controller/annotations"
-	cutils "github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/controller/labels"
@@ -231,7 +230,7 @@ func createDeployment(instance *v1alpha1.Fulcio, labels map[string]string) (*v13
 	caRef := instance.Spec.TrustedCA
 	if caRef == nil {
 		// override if spec.trustedCA is not defined
-		caRef = cutils.TrustedCAAnnotationToReference(instance.Annotations)
+		caRef = ensure.TrustedCAAnnotationToReference(instance.Annotations)
 	}
 	d := &v13.Deployment{
 		ObjectMeta: v1.ObjectMeta{
@@ -241,7 +240,7 @@ func createDeployment(instance *v1alpha1.Fulcio, labels map[string]string) (*v13
 	}
 	if caRef == nil {
 		// override if spec.trustedCA is not defined
-		cutils.TrustedCAAnnotationToReference(instance.Annotations)
+		ensure.TrustedCAAnnotationToReference(instance.Annotations)
 	}
 
 	ensures := []func(*v13.Deployment) error{

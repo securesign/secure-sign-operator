@@ -4,24 +4,21 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/job"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/securesign/operator/internal/controller/annotations"
+	"github.com/securesign/operator/internal/controller/common/utils"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/labels"
+	"golang.org/x/exp/maps"
+	batchv1 "k8s.io/api/batch/v1"
 
 	"context"
 
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
-
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-
-	"github.com/operator-framework/operator-lib/proxy"
 )
 
 func NewSegmentBackupJobAction() action.Action[*rhtasv1alpha1.Securesign] {
@@ -55,54 +52,62 @@ func (i segmentBackupJob) CanHandle(_ context.Context, instance *rhtasv1alpha1.S
 func (i segmentBackupJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
 	var (
 		err error
+		job = &batchv1.Job{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: SegmentBackupJobName + "-",
+				Namespace:    instance.Namespace,
+			},
+		}
 	)
 
-	labels := labels.For(SegmentBackupJobName, SegmentBackupJobName, instance.Name)
-	parallelism := int32(1)
-	completions := int32(1)
-	activeDeadlineSeconds := int64(600)
-	backoffLimit := int32(5)
-	command := []string{"python3", "/opt/app-root/src/src/script.py"}
-	env := []corev1.EnvVar{
-		{
-			Name:  "RUN_TYPE",
-			Value: "installation",
+	l := labels.For(SegmentBackupJobName, SegmentBackupJobName, instance.Name)
+	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+		job,
+		i.ensureSegmentBackupJob(),
+		ensure.ControllerReference[*batchv1.Job](instance, i.Client),
+		ensure.Labels[*batchv1.Job](maps.Keys(l), l),
+		func(object *batchv1.Job) error {
+			ensure.SetProxyEnvs(object.Spec.Template.Spec.Containers)
+			return nil
 		},
-		{
-			Name:  "REQUESTS_CA_BUNDLE",
-			Value: "/etc/pki/tls/certs/ca-bundle.crt", // Certificate used to verify requests externally i.e communication with segment
-		},
-		{
-			Name:  "REQUESTS_CA_BUNDLE_INTERNAL",
-			Value: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", // Certificate used to verify requests internally i.e queries to thanos
-		},
+	); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create segment backup job: %w", err), instance,
+			metav1.Condition{
+				Type:    MetricsCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Creating,
+				Message: err.Error(),
+			})
 	}
 
-	// Adding proxy variables to operand
-	env = append(env, proxy.ReadProxyVarsFromEnv()...)
-
-	// Logic to delete old SBJ to avoid SECURESIGN-1207, can be removed after next release
-	if sbj, err := job.GetJob(ctx, i.Client, instance.Namespace, SegmentBackupJobName); sbj != nil {
-		if err = i.Client.Delete(ctx, sbj); err != nil {
-			i.Logger.Error(err, "problem with removing SBJ resources", "namespace", instance.Namespace, "name", SegmentBackupJobName)
-		}
-	} else if client.IgnoreNotFound(err) != nil {
-		i.Logger.Error(err, "unable to retrieve SBJ resource", "namespace", instance.Namespace, "name", SegmentBackupJobName)
-	}
-
-	job := job.CreateJob(instance.Namespace, SegmentBackupJobName, labels, constants.SegmentBackupImage, SegmentRBACName, parallelism, completions, activeDeadlineSeconds, backoffLimit, command, env)
-	if err = ctrl.SetControllerReference(instance, job, i.Client.Scheme()); err != nil {
-		return i.Failed(fmt.Errorf("could not set controller reference for Job: %w", err))
-	}
-	_, err = i.Ensure(ctx, job)
-	if err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    MetricsCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Creating,
-			Message: err.Error(),
-		})
-		return i.StatusUpdate(ctx, instance)
-	}
 	return i.Continue()
+}
+
+func (i segmentBackupJob) ensureSegmentBackupJob() func(*batchv1.Job) error {
+	return func(job *batchv1.Job) error {
+
+		spec := &job.Spec
+		spec.Parallelism = utils.Pointer[int32](1)
+		spec.Completions = utils.Pointer[int32](1)
+		spec.ActiveDeadlineSeconds = utils.Pointer[int64](600)
+		spec.BackoffLimit = utils.Pointer[int32](5)
+
+		templateSpec := &spec.Template.Spec
+		templateSpec.ServiceAccountName = SegmentRBACName
+		templateSpec.RestartPolicy = "OnFailure"
+
+		container := kubernetes.FindContainerByNameOrCreate(templateSpec, SegmentBackupJobName)
+		container.Image = constants.SegmentBackupImage
+		container.Command = []string{"python3", "/opt/app-root/src/src/script.py"}
+
+		runTypeEnv := kubernetes.FindEnvByNameOrCreate(container, "RUN_TYPE")
+		runTypeEnv.Value = "installation"
+
+		caBundleEnv := kubernetes.FindEnvByNameOrCreate(container, "REQUESTS_CA_BUNDLE")
+		caBundleEnv.Value = "/etc/pki/tls/certs/ca-bundle.crt" // Certificate used to verify requests externally i.e communication with segment
+
+		internalCaBundleEnv := kubernetes.FindEnvByNameOrCreate(container, "REQUESTS_CA_BUNDLE_INTERNAL")
+		internalCaBundleEnv.Value = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt" // Certificate used to verify requests internally i.e queries to thanos
+		return nil
+	}
 }

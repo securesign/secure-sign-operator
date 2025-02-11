@@ -110,18 +110,6 @@ const (
 	TLS = "service.beta.openshift.io/serving-cert-secret-name"
 )
 
-var inheritable = []string{
+var InheritableAnnotations = []string{
 	TrustedCA, LogType,
-}
-
-func FilterInheritable(annotations map[string]string) map[string]string {
-	result := make(map[string]string, 0)
-	for key, value := range annotations {
-		for _, ia := range inheritable {
-			if key == ia {
-				result[key] = value
-			}
-		}
-	}
-	return result
 }
