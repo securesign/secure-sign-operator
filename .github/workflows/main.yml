@@ -434,7 +434,7 @@ jobs:
 
       - name: Add service hosts to /etc/hosts
         run: |
-          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local rekor-search-ui.local cli-server.local" | sudo tee -a /etc/hosts
+          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local rekor-search-ui.local tsa-server.local cli-server.local ${{ steps.kind.outputs.oidc_host }}" | sudo tee -a /etc/hosts
 
       - name: Deploy operator container
         env:
@@ -447,26 +447,29 @@ jobs:
 
       - name: Install securesign
         run: |
-          sed -i 's#https://your-oidc-issuer-url#${{ steps.kind.outputs.oidc_url }}#' config/samples/rhtas_v1alpha1_securesign.yaml
+          sed -i 's#https://your-oidc-issuer-url#http://${{ steps.kind.outputs.oidc_host }}/auth/realms/trusted-artifact-signer#' config/samples/rhtas_v1alpha1_securesign.yaml
           sed -i 's#rhtas.redhat.com/metrics: "true"#rhtas.redhat.com/metrics: "false"#' config/samples/rhtas_v1alpha1_securesign.yaml
           kubectl create ns ${{ env.TEST_NAMESPACE }}
           kubectl create -f config/samples/rhtas_v1alpha1_securesign.yaml -n ${{ env.TEST_NAMESPACE }}
           sleep 1
-          kubectl wait --for=condition=Ready securesign/securesign-sample -n ${{ env.TEST_NAMESPACE }}
+          kubectl wait --for=condition=Ready securesign/securesign-sample --timeout=5m -n ${{ env.TEST_NAMESPACE }}
 
       - name: Run tests
-        run: |         
-          export SIGSTORE_OIDC_ISSUER=${{ steps.kind.outputs.oidc_url }}
-          export FULCIO_URL=$(kubectl get securesign -o jsonpath='{.items[0].status.fulcio.url}' -n ${{ env.TEST_NAMESPACE }})
-          export REKOR_URL=$(kubectl get securesign -o jsonpath='{.items[0].status.rekor.url}' -n ${{ env.TEST_NAMESPACE }})
-          export TUF_URL=$(kubectl get securesign -o jsonpath='{.items[0].status.tuf.url}' -n ${{ env.TEST_NAMESPACE }})
-          export TSA_URL=$(kubectl get securesign -o jsonpath='{.items[0].status.tsa.url}' -n ${{ env.TEST_NAMESPACE }})
+        run: |
+          export OIDC_ISSUER_URL="http://${{ steps.kind.outputs.oidc_host }}/auth/realms/trusted-artifact-signer"
+          export FULCIO_URL=$(kubectl get fulcio -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})
+          export REKOR_URL=$(kubectl get rekor -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})
+          export REKOR_UI_URL=$(kubectl  get rekor -o jsonpath='{.items[0].status.rekorSearchUIUrl}' -n ${{ env.TEST_NAMESPACE }})
+          export TUF_URL=$(kubectl get tuf -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})
+          export TSA_URL=$(kubectl get timestampauthorities -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})/api/v1/timestamp
           
           export  CLI_STRATEGY=cli_server
           export CLI_SERVER_URL="http://cli-server.local"
           
           cd e2e
-          go test -v ./test/...
+          source ./tas-env-variables.sh
+          # exclude UI tests
+          go test -v $(go list ./test/... | grep -v rekorsearchui)
 
       - name: dump the logs of the operator
         run: |
