@@ -54,16 +54,15 @@ func sortByStatus(conditions []v1.Condition) []string {
 	sort.SliceStable(sorted, func(i, j int) bool {
 		iCondition := meta.FindStatusCondition(conditions, sorted[i])
 		jCondition := meta.FindStatusCondition(conditions, sorted[j])
-		switch iCondition.Reason {
-		case constants.Initialize:
-			return jCondition.Reason == constants.Ready
-		case constants.Creating:
-			return jCondition.Reason == constants.Ready || jCondition.Reason == constants.Initialize
-		case constants.Pending:
-			return jCondition.Reason == constants.Ready || jCondition.Reason == constants.Initialize || jCondition.Reason == constants.Creating
-		default:
-			return true
+
+		order := map[string]int{
+			constants.Pending:    0,
+			constants.Initialize: 1,
+			constants.Creating:   2,
+			constants.Ready:      3,
 		}
+
+		return order[iCondition.Reason] < order[jCondition.Reason]
 	})
 	return sorted
 }
