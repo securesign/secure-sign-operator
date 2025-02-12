@@ -18,6 +18,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -26,7 +27,10 @@ import (
 
 func Verify(ctx context.Context, cli client.Client, namespace string, name string) {
 	Eventually(Get(ctx, cli, namespace, name)).Should(
-		WithTransform(condition.IsReady, BeTrue()))
+		And(
+			Not(BeNil()),
+			WithTransform(condition.IsReady, BeTrue()),
+		))
 
 	Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, constants.ComponentName)).
 		Should(BeTrue())
@@ -35,10 +39,12 @@ func Verify(ctx context.Context, cli client.Client, namespace string, name strin
 func Get(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.Tuf {
 	return func() *v1alpha1.Tuf {
 		instance := &v1alpha1.Tuf{}
-		_ = cli.Get(ctx, types.NamespacedName{
+		if e := cli.Get(ctx, types.NamespacedName{
 			Namespace: ns,
 			Name:      name,
-		}, instance)
+		}, instance); errors.IsNotFound(e) {
+			return nil
+		}
 		return instance
 	}
 }
