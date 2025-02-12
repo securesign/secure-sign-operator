@@ -111,6 +111,16 @@ rules:
   - update
   - watch
 - apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - get
+  - patch
+  - update
+  - watch
+- apiGroups:
   - monitoring.coreos.com
   resources:
   - prometheuses/api
