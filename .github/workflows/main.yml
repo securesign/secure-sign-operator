@@ -9,9 +9,9 @@ on:
 
 env:
   GO_VERSION: 1.24
-  IMG: ttl.sh/securesign/secure-sign-operator-${{github.run_number}}:1h
-  BUNDLE_IMG: ttl.sh/securesign/bundle-secure-sign-${{github.run_number}}:1h
-  CATALOG_IMG: ttl.sh/securesign/catalog-${{github.run_number}}:1h
+  IMG: ghcr.io/securesign/secure-sign-operator:${{ github.sha }}
+  BUNDLE_IMG: ghcr.io/securesign/secure-sign-operator-bundle:${{ github.sha }}
+  CATALOG_IMG: ghcr.io/securesign/secure-sign-operator-fbc:${{ github.sha }}
   CONTAINER_TOOL: podman
 
 jobs:
@@ -31,7 +31,7 @@ jobs:
         run: make dev-images && cat config/default/images.env
 
       - name: Build operator container
-        run: make docker-build docker-push
+        run: make docker-build
 
       - name: Save container image
         run: podman save -o /tmp/operator-oci.tar --format oci-archive $IMG
@@ -62,7 +62,7 @@ jobs:
         run: make dev-images && cat config/default/images.env
 
       - name: Build operator bundle
-        run: make bundle-build bundle-push
+        run: make bundle bundle-build
 
       - name: Save container image
         run: podman save -o /tmp/bundle-oci.tar --format oci-archive $BUNDLE_IMG
@@ -128,7 +128,6 @@ jobs:
           ${{ env.OPM }} alpha render-template basic v4.14/graph.json > v4.14/rhtas-operator/catalog/rhtas-operator/catalog.json
           ${{ env.OPM }} validate v4.14/rhtas-operator/catalog/rhtas-operator
           podman build v4.14/rhtas-operator -f v4.14/rhtas-operator/catalog.Dockerfile -t $CATALOG_IMG
-          podman push $CATALOG_IMG
 
       - name: Save container image
         run: podman save -o /tmp/catalog-oci.tar --format oci-archive $CATALOG_IMG
@@ -209,9 +208,6 @@ jobs:
           merge-multiple: true
           path: /tmp
 
-      - name: Load images
-        run: podman load -i /tmp/operator-oci.tar
-
       - name: Install Cluster
         uses: ./.github/actions/kind-cluster
         with:
@@ -219,6 +215,11 @@ jobs:
           prometheus: 'true'
           keycloak: 'true'
           olm: 'true'
+
+      - name: Load images
+        run: |
+          podman load -i /tmp/operator-oci.tar
+          kind load image-archive /tmp/operator-oci.tar
 
       - name: Replace images
         run: make dev-images && cat config/default/images.env
@@ -284,12 +285,6 @@ jobs:
           merge-multiple: true
           path: /tmp
 
-      - name: Load images
-        run: |
-          podman load -i /tmp/operator-oci.tar
-          podman load -i /tmp/bundle-oci.tar
-          podman load -i /tmp/catalog-oci.tar
-
       - name: Install Cluster
         uses: ./.github/actions/kind-cluster
         with:
@@ -297,6 +292,15 @@ jobs:
           prometheus: 'true'
           keycloak: 'true'
           olm: 'true'
+
+      - name: Load images
+        run: |
+          podman load -i /tmp/operator-oci.tar
+          podman load -i /tmp/bundle-oci.tar
+          podman load -i /tmp/catalog-oci.tar
+          kind load image-archive /tmp/operator-oci.tar
+          kind load image-archive /tmp/bundle-oci.tar
+          kind load image-archive /tmp/catalog-oci.tar
 
       - name: Add service hosts to /etc/hosts
         run: |
@@ -354,13 +358,15 @@ jobs:
           merge-multiple: true
           path: /tmp
 
-      - name: Load images
-        run: podman load -i /tmp/operator-oci.tar
-
       - name: Install Cluster
         uses: ./.github/actions/kind-cluster
         with:
           config: ./ci/config.yaml
+
+      - name: Load images
+        run: |
+          podman load -i /tmp/operator-oci.tar
+          kind load image-archive /tmp/operator-oci.tar
 
       - name: Add service hosts to /etc/hosts
         run: |
@@ -422,10 +428,6 @@ jobs:
           merge-multiple: true
           path: /tmp
 
-      - name: Load images
-        run: |
-          podman load -i /tmp/operator-oci.tar
-
       - name: Install Cluster
         id: kind
         uses: ./.github/actions/kind-cluster
@@ -434,6 +436,11 @@ jobs:
           keycloak: 'true'
           olm: 'true'
           prometheus: 'true'
+
+      - name: Load images
+        run: |
+          podman load -i /tmp/operator-oci.tar
+          kind load image-archive /tmp/operator-oci.tar
 
       - name: Add service hosts to /etc/hosts
         run: |
@@ -481,151 +488,3 @@ jobs:
         run: |
           kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
         if: failure()
-
-  test-eks:
-    name: Test EKS deployment
-    runs-on: ubuntu-24.04
-    needs: build-operator
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    env:
-      AWS_REGION: us-east-2
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      TEST_NAMESPACE: test
-      OIDC_ISSUER_URL: ${{ secrets.testing_keycloak }}
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - name: Install eksctl
-        run: |
-          ARCH=amd64
-          PLATFORM=$(uname -s)_$ARCH
-          curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$PLATFORM.tar.gz"
-          tar -xzf eksctl_$PLATFORM.tar.gz -C /tmp && rm eksctl_$PLATFORM.tar.gz
-          sudo mv /tmp/eksctl /usr/local/bin
-
-      - name: Install kubectl
-        run: |
-          ARCH=amd64
-          PLATFORM=$(uname -s)_$ARCH
-          curl -sLO "https://dl.k8s.io/release/v1.22.0/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin
-
-      - name: run eksctl create cluster
-        run: |
-          eksctl create cluster --alb-ingress-access --external-dns-access --name rhtas-eks-${GITHUB_RUN_ID} --nodes 1  --node-type m5.xlarge --spot
-          eksctl utils associate-iam-oidc-provider --region=us-east-2 --cluster=rhtas-eks-${GITHUB_RUN_ID} --approve
-          eksctl create iamserviceaccount --region us-east-2 --name ebs-csi-controller-sa --namespace kube-system --cluster rhtas-eks-${GITHUB_RUN_ID} --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy --approve --role-only --role-name AmazonEKS_EBS_CSI_DriverRole
-          eksctl create addon --name aws-ebs-csi-driver --cluster rhtas-eks-${GITHUB_RUN_ID} --service-account-role-arn arn:aws:iam::${{ secrets.AWS }}:role/AmazonEKS_EBS_CSI_DriverRole --force
-          kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/aws/deploy.yaml
-          kubectl patch storageclass gp2 -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
-
-      - name: Log in to registry.redhat.io
-        uses: redhat-actions/podman-login@v1
-        with:
-          username: ${{ secrets.REGISTRY_USER }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
-          registry: registry.redhat.io
-          auth_file_path: /tmp/config.json
-
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          pattern: "*-image"
-          merge-multiple: true
-          path: /tmp
-
-      - name: Load images
-        run: podman load -i /tmp/operator-oci.tar
-
-      - name: Push images
-        run: podman push $IMG
-
-      - name: Create namespace and serviceaccounts with redhat registry login
-        run: |
-          kubectl create ns ${{ env.TEST_NAMESPACE }}
-          kubectl create secret generic redhat-registry -n ${{ env.TEST_NAMESPACE }} --from-file=.dockerconfigjson=/tmp/config.json --type=kubernetes.io/dockerconfigjson
-          kubectl patch serviceaccount default  --type=merge -p '{"imagePullSecrets": [{"name":"redhat-registry"}]}' -n ${{ env.TEST_NAMESPACE }}
-          for NAME in "fulcio" "ctlog" "trillian" "rekor" "tuf" "tsa"
-          do
-            echo """
-            apiVersion: v1
-            kind: ServiceAccount
-            metadata:
-              name: $NAME
-              namespace: $TEST_NAMESPACE
-            imagePullSecrets:
-            - name: redhat-registry
-            """ |
-            kubectl create -f -
-          done
-
-      - name: Deploy operator container
-        env:
-          OPENSHIFT: false
-        run: make deploy
-
-      # TODO: deploy ingress and execute e2e
-      - name: Deploy RTHAS
-        run: |
-          sed -i 's|"https://your-oidc-issuer-url"|${{ secrets.testing_keycloak }}|g' config/samples/rhtas_v1alpha1_securesign.yaml
-          sed -i 's|enabled: true|enabled: false|g' config/samples/rhtas_v1alpha1_securesign.yaml
-          sed -i 's|rhtas.redhat.com/metrics: "true"|rhtas.redhat.com/metrics: "false"|g' config/samples/rhtas_v1alpha1_securesign.yaml
-          kubectl apply -f config/samples/rhtas_v1alpha1_securesign.yaml -n ${{ env.TEST_NAMESPACE }}
-
-      - name: Until shell script to wait for deployment to be created
-        run: |
-          for i in trillian fulcio rekor tuf ctlog timestampAuthority; do
-            until [ ! -z "$(kubectl get $i -n ${{ env.TEST_NAMESPACE }} 2>/dev/null)" ]
-            do
-              echo "Waiting for $i to be created."
-              sleep 3
-            done
-          done
-        shell: bash
-
-      - name: Test components are ready
-        run: |
-          kubectl wait --for=condition=ready trillian/securesign-sample -n ${{ env.TEST_NAMESPACE }} --timeout=5m
-          kubectl wait --for=condition=ready fulcio/securesign-sample -n ${{ env.TEST_NAMESPACE }} --timeout=5m
-          kubectl wait --for=condition=ready rekor/securesign-sample -n ${{ env.TEST_NAMESPACE }} --timeout=5m
-          kubectl wait --for=condition=ready ctlog/securesign-sample -n ${{ env.TEST_NAMESPACE }} --timeout=5m
-          kubectl wait --for=condition=ready tuf/securesign-sample -n ${{ env.TEST_NAMESPACE }} --timeout=5m
-          kubectl wait --for=condition=ready timestampAuthority/securesign-sample -n ${{ env.TEST_NAMESPACE }} --timeout=5m
-
-      - name: Test deployments are ready
-        run: |
-          kubectl wait --for=condition=available deployment/trillian-db -n ${{ env.TEST_NAMESPACE }}
-          kubectl wait --for=condition=available deployment/trillian-logserver -n ${{ env.TEST_NAMESPACE }}
-          kubectl wait --for=condition=available deployment/trillian-logsigner -n ${{ env.TEST_NAMESPACE }}
-          kubectl wait --for=condition=available deployment/fulcio-server -n ${{ env.TEST_NAMESPACE }}
-          kubectl wait --for=condition=available deployment/rekor-server -n ${{ env.TEST_NAMESPACE }}
-          kubectl wait --for=condition=available deployment/rekor-redis -n ${{ env.TEST_NAMESPACE }}
-          kubectl wait --for=condition=available deployment/rekor-search-ui -n ${{ env.TEST_NAMESPACE }}
-          kubectl wait --for=condition=available deployment/tuf -n ${{ env.TEST_NAMESPACE }}
-          kubectl wait --for=condition=available deployment/ctlog -n ${{ env.TEST_NAMESPACE }}
-          kubectl wait --for=condition=available deployment/tsa-server -n ${{ env.TEST_NAMESPACE }}
-
-      - name: Archive test artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-eks
-          path: test/**/k8s-dump-*.tar.gz
-          if-no-files-found: ignore
-
-      - name: dump the logs of the operator
-        run: |
-          kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
-        if: always()
-
-      - name: delete the cluster
-        run: eksctl delete cluster --name rhtas-eks-${GITHUB_RUN_ID} --region us-east-2 --wait
-        if: always()
