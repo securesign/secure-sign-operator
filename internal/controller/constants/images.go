@@ -15,7 +15,7 @@ var (
 	RekorSearchUiImage = "registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:39220599ff9bbcd77ca8188a9c2c2cd75aa914b623bfc5ed01b6d0c607a833b9"
 	BackfillRedisImage = "registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:aed7cb5d3cd161f78fe149474f3b5e1a748580b63845359052f1bbea4a96274e"
 
-	TufImage = "registry.redhat.io/rhtas/tuffer-rhel9@sha256:a10b8758a9698e84cf02436cd52e831a3aba62a497c6f083fb9106d03ca81af6"
+	TufImage = "registry.redhat.io/rhtas/tuffer-rhel9@sha256:e8bf7e192b260e3f92288ab81f052668f77f0f78bdca961672274d723b55325d"
 
 	CTLogImage = "registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:c42827f4785c06c0f3e31cf486bbaab5a9d0609131afcd65f60ed63d35d1d8aa"
 
@@ -23,5 +23,5 @@ var (
 
 	SegmentBackupImage      = "registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:649af310d15dc3fc8e07f3a771f9f002f2b62756b8b6d9960760feb9a5a8091b"
 	TimestampAuthorityImage = "registry.redhat.io/rhtas/timestamp-authority-rhel9@sha256:991d67eb32d13970a4ee08920a1369da39d2529c34f1eb092952c827635d8d31"
-	ClientServerImage       = "registry.redhat.io/rhtas/client-server-rhel9@sha256:974555846321f9eed4c146901df2efe8373d78be2ca83031ebc1d9c309b1bdb5"
+	ClientServerImage       = "registry.redhat.io/rhtas/client-server-rhel9@sha256:b3de68f42f5e2413d69567a5ce3aa2d2e3029253c3b3d0a7f0481843e2b06ddd"
 )
