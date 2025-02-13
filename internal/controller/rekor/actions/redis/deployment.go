@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/securesign/operator/internal/images"
+
 	"github.com/securesign/operator/internal/controller/common/action"
 	cutils "github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
@@ -97,7 +99,7 @@ func (i deployAction) ensureRedisDeployment(sa string, labels map[string]string)
 		template.Spec.ServiceAccountName = sa
 
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, actions.RedisDeploymentName)
-		container.Image = constants.RekorRedisImage
+		container.Image = images.Registry.Get(images.RekorRedis)
 		port := kubernetes.FindPortByNameOrCreate(container, "redis")
 		port.Protocol = core.ProtocolTCP
 		port.ContainerPort = 6379

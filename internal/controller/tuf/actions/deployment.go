@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/securesign/operator/internal/images"
+
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils"
@@ -92,7 +94,7 @@ func (i deployAction) createTufDeployment(instance *rhtasv1alpha1.Tuf, sa string
 		volume.PersistentVolumeClaim.ClaimName = instance.Status.PvcName
 
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, tufConstants.ContainerName)
-		container.Image = constants.HttpServerImage
+		container.Image = images.Registry.Get(images.HttpServer)
 
 		port := kubernetes.FindPortByNameOrCreate(container, tufConstants.PortName)
 		port.ContainerPort = 8080

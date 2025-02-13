@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/securesign/operator/internal/images"
+
 	"github.com/go-logr/logr"
 	consolev1 "github.com/openshift/api/console/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -188,7 +190,7 @@ func (c *Component) ensureDeployment(labels map[string]string) func(*apps.Deploy
 		template.Labels = labels
 
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, cliServerName)
-		container.Image = constants.ClientServerImage
+		container.Image = images.Registry.Get(images.ClientServer)
 		container.ImagePullPolicy = core.PullAlways
 
 		port := kubernetes.FindPortByNameOrCreate(container, "http")

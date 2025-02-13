@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/securesign/operator/internal/images"
+
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -289,7 +291,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.TimestampAuthorit
 			}
 		}
 
-		container.Image = constants.TimestampAuthorityImage
+		container.Image = images.Registry.Get(images.TimestampAuthority)
 		container.Command = appArgs
 
 		port := kubernetes.FindPortByNameOrCreate(container, "3000-tcp")

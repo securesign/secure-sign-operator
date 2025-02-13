@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/securesign/operator/internal/images"
+
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
@@ -147,7 +149,7 @@ func (i deployAction) ensureDbDeployment(instance *rhtasv1alpha1.Trillian, sa st
 		volume.PersistentVolumeClaim.ClaimName = instance.Status.Db.Pvc.Name
 
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, actions.DbDeploymentName)
-		container.Image = constants.TrillianDbImage
+		container.Image = images.Registry.Get(images.TrillianDb)
 		container.Command = []string{
 			"run-mysqld",
 		}

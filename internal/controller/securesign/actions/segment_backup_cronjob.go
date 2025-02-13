@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -10,10 +11,9 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/images"
 	"golang.org/x/exp/maps"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	"context"
 
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -112,7 +112,7 @@ func (i segmentBackupCronJob) ensureSegmentBackupCronJob() func(job *batchv1.Cro
 			templateSpec.RestartPolicy = "OnFailure"
 
 			container := kubernetes.FindContainerByNameOrCreate(templateSpec, SegmentBackupCronJobName)
-			container.Image = constants.SegmentBackupImage
+			container.Image = images.Registry.Get(images.SegmentBackup)
 			container.Command = []string{"python3", "/opt/app-root/src/src/script.py"}
 
 			runTypeEnv := kubernetes.FindEnvByNameOrCreate(container, "RUN_TYPE")
