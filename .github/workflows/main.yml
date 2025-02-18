@@ -235,6 +235,7 @@ jobs:
         with:
           name: test-kind
           path: test/**/k8s-dump-*.tar.gz
+          if-no-files-found: ignore
 
       - name: dump the logs of the operator
         run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
@@ -355,6 +356,7 @@ jobs:
         with:
           name: test-upgrade
           path: test/**/k8s-dump-*.tar.gz
+          if-no-files-found: ignore
 
   test-custom-install:
     name: Test with custom operator installation
@@ -419,6 +421,7 @@ jobs:
         with:
           name: test-custom-install
           path: test/**/k8s-dump-*.tar.gz
+          if-no-files-found: ignore
 
   test-eks:
     name: Test EKS deployment
@@ -544,6 +547,7 @@ jobs:
         with:
           name: test-eks
           path: test/**/k8s-dump-*.tar.gz
+          if-no-files-found: ignore
 
       - name: dump the logs of the operator
         run: |
