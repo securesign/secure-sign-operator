@@ -19,9 +19,9 @@ inputs:
     default: 'false'
 
 outputs:
-  oidc_url:
-    value: keycloak_url
-    description: 'Keycloak OIDC url'
+  oidc_host:
+    value: ${{ steps.install-keycloak.outputs.oidc_host }}
+    description: 'Keycloak OIDC host'
 
 runs:
   using: 'composite'
@@ -61,6 +61,7 @@ runs:
 
     - name: Install keycloak
       if: ${{ inputs.keycloak  == 'true'}}
+      id: install-keycloak
       shell: bash
       run: |
         kubectl create --kustomize ci/keycloak/operator/overlay/kind
@@ -99,4 +100,4 @@ runs:
                 pathType: Prefix
         EOF
         
-        echo "keycloak_url=https://keycloak-internal.keycloak-system.svc" >> $GITHUB_OUTPUT
+        echo "oidc_host=keycloak-internal.keycloak-system.svc" >> $GITHUB_OUTPUT
