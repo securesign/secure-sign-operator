@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure/deployment"
 	"github.com/securesign/operator/internal/images"
 
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -47,12 +48,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 
 	labels := labels.For(actions.LogSignerComponentName, actions.LogsignerDeploymentName, instance.Name)
 
-	caTrustRef := ensure.TrustedCAAnnotationToReference(instance.Annotations)
-	// override if spec.trustedCA is defined
-	if instance.Spec.TrustedCA != nil {
-		caTrustRef = instance.Spec.TrustedCA
-	}
-
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		&apps.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -63,8 +58,9 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		trillianUtils.EnsureServerDeployment(instance, images.Registry.Get(images.TrillianLogSigner), actions.LogsignerDeploymentName, actions.RBACName, labels, "--force_master=true"),
 		ensure.ControllerReference[*apps.Deployment](instance, i.Client),
 		ensure.Labels[*apps.Deployment](maps.Keys(labels), labels),
-		ensure.Proxy(),
-		ensure.TrustedCA(caTrustRef),
+		deployment.Proxy(),
+		deployment.TrustedCA(instance.GetTrustedCA(), "wait-for-trillian-db", actions.LogsignerDeploymentName),
+		ensure.Optional(instance.Status.TLS.CertRef != nil, trillianUtils.EnsureTLSServer(instance, actions.LogsignerDeploymentName)),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Trillian LogSigner: %w", err), instance, metav1.Condition{
 			Type:    actions.SignerCondition,
