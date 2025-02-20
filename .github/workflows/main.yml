@@ -381,6 +381,7 @@ jobs:
         with:
           name: test-custom-install
           path: test/**/k8s-dump-*.tar.gz
+          if-no-files-found: ignore
 
   test-e2e:
     name: Execute securesign/sigstore-e2e
