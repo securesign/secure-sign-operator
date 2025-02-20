@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure/deployment"
+	"github.com/securesign/operator/internal/controller/common/utils/tls"
 	"github.com/securesign/operator/internal/images"
 
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -48,8 +50,23 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	labels := labels.For(actions.LogServerComponentName, actions.LogserverDeploymentName, instance.Name)
 	insCopy := instance.DeepCopy()
 
-	if insCopy.Spec.TrustedCA == nil {
-		insCopy.Spec.TrustedCA = ensure.TrustedCAAnnotationToReference(instance.Annotations)
+	// TLS
+	switch {
+	case insCopy.Spec.TLS.CertRef != nil:
+		insCopy.Status.TLS = insCopy.Spec.TLS
+	case kubernetes.IsOpenShift():
+		insCopy.Status.TLS = rhtasv1alpha1.TLS{
+			CertRef: &rhtasv1alpha1.SecretKeySelector{
+				LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: instance.Name + "-trillian-tls"},
+				Key:                  "tls.crt",
+			},
+			PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
+				LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: instance.Name + "-trillian-tls"},
+				Key:                  "tls.key",
+			},
+		}
+	default:
+		i.Logger.V(1).Info("Communication to trillian-db is insecure")
 	}
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
@@ -62,9 +79,10 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		trillianUtils.EnsureServerDeployment(insCopy, images.Registry.Get(images.TrillianServer), actions.LogserverDeploymentName, actions.RBACName, labels),
 		ensure.ControllerReference[*apps.Deployment](insCopy, i.Client),
 		ensure.Labels[*apps.Deployment](maps.Keys(labels), labels),
-		ensure.Proxy(),
-		ensure.TrustedCA(insCopy.Spec.TrustedCA),
-		ensure.Optional(trillianUtils.UseTLS(insCopy), i.withTlsDB(ctx, insCopy)),
+		deployment.Proxy(),
+		deployment.TrustedCA(insCopy.GetTrustedCA(), "wait-for-trillian-db", actions.LogserverDeploymentName),
+		ensure.Optional(trillianUtils.UseTLSDb(insCopy), i.withTlsDB(ctx, insCopy)),
+		ensure.Optional(insCopy.Status.TLS.CertRef != nil, trillianUtils.EnsureTLSServer(insCopy, actions.LogserverDeploymentName)),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Trillian server: %w", err), instance, metav1.Condition{
 			Type:    actions.ServerCondition,
@@ -89,7 +107,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 
 func (i deployAction) withTlsDB(ctx context.Context, instance *rhtasv1alpha1.Trillian) func(deployment *apps.Deployment) error {
 	return func(dp *apps.Deployment) error {
-		caPath, err := trillianUtils.CAPath(ctx, i.Client, instance)
+		caPath, err := tls.CAPath(ctx, i.Client, instance)
 		if err != nil {
 			return fmt.Errorf("failed to get CA path: %w", err)
 		}
