@@ -3,6 +3,7 @@ module github.com/securesign/operator
 go 1.21
 
 require (
+	github.com/blang/semver/v4 v4.0.0
 	github.com/docker/docker v24.0.7+incompatible
 	github.com/go-logr/logr v1.4.1
 	github.com/google/certificate-transparency-go v1.1.7
@@ -26,7 +27,6 @@ require (
 )
 
 require (
-	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 )
@@ -98,7 +98,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.28.5
 	k8s.io/component-base v0.28.5 // indirect
 	k8s.io/kube-openapi v0.0.0-20240221221325-2ac9dc51f3f1 // indirect
-	k8s.io/utils v0.0.0-20240102154912-e7106e64919e
+	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
