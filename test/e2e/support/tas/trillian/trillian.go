@@ -7,13 +7,17 @@ import (
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/test/e2e/support/condition"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func Verify(ctx context.Context, cli client.Client, namespace string, name string, dbPresent bool) {
 	Eventually(Get(ctx, cli, namespace, name)).Should(
-		WithTransform(condition.IsReady, BeTrue()))
+		And(
+			Not(BeNil()),
+			WithTransform(condition.IsReady, BeTrue()),
+		))
 
 	if dbPresent {
 		// trillian-db
@@ -33,10 +37,12 @@ func Verify(ctx context.Context, cli client.Client, namespace string, name strin
 func Get(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.Trillian {
 	return func() *v1alpha1.Trillian {
 		instance := &v1alpha1.Trillian{}
-		Expect(cli.Get(ctx, types.NamespacedName{
+		if e := cli.Get(ctx, types.NamespacedName{
 			Namespace: ns,
 			Name:      name,
-		}, instance)).To(Succeed())
+		}, instance); errors.IsNotFound(e) {
+			return nil
+		}
 		return instance
 	}
 }

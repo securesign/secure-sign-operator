@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 
 	. "github.com/onsi/gomega"
@@ -13,20 +14,19 @@ import (
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
 	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
 	"github.com/securesign/operator/test/e2e/support/tas/rekor"
-	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	"github.com/securesign/operator/test/e2e/support/tas/trillian"
 	"github.com/securesign/operator/test/e2e/support/tas/tuf"
 	runtimeCli "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func VerifyAllComponents(ctx context.Context, cli runtimeCli.Client, s *rhtasv1alpha1.Securesign, dbPresent bool) {
-	securesign.Verify(ctx, cli, s.Namespace, s.Name)
 	trillian.Verify(ctx, cli, s.Namespace, s.Name, dbPresent)
 	fulcio.Verify(ctx, cli, s.Namespace, s.Name)
 	tsa.Verify(ctx, cli, s.Namespace, s.Name)
 	rekor.Verify(ctx, cli, s.Namespace, s.Name)
 	ctlog.Verify(ctx, cli, s.Namespace, s.Name)
 	tuf.Verify(ctx, cli, s.Namespace, s.Name)
+	securesign.Verify(ctx, cli, s.Namespace, s.Name)
 }
 
 func VerifyByCosign(ctx context.Context, cli runtimeCli.Client, s *rhtasv1alpha1.Securesign, targetImageName string) {
