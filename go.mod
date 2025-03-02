@@ -6,7 +6,7 @@ toolchain go1.22.0
 
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/go-logr/logr v1.4.1
+	github.com/go-logr/logr v1.4.2
 	github.com/google/certificate-transparency-go v1.1.7
 	github.com/google/go-containerregistry v0.20.2
 	github.com/google/trillian v1.6.0
