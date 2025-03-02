@@ -3,8 +3,9 @@ module github.com/securesign/operator
 go 1.21
 
 require (
+	github.com/blang/semver/v4 v4.0.0
 	github.com/docker/docker v24.0.7+incompatible
-	github.com/go-logr/logr v1.4.1
+	github.com/go-logr/logr v1.4.2
 	github.com/google/certificate-transparency-go v1.1.7
 	github.com/google/trillian v1.6.0
 	github.com/google/uuid v1.6.0
@@ -26,7 +27,6 @@ require (
 )
 
 require (
-	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 )
