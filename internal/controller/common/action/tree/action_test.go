@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	v1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -220,8 +221,8 @@ func testCreateJob(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      nnResult.Name,
 							Namespace: nnResult.Namespace,
-							Annotations: map[string]string{
-								jobReferenceAnnotation: "job-name",
+							OwnerReferences: []metav1.OwnerReference{
+								{Kind: "Job", Name: "job-name"},
 							},
 						},
 					}
@@ -255,7 +256,10 @@ func testCreateJob(t *testing.T) {
 
 					cm := &corev1.ConfigMap{}
 					g.Expect(c.Get(ctx, nnResult, cm)).To(Succeed())
-					g.Expect(cm.Annotations[jobReferenceAnnotation]).To(Equal(jobName))
+					g.Expect(cm.GetOwnerReferences()).To(ContainElements(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Kind": Equal("Job"),
+						"Name": Equal(jobName),
+					})))
 				},
 			},
 		},
@@ -303,8 +307,8 @@ func testMonitorJob(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      nnResult.Name,
 							Namespace: nnResult.Namespace,
-							Annotations: map[string]string{
-								jobReferenceAnnotation: "job",
+							OwnerReferences: []metav1.OwnerReference{
+								{Kind: "Job", Name: "job"},
 							},
 						},
 					}
@@ -323,8 +327,8 @@ func testMonitorJob(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      nnResult.Name,
 							Namespace: nnResult.Namespace,
-							Annotations: map[string]string{
-								jobReferenceAnnotation: "job",
+							OwnerReferences: []metav1.OwnerReference{
+								{Kind: "Job", Name: "job"},
 							},
 						},
 					}
@@ -351,8 +355,8 @@ func testMonitorJob(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      nnResult.Name,
 							Namespace: nnResult.Namespace,
-							Annotations: map[string]string{
-								jobReferenceAnnotation: "job",
+							OwnerReferences: []metav1.OwnerReference{
+								{Kind: "Job", Name: "job"},
 							},
 						},
 					}
@@ -389,8 +393,8 @@ func testMonitorJob(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      nnResult.Name,
 							Namespace: nnResult.Namespace,
-							Annotations: map[string]string{
-								jobReferenceAnnotation: "job",
+							OwnerReferences: []metav1.OwnerReference{
+								{Kind: "Job", Name: "job"},
 							},
 						},
 					}
@@ -442,8 +446,8 @@ func testExtractResult(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      nnResult.Name,
 							Namespace: nnResult.Namespace,
-							Annotations: map[string]string{
-								jobReferenceAnnotation: "job",
+							OwnerReferences: []metav1.OwnerReference{
+								{Kind: "Job", Name: "job"},
 							},
 						},
 					}
@@ -462,8 +466,8 @@ func testExtractResult(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      nnResult.Name,
 							Namespace: nnResult.Namespace,
-							Annotations: map[string]string{
-								jobReferenceAnnotation: "job",
+							OwnerReferences: []metav1.OwnerReference{
+								{Kind: "Job", Name: "job"},
 							},
 						},
 						Data: map[string]string{
@@ -487,8 +491,8 @@ func testExtractResult(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      nnResult.Name,
 							Namespace: nnResult.Namespace,
-							Annotations: map[string]string{
-								jobReferenceAnnotation: "job",
+							OwnerReferences: []metav1.OwnerReference{
+								{Kind: "Job", Name: "job"},
 							},
 						},
 						Data: map[string]string{

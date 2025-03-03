@@ -11,12 +11,11 @@ import (
 var jobScript []byte
 
 const (
-	RBACNameMask           = "%s-createtree-job"
-	JobNameMask            = "%s-createtree-job-"
-	JobCondition           = "Tree"
-	configMapResultMask    = "%s-%s-createtree-result"
-	configMapResultField   = "tree_id"
-	jobReferenceAnnotation = "rhtas.redhat.com/createtree-job"
+	RBACNameMask         = "%s-createtree-job"
+	JobNameMask          = "%s-createtree-job-"
+	JobCondition         = "Tree"
+	configMapResultMask  = "%s-%s-createtree-result"
+	configMapResultField = "tree_id"
 )
 
 func Wrapper[T tlsAwareObject](getTree, getStatusTree func(T) *int64, setStatusTree func(T, *int64), getTrillianService func(T) *v1alpha1.TrillianService) func(T) *wrapper[T] {

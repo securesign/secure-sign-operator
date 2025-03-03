@@ -189,8 +189,10 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not get configmap: %w", err)), instance)
 	}
 
-	if val, ok := configMap.GetAnnotations()[jobReferenceAnnotation]; ok && val != "" {
-		return i.Continue()
+	for _, ref := range configMap.GetOwnerReferences() {
+		if ref.Kind == "Job" {
+			return i.Continue()
+		}
 	}
 
 	trillianService := wrapped.GetTrillianService()
@@ -242,11 +244,10 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 			})
 	}
 
-	configMapAnnotations := map[string]string{
-		jobReferenceAnnotation: job.GetName(),
-	}
 	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, configMap,
-		ensure.Annotations[*corev1.ConfigMap](maps.Keys(configMapAnnotations), configMapAnnotations),
+		func(object *corev1.ConfigMap) error {
+			return controllerutil.SetOwnerReference(job, object, i.Client.Scheme())
+		},
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not update annotations on %s ConfigMap: %w", configMap.GetName(), err), instance,
 			metav1.Condition{
@@ -270,7 +271,6 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 func (i resolveTree[T]) handleJobFinished(ctx context.Context, instance T) *action.Result {
 	var (
 		jobName string
-		ok      bool
 		err     error
 	)
 
@@ -283,7 +283,13 @@ func (i resolveTree[T]) handleJobFinished(ctx context.Context, instance T) *acti
 		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not get configmap: %w", err)), instance)
 	}
 
-	if jobName, ok = configMap.GetAnnotations()[jobReferenceAnnotation]; !ok || jobName == "" {
+	for _, ref := range configMap.GetOwnerReferences() {
+		if ref.Kind == "Job" {
+			jobName = ref.Name
+			break
+		}
+	}
+	if jobName == "" {
 		return i.Requeue()
 	}
 
