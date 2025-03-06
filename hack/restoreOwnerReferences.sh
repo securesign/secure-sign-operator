@@ -83,4 +83,4 @@ for RESOURCE in "${RESOURCES[@]}"; do
     done
 done
 
-echo "Done"
+echo "... done"
