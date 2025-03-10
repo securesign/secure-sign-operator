@@ -212,6 +212,9 @@ jobs:
           keycloak: 'true'
           olm: 'true'
 
+      - name: Replace images
+        run: make dev-images && cat internal/images/images.env
+
       - name: Deploy operator container
         env:
           OPENSHIFT: false
@@ -226,9 +229,6 @@ jobs:
           sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local cli-server.local tsa-server.local" | sudo tee -a /etc/hosts
       - name: Install cosign
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.4.0
-
-      - name: Replace images
-        run: make dev-images && cat internal/images/images.env
 
       - name: Run tests
         run: make test-e2e
@@ -438,6 +438,9 @@ jobs:
       - name: Add service hosts to /etc/hosts
         run: |
           sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local rekor-search-ui.local tsa-server.local cli-server.local ${{ steps.kind.outputs.oidc_host }}" | sudo tee -a /etc/hosts
+
+      - name: Replace images
+        run: make dev-images && cat internal/images/images.env
 
       - name: Deploy operator container
         env:
