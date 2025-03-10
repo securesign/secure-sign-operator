@@ -172,6 +172,9 @@ jobs:
           curl -sL https://github.com/prometheus-operator/prometheus-operator/releases/download/${LATEST}/bundle.yaml | kubectl create -f -
           kubectl wait --for=condition=Ready pods -l  app.kubernetes.io/name=prometheus-operator -n default
 
+      - name: Replace images
+        run: make dev-images && cat internal/images/images.env
+
       - name: Deploy operator container
         env:
           OPENSHIFT: false
@@ -231,9 +234,6 @@ jobs:
           sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local cli-server.local tsa-server.local" | sudo tee -a /etc/hosts
       - name: Install cosign
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.4.0
-
-      - name: Replace images
-        run: make dev-images && cat internal/images/images.env
 
       - name: Run tests
         run: make test-e2e
