@@ -439,6 +439,9 @@ jobs:
         run: |
           sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local rekor-search-ui.local tsa-server.local cli-server.local ${{ steps.kind.outputs.oidc_host }}" | sudo tee -a /etc/hosts
 
+      - name: Replace images
+        run: make dev-images && cat internal/images/images.env
+
       - name: Deploy operator container
         env:
           OPENSHIFT: false
