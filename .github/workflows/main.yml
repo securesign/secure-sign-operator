@@ -16,7 +16,7 @@ env:
 jobs:
   build-operator:
     name: Build-operator
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -34,7 +34,7 @@ jobs:
 
   build-bundle:
     name: Build-bundle-image
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -47,7 +47,7 @@ jobs:
 
   build-fbc:
     name: Build-fbc
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     needs: build-bundle
     steps:
       - name: Checkout source
@@ -91,7 +91,7 @@ jobs:
           docker push $CATALOG_IMG
   build-tuftool:
     name: Build-tuftool
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout tough source
         uses: actions/checkout@v4
@@ -124,7 +124,7 @@ jobs:
 
   test-kind:
     name: Test kind deployment
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     needs:
     - build-operator
     - build-tuftool
@@ -252,7 +252,7 @@ jobs:
 
   test-upgrade:
     name: Test upgrade operator
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     needs:
       - build-operator
       - build-bundle
@@ -369,7 +369,7 @@ jobs:
 
   test-custom-install:
     name: Test with custom operator installation
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     needs:
       - build-operator
     steps:
@@ -434,7 +434,7 @@ jobs:
 
   test-eks:
     name: Test EKS deployment
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     needs: build-operator
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     env:
