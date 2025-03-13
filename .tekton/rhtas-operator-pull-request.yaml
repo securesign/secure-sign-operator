@@ -8,11 +8,11 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: |
-      event == "pull_request" && target_branch == "release-1.1" && (".tekton/rhtas-operator-pull-request.yaml".pathChanged() || "api/***".pathChanged() || "internal/***".pathChanged() || "Dockerfile.rhtas-operator.rh".pathChanged() || "go.mod".pathChanged() || "cmd/***".pathChanged() || "go.sum".pathChanged() || "trigger-konflux-builds.txt".pathChanged() )
+      event == "pull_request" && target_branch == "release-1.2" && (".tekton/rhtas-operator-pull-request.yaml".pathChanged() || "api/***".pathChanged() || "internal/***".pathChanged() || "Dockerfile.rhtas-operator.rh".pathChanged() || "go.mod".pathChanged() || "cmd/***".pathChanged() || "go.sum".pathChanged() || "trigger-konflux-builds.txt".pathChanged() )
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: operator-v1-1
-    appstudio.openshift.io/component: rhtas-operator-v1-1
+    appstudio.openshift.io/application: operator-v1-2
+    appstudio.openshift.io/component: rhtas-operator-v1-2
     pipelines.appstudio.openshift.io/type: build
   name: rhtas-operator-on-pull-request
   namespace: rhtas-tenant
@@ -25,7 +25,7 @@ spec:
   - name: image-expires-after
     value: 5d
   - name: output-image
-    value: quay.io/securesign/rhtas-operator-v1-1:on-pr-{{revision}}
+    value: quay.io/securesign/rhtas-operator-v1-2:on-pr-{{revision}}
   - name: path-context
     value: .
   - name: revision

@@ -27,3 +27,18 @@ spec:
         value: "v1-1"
       - name: version
         value: "release-1.1"
+
+---
+apiVersion: projctl.konflux.dev/v1beta1
+kind: ProjectDevelopmentStream
+metadata:
+  name: operator-v1-2
+spec:
+  project: operator
+  template:
+    name: operator-template
+    values:
+      - name: versionName
+        value: "v1-2"
+      - name: version
+        value: "release-1.2"
