@@ -38,7 +38,9 @@ func CreateRekorDeployment(instance *v1alpha1.Rekor, dpName string, sa string, l
 		"--enable_retrieve_api=true",
 		fmt.Sprintf("--trillian_log_server.tlog_id=%d", *instance.Status.TreeID),
 		"--enable_attestation_storage",
-		"--attestation_storage_bucket=file:///var/run/attestations",
+		// NOTE: we need to use no_tmp_dir=true with file-based storage to prevent
+		// cross-device link error - see https://github.com/google/go-cloud/issues/3314
+		"--attestation_storage_bucket=file:///var/run/attestations?no_tmp_dir=true",
 	}
 	volumes := []core.Volume{
 		{
