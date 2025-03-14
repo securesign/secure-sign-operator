@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	trillianUtils "github.com/securesign/operator/internal/controller/trillian/utils"
+	"github.com/securesign/operator/internal/images"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -40,7 +41,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	)
 
 	labels := constants.LabelsFor(actions.LogSignerComponentName, actions.LogsignerDeploymentName, instance.Name)
-	signer, err := trillianUtils.CreateLogServerDeployment(ctx, i.Client, instance, constants.TrillianLogSignerImage, actions.LogsignerDeploymentName, actions.RBACName, labels)
+	signer, err := trillianUtils.CreateLogServerDeployment(ctx, i.Client, instance, images.Registry.Get(images.TrillianLogSigner), actions.LogsignerDeploymentName, actions.RBACName, labels)
 	if err != nil {
 		return i.Failed(err)
 	}

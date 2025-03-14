@@ -5,7 +5,7 @@ import (
 
 	"github.com/operator-framework/operator-lib/proxy"
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/images"
 	v1 "k8s.io/api/batch/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,7 +73,7 @@ func CreateTufInitJob(instance *v1alpha1.Tuf, name string, sa string, labels map
 					Containers: []core.Container{
 						{
 							Name:  "tuf-init",
-							Image: constants.TufImage,
+							Image: images.Registry.Get(images.Tuf),
 							Env:   env,
 							Args:  args,
 							VolumeMounts: []core.VolumeMount{

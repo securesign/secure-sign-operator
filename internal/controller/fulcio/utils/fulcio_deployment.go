@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
+	"github.com/securesign/operator/internal/images"
 
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/constants"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -112,7 +112,7 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 					Containers: []corev1.Container{
 						{
 							Name:  "fulcio-server",
-							Image: constants.FulcioServerImage,
+							Image: images.Registry.Get(images.FulcioServer),
 							Args:  args,
 							Env:   env,
 							Ports: containerPorts,

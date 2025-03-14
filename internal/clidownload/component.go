@@ -9,6 +9,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/images"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -135,7 +136,7 @@ func (c *Component) createDeployment(namespace string, labels map[string]string)
 					Containers: []core.Container{
 						{
 							Name:            cliServerName,
-							Image:           constants.ClientServerImage,
+							Image:           images.Registry.Get(images.ClientServer),
 							ImagePullPolicy: core.PullAlways,
 							Ports: []core.ContainerPort{
 								{
