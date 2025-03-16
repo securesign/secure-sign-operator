@@ -19,7 +19,7 @@ require (
 	github.com/sigstore/fulcio v1.4.4
 	github.com/sigstore/sigstore v1.8.15
 	google.golang.org/grpc v1.64.0
-	google.golang.org/protobuf v1.36.4
+	google.golang.org/protobuf v1.36.5
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.28.5
 	k8s.io/apimachinery v0.28.5
