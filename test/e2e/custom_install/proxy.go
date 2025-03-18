@@ -311,7 +311,7 @@ func newHTTPDPod(ns, configName, secretName string) *v1.Pod {
 			Containers: []v1.Container{
 				{
 					Name:    "httpd",
-					Image:   "httpd:2.4.46",
+					Image:   "mirror.gcr.io/httpd:2.4.46",
 					Command: []string{"httpd", "-f", "/etc/httpd/httpd.conf", "-DFOREGROUND"},
 					Ports: []v1.ContainerPort{
 						{
