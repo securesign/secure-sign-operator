@@ -19,12 +19,11 @@ package main
 import (
 	"crypto/tls"
 	"flag"
-
-	"github.com/securesign/operator/internal/images"
-
 	"net/http"
 	"os"
 	"strconv"
+
+	"github.com/securesign/operator/internal/images"
 
 	"k8s.io/klog/v2"
 
@@ -110,6 +109,7 @@ func main() {
 	utils.RelatedImageFlag("trillian-log-server-image", images.TrillianServer, "The image used for trillian log server.")
 	utils.RelatedImageFlag("trillian-db-image", images.TrillianDb, "The image used for trillian's database.")
 	utils.RelatedImageFlag("trillian-netcat-image", images.TrillianNetcat, "The image used for trillian netcat.")
+	utils.RelatedImageFlag("trillian-create-tree-image", images.TrillianCreateTree, "The image used to create a trillian tree.")
 	utils.RelatedImageFlag("fulcio-server-image", images.FulcioServer, "The image used for the fulcio server.")
 	utils.RelatedImageFlag("rekor-redis-image", images.RekorRedis, "The image used for redis.")
 	utils.RelatedImageFlag("rekor-server-image", images.RekorServer, "The image used for rekor server.")
