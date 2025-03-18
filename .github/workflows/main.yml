@@ -98,11 +98,19 @@ jobs:
         with:
           repository: "securesign/tough"
           path: tough
-      - uses: actions-rs/toolchain@v1
+
+      - uses: actions/cache@v4
         with:
-          toolchain: stable
-          profile: minimal
-      - run: cd tough && cargo build --release --target-dir /tmp/tuftool
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            /tmp/tuftool
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build
+        run: cd tough && cargo build --release --target-dir /tmp/tuftool
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
