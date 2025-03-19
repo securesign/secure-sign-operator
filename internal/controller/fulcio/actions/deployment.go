@@ -5,8 +5,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure/deployment"
-	"github.com/securesign/operator/internal/images"
+	"golang.org/x/exp/maps"
+	v1 "k8s.io/api/apps/v1"
+	core "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/annotations"
@@ -14,16 +20,11 @@ import (
 	cutils "github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
+	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure/deployment"
 	"github.com/securesign/operator/internal/controller/constants"
 	futils "github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/controller/labels"
-	"golang.org/x/exp/maps"
-	v1 "k8s.io/api/apps/v1"
-	core "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"github.com/securesign/operator/internal/images"
 )
 
 func NewDeployAction() action.Action[*rhtasv1alpha1.Fulcio] {
@@ -179,6 +180,9 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.Fulcio, sa string
 		configMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-config")
 		configMount.MountPath = "/etc/fulcio-config"
 
+		oidcInfoMount := kubernetes.FindVolumeMountByNameOrCreate(container, "oidc-info")
+		oidcInfoMount.MountPath = "/var/run/fulcio"
+
 		config := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-config")
 		if config.ConfigMap == nil {
 			config.ConfigMap = &core.ConfigMapVolumeSource{}
@@ -212,6 +216,27 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.Fulcio, sa string
 						{
 							Key:  instance.Status.Certificate.CARef.Key,
 							Path: "cert.pem",
+						},
+					},
+				},
+			},
+		}
+
+		oidcInfo := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "oidc-info")
+		if oidcInfo.Projected == nil {
+			oidcInfo.Projected = &core.ProjectedVolumeSource{}
+		}
+		oidcInfo.Projected.Sources = []core.VolumeProjection{
+			{
+				ConfigMap: &core.ConfigMapProjection{
+					LocalObjectReference: core.LocalObjectReference{
+						Name: "kube-root-ca.crt",
+					},
+					Items: []core.KeyToPath{
+						{
+							Key:  "ca.crt",
+							Path: "ca.crt",
+							Mode: ptr.To(int32(0666)),
 						},
 					},
 				},
