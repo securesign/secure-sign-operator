@@ -6,6 +6,7 @@ import (
 
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/images"
+	"k8s.io/utils/ptr"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -153,6 +154,10 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 									MountPath: "/var/run/fulcio-secrets",
 									ReadOnly:  true,
 								},
+								{
+									Name:      "oidc-info",
+									MountPath: "/var/run/fulcio",
+								},
 							},
 						},
 					},
@@ -195,6 +200,29 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 													{
 														Key:  instance.Status.Certificate.CARef.Key,
 														Path: "cert.pem",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							Name: "oidc-info",
+							VolumeSource: corev1.VolumeSource{
+								Projected: &corev1.ProjectedVolumeSource{
+									Sources: []corev1.VolumeProjection{
+										{
+											ConfigMap: &corev1.ConfigMapProjection{
+												LocalObjectReference: corev1.LocalObjectReference{
+													Name: "kube-root-ca.crt",
+												},
+												Items: []corev1.KeyToPath{
+													{
+														Key:  "ca.crt",
+														Path: "ca.crt",
+														Mode: ptr.To(int32(0666)),
 													},
 												},
 											},
