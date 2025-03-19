@@ -34,7 +34,7 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
 # redhat.com/operator-bundle:$VERSION and redhat.com/operator-catalog:$VERSION.
 IMAGE_TAG_BASE ?= registry.redhat.io/rhtas/rhtas-rhel9-operator
-IMAGE_DIGEST ?= sha256:9ba6cb036ae0f20e2a27077f36a2039d24a537a49e949734240fdc6ae51cb1d0
+IMAGE_DIGEST ?= sha256:7ff7332b53ec6502daa3647ee7b7318b90e779abba97280ead1a91eaba4d434a
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
