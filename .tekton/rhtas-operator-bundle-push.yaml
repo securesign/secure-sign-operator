@@ -203,6 +203,24 @@ spec:
         workspace: git-auth
       - name: netrc
         workspace: netrc
+    - name: generate-labels
+      params:
+          - name: label-templates
+            value:
+              - "release=$SOURCE_DATE_EPOCH"
+          - name: source-date-epoch
+            value: '$(tasks.clone-repository.results.commit-timestamp)'
+      runAfter:
+        - clone-repository
+      taskRef:
+        params:
+          - name: name
+            value: generate-labels
+          - name: bundle
+            value: quay.io/konflux-ci/tekton-catalog/task-generate-labels:0.1@sha256:defd199edfcf5172f4f8ed6a983bf66b0875dd07a4f1a5bfafa134d35e37149b
+          - name: kind
+            value: task
+        resolver: bundles
     - name: build-container
       params:
       - name: IMAGE
@@ -228,8 +246,13 @@ spec:
         value: $(tasks.prefetch-dependencies.results.SOURCE_ARTIFACT)
       - name: CACHI2_ARTIFACT
         value: $(tasks.prefetch-dependencies.results.CACHI2_ARTIFACT)
+      - name: LABELS
+        value:
+          - $(tasks.generate-labels.results.labels[*])
+          - "short-commit=$(tasks.clone-repository.results.short-commit)"
       runAfter:
       - prefetch-dependencies
+      - generate-labels
       taskRef:
         params:
         - name: name
