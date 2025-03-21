@@ -44,7 +44,7 @@ func CreateTrillianTree(ctx context.Context, displayName string, trillianURL str
 	var opts grpc.DialOption
 	klog.Warning("Using an insecure gRPC connection to Trillian")
 	opts = grpc.WithTransportCredentials(insecure.NewCredentials())
-	conn, err := grpc.Dial(trillianURL, opts)
+	conn, err := grpc.NewClient(trillianURL, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial: %w", err)
 	}
