@@ -158,7 +158,7 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 // SetupWithManager sets up the controller with the Manager.
 func (r *RekorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Filter out with the pause annotation.
-	pause, err := olpredicate.NewPause(annotations.PausedReconciliation)
+	pause, err := olpredicate.NewPause[client.Object](annotations.PausedReconciliation)
 	if err != nil {
 		return err
 	}

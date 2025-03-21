@@ -163,7 +163,7 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SecuresignReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Filter out with the pause annotation.
-	pause, err := predicate.NewPause(annotations.PausedReconciliation)
+	pause, err := predicate.NewPause[client.Object](annotations.PausedReconciliation)
 	if err != nil {
 		return err
 	}
