@@ -2,8 +2,10 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -115,10 +117,16 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 			Namespace:    instance.Namespace,
 		},
 	}
+
+	annotations := map[string]string{
+		"rhtas.redhat.com/generation": strconv.FormatInt(instance.Generation, 10),
+	}
+
 	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		newConfig,
 		ensure.ControllerReference[*v1.ConfigMap](instance, i.Client),
 		ensure.Labels[*v1.ConfigMap](maps.Keys(configLabel), configLabel),
+		ensure.Annotations[*v1.ConfigMap](maps.Keys(annotations), annotations),
 		kubernetes.EnsureConfigMapData(
 			true,
 			map[string]string{
@@ -129,29 +137,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		return i.Error(ctx, fmt.Errorf("could not create Server config: %w", err), instance)
 	}
 
-	// remove old server configmaps
-	partialConfigs, err := kubernetes.ListConfigMaps(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(configLabel).String())
-	if err != nil {
-		i.Logger.Error(err, "problem with finding configmap")
-	}
-	for _, partialConfig := range partialConfigs.Items {
-		if partialConfig.Name == newConfig.Name {
-			continue
-		}
-
-		err = i.Client.Delete(ctx, &v1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      partialConfig.Name,
-				Namespace: partialConfig.Namespace,
-			},
-		})
-		if err != nil {
-			i.Logger.Error(err, "problem with deleting configmap", "name", partialConfig.Name)
-		} else {
-			i.Logger.Info("Remove invalid ConfigMap with rekor-server configuration", "name", partialConfig.Name)
-			i.Recorder.Eventf(instance, v1.EventTypeNormal, "FulcioConfigDeleted", "Fulcio config deleted: %s", partialConfig.Name)
-		}
-	}
+	defer i.cleanup(ctx, instance, newConfig.Name, configLabel)
 
 	i.Recorder.Eventf(instance, v1.EventTypeNormal, "FulcioConfigUpdated", "Fulcio config updated: %s", newConfig.Name)
 	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
@@ -164,4 +150,37 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 			Message: "Server config created"},
 	)
 	return i.StatusUpdate(ctx, instance)
+}
+
+func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.Fulcio, newConfigName string, configLabels map[string]string) {
+	if newConfigName == "" {
+		i.Logger.Error(errors.New("new ConfigMap name is empty"), "unable to clean old objects", "namespace", instance.Namespace)
+		return
+	}
+
+	// remove old server configmaps
+	partialConfigs, err := kubernetes.ListConfigMaps(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(configLabels).String())
+	if err != nil {
+		i.Logger.Error(err, "problem with finding configmap")
+		return
+	}
+	for _, partialConfig := range partialConfigs.Items {
+		if partialConfig.Name == newConfigName {
+			continue
+		}
+
+		err = i.Client.Delete(ctx, &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      partialConfig.Name,
+				Namespace: partialConfig.Namespace,
+			},
+		})
+		if err != nil {
+			i.Logger.Error(err, "problem with deleting configmap", "name", partialConfig.Name)
+			i.Recorder.Eventf(instance, v1.EventTypeWarning, "FulcioConfigDeleted", "Unable to delete secret: %s", partialConfig.Name)
+			continue
+		}
+		i.Logger.Info("Remove invalid ConfigMap with Fulcio configuration", "name", partialConfig.Name)
+		i.Recorder.Eventf(instance, v1.EventTypeNormal, "FulcioConfigDeleted", "Fulcio config deleted: %s", partialConfig.Name)
+	}
 }

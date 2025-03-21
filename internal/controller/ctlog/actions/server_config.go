@@ -2,7 +2,9 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strconv"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -131,10 +133,15 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		},
 	}
 
+	annotations := map[string]string{
+		"rhtas.redhat.com/generation": strconv.FormatInt(instance.Generation, 10),
+	}
+
 	if _, err = utils.CreateOrUpdate(ctx, i.Client,
 		newConfig,
 		ensure.ControllerReference[*corev1.Secret](instance, i.Client),
 		ensure.Labels[*corev1.Secret](maps.Keys(configLabels), configLabels),
+		ensure.Annotations[*corev1.Secret](maps.Keys(annotations), annotations),
 		utils.EnsureSecretData(true, cfg),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Server config: %w", err), instance,
@@ -147,25 +154,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 			})
 	}
 
-	// try to discover existing config and clear them out
-	partialConfigs, err := utils.ListSecrets(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(configLabels).String())
-	if err != nil {
-		i.Logger.Error(err, "problem with listing configmaps", "namespace", instance.Namespace)
-	}
-	for _, partialConfig := range partialConfigs.Items {
-		if partialConfig.Name == newConfig.Name {
-			continue
-		}
-
-		err = i.Client.Delete(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: partialConfig.Name, Namespace: partialConfig.Namespace}})
-		if err != nil {
-			i.Logger.Error(err, "unable to delete secret", "namespace", instance.Namespace, "name", partialConfig.Name)
-			i.Recorder.Eventf(instance, corev1.EventTypeWarning, "CTLogConfigDeleted", "Unable to delete secret: %s", partialConfig.Name)
-			continue
-		}
-		i.Logger.Info("Remove invalid Secret with ctlog configuration", "Name", partialConfig.Name)
-		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigDeleted", "Secret with ctlog configuration deleted: %s", partialConfig.Name)
-	}
+	defer i.cleanup(ctx, instance, newConfig.Name, configLabels)
 
 	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
 
@@ -178,6 +167,34 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		ObservedGeneration: instance.Generation,
 	})
 	return i.StatusUpdate(ctx, instance)
+}
+
+func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.CTlog, newSecretName string, configLabels map[string]string) {
+	if newSecretName == "" {
+		i.Logger.Error(errors.New("new Secret name is empty"), "unable to clean old objects", "namespace", instance.Namespace)
+		return
+	}
+
+	// try to discover existing secrets and clear them out
+	partialConfigs, err := utils.ListSecrets(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(configLabels).String())
+	if err != nil {
+		i.Logger.Error(err, "problem with listing configmaps", "namespace", instance.Namespace)
+		return
+	}
+	for _, partialConfig := range partialConfigs.Items {
+		if partialConfig.Name == newSecretName {
+			continue
+		}
+
+		err = i.Client.Delete(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: partialConfig.Name, Namespace: partialConfig.Namespace}})
+		if err != nil {
+			i.Logger.Error(err, "unable to delete secret", "namespace", instance.Namespace, "name", partialConfig.Name)
+			i.Recorder.Eventf(instance, corev1.EventTypeWarning, "CTLogConfigDeleted", "Unable to delete secret: %s", partialConfig.Name)
+			continue
+		}
+		i.Logger.Info("Remove invalid Secret with ctlog configuration", "Name", partialConfig.Name)
+		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigDeleted", "Secret with ctlog configuration deleted: %s", partialConfig.Name)
+	}
 }
 
 func (i serverConfig) handlePrivateKey(instance *rhtasv1alpha1.CTlog) (*ctlogUtils.KeyConfig, error) {
