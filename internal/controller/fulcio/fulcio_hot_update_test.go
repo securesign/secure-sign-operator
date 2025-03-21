@@ -26,6 +26,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
+	"github.com/securesign/operator/internal/controller/labels"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -163,7 +164,7 @@ var _ = Describe("Fulcio hot update", func() {
 			By("Creating password secret with cert password")
 			Expect(k8sClient.Create(ctx, kubernetes.CreateSecret("password-secret", typeNamespaceName.Namespace, map[string][]byte{
 				"password": []byte("secret"),
-			}, constants.LabelsForComponent(actions.ComponentName, instance.Name)))).To(Succeed())
+			}, labels.ForComponent(actions.ComponentName, instance.Name)))).To(Succeed())
 
 			By("Status field changed")
 			Eventually(func(g Gomega) string {

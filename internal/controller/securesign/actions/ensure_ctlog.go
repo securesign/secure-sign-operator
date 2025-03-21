@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
+	"github.com/securesign/operator/internal/controller/labels"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,7 +41,7 @@ func (i ctlogAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secures
 
 	ctlog.Name = instance.Name
 	ctlog.Namespace = instance.Namespace
-	ctlog.Labels = constants.LabelsFor(actions.ComponentName, ctlog.Name, instance.Name)
+	ctlog.Labels = labels.For(actions.ComponentName, ctlog.Name, instance.Name)
 	ctlog.Annotations = annotations.FilterInheritable(instance.Annotations)
 
 	ctlog.Spec = instance.Spec.Ctlog

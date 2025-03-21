@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -50,8 +51,7 @@ func (i shardingConfig) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rek
 }
 
 func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
-	labels := constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
-	labels[constants.LabelResource] = shardingConfigLabel
+	labels := labels.ForResource(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name, shardingConfigLabel)
 
 	content, err := createShardingConfigData(instance.Spec.Sharding)
 	if err != nil {

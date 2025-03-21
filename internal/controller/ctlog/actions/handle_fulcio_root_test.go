@@ -15,6 +15,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
+	"github.com/securesign/operator/internal/controller/labels"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -324,7 +325,7 @@ func TestCert_Handle(t *testing.T) {
 				},
 				objects: []client.Object{
 					kubernetes.CreateSecret("my-secret", "default", map[string][]byte{"key": nil}, map[string]string{}),
-					kubernetes.CreateSecret("ctlog-config", "default", map[string][]byte{}, map[string]string{constants.LabelResource: serverConfigResourceName}),
+					kubernetes.CreateSecret("ctlog-config", "default", map[string][]byte{}, map[string]string{labels.LabelResource: serverConfigResourceName}),
 				},
 				status: v1alpha1.CTlogStatus{
 					ServerConfigRef: &v1alpha1.LocalObjectReference{Name: "ctlog-config"},
@@ -407,7 +408,7 @@ func TestCert_Handle(t *testing.T) {
 				WithObjects(tt.env.objects...).
 				Build()
 
-			configSecretWatch, err := c.Watch(ctx, &v1.SecretList{}, client.InNamespace("default"), client.MatchingLabels{constants.LabelResource: serverConfigResourceName})
+			configSecretWatch, err := c.Watch(ctx, &v1.SecretList{}, client.InNamespace("default"), client.MatchingLabels{labels.LabelResource: serverConfigResourceName})
 			g.Expect(err).To(Not(HaveOccurred()))
 
 			a := testAction.PrepareAction(c, NewHandleFulcioCertAction())

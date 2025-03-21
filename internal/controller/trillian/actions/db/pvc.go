@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
+	"github.com/securesign/operator/internal/controller/labels"
 
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
@@ -53,7 +54,7 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tri
 	// PVC does not exist, create a new one
 	i.Logger.V(1).Info("Creating new PVC")
 	pvc := k8sutils.CreatePVC(instance.Namespace, actions.DbPvcName, instance.Spec.Db.Pvc,
-		constants.LabelsFor(actions.DbComponentName, actions.DbDeploymentName, instance.Name))
+		labels.For(actions.DbComponentName, actions.DbDeploymentName, instance.Name))
 	if !utils.OptionalBool(instance.Spec.Db.Pvc.Retain) {
 		if err = controllerutil.SetControllerReference(instance, pvc, i.Client.Scheme()); err != nil {
 			return i.Failed(fmt.Errorf("could not set controller reference for PVC: %w", err))

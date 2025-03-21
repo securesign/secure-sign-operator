@@ -5,7 +5,9 @@ import (
 	"strings"
 
 	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/utils"
+	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/images"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -41,6 +43,7 @@ func CreateTimestampAuthorityDeployment(instance *v1alpha1.TimestampAuthority, n
 		"serve",
 		"--host=0.0.0.0",
 		"--port=3000",
+		fmt.Sprintf("--log-type=%s", utils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
 		fmt.Sprintf("--certificate-chain-path=%s/certificate-chain.pem", certChainMountPath),
 		fmt.Sprintf("--disable-ntp-monitoring=%v", !instance.Spec.NTPMonitoring.Enabled),
 	}

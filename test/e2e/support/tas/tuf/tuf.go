@@ -9,13 +9,14 @@ import (
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/job"
-	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/tuf/actions"
 	utils2 "github.com/securesign/operator/internal/controller/tuf/utils"
 	"github.com/securesign/operator/test/e2e/support/condition"
 	appsv1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,7 +24,10 @@ import (
 
 func Verify(ctx context.Context, cli client.Client, namespace string, name string) {
 	Eventually(Get(ctx, cli, namespace, name)).Should(
-		WithTransform(condition.IsReady, BeTrue()))
+		And(
+			Not(BeNil()),
+			WithTransform(condition.IsReady, BeTrue()),
+		))
 
 	Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, actions.ComponentName)).
 		Should(BeTrue())
@@ -32,10 +36,12 @@ func Verify(ctx context.Context, cli client.Client, namespace string, name strin
 func Get(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.Tuf {
 	return func() *v1alpha1.Tuf {
 		instance := &v1alpha1.Tuf{}
-		_ = cli.Get(ctx, types.NamespacedName{
+		if e := cli.Get(ctx, types.NamespacedName{
 			Namespace: ns,
 			Name:      name,
-		}, instance)
+		}, instance); errors.IsNotFound(e) {
+			return nil
+		}
 		return instance
 	}
 }
@@ -43,7 +49,7 @@ func Get(ctx context.Context, cli client.Client, ns string, name string) func() 
 func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {
 	return func() *v1.Pod {
 		list := &v1.PodList{}
-		_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{constants.LabelAppComponent: actions.ComponentName})
+		_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{labels.LabelAppComponent: actions.ComponentName})
 		if len(list.Items) != 1 {
 			return nil
 		}

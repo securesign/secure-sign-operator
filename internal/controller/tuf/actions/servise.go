@@ -8,6 +8,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -36,7 +37,7 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) 
 		updated bool
 	)
 
-	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
+	labels := labels.For(ComponentName, DeploymentName, instance.Name)
 
 	svc := kubernetes.CreateService(instance.Namespace, DeploymentName, PortName, Port, Port, labels)
 	//patch the pregenerated service

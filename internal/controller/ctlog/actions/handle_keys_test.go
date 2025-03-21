@@ -7,6 +7,7 @@ import (
 
 	"github.com/securesign/operator/internal/controller/common"
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
+	"github.com/securesign/operator/internal/controller/labels"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -523,7 +524,7 @@ func TestKeys_Handle(t *testing.T) {
 				WithObjects(tt.env.objects...).
 				Build()
 
-			configSecretWatch, err := c.Watch(ctx, &v1.SecretList{}, client.InNamespace("default"), client.MatchingLabels{constants.LabelResource: serverConfigResourceName})
+			configSecretWatch, err := c.Watch(ctx, &v1.SecretList{}, client.InNamespace("default"), client.MatchingLabels{labels.LabelResource: serverConfigResourceName})
 			g.Expect(err).To(Not(HaveOccurred()))
 
 			a := testAction.PrepareAction(c, NewHandleKeysAction())

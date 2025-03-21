@@ -7,6 +7,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -41,7 +42,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		updated bool
 	)
 
-	labels := constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
+	labels := labels.For(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
 	svc := k8sutils.CreateService(instance.Namespace, actions.ServerDeploymentName, actions.ServerDeploymentPortName, actions.ServerDeploymentPort, actions.ServerTargetDeploymentPort, labels)
 
 	if instance.Spec.Monitoring.Enabled {

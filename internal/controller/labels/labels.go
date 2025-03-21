@@ -1,4 +1,4 @@
-package constants
+package labels
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/securesign/operator/internal/controller/constants"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -24,23 +25,29 @@ const (
 	LabelAppNamespace = "app.kubernetes.io/instance-namespace"
 )
 
-func LabelsFor(component, name, instance string) map[string]string {
-	labels := LabelsForComponent(component, instance)
+func For(component, name, instance string) map[string]string {
+	labels := ForComponent(component, instance)
 	labels[LabelAppName] = name
 
 	return labels
 }
 
-func LabelsForComponent(component, instance string) map[string]string {
+func ForComponent(component, instance string) map[string]string {
 	return map[string]string{
 		LabelAppInstance:  instance,
 		LabelAppComponent: component,
-		LabelAppPartOf:    AppName,
+		LabelAppPartOf:    constants.AppName,
 		LabelAppManagedBy: "controller-manager",
 	}
 }
 
-func RemoveLabel(ctx context.Context, object *metav1.PartialObjectMetadata, c client.Client, label string) error {
+func ForResource(component, name, instance, resource string) map[string]string {
+	labels := For(component, name, instance)
+	labels[LabelResource] = resource
+	return labels
+}
+
+func Remove(ctx context.Context, object *metav1.PartialObjectMetadata, c client.Client, label string) error {
 	object.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "",
 		Version: "v1",

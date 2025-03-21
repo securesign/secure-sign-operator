@@ -1,0 +1,103 @@
+name: 'Install and configure Kind cluster'
+description: 'Customized Kind-action'
+
+inputs:
+  config:
+    description: 'Kind config'
+    required: true
+  olm:
+    description: 'install olm'
+    required: true
+    default: 'false'
+  keycloak:
+    description: 'install keycloak'
+    required: true
+    default: 'false'
+  prometheus:
+    description: 'install prometheus'
+    required: true
+    default: 'false'
+
+outputs:
+  oidc_host:
+    value: ${{ steps.install-keycloak.outputs.oidc_host }}
+    description: 'Keycloak OIDC host'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Cluster
+      uses: container-tools/kind-action@v2.0.1
+      with:
+        version: v0.20.0
+        node_image: kindest/node:v1.26.6@sha256:6e2d8b28a5b601defe327b98bd1c2d1930b49e5d8c512e1895099e4504007adb
+        cpu: 3
+        registry: false
+        config: ${{ inputs.config }}
+
+    - name: Configure ingress
+      shell: bash
+      run: |
+        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+        kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
+    - name: Install prometheus
+      if: ${{ inputs.prometheus == 'true'}}
+      shell: bash
+      run: |
+        #install Prometheus
+        LATEST=$(curl -s https://api.github.com/repos/prometheus-operator/prometheus-operator/releases/latest | jq -cr .tag_name)
+        curl -sL https://github.com/prometheus-operator/prometheus-operator/releases/download/${LATEST}/bundle.yaml | kubectl create -f -
+        kubectl wait --for=condition=Ready pods -l  app.kubernetes.io/name=prometheus-operator -n default
+
+    - name: Install olm
+      if: ${{ inputs.olm  == 'true'}}
+      shell: bash
+      run: |
+        #install OLM
+        kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.25.0/crds.yaml
+        # wait for a while to be sure CRDs are installed
+        sleep 1
+        kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.25.0/olm.yaml
+
+    - name: Install keycloak
+      if: ${{ inputs.keycloak  == 'true'}}
+      id: install-keycloak
+      shell: bash
+      run: |
+        kubectl create --kustomize ci/keycloak/operator/overlay/kind
+        until [ ! -z "$(kubectl get pod -l name=keycloak-operator -n keycloak-system 2>/dev/null)" ]
+        do
+          echo "Waiting for keycloak operator. Pods in keycloak-system namespace:"
+          kubectl get pods -n keycloak-system
+          sleep 10
+        done
+        kubectl create --kustomize ci/keycloak/resources/overlay/kind
+        until [[ $( kubectl get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system 2>/dev/null) == "true" ]]
+        do
+          printf "Waiting for keycloak deployment. \n Keycloak ready: %s\n" $(kubectl get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system)
+          sleep 10
+        done
+
+        # HACK - expose keycloak under the same name as the internal SVC has so it will be accessible:
+        # - within the cluster (where the localhost does not work)
+        # - outside the cluster (resolved from /etc/hosts and redirect to the localhost)
+        kubectl create -n keycloak-system -f - <<EOF
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        metadata:
+          name: keycloak
+        spec:
+          rules:
+          - host: keycloak-internal.keycloak-system.svc
+            http:
+              paths:
+              - backend:
+                  service:
+                    name: keycloak-internal
+                    port:
+                      number: 80
+                path: /
+                pathType: Prefix
+        EOF
+        
+        echo "oidc_host=keycloak-internal.keycloak-system.svc" >> $GITHUB_OUTPUT

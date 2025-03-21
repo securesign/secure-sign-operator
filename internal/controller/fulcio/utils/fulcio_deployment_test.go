@@ -7,11 +7,11 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/securesign/operator/internal/controller/annotations"
+	"github.com/securesign/operator/internal/controller/labels"
 
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/constants"
 	v12 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -27,7 +27,7 @@ func TestSimpleDeploymen(t *testing.T) {
 	g := NewWithT(t)
 
 	instance := createInstance()
-	labels := constants.LabelsFor(componentName, deploymentName, instance.Name)
+	labels := labels.For(componentName, deploymentName, instance.Name)
 	deployment, err := CreateDeployment(instance, deploymentName, rbacName, labels)
 
 	g.Expect(err).ShouldNot(HaveOccurred())
@@ -57,7 +57,7 @@ func TestPrivateKeyPassword(t *testing.T) {
 		},
 		Key: "key",
 	}
-	labels := constants.LabelsFor(componentName, deploymentName, instance.Name)
+	labels := labels.For(componentName, deploymentName, instance.Name)
 	deployment, err := CreateDeployment(instance, deploymentName, rbacName, labels)
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(deployment).ShouldNot(BeNil())
@@ -75,7 +75,7 @@ func TestTrustedCA(t *testing.T) {
 
 	instance := createInstance()
 	instance.Spec.TrustedCA = &v1alpha1.LocalObjectReference{Name: "trusted"}
-	labels := constants.LabelsFor(componentName, deploymentName, instance.Name)
+	labels := labels.For(componentName, deploymentName, instance.Name)
 	deployment, err := CreateDeployment(instance, deploymentName, rbacName, labels)
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(deployment).ShouldNot(BeNil())
@@ -96,7 +96,7 @@ func TestTrustedCAByAnnotation(t *testing.T) {
 	instance := createInstance()
 	instance.Annotations = make(map[string]string)
 	instance.Annotations[annotations.TrustedCA] = "trusted-annotation"
-	labels := constants.LabelsFor(componentName, deploymentName, instance.Name)
+	labels := labels.For(componentName, deploymentName, instance.Name)
 	deployment, err := CreateDeployment(instance, deploymentName, rbacName, labels)
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(deployment).ShouldNot(BeNil())
@@ -116,7 +116,7 @@ func TestMissingPrivateKey(t *testing.T) {
 
 	instance := createInstance()
 	instance.Status.Certificate.PrivateKeyRef = nil
-	labels := constants.LabelsFor(componentName, deploymentName, instance.Name)
+	labels := labels.For(componentName, deploymentName, instance.Name)
 	deployment, err := CreateDeployment(instance, deploymentName, rbacName, labels)
 	g.Expect(err).Should(HaveOccurred())
 	g.Expect(deployment).Should(BeNil())

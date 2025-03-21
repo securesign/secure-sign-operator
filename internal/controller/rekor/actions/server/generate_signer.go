@@ -14,6 +14,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -24,7 +25,7 @@ import (
 
 const secretNameFormat = "rekor-signer-%s-"
 
-const RekorSignerLabel = constants.LabelNamespace + "/rekor.signer.pem"
+const RekorSignerLabel = labels.LabelNamespace + "/rekor.signer.pem"
 
 func NewGenerateSignerAction() action.Action[*v1alpha1.Rekor] {
 	return &generateSigner{}
@@ -115,7 +116,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 				},
 			}
 		} else {
-			labels := constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
+			labels := labels.For(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
 			labels[RekorSignerLabel] = "private"
 			privateKey, publicKey, err := g.createSignerKey()
 			if err != nil {

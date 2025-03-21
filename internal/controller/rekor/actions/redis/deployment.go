@@ -6,6 +6,7 @@ import (
 
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/controller/rekor/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -37,7 +38,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		err     error
 		updated bool
 	)
-	labels := constants.LabelsFor(actions.RedisComponentName, actions.RedisDeploymentName, instance.Name)
+	labels := labels.For(actions.RedisComponentName, actions.RedisDeploymentName, instance.Name)
 	dp := utils.CreateRedisDeployment(instance.Namespace, actions.RedisDeploymentName, actions.RBACName, labels)
 	if err = controllerutil.SetControllerReference(instance, dp, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("could not set controller reference for Deployment: %w", err))

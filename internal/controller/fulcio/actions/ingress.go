@@ -8,6 +8,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -38,7 +39,7 @@ func (i ingressAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Fulc
 func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) *action.Result {
 	var updated bool
 	ok := types.NamespacedName{Name: DeploymentName, Namespace: instance.Namespace}
-	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
+	labels := labels.For(ComponentName, DeploymentName, instance.Name)
 
 	svc := &v1.Service{}
 	if err := i.Client.Get(ctx, ok, svc); err != nil {

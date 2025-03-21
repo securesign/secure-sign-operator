@@ -7,6 +7,7 @@ import (
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -21,8 +22,8 @@ func IsReady(f apis.ConditionsAwareObject) bool {
 func DeploymentIsRunning(ctx context.Context, cli client.Client, namespace, component string) func(g gomega.Gomega) (bool, error) {
 	return func(g gomega.Gomega) (bool, error) {
 		return kubernetes.DeploymentIsRunning(ctx, cli, namespace, map[string]string{
-			constants.LabelAppPartOf:    constants.AppName,
-			constants.LabelAppComponent: component,
+			labels.LabelAppPartOf:    constants.AppName,
+			labels.LabelAppComponent: component,
 		})
 	}
 }

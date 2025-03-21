@@ -13,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -22,7 +23,7 @@ import (
 )
 
 const (
-	RekorPubLabel       = constants.LabelNamespace + "/rekor.pub"
+	RekorPubLabel       = labels.LabelNamespace + "/rekor.pub"
 	pubSecretNameFormat = "rekor-public-%s-"
 )
 
@@ -77,7 +78,7 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 			instance.Status.PublicKeyRef = sks
 			i.Recorder.Eventf(instance, v1.EventTypeNormal, "PublicKeySecretDiscovered", "Existing public key discovered: %s", sks.Name)
 		} else {
-			if err = constants.RemoveLabel(ctx, &partialSecret, i.Client, RekorPubLabel); err != nil {
+			if err = labels.Remove(ctx, &partialSecret, i.Client, RekorPubLabel); err != nil {
 				return i.Failed(fmt.Errorf("ResolvePubKey: %w", err))
 			}
 			message := fmt.Sprintf("Removed '%s' label from %s secret", RekorPubLabel, partialSecret.Name)
@@ -91,7 +92,7 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 
 	// Create new secret with public key
 	const keyName = "public"
-	labels := constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
+	labels := labels.For(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
 	labels[RekorPubLabel] = keyName
 
 	newConfig := k8sutils.CreateImmutableSecret(

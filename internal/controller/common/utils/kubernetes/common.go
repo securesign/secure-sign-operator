@@ -9,11 +9,12 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/labels"
+	k8sLabels "k8s.io/apimachinery/pkg/labels"
 
 	v13 "github.com/openshift/api/operator/v1"
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/constants"
+	cLabels "github.com/securesign/operator/internal/controller/labels"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,7 +29,7 @@ func FilterOutCommonLabels(labels map[string]string) map[string]string {
 	out := map[string]string{}
 	for key, value := range labels {
 		switch key {
-		case constants.LabelAppPartOf, constants.LabelAppInstance, constants.LabelAppComponent, constants.LabelAppManagedBy, constants.LabelAppName:
+		case cLabels.LabelAppPartOf, cLabels.LabelAppInstance, cLabels.LabelAppComponent, cLabels.LabelAppManagedBy, cLabels.LabelAppName:
 		default:
 			out[key] = value
 		}
@@ -122,7 +123,7 @@ func CalculateHostname(ctx context.Context, client client.Client, svcName, ns st
 }
 
 func FindByLabelSelector(ctx context.Context, c client.Client, list client.ObjectList, namespace, labelSelector string) error {
-	selector, err := labels.Parse(labelSelector)
+	selector, err := k8sLabels.Parse(labelSelector)
 	listOptions := &client.ListOptions{
 		LabelSelector: selector,
 	}

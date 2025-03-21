@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
@@ -77,8 +78,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	var (
 		err error
 	)
-	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
-	labels[constants.LabelResource] = configResourceLabel
+	configLabel := labels.ForResource(ComponentName, DeploymentName, instance.Name, configResourceLabel)
 
 	config, err := yaml.Marshal(ConvertToFulcioMapConfig(instance.Spec.Config))
 	if err != nil {
@@ -107,7 +107,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	instance.Status.ServerConfigRef = nil
 
 	// create new config
-	newConfig := kubernetes.CreateImmutableConfigmap("fulcio-config-", instance.Namespace, labels, map[string]string{
+	newConfig := kubernetes.CreateImmutableConfigmap("fulcio-config-", instance.Namespace, configLabel, map[string]string{
 		serverConfigName: string(config)})
 	if err = controllerutil.SetControllerReference(instance, newConfig, i.Client.Scheme()); err != nil {
 		return i.Failed(fmt.Errorf("FulcioConfig: could not set controller reference for ConfigMap: %w", err))
@@ -125,7 +125,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	}
 
 	// remove old server configmaps
-	partialConfigs, err := kubernetes.ListConfigMaps(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(labels).String())
+	partialConfigs, err := kubernetes.ListConfigMaps(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(configLabel).String())
 	if err != nil {
 		i.Logger.Error(err, "problem with finding configmap")
 	}
