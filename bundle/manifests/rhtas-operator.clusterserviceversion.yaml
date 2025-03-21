@@ -297,7 +297,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:f8cf256d07f0cf2c3389e4069d84cf10ee292ea00169567c98a849e2c50500ad
-    createdAt: "2025-03-24T08:45:56Z"
+    createdAt: "2025-03-24T08:46:27Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -372,7 +372,22 @@ spec:
         - apiGroups:
           - ""
           resources:
+          - configmaps
+          - secrets
+          verbs:
+          - create
+          - delete
+          - deletecollection
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
           - endpoints
+          - pods
           verbs:
           - get
           - list
@@ -391,11 +406,24 @@ spec:
         - apiGroups:
           - ""
           resources:
-          - pods
+          - namespaces
+          - persistentvolumeclaims
+          - serviceaccounts
+          - services
           verbs:
+          - create
+          - delete
           - get
           - list
+          - patch
+          - update
           - watch
+        - apiGroups:
+          - ""
+          resources:
+          - persistentvolumeclaims/finalizers
+          verbs:
+          - update
         - apiGroups:
           - apiextensions.k8s.io
           resources:
@@ -426,17 +454,6 @@ spec:
           - batch
           resources:
           - cronjobs
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - batch
-          resources:
           - jobs
           verbs:
           - create
@@ -450,86 +467,6 @@ spec:
           - console.openshift.io
           resources:
           - consoleclidownloads
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - configmaps
-          verbs:
-          - create
-          - delete
-          - deletecollection
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - namespaces
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - persistentvolumeclaims
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - persistentvolumeclaims/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - ""
-          resources:
-          - secrets
-          verbs:
-          - create
-          - delete
-          - deletecollection
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - serviceaccounts
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - services
           verbs:
           - create
           - delete
@@ -560,17 +497,6 @@ spec:
           - watch
         - apiGroups:
           - networking
-          resources:
-          - ingresses
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
           - networking.k8s.io
           resources:
           - ingresses
@@ -605,44 +531,8 @@ spec:
           - rbac.authorization.k8s.io
           resources:
           - clusterrolebindings
-          verbs:
-          - create
-          - delete
-          - deletecollection
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rbac.authorization.k8s.io
-          resources:
           - clusterroles
-          verbs:
-          - create
-          - delete
-          - deletecollection
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rbac.authorization.k8s.io
-          resources:
           - rolebindings
-          verbs:
-          - create
-          - delete
-          - deletecollection
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rbac.authorization.k8s.io
-          resources:
           - roles
           verbs:
           - create
@@ -657,173 +547,12 @@ spec:
           - rhtas.redhat.com
           resources:
           - ctlogs
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - ctlogs/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - ctlogs/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
           - fulcios
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - fulcios/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - fulcios/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
           - rekors
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - rekors/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - rekors/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
           - secrets
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
           - securesigns
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - securesigns/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - securesigns/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
           - timestampauthorities
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - timestampauthorities/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - timestampauthorities/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
           - trillians
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - trillians/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - trillians/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
           - tufs
           verbs:
           - create
@@ -836,12 +565,24 @@ spec:
         - apiGroups:
           - rhtas.redhat.com
           resources:
+          - ctlogs/finalizers
+          - fulcios/finalizers
+          - rekors/finalizers
+          - securesigns/finalizers
+          - timestampauthorities/finalizers
+          - trillians/finalizers
           - tufs/finalizers
           verbs:
           - update
         - apiGroups:
           - rhtas.redhat.com
           resources:
+          - ctlogs/status
+          - fulcios/status
+          - rekors/status
+          - securesigns/status
+          - timestampauthorities/status
+          - trillians/status
           - tufs/status
           verbs:
           - get

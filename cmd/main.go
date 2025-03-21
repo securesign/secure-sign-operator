@@ -17,14 +17,14 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
-
-	"github.com/securesign/operator/internal/images"
-
 	"net/http"
 	"os"
 	"strconv"
+
+	"github.com/securesign/operator/internal/images"
 
 	"k8s.io/klog/v2"
 
@@ -129,7 +129,7 @@ func main() {
 	ctrl.SetLogger(klog.NewKlogr())
 
 	// Register custom panic handlers
-	utilruntime.PanicHandlers = append(utilruntime.PanicHandlers, func(r interface{}) {
+	utilruntime.PanicHandlers = append(utilruntime.PanicHandlers, func(ctx context.Context, r interface{}) {
 		if r == http.ErrAbortHandler {
 			// honor the http.ErrAbortHandler sentinel panic value:
 			//   ErrAbortHandler is a sentinel panic value to abort a handler.
