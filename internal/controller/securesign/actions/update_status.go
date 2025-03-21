@@ -60,6 +60,7 @@ func sortByStatus(conditions []v1.Condition) []string {
 			constants.Initialize: 1,
 			constants.Creating:   2,
 			constants.Ready:      3,
+			constants.NotDefined: 4,
 		}
 
 		return order[iCondition.Reason] < order[jCondition.Reason]

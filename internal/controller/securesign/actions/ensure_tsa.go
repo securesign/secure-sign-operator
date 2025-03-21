@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/annotations"
@@ -46,6 +47,19 @@ func (i tsaAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 			},
 		}
 	)
+
+	if reflect.ValueOf(instance.Spec.TimestampAuthority).IsZero() {
+		if meta.IsStatusConditionTrue(instance.Status.Conditions, TSACondition) {
+			return i.Continue()
+		}
+		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
+			Type:    TSACondition,
+			Status:  v1.ConditionTrue,
+			Reason:  constants.NotDefined,
+			Message: "TSA resource is undefined",
+		})
+		return i.StatusUpdate(ctx, instance)
+	}
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		tsa,
