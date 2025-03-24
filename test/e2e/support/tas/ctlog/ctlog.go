@@ -5,11 +5,12 @@ import (
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/condition"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -17,7 +18,10 @@ import (
 
 func Verify(ctx context.Context, cli client.Client, namespace string, name string) {
 	Eventually(Get(ctx, cli, namespace, name)).Should(
-		WithTransform(condition.IsReady, BeTrue()))
+		And(
+			Not(BeNil()),
+			WithTransform(condition.IsReady, BeTrue()),
+		))
 
 	Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, actions.ComponentName)).
 		Should(BeTrue())
@@ -26,7 +30,7 @@ func Verify(ctx context.Context, cli client.Client, namespace string, name strin
 func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {
 	return func() *v1.Pod {
 		list := &v1.PodList{}
-		_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{constants.LabelAppComponent: actions.ComponentName, constants.LabelAppName: "ctlog"})
+		_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{labels.LabelAppComponent: actions.ComponentName, labels.LabelAppName: "ctlog"})
 		if len(list.Items) != 1 {
 			return nil
 		}
@@ -37,10 +41,12 @@ func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.
 func Get(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.CTlog {
 	return func() *v1alpha1.CTlog {
 		instance := &v1alpha1.CTlog{}
-		_ = cli.Get(ctx, types.NamespacedName{
+		if e := cli.Get(ctx, types.NamespacedName{
 			Namespace: ns,
 			Name:      name,
-		}, instance)
+		}, instance); errors.IsNotFound(e) {
+			return nil
+		}
 		return instance
 	}
 }

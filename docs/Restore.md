@@ -1,26 +1,26 @@
 # Restore Procedures
 
 ## Prequisites
-Performing a restore assumes the follwing.
+Performing a restore assumes the following:
 - OADP operator is installed and configured correctly.
 - You are utilising the same namespace structure as the backup.
-- THe operator is currently disabled or not present on the cluster.
+- The operator is currently disabled, but installed on a cluster. Needs to be enabled short after restore process is started to claim persistent volumes. 
 
 ## Disable operator
-If the operator is installed an you wish to perform a restore please use the following command to scale down the operator deployment.
+If the operator is installed and you wish to perform a restore, use the following command to scale down the operator deployment.
 
 ```sh
 oc scale deploy rhtas-operator-controller-manager --replicas=0 -n openshift-operators
 ```
 
-Once restore operations have completed you can reactivate the operator by scaling back up its deployment.
+Once restore operations are running, you can reactivate the operator by scaling back up its deployment - without enabling the operator persistent volumes are not claimed.
 
 ```sh
 oc scale deploy rhtas-operator-controller-manager --replicas=1 -n openshift-operators
 ```
 
 ## Cluster restore
-If the cluster you are performing the restore action on is the same cluster as the original backup the following Restore Example should suffice.
+If the cluster you are performing the restore action on is the same cluster as the original backup, the following Restore Example should suffice.
 
 ```sh
 cat << EOF > ./RestoreExample.yaml
@@ -40,6 +40,7 @@ spec:
       - fulcio.rhtas.redhat.com
       - rekor.rhtas.redhat.com
       - tuf.rhtas.redhat.com
+      - timestampauthority.rhtas.redhat.com
   excludedResources:
   - pod
   - deployment
@@ -61,6 +62,17 @@ EOF
 
 oc apply -f RestoreExample.yaml
 ```
+
+If the restore is done on a different cluster, few more steps needs to be done. First, delete the secret for Trillian DB which will be recreated by operator,
+and restart the pod:
+
+```sh
+oc delete secret securesign-sample-trillian-db-tls
+oc delete pod trillian-db-xxx
+```
+
+After the restore process is finished and all the pods are running, run the [restoreOwnerReferences.sh](../hack/restoreOwnerReferences.sh) script to recreate
+ownerReferences, which were lost on a new cluster, as the owner has new UID.
 
 ## Cross Provider Restore 
 To perform a restore on a cluster using different storage classes create a yaml file based upon the following:

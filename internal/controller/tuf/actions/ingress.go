@@ -10,6 +10,7 @@ import (
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -39,7 +40,7 @@ func (i ingressAction) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Tuf) bool
 func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
 	var updated bool
 	ok := types.NamespacedName{Name: DeploymentName, Namespace: instance.Namespace}
-	labels := constants.LabelsFor(ComponentName, DeploymentName, instance.Name)
+	labels := labels.For(ComponentName, DeploymentName, instance.Name)
 
 	svc := &v1.Service{}
 	if err := i.Client.Get(ctx, ok, svc); err != nil {

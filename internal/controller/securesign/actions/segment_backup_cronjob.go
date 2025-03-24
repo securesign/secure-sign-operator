@@ -9,6 +9,7 @@ import (
 
 	"github.com/robfig/cron/v3"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -60,7 +61,7 @@ func (i segmentBackupCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 		return i.Failed(fmt.Errorf("could not create segment backuup cron job due to errors with parsing the cron schedule: %w", err))
 	}
 
-	labels := constants.LabelsFor(SegmentBackupCronJobName, SegmentBackupCronJobName, instance.Name)
+	labels := labels.For(SegmentBackupCronJobName, SegmentBackupCronJobName, instance.Name)
 
 	segmentBackupCronJob := &batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{

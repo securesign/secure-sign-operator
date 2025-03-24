@@ -8,6 +8,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,7 +40,7 @@ func (i trillianAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secu
 
 	trillian.Name = instance.Name
 	trillian.Namespace = instance.Namespace
-	trillian.Labels = constants.LabelsFor("trillian", trillian.Name, instance.Name)
+	trillian.Labels = labels.For("trillian", trillian.Name, instance.Name)
 	trillian.Annotations = annotations.FilterInheritable(instance.Annotations)
 
 	trillian.Spec = instance.Spec.Trillian

@@ -14,7 +14,7 @@ import (
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	tufAction "github.com/securesign/operator/internal/controller/tuf/actions"
 	"github.com/securesign/operator/test/e2e/support"
 	kubernetes2 "github.com/securesign/operator/test/e2e/support/kubernetes"
@@ -236,7 +236,7 @@ var _ = Describe("Fulcio cert rotation test", Ordered, func() {
 
 			Expect(os.Mkdir(filepath.Join(tufRepoWorkdir, "tuf-repo"), 0777)).To(Succeed())
 			tufPodList := &v1.PodList{}
-			Expect(cli.List(ctx, tufPodList, runtimeCli.InNamespace(namespace.Name), runtimeCli.MatchingLabels{constants.LabelAppComponent: tufAction.ComponentName})).To(Succeed())
+			Expect(cli.List(ctx, tufPodList, runtimeCli.InNamespace(namespace.Name), runtimeCli.MatchingLabels{labels.LabelAppComponent: tufAction.ComponentName})).To(Succeed())
 			Expect(tufPodList.Items).To(HaveLen(1))
 
 			Expect(kubernetes2.CopyFromPod(ctx, tufPodList.Items[0], "/var/www/html", filepath.Join(tufRepoWorkdir, "tuf-repo"))).To(Succeed())

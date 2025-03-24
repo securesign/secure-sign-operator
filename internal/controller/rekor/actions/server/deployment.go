@@ -9,6 +9,7 @@ import (
 
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/controller/rekor/utils"
 	actions2 "github.com/securesign/operator/internal/controller/trillian/actions"
@@ -41,7 +42,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		err     error
 		updated bool
 	)
-	labels := constants.LabelsFor(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
+	labels := labels.For(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
 
 	insCopy := instance.DeepCopy()
 	if insCopy.Spec.Trillian.Address == "" {

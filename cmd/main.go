@@ -19,18 +19,15 @@ package main
 import (
 	"crypto/tls"
 	"flag"
-
-	"github.com/securesign/operator/internal/images"
-
-	"net/http"
 	"os"
 	"strconv"
+
+	"github.com/securesign/operator/internal/images"
 
 	"k8s.io/klog/v2"
 
 	"k8s.io/utils/ptr"
 
-	"github.com/securesign/operator/internal/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/config"
 
 	consolev1 "github.com/openshift/api/console/v1"
@@ -127,19 +124,6 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(klog.NewKlogr())
-
-	// Register custom panic handlers
-	utilruntime.PanicHandlers = append(utilruntime.PanicHandlers, func(r interface{}) {
-		if r == http.ErrAbortHandler {
-			// honor the http.ErrAbortHandler sentinel panic value:
-			//   ErrAbortHandler is a sentinel panic value to abort a handler.
-			//   While any panic from ServeHTTP aborts the response to the client,
-			//   panicking with ErrAbortHandler also suppresses .
-			return
-		}
-
-		metrics.ReconcilePanics.Inc()
-	})
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
