@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -140,13 +141,38 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		return i.FailedWithStatusUpdate(ctx, err, instance)
 	}
 
-	// try to discover existing config and clear them out
+	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
+
+	i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigCreated", "Secret with ctlog configuration created: %s", newConfig.Name)
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:               ConfigCondition,
+		Status:             metav1.ConditionTrue,
+		Reason:             constants.Ready,
+		Message:            "Server config created",
+		ObservedGeneration: instance.Generation,
+	})
+	result := i.StatusUpdate(ctx, instance)
+
+	if result.Result.IsZero() {
+		i.cleanup(ctx, instance, configLabels)
+	}
+	return result
+}
+
+func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.CTlog, configLabels map[string]string) {
+	if instance.Status.ServerConfigRef == nil || instance.Status.ServerConfigRef.Name == "" {
+		i.Logger.Error(errors.New("new Secret name is empty"), "unable to clean old objects", "namespace", instance.Namespace)
+		return
+	}
+
+	// try to discover existing secrets and clear them out
 	partialConfigs, err := utils.ListSecrets(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(configLabels).String())
 	if err != nil {
 		i.Logger.Error(err, "problem with listing configmaps", "namespace", instance.Namespace)
+		return
 	}
 	for _, partialConfig := range partialConfigs.Items {
-		if partialConfig.Name == newConfig.Name {
+		if partialConfig.Name == instance.Status.ServerConfigRef.Name {
 			continue
 		}
 
@@ -159,18 +185,6 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		i.Logger.Info("Remove invalid Secret with ctlog configuration", "Name", partialConfig.Name)
 		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigDeleted", "Secret with ctlog configuration deleted: %s", partialConfig.Name)
 	}
-
-	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
-
-	i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigCreated", "Secret with ctlog configuration created: %s", newConfig.Name)
-	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:               ConfigCondition,
-		Status:             metav1.ConditionTrue,
-		Reason:             constants.Ready,
-		Message:            "Server config created",
-		ObservedGeneration: instance.Generation,
-	})
-	return i.StatusUpdate(ctx, instance)
 }
 
 func (i serverConfig) handlePrivateKey(instance *rhtasv1alpha1.CTlog) (*ctlogUtils.KeyConfig, error) {
