@@ -39,7 +39,7 @@ LABEL com.redhat.component="rhtas-operator"
 LABEL name="rhtas-operator"
 
 LABEL features.operators.openshift.io/cni="false"
-LABEL features.operators.openshift.io/disconnected="false"
+LABEL features.operators.openshift.io/disconnected="true"
 LABEL features.operators.openshift.io/fips-compliant="false"
 LABEL features.operators.openshift.io/proxy-aware="true"
 LABEL features.operators.openshift.io/cnf="false"
