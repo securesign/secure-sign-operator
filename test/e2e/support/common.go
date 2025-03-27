@@ -16,6 +16,7 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	v12 "k8s.io/api/apps/v1"
 	v13 "k8s.io/api/batch/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -124,6 +125,10 @@ func DumpNamespace(ctx context.Context, cli client.Client, ns string) {
 	// Example usage with mock data
 	k8s := map[string]logTarget{}
 
+	secretList := &metav1.PartialObjectMetadataList{}
+	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
+	secretList.SetGroupVersionKind(gvk)
+
 	toDump := map[string]client.ObjectList{
 		"securesign.yaml": &v1alpha1.SecuresignList{},
 		"fulcio.yaml":     &v1alpha1.FulcioList{},
@@ -138,6 +143,7 @@ func DumpNamespace(ctx context.Context, cli client.Client, ns string) {
 		"job.yaml":        &v13.JobList{},
 		"cronjob.yaml":    &v13.CronJobList{},
 		"event.yaml":      &v1.EventList{},
+		"secret.yaml":     secretList,
 	}
 
 	core.GinkgoWriter.Println("----------------------- Dumping namespace " + ns + " -----------------------")

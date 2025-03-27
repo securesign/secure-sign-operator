@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -115,6 +116,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 			Namespace:    instance.Namespace,
 		},
 	}
+
 	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		newConfig,
 		ensure.ControllerReference[*v1.ConfigMap](instance, i.Client),
@@ -129,13 +131,38 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		return i.Error(ctx, fmt.Errorf("could not create Server config: %w", err), instance)
 	}
 
+	i.Recorder.Eventf(instance, v1.EventTypeNormal, "FulcioConfigUpdated", "Fulcio config updated: %s", newConfig.Name)
+	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
+
+	meta.SetStatusCondition(&instance.Status.Conditions,
+		metav1.Condition{
+			Type:    constants.Ready,
+			Status:  metav1.ConditionFalse,
+			Reason:  constants.Creating,
+			Message: "Server config created"},
+	)
+
+	result := i.StatusUpdate(ctx, instance)
+	if action.IsSuccess(result) {
+		i.cleanup(ctx, instance, configLabel)
+	}
+	return result
+}
+
+func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.Fulcio, configLabels map[string]string) {
+	if instance.Status.ServerConfigRef == nil || instance.Status.ServerConfigRef.Name == "" {
+		i.Logger.Error(errors.New("new ConfigMap name is empty"), "unable to clean old objects", "namespace", instance.Namespace)
+		return
+	}
+
 	// remove old server configmaps
-	partialConfigs, err := kubernetes.ListConfigMaps(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(configLabel).String())
+	partialConfigs, err := kubernetes.ListConfigMaps(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(configLabels).String())
 	if err != nil {
 		i.Logger.Error(err, "problem with finding configmap")
+		return
 	}
 	for _, partialConfig := range partialConfigs.Items {
-		if partialConfig.Name == newConfig.Name {
+		if partialConfig.Name == instance.Status.ServerConfigRef.Name {
 			continue
 		}
 
@@ -147,21 +174,10 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		})
 		if err != nil {
 			i.Logger.Error(err, "problem with deleting configmap", "name", partialConfig.Name)
-		} else {
-			i.Logger.Info("Remove invalid ConfigMap with rekor-server configuration", "name", partialConfig.Name)
-			i.Recorder.Eventf(instance, v1.EventTypeNormal, "FulcioConfigDeleted", "Fulcio config deleted: %s", partialConfig.Name)
+			i.Recorder.Eventf(instance, v1.EventTypeWarning, "FulcioConfigDeleted", "Unable to delete secret: %s", partialConfig.Name)
+			continue
 		}
+		i.Logger.Info("Remove invalid ConfigMap with Fulcio configuration", "name", partialConfig.Name)
+		i.Recorder.Eventf(instance, v1.EventTypeNormal, "FulcioConfigDeleted", "Fulcio config deleted: %s", partialConfig.Name)
 	}
-
-	i.Recorder.Eventf(instance, v1.EventTypeNormal, "FulcioConfigUpdated", "Fulcio config updated: %s", newConfig.Name)
-	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
-
-	meta.SetStatusCondition(&instance.Status.Conditions,
-		metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Creating,
-			Message: "Server config created"},
-	)
-	return i.StatusUpdate(ctx, instance)
 }
