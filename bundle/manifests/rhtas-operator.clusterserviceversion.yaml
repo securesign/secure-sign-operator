@@ -296,8 +296,8 @@ metadata:
         }
       ]
     capabilities: Seamless Upgrades
-    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:0808a2db7277687b4d2ae06e80c30d0ac414d4f04973c643942601125080d320
-    createdAt: "2025-03-27T13:51:29Z"
+    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:1e026aaa26a844df66140fd5e75f06c547d1976437687137d4fa4e48be51b6f5
+    createdAt: "2025-03-27T16:13:40Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -663,7 +663,7 @@ spec:
                   value: registry.redhat.io/rhtas/timestamp-authority-rhel9@sha256:796860a3e85712c60398c36983e0ff4d45325c7a4de869da2ebf1b6ba4b19825
                 - name: RELATED_IMAGE_CLIENT_SERVER
                   value: registry.redhat.io/rhtas/client-server-rhel9@sha256:75f1049431f9e92898a4217870309cbbb3b39c8362e929c0bad3b53cad4459db
-                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:0808a2db7277687b4d2ae06e80c30d0ac414d4f04973c643942601125080d320
+                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:1e026aaa26a844df66140fd5e75f06c547d1976437687137d4fa4e48be51b6f5
                 livenessProbe:
                   httpGet:
                     path: /healthz
