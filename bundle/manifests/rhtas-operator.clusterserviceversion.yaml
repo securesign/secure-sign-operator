@@ -296,8 +296,8 @@ metadata:
         }
       ]
     capabilities: Seamless Upgrades
-    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:82fd5846ec68c79058150e9d288ea917d56a85a47bc5e8751120a809c2fd6d47
-    createdAt: "2025-03-27T12:01:52Z"
+    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:0808a2db7277687b4d2ae06e80c30d0ac414d4f04973c643942601125080d320
+    createdAt: "2025-03-27T13:51:29Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -662,8 +662,8 @@ spec:
                 - name: RELATED_IMAGE_TIMESTAMP_AUTHORITY
                   value: registry.redhat.io/rhtas/timestamp-authority-rhel9@sha256:796860a3e85712c60398c36983e0ff4d45325c7a4de869da2ebf1b6ba4b19825
                 - name: RELATED_IMAGE_CLIENT_SERVER
-                  value: registry.redhat.io/rhtas/client-server-rhel9@sha256:4d47b412d7e32c818b34ca63d25c61a485673000455936a8c7be6535b26fd74d
-                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:82fd5846ec68c79058150e9d288ea917d56a85a47bc5e8751120a809c2fd6d47
+                  value: registry.redhat.io/rhtas/client-server-rhel9@sha256:75f1049431f9e92898a4217870309cbbb3b39c8362e929c0bad3b53cad4459db
+                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:0808a2db7277687b4d2ae06e80c30d0ac414d4f04973c643942601125080d320
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -798,6 +798,6 @@ spec:
     name: segment-reporting
   - image: registry.redhat.io/rhtas/timestamp-authority-rhel9@sha256:796860a3e85712c60398c36983e0ff4d45325c7a4de869da2ebf1b6ba4b19825
     name: timestamp-authority
-  - image: registry.redhat.io/rhtas/client-server-rhel9@sha256:4d47b412d7e32c818b34ca63d25c61a485673000455936a8c7be6535b26fd74d
+  - image: registry.redhat.io/rhtas/client-server-rhel9@sha256:75f1049431f9e92898a4217870309cbbb3b39c8362e929c0bad3b53cad4459db
     name: client-server
   version: 1.2.0
