@@ -13,7 +13,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/onsi/ginkgo/v2 v2.23.3
 	github.com/onsi/gomega v1.36.3
-	github.com/openshift/api v0.0.0-20240830023148-b7d0481c9094
+	github.com/openshift/api v0.0.0-20250327202946-4521905c611e
 	github.com/operator-framework/api v0.30.0
 	github.com/operator-framework/operator-lib v0.17.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.81.0
