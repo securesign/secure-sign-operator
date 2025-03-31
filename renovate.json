@@ -1,0 +1,21 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "constraints": {
+    "go": "1.23"
+  },
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "description": "Group all Go module updates together",
+      "matchManagers": ["gomod"],
+      "groupName": "Go Dependencies",
+      "groupSlug": "go-deps"
+    },
+    {
+      "description": "Group all Docker image updates together",
+      "matchManagers": ["dockerfile"],
+      "groupName": "Docker Images",
+      "groupSlug": "docker-deps"
+    }
+  ]
+}
