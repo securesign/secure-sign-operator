@@ -2,8 +2,8 @@ changelog:
   exclude:
     authors:
       - dependabot
-      - red-hat-konflux[bot]
-      - openshift-merge-bot[bot]
+      - red-hat-konflux
+      - openshift-merge-bot
       - RHTAS-build-bot
   categories:
     - title: Fixes
