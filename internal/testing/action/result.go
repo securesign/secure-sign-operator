@@ -35,17 +35,3 @@ func Requeue() *action.Result {
 		Err:    nil,
 	}
 }
-
-func IsFailed(result *action.Result) bool {
-	if result == nil {
-		return false
-	}
-	return result.Err != nil
-}
-
-func IsRequeue(result *action.Result) bool {
-	if result == nil {
-		return false
-	}
-	return result.Result.Requeue || result.Result.RequeueAfter > 0
-}
