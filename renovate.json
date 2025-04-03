@@ -1,9 +1,23 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "constraints": {
-    "go": "1.23"
-  },
+  "extends": [
+    "github>konflux-ci/mintmaker//config/renovate/renovate.json"
+  ],
   "labels": ["dependencies"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update container images in images.env files",
+      "fileMatch": [
+        "images\\.env$"
+      ],
+      "matchStrings": [
+        "RELATED_IMAGE_[A-Z_]+=(?<depName>[0-9a-z./-]+)(?::(?<currentValue>[0-9a-z.-]+))?@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "redhat"
+    }
+  ],
   "packageRules": [
     {
       "description": "Group all Go module updates together",
@@ -16,6 +30,38 @@
       "matchManagers": ["dockerfile"],
       "groupName": "Docker Images",
       "groupSlug": "docker-deps"
+    },
+    {
+      "matchDatasources": [
+        "golang-version"
+      ],
+      "allowedVersions": "<1.24.0"
+    },
+    {
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "golang"
+      ],
+      "allowedVersions": "<1.24.0"
     }
+  ],
+  "ignoreDeps": [
+    "registry.redhat.io/rhtas/rhtas-rhel9-operator",
+    "registry.redhat.io/rhtas/trillian-logsigner-rhel9",
+    "registry.redhat.io/rhtas/trillian-logserver-rhel9",
+    "registry.redhat.io/rhtas/trillian-database-rhel9",
+    "registry.redhat.io/rhtas/createtree-rhel9",
+    "registry.redhat.io/rhtas/fulcio-rhel9",
+    "registry.redhat.io/rhtas/trillian-redis-rhel9",
+    "registry.redhat.io/rhtas/rekor-server-rhel9",
+    "registry.redhat.io/rhtas/rekor-search-ui-rhel9",
+    "registry.redhat.io/rhtas/rekor-backfill-redis-rhel9",
+    "registry.redhat.io/rhtas/tuffer-rhel9",
+    "registry.redhat.io/rhtas/certificate-transparency-rhel9",
+    "registry.redhat.io/rhtas/segment-reporting-rhel9",
+    "registry.redhat.io/rhtas/timestamp-authority-rhel9",
+    "registry.redhat.io/rhtas/client-server-rhel9"
   ]
 }
