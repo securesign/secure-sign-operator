@@ -1,23 +1,28 @@
-FROM registry.access.redhat.com/ubi9/ubi-micro@sha256:2d6db1e3434b10f338a5545de6b09c565a75e4d3f744e1b0604ba57ab2c53c2d
+FROM scratch
 
 ## Core bundle labels.
 LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1
 LABEL operators.operatorframework.io.bundle.manifests.v1=manifests/
 LABEL operators.operatorframework.io.bundle.metadata.v1=metadata/
 LABEL operators.operatorframework.io.bundle.package.v1=rhtas-operator
-LABEL operators.operatorframework.io.bundle.channels.v1=stable,stable-v1.0
+LABEL operators.operatorframework.io.bundle.channels.v1=stable,stable-v1.1
 LABEL operators.operatorframework.io.metrics.builder=operator-sdk-v1.34.1
 LABEL operators.operatorframework.io.metrics.mediatype.v1=metrics+v1
-LABEL operators.operatorframework.io.metrics.project_layout=go.kubebuilder.io/v3
+LABEL operators.operatorframework.io.metrics.project_layout=go.kubebuilder.io/v4
 LABEL operators.openshift.io/valid-subscription="Red Hat Trusted Artifact Signer"
+
+LABEL vendor="Red Hat, Inc."
+LABEL url="https://www.redhat.com"
+LABEL distribution-scope="public"
+LABEL version="1.1.2"
 
 LABEL description="The bundle image for the rhtas-operator, containing manifests, metadata and testing scorecard."
 LABEL io.k8s.description="The bundle image for the rhtas-operator, containing manifests, metadata and testing scorecard."
 LABEL io.k8s.display-name="RHTAS operator bundle container image for Red Hat Trusted Artifact Signer."
 LABEL io.openshift.tags="rhtas-operator-bundle, rhtas-operator, Red Hat Trusted Artifact Signer."
 LABEL summary="Operator Bundle for the rhtas-operator."
-LABEL com.redhat.component="sigstore-operator-bundle"
-LABEL name="sigstore-operator-bundle"
+LABEL com.redhat.component="rhtas-operator-bundle"
+LABEL name="rhtas-operator-bundle"
 LABEL features.operators.openshift.io/cni="false"
 LABEL features.operators.openshift.io/disconnected="false"
 LABEL features.operators.openshift.io/fips-compliant="false"
