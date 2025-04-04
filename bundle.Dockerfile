@@ -1,28 +1,23 @@
-ARG VERSION="1.2.2"
-ARG CHANNELS="stable,stable-v1.2"
+ARG VERSION="1.3.0"
+ARG CHANNELS="stable,stable-v1.3"
 ARG DEFAULT_CHANNEL="stable"
 ARG BUNDLE_GEN_FLAGS="-q --overwrite=false --version $VERSION --channels=$CHANNELS --default-channel=$DEFAULT_CHANNEL"
-ARG IMG
 
-FROM registry.redhat.io/openshift4/ose-cli-rhel9@sha256:da4f8a01ef5d0607cf76fa7b219fafdb6020cb4cf9a0a88cfe76d292c1a561fc AS oc-builder
+FROM registry.redhat.io/openshift4/ose-tools-rhel9@sha256:09b8259ec9e982a33bde84c7c901ad70c79f3e5f6dd7880b1b1e573dafcbd56c as oc
 
-FROM registry.redhat.io/openshift4/ose-operator-sdk-rhel9@sha256:8ff0cb8587bbca8809490ff59a67496599b6c0cc8e4ca88451481a265f17e581 AS builder
-
-# Copy oc binary from oc-builder stage
-COPY --from=oc-builder /usr/bin/oc /usr/bin/oc
+FROM registry.redhat.io/openshift4/ose-operator-sdk-rhel9@sha256:9219e2a127987e3be7c77e62391e5b50a22ea85307c11a94b8517713768cccf8 as builder
 
 ARG BUNDLE_GEN_FLAGS
-ARG IMG
 
 WORKDIR /tmp
 
+COPY --from=oc /usr/bin/oc /usr/bin/oc
+
 COPY ./config/ ./config/
 COPY PROJECT .
-COPY hack/build-bundle.sh build-bundle.sh
 
-USER root
-
-RUN ./build-bundle.sh
+RUN oc kustomize config/manifests | operator-sdk generate bundle ${BUNDLE_GEN_FLAGS} && \
+  operator-sdk bundle validate ./bundle
 
 FROM scratch
 
@@ -35,7 +30,7 @@ LABEL operators.operatorframework.io.bundle.manifests.v1=manifests/
 LABEL operators.operatorframework.io.bundle.metadata.v1=metadata/
 LABEL operators.operatorframework.io.bundle.package.v1=rhtas-operator
 LABEL operators.operatorframework.io.bundle.channels.v1=$CHANNELS
-LABEL operators.operatorframework.io.metrics.builder=operator-sdk-v1.37.0
+LABEL operators.operatorframework.io.metrics.builder=operator-sdk-v1.38.0-ocp
 LABEL operators.operatorframework.io.metrics.mediatype.v1=metrics+v1
 LABEL operators.operatorframework.io.metrics.project_layout=go.kubebuilder.io/v4
 LABEL operators.openshift.io/valid-subscription="Red Hat Trusted Artifact Signer"
