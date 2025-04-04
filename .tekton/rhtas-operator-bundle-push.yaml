@@ -8,7 +8,7 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
-      == "main" && ("bundle/***".pathChanged() || ".tekton/bundle-build-pipeline.yaml".pathChanged()
+      == "main" && ("config/***".pathChanged() || ".tekton/bundle-build-pipeline.yaml".pathChanged()
       || ".tekton/rhtas-operator-bundle-push.yaml".pathChanged() || "bundle.Dockerfile".pathChanged()
       || "trigger-konflux-builds.txt".pathChanged())
   creationTimestamp: null
