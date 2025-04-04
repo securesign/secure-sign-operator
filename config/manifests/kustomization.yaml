@@ -8,6 +8,17 @@ resources:
 - ../samples
 - ../scorecard
 
+replacements:
+  - source:
+      fieldPath: spec.template.spec.containers.[name=manager].image
+      kind: Deployment
+      name: operator-controller-manager
+    targets:
+      - fieldPaths:
+          - metadata.annotations.containerImage
+        select:
+          kind: ClusterServiceVersion
+
 # [WEBHOOK] To enable webhooks, uncomment all the sections with [WEBHOOK] prefix.
 # Do NOT uncomment sections with prefix [CERTMANAGER], as OLM does not support cert-manager.
 # These patches remove the unnecessary "cert" volume and its manager container volumeMount.
