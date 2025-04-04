@@ -83,7 +83,7 @@ jobs:
           }
           EOF
           #TODO: versions needs to be maintained - try to eliminate
-          cat <<< $(jq  'select(.schema == "olm.channel" and .name == "stable").entries += [{"name":"rhtas-operator.v1.1.1", "replaces": "rhtas-operator.v1.1.0"}]' v4.14/graph.json) > v4.14/graph.json
+          cat <<< $(jq  'select(.schema == "olm.channel" and .name == "stable").entries += [{"name":"rhtas-operator.v1.1.2", "replaces": "rhtas-operator.v1.1.1"}]' v4.14/graph.json) > v4.14/graph.json
           cat v4.14/graph.json
           ${{ env.OPM }} alpha render-template basic v4.14/graph.json > v4.14/catalog/rhtas-operator/catalog.json
           ${{ env.OPM }} validate v4.14/catalog/rhtas-operator
