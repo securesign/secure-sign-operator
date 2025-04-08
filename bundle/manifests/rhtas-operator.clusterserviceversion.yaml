@@ -296,8 +296,8 @@ metadata:
         }
       ]
     capabilities: Seamless Upgrades
-    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:926036dad1aefa9d4faeb007ad4d7ee77ad242ceeb9a46176929960653ce7ee7
-    createdAt: "2025-04-08T07:36:04Z"
+    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:e52d07e2cd8cbdc2ccd0336a4fd29cbb2e5b8a1be628350294a54579cc2636ed
+    createdAt: "2025-04-08T09:29:59Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -309,7 +309,7 @@ metadata:
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
     operators.openshift.io/valid-subscription: '["Red Hat Trusted Artifact Signer"]'
-    operators.operatorframework.io/builder: operator-sdk-v1.34.2
+    operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/securesign/secure-sign-operator
     support: Red Hat
@@ -892,7 +892,7 @@ spec:
                 env:
                 - name: OPENSHIFT
                   value: "true"
-                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:926036dad1aefa9d4faeb007ad4d7ee77ad242ceeb9a46176929960653ce7ee7
+                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:e52d07e2cd8cbdc2ccd0336a4fd29cbb2e5b8a1be628350294a54579cc2636ed
                 livenessProbe:
                   httpGet:
                     path: /healthz
