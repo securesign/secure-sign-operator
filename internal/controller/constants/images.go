@@ -8,11 +8,11 @@ var (
 	// TODO: remove and check the DB pod status
 	TrillianNetcatImage = "registry.redhat.io/openshift4/ose-tools-rhel9@sha256:09b8259ec9e982a33bde84c7c901ad70c79f3e5f6dd7880b1b1e573dafcbd56c"
 
-	FulcioServerImage = "registry.redhat.io/rhtas/fulcio-rhel9@sha256:20beb191625ac369b836b587735275235f0aa53c2cd16130f011c3bf886b8f26"
+	FulcioServerImage = "registry.redhat.io/rhtas/fulcio-rhel9@sha256:329a0dad7842d4ef60430b0e3f188231bea9e579427443ecd42eb62a5c282266"
 
 	RekorRedisImage    = "registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:5a752cefdaf28bfc53847185cdd5fef1ee47e3dcff8472f8a8bf7bbdc224ef57"
 	RekorServerImage   = "registry.redhat.io/rhtas/rekor-server-rhel9@sha256:3b8f49c41df15022f8ffdf3a8f8605b14c14f4e10eae754a06a86b6585d158b3"
-	RekorSearchUiImage = "registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:254842bb8a2a1f22f28d690ae86a05a52789dabb13b5be4b32c416c77b6cb5ae"
+	RekorSearchUiImage = "registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:571c48ecb2658ce70199c06dc483ea48a16e032a764a6830388ad845f508d981"
 	BackfillRedisImage = "registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:6131053778ea04e437f3005f90d1138aa11ebc58e3a9295e2a8d8ef6713a52be"
 
 	TufImage = "registry.redhat.io/rhtas/tuffer-rhel9@sha256:775b261b8f258b369213246f2da5c91218678acb5e3b8bb4670b143f487767af"
