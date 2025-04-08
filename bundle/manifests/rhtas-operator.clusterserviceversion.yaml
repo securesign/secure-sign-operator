@@ -297,7 +297,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:0b9b4933e15571afd10a365b794aa7a3d0b1fb4311a4ddaa476f783028377480
-    createdAt: "2025-04-04T15:46:17Z"
+    createdAt: "2025-04-08T09:42:51Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -644,13 +644,13 @@ spec:
                 - name: RELATED_IMAGE_TRILLIAN_CREATE_TREE
                   value: registry.redhat.io/rhtas/createtree-rhel9@sha256:d9ff8413f1d106cb5084b48b73b205db6dd5ad82818be4111c5cb118d9d135ae
                 - name: RELATED_IMAGE_FULCIO_SERVER
-                  value: registry.redhat.io/rhtas/fulcio-rhel9@sha256:20beb191625ac369b836b587735275235f0aa53c2cd16130f011c3bf886b8f26
+                  value: registry.redhat.io/rhtas/fulcio-rhel9@sha256:329a0dad7842d4ef60430b0e3f188231bea9e579427443ecd42eb62a5c282266
                 - name: RELATED_IMAGE_REKOR_REDIS
                   value: registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:5a752cefdaf28bfc53847185cdd5fef1ee47e3dcff8472f8a8bf7bbdc224ef57
                 - name: RELATED_IMAGE_REKOR_SERVER
                   value: registry.redhat.io/rhtas/rekor-server-rhel9@sha256:3b8f49c41df15022f8ffdf3a8f8605b14c14f4e10eae754a06a86b6585d158b3
                 - name: RELATED_IMAGE_REKOR_SEARCH_UI
-                  value: registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:254842bb8a2a1f22f28d690ae86a05a52789dabb13b5be4b32c416c77b6cb5ae
+                  value: registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:571c48ecb2658ce70199c06dc483ea48a16e032a764a6830388ad845f508d981
                 - name: RELATED_IMAGE_BACKFILL_REDIS
                   value: registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:6131053778ea04e437f3005f90d1138aa11ebc58e3a9295e2a8d8ef6713a52be
                 - name: RELATED_IMAGE_TUF
@@ -782,13 +782,13 @@ spec:
     name: trillian-netcat
   - image: registry.redhat.io/rhtas/createtree-rhel9@sha256:d9ff8413f1d106cb5084b48b73b205db6dd5ad82818be4111c5cb118d9d135ae
     name: trillian-create-tree
-  - image: registry.redhat.io/rhtas/fulcio-rhel9@sha256:20beb191625ac369b836b587735275235f0aa53c2cd16130f011c3bf886b8f26
+  - image: registry.redhat.io/rhtas/fulcio-rhel9@sha256:329a0dad7842d4ef60430b0e3f188231bea9e579427443ecd42eb62a5c282266
     name: fulcio-server
   - image: registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:5a752cefdaf28bfc53847185cdd5fef1ee47e3dcff8472f8a8bf7bbdc224ef57
     name: rekor-redis
   - image: registry.redhat.io/rhtas/rekor-server-rhel9@sha256:3b8f49c41df15022f8ffdf3a8f8605b14c14f4e10eae754a06a86b6585d158b3
     name: rekor-server
-  - image: registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:254842bb8a2a1f22f28d690ae86a05a52789dabb13b5be4b32c416c77b6cb5ae
+  - image: registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:571c48ecb2658ce70199c06dc483ea48a16e032a764a6830388ad845f508d981
     name: rekor-search-ui
   - image: registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:6131053778ea04e437f3005f90d1138aa11ebc58e3a9295e2a8d8ef6713a52be
     name: backfill-redis
