@@ -4,7 +4,7 @@ metadata:
   annotations:
     alm-examples: '[]'
     capabilities: Seamless Upgrades
-    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:e85f0d97849c940ea39058ffb2a67bf2a62c79ba85cb50696c9f0c16d59b9767
+    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:0da7910ad1f10ffe08e832eedbc5d9c9cb1fd0a58badd4d8b9f0161495e415b6
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
