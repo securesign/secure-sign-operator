@@ -1,10 +1,10 @@
 package ensure
 
 import (
+	"strings"
 	"testing"
 
 	. "github.com/onsi/gomega"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -20,8 +20,7 @@ func mockReadProxyVarsFromEnv() []corev1.EnvVar {
 	}
 }
 
-func TestSetProxyEnvs(t *testing.T) {
-	g := NewWithT(t)
+func mockSetProxyContainer() corev1.Container {
 	defaultEnv := []corev1.EnvVar{
 		{
 			Name:  "answer",
@@ -34,44 +33,105 @@ func TestSetProxyEnvs(t *testing.T) {
 	}
 
 	// Define a mock deployment
-	dep := &appsv1.Deployment{
-		Spec: appsv1.DeploymentSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name: "test-container",
-							Env:  defaultEnv,
-						},
-					},
-				},
+	return corev1.Container{Name: "test-container", Env: defaultEnv}
+}
+
+func TestSetProxyEnvs(t *testing.T) {
+	type args struct {
+		containers []corev1.Container
+		envVars    []corev1.EnvVar
+		noProxy    []string
+	}
+	tests := []struct {
+		name   string
+		args   args
+		verify func(Gomega, []corev1.Container)
+	}{
+		{
+			name: "set proxy",
+			args: args{
+				containers: []corev1.Container{mockSetProxyContainer()},
+				envVars:    mockReadProxyVarsFromEnv(),
+			},
+			verify: func(g Gomega, containers []corev1.Container) {
+				expectedEnvVars := append(mockReadProxyVarsFromEnv(), corev1.EnvVar{
+					Name:  "answer",
+					Value: "42",
+				})
+
+				g.Expect(containers).ShouldNot(BeNil())
+				g.Expect(containers[0].Env).Should(HaveLen(7))
+				g.Expect(containers[0].Env).Should(ConsistOf(expectedEnvVars))
+			},
+		},
+		{
+			name: "do not set proxy",
+			args: args{
+				containers: []corev1.Container{mockSetProxyContainer()},
+			},
+			verify: func(g Gomega, containers []corev1.Container) {
+				defaultEnv := mockSetProxyContainer().Env
+
+				g.Expect(containers).ShouldNot(BeNil())
+				g.Expect(containers[0].Env).Should(HaveLen(2))
+				g.Expect(containers[0].Env).Should(BeEquivalentTo(defaultEnv))
+			},
+		},
+		{
+			name: "extend no_proxy",
+			args: args{
+				containers: []corev1.Container{mockSetProxyContainer()},
+				envVars:    mockReadProxyVarsFromEnv(),
+				noProxy:    []string{"extra", "socket"},
+			},
+			verify: func(g Gomega, containers []corev1.Container) {
+				expectedEnvVars := mockReadProxyVarsFromEnv()
+				for i, envVar := range expectedEnvVars {
+					if strings.ToLower(envVar.Name) == "no_proxy" {
+						expectedEnvVars[i].Value = "extra,socket," + envVar.Value
+					}
+				}
+
+				expectedEnvVars = append(expectedEnvVars, corev1.EnvVar{
+					Name:  "answer",
+					Value: "42",
+				})
+
+				g.Expect(containers).ShouldNot(BeNil())
+				g.Expect(containers[0].Env).Should(HaveLen(7))
+				g.Expect(containers[0].Env).Should(ConsistOf(expectedEnvVars))
+			},
+		},
+		{
+			name: "do not duplicate",
+			args: args{
+				containers: []corev1.Container{mockSetProxyContainer()},
+				envVars:    mockReadProxyVarsFromEnv(),
+			},
+			verify: func(g Gomega, containers []corev1.Container) {
+				SetProxyEnvs(containers)
+
+				expectedEnvVars := append(mockReadProxyVarsFromEnv(), corev1.EnvVar{
+					Name:  "answer",
+					Value: "42",
+				})
+
+				g.Expect(containers).ShouldNot(BeNil())
+				g.Expect(containers[0].Env).Should(HaveLen(7))
+				g.Expect(containers[0].Env).Should(ConsistOf(expectedEnvVars))
 			},
 		},
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			for _, e := range tt.args.envVars {
+				t.Setenv(e.Name, e.Value)
+			}
 
-	SetProxyEnvs(dep.Spec.Template.Spec.Containers)
-
-	g.Expect(dep.Spec.Template.Spec.Containers).ShouldNot(BeNil())
-	g.Expect(dep.Spec.Template.Spec.Containers[0].Env).Should(HaveLen(2))
-	g.Expect(dep.Spec.Template.Spec.Containers[0].Env).Should(BeEquivalentTo(defaultEnv))
-
-	for _, e := range mockReadProxyVarsFromEnv() {
-		t.Setenv(e.Name, e.Value)
+			containers := tt.args.containers
+			SetProxyEnvs(containers, tt.args.noProxy...)
+			tt.verify(g, containers)
+		})
 	}
-
-	SetProxyEnvs(dep.Spec.Template.Spec.Containers)
-
-	expectedEnvVars := append(mockReadProxyVarsFromEnv(), corev1.EnvVar{
-		Name:  "answer",
-		Value: "42",
-	})
-
-	g.Expect(dep.Spec.Template.Spec.Containers).ShouldNot(BeNil())
-	g.Expect(dep.Spec.Template.Spec.Containers[0].Env).Should(HaveLen(7))
-	g.Expect(dep.Spec.Template.Spec.Containers[0].Env).Should(ConsistOf(expectedEnvVars))
-
-	// ensure no duplicates
-	SetProxyEnvs(dep.Spec.Template.Spec.Containers)
-	g.Expect(dep.Spec.Template.Spec.Containers).ShouldNot(BeNil())
-	g.Expect(dep.Spec.Template.Spec.Containers[0].Env).Should(HaveLen(7))
 }

@@ -70,7 +70,9 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		i.ensureDeployment(instance, RBACName, labels),
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](maps.Keys(labels), labels),
-		deployment.Proxy(),
+		// need to add Fulcio's unix domain socket used for the legacy gRPC server other way it will be
+		// rest v1 api will be routed through proxy
+		deployment.Proxy("@fulcio-legacy-grpc-socket"),
 		deployment.TrustedCA(instance.GetTrustedCA(), "fulcio-server"),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Fulcio: %w", err), instance)

@@ -7,9 +7,9 @@ import (
 	v1 "k8s.io/api/apps/v1"
 )
 
-func Proxy() func(*v1.Deployment) error {
+func Proxy(noProxy ...string) func(*v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
-		ensure.SetProxyEnvs(dp.Spec.Template.Spec.Containers)
+		ensure.SetProxyEnvs(dp.Spec.Template.Spec.Containers, noProxy...)
 		return nil
 	}
 }
