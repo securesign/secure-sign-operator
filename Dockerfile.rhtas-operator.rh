@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_1.21@sha256:66a396f2c11fd60fed46db213363ffefe1efb68f49424a3190db98d2e42fac32 as builder
+FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_1.21@sha256:218ece7acb0c215d0ec54e690446209fe64a6080a7202a54ef3945b152f4fc89 as builder
 ARG TARGETOS
 ARG TARGETARCH
 
