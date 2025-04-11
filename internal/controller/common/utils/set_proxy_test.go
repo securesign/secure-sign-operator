@@ -64,3 +64,40 @@ func TestSetProxyEnvs(t *testing.T) {
 	g.Expect(dep.Spec.Template.Spec.Containers[0].Env).Should(HaveLen(7))
 	g.Expect(dep.Spec.Template.Spec.Containers[0].Env).Should(BeEquivalentTo(expectedEnvVars))
 }
+
+func TestSetProxyEnvsWithExtraNoProxy(t *testing.T) {
+	g := NewWithT(t)
+	defaultEnv := []corev1.EnvVar{
+		{
+			Name:  "answer",
+			Value: "42",
+		},
+	}
+
+	// Define a mock deployment
+	dep := &appsv1.Deployment{
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "test-container",
+							Env:  defaultEnv,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, e := range mockReadProxyVarsFromEnv() {
+		t.Setenv(e.Name, e.Value)
+	}
+
+	SetProxyEnvs(dep, "@unix.socket")
+
+	g.Expect(dep.Spec.Template.Spec.Containers).ShouldNot(BeNil())
+	g.Expect(dep.Spec.Template.Spec.Containers[0].Env).Should(HaveLen(7))
+	g.Expect(dep.Spec.Template.Spec.Containers[0].Env).Should(ContainElement(corev1.EnvVar{Name: "NO_PROXY", Value: "@unix.socket,localhost,127.0.0.1"}))
+	g.Expect(dep.Spec.Template.Spec.Containers[0].Env).Should(ContainElement(corev1.EnvVar{Name: "no_proxy", Value: "@unix.socket,localhost,127.0.0.1"}))
+}

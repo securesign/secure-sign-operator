@@ -239,7 +239,7 @@ func CreateDeployment(instance *v1alpha1.Fulcio, deploymentName string, sa strin
 			},
 		},
 	}
-	utils.SetProxyEnvs(dep)
+	utils.SetProxyEnvs(dep, "@fulcio-legacy-grpc-socket")
 
 	caRef := utils.TrustedCAAnnotationToReference(instance.Annotations)
 	// override if spec.trustedCA is defined
