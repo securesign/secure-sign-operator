@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
+	"slices"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -12,7 +14,6 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
-	"golang.org/x/exp/maps"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"gopkg.in/yaml.v2"
@@ -120,7 +121,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		newConfig,
 		ensure.ControllerReference[*v1.ConfigMap](instance, i.Client),
-		ensure.Labels[*v1.ConfigMap](maps.Keys(configLabel), configLabel),
+		ensure.Labels[*v1.ConfigMap](slices.Collect(maps.Keys(configLabel)), configLabel),
 		kubernetes.EnsureConfigMapData(
 			true,
 			map[string]string{

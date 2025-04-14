@@ -1,9 +1,9 @@
 package ensure
 
 import (
+	"maps"
 	"slices"
 
-	"golang.org/x/exp/maps"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )

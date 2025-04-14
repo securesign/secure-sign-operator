@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -13,7 +15,6 @@ import (
 	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/controller/labels"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
-	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -135,7 +136,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	if _, err = utils.CreateOrUpdate(ctx, i.Client,
 		newConfig,
 		ensure.ControllerReference[*corev1.Secret](instance, i.Client),
-		ensure.Labels[*corev1.Secret](maps.Keys(configLabels), configLabels),
+		ensure.Labels[*corev1.Secret](slices.Collect(maps.Keys(configLabels)), configLabels),
 		utils.EnsureSecretData(true, cfg),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Server config: %w", err), instance,

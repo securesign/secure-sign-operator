@@ -3,6 +3,8 @@ package logserver
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -11,7 +13,6 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
-	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -74,7 +75,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		},
 		kubernetes.EnsureServiceSpec(labels, ports...),
 		ensure.ControllerReference[*v1.Service](instance, i.Client),
-		ensure.Labels[*v1.Service](maps.Keys(labels), labels),
+		ensure.Labels[*v1.Service](slices.Collect(maps.Keys(labels)), labels),
 		//TLS: Annotate service
 		ensure.Optional(kubernetes.IsOpenShift(), ensure.Annotations[*v1.Service]([]string{annotations.TLS}, tlsAnnotations)),
 	); err != nil {

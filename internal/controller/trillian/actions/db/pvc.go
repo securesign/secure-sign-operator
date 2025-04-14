@@ -3,11 +3,12 @@ package db
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/labels"
-	"golang.org/x/exp/maps"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -68,7 +69,7 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tri
 	if result, err = k8sutils.CreateOrUpdate(ctx, i.Client, pvc,
 		k8sutils.EnsurePVCSpec(instance.Spec.Db.Pvc),
 		ensure.Optional[*v1.PersistentVolumeClaim](!utils.OptionalBool(instance.Spec.Db.Pvc.Retain), ensure.ControllerReference[*v1.PersistentVolumeClaim](instance, i.Client)),
-		ensure.Labels[*v1.PersistentVolumeClaim](maps.Keys(l), l),
+		ensure.Labels[*v1.PersistentVolumeClaim](slices.Collect(maps.Keys(l)), l),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create DB PVC: %w", err), instance)
 	}

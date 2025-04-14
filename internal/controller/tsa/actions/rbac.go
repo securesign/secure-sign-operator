@@ -3,6 +3,8 @@ package actions
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -10,7 +12,6 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
-	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,7 +49,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Timestam
 		},
 	},
 		ensure.ControllerReference[*v1.ServiceAccount](instance, i.Client),
-		ensure.Labels[*v1.ServiceAccount](maps.Keys(labels), labels),
+		ensure.Labels[*v1.ServiceAccount](slices.Collect(maps.Keys(labels)), labels),
 	); err != nil {
 		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create SA: %w", err)), instance)
 	}

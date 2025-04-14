@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/securesign/operator/api/v1alpha1"
@@ -12,7 +13,6 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/controller/labels"
-	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -239,7 +239,7 @@ func (g handleKeys) generateAndUploadSecret(ctx context.Context, instance *v1alp
 	if _, err = k8sutils.CreateOrUpdate(ctx, g.Client,
 		secret,
 		ensure.ControllerReference[*v1.Secret](instance, g.Client),
-		ensure.Labels[*v1.Secret](maps.Keys(componentLabels), componentLabels),
+		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(componentLabels)), componentLabels),
 		ensure.Labels[*v1.Secret](ManagedLabels, keyRelatedLabels),
 		ensure.Annotations[*v1.Secret](ManagedAnnotations, annotations),
 		k8sutils.EnsureSecretData(true, data),
@@ -247,7 +247,7 @@ func (g handleKeys) generateAndUploadSecret(ctx context.Context, instance *v1alp
 		return nil, err
 	}
 
-	if slices.Contains(maps.Keys(secret.Labels), CTLPubLabel) {
+	if _, ok := secret.Labels[CTLPubLabel]; ok {
 		newKeyStatus.PublicKeyRef = &v1alpha1.SecretKeySelector{
 			LocalObjectReference: v1alpha1.LocalObjectReference{
 				Name: secret.Name,
@@ -256,7 +256,7 @@ func (g handleKeys) generateAndUploadSecret(ctx context.Context, instance *v1alp
 		}
 	}
 
-	if slices.Contains(maps.Keys(secret.Labels), CTLogPrivateLabel) {
+	if _, ok := secret.Labels[CTLogPrivateLabel]; ok {
 		newKeyStatus.PrivateKeyRef = &v1alpha1.SecretKeySelector{
 			LocalObjectReference: v1alpha1.LocalObjectReference{
 				Name: secret.Name,
@@ -265,17 +265,18 @@ func (g handleKeys) generateAndUploadSecret(ctx context.Context, instance *v1alp
 		}
 	}
 
-	if slices.Contains(maps.Keys(secret.Labels), CTLPubLabel) && slices.Contains(maps.Keys(secret.Labels), CTLogPrivateLabel) {
-		// need to add cyclic private key reference annotation
-		annotations[privateKeyRefAnnotation] = secret.Name
-		if _, err = k8sutils.CreateOrUpdate(ctx, g.Client,
-			secret,
-			ensure.Annotations[*v1.Secret](ManagedAnnotations, annotations),
-		); err != nil {
-			return nil, err
+	if _, ok := secret.Labels[CTLPubLabel]; ok {
+		if _, ok = secret.Labels[CTLogPrivateLabel]; ok {
+			// need to add cyclic private key reference annotation
+			annotations[privateKeyRefAnnotation] = secret.Name
+			if _, err = k8sutils.CreateOrUpdate(ctx, g.Client,
+				secret,
+				ensure.Annotations[*v1.Secret](ManagedAnnotations, annotations),
+			); err != nil {
+				return nil, err
+			}
 		}
 	}
-
 	return secret, nil
 }
 

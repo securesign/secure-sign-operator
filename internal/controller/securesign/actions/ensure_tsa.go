@@ -3,7 +3,9 @@ package actions
 import (
 	"context"
 	"fmt"
+	"maps"
 	"reflect"
+	"slices"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/annotations"
@@ -13,7 +15,6 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/tsa/actions"
-	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -64,7 +65,7 @@ func (i tsaAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		tsa,
 		ensure.ControllerReference[*rhtasv1alpha1.TimestampAuthority](instance, i.Client),
-		ensure.Labels[*rhtasv1alpha1.TimestampAuthority](maps.Keys(l), l),
+		ensure.Labels[*rhtasv1alpha1.TimestampAuthority](slices.Collect(maps.Keys(l)), l),
 		ensure.Annotations[*rhtasv1alpha1.TimestampAuthority](annotations.InheritableAnnotations, instance.Annotations),
 		func(object *rhtasv1alpha1.TimestampAuthority) error {
 			object.Spec = *instance.Spec.TimestampAuthority

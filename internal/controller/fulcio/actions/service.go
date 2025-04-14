@@ -3,6 +3,8 @@ package actions
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -10,7 +12,6 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
-	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,7 +72,7 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulci
 		},
 		kubernetes.EnsureServiceSpec(labels, ports...),
 		ensure.ControllerReference[*v1.Service](instance, i.Client),
-		ensure.Labels[*v1.Service](maps.Keys(labels), labels),
+		ensure.Labels[*v1.Service](slices.Collect(maps.Keys(labels)), labels),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create service: %w", err), instance)
 	}
