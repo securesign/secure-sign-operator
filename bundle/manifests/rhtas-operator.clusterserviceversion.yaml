@@ -297,7 +297,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:699adc3a4a38b0b358e11873ce617a6d7588b3552de0b12fc6fc291682563fed
-    createdAt: "2025-04-08T10:04:43Z"
+    createdAt: "2025-04-15T08:01:43Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -640,7 +640,7 @@ spec:
                 - name: RELATED_IMAGE_TRILLIAN_DB
                   value: registry.redhat.io/rhtas/trillian-database-rhel9@sha256:7ce611aefdfedd8b2a633def482cf41f390c95b8f8c800b6163a585f117a9e2e
                 - name: RELATED_IMAGE_TRILLIAN_NETCAT
-                  value: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:09b8259ec9e982a33bde84c7c901ad70c79f3e5f6dd7880b1b1e573dafcbd56c
+                  value: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:ceffda1d467e7ae6fd4ea29c82307d6785f85ce564f8ddb0ce02fe8daa8d24fb
                 - name: RELATED_IMAGE_TRILLIAN_CREATE_TREE
                   value: registry.redhat.io/rhtas/createtree-rhel9@sha256:d9ff8413f1d106cb5084b48b73b205db6dd5ad82818be4111c5cb118d9d135ae
                 - name: RELATED_IMAGE_FULCIO_SERVER
@@ -778,7 +778,7 @@ spec:
     name: trillian-log-server
   - image: registry.redhat.io/rhtas/trillian-database-rhel9@sha256:7ce611aefdfedd8b2a633def482cf41f390c95b8f8c800b6163a585f117a9e2e
     name: trillian-db
-  - image: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:09b8259ec9e982a33bde84c7c901ad70c79f3e5f6dd7880b1b1e573dafcbd56c
+  - image: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:ceffda1d467e7ae6fd4ea29c82307d6785f85ce564f8ddb0ce02fe8daa8d24fb
     name: trillian-netcat
   - image: registry.redhat.io/rhtas/createtree-rhel9@sha256:d9ff8413f1d106cb5084b48b73b205db6dd5ad82818be4111c5cb118d9d135ae
     name: trillian-create-tree
