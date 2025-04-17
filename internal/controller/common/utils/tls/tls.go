@@ -3,10 +3,11 @@ package tls
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"golang.org/x/exp/maps"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -27,7 +28,7 @@ func CAPath(ctx context.Context, cli client.Client, instance objectWithTlsClient
 			err = fmt.Errorf("%s ConfigMap can contain only 1 record", lor.Name)
 			return "", err
 		}
-		return CATrustMountPath + maps.Keys(cfgTrust.Data)[0], nil
+		return CATrustMountPath + slices.Collect(maps.Keys(cfgTrust.Data))[0], nil
 	case kubernetes.IsOpenShift():
 		return "/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt", nil
 	default:

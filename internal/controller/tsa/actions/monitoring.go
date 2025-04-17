@@ -3,6 +3,8 @@ package actions
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -11,7 +13,6 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
-	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,7 +49,7 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Ti
 		},
 	},
 		ensure.ControllerReference[*v1.Role](instance, i.Client),
-		ensure.Labels[*v1.Role](maps.Keys(monitoringLabels), monitoringLabels),
+		ensure.Labels[*v1.Role](slices.Collect(maps.Keys(monitoringLabels)), monitoringLabels),
 		kubernetes.EnsureRoleRules(
 			v1.PolicyRule{
 				APIGroups: []string{""},
@@ -68,7 +69,7 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Ti
 		},
 	},
 		ensure.ControllerReference[*v1.RoleBinding](instance, i.Client),
-		ensure.Labels[*v1.RoleBinding](maps.Keys(monitoringLabels), monitoringLabels),
+		ensure.Labels[*v1.RoleBinding](slices.Collect(maps.Keys(monitoringLabels)), monitoringLabels),
 		kubernetes.EnsureRoleBinding(
 			v1.RoleRef{
 				APIGroup: v1.SchemeGroupVersion.Group,
@@ -88,7 +89,7 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Ti
 		},
 	},
 		ensure.ControllerReference[*monitoringv1.ServiceMonitor](instance, i.Client),
-		ensure.Labels[*monitoringv1.ServiceMonitor](maps.Keys(monitoringLabels), monitoringLabels),
+		ensure.Labels[*monitoringv1.ServiceMonitor](slices.Collect(maps.Keys(monitoringLabels)), monitoringLabels),
 		kubernetes.EnsureServiceMonitorSpec(labels.ForComponent(ComponentName, instance.Name),
 			monitoringv1.Endpoint{
 				Interval: monitoringv1.Duration("30s"),

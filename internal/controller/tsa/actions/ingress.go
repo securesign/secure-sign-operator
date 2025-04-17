@@ -3,9 +3,10 @@ package actions
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"golang.org/x/exp/maps"
 	v2 "k8s.io/api/networking/v1"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -57,9 +58,9 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Times
 		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.ExternalAccess, DeploymentName),
 		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
 		// add route selector labels
-		ensure.Labels[*v2.Ingress](maps.Keys(instance.Spec.ExternalAccess.RouteSelectorLabels), instance.Spec.ExternalAccess.RouteSelectorLabels),
+		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.ExternalAccess.RouteSelectorLabels)), instance.Spec.ExternalAccess.RouteSelectorLabels),
 		// add common labels
-		ensure.Labels[*v2.Ingress](maps.Keys(labels), labels),
+		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(labels)), labels),
 		ensure.ControllerReference[*v2.Ingress](instance, i.Client),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create ingress object: %w", err), instance)

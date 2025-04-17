@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierros "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -152,7 +153,7 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 	}
 	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		dbSecret,
-		ensure.Labels[*corev1.Secret](maps.Keys(dbLabels), dbLabels),
+		ensure.Labels[*corev1.Secret](slices.Collect(maps.Keys(dbLabels)), dbLabels),
 		ensure.Annotations[*corev1.Secret](managedAnnotations, i.secretAnnotations()),
 		kubernetes.EnsureSecretData(true, i.defaultDBData()),
 	); err != nil {

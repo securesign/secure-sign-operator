@@ -3,6 +3,8 @@ package actions
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -13,7 +15,6 @@ import (
 	"github.com/securesign/operator/internal/controller/labels"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/controller/tuf/utils"
-	"golang.org/x/exp/maps"
 	v2 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -94,7 +95,7 @@ func (i initJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) 
 		},
 		utils.EnsureTufInitJob(instance, tufConstants.RBACName, l),
 		ensure.ControllerReference[*v2.Job](pvc, i.Client),
-		ensure.Labels[*v2.Job](maps.Keys(l), l),
+		ensure.Labels[*v2.Job](slices.Collect(maps.Keys(l)), l),
 		func(object *v2.Job) error {
 			ensure.SetProxyEnvs(object.Spec.Template.Spec.Containers)
 			return nil

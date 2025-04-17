@@ -6,6 +6,8 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common"
@@ -15,7 +17,6 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/controller/labels"
-	"golang.org/x/exp/maps"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	v1 "k8s.io/api/core/v1"
@@ -163,8 +164,8 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 	}
 	if _, err = k8sutils.CreateOrUpdate(ctx, g.Client,
 		newCert,
-		ensure.Labels[*v1.Secret](maps.Keys(componentLabels), componentLabels),
-		ensure.Labels[*v1.Secret](maps.Keys(keyLabels), keyLabels),
+		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(componentLabels)), componentLabels),
+		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(keyLabels)), keyLabels),
 		ensure.Annotations[*v1.Secret](managedAnnotations, annotations),
 		k8sutils.EnsureSecretData(true, cert.ToData()),
 	); err != nil {

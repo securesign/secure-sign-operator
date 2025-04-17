@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure/deployment"
 	"github.com/securesign/operator/internal/controller/common/utils/tls"
@@ -12,7 +14,6 @@ import (
 	cutils "github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"golang.org/x/exp/maps"
 	v2 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -69,7 +70,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		},
 		i.ensureServerDeployment(insCopy, actions.RBACName, labels),
 		ensure.ControllerReference[*v2.Deployment](instance, i.Client),
-		ensure.Labels[*v2.Deployment](maps.Keys(labels), labels),
+		ensure.Labels[*v2.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
 		deployment.TrustedCA(instance.GetTrustedCA(), actions.ServerDeploymentName),
 		ensure.Optional(tls.UseTlsClient(instance), i.ensureTlsTrillian()),

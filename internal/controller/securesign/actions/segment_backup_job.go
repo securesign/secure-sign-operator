@@ -3,6 +3,8 @@ package actions
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 
 	"github.com/securesign/operator/internal/controller/annotations"
@@ -11,7 +13,6 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/images"
-	"golang.org/x/exp/maps"
 	batchv1 "k8s.io/api/batch/v1"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -65,7 +66,7 @@ func (i segmentBackupJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Se
 		job,
 		i.ensureSegmentBackupJob(),
 		ensure.ControllerReference[*batchv1.Job](instance, i.Client),
-		ensure.Labels[*batchv1.Job](maps.Keys(l), l),
+		ensure.Labels[*batchv1.Job](slices.Collect(maps.Keys(l)), l),
 		func(object *batchv1.Job) error {
 			ensure.SetProxyEnvs(object.Spec.Template.Spec.Containers)
 			return nil

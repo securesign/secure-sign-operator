@@ -3,6 +3,8 @@ package actions
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/annotations"
@@ -12,7 +14,6 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
 	"github.com/securesign/operator/internal/controller/labels"
-	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -50,7 +51,7 @@ func (i fulcioAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secure
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		fulcio,
 		ensure.ControllerReference[*rhtasv1alpha1.Fulcio](instance, i.Client),
-		ensure.Labels[*rhtasv1alpha1.Fulcio](maps.Keys(l), l),
+		ensure.Labels[*rhtasv1alpha1.Fulcio](slices.Collect(maps.Keys(l)), l),
 		ensure.Annotations[*rhtasv1alpha1.Fulcio](annotations.InheritableAnnotations, instance.Annotations),
 		func(object *rhtasv1alpha1.Fulcio) error {
 			object.Spec = instance.Spec.Fulcio

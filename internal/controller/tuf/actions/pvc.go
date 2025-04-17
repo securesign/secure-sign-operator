@@ -3,12 +3,13 @@ package actions
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/labels"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
-	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -77,7 +78,7 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf
 			StorageClass: instance.Spec.Pvc.StorageClass,
 		}),
 		ensure.Optional[*v1.PersistentVolumeClaim](!utils.OptionalBool(instance.Spec.Pvc.Retain), ensure.ControllerReference[*v1.PersistentVolumeClaim](instance, i.Client)),
-		ensure.Labels[*v1.PersistentVolumeClaim](maps.Keys(l), l),
+		ensure.Labels[*v1.PersistentVolumeClaim](slices.Collect(maps.Keys(l)), l),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create DB PVC: %w", err), instance)
 	}

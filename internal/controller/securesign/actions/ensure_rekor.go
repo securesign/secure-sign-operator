@@ -3,11 +3,12 @@ package actions
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"golang.org/x/exp/maps"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -50,7 +51,7 @@ func (i rekorAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secures
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		rekor,
 		ensure.ControllerReference[*rhtasv1alpha1.Rekor](instance, i.Client),
-		ensure.Labels[*rhtasv1alpha1.Rekor](maps.Keys(l), l),
+		ensure.Labels[*rhtasv1alpha1.Rekor](slices.Collect(maps.Keys(l)), l),
 		ensure.Annotations[*rhtasv1alpha1.Rekor](annotations.InheritableAnnotations, instance.Annotations),
 		func(object *rhtasv1alpha1.Rekor) error {
 			object.Spec = instance.Spec.Rekor

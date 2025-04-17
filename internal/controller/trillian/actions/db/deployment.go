@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure/deployment"
@@ -18,7 +19,6 @@ import (
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	trillianUtils "github.com/securesign/operator/internal/controller/trillian/utils"
-	"golang.org/x/exp/maps"
 	v2 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -91,7 +91,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		},
 		i.ensureDbDeployment(instance, actions.RBACName, scc, labels),
 		ensure.ControllerReference[*v2.Deployment](instance, i.Client),
-		ensure.Labels[*v2.Deployment](maps.Keys(labels), labels),
+		ensure.Labels[*v2.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		ensure.Optional(trillianUtils.UseTLSDb(instance), i.ensureTLS(instance)),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Trillian DB: %w", err), instance, metav1.Condition{

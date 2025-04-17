@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 
-	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -69,7 +70,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		},
 		i.ensureDeployment(instance, RBACName, labels),
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
-		ensure.Labels[*v1.Deployment](maps.Keys(labels), labels),
+		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		// need to add Fulcio's unix domain socket used for the legacy gRPC server other way it will be
 		// rest v1 api will be routed through proxy
 		deployment.Proxy("@fulcio-legacy-grpc-socket"),

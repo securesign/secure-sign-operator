@@ -3,6 +3,8 @@ package actions
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -11,7 +13,6 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
-	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -52,7 +53,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *ac
 		},
 	},
 		ensure.ControllerReference[*v1.ServiceAccount](instance, i.Client),
-		ensure.Labels[*v1.ServiceAccount](maps.Keys(labels), labels),
+		ensure.Labels[*v1.ServiceAccount](slices.Collect(maps.Keys(labels)), labels),
 	); err != nil {
 		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create SA: %w", err)), instance)
 	}
@@ -65,7 +66,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *ac
 		},
 	},
 		ensure.ControllerReference[*rbacv1.Role](instance, i.Client),
-		ensure.Labels[*rbacv1.Role](maps.Keys(labels), labels),
+		ensure.Labels[*rbacv1.Role](slices.Collect(maps.Keys(labels)), labels),
 		kubernetes.EnsureRoleRules(
 			rbacv1.PolicyRule{
 				APIGroups: []string{""},
@@ -89,7 +90,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *ac
 		},
 	},
 		ensure.ControllerReference[*rbacv1.RoleBinding](instance, i.Client),
-		ensure.Labels[*rbacv1.RoleBinding](maps.Keys(labels), labels),
+		ensure.Labels[*rbacv1.RoleBinding](slices.Collect(maps.Keys(labels)), labels),
 		kubernetes.EnsureRoleBinding(
 			rbacv1.RoleRef{
 				APIGroup: v1.SchemeGroupVersion.Group,

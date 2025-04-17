@@ -3,7 +3,9 @@ package actions
 import (
 	"context"
 	"fmt"
+	"maps"
 	"reflect"
+	"slices"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -12,7 +14,6 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
-	"golang.org/x/exp/maps"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -152,7 +153,7 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		configMap,
 		ensure.ControllerReference[*v1.ConfigMap](instance, i.Client),
-		ensure.Labels[*v1.ConfigMap](maps.Keys(l), l),
+		ensure.Labels[*v1.ConfigMap](slices.Collect(maps.Keys(l)), l),
 		kubernetes.EnsureConfigMapData(
 			true, map[string]string{ntpConfigName: string(ntpConfig)}),
 	); err != nil {
