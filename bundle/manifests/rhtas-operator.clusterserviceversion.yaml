@@ -296,8 +296,8 @@ metadata:
         }
       ]
     capabilities: Seamless Upgrades
-    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:0332d8e99dca5eb443a0de6800817d286057498374faa7a9d59b592efb453a3a
-    createdAt: "2025-04-15T19:15:42Z"
+    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:e38279626d3c41f6728c4d7ae8486a1ded10f7c47ed38cd5d95bf1647a9d996f
+    createdAt: "2025-04-17T12:20:17Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -640,7 +640,7 @@ spec:
                 - name: RELATED_IMAGE_TRILLIAN_DB
                   value: registry.redhat.io/rhtas/trillian-database-rhel9@sha256:1921a746556119f6e0d6a41dfb528555e38eda4ff046ebb889e7f8a66c13cd03
                 - name: RELATED_IMAGE_TRILLIAN_NETCAT
-                  value: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:ceffda1d467e7ae6fd4ea29c82307d6785f85ce564f8ddb0ce02fe8daa8d24fb
+                  value: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:59c50b17943e2ad7acc3e8cbb80b74ae5b2d15341c2a22fc239140322fc0f394
                 - name: RELATED_IMAGE_TRILLIAN_CREATE_TREE
                   value: registry.redhat.io/rhtas/createtree-rhel9@sha256:56518f269821a2ef6f6e7158933694c25eda132cbf5db0c3e81aa274c22fa3f4
                 - name: RELATED_IMAGE_FULCIO_SERVER
@@ -665,7 +665,7 @@ spec:
                   value: registry.redhat.io/rhtas/timestamp-authority-rhel9@sha256:912e7ce4632bf51731c2d9402c7c2f6dba1f7d539e907a2d9a2362478bd91716
                 - name: RELATED_IMAGE_CLIENT_SERVER
                   value: registry.redhat.io/rhtas/client-server-rhel9@sha256:00b0fa3bb01eed3139ae3984cd53ad76ef8ec51224f46dbb9e58b54cc4797eb0
-                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:0332d8e99dca5eb443a0de6800817d286057498374faa7a9d59b592efb453a3a
+                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:e38279626d3c41f6728c4d7ae8486a1ded10f7c47ed38cd5d95bf1647a9d996f
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -778,7 +778,7 @@ spec:
     name: trillian-log-server
   - image: registry.redhat.io/rhtas/trillian-database-rhel9@sha256:1921a746556119f6e0d6a41dfb528555e38eda4ff046ebb889e7f8a66c13cd03
     name: trillian-db
-  - image: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:ceffda1d467e7ae6fd4ea29c82307d6785f85ce564f8ddb0ce02fe8daa8d24fb
+  - image: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:59c50b17943e2ad7acc3e8cbb80b74ae5b2d15341c2a22fc239140322fc0f394
     name: trillian-netcat
   - image: registry.redhat.io/rhtas/createtree-rhel9@sha256:56518f269821a2ef6f6e7158933694c25eda132cbf5db0c3e81aa274c22fa3f4
     name: trillian-create-tree
