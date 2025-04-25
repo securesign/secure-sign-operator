@@ -9,6 +9,8 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -17,7 +19,6 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
-	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -149,8 +150,8 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 
 			if _, err = k8sutils.CreateOrUpdate(ctx, g.Client,
 				secret,
-				ensure.Labels[*v1.Secret](maps.Keys(componentLabels), componentLabels),
-				ensure.Labels[*v1.Secret](maps.Keys(signerLabels), signerLabels),
+				ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(componentLabels)), componentLabels),
+				ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(signerLabels)), signerLabels),
 				k8sutils.EnsureSecretData(true, data),
 			); err != nil {
 				return g.Error(ctx, fmt.Errorf("could not create signer secret: %w", err), instance,

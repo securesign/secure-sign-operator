@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
+	"slices"
 	"strconv"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -16,7 +18,6 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
-	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -106,9 +107,9 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 
 	if _, err = k8sutils.CreateOrUpdate(ctx, i.Client,
 		newConfig,
-		ensure.Labels[*v1.Secret](maps.Keys(componentLabels), componentLabels),
-		ensure.Labels[*v1.Secret](maps.Keys(keyLabels), keyLabels),
-		ensure.Annotations[*v1.Secret](maps.Keys(anno), anno),
+		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(componentLabels)), componentLabels),
+		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(keyLabels)), keyLabels),
+		ensure.Annotations[*v1.Secret](slices.Collect(maps.Keys(anno)), anno),
 		k8sutils.EnsureSecretData(true, map[string][]byte{
 			keyName: publicKey,
 		}),

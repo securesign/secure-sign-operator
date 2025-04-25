@@ -3,6 +3,8 @@ package clidownload
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/securesign/operator/internal/images"
 
@@ -14,7 +16,6 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
 	cLabels "github.com/securesign/operator/internal/controller/labels"
-	"golang.org/x/exp/maps"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
@@ -82,10 +83,9 @@ func (c *Component) Start(ctx context.Context) error {
 		&core.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: cliServerNs,
-			}}, ensure.Labels[*core.Namespace](maps.Keys(labels), labels)); e != nil {
+			}}, ensure.Labels[*core.Namespace](slices.Collect(maps.Keys(labels)), labels)); e != nil {
 		return e
 	}
-
 	if e := CreateResource[*apps.Deployment](ctx, c.Client, c.Log,
 		&apps.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -93,7 +93,7 @@ func (c *Component) Start(ctx context.Context) error {
 				Namespace: cliServerNs,
 			}},
 		c.ensureDeployment(labels),
-		ensure.Labels[*apps.Deployment](maps.Keys(labels), labels)); e != nil {
+		ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(labels)), labels)); e != nil {
 		return e
 	}
 
@@ -106,7 +106,7 @@ func (c *Component) Start(ctx context.Context) error {
 				Port:       cliServerPort,
 				TargetPort: intstr.FromInt32(cliServerPort),
 			}),
-		ensure.Labels[*core.Service](maps.Keys(labels), labels),
+		ensure.Labels[*core.Service](slices.Collect(maps.Keys(labels)), labels),
 	); e != nil {
 		return e
 	}
@@ -115,7 +115,7 @@ func (c *Component) Start(ctx context.Context) error {
 		ingress,
 		kubernetes.EnsureIngressSpec(ctx, c.Client, *svc, rhtasv1alpha1.ExternalAccess{Host: CliHostName}, cliServerPortName),
 		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
-		ensure.Labels[*v1.Ingress](maps.Keys(labels), labels),
+		ensure.Labels[*v1.Ingress](slices.Collect(maps.Keys(labels)), labels),
 	); e != nil {
 		return e
 	}
@@ -140,7 +140,7 @@ func (c *Component) Start(ctx context.Context) error {
 						Name: name,
 					},
 				}, c.ensureConsoleCLIDownload(protocol+ingress.Spec.Rules[0].Host, description, name, ALL_ARCHS...),
-				ensure.Labels[*consolev1.ConsoleCLIDownload](maps.Keys(labels), labels),
+				ensure.Labels[*consolev1.ConsoleCLIDownload](slices.Collect(maps.Keys(labels)), labels),
 			); e != nil {
 				return e
 			}
@@ -155,7 +155,7 @@ func (c *Component) Start(ctx context.Context) error {
 				protocol+ingress.Spec.Rules[0].Host,
 				"tuftool is a Rust command-line utility for generating and signing TUF repositories.",
 				"tuftool", LINUX_X86),
-			ensure.Labels[*consolev1.ConsoleCLIDownload](maps.Keys(labels), labels),
+			ensure.Labels[*consolev1.ConsoleCLIDownload](slices.Collect(maps.Keys(labels)), labels),
 		); e != nil {
 			return e
 		}

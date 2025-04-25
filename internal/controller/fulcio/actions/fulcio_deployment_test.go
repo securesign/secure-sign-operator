@@ -1,6 +1,8 @@
 package actions
 
 import (
+	"maps"
+	"slices"
 	"testing"
 
 	"github.com/securesign/operator/internal/controller/annotations"
@@ -8,7 +10,6 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure/deployment"
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/controller/labels"
-	"golang.org/x/exp/maps"
 	v13 "k8s.io/api/apps/v1"
 	"k8s.io/utils/ptr"
 
@@ -237,7 +238,7 @@ func createDeployment(instance *v1alpha1.Fulcio, labels map[string]string) (*v13
 
 	ensures := []func(*v13.Deployment) error{
 		testAction.ensureDeployment(instance, RBACName, labels),
-		ensure.Labels[*v13.Deployment](maps.Keys(labels), labels),
+		ensure.Labels[*v13.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
 		deployment.TrustedCA(instance.GetTrustedCA(), "fulcio-server"),
 	}

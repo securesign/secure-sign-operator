@@ -4,6 +4,8 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -18,7 +20,6 @@ import (
 	"github.com/securesign/operator/internal/controller/labels"
 	actions2 "github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/images"
-	"golang.org/x/exp/maps"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -88,7 +89,7 @@ func (i resolveTree[T]) handleRbac(ctx context.Context, instance T) *action.Resu
 		},
 	},
 		ensure.ControllerReference[*corev1.ServiceAccount](instance, i.Client),
-		ensure.Labels[*corev1.ServiceAccount](maps.Keys(labels), labels),
+		ensure.Labels[*corev1.ServiceAccount](slices.Collect(maps.Keys(labels)), labels),
 	); err != nil {
 		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create SA: %w", err)), instance)
 	}
@@ -101,7 +102,7 @@ func (i resolveTree[T]) handleRbac(ctx context.Context, instance T) *action.Resu
 		},
 	},
 		ensure.ControllerReference[*rbacv1.Role](instance, i.Client),
-		ensure.Labels[*rbacv1.Role](maps.Keys(labels), labels),
+		ensure.Labels[*rbacv1.Role](slices.Collect(maps.Keys(labels)), labels),
 		kubernetes.EnsureRoleRules(
 			rbacv1.PolicyRule{
 				APIGroups: []string{""},
@@ -120,7 +121,7 @@ func (i resolveTree[T]) handleRbac(ctx context.Context, instance T) *action.Resu
 		},
 	},
 		ensure.ControllerReference[*rbacv1.RoleBinding](instance, i.Client),
-		ensure.Labels[*rbacv1.RoleBinding](maps.Keys(labels), labels),
+		ensure.Labels[*rbacv1.RoleBinding](slices.Collect(maps.Keys(labels)), labels),
 		kubernetes.EnsureRoleBinding(
 			rbacv1.RoleRef{
 				APIGroup: corev1.SchemeGroupVersion.Group,
@@ -155,7 +156,7 @@ func (i resolveTree[T]) handleConfigMap(ctx context.Context, instance T) *action
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		configMap,
 		ensure.ControllerReference[*corev1.ConfigMap](instance, i.Client),
-		ensure.Labels[*corev1.ConfigMap](maps.Keys(labels), labels),
+		ensure.Labels[*corev1.ConfigMap](slices.Collect(maps.Keys(labels)), labels),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create %s ConfigMap: %w", configMap.GetName(), err), instance)
 	}
@@ -230,7 +231,7 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 		job,
 		i.ensureJob(fmt.Sprintf(configMapResultMask, i.component, instance.GetName()), trillUrl, i.treeDisplayName, extraArgs...),
 		ensure.ControllerReference[*batchv1.Job](instance, i.Client),
-		ensure.Labels[*batchv1.Job](maps.Keys(labels), labels),
+		ensure.Labels[*batchv1.Job](slices.Collect(maps.Keys(labels)), labels),
 		func(object *batchv1.Job) error {
 			return ensureTls.TrustedCA(instance.GetTrustedCA())(&object.Spec.Template)
 		},
