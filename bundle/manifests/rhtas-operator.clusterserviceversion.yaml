@@ -296,8 +296,8 @@ metadata:
         }
       ]
     capabilities: Seamless Upgrades
-    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:b7ac9df951b2d4e553ceeeee3807a8266f84269d9b3252283fd1d4b1e98f075b
-    createdAt: "2025-04-17T11:14:33Z"
+    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:335608b84ba0a5c3f0067087e6c7735c94d957aa6e63c8e9c2212236965e3b71
+    createdAt: "2025-04-28T09:29:08Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -640,9 +640,9 @@ spec:
                 - name: RELATED_IMAGE_TRILLIAN_DB
                   value: registry.redhat.io/rhtas/trillian-database-rhel9@sha256:1921a746556119f6e0d6a41dfb528555e38eda4ff046ebb889e7f8a66c13cd03
                 - name: RELATED_IMAGE_TRILLIAN_NETCAT
-                  value: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:59c50b17943e2ad7acc3e8cbb80b74ae5b2d15341c2a22fc239140322fc0f394
+                  value: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:62f19013939f81cd3fb2cfaa47b826952a0b0bb1b1325cd38f01441604188bd6
                 - name: RELATED_IMAGE_FULCIO_SERVER
-                  value: registry.redhat.io/rhtas/fulcio-rhel9@sha256:9ccb7764f3812c71a1a802c39c722360a35b9e98239ac4b1761f5dfae1e1c0ac
+                  value: registry.redhat.io/rhtas/fulcio-rhel9@sha256:aed2deb06ee8a121d68e38e6ed07bf378213f50e646278004a54108857973fc2
                 - name: RELATED_IMAGE_REKOR_REDIS
                   value: registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:2f8e0dace36fe0631ade827d21bf48c25e502a02b0e8d20d26804cf75880ec02
                 - name: RELATED_IMAGE_REKOR_SERVER
@@ -656,14 +656,14 @@ spec:
                 - name: RELATED_IMAGE_CTLOG
                   value: registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:166c74603a075a57df7c47cc78ffdc5a1b7523744d66b2532e6451ac756fe65b
                 - name: RELATED_IMAGE_HTTP_SERVER
-                  value: registry.redhat.io/ubi9/httpd-24@sha256:366cc5bc3b96069fecaa0abeb9d3510c507e69a20de1d205d881da8ae8561ab4
+                  value: registry.redhat.io/ubi9/httpd-24@sha256:2b6b324b10d142e8618ad2818edbb7793376f0def0d49603772b8fb64a53439d
                 - name: RELATED_IMAGE_SEGMENT_REPORTING
                   value: registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:67dd8978930084aaf02d9c4ad212888dca235af136b25b2b94b6be4c3b934c74
                 - name: RELATED_IMAGE_TIMESTAMP_AUTHORITY
                   value: registry.redhat.io/rhtas/timestamp-authority-rhel9@sha256:912e7ce4632bf51731c2d9402c7c2f6dba1f7d539e907a2d9a2362478bd91716
                 - name: RELATED_IMAGE_CLIENT_SERVER
                   value: registry.redhat.io/rhtas/client-server-rhel9@sha256:e9a175b14891e7bdd724cdd7d98129bcc8bc3f87435020292ede514534ae23a0
-                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:b7ac9df951b2d4e553ceeeee3807a8266f84269d9b3252283fd1d4b1e98f075b
+                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:335608b84ba0a5c3f0067087e6c7735c94d957aa6e63c8e9c2212236965e3b71
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -776,9 +776,9 @@ spec:
     name: trillian-log-server
   - image: registry.redhat.io/rhtas/trillian-database-rhel9@sha256:1921a746556119f6e0d6a41dfb528555e38eda4ff046ebb889e7f8a66c13cd03
     name: trillian-db
-  - image: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:59c50b17943e2ad7acc3e8cbb80b74ae5b2d15341c2a22fc239140322fc0f394
+  - image: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:62f19013939f81cd3fb2cfaa47b826952a0b0bb1b1325cd38f01441604188bd6
     name: trillian-netcat
-  - image: registry.redhat.io/rhtas/fulcio-rhel9@sha256:9ccb7764f3812c71a1a802c39c722360a35b9e98239ac4b1761f5dfae1e1c0ac
+  - image: registry.redhat.io/rhtas/fulcio-rhel9@sha256:aed2deb06ee8a121d68e38e6ed07bf378213f50e646278004a54108857973fc2
     name: fulcio-server
   - image: registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:2f8e0dace36fe0631ade827d21bf48c25e502a02b0e8d20d26804cf75880ec02
     name: rekor-redis
@@ -792,7 +792,7 @@ spec:
     name: tuf
   - image: registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:166c74603a075a57df7c47cc78ffdc5a1b7523744d66b2532e6451ac756fe65b
     name: ctlog
-  - image: registry.redhat.io/ubi9/httpd-24@sha256:366cc5bc3b96069fecaa0abeb9d3510c507e69a20de1d205d881da8ae8561ab4
+  - image: registry.redhat.io/ubi9/httpd-24@sha256:2b6b324b10d142e8618ad2818edbb7793376f0def0d49603772b8fb64a53439d
     name: http-server
   - image: registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:67dd8978930084aaf02d9c4ad212888dca235af136b25b2b94b6be4c3b934c74
     name: segment-reporting
