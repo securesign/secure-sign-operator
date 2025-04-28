@@ -14,7 +14,6 @@ require (
 	github.com/openshift/api v0.0.0-20250418132733-f636181788a9
 	github.com/operator-framework/api v0.30.0
 	github.com/operator-framework/operator-lib v0.17.0
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.81.0
 	github.com/robfig/cron/v3 v3.0.1
 	golang.org/x/net v0.39.0
 	google.golang.org/protobuf v1.36.6

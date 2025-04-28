@@ -6,7 +6,6 @@ import (
 	"maps"
 	"slices"
 
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
@@ -17,6 +16,7 @@ import (
 	v1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -84,20 +84,13 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tr
 		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create monitoring RoleBinding: %w", err)), instance)
 	}
 
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, &monitoringv1.ServiceMonitor{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      actions.LogSignerComponentName,
-			Namespace: instance.Namespace,
-		},
-	},
-		ensure.ControllerReference[*monitoringv1.ServiceMonitor](instance, i.Client),
-		ensure.Labels[*monitoringv1.ServiceMonitor](slices.Collect(maps.Keys(monitoringLabels)), monitoringLabels),
-		kubernetes.EnsureServiceMonitorSpec(labels.ForComponent(actions.LogSignerComponentName, instance.Name),
-			monitoringv1.Endpoint{
-				Interval: monitoringv1.Duration("30s"),
-				Port:     actions.MetricsPortName,
-				Scheme:   "http",
-			}),
+	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, kubernetes.CreateServiceMonitor(instance.Namespace, actions.LogSignerComponentName),
+		ensure.ControllerReference[*unstructured.Unstructured](instance, i.Client),
+		ensure.Labels[*unstructured.Unstructured](slices.Collect(maps.Keys(monitoringLabels)), monitoringLabels),
+		kubernetes.EnsureServiceMonitorSpec(
+			labels.ForComponent(actions.LogSignerComponentName, instance.Name),
+			kubernetes.ServiceMonitorEndpoint(actions.MetricsPortName),
+		),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create serviceMonitor: %w", err), instance,
 			metav1.Condition{

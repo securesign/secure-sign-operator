@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	routev1 "github.com/openshift/api/route/v1"
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	v12 "k8s.io/api/apps/v1"
 	v13 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -53,7 +52,6 @@ func IsCIEnvironment() bool {
 func CreateClient() (runtimeCli.Client, error) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(rhtasv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(olmAlpha.AddToScheme(scheme))
