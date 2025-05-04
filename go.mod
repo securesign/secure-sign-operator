@@ -7,23 +7,23 @@ require (
 	github.com/go-logr/logr v1.4.2
 	github.com/google/certificate-transparency-go v1.3.1
 	github.com/google/go-containerregistry v0.20.3
-	github.com/google/trillian v1.7.1
+	github.com/google/trillian v1.7.2
 	github.com/google/uuid v1.6.0
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
-	github.com/openshift/api v0.0.0-20250418132733-f636181788a9
-	github.com/operator-framework/api v0.30.0
-	github.com/operator-framework/operator-lib v0.17.0
+	github.com/openshift/api v0.0.0-20250502141415-7152b1b11175
+	github.com/operator-framework/api v0.31.0
+	github.com/operator-framework/operator-lib v0.18.0
 	github.com/robfig/cron/v3 v3.0.1
 	golang.org/x/net v0.39.0
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.32.3
-	k8s.io/apiextensions-apiserver v0.32.3
-	k8s.io/apimachinery v0.32.3
-	k8s.io/client-go v0.32.3
+	k8s.io/api v0.32.4
+	k8s.io/apiextensions-apiserver v0.32.4
+	k8s.io/apimachinery v0.32.4
+	k8s.io/client-go v0.32.4
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e
+	k8s.io/utils v0.0.0-20250502105355-0f33e8f1c979
 	sigs.k8s.io/controller-runtime v0.20.4
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -50,7 +50,7 @@ require (
 	github.com/google/gnostic-models v0.6.9 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/google/pprof v0.0.0-20250418163039-24c5476c6587 // indirect
+	github.com/google/pprof v0.0.0-20250501235452-c0086092b71a // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
