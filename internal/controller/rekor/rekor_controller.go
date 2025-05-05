@@ -30,6 +30,8 @@ import (
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	actions2 "github.com/securesign/operator/internal/controller/rekor/actions"
 	backfillredis "github.com/securesign/operator/internal/controller/rekor/actions/backfillRedis"
+	"github.com/securesign/operator/internal/controller/rekor/actions/monitor"
+	"github.com/securesign/operator/internal/controller/rekor/actions/redis"
 	"github.com/securesign/operator/internal/controller/rekor/actions/server"
 	"github.com/securesign/operator/internal/controller/rekor/actions/ui"
 	v13 "k8s.io/api/core/v1"
@@ -153,6 +155,8 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		redis.NewInitializeAction(),
 
 		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.Rekor](),
+
+		monitor.NewDeployAction(),
 	}
 
 	for _, a := range actions {
