@@ -645,6 +645,8 @@ spec:
                   value: registry.redhat.io/rhtas/createtree-rhel9@sha256:56518f269821a2ef6f6e7158933694c25eda132cbf5db0c3e81aa274c22fa3f4
                 - name: RELATED_IMAGE_FULCIO_SERVER
                   value: registry.redhat.io/rhtas/fulcio-rhel9@sha256:9ccb7764f3812c71a1a802c39c722360a35b9e98239ac4b1761f5dfae1e1c0ac
+                - name: RELATED_IMAGE_REKOR_MONITOR
+                  value: registry.redhat.io/rhtas/rekor-monitor-rhel9@sha256:dd8093784f001fcddc96c4ddfe57116579484ee09314e868c5048f3d5d098998
                 - name: RELATED_IMAGE_REKOR_REDIS
                   value: registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:2f8e0dace36fe0631ade827d21bf48c25e502a02b0e8d20d26804cf75880ec02
                 - name: RELATED_IMAGE_REKOR_SERVER
@@ -784,6 +786,8 @@ spec:
     name: trillian-create-tree
   - image: registry.redhat.io/rhtas/fulcio-rhel9@sha256:9ccb7764f3812c71a1a802c39c722360a35b9e98239ac4b1761f5dfae1e1c0ac
     name: fulcio-server
+  - image: registry.redhat.io/rhtas/rekor-monitor-rhel9@sha256:dd8093784f001fcddc96c4ddfe57116579484ee09314e868c5048f3d5d098998
+    name: rekor-monitor
   - image: registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:2f8e0dace36fe0631ade827d21bf48c25e502a02b0e8d20d26804cf75880ec02
     name: rekor-redis
   - image: registry.redhat.io/rhtas/rekor-server-rhel9@sha256:d2b2c382f0351e8c46922fc11aa4bc73ce63a77559981c6130faf922c8611dd8
