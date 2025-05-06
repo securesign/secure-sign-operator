@@ -14,7 +14,7 @@ LABEL operators.openshift.io/valid-subscription="Red Hat Trusted Artifact Signer
 LABEL vendor="Red Hat, Inc."
 LABEL url="https://www.redhat.com"
 LABEL distribution-scope="public"
-LABEL version="1.2.0"
+LABEL version="1.2.1"
 
 LABEL description="The bundle image for the rhtas-operator, containing manifests, metadata and testing scorecard."
 LABEL io.k8s.description="The bundle image for the rhtas-operator, containing manifests, metadata and testing scorecard."
