@@ -15,8 +15,8 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	yaml "sigs.k8s.io/yaml/goyaml.v2"
 
-	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/yaml"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/random"
@@ -32,7 +33,6 @@ import (
 	olmAlpha "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/securesign/operator/api/v1alpha1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

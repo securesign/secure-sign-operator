@@ -7,7 +7,6 @@ import (
 	"time"
 
 	tufAction "github.com/securesign/operator/internal/controller/tuf/constants"
-	"gopkg.in/yaml.v2"
 
 	"github.com/securesign/operator/test/e2e/support/tas"
 
@@ -26,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	runtimeCli "sigs.k8s.io/controller-runtime/pkg/client"
+	yaml "sigs.k8s.io/yaml/goyaml.v2"
 )
 
 var _ = Describe("Fulcio update", Ordered, func() {
