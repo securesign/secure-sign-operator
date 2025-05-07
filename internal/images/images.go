@@ -2,6 +2,8 @@ package images
 
 import (
 	"bufio"
+	"bytes"
+	"embed"
 	_ "embed"
 	"fmt"
 	"strings"
@@ -35,13 +37,19 @@ const (
 	ClientServer  Image = "RELATED_IMAGE_CLIENT_SERVER"
 )
 
-//go:embed images.env
-var configFile string
+//go:generate cp ../../config/default/images.env embed/images.env
+//go:embed embed/*
+var content embed.FS
 
 var Registry registry
 
 func init() {
-	data, err := parseConfigFile(configFile)
+	fd, err := content.ReadFile("embed/images.env")
+	if err != nil {
+		panic(err)
+	}
+
+	data, err := parseConfigFile(fd)
 	if err != nil {
 		panic(err)
 	}
@@ -53,9 +61,9 @@ func init() {
 }
 
 // parseConfigFile parses an embedded `.env` content and returns a map of key-value pairs.
-func parseConfigFile(envContent string) (map[Image]string, error) {
+func parseConfigFile(envContent []byte) (map[Image]string, error) {
 	data := make(map[Image]string)
-	scanner := bufio.NewScanner(strings.NewReader(envContent))
+	scanner := bufio.NewScanner(bytes.NewReader(envContent))
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())

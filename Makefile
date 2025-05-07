@@ -119,6 +119,7 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	go generate ./...
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
@@ -134,16 +135,16 @@ test: manifests generate fmt vet envtest ## Run tests.
 
 # Utilize Kind or modify the e2e tests to load the image locally, enabling compatibility with other vendors.
 .PHONY: test-e2e  # Run the e2e tests against a Kind k8s instance that is spun up.
-test-e2e:
+test-e2e: generate
 	go test -p 1 ./test/e2e/... -tags=integration -timeout 20m
 
 # Switch images from `registry.redhat.io` images to the dev images
 .PHONY: dev-images
 dev-images:
 	@if [ "$(shell uname)" = "Darwin" ]; then \
-		sed -E -i '' -f ci/dev-images.sed internal/images/images.env; \
+		sed -E -i '' -f ci/dev-images.sed config/default/images.env; \
 	else \
-		sed -E -i -f ci/dev-images.sed internal/images/images.env; \
+		sed -E -i -f ci/dev-images.sed config/default/images.env; \
 	fi
 
 .PHONY: lint
@@ -200,7 +201,6 @@ docker-buildx: ## Build and push docker image for the manager for cross-platform
 build-installer: manifests generate kustomize ## Generate a consolidated YAML with CRDs and deployment.
 	mkdir -p dist
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	cp internal/images/images.env config/default/images.env
 	$(KUSTOMIZE) build ${CONFIG_DEFAULT} > dist/install.yaml
 
 ##@ Deployment
@@ -220,7 +220,6 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	cp internal/images/images.env config/default/images.env
 	$(KUSTOMIZE) build ${CONFIG_DEFAULT} | $(KUBECTL) apply -f -
 
 
@@ -277,7 +276,7 @@ define go-install-tool
 set -e; \
 package=$(2)@$(3) ;\
 echo "Downloading $${package}" ;\
-GOBIN=$(LOCALBIN) go install $${package} ;\
+GOBIN=$(LOCALBIN) go install -mod=readonly $${package} ;\
 mv "$$(echo "$(1)" | sed "s/-$(3)$$//")" $(1) ;\
 }
 endef
@@ -303,7 +302,6 @@ endif
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	cp internal/images/images.env config/default/images.env
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 	$(OPERATOR_SDK) bundle validate ./bundle
 

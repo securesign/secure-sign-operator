@@ -16,6 +16,10 @@ COPY cmd/main.go cmd/main.go
 COPY api/ api/
 COPY internal/ internal/
 
+# Copy images config resources
+COPY config/default/images.env config/default/images.env
+RUN go generate ./...
+
 # Build
 # the GOARCH has not a default value to allow the binary be built according to the host where the command
 # was called. For example, if we call make docker-build in a local env which has the Apple Silicon M1 SO
