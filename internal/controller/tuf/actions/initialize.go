@@ -40,7 +40,7 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tu
 	ok, err = commonUtils.DeploymentIsRunning(ctx, i.Client, instance.Namespace, labels)
 	switch {
 	case errors.Is(err, commonUtils.ErrDeploymentNotReady):
-		i.Logger.Error(err, "deployment is not ready")
+		i.Logger.Info("deployment is not ready", "error", err.Error())
 	case err != nil:
 		return i.Error(ctx, err, instance)
 	}
@@ -55,8 +55,5 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tu
 		return i.StatusUpdate(ctx, instance)
 	}
 
-	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
-		Status: metav1.ConditionTrue, Reason: constants.Ready})
-
-	return i.StatusUpdate(ctx, instance)
+	return i.Continue()
 }

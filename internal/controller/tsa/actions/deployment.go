@@ -86,18 +86,12 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Timest
 		deployment.Proxy(),
 		deployment.TrustedCA(instance.GetTrustedCA(), actions.ServerDeploymentName),
 	); err != nil {
-		return i.Error(ctx, fmt.Errorf("could not create TSA Server: %w", err), instance, metav1.Condition{
-			Type:               TSAServerCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             constants.Failure,
-			Message:            err.Error(),
-			ObservedGeneration: instance.Generation,
-		})
+		return i.Error(ctx, fmt.Errorf("could not create TSA Server: %w", err), instance)
 	}
 
 	if result != controllerutil.OperationResultNone {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               TSAServerCondition,
+			Type:               constants.Ready,
 			Status:             metav1.ConditionFalse,
 			Reason:             constants.Creating,
 			Message:            "TSA server deployment created",

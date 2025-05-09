@@ -68,7 +68,7 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Times
 
 	if result != controllerutil.OperationResultNone {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               TSAServerCondition,
+			Type:               constants.Ready,
 			Status:             metav1.ConditionFalse,
 			Reason:             constants.Creating,
 			Message:            "Ingress created",

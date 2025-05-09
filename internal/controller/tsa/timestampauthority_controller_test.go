@@ -175,7 +175,7 @@ var _ = Describe("TimestampAuthority Controller", func() {
 			Eventually(func(g Gomega) string {
 				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Message
-			}).Should(Equal("NTP monitoring configured"))
+			}).Should(Equal("Waiting for deployment to be ready"))
 
 			By("NTP monitoring config should be created")
 			Eventually(func(g Gomega) *rhtasv1alpha1.LocalObjectReference {
