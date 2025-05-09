@@ -1,6 +1,8 @@
 package constants
 
 var (
-	CreateTreeDeadline int64 = 1200
-	Openshift          bool
+	CreateTreeDeadline    int64 = 1200
+	Openshift             bool
+	OperatorConditionName string
+	AppVersion            string
 )

@@ -107,6 +107,9 @@ const (
 	// TreeId define the annotation key to document association of resource with specific Merkle Tree
 	TreeId = "rhtas.redhat.com/treeId"
 
+	// Version define the annotation key to associate which version of operator managed a resource.
+	Version = "rhtas.redhat.com/version"
+
 	TLS = "service.beta.openshift.io/serving-cert-secret-name"
 )
 

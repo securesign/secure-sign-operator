@@ -107,6 +107,8 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.CTlog](),
 
 		actions.NewInitializeAction(),
+
+		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.CTlog](),
 	}
 
 	for _, a := range acs {

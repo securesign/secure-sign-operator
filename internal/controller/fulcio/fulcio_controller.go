@@ -105,6 +105,7 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		actions.NewStatusUrlAction(),
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.Fulcio](),
 		actions.NewInitializeAction(),
+		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.Fulcio](),
 	}
 
 	for _, a := range acs {

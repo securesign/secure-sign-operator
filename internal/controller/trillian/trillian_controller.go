@@ -111,7 +111,8 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		db.NewInitializeAction(),
 		logserver.NewInitializeAction(),
 		logsigner.NewInitializeAction(),
-		actions.NewInitializeAction(),
+
+		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.Trillian](),
 	}
 
 	for _, a := range actions {
