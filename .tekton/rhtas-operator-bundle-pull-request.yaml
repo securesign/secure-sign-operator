@@ -7,11 +7,9 @@ metadata:
     build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch == "main" &&
-      ("bundle/***".pathChanged() ||
-      ".tekton/bundle-build-pipeline.yaml".pathChanged() ||
-      ".tekton/rhtas-operator-bundle-pull-request.yaml".pathChanged() ||
-      "bundle.Dockerfile".pathChanged())
+    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch
+      == "main" && ("bundle/***".pathChanged() || ".tekton/bundle-build-pipeline.yaml".pathChanged()
+      || ".tekton/rhtas-operator-bundle-pull-request.yaml".pathChanged() || "bundle.Dockerfile".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: operator
@@ -21,35 +19,37 @@ metadata:
   namespace: rhtas-tenant
 spec:
   params:
-    - name: git-url
-      value: '{{source_url}}'
-    - name: revision
-      value: '{{revision}}'
-    - name: output-image
-      value: quay.io/securesign/rhtas-operator-bundle:on-pr-{{revision}}
-    - name: dockerfile
-      value: bundle.Dockerfile
-    - name: path-context
-      value: .
-    - name: build-source-image
-      value: "true"
-    - name: hermetic
-      value: "true"
-    - name: prefetch-input
-      value: ''
-    - name: image-expires-after
-      value: 5d
+  - name: git-url
+    value: '{{source_url}}'
+  - name: revision
+    value: '{{revision}}'
+  - name: output-image
+    value: quay.io/securesign/rhtas-operator-bundle:on-pr-{{revision}}
+  - name: dockerfile
+    value: bundle.Dockerfile
+  - name: path-context
+    value: .
+  - name: build-source-image
+    value: "true"
+  - name: hermetic
+    value: "true"
+  - name: prefetch-input
+    value: ""
+  - name: image-expires-after
+    value: 5d
   pipelineRef:
-    resolver: git
     params:
-      - name: url
-        value: 'https://github.com/securesign/pipelines.git'
-      - name: revision
-        value: 'main'
-      - name: pathInRepo
-        value: 'pipelines/docker-build-oci-ta.yaml'
-  taskRunTemplate: {}
+    - name: url
+      value: https://github.com/securesign/pipelines.git
+    - name: revision
+      value: main
+    - name: pathInRepo
+      value: pipelines/docker-build-oci-ta.yaml
+    resolver: git
+  taskRunTemplate:
+    serviceAccountName: build-pipeline-rhtas-operator-bundle
   workspaces:
-    - name: git-auth
-      secret:
-        secretName: '{{ git_auth_secret }}'
+  - name: git-auth
+    secret:
+      secretName: '{{ git_auth_secret }}'
+status: {}
