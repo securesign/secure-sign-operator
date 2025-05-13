@@ -297,7 +297,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:0332d8e99dca5eb443a0de6800817d286057498374faa7a9d59b592efb453a3a
-    createdAt: "2025-05-15T07:09:19Z"
+    createdAt: "2025-05-15T11:50:45Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -603,26 +603,24 @@ spec:
         serviceAccountName: rhtas-operator-controller-manager
       deployments:
       - label:
-          app.kubernetes.io/component: manager
-          app.kubernetes.io/created-by: rhtas-operator
-          app.kubernetes.io/instance: operator-controller-manager
           app.kubernetes.io/managed-by: kustomize
-          app.kubernetes.io/name: deployment
-          app.kubernetes.io/part-of: rhtas-operator
-          control-plane: operator-controller-manager
+          app.kubernetes.io/name: rhtas-operator
+          control-plane: controller-manager
         name: rhtas-operator-controller-manager
         spec:
           replicas: 1
           selector:
             matchLabels:
-              control-plane: operator-controller-manager
+              app.kubernetes.io/name: rhtas-operator
+              control-plane: controller-manager
           strategy: {}
           template:
             metadata:
               annotations:
                 kubectl.kubernetes.io/default-container: manager
               labels:
-                control-plane: operator-controller-manager
+                app.kubernetes.io/name: rhtas-operator
+                control-plane: controller-manager
             spec:
               containers:
               - args:
