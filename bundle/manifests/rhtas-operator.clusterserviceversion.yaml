@@ -297,7 +297,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:0332d8e99dca5eb443a0de6800817d286057498374faa7a9d59b592efb453a3a
-    createdAt: "2025-05-15T11:50:45Z"
+    createdAt: "2025-05-15T11:51:22Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -600,13 +600,25 @@ spec:
           - patch
           - update
           - watch
+        - apiGroups:
+          - authentication.k8s.io
+          resources:
+          - tokenreviews
+          verbs:
+          - create
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
         serviceAccountName: rhtas-operator-controller-manager
       deployments:
       - label:
           app.kubernetes.io/managed-by: kustomize
           app.kubernetes.io/name: rhtas-operator
           control-plane: controller-manager
-        name: rhtas-operator-controller-manager
+        name: rhtas-controller-manager
         spec:
           replicas: 1
           selector:
@@ -624,8 +636,8 @@ spec:
             spec:
               containers:
               - args:
+                - --metrics-bind-address=:8443
                 - --leader-elect
-                - --metrics-bind-address=0.0.0.0:8080
                 command:
                 - /manager
                 env:
@@ -672,8 +684,12 @@ spec:
                   periodSeconds: 20
                 name: manager
                 ports:
-                - containerPort: 8080
+                - containerPort: 8081
+                  name: health
+                  protocol: TCP
+                - containerPort: 8443
                   name: metrics
+                  protocol: TCP
                 readinessProbe:
                   httpGet:
                     path: /readyz

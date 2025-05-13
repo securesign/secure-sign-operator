@@ -5,12 +5,14 @@ metadata:
     control-plane: controller-manager
     app.kubernetes.io/name: rhtas-operator
     app.kubernetes.io/managed-by: kustomize
-  name: operator-controller-manager-metrics-service
+  name: controller-manager-metrics-service
+  namespace: openshift-rhtas-operator
 spec:
   ports:
-    - name: metrics
-      port: 8080
-      targetPort: metrics
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
   selector:
     control-plane: controller-manager
     app.kubernetes.io/name: rhtas-operator

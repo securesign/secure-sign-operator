@@ -6,7 +6,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: rhtas-operator
     control-plane: controller-manager
-  name: rhtas-operator-controller-manager-metrics-service
+  name: rhtas-controller-manager-metrics-service
 spec:
   ports:
   - name: metrics

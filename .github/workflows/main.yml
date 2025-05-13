@@ -221,7 +221,7 @@ jobs:
 
       - name: Wait for operator to be ready
         run: |
-          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n openshift-rhtas-operator
+          kubectl wait --for=condition=available deployment/rhtas-controller-manager --timeout=120s -n openshift-rhtas-operator
 
       - name: Add service hosts to /etc/hosts
         run: |
@@ -241,7 +241,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: dump the logs of the operator
-        run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
+        run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-controller-manager
         if: always()
 
   test-upgrade:
@@ -448,7 +448,7 @@ jobs:
 
       - name: Wait for operator to be ready
         run: |
-          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n openshift-rhtas-operator
+          kubectl wait --for=condition=available deployment/rhtas-controller-manager --timeout=120s -n openshift-rhtas-operator
 
       - name: Install securesign
         run: |
@@ -478,7 +478,7 @@ jobs:
 
       - name: dump the logs of the operator
         run: |
-          kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
+          kubectl logs -n openshift-rhtas-operator deployment/rhtas-controller-manager
         if: failure()
 
   test-eks:
@@ -622,7 +622,7 @@ jobs:
 
       - name: dump the logs of the operator
         run: |
-          kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
+          kubectl logs -n openshift-rhtas-operator deployment/rhtas-controller-manager
         if: always()
 
       - name: delete the cluster

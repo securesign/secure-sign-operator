@@ -8,4 +8,4 @@ patches:
   - path: manager_openshift_patch.yaml
     target:
       kind: Deployment
-      name: operator-controller-manager
+      name: controller-manager

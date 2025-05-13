@@ -10,7 +10,7 @@ metadata:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: operator-controller-manager
+  name: controller-manager
   namespace: openshift-rhtas-operator
   labels:
     control-plane: controller-manager
@@ -72,6 +72,10 @@ spec:
             drop:
               - "ALL"
         env: []
+        ports:
+          - containerPort: 8081
+            name: health
+            protocol: TCP
         livenessProbe:
           httpGet:
             path: /healthz
@@ -93,5 +97,7 @@ spec:
           requests:
             cpu: 10m
             memory: 64Mi
+        volumeMounts: []
+      volumes: []
       serviceAccountName: operator-controller-manager
       terminationGracePeriodSeconds: 10

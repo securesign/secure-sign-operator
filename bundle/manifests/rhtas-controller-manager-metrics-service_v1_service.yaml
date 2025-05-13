@@ -3,14 +3,18 @@ kind: Service
 metadata:
   creationTimestamp: null
   labels:
-    control-plane: operator-controller-manager
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: rhtas-operator
+    control-plane: controller-manager
   name: rhtas-controller-manager-metrics-service
 spec:
   ports:
-  - name: metrics
-    port: 8080
-    targetPort: metrics
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
   selector:
-    control-plane: operator-controller-manage
+    app.kubernetes.io/name: rhtas-operator
+    control-plane: controller-manager
 status:
   loadBalancer: {}
