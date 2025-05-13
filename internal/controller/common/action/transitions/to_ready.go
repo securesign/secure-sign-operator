@@ -24,6 +24,9 @@ func (i toReady[T]) Name() string {
 
 func (i toReady[T]) CanHandle(_ context.Context, instance T) bool {
 	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
+	if c == nil {
+		return false
+	}
 	return c.Reason != constants.Ready ||
 		c.Status != metav1.ConditionTrue ||
 		c.ObservedGeneration != instance.GetGeneration()
