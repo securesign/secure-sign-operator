@@ -24,6 +24,7 @@ const (
 	RekorServer   Image = "RELATED_IMAGE_REKOR_SERVER"
 	RekorSearchUi Image = "RELATED_IMAGE_REKOR_SEARCH_UI"
 	RekorMonitor  Image = "RELATED_IMAGE_REKOR_MONITOR"
+	OtelCollector Image = "RELATED_IMAGE_OTEL_COLLECTOR"
 	BackfillRedis Image = "RELATED_IMAGE_BACKFILL_REDIS"
 
 	Tuf Image = "RELATED_IMAGE_TUF"

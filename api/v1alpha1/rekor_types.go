@@ -185,6 +185,7 @@ type SearchIndexStatus struct {
 type RekorStatus struct {
 	// Reference to secret with Rekor's signer public key.
 	// Public key is automatically generated from signer private key.
+<<<<<<< HEAD
 	PublicKeyRef     *SecretKeySelector    `json:"publicKeyRef,omitempty"`
 	ServerConfigRef  *LocalObjectReference `json:"serverConfigRef,omitempty"`
 	Signer           RekorSigner           `json:"signer,omitempty"`
@@ -192,6 +193,15 @@ type RekorStatus struct {
 	PvcName          string                `json:"pvcName,omitempty"`
 	Url              string                `json:"url,omitempty"`
 	RekorSearchUIUrl string                `json:"rekorSearchUIUrl,omitempty"`
+=======
+	PublicKeyRef           *SecretKeySelector    `json:"publicKeyRef,omitempty"`
+	ServerConfigRef        *LocalObjectReference `json:"serverConfigRef,omitempty"`
+	OtelCollectorConfigRef *LocalObjectReference `json:"otelCollectorConfigRef,omitempty"`
+	Signer                 RekorSigner           `json:"signer,omitempty"`
+	PvcName                string                `json:"pvcName,omitempty"`
+	Url                    string                `json:"url,omitempty"`
+	RekorSearchUIUrl       string                `json:"rekorSearchUIUrl,omitempty"`
+>>>>>>> e748705 (add alerting)
 	// The ID of a Trillian tree that stores the log data.
 	// +kubebuilder:validation:Type=number
 	TreeID *int64 `json:"treeID,omitempty"`
