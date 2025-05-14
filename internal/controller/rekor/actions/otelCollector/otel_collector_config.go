@@ -30,14 +30,6 @@ const (
 	collectorConfigName  = "otel-collector-config.yaml"
 )
 
-// type OTELConfig struct {
-// 	Receivers map[string]any `yaml:"receivers"`
-// 	Exporters map[string]any `yaml:"exporters"`
-// 	Service   struct {
-// 		Pipelines map[string]any `yaml:"pipelines"`
-// 	} `yaml:"service"`
-// }
-
 func NewCollectorConfigAction() action.Action[*rhtasv1alpha1.Rekor] {
 	return &collectorConfig{}
 }
