@@ -31,6 +31,7 @@ import (
 	actions2 "github.com/securesign/operator/internal/controller/rekor/actions"
 	backfillredis "github.com/securesign/operator/internal/controller/rekor/actions/backfillRedis"
 	"github.com/securesign/operator/internal/controller/rekor/actions/monitor"
+	otelcollector "github.com/securesign/operator/internal/controller/rekor/actions/otelCollector"
 	"github.com/securesign/operator/internal/controller/rekor/actions/redis"
 	"github.com/securesign/operator/internal/controller/rekor/actions/server"
 	"github.com/securesign/operator/internal/controller/rekor/actions/ui"
@@ -155,6 +156,11 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		redis.NewInitializeAction(),
 
 		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.Rekor](),
+
+		otelcollector.NewCollectorConfigAction(),
+		otelcollector.NewDeployAction(),
+		otelcollector.NewCreateServiceAction(),
+		otelcollector.NewIngressAction(),
 
 		monitor.NewDeployAction(),
 	}
