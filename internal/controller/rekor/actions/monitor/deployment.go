@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"strconv"
 
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure/deployment"
 	"github.com/securesign/operator/internal/images"
@@ -115,11 +114,17 @@ func (i deployAction) ensureMonitorDeployment(sa string, labels map[string]strin
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, actions.MonitorDeploymentName)
 		container.Image = images.Registry.Get(images.RekorMonitor)
 
-		otelCollectorEndpoint := "http://" + actions.OtelCollectorComponentName + ":" + strconv.Itoa(actions.OtelCollectorGrpcPort)
 		container.Env = []core.EnvVar{
-			{Name: "OTEL_EXPORTER_OTLP_ENDPOINT", Value: otelCollectorEndpoint},
 			{Name: "REKOR_SERVER_ENDPOINT", Value: rekorServerHost},
 			{Name: "CHECK_INTERVAL_SECONDS", Value: "5"},
+		}
+
+		container.Ports = []core.ContainerPort{
+			{
+				ContainerPort: actions.MonitorMetricsPort,
+				Name:          actions.MonitorMetricsPortName,
+				Protocol:      core.ProtocolTCP,
+			},
 		}
 
 		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, storageVolumeName)

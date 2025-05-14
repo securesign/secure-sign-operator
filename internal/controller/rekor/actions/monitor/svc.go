@@ -1,4 +1,4 @@
-package otelcollector
+package monitor
 
 import (
 	"context"
@@ -45,26 +45,20 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		result controllerutil.OperationResult
 	)
 
-	labels := labels.For(actions.OtelCollectorComponentName, actions.OtelCollectorDeploymentName, instance.Name)
+	labels := labels.For(actions.MonitorComponentName, actions.MonitorComponentName, instance.Name)
 
 	ports := []v1.ServicePort{
 		{
-			Name:       actions.OtelCollectorGrpcPortName,
+			Name:       actions.MonitorMetricsPortName,
 			Protocol:   v1.ProtocolTCP,
-			Port:       actions.OtelCollectorGrpcPort,
-			TargetPort: intstr.FromInt32(actions.OtelCollectorGrpcPort),
-		},
-		{
-			Name:       actions.OtelCollectorPrometheusPortName,
-			Protocol:   v1.ProtocolTCP,
-			Port:       actions.OtelCollectorPrometheusPort,
-			TargetPort: intstr.FromInt32(actions.OtelCollectorPrometheusPort),
+			Port:       actions.MonitorMetricsPort,
+			TargetPort: intstr.FromInt32(actions.MonitorMetricsPort),
 		},
 	}
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		&v1.Service{
-			ObjectMeta: metav1.ObjectMeta{Name: actions.OtelCollectorDeploymentName, Namespace: instance.Namespace},
+			ObjectMeta: metav1.ObjectMeta{Name: actions.MonitorComponentName, Namespace: instance.Namespace},
 		},
 		kubernetes.EnsureServiceSpec(labels, ports...),
 		ensure.ControllerReference[*v1.Service](instance, i.Client),
@@ -75,7 +69,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 
 	if result != controllerutil.OperationResultNone {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.OtelCollectorCondition,
+			Type:    actions.MonitorCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Creating,
 			Message: "Service created",

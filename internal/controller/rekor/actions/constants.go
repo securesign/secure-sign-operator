@@ -26,6 +26,8 @@ const (
 	ServerComponentName      = "rekor-server"
 	RedisComponentName       = "rekor-redis"
 	MonitorComponentName     = "rekor-monitor"
+	MonitorMetricsPortName   = "metrics"
+	MonitorMetricsPort       = 9464
 	UIComponentName          = "rekor-ui"
 	BackfillRedisCronJobName = "backfill-redis"
 	UICondition              = "UiAvailable"

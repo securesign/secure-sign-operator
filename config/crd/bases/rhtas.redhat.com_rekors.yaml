@@ -2693,20 +2693,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              otelCollectorConfigRef:
-                description: |-
-                  LocalObjectReference contains enough information to let you locate the
-                  referenced object inside the same namespace.
-                properties:
-                  name:
-                    description: |-
-                      Name of the referent.
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                    type: string
-                required:
-                - name
-                type: object
-                x-kubernetes-map-type: atomic
               publicKeyRef:
                 description: |-
                   Reference to secret with Rekor's signer public key.
