@@ -111,7 +111,8 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		db.NewInitializeAction(),
 		logserver.NewInitializeAction(),
 		logsigner.NewInitializeAction(),
-		actions.NewInitializeAction(),
+
+		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.Trillian](),
 	}
 
 	for _, a := range actions {
@@ -133,7 +134,7 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 // SetupWithManager sets up the controller with the Manager.
 func (r *TrillianReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Filter out with the pause annotation.
-	pause, err := olpredicate.NewPause(annotations.PausedReconciliation)
+	pause, err := olpredicate.NewPause[client.Object](annotations.PausedReconciliation)
 	if err != nil {
 		return err
 	}

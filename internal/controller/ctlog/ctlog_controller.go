@@ -107,6 +107,8 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.CTlog](),
 
 		actions.NewInitializeAction(),
+
+		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.CTlog](),
 	}
 
 	for _, a := range acs {
@@ -129,7 +131,7 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 // SetupWithManager sets up the controller with the Manager.
 func (r *CTlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Filter out with the pause annotation.
-	pause, err := olpredicate.NewPause(annotations.PausedReconciliation)
+	pause, err := olpredicate.NewPause[client.Object](annotations.PausedReconciliation)
 	if err != nil {
 		return err
 	}

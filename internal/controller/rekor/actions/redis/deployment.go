@@ -3,6 +3,8 @@ package redis
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure/deployment"
 	"github.com/securesign/operator/internal/images"
@@ -14,7 +16,6 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
-	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -59,7 +60,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		},
 		i.ensureRedisDeployment(actions.RBACName, labels),
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
-		ensure.Labels[*v1.Deployment](maps.Keys(labels), labels),
+		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create %s deployment: %w", actions.RedisDeploymentName, err), instance,

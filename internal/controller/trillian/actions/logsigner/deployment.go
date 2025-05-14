@@ -3,6 +3,8 @@ package logsigner
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure/deployment"
 	"github.com/securesign/operator/internal/controller/common/utils/tls"
@@ -15,7 +17,6 @@ import (
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	trillianUtils "github.com/securesign/operator/internal/controller/trillian/utils"
-	"golang.org/x/exp/maps"
 	apps "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -83,7 +84,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		},
 		trillianUtils.EnsureServerDeployment(instance, images.Registry.Get(images.TrillianLogSigner), actions.LogsignerDeploymentName, actions.RBACName, labels, "--force_master=true"),
 		ensure.ControllerReference[*apps.Deployment](insCopy, i.Client),
-		ensure.Labels[*apps.Deployment](maps.Keys(labels), labels),
+		ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
 		deployment.TrustedCA(insCopy.GetTrustedCA(), "wait-for-trillian-db", actions.LogsignerDeploymentName),
 		ensure.Optional(trillianUtils.UseTLSDb(insCopy), trillianUtils.WithTlsDB(insCopy, caPath, actions.LogsignerDeploymentName)),

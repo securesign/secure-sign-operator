@@ -3,6 +3,8 @@ package ui
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/securesign/operator/internal/images"
 
@@ -13,7 +15,6 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
-	"golang.org/x/exp/maps"
 	v2 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,7 +58,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		},
 		i.ensureUIDeployment(instance, actions.RBACName, labels),
 		ensure.ControllerReference[*v2.Deployment](instance, i.Client),
-		ensure.Labels[*v2.Deployment](maps.Keys(labels), labels),
+		ensure.Labels[*v2.Deployment](slices.Collect(maps.Keys(labels)), labels),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Rekor search UI: %w", err), instance,
 			metav1.Condition{

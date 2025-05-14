@@ -296,12 +296,12 @@ metadata:
         }
       ]
     capabilities: Seamless Upgrades
-    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:c9da046efe2218bc8f59767d4839c064699c140b55c9b011789cab1f7f92696c
-    createdAt: "2025-03-05T11:20:28Z"
+    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:0332d8e99dca5eb443a0de6800817d286057498374faa7a9d59b592efb453a3a
+    createdAt: "2025-05-06T10:29:24Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
-    features.operators.openshift.io/disconnected: "false"
+    features.operators.openshift.io/disconnected: "true"
     features.operators.openshift.io/fips-compliant: "false"
     features.operators.openshift.io/proxy-aware: "true"
     features.operators.openshift.io/tls-profiles: "false"
@@ -313,7 +313,7 @@ metadata:
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/securesign/secure-sign-operator
     support: Red Hat
-  name: rhtas-operator.v1.2.0
+  name: rhtas-operator.v1.3.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -372,7 +372,22 @@ spec:
         - apiGroups:
           - ""
           resources:
+          - configmaps
+          - secrets
+          verbs:
+          - create
+          - delete
+          - deletecollection
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
           - endpoints
+          - pods
           verbs:
           - get
           - list
@@ -391,11 +406,24 @@ spec:
         - apiGroups:
           - ""
           resources:
-          - pods
+          - namespaces
+          - persistentvolumeclaims
+          - serviceaccounts
+          - services
           verbs:
+          - create
+          - delete
           - get
           - list
+          - patch
+          - update
           - watch
+        - apiGroups:
+          - ""
+          resources:
+          - persistentvolumeclaims/finalizers
+          verbs:
+          - update
         - apiGroups:
           - apiextensions.k8s.io
           resources:
@@ -426,17 +454,6 @@ spec:
           - batch
           resources:
           - cronjobs
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - batch
-          resources:
           - jobs
           verbs:
           - create
@@ -450,86 +467,6 @@ spec:
           - console.openshift.io
           resources:
           - consoleclidownloads
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - configmaps
-          verbs:
-          - create
-          - delete
-          - deletecollection
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - namespaces
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - persistentvolumeclaims
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - persistentvolumeclaims/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - ""
-          resources:
-          - secrets
-          verbs:
-          - create
-          - delete
-          - deletecollection
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - serviceaccounts
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - services
           verbs:
           - create
           - delete
@@ -560,17 +497,6 @@ spec:
           - watch
         - apiGroups:
           - networking
-          resources:
-          - ingresses
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
           - networking.k8s.io
           resources:
           - ingresses
@@ -605,44 +531,8 @@ spec:
           - rbac.authorization.k8s.io
           resources:
           - clusterrolebindings
-          verbs:
-          - create
-          - delete
-          - deletecollection
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rbac.authorization.k8s.io
-          resources:
           - clusterroles
-          verbs:
-          - create
-          - delete
-          - deletecollection
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rbac.authorization.k8s.io
-          resources:
           - rolebindings
-          verbs:
-          - create
-          - delete
-          - deletecollection
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rbac.authorization.k8s.io
-          resources:
           - roles
           verbs:
           - create
@@ -657,173 +547,12 @@ spec:
           - rhtas.redhat.com
           resources:
           - ctlogs
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - ctlogs/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - ctlogs/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
           - fulcios
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - fulcios/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - fulcios/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
           - rekors
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - rekors/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - rekors/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
           - secrets
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
           - securesigns
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - securesigns/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - securesigns/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
           - timestampauthorities
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - timestampauthorities/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - timestampauthorities/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
           - trillians
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - trillians/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
-          - trillians/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - rhtas.redhat.com
-          resources:
           - tufs
           verbs:
           - create
@@ -836,12 +565,24 @@ spec:
         - apiGroups:
           - rhtas.redhat.com
           resources:
+          - ctlogs/finalizers
+          - fulcios/finalizers
+          - rekors/finalizers
+          - securesigns/finalizers
+          - timestampauthorities/finalizers
+          - trillians/finalizers
           - tufs/finalizers
           verbs:
           - update
         - apiGroups:
           - rhtas.redhat.com
           resources:
+          - ctlogs/status
+          - fulcios/status
+          - rekors/status
+          - securesigns/status
+          - timestampauthorities/status
+          - trillians/status
           - tufs/status
           verbs:
           - get
@@ -893,38 +634,38 @@ spec:
                 - name: OPENSHIFT
                   value: "true"
                 - name: RELATED_IMAGE_TRILLIAN_LOG_SIGNER
-                  value: registry.redhat.io/rhtas/trillian-logsigner-rhel9@sha256:2d707d12e4f65e1a92b4de11465a5976d55e15ad6c9fefe994646ccd44c83840
+                  value: registry.redhat.io/rhtas/trillian-logsigner-rhel9@sha256:ee9be1a0edbe52d31fcf9755ac3ec3aeb2d5e8388e47ac8c2e2d83125fd50c44
                 - name: RELATED_IMAGE_TRILLIAN_LOG_SERVER
-                  value: registry.redhat.io/rhtas/trillian-logserver-rhel9@sha256:7af78c7bc4df097ffeeef345f1d13289695f715221957579ee65daeef2fa3f5b
+                  value: registry.redhat.io/rhtas/trillian-logserver-rhel9@sha256:99285a83df8fd97e4fb0338feb35aa556171890154a00ec24ee7473ac8241d32
                 - name: RELATED_IMAGE_TRILLIAN_DB
-                  value: registry.redhat.io/rhtas/trillian-database-rhel9@sha256:501612745e63e5504017079388bec191ffacf00ffdebde7be6ca5b8e4fd9d323
+                  value: registry.redhat.io/rhtas/trillian-database-rhel9@sha256:1921a746556119f6e0d6a41dfb528555e38eda4ff046ebb889e7f8a66c13cd03
                 - name: RELATED_IMAGE_TRILLIAN_NETCAT
-                  value: registry.redhat.io/openshift4/ose-tools-rhel8@sha256:486b4d2dd0d10c5ef0212714c94334e04fe8a3d36cf619881986201a50f123c7
+                  value: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:62f19013939f81cd3fb2cfaa47b826952a0b0bb1b1325cd38f01441604188bd6
                 - name: RELATED_IMAGE_TRILLIAN_CREATE_TREE
-                  value: registry.redhat.io/rhtas/createtree-rhel9@sha256:f66a707e68fb0cdcfcddc318407fe60d72f50a7b605b5db55743eccc14a422ba
+                  value: registry.redhat.io/rhtas/createtree-rhel9@sha256:56518f269821a2ef6f6e7158933694c25eda132cbf5db0c3e81aa274c22fa3f4
                 - name: RELATED_IMAGE_FULCIO_SERVER
-                  value: registry.redhat.io/rhtas/fulcio-rhel9@sha256:4b5765bbfd3dac5fa027d2fb3d672b6ebffbc573b9413ab4cb189c50fa6f9a09
+                  value: registry.redhat.io/rhtas/fulcio-rhel9@sha256:9ccb7764f3812c71a1a802c39c722360a35b9e98239ac4b1761f5dfae1e1c0ac
                 - name: RELATED_IMAGE_REKOR_REDIS
-                  value: registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:18820b1fbdbc2cc3e917822974910332d937b03cfe781628bd986fd6a5ee318e
+                  value: registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:2f8e0dace36fe0631ade827d21bf48c25e502a02b0e8d20d26804cf75880ec02
                 - name: RELATED_IMAGE_REKOR_SERVER
-                  value: registry.redhat.io/rhtas/rekor-server-rhel9@sha256:81e10e34f02b21bb8295e7b5c93797fc8c0e43a1a0d8304cca1b07415a3ed6f5
+                  value: registry.redhat.io/rhtas/rekor-server-rhel9@sha256:d2b2c382f0351e8c46922fc11aa4bc73ce63a77559981c6130faf922c8611dd8
                 - name: RELATED_IMAGE_REKOR_SEARCH_UI
-                  value: registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:3c93c15fc5c918a91b3da9f5bf2276e4d46d881b1031287e6ab28e6aeb23e019
+                  value: registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:8ca88a1bdbf69700795cedb4ffac83b6b186f9e091a9da54b1826021c686e6ec
                 - name: RELATED_IMAGE_BACKFILL_REDIS
-                  value: registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:6aa3ca40e0f9e32a0a211a930b21ff009b83e46609bfa5bb328979e4799d13c7
+                  value: registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:c748eed487228737c0543438a54252829644c26604742371650166c5361f88a6
                 - name: RELATED_IMAGE_TUF
-                  value: registry.redhat.io/rhtas/tuffer-rhel9@sha256:79340be7918034c68a334a210ab872161827c99c2a1551a4fce8d5d27560a234
+                  value: registry.redhat.io/rhtas/tuffer-rhel9@sha256:6884b1997a98a0c6b83543a64d849408a658e45021f2050b267c6de184edce72
                 - name: RELATED_IMAGE_CTLOG
-                  value: registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:31e7318a9b19ed04ef0f25949f1f1709d293b532316b27a06f83fa5174547b17
+                  value: registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:166c74603a075a57df7c47cc78ffdc5a1b7523744d66b2532e6451ac756fe65b
                 - name: RELATED_IMAGE_HTTP_SERVER
-                  value: registry.access.redhat.com/ubi9/httpd-24@sha256:7874b82335a80269dcf99e5983c2330876f5fe8bdc33dc6aa4374958a2ffaaee
+                  value: registry.redhat.io/ubi9/httpd-24@sha256:2b6b324b10d142e8618ad2818edbb7793376f0def0d49603772b8fb64a53439d
                 - name: RELATED_IMAGE_SEGMENT_REPORTING
-                  value: registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:1b87ff1ad02c476c08e06038a26af7abe61f177e491a9ff42d507550a8587ac8
+                  value: registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:67dd8978930084aaf02d9c4ad212888dca235af136b25b2b94b6be4c3b934c74
                 - name: RELATED_IMAGE_TIMESTAMP_AUTHORITY
-                  value: registry.redhat.io/rhtas/timestamp-authority-rhel9@sha256:fce0a22c8872309554236bab3457715dda0a83eb40dc6a9ecd3477b8023369d0
+                  value: registry.redhat.io/rhtas/timestamp-authority-rhel9@sha256:912e7ce4632bf51731c2d9402c7c2f6dba1f7d539e907a2d9a2362478bd91716
                 - name: RELATED_IMAGE_CLIENT_SERVER
-                  value: registry.redhat.io/rhtas/client-server-rhel9@sha256:9537329d0166b8d41ffd5f5d79c052fc27abe426a20cba5733c84030013c4e29
-                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:c9da046efe2218bc8f59767d4839c064699c140b55c9b011789cab1f7f92696c
+                  value: registry.redhat.io/rhtas/client-server-rhel9@sha256:e9a175b14891e7bdd724cdd7d98129bcc8bc3f87435020292ede514534ae23a0
+                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:0332d8e99dca5eb443a0de6800817d286057498374faa7a9d59b592efb453a3a
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -1031,36 +772,36 @@ spec:
     name: Red Hat
     url: https://github.com/securesign/secure-sign-operator
   relatedImages:
-  - image: registry.redhat.io/rhtas/trillian-logsigner-rhel9@sha256:2d707d12e4f65e1a92b4de11465a5976d55e15ad6c9fefe994646ccd44c83840
+  - image: registry.redhat.io/rhtas/trillian-logsigner-rhel9@sha256:ee9be1a0edbe52d31fcf9755ac3ec3aeb2d5e8388e47ac8c2e2d83125fd50c44
     name: trillian-log-signer
-  - image: registry.redhat.io/rhtas/trillian-logserver-rhel9@sha256:7af78c7bc4df097ffeeef345f1d13289695f715221957579ee65daeef2fa3f5b
+  - image: registry.redhat.io/rhtas/trillian-logserver-rhel9@sha256:99285a83df8fd97e4fb0338feb35aa556171890154a00ec24ee7473ac8241d32
     name: trillian-log-server
-  - image: registry.redhat.io/rhtas/trillian-database-rhel9@sha256:501612745e63e5504017079388bec191ffacf00ffdebde7be6ca5b8e4fd9d323
+  - image: registry.redhat.io/rhtas/trillian-database-rhel9@sha256:1921a746556119f6e0d6a41dfb528555e38eda4ff046ebb889e7f8a66c13cd03
     name: trillian-db
-  - image: registry.redhat.io/openshift4/ose-tools-rhel8@sha256:486b4d2dd0d10c5ef0212714c94334e04fe8a3d36cf619881986201a50f123c7
+  - image: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:62f19013939f81cd3fb2cfaa47b826952a0b0bb1b1325cd38f01441604188bd6
     name: trillian-netcat
-  - image: registry.redhat.io/rhtas/createtree-rhel9@sha256:f66a707e68fb0cdcfcddc318407fe60d72f50a7b605b5db55743eccc14a422ba
+  - image: registry.redhat.io/rhtas/createtree-rhel9@sha256:56518f269821a2ef6f6e7158933694c25eda132cbf5db0c3e81aa274c22fa3f4
     name: trillian-create-tree
-  - image: registry.redhat.io/rhtas/fulcio-rhel9@sha256:4b5765bbfd3dac5fa027d2fb3d672b6ebffbc573b9413ab4cb189c50fa6f9a09
+  - image: registry.redhat.io/rhtas/fulcio-rhel9@sha256:9ccb7764f3812c71a1a802c39c722360a35b9e98239ac4b1761f5dfae1e1c0ac
     name: fulcio-server
-  - image: registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:18820b1fbdbc2cc3e917822974910332d937b03cfe781628bd986fd6a5ee318e
+  - image: registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:2f8e0dace36fe0631ade827d21bf48c25e502a02b0e8d20d26804cf75880ec02
     name: rekor-redis
-  - image: registry.redhat.io/rhtas/rekor-server-rhel9@sha256:81e10e34f02b21bb8295e7b5c93797fc8c0e43a1a0d8304cca1b07415a3ed6f5
+  - image: registry.redhat.io/rhtas/rekor-server-rhel9@sha256:d2b2c382f0351e8c46922fc11aa4bc73ce63a77559981c6130faf922c8611dd8
     name: rekor-server
-  - image: registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:3c93c15fc5c918a91b3da9f5bf2276e4d46d881b1031287e6ab28e6aeb23e019
+  - image: registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:8ca88a1bdbf69700795cedb4ffac83b6b186f9e091a9da54b1826021c686e6ec
     name: rekor-search-ui
-  - image: registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:6aa3ca40e0f9e32a0a211a930b21ff009b83e46609bfa5bb328979e4799d13c7
+  - image: registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:c748eed487228737c0543438a54252829644c26604742371650166c5361f88a6
     name: backfill-redis
-  - image: registry.redhat.io/rhtas/tuffer-rhel9@sha256:79340be7918034c68a334a210ab872161827c99c2a1551a4fce8d5d27560a234
+  - image: registry.redhat.io/rhtas/tuffer-rhel9@sha256:6884b1997a98a0c6b83543a64d849408a658e45021f2050b267c6de184edce72
     name: tuf
-  - image: registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:31e7318a9b19ed04ef0f25949f1f1709d293b532316b27a06f83fa5174547b17
+  - image: registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:166c74603a075a57df7c47cc78ffdc5a1b7523744d66b2532e6451ac756fe65b
     name: ctlog
-  - image: registry.access.redhat.com/ubi9/httpd-24@sha256:7874b82335a80269dcf99e5983c2330876f5fe8bdc33dc6aa4374958a2ffaaee
+  - image: registry.redhat.io/ubi9/httpd-24@sha256:2b6b324b10d142e8618ad2818edbb7793376f0def0d49603772b8fb64a53439d
     name: http-server
-  - image: registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:1b87ff1ad02c476c08e06038a26af7abe61f177e491a9ff42d507550a8587ac8
+  - image: registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:67dd8978930084aaf02d9c4ad212888dca235af136b25b2b94b6be4c3b934c74
     name: segment-reporting
-  - image: registry.redhat.io/rhtas/timestamp-authority-rhel9@sha256:fce0a22c8872309554236bab3457715dda0a83eb40dc6a9ecd3477b8023369d0
+  - image: registry.redhat.io/rhtas/timestamp-authority-rhel9@sha256:912e7ce4632bf51731c2d9402c7c2f6dba1f7d539e907a2d9a2362478bd91716
     name: timestamp-authority
-  - image: registry.redhat.io/rhtas/client-server-rhel9@sha256:9537329d0166b8d41ffd5f5d79c052fc27abe426a20cba5733c84030013c4e29
+  - image: registry.redhat.io/rhtas/client-server-rhel9@sha256:e9a175b14891e7bdd724cdd7d98129bcc8bc3f87435020292ede514534ae23a0
     name: client-server
-  version: 1.2.0
+  version: 1.3.0

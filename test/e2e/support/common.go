@@ -3,6 +3,7 @@ package support
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -12,12 +13,14 @@ import (
 	"strings"
 
 	routev1 "github.com/openshift/api/route/v1"
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	v12 "k8s.io/api/apps/v1"
 	v13 "k8s.io/api/batch/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/yaml"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/random"
@@ -30,7 +33,6 @@ import (
 	olmAlpha "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/securesign/operator/api/v1alpha1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -50,7 +52,6 @@ func IsCIEnvironment() bool {
 func CreateClient() (runtimeCli.Client, error) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(rhtasv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(olmAlpha.AddToScheme(scheme))
@@ -122,6 +123,10 @@ func DumpNamespace(ctx context.Context, cli client.Client, ns string) {
 	// Example usage with mock data
 	k8s := map[string]logTarget{}
 
+	secretList := &metav1.PartialObjectMetadataList{}
+	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
+	secretList.SetGroupVersionKind(gvk)
+
 	toDump := map[string]client.ObjectList{
 		"securesign.yaml": &v1alpha1.SecuresignList{},
 		"fulcio.yaml":     &v1alpha1.FulcioList{},
@@ -136,6 +141,7 @@ func DumpNamespace(ctx context.Context, cli client.Client, ns string) {
 		"job.yaml":        &v13.JobList{},
 		"cronjob.yaml":    &v13.CronJobList{},
 		"event.yaml":      &v1.EventList{},
+		"secret.yaml":     secretList,
 	}
 
 	core.GinkgoWriter.Println("----------------------- Dumping namespace " + ns + " -----------------------")
@@ -151,6 +157,12 @@ func DumpNamespace(ctx context.Context, cli client.Client, ns string) {
 		}
 	}
 
+	// Retrieve logs for all pods (in the namespace)
+	podLogFiles := retrievePodLogs(ctx, cli, ns)
+	for k, v := range podLogFiles {
+		k8s[k] = v
+	}
+
 	// Create the output file
 	fileName := "k8s-dump-" + ns + ".tar.gz"
 	outFile, err := os.Create(fileName)
@@ -161,6 +173,59 @@ func DumpNamespace(ctx context.Context, cli client.Client, ns string) {
 	if err := createArchive(outFile, k8s); err != nil {
 		log.Fatalf("Failed to create %s: %v", fileName, err)
 	}
+}
+
+func retrievePodLogs(ctx context.Context, cli client.Client, ns string) map[string]logTarget {
+	podLogs := make(map[string]logTarget)
+
+	podList := &v1.PodList{}
+	if err := cli.List(ctx, podList, client.InNamespace(ns)); err != nil {
+		log.Printf("failed to list pods in namespace %q: %v", ns, err)
+		return podLogs
+	}
+
+	restCfg, err := config.GetConfig()
+	if err != nil {
+		log.Printf("failed to retrieve REST configuration: %v", err)
+		return podLogs
+	}
+	clientset, err := kubernetes.NewForConfig(restCfg)
+	if err != nil {
+		log.Printf("failed to create Kubernetes clientset: %v", err)
+		return podLogs
+	}
+
+	for _, pod := range podList.Items {
+		podLogOptions := v1.PodLogOptions{}
+		req := clientset.CoreV1().Pods(ns).GetLogs(pod.Name, &podLogOptions)
+
+		stream, err := req.Stream(ctx)
+		if err != nil {
+			// Ensure we close the stream if it is non-nil
+			if stream != nil {
+				_ = stream.Close()
+			}
+			log.Printf("failed to open log stream for pod %q: %v", pod.Name, err)
+			continue
+		}
+
+		logData, err := io.ReadAll(stream)
+		if closeErr := stream.Close(); closeErr != nil {
+			log.Printf("failed to close log stream for pod %q: %v", pod.Name, closeErr)
+		}
+		if err != nil {
+			log.Printf("failed to read log stream for pod %q: %v", pod.Name, err)
+			continue
+		}
+
+		fileKey := "pod-logs/" + pod.Name + ".log"
+		podLogs[fileKey] = logTarget{
+			reader: strings.NewReader(string(logData)),
+			size:   int64(len(logData)),
+		}
+	}
+
+	return podLogs
 }
 
 func dumpK8sObjects(ctx context.Context, cli client.Client, list client.ObjectList, namespace string) (string, error) {

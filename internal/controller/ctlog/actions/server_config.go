@@ -2,7 +2,10 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"maps"
+	"slices"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -12,12 +15,12 @@ import (
 	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/controller/labels"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
-	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels2 "k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 const (
@@ -73,11 +76,11 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 
 	switch {
 	case instance.Status.TreeID == nil:
-		return i.Failed(fmt.Errorf("%s: %v", i.Name(), ctlogUtils.TreeNotSpecified))
+		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.TreeNotSpecified), instance)
 	case instance.Status.PrivateKeyRef == nil:
-		return i.Failed(fmt.Errorf("%s: %v", i.Name(), ctlogUtils.PrivateKeyNotSpecified))
+		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.PrivateKeyNotSpecified), instance)
 	case instance.Spec.Trillian.Port == nil:
-		return i.Failed(fmt.Errorf("%s: %v", i.Name(), ctlogUtils.TrillianPortNotSpecified))
+		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("%s: %v", i.Name(), ctlogUtils.TrillianPortNotSpecified)), instance)
 	case instance.Spec.Trillian.Address == "":
 		instance.Spec.Trillian.Address = fmt.Sprintf("%s.%s.svc", trillian.LogserverDeploymentName, instance.Namespace)
 	}
@@ -133,7 +136,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	if _, err = utils.CreateOrUpdate(ctx, i.Client,
 		newConfig,
 		ensure.ControllerReference[*corev1.Secret](instance, i.Client),
-		ensure.Labels[*corev1.Secret](maps.Keys(configLabels), configLabels),
+		ensure.Labels[*corev1.Secret](slices.Collect(maps.Keys(configLabels)), configLabels),
 		utils.EnsureSecretData(true, cfg),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Server config: %w", err), instance,
@@ -146,13 +149,37 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 			})
 	}
 
-	// try to discover existing config and clear them out
+	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
+
+	i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigCreated", "Secret with ctlog configuration created: %s", newConfig.Name)
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:               ConfigCondition,
+		Status:             metav1.ConditionTrue,
+		Reason:             constants.Ready,
+		Message:            "Server config created",
+		ObservedGeneration: instance.Generation,
+	})
+	result := i.StatusUpdate(ctx, instance)
+	if action.IsSuccess(result) {
+		i.cleanup(ctx, instance, configLabels)
+	}
+	return result
+}
+
+func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.CTlog, configLabels map[string]string) {
+	if instance.Status.ServerConfigRef == nil || instance.Status.ServerConfigRef.Name == "" {
+		i.Logger.Error(errors.New("new Secret name is empty"), "unable to clean old objects", "namespace", instance.Namespace)
+		return
+	}
+
+	// try to discover existing secrets and clear them out
 	partialConfigs, err := utils.ListSecrets(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(configLabels).String())
 	if err != nil {
 		i.Logger.Error(err, "problem with listing configmaps", "namespace", instance.Namespace)
+		return
 	}
 	for _, partialConfig := range partialConfigs.Items {
-		if partialConfig.Name == newConfig.Name {
+		if partialConfig.Name == instance.Status.ServerConfigRef.Name {
 			continue
 		}
 
@@ -165,18 +192,6 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		i.Logger.Info("Remove invalid Secret with ctlog configuration", "Name", partialConfig.Name)
 		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigDeleted", "Secret with ctlog configuration deleted: %s", partialConfig.Name)
 	}
-
-	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
-
-	i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigCreated", "Secret with ctlog configuration created: %s", newConfig.Name)
-	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:               ConfigCondition,
-		Status:             metav1.ConditionTrue,
-		Reason:             constants.Ready,
-		Message:            "Server config created",
-		ObservedGeneration: instance.Generation,
-	})
-	return i.StatusUpdate(ctx, instance)
 }
 
 func (i serverConfig) handlePrivateKey(instance *rhtasv1alpha1.CTlog) (*ctlogUtils.KeyConfig, error) {

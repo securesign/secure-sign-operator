@@ -128,15 +128,13 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		backfillredis.NewBackfillRedisCronJobAction(),
 
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.Rekor](),
-		// INITIALIZE
+
 		server.NewInitializeAction(),
 		server.NewResolvePubKeyAction(),
-
 		ui.NewInitializeAction(),
 		redis.NewInitializeAction(),
 
-		// INITIALIZE -> READY
-		actions2.NewInitializeAction(),
+		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.Rekor](),
 	}
 
 	for _, a := range actions {
@@ -158,7 +156,7 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 // SetupWithManager sets up the controller with the Manager.
 func (r *RekorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Filter out with the pause annotation.
-	pause, err := olpredicate.NewPause(annotations.PausedReconciliation)
+	pause, err := olpredicate.NewPause[client.Object](annotations.PausedReconciliation)
 	if err != nil {
 		return err
 	}

@@ -3,6 +3,8 @@ package actions
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure/deployment"
@@ -18,7 +20,6 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
-	"golang.org/x/exp/maps"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -81,22 +82,16 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Timest
 		},
 		i.ensureDeployment(instance, RBACName, labels),
 		ensure.ControllerReference[*apps.Deployment](instance, i.Client),
-		ensure.Labels[*apps.Deployment](maps.Keys(labels), labels),
+		ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
 		deployment.TrustedCA(instance.GetTrustedCA(), actions.ServerDeploymentName),
 	); err != nil {
-		return i.Error(ctx, fmt.Errorf("could not create TSA Server: %w", err), instance, metav1.Condition{
-			Type:               TSAServerCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             constants.Failure,
-			Message:            err.Error(),
-			ObservedGeneration: instance.Generation,
-		})
+		return i.Error(ctx, fmt.Errorf("could not create TSA Server: %w", err), instance)
 	}
 
 	if result != controllerutil.OperationResultNone {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               TSAServerCondition,
+			Type:               constants.Ready,
 			Status:             metav1.ConditionFalse,
 			Reason:             constants.Creating,
 			Message:            "TSA server deployment created",

@@ -2,8 +2,11 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"maps"
 	"reflect"
+	"slices"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -12,7 +15,6 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
-	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -88,37 +90,14 @@ func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Reko
 			Namespace:    instance.Namespace,
 		},
 	}
+
 	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		newConfig,
 		ensure.ControllerReference[*v1.ConfigMap](instance, i.Client),
-		ensure.Labels[*v1.ConfigMap](maps.Keys(labels), labels),
+		ensure.Labels[*v1.ConfigMap](slices.Collect(maps.Keys(labels)), labels),
 		kubernetes.EnsureConfigMapData(true, content),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create sharding config: %w", err), instance)
-	}
-
-	// remove old server configmaps
-	partialConfigs, err := kubernetes.ListConfigMaps(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(labels).String())
-	if err != nil {
-		i.Logger.Error(err, "problem with finding configmap")
-	}
-	for _, partialConfig := range partialConfigs.Items {
-		if partialConfig.Name == newConfig.Name {
-			continue
-		}
-
-		err = i.Client.Delete(ctx, &v1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      partialConfig.Name,
-				Namespace: partialConfig.Namespace,
-			},
-		})
-		if err != nil {
-			i.Logger.Error(err, "problem with deleting configmap", "name", partialConfig.Name)
-		} else {
-			i.Logger.Info("Remove invalid ConfigMap with rekor-sharding configuration", "name", partialConfig.Name)
-			i.Recorder.Eventf(instance, v1.EventTypeNormal, "ShardingConfigDeleted", "ConfigMap with sharding configuration deleted: %s", partialConfig.Name)
-		}
 	}
 
 	i.Recorder.Eventf(instance, v1.EventTypeNormal, "ShardingConfigCreated", "ConfigMap with sharding configuration created: %s", newConfig.Name)
@@ -130,7 +109,45 @@ func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Reko
 		Reason:  constants.Creating,
 		Message: "Sharding config created",
 	})
-	return i.StatusUpdate(ctx, instance)
+
+	result := i.StatusUpdate(ctx, instance)
+	if action.IsSuccess(result) {
+		i.cleanup(ctx, instance, labels)
+	}
+	return result
+}
+
+func (i shardingConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.Rekor, configLabels map[string]string) {
+	if instance.Status.ServerConfigRef == nil || instance.Status.ServerConfigRef.Name == "" {
+		i.Logger.Error(errors.New("new ConfigMap name is empty"), "unable to clean old objects", "namespace", instance.Namespace)
+		return
+	}
+
+	// remove old server configmaps
+	partialConfigs, err := kubernetes.ListConfigMaps(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(configLabels).String())
+	if err != nil {
+		i.Logger.Error(err, "problem with finding configmap")
+		return
+	}
+	for _, partialConfig := range partialConfigs.Items {
+		if partialConfig.Name == instance.Status.ServerConfigRef.Name {
+			continue
+		}
+
+		err = i.Client.Delete(ctx, &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      partialConfig.Name,
+				Namespace: partialConfig.Namespace,
+			},
+		})
+		if err != nil {
+			i.Logger.Error(err, "problem with deleting configmap", "name", partialConfig.Name)
+			i.Recorder.Eventf(instance, v1.EventTypeWarning, "ShardingConfigDeleted", "Unable to delete secret: %s", partialConfig.Name)
+			continue
+		}
+		i.Logger.Info("Remove invalid ConfigMap with rekor-sharding configuration", "name", partialConfig.Name)
+		i.Recorder.Eventf(instance, v1.EventTypeNormal, "ShardingConfigDeleted", "ConfigMap with sharding configuration deleted: %s", partialConfig.Name)
+	}
 }
 
 func createShardingConfigData(sharding []rhtasv1alpha1.RekorLogRange) (map[string]string, error) {

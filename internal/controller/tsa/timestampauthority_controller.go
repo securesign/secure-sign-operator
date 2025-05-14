@@ -83,7 +83,7 @@ func (r *TimestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 	target := instance.DeepCopy()
 	actions := []action.Action[*rhtasv1alpha1.TimestampAuthority]{
 		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.TimestampAuthority](func(ta *rhtasv1alpha1.TimestampAuthority) []string {
-			components := []string{actions.TSASignerCondition, actions.TSAServerCondition}
+			components := []string{actions.TSASignerCondition}
 			return components
 		}),
 		actions.NewGenerateSignerAction(),
@@ -97,7 +97,10 @@ func (r *TimestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 		actions.NewMonitoringAction(),
 
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.TimestampAuthority](),
+
 		actions.NewInitializeAction(),
+
+		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.TimestampAuthority](),
 	}
 
 	for _, a := range actions {
@@ -119,7 +122,7 @@ func (r *TimestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 // SetupWithManager sets up the controller with the Manager.
 func (r *TimestampAuthorityReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Filter out with the pause annotation.
-	pause, err := olpredicate.NewPause(annotations.PausedReconciliation)
+	pause, err := olpredicate.NewPause[client.Object](annotations.PausedReconciliation)
 	if err != nil {
 		return err
 	}

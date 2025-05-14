@@ -58,7 +58,7 @@ type FulcioCert struct {
 type FulcioConfig struct {
 	// OIDC Configuration
 	// +optional
-	OIDCIssuers []OIDCIssuer `json:"OIDCIssuers,omitempty"`
+	OIDCIssuers []OIDCIssuer `json:"OIDCIssuers,omitempty" yaml:"oidc-issuers,omitempty"`
 
 	// A meta issuer has a templated URL of the form:
 	//   https://oidc.eks.*.amazonaws.com/id/*
@@ -68,7 +68,7 @@ type FulcioConfig struct {
 	// * https://oidc.eks.us-west-2.amazonaws.com/id/B02C93B6A2D30341AD01E1B6D48164CB
 	// * https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster
 	// +optional
-	MetaIssuers []OIDCIssuer `json:"MetaIssuers,omitempty"`
+	MetaIssuers []OIDCIssuer `json:"MetaIssuers,omitempty" yaml:"meta-issuers,omitempty"`
 }
 
 type OIDCIssuer struct {

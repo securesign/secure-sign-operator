@@ -7,6 +7,8 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common"
@@ -16,7 +18,6 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
-	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -192,8 +193,8 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 
 	if _, err = k8sutils.CreateOrUpdate(ctx, g.Client,
 		certificateChain,
-		ensure.Labels[*v1.Secret](maps.Keys(componentLabels), componentLabels),
-		ensure.Labels[*v1.Secret](maps.Keys(certLabels), certLabels),
+		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(componentLabels)), componentLabels),
+		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(certLabels)), certLabels),
 		ensure.Annotations[*v1.Secret](managedAnnotations, anno),
 		k8sutils.EnsureSecretData(true, tsaCertChainConfig.ToMap()),
 	); err != nil {

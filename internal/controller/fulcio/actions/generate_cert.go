@@ -6,6 +6,8 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/common"
@@ -15,7 +17,7 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/controller/labels"
-	"golang.org/x/exp/maps"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -80,25 +82,18 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 	}
 
 	if instance.Spec.Certificate.PrivateKeyRef == nil && instance.Spec.Certificate.CARef != nil {
-		err := fmt.Errorf("missing private key for CA certificate")
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		err := reconcile.TerminalError(fmt.Errorf("missing private key for CA certificate"))
+		return g.Error(ctx, err, instance, metav1.Condition{
 			Type:    CertCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
-			Message: err.Error(),
-		})
-		return g.FailedWithStatusUpdate(ctx, err, instance)
 	}
 
 	instance.Status.Certificate = instance.Spec.Certificate.DeepCopy()
 	if err := g.calculateHostname(ctx, instance); err != nil {
-		return g.Failed(err)
+		return g.Error(ctx, err, instance)
 	}
 
 	//Check if a secret for the  fulcio cert already exists and validate
@@ -111,7 +106,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 		if equality.Semantic.DeepDerivative(g.certMatchingAnnotations(instance), partialSecret.GetAnnotations()) {
 			// certificate is valid
 			if secret, err := k8sutils.GetSecret(g.Client, partialSecret.Namespace, partialSecret.Name); err != nil {
-				return g.Failed(fmt.Errorf("can't load CA secret %w", err))
+				return g.Error(ctx, fmt.Errorf("can't load CA secret %w", err), instance)
 			} else {
 				g.alignStatusFields(secret, instance)
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -125,19 +120,12 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 
 		// invalidate certificate
 		if err := labels.Remove(ctx, partialSecret, g.Client, FulcioCALabel); err != nil {
-			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			return g.Error(ctx, err, instance, metav1.Condition{
 				Type:    CertCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  constants.Failure,
 				Message: err.Error(),
 			})
-			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:    constants.Ready,
-				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
-				Message: err.Error(),
-			})
-			return g.FailedWithStatusUpdate(ctx, err, instance)
 		}
 		message := fmt.Sprintf("Removed '%s' label from %s secret", FulcioCALabel, partialSecret.Name)
 		g.Recorder.Event(instance, v1.EventTypeNormal, "CertificateSecretLabelRemoved", message)
@@ -176,8 +164,8 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 	}
 	if _, err = k8sutils.CreateOrUpdate(ctx, g.Client,
 		newCert,
-		ensure.Labels[*v1.Secret](maps.Keys(componentLabels), componentLabels),
-		ensure.Labels[*v1.Secret](maps.Keys(keyLabels), keyLabels),
+		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(componentLabels)), componentLabels),
+		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(keyLabels)), keyLabels),
 		ensure.Annotations[*v1.Secret](managedAnnotations, annotations),
 		k8sutils.EnsureSecretData(true, cert.ToData()),
 	); err != nil {

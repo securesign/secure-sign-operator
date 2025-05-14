@@ -4,7 +4,6 @@ import (
 	"github.com/go-logr/logr"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/controller/common/action"
@@ -21,7 +20,6 @@ import (
 func FakeClientBuilder() *fake.ClientBuilder {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(v1.AddToScheme(scheme))

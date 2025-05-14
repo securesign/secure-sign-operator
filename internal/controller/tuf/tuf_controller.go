@@ -106,6 +106,8 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.Tuf](),
 
 		actions.NewInitializeAction(),
+
+		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.Tuf](),
 	}
 
 	for _, a := range acs {
@@ -131,7 +133,7 @@ func (r *TufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	)
 
 	// Filter out with the pause annotation.
-	pause, err := olpredicate.NewPause(annotations.PausedReconciliation)
+	pause, err := olpredicate.NewPause[client.Object](annotations.PausedReconciliation)
 	if err != nil {
 		return err
 	}

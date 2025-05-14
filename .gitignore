@@ -20,6 +20,9 @@ Dockerfile.cross
 
 # Kubernetes Generated files - skip generated files, except for vendored files
 
+# Go project Generated files
+internal/images/embed/images.env
+
 # Go workspace file
 go.work
 

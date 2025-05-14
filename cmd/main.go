@@ -19,24 +19,20 @@ package main
 import (
 	"crypto/tls"
 	"flag"
-
-	"github.com/securesign/operator/internal/images"
-
-	"net/http"
 	"os"
 	"strconv"
+
+	"github.com/securesign/operator/internal/images"
 
 	"k8s.io/klog/v2"
 
 	"k8s.io/utils/ptr"
 
-	"github.com/securesign/operator/internal/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/config"
 
 	consolev1 "github.com/openshift/api/console/v1"
 	v1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/securesign/operator/internal/clidownload"
 	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/constants"
@@ -75,7 +71,6 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(rhtasv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(v1.AddToScheme(scheme))
@@ -110,6 +105,7 @@ func main() {
 	utils.RelatedImageFlag("trillian-log-server-image", images.TrillianServer, "The image used for trillian log server.")
 	utils.RelatedImageFlag("trillian-db-image", images.TrillianDb, "The image used for trillian's database.")
 	utils.RelatedImageFlag("trillian-netcat-image", images.TrillianNetcat, "The image used for trillian netcat.")
+	utils.RelatedImageFlag("trillian-create-tree-image", images.TrillianCreateTree, "The image used to create a trillian tree.")
 	utils.RelatedImageFlag("fulcio-server-image", images.FulcioServer, "The image used for the fulcio server.")
 	utils.RelatedImageFlag("rekor-redis-image", images.RekorRedis, "The image used for redis.")
 	utils.RelatedImageFlag("rekor-server-image", images.RekorServer, "The image used for rekor server.")
@@ -127,19 +123,6 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(klog.NewKlogr())
-
-	// Register custom panic handlers
-	utilruntime.PanicHandlers = append(utilruntime.PanicHandlers, func(r interface{}) {
-		if r == http.ErrAbortHandler {
-			// honor the http.ErrAbortHandler sentinel panic value:
-			//   ErrAbortHandler is a sentinel panic value to abort a handler.
-			//   While any panic from ServeHTTP aborts the response to the client,
-			//   panicking with ErrAbortHandler also suppresses .
-			return
-		}
-
-		metrics.ReconcilePanics.Inc()
-	})
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will

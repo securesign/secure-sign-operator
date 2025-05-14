@@ -105,6 +105,7 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		actions.NewStatusUrlAction(),
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.Fulcio](),
 		actions.NewInitializeAction(),
+		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.Fulcio](),
 	}
 
 	for _, a := range acs {
@@ -126,7 +127,7 @@ func (r *FulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 // SetupWithManager sets up the controller with the Manager.
 func (r *FulcioReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Filter out with the pause annotation.
-	pause, err := olpredicate.NewPause(annotations.PausedReconciliation)
+	pause, err := olpredicate.NewPause[client.Object](annotations.PausedReconciliation)
 	if err != nil {
 		return err
 	}

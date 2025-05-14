@@ -3,6 +3,8 @@ package backfillredis
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/securesign/operator/internal/images"
 
@@ -15,7 +17,6 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
-	"golang.org/x/exp/maps"
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,7 +69,7 @@ func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 		},
 		i.ensureBacfillCronJob(instance),
 		ensure.ControllerReference[*batchv1.CronJob](instance, i.Client),
-		ensure.Labels[*batchv1.CronJob](maps.Keys(labels), labels),
+		ensure.Labels[*batchv1.CronJob](slices.Collect(maps.Keys(labels)), labels),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create %s CronJob: %w", actions.BackfillRedisCronJobName, err), instance,
 			metav1.Condition{

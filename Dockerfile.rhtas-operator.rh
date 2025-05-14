@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_1.23@sha256:6a4a05d24acecde63d9c7c8c986ad9e5e20da2c2ce30312b328ed771736e7a1f as builder
+FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_1.23@sha256:44fd8f88f3b6463cda15571260f9ca3a0b78d3c8c8827a338e04ab3a23581a88 as builder
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -16,17 +16,21 @@ COPY cmd/main.go cmd/main.go
 COPY api/ api/
 COPY internal/ internal/
 
+# Copy images config resources
+COPY config/default/images.env config/default/images.env
+RUN go generate -mod=readonly ./...
+
 # Build
 # the GOARCH has not a default value to allow the binary be built according to the host where the command
 # was called. For example, if we call make docker-build in a local env which has the Apple Silicon M1 SO
 # the docker BUILDPLATFORM arg will be linux/arm64 when for Apple x86 it will be linux/amd64. Therefore,
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
-RUN go mod download && \
-    CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -mod=readonly -a -o manager cmd/main.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -mod=readonly -a -o manager cmd/main.go
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal@sha256:fb77e447ab97f3fecd15d2fa5361a99fe2f34b41422e8ebb3612eecd33922fa0
+FROM registry.access.redhat.com/ubi9/ubi-minimal@sha256:e7da3c032ae52bd26e597cc616eed644710e32e5d3bc9212c7edde8ab7799b0e
 WORKDIR /
 COPY --from=builder /workspace/manager .
+COPY LICENSE /licenses/license.txt
 USER 65532:65532
 
 LABEL description="The image for the rhtas-operator."
@@ -38,7 +42,7 @@ LABEL com.redhat.component="rhtas-operator"
 LABEL name="rhtas-operator"
 
 LABEL features.operators.openshift.io/cni="false"
-LABEL features.operators.openshift.io/disconnected="false"
+LABEL features.operators.openshift.io/disconnected="true"
 LABEL features.operators.openshift.io/fips-compliant="false"
 LABEL features.operators.openshift.io/proxy-aware="true"
 LABEL features.operators.openshift.io/cnf="false"

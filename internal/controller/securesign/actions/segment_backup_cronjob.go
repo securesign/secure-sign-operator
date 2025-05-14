@@ -3,6 +3,8 @@ package actions
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 
 	"github.com/robfig/cron/v3"
@@ -12,7 +14,6 @@ import (
 	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/images"
-	"golang.org/x/exp/maps"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -73,7 +74,7 @@ func (i segmentBackupCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 		segmentBackupCronJob,
 		i.ensureSegmentBackupCronJob(),
 		ensure.ControllerReference[*batchv1.CronJob](instance, i.Client),
-		ensure.Labels[*batchv1.CronJob](maps.Keys(labels), labels),
+		ensure.Labels[*batchv1.CronJob](slices.Collect(maps.Keys(labels)), labels),
 		func(object *batchv1.CronJob) error {
 			ensure.SetProxyEnvs(object.Spec.JobTemplate.Spec.Template.Spec.Containers)
 			return nil

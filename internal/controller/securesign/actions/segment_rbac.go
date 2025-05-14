@@ -3,12 +3,13 @@ package actions
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 
 	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/labels"
-	"golang.org/x/exp/maps"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -68,7 +69,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 		},
 	},
 		ensure.ControllerReference[*v1.ServiceAccount](instance, i.Client),
-		ensure.Labels[*v1.ServiceAccount](maps.Keys(jobLabels), jobLabels),
+		ensure.Labels[*v1.ServiceAccount](slices.Collect(maps.Keys(jobLabels)), jobLabels),
 	); err != nil {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    MetricsCondition,
@@ -86,7 +87,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 			Namespace: OpenshiftMonitoringNS,
 		},
 	},
-		ensure.Labels[*rbacv1.Role](maps.Keys(jobLabels), jobLabels),
+		ensure.Labels[*rbacv1.Role](slices.Collect(maps.Keys(jobLabels)), jobLabels),
 		kubernetes.EnsureRoleRules(
 			rbacv1.PolicyRule{
 
@@ -118,7 +119,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 			Namespace: OpenshiftMonitoringNS,
 		},
 	},
-		ensure.Labels[*rbacv1.RoleBinding](maps.Keys(jobLabels), jobLabels),
+		ensure.Labels[*rbacv1.RoleBinding](slices.Collect(maps.Keys(jobLabels)), jobLabels),
 		kubernetes.EnsureRoleBinding(
 			rbacv1.RoleRef{
 				APIGroup: v1.SchemeGroupVersion.Group,
@@ -143,7 +144,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 			Name: fmt.Sprintf(clusterWideNamePattern, instance.Namespace, "clusterMonitoringRoleBinding"),
 		},
 	},
-		ensure.Labels[*rbacv1.ClusterRoleBinding](maps.Keys(jobLabels), jobLabels),
+		ensure.Labels[*rbacv1.ClusterRoleBinding](slices.Collect(maps.Keys(jobLabels)), jobLabels),
 		kubernetes.EnsureClusterRoleBinding(
 			rbacv1.RoleRef{
 				APIGroup: v1.SchemeGroupVersion.Group,
@@ -168,7 +169,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 			Name: fmt.Sprintf(clusterWideNamePattern, instance.Namespace, "clusterRole"),
 		},
 	},
-		ensure.Labels[*rbacv1.ClusterRole](maps.Keys(jobLabels), jobLabels),
+		ensure.Labels[*rbacv1.ClusterRole](slices.Collect(maps.Keys(jobLabels)), jobLabels),
 		kubernetes.EnsureClusterRoleRules(
 			rbacv1.PolicyRule{
 				APIGroups:     []string{"operator.openshift.io"},
@@ -199,7 +200,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 			Name: fmt.Sprintf(clusterWideNamePattern, instance.Namespace, "clusterRoleBinding"),
 		},
 	},
-		ensure.Labels[*rbacv1.ClusterRoleBinding](maps.Keys(jobLabels), jobLabels),
+		ensure.Labels[*rbacv1.ClusterRoleBinding](slices.Collect(maps.Keys(jobLabels)), jobLabels),
 		kubernetes.EnsureClusterRoleBinding(
 			rbacv1.RoleRef{
 				APIGroup: v1.SchemeGroupVersion.Group,
