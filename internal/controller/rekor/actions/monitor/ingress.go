@@ -1,4 +1,4 @@
-package otelcollector
+package monitor
 
 import (
 	"context"
@@ -45,8 +45,8 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor
 		result controllerutil.OperationResult
 		err    error
 	)
-	ok := types.NamespacedName{Name: actions.OtelCollectorDeploymentName, Namespace: instance.Namespace}
-	labels := labels.For(actions.OtelCollectorComponentName, actions.OtelCollectorDeploymentName, instance.Name)
+	ok := types.NamespacedName{Name: actions.MonitorDeploymentName, Namespace: instance.Namespace}
+	labels := labels.For(actions.MonitorComponentName, actions.MonitorDeploymentName, instance.Name)
 
 	svc := &v1.Service{}
 	if err := i.Client.Get(ctx, ok, svc); err != nil {
@@ -57,7 +57,7 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor
 		&v2.Ingress{
 			ObjectMeta: metav1.ObjectMeta{Name: svc.Name, Namespace: svc.Namespace},
 		},
-		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.ExternalAccess, actions.OtelCollectorPrometheusPortName),
+		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.ExternalAccess, actions.MonitorMetricsPortName),
 		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
 		// add route selector labels
 		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.ExternalAccess.RouteSelectorLabels)), instance.Spec.ExternalAccess.RouteSelectorLabels),
@@ -70,7 +70,7 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor
 
 	if result != controllerutil.OperationResultNone {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.OtelCollectorCondition,
+			Type:    actions.MonitorCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Creating,
 			Message: "Ingress created",
