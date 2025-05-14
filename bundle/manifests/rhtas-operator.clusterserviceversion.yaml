@@ -297,7 +297,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:0332d8e99dca5eb443a0de6800817d286057498374faa7a9d59b592efb453a3a
-    createdAt: "2025-05-06T10:29:24Z"
+    createdAt: "2025-05-13T21:58:37Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -644,15 +644,17 @@ spec:
                 - name: RELATED_IMAGE_TRILLIAN_CREATE_TREE
                   value: registry.redhat.io/rhtas/createtree-rhel9@sha256:56518f269821a2ef6f6e7158933694c25eda132cbf5db0c3e81aa274c22fa3f4
                 - name: RELATED_IMAGE_FULCIO_SERVER
-                  value: registry.redhat.io/rhtas/fulcio-rhel9@sha256:9ccb7764f3812c71a1a802c39c722360a35b9e98239ac4b1761f5dfae1e1c0ac
+                  value: registry.redhat.io/rhtas/fulcio-rhel9@sha256:aed2deb06ee8a121d68e38e6ed07bf378213f50e646278004a54108857973fc2
                 - name: RELATED_IMAGE_REKOR_MONITOR
-                  value: registry.redhat.io/rhtas/rekor-monitor-rhel9@sha256:440cda39c67da81fa8f7e8b1fc4b78694c8fc5e932f62744210db66659492b55
+                  value: quay.io/securesign/rekor-monitor@sha256:d4ef08c3b2fc42c922b8c26eb1a7a736e874e8b23d5bed066daf912b06bcd404
                 - name: RELATED_IMAGE_REKOR_REDIS
                   value: registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:2f8e0dace36fe0631ade827d21bf48c25e502a02b0e8d20d26804cf75880ec02
                 - name: RELATED_IMAGE_REKOR_SERVER
                   value: registry.redhat.io/rhtas/rekor-server-rhel9@sha256:d2b2c382f0351e8c46922fc11aa4bc73ce63a77559981c6130faf922c8611dd8
                 - name: RELATED_IMAGE_REKOR_SEARCH_UI
                   value: registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:8ca88a1bdbf69700795cedb4ffac83b6b186f9e091a9da54b1826021c686e6ec
+                - name: RELATED_IMAGE_OTEL_COLLECTOR
+                  value: registry.redhat.io/rhosdt/opentelemetry-collector-rhel8@sha256:dcf5e9f9d0c39167ea3abacbcf8b40d9df10d20878932c2e517b53ccc1e470db
                 - name: RELATED_IMAGE_BACKFILL_REDIS
                   value: registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:c748eed487228737c0543438a54252829644c26604742371650166c5361f88a6
                 - name: RELATED_IMAGE_TUF
@@ -784,9 +786,9 @@ spec:
     name: trillian-netcat
   - image: registry.redhat.io/rhtas/createtree-rhel9@sha256:56518f269821a2ef6f6e7158933694c25eda132cbf5db0c3e81aa274c22fa3f4
     name: trillian-create-tree
-  - image: registry.redhat.io/rhtas/fulcio-rhel9@sha256:9ccb7764f3812c71a1a802c39c722360a35b9e98239ac4b1761f5dfae1e1c0ac
+  - image: registry.redhat.io/rhtas/fulcio-rhel9@sha256:aed2deb06ee8a121d68e38e6ed07bf378213f50e646278004a54108857973fc2
     name: fulcio-server
-  - image: registry.redhat.io/rhtas/rekor-monitor-rhel9@sha256:440cda39c67da81fa8f7e8b1fc4b78694c8fc5e932f62744210db66659492b55
+  - image: quay.io/securesign/rekor-monitor@sha256:d4ef08c3b2fc42c922b8c26eb1a7a736e874e8b23d5bed066daf912b06bcd404
     name: rekor-monitor
   - image: registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:2f8e0dace36fe0631ade827d21bf48c25e502a02b0e8d20d26804cf75880ec02
     name: rekor-redis
@@ -794,6 +796,8 @@ spec:
     name: rekor-server
   - image: registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:8ca88a1bdbf69700795cedb4ffac83b6b186f9e091a9da54b1826021c686e6ec
     name: rekor-search-ui
+  - image: registry.redhat.io/rhosdt/opentelemetry-collector-rhel8@sha256:dcf5e9f9d0c39167ea3abacbcf8b40d9df10d20878932c2e517b53ccc1e470db
+    name: otel-collector
   - image: registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:c748eed487228737c0543438a54252829644c26604742371650166c5361f88a6
     name: backfill-redis
   - image: registry.redhat.io/rhtas/tuffer-rhel9@sha256:6884b1997a98a0c6b83543a64d849408a658e45021f2050b267c6de184edce72
