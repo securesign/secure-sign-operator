@@ -871,6 +871,11 @@ func (in *RekorStatus) DeepCopyInto(out *RekorStatus) {
 		*out = new(LocalObjectReference)
 		**out = **in
 	}
+	if in.OtelCollectorConfigRef != nil {
+		in, out := &in.OtelCollectorConfigRef, &out.OtelCollectorConfigRef
+		*out = new(LocalObjectReference)
+		**out = **in
+	}
 	in.Signer.DeepCopyInto(&out.Signer)
 	if in.TreeID != nil {
 		in, out := &in.TreeID, &out.TreeID
