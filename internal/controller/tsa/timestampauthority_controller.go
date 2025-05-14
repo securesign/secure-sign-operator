@@ -83,7 +83,7 @@ func (r *TimestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 	target := instance.DeepCopy()
 	actions := []action.Action[*rhtasv1alpha1.TimestampAuthority]{
 		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.TimestampAuthority](func(ta *rhtasv1alpha1.TimestampAuthority) []string {
-			components := []string{actions.TSASignerCondition, actions.TSAServerCondition}
+			components := []string{actions.TSASignerCondition}
 			return components
 		}),
 		actions.NewGenerateSignerAction(),
@@ -97,7 +97,10 @@ func (r *TimestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 		actions.NewMonitoringAction(),
 
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.TimestampAuthority](),
+
 		actions.NewInitializeAction(),
+
+		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.TimestampAuthority](),
 	}
 
 	for _, a := range actions {

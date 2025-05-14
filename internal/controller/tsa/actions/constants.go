@@ -5,7 +5,6 @@ const (
 	ComponentName      = "timestamp-authority"
 	RBACName           = "tsa"
 	MonitoringRoleName = "prometheus-k8s-tsa"
-	TSAServerCondition = "TSAServerCondition"
 	TSASignerCondition = "TSASignerCondition"
 	ServerPortName     = "tsa-server"
 	ServerPort         = 3000

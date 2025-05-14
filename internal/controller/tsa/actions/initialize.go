@@ -26,10 +26,7 @@ func (i initializeAction) Name() string {
 }
 
 func (i initializeAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.TimestampAuthority) bool {
-	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
-	if c == nil {
-		return false
-	}
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	return c.Reason == constants.Initialize
 }
 
@@ -42,7 +39,7 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Ti
 	ok, err = commonUtils.DeploymentIsRunning(ctx, i.Client, instance.Namespace, labels)
 	switch {
 	case errors.Is(err, commonUtils.ErrDeploymentNotReady):
-		i.Logger.Error(err, "deployment is not ready")
+		i.Logger.Info("deployment is not ready", "error", err.Error())
 	case err != nil:
 		return i.Error(ctx, err, instance)
 	}
@@ -55,21 +52,8 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Ti
 			Message:            "Waiting for deployment to be ready",
 			ObservedGeneration: instance.Generation,
 		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               TSAServerCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             constants.Initialize,
-			Message:            "Waiting for deployment to be ready",
-			ObservedGeneration: instance.Generation,
-		})
 		return i.StatusUpdate(ctx, instance)
 	}
 
-	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: TSAServerCondition,
-		Status: metav1.ConditionTrue, Reason: constants.Ready, ObservedGeneration: instance.Generation})
-
-	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
-		Status: metav1.ConditionTrue, Reason: constants.Ready, ObservedGeneration: instance.Generation})
-
-	return i.StatusUpdate(ctx, instance)
+	return i.Continue()
 }

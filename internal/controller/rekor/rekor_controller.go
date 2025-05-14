@@ -128,15 +128,13 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		backfillredis.NewBackfillRedisCronJobAction(),
 
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.Rekor](),
-		// INITIALIZE
+
 		server.NewInitializeAction(),
 		server.NewResolvePubKeyAction(),
-
 		ui.NewInitializeAction(),
 		redis.NewInitializeAction(),
 
-		// INITIALIZE -> READY
-		actions2.NewInitializeAction(),
+		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.Rekor](),
 	}
 
 	for _, a := range actions {

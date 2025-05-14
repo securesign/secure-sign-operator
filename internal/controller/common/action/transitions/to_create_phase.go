@@ -23,7 +23,11 @@ func (i toCreate[T]) Name() string {
 }
 
 func (i toCreate[T]) CanHandle(_ context.Context, instance T) bool {
-	return meta.FindStatusCondition(instance.GetConditions(), constants.Ready).Reason == constants.Pending
+	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
+	if c == nil {
+		return false
+	}
+	return c.Reason == constants.Pending
 }
 
 func (i toCreate[T]) Handle(ctx context.Context, instance T) *action.Result {
