@@ -28,6 +28,8 @@ spec:
               value: PLACEHOLDER
             - name: RELATED_IMAGE_REKOR_SEARCH_UI
               value: PLACEHOLDER
+            - name: RELATED_IMAGE_OTEL_COLLECTOR
+              value: PLACEHOLDER
             - name: RELATED_IMAGE_BACKFILL_REDIS
               value: PLACEHOLDER
             - name: RELATED_IMAGE_TUF
