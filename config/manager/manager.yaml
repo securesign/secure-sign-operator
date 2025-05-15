@@ -2,39 +2,33 @@ apiVersion: v1
 kind: Namespace
 metadata:
   labels:
-    control-plane: operator-controller-manager
-    app.kubernetes.io/name: namespace
-    app.kubernetes.io/instance: operator
-    app.kubernetes.io/component: manager
-    app.kubernetes.io/created-by: rhtas-operator
-    app.kubernetes.io/part-of: rhtas-operator
+    control-plane: controller-manager
+    app.kubernetes.io/name: rhtas-operator
     app.kubernetes.io/managed-by: kustomize
   name: openshift-rhtas-operator
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: operator-controller-manager
+  name: controller-manager
   namespace: openshift-rhtas-operator
   labels:
-    control-plane: operator-controller-manager
-    app.kubernetes.io/name: deployment
-    app.kubernetes.io/instance: operator-controller-manager
-    app.kubernetes.io/component: manager
-    app.kubernetes.io/created-by: rhtas-operator
-    app.kubernetes.io/part-of: rhtas-operator
+    control-plane: controller-manager
+    app.kubernetes.io/name: rhtas-operator
     app.kubernetes.io/managed-by: kustomize
 spec:
   selector:
     matchLabels:
-      control-plane: operator-controller-manager
+      control-plane: controller-manager
+      app.kubernetes.io/name: rhtas-operator
   replicas: 1
   template:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: manager
       labels:
-        control-plane: operator-controller-manager
+        control-plane: controller-manager
+        app.kubernetes.io/name: rhtas-operator
     spec:
       # TODO(user): Uncomment the following code to configure the nodeAffinity expression
       # according to the platforms which are supported by your solution.
@@ -78,6 +72,10 @@ spec:
             drop:
               - "ALL"
         env: []
+        ports:
+          - containerPort: 8081
+            name: health
+            protocol: TCP
         livenessProbe:
           httpGet:
             path: /healthz
@@ -99,5 +97,7 @@ spec:
           requests:
             cpu: 10m
             memory: 64Mi
+        volumeMounts: []
+      volumes: []
       serviceAccountName: operator-controller-manager
       terminationGracePeriodSeconds: 10

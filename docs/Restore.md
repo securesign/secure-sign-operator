@@ -10,13 +10,13 @@ Performing a restore assumes the following:
 If the operator is installed and you wish to perform a restore, use the following command to scale down the operator deployment.
 
 ```sh
-oc scale deploy rhtas-operator-controller-manager --replicas=0 -n openshift-operators
+oc scale deploy rhtas-controller-manager --replicas=0 -n openshift-operators
 ```
 
 Once restore operations are running, you can reactivate the operator by scaling back up its deployment - without enabling the operator persistent volumes are not claimed.
 
 ```sh
-oc scale deploy rhtas-operator-controller-manager --replicas=1 -n openshift-operators
+oc scale deploy rhtas-controller-manager --replicas=1 -n openshift-operators
 ```
 
 ## Cluster restore
