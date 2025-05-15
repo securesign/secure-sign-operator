@@ -27,6 +27,7 @@ import (
 
 	actions2 "github.com/securesign/operator/internal/controller/rekor/actions"
 	backfillredis "github.com/securesign/operator/internal/controller/rekor/actions/backfillRedis"
+	"github.com/securesign/operator/internal/controller/rekor/actions/monitor"
 	"github.com/securesign/operator/internal/controller/rekor/actions/redis"
 	"github.com/securesign/operator/internal/controller/rekor/actions/server"
 	"github.com/securesign/operator/internal/controller/rekor/actions/ui"
@@ -96,7 +97,7 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	target := instance.DeepCopy()
 	actions := []action.Action[*rhtasv1alpha1.Rekor]{
 		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Rekor](func(rekor *rhtasv1alpha1.Rekor) []string {
-			components := []string{actions2.ServerCondition, actions2.RedisCondition, actions2.SignerCondition}
+			components := []string{actions2.ServerCondition, actions2.RedisCondition, actions2.SignerCondition, actions2.MonitorCondition}
 			if *rekor.Spec.RekorSearchUI.Enabled {
 				components = append(components, actions2.UICondition)
 			}
@@ -135,6 +136,10 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		redis.NewInitializeAction(),
 
 		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.Rekor](),
+
+		monitor.NewDeployAction(),
+		monitor.NewCreateServiceAction(),
+		monitor.NewIngressAction(),
 	}
 
 	for _, a := range actions {

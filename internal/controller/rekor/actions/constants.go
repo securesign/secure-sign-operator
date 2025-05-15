@@ -10,6 +10,9 @@ const (
 	RedisDeploymentName        = "rekor-redis"
 	RedisDeploymentPortName    = "resp"
 	RedisDeploymentPort        = 6379
+	MonitorDeploymentName      = "rekor-monitor"
+	MonitorMetricsPortName     = "metrics"
+	MonitorMetricsPort         = 9464
 	SearchUiDeploymentName     = "rekor-search-ui"
 	SearchUiDeploymentPortName = "http"
 	SearchUiDeploymentPort     = 3000
@@ -17,10 +20,12 @@ const (
 	MonitoringRoleName         = "prometheus-k8s-rekor"
 	ServerComponentName        = "rekor-server"
 	RedisComponentName         = "rekor-redis"
+	MonitorComponentName       = "rekor-monitor"
 	UIComponentName            = "rekor-ui"
 	BackfillRedisCronJobName   = "backfill-redis"
 	UICondition                = "UiAvailable"
 	ServerCondition            = "ServerAvailable"
 	RedisCondition             = "RedisAvailable"
+	MonitorCondition           = "MonitorAvailable"
 	SignerCondition            = "SignerAvailable"
 )
