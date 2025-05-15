@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/labels"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -30,7 +29,7 @@ func (i initializeAction) Name() string {
 
 func (i initializeAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	return !meta.IsStatusConditionTrue(instance.Status.Conditions, actions.DbCondition) &&
-		utils.OptionalBool(instance.Spec.Db.Create)
+		enabled(instance)
 }
 
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
