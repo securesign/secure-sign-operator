@@ -29,13 +29,25 @@ type TrillianSpec struct {
 	Db TrillianDB `json:"database,omitempty"`
 	// Enable Monitoring for Logsigner and Logserver
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
-	// Configuration for enabling TLS (Transport Layer Security) encryption for manged log-server and log-signer services.
-	//+optional
-	TLS TLS `json:"tls,omitempty"`
+	// Configuration for Trillian log server service
+	LogServer TrillianLogServer `json:"server,omitempty"`
+	// Configuration for Trillian log signer service
+	LogSigner TrillianLogSigner `json:"signer,omitempty"`
+
 	// ConfigMap with additional bundle of trusted CA
 	//+optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
 }
+
+type trillianService struct {
+	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
+	//+optional
+	TLS TLS `json:"tls,omitempty"`
+}
+
+type TrillianLogServer trillianService
+
+type TrillianLogSigner trillianService
 
 type TrillianDB struct {
 	// Create Database if a database is not created one must be defined using the DatabaseSecret field
@@ -60,10 +72,9 @@ type TrillianDB struct {
 
 // TrillianStatus defines the observed state of Trillian
 type TrillianStatus struct {
-	Db TrillianDB `json:"database,omitempty"`
-	// Configuration for enabling TLS (Transport Layer Security) encryption for manged log-server and log-signer services.
-	//+optional
-	TLS TLS `json:"tls,omitempty"`
+	Db        TrillianDB        `json:"database,omitempty"`
+	LogServer TrillianLogServer `json:"server,omitempty"`
+	LogSigner TrillianLogSigner `json:"signer,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge

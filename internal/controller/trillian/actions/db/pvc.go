@@ -37,7 +37,7 @@ func (i createPvcAction) Name() string {
 
 func (i createPvcAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Creating && utils.OptionalBool(instance.Spec.Db.Create) && instance.Status.Db.Pvc.Name == ""
+	return c.Reason == constants.Creating && enabled(instance) && instance.Status.Db.Pvc.Name == ""
 }
 
 func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {

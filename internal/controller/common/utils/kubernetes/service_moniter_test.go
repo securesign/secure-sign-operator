@@ -101,7 +101,7 @@ func TestEnsureServiceMonitorSpec(t *testing.T) {
 			args: args{
 				endpoints: []serviceMonitorEndpoint{
 					ServiceMonitorEndpoint("http"),
-					ServiceMonitorEndpoint("https"),
+					ServiceMonitorHttpsEndpoint("https", "service.default.svc", nil),
 					ServiceMonitorEndpoint("grpc"),
 				},
 				selectorLabels: map[string]string{

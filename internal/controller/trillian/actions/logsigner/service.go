@@ -49,7 +49,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	labels := labels.For(actions.LogSignerComponentName, actions.LogsignerDeploymentName, instance.Name)
 
 	tlsAnnotations := map[string]string{}
-	if instance.Spec.Db.TLS.CertRef == nil {
+	if specTLS(instance).CertRef == nil {
 		tlsAnnotations[annotations.TLS] = fmt.Sprintf(actions.LogSignerTLSSecret, instance.Name)
 	}
 

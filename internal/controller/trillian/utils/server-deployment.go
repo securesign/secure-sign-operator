@@ -171,9 +171,9 @@ func WithTlsDB(instance *v1alpha1.Trillian, caPath string, name string) func(dep
 	}
 }
 
-func EnsureTLSServer(instance *v1alpha1.Trillian, name string) func(deployment *apps.Deployment) error {
+func EnsureTLS(tlsConfig v1alpha1.TLS, name string) func(deployment *apps.Deployment) error {
 	return func(dp *apps.Deployment) error {
-		if err := deployment.TLS(instance.Status.TLS, name)(dp); err != nil {
+		if err := deployment.TLS(tlsConfig, name)(dp); err != nil {
 			return err
 		}
 

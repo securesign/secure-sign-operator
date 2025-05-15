@@ -87,10 +87,21 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tr
 	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, kubernetes.CreateServiceMonitor(instance.Namespace, actions.LogServerComponentName),
 		ensure.ControllerReference[*unstructured.Unstructured](instance, i.Client),
 		ensure.Labels[*unstructured.Unstructured](slices.Collect(maps.Keys(monitoringLabels)), monitoringLabels),
-		kubernetes.EnsureServiceMonitorSpec(
-			labels.ForComponent(actions.LogServerComponentName, instance.Name),
-			kubernetes.ServiceMonitorEndpoint(actions.MetricsPortName),
-		),
+
+		ensure.Optional(statusTLS(instance).CertRef != nil,
+			kubernetes.EnsureServiceMonitorSpec(
+				labels.ForComponent(actions.LogServerComponentName, instance.Name),
+				kubernetes.ServiceMonitorHttpsEndpoint(
+					actions.MetricsPortName,
+					fmt.Sprintf("%s.%s.svc", actions.LogserverDeploymentName, instance.Namespace),
+					statusTLS(instance).CertRef,
+				),
+			)),
+		ensure.Optional(statusTLS(instance).CertRef == nil,
+			kubernetes.EnsureServiceMonitorSpec(
+				labels.ForComponent(actions.LogServerComponentName, instance.Name),
+				kubernetes.ServiceMonitorEndpoint(actions.MetricsPortName),
+			)),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create serviceMonitor: %w", err), instance,
 			metav1.Condition{

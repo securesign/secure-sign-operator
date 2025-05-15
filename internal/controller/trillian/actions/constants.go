@@ -14,6 +14,7 @@ const (
 
 	LogServerTLSSecret = "%s-trillian-logserver-tls"
 	LogSignerTLSSecret = "%s-trillian-logsigner-tls"
+	DatabaseTLSSecret  = "%s-trillian-db-tls"
 
 	RBACName = "trillian"
 

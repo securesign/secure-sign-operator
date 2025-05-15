@@ -7,7 +7,6 @@ import (
 	"slices"
 
 	"github.com/securesign/operator/internal/controller/annotations"
-	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/labels"
 	v1 "k8s.io/api/core/v1"
@@ -38,7 +37,7 @@ func (i createServiceAction) Name() string {
 
 func (i createServiceAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && utils.OptionalBool(instance.Spec.Db.Create)
+	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && enabled(instance)
 }
 
 func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
@@ -51,8 +50,8 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	labels := labels.For(actions.DbComponentName, actions.DbDeploymentName, instance.Name)
 
 	tlsAnnotations := map[string]string{}
-	if instance.Spec.Db.TLS.CertRef == nil {
-		tlsAnnotations[annotations.TLS] = instance.Name + "-trillian-db-tls"
+	if specTLS(instance).CertRef == nil {
+		tlsAnnotations[annotations.TLS] = fmt.Sprintf(actions.DatabaseTLSSecret, instance.Name)
 	}
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,

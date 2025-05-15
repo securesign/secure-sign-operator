@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"github.com/securesign/operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -17,6 +18,29 @@ type serviceMonitorEndpoint map[string]interface{}
 
 func (t serviceMonitorEndpoint) toMap() map[string]interface{} {
 	return t
+}
+
+func ServiceMonitorHttpsEndpoint(port, serverName string, ca *v1alpha1.SecretKeySelector) serviceMonitorEndpoint {
+	result := map[string]interface{}{
+		"interval": "30s",
+		"port":     port,
+		"scheme":   "https",
+		"tlsConfig": map[string]interface{}{
+			"insecureSkipVerify": true,
+			"serverName":         serverName,
+		},
+	}
+	if ca != nil {
+		tlsConfig := result["tlsConfig"].(map[string]interface{})
+		tlsConfig["ca"] = map[string]interface{}{
+			"secret": map[string]interface{}{
+				"name": ca.Name,
+				"key":  ca.Key,
+			},
+		}
+		tlsConfig["insecureSkipVerify"] = false
+	}
+	return result
 }
 
 func ServiceMonitorEndpoint(port string) serviceMonitorEndpoint {
