@@ -297,7 +297,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:0332d8e99dca5eb443a0de6800817d286057498374faa7a9d59b592efb453a3a
-    createdAt: "2025-05-14T15:47:22Z"
+    createdAt: "2025-05-15T09:49:01Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -646,7 +646,7 @@ spec:
                 - name: RELATED_IMAGE_FULCIO_SERVER
                   value: registry.redhat.io/rhtas/fulcio-rhel9@sha256:aed2deb06ee8a121d68e38e6ed07bf378213f50e646278004a54108857973fc2
                 - name: RELATED_IMAGE_REKOR_MONITOR
-                  value: registry.redhat.io/rhtas/rekor-monitor-rhel9@sha256:87529cd51ada7bb39de23f710c9e47a5a79768279de7178edb480d2e66e996e0
+                  value: registry.redhat.io/rhtas/rekor-monitor-rhel9@sha256:3c0a7844e329debb5e16b5e4f9eaa5bbad9813a122f30abbffa8a5df344ac180
                 - name: RELATED_IMAGE_REKOR_REDIS
                   value: registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:2f8e0dace36fe0631ade827d21bf48c25e502a02b0e8d20d26804cf75880ec02
                 - name: RELATED_IMAGE_REKOR_SERVER
@@ -786,7 +786,7 @@ spec:
     name: trillian-create-tree
   - image: registry.redhat.io/rhtas/fulcio-rhel9@sha256:aed2deb06ee8a121d68e38e6ed07bf378213f50e646278004a54108857973fc2
     name: fulcio-server
-  - image: registry.redhat.io/rhtas/rekor-monitor-rhel9@sha256:87529cd51ada7bb39de23f710c9e47a5a79768279de7178edb480d2e66e996e0
+  - image: registry.redhat.io/rhtas/rekor-monitor-rhel9@sha256:3c0a7844e329debb5e16b5e4f9eaa5bbad9813a122f30abbffa8a5df344ac180
     name: rekor-monitor
   - image: registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:2f8e0dace36fe0631ade827d21bf48c25e502a02b0e8d20d26804cf75880ec02
     name: rekor-redis
