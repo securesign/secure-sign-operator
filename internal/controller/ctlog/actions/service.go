@@ -7,10 +7,12 @@ import (
 	"slices"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/controller/annotations"
 	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/controller/labels"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -43,12 +45,21 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog
 	)
 
 	labels := labels.For(ComponentName, ComponentName, instance.Name)
-
+	tlsAnnotations := map[string]string{}
+	if instance.Spec.TLS.CertRef == nil {
+		tlsAnnotations[annotations.TLS] = fmt.Sprintf(TLSSecret, instance.Name)
+	}
+	var serverPort int32
+	if utils.TlsEnabled(instance) {
+		serverPort = 443
+	} else {
+		serverPort = 80
+	}
 	ports := []v1.ServicePort{
 		{
 			Name:       ServerPortName,
 			Protocol:   v1.ProtocolTCP,
-			Port:       ServerPort,
+			Port:       serverPort,
 			TargetPort: intstr.FromInt32(ServerTargetPort),
 		},
 	}
@@ -68,6 +79,8 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog
 		kubernetes.EnsureServiceSpec(labels, ports...),
 		ensure.ControllerReference[*v1.Service](instance, i.Client),
 		ensure.Labels[*v1.Service](slices.Collect(maps.Keys(labels)), labels),
+		//TLS: Annotate service
+		ensure.Optional(kubernetes.IsOpenShift(), ensure.Annotations[*v1.Service]([]string{annotations.TLS}, tlsAnnotations)),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create service: %w", err), instance)
 	}

@@ -7,6 +7,7 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/securesign/operator/internal/controller/common/utils/tls"
 	v1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -27,6 +28,8 @@ import (
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/images"
 )
+
+const containerName = "fulcio-server"
 
 func NewDeployAction() action.Action[*rhtasv1alpha1.Fulcio] {
 	return &deployAction{}
@@ -53,14 +56,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 
 	labels := labels.For(ComponentName, DeploymentName, instance.Name)
 
-	switch {
-	case instance.Spec.Ctlog.Address == "":
-		instance.Spec.Ctlog.Address = fmt.Sprintf("http://ctlog.%s.svc", instance.Namespace)
-	case instance.Spec.Ctlog.Port == nil:
-		port := int32(80)
-		instance.Spec.Ctlog.Port = &port
-	}
-
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		&v1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -74,7 +69,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		// need to add Fulcio's unix domain socket used for the legacy gRPC server other way it will be
 		// rest v1 api will be routed through proxy
 		deployment.Proxy("@fulcio-legacy-grpc-socket"),
-		deployment.TrustedCA(instance.GetTrustedCA(), "fulcio-server"),
+		deployment.TrustedCA(instance.GetTrustedCA(), containerName),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Fulcio: %w", err), instance)
 	}
@@ -86,6 +81,30 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	} else {
 		return i.Continue()
 	}
+}
+
+func (i deployAction) resolveCTlogUrl(instance *rhtasv1alpha1.Fulcio) (string, error) {
+	if instance.Spec.Ctlog.Prefix == "" {
+		return "", futils.CtlogPrefixNotSpecified
+	}
+
+	if instance.Spec.Ctlog.Address != "" {
+		url := instance.Spec.Ctlog.Address
+		if instance.Spec.Ctlog.Port != nil {
+			url = fmt.Sprintf("%s:%d", url, *instance.Spec.Ctlog.Port)
+		}
+		return fmt.Sprintf("%s/%s", url, instance.Spec.Ctlog.Prefix), nil
+	}
+
+	var (
+		protocol string
+	)
+	if tls.UseTlsClient(instance) {
+		protocol = "https"
+	} else {
+		protocol = "http"
+	}
+	return fmt.Sprintf("%s://ctlog.%s.svc/%s", protocol, instance.Namespace, instance.Spec.Ctlog.Prefix), nil
 }
 
 func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.Fulcio, sa string, labels map[string]string) func(deployment *v1.Deployment) error {
@@ -104,20 +123,9 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.Fulcio, sa string
 			return errors.New("CA secret is not specified")
 		}
 
-		var err error
-		var ctlogUrl string
-		switch {
-		case instance.Spec.Ctlog.Address == "":
-			err = fmt.Errorf("CreateDeployment: %w", futils.CtlogAddressNotSpecified)
-		case instance.Spec.Ctlog.Port == nil:
-			err = fmt.Errorf("CreateDeployment: %w", futils.CtlogPortNotSpecified)
-		case instance.Spec.Ctlog.Prefix == "":
-			err = fmt.Errorf("CreateDeployment: %w", futils.CtlogPrefixNotSpecified)
-		default:
-			ctlogUrl = fmt.Sprintf("%s:%d/%s", instance.Spec.Ctlog.Address, *instance.Spec.Ctlog.Port, instance.Spec.Ctlog.Prefix)
-		}
+		ctlogUrl, err := i.resolveCTlogUrl(instance)
 		if err != nil {
-			return err
+			return fmt.Errorf("could not resolve CTLog url: %w", err)
 		}
 
 		args := []string{
@@ -144,7 +152,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.Fulcio, sa string
 		template.Spec.ServiceAccountName = sa
 		template.Spec.AutomountServiceAccountToken = &[]bool{true}[0]
 
-		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, "fulcio-server")
+		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, containerName)
 		container.Image = images.Registry.Get(images.FulcioServer)
 
 		if instance.Status.Certificate.PrivateKeyPasswordRef != nil {
