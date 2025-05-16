@@ -10,19 +10,17 @@ const (
 	RBACName           = "ctlog"
 	MonitoringRoleName = "prometheus-k8s-ctlog"
 
-	CertCondition = "FulcioCertAvailable"
-
-	ConfigCondition    = "ServerConfigAvailable"
-	TrillianTreeReason = "TrillianTree"
-	SignerKeyReason    = "SignerKey"
-	FulcioReason       = "FulcioCertificate"
+	CertCondition   = "FulcioCertAvailable"
+	TLSCondition    = "ServerTLS"
+	ConfigCondition = "ServerConfigAvailable"
+	SignerKeyReason = "SignerKey"
+	FulcioReason    = "FulcioCertificate"
 
 	ServerPortName   = "http"
-	ServerPort       = 80
 	ServerTargetPort = 6962
 	MetricsPortName  = "metrics"
 	MetricsPort      = 6963
-	ServerCondition  = "ServerAvailable"
+	TLSSecret        = "%s-ctlog-tls"
 
 	CTLPubLabel       = labels.LabelNamespace + "/ctfe.pub"
 	CTLogPrivateLabel = labels.LabelNamespace + "/ctfe.private"
