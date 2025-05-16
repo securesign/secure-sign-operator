@@ -11,6 +11,7 @@ import (
 
 	"github.com/securesign/operator/test/e2e/support"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"

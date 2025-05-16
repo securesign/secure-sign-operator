@@ -138,19 +138,9 @@ func TestCtlogConfig(t *testing.T) {
 				Prefix: "prefix",
 			},
 			verify: func(g Gomega, deployment *v13.Deployment, err error) {
-				g.Expect(err).Should(HaveOccurred())
-				g.Expect(err).Should(MatchError(utils.CtlogAddressNotSpecified))
-			},
-		},
-		{
-			name: "missing port",
-			args: v1alpha1.CtlogService{
-				Address: "http://address",
-				Prefix:  "prefix",
-			},
-			verify: func(g Gomega, deployment *v13.Deployment, err error) {
-				g.Expect(err).Should(HaveOccurred())
-				g.Expect(err).Should(MatchError(utils.CtlogPortNotSpecified))
+				g.Expect(err).Should(Succeed())
+				g.Expect(deployment.Spec.Template.Spec.Containers[0].Args).Should(ContainElement(Equal("--ct-log-url=http://ctlog.default.svc/prefix")))
+
 			},
 		},
 		{
