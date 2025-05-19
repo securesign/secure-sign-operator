@@ -35,7 +35,7 @@ spec:
   - name: hermetic
     value: "true"
   - name: prefetch-input
-    value: ""
+    value: '{"type": "generic", "path": "."}'
   pipelineRef:
     params:
     - name: url

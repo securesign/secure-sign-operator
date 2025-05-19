@@ -50,11 +50,19 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Log in to registry.redhat.io
+        uses: redhat-actions/podman-login@v1
+        with:
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+          registry: registry.redhat.io
+          auth_file_path: /tmp/config.json
+
       - name: Replace images
         run: make dev-images && cat config/default/images.env
 
       - name: Build operator bundle
-        run: make bundle bundle-build bundle-push
+        run: make bundle-build bundle-push
 
       - name: Save container image
         run: podman save -o /tmp/bundle-oci.tar --format oci-archive $BUNDLE_IMG

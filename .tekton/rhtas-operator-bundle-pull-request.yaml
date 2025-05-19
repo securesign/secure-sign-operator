@@ -34,7 +34,7 @@ spec:
   - name: hermetic
     value: "true"
   - name: prefetch-input
-    value: ""
+    value: '{"type": "generic", "path": "."}'
   - name: image-expires-after
     value: 5d
   pipelineRef:
