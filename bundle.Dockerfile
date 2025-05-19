@@ -2,22 +2,22 @@ ARG VERSION="1.3.0"
 ARG CHANNELS="stable,stable-v1.3"
 ARG DEFAULT_CHANNEL="stable"
 ARG BUNDLE_GEN_FLAGS="-q --overwrite=false --version $VERSION --channels=$CHANNELS --default-channel=$DEFAULT_CHANNEL"
-
-FROM registry.redhat.io/openshift4/ose-tools-rhel9@sha256:09b8259ec9e982a33bde84c7c901ad70c79f3e5f6dd7880b1b1e573dafcbd56c as oc
+ARG IMG
 
 FROM registry.redhat.io/openshift4/ose-operator-sdk-rhel9@sha256:9219e2a127987e3be7c77e62391e5b50a22ea85307c11a94b8517713768cccf8 as builder
 
 ARG BUNDLE_GEN_FLAGS
+ARG IMG
 
 WORKDIR /tmp
 
-COPY --from=oc /usr/bin/oc /usr/bin/oc
-
 COPY ./config/ ./config/
 COPY PROJECT .
+COPY hack/build-bundle.sh build-bundle.sh
 
-RUN oc kustomize config/manifests | operator-sdk generate bundle ${BUNDLE_GEN_FLAGS} && \
-  operator-sdk bundle validate ./bundle
+USER root
+
+RUN ./build-bundle.sh
 
 FROM scratch
 
