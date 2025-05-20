@@ -7,9 +7,12 @@ metadata:
     build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch
-      == "main" && ("config/***".pathChanged() || ".tekton/bundle-build-pipeline.yaml".pathChanged()
-      || ".tekton/rhtas-operator-bundle-pull-request.yaml".pathChanged() || "bundle.Dockerfile".pathChanged())
+    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch == "main"
+      && (".tekton/rhtas-operator-bundle-pull-request.yaml".pathChanged() || ".tekton/rhtas-operator-pull-request.yaml".pathChanged()
+      || "bundle.Dockerfile".pathChanged() || "Dockerfile.rhtas-operator.rh".pathChanged()
+      || "config/***".pathChanged() || "hack/***".pathChanged()
+      || "api/***".pathChanged() || "internal/***".pathChanged() || "cmd/***".pathChanged()
+      || "go.mod".pathChanged() || "go.sum".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: operator
@@ -37,6 +40,10 @@ spec:
     value: '{"type": "generic", "path": "."}'
   - name: image-expires-after
     value: 5d
+  - name: manager-pipelinerun-selector
+    value: appstudio.openshift.io/application=operator,appstudio.openshift.io/component=rhtas-operator,pipelinesascode.tekton.dev/sha={{revision}},pipelinesascode.tekton.dev/event-type=pull_request
+  - name: manager-registry-url
+    value: registry.redhat.io/rhtas/rhtas-rhel9-operator
   pipelineRef:
     params:
     - name: url
@@ -44,7 +51,7 @@ spec:
     - name: revision
       value: main
     - name: pathInRepo
-      value: pipelines/docker-build-oci-ta.yaml
+      value: pipelines/bundle-build-oci-ta.yaml
     resolver: git
   taskRunTemplate:
     serviceAccountName: build-pipeline-rhtas-operator-bundle
