@@ -9,9 +9,11 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch
-      == "main" && (".tekton/operator-build-pipeline.yaml".pathChanged() || ".tekton/rhtas-operator-pull-request.yaml".pathChanged()
-      || "api/***".pathChanged() || "internal/***".pathChanged() || "Dockerfile.rhtas-operator.rh".pathChanged()
-      || "go.mod".pathChanged() || "go.sum".pathChanged() || "cmd/***".pathChanged())
+      == "main" && (".tekton/rhtas-operator-bundle-pull-request.yaml".pathChanged() || ".tekton/rhtas-operator-pull-request.yaml".pathChanged()
+      || "bundle.Dockerfile".pathChanged() || "Dockerfile.rhtas-operator.rh".pathChanged()
+      || "config/***".pathChanged() || "hack/***".pathChanged()
+      || "api/***".pathChanged() || "internal/***".pathChanged() || "cmd/***".pathChanged()
+      || "go.mod".pathChanged() || "go.sum".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: operator
