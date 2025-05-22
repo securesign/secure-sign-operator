@@ -3,7 +3,7 @@ package action
 import (
 	"time"
 
-	"github.com/securesign/operator/internal/controller/common/action"
+	"github.com/securesign/operator/internal/action"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 

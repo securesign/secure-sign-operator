@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
-	"github.com/securesign/operator/internal/controller/common"
+	"github.com/securesign/operator/internal/utils"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -147,7 +147,7 @@ func createConfigWithKeys(certConfig *KeyConfig) (*Config, error) {
 		config.PrivKey = certConfig.PrivateKey
 	} else {
 		// private key MUST be encrypted by password
-		config.PrivKeyPassword = common.GeneratePassword(8)
+		config.PrivKeyPassword = utils.GeneratePassword(8)
 		block, _ := pem.Decode(certConfig.PrivateKey)
 		if block == nil {
 			return nil, fmt.Errorf("failed to decode private key")

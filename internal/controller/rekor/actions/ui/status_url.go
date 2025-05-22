@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/securesign/operator/internal/controller/common/action"
-	"github.com/securesign/operator/internal/controller/common/utils"
+	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
-	v12 "k8s.io/api/networking/v1"
+	"github.com/securesign/operator/internal/utils"
+	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -31,7 +31,7 @@ func (i statusUrlAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.
 
 func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
 	protocol := "http://"
-	ingress := &v12.Ingress{}
+	ingress := &v1.Ingress{}
 	err := i.Client.Get(ctx, types.NamespacedName{Name: actions.SearchUiDeploymentName, Namespace: instance.Namespace}, ingress)
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("get ingress error: %w", err), instance)

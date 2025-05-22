@@ -11,13 +11,13 @@ import (
 	"strconv"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/annotations"
-	"github.com/securesign/operator/internal/controller/common/action"
-	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/controller/constants"
-	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,13 +66,13 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		})
 	}
 
-	if partialSecrets, err = k8sutils.ListSecrets(ctx, i.Client, instance.Namespace, RekorPubLabel); err != nil {
+	if partialSecrets, err = kubernetes.ListSecrets(ctx, i.Client, instance.Namespace, RekorPubLabel); err != nil {
 		return i.Error(ctx, fmt.Errorf("ResolvePubKey: find secrets failed: %w", err), instance)
 	}
 
 	for _, partialSecret := range partialSecrets.Items {
 		sks := &rhtasv1alpha1.SecretKeySelector{Key: partialSecret.Labels[RekorPubLabel], LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: partialSecret.Name}}
-		existingPublicKey, err := k8sutils.GetSecretData(i.Client, instance.Namespace, sks)
+		existingPublicKey, err := kubernetes.GetSecretData(i.Client, instance.Namespace, sks)
 		if err != nil {
 			return i.Error(ctx, fmt.Errorf("ResolvePubKey: failed to read `%s` secret's data: %w", sks.Name, err), instance)
 		}
@@ -105,12 +105,12 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		},
 	}
 
-	if _, err = k8sutils.CreateOrUpdate(ctx, i.Client,
+	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		newConfig,
 		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(componentLabels)), componentLabels),
 		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(keyLabels)), keyLabels),
 		ensure.Annotations[*v1.Secret](slices.Collect(maps.Keys(anno)), anno),
-		k8sutils.EnsureSecretData(true, map[string][]byte{
+		kubernetes.EnsureSecretData(true, map[string][]byte{
 			keyName: publicKey,
 		}),
 	); err != nil {
@@ -137,7 +137,7 @@ func (i resolvePubKeyAction) resolvePubKey(instance rhtasv1alpha1.Rekor) ([]byte
 		url  = fmt.Sprintf("http://%s.%s.svc", actions.ServerDeploymentName, instance.Namespace)
 	)
 
-	inContainer, err := k8sutils.ContainerMode()
+	inContainer, err := kubernetes.ContainerMode()
 	if err == nil {
 		if !inContainer && instance.Status.Url != "" {
 			url = instance.Status.Url
