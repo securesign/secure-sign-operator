@@ -118,7 +118,6 @@ func (g handleKeys) setupKeys(ns string, instanceStatus *v1alpha1.CTlogStatus) (
 	if instanceStatus.PrivateKeyRef == nil {
 		return utils.CreatePrivateKey(config.PrivateKeyPass)
 	} else {
-
 		config.PrivateKey, err = kubernetes.GetSecretData(g.Client, ns, instanceStatus.PrivateKeyRef)
 		if err != nil {
 			return nil, err
@@ -128,7 +127,7 @@ func (g handleKeys) setupKeys(ns string, instanceStatus *v1alpha1.CTlogStatus) (
 	if instanceStatus.PublicKeyRef == nil {
 		return utils.GeneratePublicKey(config)
 	} else {
-		config.PublicKey, err = kubernetes.GetSecretData(g.Client, ns, instanceStatus.PrivateKeyRef)
+		config.PublicKey, err = kubernetes.GetSecretData(g.Client, ns, instanceStatus.PublicKeyRef)
 		if err != nil {
 			return nil, err
 		}
