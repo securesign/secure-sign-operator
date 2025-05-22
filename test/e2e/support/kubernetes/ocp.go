@@ -3,23 +3,31 @@ package kubernetes
 import (
 	"strings"
 
+	"github.com/securesign/operator/internal/controller/constants"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
-func IsRemoteClusterOpenshift(config *rest.Config) (bool, error) {
-	client, err := discovery.NewDiscoveryClientForConfig(config)
+var isOpenshift = false
+
+func init() {
+	c := config.GetConfigOrDie()
+	client, err := discovery.NewDiscoveryClientForConfig(c)
 	if err != nil {
-		return false, err
+		panic(err)
 	}
 	apiGroups, err := client.ServerGroups()
 	if err != nil {
-		return false, err
+		panic(err)
 	}
 	for _, group := range apiGroups.Groups {
 		if strings.Contains(group.Name, "openshift.io") {
-			return true, nil
+			isOpenshift = true
+			constants.Openshift = true
 		}
 	}
-	return false, nil
+}
+
+func IsRemoteClusterOpenshift() bool {
+	return isOpenshift
 }

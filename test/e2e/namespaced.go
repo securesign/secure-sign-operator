@@ -7,7 +7,11 @@ import (
 	"fmt"
 	"time"
 
-	kubernetes2 "github.com/securesign/operator/test/e2e/support/kubernetes"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/test/e2e/support"
+	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
 	clients "github.com/securesign/operator/test/e2e/support/tas/cli"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
 	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
@@ -15,15 +19,9 @@ import (
 	"github.com/securesign/operator/test/e2e/support/tas/trillian"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 	"github.com/securesign/operator/test/e2e/support/tas/tuf"
-	"k8s.io/utils/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("Install components to separate namespaces", Ordered, func() {
@@ -132,9 +130,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 		}
 
 		protocol := "http"
-		ocp, err := kubernetes2.IsRemoteClusterOpenshift(config.GetConfigOrDie())
-		Expect(err).ToNot(HaveOccurred())
-		if ocp {
+		if testSupportKubernetes.IsRemoteClusterOpenshift() {
 			// enable TLS
 			protocol = "https"
 		}
