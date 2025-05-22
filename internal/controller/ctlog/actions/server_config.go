@@ -8,13 +8,13 @@ import (
 	"slices"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/action"
-	utils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/constants"
 	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
-	"github.com/securesign/operator/internal/controller/labels"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -133,11 +133,11 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		},
 	}
 
-	if _, err = utils.CreateOrUpdate(ctx, i.Client,
+	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		newConfig,
 		ensure.ControllerReference[*corev1.Secret](instance, i.Client),
 		ensure.Labels[*corev1.Secret](slices.Collect(maps.Keys(configLabels)), configLabels),
-		utils.EnsureSecretData(true, cfg),
+		kubernetes.EnsureSecretData(true, cfg),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Server config: %w", err), instance,
 			metav1.Condition{
@@ -173,7 +173,7 @@ func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.CTlog
 	}
 
 	// try to discover existing secrets and clear them out
-	partialConfigs, err := utils.ListSecrets(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(configLabels).String())
+	partialConfigs, err := kubernetes.ListSecrets(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(configLabels).String())
 	if err != nil {
 		i.Logger.Error(err, "problem with listing configmaps", "namespace", instance.Namespace)
 		return
@@ -198,15 +198,15 @@ func (i serverConfig) handlePrivateKey(instance *rhtasv1alpha1.CTlog) (*ctlogUti
 	if instance == nil {
 		return nil, nil
 	}
-	private, err := utils.GetSecretData(i.Client, instance.Namespace, instance.Status.PrivateKeyRef)
+	private, err := kubernetes.GetSecretData(i.Client, instance.Namespace, instance.Status.PrivateKeyRef)
 	if err != nil {
 		return nil, err
 	}
-	public, err := utils.GetSecretData(i.Client, instance.Namespace, instance.Status.PublicKeyRef)
+	public, err := kubernetes.GetSecretData(i.Client, instance.Namespace, instance.Status.PublicKeyRef)
 	if err != nil {
 		return nil, err
 	}
-	password, err := utils.GetSecretData(i.Client, instance.Namespace, instance.Status.PrivateKeyPasswordRef)
+	password, err := kubernetes.GetSecretData(i.Client, instance.Namespace, instance.Status.PrivateKeyPasswordRef)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +222,7 @@ func (i serverConfig) handleRootCertificates(instance *rhtasv1alpha1.CTlog) ([]c
 	certs := make([]ctlogUtils.RootCertificate, 0)
 
 	for _, selector := range instance.Status.RootCertificates {
-		data, err := utils.GetSecretData(i.Client, instance.Namespace, &selector)
+		data, err := kubernetes.GetSecretData(i.Client, instance.Namespace, &selector)
 		if err != nil {
 			return nil, fmt.Errorf("%s/%s: %w", selector.Name, selector.Key, err)
 		}

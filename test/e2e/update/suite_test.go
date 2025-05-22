@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/securesign/operator/internal/utils"
 	"k8s.io/utils/ptr"
 
-	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/test/e2e/support"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"

@@ -5,11 +5,11 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/securesign/operator/internal/controller/annotations"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure/deployment"
+	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
-	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 	v13 "k8s.io/api/apps/v1"
 	"k8s.io/utils/ptr"
 

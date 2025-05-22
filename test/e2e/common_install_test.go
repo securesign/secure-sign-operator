@@ -7,9 +7,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 	"github.com/securesign/operator/test/e2e/support/tas/tuf"
 	v2 "k8s.io/api/networking/v1"
@@ -18,7 +19,6 @@ import (
 
 	"github.com/securesign/operator/test/e2e/support/tas"
 
-	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
 	"github.com/securesign/operator/test/e2e/support/tas/rekor"
 

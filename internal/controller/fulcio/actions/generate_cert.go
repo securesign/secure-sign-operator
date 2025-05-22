@@ -10,13 +10,13 @@ import (
 	"slices"
 
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common"
-	"github.com/securesign/operator/internal/controller/common/action"
-	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
-	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/labels"
+	utils2 "github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	v1 "k8s.io/api/core/v1"
@@ -97,7 +97,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 	}
 
 	//Check if a secret for the  fulcio cert already exists and validate
-	partialSecret, err := k8sutils.FindSecret(ctx, g.Client, instance.Namespace, FulcioCALabel)
+	partialSecret, err := kubernetes.FindSecret(ctx, g.Client, instance.Namespace, FulcioCALabel)
 	if client.IgnoreNotFound(err) != nil {
 		g.Logger.Error(err, "problem with finding secret")
 	}
@@ -105,7 +105,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 	if partialSecret != nil {
 		if equality.Semantic.DeepDerivative(g.certMatchingAnnotations(instance), partialSecret.GetAnnotations()) {
 			// certificate is valid
-			if secret, err := k8sutils.GetSecret(g.Client, partialSecret.Namespace, partialSecret.Name); err != nil {
+			if secret, err := kubernetes.GetSecret(g.Client, partialSecret.Namespace, partialSecret.Name); err != nil {
 				return g.Error(ctx, fmt.Errorf("can't load CA secret %w", err), instance)
 			} else {
 				g.alignStatusFields(secret, instance)
@@ -162,12 +162,12 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 			Namespace:    instance.Namespace,
 		},
 	}
-	if _, err = k8sutils.CreateOrUpdate(ctx, g.Client,
+	if _, err = kubernetes.CreateOrUpdate(ctx, g.Client,
 		newCert,
 		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(componentLabels)), componentLabels),
 		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(keyLabels)), keyLabels),
 		ensure.Annotations[*v1.Secret](managedAnnotations, annotations),
-		k8sutils.EnsureSecretData(true, cert.ToData()),
+		kubernetes.EnsureSecretData(true, cert.ToData()),
 	); err != nil {
 		return g.Error(ctx, fmt.Errorf("can't generate certificate secret: %w", err), instance,
 			metav1.Condition{
@@ -197,16 +197,16 @@ func (g handleCert) setupCert(instance *v1alpha1.Fulcio) (*utils.FulcioCertConfi
 	}
 
 	if ref := instance.Status.Certificate.PrivateKeyPasswordRef; ref != nil {
-		password, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
+		password, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
 		if err != nil {
 			return nil, err
 		}
 		config.PrivateKeyPassword = password
 	} else if instance.Status.Certificate.PrivateKeyRef == nil {
-		config.PrivateKeyPassword = common.GeneratePassword(8)
+		config.PrivateKeyPassword = utils2.GeneratePassword(8)
 	}
 	if ref := instance.Status.Certificate.PrivateKeyRef; ref != nil {
-		key, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
+		key, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
 		if err != nil {
 			return nil, err
 		}
@@ -231,7 +231,7 @@ func (g handleCert) setupCert(instance *v1alpha1.Fulcio) (*utils.FulcioCertConfi
 	}
 
 	if ref := instance.Status.Certificate.CARef; ref != nil {
-		key, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
+		key, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
 		if err != nil {
 			return nil, err
 		}
@@ -292,7 +292,7 @@ func (g handleCert) calculateHostname(ctx context.Context, instance *v1alpha1.Fu
 		return nil
 	}
 
-	instance.Spec.ExternalAccess.Host, err = k8sutils.CalculateHostname(ctx, g.Client, DeploymentName, instance.Namespace)
+	instance.Spec.ExternalAccess.Host, err = kubernetes.CalculateHostname(ctx, g.Client, DeploymentName, instance.Namespace)
 
 	return err
 }

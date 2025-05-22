@@ -19,12 +19,12 @@ package rekor
 import (
 	"context"
 
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/transitions"
+	"github.com/securesign/operator/internal/annotations"
 	"k8s.io/apimachinery/pkg/types"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
-	"github.com/securesign/operator/internal/controller/annotations"
-	"github.com/securesign/operator/internal/controller/common/action/transitions"
-
 	actions2 "github.com/securesign/operator/internal/controller/rekor/actions"
 	backfillredis "github.com/securesign/operator/internal/controller/rekor/actions/backfillRedis"
 	"github.com/securesign/operator/internal/controller/rekor/actions/redis"
@@ -34,7 +34,6 @@ import (
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/record"
 
-	"github.com/securesign/operator/internal/controller/common/action"
 	v12 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"

@@ -20,13 +20,12 @@ import (
 	"context"
 	"time"
 
+	"github.com/securesign/operator/internal/constants"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
-
-	"github.com/securesign/operator/internal/controller/common/utils"
+	"github.com/securesign/operator/internal/utils"
 
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/constants"
-	actions "github.com/securesign/operator/internal/controller/trillian/actions"
+	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 

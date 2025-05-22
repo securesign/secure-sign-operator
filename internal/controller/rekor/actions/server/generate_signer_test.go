@@ -3,22 +3,21 @@ package server
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"testing"
 
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/constants"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"reflect"
-	"testing"
-
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/constants"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

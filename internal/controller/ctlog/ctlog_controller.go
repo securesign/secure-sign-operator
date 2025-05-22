@@ -20,9 +20,10 @@ import (
 	"context"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
-	"github.com/securesign/operator/internal/controller/annotations"
-	"github.com/securesign/operator/internal/controller/common/action/transitions"
-	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/transitions"
+	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
@@ -35,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/securesign/operator/internal/controller/common/action"
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"

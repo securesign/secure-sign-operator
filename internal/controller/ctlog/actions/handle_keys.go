@@ -7,12 +7,12 @@ import (
 	"slices"
 
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/action"
-	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
-	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -109,7 +109,7 @@ func (g handleKeys) setupKeys(ns string, instanceStatus *v1alpha1.CTlogStatus) (
 		config = &utils.KeyConfig{}
 	)
 	if instanceStatus.PrivateKeyPasswordRef != nil {
-		config.PrivateKeyPass, err = k8sutils.GetSecretData(g.Client, ns, instanceStatus.PrivateKeyPasswordRef)
+		config.PrivateKeyPass, err = kubernetes.GetSecretData(g.Client, ns, instanceStatus.PrivateKeyPasswordRef)
 		if err != nil {
 			return nil, err
 		}
@@ -118,8 +118,7 @@ func (g handleKeys) setupKeys(ns string, instanceStatus *v1alpha1.CTlogStatus) (
 	if instanceStatus.PrivateKeyRef == nil {
 		return utils.CreatePrivateKey(config.PrivateKeyPass)
 	} else {
-
-		config.PrivateKey, err = k8sutils.GetSecretData(g.Client, ns, instanceStatus.PrivateKeyRef)
+		config.PrivateKey, err = kubernetes.GetSecretData(g.Client, ns, instanceStatus.PrivateKeyRef)
 		if err != nil {
 			return nil, err
 		}
@@ -128,7 +127,7 @@ func (g handleKeys) setupKeys(ns string, instanceStatus *v1alpha1.CTlogStatus) (
 	if instanceStatus.PublicKeyRef == nil {
 		return utils.GeneratePublicKey(config)
 	} else {
-		config.PublicKey, err = k8sutils.GetSecretData(g.Client, ns, instanceStatus.PrivateKeyRef)
+		config.PublicKey, err = kubernetes.GetSecretData(g.Client, ns, instanceStatus.PublicKeyRef)
 		if err != nil {
 			return nil, err
 		}
@@ -142,7 +141,7 @@ func (g handleKeys) discoverPrivateKey(ctx context.Context, instance *v1alpha1.C
 		return
 	}
 
-	partialPrivateSecrets, err := k8sutils.ListSecrets(ctx, g.Client, instance.Namespace, CTLogPrivateLabel)
+	partialPrivateSecrets, err := kubernetes.ListSecrets(ctx, g.Client, instance.Namespace, CTLogPrivateLabel)
 	if err != nil {
 		g.Logger.Error(err, "problem with listing secrets", "namespace", instance.Namespace)
 	}
@@ -181,7 +180,7 @@ func (g handleKeys) discoverPubliceKey(ctx context.Context, instance *v1alpha1.C
 		return
 	}
 
-	partialPubSecrets, err := k8sutils.ListSecrets(ctx, g.Client, instance.Namespace, CTLPubLabel)
+	partialPubSecrets, err := kubernetes.ListSecrets(ctx, g.Client, instance.Namespace, CTLPubLabel)
 	if err != nil {
 		g.Logger.Error(err, "problem with listing secrets", "namespace", instance.Namespace)
 	}
@@ -236,13 +235,13 @@ func (g handleKeys) generateAndUploadSecret(ctx context.Context, instance *v1alp
 			Namespace:    instance.Namespace,
 		},
 	}
-	if _, err = k8sutils.CreateOrUpdate(ctx, g.Client,
+	if _, err = kubernetes.CreateOrUpdate(ctx, g.Client,
 		secret,
 		ensure.ControllerReference[*v1.Secret](instance, g.Client),
 		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(componentLabels)), componentLabels),
 		ensure.Labels[*v1.Secret](ManagedLabels, keyRelatedLabels),
 		ensure.Annotations[*v1.Secret](ManagedAnnotations, annotations),
-		k8sutils.EnsureSecretData(true, data),
+		kubernetes.EnsureSecretData(true, data),
 	); err != nil {
 		return nil, err
 	}
@@ -269,7 +268,7 @@ func (g handleKeys) generateAndUploadSecret(ctx context.Context, instance *v1alp
 		if _, ok = secret.Labels[CTLogPrivateLabel]; ok {
 			// need to add cyclic private key reference annotation
 			annotations[privateKeyRefAnnotation] = secret.Name
-			if _, err = k8sutils.CreateOrUpdate(ctx, g.Client,
+			if _, err = kubernetes.CreateOrUpdate(ctx, g.Client,
 				secret,
 				ensure.Annotations[*v1.Secret](ManagedAnnotations, annotations),
 			); err != nil {

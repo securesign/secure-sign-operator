@@ -5,18 +5,18 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/securesign/operator/internal/controller/common"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
-	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/labels"
 	testAction "github.com/securesign/operator/internal/testing/action"
+	utils2 "github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/action"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/constants"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -197,7 +197,7 @@ func TestKeys_Handle(t *testing.T) {
 	noPassKeyConf, err := utils.CreatePrivateKey(nil)
 	g.Expect(err).To(Not(HaveOccurred()))
 
-	encryptedKeyConf, err := utils.CreatePrivateKey(common.GeneratePassword(8))
+	encryptedKeyConf, err := utils.CreatePrivateKey(utils2.GeneratePassword(8))
 	g.Expect(err).To(Not(HaveOccurred()))
 	type env struct {
 		spec    v1alpha1.CTlogSpec

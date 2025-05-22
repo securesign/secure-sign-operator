@@ -20,12 +20,12 @@ import (
 	"context"
 	"time"
 
+	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/labels"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
 
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
-	"github.com/securesign/operator/internal/controller/labels"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"

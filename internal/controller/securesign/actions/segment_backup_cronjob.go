@@ -8,12 +8,13 @@ import (
 	"strconv"
 
 	"github.com/robfig/cron/v3"
-	"github.com/securesign/operator/internal/controller/annotations"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/controller/constants"
-	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/images"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -21,7 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/action"
 )
 
 func NewSegmentBackupCronJobAction() action.Action[*rhtasv1alpha1.Securesign] {
