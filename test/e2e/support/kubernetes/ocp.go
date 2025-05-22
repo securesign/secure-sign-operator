@@ -3,15 +3,15 @@ package kubernetes
 import (
 	"strings"
 
-	"github.com/securesign/operator/internal/controller/constants"
+	"github.com/securesign/operator/internal/config"
 	"k8s.io/client-go/discovery"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	cconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 var isOpenshift = false
 
 func init() {
-	c := config.GetConfigOrDie()
+	c := cconfig.GetConfigOrDie()
 	client, err := discovery.NewDiscoveryClientForConfig(c)
 	if err != nil {
 		panic(err)
@@ -23,7 +23,7 @@ func init() {
 	for _, group := range apiGroups.Groups {
 		if strings.Contains(group.Name, "openshift.io") {
 			isOpenshift = true
-			constants.Openshift = true
+			config.Openshift = true
 		}
 	}
 }

@@ -7,7 +7,15 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/securesign/operator/internal/controller/common/utils/tls"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
+	"github.com/securesign/operator/internal/utils/tls"
 	v1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -17,15 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/annotations"
-	"github.com/securesign/operator/internal/controller/common/action"
-	cutils "github.com/securesign/operator/internal/controller/common/utils"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure/deployment"
-	"github.com/securesign/operator/internal/controller/constants"
 	futils "github.com/securesign/operator/internal/controller/fulcio/utils"
-	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/images"
 )
 
@@ -132,7 +132,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.Fulcio, sa string
 			"serve",
 			"--port=5555",
 			"--grpc-port=5554",
-			fmt.Sprintf("--log_type=%s", cutils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
+			fmt.Sprintf("--log_type=%s", utils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
 			"--ca=fileca",
 			"--fileca-key",
 			"/var/run/fulcio-secrets/key.pem",
@@ -142,7 +142,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.Fulcio, sa string
 		}
 
 		spec := &dp.Spec
-		spec.Replicas = cutils.Pointer[int32](1)
+		spec.Replicas = utils.Pointer[int32](1)
 		spec.Selector = &metav1.LabelSelector{
 			MatchLabels: labels,
 		}

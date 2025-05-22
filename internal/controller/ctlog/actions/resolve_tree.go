@@ -2,8 +2,8 @@ package actions
 
 import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/action"
-	"github.com/securesign/operator/internal/controller/common/action/tree"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/tree"
 )
 
 func NewResolveTreeAction() action.Action[*rhtasv1alpha1.CTlog] {

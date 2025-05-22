@@ -6,16 +6,16 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/securesign/operator/internal/controller/common/utils"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/constants"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/securesign/operator/internal/controller/common/action"
-	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/constants"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -71,8 +71,8 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf
 	}
 
 	l := labels.For(tufConstants.DeploymentName, tufConstants.DeploymentName, instance.Name)
-	if result, err = k8sutils.CreateOrUpdate(ctx, i.Client, pvc,
-		k8sutils.EnsurePVCSpec(rhtasv1alpha1.Pvc{
+	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client, pvc,
+		kubernetes.EnsurePVCSpec(rhtasv1alpha1.Pvc{
 			Size:         instance.Spec.Pvc.Size,
 			AccessModes:  instance.Spec.Pvc.AccessModes,
 			StorageClass: instance.Spec.Pvc.StorageClass,
