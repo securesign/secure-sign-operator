@@ -8,19 +8,18 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/securesign/operator/internal/controller/common/utils"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/labels"
+	utils2 "github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierros "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
+	apilabels "k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common"
-	"github.com/securesign/operator/internal/controller/common/action"
-	"github.com/securesign/operator/internal/controller/constants"
-	labels2 "github.com/securesign/operator/internal/controller/labels"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -35,10 +34,10 @@ const (
 	dbConnectionResource   = "trillian-db-connection"
 	dbConnectionSecretName = "trillian-db-connection-"
 
-	annotationDatabase = labels2.LabelNamespace + "/" + trillian.SecretDatabaseName
-	annotationUser     = labels2.LabelNamespace + "/" + trillian.SecretUser
-	annotationPort     = labels2.LabelNamespace + "/" + trillian.SecretPort
-	annotationHost     = labels2.LabelNamespace + "/" + trillian.SecretHost
+	annotationDatabase = labels.LabelNamespace + "/" + trillian.SecretDatabaseName
+	annotationUser     = labels.LabelNamespace + "/" + trillian.SecretUser
+	annotationPort     = labels.LabelNamespace + "/" + trillian.SecretPort
+	annotationHost     = labels.LabelNamespace + "/" + trillian.SecretHost
 )
 
 var managedAnnotations = []string{annotationDatabase, annotationUser, annotationPort, annotationHost}
@@ -70,7 +69,7 @@ func (i handleSecretAction) CanHandle(_ context.Context, instance *rhtasv1alpha1
 
 func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
 	// external database
-	if !utils.OptionalBool(instance.Spec.Db.Create) {
+	if !utils2.OptionalBool(instance.Spec.Db.Create) {
 		if instance.Spec.Db.DatabaseSecretRef == nil {
 			return i.Error(ctx, reconcile.TerminalError(ErrMissingDBConfiguration), instance, metav1.Condition{
 				Type:    trillian.DbCondition,
@@ -113,10 +112,10 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 		return i.Continue()
 	}
 
-	dbLabels := labels2.For(trillian.DbComponentName, trillian.DbDeploymentName, instance.Name)
-	dbLabels[labels2.LabelResource] = dbConnectionResource
+	dbLabels := labels.For(trillian.DbComponentName, trillian.DbDeploymentName, instance.Name)
+	dbLabels[labels.LabelResource] = dbConnectionResource
 
-	partialSecrets, err := kubernetes.ListSecrets(ctx, i.Client, instance.Namespace, labels.SelectorFromSet(dbLabels).String())
+	partialSecrets, err := kubernetes.ListSecrets(ctx, i.Client, instance.Namespace, apilabels.SelectorFromSet(dbLabels).String())
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("can't load secrets: %w", err), instance)
 	}
@@ -175,8 +174,8 @@ func (i handleSecretAction) defaultDBData() map[string][]byte {
 	// Define a new Secret object
 	var rootPass []byte
 	var mysqlPass []byte
-	rootPass = common.GeneratePassword(12)
-	mysqlPass = common.GeneratePassword(12)
+	rootPass = utils2.GeneratePassword(12)
+	mysqlPass = utils2.GeneratePassword(12)
 	return map[string][]byte{
 		trillian.SecretRootPassword: rootPass,
 		trillian.SecretPassword:     mysqlPass,

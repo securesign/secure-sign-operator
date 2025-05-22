@@ -8,11 +8,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/annotations"
-	"github.com/securesign/operator/internal/controller/common/utils"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/constants"
-	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/config"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	v1 "k8s.io/api/core/v1"
@@ -22,7 +22,7 @@ import (
 )
 
 var _ = Describe("Securesign install with byodb", Ordered, func() {
-	utils.BoolFlagOrEnv(&constants.Openshift, "openshift", "OPENSHIFT", false, "Enable to ensures the operator applies OpenShift specific configurations.")
+	utils.BoolFlagOrEnv(&config.Openshift, "openshift", "OPENSHIFT", false, "Enable to ensures the operator applies OpenShift specific configurations.")
 	cli, _ := support.CreateClient()
 	ctx := context.TODO()
 

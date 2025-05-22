@@ -21,9 +21,9 @@ import (
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/annotations"
-	"github.com/securesign/operator/internal/controller/common/action"
-	"github.com/securesign/operator/internal/controller/common/action/transitions"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/transitions"
+	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller/tuf/actions"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	v1 "k8s.io/api/apps/v1"

@@ -7,18 +7,18 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure/deployment"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/images"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/annotations"
-	"github.com/securesign/operator/internal/controller/common/action"
-	cutils "github.com/securesign/operator/internal/controller/common/utils"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/controller/constants"
-	"github.com/securesign/operator/internal/controller/labels"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -111,13 +111,13 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.TimestampAuthorit
 			"serve",
 			"--host=0.0.0.0",
 			"--port=3000",
-			fmt.Sprintf("--log-type=%s", cutils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
+			fmt.Sprintf("--log-type=%s", utils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
 			fmt.Sprintf("--certificate-chain-path=%s/certificate-chain.pem", certChainMountPath),
 			fmt.Sprintf("--disable-ntp-monitoring=%v", !instance.Spec.NTPMonitoring.Enabled),
 		}
 
 		spec := &dp.Spec
-		spec.Replicas = cutils.Pointer[int32](1)
+		spec.Replicas = utils.Pointer[int32](1)
 		spec.Selector = &metav1.LabelSelector{
 			MatchLabels: labels,
 		}

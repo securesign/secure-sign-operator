@@ -13,12 +13,12 @@ import (
 	"slices"
 
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/action"
-	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/controller/constants"
-	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -107,7 +107,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 
 	if instance.Spec.Signer.KeyRef == nil {
 
-		partialSecret, err := k8sutils.FindSecret(ctx, g.Client, instance.Namespace, RekorSignerLabel)
+		partialSecret, err := kubernetes.FindSecret(ctx, g.Client, instance.Namespace, RekorSignerLabel)
 		if err != nil && !apierrors.IsNotFound(err) {
 			g.Logger.Error(err, "problem with finding secret", "namespace", instance.Namespace)
 		}
@@ -148,11 +148,11 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 				},
 			}
 
-			if _, err = k8sutils.CreateOrUpdate(ctx, g.Client,
+			if _, err = kubernetes.CreateOrUpdate(ctx, g.Client,
 				secret,
 				ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(componentLabels)), componentLabels),
 				ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(signerLabels)), signerLabels),
-				k8sutils.EnsureSecretData(true, data),
+				kubernetes.EnsureSecretData(true, data),
 			); err != nil {
 				return g.Error(ctx, fmt.Errorf("could not create signer secret: %w", err), instance,
 					metav1.Condition{

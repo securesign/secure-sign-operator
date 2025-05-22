@@ -5,9 +5,9 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/securesign/operator/internal/apis"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/constants"
-	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

@@ -6,21 +6,21 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure/deployment"
-	"github.com/securesign/operator/internal/controller/common/utils/tls"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/images"
+	"github.com/securesign/operator/internal/labels"
+	utils2 "github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
+	"github.com/securesign/operator/internal/utils/tls"
 
-	"github.com/securesign/operator/internal/controller/annotations"
-	cutils "github.com/securesign/operator/internal/controller/common/utils"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
 	v2 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"github.com/securesign/operator/internal/controller/common/action"
-	"github.com/securesign/operator/internal/controller/constants"
-	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/controller/rekor/utils"
 	actions2 "github.com/securesign/operator/internal/controller/trillian/actions"
@@ -109,7 +109,7 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 		}
 
 		spec := &dp.Spec
-		spec.Replicas = cutils.Pointer[int32](1)
+		spec.Replicas = utils2.Pointer[int32](1)
 		spec.Strategy = v2.DeploymentStrategy{
 			Type: "Recreate",
 		}
@@ -138,7 +138,7 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 			// NOTE: we need to use no_tmp_dir=true with file-based storage to prevent
 			// cross-device link error - see https://github.com/google/go-cloud/issues/3314
 			"--attestation_storage_bucket=file:///var/run/attestations?no_tmp_dir=true",
-			fmt.Sprintf("--log_type=%s", cutils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
+			fmt.Sprintf("--log_type=%s", utils2.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
 		}
 
 		// KMS memory

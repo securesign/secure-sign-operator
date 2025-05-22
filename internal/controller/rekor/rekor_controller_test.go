@@ -23,16 +23,15 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/securesign/operator/internal/constants"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
+	"github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/rekor/actions/server"
 	httpmock "github.com/securesign/operator/internal/testing/http"
 
-	"github.com/securesign/operator/internal/controller/common/utils"
-
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

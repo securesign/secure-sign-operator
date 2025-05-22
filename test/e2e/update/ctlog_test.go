@@ -6,6 +6,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/securesign/operator/internal/constants"
 	tufAction "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/test/e2e/support/tas"
 
@@ -15,7 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/constants"
 	ctlogAction "github.com/securesign/operator/internal/controller/ctlog/actions"
 	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/core/v1"

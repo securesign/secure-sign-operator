@@ -6,13 +6,13 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/securesign/operator/internal/controller/common/action"
-	"github.com/securesign/operator/internal/controller/common/utils"
-	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/controller/constants"
-	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,8 +66,8 @@ func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rek
 	}
 
 	l := labels.For(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
-	if result, err = k8sutils.CreateOrUpdate(ctx, i.Client, pvc,
-		k8sutils.EnsurePVCSpec(instance.Spec.Pvc),
+	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client, pvc,
+		kubernetes.EnsurePVCSpec(instance.Spec.Pvc),
 		ensure.Optional[*v1.PersistentVolumeClaim](!utils.OptionalBool(instance.Spec.Pvc.Retain), ensure.ControllerReference[*v1.PersistentVolumeClaim](instance, i.Client)),
 		ensure.Labels[*v1.PersistentVolumeClaim](slices.Collect(maps.Keys(l)), l),
 	); err != nil {

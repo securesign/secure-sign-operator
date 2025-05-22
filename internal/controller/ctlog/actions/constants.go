@@ -1,7 +1,7 @@
 package actions
 
 import (
-	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/labels"
 )
 
 const (

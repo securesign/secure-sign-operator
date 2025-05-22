@@ -19,16 +19,16 @@ package securesign
 import (
 	"context"
 
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/labels"
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/operator-framework/operator-lib/predicate"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/annotations"
-	"github.com/securesign/operator/internal/controller/common/action"
-	"github.com/securesign/operator/internal/controller/constants"
-	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/securesign/actions"
 	v1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime"

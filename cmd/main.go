@@ -22,7 +22,9 @@ import (
 	"os"
 	"strconv"
 
+	appconfig "github.com/securesign/operator/internal/config"
 	"github.com/securesign/operator/internal/images"
+	"github.com/securesign/operator/internal/utils"
 
 	"k8s.io/klog/v2"
 
@@ -34,8 +36,6 @@ import (
 	v1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/securesign/operator/internal/clidownload"
-	"github.com/securesign/operator/internal/controller/common/utils"
-	"github.com/securesign/operator/internal/controller/constants"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -99,8 +99,8 @@ func main() {
 		"If set the metrics endpoint is served securely")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
-	flag.Int64Var(&constants.CreateTreeDeadline, "create-tree-deadline", constants.CreateTreeDeadline, "The time allowance (in seconds) for the create tree job to run before failing.")
-	utils.BoolFlagOrEnv(&constants.Openshift, "openshift", "OPENSHIFT", false, "Enable to ensures the operator applies OpenShift specific configurations.")
+	flag.Int64Var(&appconfig.CreateTreeDeadline, "create-tree-deadline", appconfig.CreateTreeDeadline, "The time allowance (in seconds) for the create tree job to run before failing.")
+	utils.BoolFlagOrEnv(&appconfig.Openshift, "openshift", "OPENSHIFT", false, "Enable to ensures the operator applies OpenShift specific configurations.")
 	utils.RelatedImageFlag("trillian-log-signer-image", images.TrillianLogSigner, "The image used for trillian log signer.")
 	utils.RelatedImageFlag("trillian-log-server-image", images.TrillianServer, "The image used for trillian log server.")
 	utils.RelatedImageFlag("trillian-db-image", images.TrillianDb, "The image used for trillian's database.")
@@ -251,7 +251,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.WithName("IsOpenshift").Info(strconv.FormatBool(constants.Openshift))
+	setupLog.WithName("IsOpenshift").Info(strconv.FormatBool(appconfig.Openshift))
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

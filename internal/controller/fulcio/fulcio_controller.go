@@ -19,18 +19,16 @@ package fulcio
 import (
 	"context"
 
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/transitions"
+	"github.com/securesign/operator/internal/annotations"
 	"k8s.io/apimachinery/pkg/types"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
-	"github.com/securesign/operator/internal/controller/annotations"
-	"github.com/securesign/operator/internal/controller/common/action/transitions"
-
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
 	v12 "k8s.io/api/core/v1"
 	v13 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/record"
-
-	"github.com/securesign/operator/internal/controller/common/action"
 
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
