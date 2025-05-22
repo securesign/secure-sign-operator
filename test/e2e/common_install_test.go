@@ -10,9 +10,11 @@ import (
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
+	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 	"github.com/securesign/operator/test/e2e/support/tas/tuf"
 	v2 "k8s.io/api/networking/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"k8s.io/utils/ptr"
 
@@ -300,7 +302,9 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: constants.DeploymentName}, ingress)).To(Succeed())
 			Expect(ingress.Labels).To(HaveKeyWithValue("foo", "bar"))
 
-			if kubernetes.IsOpenShift() {
+			ocp, err := testSupportKubernetes.IsRemoteClusterOpenshift(config.GetConfigOrDie())
+			Expect(err).ToNot(HaveOccurred())
+			if ocp {
 				Expect(ingress.Annotations).To(HaveKeyWithValue("route.openshift.io/termination", "edge"))
 
 				r, err := kubernetes.GetRoute(ctx, cli, namespace.Name, labels.ForComponent(constants.ComponentName, s.Name))

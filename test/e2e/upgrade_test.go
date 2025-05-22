@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/securesign/operator/internal/images"
+	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/blang/semver/v4"
 	"github.com/onsi/ginkgo/v2/dsl/core"
@@ -55,6 +57,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		rrekor                                 *tasv1alpha.Rekor
 		prevImageName, newImageName            string
 		openshift                              bool
+		err                                    error
 	)
 
 	AfterEach(func() {
@@ -80,7 +83,8 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 
 		baseCatalogImage = os.Getenv("TEST_BASE_CATALOG")
 		targetedCatalogImage = os.Getenv("TEST_TARGET_CATALOG")
-		openshift, _ = strconv.ParseBool(os.Getenv("OPENSHIFT"))
+		openshift, err = testSupportKubernetes.IsRemoteClusterOpenshift(config.GetConfigOrDie())
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 		namespace = support.CreateTestNamespace(ctx, cli)
 		DeferCleanup(func() {
