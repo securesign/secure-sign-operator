@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	kubernetes2 "github.com/securesign/operator/test/e2e/support/kubernetes"
+	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
 	clients "github.com/securesign/operator/test/e2e/support/tas/cli"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
 	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
@@ -132,7 +132,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 		}
 
 		protocol := "http"
-		ocp, err := kubernetes2.IsRemoteClusterOpenshift(config.GetConfigOrDie())
+		ocp, err := testSupportKubernetes.IsRemoteClusterOpenshift(config.GetConfigOrDie())
 		Expect(err).ToNot(HaveOccurred())
 		if ocp {
 			// enable TLS
