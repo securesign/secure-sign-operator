@@ -1,9 +1,8 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "github>konflux-ci/mintmaker//config/renovate/renovate.json"
+    "github>securesign/renovate-config//org-inherited-config.json"
   ],
-  "labels": ["dependencies"],
   "customManagers": [
     {
       "customType": "regex",
@@ -20,48 +19,16 @@
   ],
   "packageRules": [
     {
-      "description": "Group all Go module updates together",
-      "matchManagers": ["gomod"],
-      "groupName": "Go Dependencies",
-      "groupSlug": "go-deps"
-    },
-    {
-      "description": "Group all Docker image updates together",
-      "matchManagers": ["dockerfile"],
-      "groupName": "Docker Images",
-      "groupSlug": "docker-deps"
-    },
-    {
       "matchDatasources": [
-        "golang-version"
-      ],
-      "allowedVersions": "<1.24.0"
-    },
-    {
-      "matchDatasources": [
-        "docker"
+        "go"
       ],
       "matchPackageNames": [
-        "golang"
+        "k8s.io/api",
+        "k8s.io/apiextensions-apiserver",
+        "k8s.io/apimachinery",
+        "k8s.io/client-go"
       ],
-      "allowedVersions": "<1.24.0"
+      "allowedVersions": "<0.33.0"
     }
-  ],
-  "ignoreDeps": [
-    "registry.redhat.io/rhtas/rhtas-rhel9-operator",
-    "registry.redhat.io/rhtas/trillian-logsigner-rhel9",
-    "registry.redhat.io/rhtas/trillian-logserver-rhel9",
-    "registry.redhat.io/rhtas/trillian-database-rhel9",
-    "registry.redhat.io/rhtas/createtree-rhel9",
-    "registry.redhat.io/rhtas/fulcio-rhel9",
-    "registry.redhat.io/rhtas/trillian-redis-rhel9",
-    "registry.redhat.io/rhtas/rekor-server-rhel9",
-    "registry.redhat.io/rhtas/rekor-search-ui-rhel9",
-    "registry.redhat.io/rhtas/rekor-backfill-redis-rhel9",
-    "registry.redhat.io/rhtas/tuffer-rhel9",
-    "registry.redhat.io/rhtas/certificate-transparency-rhel9",
-    "registry.redhat.io/rhtas/segment-reporting-rhel9",
-    "registry.redhat.io/rhtas/timestamp-authority-rhel9",
-    "registry.redhat.io/rhtas/client-server-rhel9"
   ]
 }
