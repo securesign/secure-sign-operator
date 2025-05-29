@@ -7,18 +7,18 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 	"github.com/securesign/operator/test/e2e/support/tas/tuf"
 	v2 "k8s.io/api/networking/v1"
-
 	"k8s.io/utils/ptr"
 
 	"github.com/securesign/operator/test/e2e/support/tas"
 
-	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
 	"github.com/securesign/operator/test/e2e/support/tas/rekor"
 
@@ -300,7 +300,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: constants.DeploymentName}, ingress)).To(Succeed())
 			Expect(ingress.Labels).To(HaveKeyWithValue("foo", "bar"))
 
-			if kubernetes.IsOpenShift() {
+			if testSupportKubernetes.IsRemoteClusterOpenshift() {
 				Expect(ingress.Annotations).To(HaveKeyWithValue("route.openshift.io/termination", "edge"))
 
 				r, err := kubernetes.GetRoute(ctx, cli, namespace.Name, labels.ForComponent(constants.ComponentName, s.Name))

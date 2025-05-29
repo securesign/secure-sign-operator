@@ -17,7 +17,7 @@ import (
 	"time"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

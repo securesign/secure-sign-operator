@@ -7,12 +7,12 @@ import (
 	"slices"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/action"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/controller/constants"
-	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,10 +87,21 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tr
 	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, kubernetes.CreateServiceMonitor(instance.Namespace, actions.LogSignerComponentName),
 		ensure.ControllerReference[*unstructured.Unstructured](instance, i.Client),
 		ensure.Labels[*unstructured.Unstructured](slices.Collect(maps.Keys(monitoringLabels)), monitoringLabels),
-		kubernetes.EnsureServiceMonitorSpec(
-			labels.ForComponent(actions.LogSignerComponentName, instance.Name),
-			kubernetes.ServiceMonitorEndpoint(actions.MetricsPortName),
-		),
+
+		ensure.Optional(statusTLS(instance).CertRef != nil,
+			kubernetes.EnsureServiceMonitorSpec(
+				labels.ForComponent(actions.LogSignerComponentName, instance.Name),
+				kubernetes.ServiceMonitorHttpsEndpoint(
+					actions.MetricsPortName,
+					fmt.Sprintf("%s.%s.svc", actions.LogsignerDeploymentName, instance.Namespace),
+					statusTLS(instance).CertRef,
+				),
+			)),
+		ensure.Optional(statusTLS(instance).CertRef == nil,
+			kubernetes.EnsureServiceMonitorSpec(
+				labels.ForComponent(actions.LogSignerComponentName, instance.Name),
+				kubernetes.ServiceMonitorEndpoint(actions.MetricsPortName),
+			)),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create serviceMonitor: %w", err), instance,
 			metav1.Condition{

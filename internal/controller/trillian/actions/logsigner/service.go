@@ -6,13 +6,13 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/securesign/operator/internal/controller/annotations"
-	"github.com/securesign/operator/internal/controller/common/action"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/controller/constants"
-	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,7 +49,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	labels := labels.For(actions.LogSignerComponentName, actions.LogsignerDeploymentName, instance.Name)
 
 	tlsAnnotations := map[string]string{}
-	if instance.Spec.Db.TLS.CertRef == nil {
+	if specTLS(instance).CertRef == nil {
 		tlsAnnotations[annotations.TLS] = fmt.Sprintf(actions.LogSignerTLSSecret, instance.Name)
 	}
 

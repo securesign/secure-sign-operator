@@ -12,12 +12,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/utils"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/labels"
 	tufAction "github.com/securesign/operator/internal/controller/tuf/constants"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/test/e2e/support"
-	kubernetes2 "github.com/securesign/operator/test/e2e/support/kubernetes"
+	testKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	clients "github.com/securesign/operator/test/e2e/support/tas/cli"
 	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
@@ -239,12 +239,12 @@ var _ = Describe("Fulcio cert rotation test", Ordered, func() {
 			Expect(cli.List(ctx, tufPodList, runtimeCli.InNamespace(namespace.Name), runtimeCli.MatchingLabels{labels.LabelAppName: tufAction.DeploymentName})).To(Succeed())
 			Expect(tufPodList.Items).To(HaveLen(1))
 
-			Expect(kubernetes2.CopyFromPod(ctx, tufPodList.Items[0], "/var/www/html", filepath.Join(tufRepoWorkdir, "tuf-repo"))).To(Succeed())
+			Expect(testKubernetes.CopyFromPod(ctx, tufPodList.Items[0], "/var/www/html", filepath.Join(tufRepoWorkdir, "tuf-repo"))).To(Succeed())
 
 			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("fulcio_v1.crt.pem", tufRepoWorkdir, true)...)).To(Succeed())
 			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("new-fulcio.cert.pem", tufRepoWorkdir, false)...)).To(Succeed())
 
-			Expect(kubernetes2.CopyToPod(ctx, config.GetConfigOrDie(), tufPodList.Items[0], filepath.Join(tufRepoWorkdir, "tuf-repo"), "/var/www/html")).To(Succeed())
+			Expect(testKubernetes.CopyToPod(ctx, config.GetConfigOrDie(), tufPodList.Items[0], filepath.Join(tufRepoWorkdir, "tuf-repo"), "/var/www/html")).To(Succeed())
 		})
 
 		It("All other components are running", func() {

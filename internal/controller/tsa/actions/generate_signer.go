@@ -11,13 +11,13 @@ import (
 	"slices"
 
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common"
-	"github.com/securesign/operator/internal/controller/common/action"
-	k8sutils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/controller/constants"
-	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/constants"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -83,7 +83,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 	}
 
 	if instance.Status.Signer != nil {
-		secret, err := k8sutils.GetSecret(g.Client, instance.Namespace, instance.Status.Signer.CertificateChain.CertificateChainRef.Name)
+		secret, err := kubernetes.GetSecret(g.Client, instance.Namespace, instance.Status.Signer.CertificateChain.CertificateChainRef.Name)
 		if err != nil {
 			return g.Error(ctx, fmt.Errorf("can't load CA secret %w", err), instance)
 		}
@@ -105,7 +105,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 	instance.Status.Signer = instance.Spec.Signer.DeepCopy()
 
 	//Check if a secret for the TSA cert already exists and validate
-	partialSecrets, err := k8sutils.ListSecrets(ctx, g.Client, instance.Namespace, TSACertCALabel)
+	partialSecrets, err := kubernetes.ListSecrets(ctx, g.Client, instance.Namespace, TSACertCALabel)
 	if err != nil {
 		g.Logger.Error(err, "problem with listing secrets", "namespace", instance.Namespace)
 	}
@@ -191,12 +191,12 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 		},
 	}
 
-	if _, err = k8sutils.CreateOrUpdate(ctx, g.Client,
+	if _, err = kubernetes.CreateOrUpdate(ctx, g.Client,
 		certificateChain,
 		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(componentLabels)), componentLabels),
 		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(certLabels)), certLabels),
 		ensure.Annotations[*v1.Secret](managedAnnotations, anno),
-		k8sutils.EnsureSecretData(true, tsaCertChainConfig.ToMap()),
+		kubernetes.EnsureSecretData(true, tsaCertChainConfig.ToMap()),
 	); err != nil {
 		return g.Error(ctx, fmt.Errorf("could not create signer secret: %w", err), instance,
 			metav1.Condition{
@@ -222,14 +222,14 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 func (g generateSigner) handleSignerKeys(instance *v1alpha1.TimestampAuthority, config *tsaUtils.TsaCertChainConfig) (*tsaUtils.TsaCertChainConfig, error) {
 	if instance.Spec.Signer.File != nil {
 		if instance.Spec.Signer.File.PrivateKeyRef != nil {
-			key, err := k8sutils.GetSecretData(g.Client, instance.Namespace, instance.Spec.Signer.File.PrivateKeyRef)
+			key, err := kubernetes.GetSecretData(g.Client, instance.Namespace, instance.Spec.Signer.File.PrivateKeyRef)
 			if err != nil {
 				return nil, err
 			}
 			config.LeafPrivateKey = key
 
 			if ref := instance.Spec.Signer.File.PasswordRef; ref != nil {
-				password, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
+				password, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
 				if err != nil {
 					return nil, err
 				}
@@ -238,7 +238,7 @@ func (g generateSigner) handleSignerKeys(instance *v1alpha1.TimestampAuthority, 
 		}
 
 		if ref := instance.Spec.Signer.CertificateChain.CertificateChainRef; ref == nil {
-			config.RootPrivateKeyPassword = common.GeneratePassword(8)
+			config.RootPrivateKeyPassword = utils.GeneratePassword(8)
 			key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 			if err != nil {
 				return nil, err
@@ -253,21 +253,21 @@ func (g generateSigner) handleSignerKeys(instance *v1alpha1.TimestampAuthority, 
 	} else {
 		if instance.Spec.Signer.CertificateChain.RootCA != nil {
 			if ref := instance.Spec.Signer.CertificateChain.RootCA.PrivateKeyRef; ref != nil {
-				key, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
+				key, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
 				if err != nil {
 					return nil, err
 				}
 				config.RootPrivateKey = key
 
 				if ref := instance.Spec.Signer.CertificateChain.RootCA.PasswordRef; ref != nil {
-					password, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
+					password, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
 					if err != nil {
 						return nil, err
 					}
 					config.RootPrivateKeyPassword = password
 				}
 			} else {
-				config.RootPrivateKeyPassword = common.GeneratePassword(8)
+				config.RootPrivateKeyPassword = utils.GeneratePassword(8)
 				key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 				if err != nil {
 					return nil, err
@@ -282,14 +282,14 @@ func (g generateSigner) handleSignerKeys(instance *v1alpha1.TimestampAuthority, 
 
 		for index, intermediateCA := range instance.Spec.Signer.CertificateChain.IntermediateCA {
 			if ref := intermediateCA.PrivateKeyRef; ref != nil {
-				key, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
+				key, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
 				if err != nil {
 					return nil, err
 				}
 				config.IntermediatePrivateKeys = append(config.IntermediatePrivateKeys, key)
 
 				if ref := intermediateCA.PasswordRef; ref != nil {
-					password, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
+					password, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
 					if err != nil {
 						return nil, err
 					}
@@ -298,7 +298,7 @@ func (g generateSigner) handleSignerKeys(instance *v1alpha1.TimestampAuthority, 
 					config.IntermediatePrivateKeyPasswords = append(config.IntermediatePrivateKeyPasswords, []byte(""))
 				}
 			} else {
-				config.IntermediatePrivateKeyPasswords = append(config.IntermediatePrivateKeyPasswords, common.GeneratePassword(8))
+				config.IntermediatePrivateKeyPasswords = append(config.IntermediatePrivateKeyPasswords, utils.GeneratePassword(8))
 				key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 				if err != nil {
 					return nil, err
@@ -313,21 +313,21 @@ func (g generateSigner) handleSignerKeys(instance *v1alpha1.TimestampAuthority, 
 
 		if instance.Spec.Signer.CertificateChain.LeafCA != nil {
 			if ref := instance.Spec.Signer.CertificateChain.LeafCA.PrivateKeyRef; ref != nil {
-				key, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
+				key, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
 				if err != nil {
 					return nil, err
 				}
 				config.LeafPrivateKey = key
 
 				if ref := instance.Spec.Signer.CertificateChain.LeafCA.PasswordRef; ref != nil {
-					password, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
+					password, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
 					if err != nil {
 						return nil, err
 					}
 					config.LeafPrivateKeyPassword = password
 				}
 			} else {
-				config.LeafPrivateKeyPassword = common.GeneratePassword(8)
+				config.LeafPrivateKeyPassword = utils.GeneratePassword(8)
 				key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 				if err != nil {
 					return nil, err
@@ -345,7 +345,7 @@ func (g generateSigner) handleSignerKeys(instance *v1alpha1.TimestampAuthority, 
 
 func (g generateSigner) handleCertificateChain(ctx context.Context, instance *v1alpha1.TimestampAuthority, config *tsaUtils.TsaCertChainConfig) (*tsaUtils.TsaCertChainConfig, error) {
 	if ref := instance.Spec.Signer.CertificateChain.CertificateChainRef; ref != nil {
-		certificateChain, err := k8sutils.GetSecretData(g.Client, instance.Namespace, ref)
+		certificateChain, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
 		if err != nil {
 			return nil, err
 		}

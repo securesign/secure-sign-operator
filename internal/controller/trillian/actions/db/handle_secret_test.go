@@ -7,9 +7,10 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/internal/controller/common/action"
-	"github.com/securesign/operator/internal/controller/labels"
-	actions2 "github.com/securesign/operator/internal/controller/trillian/actions"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/trillian/actions"
+	"github.com/securesign/operator/internal/labels"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -18,7 +19,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/constants"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -121,7 +121,7 @@ func TestHandleSecret_CanHandle(t *testing.T) {
 
 			instance := tt.instance
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:   actions2.DbCondition,
+				Type:   actions.DbCondition,
 				Status: tt.condition,
 			})
 
@@ -164,7 +164,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
-					condition := meta.FindStatusCondition(instance.GetConditions(), actions2.DbCondition)
+					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
 					g.Expect(condition.Reason).Should(Equal(constants.Failure))
 
@@ -188,7 +188,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
-					condition := meta.FindStatusCondition(instance.GetConditions(), actions2.DbCondition)
+					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionTrue))
 					g.Expect(condition.Reason).Should(Equal(constants.Ready))
 
@@ -221,7 +221,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
-					condition := meta.FindStatusCondition(instance.GetConditions(), actions2.DbCondition)
+					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionTrue))
 					g.Expect(condition.Reason).Should(Equal(constants.Ready))
 
@@ -277,7 +277,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
-					condition := meta.FindStatusCondition(instance.GetConditions(), actions2.DbCondition)
+					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
 					g.Expect(condition.Reason).Should(Equal(constants.Pending))
 
@@ -304,7 +304,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
-					condition := meta.FindStatusCondition(instance.GetConditions(), actions2.DbCondition)
+					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
 					g.Expect(condition.Reason).Should(Equal(constants.Pending))
 
@@ -340,7 +340,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
-					condition := meta.FindStatusCondition(instance.GetConditions(), actions2.DbCondition)
+					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
 					g.Expect(condition.Reason).Should(Equal(constants.Pending))
 
@@ -373,7 +373,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
-					condition := meta.FindStatusCondition(instance.GetConditions(), actions2.DbCondition)
+					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
 					g.Expect(condition.Reason).Should(Equal(constants.Pending))
 
@@ -405,7 +405,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
-					condition := meta.FindStatusCondition(instance.GetConditions(), actions2.DbCondition)
+					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
 					g.Expect(condition.Reason).Should(Equal(constants.Pending))
 
@@ -436,8 +436,8 @@ func TestHandleSecret_Handle(t *testing.T) {
 							Namespace: "default",
 							Labels: map[string]string{
 								labels.LabelAppInstance:  "trillian",
-								labels.LabelAppComponent: actions2.DbComponentName,
-								labels.LabelAppName:      actions2.DbDeploymentName,
+								labels.LabelAppComponent: actions.DbComponentName,
+								labels.LabelAppName:      actions.DbDeploymentName,
 								labels.LabelAppPartOf:    constants.AppName,
 								labels.LabelAppManagedBy: "controller-manager",
 								labels.LabelResource:     dbConnectionResource,
@@ -458,7 +458,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
-					condition := meta.FindStatusCondition(instance.GetConditions(), actions2.DbCondition)
+					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
 					g.Expect(condition.Reason).Should(Equal(constants.Pending))
 
@@ -489,8 +489,8 @@ func TestHandleSecret_Handle(t *testing.T) {
 							Namespace: "default",
 							Labels: map[string]string{
 								labels.LabelAppInstance:  "trillian",
-								labels.LabelAppComponent: actions2.DbComponentName,
-								labels.LabelAppName:      actions2.DbDeploymentName,
+								labels.LabelAppComponent: actions.DbComponentName,
+								labels.LabelAppName:      actions.DbDeploymentName,
 								labels.LabelAppPartOf:    constants.AppName,
 								labels.LabelAppManagedBy: "controller-manager",
 								labels.LabelResource:     dbConnectionResource,
@@ -503,8 +503,8 @@ func TestHandleSecret_Handle(t *testing.T) {
 							Namespace: "default",
 							Labels: map[string]string{
 								labels.LabelAppInstance:  "trillian",
-								labels.LabelAppComponent: actions2.DbComponentName,
-								labels.LabelAppName:      actions2.DbDeploymentName,
+								labels.LabelAppComponent: actions.DbComponentName,
+								labels.LabelAppName:      actions.DbDeploymentName,
 								labels.LabelAppPartOf:    constants.AppName,
 								labels.LabelAppManagedBy: "controller-manager",
 								labels.LabelResource:     dbConnectionResource,
@@ -525,7 +525,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
-					condition := meta.FindStatusCondition(instance.GetConditions(), actions2.DbCondition)
+					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
 					g.Expect(condition.Reason).Should(Equal(constants.Pending))
 
@@ -570,8 +570,8 @@ func TestHandleSecret_Handle(t *testing.T) {
 							Namespace: "default",
 							Labels: map[string]string{
 								labels.LabelAppInstance:  "trillian",
-								labels.LabelAppComponent: actions2.DbComponentName,
-								labels.LabelAppName:      actions2.DbDeploymentName,
+								labels.LabelAppComponent: actions.DbComponentName,
+								labels.LabelAppName:      actions.DbDeploymentName,
 								labels.LabelAppPartOf:    constants.AppName,
 								labels.LabelAppManagedBy: "controller-manager",
 								labels.LabelResource:     dbConnectionResource,
@@ -590,8 +590,8 @@ func TestHandleSecret_Handle(t *testing.T) {
 							Namespace: "default",
 							Labels: map[string]string{
 								labels.LabelAppInstance:  "trillian",
-								labels.LabelAppComponent: actions2.DbComponentName,
-								labels.LabelAppName:      actions2.DbDeploymentName,
+								labels.LabelAppComponent: actions.DbComponentName,
+								labels.LabelAppName:      actions.DbDeploymentName,
 								labels.LabelAppPartOf:    constants.AppName,
 								labels.LabelAppManagedBy: "controller-manager",
 								labels.LabelResource:     dbConnectionResource,
@@ -612,7 +612,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
-					condition := meta.FindStatusCondition(instance.GetConditions(), actions2.DbCondition)
+					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
 					g.Expect(condition.Reason).Should(Equal(constants.Pending))
 
@@ -646,7 +646,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 			}
 
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:   actions2.DbCondition,
+				Type:   actions.DbCondition,
 				Status: metav1.ConditionFalse,
 				Reason: constants.Pending,
 			})

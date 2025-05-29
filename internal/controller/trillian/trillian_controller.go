@@ -19,13 +19,12 @@ package trillian
 import (
 	"context"
 
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/transitions"
+	"github.com/securesign/operator/internal/annotations"
 	"k8s.io/apimachinery/pkg/types"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
-	"github.com/securesign/operator/internal/controller/annotations"
-	"github.com/securesign/operator/internal/controller/common/action/transitions"
-
-	"github.com/securesign/operator/internal/controller/common/action"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/controller/trillian/actions/db"
 	"github.com/securesign/operator/internal/controller/trillian/actions/logserver"
@@ -89,6 +88,10 @@ func (r *TrillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Trillian](func(t *rhtasv1alpha1.Trillian) []string {
 			return []string{actions.ServerCondition, actions.SignerCondition, actions.DbCondition}
 		}),
+
+		logserver.NewTlsAction(),
+		logsigner.NewTlsAction(),
+		db.NewTlsAction(),
 
 		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.Trillian](),
 		actions.NewRBACAction(),

@@ -5,12 +5,12 @@ import (
 	"strconv"
 
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/utils"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure/deployment"
-	"github.com/securesign/operator/internal/controller/common/utils/tls"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/images"
+	"github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
+	"github.com/securesign/operator/internal/utils/tls"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -171,9 +171,9 @@ func WithTlsDB(instance *v1alpha1.Trillian, caPath string, name string) func(dep
 	}
 }
 
-func EnsureTLSServer(instance *v1alpha1.Trillian, name string) func(deployment *apps.Deployment) error {
+func EnsureTLS(tlsConfig v1alpha1.TLS, name string) func(deployment *apps.Deployment) error {
 	return func(dp *apps.Deployment) error {
-		if err := deployment.TLS(instance.Status.TLS, name)(dp); err != nil {
+		if err := deployment.TLS(tlsConfig, name)(dp); err != nil {
 			return err
 		}
 

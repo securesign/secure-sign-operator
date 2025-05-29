@@ -5,19 +5,18 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/securesign/operator/internal/controller/annotations"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure/deployment"
-	"github.com/securesign/operator/internal/controller/fulcio/utils"
-	"github.com/securesign/operator/internal/controller/labels"
-	v13 "k8s.io/api/apps/v1"
-	"k8s.io/utils/ptr"
-
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
 	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/controller/fulcio/utils"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
+	v13 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -138,19 +137,9 @@ func TestCtlogConfig(t *testing.T) {
 				Prefix: "prefix",
 			},
 			verify: func(g Gomega, deployment *v13.Deployment, err error) {
-				g.Expect(err).Should(HaveOccurred())
-				g.Expect(err).Should(MatchError(utils.CtlogAddressNotSpecified))
-			},
-		},
-		{
-			name: "missing port",
-			args: v1alpha1.CtlogService{
-				Address: "http://address",
-				Prefix:  "prefix",
-			},
-			verify: func(g Gomega, deployment *v13.Deployment, err error) {
-				g.Expect(err).Should(HaveOccurred())
-				g.Expect(err).Should(MatchError(utils.CtlogPortNotSpecified))
+				g.Expect(err).Should(Succeed())
+				g.Expect(deployment.Spec.Template.Spec.Containers[0].Args).Should(ContainElement(Equal("--ct-log-url=http://ctlog.default.svc/prefix")))
+
 			},
 		},
 		{
@@ -249,4 +238,79 @@ func createDeployment(instance *v1alpha1.Fulcio, labels map[string]string) (*v13
 		}
 	}
 	return d, nil
+}
+
+func TestResolveCTLUrl(t *testing.T) {
+	g := NewWithT(t)
+	action := deployAction{}
+
+	tests := []struct {
+		name   string
+		ctl    v1alpha1.CtlogService
+		tls    bool
+		assert func(g Gomega, url string, err error)
+	}{
+		{
+			name: "empty preffix",
+			ctl:  v1alpha1.CtlogService{Prefix: ""},
+			assert: func(g Gomega, url string, err error) {
+				g.Expect(err).Should(HaveOccurred())
+				g.Expect(err).Should(MatchError(utils.CtlogPrefixNotSpecified))
+			},
+		},
+		{
+			name: "address no port",
+			ctl:  v1alpha1.CtlogService{Prefix: "test", Address: "http://ctlog.default.svc", Port: nil},
+			assert: func(g Gomega, url string, err error) {
+				g.Expect(err).ShouldNot(HaveOccurred())
+				g.Expect(url).Should(Equal("http://ctlog.default.svc/test"))
+			},
+		},
+		{
+			name: "address with port",
+			ctl:  v1alpha1.CtlogService{Prefix: "test", Address: "http://ctlog.default.svc", Port: ptr.To(int32(8080))},
+			assert: func(g Gomega, url string, err error) {
+				g.Expect(err).ShouldNot(HaveOccurred())
+				g.Expect(url).Should(Equal("http://ctlog.default.svc:8080/test"))
+			},
+		},
+		{
+			name: "address with port",
+			ctl:  v1alpha1.CtlogService{Prefix: "test", Address: "http://ctlog.default.svc", Port: ptr.To(int32(8080))},
+			assert: func(g Gomega, url string, err error) {
+				g.Expect(err).ShouldNot(HaveOccurred())
+				g.Expect(url).Should(Equal("http://ctlog.default.svc:8080/test"))
+			},
+		},
+		{
+			name: "autoresolve address no TLS",
+			ctl:  v1alpha1.CtlogService{Prefix: "test"},
+			tls:  false,
+			assert: func(g Gomega, url string, err error) {
+				g.Expect(err).ShouldNot(HaveOccurred())
+				g.Expect(url).Should(Equal("http://ctlog.default.svc/test"))
+			},
+		},
+		{
+			name: "autoresolve address TLS",
+			ctl:  v1alpha1.CtlogService{Prefix: "test"},
+			tls:  true,
+			assert: func(g Gomega, url string, err error) {
+				g.Expect(err).ShouldNot(HaveOccurred())
+				g.Expect(url).Should(Equal("https://ctlog.default.svc/test"))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			instance := createInstance()
+			instance.Spec.Ctlog = tt.ctl
+			if tt.tls {
+				instance.Spec.TrustedCA = &v1alpha1.LocalObjectReference{}
+			}
+			url, err := action.resolveCTlogUrl(instance)
+			tt.assert(g, url, err)
+		})
+	}
 }

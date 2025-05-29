@@ -4,9 +4,9 @@ import (
 	"path/filepath"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	constants2 "github.com/securesign/operator/internal/controller/tuf/constants"
+	"github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/images"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
@@ -52,7 +52,7 @@ func EnsureTufInitJob(instance *rhtasv1alpha1.Tuf, sa string, labels map[string]
 			Projected: secretsVolumeProjection(instance.Status.Keys),
 		}
 
-		repositoryVolume := kubernetes.FindVolumeByNameOrCreate(templateSpec, constants2.VolumeName)
+		repositoryVolume := kubernetes.FindVolumeByNameOrCreate(templateSpec, constants.VolumeName)
 		repositoryVolume.VolumeSource = v1.VolumeSource{
 			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 				ClaimName: instance.Status.PvcName,

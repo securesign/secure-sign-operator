@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/constants"
 	v12 "k8s.io/api/networking/v1"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/action"
-	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"

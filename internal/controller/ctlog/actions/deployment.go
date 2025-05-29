@@ -7,18 +7,18 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure/deployment"
-	"github.com/securesign/operator/internal/controller/common/utils/tls"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/images"
+	"github.com/securesign/operator/internal/labels"
+	cutils "github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
+	"github.com/securesign/operator/internal/utils/tls"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/action"
-	cutils "github.com/securesign/operator/internal/controller/common/utils"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
-	"github.com/securesign/operator/internal/controller/labels"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	v1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -75,6 +75,10 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
 		deployment.TrustedCA(instance.GetTrustedCA(), "server"),
+		ensure.Optional(
+			utils.TlsEnabled(instance),
+			i.ensureTLS(instance.Status.TLS, containerName),
+		),
 		ensure.Optional(tls.UseTlsClient(instance), i.ensureTlsTrillian(ctx, instance)),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create ctlog server deployment: %w", err), instance)
@@ -187,6 +191,29 @@ func (i deployAction) ensureTlsTrillian(ctx context.Context, instance *rhtasv1al
 		container := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, containerName)
 
 		container.Args = append(container.Args, "--trillian_tls_ca_cert_file", caPath)
+		return nil
+	}
+}
+
+func (i deployAction) ensureTLS(tlsConfig rhtasv1alpha1.TLS, name string) func(deployment *v1.Deployment) error {
+	return func(dp *v1.Deployment) error {
+		if err := deployment.TLS(tlsConfig, name)(dp); err != nil {
+			return err
+		}
+
+		container := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, name)
+
+		container.Args = append(container.Args, "--tls_certificate", tls.TLSCertPath)
+		container.Args = append(container.Args, "--tls_key", tls.TLSKeyPath)
+
+		if container.ReadinessProbe != nil {
+			container.ReadinessProbe.HTTPGet.Scheme = core.URISchemeHTTPS
+		}
+
+		if container.LivenessProbe != nil {
+			container.LivenessProbe.HTTPGet.Scheme = core.URISchemeHTTPS
+		}
+
 		return nil
 	}
 }

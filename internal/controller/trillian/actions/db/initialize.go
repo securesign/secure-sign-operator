@@ -4,13 +4,12 @@ import (
 	"context"
 	"errors"
 
-	"github.com/securesign/operator/internal/controller/common/utils"
-	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/labels"
+	commonUtils "github.com/securesign/operator/internal/utils/kubernetes"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/action"
-	commonUtils "github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,7 +29,7 @@ func (i initializeAction) Name() string {
 
 func (i initializeAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	return !meta.IsStatusConditionTrue(instance.Status.Conditions, actions.DbCondition) &&
-		utils.OptionalBool(instance.Spec.Db.Create)
+		enabled(instance)
 }
 
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {

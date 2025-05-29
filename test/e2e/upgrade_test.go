@@ -11,19 +11,20 @@ import (
 	"time"
 
 	"github.com/securesign/operator/internal/images"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils"
 
 	"github.com/blang/semver/v4"
 	"github.com/onsi/ginkgo/v2/dsl/core"
 	v12 "github.com/operator-framework/api/pkg/operators/v1"
 	tasv1alpha "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/common/utils"
 	ctl "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcioAction "github.com/securesign/operator/internal/controller/fulcio/actions"
-	"github.com/securesign/operator/internal/controller/labels"
 	rekorAction "github.com/securesign/operator/internal/controller/rekor/actions"
 	trillianAction "github.com/securesign/operator/internal/controller/trillian/actions"
 	tsaAction "github.com/securesign/operator/internal/controller/tsa/actions"
 	tufAction "github.com/securesign/operator/internal/controller/tuf/constants"
+	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	clients "github.com/securesign/operator/test/e2e/support/tas/cli"
 	"github.com/securesign/operator/test/e2e/support/tas/rekor"
@@ -54,7 +55,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		securesignDeployment                   *tasv1alpha.Securesign
 		rrekor                                 *tasv1alpha.Rekor
 		prevImageName, newImageName            string
-		openshift                              bool
+		err                                    error
 	)
 
 	AfterEach(func() {
@@ -80,7 +81,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 
 		baseCatalogImage = os.Getenv("TEST_BASE_CATALOG")
 		targetedCatalogImage = os.Getenv("TEST_TARGET_CATALOG")
-		openshift, _ = strconv.ParseBool(os.Getenv("OPENSHIFT"))
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 		namespace = support.CreateTestNamespace(ctx, cli)
 		DeferCleanup(func() {
@@ -136,7 +137,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 					Env: []v1.EnvVar{
 						{
 							Name:  "OPENSHIFT",
-							Value: strconv.FormatBool(openshift),
+							Value: strconv.FormatBool(testSupportKubernetes.IsRemoteClusterOpenshift()),
 						},
 					},
 				},

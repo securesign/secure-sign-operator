@@ -20,13 +20,13 @@ import (
 	"context"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
-	"github.com/securesign/operator/internal/controller/annotations"
-	"github.com/securesign/operator/internal/controller/common/action/transitions"
-	"github.com/securesign/operator/internal/controller/labels"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/transitions"
+	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
-	fulcioActions "github.com/securesign/operator/internal/controller/fulcio/actions"
 	v12 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,7 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/securesign/operator/internal/controller/common/action"
+	fulcioActions "github.com/securesign/operator/internal/controller/fulcio/actions"
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -90,8 +90,11 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	target := instance.DeepCopy()
 	acs := []action.Action[*rhtasv1alpha1.CTlog]{
 		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.CTlog](func(_ *rhtasv1alpha1.CTlog) []string {
-			return []string{actions.CertCondition, actions.ConfigCondition}
+			return []string{actions.CertCondition, actions.ConfigCondition, actions.TLSCondition}
 		}),
+
+		actions.NewTlsAction(),
+
 		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.CTlog](),
 
 		actions.NewHandleFulcioCertAction(),

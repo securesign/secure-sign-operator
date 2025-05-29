@@ -7,16 +7,16 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure/deployment"
-	"github.com/securesign/operator/internal/controller/common/utils/tls"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/images"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
+	"github.com/securesign/operator/internal/utils/tls"
 
-	"github.com/securesign/operator/internal/controller/common/action"
-	"github.com/securesign/operator/internal/controller/common/utils"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/common/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/controller/constants"
-	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	trillianUtils "github.com/securesign/operator/internal/controller/trillian/utils"
 	v2 "k8s.io/api/apps/v1"
@@ -47,7 +47,7 @@ func (i deployAction) Name() string {
 
 func (i deployAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return (c.Reason == constants.Ready || c.Reason == constants.Creating) && utils.OptionalBool(instance.Spec.Db.Create)
+	return (c.Reason == constants.Ready || c.Reason == constants.Creating) && enabled(instance)
 }
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
@@ -63,25 +63,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		scc = &v1.PodSecurityContext{FSGroup: utils.Pointer(int64(1001)), FSGroupChangePolicy: utils.Pointer(v1.FSGroupChangeOnRootMismatch)}
 	}
 
-	// TLS
-	switch {
-	case instance.Spec.Db.TLS.CertRef != nil:
-		instance.Status.Db.TLS = instance.Spec.Db.TLS
-	case kubernetes.IsOpenShift():
-		instance.Status.Db.TLS = rhtasv1alpha1.TLS{
-			CertRef: &rhtasv1alpha1.SecretKeySelector{
-				LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: instance.Name + "-trillian-db-tls"},
-				Key:                  "tls.crt",
-			},
-			PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
-				LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: instance.Name + "-trillian-db-tls"},
-				Key:                  "tls.key",
-			},
-		}
-	default:
-		i.Logger.V(1).Info("Communication to trillian-db is insecure")
-	}
-
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		&v2.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -92,7 +73,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		i.ensureDbDeployment(instance, actions.RBACName, scc, labels),
 		ensure.ControllerReference[*v2.Deployment](instance, i.Client),
 		ensure.Labels[*v2.Deployment](slices.Collect(maps.Keys(labels)), labels),
-		ensure.Optional(trillianUtils.UseTLSDb(instance), i.ensureTLS(instance)),
+		ensure.Optional(trillianUtils.UseTLSDb(instance), i.ensureTLS(statusTLS(instance))),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Trillian DB: %w", err), instance, metav1.Condition{
 			Type:    actions.DbCondition,
@@ -237,9 +218,9 @@ func (i deployAction) ensureDbDeployment(instance *rhtasv1alpha1.Trillian, sa st
 	}
 }
 
-func (i deployAction) ensureTLS(instance *rhtasv1alpha1.Trillian) func(deployment *v2.Deployment) error {
+func (i deployAction) ensureTLS(tlsConfig rhtasv1alpha1.TLS) func(deployment *v2.Deployment) error {
 	return func(dp *v2.Deployment) error {
-		if err := deployment.TLS(instance.Status.Db.TLS, actions.DbDeploymentName)(dp); err != nil {
+		if err := deployment.TLS(tlsConfig, actions.DbDeploymentName)(dp); err != nil {
 			return err
 		}
 
