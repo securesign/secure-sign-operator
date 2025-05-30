@@ -61,30 +61,30 @@ var _ = Describe("Fulcio controller", func() {
 
 		BeforeEach(func() {
 			By("Creating the Namespace to perform the tests")
-			err := k8sClient.Create(ctx, namespace)
+			err := suite.Client().Create(ctx, namespace)
 			Expect(err).To(Not(HaveOccurred()))
 		})
 
 		AfterEach(func() {
 			By("removing the custom resource for the Kind Fulcio")
 			found := &v1alpha1.Fulcio{}
-			err := k8sClient.Get(ctx, typeNamespaceName, found)
+			err := suite.Client().Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
 
 			Eventually(func() error {
-				return k8sClient.Delete(context.TODO(), found)
+				return suite.Client().Delete(context.TODO(), found)
 			}, 2*time.Minute, time.Second).Should(Succeed())
 
 			// TODO(user): Attention if you improve this code by adding other context test you MUST
 			// be aware of the current delete namespace limitations.
 			// More info: https://book.kubebuilder.io/reference/envtest.html#testing-considerations
 			By("Deleting the Namespace to perform the tests")
-			_ = k8sClient.Delete(ctx, namespace)
+			_ = suite.Client().Delete(ctx, namespace)
 		})
 
 		It("should successfully reconcile a custom resource for Fulcio", func() {
 			By("creating the custom resource for the Kind Fulcio")
-			err := k8sClient.Get(ctx, typeNamespaceName, instance)
+			err := suite.Client().Get(ctx, typeNamespaceName, instance)
 			if err != nil && errors.IsNotFound(err) {
 				// Let's mock our custom resource at the same way that we would
 				// apply on the cluster the manifest under config/samples
@@ -125,32 +125,32 @@ var _ = Describe("Fulcio controller", func() {
 						},
 					},
 				}
-				err = k8sClient.Create(ctx, instance)
+				err = suite.Client().Create(ctx, instance)
 				Expect(err).To(Not(HaveOccurred()))
 			}
 
 			By("Checking if the custom resource was successfully created")
 			Eventually(func() error {
 				found := &v1alpha1.Fulcio{}
-				return k8sClient.Get(ctx, typeNamespaceName, found)
+				return suite.Client().Get(ctx, typeNamespaceName, found)
 			}).Should(Succeed())
 
 			By("Status conditions are initialized")
 			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Fulcio{}
-				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
 			}).Should(BeTrue())
 
 			By("Pending phase until password key is resolved")
 			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Fulcio{}
-				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Pending))
 
 			By("Creating password secret with cert password")
-			Expect(k8sClient.Create(ctx, &corev1.Secret{
+			Expect(suite.Client().Create(ctx, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "password-secret",
 					Namespace: typeNamespaceName.Namespace,
@@ -165,31 +165,31 @@ var _ = Describe("Fulcio controller", func() {
 			var certSecretPartialObject *metav1.PartialObjectMetadata
 			var certSecret *corev1.Secret
 			Eventually(func(g Gomega) *corev1.Secret {
-				certSecretPartialObject, err = kubernetes.FindSecret(ctx, k8sClient, Namespace, actions.FulcioCALabel)
+				certSecretPartialObject, err = kubernetes.FindSecret(ctx, suite.Client(), Namespace, actions.FulcioCALabel)
 				g.Expect(err).To(Not(HaveOccurred()))
-				certSecret, err = kubernetes.GetSecret(k8sClient, certSecretPartialObject.Namespace, certSecretPartialObject.Name)
+				certSecret, err = kubernetes.GetSecret(suite.Client(), certSecretPartialObject.Namespace, certSecretPartialObject.Name)
 				g.Expect(err).To(Not(HaveOccurred()))
 				return certSecret
 			}).Should(Not(BeNil()))
 
 			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Fulcio{}
-				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, actions.CertCondition)
 			}).Should(BeTrue())
 			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Fulcio{}
-				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Certificate.CARef.Name
 			}).Should(Equal(certSecret.Name))
 			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Fulcio{}
-				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Certificate.PrivateKeyRef.Name
 			}).Should(Equal(certSecret.Name))
 			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Fulcio{}
-				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Certificate.PrivateKeyPasswordRef.Name
 			}).Should(Equal("password-secret"))
 
@@ -198,24 +198,24 @@ var _ = Describe("Fulcio controller", func() {
 			deployment := &appsv1.Deployment{}
 			By("Checking if Deployment was successfully created in the reconciliation")
 			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
+				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
 			}).Should(Succeed())
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase
-			Expect(k8sTest.SetDeploymentToReady(ctx, k8sClient, deployment)).To(Succeed())
+			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
 
 			By("Waiting until Fulcio instance is Ready")
 			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Fulcio{}
-				g.Expect(k8sClient.Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
 			}).Should(BeTrue())
 
 			By("Checking if Service was successfully created in the reconciliation")
 			service := &corev1.Service{}
 			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, service)
+				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, service)
 			}).Should(Succeed())
 			Expect(service.Spec.Ports[0].Port).Should(Equal(int32(80)))
 			Expect(service.Spec.Ports[1].Port).Should(Equal(int32(5554)))
@@ -223,7 +223,7 @@ var _ = Describe("Fulcio controller", func() {
 			By("Checking if Ingress was successfully created in the reconciliation")
 			ingress := &v1.Ingress{}
 			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, ingress)
+				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, ingress)
 			}).Should(Succeed())
 			Expect(ingress.Spec.Rules[0].Host).Should(Equal("fulcio.localhost"))
 			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Name).Should(Equal(service.Name))
@@ -232,14 +232,14 @@ var _ = Describe("Fulcio controller", func() {
 			By("Checking if controller will return deployment to desired state")
 			deployment = &appsv1.Deployment{}
 			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
+				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
 			}).Should(Succeed())
 			replicas := int32(99)
 			deployment.Spec.Replicas = &replicas
-			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
+			Expect(suite.Client().Status().Update(ctx, deployment)).Should(Succeed())
 			Eventually(func(g Gomega) int32 {
 				deployment = &appsv1.Deployment{}
-				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
+				g.Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
 				return *deployment.Spec.Replicas
 			}).Should(Equal(int32(1)))
 		})
