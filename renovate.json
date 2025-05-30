@@ -38,6 +38,15 @@
         "sigs.k8s.io/controller-runtime"
       ],
       "allowedVersions": "<0.21.0"
+    },
+    {
+      "matchDatasources": [
+        "go"
+      ],
+      "matchPackageNames": [
+        "github.com/google/go-containerregistry"
+      ],
+      "allowedVersions": "<=0.20.3"
     }
   ]
 }
