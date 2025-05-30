@@ -24,6 +24,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/controller"
 	"github.com/securesign/operator/internal/controller/tuf/actions"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	v1 "k8s.io/api/apps/v1"
@@ -40,11 +41,19 @@ import (
 
 const DebugLevel int = 1
 
-// TufReconciler reconciles a Tuf object
-type TufReconciler struct {
+// tufReconciler reconciles a Tuf object
+type tufReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	scheme   *runtime.Scheme
+	recorder record.EventRecorder
+}
+
+func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.EventRecorder) controller.Controller {
+	return &tufReconciler{
+		Client:   c,
+		scheme:   scheme,
+		recorder: recorder,
+	}
 }
 
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=tufs,verbs=get;list;watch;create;update;patch;delete
@@ -60,7 +69,7 @@ type TufReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
-func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *tufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	rlog := log.FromContext(ctx).WithName("controller").WithName("tuf")
 
 	// Fetch the Tuf instance
@@ -113,7 +122,7 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	for _, a := range acs {
 		a.InjectClient(r.Client)
 		a.InjectLogger(rlog.WithName(a.Name()))
-		a.InjectRecorder(r.Recorder)
+		a.InjectRecorder(r.recorder)
 
 		if a.CanHandle(ctx, target) {
 			rlog.V(2).Info("Executing " + a.Name())
@@ -127,7 +136,7 @@ func (r *TufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *TufReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *tufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	var (
 		err error
 	)

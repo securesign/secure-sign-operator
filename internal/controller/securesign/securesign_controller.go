@@ -22,10 +22,12 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller"
 	"github.com/securesign/operator/internal/labels"
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 
 	"github.com/operator-framework/operator-lib/predicate"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -43,10 +45,19 @@ const (
 	finalizer = "tas.rhtas.redhat.com"
 )
 
-// SecuresignReconciler reconciles a Securesign object
-type SecuresignReconciler struct {
+// securesignReconciler reconciles a Securesign object
+type securesignReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	scheme   *runtime.Scheme
+	recorder record.EventRecorder
+}
+
+func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.EventRecorder) controller.Controller {
+	return &securesignReconciler{
+		Client:   c,
+		scheme:   scheme,
+		recorder: recorder,
+	}
 }
 
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=securesigns,verbs=get;list;watch;create;update;patch;delete
@@ -78,7 +89,7 @@ type SecuresignReconciler struct {
 //+kubebuilder:rbac:groups="operator.openshift.io",resources=consoles,verbs=get;list
 
 // TODO: rework Securesign controller to watch resources
-func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *securesignReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var instance rhtasv1alpha1.Securesign
 	log := ctrllog.FromContext(ctx)
 
@@ -161,7 +172,7 @@ func (r *SecuresignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *SecuresignReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *securesignReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Filter out with the pause annotation.
 	pause, err := predicate.NewPause[client.Object](annotations.PausedReconciliation)
 	if err != nil {

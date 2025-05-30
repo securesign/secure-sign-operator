@@ -23,6 +23,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/controller"
 	"github.com/securesign/operator/internal/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -46,11 +47,19 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 )
 
-// CTlogReconciler reconciles a CTlog object
-type CTlogReconciler struct {
+// ctlogReconciler reconciles a CTlog object
+type ctlogReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	scheme   *runtime.Scheme
+	recorder record.EventRecorder
+}
+
+func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.EventRecorder) controller.Controller {
+	return &ctlogReconciler{
+		Client:   c,
+		scheme:   scheme,
+		recorder: recorder,
+	}
 }
 
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=ctlogs,verbs=get;list;watch;create;update;patch;delete
@@ -66,7 +75,7 @@ type CTlogReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
-func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 
 	var instance rhtasv1alpha1.CTlog
 	rlog := log.FromContext(ctx)
@@ -118,7 +127,7 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		rlog.V(2).Info("Executing " + a.Name())
 		a.InjectClient(r.Client)
 		a.InjectLogger(rlog.WithName(a.Name()))
-		a.InjectRecorder(r.Recorder)
+		a.InjectRecorder(r.recorder)
 
 		if a.CanHandle(ctx, target) {
 			rlog.V(1).Info("Executing " + a.Name())
@@ -132,7 +141,7 @@ func (r *CTlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *CTlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *ctlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Filter out with the pause annotation.
 	pause, err := olpredicate.NewPause[client.Object](annotations.PausedReconciliation)
 	if err != nil {
