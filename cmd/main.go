@@ -23,6 +23,7 @@ import (
 	"strconv"
 
 	appconfig "github.com/securesign/operator/internal/config"
+	"github.com/securesign/operator/internal/controller"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/utils"
 
@@ -176,62 +177,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = securesign.NewReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		mgr.GetEventRecorderFor("securesign-controller"),
-	).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Securesign")
-		os.Exit(1)
-	}
-	if err = fulcio.NewReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		mgr.GetEventRecorderFor("fulcio-controller"),
-	).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Fulcio")
-		os.Exit(1)
-	}
-	if err = trillian.NewReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		mgr.GetEventRecorderFor("trillian-controller"),
-	).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Trillian")
-		os.Exit(1)
-	}
-	if err = rekor.NewReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		mgr.GetEventRecorderFor("rekor-controller"),
-	).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Rekor")
-		os.Exit(1)
-	}
-	if err = tuf.NewReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		mgr.GetEventRecorderFor("tuf-controller"),
-	).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Tuf")
-		os.Exit(1)
-	}
-	if err = ctlog.NewReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		mgr.GetEventRecorderFor("ctlog-controller"),
-	).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CTlog")
-		os.Exit(1)
-	}
-	if err = tsa.NewReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		mgr.GetEventRecorderFor("tsa-controller"),
-	).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "TimestampAuthority")
-		os.Exit(1)
-	}
+	setupController("securesign", securesign.NewReconciler, mgr)
+	setupController("fulcio", fulcio.NewReconciler, mgr)
+	setupController("trillian", trillian.NewReconciler, mgr)
+	setupController("rekor", rekor.NewReconciler, mgr)
+	setupController("tuf", tuf.NewReconciler, mgr)
+	setupController("ctlog", ctlog.NewReconciler, mgr)
+	setupController("tsa", tsa.NewReconciler, mgr)
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
@@ -257,6 +209,17 @@ func main() {
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
+		os.Exit(1)
+	}
+}
+
+func setupController(name string, constructor controller.Constructor, manager ctrl.Manager) {
+	if err := constructor(
+		manager.GetClient(),
+		manager.GetScheme(),
+		manager.GetEventRecorderFor(name+"-controller"),
+	).SetupWithManager(manager); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", name)
 		os.Exit(1)
 	}
 }
