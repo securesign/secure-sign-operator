@@ -176,58 +176,59 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&securesign.SecuresignReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	if err = securesign.NewReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		mgr.GetEventRecorderFor("securesign-controller"),
+	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Securesign")
 		os.Exit(1)
 	}
-	if err = (&fulcio.FulcioReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("fulcio-controller"),
-	}).SetupWithManager(mgr); err != nil {
+	if err = fulcio.NewReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		mgr.GetEventRecorderFor("fulcio-controller"),
+	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Fulcio")
 		os.Exit(1)
 	}
-	if err = (&trillian.TrillianReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("trillian-controller"),
-	}).SetupWithManager(mgr); err != nil {
+	if err = trillian.NewReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		mgr.GetEventRecorderFor("trillian-controller"),
+	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Trillian")
 		os.Exit(1)
 	}
-	if err = (&rekor.RekorReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("rekor-controller"),
-	}).SetupWithManager(mgr); err != nil {
+	if err = rekor.NewReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		mgr.GetEventRecorderFor("rekor-controller"),
+	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Rekor")
 		os.Exit(1)
 	}
-	if err = (&tuf.TufReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("tuf-controller"),
-	}).SetupWithManager(mgr); err != nil {
+	if err = tuf.NewReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		mgr.GetEventRecorderFor("tuf-controller"),
+	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Tuf")
 		os.Exit(1)
 	}
-	if err = (&ctlog.CTlogReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("ctlog-controller"),
-	}).SetupWithManager(mgr); err != nil {
+	if err = ctlog.NewReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		mgr.GetEventRecorderFor("ctlog-controller"),
+	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CTlog")
 		os.Exit(1)
 	}
-	if err = (&tsa.TimestampAuthorityReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("tsa-controller"),
-	}).SetupWithManager(mgr); err != nil {
+	if err = tsa.NewReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		mgr.GetEventRecorderFor("tsa-controller"),
+	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TimestampAuthority")
 		os.Exit(1)
 	}

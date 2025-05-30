@@ -22,6 +22,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/controller"
 	"k8s.io/apimachinery/pkg/types"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
@@ -45,11 +46,19 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 )
 
-// RekorReconciler reconciles a Rekor object
-type RekorReconciler struct {
+// rekorReconciler reconciles a Rekor object
+type rekorReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	scheme   *runtime.Scheme
+	recorder record.EventRecorder
+}
+
+func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.EventRecorder) controller.Controller {
+	return &rekorReconciler{
+		Client:   c,
+		scheme:   scheme,
+		recorder: recorder,
+	}
 }
 
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=rekors,verbs=get;list;watch;create;update;patch;delete
@@ -72,7 +81,7 @@ type RekorReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
-func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var instance rhtasv1alpha1.Rekor
 	log := ctrllog.FromContext(ctx)
 
@@ -139,7 +148,7 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	for _, a := range actions {
 		a.InjectClient(r.Client)
 		a.InjectLogger(log.WithName(a.Name()))
-		a.InjectRecorder(r.Recorder)
+		a.InjectRecorder(r.recorder)
 
 		if a.CanHandle(ctx, target) {
 			log.V(2).Info("Executing " + a.Name())
@@ -153,7 +162,7 @@ func (r *RekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *RekorReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *rekorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Filter out with the pause annotation.
 	pause, err := olpredicate.NewPause[client.Object](annotations.PausedReconciliation)
 	if err != nil {
