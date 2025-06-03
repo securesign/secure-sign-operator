@@ -115,7 +115,11 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.Rekor](),
 
-		actions2.NewRBACAction(),
+		server.NewRBACAction(),
+		ui.NewRBACAction(),
+		redis.NewRBACAction(),
+		backfillredis.NewRBACAction(),
+
 		server.NewShardingConfigAction(),
 		server.NewResolveTreeAction(),
 		server.NewCreatePvcAction(),

@@ -40,7 +40,7 @@ func (i deployAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Rek
 	if c == nil {
 		return false
 	}
-	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && commonutils.IsEnabled(instance.Spec.RekorSearchUI.Enabled)
+	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && enabled(instance)
 }
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
@@ -56,7 +56,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 				Namespace: instance.Namespace,
 			},
 		},
-		i.ensureUIDeployment(instance, actions.RBACName, labels),
+		i.ensureUIDeployment(instance, actions.RBACUIName, labels),
 		ensure.ControllerReference[*v2.Deployment](instance, i.Client),
 		ensure.Labels[*v2.Deployment](slices.Collect(maps.Keys(labels)), labels),
 	); err != nil {

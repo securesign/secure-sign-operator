@@ -9,7 +9,6 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
-	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v2 "k8s.io/api/networking/v1"
@@ -40,8 +39,7 @@ func (i ingressAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Re
 	if c == nil {
 		return false
 	}
-	return (c.Reason == constants.Creating || c.Reason == constants.Ready) &&
-		utils.IsEnabled(instance.Spec.RekorSearchUI.Enabled)
+	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && enabled(instance)
 }
 
 func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {

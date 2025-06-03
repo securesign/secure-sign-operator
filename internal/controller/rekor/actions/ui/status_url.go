@@ -6,7 +6,6 @@ import (
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
-	"github.com/securesign/operator/internal/utils"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -26,7 +25,7 @@ func (i statusUrlAction) Name() string {
 }
 
 func (i statusUrlAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Rekor) bool {
-	return utils.IsEnabled(instance.Spec.RekorSearchUI.Enabled)
+	return enabled(instance)
 }
 
 func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {

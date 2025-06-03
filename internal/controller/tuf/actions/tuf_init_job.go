@@ -93,7 +93,7 @@ func (i initJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) 
 				Namespace: instance.Namespace,
 			},
 		},
-		utils.EnsureTufInitJob(instance, tufConstants.RBACName, l),
+		utils.EnsureTufInitJob(instance, tufConstants.RBACInitJobName, l),
 		ensure.ControllerReference[*v2.Job](pvc, i.Client),
 		ensure.Labels[*v2.Job](slices.Collect(maps.Keys(l)), l),
 		func(object *v2.Job) error {

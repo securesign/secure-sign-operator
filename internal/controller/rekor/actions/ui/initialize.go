@@ -9,7 +9,6 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/labels"
-	"github.com/securesign/operator/internal/utils"
 	commonUtils "github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,8 +27,7 @@ func (i initializeAction) Name() string {
 }
 
 func (i initializeAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Rekor) bool {
-	return meta.IsStatusConditionFalse(instance.Status.Conditions, actions.UICondition) &&
-		utils.IsEnabled(instance.Spec.RekorSearchUI.Enabled)
+	return meta.IsStatusConditionFalse(instance.Status.Conditions, actions.UICondition) && enabled(instance)
 }
 
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {

@@ -16,7 +16,9 @@ const (
 	LogSignerTLSSecret = "%s-trillian-logsigner-tls"
 	DatabaseTLSSecret  = "%s-trillian-db-tls"
 
-	RBACName = "trillian"
+	RBACServerName = "trillian-logserver"
+	RBACSignerName = "trillian-logsigner"
+	RBACDbName     = "trillian-db"
 
 	DbCondition     = "DBAvailable"
 	ServerCondition = "LogServerAvailable"

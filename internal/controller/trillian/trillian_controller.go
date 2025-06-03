@@ -103,7 +103,9 @@ func (r *trillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		db.NewTlsAction(),
 
 		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.Trillian](),
-		actions.NewRBACAction(),
+		logserver.NewRBACAction(),
+		logsigner.NewRBACAction(),
+		db.NewRBACAction(),
 
 		db.NewHandleSecretAction(),
 		db.NewCreatePvcAction(),
