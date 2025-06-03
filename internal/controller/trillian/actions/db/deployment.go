@@ -70,7 +70,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 				Namespace: instance.Namespace,
 			},
 		},
-		i.ensureDbDeployment(instance, actions.RBACName, scc, labels),
+		i.ensureDbDeployment(instance, actions.RBACDbName, scc, labels),
 		ensure.ControllerReference[*v2.Deployment](instance, i.Client),
 		ensure.Labels[*v2.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		ensure.Optional(trillianUtils.UseTLSDb(instance), i.ensureTLS(statusTLS(instance))),

@@ -62,7 +62,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 				Namespace: instance.Namespace,
 			},
 		},
-		trillianUtils.EnsureServerDeployment(instance, images.Registry.Get(images.TrillianServer), actions.LogserverDeploymentName, actions.RBACName, labels),
+		trillianUtils.EnsureServerDeployment(instance, images.Registry.Get(images.TrillianServer), actions.LogserverDeploymentName, actions.RBACServerName, labels),
 		ensure.ControllerReference[*apps.Deployment](instance, i.Client),
 		ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),

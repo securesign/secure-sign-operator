@@ -10,7 +10,6 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
-	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 
@@ -38,7 +37,7 @@ func (i backfillRedisCronJob) Name() string {
 
 func (i backfillRedisCronJob) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && utils.OptionalBool(instance.Spec.BackFillRedis.Enabled)
+	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && enabled(instance)
 }
 
 func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {

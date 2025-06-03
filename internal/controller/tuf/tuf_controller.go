@@ -104,6 +104,7 @@ func (r *tufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 		actions.NewResolveKeysAction(),
 		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.Tuf](),
+		actions.NewRBACInitJobAction(),
 		actions.NewRBACAction(),
 		actions.NewCreatePvcAction(),
 		actions.NewInitJobAction(),
