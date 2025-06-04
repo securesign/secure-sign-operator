@@ -219,6 +219,10 @@ jobs:
           keycloak: 'true'
           olm: 'true'
 
+      - name: Add service hosts to /etc/hosts
+        run: |
+          sudo echo "127.0.0.1 ${{ steps.kind.outputs.oidc_host }}" | sudo tee -a /etc/hosts
+
       - name: Replace images
         run: make dev-images && cat config/default/images.env
 
@@ -231,9 +235,6 @@ jobs:
         run: |
           kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n openshift-rhtas-operator
 
-      - name: Add service hosts to /etc/hosts
-        run: |
-          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local cli-server.local tsa-server.local" | sudo tee -a /etc/hosts
       - name: Install cosign
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.4.0
 
@@ -303,7 +304,8 @@ jobs:
 
       - name: Add service hosts to /etc/hosts
         run: |
-          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local cli-server.local tsa-server.local" | sudo tee -a /etc/hosts
+          sudo echo "127.0.0.1 ${{ steps.kind.outputs.oidc_host }}" | sudo tee -a /etc/hosts
+
       - name: Install cosign
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.4.0
 
@@ -368,10 +370,6 @@ jobs:
         uses: ./.github/actions/kind-cluster
         with:
           config: ./ci/config.yaml
-
-      - name: Add service hosts to /etc/hosts
-        run: |
-          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local rekor-search-ui.local cli-server.local" | sudo tee -a /etc/hosts
 
       - name: Replace images
         run: make dev-images generate && cat config/default/images.env
@@ -444,7 +442,7 @@ jobs:
 
       - name: Add service hosts to /etc/hosts
         run: |
-          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local rekor-search-ui.local tsa-server.local cli-server.local ${{ steps.kind.outputs.oidc_host }}" | sudo tee -a /etc/hosts
+          sudo echo "127.0.0.1 ${{ steps.kind.outputs.oidc_host }}" | sudo tee -a /etc/hosts
 
       - name: Replace images
         run: make dev-images generate && cat config/default/images.env
@@ -477,7 +475,7 @@ jobs:
           export TSA_URL=$(kubectl get timestampauthorities -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})/api/v1/timestamp
           
           export  CLI_STRATEGY=cli_server
-          export CLI_SERVER_URL="http://cli-server.local"
+          export CLI_SERVER_URL="http://cli-server.trusted-artifact-signer.traefik.me"
           
           cd e2e
           source ./tas-env-variables.sh
