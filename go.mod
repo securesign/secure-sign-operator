@@ -11,7 +11,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
-	github.com/openshift/api v0.0.0-20250529181918-ff66e60214fc
+	github.com/openshift/api e041b5efb8e4
 	github.com/operator-framework/api v0.31.0
 	github.com/operator-framework/operator-lib v0.18.0
 	github.com/robfig/cron/v3 v3.0.1
