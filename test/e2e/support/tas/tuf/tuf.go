@@ -110,8 +110,7 @@ func refreshTufJob(instance *v1alpha1.Tuf) *v12.Job {
 	l[labels.LabelAppComponent] = "test"
 	Expect(utils2.EnsureTufInitJob(instance, constants.RBACInitJobName, instance.Labels)(j)).To(Succeed())
 	c := kubernetes.FindContainerByNameOrCreate(&j.Spec.Template.Spec, "tuf-init")
-	c.Command = []string{"/bin/sh", "-c"}
 	args := c.Args
-	c.Args = []string{"rm -rf /var/run/target/* && /usr/bin/tuf-repo-init.sh " + strings.Join(args, " ")}
+	c.Args = []string{"rm -rf /var/run/target/* && " + strings.Join(args, " ")}
 	return j
 }
