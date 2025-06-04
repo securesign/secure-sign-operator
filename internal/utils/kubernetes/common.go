@@ -86,7 +86,7 @@ func CalculateHostname(ctx context.Context, client client.Client, svcName, ns st
 		}
 		return fmt.Sprintf("%s-%s.%s", svcName, ns, ingress.Spec.Domain), nil
 	}
-	return svcName + ".local", nil
+	return fmt.Sprintf(config.IngressHostTemplate, svcName, ns), nil
 }
 
 func FindByLabelSelector(ctx context.Context, c client.Client, list client.ObjectList, namespace, labelSelector string) error {
