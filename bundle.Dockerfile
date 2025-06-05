@@ -4,7 +4,7 @@ ARG DEFAULT_CHANNEL="stable"
 ARG BUNDLE_GEN_FLAGS="-q --overwrite=false --version $VERSION --channels=$CHANNELS --default-channel=$DEFAULT_CHANNEL"
 ARG IMG
 
-FROM registry.redhat.io/openshift4/ose-operator-sdk-rhel9@sha256:2a659b5ec1c8510f224dd6aadee896c2f4e4396cd72a719fb6688c411ca7be21 as builder
+FROM registry.redhat.io/openshift4/ose-operator-sdk-rhel9@sha256:e3ad2fcef5854d32e0bf73d39b5f437abafad694d1c867981fcd4b67faba4f8e as builder
 
 ARG BUNDLE_GEN_FLAGS
 ARG IMG
