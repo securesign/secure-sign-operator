@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -26,6 +27,10 @@ type RekorSpec struct {
 	RekorSearchUI RekorSearchUI `json:"rekorSearchUI,omitempty"`
 	// Signer configuration
 	Signer RekorSigner `json:"signer,omitempty"`
+	// Define your search index database connection
+	//+kubebuilder:validation:XValidation:rule=((!self.create && self.url != null) || self.create),message=url cannot be empty
+	//+kubebuilder:default:={create: true, provider: redis}
+	SearchIndex SearchIndex `json:"searchIndex,omitempty"`
 	// PVC configuration
 	//+kubebuilder:default:={size: "5Gi", retain: true, accessModes: {ReadWriteOnce}}
 	Pvc Pvc `json:"pvc,omitempty"`
@@ -82,6 +87,19 @@ type RekorSearchUI struct {
 	Host string `json:"host,omitempty"`
 	// Set Route Selector Labels labels for ingress sharding.
 	RouteSelectorLabels map[string]string `json:"routeSelectorLabels,omitempty"`
+}
+
+type SearchIndex struct {
+	// Create Database if a database is not created one must be defined using the Url field
+	//+kubebuilder:default:=true
+	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
+	Create *bool `json:"create"`
+	// DB provider. Supported are redis and mysql.
+	//+kubebuilder:default:=redis
+	Provider string `json:"provider,omitempty"`
+	// DB connection URL.
+	Url string      `json:"url,omitempty"`
+	Env []v1.EnvVar `json:"env,omitempty"`
 }
 
 type BackFillRedis struct {

@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/rekor/utils"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
@@ -105,8 +107,13 @@ func (i backfillRedisCronJob) ensureBacfillCronJob(instance *rhtasv1alpha1.Rekor
 		container.Image = images.Registry.Get(images.BackfillRedis)
 		container.Command = []string{"/bin/sh", "-c"}
 		container.Args = []string{
-			fmt.Sprintf(`endIndex=$(curl -sS http://%s/api/v1/log | sed -E 's/.*"treeSize":([0-9]+).*/\1/'); endIndex=$((endIndex-1)); if [ $endIndex -lt 0 ]; then echo "info: no rekor entries found"; exit 0; fi; backfill-redis --redis-hostname=rekor-redis --redis-port=6379 --rekor-address=http://%s --start=0 --end=$endIndex`, actions.ServerComponentName, actions.ServerComponentName),
+			fmt.Sprintf(`endIndex=$(curl -sS http://%s/api/v1/log | sed -E 's/.*"treeSize":([0-9]+).*/\1/'); endIndex=$((endIndex-1)); if [ $endIndex -lt 0 ]; then echo "info: no rekor entries found"; exit 0; fi; backfill-redis --rekor-address=http://%s --start=0 --end=$endIndex`, actions.ServerComponentName, actions.ServerComponentName),
 		}
+		searchParams, err := utils.SearchIndexParams(*instance, utils.NewSearchIndexParameterMap("redis-hostname", "redis-port", "redis-password", "mysql-dsn"))
+		if err != nil {
+			return err
+		}
+		container.Args[0] = container.Args[0] + strings.Join(searchParams, " ")
 		return nil
 	}
 }

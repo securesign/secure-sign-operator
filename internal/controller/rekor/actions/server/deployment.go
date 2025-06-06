@@ -129,8 +129,7 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 			fmt.Sprintf("--trillian_log_server.address=%s", instance.Spec.Trillian.Address),
 			fmt.Sprintf("--trillian_log_server.port=%d", *instance.Spec.Trillian.Port),
 			"--trillian_log_server.sharding_config=/sharding/sharding-config.yaml",
-			"--redis_server.address=rekor-redis",
-			"--redis_server.port=6379",
+
 			"--rekor_server.address=0.0.0.0",
 			"--enable_retrieve_api=true",
 			fmt.Sprintf("--trillian_log_server.tlog_id=%d", *instance.Status.TreeID),
@@ -140,6 +139,11 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 			"--attestation_storage_bucket=file:///var/run/attestations?no_tmp_dir=true",
 			fmt.Sprintf("--log_type=%s", utils2.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
 		}
+		searchParams, err := utils.SearchIndexParams(*instance, utils.NewSearchIndexParameterMap("redis_server.address", "redis_server.port", "redis_server.password", "search_index.mysql.dsn"))
+		if err != nil {
+			return err
+		}
+		args = append(args, searchParams...)
 
 		// KMS memory
 		if instance.Spec.Signer.KMS == "memory" {
