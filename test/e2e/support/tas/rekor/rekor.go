@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func Verify(ctx context.Context, cli client.Client, namespace string, name string) {
+func Verify(ctx context.Context, cli client.Client, namespace string, name string, db bool) {
 	Eventually(Get(ctx, cli, namespace, name)).Should(
 		And(
 			Not(BeNil()),
@@ -27,9 +27,11 @@ func Verify(ctx context.Context, cli client.Client, namespace string, name strin
 	Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, actions.ServerComponentName)).
 		Should(BeTrue())
 
-	// redis
-	Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, actions.RedisComponentName)).
-		Should(BeTrue())
+	if db {
+		// redis
+		Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, actions.RedisComponentName)).
+			Should(BeTrue())
+	}
 }
 
 func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {

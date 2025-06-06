@@ -154,7 +154,7 @@ var _ = Describe("Rekor update", Ordered, func() {
 		})
 
 		It("verify CTlog and TUF", func() {
-			rekor.Verify(ctx, cli, namespace.Name, s.Name)
+			rekor.Verify(ctx, cli, namespace.Name, s.Name, true)
 			tuf.Verify(ctx, cli, namespace.Name, s.Name)
 		})
 

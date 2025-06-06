@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/rekor/actions/searchIndex/redis"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	utils2 "github.com/securesign/operator/internal/utils"
@@ -29,6 +30,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+)
+
+const (
+	authVolumeName = "auth"
 )
 
 func NewDeployAction() action.Action[*rhtasv1alpha1.Rekor] {
@@ -129,8 +134,7 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 			fmt.Sprintf("--trillian_log_server.address=%s", instance.Spec.Trillian.Address),
 			fmt.Sprintf("--trillian_log_server.port=%d", *instance.Spec.Trillian.Port),
 			"--trillian_log_server.sharding_config=/sharding/sharding-config.yaml",
-			"--redis_server.address=rekor-redis",
-			"--redis_server.port=6379",
+
 			"--rekor_server.address=0.0.0.0",
 			"--enable_retrieve_api=true",
 			fmt.Sprintf("--trillian_log_server.tlog_id=%d", *instance.Status.TreeID),
@@ -140,6 +144,11 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 			"--attestation_storage_bucket=file:///var/run/attestations?no_tmp_dir=true",
 			fmt.Sprintf("--log_type=%s", utils2.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
 		}
+		searchParams, err := i.searchIndexParams(*instance)
+		if err != nil {
+			return err
+		}
+		args = append(args, searchParams...)
 
 		// KMS memory
 		if instance.Spec.Signer.KMS == "memory" {
@@ -184,6 +193,27 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 				}
 			}
 		}
+
+		if instance.Spec.Auth != nil {
+			for _, env := range instance.Spec.Auth.Env {
+				e := kubernetes.FindEnvByNameOrCreate(container, env.Name)
+				env.DeepCopyInto(e)
+			}
+
+			for _, secret := range instance.Spec.Auth.SecretMount {
+				volumeName := fmt.Sprintf("%s-%s", authVolumeName, secret.Name)
+				v := kubernetes.FindVolumeByNameOrCreate(&template.Spec, volumeName)
+				if v.Secret == nil {
+					v.Secret = &v1.SecretVolumeSource{}
+				}
+				v.Secret.SecretName = secret.Name
+
+				vm := kubernetes.FindVolumeMountByNameOrCreate(container, volumeName)
+				vm.MountPath = constants.AuthMountPath
+				vm.ReadOnly = true
+			}
+		}
+
 		//TODO mount additional ENV variables and secrets to enable cloud KMS service
 		container.Args = args
 
@@ -245,5 +275,30 @@ func (i deployAction) ensureTlsTrillian() func(*v2.Deployment) error {
 
 		container.Args = append(container.Args, "--trillian_log_server.tls=true")
 		return nil
+	}
+}
+
+func (i deployAction) searchIndexParams(instance rhtasv1alpha1.Rekor) ([]string, error) {
+	args := []string{fmt.Sprintf("--search_index.storage_provider=%s", instance.Spec.SearchIndex.Provider)}
+	switch instance.Spec.SearchIndex.Provider {
+	case "redis":
+		options, err := redis.Parse(instance.Spec.SearchIndex.Url)
+		if err != nil {
+			return nil, fmt.Errorf("can't parse redis searchIndex url: %w", err)
+		}
+		args = append(args, fmt.Sprintf("--redis_server.address=%s", options.Host))
+
+		if options.Port != "" {
+			args = append(args, fmt.Sprintf("--redis_server.port=%s", options.Port))
+		}
+
+		if options.Password != "" {
+			args = append(args, fmt.Sprintf("--redis_server.password=%s", options.Password))
+		}
+		return args, nil
+	case "mysql":
+		return append(args, fmt.Sprintf("--search_index.mysql.dsn=%s", instance.Spec.SearchIndex.Url)), nil
+	default:
+		return nil, fmt.Errorf("unsupported search_index provider %s", instance.Spec.SearchIndex.Provider)
 	}
 }

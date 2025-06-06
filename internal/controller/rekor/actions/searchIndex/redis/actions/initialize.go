@@ -1,4 +1,4 @@
-package redis
+package actions
 
 import (
 	"context"
@@ -27,7 +27,7 @@ func (i initializeAction) Name() string {
 }
 
 func (i initializeAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
-	return meta.IsStatusConditionFalse(instance.Status.Conditions, actions.RedisCondition)
+	return meta.IsStatusConditionFalse(instance.Status.Conditions, actions.RedisCondition) && enabled(instance)
 }
 
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
