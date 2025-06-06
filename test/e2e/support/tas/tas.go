@@ -23,7 +23,7 @@ func VerifyAllComponents(ctx context.Context, cli runtimeCli.Client, s *rhtasv1a
 	trillian.Verify(ctx, cli, s.Namespace, s.Name, dbPresent)
 	fulcio.Verify(ctx, cli, s.Namespace, s.Name)
 	tsa.Verify(ctx, cli, s.Namespace, s.Name)
-	rekor.Verify(ctx, cli, s.Namespace, s.Name)
+	rekor.Verify(ctx, cli, s.Namespace, s.Name, dbPresent)
 	ctlog.Verify(ctx, cli, s.Namespace, s.Name)
 	tuf.Verify(ctx, cli, s.Namespace, s.Name)
 	securesign.Verify(ctx, cli, s.Namespace, s.Name)

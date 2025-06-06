@@ -34,12 +34,10 @@ const (
 	tinkSignerVolumeName = "tsa-tink-signer-config"
 	ntpConfigVolumeName  = "ntp-config"
 	authVolumeName       = "auth"
-	secretMountPath      = "/var/run/secrets/tas"
-	authMountPath        = secretMountPath + "/auth"
-	certChainMountPath   = secretMountPath + "/certificate_chain"
-	fileSignerMountPath  = secretMountPath + "/file_signer"
-	tinkSignerMountPath  = secretMountPath + "/tink_signer"
-	NtpMountPath         = secretMountPath + "/ntp_config"
+	certChainMountPath   = constants.SecretMountPath + "/certificate_chain"
+	fileSignerMountPath  = constants.SecretMountPath + "/file_signer"
+	tinkSignerMountPath  = constants.SecretMountPath + "/tink_signer"
+	NtpMountPath         = constants.SecretMountPath + "/ntp_config"
 )
 
 type deployAction struct {
@@ -218,7 +216,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.TimestampAuthorit
 						v.Secret.SecretName = secret.Name
 
 						vm := kubernetes.FindVolumeMountByNameOrCreate(container, volumeName)
-						vm.MountPath = authMountPath
+						vm.MountPath = constants.AuthMountPath
 						vm.ReadOnly = true
 					}
 				}
@@ -247,7 +245,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.TimestampAuthorit
 							v.Secret.SecretName = secret.Name
 
 							vm := kubernetes.FindVolumeMountByNameOrCreate(container, volumeName)
-							vm.MountPath = authMountPath
+							vm.MountPath = constants.AuthMountPath
 							vm.ReadOnly = true
 						}
 					}

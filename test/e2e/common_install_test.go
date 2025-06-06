@@ -230,7 +230,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 		})
 
 		It("rekor is running with mounted certs", func() {
-			rekor.Verify(ctx, cli, namespace.Name, s.Name)
+			rekor.Verify(ctx, cli, namespace.Name, s.Name, true)
 			server := rekor.GetServerPod(ctx, cli, namespace.Name)()
 			Expect(server).NotTo(BeNil())
 			Expect(server.Spec.Volumes).To(
