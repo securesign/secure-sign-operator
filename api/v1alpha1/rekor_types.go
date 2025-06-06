@@ -26,6 +26,9 @@ type RekorSpec struct {
 	RekorSearchUI RekorSearchUI `json:"rekorSearchUI,omitempty"`
 	// Signer configuration
 	Signer RekorSigner `json:"signer,omitempty"`
+	// Define your search index database connection
+	//+kubebuilder:default:={create: true, provider: "redis", url: "redis://rekor-redis:6379"}
+	SearchIndex SearchIndex `json:"searchIndex,omitempty"`
 	// PVC configuration
 	//+kubebuilder:default:={size: "5Gi", retain: true, accessModes: {ReadWriteOnce}}
 	Pvc Pvc `json:"pvc,omitempty"`
@@ -42,6 +45,9 @@ type RekorSpec struct {
 	// ConfigMap with additional bundle of trusted CA
 	//+optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
+	//Configuration for authentication for key management services
+	//+optional
+	Auth *Auth `json:"auth,omitempty"`
 }
 
 type RekorSigner struct {
@@ -82,6 +88,20 @@ type RekorSearchUI struct {
 	Host string `json:"host,omitempty"`
 	// Set Route Selector Labels labels for ingress sharding.
 	RouteSelectorLabels map[string]string `json:"routeSelectorLabels,omitempty"`
+}
+
+type SearchIndex struct {
+	// Create Database if a database is not created one must be defined using the Url field
+	//+kubebuilder:default:=true
+	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
+	Create *bool `json:"create"`
+	// DB provider. Supported are redis and mysql.
+	//+kubebuilder:default:="redis"
+	//+kubebuilder:validation:Enum={redis,mysql}
+	Provider string `json:"provider,omitempty"`
+	// DB connection URL.
+	//+kubebuilder:default:="redis://rekor-redis:6379"
+	Url string `json:"url,omitempty"`
 }
 
 type BackFillRedis struct {

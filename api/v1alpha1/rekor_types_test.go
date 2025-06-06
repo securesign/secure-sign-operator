@@ -268,6 +268,9 @@ var _ = Describe("Rekor", func() {
 					Expect(fetched.Spec.Pvc.Name).To(Equal(expectedRekorInstance.Spec.Pvc.Name))
 					Expect(fetched.Spec.Pvc.Size).To(Equal(expectedRekorInstance.Spec.Pvc.Size))
 					Expect(*fetched.Spec.RekorSearchUI.Enabled).To(BeTrue())
+					Expect(fetched.Spec.SearchIndex.Provider).To(Equal("redis"))
+					Expect(fetched.Spec.SearchIndex.Url).To(Equal("redis://rekor-redis:6379"))
+					Expect(*fetched.Spec.SearchIndex.Create).To(BeTrue())
 				})
 			})
 

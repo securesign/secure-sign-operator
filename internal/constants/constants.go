@@ -10,4 +10,7 @@ const (
 	Initialize = "Initialize"
 	Failure    = "Failure"
 	NotDefined = "NotDefined"
+
+	SecretMountPath = "/var/run/secrets/tas"
+	AuthMountPath   = SecretMountPath + "/auth"
 )
