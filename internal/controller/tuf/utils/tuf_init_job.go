@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"fmt"
 	"path/filepath"
+	"strings"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
@@ -63,7 +65,12 @@ func EnsureTufInitJob(instance *rhtasv1alpha1.Tuf, sa string, labels map[string]
 		container.Image = images.Registry.Get(images.Tuf)
 		env := kubernetes.FindEnvByNameOrCreate(container, "NAMESPACE")
 		env.Value = instance.Namespace
-		container.Args = args
+		container.Command = []string{"/bin/bash", "-c"}
+		container.Args = []string{
+			fmt.Sprintf("tuf-repo-init.sh %s; ", strings.Join(args, " ")) +
+				"exit_code=$?; " +
+				"if [ $exit_code -eq 2 ]; then exit 0; else exit $exit_code; fi",
+		}
 		container.VolumeMounts = []v1.VolumeMount{
 			{
 				Name:      "tuf-secrets",

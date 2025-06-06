@@ -25,6 +25,8 @@ import (
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/labels"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	apilabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	actions2 "github.com/securesign/operator/internal/controller/ctlog/actions"
@@ -166,14 +168,22 @@ var _ = Describe("TUF controller", func() {
 			})
 
 			By("Waiting until Tuf init job is created")
-			initJob := &batchv1.Job{}
-			Eventually(func() error {
-				e := suite.Client().Get(ctx, types.NamespacedName{Name: tufConstants.InitJobName, Namespace: namespace.Name}, initJob)
-				return e
-			}).Should(Not(HaveOccurred()))
+			found := &v1alpha1.Tuf{}
+			Eventually(func(g Gomega) string {
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return found.Status.PvcName
+			}).ShouldNot(BeEmpty())
+			initJobList := &batchv1.JobList{}
+			Eventually(func() []batchv1.Job {
+				jobLabels := labels.ForResource(tufConstants.ComponentName, tufConstants.InitJobName, TufName, found.Status.PvcName)
+				selector := apilabels.SelectorFromSet(jobLabels)
+				Expect(kubernetes.FindByLabelSelector(ctx, suite.Client(), initJobList, TufNamespace, selector.String())).To(Succeed())
+				return initJobList.Items
+			}).Should(HaveLen(1))
 
 			By("Move to Job to completed")
 			// Workaround to succeed condition for Ready phase
+			initJob := &initJobList.Items[0]
 			initJob.Status.Conditions = []batchv1.JobCondition{
 				{Status: corev1.ConditionTrue, Type: batchv1.JobComplete, Reason: constants.Ready}}
 			Expect(suite.Client().Status().Update(ctx, initJob)).Should(Succeed())
