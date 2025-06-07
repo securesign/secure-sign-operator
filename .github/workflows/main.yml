@@ -221,7 +221,7 @@ jobs:
 
       - name: Add service hosts to /etc/hosts
         run: |
-          sudo echo "127.0.0.1 ${{ steps.kind.outputs.oidc_host }}" | sudo tee -a /etc/hosts
+          sudo echo "127.0.0.1 keycloak-internal.keycloak-system.svc" | sudo tee -a /etc/hosts
 
       - name: Replace images
         run: make dev-images && cat config/default/images.env
@@ -304,7 +304,7 @@ jobs:
 
       - name: Add service hosts to /etc/hosts
         run: |
-          sudo echo "127.0.0.1 ${{ steps.kind.outputs.oidc_host }}" | sudo tee -a /etc/hosts
+          sudo echo "127.0.0.1 keycloak-internal.keycloak-system.svc" | sudo tee -a /etc/hosts
 
       - name: Install cosign
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.4.0
