@@ -44,7 +44,7 @@ var noProxy = []string{
 	"localhost",
 }
 
-var _ = Describe("Securesign install in proxy-env", Ordered, func() {
+var _ = Describe("Operator in proxy environment", Ordered, func() {
 	cli, _ := support.CreateClient()
 	ctx := context.TODO()
 

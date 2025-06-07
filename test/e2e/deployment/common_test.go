@@ -1,6 +1,6 @@
 //go:build integration
 
-package e2e
+package deployment
 
 import (
 	"context"
@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = Describe("Securesign install with certificate generation", Ordered, func() {
+var _ = Describe("Install with generated certs and keys", Ordered, func() {
 	cli, _ := support.CreateClient()
 	ctx := context.TODO()
 

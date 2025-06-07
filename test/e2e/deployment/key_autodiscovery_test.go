@@ -1,10 +1,11 @@
 //go:build integration
 
-package e2e
+package deployment
 
 import (
 	"context"
 
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 
 	"k8s.io/utils/ptr"
@@ -13,6 +14,7 @@ import (
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
 	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
 	"github.com/securesign/operator/test/e2e/support/tas/rekor"
+	"github.com/securesign/operator/test/e2e/support/tas/tuf"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("Securesign install with provided certs", Ordered, func() {
+var _ = Describe("Install with auto-discovered keys", Ordered, func() {
 	cli, _ := support.CreateClient()
 	ctx := context.TODO()
 
@@ -119,44 +121,6 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 					ExternalAccess: v1alpha1.ExternalAccess{
 						Enabled: true,
 					},
-					Keys: []v1alpha1.TufKey{
-						{
-							Name: "fulcio_v1.crt.pem",
-							SecretRef: &v1alpha1.SecretKeySelector{
-								LocalObjectReference: v1alpha1.LocalObjectReference{
-									Name: "my-fulcio-secret",
-								},
-								Key: "cert",
-							},
-						},
-						{
-							Name: "rekor.pub",
-							SecretRef: &v1alpha1.SecretKeySelector{
-								LocalObjectReference: v1alpha1.LocalObjectReference{
-									Name: "my-rekor-secret",
-								},
-								Key: "public",
-							},
-						},
-						{
-							Name: "ctfe.pub",
-							SecretRef: &v1alpha1.SecretKeySelector{
-								LocalObjectReference: v1alpha1.LocalObjectReference{
-									Name: "my-ctlog-secret",
-								},
-								Key: "public",
-							},
-						},
-						{
-							Name: "tsa.certchain.pem",
-							SecretRef: &v1alpha1.SecretKeySelector{
-								LocalObjectReference: v1alpha1.LocalObjectReference{
-									Name: "test-tsa-secret",
-								},
-								Key: "certificateChain",
-							},
-						},
-					},
 				},
 				Trillian: v1alpha1.TrillianSpec{Db: v1alpha1.TrillianDB{
 					Create: ptr.To(true),
@@ -222,62 +186,44 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 
-		It("Fulcio is running with mounted certs", func() {
-			fulcio.Verify(ctx, cli, namespace.Name, s.Name)
-			server := fulcio.GetServerPod(ctx, cli, namespace.Name)()
-			Expect(server).NotTo(BeNil())
-
-			sp := []v1.SecretProjection{}
-			for _, volume := range server.Spec.Volumes {
-				if volume.Name == "fulcio-cert" {
-					for _, source := range volume.VolumeSource.Projected.Sources {
-						sp = append(sp, *source.Secret)
-					}
-				}
-			}
-
-			Expect(sp).To(
-				ContainElement(
-					WithTransform(func(sp v1.SecretProjection) string {
-						return sp.Name
-					}, Equal("my-fulcio-secret")),
-				))
-
-		})
-
-		It("Rekor is running with mounted certs", func() {
-			rekor.Verify(ctx, cli, namespace.Name, s.Name)
-			server := rekor.GetServerPod(ctx, cli, namespace.Name)()
-			Expect(server).NotTo(BeNil())
-			Expect(server.Spec.Volumes).To(
-				ContainElement(
-					WithTransform(func(volume v1.Volume) string {
-						if volume.VolumeSource.Secret != nil {
-							return volume.VolumeSource.Secret.SecretName
-						}
-						return ""
-					}, Equal("my-rekor-secret")),
-				))
-
-		})
-
-		It("tsa is running with mounted certs", func() {
-			tsa.Verify(ctx, cli, namespace.Name, s.Name)
-			tsa := tsa.GetServerPod(ctx, cli, namespace.Name)()
-			Expect(tsa).NotTo(BeNil())
-			Expect(tsa.Spec.Volumes).To(
-				ContainElement(
-					WithTransform(func(volume v1.Volume) string {
-						if volume.VolumeSource.Secret != nil {
-							return volume.VolumeSource.Secret.SecretName
-						}
-						return ""
-					}, Equal("test-tsa-secret")),
-				))
-		})
-
-		It("All other components are running", func() {
+		It("All components are running", func() {
 			tas.VerifyAllComponents(ctx, cli, s, true)
+		})
+
+		It("Verify TUF keys", func() {
+			t := tuf.Get(ctx, cli, namespace.Name, s.Name)()
+			Expect(t).ToNot(BeNil())
+			Expect(t.Status.Keys).To(HaveEach(WithTransform(func(k v1alpha1.TufKey) string { return k.SecretRef.Name }, Not(BeEmpty()))))
+			var (
+				expected, actual []byte
+				err              error
+			)
+			for _, k := range t.Status.Keys {
+				actual, err = kubernetes.GetSecretData(cli, namespace.Name, k.SecretRef)
+				Expect(err).To(Not(HaveOccurred()))
+
+				switch k.Name {
+				case "fulcio_v1.crt.pem":
+					expected, err = kubernetes.GetSecretData(cli, namespace.Name, s.Spec.Fulcio.Certificate.CARef)
+					Expect(err).To(Not(HaveOccurred()))
+				case "rekor.pub":
+					expectedKeyRef := s.Spec.Rekor.Signer.KeyRef.DeepCopy()
+					expectedKeyRef.Key = "public"
+					expected, err = kubernetes.GetSecretData(cli, namespace.Name, expectedKeyRef)
+					Expect(err).To(Not(HaveOccurred()))
+				case "ctfe.pub":
+					expectedKeyRef := s.Spec.Ctlog.PrivateKeyRef.DeepCopy()
+					expectedKeyRef.Key = "public"
+					expected, err = kubernetes.GetSecretData(cli, namespace.Name, expectedKeyRef)
+					Expect(err).To(Not(HaveOccurred()))
+				case "tsa.certchain.pem":
+					expectedKeyRef := s.Spec.TimestampAuthority.Signer.CertificateChain.CertificateChainRef.DeepCopy()
+					expectedKeyRef.Key = "certificateChain"
+					expected, err = kubernetes.GetSecretData(cli, namespace.Name, expectedKeyRef)
+					Expect(err).To(Not(HaveOccurred()))
+				}
+				Expect(expected).To(Equal(actual))
+			}
 		})
 
 		It("Use cosign cli", func() {
