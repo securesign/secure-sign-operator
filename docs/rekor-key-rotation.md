@@ -35,7 +35,7 @@ These variables are necessary for the subsequent steps to successfully rotate th
    Generate a new private key and store it in a Kubernetes secret. You can use the following commands:
 
    ```bash
-   openssl ecparam -genkey -name secp384r1 -noout -out rekor.pem
+   openssl ecparam -genkey -name prime256v1 -noout -out rekor.pem
    kubectl create secret generic rekor-signer-key --from-file=private=rekor.pem
    ```
 
