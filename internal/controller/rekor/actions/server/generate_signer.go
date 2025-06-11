@@ -192,7 +192,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 func (g generateSigner) createSignerKey() ([]byte, []byte, error) {
 	var err error
 
-	key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, nil, err
 	}
