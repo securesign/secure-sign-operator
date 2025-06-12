@@ -20,12 +20,12 @@ spec:
       rootCA:
         organizationName: Red Hat
         organizationEmail: jdoe@redhat.com
-        commonName: tsa.hostname
+        commonName: tsa.hostname-root
       intermediateCA:
         - organizationName: Red Hat
           organizationEmail: jdoe@redhat.com
-          commonName: tsa.hostname
+          commonName: tsa.hostname-intermediate
       leafCA:
         organizationName: Red Hat
         organizationEmail: jdoe@redhat.com
-        commonName: tsa.hostname
+        commonName: tsa.hostname-leaf
