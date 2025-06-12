@@ -8,11 +8,9 @@ import (
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
-	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 	"github.com/securesign/operator/internal/utils/tls"
 
 	"github.com/securesign/operator/internal/controller/trillian/actions"
@@ -62,20 +60,17 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 				Namespace: instance.Namespace,
 			},
 		},
-		trillianUtils.EnsureServerDeployment(instance, images.Registry.Get(images.TrillianLogSigner), actions.LogsignerDeploymentName, actions.RBACSignerName, labels,
-			"--election_system=k8s", "--lock_namespace=$(NAMESPACE)", "--lock_holder_identity=$(POD_NAME)"),
-		ensure.ControllerReference[*apps.Deployment](instance, i.Client),
-		ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(labels)), labels),
-		deployment.Proxy(),
-		deployment.TrustedCA(instance.GetTrustedCA(), "wait-for-trillian-db", actions.LogsignerDeploymentName),
-		ensure.Optional(
-			trillianUtils.UseTLSDb(instance),
-			trillianUtils.WithTlsDB(instance, caPath, actions.LogsignerDeploymentName),
-		),
-		ensure.Optional(
-			statusTLS(instance).CertRef != nil,
-			trillianUtils.EnsureTLS(statusTLS(instance), actions.LogsignerDeploymentName),
-		),
+		append(trillianUtils.EnsureSignerDeployment(instance, labels),
+			ensure.ControllerReference[*apps.Deployment](instance, i.Client),
+			ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(labels)), labels),
+			ensure.Optional(
+				trillianUtils.UseTLSDb(instance),
+				trillianUtils.WithTlsDB(instance, caPath, actions.LogsignerDeploymentName),
+			),
+			ensure.Optional(
+				statusTLS(instance).CertRef != nil,
+				trillianUtils.EnsureTLS(statusTLS(instance), actions.LogsignerDeploymentName),
+			))...,
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Trillian LogSigner: %w", err), instance, metav1.Condition{
 			Type:    actions.SignerCondition,

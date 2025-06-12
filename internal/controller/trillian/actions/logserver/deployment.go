@@ -8,11 +8,9 @@ import (
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
-	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 	"github.com/securesign/operator/internal/utils/tls"
 
 	"github.com/securesign/operator/internal/controller/trillian/actions"
@@ -62,19 +60,17 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 				Namespace: instance.Namespace,
 			},
 		},
-		trillianUtils.EnsureServerDeployment(instance, images.Registry.Get(images.TrillianServer), actions.LogserverDeploymentName, actions.RBACServerName, labels),
-		ensure.ControllerReference[*apps.Deployment](instance, i.Client),
-		ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(labels)), labels),
-		deployment.Proxy(),
-		deployment.TrustedCA(instance.GetTrustedCA(), "wait-for-trillian-db", actions.LogserverDeploymentName),
-		ensure.Optional(
-			trillianUtils.UseTLSDb(instance),
-			trillianUtils.WithTlsDB(instance, caPath, actions.LogserverDeploymentName),
-		),
-		ensure.Optional(
-			statusTLS(instance).CertRef != nil,
-			trillianUtils.EnsureTLS(statusTLS(instance), actions.LogserverDeploymentName),
-		),
+		append(trillianUtils.EnsureServerDeployment(instance, labels),
+			ensure.ControllerReference[*apps.Deployment](instance, i.Client),
+			ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(labels)), labels),
+			ensure.Optional(
+				trillianUtils.UseTLSDb(instance),
+				trillianUtils.WithTlsDB(instance, caPath, actions.LogserverDeploymentName),
+			),
+			ensure.Optional(
+				statusTLS(instance).CertRef != nil,
+				trillianUtils.EnsureTLS(statusTLS(instance), actions.LogserverDeploymentName),
+			))...,
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Trillian server: %w", err), instance, metav1.Condition{
 			Type:    actions.ServerCondition,
