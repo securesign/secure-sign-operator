@@ -7,27 +7,21 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/robfig/cron/v3"
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/controller/rekor/actions/searchIndex/redis"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
-	v1 "k8s.io/api/core/v1"
-
-	"github.com/robfig/cron/v3"
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/rekor/actions"
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-)
-
-const (
-	authVolumeName = "auth"
 )
 
 func NewBackfillRedisCronJobAction() action.Action[*rhtasv1alpha1.Rekor] {
@@ -74,6 +68,9 @@ func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 			},
 		},
 		i.ensureBacfillCronJob(instance),
+		func(object *batchv1.CronJob) error {
+			return ensure.Auth(actions.BackfillRedisCronJobName, instance.Spec.Auth)(&object.Spec.JobTemplate.Spec.Template.Spec)
+		},
 		ensure.ControllerReference[*batchv1.CronJob](instance, i.Client),
 		ensure.Labels[*batchv1.CronJob](slices.Collect(maps.Keys(labels)), labels),
 	); err != nil {
@@ -119,27 +116,6 @@ func (i backfillRedisCronJob) ensureBacfillCronJob(instance *rhtasv1alpha1.Rekor
 			return err
 		}
 		container.Args[0] = fmt.Sprintf(" %s %s", container.Args[0], strings.Join(searchParams, " "))
-
-		if instance.Spec.Auth != nil {
-			for _, env := range instance.Spec.Auth.Env {
-				e := kubernetes.FindEnvByNameOrCreate(container, env.Name)
-				env.DeepCopyInto(e)
-			}
-
-			for _, secret := range instance.Spec.Auth.SecretMount {
-				volumeName := fmt.Sprintf("%s-%s", authVolumeName, secret.Name)
-				v := kubernetes.FindVolumeByNameOrCreate(templateSpec, volumeName)
-				if v.Secret == nil {
-					v.Secret = &v1.SecretVolumeSource{}
-				}
-				v.Secret.SecretName = secret.Name
-
-				vm := kubernetes.FindVolumeMountByNameOrCreate(container, volumeName)
-				vm.MountPath = constants.AuthMountPath
-				vm.ReadOnly = true
-			}
-		}
-
 		return nil
 	}
 }

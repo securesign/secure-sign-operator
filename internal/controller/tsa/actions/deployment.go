@@ -7,19 +7,18 @@ import (
 	"slices"
 	"strings"
 
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
+	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
-
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -33,7 +32,6 @@ const (
 	fileSignerVolumeName = "tsa-file-signer-config"
 	tinkSignerVolumeName = "tsa-tink-signer-config"
 	ntpConfigVolumeName  = "ntp-config"
-	authVolumeName       = "auth"
 	certChainMountPath   = constants.SecretMountPath + "/certificate_chain"
 	fileSignerMountPath  = constants.SecretMountPath + "/file_signer"
 	tinkSignerMountPath  = constants.SecretMountPath + "/tink_signer"
@@ -200,26 +198,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.TimestampAuthorit
 			}
 		case tsaUtils.KmsType:
 			{
-
-				if instance.Spec.Signer.Kms.Auth != nil {
-					for _, env := range instance.Spec.Signer.Kms.Auth.Env {
-						e := kubernetes.FindEnvByNameOrCreate(container, env.Name)
-						e.ValueFrom = env.ValueFrom
-					}
-
-					for _, secret := range instance.Spec.Signer.Kms.Auth.SecretMount {
-						volumeName := fmt.Sprintf("%s-%s", authVolumeName, secret.Name)
-						v := kubernetes.FindVolumeByNameOrCreate(&template.Spec, volumeName)
-						if v.Secret == nil {
-							v.Secret = &core.SecretVolumeSource{}
-						}
-						v.Secret.SecretName = secret.Name
-
-						vm := kubernetes.FindVolumeMountByNameOrCreate(container, volumeName)
-						vm.MountPath = constants.AuthMountPath
-						vm.ReadOnly = true
-					}
-				}
+				ensure.Auth(container.Name, instance.Spec.Signer.Kms.Auth)
 
 				appArgs = append(appArgs,
 					"--timestamp-signer=kms",
@@ -228,28 +207,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.TimestampAuthorit
 			}
 		case tsaUtils.TinkType:
 			{
-
-				if instance.Spec.Signer.Tink.Auth != nil {
-					for _, env := range instance.Spec.Signer.Tink.Auth.Env {
-						e := kubernetes.FindEnvByNameOrCreate(container, env.Name)
-						e.ValueFrom = env.ValueFrom
-					}
-
-					if len(instance.Spec.Signer.Tink.Auth.SecretMount) > 0 {
-						for _, secret := range instance.Spec.Signer.Tink.Auth.SecretMount {
-							volumeName := fmt.Sprintf("%s-%s", authVolumeName, secret.Name)
-							v := kubernetes.FindVolumeByNameOrCreate(&template.Spec, volumeName)
-							if v.Secret == nil {
-								v.Secret = &core.SecretVolumeSource{}
-							}
-							v.Secret.SecretName = secret.Name
-
-							vm := kubernetes.FindVolumeMountByNameOrCreate(container, volumeName)
-							vm.MountPath = constants.AuthMountPath
-							vm.ReadOnly = true
-						}
-					}
-				}
+				ensure.Auth(container.Name, instance.Spec.Signer.Kms.Auth)
 
 				tinkSignerVolume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, tinkSignerVolumeName)
 				if tinkSignerVolume.Secret == nil {
