@@ -1,4 +1,6 @@
-package e2e
+//go:build integration
+
+package byo
 
 import (
 	"testing"
@@ -14,7 +16,7 @@ func TestE2e(t *testing.T) {
 	RegisterFailHandler(Fail)
 	log.SetLogger(GinkgoLogr)
 	SetDefaultEventuallyTimeout(time.Duration(3) * time.Minute)
-	RunSpecs(t, "Trusted Artifact Signer E2E Suite")
+	RunSpecs(t, "Bring your own")
 
 	// print whole stack in case of failure
 	format.MaxLength = 0

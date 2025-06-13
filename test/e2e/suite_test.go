@@ -1,4 +1,4 @@
-package custom_install
+package e2e
 
 import (
 	"testing"
@@ -10,11 +10,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func TestCustomInstall(t *testing.T) {
+func TestE2e(t *testing.T) {
 	RegisterFailHandler(Fail)
 	log.SetLogger(GinkgoLogr)
 	SetDefaultEventuallyTimeout(time.Duration(3) * time.Minute)
-	RunSpecs(t, "With customized install")
+	RunSpecs(t, "E2E Suite")
 
 	// print whole stack in case of failure
 	format.MaxLength = 0

@@ -28,7 +28,7 @@ func TestUpdateComponents(t *testing.T) {
 	RegisterFailHandler(Fail)
 	log.SetLogger(GinkgoLogr)
 	SetDefaultEventuallyTimeout(time.Duration(1) * time.Minute)
-	RunSpecs(t, "Update components E2E Suite")
+	RunSpecs(t, "Update components Suite")
 
 	// print whole stack in case of failure
 	format.MaxLength = 0
