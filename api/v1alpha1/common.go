@@ -126,3 +126,14 @@ type TLS struct {
 	//+optional
 	CertRef *SecretKeySelector `json:"certificateRef,omitempty"`
 }
+
+type PodRequirements struct {
+	// Number of desired pods.
+	// +optional
+	// +kubebuilder:validation:Minimum:=0
+	// +kubebuilder:default:=1
+	Replicas    *int32                     `json:"replicas,omitempty"`
+	Affinity    *core.Affinity             `json:"affinity,omitempty"`
+	Resources   *core.ResourceRequirements `json:"resources,omitempty"`
+	Tolerations []core.Toleration          `json:"tolerations,omitempty"`
+}

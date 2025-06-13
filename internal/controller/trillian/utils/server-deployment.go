@@ -7,7 +7,6 @@ import (
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/images"
-	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 	"github.com/securesign/operator/internal/utils/tls"
@@ -17,23 +16,40 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func EnsureServerDeployment(instance *v1alpha1.Trillian, image string, name string, sa string, labels map[string]string, args ...string) func(deployment *apps.Deployment) error {
+func EnsureServerDeployment(instance *v1alpha1.Trillian, labels map[string]string) []func(*apps.Deployment) error {
+	return []func(deployment *apps.Deployment) error{
+		ensureDeployment(instance,
+			images.Registry.Get(images.TrillianServer),
+			actions.LogserverDeploymentName,
+			actions.RBACServerName,
+			labels),
+		ensureInitContainer(instance),
+		ensureProbes(actions.LogserverDeploymentName),
+		deployment.PodRequirements(instance.Spec.LogServer.PodRequirements, actions.LogserverDeploymentName),
+		deployment.Proxy(),
+		deployment.TrustedCA(instance.GetTrustedCA(), "wait-for-trillian-db", actions.LogserverDeploymentName),
+	}
+}
+
+func EnsureSignerDeployment(instance *v1alpha1.Trillian, labels map[string]string) []func(*apps.Deployment) error {
+	return []func(deployment *apps.Deployment) error{
+		ensureDeployment(instance,
+			images.Registry.Get(images.TrillianLogSigner),
+			actions.LogsignerDeploymentName,
+			actions.RBACSignerName,
+			labels,
+			"--election_system=k8s", "--lock_namespace=$(NAMESPACE)", "--lock_holder_identity=$(POD_NAME)"),
+		ensureInitContainer(instance),
+		ensureProbes(actions.LogsignerDeploymentName),
+		deployment.PodRequirements(instance.Spec.LogSigner.PodRequirements, actions.LogsignerDeploymentName),
+		deployment.Proxy(),
+		deployment.TrustedCA(instance.GetTrustedCA(), "wait-for-trillian-db", actions.LogsignerDeploymentName),
+	}
+}
+
+func ensureInitContainer(instance *v1alpha1.Trillian) func(*apps.Deployment) error {
 	return func(dp *apps.Deployment) error {
-		if instance.Status.Db.DatabaseSecretRef == nil {
-			return errors.New("reference to database secret is not set")
-		}
-
-		spec := &dp.Spec
-		spec.Replicas = utils.Pointer[int32](1)
-		spec.Selector = &metav1.LabelSelector{
-			MatchLabels: labels,
-		}
-
-		template := &spec.Template
-		template.Labels = labels
-		template.Spec.ServiceAccountName = sa
-
-		initContainer := kubernetes.FindInitContainerByNameOrCreate(&template.Spec, "wait-for-trillian-db")
+		initContainer := kubernetes.FindInitContainerByNameOrCreate(&dp.Spec.Template.Spec, "wait-for-trillian-db")
 		initContainer.Image = images.Registry.Get(images.TrillianNetcat)
 
 		hostnameEnv := kubernetes.FindEnvByNameOrCreate(initContainer, "MYSQL_HOSTNAME")
@@ -60,6 +76,51 @@ func EnsureServerDeployment(instance *v1alpha1.Trillian, image string, name stri
 			"-c",
 			"until nc -z -v -w30 $MYSQL_HOSTNAME $MYSQL_PORT; do echo \"Waiting for MySQL to start\"; sleep 5; done;",
 		}
+
+		return nil
+	}
+}
+
+func ensureProbes(containerName string) func(*apps.Deployment) error {
+	return func(deployment *apps.Deployment) error {
+		container := kubernetes.FindContainerByNameOrCreate(&deployment.Spec.Template.Spec, containerName)
+
+		if container.LivenessProbe == nil {
+			container.LivenessProbe = &core.Probe{}
+		}
+		if container.LivenessProbe.HTTPGet == nil {
+			container.LivenessProbe.HTTPGet = &core.HTTPGetAction{}
+		}
+		container.LivenessProbe.HTTPGet.Path = "/healthz"
+		container.LivenessProbe.HTTPGet.Port = intstr.FromInt32(actions.MetricsPort)
+
+		if container.ReadinessProbe == nil {
+			container.ReadinessProbe = &core.Probe{}
+		}
+		if container.ReadinessProbe.HTTPGet == nil {
+			container.ReadinessProbe.HTTPGet = &core.HTTPGetAction{}
+		}
+		container.ReadinessProbe.HTTPGet.Path = "/healthz"
+		container.ReadinessProbe.HTTPGet.Port = intstr.FromInt32(actions.MetricsPort)
+		container.ReadinessProbe.InitialDelaySeconds = 10
+		return nil
+	}
+}
+
+func ensureDeployment(instance *v1alpha1.Trillian, image string, name string, sa string, labels map[string]string, args ...string) func(*apps.Deployment) error {
+	return func(dp *apps.Deployment) error {
+		if instance.Status.Db.DatabaseSecretRef == nil {
+			return errors.New("reference to database secret is not set")
+		}
+
+		spec := &dp.Spec
+		spec.Selector = &metav1.LabelSelector{
+			MatchLabels: labels,
+		}
+
+		template := &spec.Template
+		template.Labels = labels
+		template.Spec.ServiceAccountName = sa
 
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, name)
 		container.Image = image
@@ -150,30 +211,11 @@ func EnsureServerDeployment(instance *v1alpha1.Trillian, image string, name stri
 			monitoring.ContainerPort = actions.MetricsPort
 			monitoring.Protocol = core.ProtocolTCP
 		}
-
-		if container.LivenessProbe == nil {
-			container.LivenessProbe = &core.Probe{}
-		}
-		if container.LivenessProbe.HTTPGet == nil {
-			container.LivenessProbe.HTTPGet = &core.HTTPGetAction{}
-		}
-		container.LivenessProbe.HTTPGet.Path = "/healthz"
-		container.LivenessProbe.HTTPGet.Port = intstr.FromInt32(actions.MetricsPort)
-
-		if container.ReadinessProbe == nil {
-			container.ReadinessProbe = &core.Probe{}
-		}
-		if container.ReadinessProbe.HTTPGet == nil {
-			container.ReadinessProbe.HTTPGet = &core.HTTPGetAction{}
-		}
-		container.ReadinessProbe.HTTPGet.Path = "/healthz"
-		container.ReadinessProbe.HTTPGet.Port = intstr.FromInt32(actions.MetricsPort)
-		container.ReadinessProbe.InitialDelaySeconds = 10
 		return nil
 	}
 }
 
-func WithTlsDB(instance *v1alpha1.Trillian, caPath string, name string) func(deployment *apps.Deployment) error {
+func WithTlsDB(instance *v1alpha1.Trillian, caPath string, name string) func(*apps.Deployment) error {
 	return func(dp *apps.Deployment) error {
 		c := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, name)
 		c.Args = append(c.Args, "--mysql_tls_ca", caPath)
@@ -187,7 +229,7 @@ func WithTlsDB(instance *v1alpha1.Trillian, caPath string, name string) func(dep
 	}
 }
 
-func EnsureTLS(tlsConfig v1alpha1.TLS, name string) func(deployment *apps.Deployment) error {
+func EnsureTLS(tlsConfig v1alpha1.TLS, name string) func(*apps.Deployment) error {
 	return func(dp *apps.Deployment) error {
 		if err := deployment.TLS(tlsConfig, name)(dp); err != nil {
 			return err

@@ -40,6 +40,7 @@ type TrillianSpec struct {
 }
 
 type trillianService struct {
+	PodRequirements `json:",inline"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
 	//+optional
 	TLS TLS `json:"tls,omitempty"`

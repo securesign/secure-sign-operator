@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
@@ -106,6 +108,34 @@ var _ = Describe("Trillian", func() {
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
 					To(MatchError(ContainSubstring("spec.database.pvc.name in body should match")))
+			})
+
+			When("replicas", func() {
+				It("nil", func() {
+					validObject := generateTrillianObject("replicas-nil")
+					validObject.Spec.LogServer.Replicas = nil
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("positive", func() {
+					validObject := generateTrillianObject("replicas-positive")
+					validObject.Spec.LogServer.Replicas = ptr.To(int32(math.MaxInt32))
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("negative", func() {
+					invalidObject := generateTrillianObject("replicas-negative")
+					invalidObject.Spec.LogServer.Replicas = ptr.To(int32(-1))
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("spec.server.replicas in body should be greater than or equal to 0")))
+				})
+
+				It("zero", func() {
+					validObject := generateTrillianObject("replicas-zero")
+					validObject.Spec.LogServer.Replicas = ptr.To(int32(0))
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
 			})
 		})
 
@@ -213,6 +243,16 @@ func generateTrillianObject(name string) *Trillian {
 					Retain:      ptr.To(true),
 					Size:        &storage,
 					AccessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"},
+				},
+			},
+			LogServer: TrillianLogServer{
+				PodRequirements: PodRequirements{
+					Replicas: ptr.To(int32(1)),
+				},
+			},
+			LogSigner: TrillianLogSigner{
+				PodRequirements: PodRequirements{
+					Replicas: ptr.To(int32(1)),
 				},
 			},
 		},
