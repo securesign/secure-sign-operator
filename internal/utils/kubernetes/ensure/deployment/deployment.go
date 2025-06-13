@@ -27,3 +27,10 @@ func TLS(tls v1alpha1.TLS, containerNames ...string) func(dp *v1.Deployment) err
 		return tlsensure.TLS(tls, containerNames...)(&dp.Spec.Template)
 	}
 }
+
+// Auth Mount v1alpha1.Auth credentials
+func Auth(containerName string, auth *v1alpha1.Auth) func(dp *v1.Deployment) error {
+	return func(dp *v1.Deployment) error {
+		return ensure.Auth(containerName, auth)(&dp.Spec.Template.Spec)
+	}
+}

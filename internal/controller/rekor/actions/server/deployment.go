@@ -32,10 +32,6 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 )
 
-const (
-	authVolumeName = "auth"
-)
-
 func NewDeployAction() action.Action[*rhtasv1alpha1.Rekor] {
 	return &deployAction{}
 }
@@ -76,6 +72,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		i.ensureServerDeployment(insCopy, actions.RBACName, labels),
 		ensure.ControllerReference[*v2.Deployment](instance, i.Client),
 		ensure.Labels[*v2.Deployment](slices.Collect(maps.Keys(labels)), labels),
+		deployment.Auth(actions.ServerDeploymentName, instance.Spec.Auth),
 		deployment.Proxy(),
 		deployment.TrustedCA(instance.GetTrustedCA(), actions.ServerDeploymentName),
 		ensure.Optional(tls.UseTlsClient(instance), i.ensureTlsTrillian()),
@@ -191,26 +188,6 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 						},
 					},
 				}
-			}
-		}
-
-		if instance.Spec.Auth != nil {
-			for _, env := range instance.Spec.Auth.Env {
-				e := kubernetes.FindEnvByNameOrCreate(container, env.Name)
-				env.DeepCopyInto(e)
-			}
-
-			for _, secret := range instance.Spec.Auth.SecretMount {
-				volumeName := fmt.Sprintf("%s-%s", authVolumeName, secret.Name)
-				v := kubernetes.FindVolumeByNameOrCreate(&template.Spec, volumeName)
-				if v.Secret == nil {
-					v.Secret = &v1.SecretVolumeSource{}
-				}
-				v.Secret.SecretName = secret.Name
-
-				vm := kubernetes.FindVolumeMountByNameOrCreate(container, volumeName)
-				vm.MountPath = constants.AuthMountPath
-				vm.ReadOnly = true
 			}
 		}
 
