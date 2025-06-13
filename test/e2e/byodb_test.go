@@ -4,11 +4,14 @@ package e2e
 
 import (
 	"context"
+	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/test/e2e/support"
@@ -17,8 +20,11 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	runtimeCli "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+const searchDbAuth = "search-db"
 
 var _ = Describe("Securesign install with byodb", Ordered, func() {
 	cli, _ := support.CreateClient()
@@ -50,8 +56,39 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 			},
 			Spec: v1alpha1.SecuresignSpec{
 				Rekor: v1alpha1.RekorSpec{
+					Auth: &v1alpha1.Auth{
+						Env: []v1.EnvVar{
+							{
+								Name: "MYSQL_USER",
+								ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: searchDbAuth,
+									},
+									Key: "mysql-user",
+								}},
+							},
+							{
+								Name: "MYSQL_PASSWORD",
+								ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: searchDbAuth,
+									},
+									Key: "mysql-password",
+								}},
+							},
+						},
+					},
 					ExternalAccess: v1alpha1.ExternalAccess{
 						Enabled: true,
+					},
+					BackFillRedis: v1alpha1.BackFillRedis{
+						Enabled:  ptr.To(true),
+						Schedule: "* * * * *",
+					},
+					SearchIndex: v1alpha1.SearchIndex{
+						Create:   ptr.To(false),
+						Provider: "mysql",
+						Url:      "$(MYSQL_USER):$(MYSQL_PASSWORD)@tcp(search-db:3300)/searchDB",
 					},
 				},
 				Fulcio: v1alpha1.FulcioSpec{
@@ -133,7 +170,8 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 
 	Describe("Install with byodb", func() {
 		BeforeAll(func() {
-			Expect(createDB(ctx, cli, namespace.Name, s.Spec.Trillian.Db.DatabaseSecretRef.Name)).To(Succeed())
+			Expect(createSearchMysql(ctx, cli, namespace.Name, searchDbAuth)).To(Succeed())
+			Expect(createTrillianDB(ctx, cli, namespace.Name, s.Spec.Trillian.Db.DatabaseSecretRef.Name)).To(Succeed())
 			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 
@@ -144,16 +182,35 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 		It("No other DB is created", func() {
 			list := &v1.PodList{}
 			Expect(cli.List(ctx, list, runtimeCli.InNamespace(namespace.Name), runtimeCli.MatchingLabels{labels.LabelAppName: "trillian-db"})).To(Succeed())
-			Expect(list.Items).To(BeEmpty())
+			Expect(list.Items).To(BeEmpty(), "Trillian DB is not created")
+
+			Expect(cli.List(ctx, list, runtimeCli.InNamespace(namespace.Name), runtimeCli.MatchingLabels{labels.LabelAppName: actions.RedisDeploymentName})).To(Succeed())
+			Expect(list.Items).To(BeEmpty(), "Redis DB is not created")
 		})
 
 		It("Use cosign cli", func() {
 			tas.VerifyByCosign(ctx, cli, s, targetImageName)
 		})
+
+		It("Verify backfill cron job", func() {
+			Eventually(func(g Gomega) []string {
+				logs := make([]string, 0)
+				jobPods := &v1.PodList{}
+				g.Expect(cli.List(ctx, jobPods, runtimeCli.InNamespace(namespace.Name), runtimeCli.HasLabels{"job-name"})).To(Succeed())
+				for _, pod := range jobPods.Items {
+					if strings.Contains(pod.Labels["job-name"], actions.BackfillRedisCronJobName) {
+						l, e := testSupportKubernetes.GetPodLogs(ctx, pod.Name, actions.BackfillRedisCronJobName, namespace.Name)
+						Expect(e).NotTo(HaveOccurred())
+						logs = append(logs, l)
+					}
+				}
+				return logs
+			}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Minute).Should(ContainElement(ContainSubstring("Completed log index")))
+		})
 	})
 })
 
-func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef string) error {
+func createTrillianDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef string) error {
 
 	mysql := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -318,6 +375,143 @@ func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef s
 						FailureThreshold:    3,
 					},
 					VolumeMounts: volumesMounts,
+				},
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
+	return err
+}
+
+func createSearchMysql(ctx context.Context, cli runtimeCli.Client, ns string, secretRef string) error {
+	mysql := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: ns,
+			Name:      "search-db",
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
+				{
+					Name:       "3306-tcp",
+					Port:       3300,
+					TargetPort: intstr.IntOrString{IntVal: 3306},
+					Protocol:   "TCP",
+				},
+			},
+			Selector: map[string]string{
+				labels.LabelAppName: "search-db",
+			},
+		},
+	}
+
+	err := cli.Create(ctx, mysql)
+	if err != nil {
+		return err
+	}
+
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: secretRef},
+		Data: map[string][]byte{
+			"mysql-database":      []byte("searchDB"),
+			"mysql-password":      []byte("password"),
+			"mysql-root-password": []byte("password"),
+			"mysql-user":          []byte("mysql"),
+		},
+	}
+	err = cli.Create(ctx, secret)
+	if err != nil {
+		return err
+	}
+
+	dbConfig := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mysql-init-scripts-configmap",
+			Namespace: ns,
+		},
+		Data: map[string]string{
+			"init-grants.sql": "GRANT ALL ON `database`.* TO 'mysql'@'%'; FLUSH PRIVILEGES;",
+		},
+	}
+	err = cli.Create(ctx, dbConfig)
+	if err != nil {
+		return err
+	}
+
+	err = cli.Create(ctx, &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: ns,
+			Name:      "search-db",
+			Labels:    map[string]string{labels.LabelAppName: "search-db"},
+		},
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{
+				{
+					Name:  "mysql",
+					Image: "mysql:5.7",
+					Env: []v1.EnvVar{
+						{
+							Name: "MYSQL_ROOT_PASSWORD",
+							ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: secretRef,
+								},
+								Key: "mysql-root-password",
+							}},
+						},
+						{
+							Name: "MYSQL_USER",
+							ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: secretRef,
+								},
+								Key: "mysql-user",
+							}},
+						},
+						{
+							Name: "MYSQL_PASSWORD",
+							ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: secretRef,
+								},
+								Key: "mysql-password",
+							}},
+						},
+						{
+							Name: "MYSQL_DATABASE",
+							ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: secretRef,
+								},
+								Key: "mysql-database",
+							}},
+						},
+					},
+					Ports: []v1.ContainerPort{
+						{
+							ContainerPort: 3306,
+							Protocol:      "TCP",
+						},
+					},
+					VolumeMounts: []v1.VolumeMount{
+						{
+							Name:      "init-scripts-volume",
+							MountPath: "/docker-entrypoint-initdb.d",
+						},
+					},
+				},
+			},
+			Volumes: []v1.Volume{
+				{
+					Name: "init-scripts-volume",
+					VolumeSource: v1.VolumeSource{
+						ConfigMap: &v1.ConfigMapVolumeSource{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: dbConfig.Name,
+							},
+						},
+					},
 				},
 			},
 		},

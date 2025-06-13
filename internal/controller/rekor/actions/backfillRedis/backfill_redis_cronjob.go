@@ -5,17 +5,18 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
+	"github.com/robfig/cron/v3"
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/rekor/actions"
+	"github.com/securesign/operator/internal/controller/rekor/actions/searchIndex/redis"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
-
-	"github.com/robfig/cron/v3"
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/controller/rekor/actions"
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,6 +68,9 @@ func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 			},
 		},
 		i.ensureBacfillCronJob(instance),
+		func(object *batchv1.CronJob) error {
+			return ensure.Auth(actions.BackfillRedisCronJobName, instance.Spec.Auth)(&object.Spec.JobTemplate.Spec.Template.Spec)
+		},
 		ensure.ControllerReference[*batchv1.CronJob](instance, i.Client),
 		ensure.Labels[*batchv1.CronJob](slices.Collect(maps.Keys(labels)), labels),
 	); err != nil {
@@ -105,8 +109,38 @@ func (i backfillRedisCronJob) ensureBacfillCronJob(instance *rhtasv1alpha1.Rekor
 		container.Image = images.Registry.Get(images.BackfillRedis)
 		container.Command = []string{"/bin/sh", "-c"}
 		container.Args = []string{
-			fmt.Sprintf(`endIndex=$(curl -sS http://%s/api/v1/log | sed -E 's/.*"treeSize":([0-9]+).*/\1/'); endIndex=$((endIndex-1)); if [ $endIndex -lt 0 ]; then echo "info: no rekor entries found"; exit 0; fi; backfill-redis --redis-hostname=rekor-redis --redis-port=6379 --rekor-address=http://%s --start=0 --end=$endIndex`, actions.ServerComponentName, actions.ServerComponentName),
+			fmt.Sprintf(`endIndex=$(curl -sS http://%s/api/v1/log | sed -E 's/.*"treeSize":([0-9]+).*/\1/'); endIndex=$((endIndex-1)); if [ $endIndex -lt 0 ]; then echo "info: no rekor entries found"; exit 0; fi; backfill-redis --rekor-address=http://%s --start=0 --end=$endIndex`, actions.ServerComponentName, actions.ServerComponentName),
 		}
+		searchParams, err := i.searchIndexParams(*instance)
+		if err != nil {
+			return err
+		}
+		container.Args[0] = fmt.Sprintf(" %s %s", container.Args[0], strings.Join(searchParams, " "))
 		return nil
+	}
+}
+
+func (i backfillRedisCronJob) searchIndexParams(instance rhtasv1alpha1.Rekor) ([]string, error) {
+	args := make([]string, 0)
+	switch instance.Spec.SearchIndex.Provider {
+	case "redis":
+		options, err := redis.Parse(instance.Spec.SearchIndex.Url)
+		if err != nil {
+			return nil, fmt.Errorf("can't parse redis searchIndex url: %w", err)
+		}
+		args = append(args, fmt.Sprintf("--redis-hostname=\"%s\"", options.Host))
+
+		if options.Port != "" {
+			args = append(args, fmt.Sprintf("--redis-port=\"%s\"", options.Port))
+		}
+
+		if options.Password != "" {
+			args = append(args, fmt.Sprintf("--redis-password=\"%s\"", options.Password))
+		}
+		return args, nil
+	case "mysql":
+		return append(args, fmt.Sprintf("--mysql-dsn=\"%s\"", instance.Spec.SearchIndex.Url)), nil
+	default:
+		return nil, fmt.Errorf("unsupported search_index provider %s", instance.Spec.SearchIndex.Provider)
 	}
 }

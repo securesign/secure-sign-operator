@@ -23,12 +23,12 @@ import (
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller"
+	redis "github.com/securesign/operator/internal/controller/rekor/actions/searchIndex/redis/actions"
 	"k8s.io/apimachinery/pkg/types"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	actions2 "github.com/securesign/operator/internal/controller/rekor/actions"
 	backfillredis "github.com/securesign/operator/internal/controller/rekor/actions/backfillRedis"
-	"github.com/securesign/operator/internal/controller/rekor/actions/redis"
 	"github.com/securesign/operator/internal/controller/rekor/actions/server"
 	"github.com/securesign/operator/internal/controller/rekor/actions/ui"
 	v13 "k8s.io/api/core/v1"

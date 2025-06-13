@@ -336,7 +336,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 
 		It("All other components are running", func() {
 			trillian.Verify(ctx, cli, namespaces["trillian"].Name, trillianObject.Name, true)
-			rekor.Verify(ctx, cli, namespaces["rekor"].Name, rekorObject.Name)
+			rekor.Verify(ctx, cli, namespaces["rekor"].Name, rekorObject.Name, true)
 			fulcio.Verify(ctx, cli, namespaces["fulcio"].Name, fulcioObject.Name)
 			ctlog.Verify(ctx, cli, namespaces["ctlog"].Name, ctlogObject.Name)
 			tsa.Verify(ctx, cli, namespaces["tsa"].Name, tsaObject.Name)
