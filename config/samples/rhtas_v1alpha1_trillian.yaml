@@ -7,3 +7,9 @@ metadata:
     app.kubernetes.io/part-of: trusted-artifact-signer
   name: trillian-sample
 spec:
+  database:
+    create: true
+  server:
+    replicas: 1
+  signer:
+    replicas: 1
