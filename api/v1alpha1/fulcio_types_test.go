@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
@@ -179,6 +181,34 @@ var _ = Describe("Fulcio", func() {
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
 					To(MatchError(ContainSubstring("spec.ctlog.prefix in body should match")))
 			})
+
+			When("replicas", func() {
+				It("nil", func() {
+					validObject := generateFulcioObject("replicas-nil")
+					validObject.Spec.Replicas = nil
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("positive", func() {
+					validObject := generateFulcioObject("replicas-positive")
+					validObject.Spec.Replicas = ptr.To(int32(math.MaxInt32))
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("negative", func() {
+					invalidObject := generateFulcioObject("replicas-negative")
+					invalidObject.Spec.Replicas = ptr.To(int32(-1))
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("spec.replicas in body should be greater than or equal to 0")))
+				})
+
+				It("zero", func() {
+					validObject := generateFulcioObject("replicas-zero")
+					validObject.Spec.Replicas = ptr.To(int32(0))
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+			})
 		})
 
 		Context("Default settings", func() {
@@ -269,6 +299,9 @@ func generateFulcioObject(name string) *Fulcio {
 			Namespace: "default",
 		},
 		Spec: FulcioSpec{
+			PodRequirements: PodRequirements{
+				Replicas: ptr.To(int32(1)),
+			},
 			Config: FulcioConfig{
 				OIDCIssuers: []OIDCIssuer{
 					{

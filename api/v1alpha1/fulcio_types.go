@@ -10,6 +10,7 @@ import (
 
 // FulcioSpec defines the desired state of Fulcio
 type FulcioSpec struct {
+	PodRequirements `json:",inline"`
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
 	// Ctlog service configuration
