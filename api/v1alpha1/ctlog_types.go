@@ -12,6 +12,7 @@ import (
 // +kubebuilder:validation:XValidation:rule=(!has(self.publicKeyRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
 // +kubebuilder:validation:XValidation:rule=(!has(self.privateKeyPasswordRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
 type CTlogSpec struct {
+	PodRequirements `json:",inline"`
 	// The ID of a Trillian tree that stores the log data.
 	// If it is unset, the operator will create new Merkle tree in the Trillian backend
 	//+optional
