@@ -74,7 +74,8 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
-		deployment.TrustedCA(instance.GetTrustedCA(), "server"),
+		deployment.TrustedCA(instance.GetTrustedCA(), containerName),
+		deployment.PodRequirements(instance.Spec.PodRequirements, containerName),
 		ensure.Optional(
 			utils.TlsEnabled(instance),
 			i.ensureTLS(instance.Status.TLS, containerName),

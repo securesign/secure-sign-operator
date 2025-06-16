@@ -28,10 +28,13 @@ patches:
         value: []
   - target:
       kind: ClusterServiceVersion
-    path: patches/trillian_descriptors.yaml
+    path: patches/ctlog_descriptors.yaml
   - target:
       kind: ClusterServiceVersion
     path: patches/fulcio_descriptors.yaml
+  - target:
+      kind: ClusterServiceVersion
+    path: patches/trillian_descriptors.yaml
 
 # [WEBHOOK] To enable webhooks, uncomment all the sections with [WEBHOOK] prefix.
 # Do NOT uncomment sections with prefix [CERTMANAGER], as OLM does not support cert-manager.

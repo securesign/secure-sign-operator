@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
@@ -66,6 +68,34 @@ var _ = Describe("CTlog", func() {
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
 					To(MatchError(ContainSubstring("privateKeyRef cannot be empty")))
+			})
+
+			When("replicas", func() {
+				It("nil", func() {
+					validObject := generateCTlogObject("replicas-nil")
+					validObject.Spec.Replicas = nil
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("positive", func() {
+					validObject := generateCTlogObject("replicas-positive")
+					validObject.Spec.Replicas = ptr.To(int32(math.MaxInt32))
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("negative", func() {
+					invalidObject := generateCTlogObject("replicas-negative")
+					invalidObject.Spec.Replicas = ptr.To(int32(-1))
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("spec.replicas in body should be greater than or equal to 0")))
+				})
+
+				It("zero", func() {
+					validObject := generateCTlogObject("replicas-zero")
+					validObject.Spec.Replicas = ptr.To(int32(0))
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
 			})
 		})
 
@@ -178,6 +208,9 @@ func generateCTlogObject(name string) *CTlog {
 			Namespace: "default",
 		},
 		Spec: CTlogSpec{
+			PodRequirements: PodRequirements{
+				Replicas: ptr.To(int32(1)),
+			},
 			Trillian: TrillianService{
 				Port: ptr.To(int32(8091)),
 			},
