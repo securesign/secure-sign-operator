@@ -14,6 +14,8 @@ const (
 	SearchUiDeploymentPortName = "http"
 	SearchUiDeploymentPort     = 3000
 
+	RedisTlsSecret = "%s-rekor-redis-tls"
+
 	RBACName         = "rekor"
 	RBACUIName       = "rekor-ui"
 	RBACRedisName    = "rekor-redis"

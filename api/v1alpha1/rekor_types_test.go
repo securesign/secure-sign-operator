@@ -265,25 +265,45 @@ var _ = Describe("Rekor", func() {
 					To(MatchError(ContainSubstring("Field is immutable")))
 			})
 
-			It("create with redis provider", func() {
-				validObject := generateRekorObject("search-create-redis")
-				validObject.Spec.SearchIndex.Provider = "redis"
-				validObject.Spec.SearchIndex.Create = ptr.To(true)
-				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
-			})
-
-			It("create with mysql provider", func() {
-				invalidObject := generateRekorObject("search-create-mysql")
-				invalidObject.Spec.SearchIndex.Provider = "mysql"
+			It("provider specified with crate=true", func() {
+				invalidObject := generateRekorObject("provider-specified-crate")
+				invalidObject.Spec.SearchIndex.Provider = "redis" //nolint:goconst
+				invalidObject.Spec.SearchIndex.Url = "fake"
 				invalidObject.Spec.SearchIndex.Create = ptr.To(true)
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("'create' field can only be true when 'provider' is 'redis'")))
+					To(MatchError(ContainSubstring("Provider can be specified only with external db (create=false)")))
+			})
+
+			It("no provider specified with crate=false", func() {
+				invalidObject := generateRekorObject("provider-not-specified-nocrate")
+				invalidObject.Spec.SearchIndex.Create = ptr.To(false)
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("Provider must be defined with external db (create=false)")))
+			})
+
+			It("empty url with provider", func() {
+				invalidObject := generateRekorObject("empty-url")
+				invalidObject.Spec.SearchIndex.Provider = "redis" //nolint:goconst
+				invalidObject.Spec.SearchIndex.Create = ptr.To(false)
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("URL must be provided if provider is specified")))
 			})
 
 			It("external redis provider", func() {
 				validObject := generateRekorObject("search-external-redis")
+				validObject.Spec.SearchIndex.Provider = "redis" //nolint:goconst
+				validObject.Spec.SearchIndex.Url = "redis://rekor-redis:6379"
+				validObject.Spec.SearchIndex.Create = ptr.To(false)
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("external rediss provider", func() {
+				validObject := generateRekorObject("search-external-rediss")
 				validObject.Spec.SearchIndex.Provider = "redis"
+				validObject.Spec.SearchIndex.Url = "rediss://rekor-redis:6379"
 				validObject.Spec.SearchIndex.Create = ptr.To(false)
 				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 			})
@@ -291,6 +311,7 @@ var _ = Describe("Rekor", func() {
 			It("external mysql provider", func() {
 				validObject := generateRekorObject("search-external-mysql")
 				validObject.Spec.SearchIndex.Provider = "mysql"
+				validObject.Spec.SearchIndex.Url = "mysql://mysql:6379"
 				validObject.Spec.SearchIndex.Create = ptr.To(false)
 				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 			})
@@ -321,8 +342,6 @@ var _ = Describe("Rekor", func() {
 					Expect(fetched.Spec.Pvc.Name).To(Equal(expectedRekorInstance.Spec.Pvc.Name))
 					Expect(fetched.Spec.Pvc.Size).To(Equal(expectedRekorInstance.Spec.Pvc.Size))
 					Expect(*fetched.Spec.RekorSearchUI.Enabled).To(BeTrue())
-					Expect(fetched.Spec.SearchIndex.Provider).To(Equal("redis"))
-					Expect(fetched.Spec.SearchIndex.Url).To(Equal("redis://rekor-redis:6379"))
 					Expect(*fetched.Spec.SearchIndex.Create).To(BeTrue())
 				})
 			})
@@ -385,6 +404,9 @@ var _ = Describe("Rekor", func() {
 									TreeLength:       1,
 									EncodedPublicKey: "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFWkZ0Nk5FcU14YWVVNzZsbmxZekZVTmpGUUdIcQpORjQ2QlBDVGxQL0ZnZk1aak42MDhjRFhmM0xNNWhUYnZOeUNFYWJFKzRNYk9jRU1YaERRVWxZRnZBPT0KLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==",
 								},
+							},
+							SearchIndex: SearchIndex{
+								Create: ptr.To(true),
 							},
 						},
 					}

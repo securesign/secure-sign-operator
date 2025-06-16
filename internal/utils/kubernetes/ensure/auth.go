@@ -5,6 +5,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	core "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 const (
@@ -18,7 +19,9 @@ func Auth(containerName string, auth *v1alpha1.Auth) func(spec *core.PodSpec) er
 			container := kubernetes.FindContainerByNameOrCreate(templateSpec, containerName)
 			for _, env := range auth.Env {
 				e := kubernetes.FindEnvByNameOrCreate(container, env.Name)
-				env.DeepCopyInto(e)
+				if !equality.Semantic.DeepEqual(env, e) {
+					env.DeepCopyInto(e)
+				}
 			}
 			authProjected := kubernetes.FindVolumeByNameOrCreate(templateSpec, authVolumeName)
 			if authProjected == nil {

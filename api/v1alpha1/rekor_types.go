@@ -27,7 +27,7 @@ type RekorSpec struct {
 	// Signer configuration
 	Signer RekorSigner `json:"signer,omitempty"`
 	// Define your search index database connection
-	//+kubebuilder:default:={create: true, provider: "redis", url: "redis://rekor-redis:6379"}
+	//+kubebuilder:default:={create: true}
 	SearchIndex SearchIndex `json:"searchIndex,omitempty"`
 	// PVC configuration
 	//+kubebuilder:default:={size: "5Gi", retain: true, accessModes: {ReadWriteOnce}}
@@ -91,18 +91,21 @@ type RekorSearchUI struct {
 }
 
 // SearchIndex define search index connection
-// +kubebuilder:validation:XValidation:rule=(!(self.create && self.provider != "redis")),message='create' field can only be true when 'provider' is 'redis'
+// +kubebuilder:validation:XValidation:rule=(!(self.create == true) || !has(self.provider) || self.provider == ""),message=Provider can be specified only with external db (create=false)
+// +kubebuilder:validation:XValidation:rule=(!(self.create == false) || self.provider != ""),message=Provider must be defined with external db (create=false)
+// +kubebuilder:validation:XValidation:rule=(!(has(self.provider) && self.provider != "") || (self.url != "")),message=URL must be provided if provider is specified
 type SearchIndex struct {
-	// Create Database if a database is not created one must be defined using the Url field
+	// Create Database if a database. If create=true provider and url fields are not taken into account, otherwise url field must be specified.
 	//+kubebuilder:default:=true
 	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
 	Create *bool `json:"create"`
+	// Configuration for enabling TLS (Transport Layer Security) encryption for manged database.
+	//+optional
+	TLS TLS `json:"tls,omitempty"`
 	// DB provider. Supported are redis and mysql.
-	//+kubebuilder:default:="redis"
 	//+kubebuilder:validation:Enum={redis,mysql}
 	Provider string `json:"provider,omitempty"`
 	// DB connection URL.
-	//+kubebuilder:default:="redis://rekor-redis:6379"
 	Url string `json:"url,omitempty"`
 }
 
@@ -134,6 +137,11 @@ type RekorLogRange struct {
 	EncodedPublicKey string `json:"encodedPublicKey,omitempty"`
 }
 
+type SearchIndexStatus struct {
+	TLS           TLS                `json:"tls,omitempty"`
+	DbPasswordRef *SecretKeySelector `json:"dbPasswordRef,omitempty"`
+}
+
 // RekorStatus defines the observed state of Rekor
 type RekorStatus struct {
 	// Reference to secret with Rekor's signer public key.
@@ -141,6 +149,7 @@ type RekorStatus struct {
 	PublicKeyRef     *SecretKeySelector    `json:"publicKeyRef,omitempty"`
 	ServerConfigRef  *LocalObjectReference `json:"serverConfigRef,omitempty"`
 	Signer           RekorSigner           `json:"signer,omitempty"`
+	SearchIndex      SearchIndexStatus     `json:"searchIndex,omitempty"`
 	PvcName          string                `json:"pvcName,omitempty"`
 	Url              string                `json:"url,omitempty"`
 	RekorSearchUIUrl string                `json:"rekorSearchUIUrl,omitempty"`
