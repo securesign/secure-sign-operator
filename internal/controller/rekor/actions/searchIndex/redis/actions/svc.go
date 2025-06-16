@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/labels"
@@ -47,6 +48,11 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 
 	labels := labels.For(actions.RedisComponentName, actions.RedisDeploymentName, instance.Name)
 
+	tlsAnnotations := map[string]string{}
+	if specTLS(instance).CertRef == nil {
+		tlsAnnotations[annotations.TLS] = fmt.Sprintf(actions.RedisTlsSecret, instance.Name)
+	}
+
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		&v1.Service{
 			ObjectMeta: metav1.ObjectMeta{Name: actions.RedisDeploymentName, Namespace: instance.Namespace},
@@ -59,6 +65,8 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		}),
 		ensure.ControllerReference[*v1.Service](instance, i.Client),
 		ensure.Labels[*v1.Service](slices.Collect(maps.Keys(labels)), labels),
+		//TLS: Annotate service
+		ensure.Optional(kubernetes.IsOpenShift(), ensure.Annotations[*v1.Service]([]string{annotations.TLS}, tlsAnnotations)),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create service: %w", err), instance)
 	}

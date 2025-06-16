@@ -7,6 +7,7 @@ import (
 
 type RedisOptions struct {
 	Host, Port, Password string
+	TlsEnabled           bool
 }
 
 func Parse(dsn string) (options *RedisOptions, err error) {
