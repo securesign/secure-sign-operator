@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/rekor/actions/searchIndex"
 	"github.com/securesign/operator/internal/controller/rekor/actions/searchIndex/redis"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
@@ -128,28 +130,23 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 
 		args := []string{
 			"serve",
-			fmt.Sprintf("--trillian_log_server.address=%s", instance.Spec.Trillian.Address),
-			fmt.Sprintf("--trillian_log_server.port=%d", *instance.Spec.Trillian.Port),
-			"--trillian_log_server.sharding_config=/sharding/sharding-config.yaml",
+			"--trillian_log_server.address", instance.Spec.Trillian.Address,
+			"--trillian_log_server.port", strconv.Itoa(int(*instance.Spec.Trillian.Port)),
+			"--trillian_log_server.sharding_config", "/sharding/sharding-config.yaml",
 
-			"--rekor_server.address=0.0.0.0",
-			"--enable_retrieve_api=true",
-			fmt.Sprintf("--trillian_log_server.tlog_id=%d", *instance.Status.TreeID),
+			"--rekor_server.address", "0.0.0.0",
+			"--enable_retrieve_api", "true",
+			"--trillian_log_server.tlog_id", strconv.FormatInt(*instance.Status.TreeID, 10),
 			"--enable_attestation_storage",
 			// NOTE: we need to use no_tmp_dir=true with file-based storage to prevent
 			// cross-device link error - see https://github.com/google/go-cloud/issues/3314
-			"--attestation_storage_bucket=file:///var/run/attestations?no_tmp_dir=true",
-			fmt.Sprintf("--log_type=%s", utils2.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
+			"--attestation_storage_bucket", "file:///var/run/attestations?no_tmp_dir=true",
+			"--log_type", utils2.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod)),
 		}
-		searchParams, err := i.searchIndexParams(*instance)
-		if err != nil {
-			return err
-		}
-		args = append(args, searchParams...)
 
 		// KMS memory
 		if instance.Spec.Signer.KMS == "memory" {
-			args = append(args, "--rekor_server.signer=memory")
+			args = append(args, "--rekor_server.signer", "memory")
 		}
 
 		// KMS secret
@@ -174,11 +171,11 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 			volumeMount.MountPath = "/key"
 			volumeMount.ReadOnly = true
 
-			args = append(args, "--rekor_server.signer=/key/private")
+			args = append(args, "--rekor_server.signer", "/key/private")
 
 			// Add signer password
 			if instance.Status.Signer.PasswordRef != nil {
-				args = append(args, "--rekor_server.signer-passwd=$(SIGNER_PASSWORD)")
+				args = append(args, "--rekor_server.signer-passwd", "$(SIGNER_PASSWORD)")
 				env := kubernetes.FindEnvByNameOrCreate(container, "SIGNER_PASSWORD")
 				env.ValueFrom = &v1.EnvVarSource{
 					SecretKeyRef: &v1.SecretKeySelector{
@@ -193,6 +190,9 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 
 		//TODO mount additional ENV variables and secrets to enable cloud KMS service
 		container.Args = args
+		if err := searchIndex.EnsureSearchIndex(instance, ensureRedisParams(), ensureMysqlParams())(container); err != nil {
+			return err
+		}
 
 		serverPort := kubernetes.FindPortByNameOrCreate(container, "rekor-server")
 		serverPort.ContainerPort = 3000
@@ -250,32 +250,32 @@ func (i deployAction) ensureTlsTrillian() func(*v2.Deployment) error {
 	return func(dp *v2.Deployment) error {
 		container := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, actions.ServerDeploymentName)
 
-		container.Args = append(container.Args, "--trillian_log_server.tls=true")
+		container.Args = append(container.Args, "--trillian_log_server.tls", "true")
 		return nil
 	}
 }
 
-func (i deployAction) searchIndexParams(instance rhtasv1alpha1.Rekor) ([]string, error) {
-	args := []string{fmt.Sprintf("--search_index.storage_provider=%s", instance.Spec.SearchIndex.Provider)}
-	switch instance.Spec.SearchIndex.Provider {
-	case "redis":
-		options, err := redis.Parse(instance.Spec.SearchIndex.Url)
-		if err != nil {
-			return nil, fmt.Errorf("can't parse redis searchIndex url: %w", err)
-		}
-		args = append(args, fmt.Sprintf("--redis_server.address=%s", options.Host))
+func ensureRedisParams() func(*redis.RedisOptions, *v1.Container) {
+	return func(options *redis.RedisOptions, container *v1.Container) {
+		container.Args = append(container.Args, "--search_index.storage_provider", "redis")
+		container.Args = append(container.Args, "--redis_server.address", options.Host)
 
 		if options.Port != "" {
-			args = append(args, fmt.Sprintf("--redis_server.port=%s", options.Port))
+			container.Args = append(container.Args, "--redis_server.port", options.Port)
 		}
 
 		if options.Password != "" {
-			args = append(args, fmt.Sprintf("--redis_server.password=%s", options.Password))
+			container.Args = append(container.Args, "--redis_server.password", options.Password)
 		}
-		return args, nil
-	case "mysql":
-		return append(args, fmt.Sprintf("--search_index.mysql.dsn=%s", instance.Spec.SearchIndex.Url)), nil
-	default:
-		return nil, fmt.Errorf("unsupported search_index provider %s", instance.Spec.SearchIndex.Provider)
+		if options.TlsEnabled {
+			container.Args = append(container.Args, "--redis_server.enable-tls", "true")
+		}
+	}
+}
+
+func ensureMysqlParams() func(string, *v1.Container) {
+	return func(url string, container *v1.Container) {
+		container.Args = append(container.Args, "--search_index.storage_provider", "mysql")
+		container.Args = append(container.Args, "--search_index.mysql.dsn", url)
 	}
 }
