@@ -18,10 +18,8 @@ import (
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	v1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
-	v2 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -52,13 +50,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		result controllerutil.OperationResult
 	)
 
-	// Rekor Ingress
-	ok := types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: instance.Namespace}
-	rekorIngress := &v2.Ingress{}
-	if err := i.Client.Get(ctx, ok, rekorIngress); err != nil {
-		return i.Error(ctx, fmt.Errorf("could not find rekor ingress: %w", err), instance)
-	}
-	rekorServerHost := "https://" + rekorIngress.Spec.Rules[0].Host
+	rekorServerHost := fmt.Sprintf("http://%s.%s.svc", actions.ServerComponentName, instance.Namespace)
 
 	labels := labels.For(actions.MonitorComponentName, actions.MonitorDeploymentName, instance.Name)
 
@@ -114,9 +106,12 @@ func (i deployAction) ensureMonitorDeployment(sa string, labels map[string]strin
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, actions.MonitorDeploymentName)
 		container.Image = images.Registry.Get(images.RekorMonitor)
 
-		container.Env = []core.EnvVar{
-			{Name: "REKOR_SERVER_ENDPOINT", Value: rekorServerHost},
-			{Name: "CHECK_INTERVAL_SECONDS", Value: "5"},
+		container.Command = []string{
+			"/rekor_monitor",
+			"--file=/data/checkpoint_log.txt",
+			"--once=false",
+			"--interval=5s",
+			fmt.Sprintf("--url=%s", rekorServerHost),
 		}
 
 		container.Ports = []core.ContainerPort{
