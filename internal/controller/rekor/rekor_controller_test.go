@@ -238,12 +238,12 @@ var _ = Describe("Rekor controller", func() {
 
 			By("Rekor Monitor Deployment created")
 			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.MonitorDeploymentName, Namespace: Namespace}, &appsv1.Deployment{})
+				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.MonitorDeploymentName, Namespace: Namespace}, &appsv1.Deployment{})
 			}).Should(Succeed())
 
 			By("Rekor Monitor svc created")
 			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: actions.MonitorDeploymentName, Namespace: Namespace}, &corev1.Service{})
+				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.MonitorDeploymentName, Namespace: Namespace}, &corev1.Service{})
 			}).Should(Succeed())
 
 			By("Waiting until Rekor instance is Ready")
