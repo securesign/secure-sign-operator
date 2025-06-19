@@ -243,6 +243,59 @@ var _ = Describe("Rekor", func() {
 			})
 		})
 
+		Context("search index", func() {
+			It("invalid provider", func() {
+				invalidObject := generateRekorObject("search-invalid-provider")
+				invalidObject.Spec.SearchIndex.Provider = "invalid"
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("Unsupported value: \"invalid\"")))
+			})
+
+			It("immutable create", func() {
+				validObject := generateRekorObject("search-immutable-create")
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+
+				invalidObject := &Rekor{}
+				Expect(k8sClient.Get(context.Background(), getKey(validObject), invalidObject)).To(Succeed())
+				invalidObject.Spec.SearchIndex.Create = ptr.To(false)
+
+				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Update(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("Field is immutable")))
+			})
+
+			It("create with redis provider", func() {
+				validObject := generateRekorObject("search-create-redis")
+				validObject.Spec.SearchIndex.Provider = "redis"
+				validObject.Spec.SearchIndex.Create = ptr.To(true)
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("create with mysql provider", func() {
+				invalidObject := generateRekorObject("search-create-mysql")
+				invalidObject.Spec.SearchIndex.Provider = "mysql"
+				invalidObject.Spec.SearchIndex.Create = ptr.To(true)
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("'create' field can only be true when 'provider' is 'redis'")))
+			})
+
+			It("external redis provider", func() {
+				validObject := generateRekorObject("search-external-redis")
+				validObject.Spec.SearchIndex.Provider = "redis"
+				validObject.Spec.SearchIndex.Create = ptr.To(false)
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("external mysql provider", func() {
+				validObject := generateRekorObject("search-external-mysql")
+				validObject.Spec.SearchIndex.Provider = "mysql"
+				validObject.Spec.SearchIndex.Create = ptr.To(false)
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+		})
+
 		Context("Default settings", func() {
 			var (
 				rekorInstance         Rekor

@@ -6,5 +6,5 @@ import (
 )
 
 func enabled(instance *v1alpha1.Rekor) bool {
-	return utils.OptionalBool(instance.Spec.SearchIndex.Create)
+	return utils.OptionalBool(instance.Spec.SearchIndex.Create) && instance.Spec.SearchIndex.Provider == "redis"
 }

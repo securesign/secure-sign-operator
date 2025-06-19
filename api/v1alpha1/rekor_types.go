@@ -90,6 +90,8 @@ type RekorSearchUI struct {
 	RouteSelectorLabels map[string]string `json:"routeSelectorLabels,omitempty"`
 }
 
+// SearchIndex define search index connection
+// +kubebuilder:validation:XValidation:rule=(!(self.create && self.provider != "redis")),message='create' field can only be true when 'provider' is 'redis'
 type SearchIndex struct {
 	// Create Database if a database is not created one must be defined using the Url field
 	//+kubebuilder:default:=true
