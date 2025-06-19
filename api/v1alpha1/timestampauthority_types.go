@@ -24,6 +24,7 @@ import (
 // TimestampAuthoritySpec defines the desired state of TimestampAuthority
 // +kubebuilder:validation:XValidation:rule=!(has(self.signer.certificateChain.certificateChainRef) && (has(self.signer.certificateChain.intermediateCA) || has(self.signer.certificateChain.leafCA) || has(self.signer.certificateChain.rootCA))),message="when certificateChainRef is set, intermediateCA, leafCA, and rootCA must not be set"
 type TimestampAuthoritySpec struct {
+	PodRequirements `json:",inline"`
 	//Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
 	//Signer configuration
