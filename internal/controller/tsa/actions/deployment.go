@@ -11,7 +11,6 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
-	"github.com/securesign/operator/internal/controller/rekor/actions"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
@@ -80,7 +79,8 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Timest
 		ensure.ControllerReference[*apps.Deployment](instance, i.Client),
 		ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
-		deployment.TrustedCA(instance.GetTrustedCA(), actions.ServerDeploymentName),
+		deployment.TrustedCA(instance.GetTrustedCA(), DeploymentName),
+		deployment.PodRequirements(instance.Spec.PodRequirements, DeploymentName),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create TSA Server: %w", err), instance)
 	}
