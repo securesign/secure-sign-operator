@@ -34,6 +34,9 @@ patches:
     path: patches/fulcio_descriptors.yaml
   - target:
       kind: ClusterServiceVersion
+    path: patches/timestampauthority_descriptions.yaml
+  - target:
+      kind: ClusterServiceVersion
     path: patches/trillian_descriptors.yaml
 
 # [WEBHOOK] To enable webhooks, uncomment all the sections with [WEBHOOK] prefix.
