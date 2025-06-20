@@ -2878,6 +2878,10 @@ spec:
                     required:
                     - create
                     type: object
+                    x-kubernetes-validations:
+                    - message: '''create'' field can only be true when ''provider''
+                        is ''redis'''
+                      rule: (!(self.create && self.provider != "redis"))
                   sharding:
                     default: []
                     description: Inactive shards
