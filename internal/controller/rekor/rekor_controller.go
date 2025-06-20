@@ -24,6 +24,7 @@ import (
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller"
 	redis "github.com/securesign/operator/internal/controller/rekor/actions/searchIndex/redis/actions"
+	"github.com/securesign/operator/internal/utils"
 	"k8s.io/apimachinery/pkg/types"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
@@ -104,13 +105,18 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	target := instance.DeepCopy()
 	actions := []action.Action[*rhtasv1alpha1.Rekor]{
 		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Rekor](func(rekor *rhtasv1alpha1.Rekor) []string {
-			components := []string{actions2.ServerCondition, actions2.RedisCondition, actions2.SignerCondition}
-			if *rekor.Spec.RekorSearchUI.Enabled {
+			components := []string{actions2.ServerCondition, actions2.SignerCondition}
+			if utils.OptionalBool(rekor.Spec.RekorSearchUI.Enabled) {
 				components = append(components, actions2.UICondition)
+			}
+			if utils.OptionalBool(rekor.Spec.SearchIndex.Create) {
+				components = append(components, actions2.RedisCondition)
 			}
 			return components
 		}),
 
+		redis.NewTlsAction(),
+		redis.NewGeneratePasswordAction(),
 		server.NewGenerateSignerAction(),
 
 		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.Rekor](),
