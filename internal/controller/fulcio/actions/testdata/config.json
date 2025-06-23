@@ -6,5 +6,6 @@
         "Type": "email"
       }
     },
-    "MetaIssuers": {}
+    "MetaIssuers": {},
+    "CIIssuerMetadata": {}
   }

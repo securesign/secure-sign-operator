@@ -70,6 +70,9 @@ type FulcioConfig struct {
 	// * https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster
 	// +optional
 	MetaIssuers []OIDCIssuer `json:"MetaIssuers,omitempty" yaml:"meta-issuers,omitempty"`
+
+	// Metadata used for the CIProvider identity provider principal
+	CIIssuerMetadata []CIIssuerMetadata `json:"CIIssuerMetadata,omitempty" yaml:"ci-issuer-metadata,omitempty"`
 }
 
 type OIDCIssuer struct {
@@ -84,6 +87,8 @@ type OIDCIssuer struct {
 	// certificate values are needed
 	//+required
 	Type string `json:"Type" yaml:"type"`
+	// CIProvider is an optional configuration to map token claims to extensions for CI workflows
+	CIProvider string `json:"CIProvider,omitempty" yaml:"ci-provider,omitempty"`
 	// Optional, if the issuer is in a different claim in the OIDC token
 	IssuerClaim string `json:"IssuerClaim,omitempty" yaml:"issuer-claim,omitempty"`
 	// The domain that must be present in the subject for 'uri' issuer types
@@ -96,6 +101,69 @@ type OIDCIssuer struct {
 	// Optional, the challenge claim expected for the issuer
 	// Set if using a custom issuer
 	ChallengeClaim string `json:"ChallengeClaim,omitempty" yaml:"challenge-claim,omitempty"`
+}
+
+type CIIssuerMetadata struct {
+	// Name of the issuer
+	//+required
+	IssuerName string `json:"IssuerName" yaml:"issuer-name"`
+	// Defaults contains key-value pairs that can be used for filling the templates from ExtensionTemplates
+	// If a key cannot be found on the token claims, the template will use the defaults
+	DefaultTemplateValues map[string]string `json:"DefaultTemplateValues,omitempty" yaml:"default-template-values,omitempty"`
+	// ExtensionTemplates contains a mapping between certificate extension and token claim
+	// Provide either strings following https://pkg.go.dev/text/template syntax,
+	// e.g "{{ .url }}/{{ .repository }}"
+	// or non-templated strings with token claim keys to be replaced,
+	// e.g "job_workflow_sha"
+	ExtensionTemplates Extensions `json:"ExtensionTemplates,omitempty" yaml:"extension-templates,omitempty"`
+	// Template for the Subject Alternative Name extension
+	// It's typically the same value as Build Signer URI
+	SubjectAlternativeNameTemplate string `json:"SubjectAlternativeNameTemplate,omitempty" yaml:"subject-alternative-name-template,omitempty"`
+}
+
+// Extensions contains all custom x509 extensions defined by Fulcio
+type Extensions struct {
+	// Reference to specific build instructions that are responsible for signing.
+	BuildSignerURI string `json:"BuildSignerURI,omitempty" yaml:"build-signer-uri,omitempty"` // 1.3.6.1.4.1.57264.1.9
+
+	// Immutable reference to the specific version of the build instructions that is responsible for signing.
+	BuildSignerDigest string `json:"BuildSignerDigest,omitempty" yaml:"build-signer-digest,omitempty"` // 1.3.6.1.4.1.57264.1.10
+
+	// Specifies whether the build took place in platform-hosted cloud infrastructure or customer/self-hosted infrastructure.
+	RunnerEnvironment string `json:"RunnerEnvironment,omitempty" yaml:"runner-environment,omitempty"` // 1.3.6.1.4.1.57264.1.11
+
+	// Source repository URL that the build was based on.
+	SourceRepositoryURI string `json:"SourceRepositoryURI,omitempty" yaml:"source-repository-uri,omitempty"` // 1.3.6.1.4.1.57264.1.12
+
+	// Immutable reference to a specific version of the source code that the build was based upon.
+	SourceRepositoryDigest string `json:"SourceRepositoryDigest,omitempty" yaml:"source-repository-digest,omitempty"` // 1.3.6.1.4.1.57264.1.13
+
+	// Source Repository Ref that the build run was based upon.
+	SourceRepositoryRef string `json:"SourceRepositoryRef,omitempty" yaml:"source-repository-ref,omitempty"` // 1.3.6.1.4.1.57264.1.14
+
+	// Immutable identifier for the source repository the workflow was based upon.
+	SourceRepositoryIdentifier string `json:"SourceRepositoryIdentifier,omitempty" yaml:"source-repository-identifier,omitempty"` // 1.3.6.1.4.1.57264.1.15
+
+	// Source repository owner URL of the owner of the source repository that the build was based on.
+	SourceRepositoryOwnerURI string `json:"SourceRepositoryOwnerURI,omitempty" yaml:"source-repository-owner-uri,omitempty"` // 1.3.6.1.4.1.57264.1.16
+
+	// Immutable identifier for the owner of the source repository that the workflow was based upon.
+	SourceRepositoryOwnerIdentifier string `json:"SourceRepositoryOwnerIdentifier,omitempty" yaml:"source-repository-owner-identifier,omitempty"` // 1.3.6.1.4.1.57264.1.17
+
+	// Build Config URL to the top-level/initiating build instructions.
+	BuildConfigURI string `json:"BuildConfigURI,omitempty" yaml:"build-config-uri,omitempty"` // 1.3.6.1.4.1.57264.1.18
+
+	// Immutable reference to the specific version of the top-level/initiating build instructions.
+	BuildConfigDigest string `json:"BuildConfigDigest,omitempty" yaml:"build-config-digest,omitempty"` // 1.3.6.1.4.1.57264.1.19
+
+	// Event or action that initiated the build.
+	BuildTrigger string `json:"BuildTrigger,omitempty" yaml:"build-trigger,omitempty"` // 1.3.6.1.4.1.57264.1.20
+
+	// Run Invocation URL to uniquely identify the build execution.
+	RunInvocationURI string `json:"RunInvocationURI,omitempty" yaml:"run-invocation-uri,omitempty"` // 1.3.6.1.4.1.57264.1.21
+
+	// Source repository visibility at the time of signing the certificate.
+	SourceRepositoryVisibilityAtSigning string `json:"SourceRepositoryVisibilityAtSigning,omitempty" yaml:"source-repository-visibility-at-signing,omitempty"` // 1.3.6.1.4.1.57264.1.22
 }
 
 // FulcioStatus defines the observed state of Fulcio
