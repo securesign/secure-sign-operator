@@ -1,3 +1,9 @@
+// This file contains embedded code derived from the Sigstore Fulcio project.
+//
+// Original Project:   Sigstore Fulcio
+// Original Repository: https://github.com/sigstore/fulcio
+// Original License:   Apache License, Version 2.0
+
 package v1alpha1
 
 import (
