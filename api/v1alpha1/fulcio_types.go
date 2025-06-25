@@ -62,6 +62,9 @@ type FulcioCert struct {
 
 // FulcioConfig configuration of OIDC issuers
 // +kubebuilder:validation:XValidation:rule=(has(self.OIDCIssuers) && (size(self.OIDCIssuers) > 0)) || (has(self.MetaIssuers) && (size(self.MetaIssuers) > 0)),message=At least one of OIDCIssuers or MetaIssuers must be defined
+// NOTE: the below validation (and a similar one for MetaIssuers) would be great to have, but unfortunately it can't be used because compiling it yields:
+// "Forbidden: estimated rule cost exceeds budget by factor of more than 100x". It is turned off for now, maybe this can be fixed in the future.
+// kubebuilder:validation:XValidation:rule="!has(self.OIDCIssuers) || has(self.OIDCIssuers) && self.OIDCIssuers.all(i, (!has(i.CIProvider) || (has(i.CIProvider) && i.CIProvider in self.CIIssuerMetadata.map(n, n.IssuerName))))",message=All CIProvider values of OIDCIssuers must be present in CIIssuerMetadata
 type FulcioConfig struct {
 	// OIDC Configuration
 	// +optional

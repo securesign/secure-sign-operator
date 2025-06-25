@@ -146,9 +146,9 @@ var _ = Describe("Fulcio", func() {
 					To(MatchError(ContainSubstring("At least one of OIDCIssuers or MetaIssuers must be defined")))
 			})
 
-			It("CIIssuerMetadata is empty", func() {
-				validObject := generateFulcioObject("config-no-ci-issuer-metadata")
-				validObject.Spec.Config.CIIssuerMetadata = []CIIssuerMetadata{}
+			It("CIIssuerMetadata is set", func() {
+				validObject := generateFulcioObject("config-ci-issuer-metadata")
+				addCIIssuerMetadata(validObject)
 
 				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 
@@ -317,15 +317,16 @@ func generateFulcioObject(name string) *Fulcio {
 			Config: FulcioConfig{
 				OIDCIssuers: []OIDCIssuer{
 					{
-						ClientID:  "client",
-						Type:      "email",
-						IssuerURL: "url",
-						Issuer:    "url",
+						ClientID:   "client",
+						Type:       "email",
+						IssuerURL:  "url",
+						Issuer:     "url",
+						CIProvider: "foo",
 					},
 					{
 						ClientID:   "ci-client",
 						Type:       "ci-provider",
-						CIProvider: "gitlab-ci",
+						CIProvider: "foo",
 						IssuerURL:  "url",
 						Issuer:     "url",
 					},
@@ -343,29 +344,6 @@ func generateFulcioObject(name string) *Fulcio {
 						Issuer:   "url",
 					},
 				},
-				CIIssuerMetadata: []CIIssuerMetadata{
-					{
-						IssuerName:                     "gitlab-ci",
-						DefaultTemplateValues:          map[string]string{"url": "https://gitlab.com"},
-						SubjectAlternativeNameTemplate: "https://{{ .ci_config_ref_uri }}",
-						ExtensionTemplates: Extensions{
-							BuildSignerURI:                      "https://{{ .ci_config_ref_uri }}",
-							BuildSignerDigest:                   "ci_config_sha",
-							RunnerEnvironment:                   "runner_environment",
-							SourceRepositoryURI:                 "{{ .url }}/{{ .project_path }}",
-							SourceRepositoryDigest:              "sha",
-							SourceRepositoryRef:                 "refs/{{if eq .ref_type \"branch\"}}heads/{{ else }}tags/{{end}}{{ .ref }}",
-							SourceRepositoryIdentifier:          "project_id",
-							SourceRepositoryOwnerURI:            "{{ .url }}/{{ .namespace_path }}",
-							SourceRepositoryOwnerIdentifier:     "namespace_id",
-							BuildConfigURI:                      "https://{{ .ci_config_ref_uri }}",
-							BuildConfigDigest:                   "ci_config_sha",
-							BuildTrigger:                        "pipeline_source",
-							RunInvocationURI:                    "{{ .url }}/{{ .project_path }}/-/jobs/{{ .job_id }}",
-							SourceRepositoryVisibilityAtSigning: "project_visibility",
-						},
-					},
-				},
 			},
 			Certificate: FulcioCert{
 				CommonName:       "hostname",
@@ -378,4 +356,31 @@ func generateFulcioObject(name string) *Fulcio {
 			},
 		},
 	}
+}
+
+func addCIIssuerMetadata(config *Fulcio) *Fulcio {
+	config.Spec.Config.CIIssuerMetadata = []CIIssuerMetadata{
+		{
+			IssuerName:                     "gitlab-ci",
+			DefaultTemplateValues:          map[string]string{"url": "https://gitlab.com"},
+			SubjectAlternativeNameTemplate: "https://{{ .ci_config_ref_uri }}",
+			ExtensionTemplates: Extensions{
+				BuildSignerURI:                      "https://{{ .ci_config_ref_uri }}",
+				BuildSignerDigest:                   "ci_config_sha",
+				RunnerEnvironment:                   "runner_environment",
+				SourceRepositoryURI:                 "{{ .url }}/{{ .project_path }}",
+				SourceRepositoryDigest:              "sha",
+				SourceRepositoryRef:                 "refs/{{if eq .ref_type \"branch\"}}heads/{{ else }}tags/{{end}}{{ .ref }}",
+				SourceRepositoryIdentifier:          "project_id",
+				SourceRepositoryOwnerURI:            "{{ .url }}/{{ .namespace_path }}",
+				SourceRepositoryOwnerIdentifier:     "namespace_id",
+				BuildConfigURI:                      "https://{{ .ci_config_ref_uri }}",
+				BuildConfigDigest:                   "ci_config_sha",
+				BuildTrigger:                        "pipeline_source",
+				RunInvocationURI:                    "{{ .url }}/{{ .project_path }}/-/jobs/{{ .job_id }}",
+				SourceRepositoryVisibilityAtSigning: "project_visibility",
+			},
+		},
+	}
+	return config
 }
