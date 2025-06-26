@@ -25,6 +25,13 @@ type MonitoringConfig struct {
 	Enabled bool `json:"enabled"`
 }
 
+type RekorMonitorConfig struct {
+	// If true, the Operator will create the Rekor log monitor resources
+	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
+	//+kubebuilder:default:=true
+	Enabled bool `json:"enabled"`
+}
+
 // TrillianService configuration to connect Trillian server
 type TrillianService struct {
 	// Address to Trillian Log Server End point
