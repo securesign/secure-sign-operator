@@ -119,6 +119,9 @@ var _ = Describe("Rekor controller", func() {
 							Enabled:  utils.Pointer(true),
 							Schedule: "0 0 * * *",
 						},
+						RekorMonitor: v1alpha1.RekorMonitorConfig{
+							Enabled: true,
+						},
 					},
 				}
 				err = suite.Client().Create(ctx, instance)
@@ -234,6 +237,16 @@ var _ = Describe("Rekor controller", func() {
 				found := &v1alpha1.Rekor{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).To(Succeed())
 				g.Expect(found.Status.PublicKeyRef).ShouldNot(BeNil())
+			}).Should(Succeed())
+
+			By("Rekor Monitor Deployment created")
+			Eventually(func() error {
+				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.MonitorDeploymentName, Namespace: Namespace}, &appsv1.Deployment{})
+			}).Should(Succeed())
+
+			By("Rekor Monitor svc created")
+			Eventually(func() error {
+				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.MonitorDeploymentName, Namespace: Namespace}, &corev1.Service{})
 			}).Should(Succeed())
 
 			By("Waiting until Rekor instance is Ready")
