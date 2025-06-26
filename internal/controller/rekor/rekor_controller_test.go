@@ -119,6 +119,9 @@ var _ = Describe("Rekor controller", func() {
 							Enabled:  utils.Pointer(true),
 							Schedule: "0 0 * * *",
 						},
+						RekorMonitor: v1alpha1.RekorMonitorConfig{
+							Enabled: true,
+						},
 					},
 				}
 				err = suite.Client().Create(ctx, instance)
