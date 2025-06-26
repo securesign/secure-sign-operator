@@ -3882,6 +3882,20 @@ spec:
                     required:
                     - retain
                     type: object
+                  rekorMonitor:
+                    description: Enable RekorMonitor configuration
+                    properties:
+                      enabled:
+                        default: true
+                        description: If true, the Operator will create the Rekor log
+                          monitor resources
+                        type: boolean
+                        x-kubernetes-validations:
+                        - message: Feature cannot be disabled
+                          rule: (self || !oldSelf)
+                    required:
+                    - enabled
+                    type: object
                   rekorSearchUI:
                     default:
                       enabled: true

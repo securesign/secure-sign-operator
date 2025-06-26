@@ -23,6 +23,8 @@ type RekorSpec struct {
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
 	//Enable Service monitors for rekor
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
+	//Enable RekorMonitor configuration
+	RekorMonitor RekorMonitorConfig `json:"rekorMonitor,omitempty"`
 	// Rekor Search UI
 	//+kubebuilder:default:={enabled: true}
 	RekorSearchUI RekorSearchUI `json:"rekorSearchUI,omitempty"`

@@ -37,7 +37,7 @@ func (i ingressAction) Name() string {
 func (i ingressAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	return (c.Reason == constants.Creating || c.Reason == constants.Ready) &&
-		instance.Spec.ExternalAccess.Enabled
+		instance.Spec.ExternalAccess.Enabled && instance.Spec.RekorMonitor.Enabled
 }
 
 func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {

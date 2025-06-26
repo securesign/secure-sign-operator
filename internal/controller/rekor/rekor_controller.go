@@ -158,6 +158,7 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		monitor.NewDeployAction(),
 		monitor.NewCreateServiceAction(),
 		monitor.NewIngressAction(),
+		monitor.NewCreateMonitorAction(),
 	}
 
 	for _, a := range actions {
