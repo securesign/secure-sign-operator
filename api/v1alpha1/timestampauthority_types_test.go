@@ -1,11 +1,14 @@
 package v1alpha1
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("TSA", func() {
@@ -293,6 +296,34 @@ var _ = Describe("TSA", func() {
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
 					To(MatchError(ContainSubstring("when certificateChainRef is set, intermediateCA, leafCA, and rootCA must not be set")))
+			})
+
+			When("replicas", func() {
+				It("nil", func() {
+					validObject := generateTSAObject("replicas-nil")
+					validObject.Spec.Replicas = nil
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("positive", func() {
+					validObject := generateTSAObject("replicas-positive")
+					validObject.Spec.Replicas = ptr.To(int32(math.MaxInt32))
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("negative", func() {
+					invalidObject := generateTSAObject("replicas-negative")
+					invalidObject.Spec.Replicas = ptr.To(int32(-1))
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("spec.replicas in body should be greater than or equal to 0")))
+				})
+
+				It("zero", func() {
+					validObject := generateTSAObject("replicas-zero")
+					validObject.Spec.Replicas = ptr.To(int32(0))
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
 			})
 		})
 	})
