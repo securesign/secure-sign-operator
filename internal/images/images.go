@@ -17,7 +17,7 @@ const (
 	TrillianServer     Image = "RELATED_IMAGE_TRILLIAN_LOG_SERVER"
 	TrillianDb         Image = "RELATED_IMAGE_TRILLIAN_DB"
 	TrillianNetcat     Image = "RELATED_IMAGE_TRILLIAN_NETCAT"
-	TrillianCreateTree Image = "RELATED_IMAGE_TRILLIAN_CREATE_TREE"
+	TrillianCreateTree Image = "RELATED_IMAGE_CREATETREE"
 
 	FulcioServer Image = "RELATED_IMAGE_FULCIO_SERVER"
 
