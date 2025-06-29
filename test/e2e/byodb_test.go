@@ -24,7 +24,7 @@ import (
 	runtimeCli "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const searchDbAuth = "search-db"
+const dbAuth = "db-auth"
 
 var _ = Describe("Securesign install with byodb", Ordered, func() {
 	cli, _ := support.CreateClient()
@@ -46,6 +46,11 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 			_ = cli.Delete(ctx, namespace)
 		})
 
+		dsn := "$(MYSQL_USER):$(MYSQL_PASSWORD)@tcp(my-mysql.$(NAMESPACE).svc:3300)/$(MYSQL_DB)"
+		if testSupportKubernetes.IsRemoteClusterOpenshift() {
+			dsn += "?tls=true"
+		}
+
 		s = &v1alpha1.Securesign{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace.Name,
@@ -62,7 +67,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 								Name: "MYSQL_USER",
 								ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
 									LocalObjectReference: v1.LocalObjectReference{
-										Name: searchDbAuth,
+										Name: dbAuth,
 									},
 									Key: "mysql-user",
 								}},
@@ -71,9 +76,25 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 								Name: "MYSQL_PASSWORD",
 								ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
 									LocalObjectReference: v1.LocalObjectReference{
-										Name: searchDbAuth,
+										Name: dbAuth,
 									},
 									Key: "mysql-password",
+								}},
+							},
+							{
+								Name: "MYSQL_DB",
+								ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: dbAuth,
+									},
+									Key: "mysql-database",
+								}},
+							},
+							{
+								Name: "NAMESPACE",
+								ValueFrom: &v1.EnvVarSource{FieldRef: &v1.ObjectFieldSelector{
+									APIVersion: "v1",
+									FieldPath:  "metadata.namespace",
 								}},
 							},
 						},
@@ -88,7 +109,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 					SearchIndex: v1alpha1.SearchIndex{
 						Create:   ptr.To(false),
 						Provider: "mysql",
-						Url:      "$(MYSQL_USER):$(MYSQL_PASSWORD)@tcp(search-db:3300)/searchDB",
+						Url:      dsn,
 					},
 				},
 				Fulcio: v1alpha1.FulcioSpec{
@@ -119,7 +140,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 				Trillian: v1alpha1.TrillianSpec{Db: v1alpha1.TrillianDB{
 					Create: new(bool),
 					DatabaseSecretRef: &v1alpha1.LocalObjectReference{
-						Name: "my-db",
+						Name: dbAuth,
 					},
 				}},
 				TimestampAuthority: &v1alpha1.TimestampAuthoritySpec{
@@ -170,8 +191,8 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 
 	Describe("Install with byodb", func() {
 		BeforeAll(func() {
-			Expect(createSearchMysql(ctx, cli, namespace.Name, searchDbAuth)).To(Succeed())
-			Expect(createTrillianDB(ctx, cli, namespace.Name, s.Spec.Trillian.Db.DatabaseSecretRef.Name)).To(Succeed())
+			// create single mysql db for both (trillian & rekor search) to save CI resources
+			Expect(createDB(ctx, cli, namespace.Name, dbAuth)).To(Succeed())
 			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 
@@ -198,24 +219,28 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 				jobPods := &v1.PodList{}
 				g.Expect(cli.List(ctx, jobPods, runtimeCli.InNamespace(namespace.Name), runtimeCli.HasLabels{"job-name"})).To(Succeed())
 				for _, pod := range jobPods.Items {
+					if pod.Status.Phase != v1.PodSucceeded {
+						continue
+					}
 					if strings.Contains(pod.Labels["job-name"], actions.BackfillRedisCronJobName) {
 						l, e := testSupportKubernetes.GetPodLogs(ctx, pod.Name, actions.BackfillRedisCronJobName, namespace.Name)
 						Expect(e).NotTo(HaveOccurred())
+
 						logs = append(logs, l)
 					}
 				}
 				return logs
-			}).WithTimeout(2 * time.Minute).WithPolling(1 * time.Minute).Should(ContainElement(ContainSubstring("Completed log index")))
+			}).WithTimeout(2*time.Minute + 10*time.Second).WithPolling(1 * time.Minute).Should(ContainElement(ContainSubstring("Completed log index")))
 		})
 	})
 })
 
-func createTrillianDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef string) error {
+func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef string) error {
 
 	mysql := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ns,
-			Name:      "my-trillian-mysql",
+			Name:      "my-mysql",
 		},
 		Spec: v1.ServiceSpec{
 			Ports: []v1.ServicePort{
@@ -236,7 +261,7 @@ func createTrillianDB(ctx context.Context, cli runtimeCli.Client, ns string, sec
 		if mysql.Annotations == nil {
 			mysql.Annotations = make(map[string]string)
 		}
-		mysql.Annotations[annotations.TLS] = "my-trillian-db-tls-secret"
+		mysql.Annotations[annotations.TLS] = "my-db-tls-secret"
 	}
 	err := cli.Create(ctx, mysql)
 	if err != nil {
@@ -246,8 +271,8 @@ func createTrillianDB(ctx context.Context, cli runtimeCli.Client, ns string, sec
 	err = cli.Create(ctx, &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: secretRef},
 		Data: map[string][]byte{
-			"mysql-database":      []byte("my_trillian"),
-			"mysql-host":          []byte("my-trillian-mysql"),
+			"mysql-database":      []byte("my_db"),
+			"mysql-host":          []byte("my-mysql"),
 			"mysql-password":      []byte("password"),
 			"mysql-port":          []byte("3300"),
 			"mysql-root-password": []byte("password"),
@@ -289,7 +314,7 @@ func createTrillianDB(ctx context.Context, cli runtimeCli.Client, ns string, sec
 							{
 								Secret: &v1.SecretProjection{
 									LocalObjectReference: v1.LocalObjectReference{
-										Name: "my-trillian-db-tls-secret",
+										Name: "my-db-tls-secret",
 									},
 								},
 							},
@@ -375,143 +400,6 @@ func createTrillianDB(ctx context.Context, cli runtimeCli.Client, ns string, sec
 						FailureThreshold:    3,
 					},
 					VolumeMounts: volumesMounts,
-				},
-			},
-		},
-	})
-	if err != nil {
-		return err
-	}
-	return err
-}
-
-func createSearchMysql(ctx context.Context, cli runtimeCli.Client, ns string, secretRef string) error {
-	mysql := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: ns,
-			Name:      "search-db",
-		},
-		Spec: v1.ServiceSpec{
-			Ports: []v1.ServicePort{
-				{
-					Name:       "3306-tcp",
-					Port:       3300,
-					TargetPort: intstr.IntOrString{IntVal: 3306},
-					Protocol:   "TCP",
-				},
-			},
-			Selector: map[string]string{
-				labels.LabelAppName: "search-db",
-			},
-		},
-	}
-
-	err := cli.Create(ctx, mysql)
-	if err != nil {
-		return err
-	}
-
-	secret := &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: secretRef},
-		Data: map[string][]byte{
-			"mysql-database":      []byte("searchDB"),
-			"mysql-password":      []byte("password"),
-			"mysql-root-password": []byte("password"),
-			"mysql-user":          []byte("mysql"),
-		},
-	}
-	err = cli.Create(ctx, secret)
-	if err != nil {
-		return err
-	}
-
-	dbConfig := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "mysql-init-scripts-configmap",
-			Namespace: ns,
-		},
-		Data: map[string]string{
-			"init-grants.sql": "GRANT ALL ON `database`.* TO 'mysql'@'%'; FLUSH PRIVILEGES;",
-		},
-	}
-	err = cli.Create(ctx, dbConfig)
-	if err != nil {
-		return err
-	}
-
-	err = cli.Create(ctx, &v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: ns,
-			Name:      "search-db",
-			Labels:    map[string]string{labels.LabelAppName: "search-db"},
-		},
-		Spec: v1.PodSpec{
-			Containers: []v1.Container{
-				{
-					Name:  "mysql",
-					Image: "mysql:5.7",
-					Env: []v1.EnvVar{
-						{
-							Name: "MYSQL_ROOT_PASSWORD",
-							ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
-								LocalObjectReference: v1.LocalObjectReference{
-									Name: secretRef,
-								},
-								Key: "mysql-root-password",
-							}},
-						},
-						{
-							Name: "MYSQL_USER",
-							ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
-								LocalObjectReference: v1.LocalObjectReference{
-									Name: secretRef,
-								},
-								Key: "mysql-user",
-							}},
-						},
-						{
-							Name: "MYSQL_PASSWORD",
-							ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
-								LocalObjectReference: v1.LocalObjectReference{
-									Name: secretRef,
-								},
-								Key: "mysql-password",
-							}},
-						},
-						{
-							Name: "MYSQL_DATABASE",
-							ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
-								LocalObjectReference: v1.LocalObjectReference{
-									Name: secretRef,
-								},
-								Key: "mysql-database",
-							}},
-						},
-					},
-					Ports: []v1.ContainerPort{
-						{
-							ContainerPort: 3306,
-							Protocol:      "TCP",
-						},
-					},
-					VolumeMounts: []v1.VolumeMount{
-						{
-							Name:      "init-scripts-volume",
-							MountPath: "/docker-entrypoint-initdb.d",
-						},
-					},
-				},
-			},
-			Volumes: []v1.Volume{
-				{
-					Name: "init-scripts-volume",
-					VolumeSource: v1.VolumeSource{
-						ConfigMap: &v1.ConfigMapVolumeSource{
-							LocalObjectReference: v1.LocalObjectReference{
-								Name: dbConfig.Name,
-							},
-						},
-					},
 				},
 			},
 		},

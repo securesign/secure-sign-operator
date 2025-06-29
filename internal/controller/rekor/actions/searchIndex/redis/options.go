@@ -7,6 +7,7 @@ import (
 
 type RedisOptions struct {
 	Host, Port, Password string
+	TlsEnabled           bool
 }
 
 func Parse(dsn string) (options *RedisOptions, err error) {
@@ -25,10 +26,15 @@ func Parse(dsn string) (options *RedisOptions, err error) {
 		options.Port = searchIndexUrl.Port()
 	}
 
+	if searchIndexUrl.Scheme == "rediss" {
+		options.TlsEnabled = true
+	}
+
 	if searchIndexUrl.User != nil {
 		if p, ok := searchIndexUrl.User.Password(); ok {
 			options.Password = p
 		}
 	}
+
 	return
 }

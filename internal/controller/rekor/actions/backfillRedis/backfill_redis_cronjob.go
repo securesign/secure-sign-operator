@@ -5,19 +5,21 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"strings"
 
 	"github.com/robfig/cron/v3"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
+	"github.com/securesign/operator/internal/controller/rekor/actions/searchIndex"
 	"github.com/securesign/operator/internal/controller/rekor/actions/searchIndex/redis"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
+	tlsensure "github.com/securesign/operator/internal/utils/tls/ensure"
 	batchv1 "k8s.io/api/batch/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -71,6 +73,9 @@ func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 		func(object *batchv1.CronJob) error {
 			return ensure.Auth(actions.BackfillRedisCronJobName, instance.Spec.Auth)(&object.Spec.JobTemplate.Spec.Template.Spec)
 		},
+		func(object *batchv1.CronJob) error {
+			return tlsensure.TrustedCA(instance.GetTrustedCA(), actions.BackfillRedisCronJobName)(&object.Spec.JobTemplate.Spec.Template)
+		},
 		ensure.ControllerReference[*batchv1.CronJob](instance, i.Client),
 		ensure.Labels[*batchv1.CronJob](slices.Collect(maps.Keys(labels)), labels),
 	); err != nil {
@@ -111,36 +116,35 @@ func (i backfillRedisCronJob) ensureBacfillCronJob(instance *rhtasv1alpha1.Rekor
 		container.Args = []string{
 			fmt.Sprintf(`endIndex=$(curl -sS http://%s/api/v1/log | sed -E 's/.*"treeSize":([0-9]+).*/\1/'); endIndex=$((endIndex-1)); if [ $endIndex -lt 0 ]; then echo "info: no rekor entries found"; exit 0; fi; backfill-redis --rekor-address=http://%s --start=0 --end=$endIndex`, actions.ServerComponentName, actions.ServerComponentName),
 		}
-		searchParams, err := i.searchIndexParams(*instance)
-		if err != nil {
+		if err := searchIndex.EnsureSearchIndex(instance, ensureRedisParams(), ensureMysqlParams())(container); err != nil {
 			return err
 		}
-		container.Args[0] = fmt.Sprintf(" %s %s", container.Args[0], strings.Join(searchParams, " "))
 		return nil
 	}
 }
 
-func (i backfillRedisCronJob) searchIndexParams(instance rhtasv1alpha1.Rekor) ([]string, error) {
-	args := make([]string, 0)
-	switch instance.Spec.SearchIndex.Provider {
-	case "redis":
-		options, err := redis.Parse(instance.Spec.SearchIndex.Url)
-		if err != nil {
-			return nil, fmt.Errorf("can't parse redis searchIndex url: %w", err)
+func ensureRedisParams() func(*redis.RedisOptions, *v1.Container) {
+	return func(options *redis.RedisOptions, container *v1.Container) {
+		if len(container.Args) < 1 {
+			container.Args = make([]string, 1)
 		}
-		args = append(args, fmt.Sprintf("--redis-hostname=\"%s\"", options.Host))
+		container.Args[0] += fmt.Sprintf(" --redis-hostname=\"%s\"", envAsShellParams(options.Host))
 
 		if options.Port != "" {
-			args = append(args, fmt.Sprintf("--redis-port=\"%s\"", options.Port))
+			container.Args[0] += fmt.Sprintf(" --redis-port=\"%s\"", envAsShellParams(options.Port))
 		}
 
 		if options.Password != "" {
-			args = append(args, fmt.Sprintf("--redis-password=\"%s\"", options.Password))
+			container.Args[0] += fmt.Sprintf(" --redis-password=\"%s\"", envAsShellParams(options.Password))
 		}
-		return args, nil
-	case "mysql":
-		return append(args, fmt.Sprintf("--mysql-dsn=\"%s\"", instance.Spec.SearchIndex.Url)), nil
-	default:
-		return nil, fmt.Errorf("unsupported search_index provider %s", instance.Spec.SearchIndex.Provider)
+		if options.TlsEnabled {
+			container.Args[0] += " --redis-enable-tls=\"true\""
+		}
+	}
+}
+
+func ensureMysqlParams() func(string, *v1.Container) {
+	return func(url string, container *v1.Container) {
+		container.Args[0] += fmt.Sprintf(" --mysql-dsn=\"%s\"", envAsShellParams(url))
 	}
 }

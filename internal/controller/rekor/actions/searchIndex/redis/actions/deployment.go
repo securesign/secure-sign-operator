@@ -2,20 +2,21 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	cutils "github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
-
-	"github.com/securesign/operator/internal/controller/rekor/actions"
+	"github.com/securesign/operator/internal/utils/tls"
 	v1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -25,7 +26,11 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 )
 
-const storageVolumeName = "storage"
+const (
+	storageVolumeName = "storage"
+	configVolumeMount = "/config"
+	redisConfPath     = configVolumeMount + "/redis.conf"
+)
 
 func NewDeployAction() action.Action[*rhtasv1alpha1.Rekor] {
 	return &deployAction{}
@@ -50,6 +55,10 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		result controllerutil.OperationResult
 	)
 	labels := labels.For(actions.RedisComponentName, actions.RedisDeploymentName, instance.Name)
+	caPath, err := tls.CAPath(ctx, i.Client, instance)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("failed to get CA path: %w", err), instance)
+	}
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		&v1.Deployment{
@@ -58,7 +67,9 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 				Namespace: instance.Namespace,
 			},
 		},
-		i.ensureRedisDeployment(actions.RBACRedisName, labels),
+		i.ensureRedisDeployment(instance, actions.RBACRedisName, labels),
+		deployment.TrustedCA(instance.GetTrustedCA(), actions.RedisDeploymentName, actions.RedisDeploymentName),
+		ensure.Optional(statusTLS(instance).CertRef != nil, i.ensureTLS(statusTLS(instance), caPath)),
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
@@ -87,7 +98,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 
 }
 
-func (i deployAction) ensureRedisDeployment(sa string, labels map[string]string) func(*v1.Deployment) error {
+func (i deployAction) ensureRedisDeployment(instance *rhtasv1alpha1.Rekor, sa string, labels map[string]string) func(*v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
 
 		spec := &dp.Spec
@@ -102,9 +113,14 @@ func (i deployAction) ensureRedisDeployment(sa string, labels map[string]string)
 
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, actions.RedisDeploymentName)
 		container.Image = images.Registry.Get(images.RekorRedis)
+
+		if err := i.ensurePassword(instance, container); err != nil {
+			return err
+		}
+
 		port := kubernetes.FindPortByNameOrCreate(container, "redis")
 		port.Protocol = core.ProtocolTCP
-		port.ContainerPort = 6379
+		port.ContainerPort = actions.RedisDeploymentPort
 
 		if container.ReadinessProbe == nil {
 			container.ReadinessProbe = &core.Probe{}
@@ -117,7 +133,7 @@ func (i deployAction) ensureRedisDeployment(sa string, labels map[string]string)
 			"/bin/sh",
 			"-c",
 			"-i",
-			"test $(redis-cli -h 127.0.0.1 ping) = 'PONG'",
+			"test $(redis-cli -h 127.0.0.1 -a $REDIS_PASSWORD ping) = 'PONG'",
 		}
 		container.ReadinessProbe.InitialDelaySeconds = 5
 
@@ -128,6 +144,84 @@ func (i deployAction) ensureRedisDeployment(sa string, labels map[string]string)
 		if volume.EmptyDir == nil {
 			volume.EmptyDir = &core.EmptyDirVolumeSource{}
 		}
+
+		return nil
+	}
+}
+
+func (i deployAction) ensurePassword(instance *rhtasv1alpha1.Rekor, container *core.Container) error {
+	if instance.Status.SearchIndex.DbPasswordRef == nil {
+		return errors.New("search index db password not found")
+	}
+
+	passwordEnv := kubernetes.FindEnvByNameOrCreate(container, "REDIS_PASSWORD")
+	if passwordEnv.ValueFrom == nil {
+		passwordEnv.ValueFrom = &core.EnvVarSource{}
+	}
+	if passwordEnv.ValueFrom.SecretKeyRef == nil {
+		passwordEnv.ValueFrom.SecretKeyRef = &core.SecretKeySelector{}
+	}
+	passwordEnv.ValueFrom.SecretKeyRef.Name = instance.Status.SearchIndex.DbPasswordRef.Name
+	passwordEnv.ValueFrom.SecretKeyRef.Key = instance.Status.SearchIndex.DbPasswordRef.Key
+	return nil
+}
+
+func (i deployAction) ensureTLS(tlsConfig rhtasv1alpha1.TLS, caPath string) func(deployment *v1.Deployment) error {
+	return func(dp *v1.Deployment) error {
+		if err := deployment.TLS(tlsConfig, actions.RedisDeploymentName)(dp); err != nil {
+			return err
+		}
+
+		dbConfig := []string{
+			fmt.Sprintf("tls-port %d", actions.RedisDeploymentPort),
+			// disable non-tls ports
+			"port 0",
+			fmt.Sprintf("tls-cert-file %s", tls.TLSCertPath),
+			fmt.Sprintf("tls-key-file %s", tls.TLSKeyPath),
+			fmt.Sprintf("tls-ca-cert-file %s", caPath),
+			// disable client authentication
+			"tls-auth-clients no",
+		}
+
+		config := kubernetes.FindVolumeByNameOrCreate(&dp.Spec.Template.Spec, "config")
+		if config.EmptyDir == nil {
+			config.EmptyDir = &core.EmptyDirVolumeSource{}
+		}
+
+		init := kubernetes.FindInitContainerByNameOrCreate(&dp.Spec.Template.Spec, "enable-tls")
+		init.Image = images.Registry.Get(images.RekorRedis)
+		initVolumeName := kubernetes.FindVolumeMountByNameOrCreate(init, config.Name)
+		initVolumeName.MountPath = configVolumeMount
+		init.Command = []string{"/bin/bash", "-c"}
+		init.Args = []string{
+			fmt.Sprintf("cp $REDIS_CONF %s\n", redisConfPath),
+		}
+		for _, v := range dbConfig {
+			init.Args[0] += fmt.Sprintf("echo \"%s\" >> %s\n", v, redisConfPath)
+		}
+
+		container := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, actions.RedisDeploymentName)
+		container.Image = images.Registry.Get(images.RekorRedis)
+		containerVolumeName := kubernetes.FindVolumeMountByNameOrCreate(container, config.Name)
+		containerVolumeName.MountPath = configVolumeMount
+
+		configPathEnv := kubernetes.FindEnvByNameOrCreate(container, "REDIS_CONF")
+		configPathEnv.Value = redisConfPath
+
+		if container.ReadinessProbe == nil {
+			container.ReadinessProbe = &core.Probe{}
+		}
+		if container.ReadinessProbe.Exec == nil {
+			container.ReadinessProbe.Exec = &core.ExecAction{}
+		}
+
+		container.ReadinessProbe.Exec.Command = []string{
+			"/bin/sh",
+			"-c",
+			"-i",
+			fmt.Sprintf("test $(redis-cli --tls --cacert %s -h 127.0.0.1 -a $REDIS_PASSWORD ping) = 'PONG'", caPath),
+		}
+
 		return nil
 	}
 }

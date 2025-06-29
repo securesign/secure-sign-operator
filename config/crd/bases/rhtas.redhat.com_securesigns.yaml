@@ -2852,36 +2852,84 @@ spec:
                   searchIndex:
                     default:
                       create: true
-                      provider: redis
-                      url: redis://rekor-redis:6379
                     description: Define your search index database connection
                     properties:
                       create:
                         default: true
-                        description: Create Database if a database is not created
-                          one must be defined using the Url field
+                        description: Create Database if a database. If create=true
+                          provider and url fields are not taken into account, otherwise
+                          url field must be specified.
                         type: boolean
                         x-kubernetes-validations:
                         - message: Field is immutable
                           rule: (self == oldSelf)
                       provider:
-                        default: redis
                         description: DB provider. Supported are redis and mysql.
                         enum:
                         - redis
                         - mysql
                         type: string
+                      tls:
+                        description: Configuration for enabling TLS (Transport Layer
+                          Security) encryption for manged database.
+                        properties:
+                          certificateRef:
+                            description: Reference to the certificate secret used
+                              for TLS encryption.
+                            properties:
+                              key:
+                                description: The key of the secret to select from.
+                                  Must be a valid secret key.
+                                pattern: ^[-._a-zA-Z0-9]+$
+                                type: string
+                              name:
+                                description: |-
+                                  Name of the referent.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
+                            x-kubernetes-map-type: atomic
+                          privateKeyRef:
+                            description: Reference to the private key secret used
+                              for TLS encryption.
+                            properties:
+                              key:
+                                description: The key of the secret to select from.
+                                  Must be a valid secret key.
+                                pattern: ^[-._a-zA-Z0-9]+$
+                                type: string
+                              name:
+                                description: |-
+                                  Name of the referent.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
+                            x-kubernetes-map-type: atomic
+                        type: object
+                        x-kubernetes-validations:
+                        - message: privateKeyRef cannot be empty
+                          rule: (!has(self.certificateRef) || has(self.privateKeyRef))
                       url:
-                        default: redis://rekor-redis:6379
                         description: DB connection URL.
                         type: string
                     required:
                     - create
                     type: object
                     x-kubernetes-validations:
-                    - message: '''create'' field can only be true when ''provider''
-                        is ''redis'''
-                      rule: (!(self.create && self.provider != "redis"))
+                    - message: Provider can be specified only with external db (create=false)
+                      rule: (!(self.create == true) || !has(self.provider) || self.provider
+                        == "")
+                    - message: Provider must be defined with external db (create=false)
+                      rule: (!(self.create == false) || self.provider != "")
+                    - message: URL must be provided if provider is specified
+                      rule: (!(has(self.provider) && self.provider != "") || (self.url
+                        != ""))
                   sharding:
                     default: []
                     description: Inactive shards
