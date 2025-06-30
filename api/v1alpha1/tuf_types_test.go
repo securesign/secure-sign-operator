@@ -1,10 +1,13 @@
 package v1alpha1
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
 	_ "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -122,6 +125,51 @@ var _ = Describe("TUF", func() {
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
 					To(MatchError(And(ContainSubstring("Unsupported value:"), ContainSubstring("supported values: \"rekor.pub\", \"ctfe.pub\", \"fulcio_v1.crt.pem\", \"tsa.certchain.pem\""))))
 			})
+
+			When("replicas", func() {
+				It("nil", func() {
+					validObject := generateTufObject("replicas-nil")
+					validObject.Spec.Replicas = nil
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("positive with ReadWriteOnce", func() {
+					invalidObject := generateTufObject("replicas-positive")
+					invalidObject.Spec.Replicas = ptr.To(int32(math.MaxInt32))
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("more than 1 replica, pvc.accessModes must include 'ReadWriteMany'")))
+				})
+
+				It("one with ReadWriteOnce", func() {
+					validObject := generateTufObject("replicas-single")
+					validObject.Spec.Replicas = ptr.To(int32(1))
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("positive with ReadWriteMany", func() {
+					validObject := generateTufObject("replicas-positive-rwm")
+					validObject.Spec.Replicas = ptr.To(int32(235469))
+					validObject.Spec.Pvc.AccessModes = []PersistentVolumeAccessMode{
+						PersistentVolumeAccessMode(v1.ReadWriteMany),
+					}
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("negative", func() {
+					invalidObject := generateTufObject("replicas-negative")
+					invalidObject.Spec.Replicas = ptr.To(int32(-1))
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("spec.replicas in body should be greater than or equal to 0")))
+				})
+
+				It("zero", func() {
+					validObject := generateTufObject("replicas-zero")
+					validObject.Spec.Replicas = ptr.To(int32(0))
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+			})
 		})
 
 		Context("Default settings", func() {
@@ -220,6 +268,9 @@ func generateTufObject(name string) *Tuf {
 			Namespace: "default",
 		},
 		Spec: TufSpec{
+			PodRequirements: PodRequirements{
+				Replicas: ptr.To(int32(1)),
+			},
 			Port: 80,
 			ExternalAccess: ExternalAccess{
 				Enabled: false,

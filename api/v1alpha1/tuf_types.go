@@ -11,6 +11,7 @@ import (
 
 // TufSpec defines the desired state of Tuf
 type TufSpec struct {
+	PodRequirements `json:",inline"`
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
 	//+kubebuilder:default:=80
@@ -87,6 +88,7 @@ type TufStatus struct {
 //+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
 
 // Tuf is the Schema for the tufs API
+// +kubebuilder:validation:XValidation:rule="!(self.spec.replicas > 1) || ('ReadWriteMany' in self.spec.pvc.accessModes)",message="For deployments with more than 1 replica, pvc.accessModes must include 'ReadWriteMany'."
 type Tuf struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

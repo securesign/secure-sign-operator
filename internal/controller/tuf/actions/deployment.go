@@ -10,7 +10,6 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
-	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
@@ -60,6 +59,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
+		deployment.PodRequirements(instance.Spec.PodRequirements, tufConstants.ContainerName),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create TUF: %w", err), instance)
 	}
@@ -77,7 +77,6 @@ func (i deployAction) createTufDeployment(instance *rhtasv1alpha1.Tuf, sa string
 	return func(dp *v1.Deployment) error {
 
 		spec := &dp.Spec
-		spec.Replicas = utils.Pointer[int32](1)
 		spec.Selector = &metav1.LabelSelector{
 			MatchLabels: labels,
 		}
