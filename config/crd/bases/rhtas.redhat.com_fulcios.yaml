@@ -1043,6 +1043,97 @@ spec:
               config:
                 description: Fulcio Configuration
                 properties:
+                  CIIssuerMetadata:
+                    description: Metadata used for the CIProvider identity provider
+                      principal
+                    items:
+                      properties:
+                        DefaultTemplateValues:
+                          additionalProperties:
+                            type: string
+                          description: |-
+                            Defaults contains key-value pairs that can be used for filling the templates from ExtensionTemplates
+                            If a key cannot be found on the token claims, the template will use the defaults
+                          type: object
+                        ExtensionTemplates:
+                          description: |-
+                            ExtensionTemplates contains a mapping between certificate extension and token claim
+                            Provide either strings following https://pkg.go.dev/text/template syntax,
+                            e.g "{{ .url }}/{{ .repository }}"
+                            or non-templated strings with token claim keys to be replaced,
+                            e.g "job_workflow_sha"
+                          properties:
+                            BuildConfigDigest:
+                              description: Immutable reference to the specific version
+                                of the top-level/initiating build instructions.
+                              type: string
+                            BuildConfigURI:
+                              description: Build Config URL to the top-level/initiating
+                                build instructions.
+                              type: string
+                            BuildSignerDigest:
+                              description: Immutable reference to the specific version
+                                of the build instructions that is responsible for
+                                signing.
+                              type: string
+                            BuildSignerURI:
+                              description: Reference to specific build instructions
+                                that are responsible for signing.
+                              type: string
+                            BuildTrigger:
+                              description: Event or action that initiated the build.
+                              type: string
+                            RunInvocationURI:
+                              description: Run Invocation URL to uniquely identify
+                                the build execution.
+                              type: string
+                            RunnerEnvironment:
+                              description: Specifies whether the build took place
+                                in platform-hosted cloud infrastructure or customer/self-hosted
+                                infrastructure.
+                              type: string
+                            SourceRepositoryDigest:
+                              description: Immutable reference to a specific version
+                                of the source code that the build was based upon.
+                              type: string
+                            SourceRepositoryIdentifier:
+                              description: Immutable identifier for the source repository
+                                the workflow was based upon.
+                              type: string
+                            SourceRepositoryOwnerIdentifier:
+                              description: Immutable identifier for the owner of the
+                                source repository that the workflow was based upon.
+                              type: string
+                            SourceRepositoryOwnerURI:
+                              description: Source repository owner URL of the owner
+                                of the source repository that the build was based
+                                on.
+                              type: string
+                            SourceRepositoryRef:
+                              description: Source Repository Ref that the build run
+                                was based upon.
+                              type: string
+                            SourceRepositoryURI:
+                              description: Source repository URL that the build was
+                                based on.
+                              type: string
+                            SourceRepositoryVisibilityAtSigning:
+                              description: Source repository visibility at the time
+                                of signing the certificate.
+                              type: string
+                          type: object
+                        IssuerName:
+                          description: Name of the issuer
+                          type: string
+                        SubjectAlternativeNameTemplate:
+                          description: |-
+                            Template for the Subject Alternative Name extension
+                            It's typically the same value as Build Signer URI
+                          type: string
+                      required:
+                      - IssuerName
+                      type: object
+                    type: array
                   MetaIssuers:
                     description: |-
                       A meta issuer has a templated URL of the form:
@@ -1054,6 +1145,10 @@ spec:
                       * https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster
                     items:
                       properties:
+                        CIProvider:
+                          description: CIProvider is an optional configuration to
+                            map token claims to extensions for CI workflows
+                          type: string
                         ChallengeClaim:
                           description: |-
                             Optional, the challenge claim expected for the issuer
@@ -1097,6 +1192,10 @@ spec:
                     description: OIDC Configuration
                     items:
                       properties:
+                        CIProvider:
+                          description: CIProvider is an optional configuration to
+                            map token claims to extensions for CI workflows
+                          type: string
                         ChallengeClaim:
                           description: |-
                             Optional, the challenge claim expected for the issuer

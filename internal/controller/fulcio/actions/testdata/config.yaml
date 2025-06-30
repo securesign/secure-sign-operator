@@ -5,3 +5,4 @@ oidc-issuers:
     client-id: client-id
     type: email
 meta-issuers: {}
+ci-issuer-metadata: {}
