@@ -34,7 +34,7 @@ func (i monitoringAction) Name() string {
 
 func (i monitoringAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && instance.Spec.RekorMonitor.Enabled
+	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && enabled(instance)
 }
 
 func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
@@ -102,7 +102,7 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Re
 		ensure.Labels[*unstructured.Unstructured](slices.Collect(maps.Keys(monitoringLabels)), monitoringLabels),
 		kubernetes.EnsureServiceMonitorSpec(
 			labels.ForComponent(actions.MonitorComponentName, instance.Name),
-			kubernetes.ServiceMonitorEndpoint(actions.MetricsPortName),
+			kubernetes.ServiceMonitorEndpoint(actions.MonitorMetricsPortName),
 		),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create serviceMonitor: %w", err), instance, metav1.Condition{
