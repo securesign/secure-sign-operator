@@ -42,8 +42,9 @@ func (i serverConfig) Name() string {
 }
 
 type FulcioMapConfig struct {
-	OIDCIssuers map[string]rhtasv1alpha1.OIDCIssuer `yaml:"oidc-issuers"`
-	MetaIssuers map[string]rhtasv1alpha1.OIDCIssuer `yaml:"meta-issuers"`
+	OIDCIssuers      map[string]rhtasv1alpha1.OIDCIssuer       `yaml:"oidc-issuers"`
+	MetaIssuers      map[string]rhtasv1alpha1.OIDCIssuer       `yaml:"meta-issuers"`
+	CIIssuerMetadata map[string]rhtasv1alpha1.CIIssuerMetadata `yaml:"ci-issuer-metadata"`
 }
 
 func (i serverConfig) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) bool {
@@ -62,6 +63,7 @@ func (i serverConfig) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Ful
 func ConvertToFulcioMapConfig(fulcioConfig rhtasv1alpha1.FulcioConfig) *FulcioMapConfig {
 	OIDCIssuers := make(map[string]rhtasv1alpha1.OIDCIssuer)
 	MetaIssuers := make(map[string]rhtasv1alpha1.OIDCIssuer)
+	CIIssuerMetadata := make(map[string]rhtasv1alpha1.CIIssuerMetadata)
 
 	for _, issuer := range fulcioConfig.OIDCIssuers {
 		OIDCIssuers[issuer.Issuer] = issuer
@@ -71,9 +73,14 @@ func ConvertToFulcioMapConfig(fulcioConfig rhtasv1alpha1.FulcioConfig) *FulcioMa
 		MetaIssuers[issuer.Issuer] = issuer
 	}
 
+	for _, metadata := range fulcioConfig.CIIssuerMetadata {
+		CIIssuerMetadata[metadata.IssuerName] = metadata
+	}
+
 	fulcioMapConfig := &FulcioMapConfig{
-		OIDCIssuers: OIDCIssuers,
-		MetaIssuers: MetaIssuers,
+		OIDCIssuers:      OIDCIssuers,
+		MetaIssuers:      MetaIssuers,
+		CIIssuerMetadata: CIIssuerMetadata,
 	}
 	return fulcioMapConfig
 }

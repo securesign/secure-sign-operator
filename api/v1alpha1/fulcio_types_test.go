@@ -139,10 +139,22 @@ var _ = Describe("Fulcio", func() {
 				invalidObject := generateFulcioObject("config-invalid")
 				invalidObject.Spec.Config.OIDCIssuers = []OIDCIssuer{}
 				invalidObject.Spec.Config.MetaIssuers = []OIDCIssuer{}
+				// CIIssuerMetadata is allowed to be empty
 
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
 					To(MatchError(ContainSubstring("At least one of OIDCIssuers or MetaIssuers must be defined")))
+			})
+
+			It("CIIssuerMetadata is set", func() {
+				validObject := generateFulcioObject("config-ci-issuer-metadata")
+				addCIIssuerMetadata(validObject)
+
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+
+				fetched := &Fulcio{}
+				Expect(k8sClient.Get(context.Background(), getKey(validObject), fetched)).To(Succeed())
+				Expect(fetched).To(Equal(validObject))
 			})
 
 			It("only MetaIssuer is set", func() {
@@ -305,10 +317,18 @@ func generateFulcioObject(name string) *Fulcio {
 			Config: FulcioConfig{
 				OIDCIssuers: []OIDCIssuer{
 					{
-						ClientID:  "client",
-						Type:      "email",
-						IssuerURL: "url",
-						Issuer:    "url",
+						ClientID:   "client",
+						Type:       "email",
+						IssuerURL:  "url",
+						Issuer:     "url",
+						CIProvider: "foo",
+					},
+					{
+						ClientID:   "ci-client",
+						Type:       "ci-provider",
+						CIProvider: "foo",
+						IssuerURL:  "url",
+						Issuer:     "url",
 					},
 				},
 				MetaIssuers: []OIDCIssuer{
@@ -336,4 +356,31 @@ func generateFulcioObject(name string) *Fulcio {
 			},
 		},
 	}
+}
+
+func addCIIssuerMetadata(config *Fulcio) *Fulcio {
+	config.Spec.Config.CIIssuerMetadata = []CIIssuerMetadata{
+		{
+			IssuerName:                     "gitlab-ci",
+			DefaultTemplateValues:          map[string]string{"url": "https://gitlab.com"},
+			SubjectAlternativeNameTemplate: "https://{{ .ci_config_ref_uri }}",
+			ExtensionTemplates: Extensions{
+				BuildSignerURI:                      "https://{{ .ci_config_ref_uri }}",
+				BuildSignerDigest:                   "ci_config_sha",
+				RunnerEnvironment:                   "runner_environment",
+				SourceRepositoryURI:                 "{{ .url }}/{{ .project_path }}",
+				SourceRepositoryDigest:              "sha",
+				SourceRepositoryRef:                 "refs/{{if eq .ref_type \"branch\"}}heads/{{ else }}tags/{{end}}{{ .ref }}",
+				SourceRepositoryIdentifier:          "project_id",
+				SourceRepositoryOwnerURI:            "{{ .url }}/{{ .namespace_path }}",
+				SourceRepositoryOwnerIdentifier:     "namespace_id",
+				BuildConfigURI:                      "https://{{ .ci_config_ref_uri }}",
+				BuildConfigDigest:                   "ci_config_sha",
+				BuildTrigger:                        "pipeline_source",
+				RunInvocationURI:                    "{{ .url }}/{{ .project_path }}/-/jobs/{{ .job_id }}",
+				SourceRepositoryVisibilityAtSigning: "project_visibility",
+			},
+		},
+	}
+	return config
 }
