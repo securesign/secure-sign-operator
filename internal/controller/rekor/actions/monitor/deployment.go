@@ -41,7 +41,7 @@ func (i deployAction) Name() string {
 
 func (i deployAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && instance.Spec.RekorMonitor.Enabled
+	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && enabled(instance)
 }
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
@@ -61,7 +61,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 				Namespace: instance.Namespace,
 			},
 		},
-		i.ensureMonitorDeployment(actions.RBACName, labels, rekorServerHost),
+		i.ensureMonitorDeployment(instance, actions.RBACName, labels, rekorServerHost),
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
@@ -90,7 +90,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 
 }
 
-func (i deployAction) ensureMonitorDeployment(sa string, labels map[string]string, rekorServerHost string) func(*v1.Deployment) error {
+func (i deployAction) ensureMonitorDeployment(instance *rhtasv1alpha1.Rekor, sa string, labels map[string]string, rekorServerHost string) func(*v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
 
 		spec := &dp.Spec
@@ -110,7 +110,7 @@ func (i deployAction) ensureMonitorDeployment(sa string, labels map[string]strin
 			"/rekor_monitor",
 			"--file=/data/checkpoint_log.txt",
 			"--once=false",
-			"--interval=5s",
+			fmt.Sprintf("--interval=%s", instance.Spec.Monitoring.Tlog.Interval.Duration.String()),
 			fmt.Sprintf("--url=%s", rekorServerHost),
 		}
 

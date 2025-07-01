@@ -1219,6 +1219,25 @@ spec:
                     x-kubernetes-validations:
                     - message: Feature cannot be disabled
                       rule: (self || !oldSelf)
+                  tlog:
+                    description: Configuration for monitoring the Rekor transparency
+                      log
+                    properties:
+                      enabled:
+                        default: false
+                        description: If true, the Operator will create the Rekor log
+                          monitor resources
+                        type: boolean
+                        x-kubernetes-validations:
+                        - message: Feature cannot be disabled
+                          rule: (self || !oldSelf)
+                      interval:
+                        default: 10m
+                        description: Interval between log monitoring checks
+                        type: string
+                    required:
+                    - enabled
+                    type: object
                 required:
                 - enabled
                 type: object
@@ -1273,20 +1292,6 @@ spec:
                     type: string
                 required:
                 - retain
-                type: object
-              rekorMonitor:
-                description: Enable RekorMonitor configuration
-                properties:
-                  enabled:
-                    default: true
-                    description: If true, the Operator will create the Rekor log monitor
-                      resources
-                    type: boolean
-                    x-kubernetes-validations:
-                    - message: Feature cannot be disabled
-                      rule: (self || !oldSelf)
-                required:
-                - enabled
                 type: object
               rekorSearchUI:
                 default:

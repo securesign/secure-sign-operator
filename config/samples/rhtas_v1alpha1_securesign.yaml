@@ -14,8 +14,6 @@ spec:
       enabled: true
     monitoring:
       enabled: true
-    rekorMonitor:
-      enabled: true
   trillian:
     database:
       create: true
