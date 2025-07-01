@@ -146,6 +146,10 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		backfillredis.NewBackfillRedisCronJobAction(),
 
+		monitor.NewDeployAction(),
+		monitor.NewCreateServiceAction(),
+		monitor.NewCreateMonitorAction(),
+
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.Rekor](),
 
 		server.NewInitializeAction(),
@@ -154,11 +158,6 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		redis.NewInitializeAction(),
 
 		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.Rekor](),
-
-		monitor.NewDeployAction(),
-		monitor.NewCreateServiceAction(),
-		monitor.NewIngressAction(),
-		monitor.NewCreateMonitorAction(),
 	}
 
 	for _, a := range actions {
