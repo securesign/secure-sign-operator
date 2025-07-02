@@ -22,7 +22,7 @@ type RekorSpec struct {
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
 	//Enable Service monitors for rekor
-	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
+	Monitoring MonitoringWithTLogConfig `json:"monitoring,omitempty"`
 	// Rekor Search UI
 	//+kubebuilder:default:={enabled: true}
 	RekorSearchUI RekorSearchUI `json:"rekorSearchUI,omitempty"`

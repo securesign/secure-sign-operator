@@ -107,11 +107,15 @@ func (i deployAction) ensureMonitorDeployment(instance *rhtasv1alpha1.Rekor, sa 
 		container.Image = images.Registry.Get(images.RekorMonitor)
 
 		container.Command = []string{
-			"/rekor_monitor",
-			"--file=/data/checkpoint_log.txt",
-			"--once=false",
-			fmt.Sprintf("--interval=%s", instance.Spec.Monitoring.Tlog.Interval.Duration.String()),
-			fmt.Sprintf("--url=%s", rekorServerHost),
+			"/bin/sh",
+			"-c",
+			fmt.Sprintf(`
+				until curl -sf %s > /dev/null 2>&1; do
+					echo 'Waiting for rekor-server to be ready...';
+					sleep 5;
+				done;
+				exec /rekor_monitor --file=/data/checkpoint_log.txt --once=false --interval=%s --url=%s
+			`, rekorServerHost, instance.Spec.Monitoring.TLog.Interval.Duration.String(), rekorServerHost),
 		}
 
 		container.Ports = []core.ContainerPort{

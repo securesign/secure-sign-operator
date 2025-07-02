@@ -468,8 +468,10 @@ var _ = Describe("Rekor", func() {
 							Namespace: "default",
 						},
 						Spec: RekorSpec{
-							Monitoring: MonitoringConfig{
-								Enabled: true,
+							Monitoring: MonitoringWithTLogConfig{
+								MonitoringConfig: MonitoringConfig{
+									Enabled: true,
+								},
 							},
 							ExternalAccess: ExternalAccess{
 								Enabled: true,

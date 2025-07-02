@@ -35,9 +35,14 @@ type MonitoringConfig struct {
 	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
 	//+kubebuilder:default:=true
 	Enabled bool `json:"enabled"`
+}
+
+type MonitoringWithTLogConfig struct {
+	// Base monitoring configuration
+	MonitoringConfig `json:",inline"`
 	// Configuration for Rekor transparency log monitoring
 	//+optional
-	Tlog TlogMonitoring `json:"tlog"`
+	TLog TlogMonitoring `json:"tlog"`
 }
 
 // TrillianService configuration to connect Trillian server

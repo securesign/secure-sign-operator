@@ -1220,8 +1220,7 @@ spec:
                     - message: Feature cannot be disabled
                       rule: (self || !oldSelf)
                   tlog:
-                    description: Configuration for monitoring the Rekor transparency
-                      log
+                    description: Configuration for Rekor transparency log monitoring
                     properties:
                       enabled:
                         default: false
