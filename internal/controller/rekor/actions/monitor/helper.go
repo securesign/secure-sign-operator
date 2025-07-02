@@ -6,5 +6,5 @@ import (
 )
 
 func enabled(instance *v1alpha1.Rekor) bool {
-	return utils.IsEnabled(&instance.Spec.Monitoring.Tlog.Enabled)
+	return utils.IsEnabled(&instance.Spec.Monitoring.TLog.Enabled)
 }
