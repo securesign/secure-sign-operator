@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	core "k8s.io/api/core/v1"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type ExternalAccess struct {
@@ -18,11 +19,30 @@ type ExternalAccess struct {
 	RouteSelectorLabels map[string]string `json:"routeSelectorLabels,omitempty"`
 }
 
+// TlogMonitoring configures monitoring for the Rekor transparency log.
+type TlogMonitoring struct {
+	// If true, the Operator will create the Rekor log monitor resources
+	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
+	//+kubebuilder:default:=false
+	Enabled bool `json:"enabled"`
+	// Interval between log monitoring checks
+	//+kubebuilder:default:="10m"
+	//+optional
+	Interval metav1.Duration `json:"interval"`
+}
 type MonitoringConfig struct {
 	// If true, the Operator will create monitoring resources
 	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
 	//+kubebuilder:default:=true
 	Enabled bool `json:"enabled"`
+}
+
+type MonitoringWithTLogConfig struct {
+	// Base monitoring configuration
+	MonitoringConfig `json:",inline"`
+	// Configuration for Rekor transparency log monitoring
+	//+optional
+	TLog TlogMonitoring `json:"tlog"`
 }
 
 // TrillianService configuration to connect Trillian server
