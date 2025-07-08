@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -19,6 +20,7 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 	"github.com/securesign/operator/internal/utils/tls"
+	"k8s.io/utils/ptr"
 
 	v2 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -72,6 +74,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 			},
 		},
 		i.ensureServerDeployment(insCopy, actions.RBACName, labels),
+		i.ensureAttestation(insCopy),
 		ensure.ControllerReference[*v2.Deployment](instance, i.Client),
 		ensure.Labels[*v2.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Auth(actions.ServerDeploymentName, instance.Spec.Auth),
@@ -137,10 +140,6 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 			"--rekor_server.address", "0.0.0.0",
 			"--enable_retrieve_api", "true",
 			"--trillian_log_server.tlog_id", strconv.FormatInt(*instance.Status.TreeID, 10),
-			"--enable_attestation_storage",
-			// NOTE: we need to use no_tmp_dir=true with file-based storage to prevent
-			// cross-device link error - see https://github.com/google/go-cloud/issues/3314
-			"--attestation_storage_bucket", "file:///var/run/attestations?no_tmp_dir=true",
 			"--log_type", utils2.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod)),
 		}
 
@@ -203,7 +202,7 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 			monitoringPort.Protocol = v1.ProtocolTCP
 		}
 
-		var storageVolumeName, shardingVolumeName = "storage", "rekor-sharding-config"
+		var shardingVolumeName = "rekor-sharding-config"
 		shardingVolume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, shardingVolumeName)
 		if shardingVolume.ConfigMap == nil {
 			shardingVolume.ConfigMap = &v1.ConfigMapVolumeSource{}
@@ -212,15 +211,6 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 
 		shardingVolumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, shardingVolumeName)
 		shardingVolumeMount.MountPath = "/sharding"
-
-		storageVolume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, storageVolumeName)
-		if storageVolume.PersistentVolumeClaim == nil {
-			storageVolume.PersistentVolumeClaim = &v1.PersistentVolumeClaimVolumeSource{}
-		}
-		storageVolume.PersistentVolumeClaim.ClaimName = instance.Status.PvcName
-
-		storageVolumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, storageVolumeName)
-		storageVolumeMount.MountPath = "/var/run/attestations"
 
 		if container.LivenessProbe == nil {
 			container.LivenessProbe = &v1.Probe{}
@@ -251,6 +241,50 @@ func (i deployAction) ensureTlsTrillian() func(*v2.Deployment) error {
 		container := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, actions.ServerDeploymentName)
 
 		container.Args = append(container.Args, "--trillian_log_server.tls", "true")
+		return nil
+	}
+}
+
+func (i deployAction) ensureAttestation(instance *rhtasv1alpha1.Rekor) func(*v2.Deployment) error {
+	const storageVolumeName = "storage"
+	return func(dp *v2.Deployment) error {
+		container := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, actions.ServerDeploymentName)
+		enabled := ptr.Deref(instance.Spec.Attestations.Enabled, false)
+
+		container.Args = append(container.Args, "--enable_attestation_storage", strconv.FormatBool(enabled))
+
+		bucketUrl := instance.Spec.Attestations.Url
+		if bucketUrl == "" {
+			bucketUrl = "file:///var/run/attestations?no_tmp_dir=true"
+		}
+		container.Args = append(container.Args, "--attestation_storage_bucket", bucketUrl)
+
+		if instance.Spec.Attestations.MaxSize != nil {
+			maxSize, ok := instance.Spec.Attestations.MaxSize.AsInt64()
+			if !ok {
+				return errors.New("attestation max size must be an integer")
+			}
+			container.Args = append(container.Args, "--max_attestation_size", strconv.FormatInt(maxSize, 10))
+		}
+
+		// File storage
+		if enabledFileAttestationStorage(instance) {
+			storageVolume := kubernetes.FindVolumeByNameOrCreate(&dp.Spec.Template.Spec, storageVolumeName)
+			if storageVolume.PersistentVolumeClaim == nil {
+				storageVolume.PersistentVolumeClaim = &v1.PersistentVolumeClaimVolumeSource{}
+			}
+			storageVolume.PersistentVolumeClaim.ClaimName = instance.Status.PvcName
+
+			storageVolumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, storageVolumeName)
+			storageVolumeMount.MountPath = "/var/run/attestations"
+		} else {
+			// other storage bucket options
+
+			// remove unused storage volume
+			kubernetes.RemoveVolumeByName(&dp.Spec.Template.Spec, storageVolumeName)
+			kubernetes.RemoveVolumeMountByName(container, storageVolumeName)
+		}
+
 		return nil
 	}
 }

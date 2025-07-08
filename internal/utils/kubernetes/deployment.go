@@ -148,6 +148,16 @@ func FindVolumeByNameOrCreate(podSpec *corev1.PodSpec, volumeName string) *corev
 	return &podSpec.Volumes[len(podSpec.Volumes)-1]
 }
 
+func RemoveVolumeByName(podSpec *corev1.PodSpec, volumeName string) {
+	newVolumes := make([]corev1.Volume, 0, len(podSpec.Volumes))
+	for _, volume := range podSpec.Volumes {
+		if volume.Name != volumeName {
+			newVolumes = append(newVolumes, volume)
+		}
+	}
+	podSpec.Volumes = newVolumes
+}
+
 func FindVolumeMountByNameOrCreate(container *corev1.Container, volumeName string) *corev1.VolumeMount {
 	for i, v := range container.VolumeMounts {
 		if v.Name == volumeName {
@@ -156,6 +166,16 @@ func FindVolumeMountByNameOrCreate(container *corev1.Container, volumeName strin
 	}
 	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: volumeName})
 	return &container.VolumeMounts[len(container.VolumeMounts)-1]
+}
+
+func RemoveVolumeMountByName(container *corev1.Container, volumeName string) {
+	newVolumeMounts := make([]corev1.VolumeMount, 0, len(container.VolumeMounts))
+	for _, volumeMount := range container.VolumeMounts {
+		if volumeMount.Name != volumeName {
+			newVolumeMounts = append(newVolumeMounts, volumeMount)
+		}
+	}
+	container.VolumeMounts = newVolumeMounts
 }
 
 func FindPortByNameOrCreate(container *corev1.Container, portName string) *corev1.ContainerPort {
