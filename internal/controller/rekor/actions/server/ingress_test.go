@@ -13,7 +13,6 @@ import (
 
 func TestIngress_CanHandle(t *testing.T) {
 	ctx := context.TODO()
-	g := NewWithT(t)
 	tests := []struct {
 		name           string
 		conditions     []metav1.Condition
@@ -42,6 +41,7 @@ func TestIngress_CanHandle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
 			instance := rhtasv1alpha1.Rekor{
 				Spec: rhtasv1alpha1.RekorSpec{
 					ExternalAccess: rhtasv1alpha1.ExternalAccess{
