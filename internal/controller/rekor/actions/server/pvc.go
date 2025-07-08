@@ -38,7 +38,10 @@ func (i createPvcAction) Name() string {
 
 func (i createPvcAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Creating && instance.Status.PvcName == ""
+	if c == nil {
+		return false
+	}
+	return c.Reason == constants.Creating && enabledFileAttestationStorage(instance) && instance.Status.PvcName == ""
 }
 
 func (i createPvcAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {

@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/api/meta"
+	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -26,6 +27,9 @@ type RekorSpec struct {
 	RekorSearchUI RekorSearchUI `json:"rekorSearchUI,omitempty"`
 	// Signer configuration
 	Signer RekorSigner `json:"signer,omitempty"`
+	// Attestations configuration
+	//+kubebuilder:default:={enabled: true, url: "file:///var/run/attestations?no_tmp_dir=true", maxSize: "100Ki"}
+	Attestations RekorAttestations `json:"attestations,omitempty"`
 	// Define your search index database connection
 	//+kubebuilder:default:={create: true}
 	SearchIndex SearchIndex `json:"searchIndex,omitempty"`
@@ -48,6 +52,39 @@ type RekorSpec struct {
 	//Configuration for authentication for key management services
 	//+optional
 	Auth *Auth `json:"auth,omitempty"`
+}
+
+// RekorAttestations defines the configuration for storing attestations.
+type RekorAttestations struct {
+	// Enabled specifies whether the rich attestation storage feature should be enabled.
+	// When set to true, the system will store detailed attestations.
+	// This feature cannot be disabled once enabled to maintain data integrity.
+	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled once enabled.
+	//+kubebuilder:default:=true
+	Enabled *bool `json:"enabled"`
+
+	/// Url specifies the storage location for attestations, supporting go-cloud blob URLs.
+	// The "file:///var/run/attestations" path is specifically for local storage
+	// that relies on a mounted Persistent Volume Claim (PVC) for data persistence.
+	// Other valid protocols include s3://, gs://, azblob://, and mem://.
+	//
+	// Examples of valid URLs:
+	// - Amazon S3: "s3://my-bucket?region=us-west-1"
+	// - S3-Compatible Storage: "s3://my-bucket?endpoint=my.minio.local:8080&s3ForcePathStyle=true"
+	// - Google Cloud Storage: "gs://my-bucket"
+	// - Azure Blob Storage: "azblob://my-container"
+	// - In-memory (for testing/development): "mem://"
+	// - Local file system: "file:///var/run/attestations?no_tmp_dir=true"
+	//
+	// +kubebuilder:validation:XValidation:rule="(self.startsWith(\"file://\") || self.startsWith(\"s3://\") || self.startsWith(\"gs://\") || self.startsWith(\"azblob://\") || self.startsWith(\"mem://\"))",message="URL must use a supported protocol (file://, s3://, gs://, azblob://, mem://)."
+	// +kubebuilder:validation:XValidation:rule="(!self.startsWith(\"file://\") || self.startsWith(\"file:///var/run/attestations\"))",message="If using 'file://' protocol, the URL must start with 'file:///var/run/attestations'."
+	// +kubebuilder:default:="file:///var/run/attestations?no_tmp_dir=true"
+	Url string `json:"url,omitempty"`
+
+	// MaxSize defines the maximum allowed size for an individual attestation.
+	// This helps prevent excessively large attestations from being stored.
+	// +kubebuilder:default:="100Ki"
+	MaxSize *k8sresource.Quantity `json:"maxSize,omitempty"`
 }
 
 type RekorSigner struct {

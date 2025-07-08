@@ -48,6 +48,61 @@ spec:
           spec:
             description: RekorSpec defines the desired state of Rekor
             properties:
+              attestations:
+                default:
+                  enabled: true
+                  maxSize: 100Ki
+                  url: file:///var/run/attestations?no_tmp_dir=true
+                description: Attestations configuration
+                properties:
+                  enabled:
+                    default: true
+                    description: |-
+                      Enabled specifies whether the rich attestation storage feature should be enabled.
+                      When set to true, the system will store detailed attestations.
+                      This feature cannot be disabled once enabled to maintain data integrity.
+                    type: boolean
+                    x-kubernetes-validations:
+                    - message: Feature cannot be disabled once enabled.
+                      rule: (self || !oldSelf)
+                  maxSize:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    default: 100Ki
+                    description: |-
+                      MaxSize defines the maximum allowed size for an individual attestation.
+                      This helps prevent excessively large attestations from being stored.
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  url:
+                    default: file:///var/run/attestations?no_tmp_dir=true
+                    description: |-
+                      / Url specifies the storage location for attestations, supporting go-cloud blob URLs.
+                      The "file:///var/run/attestations" path is specifically for local storage
+                      that relies on a mounted Persistent Volume Claim (PVC) for data persistence.
+                      Other valid protocols include s3://, gs://, azblob://, and mem://.
+
+                      Examples of valid URLs:
+                      - Amazon S3: "s3://my-bucket?region=us-west-1"
+                      - S3-Compatible Storage: "s3://my-bucket?endpoint=my.minio.local:8080&s3ForcePathStyle=true"
+                      - Google Cloud Storage: "gs://my-bucket"
+                      - Azure Blob Storage: "azblob://my-container"
+                      - In-memory (for testing/development): "mem://"
+                      - Local file system: "file:///var/run/attestations?no_tmp_dir=true"
+                    type: string
+                    x-kubernetes-validations:
+                    - message: URL must use a supported protocol (file://, s3://,
+                        gs://, azblob://, mem://).
+                      rule: (self.startsWith("file://") || self.startsWith("s3://")
+                        || self.startsWith("gs://") || self.startsWith("azblob://")
+                        || self.startsWith("mem://"))
+                    - message: If using 'file://' protocol, the URL must start with
+                        'file:///var/run/attestations'.
+                      rule: (!self.startsWith("file://") || self.startsWith("file:///var/run/attestations"))
+                required:
+                - enabled
+                type: object
               auth:
                 description: Configuration for authentication for key management services
                 properties:

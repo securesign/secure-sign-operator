@@ -317,6 +317,73 @@ var _ = Describe("Rekor", func() {
 			})
 		})
 
+		Context("attestations", func() {
+			When("file url", func() {
+				It("default", func() {
+					validObject := generateRekorObject("attestation-file-default")
+					validObject.Spec.Attestations.Url = "file:///var/run/attestations?no_tmp_dir=true"
+
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("without argument", func() {
+					validObject := generateRekorObject("attestation-file-without-args")
+					validObject.Spec.Attestations.Url = "file:///var/run/attestations"
+
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("incorrect path", func() {
+					invalidObject := generateRekorObject("incorrect-path")
+					invalidObject.Spec.Attestations.Url = "file://my/custom/path"
+
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("If using 'file://' protocol, the URL must start with 'file:///var/run/attestations'.")))
+				})
+			})
+
+			When("other provider", func() {
+				It("mem", func() {
+					validObject := generateRekorObject("attestation-mem")
+					validObject.Spec.Attestations.Url = "mem://"
+
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("s3", func() {
+					validObject := generateRekorObject("attestation-s3")
+					validObject.Spec.Attestations.Url = "s3://my-bucket?endpoint=my.minio.local:8080&s3ForcePathStyle=true"
+
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+			})
+
+			When("is validated", func() {
+				It("cannot be disabled", func() {
+					validObject := generateRekorObject("immutable-attestation")
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+
+					invalidObject := &Rekor{}
+					Expect(k8sClient.Get(context.Background(), getKey(validObject), invalidObject)).To(Succeed())
+					invalidObject.Spec.Attestations.Enabled = ptr.To(false)
+
+					Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Update(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("Feature cannot be disabled once enabled.")))
+				})
+
+				It("unsupported protocol", func() {
+					invalidObject := generateRekorObject("unsupported-protocol")
+					invalidObject.Spec.Attestations.Url = "fake://fake"
+
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("URL must use a supported protocol")))
+				})
+			})
+		})
+
 		Context("Default settings", func() {
 			var (
 				rekorInstance         Rekor
@@ -449,6 +516,7 @@ var _ = Describe("Rekor", func() {
 
 func generateRekorObject(name string) *Rekor {
 	storage := k8sresource.MustParse("5Gi")
+	maxSize := k8sresource.MustParse("100Ki")
 	return &Rekor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -461,6 +529,11 @@ func generateRekorObject(name string) *Rekor {
 			},
 			Signer: RekorSigner{
 				KMS: "secret",
+			},
+			Attestations: RekorAttestations{
+				Enabled: ptr.To(true),
+				Url:     "file:///var/run/attestations?no_tmp_dir=true",
+				MaxSize: &maxSize,
 			},
 			Pvc: Pvc{
 				Retain: ptr.To(true),
