@@ -35,7 +35,7 @@ func (i ingressAction) Name() string {
 
 func (i ingressAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.TimestampAuthority) bool {
 	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
-	return c.Reason == constants.Creating || c.Reason == constants.Ready && instance.Spec.ExternalAccess.Enabled
+	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && instance.Spec.ExternalAccess.Enabled
 }
 
 func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.TimestampAuthority) *action.Result {

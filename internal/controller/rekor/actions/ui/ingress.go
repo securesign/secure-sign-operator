@@ -39,7 +39,7 @@ func (i ingressAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Re
 	if c == nil {
 		return false
 	}
-	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && enabled(instance)
+	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && enabled(instance) && instance.Spec.ExternalAccess.Enabled
 }
 
 func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
