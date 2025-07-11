@@ -29,16 +29,21 @@ func (i statusUrlAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.
 }
 
 func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
-	protocol := "http://"
-	ingress := &v1.Ingress{}
-	err := i.Client.Get(ctx, types.NamespacedName{Name: actions.SearchUiDeploymentName, Namespace: instance.Namespace}, ingress)
-	if err != nil {
-		return i.Error(ctx, fmt.Errorf("get ingress error: %w", err), instance)
+	var url string
+	if instance.Spec.ExternalAccess.Enabled {
+		protocol := "http://"
+		ingress := &v1.Ingress{}
+		err := i.Client.Get(ctx, types.NamespacedName{Name: actions.SearchUiDeploymentName, Namespace: instance.Namespace}, ingress)
+		if err != nil {
+			return i.Error(ctx, fmt.Errorf("get ingress error: %w", err), instance)
+		}
+		if len(ingress.Spec.TLS) > 0 {
+			protocol = "https://"
+		}
+		url = protocol + ingress.Spec.Rules[0].Host
+	} else {
+		url = fmt.Sprintf("http://%s.%s.svc", actions.SearchUiDeploymentName, instance.Namespace)
 	}
-	if len(ingress.Spec.TLS) > 0 {
-		protocol = "https://"
-	}
-	url := protocol + ingress.Spec.Rules[0].Host
 
 	if url == instance.Status.RekorSearchUIUrl {
 		return i.Continue()
