@@ -73,7 +73,7 @@ func (r *timestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 	log := ctrllog.FromContext(ctx)
 	log.V(1).Info("Reconciling Timestamp Authority", "request", req)
 
-	if err := r.Client.Get(ctx, req.NamespacedName, &instance); err != nil {
+	if err := r.Get(ctx, req.NamespacedName, &instance); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 

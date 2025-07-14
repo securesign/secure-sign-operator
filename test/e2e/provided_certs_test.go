@@ -230,7 +230,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 			sp := []v1.SecretProjection{}
 			for _, volume := range server.Spec.Volumes {
 				if volume.Name == "fulcio-cert" {
-					for _, source := range volume.VolumeSource.Projected.Sources {
+					for _, source := range volume.Projected.Sources {
 						sp = append(sp, *source.Secret)
 					}
 				}
@@ -252,8 +252,8 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 			Expect(server.Spec.Volumes).To(
 				ContainElement(
 					WithTransform(func(volume v1.Volume) string {
-						if volume.VolumeSource.Secret != nil {
-							return volume.VolumeSource.Secret.SecretName
+						if volume.Secret != nil {
+							return volume.Secret.SecretName
 						}
 						return ""
 					}, Equal("my-rekor-secret")),
@@ -268,8 +268,8 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 			Expect(tsa.Spec.Volumes).To(
 				ContainElement(
 					WithTransform(func(volume v1.Volume) string {
-						if volume.VolumeSource.Secret != nil {
-							return volume.VolumeSource.Secret.SecretName
+						if volume.Secret != nil {
+							return volume.Secret.SecretName
 						}
 						return ""
 					}, Equal("test-tsa-secret")),

@@ -86,7 +86,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 
 func (i deployAction) resolveCTlogUrl(instance *rhtasv1alpha1.Fulcio) (string, error) {
 	if instance.Spec.Ctlog.Prefix == "" {
-		return "", futils.CtlogPrefixNotSpecified
+		return "", futils.ErrCtlogPrefixNotSpecified
 	}
 
 	if instance.Spec.Ctlog.Address != "" {

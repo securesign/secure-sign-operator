@@ -13,7 +13,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -39,8 +38,8 @@ func (action *BaseAction) Continue() *Result {
 	return nil
 }
 
-func (action *BaseAction) StatusUpdate(ctx context.Context, obj client2.Object) *Result {
-	current := obj.DeepCopyObject().(client2.Object)
+func (action *BaseAction) StatusUpdate(ctx context.Context, obj client.Object) *Result {
+	current := obj.DeepCopyObject().(client.Object)
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		var (
 			currentStatus, expectedStatus *reflect.Value
@@ -111,7 +110,7 @@ func (action *BaseAction) Requeue() *Result {
 	}
 }
 
-func getStatus(obj client2.Object) (*reflect.Value, error) {
+func getStatus(obj client.Object) (*reflect.Value, error) {
 	stat := reflect.ValueOf(obj).Elem().FieldByName("Status")
 	if stat == reflect.ValueOf(nil) {
 		return nil, errors.New("status field not found")

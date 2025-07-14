@@ -58,8 +58,8 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 
 	labels := labels.For(ComponentName, DeploymentName, instance.Name)
 
-	switch {
-	case instance.Spec.Trillian.Address == "":
+	switch instance.Spec.Trillian.Address {
+	case "":
 		instance.Spec.Trillian.Address = fmt.Sprintf("%s.%s.svc", trillian.LogserverDeploymentName, instance.Namespace)
 	}
 
@@ -103,13 +103,13 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.CTlog, sa string,
 	return func(dp *v1.Deployment) error {
 		switch {
 		case instance.Status.ServerConfigRef == nil:
-			return fmt.Errorf("CreateCTLogDeployment: %w", utils.ServerConfigNotSpecified)
+			return fmt.Errorf("CreateCTLogDeployment: %w", utils.ErrServerConfigNotSpecified)
 		case instance.Status.TreeID == nil:
-			return fmt.Errorf("CreateCTLogDeployment: %w", utils.TreeNotSpecified)
+			return fmt.Errorf("CreateCTLogDeployment: %w", utils.ErrTreeNotSpecified)
 		case instance.Spec.Trillian.Address == "":
-			return fmt.Errorf("CreateCTLogDeployment: %w", utils.TrillianAddressNotSpecified)
+			return fmt.Errorf("CreateCTLogDeployment: %w", utils.ErrTrillianAddressNotSpecified)
 		case instance.Spec.Trillian.Port == nil:
-			return fmt.Errorf("CreateCTLogDeployment: %w", utils.TrillianPortNotSpecified)
+			return fmt.Errorf("CreateCTLogDeployment: %w", utils.ErrTrillianPortNotSpecified)
 		}
 
 		spec := &dp.Spec

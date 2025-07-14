@@ -7,7 +7,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/securesign/operator/api/v1alpha1"
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/constants"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -54,16 +53,16 @@ func TestIngress_CanHandle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
-			instance := rhtasv1alpha1.Rekor{
-				Spec: rhtasv1alpha1.RekorSpec{
-					ExternalAccess: rhtasv1alpha1.ExternalAccess{
+			instance := v1alpha1.Rekor{
+				Spec: v1alpha1.RekorSpec{
+					ExternalAccess: v1alpha1.ExternalAccess{
 						Enabled: tt.externalAccess,
 					},
 					RekorSearchUI: v1alpha1.RekorSearchUI{
 						Enabled: &tt.uiEnabled,
 					},
 				},
-				Status: rhtasv1alpha1.RekorStatus{
+				Status: v1alpha1.RekorStatus{
 					Conditions: tt.conditions,
 				},
 			}

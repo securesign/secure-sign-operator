@@ -22,6 +22,11 @@ linters:
     - unconvert
     - unparam
     - unused
+  settings:
+    staticcheck:
+      dot-import-whitelist:
+        - github.com/onsi/gomega
+        - github.com/onsi/ginkgo/v2
   exclusions:
     generated: lax
     paths:

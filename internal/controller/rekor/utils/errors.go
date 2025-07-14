@@ -3,9 +3,9 @@ package utils
 import "errors"
 
 var (
-	ServerConfigNotSpecified    = errors.New("server config name not specified")
-	TreeNotSpecified            = errors.New("tree not specified")
-	TrillianAddressNotSpecified = errors.New("trillian address not specified")
-	TrillianPortNotSpecified    = errors.New("trillian port not specified")
-	SignerKeyNotSpecified       = errors.New("signer key reference not specified")
+	ErrServerConfigNotSpecified    = errors.New("server config name not specified")
+	ErrTreeNotSpecified            = errors.New("tree not specified")
+	ErrTrillianAddressNotSpecified = errors.New("trillian address not specified")
+	ErrTrillianPortNotSpecified    = errors.New("trillian port not specified")
+	ErrSignerKeyNotSpecified       = errors.New("signer key reference not specified")
 )

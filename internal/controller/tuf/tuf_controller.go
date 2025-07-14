@@ -75,7 +75,7 @@ func (r *tufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	// Fetch the Tuf instance
 	instance := &rhtasv1alpha1.Tuf{}
 
-	if err := r.Client.Get(ctx, req.NamespacedName, instance); err != nil {
+	if err := r.Get(ctx, req.NamespacedName, instance); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 

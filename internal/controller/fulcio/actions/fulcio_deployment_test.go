@@ -150,7 +150,7 @@ func TestCtlogConfig(t *testing.T) {
 			},
 			verify: func(g Gomega, deployment *v13.Deployment, err error) {
 				g.Expect(err).Should(HaveOccurred())
-				g.Expect(err).Should(MatchError(utils.CtlogPrefixNotSpecified))
+				g.Expect(err).Should(MatchError(utils.ErrCtlogPrefixNotSpecified))
 			},
 		},
 		{
@@ -255,7 +255,7 @@ func TestResolveCTLUrl(t *testing.T) {
 			ctl:  v1alpha1.CtlogService{Prefix: ""},
 			assert: func(g Gomega, url string, err error) {
 				g.Expect(err).Should(HaveOccurred())
-				g.Expect(err).Should(MatchError(utils.CtlogPrefixNotSpecified))
+				g.Expect(err).Should(MatchError(utils.ErrCtlogPrefixNotSpecified))
 			},
 		},
 		{

@@ -12,7 +12,6 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,7 +55,7 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Times
 	if instance.Spec.Monitoring.Enabled {
 		ports = append(ports, v1.ServicePort{
 			Name:       MetricsPortName,
-			Protocol:   corev1.ProtocolTCP,
+			Protocol:   v1.ProtocolTCP,
 			Port:       MetricsPort,
 			TargetPort: intstr.FromInt32(MetricsPort),
 		})

@@ -166,7 +166,7 @@ var _ = Describe("Rekor update", Ordered, func() {
 			}).Should(Succeed())
 			Expect(r.Spec.Volumes).To(ContainElements(And(
 				WithTransform(func(v v1.Volume) string { return v.Name }, Equal("rekor-private-key-volume")),
-				WithTransform(func(v v1.Volume) string { return v.VolumeSource.Secret.SecretName }, Equal("my-rekor-secret")))))
+				WithTransform(func(v v1.Volume) string { return v.Secret.SecretName }, Equal("my-rekor-secret")))))
 		})
 
 		It("verify by cosign", func() {

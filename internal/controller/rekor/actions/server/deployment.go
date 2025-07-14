@@ -106,13 +106,13 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 	return func(dp *v2.Deployment) error {
 		switch {
 		case instance.Status.ServerConfigRef == nil:
-			return fmt.Errorf("CreateRekorDeployment: %w", utils.ServerConfigNotSpecified)
+			return fmt.Errorf("CreateRekorDeployment: %w", utils.ErrServerConfigNotSpecified)
 		case instance.Status.TreeID == nil:
-			return fmt.Errorf("CreateRekorDeployment: %w", utils.TreeNotSpecified)
+			return fmt.Errorf("CreateRekorDeployment: %w", utils.ErrTreeNotSpecified)
 		case instance.Spec.Trillian.Address == "":
-			return fmt.Errorf("CreateRekorDeployment: %w", utils.TrillianAddressNotSpecified)
+			return fmt.Errorf("CreateRekorDeployment: %w", utils.ErrTrillianAddressNotSpecified)
 		case instance.Spec.Trillian.Port == nil:
-			return fmt.Errorf("CreateRekorDeployment: %w", utils.TrillianPortNotSpecified)
+			return fmt.Errorf("CreateRekorDeployment: %w", utils.ErrTrillianPortNotSpecified)
 		}
 
 		spec := &dp.Spec
@@ -151,7 +151,7 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 		// KMS secret
 		if instance.Spec.Signer.KMS == "secret" || instance.Spec.Signer.KMS == "" { //nolint:goconst
 			if instance.Status.Signer.KeyRef == nil {
-				return utils.SignerKeyNotSpecified
+				return utils.ErrSignerKeyNotSpecified
 			}
 			var volumeName = "rekor-private-key-volume"
 			privateVolume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, volumeName)
