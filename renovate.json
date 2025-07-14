@@ -16,37 +16,5 @@
       "datasourceTemplate": "docker",
       "versioningTemplate": "redhat"
     }
-  ],
-  "packageRules": [
-    {
-      "matchDatasources": [
-        "go"
-      ],
-      "matchPackageNames": [
-        "k8s.io/api",
-        "k8s.io/apiextensions-apiserver",
-        "k8s.io/apimachinery",
-        "k8s.io/client-go"
-      ],
-      "allowedVersions": "<0.33.0"
-    },
-    {
-      "matchDatasources": [
-        "go"
-      ],
-      "matchPackageNames": [
-        "sigs.k8s.io/controller-runtime"
-      ],
-      "allowedVersions": "<0.21.0"
-    },
-    {
-      "matchDatasources": [
-        "go"
-      ],
-      "matchPackageNames": [
-        "github.com/google/go-containerregistry"
-      ],
-      "allowedVersions": "<=0.20.3"
-    }
   ]
 }
