@@ -1,38 +1,40 @@
+version: "2"
 run:
-  allow-parallel-runners: true
   build-tags:
     - integration
     - upgrade
     - custom_install
-
-issues:
-  # don't skip warning about doc comments
-  # don't exclude the default set of lint
-  exclude-use-default: false
-  # restore some of the defaults
-  # (fill in the rest as needed)
-  exclude:
-  - 'SA1019: .*.Failed.* is deprecated'
-  - 'SA1019: .*.Ensure is deprecated'
-
+  allow-parallel-runners: true
 linters:
-  disable-all: true
+  default: none
   enable:
-    - errcheck
     - copyloopvar
+    - errcheck
     - ginkgolinter
     - goconst
     - gocyclo
-    - gofmt
-    - goimports
-    - gosimple
     - govet
     - ineffassign
     - misspell
     - nakedret
     - prealloc
     - staticcheck
-    - typecheck
     - unconvert
     - unparam
     - unused
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
