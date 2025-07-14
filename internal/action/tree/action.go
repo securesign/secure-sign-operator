@@ -201,7 +201,7 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 
 	switch {
 	case trillianService.Port == nil:
-		err = fmt.Errorf("%s: %v", i.Name(), TrillianPortNotSpecified)
+		err = fmt.Errorf("%s: %v", i.Name(), ErrTrillianPortNotSpecified)
 	case trillianService.Address == "":
 		trillUrl = fmt.Sprintf("%s.%s.svc:%d", logserverDeploymentName, instance.GetNamespace(), *trillianService.Port)
 	default:
@@ -314,9 +314,9 @@ func (i resolveTree[T]) handleJobFinished(ctx context.Context, instance T) *acti
 			Type:    JobCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  constants.Failure,
-			Message: JobFailed.Error(),
+			Message: ErrJobFailed.Error(),
 		})
-		return i.Error(ctx, reconcile.TerminalError(JobFailed), instance)
+		return i.Error(ctx, reconcile.TerminalError(ErrJobFailed), instance)
 	}
 
 	return i.Continue()

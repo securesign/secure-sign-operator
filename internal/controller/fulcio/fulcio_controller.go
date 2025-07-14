@@ -80,7 +80,7 @@ func (r *fulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	var instance rhtasv1alpha1.Fulcio
 	log := ctrllog.FromContext(ctx)
 
-	if err := r.Client.Get(ctx, req.NamespacedName, &instance); err != nil {
+	if err := r.Get(ctx, req.NamespacedName, &instance); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 

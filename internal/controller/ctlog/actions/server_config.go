@@ -76,11 +76,11 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 
 	switch {
 	case instance.Status.TreeID == nil:
-		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.TreeNotSpecified), instance)
+		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrTreeNotSpecified), instance)
 	case instance.Status.PrivateKeyRef == nil:
-		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.PrivateKeyNotSpecified), instance)
+		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrPrivateKeyNotSpecified), instance)
 	case instance.Spec.Trillian.Port == nil:
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("%s: %v", i.Name(), ctlogUtils.TrillianPortNotSpecified)), instance)
+		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrTrillianPortNotSpecified)), instance)
 	case instance.Spec.Trillian.Address == "":
 		instance.Spec.Trillian.Address = fmt.Sprintf("%s.%s.svc", trillian.LogserverDeploymentName, instance.Namespace)
 	}

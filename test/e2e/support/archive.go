@@ -112,7 +112,7 @@ func Tar(src string, writer io.Writer) error {
 
 	// ensure the src actually exists before trying to tar it
 	if _, err := os.Stat(src); err != nil {
-		return fmt.Errorf("Unable to tar files - %v", err.Error())
+		return fmt.Errorf("unable to tar files - %v", err.Error())
 	}
 
 	tw := tar.NewWriter(writer)
@@ -138,7 +138,7 @@ func Tar(src string, writer io.Writer) error {
 		}
 
 		// update the name to correctly reflect the desired destination when untaring
-		header.Name = strings.TrimPrefix(strings.Replace(file, src, "", -1), string(filepath.Separator))
+		header.Name = strings.TrimPrefix(strings.ReplaceAll(file, src, ""), string(filepath.Separator))
 
 		// write the header
 		if err := tw.WriteHeader(header); err != nil {

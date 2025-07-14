@@ -5,6 +5,6 @@ import (
 )
 
 var (
-	TrillianPortNotSpecified = errors.New("trillian port not specified")
-	JobFailed                = errors.New("createtree job failed")
+	ErrTrillianPortNotSpecified = errors.New("trillian port not specified")
+	ErrJobFailed                = errors.New("createtree job failed")
 )

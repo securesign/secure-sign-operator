@@ -119,7 +119,7 @@ func CreateTSACertChain(ctx context.Context, instance *rhtasv1alpha1.TimestampAu
 	oidTimeStamping := asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 3, 8}
 	ekuValues, err := asn1.Marshal([]asn1.ObjectIdentifier{oidTimeStamping})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to encode EKU values: %s", err)
+		return nil, fmt.Errorf("failed to encode EKU values: %s", err)
 	}
 	ekuExtension := pkix.Extension{
 		Id:       oidExtendedKeyUsage,

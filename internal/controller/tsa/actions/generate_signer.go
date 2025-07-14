@@ -47,7 +47,7 @@ func (g generateSigner) CanHandle(_ context.Context, instance *v1alpha1.Timestam
 	switch {
 	case c == nil:
 		return false
-	case !(c.Reason == constants.Pending || c.Reason == constants.Ready):
+	case c.Reason != constants.Pending && c.Reason != constants.Ready:
 		return false
 	case !meta.IsStatusConditionTrue(instance.GetConditions(), TSASignerCondition):
 		return true

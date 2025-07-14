@@ -93,7 +93,7 @@ func (r *securesignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	var instance rhtasv1alpha1.Securesign
 	log := ctrllog.FromContext(ctx)
 
-	if err := r.Client.Get(ctx, req.NamespacedName, &instance); err != nil {
+	if err := r.Get(ctx, req.NamespacedName, &instance); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -114,16 +114,16 @@ func (r *securesignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if instance.DeletionTimestamp != nil {
 		instanceLabels := labels.For(actions.SegmentBackupJobName, actions.SegmentBackupCronJobName, instance.Name)
 		instanceLabels[labels.LabelAppNamespace] = instance.Namespace
-		if err := r.Client.DeleteAllOf(ctx, &v1.ClusterRoleBinding{}, client.MatchingLabels(instanceLabels)); err != nil {
+		if err := r.DeleteAllOf(ctx, &v1.ClusterRoleBinding{}, client.MatchingLabels(instanceLabels)); err != nil {
 			log.Error(err, "problem with removing clusterRoleBinding resource")
 		}
-		if err := r.Client.DeleteAllOf(ctx, &v1.ClusterRole{}, client.MatchingLabels(instanceLabels)); err != nil {
+		if err := r.DeleteAllOf(ctx, &v1.ClusterRole{}, client.MatchingLabels(instanceLabels)); err != nil {
 			log.Error(err, "problem with removing ClusterRole resource")
 		}
-		if err := r.Client.DeleteAllOf(ctx, &v1.Role{}, client.InNamespace(actions.OpenshiftMonitoringNS), client.MatchingLabels(instanceLabels)); err != nil {
+		if err := r.DeleteAllOf(ctx, &v1.Role{}, client.InNamespace(actions.OpenshiftMonitoringNS), client.MatchingLabels(instanceLabels)); err != nil {
 			log.Error(err, "problem with removing Role resource in %s", actions.OpenshiftMonitoringNS)
 		}
-		if err := r.Client.DeleteAllOf(ctx, &v1.RoleBinding{}, client.InNamespace(actions.OpenshiftMonitoringNS), client.MatchingLabels(instanceLabels)); err != nil {
+		if err := r.DeleteAllOf(ctx, &v1.RoleBinding{}, client.InNamespace(actions.OpenshiftMonitoringNS), client.MatchingLabels(instanceLabels)); err != nil {
 			log.Error(err, "problem with removing RoleBinding resource in %s", actions.OpenshiftMonitoringNS)
 		}
 

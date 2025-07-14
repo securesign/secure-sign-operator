@@ -382,7 +382,7 @@ func testMonitorJob(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.Error(reconcile.TerminalError(JobFailed)),
+				result: testAction.Error(reconcile.TerminalError(ErrJobFailed)),
 			},
 		},
 		{

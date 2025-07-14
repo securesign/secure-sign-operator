@@ -171,7 +171,7 @@ var _ = Describe("CTlog update", Ordered, func() {
 
 			Expect(ctlPod.Spec.Volumes).To(ContainElements(And(
 				WithTransform(func(v v1.Volume) string { return v.Name }, Equal("keys")),
-				WithTransform(func(v v1.Volume) string { return v.VolumeSource.Secret.SecretName }, Equal(ctl.Status.ServerConfigRef.Name)))))
+				WithTransform(func(v v1.Volume) string { return v.Secret.SecretName }, Equal(ctl.Status.ServerConfigRef.Name)))))
 
 			existing := &v1.Secret{}
 			expected := &v1.Secret{}

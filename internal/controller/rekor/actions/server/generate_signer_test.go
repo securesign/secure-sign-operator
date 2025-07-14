@@ -8,13 +8,12 @@ import (
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
-	core "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
-	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -482,7 +481,7 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 			env: env{
 				status: rhtasv1alpha1.RekorSigner{},
 				objects: []client.Object{
-					&core.Secret{
+					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "unassigned-secret",
 							Namespace: "default",
@@ -513,7 +512,7 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 			env: env{
 				status: rhtasv1alpha1.RekorSigner{},
 				objects: []client.Object{
-					&core.Secret{
+					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "unassigned-secret",
 							Namespace: "default",
@@ -533,7 +532,7 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 					g.Expect(events).To(HaveLen(1))
 					for event := range events {
 						g.Expect(event.Type).Should(Equal(watch.Added))
-						g.Expect(event.Object.(*core.Secret).GenerateName).Should(Equal(fmt.Sprintf(secretNameFormat, "rekor")))
+						g.Expect(event.Object.(*v1.Secret).GenerateName).Should(Equal(fmt.Sprintf(secretNameFormat, "rekor")))
 					}
 				},
 			},
@@ -570,7 +569,7 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 				WithObjects(tt.env.objects...).
 				Build()
 
-			watchSecrets, err := c.Watch(ctx, &core.SecretList{}, client.InNamespace(instance.Namespace))
+			watchSecrets, err := c.Watch(ctx, &v1.SecretList{}, client.InNamespace(instance.Namespace))
 			g.Expect(err).ShouldNot(HaveOccurred())
 
 			a := testAction.PrepareAction(c, NewGenerateSignerAction())

@@ -192,7 +192,7 @@ var _ = Describe("Fulcio update", Ordered, func() {
 			}).Should(Succeed())
 			Expect(fulcioPod.Spec.Volumes).To(ContainElements(And(
 				WithTransform(func(v v1.Volume) string { return v.Name }, Equal("fulcio-cert")),
-				WithTransform(func(v v1.Volume) string { return v.VolumeSource.Projected.Sources[0].Secret.Name }, Equal("my-fulcio-secret")))))
+				WithTransform(func(v v1.Volume) string { return v.Projected.Sources[0].Secret.Name }, Equal("my-fulcio-secret")))))
 
 		})
 

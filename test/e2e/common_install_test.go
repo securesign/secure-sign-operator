@@ -215,7 +215,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			sp := []v1.SecretProjection{}
 			for _, volume := range server.Spec.Volumes {
 				if volume.Name == "fulcio-cert" {
-					for _, source := range volume.VolumeSource.Projected.Sources {
+					for _, source := range volume.Projected.Sources {
 						sp = append(sp, *source.Secret)
 					}
 				}
@@ -236,8 +236,8 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			Expect(server.Spec.Volumes).To(
 				ContainElement(
 					WithTransform(func(volume v1.Volume) string {
-						if volume.VolumeSource.Secret != nil {
-							return volume.VolumeSource.Secret.SecretName
+						if volume.Secret != nil {
+							return volume.Secret.SecretName
 						}
 						return ""
 					}, Equal(rekor.Get(ctx, cli, namespace.Name, s.Name)().Status.Signer.KeyRef.Name))),
@@ -252,8 +252,8 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			Expect(server.Spec.Volumes).To(
 				ContainElement(
 					WithTransform(func(volume v1.Volume) string {
-						if volume.VolumeSource.Secret != nil {
-							return volume.VolumeSource.Secret.SecretName
+						if volume.Secret != nil {
+							return volume.Secret.SecretName
 						}
 						return ""
 					}, Equal(tsa.Get(ctx, cli, namespace.Name, s.Name)().Status.Signer.CertificateChain.CertificateChainRef.Name))),
@@ -261,8 +261,8 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			Expect(server.Spec.Volumes).To(
 				ContainElement(
 					WithTransform(func(volume v1.Volume) string {
-						if volume.VolumeSource.Secret != nil {
-							return volume.VolumeSource.Secret.SecretName
+						if volume.Secret != nil {
+							return volume.Secret.SecretName
 						}
 						return ""
 					}, Equal(tsa.Get(ctx, cli, namespace.Name, s.Name)().Status.Signer.File.PrivateKeyRef.Name))),
@@ -276,8 +276,8 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			Expect(server.Spec.Volumes).To(
 				ContainElement(
 					WithTransform(func(volume v1.Volume) string {
-						if volume.VolumeSource.ConfigMap != nil {
-							return volume.VolumeSource.ConfigMap.Name
+						if volume.ConfigMap != nil {
+							return volume.ConfigMap.Name
 						}
 						return ""
 					}, Equal(tsa.Get(ctx, cli, namespace.Name, s.Name)().Status.NTPMonitoring.Config.NtpConfigRef.Name))),

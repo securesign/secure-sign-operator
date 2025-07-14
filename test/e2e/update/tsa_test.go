@@ -189,12 +189,12 @@ var _ = Describe("TSA update", Ordered, func() {
 
 			Expect(pod.Spec.Volumes).To(ContainElement(And(
 				WithTransform(func(v v1.Volume) string { return v.Name }, Equal("tsa-cert-chain")),
-				WithTransform(func(v v1.Volume) string { return v.VolumeSource.Secret.SecretName }, Equal("my-tsa-secret")),
+				WithTransform(func(v v1.Volume) string { return v.Secret.SecretName }, Equal("my-tsa-secret")),
 			)))
 
 			Expect(pod.Spec.Volumes).To(ContainElement(And(
 				WithTransform(func(v v1.Volume) string { return v.Name }, Equal("tsa-file-signer-config")),
-				WithTransform(func(v v1.Volume) string { return v.VolumeSource.Secret.SecretName }, Equal("my-tsa-secret")),
+				WithTransform(func(v v1.Volume) string { return v.Secret.SecretName }, Equal("my-tsa-secret")),
 			)))
 
 			certChainSecret := &v1.Secret{}
@@ -270,7 +270,7 @@ var _ = Describe("TSA update", Ordered, func() {
 
 			Expect(pod.Spec.Volumes).To(ContainElements(And(
 				WithTransform(func(v v1.Volume) string { return v.Name }, Equal("ntp-config")),
-				WithTransform(func(v v1.Volume) string { return v.VolumeSource.ConfigMap.Name }, Equal(t.Status.NTPMonitoring.Config.NtpConfigRef.Name)))))
+				WithTransform(func(v v1.Volume) string { return v.ConfigMap.Name }, Equal(t.Status.NTPMonitoring.Config.NtpConfigRef.Name)))))
 
 			cm := &v1.ConfigMap{}
 			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: t.Status.NTPMonitoring.Config.NtpConfigRef.Name}, cm)).To(Succeed())

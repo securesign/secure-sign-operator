@@ -32,13 +32,11 @@ import (
 	olm "github.com/operator-framework/api/pkg/operators/v1"
 	olmAlpha "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/securesign/operator/api/v1alpha1"
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/json"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	runtimeCli "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func IsCIEnvironment() bool {
@@ -49,10 +47,10 @@ func IsCIEnvironment() bool {
 	return false
 }
 
-func CreateClient() (runtimeCli.Client, error) {
+func CreateClient() (client.Client, error) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(rhtasv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(olmAlpha.AddToScheme(scheme))
 	utilruntime.Must(olm.AddToScheme(scheme))
@@ -62,7 +60,7 @@ func CreateClient() (runtimeCli.Client, error) {
 		return nil, err
 	}
 
-	return runtimeCli.New(cfg, runtimeCli.Options{Scheme: scheme})
+	return client.New(cfg, client.Options{Scheme: scheme})
 
 }
 func CreateTestNamespace(ctx context.Context, cli client.Client) *v1.Namespace {
