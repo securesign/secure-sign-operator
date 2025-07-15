@@ -62,6 +62,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 			},
 		},
 		i.ensureMonitorDeployment(instance, actions.RBACName, labels, rekorServerHost),
+		i.ensureInitContainer(instance, rekorServerHost),
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
@@ -109,13 +110,8 @@ func (i deployAction) ensureMonitorDeployment(instance *rhtasv1alpha1.Rekor, sa 
 		container.Command = []string{
 			"/bin/sh",
 			"-c",
-			fmt.Sprintf(`
-				until curl -sf %s > /dev/null 2>&1; do
-					echo 'Waiting for rekor-server to be ready...';
-					sleep 5;
-				done;
-				exec /rekor_monitor --file=/data/checkpoint_log.txt --once=false --interval=%s --url=%s
-			`, rekorServerHost, instance.Spec.Monitoring.TLog.Interval.Duration.String(), rekorServerHost),
+			fmt.Sprintf("exec /rekor_monitor --file=/data/checkpoint_log.txt --once=false --interval=%s --url=%s",
+				instance.Spec.Monitoring.TLog.Interval.Duration.String(), rekorServerHost),
 		}
 
 		container.Ports = []core.ContainerPort{
@@ -130,9 +126,26 @@ func (i deployAction) ensureMonitorDeployment(instance *rhtasv1alpha1.Rekor, sa 
 		volumeMount.MountPath = "/data"
 
 		volume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, storageVolumeName)
-		if volume.EmptyDir == nil {
-			volume.EmptyDir = &core.EmptyDirVolumeSource{}
+		volume.VolumeSource = core.VolumeSource{
+			PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
+				ClaimName: instance.Status.MonitorPvcName,
+			},
 		}
+		return nil
+	}
+}
+
+func (i deployAction) ensureInitContainer(instance *rhtasv1alpha1.Rekor, rekorServerHost string) func(*v1.Deployment) error {
+	return func(dp *v1.Deployment) error {
+		initContainer := kubernetes.FindInitContainerByNameOrCreate(&dp.Spec.Template.Spec, "wait-for-rekor-server")
+		initContainer.Image = images.Registry.Get(images.RekorMonitor)
+
+		initContainer.Command = []string{
+			"/bin/sh",
+			"-c",
+			fmt.Sprintf(`until curl -sf %s > /dev/null 2>&1; do echo 'Waiting for rekor-server to be ready...'; sleep 5; done`, rekorServerHost),
+		}
+
 		return nil
 	}
 }
