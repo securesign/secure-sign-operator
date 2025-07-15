@@ -2711,6 +2711,8 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              monitorpvcName:
+                type: string
               publicKeyRef:
                 description: |-
                   Reference to secret with Rekor's signer public key.

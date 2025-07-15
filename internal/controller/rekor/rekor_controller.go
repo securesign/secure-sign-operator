@@ -146,6 +146,7 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		backfillredis.NewBackfillRedisCronJobAction(),
 
+		monitor.NewCreatePvcAction(),
 		monitor.NewDeployAction(),
 		monitor.NewCreateServiceAction(),
 		monitor.NewCreateMonitorAction(),
