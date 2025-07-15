@@ -62,7 +62,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 			},
 		},
 		i.ensureMonitorDeployment(instance, actions.RBACName, labels, rekorServerHost),
-		i.ensureInitContainer(instance, rekorServerHost),
+		i.ensureInitContainer(rekorServerHost),
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
@@ -135,7 +135,7 @@ func (i deployAction) ensureMonitorDeployment(instance *rhtasv1alpha1.Rekor, sa 
 	}
 }
 
-func (i deployAction) ensureInitContainer(instance *rhtasv1alpha1.Rekor, rekorServerHost string) func(*v1.Deployment) error {
+func (i deployAction) ensureInitContainer(rekorServerHost string) func(*v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
 		initContainer := kubernetes.FindInitContainerByNameOrCreate(&dp.Spec.Template.Spec, "wait-for-rekor-server")
 		initContainer.Image = images.Registry.Get(images.RekorMonitor)
