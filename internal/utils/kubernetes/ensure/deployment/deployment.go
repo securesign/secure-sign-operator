@@ -17,9 +17,9 @@ func Proxy(noProxy ...string) func(*v1.Deployment) error {
 }
 
 // TrustedCA mount config map with trusted CA bundle to all deployment's containers.
-func TrustedCA(lor *v1alpha1.LocalObjectReference, containerNames ...string) func(dp *v1.Deployment) error {
+func TrustedCA(lor *v1alpha1.LocalObjectReference, containerName string, moreNames ...string) func(dp *v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
-		return tlsensure.TrustedCA(lor, containerNames...)(&dp.Spec.Template)
+		return tlsensure.TrustedCA(lor, containerName, moreNames...)(&dp.Spec.Template)
 	}
 }
 
