@@ -34,6 +34,9 @@ patches:
     path: patches/fulcio_descriptors.yaml
   - target:
       kind: ClusterServiceVersion
+    path: patches/rekor_descriptors.yaml
+  - target:
+      kind: ClusterServiceVersion
     path: patches/timestampauthority_descriptions.yaml
   - target:
       kind: ClusterServiceVersion

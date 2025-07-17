@@ -10,9 +10,9 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
-	commonutils "github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	v2 "k8s.io/api/apps/v1"
@@ -57,6 +57,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 			},
 		},
 		i.ensureUIDeployment(instance, actions.RBACUIName, labels),
+		deployment.PodRequirements(instance.Spec.RekorSearchUI.PodRequirements, actions.SearchUiDeploymentName),
 		ensure.ControllerReference[*v2.Deployment](instance, i.Client),
 		ensure.Labels[*v2.Deployment](slices.Collect(maps.Keys(labels)), labels),
 	); err != nil {
@@ -86,7 +87,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 func (i deployAction) ensureUIDeployment(instance *rhtasv1alpha1.Rekor, sa string, labels map[string]string) func(*v2.Deployment) error {
 	return func(dp *v2.Deployment) error {
 		spec := &dp.Spec
-		spec.Replicas = commonutils.Pointer[int32](1)
 		spec.Selector = &metav1.LabelSelector{
 			MatchLabels: labels,
 		}

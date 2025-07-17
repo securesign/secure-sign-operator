@@ -1,0 +1,71 @@
+# Rekor
+- op: add
+  path: "/spec/customresourcedefinitions/owned/2/specDescriptors"
+  value:
+    - description: The desired number of member Pods.
+      displayName: Replicas
+      path: rekorSearchUI.replicas
+      x-descriptors:
+        - 'urn:alm:descriptor:com.tectonic.ui:podCount'
+    - description: Limits describes the minimum/maximum amount of compute resources required/allowed
+      displayName: Resource Requirements
+      path: rekorSearchUI.resources
+      x-descriptors:
+        - 'urn:alm:descriptor:com.tectonic.ui:resourceRequirements'
+    - displayName: Node Affinity
+      description: Node affinity is a group of node affinity scheduling
+      path: rekorSearchUI.affinity.nodeAffinity
+      x-descriptors:
+        - 'urn:alm:descriptor:com.tectonic.ui:nodeAffinity'
+    - displayName: Pod Affinity
+      description: Pod affinity is a group of inter pod affinity scheduling rules.
+      path: rekorSearchUI.affinity.podAffinity
+      x-descriptors:
+        - 'urn:alm:descriptor:com.tectonic.ui:podAffinity'
+    - displayName: Pod Anti Affinity
+      description: Pod anti affinity is a group of inter pod anti affinity scheduling rules.
+      path: rekorSearchUI.affinity.podAntiAffinity
+      x-descriptors:
+        - 'urn:alm:descriptor:com.tectonic.ui:podAntiAffinity'
+
+# Securesign
+- op: add
+  path: "/spec/customresourcedefinitions/owned/3/specDescriptors/-"
+  value:
+    description: The desired number of member Pods.
+    displayName: Replicas
+    path: rekor.rekorSearchUI.replicas
+    x-descriptors:
+      - 'urn:alm:descriptor:com.tectonic.ui:podCount'
+- op: add
+  path: "/spec/customresourcedefinitions/owned/3/specDescriptors/-"
+  value:
+    description: Limits describes the minimum/maximum amount of compute resources required/allowed
+    displayName: Resource Requirements
+    path: rekor.rekorSearchUI.resources
+    x-descriptors:
+      - 'urn:alm:descriptor:com.tectonic.ui:resourceRequirements'
+- op: add
+  path: "/spec/customresourcedefinitions/owned/3/specDescriptors/-"
+  value:
+    displayName: Node Affinity
+    description: Node affinity is a group of node affinity scheduling
+    path: rekor.rekorSearchUI.affinity.nodeAffinity
+    x-descriptors:
+      - 'urn:alm:descriptor:com.tectonic.ui:nodeAffinity'
+- op: add
+  path: "/spec/customresourcedefinitions/owned/3/specDescriptors/-"
+  value:
+    displayName: Pod Affinity
+    description: Pod affinity is a group of inter pod affinity scheduling rules.
+    path: rekor.rekorSearchUI.affinity.podAffinity
+    x-descriptors:
+      - 'urn:alm:descriptor:com.tectonic.ui:podAffinity'
+- op: add
+  path: "/spec/customresourcedefinitions/owned/3/specDescriptors/-"
+  value:
+    displayName: Pod Anti Affinity
+    description: Pod anti affinity is a group of inter pod anti affinity scheduling rules.
+    path: rekor.rekorSearchUI.affinity.podAntiAffinity
+    x-descriptors:
+      - 'urn:alm:descriptor:com.tectonic.ui:podAntiAffinity'
