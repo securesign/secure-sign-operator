@@ -117,6 +117,7 @@ type RekorSigner struct {
 }
 
 type RekorSearchUI struct {
+	PodRequirements `json:",inline"`
 	// If set to true, the Operator will deploy a Rekor Search UI
 	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
 	//+kubebuilder:default:=true
