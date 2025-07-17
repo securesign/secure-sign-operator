@@ -10,7 +10,7 @@ const (
 	RedisDeploymentName        = "rekor-redis"
 	RedisDeploymentPortName    = "resp"
 	RedisDeploymentPort        = 6379
-	MonitorDeploymentName      = "rekor-monitor"
+	MonitorStatefulSetName     = "rekor-monitor"
 	SearchUiDeploymentName     = "rekor-search-ui"
 	SearchUiDeploymentPortName = "http"
 	SearchUiDeploymentPort     = 3000

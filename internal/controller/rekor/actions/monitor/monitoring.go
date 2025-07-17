@@ -97,7 +97,7 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Re
 		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create monitoring RoleBinding: %w", err)), instance)
 	}
 
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, kubernetes.CreateServiceMonitor(instance.Namespace, actions.MonitorDeploymentName),
+	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, kubernetes.CreateServiceMonitor(instance.Namespace, actions.MonitorStatefulSetName),
 		ensure.ControllerReference[*unstructured.Unstructured](instance, i.Client),
 		ensure.Labels[*unstructured.Unstructured](slices.Collect(maps.Keys(monitoringLabels)), monitoringLabels),
 		kubernetes.EnsureServiceMonitorSpec(
