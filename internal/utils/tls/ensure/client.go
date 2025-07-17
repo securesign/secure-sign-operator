@@ -13,8 +13,9 @@ import (
 func TrustedCA(lor *v1alpha1.LocalObjectReference, containerName string, moreNames ...string) func(template *corev1.PodTemplateSpec) error {
 	// NOTE: the "containerName" argument ensures that this function is never called with
 	return func(template *corev1.PodTemplateSpec) error {
+		containerNames := append(moreNames, containerName)
 		for i, c := range template.Spec.Containers {
-			if slices.Contains(append(moreNames, containerName), c.Name) {
+			if slices.Contains(containerNames, c.Name) {
 				env := kubernetes.FindEnvByNameOrCreate(&template.Spec.Containers[i], "SSL_CERT_DIR")
 				env.Value = tls.CATrustMountPath + ":/var/run/secrets/kubernetes.io/serviceaccount"
 
