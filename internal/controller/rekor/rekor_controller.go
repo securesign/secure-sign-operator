@@ -146,8 +146,7 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		backfillredis.NewBackfillRedisCronJobAction(),
 
-		monitor.NewCreatePvcAction(),
-		monitor.NewDeployAction(),
+		monitor.NewStatefulSetAction(),
 		monitor.NewCreateServiceAction(),
 		monitor.NewCreateMonitorAction(),
 
@@ -189,6 +188,7 @@ func (r *rekorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		WithEventFilter(pause).
 		For(&rhtasv1alpha1.Rekor{}).
 		Owns(&v12.Deployment{}).
+		Owns(&v12.StatefulSet{}).
 		Owns(&v13.Service{}).
 		Owns(&v1.Ingress{}).
 		Owns(&batchv1.CronJob{}).

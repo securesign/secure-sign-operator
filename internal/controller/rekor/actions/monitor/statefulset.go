@@ -7,7 +7,6 @@ import (
 	"slices"
 
 	"github.com/securesign/operator/internal/images"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
@@ -19,6 +18,7 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -27,24 +27,24 @@ import (
 
 const storageVolumeName = "monitor-storage"
 
-func NewDeployAction() action.Action[*rhtasv1alpha1.Rekor] {
-	return &deployAction{}
+func NewStatefulSetAction() action.Action[*rhtasv1alpha1.Rekor] {
+	return &statefulSetAction{}
 }
 
-type deployAction struct {
+type statefulSetAction struct {
 	action.BaseAction
 }
 
-func (i deployAction) Name() string {
-	return "deploy"
+func (i statefulSetAction) Name() string {
+	return "statefulset"
 }
 
-func (i deployAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
+func (i statefulSetAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
 	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && enabled(instance)
 }
 
-func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
+func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
 	var (
 		err    error
 		result controllerutil.OperationResult
@@ -52,22 +52,20 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 
 	rekorServerHost := fmt.Sprintf("http://%s.%s.svc", actions.ServerComponentName, instance.Namespace)
 
-	labels := labels.For(actions.MonitorComponentName, actions.MonitorDeploymentName, instance.Name)
-
+	labels := labels.For(actions.MonitorComponentName, actions.MonitorStatefulSetName, instance.Name)
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
-		&v1.Deployment{
+		&v1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      actions.MonitorDeploymentName,
+				Name:      actions.MonitorStatefulSetName,
 				Namespace: instance.Namespace,
 			},
 		},
-		i.ensureMonitorDeployment(instance, actions.RBACName, labels, rekorServerHost),
+		i.ensureMonitorStatefulSet(instance, actions.RBACName, labels, rekorServerHost),
 		i.ensureInitContainer(rekorServerHost),
-		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
-		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
-		deployment.Proxy(),
+		ensure.ControllerReference[*v1.StatefulSet](instance, i.Client),
+		ensure.Labels[*v1.StatefulSet](slices.Collect(maps.Keys(labels)), labels),
 	); err != nil {
-		return i.Error(ctx, fmt.Errorf("could not create %s deployment: %w", actions.MonitorDeploymentName, err), instance,
+		return i.Error(ctx, fmt.Errorf("could not create %s statefulset: %w", actions.MonitorStatefulSetName, err), instance,
 			metav1.Condition{
 				Type:    actions.MonitorCondition,
 				Status:  metav1.ConditionFalse,
@@ -84,17 +82,15 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 			Reason:  constants.Creating,
 			Message: "Monitor created",
 		})
-		return i.StatusUpdate(ctx, instance)
-	} else {
-		return i.Continue()
+		_ = i.StatusUpdate(ctx, instance)
 	}
-
+	return i.Continue()
 }
 
-func (i deployAction) ensureMonitorDeployment(instance *rhtasv1alpha1.Rekor, sa string, labels map[string]string, rekorServerHost string) func(*v1.Deployment) error {
-	return func(dp *v1.Deployment) error {
+func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1alpha1.Rekor, sa string, labels map[string]string, rekorServerHost string) func(*v1.StatefulSet) error {
+	return func(ss *v1.StatefulSet) error {
 
-		spec := &dp.Spec
+		spec := &ss.Spec
 		spec.Replicas = cutils.Pointer[int32](1)
 		spec.Selector = &metav1.LabelSelector{
 			MatchLabels: labels,
@@ -104,7 +100,7 @@ func (i deployAction) ensureMonitorDeployment(instance *rhtasv1alpha1.Rekor, sa 
 		template.Labels = labels
 		template.Spec.ServiceAccountName = sa
 
-		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, actions.MonitorDeploymentName)
+		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, actions.MonitorStatefulSetName)
 		container.Image = images.Registry.Get(images.RekorMonitor)
 
 		container.Command = []string{
@@ -125,19 +121,30 @@ func (i deployAction) ensureMonitorDeployment(instance *rhtasv1alpha1.Rekor, sa 
 		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, storageVolumeName)
 		volumeMount.MountPath = "/data"
 
-		volume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, storageVolumeName)
-		volume.VolumeSource = core.VolumeSource{
-			PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
-				ClaimName: instance.Status.MonitorPvcName,
+		spec.VolumeClaimTemplates = []core.PersistentVolumeClaim{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: storageVolumeName,
+				},
+				Spec: core.PersistentVolumeClaimSpec{
+					AccessModes: []core.PersistentVolumeAccessMode{
+						core.ReadWriteOnce,
+					},
+					Resources: core.VolumeResourceRequirements{
+						Requests: core.ResourceList{
+							core.ResourceStorage: resource.MustParse("5Mi"),
+						},
+					},
+				},
 			},
 		}
 		return nil
 	}
 }
 
-func (i deployAction) ensureInitContainer(rekorServerHost string) func(*v1.Deployment) error {
-	return func(dp *v1.Deployment) error {
-		initContainer := kubernetes.FindInitContainerByNameOrCreate(&dp.Spec.Template.Spec, "wait-for-rekor-server")
+func (i statefulSetAction) ensureInitContainer(rekorServerHost string) func(*v1.StatefulSet) error {
+	return func(ss *v1.StatefulSet) error {
+		initContainer := kubernetes.FindInitContainerByNameOrCreate(&ss.Spec.Template.Spec, "wait-for-rekor-server")
 		initContainer.Image = images.Registry.Get(images.RekorMonitor)
 
 		initContainer.Command = []string{

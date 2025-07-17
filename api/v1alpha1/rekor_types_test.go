@@ -149,6 +149,36 @@ var _ = Describe("Rekor", func() {
 			})
 		})
 
+		When("changing tlog monitoring setting", func() {
+			It("enabled false->true", func() {
+				created := generateRekorObject("rekor-tlog-monitoring-1")
+				created.Spec.Monitoring.TLog.Enabled = false
+				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
+
+				fetched := &Rekor{}
+				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+				Expect(fetched).To(Equal(created))
+
+				fetched.Spec.Monitoring.TLog.Enabled = true
+				Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
+			})
+
+			It("enabled true->false", func() {
+				created := generateRekorObject("rekor-tlog-monitoring-2")
+				created.Spec.Monitoring.TLog.Enabled = true
+				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
+
+				fetched := &Rekor{}
+				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+				Expect(fetched).To(Equal(created))
+
+				fetched.Spec.Monitoring.TLog.Enabled = false
+				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), fetched))).To(BeTrue())
+				Expect(k8sClient.Update(context.Background(), fetched)).
+					To(MatchError(ContainSubstring("Feature cannot be disabled")))
+			})
+		})
+
 		Context("is validated", func() {
 			It("cron syntax", func() {
 				invalidObject := generateRekorObject("backfill-schedule")
@@ -470,6 +500,9 @@ var _ = Describe("Rekor", func() {
 						Spec: RekorSpec{
 							Monitoring: MonitoringWithTLogConfig{
 								MonitoringConfig: MonitoringConfig{
+									Enabled: true,
+								},
+								TLog: TlogMonitoring{
 									Enabled: true,
 								},
 							},
