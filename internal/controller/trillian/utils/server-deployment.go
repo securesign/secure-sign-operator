@@ -38,7 +38,7 @@ func EnsureSignerDeployment(instance *v1alpha1.Trillian, labels map[string]strin
 			actions.LogsignerDeploymentName,
 			actions.RBACSignerName,
 			labels,
-			"--election_system=k8s", "--lock_namespace=$(NAMESPACE)", "--lock_holder_identity=$(POD_NAME)"),
+			"--election_system=k8s", "--lock_namespace=$(NAMESPACE)", "--lock_holder_identity=$(POD_NAME)", "--master_hold_interval=5s", "--master_hold_jitter=15s"),
 		ensureInitContainer(instance),
 		ensureProbes(actions.LogsignerDeploymentName),
 		deployment.PodRequirements(instance.Spec.LogSigner.PodRequirements, actions.LogsignerDeploymentName),
