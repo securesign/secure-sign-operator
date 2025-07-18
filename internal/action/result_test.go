@@ -37,17 +37,17 @@ func TestIsContinue(t *testing.T) {
 		{
 			name: "requeue",
 			want: false,
-			arg:  &Result{Result: reconcile.Result{Requeue: true}},
+			arg:  &Result{Result: reconcile.Result{Requeue: true}}, //nolint: staticcheck // We have to handle it until it is removed
 		},
 		{
 			name: "requeue after",
 			want: false,
-			arg:  &Result{Result: reconcile.Result{Requeue: false, RequeueAfter: 5 * time.Second}},
+			arg:  &Result{Result: reconcile.Result{RequeueAfter: 5 * time.Second}},
 		},
 		{
 			name: "requeue error",
 			want: false,
-			arg:  &Result{Result: reconcile.Result{Requeue: true}, Err: errors.New("error")},
+			arg:  &Result{Result: reconcile.Result{RequeueAfter: time.Second}, Err: errors.New("error")},
 		},
 	}
 	for _, tt := range tests {
@@ -88,17 +88,17 @@ func TestIsError(t *testing.T) {
 		{
 			name: "requeue",
 			want: false,
-			arg:  &Result{Result: reconcile.Result{Requeue: true}},
+			arg:  &Result{Result: reconcile.Result{Requeue: true}}, //nolint: staticcheck // We have to handle it until it is removed
 		},
 		{
 			name: "requeue after",
 			want: false,
-			arg:  &Result{Result: reconcile.Result{Requeue: false, RequeueAfter: 5 * time.Second}},
+			arg:  &Result{Result: reconcile.Result{RequeueAfter: 5 * time.Second}},
 		},
 		{
 			name: "requeue error",
 			want: true,
-			arg:  &Result{Result: reconcile.Result{Requeue: true}, Err: errors.New("error")},
+			arg:  &Result{Result: reconcile.Result{RequeueAfter: time.Second}, Err: errors.New("error")},
 		},
 	}
 	for _, tt := range tests {
@@ -139,17 +139,17 @@ func TestIsRequeue(t *testing.T) {
 		{
 			name: "requeue",
 			want: true,
-			arg:  &Result{Result: reconcile.Result{Requeue: true}},
+			arg:  &Result{Result: reconcile.Result{Requeue: true}}, //nolint: staticcheck // We have to handle it until it is removed
 		},
 		{
 			name: "requeue after",
 			want: true,
-			arg:  &Result{Result: reconcile.Result{Requeue: false, RequeueAfter: 5 * time.Second}},
+			arg:  &Result{Result: reconcile.Result{RequeueAfter: 5 * time.Second}},
 		},
 		{
 			name: "requeue error",
-			want: true,
-			arg:  &Result{Result: reconcile.Result{Requeue: true}, Err: errors.New("error")},
+			want: false,
+			arg:  &Result{Result: reconcile.Result{RequeueAfter: time.Second}, Err: errors.New("error")},
 		},
 	}
 	for _, tt := range tests {
@@ -190,17 +190,17 @@ func TestIsReturn(t *testing.T) {
 		{
 			name: "requeue",
 			want: false,
-			arg:  &Result{Result: reconcile.Result{Requeue: true}},
+			arg:  &Result{Result: reconcile.Result{Requeue: true}}, //nolint: staticcheck // We have to handle it until it is removed
 		},
 		{
 			name: "requeue after",
 			want: false,
-			arg:  &Result{Result: reconcile.Result{Requeue: false, RequeueAfter: 5 * time.Second}},
+			arg:  &Result{Result: reconcile.Result{RequeueAfter: 5 * time.Second}},
 		},
 		{
 			name: "requeue error",
 			want: false,
-			arg:  &Result{Result: reconcile.Result{Requeue: true}, Err: errors.New("error")},
+			arg:  &Result{Result: reconcile.Result{RequeueAfter: time.Second}, Err: errors.New("error")},
 		},
 	}
 	for _, tt := range tests {
@@ -241,17 +241,17 @@ func TestIsSuccess(t *testing.T) {
 		{
 			name: "requeue",
 			want: false,
-			arg:  &Result{Result: reconcile.Result{Requeue: true}},
+			arg:  &Result{Result: reconcile.Result{Requeue: true}}, //nolint: staticcheck // We have to handle it until it is removed
 		},
 		{
 			name: "requeue after",
 			want: false,
-			arg:  &Result{Result: reconcile.Result{Requeue: false, RequeueAfter: 5 * time.Second}},
+			arg:  &Result{Result: reconcile.Result{RequeueAfter: 5 * time.Second}},
 		},
 		{
 			name: "requeue error",
 			want: false,
-			arg:  &Result{Result: reconcile.Result{Requeue: true}, Err: errors.New("error")},
+			arg:  &Result{Result: reconcile.Result{RequeueAfter: time.Second}, Err: errors.New("error")},
 		},
 	}
 	for _, tt := range tests {

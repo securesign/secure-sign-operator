@@ -97,7 +97,7 @@ func (action *BaseAction) Error(ctx context.Context, err error, instance apis.Co
 
 func (action *BaseAction) Return() *Result {
 	return &Result{
-		Result: reconcile.Result{Requeue: false},
+		Result: reconcile.Result{},
 		Err:    nil,
 	}
 }
