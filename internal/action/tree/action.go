@@ -234,7 +234,7 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 		ensure.ControllerReference[*batchv1.Job](instance, i.Client),
 		ensure.Labels[*batchv1.Job](slices.Collect(maps.Keys(labels)), labels),
 		func(object *batchv1.Job) error {
-			return ensureTls.TrustedCA(instance.GetTrustedCA())(&object.Spec.Template)
+			return ensureTls.TrustedCA(instance.GetTrustedCA(), createTreeContainerName)(&object.Spec.Template)
 		},
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create segment backup job: %w", err), instance,
@@ -367,7 +367,7 @@ func (i resolveTree[T]) ensureJob(cfgName, adminServer, displayName string, extr
 		templateSpec.ServiceAccountName = fmt.Sprintf(RBACNameMask, i.component)
 		templateSpec.RestartPolicy = "OnFailure"
 
-		container := kubernetes.FindContainerByNameOrCreate(templateSpec, "createtree")
+		container := kubernetes.FindContainerByNameOrCreate(templateSpec, createTreeContainerName)
 		container.Image = images.Registry.Get(images.TrillianCreateTree)
 		container.Command = []string{"/bin/sh", "-c"}
 		container.Args = []string{string(jobScript)}

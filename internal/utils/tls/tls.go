@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"path/filepath"
 	"slices"
 
 	"github.com/securesign/operator/internal/apis"
@@ -28,7 +29,7 @@ func CAPath(ctx context.Context, cli client.Client, instance objectWithTlsClient
 			err = fmt.Errorf("%s ConfigMap can contain only 1 record", lor.Name)
 			return "", err
 		}
-		return CATrustMountPath + slices.Collect(maps.Keys(cfgTrust.Data))[0], nil
+		return filepath.Join(CATrustMountPath, slices.Collect(maps.Keys(cfgTrust.Data))[0]), nil
 	case kubernetes.IsOpenShift():
 		return "/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt", nil
 	default:
