@@ -26,5 +26,8 @@ func IsRequeue(result *Result) bool {
 	if result == nil {
 		return false
 	}
-	return result.Result.Requeue || result.Result.RequeueAfter > 0
+	if result.Err != nil {
+		return false
+	}
+	return result.Result.Requeue || result.Result.RequeueAfter > 0 //nolint: staticcheck // We have to handle it until it is removed
 }
