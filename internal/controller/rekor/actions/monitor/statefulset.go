@@ -103,11 +103,27 @@ func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1alpha1.Reko
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, actions.MonitorStatefulSetName)
 		container.Image = images.Registry.Get(images.RekorMonitor)
 
+		interval := instance.Spec.Monitoring.TLog.Interval.Duration
+		backgroundSleep := interval / 2
 		container.Command = []string{
 			"/bin/sh",
 			"-c",
-			fmt.Sprintf("exec /rekor_monitor --file=/data/checkpoint_log.txt --once=false --interval=%s --url=%s",
-				instance.Spec.Monitoring.TLog.Interval.Duration.String(), rekorServerHost),
+			fmt.Sprintf(`(
+  while true; do
+    if [ -s /data/checkpoint_log.txt ]; then
+      tree_size=$(echo -e "$(cat /data/checkpoint_log.txt)" | sed -n '2p')
+      if [ "$tree_size" = "0" ]; then
+        echo "TreeSize is 0, resetting checkpoint log file"
+        > /data/checkpoint_log.txt
+      elif [ -n "$tree_size" ]; then
+        break
+      fi
+    fi
+    sleep %.0f
+  done
+) &
+exec /rekor_monitor --file=/data/checkpoint_log.txt --once=false --interval=%s --url=%s
+`, backgroundSleep.Seconds(), interval.String(), rekorServerHost),
 		}
 
 		container.Ports = []core.ContainerPort{
