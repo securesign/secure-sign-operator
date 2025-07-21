@@ -25,6 +25,7 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // SecuresignSpec defines the desired state of Securesign
+// +kubebuilder:validation:XValidation:rule="(has(self.rekor.attestations.enabled) && !self.rekor.attestations.enabled) || !self.rekor.attestations.url.startsWith('file://') || (!(self.rekor.replicas > 1) || ('ReadWriteMany' in self.rekor.pvc.accessModes))",message="When Rekor's rich attestation storage is enabled, and it's URL starts with 'file://', then PVC accessModes must contain 'ReadWriteMany' for replicas greater than 1."
 // +kubebuilder:validation:XValidation:rule="!(self.tuf.replicas > 1) || ('ReadWriteMany' in self.tuf.pvc.accessModes)",message="For TUF deployments with more than 1 replica, tuf.pvc.accessModes must include 'ReadWriteMany'."
 type SecuresignSpec struct {
 	Rekor    RekorSpec    `json:"rekor,omitempty"`

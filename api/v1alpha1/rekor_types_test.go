@@ -384,6 +384,49 @@ var _ = Describe("Rekor", func() {
 			})
 		})
 
+		DescribeTable("replicas conditions",
+			func(replicas *int32, attestationEnabled *bool, attestationUrl string, pvcAccessModes []PersistentVolumeAccessMode, isValid bool) {
+				object := generateRekorObject("")
+				object.GenerateName = "replicas-conditions-"
+				object.Spec.Replicas = replicas
+				object.Spec.Attestations.Enabled = attestationEnabled
+				object.Spec.Attestations.Url = attestationUrl
+				object.Spec.Pvc.AccessModes = pvcAccessModes
+
+				if isValid {
+					Expect(k8sClient.Create(context.Background(), object)).To(Succeed())
+				} else {
+					Expect(k8sClient.Create(context.Background(), object)).To(MatchError(ContainSubstring("'ReadWriteMany' for replicas greater than 1")))
+				}
+
+			},
+			Entry(nil, nil, nil, "mem://", []PersistentVolumeAccessMode{"ReadWriteOnce"}, true),
+			Entry(nil, nil, nil, "file:///var/run/attestations", []PersistentVolumeAccessMode{"ReadWriteOnce"}, true),
+			Entry(nil, nil, ptr.To(true), "file:///var/run/attestations", []PersistentVolumeAccessMode{}, true),
+			Entry(nil, nil, ptr.To(true), "mem://", []PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}, true),
+			Entry(nil, nil, ptr.To(false), "file:///var/run/attestations", []PersistentVolumeAccessMode{"ReadWriteMany"}, true),
+
+			Entry(nil, ptr.To(int32(0)), ptr.To(false), "file:///var/run/attestations", []PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}, true),
+			Entry(nil, ptr.To(int32(0)), nil, "mem://", []PersistentVolumeAccessMode{}, true),
+			Entry(nil, ptr.To(int32(0)), ptr.To(true), "mem://", []PersistentVolumeAccessMode{"ReadWriteOnce"}, true),
+			Entry(nil, ptr.To(int32(0)), nil, "file:///var/run/attestations", []PersistentVolumeAccessMode{"ReadWriteMany"}, true),
+
+			Entry(nil, ptr.To(int32(1)), ptr.To(false), "mem://", []PersistentVolumeAccessMode{"ReadWriteOnce"}, true),
+			Entry(nil, ptr.To(int32(1)), ptr.To(true), "file:///var/run/attestations", []PersistentVolumeAccessMode{"ReadWriteMany"}, true),
+			Entry(nil, ptr.To(int32(1)), nil, "file:///var/run/attestations", []PersistentVolumeAccessMode{}, true),
+			Entry(nil, ptr.To(int32(1)), nil, "file:///var/run/attestations", []PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}, true),
+
+			Entry(nil, ptr.To(int32(2)), ptr.To(true), "file:///var/run/attestations", []PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}, true),
+			Entry(nil, ptr.To(int32(2)), nil, "mem://", []PersistentVolumeAccessMode{"ReadWriteMany"}, true),
+			Entry(nil, ptr.To(int32(2)), ptr.To(false), "mem://", []PersistentVolumeAccessMode{}, true),
+			Entry(nil, ptr.To(int32(2)), ptr.To(true), "mem://", []PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}, true),
+
+			// not valid scenarios
+			Entry(nil, ptr.To(int32(2)), ptr.To(true), "file:///var/run/attestations", []PersistentVolumeAccessMode{"ReadWriteOnce"}, false),
+			Entry(nil, ptr.To(int32(2)), nil, "file:///var/run/attestations", []PersistentVolumeAccessMode{"ReadWriteOnce"}, false),
+			Entry(nil, ptr.To(int32(2)), ptr.To(true), "file:///var/run/attestations", []PersistentVolumeAccessMode{}, false),
+		)
+
 		Context("Default settings", func() {
 			var (
 				rekorInstance         Rekor
