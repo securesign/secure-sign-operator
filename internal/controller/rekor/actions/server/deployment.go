@@ -74,6 +74,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 			},
 		},
 		i.ensureServerDeployment(insCopy, actions.RBACName, labels),
+		deployment.PodRequirements(insCopy.Spec.PodRequirements, actions.ServerDeploymentName),
 		i.ensureAttestation(insCopy),
 		ensure.ControllerReference[*v2.Deployment](instance, i.Client),
 		ensure.Labels[*v2.Deployment](slices.Collect(maps.Keys(labels)), labels),
@@ -116,7 +117,6 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 		}
 
 		spec := &dp.Spec
-		spec.Replicas = utils2.Pointer[int32](1)
 		spec.Strategy = v2.DeploymentStrategy{
 			Type: "Recreate",
 		}

@@ -11,6 +11,7 @@ import (
 
 // RekorSpec defines the desired state of Rekor
 type RekorSpec struct {
+	PodRequirements `json:",inline"`
 	// ID of Merkle tree in Trillian backend
 	// If it is unset, the operator will create new Merkle tree in the Trillian backend
 	//+optional
@@ -208,6 +209,7 @@ type RekorStatus struct {
 //+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
 
 // Rekor is the Schema for the rekors API
+// +kubebuilder:validation:XValidation:rule="(has(self.spec.attestations.enabled) && !self.spec.attestations.enabled) || !self.spec.attestations.url.startsWith('file://') || (!(self.spec.replicas > 1) || ('ReadWriteMany' in self.spec.pvc.accessModes))",message="When rich attestation storage is enabled, and it's URL starts with 'file://', then PVC accessModes must contain 'ReadWriteMany' for replicas greater than 1."
 type Rekor struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
