@@ -114,6 +114,7 @@ jobs:
       - name: Build catalog
         run: |
           cd fbc
+          cp v4.14/rhtas-operator/catalog.Dockerfile v4.14
           chmod +x ./generate-fbc.sh && OPM_CMD=${{ env.OPM }} ./generate-fbc.sh --init-basic v4.14 jq
           cat << EOF >> v4.14/graph.json
           {
@@ -124,9 +125,9 @@ jobs:
           #TODO: versions needs to be maintained - try to eliminate
           cat <<< $(jq  'select(.schema == "olm.channel" and .name == "stable").entries += [{"name":"rhtas-operator.v1.3.0", "replaces": "${{ vars.LATEST_OLM_CHANNEL }}"}]' v4.14/graph.json) > v4.14/graph.json
           cat v4.14/graph.json
-          ${{ env.OPM }} alpha render-template basic v4.14/graph.json > v4.14/catalog/rhtas-operator/catalog.json
-          ${{ env.OPM }} validate v4.14/catalog/rhtas-operator
-          podman build v4.14 -f v4.14/catalog.Dockerfile -t $CATALOG_IMG
+          ${{ env.OPM }} alpha render-template basic v4.14/graph.json > v4.14/rhtas-operator/catalog/rhtas-operator/catalog.json
+          ${{ env.OPM }} validate v4.14/rhtas-operator/catalog/rhtas-operator
+          podman build v4.14/rhtas-operator -f v4.14/rhtas-operator/catalog.Dockerfile -t $CATALOG_IMG
           podman push $CATALOG_IMG
 
       - name: Save container image
