@@ -27,10 +27,10 @@ runs:
   using: 'composite'
   steps:
     - name: Install Cluster
-      uses: container-tools/kind-action@v2.0.1
+      uses: container-tools/kind-action@v2.0.4
       with:
-        version: v0.20.0
-        node_image: kindest/node:v1.26.6@sha256:6e2d8b28a5b601defe327b98bd1c2d1930b49e5d8c512e1895099e4504007adb
+        version: v0.29.0
+        node_image: kindest/node:v1.33.2@sha256:c55080dc5be4f2cc242e6966fdf97bb62282e1cd818a28223cf536db8b0fddf4
         cpu: 3
         registry: false
         config: ${{ inputs.config }}
@@ -38,26 +38,35 @@ runs:
     - name: Configure ingress
       shell: bash
       run: |
-        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.13.0/deploy/static/provider/kind/deploy.yaml
         kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
     - name: Install prometheus
       if: ${{ inputs.prometheus == 'true'}}
       shell: bash
       run: |
-        #install Prometheus
-        LATEST=$(curl -s https://api.github.com/repos/prometheus-operator/prometheus-operator/releases/latest | jq -cr .tag_name)
-        curl -sL https://github.com/prometheus-operator/prometheus-operator/releases/download/${LATEST}/bundle.yaml | kubectl create -f -
-        kubectl wait --for=condition=Ready pods -l  app.kubernetes.io/name=prometheus-operator -n default
+        # Download the bundle.yaml
+        curl -sL https://github.com/prometheus-operator/prometheus-operator/releases/download/v0.84.0/bundle.yaml -o bundle.yaml 
+        
+        # Check if the download was successful and the file is not empty
+        if [ ! -s "bundle.yaml" ]; then
+          echo "Error: Downloaded bundle.yaml is empty or failed to download."
+          exit 1
+        fi
+        
+        kubectl create -f bundle.yaml 
+
+        echo "Waiting for prometheus-operator pod to be ready..."
+        kubectl wait --for=condition=Ready pods -l  app.kubernetes.io/name=prometheus-operator -n default --timeout=90s
 
     - name: Install olm
       if: ${{ inputs.olm  == 'true'}}
       shell: bash
       run: |
         #install OLM
-        kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.25.0/crds.yaml
+        kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.32.0/crds.yaml
         # wait for a while to be sure CRDs are installed
         sleep 1
-        kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.25.0/olm.yaml
+        kubectl create -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.32.0/olm.yaml
 
     - name: Install keycloak
       if: ${{ inputs.keycloak  == 'true'}}
