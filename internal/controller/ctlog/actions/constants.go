@@ -28,6 +28,7 @@ const (
 	privateKeyRefAnnotation  = labels.LabelNamespace + "/privateKeyRef"
 	passwordKeyRefAnnotation = labels.LabelNamespace + "/passwordKeyRef"
 
+	// maxCertificateSize limits certificate size to 50 KiB
 	maxCertificateSize = 50 * 1024
 )
 
