@@ -1,0 +1,35 @@
+name: Pruner
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *" # run every day at midnight
+
+jobs:
+  clean-image-registry:
+    runs-on: ubuntu-latest
+    name: Delete old dev images
+    steps:
+      - uses: snok/container-retention-policy@v3.0.0
+        with:
+          account: securesign
+          token: ${{ secrets.GITHUB_TOKEN }}
+          image-names: "secure-sign-operator"
+          image-tags: "dev-*"
+          cut-off: 3d
+          dry-run: false
+      - uses: snok/container-retention-policy@v3.0.0
+        with:
+          account: securesign
+          token: ${{ secrets.GITHUB_TOKEN }}
+          image-names: "secure-sign-operator-bundle"
+          image-tags: "dev-*"
+          cut-off: 3d
+          dry-run: false
+      - uses: snok/container-retention-policy@v3.0.0
+        with:
+          account: securesign
+          token: ${{ secrets.GITHUB_TOKEN }}
+          image-names: "secure-sign-operator-fbc"
+          image-tags: "dev-*"
+          cut-off: 3d
+          dry-run: false
