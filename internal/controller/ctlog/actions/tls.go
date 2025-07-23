@@ -32,7 +32,7 @@ func (i tlsAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) *a
 	// TLS
 	switch {
 	case instance.Spec.TLS.CertRef != nil:
-		instance.Status.TLS.CertRef = instance.Spec.TLS.CertRef
+		instance.Status.TLS = instance.Spec.TLS
 	case kubernetes.IsOpenShift():
 		instance.Status.TLS = rhtasv1alpha1.TLS{
 			CertRef: &rhtasv1alpha1.SecretKeySelector{
