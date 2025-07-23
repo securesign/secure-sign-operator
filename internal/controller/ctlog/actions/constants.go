@@ -27,6 +27,8 @@ const (
 
 	privateKeyRefAnnotation  = labels.LabelNamespace + "/privateKeyRef"
 	passwordKeyRefAnnotation = labels.LabelNamespace + "/passwordKeyRef"
+
+	maxCertificateSize = 50 * 1024
 )
 
 var (

@@ -24,6 +24,7 @@ import (
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -78,7 +79,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		deployment.PodRequirements(instance.Spec.PodRequirements, containerName),
 		ensure.Optional(
 			utils.TlsEnabled(instance),
-			i.ensureTLS(instance.Status.TLS, containerName),
+			i.ensureTLS(ctx, instance.Status.TLS, containerName),
 		),
 		ensure.Optional(tls.UseTlsClient(instance), i.ensureTlsTrillian(ctx, instance)),
 	); err != nil {
@@ -196,8 +197,26 @@ func (i deployAction) ensureTlsTrillian(ctx context.Context, instance *rhtasv1al
 	}
 }
 
-func (i deployAction) ensureTLS(tlsConfig rhtasv1alpha1.TLS, name string) func(deployment *v1.Deployment) error {
+func (i deployAction) ensureTLS(ctx context.Context, tlsConfig rhtasv1alpha1.TLS, name string) func(deployment *v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
+		// Validate TLS certificate size
+		if tlsConfig.CertRef != nil {
+			var secret core.Secret
+			err := i.Client.Get(ctx, types.NamespacedName{
+				Name:      tlsConfig.CertRef.Name,
+				Namespace: dp.Namespace,
+			}, &secret)
+			if err != nil {
+				return fmt.Errorf("failed to fetch certificate secret %q: %w", tlsConfig.CertRef.Name, err)
+			}
+			certData, ok := secret.Data[tlsConfig.CertRef.Key]
+			if !ok {
+				return fmt.Errorf("key %q not found in secret %q", tlsConfig.CertRef.Key, tlsConfig.CertRef.Name)
+			}
+			if len(certData) > maxCertificateSize {
+				return fmt.Errorf("TLS certificate exceeds maximum allowed size of %d bytes (got %d bytes)", maxCertificateSize, len(certData))
+			}
+		}
 		if err := deployment.TLS(tlsConfig, name)(dp); err != nil {
 			return err
 		}

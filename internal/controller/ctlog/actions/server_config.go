@@ -226,6 +226,9 @@ func (i serverConfig) handleRootCertificates(instance *rhtasv1alpha1.CTlog) ([]c
 		if err != nil {
 			return nil, fmt.Errorf("%s/%s: %w", selector.Name, selector.Key, err)
 		}
+		if len(data) > maxCertificateSize {
+			return nil, fmt.Errorf("root certificate exceeds maximum allowed size of %d bytes (got %d bytes)", maxCertificateSize, len(data))
+		}
 		certs = append(certs, data)
 	}
 
