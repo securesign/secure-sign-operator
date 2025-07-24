@@ -24,7 +24,7 @@ make deploy IMG=<some-registry>/operator:tag
 NOTE: You will need an OIDC provider. This can be Amazon or Keycloak for example.
 
 ```sh
-kubectl apply -f config/samples/rhtas_v1alpha1_securesign.yaml
+kubectl apply -f config/samples/rhtas_v1alpha1_securesign.yaml -n openshift-rhtas-operator
 ```
 
 4. The components have now been deployed to the Kubernetes cluster and available to be used with Cosign and Tekton chains to sign artifacts.
