@@ -122,7 +122,7 @@ func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1alpha1.Reko
     sleep %.0f
   done
 ) &
-exec /rekor_monitor --file=/data/checkpoint_log.txt --once=false --interval=%s --url=%s
+/rekor_monitor --file=/data/checkpoint_log.txt --once=false --interval=%s --url=%s
 `, backgroundSleep.Seconds(), interval.String(), rekorServerHost),
 		}
 
