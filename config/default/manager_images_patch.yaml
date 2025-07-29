@@ -20,6 +20,8 @@ spec:
               value: PLACEHOLDER
             - name: RELATED_IMAGE_FULCIO_SERVER
               value: PLACEHOLDER
+            - name: RELATED_IMAGE_REKOR_MONITOR
+              value: PLACEHOLDER
             - name: RELATED_IMAGE_REKOR_REDIS
               value: PLACEHOLDER
             - name: RELATED_IMAGE_REKOR_SERVER

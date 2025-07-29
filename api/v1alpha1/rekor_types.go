@@ -22,7 +22,7 @@ type RekorSpec struct {
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
 	//Enable Service monitors for rekor
-	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
+	Monitoring MonitoringWithTLogConfig `json:"monitoring,omitempty"`
 	// Rekor Search UI
 	//+kubebuilder:default:={enabled: true}
 	RekorSearchUI RekorSearchUI `json:"rekorSearchUI,omitempty"`
@@ -190,6 +190,7 @@ type RekorStatus struct {
 	Signer           RekorSigner           `json:"signer,omitempty"`
 	SearchIndex      SearchIndexStatus     `json:"searchIndex,omitempty"`
 	PvcName          string                `json:"pvcName,omitempty"`
+	MonitorPvcName   string                `json:"monitorpvcName,omitempty"`
 	Url              string                `json:"url,omitempty"`
 	RekorSearchUIUrl string                `json:"rekorSearchUIUrl,omitempty"`
 	// The ID of a Trillian tree that stores the log data.
