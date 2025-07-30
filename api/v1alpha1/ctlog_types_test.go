@@ -214,6 +214,7 @@ func generateCTlogObject(name string) *CTlog {
 			Trillian: TrillianService{
 				Port: ptr.To(int32(8091)),
 			},
+			MaxCertChainSize: ptr.To(int64(153600)),
 		},
 	}
 }
