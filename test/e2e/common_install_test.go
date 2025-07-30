@@ -68,6 +68,10 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 					RekorSearchUI: v1alpha1.RekorSearchUI{
 						Enabled: utils.Pointer(true),
 					},
+					Attestations: v1alpha1.RekorAttestations{
+						// cover SECURESIGN-2694
+						Enabled: ptr.To(false),
+					},
 				},
 				Fulcio: v1alpha1.FulcioSpec{
 					ExternalAccess: v1alpha1.ExternalAccess{

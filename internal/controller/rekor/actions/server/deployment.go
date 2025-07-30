@@ -138,7 +138,8 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 			"--trillian_log_server.sharding_config", "/sharding/sharding-config.yaml",
 
 			"--rekor_server.address", "0.0.0.0",
-			"--enable_retrieve_api", "true",
+			// boolean flag MUST be without parameter (default value) or use the equal sign (https://github.com/spf13/pflag?tab=readme-ov-file#command-line-flag-syntax)
+			"--enable_retrieve_api=true",
 			"--trillian_log_server.tlog_id", strconv.FormatInt(*instance.Status.TreeID, 10),
 			"--log_type", utils2.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod)),
 		}
@@ -239,8 +240,8 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 func (i deployAction) ensureTlsTrillian() func(*v2.Deployment) error {
 	return func(dp *v2.Deployment) error {
 		container := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, actions.ServerDeploymentName)
-
-		container.Args = append(container.Args, "--trillian_log_server.tls", "true")
+		// boolean flag MUST be without parameter (default value) or use the equal sign (https://github.com/spf13/pflag?tab=readme-ov-file#command-line-flag-syntax)
+		container.Args = append(container.Args, "--trillian_log_server.tls=true")
 		return nil
 	}
 }
@@ -251,7 +252,8 @@ func (i deployAction) ensureAttestation(instance *rhtasv1alpha1.Rekor) func(*v2.
 		container := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, actions.ServerDeploymentName)
 		enabled := ptr.Deref(instance.Spec.Attestations.Enabled, false)
 
-		container.Args = append(container.Args, "--enable_attestation_storage", strconv.FormatBool(enabled))
+		// boolean flag MUST be without parameter (default value) or use the equal sign (https://github.com/spf13/pflag?tab=readme-ov-file#command-line-flag-syntax)
+		container.Args = append(container.Args, fmt.Sprintf("--enable_attestation_storage=%t", enabled))
 
 		bucketUrl := instance.Spec.Attestations.Url
 		if bucketUrl == "" {
@@ -302,7 +304,8 @@ func ensureRedisParams() func(*redis.RedisOptions, *v1.Container) {
 			container.Args = append(container.Args, "--redis_server.password", options.Password)
 		}
 		if options.TlsEnabled {
-			container.Args = append(container.Args, "--redis_server.enable-tls", "true")
+			// boolean flag MUST be without parameter (default value) or use the equal sign (https://github.com/spf13/pflag?tab=readme-ov-file#command-line-flag-syntax)
+			container.Args = append(container.Args, "--redis_server.enable-tls=true")
 		}
 	}
 }
