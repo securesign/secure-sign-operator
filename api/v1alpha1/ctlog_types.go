@@ -53,6 +53,11 @@ type CTlogSpec struct {
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
 	//+optional
 	TLS TLS `json:"tls,omitempty"`
+
+	// Max certificate chain size in bytes. Passed as --max_cert_chain_size.
+	//+kubebuilder:default:=153600
+	//+optional
+	MaxCertChainSize *int64 `json:"maxCertChainSize,omitempty"`
 }
 
 // CTlogStatus defines the observed state of CTlog component

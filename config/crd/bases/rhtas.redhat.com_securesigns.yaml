@@ -978,6 +978,11 @@ spec:
                             x-kubernetes-list-type: atomic
                         type: object
                     type: object
+                  maxCertChainSize:
+                    default: 153600
+                    description: Max certificate chain size in bytes. Passed as --max_cert_chain_size.
+                    format: int64
+                    type: integer
                   monitoring:
                     description: Enable Service monitors for ctlog
                     properties:
