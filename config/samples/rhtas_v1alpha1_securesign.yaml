@@ -47,7 +47,7 @@ spec:
         - ReadWriteOnce
       retain: true
       size: 100Mi
-  ctlog:
+  ctlog: {}
   tsa:
     externalAccess:
       enabled: true
