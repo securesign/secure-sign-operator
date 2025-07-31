@@ -100,6 +100,16 @@ rules:
   - update
   - watch
 - apiGroups:
+  - config.openshift.io
+  resourceNames:
+  - cluster
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - console.openshift.io
   resources:
   - consoleclidownloads
@@ -161,18 +171,6 @@ rules:
   verbs:
   - get
   - list
-- apiGroups:
-  - operator.openshift.io
-  resources:
-  - ingresscontrollers
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
