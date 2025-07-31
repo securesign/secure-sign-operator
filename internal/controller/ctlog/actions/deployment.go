@@ -149,7 +149,9 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.CTlog, sa string,
 		}
 
 		container.Args = appArgs
-		container.Args = append(container.Args, "--max_cert_chain_size", fmt.Sprintf("%d", *instance.Spec.MaxCertChainSize))
+		if instance.Spec.MaxCertChainSize != nil {
+			container.Args = append(container.Args, "--max_cert_chain_size", fmt.Sprintf("%d", *instance.Spec.MaxCertChainSize))
+		}
 
 		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, volumeName)
 		volumeMount.MountPath = "/ctfe-keys"
