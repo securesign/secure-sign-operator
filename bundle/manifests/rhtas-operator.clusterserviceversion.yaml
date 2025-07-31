@@ -296,8 +296,8 @@ metadata:
         }
       ]
     capabilities: Seamless Upgrades
-    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:c3001bcce0699442dc7b099009a8d521ebbe84efdee02b8bb1817355ad3bd772
-    createdAt: "2025-07-24T10:12:34Z"
+    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:f5759e34aa28d820ba26720f9c41e1ec5c3e96a1696796ffd84b0617d8fbd2a1
+    createdAt: "2025-07-31T07:18:23Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -634,36 +634,36 @@ spec:
                 - name: OPENSHIFT
                   value: "true"
                 - name: RELATED_IMAGE_TRILLIAN_LOG_SIGNER
-                  value: registry.redhat.io/rhtas/trillian-logsigner-rhel9@sha256:d489f3d9477ebe87a517ed552006dad835d0acead28f336ff0bbdd9708cd8ad6
+                  value: registry.redhat.io/rhtas/trillian-logsigner-rhel9@sha256:dc270005a2bf00b9597de8fe910c0c61b5352107865747fae304ebfba19e7b61
                 - name: RELATED_IMAGE_TRILLIAN_LOG_SERVER
-                  value: registry.redhat.io/rhtas/trillian-logserver-rhel9@sha256:b2175b4f0d66342849a445c1f7dd2acdd075f8be8f245dd99e8d26ef31bd4dff
+                  value: registry.redhat.io/rhtas/trillian-logserver-rhel9@sha256:322778779d0ec7f4e5d8eb26e42bcdbb970506b357cbdeb20d228c960b22e8ce
                 - name: RELATED_IMAGE_TRILLIAN_DB
-                  value: registry.redhat.io/rhtas/trillian-database-rhel9@sha256:2c2dc6f064be4dd4d579f6707da668fbf6b1adf8cd281e2afc2198a7a04bdf61
+                  value: registry.redhat.io/rhtas/trillian-database-rhel9@sha256:b64d8dd11e999f014de08a823a6a08ceca5a124af9184f30dea10bffa0cbfc7f
                 - name: RELATED_IMAGE_TRILLIAN_NETCAT
-                  value: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:9e7026201d7758d1bd2d8fcfa5bd987b46c2b39edb6641b73b0c40065dacfeb5
+                  value: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:c55fb00d8e74eb79cfa51a9fb52c1d7ca1d68b04e27336e1f35a35502e8dc7c6
                 - name: RELATED_IMAGE_FULCIO_SERVER
-                  value: registry.redhat.io/rhtas/fulcio-rhel9@sha256:ed3c5d32535e22146b35eecbf346784ea45ff3bf7aeef5ccd99245dac93efa77
+                  value: registry.redhat.io/rhtas/fulcio-rhel9@sha256:1fa2b4ffb05f8309300c9a7c1752c1638ff47bfd7cb3221c772b21b9575ae5e5
                 - name: RELATED_IMAGE_REKOR_REDIS
-                  value: registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:44c6da8c9427cf6f630fa11761fa72c3f2e0d86279b2cb535864ee54c3b5b148
+                  value: registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:aa571c975c9e60f689e412db00d379047434fb28103741df20e4feded3b7a2da
                 - name: RELATED_IMAGE_REKOR_SERVER
-                  value: registry.redhat.io/rhtas/rekor-server-rhel9@sha256:055096ecfdd2a265a1e241b8632f3f8814cf348fcfb817d8a66de4d12c7ca9e6
+                  value: registry.redhat.io/rhtas/rekor-server-rhel9@sha256:2d788bc51e27488a091d5f8e851ebd19e417340608ecd65315d7c6295ac877f5
                 - name: RELATED_IMAGE_REKOR_SEARCH_UI
                   value: registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:ed10879dff2f6b287920de7940620bd005c6ca9ac2d0ebebc8e1c0099df31af6
                 - name: RELATED_IMAGE_BACKFILL_REDIS
-                  value: registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:e5649d02395d53a3ca1dbb40cbd765423b47e558177f0aa39dac5af6b2323fd6
+                  value: registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:e9be18262e38cf44b880c88e3f6e8dcaaca5335a21571bcc02d65bf40f5a7044
                 - name: RELATED_IMAGE_TUF
-                  value: registry.redhat.io/rhtas/tuffer-rhel9@sha256:764a72019c6f81293d18751aa4fcfd269ca4a344053a23c72a839f148232bdc2
+                  value: registry.redhat.io/rhtas/tuffer-rhel9@sha256:80599e81dfd47eff2b0018fa99c9c521544336c52d4af4e2778fe21d12e72129
                 - name: RELATED_IMAGE_CTLOG
-                  value: registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:0e61e11dc249451189033897a8886fbd0cc31bdaa8f472c3a71a9c157ed1be96
+                  value: registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:2528b2596d0a6e3bf86a66711eba3667f8d95125e7831cdb30ea27e3d6aad8f2
                 - name: RELATED_IMAGE_HTTP_SERVER
-                  value: registry.redhat.io/ubi9/httpd-24@sha256:4896430ea7717cfe52786dd32a5b63f0a06108906c6a2757df3f8027c2e86ff5
+                  value: registry.redhat.io/ubi9/httpd-24@sha256:2dae90bd9b65b07689e495aef200ec0915a103d207453dff1cb8197044066ce7
                 - name: RELATED_IMAGE_SEGMENT_REPORTING
                   value: registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:d45b46eab3806a7b977fc30f64e65f7e5065207570700361f72395d1b24398f0
                 - name: RELATED_IMAGE_TIMESTAMP_AUTHORITY
-                  value: registry.redhat.io/rhtas/timestamp-authority-rhel9@sha256:f219471da8414179aafbed398a8eb387d36c5882aa7a0e7b776a30521449109b
+                  value: registry.redhat.io/rhtas/timestamp-authority-rhel9@sha256:5c41a79db6aef78b33f8c37c00abb7d48488234bd6acbcbd9a6026bec70a8755
                 - name: RELATED_IMAGE_CLIENT_SERVER
-                  value: registry.redhat.io/rhtas/client-server-rhel9@sha256:949935a3c0c402c8fba9929cc3f8ae2ce5fa9d15bc34a18602dba40f6e8fd040
-                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:c3001bcce0699442dc7b099009a8d521ebbe84efdee02b8bb1817355ad3bd772
+                  value: registry.redhat.io/rhtas/client-server-rhel9@sha256:207a56d5a0e24638f7827ed1cbda9677564258d4e108bbc2a5a568f6827aa44e
+                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:f5759e34aa28d820ba26720f9c41e1ec5c3e96a1696796ffd84b0617d8fbd2a1
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -770,34 +770,34 @@ spec:
     name: Red Hat
     url: https://github.com/securesign/secure-sign-operator
   relatedImages:
-  - image: registry.redhat.io/rhtas/trillian-logsigner-rhel9@sha256:d489f3d9477ebe87a517ed552006dad835d0acead28f336ff0bbdd9708cd8ad6
+  - image: registry.redhat.io/rhtas/trillian-logsigner-rhel9@sha256:dc270005a2bf00b9597de8fe910c0c61b5352107865747fae304ebfba19e7b61
     name: trillian-log-signer
-  - image: registry.redhat.io/rhtas/trillian-logserver-rhel9@sha256:b2175b4f0d66342849a445c1f7dd2acdd075f8be8f245dd99e8d26ef31bd4dff
+  - image: registry.redhat.io/rhtas/trillian-logserver-rhel9@sha256:322778779d0ec7f4e5d8eb26e42bcdbb970506b357cbdeb20d228c960b22e8ce
     name: trillian-log-server
-  - image: registry.redhat.io/rhtas/trillian-database-rhel9@sha256:2c2dc6f064be4dd4d579f6707da668fbf6b1adf8cd281e2afc2198a7a04bdf61
+  - image: registry.redhat.io/rhtas/trillian-database-rhel9@sha256:b64d8dd11e999f014de08a823a6a08ceca5a124af9184f30dea10bffa0cbfc7f
     name: trillian-db
-  - image: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:9e7026201d7758d1bd2d8fcfa5bd987b46c2b39edb6641b73b0c40065dacfeb5
+  - image: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:c55fb00d8e74eb79cfa51a9fb52c1d7ca1d68b04e27336e1f35a35502e8dc7c6
     name: trillian-netcat
-  - image: registry.redhat.io/rhtas/fulcio-rhel9@sha256:ed3c5d32535e22146b35eecbf346784ea45ff3bf7aeef5ccd99245dac93efa77
+  - image: registry.redhat.io/rhtas/fulcio-rhel9@sha256:1fa2b4ffb05f8309300c9a7c1752c1638ff47bfd7cb3221c772b21b9575ae5e5
     name: fulcio-server
-  - image: registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:44c6da8c9427cf6f630fa11761fa72c3f2e0d86279b2cb535864ee54c3b5b148
+  - image: registry.redhat.io/rhtas/trillian-redis-rhel9@sha256:aa571c975c9e60f689e412db00d379047434fb28103741df20e4feded3b7a2da
     name: rekor-redis
-  - image: registry.redhat.io/rhtas/rekor-server-rhel9@sha256:055096ecfdd2a265a1e241b8632f3f8814cf348fcfb817d8a66de4d12c7ca9e6
+  - image: registry.redhat.io/rhtas/rekor-server-rhel9@sha256:2d788bc51e27488a091d5f8e851ebd19e417340608ecd65315d7c6295ac877f5
     name: rekor-server
   - image: registry.redhat.io/rhtas/rekor-search-ui-rhel9@sha256:ed10879dff2f6b287920de7940620bd005c6ca9ac2d0ebebc8e1c0099df31af6
     name: rekor-search-ui
-  - image: registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:e5649d02395d53a3ca1dbb40cbd765423b47e558177f0aa39dac5af6b2323fd6
+  - image: registry.redhat.io/rhtas/rekor-backfill-redis-rhel9@sha256:e9be18262e38cf44b880c88e3f6e8dcaaca5335a21571bcc02d65bf40f5a7044
     name: backfill-redis
-  - image: registry.redhat.io/rhtas/tuffer-rhel9@sha256:764a72019c6f81293d18751aa4fcfd269ca4a344053a23c72a839f148232bdc2
+  - image: registry.redhat.io/rhtas/tuffer-rhel9@sha256:80599e81dfd47eff2b0018fa99c9c521544336c52d4af4e2778fe21d12e72129
     name: tuf
-  - image: registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:0e61e11dc249451189033897a8886fbd0cc31bdaa8f472c3a71a9c157ed1be96
+  - image: registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:2528b2596d0a6e3bf86a66711eba3667f8d95125e7831cdb30ea27e3d6aad8f2
     name: ctlog
-  - image: registry.redhat.io/ubi9/httpd-24@sha256:4896430ea7717cfe52786dd32a5b63f0a06108906c6a2757df3f8027c2e86ff5
+  - image: registry.redhat.io/ubi9/httpd-24@sha256:2dae90bd9b65b07689e495aef200ec0915a103d207453dff1cb8197044066ce7
     name: http-server
   - image: registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:d45b46eab3806a7b977fc30f64e65f7e5065207570700361f72395d1b24398f0
     name: segment-reporting
-  - image: registry.redhat.io/rhtas/timestamp-authority-rhel9@sha256:f219471da8414179aafbed398a8eb387d36c5882aa7a0e7b776a30521449109b
+  - image: registry.redhat.io/rhtas/timestamp-authority-rhel9@sha256:5c41a79db6aef78b33f8c37c00abb7d48488234bd6acbcbd9a6026bec70a8755
     name: timestamp-authority
-  - image: registry.redhat.io/rhtas/client-server-rhel9@sha256:949935a3c0c402c8fba9929cc3f8ae2ce5fa9d15bc34a18602dba40f6e8fd040
+  - image: registry.redhat.io/rhtas/client-server-rhel9@sha256:207a56d5a0e24638f7827ed1cbda9677564258d4e108bbc2a5a568f6827aa44e
     name: client-server
   version: 1.2.1
