@@ -400,6 +400,16 @@ func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef s
 						FailureThreshold:    3,
 					},
 					VolumeMounts: volumesMounts,
+					SecurityContext: &v1.SecurityContext{
+						AllowPrivilegeEscalation: ptr.To(false),
+						Capabilities: &v1.Capabilities{
+							Drop: []v1.Capability{"ALL"},
+						},
+						RunAsNonRoot: ptr.To(true),
+						SeccompProfile: &v1.SeccompProfile{
+							Type: v1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
 				},
 			},
 		},
