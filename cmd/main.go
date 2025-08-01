@@ -26,13 +26,17 @@ import (
 	"github.com/securesign/operator/internal/controller"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/utils"
-
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/controller-runtime/pkg/config"
 
+	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	v1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
@@ -75,6 +79,7 @@ func init() {
 	utilruntime.Must(rhtasv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(v1.AddToScheme(scheme))
+	utilruntime.Must(configv1.AddToScheme(scheme))
 	utilruntime.Must(consolev1.AddToScheme(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
@@ -146,6 +151,22 @@ func main() {
 		TLSOpts: tlsOpts,
 	})
 
+	cacheOpts := cache.Options{
+		ByObject: map[client.Object]cache.ByObject{},
+	}
+
+	if kubernetes.IsOpenShift() {
+		// Configure the manager's cache.
+		// We must explicitly configure the cache for config.openshift.io/ingresses to watch only the "cluster" resource.
+		// This is because the operator's ClusterRole has permissions restricted to that specific resource name, and a full
+		// cluster-wide list is forbidden.
+		cacheOpts.ByObject[&configv1.Ingress{}] = cache.ByObject{
+			Field: fields.SelectorFromSet(fields.Set{
+				"metadata.name": "cluster",
+			}),
+		}
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
@@ -172,6 +193,7 @@ func main() {
 		Controller: config.Controller{
 			RecoverPanic: ptr.To(true),
 		},
+		Cache: cacheOpts,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

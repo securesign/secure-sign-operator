@@ -66,7 +66,6 @@ func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.Even
 //+kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=operator.openshift.io,resources=ingresscontrollers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete;deletecollection
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
@@ -88,6 +87,7 @@ func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.Even
 //+kubebuilder:rbac:groups="",resources=endpoints,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;get;list;watch;update;patch
 //+kubebuilder:rbac:groups="operator.openshift.io",resources=consoles,verbs=get;list
+//+kubebuilder:rbac:groups="config.openshift.io",resources=ingresses,resourceNames=cluster,verbs=get;list;watch
 
 // TODO: rework Securesign controller to watch resources
 func (r *securesignReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

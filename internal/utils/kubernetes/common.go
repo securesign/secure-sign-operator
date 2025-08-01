@@ -18,7 +18,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	v13 "github.com/openshift/api/operator/v1"
+	configv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -117,11 +117,11 @@ func GetOpenshiftPodSecurityContextRestricted(ctx context.Context, client client
 
 func CalculateHostname(ctx context.Context, client client.Client, svcName, ns string) (string, error) {
 	if IsOpenShift() {
-		ctrl := &v13.IngressController{}
-		if err := client.Get(ctx, types.NamespacedName{Namespace: "openshift-ingress-operator", Name: "default"}, ctrl); err != nil {
+		ingress := &configv1.Ingress{}
+		if err := client.Get(ctx, types.NamespacedName{Name: "cluster"}, ingress); err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("%s-%s.%s", svcName, ns, ctrl.Status.Domain), nil
+		return fmt.Sprintf("%s-%s.%s", svcName, ns, ingress.Spec.Domain), nil
 	}
 	return svcName + ".local", nil
 }
