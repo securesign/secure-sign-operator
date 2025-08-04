@@ -137,6 +137,20 @@ func (i deployAction) ensureRedisDeployment(instance *rhtasv1alpha1.Rekor, sa st
 		}
 		container.ReadinessProbe.InitialDelaySeconds = 5
 
+		if container.LivenessProbe == nil {
+			container.LivenessProbe = &core.Probe{}
+		}
+		if container.LivenessProbe.Exec == nil {
+			container.LivenessProbe.Exec = &core.ExecAction{}
+		}
+		container.LivenessProbe.Exec.Command = []string{
+			"/bin/sh",
+			"-c",
+			"-i",
+			"test $(redis-cli -h 127.0.0.1 -a $REDIS_PASSWORD ping) = 'PONG'",
+		}
+		container.LivenessProbe.InitialDelaySeconds = 10
+
 		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, storageVolumeName)
 		volumeMount.MountPath = "/data"
 
@@ -216,6 +230,20 @@ func (i deployAction) ensureTLS(tlsConfig rhtasv1alpha1.TLS, caPath string) func
 		}
 
 		container.ReadinessProbe.Exec.Command = []string{
+			"/bin/sh",
+			"-c",
+			"-i",
+			fmt.Sprintf("test $(redis-cli --tls --cacert %s -h 127.0.0.1 -a $REDIS_PASSWORD ping) = 'PONG'", caPath),
+		}
+
+		if container.LivenessProbe == nil {
+			container.LivenessProbe = &core.Probe{}
+		}
+		if container.LivenessProbe.Exec == nil {
+			container.LivenessProbe.Exec = &core.ExecAction{}
+		}
+
+		container.LivenessProbe.Exec.Command = []string{
 			"/bin/sh",
 			"-c",
 			"-i",
