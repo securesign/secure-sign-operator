@@ -314,5 +314,9 @@ func ensureMysqlParams() func(string, *v1.Container) {
 	return func(url string, container *v1.Container) {
 		container.Args = append(container.Args, "--search_index.storage_provider", "mysql")
 		container.Args = append(container.Args, "--search_index.mysql.dsn", url)
+		container.Args = append(container.Args, "--search_index.mysql.max_open_connections", "30")
+		container.Args = append(container.Args, "--search_index.mysql.max_idle_connections", "10")
+		container.Args = append(container.Args, "--search_index.mysql.conn_max_lifetime", "10m")
+		container.Args = append(container.Args, "--search_index.mysql.conn_max_idletime", "2m")
 	}
 }
