@@ -65,6 +65,23 @@ func (i resolveTree[T]) CanHandle(ctx context.Context, instance T) bool {
 	}
 }
 
+// JobCondition was added on 1.3.0. We need to handle missing condition for backward compatibility
+func (i resolveTree[T]) handleMissingCondition(ctx context.Context, instance T) *action.Result {
+	conditions := instance.GetConditions()
+	wrapped := i.wrapper(instance)
+	if meta.FindStatusCondition(conditions, JobCondition) == nil && wrapped.GetStatusTreeID() != nil && *wrapped.GetStatusTreeID() != int64(0) {
+		// tree is already initialized, just add JobCondition
+		instance.SetCondition(metav1.Condition{
+			Type:   JobCondition,
+			Status: metav1.ConditionTrue,
+			Reason: constants.Ready,
+		})
+		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "ExistingTrillianTreeFound", "Existing Trillian tree found: %d", wrapped.GetStatusTreeID())
+		return i.StatusUpdate(ctx, instance)
+	}
+	return nil
+}
+
 func (i resolveTree[T]) handleManual(ctx context.Context, instance T) *action.Result {
 	wrapped := i.wrapper(instance)
 
@@ -389,7 +406,12 @@ func (i resolveTree[T]) ensureJob(cfgName, adminServer, displayName string, extr
 }
 
 func (i resolveTree[T]) Handle(ctx context.Context, instance T) *action.Result {
-	result := i.handleManual(ctx, instance)
+	result := i.handleMissingCondition(ctx, instance)
+	if result != nil {
+		return result
+	}
+
+	result = i.handleManual(ctx, instance)
 	if result != nil {
 		return result
 	}
