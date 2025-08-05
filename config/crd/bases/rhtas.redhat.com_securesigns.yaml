@@ -5410,7 +5410,7 @@ spec:
                     x-kubernetes-validations:
                     - message: databaseSecretRef cannot be empty
                       rule: ((!self.create && self.databaseSecretRef != null) || self.create)
-                  maxCertChainSize:
+                  maxRecvMessageSize:
                     default: 153600
                     description: MaxRecvMessageSize sets the maximum size in bytes
                       for incoming gRPC messages handled by the Trillian logserver
