@@ -37,6 +37,11 @@ type TrillianSpec struct {
 	// ConfigMap with additional bundle of trusted CA
 	//+optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
+
+	// MaxRecvMessageSize sets the maximum size in bytes for incoming gRPC messages handled by the Trillian logserver and logsigner
+	//+kubebuilder:default:=153600
+	//+optional
+	MaxRecvMessageSize *int64 `json:"maxRecvMessageSize,omitempty"`
 }
 
 type trillianService struct {
