@@ -255,6 +255,7 @@ func generateTrillianObject(name string) *Trillian {
 					Replicas: ptr.To(int32(1)),
 				},
 			},
+			MaxRecvMessageSize: ptr.To(int64(153600)),
 		},
 	}
 }
