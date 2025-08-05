@@ -53,6 +53,7 @@ var (
 
 func init() {
 	tests = []namedTest{
+		{name: "missingCondition", run: testMissingCondition},
 		{name: "manual", run: testManual},
 		{name: "rbac", run: testRbac},
 		{name: "configmap", run: testConfigMap},
@@ -69,6 +70,46 @@ type pre struct {
 type want struct {
 	result *action.Result
 	verify func(context.Context, Gomega, client.WithWatch)
+}
+
+func testMissingCondition(t *testing.T) {
+	for _, tc := range []struct {
+		desc string
+		want want
+		pre  pre
+	}{
+		{
+			desc: "treeID set, condition not-set",
+			want: want{
+				result: testAction.StatusUpdate(),
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch) {
+					r := v1alpha1.Rekor{}
+					g.Expect(c.Get(ctx, nnObject, &r)).To(Succeed())
+					g.Expect(meta.IsStatusConditionTrue(r.GetConditions(), JobCondition)).To(BeTrue())
+				},
+			},
+			pre: pre{
+				before: func(ctx context.Context, g Gomega, c client.WithWatch) {
+					r := v1alpha1.Rekor{}
+					g.Expect(c.Get(ctx, nnObject, &r)).To(Succeed())
+
+					r.Status.TreeID = ptr.To(int64(123456789))
+					g.Expect(c.Status().Update(ctx, &r)).To(Succeed())
+				},
+			},
+		},
+		{
+			desc: "treeID not set, condition not-set",
+			want: want{
+				result: nil,
+			},
+			pre: pre{},
+		},
+	} {
+		t.Run(tc.desc, testRunner(tc.pre, tc.want, func(r *resolveTree[*v1alpha1.Rekor], ctx context.Context, rekor *v1alpha1.Rekor) *action.Result {
+			return r.handleMissingCondition(ctx, rekor)
+		}))
+	}
 }
 
 func testManual(t *testing.T) {
