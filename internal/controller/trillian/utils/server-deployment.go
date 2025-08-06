@@ -129,6 +129,8 @@ func ensureDeployment(instance *v1alpha1.Trillian, image string, name string, sa
 			"--storage_system=mysql",
 			"--quota_system=mysql",
 			"--mysql_uri=$(MYSQL_USER):$(MYSQL_PASSWORD)@tcp($(MYSQL_HOSTNAME):$(MYSQL_PORT))/$(MYSQL_DATABASE)",
+			"--mysql_max_conns=30",
+			"--mysql_max_idle_conns=10",
 			"--rpc_endpoint=0.0.0.0:" + strconv.Itoa(int(actions.ServerPort)),
 			"--http_endpoint=0.0.0.0:" + strconv.Itoa(int(actions.MetricsPort)),
 			"--alsologtostderr",
