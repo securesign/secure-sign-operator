@@ -8,13 +8,12 @@ import (
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/trillian/actions"
+	trillianUtils "github.com/securesign/operator/internal/controller/trillian/utils"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/tls"
-
-	"github.com/securesign/operator/internal/controller/trillian/actions"
-	trillianUtils "github.com/securesign/operator/internal/controller/trillian/utils"
 	apps "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
