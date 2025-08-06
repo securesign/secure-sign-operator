@@ -2,6 +2,7 @@ package trillianUtils
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/securesign/operator/api/v1alpha1"
@@ -135,6 +136,10 @@ func ensureDeployment(instance *v1alpha1.Trillian, image string, name string, sa
 			"--http_endpoint=0.0.0.0:" + strconv.Itoa(int(actions.MetricsPort)),
 			"--alsologtostderr",
 		}, args...)
+
+		if instance.Spec.MaxRecvMessageSize != nil {
+			container.Args = append(container.Args, "--max_msg_size_bytes", fmt.Sprintf("%d", *instance.Spec.MaxRecvMessageSize))
+		}
 
 		//Ports = containerPorts
 		// Env variables from secret trillian-mysql
