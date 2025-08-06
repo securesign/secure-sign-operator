@@ -129,7 +129,8 @@ func (i deployAction) createTufDeployment(instance *rhtasv1alpha1.Tuf, sa string
 
 		container.ReadinessProbe.InitialDelaySeconds = 10
 		container.ReadinessProbe.PeriodSeconds = 10
-		container.ReadinessProbe.FailureThreshold = 10
+		container.ReadinessProbe.FailureThreshold = 3
+		container.ReadinessProbe.TimeoutSeconds = 5
 
 		return nil
 	}

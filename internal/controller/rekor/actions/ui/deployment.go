@@ -16,8 +16,10 @@ import (
 
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	v2 "k8s.io/api/apps/v1"
+	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -103,6 +105,28 @@ func (i deployAction) ensureUIDeployment(instance *rhtasv1alpha1.Rekor, sa strin
 
 		serverPort := kubernetes.FindPortByNameOrCreate(container, "3000-tcp")
 		serverPort.ContainerPort = 3000
+
+		if container.ReadinessProbe == nil {
+			container.ReadinessProbe = &core.Probe{}
+		}
+		if container.ReadinessProbe.HTTPGet == nil {
+			container.ReadinessProbe.HTTPGet = &core.HTTPGetAction{}
+		}
+		container.ReadinessProbe.HTTPGet.Path = "/"
+		container.ReadinessProbe.HTTPGet.Port = intstr.FromInt(3000)
+		container.ReadinessProbe.InitialDelaySeconds = 10
+		container.ReadinessProbe.TimeoutSeconds = 5
+
+		if container.LivenessProbe == nil {
+			container.LivenessProbe = &core.Probe{}
+		}
+		if container.LivenessProbe.HTTPGet == nil {
+			container.LivenessProbe.HTTPGet = &core.HTTPGetAction{}
+		}
+		container.LivenessProbe.HTTPGet.Path = "/"
+		container.LivenessProbe.HTTPGet.Port = intstr.FromInt(3000)
+		container.LivenessProbe.InitialDelaySeconds = 30
+		container.LivenessProbe.TimeoutSeconds = 5
 
 		return nil
 	}
