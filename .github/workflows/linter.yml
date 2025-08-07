@@ -1,9 +1,5 @@
 name: linter
 on:
-  workflow_dispatch:
-  push:
-    branches: [ "main", "release*" ]
-    tags: [ "*" ]
   pull_request:
     branches: [ "main", "release*" ]
 
