@@ -54,6 +54,11 @@ var (
 	CliHostName string
 )
 
+//+kubebuilder:rbac:groups=core,resources=namespaces,verbs=create
+//+kubebuilder:rbac:groups=core,resources=namespaces,resourceNames=trusted-artifact-signer,verbs=update;patch;delete
+//+kubebuilder:rbac:groups=console.openshift.io,resources=consoleclidownloads,verbs=create;get;list;watch
+//+kubebuilder:rbac:groups=console.openshift.io,resources=consoleclidownloads,resourceNames=cosign;rekor-cli;gitsign;ec;fetch-tsa-certs;createtree;updatetree;tuftool,verbs=update;patch;delete
+
 type Component struct {
 	Client client.Client
 	Scheme *runtime.Scheme
