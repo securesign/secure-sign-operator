@@ -14,7 +14,6 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -367,7 +366,6 @@ func fakeClientBuilder() *fake.ClientBuilder {
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(v1.AddToScheme(scheme))
 	utilruntime.Must(consolev1.AddToScheme(scheme))
-	utilruntime.Must(apiextensions.AddToScheme(scheme))
 	cl := fake.NewClientBuilder().WithScheme(scheme)
 	return cl
 }
