@@ -296,8 +296,8 @@ metadata:
         }
       ]
     capabilities: Seamless Upgrades
-    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:f5759e34aa28d820ba26720f9c41e1ec5c3e96a1696796ffd84b0617d8fbd2a1
-    createdAt: "2025-07-31T07:18:23Z"
+    containerImage: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:0eedd376215c4f2ae234aaf45c3f8eb04aa6b2d7f4307fb2a89006f012c47bc8
+    createdAt: "2025-08-08T12:35:39Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -640,7 +640,7 @@ spec:
                 - name: RELATED_IMAGE_TRILLIAN_DB
                   value: registry.redhat.io/rhtas/trillian-database-rhel9@sha256:b64d8dd11e999f014de08a823a6a08ceca5a124af9184f30dea10bffa0cbfc7f
                 - name: RELATED_IMAGE_TRILLIAN_NETCAT
-                  value: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:c55fb00d8e74eb79cfa51a9fb52c1d7ca1d68b04e27336e1f35a35502e8dc7c6
+                  value: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:030986ea26f33db3a192c67a93cd2bde352f23c68a17b062fc062955675c3c51
                 - name: RELATED_IMAGE_FULCIO_SERVER
                   value: registry.redhat.io/rhtas/fulcio-rhel9@sha256:1fa2b4ffb05f8309300c9a7c1752c1638ff47bfd7cb3221c772b21b9575ae5e5
                 - name: RELATED_IMAGE_REKOR_REDIS
@@ -656,14 +656,14 @@ spec:
                 - name: RELATED_IMAGE_CTLOG
                   value: registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:2528b2596d0a6e3bf86a66711eba3667f8d95125e7831cdb30ea27e3d6aad8f2
                 - name: RELATED_IMAGE_HTTP_SERVER
-                  value: registry.redhat.io/ubi9/httpd-24@sha256:2dae90bd9b65b07689e495aef200ec0915a103d207453dff1cb8197044066ce7
+                  value: registry.redhat.io/ubi9/httpd-24@sha256:badeee0aa3477e61de64f6a2b93e8a3673edd38fc860125f7536506f3d592132
                 - name: RELATED_IMAGE_SEGMENT_REPORTING
                   value: registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:d45b46eab3806a7b977fc30f64e65f7e5065207570700361f72395d1b24398f0
                 - name: RELATED_IMAGE_TIMESTAMP_AUTHORITY
                   value: registry.redhat.io/rhtas/timestamp-authority-rhel9@sha256:5c41a79db6aef78b33f8c37c00abb7d48488234bd6acbcbd9a6026bec70a8755
                 - name: RELATED_IMAGE_CLIENT_SERVER
                   value: registry.redhat.io/rhtas/client-server-rhel9@sha256:207a56d5a0e24638f7827ed1cbda9677564258d4e108bbc2a5a568f6827aa44e
-                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:f5759e34aa28d820ba26720f9c41e1ec5c3e96a1696796ffd84b0617d8fbd2a1
+                image: registry.redhat.io/rhtas/rhtas-rhel9-operator@sha256:0eedd376215c4f2ae234aaf45c3f8eb04aa6b2d7f4307fb2a89006f012c47bc8
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -776,7 +776,7 @@ spec:
     name: trillian-log-server
   - image: registry.redhat.io/rhtas/trillian-database-rhel9@sha256:b64d8dd11e999f014de08a823a6a08ceca5a124af9184f30dea10bffa0cbfc7f
     name: trillian-db
-  - image: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:c55fb00d8e74eb79cfa51a9fb52c1d7ca1d68b04e27336e1f35a35502e8dc7c6
+  - image: registry.redhat.io/openshift4/ose-tools-rhel9@sha256:030986ea26f33db3a192c67a93cd2bde352f23c68a17b062fc062955675c3c51
     name: trillian-netcat
   - image: registry.redhat.io/rhtas/fulcio-rhel9@sha256:1fa2b4ffb05f8309300c9a7c1752c1638ff47bfd7cb3221c772b21b9575ae5e5
     name: fulcio-server
@@ -792,7 +792,7 @@ spec:
     name: tuf
   - image: registry.redhat.io/rhtas/certificate-transparency-rhel9@sha256:2528b2596d0a6e3bf86a66711eba3667f8d95125e7831cdb30ea27e3d6aad8f2
     name: ctlog
-  - image: registry.redhat.io/ubi9/httpd-24@sha256:2dae90bd9b65b07689e495aef200ec0915a103d207453dff1cb8197044066ce7
+  - image: registry.redhat.io/ubi9/httpd-24@sha256:badeee0aa3477e61de64f6a2b93e8a3673edd38fc860125f7536506f3d592132
     name: http-server
   - image: registry.redhat.io/rhtas/segment-reporting-rhel9@sha256:d45b46eab3806a7b977fc30f64e65f7e5065207570700361f72395d1b24398f0
     name: segment-reporting
