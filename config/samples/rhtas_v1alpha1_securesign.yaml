@@ -17,6 +17,8 @@ spec:
   trillian:
     database:
       create: true
+    monitoring:
+      enabled: true
   fulcio:
     externalAccess:
       enabled: true
@@ -47,7 +49,9 @@ spec:
         - ReadWriteOnce
       retain: true
       size: 100Mi
-  ctlog: {}
+  ctlog:
+    monitoring:
+      enabled: true
   tsa:
     externalAccess:
       enabled: true

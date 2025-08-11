@@ -12,11 +12,8 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
-	v1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func NewCreateMonitorAction() action.Action[*rhtasv1alpha1.Fulcio] {
@@ -42,47 +39,6 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fu
 	)
 
 	monitoringLabels := labels.For(ComponentName, MonitoringRoleName, instance.Name)
-
-	// Role
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, &v1.Role{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      MonitoringRoleName,
-			Namespace: instance.Namespace,
-		},
-	},
-		ensure.ControllerReference[*v1.Role](instance, i.Client),
-		ensure.Labels[*v1.Role](slices.Collect(maps.Keys(monitoringLabels)), monitoringLabels),
-		kubernetes.EnsureRoleRules(
-			v1.PolicyRule{
-				APIGroups: []string{""},
-				Resources: []string{"services", "endpoints", "pods"},
-				Verbs:     []string{"get", "list", "watch"},
-			},
-		),
-	); err != nil {
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create monitoring Role: %w", err)), instance)
-	}
-
-	// RoleBinding
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, &v1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      MonitoringRoleName,
-			Namespace: instance.Namespace,
-		},
-	},
-		ensure.ControllerReference[*v1.RoleBinding](instance, i.Client),
-		ensure.Labels[*v1.RoleBinding](slices.Collect(maps.Keys(monitoringLabels)), monitoringLabels),
-		kubernetes.EnsureRoleBinding(
-			v1.RoleRef{
-				APIGroup: v1.SchemeGroupVersion.Group,
-				Kind:     "Role",
-				Name:     MonitoringRoleName,
-			},
-			v1.Subject{Kind: "ServiceAccount", Name: "prometheus-k8s", Namespace: "openshift-monitoring"},
-		),
-	); err != nil {
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create monitoring RoleBinding: %w", err)), instance)
-	}
 
 	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, kubernetes.CreateServiceMonitor(instance.Namespace, DeploymentName),
 		ensure.ControllerReference[*unstructured.Unstructured](instance, i.Client),

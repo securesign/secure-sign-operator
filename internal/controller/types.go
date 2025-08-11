@@ -33,8 +33,6 @@ import (
 
 //+kubebuilder:rbac:groups="config.openshift.io",resources=ingresses,resourceNames=cluster,verbs=get;list;watch
 
-//+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
-//+kubebuilder:rbac:groups="",resources=endpoints,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;get;list;watch;update;patch
 
 type Controller interface {
