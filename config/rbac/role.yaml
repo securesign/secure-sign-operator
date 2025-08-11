@@ -21,15 +21,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - endpoints
-  - pods
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - events
   verbs:
   - create
