@@ -189,6 +189,9 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 		}
 
 		//TODO mount additional ENV variables and secrets to enable cloud KMS service
+		if instance.Spec.MaxRequestBodySize != nil {
+			args = append(args, "--max_request_body_size", fmt.Sprintf("%d", *instance.Spec.MaxRequestBodySize))
+		}
 		container.Args = args
 		if err := searchIndex.EnsureSearchIndex(instance, ensureRedisParams(), ensureMysqlParams())(container); err != nil {
 			return err
