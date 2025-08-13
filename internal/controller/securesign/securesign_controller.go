@@ -65,6 +65,7 @@ func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.Even
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=securesigns/finalizers,verbs=update
 //+kubebuilder:rbac:groups="operator.openshift.io",resources=consoles,verbs=get;list
 //+kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list
+//+kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheuses/api,verbs=create;get;update
 
 // TODO: rework Securesign controller to watch resources
 func (r *securesignReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
