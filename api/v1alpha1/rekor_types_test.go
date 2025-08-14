@@ -623,6 +623,7 @@ func generateRekorObject(name string) *Rekor {
 			Trillian: TrillianService{
 				Port: ptr.To(int32(8091)),
 			},
+			MaxRequestBodySize: ptr.To(int64(10485760)),
 		},
 	}
 }

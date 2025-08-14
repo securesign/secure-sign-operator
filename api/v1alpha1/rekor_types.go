@@ -53,6 +53,11 @@ type RekorSpec struct {
 	//Configuration for authentication for key management services
 	//+optional
 	Auth *Auth `json:"auth,omitempty"`
+
+	// MaxRequestBodySize sets the maximum size in bytes for HTTP request body. Passed as --max_request_body_size.
+	//+kubebuilder:default:=10485760
+	//+optional
+	MaxRequestBodySize *int64 `json:"maxRequestBodySize,omitempty"`
 }
 
 // RekorAttestations defines the configuration for storing attestations.

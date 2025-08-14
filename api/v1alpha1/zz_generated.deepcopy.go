@@ -21,7 +21,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -942,6 +942,11 @@ func (in *RekorSpec) DeepCopyInto(out *RekorSpec) {
 		in, out := &in.Auth, &out.Auth
 		*out = new(Auth)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.MaxRequestBodySize != nil {
+		in, out := &in.MaxRequestBodySize, &out.MaxRequestBodySize
+		*out = new(int64)
+		**out = **in
 	}
 }
 
