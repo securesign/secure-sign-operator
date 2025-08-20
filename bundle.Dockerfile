@@ -35,6 +35,7 @@ LABEL operators.operatorframework.io.metrics.mediatype.v1=metrics+v1
 LABEL operators.operatorframework.io.metrics.project_layout=go.kubebuilder.io/v4
 LABEL operators.openshift.io/valid-subscription="Red Hat Trusted Artifact Signer"
 
+LABEL maintainer="Red Hat, Inc."
 LABEL vendor="Red Hat, Inc."
 LABEL url="https://www.redhat.com"
 LABEL distribution-scope="public"
