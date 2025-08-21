@@ -130,6 +130,13 @@ spec:
                     required:
                     - retain
                     type: object
+                    x-kubernetes-validations:
+                    - message: storageClass is immutable when a PVC name is not specified
+                      rule: oldSelf == null || has(self.name) || (!has(oldSelf.storageClass)
+                        || has(self.storageClass) && oldSelf.storageClass == self.storageClass)
+                    - message: accessModes is immutable when a PVC name is not specified
+                      rule: oldSelf == null || has(self.name) || (!has(oldSelf.accessModes)
+                        || has(self.accessModes) && oldSelf.accessModes == self.accessModes)
                   tls:
                     description: Configuration for enabling TLS (Transport Layer Security)
                       encryption for manged database.
@@ -2500,6 +2507,13 @@ spec:
                     required:
                     - retain
                     type: object
+                    x-kubernetes-validations:
+                    - message: storageClass is immutable when a PVC name is not specified
+                      rule: oldSelf == null || has(self.name) || (!has(oldSelf.storageClass)
+                        || has(self.storageClass) && oldSelf.storageClass == self.storageClass)
+                    - message: accessModes is immutable when a PVC name is not specified
+                      rule: oldSelf == null || has(self.name) || (!has(oldSelf.accessModes)
+                        || has(self.accessModes) && oldSelf.accessModes == self.accessModes)
                   tls:
                     description: Configuration for enabling TLS (Transport Layer Security)
                       encryption for manged database.

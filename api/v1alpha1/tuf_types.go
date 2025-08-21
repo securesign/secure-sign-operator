@@ -31,6 +31,9 @@ type TufSpec struct {
 	Pvc TufPvc `json:"pvc,omitempty"`
 }
 
+// TufPvc configuration of the persistent storage claim for deployment in the cluster.
+// +kubebuilder:validation:XValidation:rule="oldSelf == null || has(self.name) || (!has(oldSelf.storageClass) || has(self.storageClass) && oldSelf.storageClass == self.storageClass)",message="storageClass is immutable when a PVC name is not specified"
+// +kubebuilder:validation:XValidation:rule="oldSelf == null || has(self.name) || (!has(oldSelf.accessModes) || has(self.accessModes) && oldSelf.accessModes == self.accessModes)",message="accessModes is immutable when a PVC name is not specified"
 type TufPvc struct {
 	// The requested size of the persistent volume attached to Pod.
 	// The format of this field matches that defined by kubernetes/apimachinery.
