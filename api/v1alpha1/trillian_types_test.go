@@ -139,6 +139,50 @@ var _ = Describe("Trillian", func() {
 			})
 		})
 
+		type pvcArgs struct {
+			name         string
+			storageClass string
+			accessModes  []PersistentVolumeAccessMode
+		}
+		DescribeTable("pvc", func(ctx context.Context, origObj pvcArgs, updateObj *pvcArgs, isValid bool, errMessage string) {
+			object := generateTrillianObject("")
+			object.GenerateName = "trillian-pvc-"
+			object.Spec.Db.Pvc.Name = origObj.name
+			object.Spec.Db.Pvc.StorageClass = origObj.storageClass
+			object.Spec.Db.Pvc.AccessModes = origObj.accessModes
+
+			err := k8sClient.Create(ctx, object)
+			if updateObj == nil && !isValid {
+				Expect(err).To(MatchError(ContainSubstring(errMessage)))
+				return
+			}
+			Expect(err).To(Succeed())
+			if updateObj == nil {
+				return
+			}
+
+			object.Spec.Db.Pvc.Name = updateObj.name
+			object.Spec.Db.Pvc.StorageClass = updateObj.storageClass
+			object.Spec.Db.Pvc.AccessModes = updateObj.accessModes
+
+			if isValid {
+				Expect(k8sClient.Update(ctx, object)).To(Succeed())
+			} else {
+				Expect(k8sClient.Update(ctx, object)).To(MatchError(ContainSubstring(errMessage)))
+			}
+		},
+			Entry("create default", pvcArgs{}, nil, true, ""),
+			Entry("bring your own pvc", pvcArgs{name: "byo-pvc"}, nil, true, ""),
+			Entry("change name", pvcArgs{}, &pvcArgs{name: "new"}, true, ""),
+			Entry("no changes", pvcArgs{storageClass: "default", accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"}}, &pvcArgs{storageClass: "default", accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"}}, true, ""),
+			Entry("immutable storageClass", pvcArgs{storageClass: "default"}, &pvcArgs{storageClass: "new"}, false, "storageClass is immutable"),
+			Entry("change storageClass when name is set", pvcArgs{name: "named", storageClass: "old"}, &pvcArgs{name: "named", storageClass: "new"}, true, ""),
+			Entry("change storageClass and name", pvcArgs{storageClass: "old"}, &pvcArgs{name: "new", storageClass: "new"}, true, ""),
+			Entry("immutable accessModes", pvcArgs{accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"}}, &pvcArgs{accessModes: []PersistentVolumeAccessMode{"ReadWriteMany"}}, false, "accessModes is immutable"),
+			Entry("change accessModes when name is set", pvcArgs{name: "named", accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"}}, &pvcArgs{name: "named", accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}}, true, ""),
+			Entry("change accessModes and name", pvcArgs{accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"}}, &pvcArgs{name: "new", accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}}, true, ""),
+		)
+
 		Context("Default settings", func() {
 			var (
 				trillianInstance         Trillian
