@@ -17,6 +17,7 @@ import (
 	"github.com/securesign/operator/test/e2e/support"
 	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/tas"
+	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -51,138 +52,60 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 			dsn += "?tls=true"
 		}
 
-		s = &v1alpha1.Securesign{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace.Name,
-				Name:      "test",
-				Annotations: map[string]string{
-					"rhtas.redhat.com/metrics": "false",
-				},
-			},
-			Spec: v1alpha1.SecuresignSpec{
-				Rekor: v1alpha1.RekorSpec{
-					Auth: &v1alpha1.Auth{
-						Env: []v1.EnvVar{
-							{
-								Name: "MYSQL_USER",
-								ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
-									LocalObjectReference: v1.LocalObjectReference{
-										Name: dbAuth,
-									},
-									Key: "mysql-user",
-								}},
-							},
-							{
-								Name: "MYSQL_PASSWORD",
-								ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
-									LocalObjectReference: v1.LocalObjectReference{
-										Name: dbAuth,
-									},
-									Key: "mysql-password",
-								}},
-							},
-							{
-								Name: "MYSQL_DB",
-								ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
-									LocalObjectReference: v1.LocalObjectReference{
-										Name: dbAuth,
-									},
-									Key: "mysql-database",
-								}},
-							},
-							{
-								Name: "NAMESPACE",
-								ValueFrom: &v1.EnvVarSource{FieldRef: &v1.ObjectFieldSelector{
-									APIVersion: "v1",
-									FieldPath:  "metadata.namespace",
-								}},
-							},
-						},
-					},
-					ExternalAccess: v1alpha1.ExternalAccess{
-						Enabled: true,
-					},
-					BackFillRedis: v1alpha1.BackFillRedis{
-						Enabled:  ptr.To(true),
-						Schedule: "* * * * *",
-					},
-					SearchIndex: v1alpha1.SearchIndex{
-						Create:   ptr.To(false),
-						Provider: "mysql",
-						Url:      dsn,
-					},
-				},
-				Fulcio: v1alpha1.FulcioSpec{
-					ExternalAccess: v1alpha1.ExternalAccess{
-						Enabled: true,
-					},
-					Config: v1alpha1.FulcioConfig{
-						OIDCIssuers: []v1alpha1.OIDCIssuer{
-							{
-								ClientID:  support.OidcClientID(),
-								IssuerURL: support.OidcIssuerUrl(),
-								Issuer:    support.OidcIssuerUrl(),
-								Type:      "email",
-							},
-						}},
-					Certificate: v1alpha1.FulcioCert{
-						OrganizationName:  "MyOrg",
-						OrganizationEmail: "my@email.org",
-						CommonName:        "fulcio",
-					},
-				},
-				Tuf: v1alpha1.TufSpec{
-					ExternalAccess: v1alpha1.ExternalAccess{
-						Enabled: true,
-					},
-				},
-				Ctlog: v1alpha1.CTlogSpec{},
-				Trillian: v1alpha1.TrillianSpec{Db: v1alpha1.TrillianDB{
-					Create: new(bool),
-					DatabaseSecretRef: &v1alpha1.LocalObjectReference{
-						Name: dbAuth,
-					},
-				}},
-				TimestampAuthority: &v1alpha1.TimestampAuthoritySpec{
-					ExternalAccess: v1alpha1.ExternalAccess{
-						Enabled: true,
-					},
-					Signer: v1alpha1.TimestampAuthoritySigner{
-						CertificateChain: v1alpha1.CertificateChain{
-							RootCA: &v1alpha1.TsaCertificateAuthority{
-								OrganizationName:  "MyOrg",
-								OrganizationEmail: "my@email.org",
-								CommonName:        "tsa.hostname",
-							},
-							IntermediateCA: []*v1alpha1.TsaCertificateAuthority{
-								{
-									OrganizationName:  "MyOrg",
-									OrganizationEmail: "my@email.org",
-									CommonName:        "tsa.hostname",
+		s = securesign.Create(namespace.Name, "test",
+			securesign.WithDefaults(),
+			securesign.WithExternalDatabase(dbAuth),
+			func(v *v1alpha1.Securesign) {
+				v.Spec.Rekor.Auth = &v1alpha1.Auth{
+					Env: []v1.EnvVar{
+						{
+							Name: "MYSQL_USER",
+							ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: dbAuth,
 								},
-							},
-							LeafCA: &v1alpha1.TsaCertificateAuthority{
-								OrganizationName:  "MyOrg",
-								OrganizationEmail: "my@email.org",
-								CommonName:        "tsa.hostname",
-							},
+								Key: "mysql-user",
+							}},
+						},
+						{
+							Name: "MYSQL_PASSWORD",
+							ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: dbAuth,
+								},
+								Key: "mysql-password",
+							}},
+						},
+						{
+							Name: "MYSQL_DB",
+							ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: dbAuth,
+								},
+								Key: "mysql-database",
+							}},
+						},
+						{
+							Name: "NAMESPACE",
+							ValueFrom: &v1.EnvVarSource{FieldRef: &v1.ObjectFieldSelector{
+								APIVersion: "v1",
+								FieldPath:  "metadata.namespace",
+							}},
 						},
 					},
-					NTPMonitoring: v1alpha1.NTPMonitoring{
-						Enabled: true,
-						Config: &v1alpha1.NtpMonitoringConfig{
-							RequestAttempts: 3,
-							RequestTimeout:  5,
-							NumServers:      4,
-							ServerThreshold: 3,
-							MaxTimeDelta:    6,
-							Period:          60,
-							Servers:         []string{"time.apple.com", "time.google.com", "time-a-b.nist.gov", "time-b-b.nist.gov", "gbg1.ntp.se"},
-						},
-					},
-				},
+				}
+				v.Spec.Rekor.BackFillRedis = v1alpha1.BackFillRedis{
+					Enabled:  ptr.To(true),
+					Schedule: "* * * * *",
+				}
+
+				v.Spec.Rekor.SearchIndex = v1alpha1.SearchIndex{
+					Create:   ptr.To(false),
+					Provider: "mysql",
+					Url:      dsn,
+				}
 			},
-		}
+		)
 	})
 
 	BeforeAll(func() {
