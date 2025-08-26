@@ -9,9 +9,9 @@ import (
 
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/labels"
-	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
+	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 	"github.com/securesign/operator/test/e2e/support/tas/tuf"
 	v2 "k8s.io/api/networking/v1"
@@ -28,7 +28,6 @@ import (
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -52,96 +51,18 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			_ = cli.Delete(ctx, namespace)
 		})
 
-		s = &v1alpha1.Securesign{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace.Name,
-				Name:      "test",
-				Annotations: map[string]string{
-					"rhtas.redhat.com/metrics": "false",
-				},
+		s = securesign.Create(namespace.Name, "test",
+			securesign.WithDefaults(),
+			securesign.WithSearchUI(),
+			securesign.WithMonitoring(),
+			func(v *v1alpha1.Securesign) {
+				// cover SECURESIGN-2694
+				v.Spec.Rekor.Attestations.Enabled = ptr.To(false)
 			},
-			Spec: v1alpha1.SecuresignSpec{
-				Rekor: v1alpha1.RekorSpec{
-					ExternalAccess: v1alpha1.ExternalAccess{
-						Enabled: true,
-					},
-					RekorSearchUI: v1alpha1.RekorSearchUI{
-						Enabled: utils.Pointer(true),
-					},
-					Attestations: v1alpha1.RekorAttestations{
-						// cover SECURESIGN-2694
-						Enabled: ptr.To(false),
-					},
-				},
-				Fulcio: v1alpha1.FulcioSpec{
-					ExternalAccess: v1alpha1.ExternalAccess{
-						Enabled: true,
-					},
-					Config: v1alpha1.FulcioConfig{
-						OIDCIssuers: []v1alpha1.OIDCIssuer{
-							{
-								ClientID:  support.OidcClientID(),
-								IssuerURL: support.OidcIssuerUrl(),
-								Issuer:    support.OidcIssuerUrl(),
-								Type:      "email",
-							},
-						}},
-					Certificate: v1alpha1.FulcioCert{
-						OrganizationName:  "MyOrg",
-						OrganizationEmail: "my@email.org",
-						CommonName:        "fulcio",
-					},
-				},
-				Ctlog: v1alpha1.CTlogSpec{},
-				Tuf: v1alpha1.TufSpec{
-					ExternalAccess: v1alpha1.ExternalAccess{
-						Enabled:             true,
-						RouteSelectorLabels: map[string]string{"foo": "bar"},
-					},
-				},
-				Trillian: v1alpha1.TrillianSpec{Db: v1alpha1.TrillianDB{
-					Create: ptr.To(true),
-				}},
-				TimestampAuthority: &v1alpha1.TimestampAuthoritySpec{
-					ExternalAccess: v1alpha1.ExternalAccess{
-						Enabled: true,
-					},
-					Signer: v1alpha1.TimestampAuthoritySigner{
-						CertificateChain: v1alpha1.CertificateChain{
-							RootCA: &v1alpha1.TsaCertificateAuthority{
-								OrganizationName:  "MyOrg",
-								OrganizationEmail: "my@email.org",
-								CommonName:        "tsa.hostname",
-							},
-							IntermediateCA: []*v1alpha1.TsaCertificateAuthority{
-								{
-									OrganizationName:  "MyOrg",
-									OrganizationEmail: "my@email.org",
-									CommonName:        "tsa.hostname",
-								},
-							},
-							LeafCA: &v1alpha1.TsaCertificateAuthority{
-								OrganizationName:  "MyOrg",
-								OrganizationEmail: "my@email.org",
-								CommonName:        "tsa.hostname",
-							},
-						},
-					},
-					NTPMonitoring: v1alpha1.NTPMonitoring{
-						Enabled: true,
-						Config: &v1alpha1.NtpMonitoringConfig{
-							RequestAttempts: 3,
-							RequestTimeout:  5,
-							NumServers:      4,
-							ServerThreshold: 3,
-							MaxTimeDelta:    6,
-							Period:          60,
-							Servers:         []string{"time.apple.com", "time.google.com", "time-a-b.nist.gov", "time-b-b.nist.gov", "gbg1.ntp.se"},
-						},
-					},
-				},
+			func(v *v1alpha1.Securesign) {
+				v.Spec.Tuf.ExternalAccess.RouteSelectorLabels = map[string]string{"foo": "bar"}
 			},
-		}
+		)
 	})
 
 	BeforeAll(func() {

@@ -10,10 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/securesign/operator/internal/images"
-	"github.com/securesign/operator/internal/labels"
-	"github.com/securesign/operator/internal/utils"
-
 	"github.com/blang/semver/v4"
 	"github.com/onsi/ginkgo/v2/dsl/core"
 	v12 "github.com/operator-framework/api/pkg/operators/v1"
@@ -24,6 +20,8 @@ import (
 	trillianAction "github.com/securesign/operator/internal/controller/trillian/actions"
 	tsaAction "github.com/securesign/operator/internal/controller/tsa/actions"
 	tufAction "github.com/securesign/operator/internal/controller/tuf/constants"
+	"github.com/securesign/operator/internal/images"
+	"github.com/securesign/operator/internal/labels"
 	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	clients "github.com/securesign/operator/test/e2e/support/tas/cli"
@@ -170,92 +168,14 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 	})
 
 	It("Install securesign", func() {
-		securesignDeployment = &tasv1alpha.Securesign{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace.Name,
-				Name:      "test",
-				Annotations: map[string]string{
-					"rhtas.redhat.com/metrics": "false",
-				},
+		securesignDeployment = securesign.Create(namespace.Name, "test",
+			securesign.WithDefaults(),
+			securesign.WithSearchUI(),
+			securesign.WithMonitoring(),
+			func(v *tasv1alpha.Securesign) {
+				v.Spec.Trillian.Db.Pvc.Retain = nil
 			},
-			Spec: tasv1alpha.SecuresignSpec{
-				Rekor: tasv1alpha.RekorSpec{
-					ExternalAccess: tasv1alpha.ExternalAccess{
-						Enabled: true,
-					},
-					RekorSearchUI: tasv1alpha.RekorSearchUI{
-						Enabled: utils.Pointer(true),
-					},
-				},
-				Fulcio: tasv1alpha.FulcioSpec{
-					ExternalAccess: tasv1alpha.ExternalAccess{
-						Enabled: true,
-					},
-					Config: tasv1alpha.FulcioConfig{
-						OIDCIssuers: []tasv1alpha.OIDCIssuer{
-							{
-								ClientID:  support.OidcClientID(),
-								IssuerURL: support.OidcIssuerUrl(),
-								Issuer:    support.OidcIssuerUrl(),
-								Type:      "email",
-							},
-						}},
-					Certificate: tasv1alpha.FulcioCert{
-						OrganizationName:  "MyOrg",
-						OrganizationEmail: "my@email.org",
-						CommonName:        "fulcio",
-					},
-				},
-				Ctlog: tasv1alpha.CTlogSpec{},
-				Tuf: tasv1alpha.TufSpec{
-					ExternalAccess: tasv1alpha.ExternalAccess{
-						Enabled: true,
-					},
-				},
-				Trillian: tasv1alpha.TrillianSpec{Db: tasv1alpha.TrillianDB{
-					Create: utils.Pointer(true),
-				}},
-				TimestampAuthority: &tasv1alpha.TimestampAuthoritySpec{
-					ExternalAccess: tasv1alpha.ExternalAccess{
-						Enabled: true,
-					},
-					Signer: tasv1alpha.TimestampAuthoritySigner{
-						CertificateChain: tasv1alpha.CertificateChain{
-							RootCA: &tasv1alpha.TsaCertificateAuthority{
-								OrganizationName:  "MyOrg",
-								OrganizationEmail: "my@email.org",
-								CommonName:        "tsa.hostname",
-							},
-							IntermediateCA: []*tasv1alpha.TsaCertificateAuthority{
-								{
-									OrganizationName:  "MyOrg",
-									OrganizationEmail: "my@email.org",
-									CommonName:        "tsa.hostname",
-								},
-							},
-							LeafCA: &tasv1alpha.TsaCertificateAuthority{
-								OrganizationName:  "MyOrg",
-								OrganizationEmail: "my@email.org",
-								CommonName:        "tsa.hostname",
-							},
-						},
-					},
-					NTPMonitoring: tasv1alpha.NTPMonitoring{
-						Enabled: true,
-						Config: &tasv1alpha.NtpMonitoringConfig{
-							RequestAttempts: 3,
-							RequestTimeout:  5,
-							NumServers:      4,
-							ServerThreshold: 3,
-							MaxTimeDelta:    6,
-							Period:          60,
-							Servers:         []string{"time.apple.com", "time.google.com", "time-a-b.nist.gov", "time-b-b.nist.gov", "gbg1.ntp.se"},
-						},
-					},
-				},
-			},
-		}
-
+		)
 		gomega.Expect(cli.Create(ctx, securesignDeployment)).To(gomega.Succeed())
 
 		tas.VerifyAllComponents(ctx, cli, securesignDeployment, true)
