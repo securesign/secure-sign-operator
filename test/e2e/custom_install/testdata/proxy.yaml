@@ -1,0 +1,96 @@
+---
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: proxy
+  namespace: "{{.Namespace}}"
+  labels:
+    name: proxy
+spec:
+  securityContext:
+    runAsNonRoot: true
+    fsGroup: 1001
+    seccompProfile:
+      type: RuntimeDefault
+  volumes:
+    - name: httpd-conf
+      configMap:
+        name: httpd-config
+    - name: httpd-run
+      emptyDir: {}
+  containers:
+  - name: httpd
+    image: mirror.gcr.io/httpd:2.4.46
+    securityContext:
+      runAsGroup: 1001
+      runAsUser: 1001
+    command:
+     - httpd
+    args:
+     - -f
+     - /etc/httpd/httpd.conf
+     - -DFOREGROUND
+    ports:
+      - containerPort: 8080
+        name: http
+    volumeMounts:
+      - name: httpd-conf
+        mountPath: /etc/httpd
+        readOnly: true
+      - name: httpd-run
+        mountPath: /var/run/httpd
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxy
+  namespace: "{{.Namespace}}"
+spec:
+  selector:
+    name: proxy
+  ports:
+    - port: 80
+      name: http
+      targetPort: http
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: httpd-config
+  namespace: "{{.Namespace}}"
+data:
+  "httpd.conf": |
+    ServerRoot "/etc/httpd
+    
+    PidFile /var/run/httpd/httpd.pid"
+    
+    LoadModule mpm_event_module /usr/local/apache2/modules/mod_mpm_event.so
+    LoadModule authn_core_module /usr/local/apache2/modules/mod_authn_core.so
+    LoadModule authz_core_module /usr/local/apache2/modules/mod_authz_core.so
+    LoadModule proxy_module /usr/local/apache2/modules/mod_proxy.so
+    LoadModule proxy_http_module /usr/local/apache2/modules/mod_proxy_http.so
+    LoadModule proxy_connect_module /usr/local/apache2/modules/mod_proxy_connect.so
+    LoadModule log_config_module /usr/local/apache2/modules/mod_log_config.so
+    LoadModule unixd_module /usr/local/apache2/modules/mod_unixd.so
+    LoadModule ssl_module /usr/local/apache2/modules/mod_ssl.so
+    
+    Mutex posixsem
+    
+    LogFormat "%h %l %u %t \"%r\" %>s %b" common
+    CustomLog /dev/stdout common
+    ErrorLog /dev/stderr
+    
+    LogLevel info
+    
+    Listen 8080
+    
+    ServerName "proxy.{{.Namespace}}.svc"
+    
+    ProxyRequests On
+    ProxyVia Off
+    
+    AllowCONNECT 443
