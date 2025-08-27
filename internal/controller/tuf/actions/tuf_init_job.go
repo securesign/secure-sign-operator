@@ -86,7 +86,6 @@ func (i initJobAction) jobPresent(ctx context.Context, job *v2.Job, instance *rh
 }
 
 func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]string, instance *rhtasv1alpha1.Tuf) *action.Result {
-
 	if _, err := kubernetes.CreateOrUpdate(ctx, i.Client,
 		&v2.Job{
 			ObjectMeta: metav1.ObjectMeta{
@@ -100,6 +99,9 @@ func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]stri
 		func(object *v2.Job) error {
 			ensure.SetProxyEnvs(object.Spec.Template.Spec.Containers)
 			return nil
+		},
+		func(object *v2.Job) error {
+			return ensure.PodSecurityContext(&object.Spec.Template.Spec)
 		},
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create TUF init job: %w", err), instance)

@@ -75,6 +75,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		},
 		i.ensureServerDeployment(insCopy, actions.RBACName, labels),
 		deployment.PodRequirements(insCopy.Spec.PodRequirements, actions.ServerDeploymentName),
+		deployment.PodSecurityContext(),
 		i.ensureAttestation(insCopy),
 		ensure.ControllerReference[*v2.Deployment](instance, i.Client),
 		ensure.Labels[*v2.Deployment](slices.Collect(maps.Keys(labels)), labels),

@@ -54,3 +54,9 @@ func PodRequirements(requirements v1alpha1.PodRequirements, containerName string
 		return nil
 	}
 }
+
+func PodSecurityContext() func(deployment *v1.Deployment) error {
+	return func(dp *v1.Deployment) error {
+		return ensure.PodSecurityContext(&dp.Spec.Template.Spec)
+	}
+}

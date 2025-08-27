@@ -7,19 +7,16 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/config"
 	cLabels "github.com/securesign/operator/internal/labels"
-	"github.com/securesign/operator/internal/utils"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	k8sLabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	configv1 "github.com/openshift/api/config/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -79,40 +76,6 @@ func ContainerMode() (bool, error) {
 
 func IsOpenShift() bool {
 	return config.Openshift
-}
-
-// GetOpenshiftPodSecurityContextRestricted return the PodSecurityContext (https://docs.openshift.com/container-platform/4.12/authentication/managing-security-context-constraints.html):
-// FsGroup set to the minimum value in the "openshift.io/sa.scc.supplemental-groups" annotation if exists, else falls back to minimum value "openshift.io/sa.scc.uid-range" annotation.
-func GetOpenshiftPodSecurityContextRestricted(ctx context.Context, client client.Client, namespace string) (*corev1.PodSecurityContext, error) {
-	ns := &corev1.Namespace{}
-	err := client.Get(ctx, types.NamespacedName{Name: namespace}, ns)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get namespace %q: %w", namespace, err)
-	}
-
-	uidRange, ok := ns.Annotations["openshift.io/sa.scc.uid-range"]
-	if !ok {
-		return nil, errors.New("annotation 'openshift.io/sa.scc.uid-range' not found")
-	}
-
-	supplementalGroups, ok := ns.Annotations["openshift.io/sa.scc.supplemental-groups"]
-	if !ok {
-		supplementalGroups = uidRange
-	}
-
-	supplementalGroups = strings.Split(supplementalGroups, ",")[0]
-	fsGroupStr := strings.Split(supplementalGroups, "/")[0]
-	fsGroup, err := strconv.ParseInt(fsGroupStr, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert fsgroup to integer %q: %w", fsGroupStr, err)
-	}
-
-	psc := corev1.PodSecurityContext{
-		FSGroup:             &fsGroup,
-		FSGroupChangePolicy: utils.Pointer(corev1.FSGroupChangeOnRootMismatch),
-	}
-
-	return &psc, nil
 }
 
 func CalculateHostname(ctx context.Context, client client.Client, svcName, ns string) (string, error) {

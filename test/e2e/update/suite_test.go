@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	_ "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"

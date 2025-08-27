@@ -57,11 +57,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	)
 
 	labels := labels.For(actions.DbComponentName, actions.DbDeploymentName, instance.Name)
-	scc, err := kubernetes.GetOpenshiftPodSecurityContextRestricted(ctx, i.Client, instance.Namespace)
-	if err != nil {
-		i.Logger.Info("Can't resolve OpenShift scc - using default values", "Error", err.Error(), "Fallback FSGroup", "1001")
-		scc = &v1.PodSecurityContext{FSGroup: utils.Pointer(int64(1001)), FSGroupChangePolicy: utils.Pointer(v1.FSGroupChangeOnRootMismatch)}
-	}
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		&v2.Deployment{
@@ -70,7 +65,8 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 				Namespace: instance.Namespace,
 			},
 		},
-		i.ensureDbDeployment(instance, actions.RBACDbName, scc, labels),
+		i.ensureDbDeployment(instance, actions.RBACDbName, labels),
+		deployment.PodSecurityContext(),
 		ensure.ControllerReference[*v2.Deployment](instance, i.Client),
 		ensure.Labels[*v2.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		ensure.Optional(trillianUtils.UseTLSDb(instance), i.ensureTLS(statusTLS(instance))),
@@ -96,7 +92,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	}
 }
 
-func (i deployAction) ensureDbDeployment(instance *rhtasv1alpha1.Trillian, sa string, secCont *v1.PodSecurityContext, labels map[string]string) func(deployment *v2.Deployment) error {
+func (i deployAction) ensureDbDeployment(instance *rhtasv1alpha1.Trillian, sa string, labels map[string]string) func(deployment *v2.Deployment) error {
 	return func(dp *v2.Deployment) error {
 		switch {
 		case instance.Status.Db.DatabaseSecretRef == nil:
@@ -123,7 +119,6 @@ func (i deployAction) ensureDbDeployment(instance *rhtasv1alpha1.Trillian, sa st
 		template := &spec.Template
 		template.Labels = labels
 		template.Spec.ServiceAccountName = sa
-		template.Spec.SecurityContext = secCont
 
 		volume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, volumeName)
 		if volume.PersistentVolumeClaim == nil {
