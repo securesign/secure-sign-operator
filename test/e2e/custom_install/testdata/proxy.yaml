@@ -1,0 +1,121 @@
+---
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: proxy
+  namespace: "{{.Namespace}}"
+  labels:
+    name: proxy
+spec:
+  securityContext:
+    runAsNonRoot: true
+    fsGroup: 1001
+    seccompProfile:
+      type: RuntimeDefault
+  volumes:
+    - name: tls
+      secret:
+        secretName: tls-secret
+    - name: httpd-conf
+      configMap:
+        name: httpd-config
+    - name: httpd-run
+      emptyDir: {}
+  containers:
+  - name: httpd
+    image: mirror.gcr.io/httpd:2.4.46
+    securityContext:
+      runAsGroup: 1001
+      runAsUser: 1001
+    command:
+     - httpd
+    args:
+     - -f
+     - /etc/httpd/httpd.conf
+     - -DFOREGROUND
+    ports:
+      - containerPort: 8080
+        name: http
+      - containerPort: 8443
+        name: https
+    volumeMounts:
+      - name: tls
+        mountPath: /etc/tls/private
+        readOnly: true
+      - name: httpd-conf
+        mountPath: /etc/httpd
+        readOnly: true
+      - name: httpd-run
+        mountPath: /var/run/httpd
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxy
+  namespace: "{{.Namespace}}"
+spec:
+  selector:
+    name: proxy
+  ports:
+    - port: 80
+      name: http
+      targetPort: http
+    - port: 443
+      name: https
+      targetPort: https
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: httpd-config
+  namespace: "{{.Namespace}}"
+data:
+  "httpd.conf": |
+    ServerRoot "/etc/httpd
+    
+    PidFile /var/run/httpd/httpd.pid"
+    
+    LoadModule mpm_event_module /usr/local/apache2/modules/mod_mpm_event.so
+    LoadModule authn_core_module /usr/local/apache2/modules/mod_authn_core.so
+    LoadModule authz_core_module /usr/local/apache2/modules/mod_authz_core.so
+    LoadModule proxy_module /usr/local/apache2/modules/mod_proxy.so
+    LoadModule proxy_http_module /usr/local/apache2/modules/mod_proxy_http.so
+    LoadModule proxy_connect_module /usr/local/apache2/modules/mod_proxy_connect.so
+    LoadModule headers_module /usr/local/apache2/modules/mod_headers.so
+    LoadModule setenvif_module /usr/local/apache2/modules/mod_setenvif.so
+    LoadModule version_module /usr/local/apache2/modules/mod_version.so
+    LoadModule log_config_module /usr/local/apache2/modules/mod_log_config.so
+    LoadModule env_module /usr/local/apache2/modules/mod_env.so
+    LoadModule unixd_module /usr/local/apache2/modules/mod_unixd.so
+    LoadModule status_module /usr/local/apache2/modules/mod_status.so
+    LoadModule autoindex_module /usr/local/apache2/modules/mod_autoindex.so
+    LoadModule ssl_module /usr/local/apache2/modules/mod_ssl.so
+    
+    Mutex posixsem
+    
+    LogFormat "%h %l %u %t \"%r\" %>s %b" common
+    CustomLog /dev/stdout common
+    ErrorLog /dev/stderr
+    
+    LogLevel info
+    
+    Listen 8080
+    Listen 8443
+    
+    ServerName "proxy.{{.Namespace}}.svc"
+    
+    ProxyRequests On
+    ProxyVia Off
+    
+    <VirtualHost *:8443>
+    SSLEngine on
+  
+    SSLCertificateFile "/etc/tls/private/tls.crt"
+    SSLCertificateKeyFile "/etc/tls/private/tls.key"
+  
+    AllowEncodedSlashes NoDecode
+    </VirtualHost>
