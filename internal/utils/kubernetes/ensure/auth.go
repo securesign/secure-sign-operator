@@ -24,7 +24,7 @@ func Auth(containerName string, auth *v1alpha1.Auth) func(spec *core.PodSpec) er
 				}
 			}
 			authProjected := kubernetes.FindVolumeByNameOrCreate(templateSpec, authVolumeName)
-			if authProjected == nil {
+			if authProjected.Projected == nil {
 				authProjected.Projected = &core.ProjectedVolumeSource{}
 			}
 
