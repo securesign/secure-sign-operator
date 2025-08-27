@@ -112,7 +112,7 @@ var _ = Describe("TSA update", Ordered, func() {
 
 		It("has status Pending: waiting on my-tsa-secret", func() {
 			Eventually(func(g Gomega) string {
-				ctl := tsa.Get(ctx, cli, namespace.Name, s.Name)()
+				ctl := tsa.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
 				c := meta.FindStatusCondition(ctl.Status.Conditions, constants.Ready)
 				g.Expect(c).ToNot(BeNil())
@@ -126,7 +126,7 @@ var _ = Describe("TSA update", Ordered, func() {
 
 		It("has status Ready", func() {
 			Eventually(func(g Gomega) string {
-				ctl := rekor.Get(ctx, cli, namespace.Name, s.Name)()
+				ctl := rekor.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
 				return meta.FindStatusCondition(ctl.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Ready))
@@ -164,7 +164,7 @@ var _ = Describe("TSA update", Ordered, func() {
 				return cli.Update(ctx, s)
 			}).WithTimeout(1 * time.Second).Should(Succeed())
 			Eventually(func(g Gomega) []v1alpha1.TufKey {
-				t := tuf.Get(ctx, cli, namespace.Name, s.Name)()
+				t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 				return t.Status.Keys
 			}).Should(And(HaveLen(4), WithTransform(func(keys []v1alpha1.TufKey) string {
 				return keys[2].SecretRef.Name
@@ -183,7 +183,7 @@ var _ = Describe("TSA update", Ordered, func() {
 			Eventually(func(g Gomega) {
 				pod = tsa.GetServerPod(ctx, cli, namespace.Name)()
 				g.Expect(pod).ToNot(BeNil())
-				t = tsa.Get(ctx, cli, namespace.Name, s.Name)()
+				t = tsa.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(t).ToNot(BeNil())
 			}).Should(Succeed())
 
@@ -242,7 +242,7 @@ var _ = Describe("TSA update", Ordered, func() {
 
 		It("has status Ready", func() {
 			Eventually(func(g Gomega) string {
-				ctl := rekor.Get(ctx, cli, namespace.Name, s.Name)()
+				ctl := rekor.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
 				return meta.FindStatusCondition(ctl.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Ready))
@@ -264,7 +264,7 @@ var _ = Describe("TSA update", Ordered, func() {
 			Eventually(func(g Gomega) {
 				pod = tsa.GetServerPod(ctx, cli, namespace.Name)()
 				g.Expect(pod).ToNot(BeNil())
-				t = tsa.Get(ctx, cli, namespace.Name, s.Name)()
+				t = tsa.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(t).ToNot(BeNil())
 			}).Should(Succeed())
 

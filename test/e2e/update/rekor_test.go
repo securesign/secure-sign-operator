@@ -93,7 +93,7 @@ var _ = Describe("Rekor update", Ordered, func() {
 
 		It("has status SignerAvailable == Failure: waiting on my-rekor-secret", func() {
 			Eventually(func(g Gomega) string {
-				ctl := rekor.Get(ctx, cli, namespace.Name, s.Name)()
+				ctl := rekor.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
 				c := meta.FindStatusCondition(ctl.Status.Conditions, rekorAction.ServerCondition)
 				g.Expect(c).ToNot(BeNil())
@@ -107,7 +107,7 @@ var _ = Describe("Rekor update", Ordered, func() {
 
 		It("has status Ready", func() {
 			Eventually(func(g Gomega) string {
-				ctl := rekor.Get(ctx, cli, namespace.Name, s.Name)()
+				ctl := rekor.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
 				return meta.FindStatusCondition(ctl.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Ready))
@@ -145,7 +145,7 @@ var _ = Describe("Rekor update", Ordered, func() {
 				return cli.Update(ctx, s)
 			}).WithTimeout(1 * time.Second).Should(Succeed())
 			Eventually(func(g Gomega) []v1alpha1.TufKey {
-				t := tuf.Get(ctx, cli, namespace.Name, s.Name)()
+				t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 				return t.Status.Keys
 			}).Should(And(HaveLen(4), WithTransform(func(keys []v1alpha1.TufKey) string {
 				return keys[0].SecretRef.Name
@@ -161,7 +161,7 @@ var _ = Describe("Rekor update", Ordered, func() {
 		It("verify new configuration", func() {
 			var r *v1.Pod
 			Eventually(func(g Gomega) {
-				r = rekor.GetServerPod(ctx, cli, namespace.Name)()
+				r = rekor.GetServerPod(ctx, cli, namespace.Name)
 				g.Expect(r).NotTo(BeNil())
 			}).Should(Succeed())
 			Expect(r.Spec.Volumes).To(ContainElements(And(

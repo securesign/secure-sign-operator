@@ -10,6 +10,7 @@ import (
 )
 
 func VerifySearchUI(ctx context.Context, cli client.Client, namespace string) {
-	Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, actions.UIComponentName)).
+	Eventually(condition.DeploymentIsRunning).WithContext(ctx).
+		WithArguments(cli, namespace, actions.UIComponentName).
 		Should(BeTrue())
 }

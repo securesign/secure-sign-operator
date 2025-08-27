@@ -17,38 +17,37 @@ import (
 )
 
 func Verify(ctx context.Context, cli client.Client, namespace string, name string) {
-	Eventually(Get(ctx, cli, namespace, name)).Should(
-		And(
-			Not(BeNil()),
-			WithTransform(condition.IsReady, BeTrue()),
-		))
+	Eventually(Get).WithContext(ctx).WithArguments(cli, namespace, name).
+		Should(
+			And(
+				Not(BeNil()),
+				WithTransform(condition.IsReady, BeTrue()),
+			))
 
-	Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, actions.ComponentName)).
+	Eventually(condition.DeploymentIsRunning).WithContext(ctx).
+		WithArguments(cli, namespace, actions.ComponentName).
 		Should(BeTrue())
 }
 
-func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {
-	return func() *v1.Pod {
-		list := &v1.PodList{}
-		_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{labels.LabelAppComponent: actions.ComponentName, labels.LabelAppName: "ctlog"})
-		if len(list.Items) != 1 {
-			return nil
-		}
-		return &list.Items[0]
+func GetServerPod(ctx context.Context, cli client.Client, ns string) *v1.Pod {
+	list := &v1.PodList{}
+	_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{labels.LabelAppComponent: actions.ComponentName, labels.LabelAppName: "ctlog"})
+	if len(list.Items) != 1 {
+		return nil
 	}
+	return &list.Items[0]
 }
 
-func Get(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.CTlog {
-	return func() *v1alpha1.CTlog {
-		instance := &v1alpha1.CTlog{}
-		if e := cli.Get(ctx, types.NamespacedName{
-			Namespace: ns,
-			Name:      name,
-		}, instance); errors.IsNotFound(e) {
-			return nil
-		}
-		return instance
+func Get(ctx context.Context, cli client.Client, ns string, name string) *v1alpha1.CTlog {
+	instance := &v1alpha1.CTlog{}
+	if e := cli.Get(ctx, types.NamespacedName{
+		Namespace: ns,
+		Name:      name,
+	}, instance); errors.IsNotFound(e) {
+		return nil
 	}
+	return instance
+
 }
 
 func CreateSecret(ns string, name string) *v1.Secret {

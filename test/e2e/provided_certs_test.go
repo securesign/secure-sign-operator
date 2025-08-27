@@ -124,7 +124,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 
 		It("Rekor is running with mounted certs", func() {
 			rekor.Verify(ctx, cli, namespace.Name, s.Name, true)
-			server := rekor.GetServerPod(ctx, cli, namespace.Name)()
+			server := rekor.GetServerPod(ctx, cli, namespace.Name)
 			Expect(server).NotTo(BeNil())
 			Expect(server.Spec.Volumes).To(
 				ContainElement(

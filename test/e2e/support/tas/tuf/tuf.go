@@ -26,43 +26,43 @@ import (
 )
 
 func Verify(ctx context.Context, cli client.Client, namespace string, name string) {
-	Eventually(Get(ctx, cli, namespace, name)).Should(
-		And(
-			Not(BeNil()),
-			WithTransform(condition.IsReady, BeTrue()),
-		))
+	Eventually(Get).WithContext(ctx).
+		WithArguments(cli, namespace, name).
+		Should(
+			And(
+				Not(BeNil()),
+				WithTransform(condition.IsReady, BeTrue()),
+			))
 
-	Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, constants.ComponentName)).
+	Eventually(condition.DeploymentIsRunning).WithContext(ctx).
+		WithArguments(cli, namespace, constants.ComponentName).
 		Should(BeTrue())
 }
 
-func Get(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.Tuf {
-	return func() *v1alpha1.Tuf {
-		instance := &v1alpha1.Tuf{}
-		if e := cli.Get(ctx, types.NamespacedName{
-			Namespace: ns,
-			Name:      name,
-		}, instance); errors.IsNotFound(e) {
-			return nil
-		}
-		return instance
+func Get(ctx context.Context, cli client.Client, ns string, name string) *v1alpha1.Tuf {
+	instance := &v1alpha1.Tuf{}
+	if e := cli.Get(ctx, types.NamespacedName{
+		Namespace: ns,
+		Name:      name,
+	}, instance); errors.IsNotFound(e) {
+		return nil
 	}
+	return instance
+
 }
 
-func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {
-	return func() *v1.Pod {
-		list := &v1.PodList{}
-		_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{labels.LabelAppComponent: constants.ComponentName})
-		if len(list.Items) != 1 {
-			return nil
-		}
-		return &list.Items[0]
+func GetServerPod(ctx context.Context, cli client.Client, ns string) *v1.Pod {
+	list := &v1.PodList{}
+	_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{labels.LabelAppComponent: constants.ComponentName})
+	if len(list.Items) != 1 {
+		return nil
 	}
+	return &list.Items[0]
 }
 
 func RefreshTufRepository(ctx context.Context, cli client.Client, ns string, name string) {
 	tufDeployment := &appsv1.Deployment{}
-	Eventually(func(g Gomega) error {
+	Eventually(func(g Gomega, ctx context.Context) error {
 		g.Expect(cli.Get(ctx, types.NamespacedName{Namespace: ns, Name: constants.DeploymentName}, tufDeployment)).To(Succeed())
 
 		// pause deployment reconciliation
@@ -74,26 +74,26 @@ func RefreshTufRepository(ctx context.Context, cli client.Client, ns string, nam
 		// scale deployment down to release PV
 		tufDeployment.Spec.Replicas = ptr.To(int32(0))
 		return cli.Update(ctx, tufDeployment)
-	}).WithTimeout(1 * time.Second).Should(Succeed())
+	}).WithContext(ctx).WithTimeout(1 * time.Second).Should(Succeed())
 
-	t := Get(ctx, cli, ns, name)()
+	t := Get(ctx, cli, ns, name)
 	Expect(t).ToNot(BeNil())
 	refreshJob := refreshTufJob(t)
 	Expect(cli.Create(ctx, refreshJob)).To(Succeed())
 
-	Eventually(func(g Gomega) bool {
+	Eventually(func(g Gomega, ctx context.Context) bool {
 		found := &v12.Job{}
 		g.Expect(cli.Get(ctx, client.ObjectKeyFromObject(refreshJob), found)).To(Succeed())
 		return job.IsCompleted(*found) && !job.IsFailed(*found)
-	}).Should(BeTrue())
+	}).WithContext(ctx).Should(BeTrue())
 
 	// unpause reconciliation
-	Eventually(func(g Gomega) error {
+	Eventually(func(g Gomega, ctx context.Context) error {
 		g.Expect(cli.Get(ctx, types.NamespacedName{Namespace: ns, Name: constants.DeploymentName}, tufDeployment)).To(Succeed())
 		tufDeployment.Annotations[annotations.PausedReconciliation] = "false"
 		return cli.Update(ctx, tufDeployment)
 	},
-	).WithTimeout(1 * time.Second).Should(Succeed())
+	).WithContext(ctx).WithTimeout(1 * time.Second).Should(Succeed())
 
 	// wait for controller to start loop again
 	time.Sleep(5 * time.Second)

@@ -30,21 +30,21 @@ func VerifyAllComponents(ctx context.Context, cli runtimeCli.Client, s *rhtasv1a
 }
 
 func VerifyByCosign(ctx context.Context, cli runtimeCli.Client, s *rhtasv1alpha1.Securesign, targetImageName string) {
-	f := fulcio.Get(ctx, cli, s.Namespace, s.Name)()
+	f := fulcio.Get(ctx, cli, s.Namespace, s.Name)
 	Expect(f).ToNot(BeNil())
 
-	r := rekor.Get(ctx, cli, s.Namespace, s.Name)()
+	r := rekor.Get(ctx, cli, s.Namespace, s.Name)
 	Expect(r).ToNot(BeNil())
 
-	t := tuf.Get(ctx, cli, s.Namespace, s.Name)()
+	t := tuf.Get(ctx, cli, s.Namespace, s.Name)
 	Expect(t).ToNot(BeNil())
 
-	ts := tsa.Get(ctx, cli, s.Namespace, s.Name)()
+	ts := tsa.Get(ctx, cli, s.Namespace, s.Name)
 	Expect(ts).ToNot(BeNil())
 
-	Eventually(func() error {
+	Eventually(func(ctx context.Context) error {
 		return tsa.GetCertificateChain(ctx, cli, s.Namespace, s.Name, ts.Status.Url)
-	}).Should(Succeed())
+	}).WithContext(ctx).Should(Succeed())
 
 	oidcToken, err := support.OidcToken(ctx)
 	Expect(err).ToNot(HaveOccurred())

@@ -80,7 +80,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 
 		It("operator should generate Fulcio's secret", func() {
 			Eventually(func(g Gomega) *v1.Secret {
-				f := fulcio.Get(ctx, cli, namespace.Name, s.Name)()
+				f := fulcio.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(f).ToNot(BeNil())
 				g.Expect(f.Status.Certificate).ToNot(BeNil())
 				g.Expect(f.Status.Certificate.PrivateKeyRef).ToNot(BeNil())
@@ -99,10 +99,10 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 
 		It("operator should generate rekor secret", func() {
 			Eventually(func() *v1alpha1.SecretKeySelector {
-				return rekor.Get(ctx, cli, namespace.Name, s.Name)().Status.Signer.KeyRef
+				return rekor.Get(ctx, cli, namespace.Name, s.Name).Status.Signer.KeyRef
 			}).Should(Not(BeNil()))
 			Eventually(func(g Gomega) *v1.Secret {
-				r := rekor.Get(ctx, cli, namespace.Name, s.Name)()
+				r := rekor.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(r).ToNot(BeNil())
 				scr := &v1.Secret{}
 				g.Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: r.Status.Signer.KeyRef.Name}, scr)).To(Succeed())
@@ -116,7 +116,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 
 		It("operator should generate TSA secret", func() {
 			Eventually(func() *v1.Secret {
-				tsa := tsa.Get(ctx, cli, namespace.Name, s.Name)()
+				tsa := tsa.Get(ctx, cli, namespace.Name, s.Name)
 				scr := &v1.Secret{}
 				Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: tsa.Status.Signer.File.PrivateKeyRef.Name}, scr)).To(Succeed())
 				return scr
@@ -150,13 +150,13 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				ContainElement(
 					WithTransform(func(sp v1.SecretProjection) string {
 						return sp.Name
-					}, Equal(fulcio.Get(ctx, cli, namespace.Name, s.Name)().Status.Certificate.CARef.Name)),
+					}, Equal(fulcio.Get(ctx, cli, namespace.Name, s.Name).Status.Certificate.CARef.Name)),
 				))
 		})
 
 		It("rekor is running with mounted certs", func() {
 			rekor.Verify(ctx, cli, namespace.Name, s.Name, true)
-			server := rekor.GetServerPod(ctx, cli, namespace.Name)()
+			server := rekor.GetServerPod(ctx, cli, namespace.Name)
 			Expect(server).NotTo(BeNil())
 			Expect(server.Spec.Volumes).To(
 				ContainElement(
@@ -165,7 +165,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 							return volume.Secret.SecretName
 						}
 						return ""
-					}, Equal(rekor.Get(ctx, cli, namespace.Name, s.Name)().Status.Signer.KeyRef.Name))),
+					}, Equal(rekor.Get(ctx, cli, namespace.Name, s.Name).Status.Signer.KeyRef.Name))),
 			)
 
 		})
@@ -181,7 +181,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 							return volume.Secret.SecretName
 						}
 						return ""
-					}, Equal(tsa.Get(ctx, cli, namespace.Name, s.Name)().Status.Signer.CertificateChain.CertificateChainRef.Name))),
+					}, Equal(tsa.Get(ctx, cli, namespace.Name, s.Name).Status.Signer.CertificateChain.CertificateChainRef.Name))),
 			)
 			Expect(server.Spec.Volumes).To(
 				ContainElement(
@@ -190,7 +190,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 							return volume.Secret.SecretName
 						}
 						return ""
-					}, Equal(tsa.Get(ctx, cli, namespace.Name, s.Name)().Status.Signer.File.PrivateKeyRef.Name))),
+					}, Equal(tsa.Get(ctx, cli, namespace.Name, s.Name).Status.Signer.File.PrivateKeyRef.Name))),
 			)
 		})
 
@@ -205,13 +205,13 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 							return volume.ConfigMap.Name
 						}
 						return ""
-					}, Equal(tsa.Get(ctx, cli, namespace.Name, s.Name)().Status.NTPMonitoring.Config.NtpConfigRef.Name))),
+					}, Equal(tsa.Get(ctx, cli, namespace.Name, s.Name).Status.NTPMonitoring.Config.NtpConfigRef.Name))),
 			)
 		})
 
 		It("Tuf repository root key secret was created", func() {
 			tuf.Verify(ctx, cli, namespace.Name, s.Name)
-			tuf := tuf.Get(ctx, cli, namespace.Name, s.Name)()
+			tuf := tuf.Get(ctx, cli, namespace.Name, s.Name)
 			Expect(tuf.Spec.RootKeySecretRef).NotTo(BeNil())
 			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: tuf.Spec.RootKeySecretRef.Name}, &v1.Secret{})).To(Succeed())
 		})
@@ -235,7 +235,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 		})
 
 		It("Verify Rekor Search UI is accessible", func() {
-			r := rekor.Get(ctx, cli, namespace.Name, s.Name)()
+			r := rekor.Get(ctx, cli, namespace.Name, s.Name)
 			Expect(r).ToNot(BeNil())
 			Expect(r.Status.RekorSearchUIUrl).NotTo(BeEmpty())
 

@@ -244,7 +244,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 	})
 
 	It("Verify image signature after upgrade", func() {
-		rrekor = rekor.Get(ctx, cli, namespace.Name, securesignDeployment.Name)()
+		rrekor = rekor.Get(ctx, cli, namespace.Name, securesignDeployment.Name)
 		gomega.Expect(rrekor).ToNot(gomega.BeNil())
 
 		gomega.Expect(clients.Execute(
@@ -263,7 +263,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 
 	It("Make sure securesign can be deleted after upgrade", func() {
 		gomega.Eventually(func(g gomega.Gomega) {
-			s := securesign.Get(ctx, cli, namespace.Name, securesignDeployment.Name)()
+			s := securesign.Get(ctx, cli, namespace.Name, securesignDeployment.Name)
 			gomega.Expect(cli.Delete(ctx, s)).Should(gomega.Succeed())
 		}).Should(gomega.Succeed())
 	})

@@ -96,7 +96,7 @@ var _ = Describe("CTlog update", Ordered, func() {
 
 		It("has status Creating: waiting on my-ctlog-secret", func() {
 			Eventually(func(g Gomega) string {
-				ctl := ctlog.Get(ctx, cli, namespace.Name, s.Name)()
+				ctl := ctlog.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
 				return meta.FindStatusCondition(ctl.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Creating))
@@ -108,7 +108,7 @@ var _ = Describe("CTlog update", Ordered, func() {
 
 		It("has status Ready", func() {
 			Eventually(func(g Gomega) string {
-				ctl := ctlog.Get(ctx, cli, namespace.Name, s.Name)()
+				ctl := ctlog.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
 				return meta.FindStatusCondition(ctl.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Ready))
@@ -146,7 +146,7 @@ var _ = Describe("CTlog update", Ordered, func() {
 				return cli.Update(ctx, s)
 			}).WithTimeout(1 * time.Second).Should(Succeed())
 			Eventually(func(g Gomega) []v1alpha1.TufKey {
-				t := tuf.Get(ctx, cli, namespace.Name, s.Name)()
+				t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 				return t.Status.Keys
 			}).Should(And(HaveLen(4), WithTransform(func(keys []v1alpha1.TufKey) string {
 				return keys[3].SecretRef.Name
@@ -163,9 +163,9 @@ var _ = Describe("CTlog update", Ordered, func() {
 			var ctl *v1alpha1.CTlog
 			var ctlPod *v1.Pod
 			Eventually(func(g Gomega) {
-				ctl = ctlog.Get(ctx, cli, namespace.Name, s.Name)()
+				ctl = ctlog.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
-				ctlPod = ctlog.GetServerPod(ctx, cli, namespace.Name)()
+				ctlPod = ctlog.GetServerPod(ctx, cli, namespace.Name)
 				g.Expect(ctlPod).NotTo(BeNil())
 			}).Should(Succeed())
 

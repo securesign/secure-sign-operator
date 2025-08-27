@@ -112,7 +112,7 @@ var _ = Describe("Fulcio update", Ordered, func() {
 
 		It("has status FulcioCertAvailable == Failure: waiting on my-fulcio-secret", func() {
 			Eventually(func(g Gomega) string {
-				ctl := fulcio.Get(ctx, cli, namespace.Name, s.Name)()
+				ctl := fulcio.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
 				c := meta.FindStatusCondition(ctl.Status.Conditions, fulcioAction.CertCondition)
 				g.Expect(c).ToNot(BeNil())
@@ -126,7 +126,7 @@ var _ = Describe("Fulcio update", Ordered, func() {
 
 		It("has status Ready", func() {
 			Eventually(func(g Gomega) string {
-				ctl := fulcio.Get(ctx, cli, namespace.Name, s.Name)()
+				ctl := fulcio.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
 				return meta.FindStatusCondition(ctl.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Ready))
@@ -170,7 +170,7 @@ var _ = Describe("Fulcio update", Ordered, func() {
 				return cli.Update(ctx, s)
 			}).WithTimeout(1 * time.Second).Should(Succeed())
 			Eventually(func(g Gomega) []v1alpha1.TufKey {
-				t := tuf.Get(ctx, cli, namespace.Name, s.Name)()
+				t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 				return t.Status.Keys
 			}).Should(And(HaveLen(4), WithTransform(func(keys []v1alpha1.TufKey) string {
 				return keys[1].SecretRef.Name
@@ -226,7 +226,7 @@ var _ = Describe("Fulcio update", Ordered, func() {
 
 		It("has status Ready", func() {
 			Eventually(func(g Gomega) string {
-				ctl := fulcio.Get(ctx, cli, namespace.Name, s.Name)()
+				ctl := fulcio.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
 				return meta.FindStatusCondition(ctl.Status.Conditions, constants.Ready).Reason
 			}).Should(Equal(constants.Ready))
@@ -246,7 +246,7 @@ var _ = Describe("Fulcio update", Ordered, func() {
 			var f *v1alpha1.Fulcio
 			var fulcioPod *v1.Pod
 			Eventually(func(g Gomega) {
-				f = fulcio.Get(ctx, cli, namespace.Name, s.Name)()
+				f = fulcio.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(f).NotTo(BeNil())
 				fulcioPod = fulcio.GetServerPod(ctx, cli, namespace.Name)()
 				g.Expect(fulcioPod).NotTo(BeNil())

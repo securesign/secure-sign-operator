@@ -17,45 +17,44 @@ import (
 )
 
 func Verify(ctx context.Context, cli client.Client, namespace string, name string, db bool) {
-	Eventually(Get(ctx, cli, namespace, name)).Should(
-		And(
-			Not(BeNil()),
-			WithTransform(condition.IsReady, BeTrue()),
-		))
+	Eventually(Get).WithContext(ctx).WithArguments(cli, namespace, name).
+		Should(
+			And(
+				Not(BeNil()),
+				WithTransform(condition.IsReady, BeTrue()),
+			))
 
 	// server
-	Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, actions.ServerComponentName)).
+	Eventually(condition.DeploymentIsRunning).WithContext(ctx).
+		WithArguments(cli, namespace, actions.ServerComponentName).
 		Should(BeTrue())
 
 	if db {
 		// redis
-		Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, actions.RedisComponentName)).
+		Eventually(condition.DeploymentIsRunning).WithContext(ctx).
+			WithArguments(cli, namespace, actions.RedisComponentName).
 			Should(BeTrue())
 	}
 }
 
-func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {
-	return func() *v1.Pod {
-		list := &v1.PodList{}
-		_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{labels.LabelAppComponent: actions.ServerComponentName, labels.LabelAppName: "rekor-server"})
-		if len(list.Items) != 1 {
-			return nil
-		}
-		return &list.Items[0]
+func GetServerPod(ctx context.Context, cli client.Client, ns string) *v1.Pod {
+	list := &v1.PodList{}
+	_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{labels.LabelAppComponent: actions.ServerComponentName, labels.LabelAppName: "rekor-server"})
+	if len(list.Items) != 1 {
+		return nil
 	}
+	return &list.Items[0]
 }
 
-func Get(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.Rekor {
-	return func() *v1alpha1.Rekor {
-		instance := &v1alpha1.Rekor{}
-		if e := cli.Get(ctx, types.NamespacedName{
-			Namespace: ns,
-			Name:      name,
-		}, instance); errors.IsNotFound(e) {
-			return nil
-		}
-		return instance
+func Get(ctx context.Context, cli client.Client, ns string, name string) *v1alpha1.Rekor {
+	instance := &v1alpha1.Rekor{}
+	if e := cli.Get(ctx, types.NamespacedName{
+		Namespace: ns,
+		Name:      name,
+	}, instance); errors.IsNotFound(e) {
+		return nil
 	}
+	return instance
 }
 
 func CreateSecret(ns string, name string) *v1.Secret {

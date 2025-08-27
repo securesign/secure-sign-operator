@@ -344,16 +344,16 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 		})
 
 		It("Use cosign cli", func() {
-			f := fulcio.Get(ctx, cli, namespaces["fulcio"].Name, fulcioObject.Name)()
+			f := fulcio.Get(ctx, cli, namespaces["fulcio"].Name, fulcioObject.Name)
 			Expect(f).ToNot(BeNil())
 
-			r := rekor.Get(ctx, cli, namespaces["rekor"].Name, rekorObject.Name)()
+			r := rekor.Get(ctx, cli, namespaces["rekor"].Name, rekorObject.Name)
 			Expect(r).ToNot(BeNil())
 
-			t := tuf.Get(ctx, cli, namespaces["tuf"].Name, tufObject.Name)()
+			t := tuf.Get(ctx, cli, namespaces["tuf"].Name, tufObject.Name)
 			Expect(t).ToNot(BeNil())
 
-			ts := tsa.Get(ctx, cli, namespaces["tsa"].Name, tsaObject.Name)()
+			ts := tsa.Get(ctx, cli, namespaces["tsa"].Name, tsaObject.Name)
 			Expect(ts).ToNot(BeNil())
 
 			Eventually(func() error {
