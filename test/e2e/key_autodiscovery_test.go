@@ -66,7 +66,7 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 		})
 
 		It("Verify TUF keys", func() {
-			t := tuf.Get(ctx, cli, namespace.Name, s.Name)()
+			t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 			Expect(t).ToNot(BeNil())
 			Expect(t.Status.Keys).To(HaveEach(WithTransform(func(k v1alpha1.TufKey) string { return k.SecretRef.Name }, Not(BeEmpty()))))
 			var (

@@ -28,28 +28,29 @@ import (
 )
 
 func Verify(ctx context.Context, cli client.Client, namespace string, name string) {
-	Eventually(Get(ctx, cli, namespace, name)).Should(
-		And(
-			Not(BeNil()),
-			WithTransform(condition.IsReady, BeTrue()),
-		))
+	Eventually(Get).WithContext(ctx).
+		WithArguments(cli, namespace, name).
+		Should(
+			And(
+				Not(BeNil()),
+				WithTransform(condition.IsReady, BeTrue()),
+			))
 
 	// server
-	Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, "timestamp-authority")).
+	Eventually(condition.DeploymentIsRunning).WithContext(ctx).
+		WithArguments(cli, namespace, "timestamp-authority").
 		Should(BeTrue())
 }
 
-func Get(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.TimestampAuthority {
-	return func() *v1alpha1.TimestampAuthority {
-		instance := &v1alpha1.TimestampAuthority{}
-		if e := cli.Get(ctx, types.NamespacedName{
-			Namespace: ns,
-			Name:      name,
-		}, instance); errors.IsNotFound(e) {
-			return nil
-		}
-		return instance
+func Get(ctx context.Context, cli client.Client, ns string, name string) *v1alpha1.TimestampAuthority {
+	instance := &v1alpha1.TimestampAuthority{}
+	if e := cli.Get(ctx, types.NamespacedName{
+		Namespace: ns,
+		Name:      name,
+	}, instance); errors.IsNotFound(e) {
+		return nil
 	}
+	return instance
 }
 
 func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.Pod {

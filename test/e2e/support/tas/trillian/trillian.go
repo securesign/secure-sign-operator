@@ -13,36 +13,38 @@ import (
 )
 
 func Verify(ctx context.Context, cli client.Client, namespace string, name string, dbPresent bool) {
-	Eventually(Get(ctx, cli, namespace, name)).Should(
-		And(
-			Not(BeNil()),
-			WithTransform(condition.IsReady, BeTrue()),
-		))
+	Eventually(Get).WithContext(ctx).WithArguments(cli, namespace, name).
+		Should(
+			And(
+				Not(BeNil()),
+				WithTransform(condition.IsReady, BeTrue()),
+			))
 
 	if dbPresent {
 		// trillian-db
-		Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, actions.DbComponentName)).
+		Eventually(condition.DeploymentIsRunning).
+			WithContext(ctx).WithArguments(cli, namespace, actions.DbComponentName).
 			Should(BeTrue())
 	}
 
 	// log server
-	Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, actions.LogServerComponentName)).
+	Eventually(condition.DeploymentIsRunning).
+		WithContext(ctx).WithArguments(cli, namespace, actions.LogServerComponentName).
 		Should(BeTrue())
 
 	// log signer
-	Eventually(condition.DeploymentIsRunning(ctx, cli, namespace, actions.LogSignerComponentName)).
+	Eventually(condition.DeploymentIsRunning).
+		WithContext(ctx).WithArguments(cli, namespace, actions.LogSignerComponentName).
 		Should(BeTrue())
 }
 
-func Get(ctx context.Context, cli client.Client, ns string, name string) func() *v1alpha1.Trillian {
-	return func() *v1alpha1.Trillian {
-		instance := &v1alpha1.Trillian{}
-		if e := cli.Get(ctx, types.NamespacedName{
-			Namespace: ns,
-			Name:      name,
-		}, instance); errors.IsNotFound(e) {
-			return nil
-		}
-		return instance
+func Get(ctx context.Context, cli client.Client, ns string, name string) *v1alpha1.Trillian {
+	instance := &v1alpha1.Trillian{}
+	if e := cli.Get(ctx, types.NamespacedName{
+		Namespace: ns,
+		Name:      name,
+	}, instance); errors.IsNotFound(e) {
+		return nil
 	}
+	return instance
 }

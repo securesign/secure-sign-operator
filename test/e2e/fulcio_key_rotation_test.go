@@ -80,7 +80,7 @@ var _ = Describe("Fulcio cert rotation test", Ordered, func() {
 	Describe("Fulcio cert rotation", func() {
 
 		It("Download fulcio cert", func() {
-			f := fulcio.Get(ctx, cli, namespace.Name, s.Name)()
+			f := fulcio.Get(ctx, cli, namespace.Name, s.Name)
 			Expect(f).ToNot(BeNil())
 			oldCert, err = kubernetes.GetSecretData(cli, namespace.Name, f.Status.Certificate.CARef)
 			Expect(err).ToNot(HaveOccurred())
@@ -93,7 +93,7 @@ var _ = Describe("Fulcio cert rotation test", Ordered, func() {
 			Expect(cli.Create(ctx, newCert)).To(Succeed())
 
 			Eventually(func(g Gomega) error {
-				f := securesign.Get(ctx, cli, namespace.Name, s.Name)()
+				f := securesign.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(f).ToNot(BeNil())
 				f.Spec.Fulcio.Certificate.PrivateKeyRef = &v1alpha1.SecretKeySelector{
 					LocalObjectReference: v1alpha1.LocalObjectReference{
