@@ -23,6 +23,7 @@ import (
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
+	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	clients "github.com/securesign/operator/test/e2e/support/tas/cli"
 	"github.com/securesign/operator/test/e2e/support/tas/rekor"
@@ -44,7 +45,6 @@ const testCatalog = "test-catalog"
 var _ = Describe("Operator upgrade", Ordered, func() {
 	gomega.SetDefaultEventuallyTimeout(5 * time.Minute)
 	cli, _ := support.CreateClient()
-	ctx := context.TODO()
 
 	var (
 		namespace                              *v1.Namespace
@@ -56,9 +56,8 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		err                                    error
 	)
 
-	AfterEach(func() {
+	AfterEach(func(ctx SpecContext) {
 		if CurrentSpecReport().Failed() && support.IsCIEnvironment() {
-			support.DumpNamespace(ctx, cli, namespace.Name)
 			csvs := &v1alpha1.ClusterServiceVersionList{}
 			gomega.Expect(cli.List(ctx, csvs, runtimeCli.InNamespace(namespace.Name))).To(gomega.Succeed())
 			core.GinkgoWriter.Println("\n\nClusterServiceVersions:")
@@ -75,24 +74,22 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		}
 	})
 
-	BeforeAll(func() {
+	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
+		namespace = new
+	}))
 
+	BeforeAll(func(ctx SpecContext) {
 		baseCatalogImage = os.Getenv("TEST_BASE_CATALOG")
 		targetedCatalogImage = os.Getenv("TEST_TARGET_CATALOG")
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
-		namespace = support.CreateTestNamespace(ctx, cli)
-		DeferCleanup(func() {
-			_ = cli.Delete(ctx, namespace)
-		})
 	})
 
-	BeforeAll(func() {
+	BeforeAll(func(ctx SpecContext) {
 		prevImageName = support.PrepareImage(ctx)
 		newImageName = support.PrepareImage(ctx)
 	})
 
-	It("Install catalogSource", func() {
+	It("Install catalogSource", func(ctx SpecContext) {
 		gomega.Expect(baseCatalogImage).To(gomega.Not(gomega.BeEmpty()))
 		gomega.Expect(targetedCatalogImage).To(gomega.Not(gomega.BeEmpty()))
 
@@ -110,7 +107,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		}, gomega.Equal("READY"))))
 	})
 
-	It("Install TAS", func() {
+	It("Install TAS", func(ctx SpecContext) {
 		og := &v12.OperatorGroup{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace.Name,
@@ -167,7 +164,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		}, gomega.BeNumerically(">=", 1))))
 	})
 
-	It("Install securesign", func() {
+	It("Install securesign", func(ctx SpecContext) {
 		securesignDeployment = securesign.Create(namespace.Name, "test",
 			securesign.WithDefaults(),
 			securesign.WithSearchUI(),
@@ -181,11 +178,11 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		tas.VerifyAllComponents(ctx, cli, securesignDeployment, true)
 	})
 
-	It("Sign image with cosign cli", func() {
+	It("Sign image with cosign cli", func(ctx SpecContext) {
 		tas.VerifyByCosign(ctx, cli, securesignDeployment, prevImageName)
 	})
 
-	It("Upgrade operator", func() {
+	It("Upgrade operator", func(ctx SpecContext) {
 		gomega.Expect(support.CreateOrUpdateCatalogSource(ctx, cli, namespace.Name, testCatalog, targetedCatalogImage)).To(gomega.Succeed())
 
 		gomega.Eventually(func(g gomega.Gomega) *v1alpha1.CatalogSource {
@@ -216,7 +213,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		}, namespace.Name)().Spec.Version.Version
 	})
 
-	It("Verify deployment was upgraded", func() {
+	It("Verify deployment was upgraded", func(ctx SpecContext) {
 		gomega.Expect(updated.GT(base)).To(gomega.BeTrue())
 
 		for k, v := range map[string]string{
@@ -243,7 +240,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		tas.VerifyAllComponents(ctx, cli, securesignDeployment, true)
 	})
 
-	It("Verify image signature after upgrade", func() {
+	It("Verify image signature after upgrade", func(ctx SpecContext) {
 		rrekor = rekor.Get(ctx, cli, namespace.Name, securesignDeployment.Name)
 		gomega.Expect(rrekor).ToNot(gomega.BeNil())
 
@@ -257,11 +254,11 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		)).To(gomega.Succeed())
 	})
 
-	It("Sign and Verify new image after upgrade", func() {
+	It("Sign and Verify new image after upgrade", func(ctx SpecContext) {
 		tas.VerifyByCosign(ctx, cli, securesignDeployment, newImageName)
 	})
 
-	It("Make sure securesign can be deleted after upgrade", func() {
+	It("Make sure securesign can be deleted after upgrade", func(ctx SpecContext) {
 		gomega.Eventually(func(g gomega.Gomega) {
 			s := securesign.Get(ctx, cli, namespace.Name, securesignDeployment.Name)
 			gomega.Expect(cli.Delete(ctx, s)).Should(gomega.Succeed())

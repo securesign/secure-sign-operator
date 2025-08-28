@@ -14,6 +14,7 @@ func TestE2e(t *testing.T) {
 	RegisterFailHandler(Fail)
 	log.SetLogger(GinkgoLogr)
 	SetDefaultEventuallyTimeout(time.Duration(3) * time.Minute)
+	EnforceDefaultTimeoutsWhenUsingContexts()
 	RunSpecs(t, "Trusted Artifact Signer E2E Suite")
 
 	// print whole stack in case of failure

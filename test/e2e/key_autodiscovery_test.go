@@ -3,9 +3,8 @@
 package e2e
 
 import (
-	"context"
-
 	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 
@@ -24,36 +23,28 @@ import (
 
 var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 	cli, _ := support.CreateClient()
-	ctx := context.TODO()
 
 	var targetImageName string
 	var namespace *v1.Namespace
 	var s *v1alpha1.Securesign
 
-	AfterEach(func() {
-		if CurrentSpecReport().Failed() && support.IsCIEnvironment() {
-			support.DumpNamespace(ctx, cli, namespace.Name)
-		}
-	})
+	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
+		namespace = new
+	}))
 
-	BeforeAll(func() {
-		namespace = support.CreateTestNamespace(ctx, cli)
-		DeferCleanup(func() {
-			_ = cli.Delete(ctx, namespace)
-		})
-
+	BeforeAll(func(ctx SpecContext) {
 		s = securesign.Create(namespace.Name, "test",
 			securesign.WithDefaults(),
 			securesign.WithProvidedCerts(),
 		)
 	})
 
-	BeforeAll(func() {
+	BeforeAll(func(ctx SpecContext) {
 		targetImageName = support.PrepareImage(ctx)
 	})
 
 	Describe("Install with provided certificates", func() {
-		BeforeAll(func() {
+		BeforeAll(func(ctx SpecContext) {
 			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret"))).To(Succeed())
 			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret"))).To(Succeed())
 			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret"))).To(Succeed())
@@ -61,11 +52,11 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 
-		It("All components are running", func() {
+		It("All components are running", func(ctx SpecContext) {
 			tas.VerifyAllComponents(ctx, cli, s, true)
 		})
 
-		It("Verify TUF keys", func() {
+		It("Verify TUF keys", func(ctx SpecContext) {
 			t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 			Expect(t).ToNot(BeNil())
 			Expect(t.Status.Keys).To(HaveEach(WithTransform(func(k v1alpha1.TufKey) string { return k.SecretRef.Name }, Not(BeEmpty()))))
@@ -101,7 +92,7 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 			}
 		})
 
-		It("Use cosign cli", func() {
+		It("Use cosign cli", func(ctx SpecContext) {
 			tas.VerifyByCosign(ctx, cli, s, targetImageName)
 		})
 	})

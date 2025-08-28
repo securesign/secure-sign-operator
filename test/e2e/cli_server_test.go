@@ -3,7 +3,6 @@
 package e2e
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	"net/http"
@@ -24,14 +23,7 @@ var _ = Describe("CliServer", Ordered, func() {
 		cli        ctrl.Client
 		httpClient *http.Client
 		url        string
-		ctx        = context.TODO()
 	)
-
-	AfterEach(func() {
-		if CurrentSpecReport().Failed() && support.IsCIEnvironment() {
-			support.DumpNamespace(ctx, cli, "trusted-artifact-signer")
-		}
-	})
 
 	BeforeAll(func() {
 		cli, _ = support.CreateClient()
@@ -42,7 +34,7 @@ var _ = Describe("CliServer", Ordered, func() {
 	})
 
 	Describe("HTTP service", func() {
-		It("is available", func() {
+		It("is available", func(ctx SpecContext) {
 			lst := &v1.IngressList{}
 			Expect(cli.List(ctx, lst, ctrl.InNamespace(cliServerNs))).To(Succeed())
 			Expect(lst.Items).To(HaveLen(1))
