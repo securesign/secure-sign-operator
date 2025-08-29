@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/condition"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -266,6 +267,40 @@ func WithNTPMonitoring() Opts {
 					Servers:         []string{"time.apple.com", "time.google.com", "time-a-b.nist.gov", "time-b-b.nist.gov", "gbg1.ntp.se"},
 				},
 			}
+		}
+	}
+}
+
+func WithReplicas(replicas *int32) Opts {
+	return func(s *v1alpha1.Securesign) {
+		s.Spec.Fulcio.Replicas = replicas
+		s.Spec.Rekor.Replicas = replicas
+		s.Spec.Rekor.RekorSearchUI.Replicas = replicas
+		s.Spec.Ctlog.Replicas = replicas
+		s.Spec.TimestampAuthority.Replicas = replicas
+		s.Spec.Tuf.Replicas = replicas
+		s.Spec.Trillian.LogServer.Replicas = replicas
+		s.Spec.Trillian.LogSigner.Replicas = replicas
+	}
+}
+
+func WithNFSPVC() Opts {
+	return func(s *v1alpha1.Securesign) {
+		pvcConf := v1alpha1.Pvc{
+			Retain: ptr.To(false),
+			Size:   ptr.To(resource.MustParse("100Mi")),
+			AccessModes: []v1alpha1.PersistentVolumeAccessMode{
+				"ReadWriteMany",
+			},
+			StorageClass: "nfs-csi",
+		}
+
+		s.Spec.Rekor.Pvc = pvcConf
+		s.Spec.Tuf.Pvc = v1alpha1.TufPvc{
+			Retain:       pvcConf.Retain,
+			Size:         pvcConf.Size,
+			AccessModes:  pvcConf.AccessModes,
+			StorageClass: pvcConf.StorageClass,
 		}
 	}
 }
