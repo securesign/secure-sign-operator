@@ -375,6 +375,7 @@ jobs:
         uses: ./.github/actions/kind-cluster
         with:
           config: ./ci/config.yaml
+          nfs-csi: true
 
       - name: Pull Container image from GHCR
         run: |
