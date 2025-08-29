@@ -3,8 +3,7 @@
 package e2e
 
 import (
-	"context"
-
+	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 
@@ -22,24 +21,16 @@ import (
 
 var _ = Describe("Securesign install with provided certs", Ordered, func() {
 	cli, _ := support.CreateClient()
-	ctx := context.TODO()
 
 	var targetImageName string
 	var namespace *v1.Namespace
 	var s *v1alpha1.Securesign
 
-	AfterEach(func() {
-		if CurrentSpecReport().Failed() && support.IsCIEnvironment() {
-			support.DumpNamespace(ctx, cli, namespace.Name)
-		}
-	})
+	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
+		namespace = new
+	}))
 
-	BeforeAll(func() {
-		namespace = support.CreateTestNamespace(ctx, cli)
-		DeferCleanup(func() {
-			_ = cli.Delete(ctx, namespace)
-		})
-
+	BeforeAll(func(ctx SpecContext) {
 		s = securesign.Create(namespace.Name, "test",
 			securesign.WithDefaults(),
 			securesign.WithProvidedCerts(),
@@ -86,12 +77,12 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 		)
 	})
 
-	BeforeAll(func() {
+	BeforeAll(func(ctx SpecContext) {
 		targetImageName = support.PrepareImage(ctx)
 	})
 
 	Describe("Install with provided certificates", func() {
-		BeforeAll(func() {
+		BeforeAll(func(ctx SpecContext) {
 			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret"))).To(Succeed())
 			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret"))).To(Succeed())
 			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret"))).To(Succeed())
@@ -99,7 +90,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 
-		It("Fulcio is running with mounted certs", func() {
+		It("Fulcio is running with mounted certs", func(ctx SpecContext) {
 			fulcio.Verify(ctx, cli, namespace.Name, s.Name)
 			server := fulcio.GetServerPod(ctx, cli, namespace.Name)()
 			Expect(server).NotTo(BeNil())
@@ -122,7 +113,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 
 		})
 
-		It("Rekor is running with mounted certs", func() {
+		It("Rekor is running with mounted certs", func(ctx SpecContext) {
 			rekor.Verify(ctx, cli, namespace.Name, s.Name, true)
 			server := rekor.GetServerPod(ctx, cli, namespace.Name)
 			Expect(server).NotTo(BeNil())
@@ -138,7 +129,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 
 		})
 
-		It("tsa is running with mounted certs", func() {
+		It("tsa is running with mounted certs", func(ctx SpecContext) {
 			tsa.Verify(ctx, cli, namespace.Name, s.Name)
 			tsa := tsa.GetServerPod(ctx, cli, namespace.Name)()
 			Expect(tsa).NotTo(BeNil())
@@ -153,11 +144,11 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 				))
 		})
 
-		It("All other components are running", func() {
+		It("All other components are running", func(ctx SpecContext) {
 			tas.VerifyAllComponents(ctx, cli, s, true)
 		})
 
-		It("Use cosign cli", func() {
+		It("Use cosign cli", func(ctx SpecContext) {
 			tas.VerifyByCosign(ctx, cli, s, targetImageName)
 		})
 	})

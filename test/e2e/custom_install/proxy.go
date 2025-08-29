@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/test/e2e/support"
+	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	v1 "k8s.io/api/core/v1"
 	v12 "k8s.io/api/rbac/v1"
@@ -46,33 +47,23 @@ var noProxy = []string{
 
 var _ = Describe("Securesign install in proxy-env", Ordered, func() {
 	cli, _ := support.CreateClient()
-	ctx := context.TODO()
 
 	var namespace *v1.Namespace
 	var securesign *v1alpha1.Securesign
 	var hostname string
 
-	AfterEach(func() {
-		if CurrentSpecReport().Failed() && support.IsCIEnvironment() {
-			support.DumpNamespace(ctx, cli, namespace.Name)
-		}
-	})
-
 	Describe("Successful installation with fake-proxy env", func() {
-		BeforeAll(func() {
-			namespace = support.CreateTestNamespace(ctx, cli)
+		BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
+			namespace = new
+		}))
+
+		BeforeAll(func(ctx SpecContext) {
 			hostname = fmt.Sprintf("%s.%s.svc", "proxy", namespace.Name)
-
 			createProxyServer(ctx, cli, hostname, namespace.Name)
-
 			installOperatorWithProxyConf(ctx, cli, hostname, namespace.Name)
-
-			DeferCleanup(func() {
-				_ = cli.Delete(ctx, namespace)
-			})
 		})
 
-		It("Install securesign", func() {
+		It("Install securesign", func(ctx SpecContext) {
 			securesign = &v1alpha1.Securesign{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: namespace.Name,
@@ -156,11 +147,11 @@ var _ = Describe("Securesign install in proxy-env", Ordered, func() {
 			Expect(cli.Create(ctx, securesign)).To(Succeed())
 		})
 
-		It("All components are running", func() {
+		It("All components are running", func(ctx SpecContext) {
 			tas.VerifyAllComponents(ctx, cli, securesign, true)
 		})
 
-		It("OIDC connection run through proxy", func() {
+		It("OIDC connection run through proxy", func(ctx SpecContext) {
 			// we need to create clientSet
 			clientSet, err := kubernetes.NewForConfig(config.GetConfigOrDie())
 			if err != nil {

@@ -16,6 +16,7 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/test/e2e/support"
 	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
+	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	v1 "k8s.io/api/core/v1"
@@ -29,24 +30,16 @@ const dbAuth = "db-auth"
 
 var _ = Describe("Securesign install with byodb", Ordered, func() {
 	cli, _ := support.CreateClient()
-	ctx := context.TODO()
 
 	var targetImageName string
 	var namespace *v1.Namespace
 	var s *v1alpha1.Securesign
 
-	AfterEach(func() {
-		if CurrentSpecReport().Failed() && support.IsCIEnvironment() {
-			support.DumpNamespace(ctx, cli, namespace.Name)
-		}
-	})
+	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
+		namespace = new
+	}))
 
-	BeforeAll(func() {
-		namespace = support.CreateTestNamespace(ctx, cli)
-		DeferCleanup(func() {
-			_ = cli.Delete(ctx, namespace)
-		})
-
+	BeforeAll(func(ctx SpecContext) {
 		dsn := "$(MYSQL_USER):$(MYSQL_PASSWORD)@tcp(my-mysql.$(NAMESPACE).svc:3300)/$(MYSQL_DB)"
 		if testSupportKubernetes.IsRemoteClusterOpenshift() {
 			dsn += "?tls=true"
@@ -108,22 +101,22 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 		)
 	})
 
-	BeforeAll(func() {
+	BeforeAll(func(ctx SpecContext) {
 		targetImageName = support.PrepareImage(ctx)
 	})
 
 	Describe("Install with byodb", func() {
-		BeforeAll(func() {
+		BeforeAll(func(ctx SpecContext) {
 			// create single mysql db for both (trillian & rekor search) to save CI resources
 			Expect(createDB(ctx, cli, namespace.Name, dbAuth)).To(Succeed())
 			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 
-		It("All components are running", func() {
+		It("All components are running", func(ctx SpecContext) {
 			tas.VerifyAllComponents(ctx, cli, s, false)
 		})
 
-		It("No other DB is created", func() {
+		It("No other DB is created", func(ctx SpecContext) {
 			list := &v1.PodList{}
 			Expect(cli.List(ctx, list, runtimeCli.InNamespace(namespace.Name), runtimeCli.MatchingLabels{labels.LabelAppName: "trillian-db"})).To(Succeed())
 			Expect(list.Items).To(BeEmpty(), "Trillian DB is not created")
@@ -132,11 +125,11 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 			Expect(list.Items).To(BeEmpty(), "Redis DB is not created")
 		})
 
-		It("Use cosign cli", func() {
+		It("Use cosign cli", func(ctx SpecContext) {
 			tas.VerifyByCosign(ctx, cli, s, targetImageName)
 		})
 
-		It("Verify backfill cron job", func() {
+		It("Verify backfill cron job", func(ctx SpecContext) {
 			Eventually(func(g Gomega) []string {
 				logs := make([]string, 0)
 				jobPods := &v1.PodList{}

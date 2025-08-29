@@ -10,6 +10,7 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/job"
 	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
+	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas/tuf"
 	v3 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -30,27 +31,20 @@ const (
 
 var _ = Describe("Securesign tuf-repository init test", Ordered, func() {
 	cli, _ := support.CreateClient()
-	ctx := context.TODO()
 
 	var namespace *v1.Namespace
 	var s *v1alpha1.Tuf
 
-	AfterEach(func() {
-		if CurrentSpecReport().Failed() && support.IsCIEnvironment() {
-			support.DumpNamespace(ctx, cli, namespace.Name)
-		}
-	})
+	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
+		namespace = new
+	}))
 
-	BeforeAll(func() {
-		namespace = support.CreateTestNamespace(ctx, cli)
-		DeferCleanup(func() {
-			_ = cli.Delete(ctx, namespace)
-		})
+	BeforeAll(func(ctx SpecContext) {
 		s = createInstance("test", namespace.Name)
 	})
 
 	Describe("Install with empty pre-created tuf volume", func() {
-		It("create mock secret", func() {
+		It("create mock secret", func(ctx SpecContext) {
 			pub, priv, crt, err := support.CreateCertificates(false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cli.Create(ctx, &v1.Secret{
@@ -62,7 +56,7 @@ var _ = Describe("Securesign tuf-repository init test", Ordered, func() {
 			})).To(Succeed())
 		})
 
-		It("Create tuf PVC and Tuf resource", func() {
+		It("Create tuf PVC and Tuf resource", func(ctx SpecContext) {
 			Expect(cli.Create(ctx, &v1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      tufPvcName,
@@ -80,15 +74,15 @@ var _ = Describe("Securesign tuf-repository init test", Ordered, func() {
 			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 
-		It("Tuf is running", func() {
+		It("Tuf is running", func(ctx SpecContext) {
 			tuf.Verify(ctx, cli, namespace.Name, s.Name)
 		})
 
-		It("Tuf repository was initialized", func() {
+		It("Tuf repository was initialized", func(ctx SpecContext) {
 			verifyInitJob(ctx, cli, namespace.Name, s.Name, "Initializing empty repository")
 		})
 
-		It("Delete Tuf", func() {
+		It("Delete Tuf", func(ctx SpecContext) {
 			name := s.Name
 			Expect(cli.Delete(ctx, s)).To(Succeed())
 			Eventually(cli.Get).WithArguments(ctx, client.ObjectKey{Name: name, Namespace: s.Namespace}, s).ShouldNot(Succeed())
@@ -108,7 +102,7 @@ var _ = Describe("Securesign tuf-repository init test", Ordered, func() {
 			}).Should(BeEmpty())
 		})
 
-		It("Create Tuf with already initialized repo", func() {
+		It("Create Tuf with already initialized repo", func(ctx SpecContext) {
 			s = createInstance("test1", namespace.Name)
 			e := cli.Create(ctx, s)
 			Expect(e).To(Succeed())
