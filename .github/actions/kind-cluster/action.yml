@@ -17,6 +17,10 @@ inputs:
     description: 'install prometheus'
     required: true
     default: 'false'
+  nfs-csi:
+    description: 'install nfs-csi'
+    required: false
+    default: 'false'
 
 outputs:
   oidc_host:
@@ -110,3 +114,10 @@ runs:
         EOF
         
         echo "oidc_host=keycloak-internal.keycloak-system.svc" >> $GITHUB_OUTPUT
+
+    - name: Install nfs-csi
+      if: ${{ inputs.nfs-csi  == 'true'}}
+      id: install-nfs-csi
+      shell: bash
+      run: |
+        kustomize build --enable-helm ./ci/nfs/overlay/ | kubectl apply -f -
