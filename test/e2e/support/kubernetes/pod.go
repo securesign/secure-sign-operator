@@ -2,10 +2,12 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	v1 "k8s.io/api/core/v1"
 	kubernetes2 "k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
@@ -38,4 +40,18 @@ func GetPodLogs(ctx context.Context, podName, containerName, ns string) (string,
 	}
 
 	return string(bodyBytes), nil
+}
+
+func DeleteOnePodByAppLabel(ctx context.Context, cli client.Client, namespace, appName string) error {
+	var pods v1.PodList
+	if err := cli.List(ctx, &pods, client.InNamespace(namespace), client.MatchingLabels{"app.kubernetes.io/name": appName}); err != nil {
+		return fmt.Errorf("list pods for %s/%s: %w", namespace, appName, err)
+	}
+	for i := range pods.Items {
+		p := &pods.Items[i]
+		if p.DeletionTimestamp == nil {
+			return cli.Delete(ctx, p)
+		}
+	}
+	return fmt.Errorf("no pod found to delete for %s/%s", namespace, appName)
 }
