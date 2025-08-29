@@ -6,16 +6,15 @@ import (
 	"maps"
 	"slices"
 
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
-
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	v1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -48,6 +47,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *
 		result controllerutil.OperationResult
 		err    error
 	)
+
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		&v1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -60,6 +60,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
 		deployment.PodRequirements(instance.Spec.PodRequirements, tufConstants.ContainerName),
+		deployment.PodSecurityContext(),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create TUF: %w", err), instance)
 	}

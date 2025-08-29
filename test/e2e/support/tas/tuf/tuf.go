@@ -13,6 +13,7 @@ import (
 	utils2 "github.com/securesign/operator/internal/controller/tuf/utils"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/job"
 	"github.com/securesign/operator/test/e2e/support/condition"
 	appsv1 "k8s.io/api/apps/v1"
@@ -109,6 +110,7 @@ func refreshTufJob(instance *v1alpha1.Tuf) *v12.Job {
 	l := maps.Clone(instance.Labels)
 	l[labels.LabelAppComponent] = "test"
 	Expect(utils2.EnsureTufInitJob(instance, constants.RBACInitJobName, instance.Labels)(j)).To(Succeed())
+	Expect(ensure.PodSecurityContext(&j.Spec.Template.Spec)).To(Succeed())
 	c := kubernetes.FindContainerByNameOrCreate(&j.Spec.Template.Spec, "tuf-init")
 	args := c.Args
 	c.Args = []string{"rm -rf /var/run/target/* && " + strings.Join(args, " ")}

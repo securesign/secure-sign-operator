@@ -64,6 +64,9 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1alpha1.R
 		i.ensureInitContainer(rekorServerHost),
 		ensure.ControllerReference[*v1.StatefulSet](instance, i.Client),
 		ensure.Labels[*v1.StatefulSet](slices.Collect(maps.Keys(labels)), labels),
+		func(object *v1.StatefulSet) error {
+			return ensure.PodSecurityContext(&object.Spec.Template.Spec)
+		},
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create %s statefulset: %w", actions.MonitorStatefulSetName, err), instance,
 			metav1.Condition{
