@@ -6,7 +6,7 @@ metadata:
   name: proxy
   namespace: "{{.Namespace}}"
   labels:
-    name: proxy
+    app: proxy
 spec:
   securityContext:
     runAsNonRoot: true
@@ -23,7 +23,6 @@ spec:
   - name: httpd
     image: mirror.gcr.io/httpd:2.4.46
     securityContext:
-      runAsGroup: 1001
       runAsUser: 1001
     command:
      - httpd
@@ -49,7 +48,7 @@ metadata:
   namespace: "{{.Namespace}}"
 spec:
   selector:
-    name: proxy
+    app: proxy
   ports:
     - port: 80
       name: http
