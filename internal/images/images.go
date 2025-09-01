@@ -37,6 +37,26 @@ const (
 	ClientServer  Image = "RELATED_IMAGE_CLIENT_SERVER"
 )
 
+var Images = []Image{
+	TrillianLogSigner,
+	TrillianServer,
+	TrillianDb,
+	TrillianNetcat,
+	TrillianCreateTree,
+	FulcioServer,
+	RekorRedis,
+	RekorServer,
+	RekorSearchUi,
+	RekorMonitor,
+	BackfillRedis,
+	Tuf,
+	CTLog,
+	TimestampAuthority,
+	HttpServer,
+	SegmentBackup,
+	ClientServer,
+}
+
 //go:generate cp ../../config/default/images.env embed/images.env
 //go:embed embed/*
 var content embed.FS

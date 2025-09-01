@@ -1,0 +1,18 @@
+name: 'Cleanup Kind cluster'
+inputs:
+  nfs-csi:
+    description: 'Uninstall nfs-csi'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Uninstall NFS-CSI and cleanup volumes
+      if: always() && ${{ inputs.nfs-csi == true }}
+      shell: bash
+      run: |
+        kubectl delete pvc --all -A --ignore-not-found --wait=false || true
+        kubectl delete pv --all --ignore-not-found --wait=false || true
+        kustomize build --enable-helm ./ci/nfs/overlay/ | kubectl delete -f - --ignore-not-found || true
+        sudo systemctl restart docker || sudo service docker restart || true

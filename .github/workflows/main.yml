@@ -375,6 +375,8 @@ jobs:
         uses: ./.github/actions/kind-cluster
         with:
           config: ./ci/config.yaml
+          nfs-csi: true
+          keycloak: 'false' # keycloak use a lot of resources and is not needed for custom_intall tests
 
       - name: Pull Container image from GHCR
         run: |
@@ -405,6 +407,11 @@ jobs:
           name: test-custom-install
           path: test/**/k8s-dump-*.tar.gz
           if-no-files-found: ignore
+
+      - name: Cleanup Cluster
+        uses: ./.github/actions/kind-cluster-cleanup
+        with:
+          nfs-csi: true
 
   test-e2e:
     name: Execute securesign/sigstore-e2e

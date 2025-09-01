@@ -17,6 +17,10 @@ inputs:
     description: 'install prometheus'
     required: true
     default: 'false'
+  nfs-csi:
+    description: 'install nfs-csi'
+    required: false
+    default: 'false'
 
 outputs:
   oidc_host:
@@ -29,8 +33,8 @@ runs:
     - name: Install Cluster
       uses: container-tools/kind-action@v2.0.4
       with:
-        version: v0.29.0
-        node_image: kindest/node:v1.33.2@sha256:c55080dc5be4f2cc242e6966fdf97bb62282e1cd818a28223cf536db8b0fddf4
+        version: v0.30.0
+        node_image: kindest/node:v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a
         cpu: 3
         registry: false
         config: ${{ inputs.config }}
@@ -110,3 +114,10 @@ runs:
         EOF
         
         echo "oidc_host=keycloak-internal.keycloak-system.svc" >> $GITHUB_OUTPUT
+
+    - name: Install NFS-CSI
+      if: ${{ inputs.nfs-csi  == 'true'}}
+      id: install-nfs-csi
+      shell: bash
+      run: |
+        kustomize build --enable-helm ./ci/nfs/overlay/ | kubectl apply -f -
