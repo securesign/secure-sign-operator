@@ -121,7 +121,7 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 					}
 					defer func() { _ = resp.Body.Close() }()
 					return resp.StatusCode == http.StatusOK
-				}, "30s", "1s").Should(BeTrue(), "Rekor UI should be accessible and return a status code of 200")
+				}).Should(BeTrue(), "Rekor UI should be accessible and return a status code of 200")
 			})
 		})
 		It("trillian-logserver remains functional when a pod is deleted", func(ctx SpecContext) {
@@ -129,9 +129,15 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 				tas.VerifyByCosign(ctx, cli, s, targetImageName)
 			})
 		})
-		It("trillian-signer remains functional when a pod is deleted", func(ctx SpecContext) {
+		It("trillian-signer elects a new leader when a pod is deleted", func(ctx SpecContext) {
+			leaderBefore, err := kubernetes.GetCurrentLeader(ctx, cli, namespace.Name, "trillian-logsigner")
+			Expect(err).NotTo(HaveOccurred())
+
 			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, "trillian-logsigner", func() {
-				tas.VerifyByCosign(ctx, cli, s, targetImageName)
+				Eventually(func() string {
+					leaderAfter, _ := kubernetes.GetCurrentLeader(ctx, cli, namespace.Name, "trillian-logsigner")
+					return leaderAfter
+				}).ShouldNot(Equal(leaderBefore))
 			})
 		})
 		It("Tsa remains functional when a pod is deleted", func(ctx SpecContext) {

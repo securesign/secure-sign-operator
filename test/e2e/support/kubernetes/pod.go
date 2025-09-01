@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
+	coordv1 "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
 	kubernetes2 "k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,4 +56,19 @@ func DeleteOnePodByAppLabel(ctx context.Context, cli client.Client, namespace, a
 		}
 	}
 	return fmt.Errorf("no pod found to delete for %s/%s", namespace, appName)
+}
+
+func GetCurrentLeader(ctx context.Context, cli client.Client, namespace string, nameContains string) (string, error) {
+	var leaseList coordv1.LeaseList
+	if err := cli.List(ctx, &leaseList, client.InNamespace(namespace)); err != nil {
+		return "", fmt.Errorf("listing leases failed: %w", err)
+	}
+
+	for _, l := range leaseList.Items {
+		if strings.Contains(*l.Spec.HolderIdentity, nameContains) && l.Spec.HolderIdentity != nil {
+			return *l.Spec.HolderIdentity, nil
+		}
+	}
+
+	return "", fmt.Errorf("no leader found for component containing %q in namespace %q", nameContains, namespace)
 }
