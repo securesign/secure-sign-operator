@@ -422,13 +422,10 @@ jobs:
         run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
         if: always()
 
-      - name: Uninstall NFS-CSI and cleanup volumes
-        if: always()
-        run: |
-          kubectl delete pvc --all -A --ignore-not-found --wait=false || true
-          kubectl delete pv --all --ignore-not-found --wait=false || true
-          kustomize build --enable-helm ./ci/nfs/overlay/ | kubectl delete -f - --ignore-not-found || true
-          sudo systemctl restart docker || sudo service docker restart || true
+      - name: Cleanup Cluster
+        uses: ./.github/actions/kind-cluster-cleanup
+        with:
+          nfs-csi: true
 
   test-custom-install:
     name: Test with custom operator installation

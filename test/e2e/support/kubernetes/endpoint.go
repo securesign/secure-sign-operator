@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/securesign/operator/internal/labels"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -11,7 +12,7 @@ import (
 func ExpectServiceHasAtLeastNReadyEndpoints(ctx context.Context, cli client.Client, namespace, endPointName string, endpointCount int) error {
 	count := 0
 	var slices discoveryv1.EndpointSliceList
-	if err := cli.List(ctx, &slices, client.InNamespace(namespace), client.MatchingLabels{"app.kubernetes.io/name": endPointName}); err != nil {
+	if err := cli.List(ctx, &slices, client.InNamespace(namespace), client.MatchingLabels{labels.LabelAppName: endPointName}); err != nil {
 		return fmt.Errorf("get endpoints for service %s/%s: %w", namespace, endPointName, err)
 	}
 

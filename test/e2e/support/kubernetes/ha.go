@@ -6,16 +6,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func RemainsFunctionalWhenOnePodDeleted(ctx SpecContext, cli client.Client, namespace, serviceName string, verify func()) {
-	Expect(DeleteOnePodByAppLabel(ctx, cli, namespace, serviceName)).To(Succeed(), "failed to delete one pod for service %s", serviceName)
+func RemainsFunctionalWhenOnePodDeleted(ctx SpecContext, cli client.Client, namespace, componentName string, verify func()) {
+	Expect(DeleteOnePodByAppLabel(ctx, cli, namespace, componentName)).To(Succeed(), "failed to delete one pod for service %s", componentName)
 
-	Eventually(func() error {
-		return ExpectServiceHasAtLeastNReadyEndpoints(ctx, cli, namespace, serviceName, 1)
-	}).Should(Succeed(), "service lost all ready endpoints after a single pod deletion")
+	Eventually(ExpectServiceHasAtLeastNReadyEndpoints).WithContext(ctx).
+		WithArguments(cli, namespace, componentName, 1).
+		Should(Succeed(), "service lost all ready endpoints after a single pod deletion")
 
 	verify()
 
-	Eventually(func() error {
-		return ExpectServiceHasAtLeastNReadyEndpoints(ctx, cli, namespace, serviceName, 2)
-	}).Should(Succeed(), "expected service to recover to 2 ready endpoints")
+	Eventually(ExpectServiceHasAtLeastNReadyEndpoints).WithContext(ctx).
+		WithArguments(cli, namespace, componentName, 2).
+		Should(Succeed(), "expected service to recover to 2 ready endpoints")
 }

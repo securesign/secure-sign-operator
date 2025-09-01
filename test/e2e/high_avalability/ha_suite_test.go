@@ -14,6 +14,7 @@ func TestHA(t *testing.T) {
 	RegisterFailHandler(Fail)
 	log.SetLogger(GinkgoLogr)
 	SetDefaultEventuallyTimeout(time.Duration(3) * time.Minute)
+	EnforceDefaultTimeoutsWhenUsingContexts()
 	RunSpecs(t, "With HA install")
 
 	// print whole stack in case of failure

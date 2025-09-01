@@ -9,6 +9,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
+	ctlogactions "github.com/securesign/operator/internal/controller/ctlog/actions"
+	fulcioactions "github.com/securesign/operator/internal/controller/fulcio/actions"
+	rekoractions "github.com/securesign/operator/internal/controller/rekor/actions"
+	trillianactions "github.com/securesign/operator/internal/controller/trillian/actions"
+	tsaactions "github.com/securesign/operator/internal/controller/tsa/actions"
+	"github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/steps"
@@ -79,10 +85,12 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 		})
 
 		It("Services have ready endpoints", func(ctx SpecContext) {
-			endpointNames := []string{"ctlog", "fulcio-server", "rekor-search-ui", "rekor-server", "trillian-logserver", "trillian-logsigner", "tsa-server", "tuf"}
+			endpointNames := []string{ctlogactions.ComponentName, fulcioactions.DeploymentName, rekoractions.SearchUiDeploymentName, rekoractions.ServerComponentName, trillianactions.LogServerComponentName, trillianactions.LogSignerComponentName, tsaactions.DeploymentName, constants.ComponentName}
 			for _, endpointName := range endpointNames {
-				err := kubernetes.ExpectServiceHasAtLeastNReadyEndpoints(ctx, cli, namespace.Name, endpointName, 2)
-				Expect(err).NotTo(HaveOccurred())
+				Eventually(kubernetes.ExpectServiceHasAtLeastNReadyEndpoints).
+					WithContext(ctx).
+					WithArguments(cli, namespace.Name, endpointName, 2).
+					Should(Succeed(), "expected service to have n ready endpoints")
 			}
 		})
 
@@ -91,22 +99,22 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 		})
 
 		It("ctlog remains functional when a pod is deleted", func(ctx SpecContext) {
-			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, "ctlog", func() {
+			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, ctlogactions.ComponentName, func() {
 				tas.VerifyByCosign(ctx, cli, s, targetImageName)
 			})
 		})
 		It("fulcio remains functional when a pod is deleted", func(ctx SpecContext) {
-			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, "fulcio-server", func() {
+			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, fulcioactions.DeploymentName, func() {
 				tas.VerifyByCosign(ctx, cli, s, targetImageName)
 			})
 		})
 		It("rekor remains functional when a pod is deleted", func(ctx SpecContext) {
-			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, "rekor-server", func() {
+			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, rekoractions.ServerComponentName, func() {
 				tas.VerifyByCosign(ctx, cli, s, targetImageName)
 			})
 		})
 		It("rekor-search-ui remains functional when a pod is deleted", func(ctx SpecContext) {
-			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, "rekor-search-ui", func() {
+			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, rekoractions.SearchUiDeploymentName, func() {
 				r := rekor.Get(ctx, cli, namespace.Name, s.Name)
 				Expect(r).ToNot(BeNil())
 				Expect(r.Status.RekorSearchUIUrl).NotTo(BeEmpty())
@@ -125,28 +133,31 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 			})
 		})
 		It("trillian-logserver remains functional when a pod is deleted", func(ctx SpecContext) {
-			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, "trillian-logserver", func() {
+			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, trillianactions.LogServerComponentName, func() {
 				tas.VerifyByCosign(ctx, cli, s, targetImageName)
 			})
 		})
 		It("trillian-signer elects a new leader when a pod is deleted", func(ctx SpecContext) {
-			leaderBefore, err := kubernetes.GetCurrentLeader(ctx, cli, namespace.Name, "trillian-logsigner")
+			leaderBefore, err := kubernetes.GetLeaseHolderIdentity(ctx, cli, namespace.Name, trillianactions.LogSignerComponentName)
 			Expect(err).NotTo(HaveOccurred())
 
-			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, "trillian-logsigner", func() {
-				Eventually(func() string {
-					leaderAfter, _ := kubernetes.GetCurrentLeader(ctx, cli, namespace.Name, "trillian-logsigner")
+			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, trillianactions.LogSignerComponentName, func() {
+				Eventually(func(ctx SpecContext) string {
+					leaderAfter, _ := kubernetes.GetLeaseHolderIdentity(
+						ctx, cli, namespace.Name, trillianactions.LogSignerComponentName,
+					)
 					return leaderAfter
-				}).ShouldNot(Equal(leaderBefore))
+				}).WithContext(ctx).ShouldNot(Equal(leaderBefore))
 			})
+
 		})
 		It("Tsa remains functional when a pod is deleted", func(ctx SpecContext) {
-			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, "tsa-server", func() {
+			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, tsaactions.DeploymentName, func() {
 				tas.VerifyByCosign(ctx, cli, s, targetImageName)
 			})
 		})
 		It("TUF remains functional when a pod is deleted", func(ctx SpecContext) {
-			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, "tuf", func() {
+			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, constants.ComponentName, func() {
 				tas.VerifyByCosign(ctx, cli, s, targetImageName)
 			})
 		})
