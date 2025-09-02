@@ -152,10 +152,6 @@ func withProxy(hostname string) func(pod *v1.Pod) {
 		".cluster.local",
 		".svc",
 		"localhost",
-		"10.0.0.0/16",
-		"10.96.0.0/16",
-		"172.30.0.0/16",
-		"10.128.0.0/14",
 		"127.0.0.1",
 	}
 
