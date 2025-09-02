@@ -424,6 +424,7 @@ jobs:
 
       - name: Cleanup Cluster
         uses: ./.github/actions/kind-cluster-cleanup
+        if: always()
         with:
           nfs-csi: true
 

@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	"github.com/securesign/operator/api/v1alpha1"
 	ctlogactions "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcioactions "github.com/securesign/operator/internal/controller/fulcio/actions"
@@ -66,22 +67,22 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 		})
 
 		It("has the correct number of replicas configured for HA", func(ctx SpecContext) {
-			Expect(ptr.Deref(fulcio.Get(ctx, cli, namespace.Name, s.Name).Spec.Replicas, 0)).
-				To(BeNumerically(">=", *replicas), "fulcio should have more than one replica")
-			Expect(ptr.Deref(rekor.Get(ctx, cli, namespace.Name, s.Name).Spec.Replicas, 0)).
-				To(BeNumerically(">=", *replicas), "rekor should have more than one replica")
-			Expect(ptr.Deref(rekor.Get(ctx, cli, namespace.Name, s.Name).Spec.RekorSearchUI.Replicas, 0)).
-				To(BeNumerically(">=", *replicas), "rekor search ui should have more than one replica")
-			Expect(ptr.Deref(ctlog.Get(ctx, cli, namespace.Name, s.Name).Spec.Replicas, 0)).
-				To(BeNumerically(">=", *replicas), "ctlog should have more than one replica")
-			Expect(ptr.Deref(tsa.Get(ctx, cli, namespace.Name, s.Name).Spec.Replicas, 0)).
-				To(BeNumerically(">=", *replicas), "tsa should have more than one replica")
-			Expect(ptr.Deref(tuf.Get(ctx, cli, namespace.Name, s.Name).Spec.Replicas, 0)).
-				To(BeNumerically(">=", *replicas), "tuf should have more than one replica")
-			Expect(ptr.Deref(trillian.Get(ctx, cli, namespace.Name, s.Name).Spec.LogServer.Replicas, 0)).
-				To(BeNumerically(">=", *replicas), "log server should have more than one replica")
-			Expect(ptr.Deref(trillian.Get(ctx, cli, namespace.Name, s.Name).Spec.LogSigner.Replicas, 0)).
-				To(BeNumerically(">=", *replicas), "log signer should have more than one replica")
+			Expect(fulcio.Get(ctx, cli, namespace.Name, s.Name).Spec.Replicas).
+				To(gstruct.PointTo(BeNumerically(">=", *replicas)), "fulcio should have more than one replica")
+			Expect(rekor.Get(ctx, cli, namespace.Name, s.Name).Spec.Replicas).
+				To(gstruct.PointTo(BeNumerically(">=", *replicas)), "rekor should have more than one replica")
+			Expect(rekor.Get(ctx, cli, namespace.Name, s.Name).Spec.RekorSearchUI.Replicas).
+				To(gstruct.PointTo(BeNumerically(">=", *replicas)), "rekor search ui should have more than one replica")
+			Expect(ctlog.Get(ctx, cli, namespace.Name, s.Name).Spec.Replicas).
+				To(gstruct.PointTo(BeNumerically(">=", *replicas)), "ctlog should have more than one replica")
+			Expect(tsa.Get(ctx, cli, namespace.Name, s.Name).Spec.Replicas).
+				To(gstruct.PointTo(BeNumerically(">=", *replicas)), "tsa should have more than one replica")
+			Expect(tuf.Get(ctx, cli, namespace.Name, s.Name).Spec.Replicas).
+				To(gstruct.PointTo(BeNumerically(">=", *replicas)), "tuf should have more than one replica")
+			Expect(trillian.Get(ctx, cli, namespace.Name, s.Name).Spec.LogServer.Replicas).
+				To(gstruct.PointTo(BeNumerically(">=", *replicas)), "log server should have more than one replica")
+			Expect(trillian.Get(ctx, cli, namespace.Name, s.Name).Spec.LogSigner.Replicas).
+				To(gstruct.PointTo(BeNumerically(">=", *replicas)), "log signer should have more than one replica")
 		})
 
 		It("Services have ready endpoints", func(ctx SpecContext) {
