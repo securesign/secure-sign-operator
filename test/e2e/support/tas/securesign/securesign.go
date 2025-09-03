@@ -271,6 +271,19 @@ func WithNTPMonitoring() Opts {
 	}
 }
 
+func WithReplicas(replicas *int32) Opts {
+	return func(s *v1alpha1.Securesign) {
+		s.Spec.Fulcio.Replicas = replicas
+		s.Spec.Rekor.Replicas = replicas
+		s.Spec.Rekor.RekorSearchUI.Replicas = replicas
+		s.Spec.Ctlog.Replicas = replicas
+		s.Spec.TimestampAuthority.Replicas = replicas
+		s.Spec.Tuf.Replicas = replicas
+		s.Spec.Trillian.LogServer.Replicas = replicas
+		s.Spec.Trillian.LogSigner.Replicas = replicas
+	}
+}
+
 func WithNFSPVC() Opts {
 	return func(s *v1alpha1.Securesign) {
 		pvcConf := v1alpha1.Pvc{

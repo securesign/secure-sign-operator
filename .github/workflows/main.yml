@@ -164,7 +164,6 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-
   test-kind:
     name: Test kind deployment
     runs-on: ubuntu-24.04
@@ -338,6 +337,97 @@ jobs:
           path: test/**/k8s-dump-*.tar.gz
           if-no-files-found: ignore
 
+  test-ha-install:
+    name: Test with High Availability
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+    needs:
+    - build-operator
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Log in to GitHub Container Registry
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          auth_file_path: /tmp/config.json
+
+      - name: Log in to registry.redhat.io
+        uses: redhat-actions/podman-login@v1
+        with:
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+          registry: registry.redhat.io
+          auth_file_path: /tmp/config.json
+
+      - name: Install Cluster
+        uses: ./.github/actions/kind-cluster
+        with:
+          config: ./ci/config.yaml
+          prometheus: 'true'
+          keycloak: 'true'
+          olm: 'true'
+          nfs-csi: 'true'
+
+      - name: Pull Container image from GHCR
+        run: podman pull ${{ env.IMG }}
+
+      - name: Load Docker image into Kind cluster
+        run: |
+          podman save ${{ env.IMG }} -o operator-oci.tar
+          kind load image-archive operator-oci.tar
+
+      - name: Replace images
+        run: make dev-images && cat config/default/images.env
+
+      - name: Deploy operator container
+        env:
+          OPENSHIFT: false
+        run: make deploy
+
+      - name: Wait for operator to be ready
+        run: |
+          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n openshift-rhtas-operator
+
+      - name: Add service hosts to /etc/hosts
+        run: |
+          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local cli-server.local tsa-server.local" | sudo tee -a /etc/hosts
+
+      - name: Install cosign
+        run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.4.0
+
+      - name: Run tests
+        run: |
+          make generate && go test -p 1 ./test/e2e/... -tags=ha -timeout 20m
+
+      - name: Archive test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-ha-install
+          path: test/**/k8s-dump-*.tar.gz
+          if-no-files-found: ignore
+
+      - name: dump the logs of the operator
+        run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
+        if: always()
+
+      - name: Cleanup Cluster
+        uses: ./.github/actions/kind-cluster-cleanup
+        if: always()
+        with:
+          nfs-csi: true
+
   test-custom-install:
     name: Test with custom operator installation
     runs-on: ubuntu-24.04
@@ -410,6 +500,7 @@ jobs:
 
       - name: Cleanup Cluster
         uses: ./.github/actions/kind-cluster-cleanup
+        if: always()
         with:
           nfs-csi: true
 
