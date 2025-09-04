@@ -14,6 +14,7 @@ import (
 )
 
 func TestEnsureImmutableConfigMap(t *testing.T) {
+	data := map[string]string{"test": "data"}
 	tests := []struct {
 		name      string
 		objects   []client.Object
@@ -105,7 +106,7 @@ func TestEnsureImmutableConfigMap(t *testing.T) {
 
 			result, err := CreateOrUpdate(ctx, c,
 				&v1.ConfigMap{ObjectMeta: v2.ObjectMeta{Name: name, Namespace: "default"}},
-				EnsureConfigMapData(tt.immutable, map[string]string{"test": "data"}))
+				EnsureConfigMapData(tt.immutable, data))
 
 			g.Expect(result).To(gomega.Equal(tt.result))
 
@@ -118,8 +119,8 @@ func TestEnsureImmutableConfigMap(t *testing.T) {
 
 			existing := &v1.ConfigMap{}
 			g.Expect(c.Get(ctx, client.ObjectKey{Namespace: "default", Name: "test"}, existing)).To(gomega.Succeed())
-			g.Expect(existing.Data).To(gomega.Equal(existing.Data))
 			g.Expect(utils.OptionalBool(existing.Immutable)).To(gomega.Equal(tt.immutable))
+			g.Expect(existing.Data).To(gomega.Equal(data))
 		})
 	}
 }
