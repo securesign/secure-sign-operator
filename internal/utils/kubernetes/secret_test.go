@@ -14,6 +14,7 @@ import (
 )
 
 func TestEnsureSecret(t *testing.T) {
+	data := map[string][]byte{"test": []byte("data")}
 	tests := []struct {
 		name      string
 		objects   []client.Object
@@ -105,7 +106,7 @@ func TestEnsureSecret(t *testing.T) {
 
 			result, err := CreateOrUpdate(ctx, c,
 				&v1.Secret{ObjectMeta: v2.ObjectMeta{Name: name, Namespace: "default"}},
-				EnsureSecretData(tt.immutable, map[string][]byte{"test": []byte("data")}))
+				EnsureSecretData(tt.immutable, data))
 
 			g.Expect(result).To(gomega.Equal(tt.result))
 
@@ -118,8 +119,8 @@ func TestEnsureSecret(t *testing.T) {
 
 			existing := &v1.Secret{}
 			g.Expect(c.Get(ctx, client.ObjectKey{Namespace: "default", Name: "test"}, existing)).To(gomega.Succeed())
-			g.Expect(existing.Data).To(gomega.Equal(existing.Data))
 			g.Expect(utils.OptionalBool(existing.Immutable)).To(gomega.Equal(tt.immutable))
+			g.Expect(existing.Data).To(gomega.Equal(data))
 		})
 	}
 }
