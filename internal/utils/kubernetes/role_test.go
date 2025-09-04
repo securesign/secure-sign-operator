@@ -13,7 +13,6 @@ import (
 )
 
 func TestEnsureRoleRules(t *testing.T) {
-	gomega.RegisterTestingT(t)
 	tests := []struct {
 		name    string
 		objects []client.Object
@@ -66,6 +65,7 @@ func TestEnsureRoleRules(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.TODO()
+			g := gomega.NewWithT(t)
 			c := testAction.FakeClientBuilder().
 				WithObjects(tt.objects...).
 				Build()
@@ -86,19 +86,18 @@ func TestEnsureRoleRules(t *testing.T) {
 			result, err := CreateOrUpdate(ctx, c,
 				&rbacv1.Role{ObjectMeta: v2.ObjectMeta{Name: name, Namespace: "default"}},
 				EnsureRoleRules(rules...))
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			g.Expect(err).ToNot(gomega.HaveOccurred())
 
-			gomega.Expect(result).To(gomega.Equal(tt.result))
+			g.Expect(result).To(gomega.Equal(tt.result))
 
 			existing := &rbacv1.Role{}
-			gomega.Expect(c.Get(ctx, client.ObjectKey{Namespace: "default", Name: "test"}, existing)).To(gomega.Succeed())
-			gomega.Expect(existing.Rules).To(gomega.Equal(rules))
+			g.Expect(c.Get(ctx, client.ObjectKey{Namespace: "default", Name: "test"}, existing)).To(gomega.Succeed())
+			g.Expect(existing.Rules).To(gomega.Equal(rules))
 		})
 	}
 }
 
 func TestEnsureClusterRoleRules(t *testing.T) {
-	gomega.RegisterTestingT(t)
 	tests := []struct {
 		name    string
 		objects []client.Object
@@ -151,6 +150,7 @@ func TestEnsureClusterRoleRules(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.TODO()
+			g := gomega.NewWithT(t)
 			c := testAction.FakeClientBuilder().
 				WithObjects(tt.objects...).
 				Build()
@@ -171,13 +171,13 @@ func TestEnsureClusterRoleRules(t *testing.T) {
 			result, err := CreateOrUpdate(ctx, c,
 				&rbacv1.ClusterRole{ObjectMeta: v2.ObjectMeta{Name: name}},
 				EnsureClusterRoleRules(rules...))
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			g.Expect(err).ToNot(gomega.HaveOccurred())
 
-			gomega.Expect(result).To(gomega.Equal(tt.result))
+			g.Expect(result).To(gomega.Equal(tt.result))
 
 			existing := &rbacv1.ClusterRole{}
-			gomega.Expect(c.Get(ctx, client.ObjectKey{Name: "test"}, existing)).To(gomega.Succeed())
-			gomega.Expect(existing.Rules).To(gomega.Equal(rules))
+			g.Expect(c.Get(ctx, client.ObjectKey{Name: "test"}, existing)).To(gomega.Succeed())
+			g.Expect(existing.Rules).To(gomega.Equal(rules))
 		})
 	}
 }

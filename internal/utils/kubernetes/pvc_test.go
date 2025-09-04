@@ -36,8 +36,6 @@ func TestEnsurePVCSpec(t *testing.T) {
 		g.Expect(existing.Spec.Resources.Requests.Storage()).To(gomega.Equal(pvc.Size))
 		g.Expect(existing.Spec.StorageClassName).To(gstruct.PointTo(gomega.Equal(pvc.StorageClass)))
 	}
-
-	gomega.RegisterTestingT(t)
 	tests := []struct {
 		name    string
 		objects []client.Object
@@ -146,7 +144,7 @@ func TestEnsurePVCSpec(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := t.Context()
-			g := gomega.NewGomegaWithT(t)
+			g := gomega.NewWithT(t)
 			c := testAction.FakeClientBuilder().
 				WithObjects(tt.objects...).
 				Build()

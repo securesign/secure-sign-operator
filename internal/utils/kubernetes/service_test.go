@@ -13,7 +13,6 @@ import (
 )
 
 func TestService(t *testing.T) {
-	gomega.RegisterTestingT(t)
 	tests := []struct {
 		name    string
 		objects []client.Object
@@ -60,6 +59,7 @@ func TestService(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.TODO()
+			g := gomega.NewWithT(t)
 			c := testAction.FakeClientBuilder().
 				WithObjects(tt.objects...).
 				Build()
@@ -70,14 +70,14 @@ func TestService(t *testing.T) {
 			result, err := CreateOrUpdate(ctx, c,
 				&v1.Service{ObjectMeta: v2.ObjectMeta{Name: name, Namespace: "default"}},
 				EnsureServiceSpec(l, ports...))
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			g.Expect(err).ToNot(gomega.HaveOccurred())
 
-			gomega.Expect(result).To(gomega.Equal(tt.result))
+			g.Expect(result).To(gomega.Equal(tt.result))
 
 			existing := &v1.Service{}
-			gomega.Expect(c.Get(ctx, client.ObjectKey{Namespace: "default", Name: "test"}, existing)).To(gomega.Succeed())
-			gomega.Expect(existing.Spec.Ports).To(gomega.Equal(ports))
-			gomega.Expect(existing.Spec.Selector).To(gomega.Equal(l))
+			g.Expect(c.Get(ctx, client.ObjectKey{Namespace: "default", Name: "test"}, existing)).To(gomega.Succeed())
+			g.Expect(existing.Spec.Ports).To(gomega.Equal(ports))
+			g.Expect(existing.Spec.Selector).To(gomega.Equal(l))
 		})
 	}
 }

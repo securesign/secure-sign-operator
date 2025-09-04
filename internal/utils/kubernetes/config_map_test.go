@@ -14,7 +14,6 @@ import (
 )
 
 func TestEnsureImmutableConfigMap(t *testing.T) {
-	gomega.RegisterTestingT(t)
 	tests := []struct {
 		name      string
 		objects   []client.Object
@@ -99,6 +98,7 @@ func TestEnsureImmutableConfigMap(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.TODO()
+			g := gomega.NewWithT(t)
 			c := testAction.FakeClientBuilder().
 				WithObjects(tt.objects...).
 				Build()
@@ -107,19 +107,19 @@ func TestEnsureImmutableConfigMap(t *testing.T) {
 				&v1.ConfigMap{ObjectMeta: v2.ObjectMeta{Name: name, Namespace: "default"}},
 				EnsureConfigMapData(tt.immutable, map[string]string{"test": "data"}))
 
-			gomega.Expect(result).To(gomega.Equal(tt.result))
+			g.Expect(result).To(gomega.Equal(tt.result))
 
 			if tt.errorMsg == "" {
-				gomega.Expect(err).ToNot(gomega.HaveOccurred())
+				g.Expect(err).ToNot(gomega.HaveOccurred())
 			} else {
-				gomega.Expect(err.Error()).To(gomega.Equal(tt.errorMsg))
+				g.Expect(err.Error()).To(gomega.Equal(tt.errorMsg))
 				return
 			}
 
 			existing := &v1.ConfigMap{}
-			gomega.Expect(c.Get(ctx, client.ObjectKey{Namespace: "default", Name: "test"}, existing)).To(gomega.Succeed())
-			gomega.Expect(existing.Data).To(gomega.Equal(existing.Data))
-			gomega.Expect(utils.OptionalBool(existing.Immutable)).To(gomega.Equal(tt.immutable))
+			g.Expect(c.Get(ctx, client.ObjectKey{Namespace: "default", Name: "test"}, existing)).To(gomega.Succeed())
+			g.Expect(existing.Data).To(gomega.Equal(existing.Data))
+			g.Expect(utils.OptionalBool(existing.Immutable)).To(gomega.Equal(tt.immutable))
 		})
 	}
 }
