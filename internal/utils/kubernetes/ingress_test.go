@@ -16,7 +16,6 @@ import (
 )
 
 func TestEnsureIngressSpec(t *testing.T) {
-	gomega.RegisterTestingT(t)
 	tests := []struct {
 		name    string
 		objects []client.Object
@@ -100,6 +99,7 @@ func TestEnsureIngressSpec(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.TODO()
+			g := gomega.NewWithT(t)
 			c := testAction.FakeClientBuilder().
 				WithObjects(tt.objects...).
 				Build()
@@ -113,18 +113,17 @@ func TestEnsureIngressSpec(t *testing.T) {
 					},
 					name),
 			)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			g.Expect(err).ToNot(gomega.HaveOccurred())
 
-			gomega.Expect(result).To(gomega.Equal(tt.result))
+			g.Expect(result).To(gomega.Equal(tt.result))
 
 			existing := &networkingv1.Ingress{}
-			gomega.Expect(c.Get(ctx, client.ObjectKey{Namespace: "default", Name: name}, existing)).To(gomega.Succeed())
-			gomega.Expect(existing.Spec.Rules).To(gomega.HaveLen(1))
-			gomega.Expect(existing.Spec.Rules[0].Host).To(gomega.Equal("host"))
-			gomega.Expect(existing.Spec.Rules[0].IngressRuleValue.HTTP.Paths).To(gomega.HaveLen(1))
-			gomega.Expect(existing.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Name).To(gomega.Equal(name))
-			gomega.Expect(existing.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Port.Name).To(gomega.Equal(name))
-
+			g.Expect(c.Get(ctx, client.ObjectKey{Namespace: "default", Name: name}, existing)).To(gomega.Succeed())
+			g.Expect(existing.Spec.Rules).To(gomega.HaveLen(1))
+			g.Expect(existing.Spec.Rules[0].Host).To(gomega.Equal("host"))
+			g.Expect(existing.Spec.Rules[0].IngressRuleValue.HTTP.Paths).To(gomega.HaveLen(1))
+			g.Expect(existing.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Name).To(gomega.Equal(name))
+			g.Expect(existing.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Port.Name).To(gomega.Equal(name))
 		})
 	}
 }
