@@ -125,7 +125,7 @@ func TestHandleSecret_CanHandle(t *testing.T) {
 				Status: tt.condition,
 			})
 
-			if got := a.CanHandle(context.TODO(), &instance); !reflect.DeepEqual(got, tt.canHandle) {
+			if got := a.CanHandle(t.Context(), &instance); !reflect.DeepEqual(got, tt.canHandle) {
 				t.Errorf("CanHandle() = %v, want %v", got, tt.canHandle)
 			}
 		})
@@ -141,7 +141,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 	}
 	type want struct {
 		result *action.Result
-		verify func(Gomega, client.WithWatch, <-chan watch.Event)
+		verify func(context.Context, Gomega, client.WithWatch, <-chan watch.Event)
 	}
 	tests := []struct {
 		name string
@@ -160,9 +160,9 @@ func TestHandleSecret_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Error(reconcile.TerminalError(ErrMissingDBConfiguration)),
-				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
-					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
+					g.Expect(cli.Get(ctx, namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
@@ -184,9 +184,9 @@ func TestHandleSecret_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
-					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
+					g.Expect(cli.Get(ctx, namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionTrue))
@@ -217,9 +217,9 @@ func TestHandleSecret_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
-					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
+					g.Expect(cli.Get(ctx, namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionTrue))
@@ -250,9 +250,9 @@ func TestHandleSecret_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Continue(),
-				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
-					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
+					g.Expect(cli.Get(ctx, namespacedName, instance)).To(Succeed())
 
 					g.Expect(instance.Status.Db.DatabaseSecretRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.Db.DatabaseSecretRef.Name).To(Equal("connection"))
@@ -273,9 +273,9 @@ func TestHandleSecret_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
-					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
+					g.Expect(cli.Get(ctx, namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
@@ -300,9 +300,9 @@ func TestHandleSecret_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
-					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
+					g.Expect(cli.Get(ctx, namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
@@ -336,9 +336,9 @@ func TestHandleSecret_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
-					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
+					g.Expect(cli.Get(ctx, namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
@@ -369,9 +369,9 @@ func TestHandleSecret_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Continue(),
-				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
-					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
+					g.Expect(cli.Get(ctx, namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
@@ -401,9 +401,9 @@ func TestHandleSecret_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Continue(),
-				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
-					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
+					g.Expect(cli.Get(ctx, namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
@@ -454,9 +454,9 @@ func TestHandleSecret_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
-					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
+					g.Expect(cli.Get(ctx, namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
@@ -521,9 +521,9 @@ func TestHandleSecret_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
-					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
+					g.Expect(cli.Get(ctx, namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
@@ -608,9 +608,9 @@ func TestHandleSecret_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
-					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
+					g.Expect(cli.Get(ctx, namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
@@ -635,7 +635,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
-			ctx := context.TODO()
+			ctx := t.Context()
 			instance := &rhtasv1alpha1.Trillian{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "trillian",
@@ -668,7 +668,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 
 			watchSecrets.Stop()
 			if tt.want.verify != nil {
-				tt.want.verify(g, c, watchSecrets.ResultChan())
+				tt.want.verify(ctx, g, c, watchSecrets.ResultChan())
 			}
 		})
 	}

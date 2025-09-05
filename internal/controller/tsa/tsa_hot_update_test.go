@@ -17,7 +17,6 @@ limitations under the License.
 */
 
 import (
-	"context"
 	"time"
 
 	"github.com/securesign/operator/internal/constants"
@@ -46,8 +45,6 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			Namespace = "update"
 		)
 
-		ctx := context.Background()
-
 		namespace := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: Namespace,
@@ -58,19 +55,19 @@ var _ = Describe("Timestamp Authority hot update", func() {
 		timestampAuthority := &rhtasv1alpha1.TimestampAuthority{}
 		found := &rhtasv1alpha1.TimestampAuthority{}
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			By("Creating the Namespace to perform the tests")
 			err := suite.Client().Create(ctx, namespace)
 			Expect(err).To(Not(HaveOccurred()))
 		})
 
-		AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			By("removing the custom resource for the Kind Timestamp Authority")
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
 
 			Eventually(func() error {
-				return suite.Client().Delete(context.TODO(), found)
+				return suite.Client().Delete(ctx, found)
 			}, 2*time.Minute, time.Second).Should(Succeed())
 
 			// TODO(user): Attention if you improve this code by adding other context test you MUST
@@ -80,7 +77,7 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			_ = suite.Client().Delete(ctx, namespace)
 		})
 
-		It("should successfully reconcile a custom resource for the Timestamp Authority", func() {
+		It("should successfully reconcile a custom resource for the Timestamp Authority", func(ctx SpecContext) {
 			By("creating the custom resource for the Timestamp Authority")
 			err := suite.Client().Get(ctx, typeNamespaceName, timestampAuthority)
 			if err != nil && errors.IsNotFound(err) {
@@ -188,7 +185,7 @@ var _ = Describe("Timestamp Authority hot update", func() {
 
 			By("Creating new certificate chain and signer keys")
 			secret := tsa.CreateSecrets(Namespace, "tsa-test-secret")
-			Expect(suite.Client().Create(context.TODO(), secret)).NotTo(HaveOccurred())
+			Expect(suite.Client().Create(ctx, secret)).NotTo(HaveOccurred())
 
 			By("Status field changed for cert chain")
 			Eventually(func(g Gomega) string {

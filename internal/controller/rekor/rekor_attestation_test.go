@@ -75,7 +75,7 @@ var _ = Describe("Rekor controller", func() {
 			Expect(err).To(Not(HaveOccurred()))
 
 			Eventually(func() error {
-				return suite.Client().Delete(context.TODO(), found)
+				return suite.Client().Delete(ctx, found)
 			}, 2*time.Minute, time.Second).Should(Succeed())
 
 			By("Deleting the Namespace to perform the tests")

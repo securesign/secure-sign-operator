@@ -672,7 +672,7 @@ func TestResolveTree_CanHandle(t *testing.T) {
 				})
 			}
 
-			if got := a.CanHandle(context.TODO(), &instance); !reflect.DeepEqual(got, tt.canHandle) {
+			if got := a.CanHandle(t.Context(), &instance); !reflect.DeepEqual(got, tt.canHandle) {
 				t.Errorf("CanHandle() = %v, want %v", got, tt.canHandle)
 			}
 		})

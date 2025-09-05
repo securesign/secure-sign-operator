@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -12,7 +11,6 @@ import (
 )
 
 func TestIngress_CanHandle(t *testing.T) {
-	ctx := context.TODO()
 	tests := []struct {
 		name           string
 		conditions     []metav1.Condition
@@ -53,7 +51,7 @@ func TestIngress_CanHandle(t *testing.T) {
 				},
 			}
 			action := NewIngressAction()
-			g.Expect(tt.expected).To(Equal(action.CanHandle(ctx, &instance)))
+			g.Expect(tt.expected).To(Equal(action.CanHandle(t.Context(), &instance)))
 		})
 	}
 }

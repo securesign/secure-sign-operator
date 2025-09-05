@@ -1,7 +1,6 @@
 package common
 
 import (
-	"context"
 	"testing"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -62,26 +61,27 @@ func GenerateTSAInstance() *rhtasv1alpha1.TimestampAuthority {
 }
 
 func TsaTestSetup(instance *rhtasv1alpha1.TimestampAuthority, t *testing.T, client client.WithWatch, action action.Action[*rhtasv1alpha1.TimestampAuthority], initObjs ...client.Object) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
+	ctx := t.Context()
 	if client == nil {
 		client = testAction.FakeClientBuilder().WithObjects(instance).WithStatusSubresource(instance).Build()
 	}
-	if err := client.Get(context.TODO(), types.NamespacedName{Name: instance.GetName(), Namespace: instance.GetNamespace()}, instance); err != nil {
+	if err := client.Get(ctx, types.NamespacedName{Name: instance.GetName(), Namespace: instance.GetNamespace()}, instance); err != nil {
 		t.Error(err)
 		return nil, nil
 	}
 
 	for _, obj := range initObjs {
-		if err := client.Create(context.TODO(), obj); err != nil {
+		if err := client.Create(ctx, obj); err != nil {
 			t.Error(err)
 			return nil, nil
 		}
 	}
 
 	a := testAction.PrepareAction(client, action)
-	if !a.CanHandle(context.TODO(), instance) {
+	if !a.CanHandle(ctx, instance) {
 		return nil, nil
 	}
 
-	_ = a.Handle(context.TODO(), instance)
+	_ = a.Handle(ctx, instance)
 	return client, a
 }

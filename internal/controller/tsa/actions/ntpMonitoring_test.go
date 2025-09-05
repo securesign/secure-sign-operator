@@ -90,7 +90,7 @@ func Test_NTPCanHandle(t *testing.T) {
 			action := NewNtpMonitoringAction()
 			instance := common.GenerateTSAInstance()
 			tt.testCase(instance)
-			g.Expect(action.CanHandle(context.TODO(), instance)).To(Equal(tt.expected))
+			g.Expect(action.CanHandle(t.Context(), instance)).To(Equal(tt.expected))
 		})
 	}
 }

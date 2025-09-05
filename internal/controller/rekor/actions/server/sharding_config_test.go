@@ -80,7 +80,7 @@ func TestShardingConfig_CanHandle(t *testing.T) {
 				})
 			}
 
-			if got := a.CanHandle(context.TODO(), &instance); !reflect.DeepEqual(got, tt.canHandle) {
+			if got := a.CanHandle(t.Context(), &instance); !reflect.DeepEqual(got, tt.canHandle) {
 				t.Errorf("CanHandle() = %v, want %v", got, tt.canHandle)
 			}
 		})
@@ -100,7 +100,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 	}
 	type want struct {
 		result *action.Result
-		verify func(Gomega, client.WithWatch, <-chan watch.Event)
+		verify func(context.Context, Gomega, client.WithWatch, <-chan watch.Event)
 	}
 	tests := []struct {
 		name string
@@ -116,14 +116,14 @@ func TestShardingConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
-					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
+					g.Expect(c.Get(ctx, rekorNN, &r)).To(Succeed())
 					g.Expect(r.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(r.Status.ServerConfigRef.Name).Should(ContainSubstring(cmName))
 
 					cm := v1.ConfigMap{}
-					g.Expect(c.Get(context.TODO(), types.NamespacedName{Name: r.Status.ServerConfigRef.Name, Namespace: rekorNN.Namespace}, &cm)).To(Succeed())
+					g.Expect(c.Get(ctx, types.NamespacedName{Name: r.Status.ServerConfigRef.Name, Namespace: rekorNN.Namespace}, &cm)).To(Succeed())
 					g.Expect(cm.Data).Should(HaveKeyWithValue(shardingConfigName, ""))
 
 					g.Expect(events).To(HaveLen(1))
@@ -155,14 +155,14 @@ func TestShardingConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
-					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
+					g.Expect(c.Get(ctx, rekorNN, &r)).To(Succeed())
 					g.Expect(r.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(r.Status.ServerConfigRef.Name).Should(ContainSubstring(cmName))
 
 					cm := v1.ConfigMap{}
-					g.Expect(c.Get(context.TODO(), types.NamespacedName{Name: r.Status.ServerConfigRef.Name, Namespace: rekorNN.Namespace}, &cm)).To(Succeed())
+					g.Expect(c.Get(ctx, types.NamespacedName{Name: r.Status.ServerConfigRef.Name, Namespace: rekorNN.Namespace}, &cm)).To(Succeed())
 					g.Expect(cm.Data).Should(HaveKey(shardingConfigName))
 
 					rlr := make([]rhtasv1alpha1.RekorLogRange, 0)
@@ -213,15 +213,15 @@ func TestShardingConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
-					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
+					g.Expect(c.Get(ctx, rekorNN, &r)).To(Succeed())
 					g.Expect(r.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(r.Status.ServerConfigRef.Name).Should(ContainSubstring(cmName))
 					g.Expect(r.Status.ServerConfigRef.Name).ShouldNot(Equal(cmName + "old"))
 
 					cm := v1.ConfigMap{}
-					g.Expect(c.Get(context.TODO(), types.NamespacedName{Name: r.Status.ServerConfigRef.Name, Namespace: rekorNN.Namespace}, &cm)).To(Succeed())
+					g.Expect(c.Get(ctx, types.NamespacedName{Name: r.Status.ServerConfigRef.Name, Namespace: rekorNN.Namespace}, &cm)).To(Succeed())
 					g.Expect(cm.Data).Should(HaveKey(shardingConfigName))
 
 					rlr := make([]rhtasv1alpha1.RekorLogRange, 0)
@@ -268,15 +268,15 @@ func TestShardingConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
-					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
+					g.Expect(c.Get(ctx, rekorNN, &r)).To(Succeed())
 					g.Expect(r.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(r.Status.ServerConfigRef.Name).Should(ContainSubstring(cmName))
 					g.Expect(r.Status.ServerConfigRef.Name).ShouldNot(Equal(cmName + "old"))
 
 					cm := v1.ConfigMap{}
-					g.Expect(c.Get(context.TODO(), types.NamespacedName{Name: r.Status.ServerConfigRef.Name, Namespace: rekorNN.Namespace}, &cm)).To(Succeed())
+					g.Expect(c.Get(ctx, types.NamespacedName{Name: r.Status.ServerConfigRef.Name, Namespace: rekorNN.Namespace}, &cm)).To(Succeed())
 					g.Expect(cm.Data).Should(HaveKey(shardingConfigName))
 
 					rlr := make([]rhtasv1alpha1.RekorLogRange, 0)
@@ -316,14 +316,14 @@ func TestShardingConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Continue(),
-				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
-					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
+					g.Expect(c.Get(ctx, rekorNN, &r)).To(Succeed())
 					g.Expect(r.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(r.Status.ServerConfigRef.Name).Should(Equal(cmName + "old"))
 
 					cm := v1.ConfigMap{}
-					g.Expect(c.Get(context.TODO(), types.NamespacedName{Name: r.Status.ServerConfigRef.Name, Namespace: rekorNN.Namespace}, &cm)).To(Succeed())
+					g.Expect(c.Get(ctx, types.NamespacedName{Name: r.Status.ServerConfigRef.Name, Namespace: rekorNN.Namespace}, &cm)).To(Succeed())
 					g.Expect(cm.Data).Should(HaveKeyWithValue(shardingConfigName, ""))
 
 					rlr := make([]rhtasv1alpha1.RekorLogRange, 0)
@@ -363,14 +363,14 @@ func TestShardingConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Continue(),
-				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
-					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
+					g.Expect(c.Get(ctx, rekorNN, &r)).To(Succeed())
 					g.Expect(r.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(r.Status.ServerConfigRef.Name).Should(Equal(cmName + "old"))
 
 					cm := v1.ConfigMap{}
-					g.Expect(c.Get(context.TODO(), types.NamespacedName{Name: r.Status.ServerConfigRef.Name, Namespace: rekorNN.Namespace}, &cm)).To(Succeed())
+					g.Expect(c.Get(ctx, types.NamespacedName{Name: r.Status.ServerConfigRef.Name, Namespace: rekorNN.Namespace}, &cm)).To(Succeed())
 					g.Expect(cm.Data).Should(HaveKey(shardingConfigName))
 
 					rlr := make([]rhtasv1alpha1.RekorLogRange, 0)
@@ -391,15 +391,15 @@ func TestShardingConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
-					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
+					g.Expect(c.Get(ctx, rekorNN, &r)).To(Succeed())
 					g.Expect(r.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(r.Status.ServerConfigRef.Name).ShouldNot(Equal(cmName + "deleted"))
 					g.Expect(r.Status.ServerConfigRef.Name).Should(ContainSubstring(cmName))
 
 					cm := v1.ConfigMap{}
-					g.Expect(c.Get(context.TODO(), types.NamespacedName{Name: r.Status.ServerConfigRef.Name, Namespace: rekorNN.Namespace}, &cm)).To(Succeed())
+					g.Expect(c.Get(ctx, types.NamespacedName{Name: r.Status.ServerConfigRef.Name, Namespace: rekorNN.Namespace}, &cm)).To(Succeed())
 					g.Expect(cm.Data).Should(HaveKeyWithValue(shardingConfigName, ""))
 
 					g.Expect(events).To(HaveLen(1))
@@ -429,9 +429,9 @@ func TestShardingConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
-					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
+					g.Expect(c.Get(ctx, rekorNN, &r)).To(Succeed())
 					g.Expect(r.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(r.Status.ServerConfigRef.Name).ShouldNot(Equal(cmName + "old"))
 
@@ -475,14 +475,14 @@ func TestShardingConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
-					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
+					g.Expect(c.Get(ctx, rekorNN, &r)).To(Succeed())
 					g.Expect(r.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(r.Status.ServerConfigRef.Name).Should(Not(Equal(cmName + "old")))
 
-					g.Expect(c.Get(context.TODO(), types.NamespacedName{Name: cmName + "old", Namespace: rekorNN.Namespace}, &v1.ConfigMap{})).To(HaveOccurred())
-					g.Expect(c.Get(context.TODO(), types.NamespacedName{Name: "keep", Namespace: rekorNN.Namespace}, &v1.ConfigMap{})).To(Succeed())
+					g.Expect(c.Get(ctx, types.NamespacedName{Name: cmName + "old", Namespace: rekorNN.Namespace}, &v1.ConfigMap{})).To(HaveOccurred())
+					g.Expect(c.Get(ctx, types.NamespacedName{Name: "keep", Namespace: rekorNN.Namespace}, &v1.ConfigMap{})).To(Succeed())
 
 					g.Expect(events).To(HaveLen(2))
 					g.Expect(events).To(Receive(
@@ -502,7 +502,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
-			ctx := context.TODO()
+			ctx := t.Context()
 			instance := &rhtasv1alpha1.Rekor{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "rekor",
@@ -532,7 +532,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 			}
 			watchCm.Stop()
 			if tt.want.verify != nil {
-				tt.want.verify(g, c, watchCm.ResultChan())
+				tt.want.verify(ctx, g, c, watchCm.ResultChan())
 			}
 		})
 	}

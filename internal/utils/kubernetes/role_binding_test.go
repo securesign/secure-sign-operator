@@ -1,7 +1,6 @@
 package kubernetes
 
 import (
-	"context"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -15,7 +14,6 @@ import (
 )
 
 func TestEnsureRoleBinding(t *testing.T) {
-	gomega.RegisterTestingT(t)
 	tests := []struct {
 		name    string
 		objects []client.Object
@@ -62,7 +60,8 @@ func TestEnsureRoleBinding(t *testing.T) {
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.TODO()
+			g := gomega.NewWithT(t)
+			ctx := t.Context()
 			c := testAction.FakeClientBuilder().
 				WithObjects(tt.objects...).
 				Build()
@@ -77,20 +76,19 @@ func TestEnsureRoleBinding(t *testing.T) {
 			result, err := CreateOrUpdate(ctx, c,
 				&rbacv1.RoleBinding{ObjectMeta: v2.ObjectMeta{Name: name, Namespace: "default"}},
 				EnsureRoleBinding(role, subject))
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			g.Expect(err).ToNot(gomega.HaveOccurred())
 
-			gomega.Expect(result).To(gomega.Equal(tt.result))
+			g.Expect(result).To(gomega.Equal(tt.result))
 
 			existing := &rbacv1.RoleBinding{}
-			gomega.Expect(c.Get(ctx, client.ObjectKey{Namespace: "default", Name: "test"}, existing)).To(gomega.Succeed())
-			gomega.Expect(existing.RoleRef).To(gomega.Equal(role))
-			gomega.Expect(existing.Subjects).To(gomega.Equal([]rbacv1.Subject{subject}))
+			g.Expect(c.Get(ctx, client.ObjectKey{Namespace: "default", Name: "test"}, existing)).To(gomega.Succeed())
+			g.Expect(existing.RoleRef).To(gomega.Equal(role))
+			g.Expect(existing.Subjects).To(gomega.Equal([]rbacv1.Subject{subject}))
 		})
 	}
 }
 
 func TestEnsureClusterRoleBinding(t *testing.T) {
-	gomega.RegisterTestingT(t)
 	tests := []struct {
 		name    string
 		objects []client.Object
@@ -137,7 +135,8 @@ func TestEnsureClusterRoleBinding(t *testing.T) {
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.TODO()
+			g := gomega.NewWithT(t)
+			ctx := t.Context()
 			c := testAction.FakeClientBuilder().
 				WithObjects(tt.objects...).
 				Build()
@@ -152,14 +151,14 @@ func TestEnsureClusterRoleBinding(t *testing.T) {
 			result, err := CreateOrUpdate(ctx, c,
 				&rbacv1.ClusterRoleBinding{ObjectMeta: v2.ObjectMeta{Name: name}},
 				EnsureClusterRoleBinding(role, subject))
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			g.Expect(err).ToNot(gomega.HaveOccurred())
 
-			gomega.Expect(result).To(gomega.Equal(tt.result))
+			g.Expect(result).To(gomega.Equal(tt.result))
 
 			existing := &rbacv1.ClusterRoleBinding{}
-			gomega.Expect(c.Get(ctx, client.ObjectKey{Name: "test"}, existing)).To(gomega.Succeed())
-			gomega.Expect(existing.RoleRef).To(gomega.Equal(role))
-			gomega.Expect(existing.Subjects).To(gomega.Equal([]rbacv1.Subject{subject}))
+			g.Expect(c.Get(ctx, client.ObjectKey{Name: "test"}, existing)).To(gomega.Succeed())
+			g.Expect(existing.RoleRef).To(gomega.Equal(role))
+			g.Expect(existing.Subjects).To(gomega.Equal([]rbacv1.Subject{subject}))
 		})
 	}
 }

@@ -17,7 +17,6 @@ limitations under the License.
 package tsa
 
 import (
-	"context"
 	"time"
 
 	"github.com/securesign/operator/internal/constants"
@@ -46,8 +45,6 @@ var _ = Describe("TimestampAuthority Controller", func() {
 			Namespace = "default"
 		)
 
-		ctx := context.Background()
-
 		namespace := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      Name,
@@ -62,19 +59,19 @@ var _ = Describe("TimestampAuthority Controller", func() {
 		service := &corev1.Service{}
 		ingress := &v1.Ingress{}
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			By("Creating the Namespace to perform the tests")
 			err := suite.Client().Create(ctx, namespace)
 			Expect(err).To(Not(HaveOccurred()))
 		})
 
-		AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			By("removing the custom resource for the Kind Timestamp Authority")
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
 
 			Eventually(func() error {
-				return suite.Client().Delete(context.TODO(), found)
+				return suite.Client().Delete(ctx, found)
 			}, 2*time.Minute, time.Second).Should(Succeed())
 
 			// TODO(user): Attention if you improve this code by adding other context test you MUST
@@ -84,7 +81,7 @@ var _ = Describe("TimestampAuthority Controller", func() {
 			_ = suite.Client().Delete(ctx, namespace)
 		})
 
-		It("should successfully reconcile a custom resource for the Timestamp Authority", func() {
+		It("should successfully reconcile a custom resource for the Timestamp Authority", func(ctx SpecContext) {
 			By("creating the custom resource for the Timestamp Authority")
 			err := suite.Client().Get(ctx, typeNamespaceName, timestampAuthority)
 			if err != nil && errors.IsNotFound(err) {

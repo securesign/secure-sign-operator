@@ -25,7 +25,6 @@ import (
 )
 
 func TestGenerateCert_Handle(t *testing.T) {
-	ctx := context.TODO()
 	g := NewWithT(t)
 	key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 	g.Expect(err).ToNot(HaveOccurred())
@@ -40,7 +39,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 		canHandle     bool
 		result        *action.Result
 		certCondition metav1.ConditionStatus
-		verify        func(Gomega, rhtasv1alpha1.FulcioStatus, client.WithWatch)
+		verify        func(context.Context, Gomega, rhtasv1alpha1.FulcioStatus, client.WithWatch)
 	}
 	tests := []struct {
 		name string
@@ -60,7 +59,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 				canHandle:     true,
 				result:        testAction.StatusUpdate(),
 				certCondition: metav1.ConditionTrue,
-				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
+				verify: func(ctx context.Context, g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
 					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
 					g.Expect(fulcio.Certificate.OrganizationEmail).To(Equal("jdoe@redhat.com"))
 					g.Expect(fulcio.Certificate.OrganizationName).To(Equal("RH"))
@@ -93,7 +92,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 				canHandle:     true,
 				result:        testAction.Requeue(),
 				certCondition: metav1.ConditionFalse,
-				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
+				verify: func(ctx context.Context, g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
 					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
 					g.Expect(fulcio.Certificate.OrganizationEmail).To(Equal("jdoe@redhat.com"))
 					g.Expect(fulcio.Certificate.OrganizationName).To(Equal("RH"))
@@ -130,7 +129,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 				canHandle:     true,
 				result:        testAction.StatusUpdate(),
 				certCondition: metav1.ConditionTrue,
-				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
+				verify: func(ctx context.Context, g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
 					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
 					g.Expect(fulcio.Certificate.OrganizationEmail).To(Equal("jdoe@redhat.com"))
 					g.Expect(fulcio.Certificate.OrganizationName).To(Equal("RH"))
@@ -172,7 +171,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 				canHandle:     true,
 				result:        testAction.StatusUpdate(),
 				certCondition: metav1.ConditionTrue,
-				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
+				verify: func(ctx context.Context, g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
 					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
 					g.Expect(fulcio.Certificate.OrganizationEmail).To(Equal("jdoe1@redhat.com"))
 					g.Expect(fulcio.Certificate.OrganizationName).To(Equal("RH"))
@@ -233,7 +232,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 				canHandle:     true,
 				result:        testAction.StatusUpdate(),
 				certCondition: metav1.ConditionTrue,
-				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
+				verify: func(ctx context.Context, g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
 					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
 					g.Expect(fulcio.Certificate.OrganizationEmail).To(Equal("jdoe@redhat.com"))
 					g.Expect(fulcio.Certificate.OrganizationName).To(Equal("RH"))
@@ -295,7 +294,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 				canHandle:     true,
 				result:        testAction.StatusUpdate(),
 				certCondition: metav1.ConditionTrue,
-				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
+				verify: func(ctx context.Context, g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
 					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
 					g.Expect(fulcio.Certificate.OrganizationEmail).To(Equal("jdoe@redhat.com"))
 					g.Expect(fulcio.Certificate.OrganizationName).To(Equal("RH"))
@@ -350,7 +349,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 				canHandle:     true,
 				result:        testAction.StatusUpdate(),
 				certCondition: metav1.ConditionTrue,
-				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
+				verify: func(ctx context.Context, g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
 					g.Expect(fulcio.Certificate.CommonName).To(Equal("fulcio.local"))
 					g.Expect(fulcio.Certificate.CARef.Name).To(Equal("fulcio-cert"))
 
@@ -409,7 +408,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
+			ctx := t.Context()
 			instance := &rhtasv1alpha1.Fulcio{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "instance",
@@ -442,7 +441,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 
 				found := &rhtasv1alpha1.Fulcio{}
 				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(instance), found)).To(Succeed())
-				tt.want.verify(g, found.Status, c)
+				tt.want.verify(ctx, g, found.Status, c)
 			}
 		})
 	}

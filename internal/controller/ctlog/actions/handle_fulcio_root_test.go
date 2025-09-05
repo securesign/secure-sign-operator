@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"context"
 	"reflect"
 	"testing"
 
@@ -180,7 +179,7 @@ func TestCertCan_Handle(t *testing.T) {
 				Reason: tt.env.phase,
 			})
 
-			if got := a.CanHandle(context.TODO(), &instance); !reflect.DeepEqual(got, tt.want.canHandle) {
+			if got := a.CanHandle(t.Context(), &instance); !reflect.DeepEqual(got, tt.want.canHandle) {
 				t.Errorf("CanHandle() = %v, want %v", got, tt.want.canHandle)
 			}
 		})
@@ -452,7 +451,7 @@ func TestCert_Handle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
-			ctx := context.TODO()
+			ctx := t.Context()
 			instance := &v1alpha1.CTlog{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "instance",

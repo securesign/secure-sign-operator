@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"context"
 	_ "embed"
 	"reflect"
 	"testing"
@@ -148,7 +147,7 @@ func TestServerConfig_CanHandle(t *testing.T) {
 				})
 			}
 
-			if got := a.CanHandle(context.TODO(), &instance); !reflect.DeepEqual(got, tt.canHandle) {
+			if got := a.CanHandle(t.Context(), &instance); !reflect.DeepEqual(got, tt.canHandle) {
 				t.Errorf("CanHandle() = %v, want %v", got, tt.canHandle)
 			}
 		})
@@ -376,7 +375,7 @@ func TestServerConfig_Handle(t *testing.T) {
 				verify: func(g Gomega, instance *rhtasv1alpha1.CTlog, cli client.WithWatch) {
 					g.Expect(instance.Status.ServerConfigRef).Should(Not(BeNil()))
 
-					g.Expect(k8sErrors.IsNotFound(cli.Get(context.TODO(), client.ObjectKey{Name: "config", Namespace: "default"}, &v1.Secret{}))).To(BeTrue())
+					g.Expect(k8sErrors.IsNotFound(cli.Get(t.Context(), client.ObjectKey{Name: "config", Namespace: "default"}, &v1.Secret{}))).To(BeTrue())
 
 					secret, err := kubernetes.GetSecret(cli, "default", instance.Status.ServerConfigRef.Name)
 					g.Expect(err).ShouldNot(HaveOccurred())
@@ -451,7 +450,7 @@ func TestServerConfig_Handle(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.TODO()
+			ctx := t.Context()
 			instance := &rhtasv1alpha1.CTlog{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "ctlog",
@@ -639,7 +638,7 @@ func TestServerConfig_Update(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.TODO()
+			ctx := t.Context()
 			c := testAction.FakeClientBuilder().
 				WithObjects(&tt.env.instance).
 				WithStatusSubresource(&tt.env.instance).

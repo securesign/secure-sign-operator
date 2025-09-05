@@ -1,7 +1,6 @@
 package logserver
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -14,9 +13,6 @@ import (
 )
 
 func TestTlsAction_CanHandle(t *testing.T) {
-	ctx := context.TODO()
-	g := NewWithT(t)
-
 	type env struct {
 		conditions  []metav1.Condition
 		specTLS     rhtasv1alpha1.TLS
@@ -207,6 +203,8 @@ func TestTlsAction_CanHandle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			ctx := t.Context()
 			instance := &rhtasv1alpha1.Trillian{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-trillian",

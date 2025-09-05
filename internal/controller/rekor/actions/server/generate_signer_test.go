@@ -235,7 +235,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				meta.SetStatusCondition(&instance.Status.Conditions, status)
 			}
 
-			if got := a.CanHandle(context.TODO(), &instance); !reflect.DeepEqual(got, tt.canHandle) {
+			if got := a.CanHandle(t.Context(), &instance); !reflect.DeepEqual(got, tt.canHandle) {
 				t.Errorf("CanHandle() = %v, want %v", got, tt.canHandle)
 			}
 		})
@@ -417,7 +417,7 @@ func TestGenerateSigner_Handle(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.TODO()
+			ctx := t.Context()
 			instance := &rhtasv1alpha1.Rekor{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "rekor",
@@ -469,7 +469,7 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 	}
 	type want struct {
 		result *action.Result
-		verify func(Gomega, client.WithWatch, <-chan watch.Event)
+		verify func(context.Context, Gomega, client.WithWatch, <-chan watch.Event)
 	}
 	tests := []struct {
 		name string
@@ -494,9 +494,9 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					rekor := &rhtasv1alpha1.Rekor{}
-					g.Expect(cli.Get(context.TODO(), rekorNN, rekor)).Should(Succeed())
+					g.Expect(cli.Get(ctx, rekorNN, rekor)).Should(Succeed())
 					g.Expect(rekor.Status.Signer.KeyRef).ShouldNot(BeNil())
 					g.Expect(rekor.Status.Signer.KeyRef.Name).Should(Equal("unassigned-secret"))
 
@@ -523,9 +523,9 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					rekor := &rhtasv1alpha1.Rekor{}
-					g.Expect(cli.Get(context.TODO(), rekorNN, rekor)).Should(Succeed())
+					g.Expect(cli.Get(ctx, rekorNN, rekor)).Should(Succeed())
 					g.Expect(rekor.Status.Signer.KeyRef).ShouldNot(BeNil())
 					g.Expect(rekor.Status.Signer.KeyRef.Name).ShouldNot(Equal("unassigned-secret"))
 
@@ -541,7 +541,7 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.TODO()
+			ctx := t.Context()
 			instance := &rhtasv1alpha1.Rekor{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "rekor",
@@ -585,7 +585,7 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 
 			watchSecrets.Stop()
 			if tt.want.verify != nil {
-				tt.want.verify(g, c, watchSecrets.ResultChan())
+				tt.want.verify(ctx, g, c, watchSecrets.ResultChan())
 			}
 		})
 	}

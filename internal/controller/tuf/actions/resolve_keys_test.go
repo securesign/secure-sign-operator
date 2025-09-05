@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"context"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -25,12 +24,11 @@ var testAction = resolveKeysAction{
 	},
 }
 
-var testContext = context.TODO()
-
 func TestKeyAutogenerate(t *testing.T) {
 	g := NewWithT(t)
+	ctx := t.Context()
 
-	g.Expect(testAction.Client.Create(testContext, &v1.Secret{
+	g.Expect(testAction.Client.Create(ctx, &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "testSecret",
 			Namespace: t.Name(),
@@ -50,7 +48,7 @@ func TestKeyAutogenerate(t *testing.T) {
 				Status: metav1.ConditionFalse,
 			},
 		}}}
-	testAction.Handle(testContext, instance)
+	testAction.Handle(ctx, instance)
 
 	g.Expect(instance.Status.Keys).To(HaveLen(1))
 	g.Expect(instance.Status.Keys[0].SecretRef.Name).To(Equal("testSecret"))
@@ -61,6 +59,7 @@ func TestKeyAutogenerate(t *testing.T) {
 
 func TestKeyProvided(t *testing.T) {
 	g := NewWithT(t)
+	ctx := t.Context()
 	instance := &v1alpha1.Tuf{Spec: v1alpha1.TufSpec{Keys: []v1alpha1.TufKey{
 		{
 			Name: "rekor.pub",
@@ -78,7 +77,7 @@ func TestKeyProvided(t *testing.T) {
 				Reason: constants.Pending,
 				Status: metav1.ConditionFalse,
 			}}}}
-	testAction.Handle(testContext, instance)
+	testAction.Handle(ctx, instance)
 
 	g.Expect(instance.Status.Keys).To(HaveLen(1))
 	g.Expect(instance.Status.Keys[0]).To(Equal(instance.Spec.Keys[0]))
@@ -88,6 +87,7 @@ func TestKeyProvided(t *testing.T) {
 
 func TestKeyUpdate(t *testing.T) {
 	g := NewWithT(t)
+	ctx := t.Context()
 	instance := &v1alpha1.Tuf{
 		Spec: v1alpha1.TufSpec{Keys: []v1alpha1.TufKey{
 			{
@@ -118,7 +118,7 @@ func TestKeyUpdate(t *testing.T) {
 					Status: metav1.ConditionFalse,
 				}}}}
 
-	testAction.Handle(testContext, instance)
+	testAction.Handle(ctx, instance)
 
 	g.Expect(instance.Status.Keys).To(HaveLen(1))
 	g.Expect(instance.Status.Keys[0].SecretRef.Name).To(Equal("new"))
@@ -129,7 +129,8 @@ func TestKeyUpdate(t *testing.T) {
 
 func TestKeyDelete(t *testing.T) {
 	g := NewWithT(t)
-	g.Expect(testAction.Client.Create(testContext, &v1.Secret{
+	ctx := t.Context()
+	g.Expect(testAction.Client.Create(ctx, &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "new",
 			Namespace: t.Name(),
@@ -163,7 +164,7 @@ func TestKeyDelete(t *testing.T) {
 				},
 			}}}
 
-	testAction.Handle(testContext, instance)
+	testAction.Handle(ctx, instance)
 
 	g.Expect(instance.Status.Keys).To(HaveLen(1))
 	g.Expect(instance.Status.Keys[0].SecretRef).To(Not(BeNil()))
