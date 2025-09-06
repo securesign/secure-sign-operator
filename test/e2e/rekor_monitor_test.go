@@ -14,6 +14,7 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/steps"
+	rekorSupport "github.com/securesign/operator/test/e2e/support/tas/rekor"
 	"github.com/securesign/operator/test/e2e/support/tas/trillian"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -67,7 +68,7 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 					},
 					TLog: v1alpha1.TlogMonitoring{
 						Enabled:  true,
-						Interval: metav1.Duration{Duration: time.Minute * 5},
+						Interval: metav1.Duration{Duration: time.Minute * 10},
 					},
 				},
 				Trillian: v1alpha1.TrillianService{
@@ -78,6 +79,8 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 		}
 
 		Expect(cli.Create(ctx, rekor)).To(Succeed())
+		By("Waiting for Rekor to be ready")
+		rekorSupport.Verify(ctx, cli, namespace.Name, rekor.Name, true)
 	})
 
 	Describe("Monitor Pod Deployment", func() {
@@ -91,7 +94,7 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(statefulSet.Status.Replicas).To(Equal(int32(1)))
 				g.Expect(statefulSet.Status.ReadyReplicas).To(Equal(int32(1)))
-			}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
+			}).Should(Succeed())
 		})
 
 		It("should have a running rekor-monitor pod", func(ctx SpecContext) {
@@ -110,7 +113,7 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 
 				g.Expect(pod.Status.ContainerStatuses).To(HaveLen(1))
 				g.Expect(pod.Status.ContainerStatuses[0].Ready).To(BeTrue())
-			}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
+			}).Should(Succeed())
 		})
 
 		It("should verify the Rekor CR has monitor condition created", func(ctx SpecContext) {
@@ -127,7 +130,7 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 				g.Expect(monitorCondition.Type).To(Equal(actions.MonitorCondition))
 				// The condition may be False with reason "Creating" - that's fine, it means monitor was created
 				g.Expect(monitorCondition.Reason).To(BeElementOf([]string{"Creating", "Ready"}))
-			}).WithTimeout(2 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
+			}).Should(Succeed())
 		})
 
 		It("should verify persistent volume is mounted at /data", func(ctx SpecContext) {
@@ -145,7 +148,7 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 
 				pod = podList.Items[0]
 				g.Expect(pod.Status.Phase).To(Equal(v1.PodRunning))
-			}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			Expect(pod.Spec.Containers).To(HaveLen(1))
 
@@ -188,7 +191,7 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 
 				pod = podList.Items[0]
 				g.Expect(pod.Status.Phase).To(Equal(v1.PodRunning))
-			}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
+			}).Should(Succeed())
 
 			Expect(pod.Spec.Containers).To(HaveLen(1))
 			container := pod.Spec.Containers[0]
@@ -212,33 +215,12 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 				}
 			}
 
-			if !foundUrlArg {
-				for i, arg := range container.Args {
-					if arg == "--url" && i+1 < len(container.Args) {
-						foundUrlArg = true
-						rekorServerUrl = container.Args[i+1]
-						break
-					} else if len(arg) > 6 && arg[:6] == "--url=" {
-						foundUrlArg = true
-						rekorServerUrl = arg[6:] // Extract URL after --url=
-						break
-					}
-				}
-			}
-
-			// If not found in command/args, check environment variables
-			if !foundUrlArg {
-				for _, envVar := range container.Env {
-					if envVar.Name == "REKOR_URL" || envVar.Name == "REKOR_SERVER_URL" || envVar.Name == "SERVER_URL" {
-						foundUrlArg = true
-						rekorServerUrl = envVar.Value
-						break
-					}
-				}
-			}
-
 			Expect(foundUrlArg).To(BeTrue(), "Expected --url parameter or REKOR_URL env var to be present")
-			Expect(rekorServerUrl).To(ContainSubstring("rekor-server"), "Expected URL to reference rekor-server")
+
+			// Verify the URL matches exactly what the rekor-server service provides
+			expectedRekorServerUrl := fmt.Sprintf("http://rekor-server.%s.svc", namespace.Name)
+			Expect(rekorServerUrl).To(Equal(expectedRekorServerUrl),
+				fmt.Sprintf("Expected URL to be %s, but got %s", expectedRekorServerUrl, rekorServerUrl))
 
 			// Verify the monitor container is healthy and ready (indicating it can connect to Rekor server)
 			Eventually(func(g Gomega) {
@@ -257,7 +239,7 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 				g.Expect(containerStatus.RestartCount).To(BeNumerically("<=", 1),
 					"Expected monitor container to not be restarting frequently (indicating connection issues)")
 
-			}).WithTimeout(2 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
+			}).Should(Succeed())
 		})
 	})
 })
