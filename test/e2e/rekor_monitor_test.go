@@ -29,9 +29,10 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 	cli, _ := support.CreateClient()
 
 	var (
-		namespace  *v1.Namespace
-		trillianCR *v1alpha1.Trillian
-		rekor      *v1alpha1.Rekor
+		namespace       *v1.Namespace
+		trillianCR      *v1alpha1.Trillian
+		rekorCR         *v1alpha1.Rekor
+		rekorMonitorPod v1.Pod
 	)
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
@@ -56,7 +57,7 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 	})
 
 	BeforeAll(func(ctx SpecContext) {
-		rekor = &v1alpha1.Rekor{
+		rekorCR = &v1alpha1.Rekor{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-rekor-monitor",
 				Namespace: namespace.Name,
@@ -78,9 +79,26 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 			},
 		}
 
-		Expect(cli.Create(ctx, rekor)).To(Succeed())
+		Expect(cli.Create(ctx, rekorCR)).To(Succeed())
 		By("Waiting for Rekor to be ready")
-		rekorSupport.Verify(ctx, cli, namespace.Name, rekor.Name, true)
+		rekorSupport.Verify(ctx, cli, namespace.Name, rekorCR.Name, true)
+	})
+
+	BeforeAll(func(ctx SpecContext) {
+		By("Waiting for monitor pod to be running")
+		Eventually(func(g Gomega) {
+			podList := &v1.PodList{}
+			err := cli.List(ctx, podList,
+				ctrl.InNamespace(namespace.Name),
+				ctrl.MatchingLabels{
+					labels.LabelAppComponent: actions.MonitorComponentName,
+				})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(podList.Items).To(HaveLen(1))
+
+			rekorMonitorPod = podList.Items[0]
+			g.Expect(rekorMonitorPod.Status.Phase).To(Equal(v1.PodRunning))
+		}).Should(Succeed())
 	})
 
 	Describe("Monitor Pod Deployment", func() {
@@ -98,22 +116,8 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 		})
 
 		It("should have a running rekor-monitor pod", func(ctx SpecContext) {
-			Eventually(func(g Gomega) {
-				podList := &v1.PodList{}
-				err := cli.List(ctx, podList,
-					ctrl.InNamespace(namespace.Name),
-					ctrl.MatchingLabels{
-						labels.LabelAppComponent: actions.MonitorComponentName,
-					})
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(podList.Items).To(HaveLen(1))
-
-				pod := podList.Items[0]
-				g.Expect(pod.Status.Phase).To(Equal(v1.PodRunning))
-
-				g.Expect(pod.Status.ContainerStatuses).To(HaveLen(1))
-				g.Expect(pod.Status.ContainerStatuses[0].Ready).To(BeTrue())
-			}).Should(Succeed())
+			Expect(rekorMonitorPod.Status.ContainerStatuses).To(HaveLen(1))
+			Expect(rekorMonitorPod.Status.ContainerStatuses[0].Ready).To(BeTrue())
 		})
 
 		It("should verify the Rekor CR has monitor condition created", func(ctx SpecContext) {
@@ -121,7 +125,7 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 				updated := &v1alpha1.Rekor{}
 				err := cli.Get(ctx, types.NamespacedName{
 					Namespace: namespace.Name,
-					Name:      rekor.Name,
+					Name:      rekorCR.Name,
 				}, updated)
 				g.Expect(err).ToNot(HaveOccurred())
 
@@ -134,25 +138,9 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 		})
 
 		It("should verify persistent volume is mounted at /data", func(ctx SpecContext) {
-			var pod v1.Pod
+			Expect(rekorMonitorPod.Spec.Containers).To(HaveLen(1))
 
-			Eventually(func(g Gomega) {
-				podList := &v1.PodList{}
-				err := cli.List(ctx, podList,
-					ctrl.InNamespace(namespace.Name),
-					ctrl.MatchingLabels{
-						labels.LabelAppComponent: actions.MonitorComponentName,
-					})
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(podList.Items).To(HaveLen(1))
-
-				pod = podList.Items[0]
-				g.Expect(pod.Status.Phase).To(Equal(v1.PodRunning))
-			}).Should(Succeed())
-
-			Expect(pod.Spec.Containers).To(HaveLen(1))
-
-			container := pod.Spec.Containers[0]
+			container := rekorMonitorPod.Spec.Containers[0]
 
 			var dataVolumeMount *v1.VolumeMount
 			for _, vm := range container.VolumeMounts {
@@ -165,7 +153,7 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 			Expect(dataVolumeMount).ToNot(BeNil(), "Expected /data volume mount to be present")
 
 			var dataVolume *v1.Volume
-			for _, vol := range pod.Spec.Volumes {
+			for _, vol := range rekorMonitorPod.Spec.Volumes {
 				if vol.Name == dataVolumeMount.Name {
 					dataVolume = &vol
 					break
@@ -177,24 +165,8 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 		})
 
 		It("should verify monitor fetches checkpoints from Rekor server using --url parameter", func(ctx SpecContext) {
-			var pod v1.Pod
-
-			Eventually(func(g Gomega) {
-				podList := &v1.PodList{}
-				err := cli.List(ctx, podList,
-					ctrl.InNamespace(namespace.Name),
-					ctrl.MatchingLabels{
-						labels.LabelAppComponent: actions.MonitorComponentName,
-					})
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(podList.Items).To(HaveLen(1))
-
-				pod = podList.Items[0]
-				g.Expect(pod.Status.Phase).To(Equal(v1.PodRunning))
-			}).Should(Succeed())
-
-			Expect(pod.Spec.Containers).To(HaveLen(1))
-			container := pod.Spec.Containers[0]
+			Expect(rekorMonitorPod.Spec.Containers).To(HaveLen(1))
+			container := rekorMonitorPod.Spec.Containers[0]
 
 			// Look for --url argument in container command and args
 			var foundUrlArg bool
@@ -228,7 +200,7 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 				updatedPod := &v1.Pod{}
 				err := cli.Get(ctx, types.NamespacedName{
 					Namespace: namespace.Name,
-					Name:      pod.Name,
+					Name:      rekorMonitorPod.Name,
 				}, updatedPod)
 				g.Expect(err).ToNot(HaveOccurred())
 
