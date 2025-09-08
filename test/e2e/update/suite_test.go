@@ -26,7 +26,7 @@ func TestUpdateComponents(t *testing.T) {
 	log.SetLogger(GinkgoLogr)
 	SetDefaultEventuallyTimeout(time.Duration(1) * time.Minute)
 	EnforceDefaultTimeoutsWhenUsingContexts()
-	RunSpecs(t, "Update components E2E Suite")
+	RunSpecs(t, "Update components Suite")
 
 	// print whole stack in case of failure
 	format.MaxLength = 0

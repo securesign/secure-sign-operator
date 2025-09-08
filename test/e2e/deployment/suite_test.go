@@ -1,4 +1,6 @@
-package e2e
+//go:build integration
+
+package deployment
 
 import (
 	"testing"
@@ -15,7 +17,7 @@ func TestE2e(t *testing.T) {
 	log.SetLogger(GinkgoLogr)
 	SetDefaultEventuallyTimeout(time.Duration(3) * time.Minute)
 	EnforceDefaultTimeoutsWhenUsingContexts()
-	RunSpecs(t, "Trusted Artifact Signer E2E Suite")
+	RunSpecs(t, "Deployment Suite")
 
 	// print whole stack in case of failure
 	format.MaxLength = 0

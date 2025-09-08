@@ -1,6 +1,6 @@
 //go:build integration
 
-package e2e
+package deployment
 
 import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
@@ -21,7 +21,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
+var _ = Describe("Install with auto-discovered keys", Ordered, func() {
 	cli, _ := support.CreateClient()
 
 	var targetImageName string

@@ -5,6 +5,7 @@ go 1.24.4
 toolchain go1.24.6
 
 require (
+	github.com/alexflint/go-filemutex v1.3.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/go-logr/logr v1.4.3
 	github.com/google/certificate-transparency-go v1.3.2
