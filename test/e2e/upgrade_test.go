@@ -56,8 +56,13 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		err                                    error
 	)
 
-	AfterEach(func(ctx SpecContext) {
+	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
+		namespace = new
+	}))
+
+	JustAfterEach(func(ctx SpecContext) {
 		if CurrentSpecReport().Failed() && support.IsCIEnvironment() {
+			core.GinkgoWriter.Println("----------------------- Dumping operator resources -----------------------")
 			csvs := &v1alpha1.ClusterServiceVersionList{}
 			gomega.Expect(cli.List(ctx, csvs, runtimeCli.InNamespace(namespace.Name))).To(gomega.Succeed())
 			core.GinkgoWriter.Println("\n\nClusterServiceVersions:")
@@ -73,10 +78,6 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 			}
 		}
 	})
-
-	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
-		namespace = new
-	}))
 
 	BeforeAll(func(ctx SpecContext) {
 		baseCatalogImage = os.Getenv("TEST_BASE_CATALOG")

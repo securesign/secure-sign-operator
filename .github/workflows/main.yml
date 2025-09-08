@@ -13,6 +13,8 @@ env:
   IMG: ghcr.io/securesign/secure-sign-operator:dev-${{ github.sha }}
   BUNDLE_IMG: ghcr.io/securesign/secure-sign-operator-bundle:dev-${{ github.sha }}
   CATALOG_IMG: ghcr.io/securesign/secure-sign-operator-fbc:dev-${{ github.sha }}
+  NEW_OLM_CHANNEL: rhtas-operator.v1.3.0
+  OCP_VERSION: ${{ vars.OLM_INDEX_VERSION }}
 
 jobs:
   build-operator:
@@ -103,10 +105,20 @@ jobs:
           registry: registry.redhat.io
           auth_file_path: /tmp/config.json
 
+      - name: Log in to registry.redhat.io
+        uses: redhat-actions/podman-login@v1
+        with:
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+          registry: brew.registry.redhat.io
+          auth_file_path: /tmp/config.json
+
       - name: Install OPM
-        run: |
-          make opm
-          echo "OPM=${{ github.workspace }}/bin/opm" >> $GITHUB_ENV
+        uses: redhat-actions/openshift-tools-installer@v1
+        with:
+          source: "github"
+          github_pat: ${{ github.token }}
+          opm: latest
 
       - name: Checkout FBC source
         uses: actions/checkout@v4
@@ -115,22 +127,20 @@ jobs:
           path: fbc
 
       - name: Build catalog
+        env:
+          BUNDLE_IMAGE: ${{ env.BUNDLE_IMG }}
+          BUNDLE_NAME: ${{ env.NEW_OLM_CHANNEL }}
+          FBC_DIR: rhtas-operator
+          GRAPH: ${{ env.OCP_VERSION }}/rhtas-operator/graph.yaml
+          CATALOG_FILE: ${{ env.OCP_VERSION }}/rhtas-operator/catalog/rhtas-operator/catalog.json
         run: |
           cd fbc
-          cp v4.14/rhtas-operator/catalog.Dockerfile v4.14
-          chmod +x ./generate-fbc.sh && OPM_CMD=${{ env.OPM }} ./generate-fbc.sh --init-basic v4.14 jq
-          cat << EOF >> v4.14/graph.json
-          {
-             "schema": "olm.bundle",
-             "image": "$BUNDLE_IMG"
-          }
-          EOF
-          #TODO: versions needs to be maintained - try to eliminate
-          cat <<< $(jq  'select(.schema == "olm.channel" and .name == "stable").entries += [{"name":"rhtas-operator.v1.3.0", "replaces": "${{ vars.LATEST_OLM_CHANNEL }}"}]' v4.14/graph.json) > v4.14/graph.json
-          cat v4.14/graph.json
-          ${{ env.OPM }} alpha render-template basic v4.14/graph.json > v4.14/rhtas-operator/catalog/rhtas-operator/catalog.json
-          ${{ env.OPM }} validate v4.14/rhtas-operator/catalog/rhtas-operator
-          podman build v4.14/rhtas-operator -f v4.14/rhtas-operator/catalog.Dockerfile -t $CATALOG_IMG
+          utils/configure_bundles.sh
+          utils/render_catalog.sh
+          
+          cat ${{ env.GRAPH }}
+          opm validate ${{ env.OCP_VERSION }}/rhtas-operator/catalog/rhtas-operator
+          podman build ${{ env.OCP_VERSION }}/rhtas-operator -f catalog.Dockerfile -t $CATALOG_IMG
           podman push $CATALOG_IMG
 
   build-tuftool:
@@ -324,7 +334,7 @@ jobs:
 
       - name: Run tests
         env:
-          TEST_BASE_CATALOG: registry.redhat.io/redhat/redhat-operator-index:v4.14
+          TEST_BASE_CATALOG: registry.redhat.io/redhat/redhat-operator-index:${{ vars.OLM_INDEX_VERSION }}
           TEST_TARGET_CATALOG: ${{ env.CATALOG_IMG }}
           OPENSHIFT: false
         run: go test -p 1 ./test/e2e/... -tags=upgrade -timeout 20m
