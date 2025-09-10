@@ -36,7 +36,7 @@ func (i createServiceAction) Name() string {
 
 func (i createServiceAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Creating || c.Reason == constants.Ready && instance.Spec.Monitoring.Enabled
+	return c.Reason == constants.Creating || c.Reason == constants.Ready
 }
 
 func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
