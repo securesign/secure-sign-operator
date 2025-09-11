@@ -8,7 +8,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gstruct"
 	"github.com/securesign/operator/api/v1alpha1"
 	ctlogactions "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcioactions "github.com/securesign/operator/internal/controller/fulcio/actions"
@@ -27,7 +26,9 @@ import (
 	"github.com/securesign/operator/test/e2e/support/tas/trillian"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 	"github.com/securesign/operator/test/e2e/support/tas/tuf"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 )
 
@@ -66,23 +67,92 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 			tas.VerifyAllComponents(ctx, cli, s, true)
 		})
 
-		It("has the correct number of replicas configured for HA", func(ctx SpecContext) {
-			Expect(fulcio.Get(ctx, cli, namespace.Name, s.Name).Spec.Replicas).
-				To(gstruct.PointTo(BeNumerically(">=", *replicas)), "fulcio should have more than one replica")
-			Expect(rekor.Get(ctx, cli, namespace.Name, s.Name).Spec.Replicas).
-				To(gstruct.PointTo(BeNumerically(">=", *replicas)), "rekor should have more than one replica")
-			Expect(rekor.Get(ctx, cli, namespace.Name, s.Name).Spec.RekorSearchUI.Replicas).
-				To(gstruct.PointTo(BeNumerically(">=", *replicas)), "rekor search ui should have more than one replica")
-			Expect(ctlog.Get(ctx, cli, namespace.Name, s.Name).Spec.Replicas).
-				To(gstruct.PointTo(BeNumerically(">=", *replicas)), "ctlog should have more than one replica")
-			Expect(tsa.Get(ctx, cli, namespace.Name, s.Name).Spec.Replicas).
-				To(gstruct.PointTo(BeNumerically(">=", *replicas)), "tsa should have more than one replica")
-			Expect(tuf.Get(ctx, cli, namespace.Name, s.Name).Spec.Replicas).
-				To(gstruct.PointTo(BeNumerically(">=", *replicas)), "tuf should have more than one replica")
-			Expect(trillian.Get(ctx, cli, namespace.Name, s.Name).Spec.LogServer.Replicas).
-				To(gstruct.PointTo(BeNumerically(">=", *replicas)), "log server should have more than one replica")
-			Expect(trillian.Get(ctx, cli, namespace.Name, s.Name).Spec.LogSigner.Replicas).
-				To(gstruct.PointTo(BeNumerically(">=", *replicas)), "log signer should have more than one replica")
+		It("fulcio should have the correct replica count", func(ctx SpecContext) {
+			fulcio.Verify(ctx, cli, namespace.Name, s.Name)
+			Eventually(func(ctx SpecContext) (int32, error) {
+				var dep appsv1.Deployment
+				if err := cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: fulcioactions.DeploymentName}, &dep); err != nil {
+					return 0, err
+				}
+				return dep.Status.AvailableReplicas, nil
+			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "fulcio should have at least %d available replicas", *replicas)
+		})
+
+		It("rekor server should have the correct replica count", func(ctx SpecContext) {
+			rekor.Verify(ctx, cli, namespace.Name, s.Name, true)
+			Eventually(func(ctx SpecContext) (int32, error) {
+				var dep appsv1.Deployment
+				if err := cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: rekoractions.ServerComponentName}, &dep); err != nil {
+					return 0, err
+				}
+				return dep.Status.AvailableReplicas, nil
+			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "rekor server should have at least %d available replicas", *replicas)
+		})
+
+		It("rekor search ui should have the correct replica count", func(ctx SpecContext) {
+			rekor.VerifySearchUI(ctx, cli, namespace.Name)
+			Eventually(func(ctx SpecContext) (int32, error) {
+				var dep appsv1.Deployment
+				if err := cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: rekoractions.SearchUiDeploymentName}, &dep); err != nil {
+					return 0, err
+				}
+				return dep.Status.AvailableReplicas, nil
+			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "rekor search ui should have at least %d available replicas", *replicas)
+		})
+
+		It("ctlog should have the correct replica count", func(ctx SpecContext) {
+			ctlog.Verify(ctx, cli, namespace.Name, s.Name)
+			Eventually(func(ctx SpecContext) (int32, error) {
+				var dep appsv1.Deployment
+				if err := cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: ctlogactions.DeploymentName}, &dep); err != nil {
+					return 0, err
+				}
+				return dep.Status.AvailableReplicas, nil
+			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "ctlog should have at least %d available replicas", *replicas)
+		})
+
+		It("tsa should have the correct replica count", func(ctx SpecContext) {
+			tsa.Verify(ctx, cli, namespace.Name, s.Name)
+			Eventually(func(ctx SpecContext) (int32, error) {
+				var dep appsv1.Deployment
+				if err := cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: tsaactions.DeploymentName}, &dep); err != nil {
+					return 0, err
+				}
+				return dep.Status.AvailableReplicas, nil
+			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "tsa should have at least %d available replicas", *replicas)
+		})
+
+		It("tuf should have the correct replica count", func(ctx SpecContext) {
+			tuf.Verify(ctx, cli, namespace.Name, s.Name)
+			Eventually(func(ctx SpecContext) (int32, error) {
+				var dep appsv1.Deployment
+				if err := cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: constants.DeploymentName}, &dep); err != nil {
+					return 0, err
+				}
+				return dep.Status.AvailableReplicas, nil
+			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "tuf should have at least %d available replicas", *replicas)
+		})
+
+		It("log server should have the correct replica count", func(ctx SpecContext) {
+			trillian.Verify(ctx, cli, namespace.Name, s.Name, true)
+			Eventually(func(ctx SpecContext) (int32, error) {
+				var dep appsv1.Deployment
+				if err := cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: trillianactions.LogserverDeploymentName}, &dep); err != nil {
+					return 0, err
+				}
+				return dep.Status.AvailableReplicas, nil
+			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "log server should have at least %d available replicas", *replicas)
+		})
+
+		It("log signer should have the correct replica count", func(ctx SpecContext) {
+			trillian.Verify(ctx, cli, namespace.Name, s.Name, true)
+			Eventually(func(ctx SpecContext) (int32, error) {
+				var dep appsv1.Deployment
+				if err := cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: trillianactions.LogsignerDeploymentName}, &dep); err != nil {
+					return 0, err
+				}
+				return dep.Status.AvailableReplicas, nil
+			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "log signer should have at least %d available replicas", *replicas)
 		})
 
 		It("Services have ready endpoints", func(ctx SpecContext) {

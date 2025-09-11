@@ -5,7 +5,6 @@ package ha
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gstruct"
 	"github.com/securesign/operator/api/v1alpha1"
 	ctlogactions "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcioactions "github.com/securesign/operator/internal/controller/fulcio/actions"
@@ -26,8 +25,11 @@ import (
 	"github.com/securesign/operator/test/e2e/support/tas/tuf"
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 )
@@ -148,47 +150,107 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 
 		})
 
-		It("should verify HA", func(ctx SpecContext) {
+		It("Should set replica count", func(ctx SpecContext) {
+			err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				s := securesign.Get(ctx, cli, namespace.Name, s.Name)
+				Expect(s).ToNot(BeNil())
 
-			s := securesign.Get(ctx, cli, namespace.Name, s.Name)
-			Expect(s).ToNot(BeNil())
+				securesign.WithReplicas(ptr.To(int32(2)))(s)
+				return cli.Update(ctx, s)
+			})
 
-			securesign.WithReplicas(ptr.To(int32(2)))(s)
-			err := cli.Update(ctx, s)
 			Expect(err).ToNot(HaveOccurred())
+		})
 
-			Eventually(func(g Gomega) {
-				f := fulcio.Get(ctx, cli, namespace.Name, s.Name)
-				g.Expect(f.Spec.Replicas).To(gstruct.PointTo(BeNumerically(">=", *replicas)), "fulcio should have more than one replica")
-			}).WithContext(ctx).Should(Succeed())
+		It("fulcio should have the correct replica count", func(ctx SpecContext) {
+			fulcio.Verify(ctx, cli, namespace.Name, s.Name)
+			Eventually(func(ctx SpecContext) (int32, error) {
+				var dep appsv1.Deployment
+				if err := cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: fulcioactions.DeploymentName}, &dep); err != nil {
+					return 0, err
+				}
+				return dep.Status.AvailableReplicas, nil
+			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "fulcio should have at least %d available replicas", *replicas)
+		})
 
-			Eventually(func(g Gomega) {
-				r := rekor.Get(ctx, cli, namespace.Name, s.Name)
-				g.Expect(r.Spec.Replicas).To(gstruct.PointTo(BeNumerically(">=", *replicas)), "rekor should have more than one replica")
-				g.Expect(r.Spec.RekorSearchUI.Replicas).To(gstruct.PointTo(BeNumerically(">=", *replicas)), "rekor search ui should have more than one replica")
-			}).WithContext(ctx).Should(Succeed())
+		It("rekor server should have the correct replica count", func(ctx SpecContext) {
+			rekor.Verify(ctx, cli, namespace.Name, s.Name, true)
+			Eventually(func(ctx SpecContext) (int32, error) {
+				var dep appsv1.Deployment
+				if err := cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: rekoractions.ServerComponentName}, &dep); err != nil {
+					return 0, err
+				}
+				return dep.Status.AvailableReplicas, nil
+			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "rekor server should have at least %d available replicas", *replicas)
+		})
 
-			Eventually(func(g Gomega) {
-				c := ctlog.Get(ctx, cli, namespace.Name, s.Name)
-				g.Expect(c.Spec.Replicas).To(gstruct.PointTo(BeNumerically(">=", *replicas)), "ctlog should have more than one replica")
-			}).WithContext(ctx).Should(Succeed())
+		It("rekor search ui should have the correct replica count", func(ctx SpecContext) {
+			rekor.VerifySearchUI(ctx, cli, namespace.Name)
+			Eventually(func(ctx SpecContext) (int32, error) {
+				var dep appsv1.Deployment
+				if err := cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: rekoractions.SearchUiDeploymentName}, &dep); err != nil {
+					return 0, err
+				}
+				return dep.Status.AvailableReplicas, nil
+			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "rekor search ui should have at least %d available replicas", *replicas)
+		})
 
-			Eventually(func(g Gomega) {
-				t := tsa.Get(ctx, cli, namespace.Name, s.Name)
-				g.Expect(t.Spec.Replicas).To(gstruct.PointTo(BeNumerically(">=", *replicas)), "tsa should have more than one replica")
-			}).WithContext(ctx).Should(Succeed())
+		It("ctlog should have the correct replica count", func(ctx SpecContext) {
+			ctlog.Verify(ctx, cli, namespace.Name, s.Name)
+			Eventually(func(ctx SpecContext) (int32, error) {
+				var dep appsv1.Deployment
+				if err := cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: ctlogactions.DeploymentName}, &dep); err != nil {
+					return 0, err
+				}
+				return dep.Status.AvailableReplicas, nil
+			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "ctlog should have at least %d available replicas", *replicas)
+		})
 
-			Eventually(func(g Gomega) {
-				t := tuf.Get(ctx, cli, namespace.Name, s.Name)
-				g.Expect(t.Spec.Replicas).To(gstruct.PointTo(BeNumerically(">=", *replicas)), "tuf should have more than one replica")
-			}).WithContext(ctx).Should(Succeed())
+		It("tsa should have the correct replica count", func(ctx SpecContext) {
+			tsa.Verify(ctx, cli, namespace.Name, s.Name)
+			Eventually(func(ctx SpecContext) (int32, error) {
+				var dep appsv1.Deployment
+				if err := cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: tsaactions.DeploymentName}, &dep); err != nil {
+					return 0, err
+				}
+				return dep.Status.AvailableReplicas, nil
+			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "tsa should have at least %d available replicas", *replicas)
+		})
 
-			Eventually(func(g Gomega) {
-				tr := trillian.Get(ctx, cli, namespace.Name, s.Name)
-				g.Expect(tr.Spec.LogServer.Replicas).To(gstruct.PointTo(BeNumerically(">=", *replicas)), "log server should have more than one replica")
-				g.Expect(tr.Spec.LogSigner.Replicas).To(gstruct.PointTo(BeNumerically(">=", *replicas)), "log signer should have more than one replica")
-			}).WithContext(ctx).Should(Succeed())
+		It("tuf should have the correct replica count", func(ctx SpecContext) {
+			tuf.Verify(ctx, cli, namespace.Name, s.Name)
+			Eventually(func(ctx SpecContext) (int32, error) {
+				var dep appsv1.Deployment
+				if err := cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: constants.DeploymentName}, &dep); err != nil {
+					return 0, err
+				}
+				return dep.Status.AvailableReplicas, nil
+			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "tuf should have at least %d available replicas", *replicas)
+		})
 
+		It("log server should have the correct replica count", func(ctx SpecContext) {
+			trillian.Verify(ctx, cli, namespace.Name, s.Name, true)
+			Eventually(func(ctx SpecContext) (int32, error) {
+				var dep appsv1.Deployment
+				if err := cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: trillianactions.LogserverDeploymentName}, &dep); err != nil {
+					return 0, err
+				}
+				return dep.Status.AvailableReplicas, nil
+			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "log server should have at least %d available replicas", *replicas)
+		})
+
+		It("log signer should have the correct replica count", func(ctx SpecContext) {
+			trillian.Verify(ctx, cli, namespace.Name, s.Name, true)
+			Eventually(func(ctx SpecContext) (int32, error) {
+				var dep appsv1.Deployment
+				if err := cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: trillianactions.LogsignerDeploymentName}, &dep); err != nil {
+					return 0, err
+				}
+				return dep.Status.AvailableReplicas, nil
+			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "log signer should have at least %d available replicas", *replicas)
+		})
+
+		It("should verify component endpoints", func(ctx SpecContext) {
 			endpointNames := []string{
 				ctlogactions.ComponentName,
 				fulcioactions.DeploymentName,
@@ -205,7 +267,9 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 					WithArguments(cli, namespace.Name, endpointName, 2).
 					Should(Succeed(), "expected service to have n ready endpoints")
 			}
+		})
 
+		It("All components are running", func(ctx SpecContext) {
 			tas.VerifyAllComponents(ctx, cli, s, true)
 		})
 
