@@ -1,3 +1,5 @@
+//go:build ha
+
 package ha
 
 import (
