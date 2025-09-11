@@ -105,7 +105,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				err := cli.Create(ctx, job)
 				Expect(err).ToNot(HaveOccurred())
 
-				Eventually(func(g Gomega) {
+				Eventually(func(g Gomega, ctx SpecContext) {
 					j := &batchv1.Job{}
 					g.Expect(cli.Get(ctx, client.ObjectKey{Name: job.Name, Namespace: namespace.Name}, j)).To(Succeed())
 					g.Expect(j.Status.Succeeded).To(BeNumerically(">", 0))
