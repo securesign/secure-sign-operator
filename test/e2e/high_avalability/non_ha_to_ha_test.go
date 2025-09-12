@@ -3,9 +3,6 @@
 package ha
 
 import (
-	"net/http"
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
@@ -26,31 +23,38 @@ import (
 	"github.com/securesign/operator/test/e2e/support/tas/trillian"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 	"github.com/securesign/operator/test/e2e/support/tas/tuf"
+	batchv1 "k8s.io/api/batch/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 )
 
-var _ = Describe("HA Securesign install", Ordered, func() {
-	cli, _ := support.CreateClient()
+var _ = Describe("Securesign install with certificate generation", Ordered, func() {
+
+	cli, err := support.CreateClient()
+	Expect(err).ToNot(HaveOccurred())
 
 	var targetImageName string
 	var namespace *v1.Namespace
 	var s *v1alpha1.Securesign
-	var replicas *int32
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
 
 	BeforeAll(func(ctx SpecContext) {
-		replicas = ptr.To(int32(2))
 		s = securesign.Create(namespace.Name, "test",
 			securesign.WithDefaults(),
 			securesign.WithSearchUI(),
-			securesign.WithReplicas(replicas),
-			securesign.WithNFSPVC(),
+			securesign.WithMonitoring(),
+			func(v *v1alpha1.Securesign) {
+				v.Spec.Rekor.Attestations.Enabled = ptr.To(true)
+			},
 		)
 	})
 
@@ -58,13 +62,104 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 		targetImageName = support.PrepareImage(ctx)
 	})
 
-	Describe("Install with HA configured", func() {
+	Describe("Non HA to HA test", func() {
+		replicas := ptr.To(int32(2))
+		newRekorPVCName := "nfs-rekor"
+		newTufPVCName := "nfs-tuf"
+
 		BeforeAll(func(ctx SpecContext) {
 			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 
 		It("All other components are running", func(ctx SpecContext) {
 			tas.VerifyAllComponents(ctx, cli, s, true)
+		})
+
+		It("Use cosign cli", func(ctx SpecContext) {
+			tas.VerifyByCosign(ctx, cli, s, targetImageName)
+		})
+
+		It("migrates from non-HA to HA by copying and reconfiguring PVCs", func(ctx SpecContext) {
+			// scale tuf to 0
+			tuf.SetTufReplicaCount(ctx, cli, namespace.Name, s.Name, 0)
+
+			// scale rekor to 0
+			rekor.SetRekorReplicaCount(ctx, cli, namespace.Name, s.Name, 0)
+
+			// create new persistent volume claims for rekor and tuf
+			for _, pvcName := range []string{newRekorPVCName, newTufPVCName} {
+				pvc := kubernetes.CreateTestPVC(pvcName, namespace.Name)
+				err := cli.Create(ctx, pvc)
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			// create two pvc copy jobs for rekor and tuf pvcs
+			rrekor := rekor.Get(ctx, cli, namespace.Name, s.Name)
+			Expect(rrekor).ToNot(BeNil())
+			rekorPVCName := rrekor.Status.PvcName
+
+			ttuf := tuf.Get(ctx, cli, namespace.Name, s.Name)
+			Expect(ttuf).ToNot(BeNil())
+			tufPVCName := ttuf.Status.PvcName
+
+			for k, v := range map[string]string{rekorPVCName: newRekorPVCName, tufPVCName: newTufPVCName} {
+				job := kubernetes.CreatePVCCopyJob(namespace.Name, k, v)
+				err := cli.Create(ctx, job)
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func(g Gomega, ctx SpecContext) {
+					j := &batchv1.Job{}
+					g.Expect(cli.Get(ctx, client.ObjectKey{Name: job.Name, Namespace: namespace.Name}, j)).To(Succeed())
+					g.Expect(j.Status.Succeeded).To(BeNumerically(">", 0))
+				}).WithContext(ctx).Should(Succeed())
+			}
+
+			// set claim name, pvc config and scale tuf to 1
+			Eventually(func(g Gomega, ctx SpecContext) {
+				s := securesign.Get(ctx, cli, namespace.Name, s.Name)
+				g.Expect(s).ToNot(BeNil())
+
+				s.Spec.Tuf.Pvc.Name = newTufPVCName
+				s.Spec.Tuf.Pvc.Retain = ptr.To(true)
+				s.Spec.Tuf.Pvc.Size = ptr.To(resource.MustParse("100Mi"))
+				s.Spec.Tuf.Pvc.AccessModes = []v1alpha1.PersistentVolumeAccessMode{"ReadWriteMany"}
+				s.Spec.Tuf.Pvc.StorageClass = "nfs-csi"
+
+				err := cli.Update(ctx, s)
+				g.Expect(err).ToNot(HaveOccurred())
+
+				tuf.SetTufReplicaCount(ctx, cli, namespace.Name, s.Name, 1)
+			}).WithContext(ctx).Should(Succeed())
+
+			// set claim name, pvc config and scale rekor to 1
+			Eventually(func(g Gomega, ctx SpecContext) {
+				s := securesign.Get(ctx, cli, namespace.Name, s.Name)
+				g.Expect(s).ToNot(BeNil())
+
+				s.Spec.Rekor.Pvc.Name = newRekorPVCName
+				s.Spec.Rekor.Pvc.Retain = ptr.To(true)
+				s.Spec.Rekor.Pvc.Size = ptr.To(resource.MustParse("100Mi"))
+				s.Spec.Rekor.Pvc.AccessModes = []v1alpha1.PersistentVolumeAccessMode{"ReadWriteMany"}
+				s.Spec.Rekor.Pvc.StorageClass = "nfs-csi"
+
+				err := cli.Update(ctx, s)
+				g.Expect(err).ToNot(HaveOccurred())
+
+				rekor.SetRekorReplicaCount(ctx, cli, namespace.Name, s.Name, 1)
+			}).WithContext(ctx).Should(Succeed())
+
+		})
+
+		It("Should set replica count", func(ctx SpecContext) {
+			err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				s := securesign.Get(ctx, cli, namespace.Name, s.Name)
+				Expect(s).ToNot(BeNil())
+
+				securesign.WithReplicas(ptr.To(int32(2)))(s)
+				return cli.Update(ctx, s)
+			})
+
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("fulcio should have the correct replica count", func(ctx SpecContext) {
@@ -155,8 +250,17 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "log signer should have at least %d available replicas", *replicas)
 		})
 
-		It("Services have ready endpoints", func(ctx SpecContext) {
-			endpointNames := []string{ctlogactions.ComponentName, fulcioactions.DeploymentName, rekoractions.SearchUiDeploymentName, rekoractions.ServerComponentName, trillianactions.LogServerComponentName, trillianactions.LogSignerComponentName, tsaactions.DeploymentName, constants.ComponentName}
+		It("should verify component endpoints", func(ctx SpecContext) {
+			endpointNames := []string{
+				ctlogactions.ComponentName,
+				fulcioactions.DeploymentName,
+				rekoractions.SearchUiDeploymentName,
+				rekoractions.ServerComponentName,
+				trillianactions.LogServerComponentName,
+				trillianactions.LogSignerComponentName,
+				tsaactions.DeploymentName,
+				constants.ComponentName,
+			}
 			for _, endpointName := range endpointNames {
 				Eventually(kubernetes.ExpectServiceHasAtLeastNReadyEndpoints).
 					WithContext(ctx).
@@ -165,72 +269,12 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 			}
 		})
 
+		It("All components are running", func(ctx SpecContext) {
+			tas.VerifyAllComponents(ctx, cli, s, true)
+		})
+
 		It("Use cosign cli", func(ctx SpecContext) {
 			tas.VerifyByCosign(ctx, cli, s, targetImageName)
-		})
-
-		It("ctlog remains functional when a pod is deleted", func(ctx SpecContext) {
-			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, ctlogactions.ComponentName, func() {
-				tas.VerifyByCosign(ctx, cli, s, targetImageName)
-			})
-		})
-		It("fulcio remains functional when a pod is deleted", func(ctx SpecContext) {
-			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, fulcioactions.DeploymentName, func() {
-				tas.VerifyByCosign(ctx, cli, s, targetImageName)
-			})
-		})
-		It("rekor remains functional when a pod is deleted", func(ctx SpecContext) {
-			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, rekoractions.ServerComponentName, func() {
-				tas.VerifyByCosign(ctx, cli, s, targetImageName)
-			})
-		})
-		It("rekor-search-ui remains functional when a pod is deleted", func(ctx SpecContext) {
-			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, rekoractions.SearchUiDeploymentName, func() {
-				r := rekor.Get(ctx, cli, namespace.Name, s.Name)
-				Expect(r).ToNot(BeNil())
-				Expect(r.Status.RekorSearchUIUrl).NotTo(BeEmpty())
-
-				httpClient := http.Client{
-					Timeout: time.Second * 10,
-				}
-				Eventually(func() bool {
-					resp, err := httpClient.Get(r.Status.RekorSearchUIUrl)
-					if err != nil {
-						return false
-					}
-					defer func() { _ = resp.Body.Close() }()
-					return resp.StatusCode == http.StatusOK
-				}).Should(BeTrue(), "Rekor UI should be accessible and return a status code of 200")
-			})
-		})
-		It("trillian-logserver remains functional when a pod is deleted", func(ctx SpecContext) {
-			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, trillianactions.LogServerComponentName, func() {
-				tas.VerifyByCosign(ctx, cli, s, targetImageName)
-			})
-		})
-		It("trillian-signer elects a new leader when a pod is deleted", func(ctx SpecContext) {
-			leaderBefore, err := kubernetes.GetLeaseHolderIdentity(ctx, cli, namespace.Name, trillianactions.LogSignerComponentName)
-			Expect(err).NotTo(HaveOccurred())
-
-			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, trillianactions.LogSignerComponentName, func() {
-				Eventually(func(ctx SpecContext) string {
-					leaderAfter, _ := kubernetes.GetLeaseHolderIdentity(
-						ctx, cli, namespace.Name, trillianactions.LogSignerComponentName,
-					)
-					return leaderAfter
-				}).WithContext(ctx).ShouldNot(Equal(leaderBefore))
-			})
-
-		})
-		It("Tsa remains functional when a pod is deleted", func(ctx SpecContext) {
-			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, tsaactions.DeploymentName, func() {
-				tas.VerifyByCosign(ctx, cli, s, targetImageName)
-			})
-		})
-		It("TUF remains functional when a pod is deleted", func(ctx SpecContext) {
-			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, constants.ComponentName, func() {
-				tas.VerifyByCosign(ctx, cli, s, targetImageName)
-			})
 		})
 	})
 })

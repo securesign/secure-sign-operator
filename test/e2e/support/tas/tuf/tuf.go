@@ -16,12 +16,14 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/job"
 	"github.com/securesign/operator/test/e2e/support/condition"
+	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	appsv1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -115,4 +117,21 @@ func refreshTufJob(instance *v1alpha1.Tuf) *v12.Job {
 	args := c.Args
 	c.Args = []string{"rm -rf /var/run/target/* && " + strings.Join(args, " ")}
 	return j
+}
+
+func SetTufReplicaCount(ctx context.Context, cli client.Client, namespace, securesignDeploymentName string, replicaCount int32) {
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		s := securesign.Get(ctx, cli, namespace, securesignDeploymentName)
+		Expect(s).ToNot(BeNil())
+
+		s.Spec.Tuf.Replicas = &replicaCount
+		return cli.Update(ctx, s)
+	})
+	Expect(err).ToNot(HaveOccurred())
+
+	Eventually(func(g Gomega, ctx context.Context) {
+		tf := securesign.Get(ctx, cli, namespace, securesignDeploymentName)
+		g.Expect(tf).ToNot(BeNil())
+		g.Expect(tf.Spec.Tuf.Replicas).To(Equal(ptr.To(replicaCount)))
+	}).WithContext(ctx).Should(Succeed())
 }

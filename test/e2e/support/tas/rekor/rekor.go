@@ -9,10 +9,13 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/condition"
+	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -72,4 +75,21 @@ func CreateSecret(ns string, name string) *v1.Secret {
 			"public":  public,
 		},
 	}
+}
+
+func SetRekorReplicaCount(ctx context.Context, cli client.Client, namespace, securesignDeploymentName string, replicaCount int32) {
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		s := securesign.Get(ctx, cli, namespace, securesignDeploymentName)
+		Expect(s).ToNot(BeNil())
+
+		s.Spec.Rekor.Replicas = &replicaCount
+		return cli.Update(ctx, s)
+	})
+	Expect(err).ToNot(HaveOccurred())
+
+	Eventually(func(g Gomega, ctx context.Context) {
+		rk := securesign.Get(ctx, cli, namespace, securesignDeploymentName)
+		g.Expect(rk).ToNot(BeNil())
+		g.Expect(rk.Spec.Rekor.Replicas).To(Equal(ptr.To(replicaCount)))
+	}).WithContext(ctx).Should(Succeed())
 }
