@@ -3,11 +3,8 @@
 package e2e
 
 import (
-	"context"
 	"fmt"
 	"os/exec"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -20,12 +17,12 @@ import (
 	k8ssupport "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
+	clients "github.com/securesign/operator/test/e2e/support/tas/cli"
+	"github.com/securesign/operator/test/e2e/support/tas/rekor"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 var _ = Describe("Rekor Monitor Log", Ordered, func() {
@@ -38,59 +35,16 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 		rekorMonitorPod v1.Pod
 	)
 
-	// Helper function to parse metrics from Prometheus format
-	parseMetricValue := func(metricsContent, metricName string) (float64, error) {
-		pattern := fmt.Sprintf(`%s\s+(\d+(?:\.\d+)?)`, regexp.QuoteMeta(metricName))
-		re := regexp.MustCompile(pattern)
-		matches := re.FindStringSubmatch(metricsContent)
-		if len(matches) < 2 {
-			return 0, fmt.Errorf("metric %s not found", metricName)
-		}
-		return strconv.ParseFloat(matches[1], 64)
-	}
-
-	// Helper function to get metrics from monitor pod
-	getMetrics := func(logPrefix string) (string, error) {
-		cfg, err := config.GetConfig()
-		if err != nil {
-			return "", err
-		}
-		clientset, err := kubernetes.NewForConfig(cfg)
-		if err != nil {
-			return "", err
-		}
-
-		req := clientset.CoreV1().RESTClient().Get().
-			Namespace(namespace.Name).
-			Resource("pods").
-			Name(rekorMonitorPod.Name).
-			SubResource("proxy").
-			Suffix("metrics")
-
-		result := req.Do(context.Background())
-		raw, err := result.Raw()
-		if err != nil {
-			return "", err
-		}
-		metricsString := string(raw)
-		if logPrefix != "" {
-			fmt.Printf("%s:\n%s\n", logPrefix, metricsString)
-		}
-		return metricsString, nil
-	}
-
-	// Helper function to execute kubectl command on monitor pod
-	execOnMonitorPod := func(command ...string) ([]byte, error) {
-		args := []string{"exec", "-n", namespace.Name, rekorMonitorPod.Name, "-c", actions.MonitorStatefulSetName, "--"}
-		args = append(args, command...)
-		return exec.Command("kubectl", args...).Output()
-	}
-
-	// Helper function to execute kubectl command with combined output on monitor pod
 	execOnMonitorPodWithOutput := func(command ...string) ([]byte, error) {
 		args := []string{"exec", "-n", namespace.Name, rekorMonitorPod.Name, "-c", actions.MonitorStatefulSetName, "--"}
 		args = append(args, command...)
 		return exec.Command("kubectl", args...).CombinedOutput()
+	}
+
+	execOnMonitorPod := func(command ...string) error {
+		args := []string{"exec", "-n", namespace.Name, rekorMonitorPod.Name, "-c", actions.MonitorStatefulSetName, "--"}
+		args = append(args, command...)
+		return clients.Execute("kubectl", args...)
 	}
 
 	// Helper function to create subtle corruption in content
@@ -210,14 +164,14 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			By("Getting initial metrics values")
 			Eventually(func(g Gomega) {
-				metricsContent, err := getMetrics("Metrics content")
+				metricsContent, err := rekor.GetMonitorMetrics(ctx, cli, namespace.Name, "Metrics content")
 				g.Expect(err).ToNot(HaveOccurred())
 
-				total, err := parseMetricValue(metricsContent, "log_index_verification_total")
+				total, err := rekor.ParseMetricValue(metricsContent, "log_index_verification_total")
 				g.Expect(err).ToNot(HaveOccurred())
 				initialLogIndexTotal = total
 
-				failure, err := parseMetricValue(metricsContent, "log_index_verification_failure")
+				failure, err := rekor.ParseMetricValue(metricsContent, "log_index_verification_failure")
 				g.Expect(err).ToNot(HaveOccurred())
 				logIndexFailure = failure
 
@@ -228,13 +182,13 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			By("Waiting for log_index_verification_total to increase")
 			Eventually(func(g Gomega) {
-				metricsContent, err := getMetrics("")
+				metricsContent, err := rekor.GetMonitorMetrics(ctx, cli, namespace.Name, "Metrics content")
 				g.Expect(err).ToNot(HaveOccurred())
 
-				currentTotal, err := parseMetricValue(metricsContent, "log_index_verification_total")
+				currentTotal, err := rekor.ParseMetricValue(metricsContent, "log_index_verification_total")
 				g.Expect(err).ToNot(HaveOccurred())
 
-				currentFailure, err := parseMetricValue(metricsContent, "log_index_verification_failure")
+				currentFailure, err := rekor.ParseMetricValue(metricsContent, "log_index_verification_failure")
 				g.Expect(err).ToNot(HaveOccurred())
 
 				// Verify total is increasing
@@ -254,14 +208,14 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			By("Getting metrics before signing")
 			Eventually(func(g Gomega) {
-				metricsContent, err := getMetrics("Metrics content after signing")
+				metricsContent, err := rekor.GetMonitorMetrics(ctx, cli, namespace.Name, "Metrics content before signing")
 				g.Expect(err).ToNot(HaveOccurred())
 
-				total, err := parseMetricValue(metricsContent, "log_index_verification_total")
+				total, err := rekor.ParseMetricValue(metricsContent, "log_index_verification_total")
 				g.Expect(err).ToNot(HaveOccurred())
 				preSigningTotal = total
 
-				failure, err := parseMetricValue(metricsContent, "log_index_verification_failure")
+				failure, err := rekor.ParseMetricValue(metricsContent, "log_index_verification_failure")
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(failure).To(Equal(float64(0)), "Expected log_index_verification_failure to be 0 before signing")
 			}, 30*time.Second, 5*time.Second).Should(Succeed())
@@ -271,13 +225,13 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			By("Verifying metrics after signing - total should increase, failures should remain 0")
 			Eventually(func(g Gomega) {
-				metricsContent, err := getMetrics("")
+				metricsContent, err := rekor.GetMonitorMetrics(ctx, cli, namespace.Name, "Metrics content after signing")
 				g.Expect(err).ToNot(HaveOccurred())
 
-				currentTotal, err := parseMetricValue(metricsContent, "log_index_verification_total")
+				currentTotal, err := rekor.ParseMetricValue(metricsContent, "log_index_verification_total")
 				g.Expect(err).ToNot(HaveOccurred())
 
-				currentFailure, err := parseMetricValue(metricsContent, "log_index_verification_failure")
+				currentFailure, err := rekor.ParseMetricValue(metricsContent, "log_index_verification_failure")
 				g.Expect(err).ToNot(HaveOccurred())
 
 				g.Expect(currentTotal).To(BeNumerically(">=", preSigningTotal),
@@ -309,16 +263,16 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			By("Getting initial failure metrics before corruption")
 			Eventually(func(g Gomega) {
-				metricsContent, err := getMetrics("Metrics content")
+				metricsContent, err := rekor.GetMonitorMetrics(ctx, cli, namespace.Name, "Metrics content")
 				g.Expect(err).ToNot(HaveOccurred())
 
-				failure, err := parseMetricValue(metricsContent, "log_index_verification_failure")
+				failure, err := rekor.ParseMetricValue(metricsContent, "log_index_verification_failure")
 				g.Expect(err).ToNot(HaveOccurred())
 				initialFailureCount = failure
 			}, 30*time.Second, 5*time.Second).Should(Succeed())
 
 			By("Reading the original checkpoint file content")
-			originalContent, err := execOnMonitorPod("cat", "/data/checkpoint_log.txt")
+			originalContent, err := execOnMonitorPodWithOutput("cat", "/data/checkpoint_log.txt")
 			Expect(err).ToNot(HaveOccurred(), "Should be able to read checkpoint file")
 
 			By("Corrupting the checkpoint file with subtle hash modification")
@@ -329,21 +283,21 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 			Expect(corruptedContent).ToNot(Equal(originalString), "Should have made a change to the content")
 
 			// Write the corrupted content back to the file
-			output, err := execOnMonitorPodWithOutput("sh", "-c",
+			err = execOnMonitorPod("sh", "-c",
 				fmt.Sprintf("printf '%%s' '%s' > /data/checkpoint_log.txt", corruptedContent))
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to corrupt checkpoint file: %s", string(output)))
+			Expect(err).ToNot(HaveOccurred(), "Failed to corrupt checkpoint file")
 
 			By("Verifying the file was corrupted with subtle changes")
-			verifyContent, err := execOnMonitorPod("cat", "/data/checkpoint_log.txt")
+			verifyContent, err := execOnMonitorPodWithOutput("cat", "/data/checkpoint_log.txt")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(verifyContent)).ToNot(Equal(string(originalContent)), "File content should be different after tampering")
 
 			By("Waiting for monitor to detect the corruption and increment failure metrics")
 			Eventually(func(g Gomega) {
-				metricsContent, err := getMetrics("")
+				metricsContent, err := rekor.GetMonitorMetrics(ctx, cli, namespace.Name, "")
 				g.Expect(err).ToNot(HaveOccurred())
 
-				currentFailure, err := parseMetricValue(metricsContent, "log_index_verification_failure")
+				currentFailure, err := rekor.ParseMetricValue(metricsContent, "log_index_verification_failure")
 				g.Expect(err).ToNot(HaveOccurred())
 
 				g.Expect(currentFailure).To(BeNumerically(">", initialFailureCount),
