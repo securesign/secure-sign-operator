@@ -5,7 +5,6 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"io"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -18,6 +17,7 @@ import (
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/test/e2e/support"
+	k8ssupport "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
@@ -36,19 +36,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 		s               *v1alpha1.Securesign
 		targetImageName string
 		rekorMonitorPod v1.Pod
-		// Shared Kubernetes client - initialized once and reused
-		k8sClientset *kubernetes.Clientset
 	)
-
-	// Helper function to initialize Kubernetes clientset (called once)
-	initKubernetesClient := func() {
-		if k8sClientset == nil {
-			cfg, err := config.GetConfig()
-			Expect(err).ToNot(HaveOccurred())
-			k8sClientset, err = kubernetes.NewForConfig(cfg)
-			Expect(err).ToNot(HaveOccurred())
-		}
-	}
 
 	// Helper function to parse metrics from Prometheus format
 	parseMetricValue := func(metricsContent, metricName string) (float64, error) {
@@ -63,7 +51,16 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 	// Helper function to get metrics from monitor pod
 	getMetrics := func(logPrefix string) (string, error) {
-		req := k8sClientset.CoreV1().RESTClient().Get().
+		cfg, err := config.GetConfig()
+		if err != nil {
+			return "", err
+		}
+		clientset, err := kubernetes.NewForConfig(cfg)
+		if err != nil {
+			return "", err
+		}
+
+		req := clientset.CoreV1().RESTClient().Get().
 			Namespace(namespace.Name).
 			Resource("pods").
 			Name(rekorMonitorPod.Name).
@@ -80,26 +77,6 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 			fmt.Printf("%s:\n%s\n", logPrefix, metricsString)
 		}
 		return metricsString, nil
-	}
-
-	// Helper function to get pod logs
-	getPodLogs := func() (string, error) {
-		req := k8sClientset.CoreV1().Pods(namespace.Name).GetLogs(rekorMonitorPod.Name, &v1.PodLogOptions{
-			Container: actions.MonitorStatefulSetName,
-		})
-
-		logs, err := req.Stream(context.Background())
-		if err != nil {
-			return "", err
-		}
-		defer logs.Close()
-
-		logBytes, err := io.ReadAll(logs)
-		if err != nil {
-			return "", err
-		}
-
-		return string(logBytes), nil
 	}
 
 	// Helper function to execute kubectl command on monitor pod
@@ -212,15 +189,11 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 	})
 
 	Describe("Monitor Functionality", func() {
-		BeforeEach(func() {
-			// Initialize Kubernetes client for all tests in this describe block
-			initKubernetesClient()
-		})
 
 		It("should not show Root hash consistency verified in log - the rekor monitor log is empty", func(ctx SpecContext) {
 			By("Checking that monitor checks empty rekor log and does not contain consistency verification")
 			Eventually(func(g Gomega) {
-				logContent, err := getPodLogs()
+				logContent, err := k8ssupport.GetPodLogs(ctx, rekorMonitorPod.Name, actions.MonitorStatefulSetName, namespace.Name)
 				g.Expect(err).ToNot(HaveOccurred())
 
 				g.Expect(strings.Contains(logContent, "Root hash consistency verified")).To(BeFalse(),
@@ -316,7 +289,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			By("Waiting for monitor to detect the new entries and verify consistency")
 			Eventually(func(g Gomega) {
-				logContent, err := getPodLogs()
+				logContent, err := k8ssupport.GetPodLogs(ctx, rekorMonitorPod.Name, actions.MonitorStatefulSetName, namespace.Name)
 				g.Expect(err).ToNot(HaveOccurred())
 
 				g.Expect(strings.Contains(logContent, "Root hash consistency verified")).To(BeTrue(),
@@ -381,7 +354,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			By("Checking monitor logs for corruption detection messages")
 			Eventually(func(g Gomega) {
-				logContent, err := getPodLogs()
+				logContent, err := k8ssupport.GetPodLogs(ctx, rekorMonitorPod.Name, actions.MonitorStatefulSetName, namespace.Name)
 				g.Expect(err).ToNot(HaveOccurred())
 
 				fmt.Printf("Monitor logs after corruption:\n%s\n", logContent)
