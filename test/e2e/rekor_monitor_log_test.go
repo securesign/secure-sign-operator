@@ -36,7 +36,135 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 		s               *v1alpha1.Securesign
 		targetImageName string
 		rekorMonitorPod v1.Pod
+		// Shared Kubernetes client - initialized once and reused
+		k8sClientset *kubernetes.Clientset
 	)
+
+	// Helper function to initialize Kubernetes clientset (called once)
+	initKubernetesClient := func() {
+		if k8sClientset == nil {
+			cfg, err := config.GetConfig()
+			Expect(err).ToNot(HaveOccurred())
+			k8sClientset, err = kubernetes.NewForConfig(cfg)
+			Expect(err).ToNot(HaveOccurred())
+		}
+	}
+
+	// Helper function to parse metrics from Prometheus format
+	parseMetricValue := func(metricsContent, metricName string) (float64, error) {
+		pattern := fmt.Sprintf(`%s\s+(\d+(?:\.\d+)?)`, regexp.QuoteMeta(metricName))
+		re := regexp.MustCompile(pattern)
+		matches := re.FindStringSubmatch(metricsContent)
+		if len(matches) < 2 {
+			return 0, fmt.Errorf("metric %s not found", metricName)
+		}
+		return strconv.ParseFloat(matches[1], 64)
+	}
+
+	// Helper function to get metrics from monitor pod
+	getMetrics := func(logPrefix string) (string, error) {
+		req := k8sClientset.CoreV1().RESTClient().Get().
+			Namespace(namespace.Name).
+			Resource("pods").
+			Name(rekorMonitorPod.Name).
+			SubResource("proxy").
+			Suffix("metrics")
+
+		result := req.Do(context.Background())
+		raw, err := result.Raw()
+		if err != nil {
+			return "", err
+		}
+		metricsString := string(raw)
+		if logPrefix != "" {
+			fmt.Printf("%s:\n%s\n", logPrefix, metricsString)
+		}
+		return metricsString, nil
+	}
+
+	// Helper function to get pod logs
+	getPodLogs := func() (string, error) {
+		req := k8sClientset.CoreV1().Pods(namespace.Name).GetLogs(rekorMonitorPod.Name, &v1.PodLogOptions{
+			Container: actions.MonitorStatefulSetName,
+		})
+
+		logs, err := req.Stream(context.Background())
+		if err != nil {
+			return "", err
+		}
+		defer logs.Close()
+
+		logBytes, err := io.ReadAll(logs)
+		if err != nil {
+			return "", err
+		}
+
+		return string(logBytes), nil
+	}
+
+	// Helper function to execute kubectl command on monitor pod
+	execOnMonitorPod := func(command ...string) ([]byte, error) {
+		fullCmd := append([]string{"kubectl", "exec", "-n", namespace.Name, rekorMonitorPod.Name,
+			"-c", actions.MonitorStatefulSetName, "--"}, command...)
+		cmd := exec.Command(fullCmd[0], fullCmd[1:]...)
+		return cmd.Output()
+	}
+
+	// Helper function to execute kubectl command with combined output on monitor pod
+	execOnMonitorPodWithOutput := func(command ...string) ([]byte, error) {
+		fullCmd := append([]string{"kubectl", "exec", "-n", namespace.Name, rekorMonitorPod.Name,
+			"-c", actions.MonitorStatefulSetName, "--"}, command...)
+		cmd := exec.Command(fullCmd[0], fullCmd[1:]...)
+		return cmd.CombinedOutput()
+	}
+
+	// Helper function to create subtle corruption in content
+	createSubtleCorruption := func(originalContent string) string {
+		// Try different character replacements to ensure we make a change
+		corruptedContent := strings.ReplaceAll(originalContent, "a", "X")
+		if corruptedContent == originalContent {
+			corruptedContent = strings.ReplaceAll(originalContent, "0", "9")
+		}
+		if corruptedContent == originalContent {
+			corruptedContent = strings.ReplaceAll(originalContent, "b", "c")
+		}
+		if corruptedContent == originalContent {
+			// Last resort: change first character if possible
+			if len(originalContent) > 0 {
+				runes := []rune(originalContent)
+				if runes[0] != 'X' {
+					runes[0] = 'X'
+					corruptedContent = string(runes)
+				}
+			}
+		}
+		return corruptedContent
+	}
+
+	// Helper function to log character-level differences between two strings
+	logStringDifferences := func(original, corrupted string, originalBytes, corruptedBytes []byte) {
+		fmt.Printf("\n=== TAMPERING COMPARISON ===\n")
+		fmt.Printf("Original content length: %d bytes\n", len(originalBytes))
+		fmt.Printf("Corrupted content length: %d bytes\n", len(corruptedBytes))
+		fmt.Printf("Content completely replaced: %t\n", !strings.Contains(corrupted, original[:min(10, len(original))]) && len(original) > 10)
+
+		// Show character-level differences
+		diffCount := 0
+		minLen := min(len(original), len(corrupted))
+
+		fmt.Printf("Character differences found:\n")
+		for i := 0; i < minLen && diffCount < 10; i++ {
+			if original[i] != corrupted[i] {
+				fmt.Printf("  Position %d: '%c' -> '%c'\n", i, original[i], corrupted[i])
+				diffCount++
+			}
+		}
+		if diffCount == 0 && len(original) != len(corrupted) {
+			fmt.Printf("  Length difference only: %d vs %d bytes\n", len(original), len(corrupted))
+		}
+		fmt.Printf("Total character differences: %d (showing first 10)\n", diffCount)
+		fmt.Printf("=== END COMPARISON ===\n\n")
+	}
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
@@ -111,30 +239,17 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 	})
 
 	Describe("Monitor Functionality", func() {
-		It("should not show Root hash consistency verified in log - the rekor monitor log is empty", func(ctx SpecContext) {
-			// Get Kubernetes clientset for log access
-			cfg, err := config.GetConfig()
-			Expect(err).ToNot(HaveOccurred())
-			clientset, err := kubernetes.NewForConfig(cfg)
-			Expect(err).ToNot(HaveOccurred())
+		BeforeEach(func() {
+			// Initialize Kubernetes client for all tests in this describe block
+			initKubernetesClient()
+		})
 
+		It("should not show Root hash consistency verified in log - the rekor monitor log is empty", func(ctx SpecContext) {
 			By("Checking that monitor checks empty rekor log and does not contain consistency verification")
 			Eventually(func(g Gomega) {
-				// Get pod logs
-				req := clientset.CoreV1().Pods(namespace.Name).GetLogs(rekorMonitorPod.Name, &v1.PodLogOptions{
-					Container: actions.MonitorStatefulSetName,
-				})
-
-				logs, err := req.Stream(context.Background())
+				logContent, err := getPodLogs()
 				g.Expect(err).ToNot(HaveOccurred())
-				defer logs.Close()
 
-				logBytes, err := io.ReadAll(logs)
-				if err != nil {
-					g.Expect(err).ToNot(HaveOccurred())
-				}
-
-				logContent := string(logBytes)
 				g.Expect(strings.Contains(logContent, "Root hash consistency verified")).To(BeFalse(),
 					fmt.Sprintf("Expected 'Root hash consistency verified' NOT to be in logs, but got: %s", logContent))
 				g.Expect(strings.Contains(logContent, "empty log")).To(BeTrue(),
@@ -144,48 +259,12 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 		})
 
 		It("should report increasing log_index_verification_total and log_index_verification_failure remains at 0 in /metrics", func(ctx SpecContext) {
-			// Get Kubernetes clientset and config for port forwarding
-			cfg, err := config.GetConfig()
-			Expect(err).ToNot(HaveOccurred())
-			clientset, err := kubernetes.NewForConfig(cfg)
-			Expect(err).ToNot(HaveOccurred())
-
-			// Helper function to parse metrics from Prometheus format
-			parseMetricValue := func(metricsContent, metricName string) (float64, error) {
-				pattern := fmt.Sprintf(`%s\s+(\d+(?:\.\d+)?)`, regexp.QuoteMeta(metricName))
-				re := regexp.MustCompile(pattern)
-				matches := re.FindStringSubmatch(metricsContent)
-				if len(matches) < 2 {
-					return 0, fmt.Errorf("metric %s not found", metricName)
-				}
-				return strconv.ParseFloat(matches[1], 64)
-			}
-
-			// Helper function to get metrics from pod
-			getMetrics := func() (string, error) {
-				req := clientset.CoreV1().RESTClient().Get().
-					Namespace(namespace.Name).
-					Resource("pods").
-					Name(rekorMonitorPod.Name).
-					SubResource("proxy").
-					Suffix("metrics")
-
-				result := req.Do(context.Background())
-				raw, err := result.Raw()
-				if err != nil {
-					return "", err
-				}
-				metricsString := string(raw)
-				fmt.Printf("Metrics content:\n%s\n", metricsString)
-				return metricsString, nil
-			}
-
 			var initialLogIndexTotal float64
 			var logIndexFailure float64
 
 			By("Getting initial metrics values")
 			Eventually(func(g Gomega) {
-				metricsContent, err := getMetrics()
+				metricsContent, err := getMetrics("Metrics content")
 				g.Expect(err).ToNot(HaveOccurred())
 
 				total, err := parseMetricValue(metricsContent, "log_index_verification_total")
@@ -203,7 +282,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			By("Waiting for log_index_verification_total to increase")
 			Eventually(func(g Gomega) {
-				metricsContent, err := getMetrics()
+				metricsContent, err := getMetrics("")
 				g.Expect(err).ToNot(HaveOccurred())
 
 				currentTotal, err := parseMetricValue(metricsContent, "log_index_verification_total")
@@ -225,47 +304,11 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 		})
 
 		It("should show 'Root hash consistency verified' in logs after cosign signing", func(ctx SpecContext) {
-			// Get Kubernetes clientset for log access
-			cfg, err := config.GetConfig()
-			Expect(err).ToNot(HaveOccurred())
-			clientset, err := kubernetes.NewForConfig(cfg)
-			Expect(err).ToNot(HaveOccurred())
-
-			// Helper function to parse metrics from Prometheus format
-			parseMetricValue := func(metricsContent, metricName string) (float64, error) {
-				pattern := fmt.Sprintf(`%s\s+(\d+(?:\.\d+)?)`, regexp.QuoteMeta(metricName))
-				re := regexp.MustCompile(pattern)
-				matches := re.FindStringSubmatch(metricsContent)
-				if len(matches) < 2 {
-					return 0, fmt.Errorf("metric %s not found", metricName)
-				}
-				return strconv.ParseFloat(matches[1], 64)
-			}
-
-			// Helper function to get metrics from pod
-			getMetrics := func() (string, error) {
-				req := clientset.CoreV1().RESTClient().Get().
-					Namespace(namespace.Name).
-					Resource("pods").
-					Name(rekorMonitorPod.Name).
-					SubResource("proxy").
-					Suffix("metrics")
-
-				result := req.Do(context.Background())
-				raw, err := result.Raw()
-				if err != nil {
-					return "", err
-				}
-				metricsString := string(raw)
-				fmt.Printf("Metrics content after signing:\n%s\n", metricsString)
-				return metricsString, nil
-			}
-
 			var preSigningTotal float64
 
 			By("Getting metrics before signing")
 			Eventually(func(g Gomega) {
-				metricsContent, err := getMetrics()
+				metricsContent, err := getMetrics("Metrics content after signing")
 				g.Expect(err).ToNot(HaveOccurred())
 
 				total, err := parseMetricValue(metricsContent, "log_index_verification_total")
@@ -282,7 +325,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			By("Verifying metrics after signing - total should increase, failures should remain 0")
 			Eventually(func(g Gomega) {
-				metricsContent, err := getMetrics()
+				metricsContent, err := getMetrics("")
 				g.Expect(err).ToNot(HaveOccurred())
 
 				currentTotal, err := parseMetricValue(metricsContent, "log_index_verification_total")
@@ -300,21 +343,9 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			By("Waiting for monitor to detect the new entries and verify consistency")
 			Eventually(func(g Gomega) {
-				// Get pod logs
-				req := clientset.CoreV1().Pods(namespace.Name).GetLogs(rekorMonitorPod.Name, &v1.PodLogOptions{
-					Container: actions.MonitorStatefulSetName,
-				})
-
-				logs, err := req.Stream(context.Background())
+				logContent, err := getPodLogs()
 				g.Expect(err).ToNot(HaveOccurred())
-				defer logs.Close()
 
-				logBytes, err := io.ReadAll(logs)
-				if err != nil {
-					g.Expect(err).ToNot(HaveOccurred())
-				}
-
-				logContent := string(logBytes)
 				g.Expect(strings.Contains(logContent, "Root hash consistency verified")).To(BeTrue(),
 					fmt.Sprintf("Expected 'Root hash consistency verified' in logs after cosign signing, but got: %s", logContent))
 
@@ -328,47 +359,11 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 			// completely replacing the file. This is more realistic as attackers might
 			// try to make minimal changes to avoid detection.
 
-			// Get Kubernetes clientset for log access
-			cfg, err := config.GetConfig()
-			Expect(err).ToNot(HaveOccurred())
-			clientset, err := kubernetes.NewForConfig(cfg)
-			Expect(err).ToNot(HaveOccurred())
-
-			// Helper function to parse metrics from Prometheus format
-			parseMetricValue := func(metricsContent, metricName string) (float64, error) {
-				pattern := fmt.Sprintf(`%s\s+(\d+(?:\.\d+)?)`, regexp.QuoteMeta(metricName))
-				re := regexp.MustCompile(pattern)
-				matches := re.FindStringSubmatch(metricsContent)
-				if len(matches) < 2 {
-					return 0, fmt.Errorf("metric %s not found", metricName)
-				}
-				return strconv.ParseFloat(matches[1], 64)
-			}
-
-			// Helper function to get metrics from pod
-			getMetrics := func() (string, error) {
-				req := clientset.CoreV1().RESTClient().Get().
-					Namespace(namespace.Name).
-					Resource("pods").
-					Name(rekorMonitorPod.Name).
-					SubResource("proxy").
-					Suffix("metrics")
-
-				result := req.Do(context.Background())
-				raw, err := result.Raw()
-				if err != nil {
-					return "", err
-				}
-				metricsString := string(raw)
-				fmt.Printf("Metrics content:\n%s\n", metricsString)
-				return metricsString, nil
-			}
-
 			var initialFailureCount float64
 
 			By("Getting initial failure metrics before corruption")
 			Eventually(func(g Gomega) {
-				metricsContent, err := getMetrics()
+				metricsContent, err := getMetrics("Metrics content")
 				g.Expect(err).ToNot(HaveOccurred())
 
 				failure, err := parseMetricValue(metricsContent, "log_index_verification_failure")
@@ -378,93 +373,40 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			By("Waiting for checkpoint file to be created by the monitor")
 			Eventually(func(g Gomega) {
-				// Execute ls command to check if checkpoint file exists
-				cmd := exec.Command("kubectl", "exec", "-n", namespace.Name, rekorMonitorPod.Name,
-					"-c", actions.MonitorStatefulSetName, "--", "ls", "-la", "/data/checkpoint_log.txt")
-				output, err := cmd.CombinedOutput()
+				output, err := execOnMonitorPodWithOutput("ls", "-la", "/data/checkpoint_log.txt")
 				g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to list checkpoint file: %s", string(output)))
 				g.Expect(string(output)).To(ContainSubstring("checkpoint_log.txt"), "Checkpoint file should exist")
 			}, 2*time.Minute, 10*time.Second).Should(Succeed())
 
 			By("Reading the original checkpoint file content")
-			cmd := exec.Command("kubectl", "exec", "-n", namespace.Name, rekorMonitorPod.Name,
-				"-c", actions.MonitorStatefulSetName, "--", "cat", "/data/checkpoint_log.txt")
-			originalContent, err := cmd.Output()
+			originalContent, err := execOnMonitorPod("cat", "/data/checkpoint_log.txt")
 			Expect(err).ToNot(HaveOccurred(), "Should be able to read checkpoint file")
 			fmt.Printf("\n=== ORIGINAL CHECKPOINT CONTENT (BEFORE TAMPERING) ===\n%s\n=== END ORIGINAL CONTENT ===\n", string(originalContent))
 
 			By("Corrupting the checkpoint file with subtle hash modification")
-			// Make a subtle change: replace any 'a' with 'b', 'b' with 'c', '0' with '1', etc.
-			// This simulates changing a few characters in a hash value
 			originalString := string(originalContent)
-			corruptedContent := strings.ReplaceAll(originalString, "a", "X")
-			if corruptedContent == originalString {
-				// If no 'a' found, try other characters
-				corruptedContent = strings.ReplaceAll(originalString, "0", "9")
-			}
-			if corruptedContent == originalString {
-				// If still no change, try 'b' to 'c'
-				corruptedContent = strings.ReplaceAll(originalString, "b", "c")
-			}
-			if corruptedContent == originalString {
-				// Last resort: change first character if possible
-				if len(originalString) > 0 {
-					runes := []rune(originalString)
-					if runes[0] != 'X' {
-						runes[0] = 'X'
-						corruptedContent = string(runes)
-					}
-				}
-			}
+			corruptedContent := createSubtleCorruption(originalString)
 
 			// Ensure we actually made a change
 			Expect(corruptedContent).ToNot(Equal(originalString), "Should have made a change to the content")
 
-			cmd = exec.Command("kubectl", "exec", "-n", namespace.Name, rekorMonitorPod.Name,
-				"-c", actions.MonitorStatefulSetName, "--", "sh", "-c",
+			// Write the corrupted content back to the file
+			output, err := execOnMonitorPodWithOutput("sh", "-c",
 				fmt.Sprintf("printf '%%s' '%s' > /data/checkpoint_log.txt", corruptedContent))
-			output, err := cmd.CombinedOutput()
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to corrupt checkpoint file: %s", string(output)))
 
 			By("Verifying the file was corrupted with subtle changes")
-			cmd = exec.Command("kubectl", "exec", "-n", namespace.Name, rekorMonitorPod.Name,
-				"-c", actions.MonitorStatefulSetName, "--", "cat", "/data/checkpoint_log.txt")
-			newContent, err := cmd.Output()
+			newContent, err := execOnMonitorPod("cat", "/data/checkpoint_log.txt")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(newContent)).ToNot(Equal(string(originalContent)), "File content should be different after tampering")
 			fmt.Printf("\n=== CORRUPTED CHECKPOINT CONTENT (AFTER TAMPERING) ===\n%s\n=== END CORRUPTED CONTENT ===\n", string(newContent))
 
-			// Log the detailed comparison
-			fmt.Printf("\n=== TAMPERING COMPARISON ===\n")
-			fmt.Printf("Original content length: %d bytes\n", len(originalContent))
-			fmt.Printf("Corrupted content length: %d bytes\n", len(newContent))
-			fmt.Printf("Content completely replaced: %t\n", !strings.Contains(string(newContent), string(originalContent[:10])) && len(originalContent) > 10)
-
-			// Show character-level differences
-			originalStr := string(originalContent)
-			newStr := string(newContent)
-			diffCount := 0
-			minLen := len(originalStr)
-			if len(newStr) < minLen {
-				minLen = len(newStr)
-			}
-
-			fmt.Printf("Character differences found:\n")
-			for i := 0; i < minLen && diffCount < 10; i++ {
-				if originalStr[i] != newStr[i] {
-					fmt.Printf("  Position %d: '%c' -> '%c'\n", i, originalStr[i], newStr[i])
-					diffCount++
-				}
-			}
-			if diffCount == 0 && len(originalStr) != len(newStr) {
-				fmt.Printf("  Length difference only: %d vs %d bytes\n", len(originalStr), len(newStr))
-			}
-			fmt.Printf("Total character differences: %d (showing first 10)\n", diffCount)
-			fmt.Printf("=== END COMPARISON ===\n\n")
+			// Log the detailed comparison using helper function
+			logStringDifferences(originalString, string(newContent), originalContent, newContent)
 
 			By("Waiting for monitor to detect the corruption and increment failure metrics")
 			Eventually(func(g Gomega) {
-				metricsContent, err := getMetrics()
+				metricsContent, err := getMetrics("")
 				g.Expect(err).ToNot(HaveOccurred())
 
 				currentFailure, err := parseMetricValue(metricsContent, "log_index_verification_failure")
@@ -478,19 +420,9 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			By("Checking monitor logs for corruption detection messages")
 			Eventually(func(g Gomega) {
-				// Get pod logs
-				req := clientset.CoreV1().Pods(namespace.Name).GetLogs(rekorMonitorPod.Name, &v1.PodLogOptions{
-					Container: actions.MonitorStatefulSetName,
-				})
-
-				logs, err := req.Stream(context.Background())
-				g.Expect(err).ToNot(HaveOccurred())
-				defer logs.Close()
-
-				logBytes, err := io.ReadAll(logs)
+				logContent, err := getPodLogs()
 				g.Expect(err).ToNot(HaveOccurred())
 
-				logContent := string(logBytes)
 				fmt.Printf("Monitor logs after corruption:\n%s\n", logContent)
 
 				// Look for common error patterns that might indicate checkpoint corruption
