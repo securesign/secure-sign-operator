@@ -104,18 +104,16 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 	// Helper function to execute kubectl command on monitor pod
 	execOnMonitorPod := func(command ...string) ([]byte, error) {
-		fullCmd := append([]string{"kubectl", "exec", "-n", namespace.Name, rekorMonitorPod.Name,
-			"-c", actions.MonitorStatefulSetName, "--"}, command...)
-		cmd := exec.Command(fullCmd[0], fullCmd[1:]...)
-		return cmd.Output()
+		args := []string{"exec", "-n", namespace.Name, rekorMonitorPod.Name, "-c", actions.MonitorStatefulSetName, "--"}
+		args = append(args, command...)
+		return exec.Command("kubectl", args...).Output()
 	}
 
 	// Helper function to execute kubectl command with combined output on monitor pod
 	execOnMonitorPodWithOutput := func(command ...string) ([]byte, error) {
-		fullCmd := append([]string{"kubectl", "exec", "-n", namespace.Name, rekorMonitorPod.Name,
-			"-c", actions.MonitorStatefulSetName, "--"}, command...)
-		cmd := exec.Command(fullCmd[0], fullCmd[1:]...)
-		return cmd.CombinedOutput()
+		args := []string{"exec", "-n", namespace.Name, rekorMonitorPod.Name, "-c", actions.MonitorStatefulSetName, "--"}
+		args = append(args, command...)
+		return exec.Command("kubectl", args...).CombinedOutput()
 	}
 
 	// Helper function to create subtle corruption in content
@@ -139,31 +137,6 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 			}
 		}
 		return corruptedContent
-	}
-
-	// Helper function to log character-level differences between two strings
-	logStringDifferences := func(original, corrupted string, originalBytes, corruptedBytes []byte) {
-		fmt.Printf("\n=== TAMPERING COMPARISON ===\n")
-		fmt.Printf("Original content length: %d bytes\n", len(originalBytes))
-		fmt.Printf("Corrupted content length: %d bytes\n", len(corruptedBytes))
-		fmt.Printf("Content completely replaced: %t\n", !strings.Contains(corrupted, original[:min(10, len(original))]) && len(original) > 10)
-
-		// Show character-level differences
-		diffCount := 0
-		minLen := min(len(original), len(corrupted))
-
-		fmt.Printf("Character differences found:\n")
-		for i := 0; i < minLen && diffCount < 10; i++ {
-			if original[i] != corrupted[i] {
-				fmt.Printf("  Position %d: '%c' -> '%c'\n", i, original[i], corrupted[i])
-				diffCount++
-			}
-		}
-		if diffCount == 0 && len(original) != len(corrupted) {
-			fmt.Printf("  Length difference only: %d vs %d bytes\n", len(original), len(corrupted))
-		}
-		fmt.Printf("Total character differences: %d (showing first 10)\n", diffCount)
-		fmt.Printf("=== END COMPARISON ===\n\n")
 	}
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
@@ -371,17 +344,9 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 				initialFailureCount = failure
 			}, 30*time.Second, 5*time.Second).Should(Succeed())
 
-			By("Waiting for checkpoint file to be created by the monitor")
-			Eventually(func(g Gomega) {
-				output, err := execOnMonitorPodWithOutput("ls", "-la", "/data/checkpoint_log.txt")
-				g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to list checkpoint file: %s", string(output)))
-				g.Expect(string(output)).To(ContainSubstring("checkpoint_log.txt"), "Checkpoint file should exist")
-			}, 2*time.Minute, 10*time.Second).Should(Succeed())
-
 			By("Reading the original checkpoint file content")
 			originalContent, err := execOnMonitorPod("cat", "/data/checkpoint_log.txt")
 			Expect(err).ToNot(HaveOccurred(), "Should be able to read checkpoint file")
-			fmt.Printf("\n=== ORIGINAL CHECKPOINT CONTENT (BEFORE TAMPERING) ===\n%s\n=== END ORIGINAL CONTENT ===\n", string(originalContent))
 
 			By("Corrupting the checkpoint file with subtle hash modification")
 			originalString := string(originalContent)
@@ -396,13 +361,9 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to corrupt checkpoint file: %s", string(output)))
 
 			By("Verifying the file was corrupted with subtle changes")
-			newContent, err := execOnMonitorPod("cat", "/data/checkpoint_log.txt")
+			verifyContent, err := execOnMonitorPod("cat", "/data/checkpoint_log.txt")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(string(newContent)).ToNot(Equal(string(originalContent)), "File content should be different after tampering")
-			fmt.Printf("\n=== CORRUPTED CHECKPOINT CONTENT (AFTER TAMPERING) ===\n%s\n=== END CORRUPTED CONTENT ===\n", string(newContent))
-
-			// Log the detailed comparison using helper function
-			logStringDifferences(originalString, string(newContent), originalContent, newContent)
+			Expect(string(verifyContent)).ToNot(Equal(string(originalContent)), "File content should be different after tampering")
 
 			By("Waiting for monitor to detect the corruption and increment failure metrics")
 			Eventually(func(g Gomega) {
