@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -230,8 +231,72 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 			clientset, err := kubernetes.NewForConfig(cfg)
 			Expect(err).ToNot(HaveOccurred())
 
+			// Helper function to parse metrics from Prometheus format
+			parseMetricValue := func(metricsContent, metricName string) (float64, error) {
+				pattern := fmt.Sprintf(`%s\s+(\d+(?:\.\d+)?)`, regexp.QuoteMeta(metricName))
+				re := regexp.MustCompile(pattern)
+				matches := re.FindStringSubmatch(metricsContent)
+				if len(matches) < 2 {
+					return 0, fmt.Errorf("metric %s not found", metricName)
+				}
+				return strconv.ParseFloat(matches[1], 64)
+			}
+
+			// Helper function to get metrics from pod
+			getMetrics := func() (string, error) {
+				req := clientset.CoreV1().RESTClient().Get().
+					Namespace(namespace.Name).
+					Resource("pods").
+					Name(rekorMonitorPod.Name).
+					SubResource("proxy").
+					Suffix("metrics")
+
+				result := req.Do(context.Background())
+				raw, err := result.Raw()
+				if err != nil {
+					return "", err
+				}
+				metricsString := string(raw)
+				fmt.Printf("Metrics content after signing:\n%s\n", metricsString)
+				return metricsString, nil
+			}
+
+			var preSigningTotal float64
+
+			By("Getting metrics before signing")
+			Eventually(func(g Gomega) {
+				metricsContent, err := getMetrics()
+				g.Expect(err).ToNot(HaveOccurred())
+
+				total, err := parseMetricValue(metricsContent, "log_index_verification_total")
+				g.Expect(err).ToNot(HaveOccurred())
+				preSigningTotal = total
+
+				failure, err := parseMetricValue(metricsContent, "log_index_verification_failure")
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(failure).To(Equal(float64(0)), "Expected log_index_verification_failure to be 0 before signing")
+			}, 30*time.Second, 5*time.Second).Should(Succeed())
+
 			By("Using cosign to sign an image, which creates real Rekor entries")
 			tas.VerifyByCosign(ctx, cli, s, targetImageName)
+
+			By("Verifying metrics after signing - total should increase, failures should remain 0")
+			Eventually(func(g Gomega) {
+				metricsContent, err := getMetrics()
+				g.Expect(err).ToNot(HaveOccurred())
+
+				currentTotal, err := parseMetricValue(metricsContent, "log_index_verification_total")
+				g.Expect(err).ToNot(HaveOccurred())
+
+				currentFailure, err := parseMetricValue(metricsContent, "log_index_verification_failure")
+				g.Expect(err).ToNot(HaveOccurred())
+
+				g.Expect(currentTotal).To(BeNumerically(">=", preSigningTotal),
+					fmt.Sprintf("Expected log_index_verification_total to be at least %f after signing, got %f", preSigningTotal, currentTotal))
+
+				g.Expect(currentFailure).To(Equal(float64(0)),
+					fmt.Sprintf("Expected log_index_verification_failure to remain 0 after signing, got %f", currentFailure))
+			}, 2*time.Minute, 10*time.Second).Should(Succeed())
 
 			By("Waiting for monitor to detect the new entries and verify consistency")
 			Eventually(func(g Gomega) {
@@ -255,6 +320,200 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			}, 5*time.Minute, 15*time.Second).Should(Succeed(),
 				"Monitor should verify root hash consistency after cosign creates real Rekor entries")
+		})
+
+		It("should detect subtle corruption when checkpoint file hash is slightly modified", func(ctx SpecContext) {
+			// This test simulates a more sophisticated attack where only a few characters
+			// in the checkpoint are changed (like modifying a hash value), rather than
+			// completely replacing the file. This is more realistic as attackers might
+			// try to make minimal changes to avoid detection.
+
+			// Get Kubernetes clientset for log access
+			cfg, err := config.GetConfig()
+			Expect(err).ToNot(HaveOccurred())
+			clientset, err := kubernetes.NewForConfig(cfg)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Helper function to parse metrics from Prometheus format
+			parseMetricValue := func(metricsContent, metricName string) (float64, error) {
+				pattern := fmt.Sprintf(`%s\s+(\d+(?:\.\d+)?)`, regexp.QuoteMeta(metricName))
+				re := regexp.MustCompile(pattern)
+				matches := re.FindStringSubmatch(metricsContent)
+				if len(matches) < 2 {
+					return 0, fmt.Errorf("metric %s not found", metricName)
+				}
+				return strconv.ParseFloat(matches[1], 64)
+			}
+
+			// Helper function to get metrics from pod
+			getMetrics := func() (string, error) {
+				req := clientset.CoreV1().RESTClient().Get().
+					Namespace(namespace.Name).
+					Resource("pods").
+					Name(rekorMonitorPod.Name).
+					SubResource("proxy").
+					Suffix("metrics")
+
+				result := req.Do(context.Background())
+				raw, err := result.Raw()
+				if err != nil {
+					return "", err
+				}
+				metricsString := string(raw)
+				fmt.Printf("Metrics content:\n%s\n", metricsString)
+				return metricsString, nil
+			}
+
+			var initialFailureCount float64
+
+			By("Getting initial failure metrics before corruption")
+			Eventually(func(g Gomega) {
+				metricsContent, err := getMetrics()
+				g.Expect(err).ToNot(HaveOccurred())
+
+				failure, err := parseMetricValue(metricsContent, "log_index_verification_failure")
+				g.Expect(err).ToNot(HaveOccurred())
+				initialFailureCount = failure
+			}, 30*time.Second, 5*time.Second).Should(Succeed())
+
+			By("Waiting for checkpoint file to be created by the monitor")
+			Eventually(func(g Gomega) {
+				// Execute ls command to check if checkpoint file exists
+				cmd := exec.Command("kubectl", "exec", "-n", namespace.Name, rekorMonitorPod.Name,
+					"-c", actions.MonitorStatefulSetName, "--", "ls", "-la", "/data/checkpoint_log.txt")
+				output, err := cmd.CombinedOutput()
+				g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to list checkpoint file: %s", string(output)))
+				g.Expect(string(output)).To(ContainSubstring("checkpoint_log.txt"), "Checkpoint file should exist")
+			}, 2*time.Minute, 10*time.Second).Should(Succeed())
+
+			By("Reading the original checkpoint file content")
+			cmd := exec.Command("kubectl", "exec", "-n", namespace.Name, rekorMonitorPod.Name,
+				"-c", actions.MonitorStatefulSetName, "--", "cat", "/data/checkpoint_log.txt")
+			originalContent, err := cmd.Output()
+			Expect(err).ToNot(HaveOccurred(), "Should be able to read checkpoint file")
+			fmt.Printf("\n=== ORIGINAL CHECKPOINT CONTENT (BEFORE TAMPERING) ===\n%s\n=== END ORIGINAL CONTENT ===\n", string(originalContent))
+
+			By("Corrupting the checkpoint file with subtle hash modification")
+			// Make a subtle change: replace any 'a' with 'b', 'b' with 'c', '0' with '1', etc.
+			// This simulates changing a few characters in a hash value
+			originalString := string(originalContent)
+			corruptedContent := strings.ReplaceAll(originalString, "a", "X")
+			if corruptedContent == originalString {
+				// If no 'a' found, try other characters
+				corruptedContent = strings.ReplaceAll(originalString, "0", "9")
+			}
+			if corruptedContent == originalString {
+				// If still no change, try 'b' to 'c'
+				corruptedContent = strings.ReplaceAll(originalString, "b", "c")
+			}
+			if corruptedContent == originalString {
+				// Last resort: change first character if possible
+				if len(originalString) > 0 {
+					runes := []rune(originalString)
+					if runes[0] != 'X' {
+						runes[0] = 'X'
+						corruptedContent = string(runes)
+					}
+				}
+			}
+
+			// Ensure we actually made a change
+			Expect(corruptedContent).ToNot(Equal(originalString), "Should have made a change to the content")
+
+			cmd = exec.Command("kubectl", "exec", "-n", namespace.Name, rekorMonitorPod.Name,
+				"-c", actions.MonitorStatefulSetName, "--", "sh", "-c",
+				fmt.Sprintf("printf '%%s' '%s' > /data/checkpoint_log.txt", corruptedContent))
+			output, err := cmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to corrupt checkpoint file: %s", string(output)))
+
+			By("Verifying the file was corrupted with subtle changes")
+			cmd = exec.Command("kubectl", "exec", "-n", namespace.Name, rekorMonitorPod.Name,
+				"-c", actions.MonitorStatefulSetName, "--", "cat", "/data/checkpoint_log.txt")
+			newContent, err := cmd.Output()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(newContent)).ToNot(Equal(string(originalContent)), "File content should be different after tampering")
+			fmt.Printf("\n=== CORRUPTED CHECKPOINT CONTENT (AFTER TAMPERING) ===\n%s\n=== END CORRUPTED CONTENT ===\n", string(newContent))
+
+			// Log the detailed comparison
+			fmt.Printf("\n=== TAMPERING COMPARISON ===\n")
+			fmt.Printf("Original content length: %d bytes\n", len(originalContent))
+			fmt.Printf("Corrupted content length: %d bytes\n", len(newContent))
+			fmt.Printf("Content completely replaced: %t\n", !strings.Contains(string(newContent), string(originalContent[:10])) && len(originalContent) > 10)
+
+			// Show character-level differences
+			originalStr := string(originalContent)
+			newStr := string(newContent)
+			diffCount := 0
+			minLen := len(originalStr)
+			if len(newStr) < minLen {
+				minLen = len(newStr)
+			}
+
+			fmt.Printf("Character differences found:\n")
+			for i := 0; i < minLen && diffCount < 10; i++ {
+				if originalStr[i] != newStr[i] {
+					fmt.Printf("  Position %d: '%c' -> '%c'\n", i, originalStr[i], newStr[i])
+					diffCount++
+				}
+			}
+			if diffCount == 0 && len(originalStr) != len(newStr) {
+				fmt.Printf("  Length difference only: %d vs %d bytes\n", len(originalStr), len(newStr))
+			}
+			fmt.Printf("Total character differences: %d (showing first 10)\n", diffCount)
+			fmt.Printf("=== END COMPARISON ===\n\n")
+
+			By("Waiting for monitor to detect the corruption and increment failure metrics")
+			Eventually(func(g Gomega) {
+				metricsContent, err := getMetrics()
+				g.Expect(err).ToNot(HaveOccurred())
+
+				currentFailure, err := parseMetricValue(metricsContent, "log_index_verification_failure")
+				g.Expect(err).ToNot(HaveOccurred())
+
+				g.Expect(currentFailure).To(BeNumerically(">", initialFailureCount),
+					fmt.Sprintf("Expected log_index_verification_failure to increase from %f, but got %f", initialFailureCount, currentFailure))
+
+			}, 2*time.Minute, 10*time.Second).Should(Succeed(),
+				"Monitor should detect subtle checkpoint hash modifications and increment failure metric")
+
+			By("Checking monitor logs for corruption detection messages")
+			Eventually(func(g Gomega) {
+				// Get pod logs
+				req := clientset.CoreV1().Pods(namespace.Name).GetLogs(rekorMonitorPod.Name, &v1.PodLogOptions{
+					Container: actions.MonitorStatefulSetName,
+				})
+
+				logs, err := req.Stream(context.Background())
+				g.Expect(err).ToNot(HaveOccurred())
+				defer logs.Close()
+
+				logBytes, err := io.ReadAll(logs)
+				g.Expect(err).ToNot(HaveOccurred())
+
+				logContent := string(logBytes)
+				fmt.Printf("Monitor logs after corruption:\n%s\n", logContent)
+
+				// Look for common error patterns that might indicate checkpoint corruption
+				errorPatterns := []string{
+					"error",
+					"failed",
+					"invalid",
+					"corruption",
+					"checkpoint",
+				}
+
+				foundError := false
+				for _, pattern := range errorPatterns {
+					if strings.Contains(strings.ToLower(logContent), pattern) {
+						foundError = true
+						break
+					}
+				}
+				g.Expect(foundError).To(BeTrue(),
+					fmt.Sprintf("Expected error messages in monitor logs indicating corruption detection, but got: %s", logContent))
+
+			}, 2*time.Minute, 10*time.Second).Should(Succeed(),
+				"Monitor logs should contain error messages indicating subtle corruption detection")
 		})
 
 	})
