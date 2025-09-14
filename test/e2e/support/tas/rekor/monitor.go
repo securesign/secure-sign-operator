@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 
+	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/labels"
 	v1 "k8s.io/api/core/v1"
@@ -56,6 +57,21 @@ func GetMonitorMetrics(ctx context.Context, cli client.Client, ns string, logPre
 		fmt.Printf("%s:\n%s\n", logPrefix, metricsString)
 	}
 	return metricsString, nil
+}
+
+// GetMonitorMetricValues retrieves both log_index_verification_total and log_index_verification_failure metrics
+// and performs error checking internally using Gomega. Returns (verTotal, verFailure).
+func GetMonitorMetricValues(ctx context.Context, cli client.Client, ns string, g Gomega) (float64, float64) {
+	metricsContent, err := GetMonitorMetrics(ctx, cli, ns, "")
+	g.Expect(err).ToNot(HaveOccurred(), "failed to get monitor metrics")
+
+	verTotal, err := ParseMetricValue(metricsContent, "log_index_verification_total")
+	g.Expect(err).ToNot(HaveOccurred(), "failed to parse log_index_verification_total")
+
+	verFailure, err := ParseMetricValue(metricsContent, "log_index_verification_failure")
+	g.Expect(err).ToNot(HaveOccurred(), "failed to parse log_index_verification_failure")
+
+	return verTotal, verFailure
 }
 
 func GetMonitorPod(ctx context.Context, cli client.Client, ns string) *v1.Pod {
