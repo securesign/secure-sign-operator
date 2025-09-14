@@ -65,8 +65,6 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 			newLastChar = "0"
 		}
 		corruptedHash := firstHash[:len(firstHash)-2] + newLastChar + "="
-
-		// Replace only the first occurrence
 		return strings.Replace(originalContent, firstHash, corruptedHash, 1)
 	}
 
@@ -79,9 +77,8 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 			securesign.WithDefaults(),
 			securesign.WithMonitoring(),
 			func(v *v1alpha1.Securesign) {
-				// Enable TLog monitoring with shorter interval for faster testing
 				v.Spec.Rekor.Monitoring.TLog.Enabled = true
-				v.Spec.Rekor.Monitoring.TLog.Interval = metav1.Duration{Duration: time.Second * 15}
+				v.Spec.Rekor.Monitoring.TLog.Interval = metav1.Duration{Duration: time.Second * 2}
 			},
 		)
 	})
@@ -152,7 +149,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 					fmt.Sprintf("Expected 'Root hash consistency verified' NOT to be in logs, but got: %s", logContent))
 				g.Expect(strings.Contains(logContent, "empty log")).To(BeTrue(),
 					fmt.Sprintf("Expected 'empty log' to be in logs, but got: %s", logContent))
-			}, 1*time.Minute, 6*time.Second).Should(Succeed(),
+			}, 30*time.Second, 1*time.Second).Should(Succeed(),
 				"Monitor log should be empty and not contain root hash consistency verification")
 		})
 
@@ -165,7 +162,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 				initialLogIndexTotal = verTotal
 				g.Expect(verFailure).To(Equal(float64(0)),
 					fmt.Sprintf("Expected log_index_verification_failure to be 0, got %f", verFailure))
-			}, 30*time.Second, 5*time.Second).Should(Succeed())
+			}, 30*time.Second, 1*time.Second).Should(Succeed())
 
 			By("Waiting for log_index_verification_total to increase")
 			Eventually(func(g Gomega) {
@@ -175,7 +172,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 				g.Expect(verFailure).To(Equal(float64(0)),
 					fmt.Sprintf("Expected log_index_verification_failure to remain 0, got %f", verFailure))
 
-			}, 2*time.Minute, 10*time.Second).Should(Succeed(),
+			}, 30*time.Second, 1*time.Second).Should(Succeed(),
 				"Metrics should show increasing verification total and zero failures")
 		})
 
@@ -187,9 +184,9 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 				verTotal, verFailure := rekor.GetMonitorMetricValues(ctx, cli, namespace.Name, g)
 				preSigningTotal = verTotal
 				g.Expect(verFailure).To(Equal(float64(0)), "Expected log_index_verification_failure to be 0 before signing")
-			}, 30*time.Second, 5*time.Second).Should(Succeed())
+			}, 30*time.Second, 1*time.Second).Should(Succeed())
 
-			By("Using cosign to sign an image, which creates real Rekor entries")
+			By("Using cosign to sign an image")
 			tas.VerifyByCosign(ctx, cli, s, signedImageName)
 
 			By("Waiting for monitor to detect the new entries and verify consistency")
@@ -198,7 +195,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(strings.Contains(logContent, "Root hash consistency verified")).To(BeTrue(),
 					fmt.Sprintf("Expected 'Root hash consistency verified' in logs after cosign signing, but got: %s", logContent))
-			}, 5*time.Minute, 15*time.Second).Should(Succeed(),
+			}, 1*time.Minute, 1*time.Second).Should(Succeed(),
 				"Monitor should verify root hash consistency after cosign creates real Rekor entries")
 
 			By("Verifying metrics after signing - total should increase, failures should remain 0")
@@ -208,7 +205,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 					fmt.Sprintf("Expected log_index_verification_total to be at least %f after signing, got %f", preSigningTotal, verTotal))
 				g.Expect(verFailure).To(Equal(float64(0)),
 					fmt.Sprintf("Expected log_index_verification_failure to remain 0 after signing, got %f", verFailure))
-			}, 2*time.Minute, 10*time.Second).Should(Succeed())
+			}, 1*time.Minute, 1*time.Second).Should(Succeed())
 		})
 
 		It("should detect subtle corruption when checkpoint file hash is slightly modified", func(ctx SpecContext) {
@@ -218,7 +215,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 			Eventually(func(g Gomega) {
 				_, verFailure := rekor.GetMonitorMetricValues(ctx, cli, namespace.Name, g)
 				initialFailureCount = verFailure
-			}, 30*time.Second, 5*time.Second).Should(Succeed())
+			}, 30*time.Second, 1*time.Second).Should(Succeed())
 
 			By("Reading the original checkpoint file content")
 			originalContent, err := execOnMonitorPodWithOutput("cat", "/data/checkpoint_log.txt")
@@ -226,9 +223,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			By("Corrupting the checkpoint file with subtle hash modification")
 			originalString := string(originalContent)
-			fmt.Println("originalContent:\n", originalString)
 			corruptedContent := createSubtleCorruption(originalString)
-			fmt.Println("corruptedContent:\n", corruptedContent)
 			Expect(corruptedContent).ToNot(Equal(originalString), "Should have modified the root hash")
 
 			err = execOnMonitorPod("sh", "-c",
@@ -245,19 +240,18 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 				_, verFailure := rekor.GetMonitorMetricValues(ctx, cli, namespace.Name, g)
 				g.Expect(verFailure).To(BeNumerically(">", initialFailureCount),
 					fmt.Sprintf("Expected log_index_verification_failure to increase from %f, but got %f", initialFailureCount, verFailure))
-			}, 2*time.Minute, 10*time.Second).Should(Succeed(),
+			}, 1*time.Minute, 1*time.Second).Should(Succeed(),
 				"Monitor should detect subtle checkpoint hash modifications and increment failure metric")
 
 			By("Checking monitor logs for corruption detection messages")
 			Eventually(func(g Gomega) {
 				logContent, err := k8ssupport.GetPodLogs(ctx, rekorMonitorPod.Name, actions.MonitorStatefulSetName, namespace.Name)
 				g.Expect(err).ToNot(HaveOccurred())
-				fmt.Println("logContent:\n", logContent)
 				g.Expect(strings.Contains(logContent, "error running consistency check")).To(BeTrue(),
 					fmt.Sprintf("Expected 'error running consistency check' in monitor logs indicating corruption detection, but got: %s", logContent))
 				g.Expect(strings.Contains(logContent, "failed to verify previous checkpoint")).To(BeTrue(),
 					fmt.Sprintf("Expected 'failed to verify previous checkpoint' in monitor logs indicating corruption detection, but got: %s", logContent))
-			}, 2*time.Minute, 10*time.Second).Should(Succeed(),
+			}, 1*time.Minute, 1*time.Second).Should(Succeed(),
 				"Monitor logs should contain error messages indicating subtle corruption detection")
 		})
 
