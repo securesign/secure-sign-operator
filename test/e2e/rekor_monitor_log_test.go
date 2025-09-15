@@ -3,8 +3,8 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
-	"os/exec"
 	"regexp"
 	"strings"
 	"time"
@@ -18,7 +18,6 @@ import (
 	k8ssupport "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
-	clients "github.com/securesign/operator/test/e2e/support/tas/cli"
 	"github.com/securesign/operator/test/e2e/support/tas/rekor"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	v1 "k8s.io/api/core/v1"
@@ -37,15 +36,13 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 	)
 
 	execOnMonitorPodWithOutput := func(command ...string) ([]byte, error) {
-		args := []string{"exec", "-n", namespace.Name, rekorMonitorPod.Name, "-c", actions.MonitorStatefulSetName, "--"}
-		args = append(args, command...)
-		return exec.Command("kubectl", args...).CombinedOutput()
+		return k8ssupport.ExecInPodWithOutput(context.Background(),
+			rekorMonitorPod.Name, actions.MonitorStatefulSetName, namespace.Name, command...)
 	}
 
 	execOnMonitorPod := func(command ...string) error {
-		args := []string{"exec", "-n", namespace.Name, rekorMonitorPod.Name, "-c", actions.MonitorStatefulSetName, "--"}
-		args = append(args, command...)
-		return clients.Execute("kubectl", args...)
+		return k8ssupport.ExecInPod(context.Background(),
+			rekorMonitorPod.Name, actions.MonitorStatefulSetName, namespace.Name, command...)
 	}
 
 	createSubtleCorruption := func(originalContent string) string {
