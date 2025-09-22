@@ -23,7 +23,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -138,6 +137,132 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 			Expect(dataVolume).ToNot(BeNil(), "Expected volume for /data mount to be present")
 			Expect(dataVolume.PersistentVolumeClaim).ToNot(BeNil(), "Expected /data to be backed by a PersistentVolumeClaim")
 		})
+
+		It("should have rekor monitor service with correct labels for ServiceMonitor", func(ctx SpecContext) {
+			By("Verifying rekor monitor service exists and has correct labels")
+			Eventually(func(g Gomega) {
+				serviceList := &v1.ServiceList{}
+				err := cli.List(ctx, serviceList, ctrl.InNamespace(namespace.Name))
+				g.Expect(err).ToNot(HaveOccurred())
+
+				var rekorMonitorService *v1.Service
+				for _, svc := range serviceList.Items {
+					// Check for both possible service names
+					if svc.Name == "rekor-monitor" || svc.Name == actions.MonitorComponentName {
+						rekorMonitorService = &svc
+						break
+					}
+				}
+				g.Expect(rekorMonitorService).ToNot(BeNil(), fmt.Sprintf("Should find rekor-monitor service. Available services: %v",
+					func() []string {
+						names := []string{}
+						for _, svc := range serviceList.Items {
+							names = append(names, fmt.Sprintf("%s (labels: %v)", svc.Name, svc.Labels))
+						}
+						return names
+					}()))
+
+				g.Expect(rekorMonitorService.Labels["app.kubernetes.io/component"]).To(Equal("rekor-monitor"),
+					fmt.Sprintf("Service should have correct component label. Current labels: %v", rekorMonitorService.Labels))
+				g.Expect(rekorMonitorService.Labels["app.kubernetes.io/name"]).ToNot(BeEmpty(),
+					fmt.Sprintf("Service should have app.kubernetes.io/name label. Current labels: %v", rekorMonitorService.Labels))
+			}, 30*time.Second, 2*time.Second).Should(Succeed())
+		})
+	})
+
+	Describe("ServiceMonitor Creation", func() {
+		It("should create and validate ServiceMonitor for rekor monitor", func(ctx SpecContext) {
+			var serviceMonitor *unstructured.Unstructured
+
+			By("Checking if ServiceMonitor CRD is available in the cluster")
+			crdList := &unstructured.UnstructuredList{}
+			crdList.SetAPIVersion("apiextensions.k8s.io/v1")
+			crdList.SetKind("CustomResourceDefinitionList")
+			err := cli.List(ctx, crdList)
+			Expect(err).ToNot(HaveOccurred())
+
+			serviceMonitorCRDFound := false
+			for _, crd := range crdList.Items {
+				if name, found, _ := unstructured.NestedString(crd.Object, "metadata", "name"); found && name == "servicemonitors.monitoring.coreos.com" {
+					serviceMonitorCRDFound = true
+					break
+				}
+			}
+
+			if !serviceMonitorCRDFound {
+				Skip("ServiceMonitor CRD (servicemonitors.monitoring.coreos.com) not found - Prometheus operator not installed")
+			}
+
+			By("Getting the rekor monitor service to use its labels")
+			var rekorMonitorService *v1.Service
+			serviceList := &v1.ServiceList{}
+			err = cli.List(ctx, serviceList, ctrl.InNamespace(namespace.Name))
+			Expect(err).ToNot(HaveOccurred())
+
+			for _, svc := range serviceList.Items {
+				if svc.Name == "rekor-monitor" || svc.Name == actions.MonitorComponentName {
+					rekorMonitorService = &svc
+					break
+				}
+			}
+			Expect(rekorMonitorService).ToNot(BeNil(), "Should find rekor-monitor service")
+
+			By("Creating ServiceMonitor for rekor monitor")
+			serviceMonitor = &unstructured.Unstructured{}
+			serviceMonitor.SetAPIVersion("monitoring.coreos.com/v1")
+			serviceMonitor.SetKind("ServiceMonitor")
+			serviceMonitor.SetName("rekor-monitor-test-servicemonitor")
+			serviceMonitor.SetNamespace(namespace.Name)
+			serviceMonitor.SetLabels(map[string]string{
+				"app": "rekor-monitor-test",
+			})
+
+			spec := map[string]interface{}{
+				"selector": map[string]interface{}{
+					"matchLabels": map[string]interface{}{
+						"app.kubernetes.io/component": "rekor-monitor",
+						"app.kubernetes.io/name":      rekorMonitorService.Labels["app.kubernetes.io/name"],
+					},
+				},
+				"endpoints": []interface{}{
+					map[string]interface{}{
+						"port":     "monitor-metrics",
+						"interval": "30s",
+						"path":     "/metrics",
+					},
+				},
+			}
+			serviceMonitor.Object["spec"] = spec
+
+			err = cli.Create(ctx, serviceMonitor)
+			Expect(err).ToNot(HaveOccurred(), "Should be able to create ServiceMonitor")
+
+			By("Verifying ServiceMonitor was created successfully")
+			Eventually(func(g Gomega) {
+				createdSM := &unstructured.Unstructured{}
+				createdSM.SetAPIVersion("monitoring.coreos.com/v1")
+				createdSM.SetKind("ServiceMonitor")
+				err := cli.Get(ctx, ctrl.ObjectKey{Name: "rekor-monitor-test-servicemonitor", Namespace: namespace.Name}, createdSM)
+				g.Expect(err).ToNot(HaveOccurred(), "ServiceMonitor should exist")
+			}, 10*time.Second, 1*time.Second).Should(Succeed())
+
+			By("Verifying ServiceMonitor selector matches rekor monitor service")
+			createdSM := &unstructured.Unstructured{}
+			createdSM.SetAPIVersion("monitoring.coreos.com/v1")
+			createdSM.SetKind("ServiceMonitor")
+			err = cli.Get(ctx, ctrl.ObjectKey{Name: "rekor-monitor-test-servicemonitor", Namespace: namespace.Name}, createdSM)
+			Expect(err).ToNot(HaveOccurred())
+
+			selector, found, err := unstructured.NestedMap(createdSM.Object, "spec", "selector", "matchLabels")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(found).To(BeTrue(), "ServiceMonitor should have selector")
+			Expect(selector["app.kubernetes.io/component"]).To(Equal("rekor-monitor"))
+			Expect(selector["app.kubernetes.io/name"]).To(Equal(rekorMonitorService.Labels["app.kubernetes.io/name"]))
+
+			By("Cleaning up ServiceMonitor")
+			err = cli.Delete(ctx, serviceMonitor)
+			Expect(err).ToNot(HaveOccurred(), "Should be able to delete ServiceMonitor")
+		})
 	})
 
 	Describe("Monitor Functionality", func() {
@@ -178,35 +303,6 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 		})
 
 		It("should allow Prometheus to scrape Rekor monitor metrics", func(ctx SpecContext) {
-			var serviceMonitor *unstructured.Unstructured
-
-			By("Verifying rekor monitor service exists and has correct labels for ServiceMonitor")
-			var rekorMonitorService *v1.Service
-			Eventually(func(g Gomega) {
-				serviceList := &v1.ServiceList{}
-				err := cli.List(ctx, serviceList, ctrl.InNamespace(namespace.Name))
-				g.Expect(err).ToNot(HaveOccurred())
-
-				for _, svc := range serviceList.Items {
-					// Check for both possible service names
-					if svc.Name == "rekor-monitor" || svc.Name == actions.MonitorComponentName {
-						rekorMonitorService = &svc
-						break
-					}
-				}
-				g.Expect(rekorMonitorService).ToNot(BeNil(), fmt.Sprintf("Should find rekor-monitor service. Available services: %v",
-					func() []string {
-						names := []string{}
-						for _, svc := range serviceList.Items {
-							names = append(names, fmt.Sprintf("%s (labels: %v)", svc.Name, svc.Labels))
-						}
-						return names
-					}()))
-
-				g.Expect(rekorMonitorService.Labels["app.kubernetes.io/component"]).To(Equal("rekor-monitor"),
-					fmt.Sprintf("Service should have correct component label. Current labels: %v", rekorMonitorService.Labels))
-			}, 30*time.Second, 2*time.Second).Should(Succeed())
-
 			By("Testing direct access to rekor monitor metrics endpoint")
 			Eventually(func(g Gomega) {
 				// Test direct access to metrics by using existing GetMonitorMetricValues function
@@ -219,52 +315,6 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 				g.Expect(verFailure).To(BeNumerically(">=", 0),
 					"log_index_verification_failure should be accessible and non-negative")
 			}, 30*time.Second, 2*time.Second).Should(Succeed())
-
-			By("Creating and validating ServiceMonitor for rekor monitor")
-			if cli.Scheme().IsVersionRegistered(schema.GroupVersion{Group: "monitoring.coreos.com", Version: "v1"}) {
-				serviceMonitor = &unstructured.Unstructured{}
-				serviceMonitor.SetAPIVersion("monitoring.coreos.com/v1")
-				serviceMonitor.SetKind("ServiceMonitor")
-				serviceMonitor.SetName("rekor-monitor-test-servicemonitor")
-				serviceMonitor.SetNamespace(namespace.Name)
-				serviceMonitor.SetLabels(map[string]string{
-					"app": "rekor-monitor-test",
-				})
-
-				spec := map[string]interface{}{
-					"selector": map[string]interface{}{
-						"matchLabels": map[string]interface{}{
-							"app.kubernetes.io/component": "rekor-monitor",
-							"app.kubernetes.io/name":      rekorMonitorService.Labels["app.kubernetes.io/name"],
-						},
-					},
-					"endpoints": []interface{}{
-						map[string]interface{}{
-							"port":     "monitor-metrics",
-							"interval": "30s",
-							"path":     "/metrics",
-						},
-					},
-				}
-				serviceMonitor.Object["spec"] = spec
-
-				err := cli.Create(ctx, serviceMonitor)
-				Expect(err).ToNot(HaveOccurred(), "Should be able to create ServiceMonitor")
-
-				By("Verifying ServiceMonitor was created successfully")
-				Eventually(func(g Gomega) {
-					createdSM := &unstructured.Unstructured{}
-					createdSM.SetAPIVersion("monitoring.coreos.com/v1")
-					createdSM.SetKind("ServiceMonitor")
-					err := cli.Get(ctx, ctrl.ObjectKey{Name: "rekor-monitor-test-servicemonitor", Namespace: namespace.Name}, createdSM)
-					g.Expect(err).ToNot(HaveOccurred(), "ServiceMonitor should exist")
-				}, 10*time.Second, 1*time.Second).Should(Succeed())
-
-				By("Cleaning up ServiceMonitor")
-				_ = cli.Delete(ctx, serviceMonitor)
-			} else {
-				Skip("Prometheus operator CRDs not available - skipping ServiceMonitor test")
-			}
 
 			By("Testing that metrics are exposed in Prometheus format")
 			Eventually(func(g Gomega) {
