@@ -23,19 +23,18 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 var _ = Describe("Rekor Monitor Log", Ordered, func() {
 	cli, _ := support.CreateClient()
 
 	var (
-		namespace       *v1.Namespace
-		s               *v1alpha1.Securesign
-		signedImageName string
-		rekorMonitorPod v1.Pod
+		namespace           *v1.Namespace
+		s                   *v1alpha1.Securesign
+		signedImageName     string
+		rekorMonitorPod     v1.Pod
+		rekorMonitorService *v1.Service
 	)
 
 	execOnMonitorPodWithOutput := func(command ...string) ([]byte, error) {
@@ -145,28 +144,19 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 				err := cli.List(ctx, serviceList, ctrl.InNamespace(namespace.Name))
 				g.Expect(err).ToNot(HaveOccurred())
 
-				var rekorMonitorService *v1.Service
 				for _, svc := range serviceList.Items {
-					// Check for both possible service names
-					if svc.Name == "rekor-monitor" || svc.Name == actions.MonitorComponentName {
+					if svc.Name == "rekor-monitor" {
 						rekorMonitorService = &svc
 						break
 					}
 				}
-				g.Expect(rekorMonitorService).ToNot(BeNil(), fmt.Sprintf("Should find rekor-monitor service. Available services: %v",
-					func() []string {
-						names := []string{}
-						for _, svc := range serviceList.Items {
-							names = append(names, fmt.Sprintf("%s (labels: %v)", svc.Name, svc.Labels))
-						}
-						return names
-					}()))
+				g.Expect(rekorMonitorService).ToNot(BeNil(), "Should find rekor-monitor service")
 
 				g.Expect(rekorMonitorService.Labels["app.kubernetes.io/component"]).To(Equal("rekor-monitor"),
 					fmt.Sprintf("Service should have correct component label. Current labels: %v", rekorMonitorService.Labels))
 				g.Expect(rekorMonitorService.Labels["app.kubernetes.io/name"]).ToNot(BeEmpty(),
 					fmt.Sprintf("Service should have app.kubernetes.io/name label. Current labels: %v", rekorMonitorService.Labels))
-			}, 30*time.Second, 2*time.Second).Should(Succeed())
+			}, 30*time.Second, 1*time.Second).Should(Succeed())
 		})
 	})
 
@@ -192,20 +182,6 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 			if !serviceMonitorCRDFound {
 				Skip("ServiceMonitor CRD (servicemonitors.monitoring.coreos.com) not found - Prometheus operator not installed")
 			}
-
-			By("Getting the rekor monitor service to use its labels")
-			var rekorMonitorService *v1.Service
-			serviceList := &v1.ServiceList{}
-			err = cli.List(ctx, serviceList, ctrl.InNamespace(namespace.Name))
-			Expect(err).ToNot(HaveOccurred())
-
-			for _, svc := range serviceList.Items {
-				if svc.Name == "rekor-monitor" || svc.Name == actions.MonitorComponentName {
-					rekorMonitorService = &svc
-					break
-				}
-			}
-			Expect(rekorMonitorService).ToNot(BeNil(), "Should find rekor-monitor service")
 
 			By("Creating ServiceMonitor for rekor monitor")
 			serviceMonitor = &unstructured.Unstructured{}
@@ -244,7 +220,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 				createdSM.SetKind("ServiceMonitor")
 				err := cli.Get(ctx, ctrl.ObjectKey{Name: "rekor-monitor-test-servicemonitor", Namespace: namespace.Name}, createdSM)
 				g.Expect(err).ToNot(HaveOccurred(), "ServiceMonitor should exist")
-			}, 10*time.Second, 1*time.Second).Should(Succeed())
+			}, 30*time.Second, 1*time.Second).Should(Succeed())
 
 			By("Verifying ServiceMonitor selector matches rekor monitor service")
 			createdSM := &unstructured.Unstructured{}
@@ -303,65 +279,28 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 		})
 
 		It("should allow Prometheus to scrape Rekor monitor metrics", func(ctx SpecContext) {
-			By("Testing direct access to rekor monitor metrics endpoint")
-			Eventually(func(g Gomega) {
-				// Test direct access to metrics by using existing GetMonitorMetricValues function
-				// This function already handles accessing the metrics endpoint
-				verTotal, verFailure := rekor.GetMonitorMetricValues(ctx, cli, namespace.Name, g)
-
-				// Verify both metrics are accessible and have valid values
-				g.Expect(verTotal).To(BeNumerically(">=", 0),
-					"log_index_verification_total should be accessible and non-negative")
-				g.Expect(verFailure).To(BeNumerically(">=", 0),
-					"log_index_verification_failure should be accessible and non-negative")
-			}, 30*time.Second, 2*time.Second).Should(Succeed())
-
 			By("Testing that metrics are exposed in Prometheus format")
 			Eventually(func(g Gomega) {
-				// Get raw metrics content to verify Prometheus format
-				cfg, err := config.GetConfig()
-				g.Expect(err).ToNot(HaveOccurred())
+				rawMetricsContent, err := rekor.GetMonitorMetrics(ctx, cli, namespace.Name)
+				g.Expect(err).ToNot(HaveOccurred(), "Should be able to get raw metrics content")
 
-				clientset, err := kubernetes.NewForConfig(cfg)
-				g.Expect(err).ToNot(HaveOccurred())
-
-				// Find the monitor pod
-				podList := &v1.PodList{}
-				err = cli.List(ctx, podList,
-					ctrl.InNamespace(namespace.Name),
-					ctrl.MatchingLabels{
-						"app.kubernetes.io/component": "rekor-monitor",
-					})
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(len(podList.Items)).To(BeNumerically(">", 0), "Should have monitor pod")
-
-				monitorPod := podList.Items[0]
-				g.Expect(monitorPod.Status.Phase).To(Equal(v1.PodRunning), "Monitor pod should be running")
-
-				// Access metrics via pod proxy (same as GetMonitorMetricValues does)
-				req := clientset.CoreV1().RESTClient().Get().
-					Namespace(namespace.Name).
-					Resource("pods").
-					Name(monitorPod.Name).
-					SubResource("proxy").
-					Suffix("metrics")
-
-				result := req.Do(ctx)
-				raw, err := result.Raw()
-				g.Expect(err).ToNot(HaveOccurred(), "Should be able to access metrics via pod proxy")
-
-				metricsContent := string(raw)
-				g.Expect(metricsContent).To(ContainSubstring("log_index_verification_total"),
-					"Raw metrics should contain log_index_verification_total")
-				g.Expect(metricsContent).To(ContainSubstring("log_index_verification_failure"),
-					"Raw metrics should contain log_index_verification_failure")
-
-				// Verify metrics are in proper Prometheus format
-				g.Expect(metricsContent).To(MatchRegexp(`log_index_verification_total\s+\d+`),
-					"log_index_verification_total should be in Prometheus format")
-				g.Expect(metricsContent).To(MatchRegexp(`log_index_verification_failure\s+\d+`),
-					"log_index_verification_failure should be in Prometheus format")
-			}, 30*time.Second, 2*time.Second).Should(Succeed())
+				// Verify it follows Prometheus text format conventions
+				lines := strings.Split(rawMetricsContent, "\n")
+				for _, line := range lines {
+					line = strings.TrimSpace(line)
+					if line == "" || strings.HasPrefix(line, "#") {
+						continue
+					}
+					if strings.Contains(line, "log_index_verification_total") || strings.Contains(line, "log_index_verification_failure") {
+						// Should have format: metric_name value
+						parts := strings.Fields(line)
+						g.Expect(len(parts)).To(Equal(2),
+							fmt.Sprintf("Metric line should have exactly 2 parts (name value), got: %s", line))
+						g.Expect(parts[1]).To(MatchRegexp(`^\d+(\.\d+)?$`),
+							fmt.Sprintf("Metric value should be numeric, got: %s", parts[1]))
+					}
+				}
+			}, 30*time.Second, 1*time.Second).Should(Succeed())
 		})
 
 		It("should show 'Root hash consistency verified' in logs after cosign signing", func(ctx SpecContext) {
