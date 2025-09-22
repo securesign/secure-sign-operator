@@ -8,11 +8,13 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/labels"
 	common "github.com/securesign/operator/internal/testing/common/tsa"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apilabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -32,7 +34,6 @@ func Test_NTPName(t *testing.T) {
 }
 
 func Test_NTPCanHandle(t *testing.T) {
-	g := NewWithT(t)
 	tests := []struct {
 		name     string
 		testCase func(*rhtasv1alpha1.TimestampAuthority)
@@ -78,8 +79,36 @@ func Test_NTPCanHandle(t *testing.T) {
 		{
 			name: "NTPMonitoring is disabled",
 			testCase: func(instance *rhtasv1alpha1.TimestampAuthority) {
+				instance.Status.Conditions[0].Reason = constants.Creating
 				instance.Spec.NTPMonitoring.Enabled = false
 				instance.Spec.NTPMonitoring.Config = nil
+
+				instance.Status.NTPMonitoring = &rhtasv1alpha1.NTPMonitoring{
+					Enabled: false,
+					Config:  nil,
+				}
+			},
+			expected: false,
+		},
+		{
+			name: "config is nil",
+			testCase: func(instance *rhtasv1alpha1.TimestampAuthority) {
+				instance.Status.Conditions[0].Reason = constants.Creating
+				instance.Spec.NTPMonitoring.Enabled = true
+				instance.Spec.NTPMonitoring.Config = nil
+			},
+			expected: true,
+		},
+		{
+			name: "config is nil and status same",
+			testCase: func(instance *rhtasv1alpha1.TimestampAuthority) {
+				instance.Status.Conditions[0].Reason = constants.Creating
+				instance.Spec.NTPMonitoring.Enabled = true
+				instance.Spec.NTPMonitoring.Config = nil
+				instance.Status.NTPMonitoring = &rhtasv1alpha1.NTPMonitoring{
+					Enabled: true,
+					Config:  nil,
+				}
 			},
 			expected: false,
 		},
@@ -87,6 +116,7 @@ func Test_NTPCanHandle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
 			action := NewNtpMonitoringAction()
 			instance := common.GenerateTSAInstance()
 			tt.testCase(instance)
@@ -224,6 +254,29 @@ func Test_NTPHandle(t *testing.T) {
 
 				g.Expect(meta.FindStatusCondition(instance.Status.Conditions, constants.Ready).Message).To(Equal("NTP monitoring configured"))
 
+				return true
+			},
+		},
+		{
+			name: "config is nil",
+			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
+				instance.Status.Conditions[0].Reason = constants.Creating
+				instance.Spec.NTPMonitoring.Config = nil
+				return common.TsaTestSetup(instance, t, nil, NewNtpMonitoringAction(), []client.Object{}...)
+			},
+			testCase: func(g Gomega, a action.Action[*rhtasv1alpha1.TimestampAuthority], cli client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {
+				g.Expect(instance.Status.NTPMonitoring).NotTo(BeNil(), "Status NTP Monitoring Config should not be nil")
+				g.Expect(instance.Status.NTPMonitoring.Config).To(BeNil(), "Status NTP Monitoring Config should not be nil")
+
+				l := map[string]string{
+					labels.LabelResource: ntpConfigLabel,
+				}
+
+				list := &corev1.ConfigMapList{}
+				g.Expect(cli.List(context.TODO(), list, &client.ListOptions{LabelSelector: apilabels.SelectorFromSet(l)})).To(Succeed())
+				g.Expect(list.Items).To(BeEmpty(), "List should be empty")
+
+				g.Expect(meta.FindStatusCondition(instance.Status.Conditions, constants.Ready).Message).To(Equal("NTP monitoring configured"))
 				return true
 			},
 		},
