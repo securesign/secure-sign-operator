@@ -1,10 +1,9 @@
 //go:build integration
 
-package e2e
+package deployment
 
 import (
 	"fmt"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -12,7 +11,7 @@ import (
 	"github.com/securesign/operator/test/e2e/support"
 	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/steps"
-	clients "github.com/securesign/operator/test/e2e/support/tas/cli"
+	"github.com/securesign/operator/test/e2e/support/tas"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
 	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
 	"github.com/securesign/operator/test/e2e/support/tas/rekor"
@@ -346,38 +345,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			ts := tsa.Get(ctx, cli, namespaces["tsa"].Name, tsaObject.Name)
 			Expect(ts).ToNot(BeNil())
 
-			Eventually(func() error {
-				return tsa.GetCertificateChain(ctx, cli, "", "", ts.Status.Url)
-			}).Should(Succeed())
-
-			oidcToken, err := support.OidcToken(ctx)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(oidcToken).ToNot(BeEmpty())
-
-			// sleep for a while to be sure everything has settled down
-			time.Sleep(time.Duration(10) * time.Second)
-
-			Expect(clients.Execute("cosign", "initialize", "--mirror="+t.Status.Url, "--root="+t.Status.Url+"/root.json")).To(Succeed())
-
-			Expect(clients.Execute(
-				"cosign", "sign", "-y",
-				"--fulcio-url="+f.Status.Url,
-				"--rekor-url="+r.Status.Url,
-				"--timestamp-server-url="+ts.Status.Url+"/api/v1/timestamp",
-				"--oidc-issuer="+support.OidcIssuerUrl(),
-				"--oidc-client-id="+support.OidcClientID(),
-				"--identity-token="+oidcToken,
-				targetImageName,
-			)).To(Succeed())
-
-			Expect(clients.Execute(
-				"cosign", "verify",
-				"--rekor-url="+r.Status.Url,
-				"--timestamp-certificate-chain=ts_chain.pem",
-				"--certificate-identity-regexp", ".*@redhat",
-				"--certificate-oidc-issuer-regexp", ".*keycloak.*",
-				targetImageName,
-			)).To(Succeed())
+			tas.VerifyByCosignCustom(ctx, cli, f, r, t, ts, targetImageName)
 		})
 	})
 })

@@ -1,6 +1,6 @@
 //go:build integration
 
-package e2e
+package byo
 
 import (
 	"github.com/securesign/operator/test/e2e/support/steps"

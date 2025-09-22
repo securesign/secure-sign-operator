@@ -136,7 +136,7 @@ test: manifests generate fmt vet envtest ## Run tests.
 # Utilize Kind or modify the e2e tests to load the image locally, enabling compatibility with other vendors.
 .PHONY: test-e2e  # Run the e2e tests against a Kind k8s instance that is spun up.
 test-e2e: generate
-	go test -p 1 ./test/e2e/... -tags=integration -timeout 20m
+	go test ./test/e2e/... -tags=integration -timeout 20m
 
 # Switch images from `registry.redhat.io` images to the dev images
 .PHONY: dev-images
