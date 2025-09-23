@@ -163,6 +163,15 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 	Describe("ServiceMonitor Creation", func() {
 		It("should create and validate ServiceMonitor for rekor monitor", func(ctx SpecContext) {
 			var serviceMonitor *unstructured.Unstructured
+			defer func() {
+				if serviceMonitor != nil {
+					By("Cleaning up ServiceMonitor")
+					err := cli.Delete(ctx, serviceMonitor)
+					if err != nil {
+						GinkgoLogr.Error(err, "Failed to cleanup ServiceMonitor", "name", serviceMonitor.GetName())
+					}
+				}
+			}()
 
 			By("Checking if ServiceMonitor CRD is available in the cluster")
 			crdList := &unstructured.UnstructuredList{}
@@ -234,10 +243,6 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 			Expect(found).To(BeTrue(), "ServiceMonitor should have selector")
 			Expect(selector["app.kubernetes.io/component"]).To(Equal("rekor-monitor"))
 			Expect(selector["app.kubernetes.io/name"]).To(Equal(rekorMonitorService.Labels["app.kubernetes.io/name"]))
-
-			By("Cleaning up ServiceMonitor")
-			err = cli.Delete(ctx, serviceMonitor)
-			Expect(err).ToNot(HaveOccurred(), "Should be able to delete ServiceMonitor")
 		})
 	})
 
