@@ -294,7 +294,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 					if strings.Contains(line, "log_index_verification_total") || strings.Contains(line, "log_index_verification_failure") {
 						// Should have format: metric_name value
 						parts := strings.Fields(line)
-						g.Expect(len(parts)).To(Equal(2),
+						g.Expect(parts).To(HaveLen(2),
 							fmt.Sprintf("Metric line should have exactly 2 parts (name value), got: %s", line))
 						g.Expect(parts[1]).To(MatchRegexp(`^\d+(\.\d+)?$`),
 							fmt.Sprintf("Metric value should be numeric, got: %s", parts[1]))
