@@ -47,7 +47,7 @@ LABEL io.k8s.display-name="RHTAS operator container image for Red Hat Trusted Ar
 LABEL io.openshift.tags="rhtas-operator, Red Hat Trusted Artifact Signer."
 LABEL summary="Operator for the rhtas-operator."
 LABEL com.redhat.component="rhtas-operator"
-LABEL name="rhtas-operator"
+LABEL name="rhtas/rhtas-rhel9-operator"
 LABEL version=$VERSION
 
 LABEL features.operators.openshift.io/cni="false"
