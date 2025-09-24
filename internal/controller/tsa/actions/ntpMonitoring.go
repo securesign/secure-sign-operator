@@ -49,26 +49,34 @@ func (i ntpMonitoringAction) CanHandle(ctx context.Context, instance *rhtasv1alp
 		return false
 	case c.Reason != constants.Creating && c.Reason != constants.Ready:
 		return false
-	case instance.Spec.NTPMonitoring.Config != nil:
-		return !equality.Semantic.DeepEqual(instance.Spec.NTPMonitoring, instance.Status.NTPMonitoring)
-	case c.Reason == constants.Ready:
-		return instance.Generation != c.ObservedGeneration
+	case instance.Status.NTPMonitoring == nil:
+		return true
+	case instance.Generation != c.ObservedGeneration:
+		return true
 	default:
-		return false
+		return !equality.Semantic.DeepDerivative(instance.Spec.NTPMonitoring, *instance.Status.NTPMonitoring)
 	}
 }
 
 func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.TimestampAuthority) *action.Result {
 
-	var newStatus *rhtasv1alpha1.NTPMonitoring
-	if instance.Status.NTPMonitoring == nil {
-		newStatus = instance.Spec.NTPMonitoring.DeepCopy()
-	} else {
-		newStatus = instance.Status.NTPMonitoring
+	var newStatus = instance.Spec.NTPMonitoring.DeepCopy()
+
+	if instance.Spec.NTPMonitoring.Config == nil {
+		i.alignStatusFields(&instance.Spec.NTPMonitoring, newStatus, "")
+		instance.Status.NTPMonitoring = newStatus
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:               constants.Ready,
+			Status:             metav1.ConditionFalse,
+			Reason:             constants.Creating,
+			Message:            "NTP monitoring configured",
+			ObservedGeneration: instance.Generation,
+		})
+		return i.StatusUpdate(ctx, instance)
 	}
 
 	if instance.Spec.NTPMonitoring.Config.NtpConfigRef != nil {
-		i.alignStatusFields(instance, newStatus, cmName)
+		i.alignStatusFields(&instance.Spec.NTPMonitoring, newStatus, cmName)
 		instance.Status.NTPMonitoring = newStatus
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               constants.Ready,
@@ -85,7 +93,7 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		cmName string
 	)
 
-	ntpConfig, err := i.handleNTPMonitoring(instance)
+	ntpConfig, err := i.marshalNTPMonitoringConfig(instance.Spec.NTPMonitoring.Config)
 	if err != nil {
 		return i.Error(ctx, err, instance, metav1.Condition{
 			Type:               constants.Ready,
@@ -126,7 +134,7 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		}
 		if reflect.DeepEqual(cm.Data[ntpConfigName], string(ntpConfig)) && newStatus.Config.NtpConfigRef == nil {
 			i.Recorder.Eventf(instance, v1.EventTypeNormal, "NTPConfigDiscovered", "Existing ConfigMap with NTP configuration discovered: %s", cm.Name)
-			i.alignStatusFields(instance, newStatus, cm.Name)
+			i.alignStatusFields(&instance.Spec.NTPMonitoring, newStatus, cm.Name)
 			instance.Status.NTPMonitoring = newStatus
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:               constants.Ready,
@@ -162,7 +170,7 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 
 	cmName = configMap.Name
 
-	i.alignStatusFields(instance, newStatus, cmName)
+	i.alignStatusFields(&instance.Spec.NTPMonitoring, newStatus, cmName)
 	instance.Status.NTPMonitoring = newStatus
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               constants.Ready,
@@ -174,20 +182,24 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	return i.StatusUpdate(ctx, instance)
 }
 
-func (i ntpMonitoringAction) handleNTPMonitoring(instance *rhtasv1alpha1.TimestampAuthority) ([]byte, error) {
+func (i ntpMonitoringAction) marshalNTPMonitoringConfig(instance *rhtasv1alpha1.NtpMonitoringConfig) ([]byte, error) {
 	var (
 		err    error
 		config []byte
 	)
 
+	if instance == nil {
+		return make([]byte, 0), nil
+	}
+
 	ntpConfig := tsaUtils.NtpConfig{
-		RequestAttempts: instance.Spec.NTPMonitoring.Config.RequestAttempts,
-		RequestTimeout:  instance.Spec.NTPMonitoring.Config.RequestTimeout,
-		NumServers:      instance.Spec.NTPMonitoring.Config.NumServers,
-		MaxTimeDelta:    instance.Spec.NTPMonitoring.Config.MaxTimeDelta,
-		ServerThreshold: instance.Spec.NTPMonitoring.Config.ServerThreshold,
-		Period:          instance.Spec.NTPMonitoring.Config.Period,
-		Servers:         instance.Spec.NTPMonitoring.Config.Servers,
+		RequestAttempts: instance.RequestAttempts,
+		RequestTimeout:  instance.RequestTimeout,
+		NumServers:      instance.NumServers,
+		MaxTimeDelta:    instance.MaxTimeDelta,
+		ServerThreshold: instance.ServerThreshold,
+		Period:          instance.Period,
+		Servers:         instance.Servers,
 	}
 	config, err = yaml.Marshal(&ntpConfig)
 	if err != nil {
@@ -196,14 +208,14 @@ func (i ntpMonitoringAction) handleNTPMonitoring(instance *rhtasv1alpha1.Timesta
 	return config, nil
 }
 
-func (i ntpMonitoringAction) alignStatusFields(instance *rhtasv1alpha1.TimestampAuthority, newStatus *rhtasv1alpha1.NTPMonitoring, cmName string) {
-	if newStatus == nil {
-		newStatus = new(rhtasv1alpha1.NTPMonitoring)
+func (i ntpMonitoringAction) alignStatusFields(spec *rhtasv1alpha1.NTPMonitoring, newStatus *rhtasv1alpha1.NTPMonitoring, cmName string) {
+	if spec.Config == nil || newStatus == nil {
+		return
 	}
-	instance.Spec.NTPMonitoring.DeepCopyInto(newStatus)
+	spec.DeepCopyInto(newStatus)
 
-	if instance.Spec.NTPMonitoring.Config.NtpConfigRef != nil {
-		newStatus.Config.NtpConfigRef = instance.Spec.NTPMonitoring.Config.NtpConfigRef
+	if spec.Config.NtpConfigRef != nil {
+		newStatus.Config.NtpConfigRef = spec.Config.NtpConfigRef
 	} else if cmName != "" {
 		newStatus.Config.NtpConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: cmName}
 	}

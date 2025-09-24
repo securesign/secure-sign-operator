@@ -50,14 +50,11 @@ func (i deployAction) Name() string {
 }
 
 func (i deployAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.TimestampAuthority) bool {
-	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
-	if instance.Spec.Signer.CertificateChain.CertificateChainRef == nil &&
-		(instance.Spec.Signer.CertificateChain.RootCA == nil ||
-			instance.Spec.Signer.CertificateChain.LeafCA == nil) {
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	if c == nil {
 		return false
 	}
-
-	return (c.Reason == constants.Ready || c.Reason == constants.Creating)
+	return c.Reason == constants.Creating || c.Reason == constants.Ready
 }
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.TimestampAuthority) *action.Result {
