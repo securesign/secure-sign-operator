@@ -16,7 +16,7 @@ import (
 )
 
 func GetMonitorMetricValues(ctx context.Context, cli client.Client, ns string, g gomega.Gomega) (float64, float64) {
-	metricsContent, err := getMonitorMetrics(ctx, cli, ns)
+	metricsContent, err := GetMonitorMetrics(ctx, cli, ns)
 	g.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get monitor metrics")
 
 	verTotal, err := parseMetricValue(metricsContent, "log_index_verification_total")
@@ -38,7 +38,7 @@ func parseMetricValue(metricsContent, metricName string) (float64, error) {
 	return strconv.ParseFloat(matches[1], 64)
 }
 
-func getMonitorMetrics(ctx context.Context, cli client.Client, ns string) (string, error) {
+func GetMonitorMetrics(ctx context.Context, cli client.Client, ns string) (string, error) {
 	monitorPod := getMonitorPod(ctx, cli, ns)
 	if monitorPod == nil {
 		return "", fmt.Errorf("monitor pod not found in namespace %s", ns)
