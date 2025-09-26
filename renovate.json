@@ -7,8 +7,8 @@
     {
       "customType": "regex",
       "description": "Update container images in images.env files",
-      "fileMatch": [
-        "images\\.env$"
+      "managerFilePatterns": [
+        "/images\\.env$/"
       ],
       "matchStrings": [
         "RELATED_IMAGE_[A-Z_]+=(?<depName>[0-9a-z./-]+)(?::(?<currentValue>[0-9a-z.-]+))?@(?<currentDigest>sha256:[a-f0-9]{64})"

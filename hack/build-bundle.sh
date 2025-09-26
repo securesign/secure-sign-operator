@@ -3,7 +3,7 @@ set -e
 
 TOOLS="/tmp"
 
-if [ -d "/cachi2" ]
+if [ -f "/cachi2/output/deps/generic/kustomize_v5.6.0_linux_amd64.tar.gz" ]
 then
   tar -xzf /cachi2/output/deps/generic/kustomize_v5.6.0_linux_amd64.tar.gz -C ${TOOLS}
   KUSTOMIZE=${TOOLS}/kustomize
