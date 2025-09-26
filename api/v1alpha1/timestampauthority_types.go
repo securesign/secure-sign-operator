@@ -38,6 +38,10 @@ type TimestampAuthoritySpec struct {
 	//Configuration for NTP monitoring
 	//+optional
 	NTPMonitoring NTPMonitoring `json:"ntpMonitoring,omitempty"`
+	// MaxRequestBodySize sets the maximum size in bytes for HTTP request body. Passed as --max-request-body-size.
+	//+kubebuilder:default:=1048576
+	//+optional
+	MaxRequestBodySize *int64 `json:"maxRequestBodySize,omitempty"`
 }
 
 // TimestampAuthoritySigner defines the desired state of the Timestamp Authority Signer

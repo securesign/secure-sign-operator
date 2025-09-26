@@ -26,9 +26,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const secretNameFormat = "rekor-signer-%s-"
-
-const RekorSignerLabel = labels.LabelNamespace + "/rekor.signer.pem"
+const (
+	secretNameFormat = "rekor-signer-%s-"
+	RekorSignerLabel = labels.LabelNamespace + "/rekor.signer.pem"
+	signerKMSSecret  = "secret"
+)
 
 func NewGenerateSignerAction() action.Action[*v1alpha1.Rekor] {
 	return &generateSigner{}
@@ -48,7 +50,7 @@ func (g generateSigner) CanHandle(_ context.Context, instance *v1alpha1.Rekor) b
 	}
 
 	switch instance.Spec.Signer.KMS {
-	case "secret", "":
+	case signerKMSSecret, "":
 		return instance.Status.Signer.KeyRef == nil || !equality.Semantic.DeepDerivative(instance.Spec.Signer, instance.Status.Signer)
 	default:
 		return !equality.Semantic.DeepDerivative(instance.Spec.Signer, instance.Status.Signer)
@@ -56,7 +58,7 @@ func (g generateSigner) CanHandle(_ context.Context, instance *v1alpha1.Rekor) b
 }
 
 func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *action.Result {
-	if instance.Spec.Signer.KMS != "secret" && instance.Spec.Signer.KMS != "" {
+	if instance.Spec.Signer.KMS != signerKMSSecret && instance.Spec.Signer.KMS != "" {
 		instance.Status.Signer = instance.Spec.Signer
 		// force recreation of public key ref
 		instance.Status.PublicKeyRef = nil

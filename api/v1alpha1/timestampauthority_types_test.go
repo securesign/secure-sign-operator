@@ -357,6 +357,7 @@ func generateTSAObject(name string) *TimestampAuthority {
 					},
 				},
 			},
+			MaxRequestBodySize: ptr.To(int64(1048576)),
 		},
 	}
 }
