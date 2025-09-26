@@ -108,6 +108,9 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.TimestampAuthorit
 			fmt.Sprintf("--certificate-chain-path=%s/certificate-chain.pem", certChainMountPath),
 			fmt.Sprintf("--disable-ntp-monitoring=%v", !instance.Spec.NTPMonitoring.Enabled),
 		}
+		if instance.Spec.MaxRequestBodySize != nil {
+			appArgs = append(appArgs, "--max-request-body-size", fmt.Sprintf("%d", *instance.Spec.MaxRequestBodySize))
+		}
 
 		spec := &dp.Spec
 		spec.Replicas = utils.Pointer[int32](1)
