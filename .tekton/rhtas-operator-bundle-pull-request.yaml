@@ -116,6 +116,10 @@ spec:
       name: go_base_image
       type: string
       default: registry.access.redhat.com/ubi9/go-toolset@sha256:c7bfd2501cb1be171366434a368db669b32f08a0198c1473b9bff0a379613fc3
+    - name: buildah-format
+      default: docker
+      type: string
+      description: The format for the resulting image's mediaType. Valid values are oci or docker.
     results:
     - description: ''
       name: IMAGE_URL
@@ -143,7 +147,7 @@ spec:
         - name: name
           value: init
         - name: bundle
-          value: quay.io/konflux-ci/tekton-catalog/task-init:0.2@sha256:ec962d0be18f36ca7d331c99bf243800f569fc0a2ea6f8c8c3d3a574b71c44dc
+          value: quay.io/konflux-ci/tekton-catalog/task-init:0.2@sha256:abf231cfc5a68b56f68a8ac9bb26dca3c3e434c88dd9627c72bdec0b8c335c67
         - name: kind
           value: task
         resolver: bundles
@@ -249,6 +253,8 @@ spec:
         value:
         - $(tasks.generate-labels.results.labels[*])
         - short-commit=$(tasks.clone-repository.results.short-commit)
+      - name: BUILDAH_FORMAT
+        value: $(params.buildah-format)
       runAfter:
       - prefetch-dependencies
       - generate-labels
@@ -279,6 +285,8 @@ spec:
       - name: IMAGES
         value:
         - $(tasks.build-container.results.IMAGE_URL)@$(tasks.build-container.results.IMAGE_DIGEST)
+      - name: BUILDAH_FORMAT
+        value: $(params.buildah-format)
       runAfter:
       - build-container
       taskRef:
