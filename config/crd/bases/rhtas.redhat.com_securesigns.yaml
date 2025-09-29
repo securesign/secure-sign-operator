@@ -8570,6 +8570,12 @@ spec:
                     required:
                     - enabled
                     type: object
+                  maxRequestBodySize:
+                    default: 1048576
+                    description: MaxRequestBodySize sets the maximum size in bytes for
+                      HTTP request body. Passed as --max-request-body-size.
+                    format: int64
+                    type: integer
                   monitoring:
                     description: Enable Service monitors for Timestamp Authority
                     properties:
