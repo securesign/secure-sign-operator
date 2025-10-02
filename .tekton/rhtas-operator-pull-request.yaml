@@ -44,8 +44,6 @@ spec:
     value: '{{repo_name}}'
   - name: branch
     value: '{{source_branch}}'
-  - name: revision
-    value: '{{revision}}'
   - name: repository-url
     value: '{{repo_url}}'
   - name: test-event
