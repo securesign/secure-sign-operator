@@ -30,7 +30,6 @@ spec:
     value: '{{revision}}'
   - name: output-image
     value: quay.io/securesign/rhtas-operator:on-pr-{{revision}}
-  # Add these parameters
   - name: sealights-output-image
     value: quay.io/redhat-user-workloads/rhtas-tenant/operator/rhtas-operator-sealights:{{revision}}
   - name: sealights-dockerfile
