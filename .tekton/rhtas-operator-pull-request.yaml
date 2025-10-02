@@ -41,19 +41,19 @@ spec:
   - name: path-context
     value: .
   - name: component
-    value: '{{ repo_name }}'
+    value: '{{repo_name}}'
   - name: branch
-    value: '{{ source_branch }}'
+    value: '{{source_branch}}'
   - name: revision
-    value: '{{ revision }}'
+    value: '{{revision}}'
   - name: repository-url
-    value: '{{ repo_url }}'
+    value: '{{repo_url}}'
   - name: test-event
-    value: '{{ event_type }}'
+    value: '{{event_type}}'
   - name: pull-request-number
-    value: '{{ pull_request_number }}'
+    value: '{{pull_request_number}}'
   - name: target-branch
-    value: '{{ target_branch }}'
+    value: '{{target_branch}}'
   - name: build-platforms
     value:
     - linux/x86_64
