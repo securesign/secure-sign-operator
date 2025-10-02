@@ -1,6 +1,6 @@
 apiVersion: tekton.dev/v1
 kind: PipelineRun
-metadata:
+metadata: #
   annotations:
     build.appstudio.openshift.io/repo: https://github.com/securesign/secure-sign-operator?rev={{revision}}
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
