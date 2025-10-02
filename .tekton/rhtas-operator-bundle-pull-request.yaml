@@ -13,7 +13,7 @@ metadata:
       || "config/***".pathChanged() || "hack/***".pathChanged()
       || "api/***".pathChanged() || "internal/***".pathChanged() || "cmd/***".pathChanged()
       || "test/***".pathChanged()
-      || "go.mod".pathChanged() || "go.sum".pathChanged())
+      || "go.mod".pathChanged() || "go.sum".pathChanged() || "trigger-konflux-builds.txt".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: operator
