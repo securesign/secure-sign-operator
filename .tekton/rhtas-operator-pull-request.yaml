@@ -30,6 +30,13 @@ spec:
     value: '{{revision}}'
   - name: output-image
     value: quay.io/securesign/rhtas-operator:on-pr-{{revision}}
+  # Add these parameters
+  - name: sealights-output-image
+    value: quay.io/redhat-user-workloads/rhtas-tenant/operator/rhtas-operator-sealights:{{revision}}
+  - name: sealights-dockerfile
+    value: Dockerfile.sealights
+  - name: sealights-image-expires-after
+    value: '5d'
   - name: dockerfile
     value: Dockerfile.rhtas-operator.rh
   - name: path-context
@@ -50,7 +57,7 @@ spec:
     - name: url
       value: https://github.com/securesign/pipelines.git
     - name: revision
-      value: main
+      value: SealightsExperimental
     - name: pathInRepo
       value: pipelines/docker-build-multi-platform-oci-ta.yaml
     resolver: git
