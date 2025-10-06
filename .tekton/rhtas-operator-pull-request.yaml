@@ -33,7 +33,7 @@ spec:
   - name: sealights-output-image
     value: quay.io/redhat-user-workloads/rhtas-tenant/operator/rhtas-operator-sealights:{{revision}}
   - name: sealights-dockerfile
-    value: Dockerfile.sealights
+    value: Dockerfile.rhtas-operator.rh
   - name: sealights-image-expires-after
     value: '5d'
   - name: dockerfile
