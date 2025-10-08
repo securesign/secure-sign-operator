@@ -9,6 +9,8 @@ ENV GOEXPERIMENT=strictfipsruntime
 ENV CGO_ENABLED=1
 
 WORKDIR /workspace
+RUN ls
+RUN cat /cachi2/cachi2.env
 # Copy the Go Modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum
