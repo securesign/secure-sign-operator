@@ -132,10 +132,12 @@ jobs:
           BUNDLE_NAME: ${{ env.NEW_OLM_CHANNEL }}
           FBC_DIR: rhtas-operator
           GRAPH: ${{ env.OCP_VERSION }}/rhtas-operator/graph.yaml
+          CHANNELS: "stable,stable-v1.4"
           CATALOG_FILE: ${{ env.OCP_VERSION }}/rhtas-operator/catalog/rhtas-operator/catalog.json
         run: |
           cd fbc
           utils/configure_bundles.sh
+          utils/configure_channels.sh
           utils/render_catalog.sh
           
           cat ${{ env.GRAPH }}
