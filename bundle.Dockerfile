@@ -1,3 +1,4 @@
+#test
 ARG VERSION="1.4.0"
 ARG CHANNELS="stable,stable-v1.4"
 ARG DEFAULT_CHANNEL="stable"
