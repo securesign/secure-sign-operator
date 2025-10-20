@@ -1,8 +1,0 @@
-apiVersion: projctl.konflux.dev/v1beta1
-kind: Project
-metadata:
-  name: operator
-spec:
-  displayName: "Red Hat Trusted Artifact Signer Operator"
-  description: |
-    The RHTAS (Red Hat Trusted Artifact Signer) operator allows for the deployment of a production ready version of the SigStore project.
