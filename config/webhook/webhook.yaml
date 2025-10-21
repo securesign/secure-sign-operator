@@ -1,0 +1,25 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: validation.securesigns.rhtas.redhat.com
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: controller-manager-webhook-service
+      namespace: system
+      path: /validate
+  failurePolicy: Fail
+  name: validation.securesigns.rhtas.redhat.com
+  rules:
+  - apiGroups:
+    - rhtas.redhat.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    resources:
+    - securesigns
+  sideEffects: None

@@ -73,6 +73,7 @@ type SecuresignTSAStatus struct {
 //+kubebuilder:printcolumn:name="Rekor URL",type=string,JSONPath=`.status.rekor.url`,description="The rekor url"
 //+kubebuilder:printcolumn:name="Fulcio URL",type=string,JSONPath=`.status.fulcio.url`,description="The fulcio url"
 //+kubebuilder:printcolumn:name="Tuf URL",type=string,JSONPath=`.status.tuf.url`,description="The tuf url"
+//+kubebuilder:webhook:path=/validate,mutating=false,failurePolicy=fail,groups=rhtas.redhat.com,resources=securesigns,verbs=create;update,versions=v1alpha1,name=securesign.rhtas.redhat.com,sideEffects=None,admissionReviewVersions=v1
 
 // Securesign is the Schema for the securesigns API
 type Securesign struct {
