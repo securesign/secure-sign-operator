@@ -5,7 +5,11 @@ package custom_install
 import (
 	"context"
 	"embed"
+	"errors"
+	"fmt"
+	"io"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,17 +17,23 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
 	"github.com/securesign/operator/test/e2e/support"
+
+	admissionv1 "k8s.io/api/admissionregistration/v1"
 	v1 "k8s.io/api/core/v1"
 	v12 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/utils/ptr"
+
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	runtimeCli "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/yaml"
 )
 
 //go:embed testdata/*
@@ -52,18 +62,34 @@ func uninstallOperator(ctx context.Context, cli runtimeCli.Client, namespace str
 	_ = cli.Delete(ctx, pod)
 	Eventually(func(ctx context.Context) error {
 		return cli.Get(ctx, runtimeCli.ObjectKeyFromObject(pod), &v1.Pod{})
-	}).WithContext(ctx).Should(And(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())))
+	}).WithContext(ctx).Should(And(HaveOccurred(), WithTransform(apierrors.IsNotFound, BeTrue())))
 }
 
 func installOperator(ctx context.Context, cli runtimeCli.Client, ns string, opts ...optManagerPod) {
 	for _, o := range rbac(ns) {
 		c := o.DeepCopyObject().(runtimeCli.Object)
-		if e := cli.Get(ctx, runtimeCli.ObjectKeyFromObject(o), c); !errors.IsNotFound(e) {
+		if e := cli.Get(ctx, runtimeCli.ObjectKeyFromObject(o), c); !apierrors.IsNotFound(e) {
 			Expect(cli.Delete(ctx, o)).To(Succeed())
 		}
 		Expect(cli.Create(ctx, o)).To(Succeed())
 	}
-	Expect(cli.Create(ctx, managerPod(ns, opts...))).To(Succeed())
+
+	for _, o := range webhookInfra(ns) {
+		c := o.DeepCopyObject().(runtimeCli.Object)
+		if e := cli.Get(ctx, runtimeCli.ObjectKeyFromObject(o), c); !apierrors.IsNotFound(e) {
+			Expect(cli.Delete(ctx, o)).To(Succeed())
+		}
+		Expect(cli.Create(ctx, o)).To(Succeed())
+	}
+
+	pod := managerPod(ns, opts...)
+	Expect(cli.Create(ctx, pod)).To(Succeed())
+
+	Expect(WaitForPodReadiness(ctx, cli, pod)).To(Succeed(), "Timed out waiting for manager Pod readiness")
+
+	const webhookConfigName = "validation.securesigns.rhtas.redhat.com"
+	Expect(WaitForWebhookCaInjection(ctx, cli, webhookConfigName)).To(Succeed(),
+		"Timed out waiting for ValidatingWebhookConfiguration to receive CA bundle injection.")
 }
 
 type optManagerPod func(pod *v1.Pod)
@@ -81,6 +107,9 @@ func managerPod(ns string, opts ...optManagerPod) *v1.Pod {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ns,
 			Name:      managerPodName,
+			Labels: map[string]string{
+				"control-plane": "operator-controller-manager",
+			},
 		},
 		Spec: v1.PodSpec{
 			SecurityContext: &v1.PodSecurityContext{
@@ -94,10 +123,23 @@ func managerPod(ns string, opts ...optManagerPod) *v1.Pod {
 					Name:    "manager",
 					Image:   image,
 					Command: []string{"/manager"},
+					Ports: []v1.ContainerPort{
+						{
+							ContainerPort: 9443,
+							Name:          "webhook-port",
+						},
+					},
 					Env: []v1.EnvVar{
 						{
 							Name:  "OPENSHIFT",
 							Value: support.EnvOrDefault("OPENSHIFT", "false"),
+						},
+					},
+					VolumeMounts: []v1.VolumeMount{
+						{
+							Name:      "webhook-cert",
+							ReadOnly:  true,
+							MountPath: "/tmp/k8s-webhook-server/serving-certs",
 						},
 					},
 					LivenessProbe: &v1.Probe{
@@ -123,6 +165,16 @@ func managerPod(ns string, opts ...optManagerPod) *v1.Pod {
 				},
 			},
 			ServiceAccountName: "operator-controller-manager",
+			Volumes: []v1.Volume{
+				{
+					Name: "webhook-cert",
+					VolumeSource: v1.VolumeSource{
+						Secret: &v1.SecretVolumeSource{
+							SecretName: "webhook-server-tls",
+						},
+					},
+				},
+			},
 		},
 	}
 
@@ -143,7 +195,7 @@ func rbac(ns string) []runtimeCli.Object {
 			Fail(err.Error())
 		}
 		u := &unstructured.Unstructured{Object: map[string]interface{}{}}
-		if err := yaml.Unmarshal(bytes, &u); err != nil {
+		if err := yamlutil.Unmarshal(bytes, &u.Object); err != nil {
 			Fail(err.Error())
 		}
 		u.SetNamespace(ns)
@@ -165,4 +217,162 @@ func rbac(ns string) []runtimeCli.Object {
 	}
 
 	return objects
+}
+
+const (
+	CertResourcesPath    = "../../../config/overlays/kubernetes/cert_resources.yaml"
+	WebhookServicePath   = "../../../config/webhook/service.yaml"
+	WebhookConfigPath    = "../../../config/webhook/webhook.yaml"
+	CertManagerPatchPath = "../../../config/overlays/kubernetes/webhook_patch.yaml"
+)
+
+func applyCertManagerAnnotationPatch(u *unstructured.Unstructured, ns string) {
+	patchBytes, err := os.ReadFile(CertManagerPatchPath)
+	if err != nil {
+		Fail(fmt.Errorf("failed to read CertManager patch file: %w", err).Error())
+	}
+
+	patch := &admissionv1.ValidatingWebhookConfiguration{}
+
+	if err := yamlutil.Unmarshal(patchBytes, patch); err != nil {
+		Fail(fmt.Errorf("failed to unmarshal patch YAML: %w", err).Error())
+	}
+
+	baseAnnotations := u.GetAnnotations()
+	if baseAnnotations == nil {
+		baseAnnotations = make(map[string]string)
+	}
+
+	const injectionAnnotationKey = "cert-manager.io/inject-ca-from"
+	originalAnnotationValue := patch.GetAnnotations()[injectionAnnotationKey]
+
+	parts := strings.Split(originalAnnotationValue, "/")
+	certName := parts[len(parts)-1]
+
+	newAnnotationValue := fmt.Sprintf("%s/%s", ns, certName)
+
+	baseAnnotations[injectionAnnotationKey] = newAnnotationValue
+
+	u.SetAnnotations(baseAnnotations)
+
+	GinkgoWriter.Printf("Patched Webhook Config %s with Cert-Manager annotation.\n", u.GetName())
+}
+
+func webhookInfra(ns string) []runtimeCli.Object {
+	files := []string{
+		CertResourcesPath,  // Cert-Manager Issuer & Certificate
+		WebhookServicePath, // The namespaced Service
+		WebhookConfigPath,  // The cluster-scoped ValidatingWebhookConfiguration
+	}
+	var objects = make([]runtimeCli.Object, 0)
+
+	for _, f := range files {
+		bytes, err := os.ReadFile(f)
+		if err != nil {
+			Fail(fmt.Errorf("failed to read file %s: %w", f, err).Error())
+		}
+
+		decoder := yamlutil.NewYAMLOrJSONDecoder(strings.NewReader(string(bytes)), 4096)
+
+		for {
+			u := &unstructured.Unstructured{Object: make(map[string]interface{})}
+
+			if err := decoder.Decode(&u.Object); err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				Fail(fmt.Errorf("failed to decode YAML from %s: %w", f, err).Error())
+			}
+
+			kind := u.GetKind()
+
+			if kind != "ValidatingWebhookConfiguration" {
+				u.SetNamespace(ns)
+			}
+
+			if kind == "ValidatingWebhookConfiguration" {
+				applyCertManagerAnnotationPatch(u, ns)
+				webhooks, found, err := unstructured.NestedSlice(u.Object, "webhooks")
+				if !found || err != nil {
+					Fail(fmt.Errorf("webhook config structure missing 'webhooks' slice: %w", err).Error())
+				}
+
+				webhook := webhooks[0].(map[string]interface{})
+				clientConfig := webhook["clientConfig"].(map[string]interface{})
+				service := clientConfig["service"].(map[string]interface{})
+
+				service["namespace"] = ns
+
+				webhooks[0] = webhook
+				err = unstructured.SetNestedSlice(u.Object, webhooks, "webhooks")
+
+				if err != nil {
+					Fail(fmt.Errorf("failed to set Namespace on ValidatingWebhookConfiguration resource: %w", err).Error())
+				}
+
+			}
+
+			if kind == "Certificate" {
+				const dynamicServiceName = "controller-manager-webhook-service"
+
+				fqdn1 := fmt.Sprintf("%s.%s.svc", dynamicServiceName, ns)
+				fqdn2 := fmt.Sprintf("%s.%s.svc.cluster.local", dynamicServiceName, ns)
+
+				err := unstructured.SetNestedStringSlice(
+					u.Object,
+					[]string{fqdn1, fqdn2},
+					"spec",
+					"dnsNames",
+				)
+				if err != nil {
+					Fail(fmt.Errorf("failed to set dnsNames on Certificate resource: %w", err).Error())
+				}
+			}
+
+			objects = append(objects, u)
+		}
+	}
+
+	return objects
+}
+
+func WaitForPodReadiness(ctx context.Context, cli runtimeCli.Client, pod *v1.Pod) error {
+	return wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, false, func(ctx context.Context) (bool, error) {
+		p := &v1.Pod{}
+		key := types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}
+
+		if err := cli.Get(ctx, key, p); err != nil {
+			return false, nil
+		}
+
+		for _, condition := range p.Status.Conditions {
+			if condition.Type == v1.PodReady && condition.Status == v1.ConditionTrue {
+				return true, nil
+			}
+		}
+		return false, nil
+	})
+}
+
+func WaitForWebhookCaInjection(ctx context.Context, cli runtimeCli.Client, webhookConfigName string) error {
+	const timeout = 2 * time.Minute
+	const pollInterval = 5 * time.Second
+
+	key := types.NamespacedName{Name: webhookConfigName}
+
+	return wait.PollUntilContextTimeout(ctx, pollInterval, timeout, false, func(ctx context.Context) (bool, error) {
+		config := &admissionv1.ValidatingWebhookConfiguration{}
+
+		if err := cli.Get(ctx, key, config); err != nil {
+			return false, nil
+		}
+
+		for _, webhook := range config.Webhooks {
+			if len(webhook.ClientConfig.CABundle) > 0 {
+				return true, nil
+			}
+		}
+
+		return false, nil
+	})
 }
