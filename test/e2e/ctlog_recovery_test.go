@@ -4,6 +4,7 @@ package e2e
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -52,8 +53,9 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 		trillian.Verify(ctx, cli, namespace.Name, trillianCR.Name, true)
 	})
 
-	Describe("Test 1: Secret validation - missing secret (Issue 2586)", func() {
+	Describe("Test 1: Secret validation - missing/invalid config (Issues 2586 & 3114)", func() {
 		var originalSecretName string
+		var correctTrillianAddr string
 
 		BeforeAll(func(ctx SpecContext) {
 			// Create keys secret for CTLog
@@ -75,6 +77,8 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 				},
 			}
 			Expect(cli.Create(ctx, rootCertSecret)).To(Succeed())
+
+			correctTrillianAddr = fmt.Sprintf("trillian-logserver.%s.svc.cluster.local:8091", namespace.Name)
 
 			// Create CTLog CR with keys and root cert
 			ctlogCR = &v1alpha1.CTlog{
@@ -116,27 +120,25 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 			ctlog.Verify(ctx, cli, namespace.Name, ctlogCR.Name)
 		})
 
-		It("should have a config secret reference in status", func(ctx SpecContext) {
-			Eventually(func(g Gomega) string {
-				c := ctlog.Get(ctx, cli, namespace.Name, ctlogCR.Name)
-				g.Expect(c).NotTo(BeNil())
-				g.Expect(c.Status.ServerConfigRef).NotTo(BeNil())
-				g.Expect(c.Status.ServerConfigRef.Name).NotTo(BeEmpty())
-				return c.Status.ServerConfigRef.Name
-			}).Should(Not(BeEmpty()))
-
-			// Store the original secret name
+		It("should have a config secret with correct Trillian address", func(ctx SpecContext) {
 			c := ctlog.Get(ctx, cli, namespace.Name, ctlogCR.Name)
+			Expect(c).NotTo(BeNil())
+			Expect(c.Status.ServerConfigRef).NotTo(BeNil())
+			Expect(c.Status.ServerConfigRef.Name).NotTo(BeEmpty())
+
 			originalSecretName = c.Status.ServerConfigRef.Name
 			GinkgoWriter.Printf("Original config secret name: %s\n", originalSecretName)
-		})
 
-		It("should have the config secret exist in the cluster", func(ctx SpecContext) {
+			// Verify secret exists with correct Trillian configuration
 			secret, err := ctlog.GetConfigSecret(ctx, cli, namespace.Name, originalSecretName)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secret).NotTo(BeNil())
 			Expect(secret.Data).To(HaveKey("config"))
-			GinkgoWriter.Printf("Config secret exists with %d bytes of config data\n", len(secret.Data["config"]))
+
+			configContent := ctlog.GetTrillianAddressFromSecret(secret)
+			Expect(configContent).To(ContainSubstring(correctTrillianAddr),
+				"Config should contain correct Trillian address")
+			GinkgoWriter.Printf("Config secret has correct Trillian address: %s\n", correctTrillianAddr)
 		})
 
 		It("should delete the config secret to simulate cluster recreation", func(ctx SpecContext) {
@@ -163,12 +165,12 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 			}).WithTimeout(30 * time.Second).Should(Succeed())
 		})
 
-		It("should detect missing secret and recreate it (Phase 1 validation)", func(ctx SpecContext) {
-			By("Waiting for operator to detect missing secret")
+		It("should detect missing/invalid config and recreate it (Phase 1 validation)", func(ctx SpecContext) {
+			By("Waiting for operator to detect missing/invalid config")
 
 			// The CTLog should go into a non-Ready state first (detecting the issue)
-			// Then it should recover by recreating the secret
-			// This needs extra time as it waits for reconciliation loop
+			// Then it should recover by recreating the secret with correct Trillian config
+			// This tests both Issue 2586 (missing secret) and Issue 3114 (wrong namespace)
 			Eventually(func(g Gomega) bool {
 				c := ctlog.Get(ctx, cli, namespace.Name, ctlogCR.Name)
 				g.Expect(c).NotTo(BeNil())
@@ -178,13 +180,17 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 					// Try to get the secret
 					secret, err := ctlog.GetConfigSecret(ctx, cli, namespace.Name, c.Status.ServerConfigRef.Name)
 					if err == nil && secret != nil {
-						GinkgoWriter.Printf("Config secret recreated: %s\n", c.Status.ServerConfigRef.Name)
-						return true
+						// Verify it has correct Trillian address
+						configContent := ctlog.GetTrillianAddressFromSecret(secret)
+						if strings.Contains(configContent, correctTrillianAddr) {
+							GinkgoWriter.Printf("Config secret recreated with correct Trillian address: %s\n", c.Status.ServerConfigRef.Name)
+							return true
+						}
 					}
 				}
 				return false
 			}).WithTimeout(5*time.Minute).WithPolling(5*time.Second).Should(BeTrue(),
-				"Operator should detect missing secret and recreate it")
+				"Operator should detect missing/invalid config and recreate it with correct Trillian address")
 		})
 
 		It("should have a valid config secret after recreation", func(ctx SpecContext) {

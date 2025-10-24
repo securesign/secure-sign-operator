@@ -96,3 +96,19 @@ func GetTreeIDFromStatus(ctx context.Context, cli client.Client, namespace strin
 	}
 	return ctlog.Status.TreeID
 }
+
+// GetTrillianAddressFromSecret extracts Trillian address from config secret
+func GetTrillianAddressFromSecret(secret *v1.Secret) string {
+	if secret == nil {
+		return ""
+	}
+	configData, ok := secret.Data["config"]
+	if !ok {
+		return ""
+	}
+	// Simple extraction - look for backend_spec pattern
+	// In protobuf text format: backend_spec: "address:port"
+	config := string(configData)
+	// Return config for substring matching in tests
+	return config
+}
