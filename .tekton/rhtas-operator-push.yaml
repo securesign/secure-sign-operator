@@ -15,10 +15,10 @@ metadata:
       || "go.mod".pathChanged() || "go.sum".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: operator
-    appstudio.openshift.io/component: rhtas-operator
+    appstudio.openshift.io/application: operator-v1-3
+    appstudio.openshift.io/component: rhtas-operator-v1-3
     pipelines.appstudio.openshift.io/type: build
-  name: rhtas-operator-on-push
+  name: rhtas-operator-v1-3-on-push
   namespace: rhtas-tenant
 spec:
   params:
@@ -51,7 +51,7 @@ spec:
       value: pipelines/docker-build-multi-platform-oci-ta.yaml
     resolver: git
   taskRunTemplate:
-    serviceAccountName: build-pipeline-rhtas-operator
+    serviceAccountName: build-pipeline-rhtas-operator-v1-3
   workspaces:
   - name: git-auth
     secret:
