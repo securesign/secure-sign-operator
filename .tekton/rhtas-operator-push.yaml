@@ -27,7 +27,7 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/securesign/rhtas-operator:{{revision}}
+    value: quay.io/securesign/rhtas-operator-v1-3:{{revision}}
   - name: dockerfile
     value: Dockerfile.rhtas-operator.rh
   - name: path-context
