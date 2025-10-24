@@ -145,18 +145,20 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 			"--log_type", utils2.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod)),
 		}
 
-		// KMS memory
-		if instance.Spec.Signer.KMS == "memory" {
-			args = append(args, "--rekor_server.signer", "memory")
-		}
+		const privateKeyVolumeName = "rekor-private-key-volume"
 
-		// KMS secret
-		if instance.Spec.Signer.KMS == "secret" || instance.Spec.Signer.KMS == "" { //nolint:goconst
+		if instance.Spec.Signer.KMS != "secret" && instance.Spec.Signer.KMS != "" {
+			signerArg := instance.Spec.Signer.KMS
+			args = append(args, "--rekor_server.signer", signerArg)
+
+			kubernetes.RemoveVolumeByName(&template.Spec, privateKeyVolumeName)
+			kubernetes.RemoveVolumeMountByName(container, privateKeyVolumeName)
+			kubernetes.RemoveEnvVarByName(container, "SIGNER_PASSWORD")
+		} else {
 			if instance.Status.Signer.KeyRef == nil {
 				return utils.ErrSignerKeyNotSpecified
 			}
-			var volumeName = "rekor-private-key-volume"
-			privateVolume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, volumeName)
+			privateVolume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, privateKeyVolumeName)
 			if privateVolume.Secret == nil {
 				privateVolume.Secret = &v1.SecretVolumeSource{}
 			}
@@ -168,7 +170,7 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 				},
 			}
 
-			volumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, volumeName)
+			volumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, privateKeyVolumeName)
 			volumeMount.MountPath = "/key"
 			volumeMount.ReadOnly = true
 
