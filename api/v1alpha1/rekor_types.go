@@ -105,6 +105,7 @@ type RekorSigner struct {
 	//   - azurekms://keyname
 	//   - gcpkms://keyname
 	//   - hashivault://keyname
+	// +kubebuilder:validation:XValidation:rule="self == '' || self == 'secret' || self == 'memory' || self.matches('^awskms://.+$') || self.matches('^gcpkms://.+$') || self.matches('^azurekms://.+$') || self.matches('^hashivault://.+$')",message="KMS must be '', 'secret', 'memory', or a valid URI with a key path (e.g., awskms:///key-id)"
 	// +kubebuilder:default:=secret
 	KMS string `json:"kms,omitempty"`
 
