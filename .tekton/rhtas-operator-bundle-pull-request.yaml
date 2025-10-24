@@ -16,10 +16,10 @@ metadata:
       || "go.mod".pathChanged() || "go.sum".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: operator
-    appstudio.openshift.io/component: rhtas-operator-bundle
+    appstudio.openshift.io/application: operator-v1-3
+    appstudio.openshift.io/component: rhtas-operator-bundle-v1-3
     pipelines.appstudio.openshift.io/type: build
-  name: rhtas-operator-bundle-on-pull-request
+  name: rhtas-operator-bundle-v1-3-on-pull-request
   namespace: rhtas-tenant
 spec:
   params:
@@ -42,7 +42,7 @@ spec:
   - name: image-expires-after
     value: 5d
   - name: manager-pipelinerun-selector
-    value: appstudio.openshift.io/application=operator,appstudio.openshift.io/component=rhtas-operator,pipelinesascode.tekton.dev/sha={{revision}},pipelinesascode.tekton.dev/event-type=pull_request
+    value: appstudio.openshift.io/application=operator-v1-3,appstudio.openshift.io/component=rhtas-operator-v1-3,pipelinesascode.tekton.dev/sha={{revision}},pipelinesascode.tekton.dev/event-type=pull_request
   - name: manager-registry-url
     value: registry.redhat.io/rhtas/rhtas-rhel9-operator
   pipelineRef:
@@ -55,7 +55,7 @@ spec:
       value: pipelines/bundle-build-oci-ta.yaml
     resolver: git
   taskRunTemplate:
-    serviceAccountName: build-pipeline-rhtas-operator-bundle
+    serviceAccountName: build-pipeline-rhtas-operator-bundle-v1-3
   workspaces:
   - name: git-auth
     secret:
