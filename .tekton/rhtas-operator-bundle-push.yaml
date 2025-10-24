@@ -15,10 +15,10 @@ metadata:
       || "go.mod".pathChanged() || "go.sum".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: operator
-    appstudio.openshift.io/component: rhtas-operator-bundle
+    appstudio.openshift.io/application: operator-v1-3
+    appstudio.openshift.io/component: rhtas-operator-bundle-v1-3
     pipelines.appstudio.openshift.io/type: build
-  name: rhtas-operator-bundle-on-push
+  name: rhtas-operator-bundle-v1-3-on-push
   namespace: rhtas-tenant
 spec:
   params:
@@ -27,7 +27,7 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/securesign/rhtas-operator-bundle:{{revision}}
+    value: quay.io/securesign/rhtas-operator-bundle-v1-3:{{revision}}
   - name: dockerfile
     value: bundle.Dockerfile
   - name: path-context
@@ -39,7 +39,7 @@ spec:
   - name: prefetch-input
     value: '{"type": "generic", "path": "."}'
   - name: manager-pipelinerun-selector
-    value: appstudio.openshift.io/application=operator,appstudio.openshift.io/component=rhtas-operator,pipelinesascode.tekton.dev/sha={{revision}},pipelinesascode.tekton.dev/event-type=push
+    value: appstudio.openshift.io/application=operator-v1-3,appstudio.openshift.io/component=rhtas-operator-v1-3,pipelinesascode.tekton.dev/sha={{revision}},pipelinesascode.tekton.dev/event-type=push
   - name: manager-registry-url
     value: registry.redhat.io/rhtas/rhtas-rhel9-operator
   pipelineRef:
@@ -52,7 +52,7 @@ spec:
       value: pipelines/bundle-build-oci-ta.yaml
     resolver: git
   taskRunTemplate:
-    serviceAccountName: build-pipeline-rhtas-operator-bundle
+    serviceAccountName: build-pipeline-rhtas-operator-bundle-v1-3
   workspaces:
   - name: git-auth
     secret:
