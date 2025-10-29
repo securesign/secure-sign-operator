@@ -2,6 +2,7 @@ package ctlog
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
@@ -111,4 +112,69 @@ func GetTrillianAddressFromSecret(secret *v1.Secret) string {
 	config := string(configData)
 	// Return config for substring matching in tests
 	return config
+}
+
+// GetTreeIDFromConfigSecret extracts TreeID from config secret
+// TreeID is embedded in the protobuf config as "log_id: <number>"
+func GetTreeIDFromConfigSecret(secret *v1.Secret) *int64 {
+	if secret == nil {
+		return nil
+	}
+	configData, ok := secret.Data["config"]
+	if !ok {
+		return nil
+	}
+	// Parse protobuf text format to extract log_id
+	// Format: log_id: 12345 (can be indented)
+	config := string(configData)
+
+	// Split by lines and look for "log_id:" pattern
+	for _, line := range splitLines(config) {
+		line = trimSpace(line)
+		if hasPrefix(line, "log_id:") {
+			var treeID int64
+			if n, _ := fmt.Sscanf(line, "log_id: %d", &treeID); n == 1 {
+				return &treeID
+			}
+		}
+	}
+	return nil
+}
+
+// Helper functions for string parsing
+func splitLines(s string) []string {
+	var lines []string
+	start := 0
+	for i, c := range s {
+		if c == '\n' {
+			lines = append(lines, s[start:i])
+			start = i + 1
+		}
+	}
+	if start < len(s) {
+		lines = append(lines, s[start:])
+	}
+	return lines
+}
+
+func trimSpace(s string) string {
+	// Simple trim implementation
+	start := 0
+	for start < len(s) && (s[start] == ' ' || s[start] == '\t') {
+		start++
+	}
+	end := len(s)
+	for end > start && (s[end-1] == ' ' || s[end-1] == '\t' || s[end-1] == '\r') {
+		end--
+	}
+	return s[start:end]
+}
+
+func hasPrefix(s, prefix string) bool {
+	return len(s) >= len(prefix) && s[:len(prefix)] == prefix
+}
+
+// VerifySecretHasNoOwnerReference checks if secret has no owner references
+func VerifySecretHasNoOwnerReference(secret *v1.Secret) bool {
+	return secret != nil && len(secret.OwnerReferences) == 0
 }
