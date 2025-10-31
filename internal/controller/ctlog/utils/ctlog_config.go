@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"strings"
 
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
@@ -201,13 +202,22 @@ func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertifi
 	return data, nil
 }
 
-// IsSecretDataValid validates that the config secret data contains the correct Trillian configuration
+// IsSecretDataValid validates that a CTLog config secret contains valid configuration
+// with the correct Trillian backend address.
+//
+// Parameters:
+//   - secretData: The Data field from a Kubernetes Secret containing CTLog configuration
+//   - expectedTrillianAddr: The Trillian address to validate against (e.g., "trillian-logserver.namespace.svc:8091")
+//
+// Returns true if the secret contains valid configuration with the correct Trillian address,
+// false otherwise. Used by the operator for self-healing to detect missing or invalid
+// configuration secrets that need to be recreated.
 func IsSecretDataValid(secretData map[string][]byte, expectedTrillianAddr string) bool {
 	if secretData == nil {
 		return false
 	}
 
-	configData, ok := secretData["config"]
+	configData, ok := secretData[ConfigKey]
 	if !ok {
 		return false
 	}
@@ -217,52 +227,11 @@ func IsSecretDataValid(secretData map[string][]byte, expectedTrillianAddr string
 		return false
 	}
 
-	for _, line := range splitConfigLines(configString) {
-		if containsSubstring(line, "backend_spec") && containsSubstring(line, expectedTrillianAddr) {
+	for _, line := range strings.Split(configString, "\n") {
+		if strings.Contains(line, "backend_spec") && strings.Contains(line, expectedTrillianAddr) {
 			return true
 		}
 	}
 
-	return false
-}
-
-func splitConfigLines(config string) []string {
-	lines := make([]string, 0)
-	current := ""
-	for i := 0; i < len(config); i++ {
-		if config[i] == '\n' {
-			if len(current) > 0 {
-				lines = append(lines, current)
-			}
-			current = ""
-		} else {
-			current += string(config[i])
-		}
-	}
-	if len(current) > 0 {
-		lines = append(lines, current)
-	}
-	return lines
-}
-
-func containsSubstring(haystack, needle string) bool {
-	if len(needle) == 0 {
-		return true
-	}
-	if len(needle) > len(haystack) {
-		return false
-	}
-	for i := 0; i <= len(haystack)-len(needle); i++ {
-		match := true
-		for j := 0; j < len(needle); j++ {
-			if haystack[i+j] != needle[j] {
-				match = false
-				break
-			}
-		}
-		if match {
-			return true
-		}
-	}
 	return false
 }

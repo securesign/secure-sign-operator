@@ -64,25 +64,25 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	)
 
 	if instance.Spec.ServerConfigRef != nil {
-		// Validate that the custom secret actually exists
+		// Validate that the custom secret is accessible
 		secret, err := kubernetes.GetSecret(i.Client, instance.Namespace, instance.Spec.ServerConfigRef.Name)
 		if err != nil {
-			return i.Error(ctx, fmt.Errorf("custom server config secret not found: %w", err), instance,
+			return i.Error(ctx, fmt.Errorf("error accessing custom server config secret: %w", err), instance,
 				metav1.Condition{
 					Type:               ConfigCondition,
 					Status:             metav1.ConditionFalse,
 					Reason:             constants.Failure,
-					Message:            fmt.Sprintf("Custom server config secret not found: %s", instance.Spec.ServerConfigRef.Name),
+					Message:            fmt.Sprintf("Error accessing custom server config secret: %s", instance.Spec.ServerConfigRef.Name),
 					ObservedGeneration: instance.Generation,
 				})
 		}
-		if secret.Data == nil || secret.Data["config"] == nil {
+		if secret.Data == nil || secret.Data[ctlogUtils.ConfigKey] == nil {
 			return i.Error(ctx, fmt.Errorf("custom server config secret is invalid"), instance,
 				metav1.Condition{
 					Type:               ConfigCondition,
 					Status:             metav1.ConditionFalse,
 					Reason:             constants.Failure,
-					Message:            fmt.Sprintf("Custom server config secret is missing 'config' key: %s", instance.Spec.ServerConfigRef.Name),
+					Message:            fmt.Sprintf("Custom server config secret is missing '%s' key: %s", ctlogUtils.ConfigKey, instance.Spec.ServerConfigRef.Name),
 					ObservedGeneration: instance.Generation,
 				})
 		}
@@ -115,12 +115,6 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 				i.Recorder.Event(instance, corev1.EventTypeWarning, "CTLogConfigError",
 					fmt.Sprintf("Error accessing config secret, will recreate: %s", instance.Status.ServerConfigRef.Name))
 			}
-		} else if secret == nil {
-			// Edge case: no error but secret is nil
-			i.Logger.Info("Server config secret is nil, will recreate",
-				"secret", instance.Status.ServerConfigRef.Name)
-			i.Recorder.Event(instance, corev1.EventTypeWarning, "CTLogConfigMissing",
-				fmt.Sprintf("Config secret is nil, will recreate: %s", instance.Status.ServerConfigRef.Name))
 		} else {
 			// Secret exists and is accessible - validate it
 			expectedTrillianAddr := fmt.Sprintf("%s:%d", instance.Spec.Trillian.Address, *instance.Spec.Trillian.Port)

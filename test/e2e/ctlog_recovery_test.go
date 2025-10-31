@@ -12,6 +12,7 @@ import (
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/constants"
 	ctlogActions "github.com/securesign/operator/internal/controller/ctlog/actions"
+	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/condition"
 	"github.com/securesign/operator/test/e2e/support/steps"
@@ -30,13 +31,13 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 	var namespace *v1.Namespace
 	var trillianCR *v1alpha1.Trillian
 	var ctlogCR *v1alpha1.CTlog
+	var originalSecretName string
+	var correctTrillianAddr string
 
-	// Shared setup - create namespace
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
 
-	// Shared setup - deploy Trillian (needed by CTLog)
 	BeforeAll(func(ctx SpecContext) {
 		trillianCR = &v1alpha1.Trillian{
 			ObjectMeta: metav1.ObjectMeta{
@@ -53,72 +54,67 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 		trillian.Verify(ctx, cli, namespace.Name, trillianCR.Name, true)
 	})
 
-	Describe("Test 1: Secret validation - missing/invalid config (Issues 2586 & 3114)", func() {
-		var originalSecretName string
-		var correctTrillianAddr string
+	BeforeAll(func(ctx SpecContext) {
+		By("Setting up CTLog prerequisites")
 
-		BeforeAll(func(ctx SpecContext) {
-			// Create keys secret for CTLog
-			By("Creating CTLog keys secret")
-			keysSecret := ctlog.CreateSecret(namespace.Name, "test-ctlog-keys")
-			Expect(cli.Create(ctx, keysSecret)).To(Succeed())
+		keysSecret := ctlog.CreateSecret(namespace.Name, "test-ctlog-keys")
+		Expect(cli.Create(ctx, keysSecret)).To(Succeed())
 
-			// Create a proper root certificate secret (CTLog needs root certs from Fulcio)
-			By("Creating root certificate")
-			_, _, rootCert, err := support.CreateCertificates(false)
-			Expect(err).NotTo(HaveOccurred())
-			rootCertSecret := &v1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-root-cert",
-					Namespace: namespace.Name,
+		_, _, rootCert, err := support.CreateCertificates(false)
+		Expect(err).NotTo(HaveOccurred())
+		rootCertSecret := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-root-cert",
+				Namespace: namespace.Name,
+			},
+			Data: map[string][]byte{
+				"cert": rootCert,
+			},
+		}
+		Expect(cli.Create(ctx, rootCertSecret)).To(Succeed())
+
+		correctTrillianAddr = fmt.Sprintf("trillian-logserver.%s.svc.cluster.local:8091", namespace.Name)
+
+		By("Creating CTLog instance")
+		ctlogCR = &v1alpha1.CTlog{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: namespace.Name,
+			},
+			Spec: v1alpha1.CTlogSpec{
+				Trillian: v1alpha1.TrillianService{
+					Address: fmt.Sprintf("trillian-logserver.%s.svc.cluster.local", namespace.Name),
+					Port:    ptr.To(int32(8091)),
 				},
-				Data: map[string][]byte{
-					"cert": rootCert,
-				},
-			}
-			Expect(cli.Create(ctx, rootCertSecret)).To(Succeed())
-
-			correctTrillianAddr = fmt.Sprintf("trillian-logserver.%s.svc.cluster.local:8091", namespace.Name)
-
-			// Create CTLog CR with keys and root cert
-			ctlogCR = &v1alpha1.CTlog{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test",
-					Namespace: namespace.Name,
-				},
-				Spec: v1alpha1.CTlogSpec{
-					Trillian: v1alpha1.TrillianService{
-						Address: fmt.Sprintf("trillian-logserver.%s.svc.cluster.local", namespace.Name),
-						Port:    ptr.To(int32(8091)),
+				PrivateKeyRef: &v1alpha1.SecretKeySelector{
+					LocalObjectReference: v1alpha1.LocalObjectReference{
+						Name: "test-ctlog-keys",
 					},
-					PrivateKeyRef: &v1alpha1.SecretKeySelector{
+					Key: "private",
+				},
+				PublicKeyRef: &v1alpha1.SecretKeySelector{
+					LocalObjectReference: v1alpha1.LocalObjectReference{
+						Name: "test-ctlog-keys",
+					},
+					Key: "public",
+				},
+				RootCertificates: []v1alpha1.SecretKeySelector{
+					{
 						LocalObjectReference: v1alpha1.LocalObjectReference{
-							Name: "test-ctlog-keys",
+							Name: "test-root-cert",
 						},
-						Key: "private",
-					},
-					PublicKeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
-							Name: "test-ctlog-keys",
-						},
-						Key: "public",
-					},
-					RootCertificates: []v1alpha1.SecretKeySelector{
-						{
-							LocalObjectReference: v1alpha1.LocalObjectReference{
-								Name: "test-root-cert",
-							},
-							Key: "cert",
-						},
+						Key: "cert",
 					},
 				},
-			}
-			Expect(cli.Create(ctx, ctlogCR)).To(Succeed())
+			},
+		}
+		Expect(cli.Create(ctx, ctlogCR)).To(Succeed())
 
-			By("Waiting for CTLog to be ready initially")
-			// Initial CTLog setup uses default 3 minute timeout for tree creation
-			ctlog.Verify(ctx, cli, namespace.Name, ctlogCR.Name)
-		})
+		By("Waiting for initial CTLog deployment")
+		ctlog.Verify(ctx, cli, namespace.Name, ctlogCR.Name)
+	})
+
+	Describe("CTLog self-healing when config secret is missing or invalid", func() {
 
 		It("should have a config secret with correct Trillian address", func(ctx SpecContext) {
 			c := ctlog.Get(ctx, cli, namespace.Name, ctlogCR.Name)
@@ -132,19 +128,19 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 			secret, err := ctlog.GetConfigSecret(ctx, cli, namespace.Name, originalSecretName)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secret).NotTo(BeNil())
-			Expect(secret.Data).To(HaveKey("config"))
+			Expect(secret.Data).To(HaveKey(ctlogUtils.ConfigKey))
 
 			configContent := ctlog.GetTrillianAddressFromSecret(secret)
 			Expect(configContent).To(ContainSubstring(correctTrillianAddr),
 				"Config should contain correct Trillian address")
 		})
 
-		It("should delete the config secret to simulate cluster recreation", func(ctx SpecContext) {
-			By("Deleting config secret: " + originalSecretName)
+		It("should simulate cluster recreation by deleting the config secret", func(ctx SpecContext) {
+			By("Deleting config secret to simulate disaster scenario")
 			err := ctlog.DeleteConfigSecret(ctx, cli, namespace.Name, originalSecretName)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Verifying secret is actually gone")
+			By("Verifying secret deletion")
 			Eventually(func() bool {
 				_, err := ctlog.GetConfigSecret(ctx, cli, namespace.Name, originalSecretName)
 				return errors.IsNotFound(err)
@@ -163,22 +159,18 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 			}).WithTimeout(30 * time.Second).Should(Succeed())
 		})
 
-		It("should detect missing/invalid config and recreate it (Phase 1 validation)", func(ctx SpecContext) {
-			By("Waiting for operator to detect missing/invalid config")
+		It("should automatically detect and recreate the missing config secret", func(ctx SpecContext) {
+			By("Waiting for operator to detect and fix the missing config")
 
-			// The CTLog should go into a non-Ready state first (detecting the issue)
-			// Then it should recover by recreating the secret with correct Trillian config
-			// This tests both Issue 2586 (missing secret) and Issue 3114 (wrong namespace)
+			// The operator should detect the missing secret and recreate it
+			// with the correct Trillian configuration from the CTLog spec
 			Eventually(func(g Gomega) bool {
 				c := ctlog.Get(ctx, cli, namespace.Name, ctlogCR.Name)
 				g.Expect(c).NotTo(BeNil())
 
-				// Check if status has a new/recreated secret reference
 				if c.Status.ServerConfigRef != nil {
-					// Try to get the secret
 					secret, err := ctlog.GetConfigSecret(ctx, cli, namespace.Name, c.Status.ServerConfigRef.Name)
 					if err == nil && secret != nil {
-						// Verify it has correct Trillian address
 						configContent := ctlog.GetTrillianAddressFromSecret(secret)
 						if strings.Contains(configContent, correctTrillianAddr) {
 							return true
@@ -200,32 +192,32 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 			secret, err := ctlog.GetConfigSecret(ctx, cli, namespace.Name, newSecretName)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secret).NotTo(BeNil())
-			Expect(secret.Data).To(HaveKey("config"))
+			Expect(secret.Data).To(HaveKey(ctlogUtils.ConfigKey))
 
 			// Verify config contains correct Trillian address
-			configData := secret.Data["config"]
+			configData := secret.Data[ctlogUtils.ConfigKey]
 			expectedTrillianAddr := fmt.Sprintf("trillian-logserver.%s.svc.cluster.local:8091", namespace.Name)
 			Expect(string(configData)).To(ContainSubstring(expectedTrillianAddr),
 				"Config should contain correct Trillian address")
 		})
 
-		It("should have CTLog deployment updated", func(ctx SpecContext) {
+		It("should have CTLog deployment running with the new config", func(ctx SpecContext) {
 			Eventually(condition.DeploymentIsRunning).
 				WithContext(ctx).
 				WithArguments(cli, namespace.Name, ctlogActions.ComponentName).
-				Should(BeTrue(), "CTLog deployment should be running")
+				Should(BeTrue(), "CTLog deployment should be running after config recreation")
 		})
 
-		It("should have CTLog pod running (not stuck)", func(ctx SpecContext) {
+		It("should have CTLog pod running without being stuck waiting for secret", func(ctx SpecContext) {
 			Eventually(func(g Gomega) bool {
 				pod := ctlog.GetServerPod(ctx, cli, namespace.Name)
 				g.Expect(pod).NotTo(BeNil())
 				return pod.Status.Phase == v1.PodRunning
 			}).Should(BeTrue(),
-				"CTLog pod should be Running, not stuck in ContainerCreating")
+				"CTLog pod should reach Running phase, proving it's not stuck waiting for a missing secret")
 		})
 
-		It("should have CTLog status Ready", func(ctx SpecContext) {
+		It("should report Ready status after successful recovery", func(ctx SpecContext) {
 			Eventually(func(g Gomega) string {
 				c := ctlog.Get(ctx, cli, namespace.Name, ctlogCR.Name)
 				g.Expect(c).NotTo(BeNil())
@@ -235,18 +227,17 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 				}
 				return readyCond.Reason
 			}).Should(Equal(constants.Ready),
-				"CTLog should be Ready after secret recreation")
+				"CTLog should transition to Ready status after config secret recreation")
 		})
 
 		It("should preserve TreeID after secret recreation", func(ctx SpecContext) {
-			// Note: In Phase 1, TreeID is preserved because it's in the CR status
-			// and the CR was not deleted. This test verifies TreeID remains stable.
+			// TreeID is preserved because it's stored in the CR status,
+			// and the CR itself was not deleted during this recovery scenario
 			c := ctlog.Get(ctx, cli, namespace.Name, ctlogCR.Name)
 			Expect(c).NotTo(BeNil())
-			Expect(c.Status.TreeID).NotTo(BeNil())
+			Expect(c.Status.TreeID).NotTo(BeNil(), "TreeID should remain stable across secret recreation")
 		})
 
-		// Cleanup
 		AfterAll(func(ctx SpecContext) {
 			if ctlogCR != nil {
 				_ = cli.Delete(ctx, ctlogCR)
