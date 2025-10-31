@@ -17,8 +17,10 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"os"
 	"strconv"
 
@@ -80,6 +82,49 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
+// initializePlatformConfig initializes the platform configuration based on flags, env vars, or auto-detection
+func initializePlatformConfig() error {
+	ctx := context.Background()
+
+	config := ctrl.GetConfigOrDie()
+	cl, err := client.New(config, client.Options{Scheme: scheme})
+	if err != nil {
+		return fmt.Errorf("failed to create client for platform initialization: %w", err)
+	}
+
+	if utils.IsFlagProvided("openshift", "OPENSHIFT") {
+		setupLog.Info("Platform explicitly configured via flag/env", "openshift", appconfig.Openshift)
+
+		requestedPlatform := kubernetes.PlatformKubernetes
+		if appconfig.Openshift {
+			requestedPlatform = kubernetes.PlatformOpenShift
+		}
+
+		// Resolve the platform from TASOperatorConfig. If it already exists, the stored platform
+		// takes precedence (source of truth) and will override the flag value
+		actualPlatform, err := kubernetes.ResolvePlatform(ctx, cl, requestedPlatform, "command-line")
+		if err != nil {
+			setupLog.Info("Warning: could not get or create TASOperatorConfig, using flag value", "error", err)
+		} else if actualPlatform != requestedPlatform {
+			setupLog.Info("Platform mismatch: TASOperatorConfig exists with different platform, using stored value",
+				"requested", requestedPlatform, "actual", actualPlatform)
+			appconfig.Openshift = (actualPlatform == kubernetes.PlatformOpenShift)
+		}
+	} else {
+		setupLog.Info("Platform not explicitly configured, checking TASOperatorConfig or auto-detecting")
+
+		operatorConfig, err := kubernetes.GetOrAutoDetectConfig(ctx, cl)
+		if err != nil {
+			return fmt.Errorf("failed to get or create operator config: %w", err)
+		}
+
+		appconfig.Openshift = (operatorConfig.Spec.Platform == kubernetes.PlatformOpenShift)
+		setupLog.Info("Platform determined from TASOperatorConfig", "platform", operatorConfig.Spec.Platform, "detectionMethod", operatorConfig.Status.DetectionMethod)
+	}
+
+	return nil
+}
+
 func main() {
 	var (
 		metricsAddr          string
@@ -125,6 +170,12 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(klog.NewKlogr())
+
+	// Initialize platform configuration, after flag.Parse() and before creating the manager
+	if err := initializePlatformConfig(); err != nil {
+		setupLog.Error(err, "unable to initialize platform configuration")
+		os.Exit(1)
+	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will

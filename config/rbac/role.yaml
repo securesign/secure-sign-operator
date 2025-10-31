@@ -240,6 +240,7 @@ rules:
   - fulcios/status
   - rekors/status
   - securesigns/status
+  - tasoperatorconfigs/status
   - timestampauthorities/status
   - trillians/status
   - tufs/status
@@ -247,6 +248,17 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - rhtas.redhat.com
+  resources:
+  - tasoperatorconfigs
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - route.openshift.io
   resources:

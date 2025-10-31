@@ -35,6 +35,9 @@ import (
 
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;get;list;watch;update;patch
 
+//+kubebuilder:rbac:groups=rhtas.redhat.com,resources=tasoperatorconfigs,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups=rhtas.redhat.com,resources=tasoperatorconfigs/status,verbs=get;update;patch
+
 type Controller interface {
 	SetupWithManager(ctrl.Manager) error
 }
