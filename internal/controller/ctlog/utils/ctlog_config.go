@@ -200,3 +200,69 @@ func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertifi
 	}
 	return data, nil
 }
+
+// IsSecretDataValid validates that the config secret data contains the correct Trillian configuration
+func IsSecretDataValid(secretData map[string][]byte, expectedTrillianAddr string) bool {
+	if secretData == nil {
+		return false
+	}
+
+	configData, ok := secretData["config"]
+	if !ok {
+		return false
+	}
+
+	configString := string(configData)
+	if len(configString) == 0 {
+		return false
+	}
+
+	for _, line := range splitConfigLines(configString) {
+		if containsSubstring(line, "backend_spec") && containsSubstring(line, expectedTrillianAddr) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func splitConfigLines(config string) []string {
+	lines := make([]string, 0)
+	current := ""
+	for i := 0; i < len(config); i++ {
+		if config[i] == '\n' {
+			if len(current) > 0 {
+				lines = append(lines, current)
+			}
+			current = ""
+		} else {
+			current += string(config[i])
+		}
+	}
+	if len(current) > 0 {
+		lines = append(lines, current)
+	}
+	return lines
+}
+
+func containsSubstring(haystack, needle string) bool {
+	if len(needle) == 0 {
+		return true
+	}
+	if len(needle) > len(haystack) {
+		return false
+	}
+	for i := 0; i <= len(haystack)-len(needle); i++ {
+		match := true
+		for j := 0; j < len(needle); j++ {
+			if haystack[i+j] != needle[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return true
+		}
+	}
+	return false
+}

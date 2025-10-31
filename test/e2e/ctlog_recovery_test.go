@@ -127,7 +127,6 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 			Expect(c.Status.ServerConfigRef.Name).NotTo(BeEmpty())
 
 			originalSecretName = c.Status.ServerConfigRef.Name
-			GinkgoWriter.Printf("Original config secret name: %s\n", originalSecretName)
 
 			// Verify secret exists with correct Trillian configuration
 			secret, err := ctlog.GetConfigSecret(ctx, cli, namespace.Name, originalSecretName)
@@ -138,7 +137,6 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 			configContent := ctlog.GetTrillianAddressFromSecret(secret)
 			Expect(configContent).To(ContainSubstring(correctTrillianAddr),
 				"Config should contain correct Trillian address")
-			GinkgoWriter.Printf("Config secret has correct Trillian address: %s\n", correctTrillianAddr)
 		})
 
 		It("should delete the config secret to simulate cluster recreation", func(ctx SpecContext) {
@@ -183,13 +181,12 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 						// Verify it has correct Trillian address
 						configContent := ctlog.GetTrillianAddressFromSecret(secret)
 						if strings.Contains(configContent, correctTrillianAddr) {
-							GinkgoWriter.Printf("Config secret recreated with correct Trillian address: %s\n", c.Status.ServerConfigRef.Name)
 							return true
 						}
 					}
 				}
 				return false
-			}).WithTimeout(5*time.Minute).WithPolling(5*time.Second).Should(BeTrue(),
+			}).WithPolling(5*time.Second).Should(BeTrue(),
 				"Operator should detect missing/invalid config and recreate it with correct Trillian address")
 		})
 
@@ -199,7 +196,6 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 			Expect(c.Status.ServerConfigRef).NotTo(BeNil())
 
 			newSecretName := c.Status.ServerConfigRef.Name
-			GinkgoWriter.Printf("New config secret name: %s\n", newSecretName)
 
 			secret, err := ctlog.GetConfigSecret(ctx, cli, namespace.Name, newSecretName)
 			Expect(err).NotTo(HaveOccurred())
@@ -248,7 +244,6 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 			c := ctlog.Get(ctx, cli, namespace.Name, ctlogCR.Name)
 			Expect(c).NotTo(BeNil())
 			Expect(c.Status.TreeID).NotTo(BeNil())
-			GinkgoWriter.Printf("TreeID after recovery: %d\n", *c.Status.TreeID)
 		})
 
 		// Cleanup
@@ -334,9 +329,6 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 
 			originalTreeID = c.Status.TreeID
 			originalSecretName = c.Status.ServerConfigRef.Name
-
-			GinkgoWriter.Printf("Original TreeID: %d\n", *originalTreeID)
-			GinkgoWriter.Printf("Original config secret: %s\n", originalSecretName)
 		})
 
 		It("should have config secret with NO owner reference (Phase 2)", func(ctx SpecContext) {
@@ -349,8 +341,6 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 			hasNoOwnerRef := ctlog.VerifySecretHasNoOwnerReference(secret)
 			Expect(hasNoOwnerRef).To(BeTrue(),
 				"Config secret should have NO owner reference in Phase 2 (allows state recovery)")
-
-			GinkgoWriter.Printf("✓ Config secret has NO owner reference (Phase 2 fix)\n")
 		})
 
 		It("should have TreeID embedded in config secret", func(ctx SpecContext) {
@@ -362,8 +352,6 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 			Expect(treeIDFromSecret).NotTo(BeNil(), "TreeID should be in config secret")
 			Expect(*treeIDFromSecret).To(Equal(*originalTreeID),
 				"TreeID in secret should match TreeID in status")
-
-			GinkgoWriter.Printf("✓ TreeID in config secret: %d (matches status)\n", *treeIDFromSecret)
 		})
 
 		It("should delete CTLog CR (simulating disaster recovery)", func(ctx SpecContext) {
@@ -375,8 +363,6 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 				c := ctlog.Get(ctx, cli, namespace.Name, ctlogCR.Name)
 				return c == nil
 			}).WithTimeout(2 * time.Minute).Should(BeTrue())
-
-			GinkgoWriter.Printf("✓ CTLog CR deleted\n")
 		})
 
 		It("should verify config secret STILL EXISTS (Phase 2 - no garbage collection)", func(ctx SpecContext) {
@@ -386,8 +372,6 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred(), "Secret should still exist after CR deletion")
 			Expect(secret).NotTo(BeNil())
 			Expect(secret.Name).To(Equal(originalSecretName))
-
-			GinkgoWriter.Printf("✓ Config secret survived CR deletion: %s\n", originalSecretName)
 		})
 
 		It("should recreate CTLog CR with same name", func(ctx SpecContext) {
@@ -425,8 +409,6 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 				},
 			}
 			Expect(cli.Create(ctx, ctlogCR)).To(Succeed())
-
-			GinkgoWriter.Printf("✓ CTLog CR recreated\n")
 		})
 
 		It("should discover existing config secret (Phase 2)", func(ctx SpecContext) {
@@ -446,8 +428,6 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 				return false
 			}).WithTimeout(3*time.Minute).WithPolling(5*time.Second).Should(BeTrue(),
 				"Operator should discover existing config secret")
-
-			GinkgoWriter.Printf("✓ Operator discovered existing secret: %s\n", originalSecretName)
 		})
 
 		It("should restore TreeID from config secret (Phase 2)", func(ctx SpecContext) {
@@ -464,9 +444,6 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 				return false
 			}).WithTimeout(3*time.Minute).WithPolling(5*time.Second).Should(BeTrue(),
 				"TreeID should be restored from config secret, not regenerated")
-
-			c := ctlog.Get(ctx, cli, namespace.Name, ctlogCR.Name)
-			GinkgoWriter.Printf("✓ TreeID restored: %d (original: %d)\n", *c.Status.TreeID, *originalTreeID)
 		})
 
 		It("should have CTLog Ready with restored state", func(ctx SpecContext) {
@@ -480,8 +457,6 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 				return readyCond.Reason
 			}).WithTimeout(3*time.Minute).Should(Equal(constants.Ready),
 				"CTLog should be Ready after state recovery")
-
-			GinkgoWriter.Printf("✓ CTLog Ready with original TreeID (full state recovery)\n")
 		})
 
 		It("should verify no new TreeID was generated", func(ctx SpecContext) {
@@ -490,11 +465,6 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 			Expect(c.Status.TreeID).NotTo(BeNil())
 			Expect(*c.Status.TreeID).To(Equal(*originalTreeID),
 				"TreeID should be the same as original (no regeneration)")
-
-			GinkgoWriter.Printf("✓ Verified: Same TreeID preserved across CR deletion/recreation\n")
-			GinkgoWriter.Printf("  Original TreeID: %d\n", *originalTreeID)
-			GinkgoWriter.Printf("  Restored TreeID: %d\n", *c.Status.TreeID)
-			GinkgoWriter.Printf("  Result: Old signatures remain verifiable! ✓\n")
 		})
 
 		// Cleanup

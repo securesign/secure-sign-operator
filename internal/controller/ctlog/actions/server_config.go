@@ -17,6 +17,7 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels2 "k8s.io/apimachinery/pkg/labels"
@@ -52,7 +53,8 @@ func (i serverConfig) CanHandle(_ context.Context, instance *rhtasv1alpha1.CTlog
 	case instance.Spec.ServerConfigRef != nil:
 		return !equality.Semantic.DeepEqual(instance.Spec.ServerConfigRef, instance.Status.ServerConfigRef)
 	default:
-		return instance.Generation != c.ObservedGeneration
+		// Always run Handle() to validate the secret: exists and is valid
+		return true
 	}
 }
 
@@ -62,6 +64,29 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	)
 
 	if instance.Spec.ServerConfigRef != nil {
+		// Validate that the custom secret actually exists
+		secret, err := kubernetes.GetSecret(i.Client, instance.Namespace, instance.Spec.ServerConfigRef.Name)
+		if err != nil {
+			return i.Error(ctx, fmt.Errorf("custom server config secret not found: %w", err), instance,
+				metav1.Condition{
+					Type:               ConfigCondition,
+					Status:             metav1.ConditionFalse,
+					Reason:             constants.Failure,
+					Message:            fmt.Sprintf("Custom server config secret not found: %s", instance.Spec.ServerConfigRef.Name),
+					ObservedGeneration: instance.Generation,
+				})
+		}
+		if secret.Data == nil || secret.Data["config"] == nil {
+			return i.Error(ctx, fmt.Errorf("custom server config secret is invalid"), instance,
+				metav1.Condition{
+					Type:               ConfigCondition,
+					Status:             metav1.ConditionFalse,
+					Reason:             constants.Failure,
+					Message:            fmt.Sprintf("Custom server config secret is missing 'config' key: %s", instance.Spec.ServerConfigRef.Name),
+					ObservedGeneration: instance.Generation,
+				})
+		}
+
 		instance.Status.ServerConfigRef = instance.Spec.ServerConfigRef
 		i.Recorder.Event(instance, corev1.EventTypeNormal, "CTLogConfigUpdated", "CTLog config updated")
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -72,6 +97,43 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 			ObservedGeneration: instance.Generation,
 		})
 		return i.StatusUpdate(ctx, instance)
+	}
+
+	// Validate existing secret before attempting recreation
+	if instance.Status.ServerConfigRef != nil && instance.Status.ServerConfigRef.Name != "" {
+		secret, err := kubernetes.GetSecret(i.Client, instance.Namespace, instance.Status.ServerConfigRef.Name)
+
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				i.Logger.Info("Server config secret is missing, will recreate",
+					"secret", instance.Status.ServerConfigRef.Name)
+				i.Recorder.Event(instance, corev1.EventTypeWarning, "CTLogConfigMissing",
+					fmt.Sprintf("Config secret is missing, will recreate: %s", instance.Status.ServerConfigRef.Name))
+			} else {
+				i.Logger.Error(err, "Error accessing server config secret, will attempt to recreate",
+					"secret", instance.Status.ServerConfigRef.Name)
+				i.Recorder.Event(instance, corev1.EventTypeWarning, "CTLogConfigError",
+					fmt.Sprintf("Error accessing config secret, will recreate: %s", instance.Status.ServerConfigRef.Name))
+			}
+		} else if secret == nil {
+			// Edge case: no error but secret is nil
+			i.Logger.Info("Server config secret is nil, will recreate",
+				"secret", instance.Status.ServerConfigRef.Name)
+			i.Recorder.Event(instance, corev1.EventTypeWarning, "CTLogConfigMissing",
+				fmt.Sprintf("Config secret is nil, will recreate: %s", instance.Status.ServerConfigRef.Name))
+		} else {
+			// Secret exists and is accessible - validate it
+			expectedTrillianAddr := fmt.Sprintf("%s:%d", instance.Spec.Trillian.Address, *instance.Spec.Trillian.Port)
+			if ctlogUtils.IsSecretDataValid(secret.Data, expectedTrillianAddr) {
+				return i.Continue() // nothing to do
+			}
+			// Secret is invalid, will recreate
+			i.Logger.Info("Server config secret is invalid, will recreate",
+				"secret", secret.Name,
+				"reason", "Trillian configuration mismatch")
+			i.Recorder.Event(instance, corev1.EventTypeWarning, "CTLogConfigInvalid",
+				fmt.Sprintf("Config secret has invalid configuration, will recreate: %s", secret.Name))
+		}
 	}
 
 	switch {
