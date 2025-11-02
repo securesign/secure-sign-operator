@@ -76,9 +76,7 @@ type TufKey struct {
 type TufStatus struct {
 	Keys    []TufKey `json:"keys,omitempty"`
 	PvcName string   `json:"pvcName,omitempty"`
-	// Reference to the ConfigMap created by TUF that stores the PVC name for other components to use.
-	PvcConfig *LocalObjectReference `json:"pvcConfig,omitempty"`
-	Url       string                `json:"url,omitempty"`
+	Url     string   `json:"url,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge

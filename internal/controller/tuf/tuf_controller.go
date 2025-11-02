@@ -109,7 +109,6 @@ func (r *tufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		actions.NewCreatePvcAction(),
 		actions.NewInitJobAction(),
 		actions.NewDeployAction(),
-		actions.NewPvcConfigAction(),
 		actions.NewServiceAction(),
 		actions.NewIngressAction(),
 		actions.NewStatusUrlAction(),
