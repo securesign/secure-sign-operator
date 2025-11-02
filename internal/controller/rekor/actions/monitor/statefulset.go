@@ -22,12 +22,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const storageVolumeName = "monitor-storage"
-const tufRepoVolumeName = "tuf-repository"
+const (
+	storageVolumeName = "monitor-storage"
+	tufRepoVolumeName = "tuf-repository"
+	mountPath         = "/data"
+)
 
 func NewStatefulSetAction() action.Action[*rhtasv1alpha1.Rekor] {
 	return &statefulSetAction{}
@@ -53,7 +55,7 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1alpha1.R
 	)
 
 	rekorServerHost := fmt.Sprintf("http://%s.%s.svc", actions.ServerComponentName, instance.Namespace)
-	tufServerHost := fmt.Sprintf("http://%s.%s.svc", "tuf", instance.Namespace)
+	tufServerHost := fmt.Sprintf("http://%s.%s.svc", tufConstants.ComponentName, instance.Namespace)
 
 	labels := labels.For(actions.MonitorComponentName, actions.MonitorStatefulSetName, instance.Name)
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
@@ -113,13 +115,9 @@ func (i statefulSetAction) ensureMonitorStatefulSet(ctx context.Context, instanc
 		container.Command = []string{
 			"/bin/sh",
 			"-c",
-			fmt.Sprintf(`
-				/rekor_monitor --file=/data/checkpoint_log.txt \
-					--once=false \
-					--interval=%s \
-					--url=%s \
-					--tuf-repository=%s \
-					--tuf-root-path="/tuf-repository/root.json"`, interval.String(), rekorServerHost, tufServerHost),
+			fmt.Sprintf(
+				`/rekor_monitor --file=/data/checkpoint_log.txt --once=false --interval=%s --url=%s --tuf-repository=%s --tuf-root-path="%s/root.json"`,
+				interval.String(), rekorServerHost, tufServerHost, mountPath),
 		}
 
 		container.Ports = []core.ContainerPort{
@@ -129,9 +127,15 @@ func (i statefulSetAction) ensureMonitorStatefulSet(ctx context.Context, instanc
 				Protocol:      core.ProtocolTCP,
 			},
 		}
+		container.Env = []core.EnvVar{
+			{
+				Name:  "HOME",
+				Value: mountPath,
+			},
+		}
 
 		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, storageVolumeName)
-		volumeMount.MountPath = "/data"
+		volumeMount.MountPath = mountPath
 
 		spec.VolumeClaimTemplates = []core.PersistentVolumeClaim{
 			{
@@ -151,43 +155,21 @@ func (i statefulSetAction) ensureMonitorStatefulSet(ctx context.Context, instanc
 			},
 		}
 
-		var cm core.ConfigMap
-		if err := i.Client.Get(ctx, types.NamespacedName{
-			Namespace: instance.Namespace,
-			Name:      tufConstants.TufPvcConfigName,
-		}, &cm); err != nil {
-			i.Logger.Info("TUF PVC ConfigMap not yet available, waiting...", "name", tufConstants.TufPvcConfigName)
-			return i.Requeue().Err
-		}
-		pvcName, ok := cm.Data["pvcName"]
-		if !ok || pvcName == "" {
-			return fmt.Errorf("PVC name not found in ConfigMap %q", tufConstants.TufPvcConfigName)
-		}
-
-		tufRepositoryVolume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, tufRepoVolumeName)
-		if tufRepositoryVolume.PersistentVolumeClaim == nil {
-			tufRepositoryVolume.PersistentVolumeClaim = &core.PersistentVolumeClaimVolumeSource{}
-		}
-		tufRepositoryVolume.PersistentVolumeClaim.ClaimName = pvcName
-		tufRepositoryVolume.PersistentVolumeClaim.ReadOnly = true
-
-		tufVolumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, tufRepoVolumeName)
-		tufVolumeMount.MountPath = "/tuf-repository"
-		tufVolumeMount.ReadOnly = true
-
 		return nil
 	}
 }
 
 func (i statefulSetAction) ensureInitContainer(tufHost string) func(*v1.StatefulSet) error {
 	return func(ss *v1.StatefulSet) error {
-		initContainer := kubernetes.FindInitContainerByNameOrCreate(&ss.Spec.Template.Spec, "wait-for-tuf")
+		initContainer := kubernetes.FindInitContainerByNameOrCreate(&ss.Spec.Template.Spec, "tuf-init")
 		initContainer.Image = images.Registry.Get(images.RekorMonitor)
+		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(initContainer, storageVolumeName)
+		volumeMount.MountPath = mountPath
 
 		initContainer.Command = []string{
 			"/bin/sh",
 			"-c",
-			fmt.Sprintf(`until curl %s > /dev/null 2>&1; do echo 'Waiting for tuf to be ready...'; sleep 5; done`, tufHost),
+			fmt.Sprintf(`until curl %s > /dev/null 2>&1; do echo 'Waiting for tuf to be ready...'; sleep 5; done; echo "Downloading root.json"; curl %s/root.json > %s/root.json`, tufHost, tufHost, mountPath),
 		}
 
 		return nil

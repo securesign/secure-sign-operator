@@ -1315,19 +1315,6 @@ spec:
                   - name
                   type: object
                 type: array
-              pvcConfig:
-                description: Reference to the ConfigMap created by TUF that stores
-                  the PVC name for other components to use.
-                properties:
-                  name:
-                    description: |-
-                      Name of the referent.
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                    type: string
-                required:
-                - name
-                type: object
-                x-kubernetes-map-type: atomic
               pvcName:
                 type: string
               url:
