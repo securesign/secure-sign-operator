@@ -11,5 +11,4 @@ const (
 	ContainerName       = "tuf-server"
 	VolumeName          = "repository"
 	RepositoryCondition = "repository"
-	TufPvcConfigName    = "tuf-pvc-config"
 )
