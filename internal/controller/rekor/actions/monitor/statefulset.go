@@ -65,7 +65,7 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1alpha1.R
 				Namespace: instance.Namespace,
 			},
 		},
-		i.ensureMonitorStatefulSet(ctx, instance, actions.RBACName, labels, rekorServerHost, tufServerHost),
+		i.ensureMonitorStatefulSet(instance, actions.RBACName, labels, rekorServerHost, tufServerHost),
 		i.ensureInitContainer(tufServerHost),
 		ensure.ControllerReference[*v1.StatefulSet](instance, i.Client),
 		ensure.Labels[*v1.StatefulSet](slices.Collect(maps.Keys(labels)), labels),
@@ -95,7 +95,7 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1alpha1.R
 	return i.Continue()
 }
 
-func (i statefulSetAction) ensureMonitorStatefulSet(ctx context.Context, instance *rhtasv1alpha1.Rekor, sa string, labels map[string]string, rekorServerHost string, tufServerHost string) func(*v1.StatefulSet) error {
+func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1alpha1.Rekor, sa string, labels map[string]string, rekorServerHost string, tufServerHost string) func(*v1.StatefulSet) error {
 	return func(ss *v1.StatefulSet) error {
 
 		spec := &ss.Spec
