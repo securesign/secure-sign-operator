@@ -43,6 +43,8 @@ spec:
     value: appstudio.openshift.io/application=operator,appstudio.openshift.io/component=rhtas-operator,pipelinesascode.tekton.dev/sha={{revision}},pipelinesascode.tekton.dev/event-type in (pull_request,incoming)
   - name: manager-registry-url
     value: registry.redhat.io/rhtas/rhtas-rhel9-operator
+  - name: fips-check
+    value: "true"
   pipelineRef:
     params:
     - name: url
