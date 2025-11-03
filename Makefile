@@ -83,12 +83,7 @@ CONTAINER_TOOL ?= docker
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
-OPENSHIFT ?= true
-
-CONFIG_DEFAULT=config/env/kubernetes
-ifeq ($(OPENSHIFT), true)
-CONFIG_DEFAULT=config/env/openshift
-endif
+CONFIG_DEFAULT=config/default
 
 .PHONY: all
 all: build

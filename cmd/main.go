@@ -20,7 +20,6 @@ import (
 	"crypto/tls"
 	"flag"
 	"os"
-	"strconv"
 
 	appconfig "github.com/securesign/operator/internal/config"
 	"github.com/securesign/operator/internal/controller"
@@ -102,6 +101,7 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.Int64Var(&appconfig.CreateTreeDeadline, "create-tree-deadline", appconfig.CreateTreeDeadline, "The time allowance (in seconds) for the create tree job to run before failing.")
 	utils.BoolFlagOrEnv(&appconfig.Openshift, "openshift", "OPENSHIFT", false, "Enable to ensures the operator applies OpenShift specific configurations.")
+	utils.StringFlagOrEnv(&appconfig.OpenshiftAPIServerName, "openshift-apiserver-name", "OPENSHIFT_APISERVER_NAME", "openshift-apiserver", "The OpenShift API Server name.")
 	utils.RelatedImageFlag("trillian-log-signer-image", images.TrillianLogSigner, "The image used for trillian log signer.")
 	utils.RelatedImageFlag("trillian-log-server-image", images.TrillianServer, "The image used for trillian log server.")
 	utils.RelatedImageFlag("trillian-db-image", images.TrillianDb, "The image used for trillian's database.")
@@ -125,6 +125,18 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(klog.NewKlogr())
+
+	if !utils.IsFlagProvided("openshift", "OPENSHIFT") {
+		openshift, err := kubernetes.DetectOpenShiftPlatform(setupLog, appconfig.OpenshiftAPIServerName)
+		if err != nil {
+			setupLog.Error(err, "Platform auto-detection failed, falling back to kubernetes", "error")
+			openshift = false
+		}
+		appconfig.Openshift = openshift
+		setupLog.Info("Platform auto-detected", "openshift", appconfig.Openshift)
+	} else {
+		setupLog.Info("Platform explicitly configured via flag/env", "openshift", appconfig.Openshift)
+	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -221,8 +233,6 @@ func main() {
 		setupLog.Error(err, "unable to set up CLIDownload component")
 		os.Exit(1)
 	}
-
-	setupLog.WithName("IsOpenshift").Info(strconv.FormatBool(appconfig.Openshift))
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

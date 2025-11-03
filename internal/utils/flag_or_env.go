@@ -33,3 +33,18 @@ func BoolFlagOrEnv(p *bool, name string, envName string, defaultValue bool, usag
 	}
 	flag.BoolVar(p, name, defaultValue, usage)
 }
+
+// IsFlagProvided checks if a flag was explicitly provided on the command line or via environment variable
+func IsFlagProvided(name string, envName string) bool {
+	if envName != "" && os.Getenv(envName) != "" {
+		return true
+	}
+
+	provided := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			provided = true
+		}
+	})
+	return provided
+}
