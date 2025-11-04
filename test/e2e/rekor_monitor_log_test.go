@@ -1,4 +1,4 @@
-//go:build integrationrekor
+//go:build integration
 
 package e2e
 
