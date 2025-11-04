@@ -48,3 +48,6 @@ ts_chain.pem
 
 # HELM Charts
 ci/**/charts
+
+# RHBK Resources
+ci/rhbk/resources/base/hostname.env
