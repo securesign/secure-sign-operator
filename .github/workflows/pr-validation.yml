@@ -1,0 +1,42 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [ "main", "release*" ]
+
+env:
+  GO_VERSION: 1.24
+
+jobs:
+  validate-pr:
+    name: Basic PR Validation
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run unit tests
+        run: make test
+
+      - name: Generate and validate manifests
+        run: |
+          make manifests generate fmt vet
+
+      - name: Check if generated files are up to date
+        run: |
+          if ! git diff --exit-code; then
+            echo "❌ Generated files are not up to date"
+            echo "Please run 'make manifests generate fmt' and commit the changes"
+            git diff
+            exit 1
+          else
+            echo "✅ Generated files are up to date"
+          fi
+
