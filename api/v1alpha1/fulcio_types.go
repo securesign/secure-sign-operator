@@ -33,6 +33,8 @@ type FulcioSpec struct {
 	// ConfigMap with additional bundle of trusted CA
 	//+optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
+
+	ServiceAccountRequirements `json:",inline"`
 }
 
 // FulcioCert defines fields for system-generated certificate
