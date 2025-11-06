@@ -29,6 +29,8 @@ type TufSpec struct {
 	// You can use ReadWriteOnce accessMode if you don't have suitable storage provider but your deployment will not support HA mode
 	//+kubebuilder:default:={size: "100Mi",retain: true,accessModes: {ReadWriteOnce}}
 	Pvc TufPvc `json:"pvc,omitempty"`
+
+	ServiceAccountRequirements `json:",inline"`
 }
 
 // TufPvc configuration of the persistent storage claim for deployment in the cluster.

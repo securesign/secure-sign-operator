@@ -12,6 +12,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -55,6 +56,10 @@ func (i fulcioAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secure
 		ensure.Annotations[*rhtasv1alpha1.Fulcio](annotations.InheritableAnnotations, instance.Annotations),
 		func(object *rhtasv1alpha1.Fulcio) error {
 			object.Spec = instance.Spec.Fulcio
+			object.Spec.ImagePullSecrets = utils.MergeImagePullSecrets(
+				instance.Spec.ImagePullSecrets,
+				instance.Spec.Fulcio.ImagePullSecrets,
+			)
 			return nil
 		},
 	); err != nil {
