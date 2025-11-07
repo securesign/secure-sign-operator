@@ -3,16 +3,23 @@ set -e
 
 TOOLS="/tmp"
 
-if [ -f "/cachi2/output/deps/generic/kustomize_v5.6.0_linux_amd64.tar.gz" ]
-then
-  tar -xzf /cachi2/output/deps/generic/kustomize_v5.6.0_linux_amd64.tar.gz -C ${TOOLS}
-  KUSTOMIZE=${TOOLS}/kustomize
+SRC_TARBALL="/cachi2/output/deps/generic/kustomize-v5.6.0-source.tar.gz"
+
+BUILD_DIR="${TOOLS}/kustomize-src"
+KUSTOMIZE="${TOOLS}/kustomize"
+
+mkdir -p "${BUILD_DIR}"
+
+if [ -f "${SRC_TARBALL}" ]; then
+  tar -xzf "${SRC_TARBALL}" -C "${BUILD_DIR}" --strip-components=1
 else
-  curl -Lo ${TOOLS}/kustomize.tar.gz "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.6.0/kustomize_v5.6.0_linux_amd64.tar.gz" && \
-  tar -xzf ${TOOLS}/kustomize.tar.gz -C ${TOOLS}
-  rm ${TOOLS}/kustomize.tar.gz
-  KUSTOMIZE=${TOOLS}/kustomize
+  curl -L -o "${TOOLS}/kustomize-source.tar.gz" "https://github.com/kubernetes-sigs/kustomize/archive/refs/tags/kustomize/v5.6.0.tar.gz"
+  tar -xzf "${TOOLS}/kustomize-source.tar.gz" -C "${BUILD_DIR}" --strip-components=1
 fi
+
+cd "${BUILD_DIR}/kustomize"
+go build -o "${KUSTOMIZE}"
+
 chmod +x ${KUSTOMIZE}
 
 if [[ -n "$IMG" ]]
