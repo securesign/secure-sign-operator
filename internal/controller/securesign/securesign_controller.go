@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/monitoring"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller"
@@ -52,7 +53,7 @@ type securesignReconciler struct {
 	recorder record.EventRecorder
 }
 
-func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.EventRecorder) controller.Controller {
+func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.EventRecorder, _ *monitoring.ServiceMonitorRegistry) controller.Controller {
 	return &securesignReconciler{
 		Client:   c,
 		scheme:   scheme,

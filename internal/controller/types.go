@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"github.com/securesign/operator/internal/action/monitoring"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -39,4 +40,4 @@ type Controller interface {
 	SetupWithManager(ctrl.Manager) error
 }
 
-type Constructor func(client.Client, *runtime.Scheme, record.EventRecorder) Controller
+type Constructor func(client.Client, *runtime.Scheme, record.EventRecorder, *monitoring.ServiceMonitorRegistry) Controller
