@@ -37,8 +37,6 @@ spec:
     value: "true"
   - name: hermetic
     value: "true"
-  - name: prefetch-input
-    value: '{"type": "generic", "path": "."}'
   - name: image-expires-after
     value: 5d
   - name: manager-pipelinerun-selector

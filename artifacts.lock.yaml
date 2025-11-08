@@ -1,7 +1,0 @@
----
-metadata:
-  version: "1.0"
-artifacts:
-  - download_url: "https://github.com/kubernetes-sigs/kustomize/archive/refs/tags/kustomize/v5.6.0.tar.gz"
-    checksum: "sha256:80822d3227c0dbbd38bff19c4630f4fa7eccbacd0ff269a1795a63aa3a45714f"
-    filename: "kustomize-v5.6.0-source.tar.gz"

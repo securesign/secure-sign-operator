@@ -36,8 +36,6 @@ spec:
     value: "true"
   - name: hermetic
     value: "true"
-  - name: prefetch-input
-    value: '{"type": "generic", "path": "."}'
   - name: manager-pipelinerun-selector
     value: appstudio.openshift.io/application=operator,appstudio.openshift.io/component=rhtas-operator,pipelinesascode.tekton.dev/sha={{revision}},pipelinesascode.tekton.dev/event-type in (push,incoming)
   - name: manager-registry-url
