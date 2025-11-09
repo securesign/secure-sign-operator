@@ -13,10 +13,34 @@ ARG IMG
 
 # Replace image reference in kustomization.yaml
 RUN if [ -n "$IMG" ]; then \
-      IMG_NAME=$(echo "${IMG}" | cut -d'@' -f1); \
-      IMG_DIGEST=$(echo "${IMG}" | cut -d'@' -f2); \
-      sed -i "s|newName:.*|newName: ${IMG_NAME}|" config/manager/kustomization.yaml; \
-      sed -i "s|digest:.*|digest: ${IMG_DIGEST}|" config/manager/kustomization.yaml; \
+      if [[ "$IMG" == *"@"* ]]; then \
+        # Digest form: my-operator@sha256:abcd...
+        IMG_NAME=$(echo "${IMG}" | cut -d'@' -f1); \
+        IMG_DIGEST=$(echo "${IMG}" | cut -d'@' -f2); \
+        sed -i "s|newName:.*|newName: ${IMG_NAME}|" config/manager/kustomization.yaml; \
+        if grep -q "digest:" config/manager/kustomization.yaml; then \
+          sed -i "s|digest:.*|digest: ${IMG_DIGEST}|" config/manager/kustomization.yaml; \
+        else \
+          sed -i "/newName:/a\  digest: ${IMG_DIGEST}" config/manager/kustomization.yaml; \
+        fi; \
+        sed -i "/newTag:/d" config/manager/kustomization.yaml; \
+      elif [[ "$IMG" == *":"* ]]; then \
+        # Tag form: my-operator:v1.4.0
+        IMG_NAME=$(echo "${IMG}" | cut -d':' -f1); \
+        IMG_TAG=$(echo "${IMG}" | cut -d':' -f2); \
+        sed -i "s|newName:.*|newName: ${IMG_NAME}|" config/manager/kustomization.yaml; \
+        if grep -q "newTag:" config/manager/kustomization.yaml; then \
+          sed -i "s|newTag:.*|newTag: ${IMG_TAG}|" config/manager/kustomization.yaml; \
+        else \
+          sed -i "/newName:/a\  newTag: ${IMG_TAG}" config/manager/kustomization.yaml; \
+        fi; \
+        sed -i "/digest:/d" config/manager/kustomization.yaml; \
+      else \
+        # Plain or dotted name: rhtas-operator.v1.3.0
+        sed -i "s|newName:.*|newName: ${IMG}|" config/manager/kustomization.yaml; \
+        sed -i "/digest:/d" config/manager/kustomization.yaml; \
+        sed -i "/newTag:/d" config/manager/kustomization.yaml; \
+      fi; \
     fi
 
 # Build manifests
