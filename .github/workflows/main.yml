@@ -124,6 +124,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: "securesign/fbc"
+          ref: stage
           path: fbc
 
       - name: Build catalog
@@ -237,8 +238,6 @@ jobs:
         run: make dev-images && cat config/default/images.env
 
       - name: Deploy operator container
-        env:
-          OPENSHIFT: false
         run: make deploy
 
       - name: Wait for operator to be ready
@@ -338,7 +337,6 @@ jobs:
         env:
           TEST_BASE_CATALOG: registry.redhat.io/redhat/redhat-operator-index:${{ vars.OLM_INDEX_VERSION }}
           TEST_TARGET_CATALOG: ${{ env.CATALOG_IMG }}
-          OPENSHIFT: false
         run: go test -p 1 ./test/e2e/... -tags=upgrade -timeout 20m
 
       - name: Archive test artifacts
@@ -403,8 +401,6 @@ jobs:
         run: make dev-images && cat config/default/images.env
 
       - name: Deploy operator container
-        env:
-          OPENSHIFT: false
         run: make deploy
 
       - name: Wait for operator to be ready
@@ -499,7 +495,6 @@ jobs:
       - name: Run tests
         env:
           TEST_MANAGER_IMAGE: ${{ env.IMG }}
-          OPENSHIFT: false
         run: make install && go test ./test/e2e/... -tags=custom_install -p 1 -timeout 20m
 
       - name: Archive test artifacts
@@ -582,8 +577,6 @@ jobs:
         run: make dev-images generate && cat config/default/images.env
 
       - name: Deploy operator container
-        env:
-          OPENSHIFT: false
         run: make deploy
 
       - name: Wait for operator to be ready

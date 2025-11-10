@@ -347,6 +347,96 @@ var _ = Describe("Rekor", func() {
 			})
 		})
 
+		Context("signer validation", func() {
+			When("using valid KMS values", func() {
+				It("should allow empty string", func() {
+					validObject := generateRekorObject("rekor-kms-valid-empty")
+					validObject.Spec.Signer.KMS = ""
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("should allow 'secret'", func() {
+					validObject := generateRekorObject("rekor-kms-valid-secret")
+					validObject.Spec.Signer.KMS = "secret"
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("should allow 'memory'", func() {
+					validObject := generateRekorObject("rekor-kms-valid-memory")
+					validObject.Spec.Signer.KMS = "memory"
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("should allow 'awskms://' URI", func() {
+					validObject := generateRekorObject("rekor-kms-valid-aws")
+					validObject.Spec.Signer.KMS = "awskms://key/arn"
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("should allow 'awskms:///' URI (triple slash)", func() {
+					validObject := generateRekorObject("rekor-kms-valid-aws-tripleslash")
+					validObject.Spec.Signer.KMS = "awskms:///key-id-or-arn"
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("should allow 'gcpkms://' URI", func() {
+					validObject := generateRekorObject("rekor-kms-valid-gcp")
+					validObject.Spec.Signer.KMS = "gcpkms://key/path"
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("should allow 'azurekms://' URI", func() {
+					validObject := generateRekorObject("rekor-kms-valid-azure")
+					validObject.Spec.Signer.KMS = "azurekms://key/path"
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("should allow 'hashivault://' URI", func() {
+					validObject := generateRekorObject("rekor-kms-valid-vault")
+					validObject.Spec.Signer.KMS = "hashivault://key/path"
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+			})
+
+			When("using invalid KMS values", func() {
+				It("should reject a random string", func() {
+					invalidObject := generateRekorObject("rekor-kms-invalid-random")
+					invalidObject.Spec.Signer.KMS = "unsupported"
+
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("KMS must be '', 'secret', 'memory', or a valid URI")))
+				})
+
+				It("should reject an incomplete URI", func() {
+					invalidObject := generateRekorObject("rekor-kms-invalid-incomplete")
+					invalidObject.Spec.Signer.KMS = "awskms://"
+
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("KMS must be '', 'secret', 'memory', or a valid URI")))
+				})
+
+				It("should reject a typo URI", func() {
+					invalidObject := generateRekorObject("rekor-kms-invalid-typo")
+					invalidObject.Spec.Signer.KMS = "aws-kms://key"
+
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("KMS must be '', 'secret', 'memory', or a valid URI")))
+				})
+
+				It("should reject unsupported protocol", func() {
+					invalidObject := generateRekorObject("rekor-kms-invalid-other")
+					invalidObject.Spec.Signer.KMS = "s3://my-bucket"
+
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("KMS must be '', 'secret', 'memory', or a valid URI")))
+				})
+			})
+		})
+
 		Context("attestations", func() {
 			When("file url", func() {
 				It("default", func() {
