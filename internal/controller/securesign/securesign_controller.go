@@ -24,6 +24,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
@@ -99,11 +100,13 @@ func (r *securesignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		if err := r.DeleteAllOf(ctx, &v1.ClusterRole{}, client.MatchingLabels(instanceLabels)); err != nil {
 			log.Error(err, "problem with removing ClusterRole resource")
 		}
-		if err := r.DeleteAllOf(ctx, &v1.Role{}, client.InNamespace(actions.OpenshiftMonitoringNS), client.MatchingLabels(instanceLabels)); err != nil {
-			log.Error(err, "problem with removing Role resource in %s", actions.OpenshiftMonitoringNS)
-		}
-		if err := r.DeleteAllOf(ctx, &v1.RoleBinding{}, client.InNamespace(actions.OpenshiftMonitoringNS), client.MatchingLabels(instanceLabels)); err != nil {
-			log.Error(err, "problem with removing RoleBinding resource in %s", actions.OpenshiftMonitoringNS)
+		if kubernetes.IsOpenShift() {
+			if err := r.DeleteAllOf(ctx, &v1.Role{}, client.InNamespace(actions.OpenshiftMonitoringNS), client.MatchingLabels(instanceLabels)); err != nil {
+				log.Error(err, "problem with removing Role resource in %s", actions.OpenshiftMonitoringNS)
+			}
+			if err := r.DeleteAllOf(ctx, &v1.RoleBinding{}, client.InNamespace(actions.OpenshiftMonitoringNS), client.MatchingLabels(instanceLabels)); err != nil {
+				log.Error(err, "problem with removing RoleBinding resource in %s", actions.OpenshiftMonitoringNS)
+			}
 		}
 
 		controllerutil.RemoveFinalizer(target, finalizer)
