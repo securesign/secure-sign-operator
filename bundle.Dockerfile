@@ -20,7 +20,6 @@ COPY hack/build-bundle.sh build-bundle.sh
 
 USER root
 
-RUN chmod +x build-bundle.sh
 RUN ./build-bundle.sh
 
 FROM scratch
