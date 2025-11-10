@@ -4,61 +4,24 @@ ARG DEFAULT_CHANNEL="stable"
 ARG BUNDLE_GEN_FLAGS="-q --overwrite=false --version $VERSION --channels=$CHANNELS --default-channel=$DEFAULT_CHANNEL"
 ARG IMG
 
-FROM registry.redhat.io/openshift4/ose-cli-rhel9@sha256:64867e62dbbafe779cdb4233b7c7c8686932717177e5825058e23beccbb3207b AS oc-builder
-
-WORKDIR /tmp
-
-COPY ./config/ ./config/
-ARG IMG
-
-# Replace image reference in kustomization.yaml
-RUN if [ -n "$IMG" ]; then \
-      if [[ "$IMG" == *"@"* ]]; then \
-        IMG_NAME="${IMG%@*}"; IMG_DIGEST="${IMG#*@}"; \
-        sed -i "s|newName:.*|newName: ${IMG_NAME}|" config/manager/kustomization.yaml; \
-        sed -i "/newTag:/d" config/manager/kustomization.yaml; \
-        if grep -q "digest:" config/manager/kustomization.yaml; then \
-          sed -i "s|digest:.*|digest: ${IMG_DIGEST}|" config/manager/kustomization.yaml; \
-        else \
-          sed -i "/newName:/a\  digest: ${IMG_DIGEST}" config/manager/kustomization.yaml; \
-        fi; \
-      elif [[ "$IMG" == *":"* ]]; then \
-        IMG_NAME="${IMG%%:*}"; IMG_TAG="${IMG##*:}"; \
-        sed -i "s|newName:.*|newName: ${IMG_NAME}|" config/manager/kustomization.yaml; \
-        sed -i "/digest:/d" config/manager/kustomization.yaml; \
-        if grep -q "newTag:" config/manager/kustomization.yaml; then \
-          sed -i "s|newTag:.*|newTag: ${IMG_TAG}|" config/manager/kustomization.yaml; \
-        else \
-          sed -i "/newName:/a\  newTag: ${IMG_TAG}" config/manager/kustomization.yaml; \
-        fi; \
-      else \
-        sed -i "s|newName:.*|newName: ${IMG}|" config/manager/kustomization.yaml; \
-        sed -i "/digest:/d" config/manager/kustomization.yaml; \
-        sed -i "/newTag:/d" config/manager/kustomization.yaml; \
-      fi; \
-      sed -i "s|^images:|images:\n-|" config/manager/kustomization.yaml; \
-    fi
-
-# Build manifests
-RUN oc kustomize config/manifests > /tmp/manifests.yaml
-
 FROM registry.redhat.io/openshift4/ose-operator-sdk-rhel9@sha256:8ff0cb8587bbca8809490ff59a67496599b6c0cc8e4ca88451481a265f17e581 AS builder
+
+# Copy oc binary from the official image
+COPY --from=registry.redhat.io/openshift4/ose-cli-rhel9@sha256:64867e62dbbafe779cdb4233b7c7c8686932717177e5825058e23beccbb3207b /usr/bin/oc /usr/bin/oc
 
 ARG BUNDLE_GEN_FLAGS
 ARG IMG
 
 WORKDIR /tmp
 
-
-# Copy generated manifests from previous stage
-COPY --from=oc-builder /tmp/manifests.yaml ./config/manifests/all.yaml
+COPY ./config/ ./config/
 COPY PROJECT .
+COPY hack/build-bundle.sh build-bundle.sh
 
 USER root
 
-# Generate and validate the Operator bundle
-RUN cat ./config/manifests/all.yaml | operator-sdk generate bundle ${BUNDLE_GEN_FLAGS} \
-    && operator-sdk bundle validate ./bundle
+RUN chmod +x build-bundle.sh
+RUN ./build-bundle.sh
 
 FROM scratch
 
