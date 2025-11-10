@@ -29,8 +29,6 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/dsl/core"
 	. "github.com/onsi/gomega"
-	olm "github.com/operator-framework/api/pkg/operators/v1"
-	olmAlpha "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/securesign/operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,8 +50,6 @@ func CreateClient() (client.Client, error) {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
-	utilruntime.Must(olmAlpha.AddToScheme(scheme))
-	utilruntime.Must(olm.AddToScheme(scheme))
 
 	cfg, err := config.GetConfig()
 	if err != nil {
