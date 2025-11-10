@@ -39,8 +39,5 @@ if [ -n "$IMG" ]; then
   sed -i "s|^images:|images:\n-|" "${KUSTOMIZATION_FILE}"
 fi
 
-# Build manifests
-oc kustomize config/manifests > ./config/manifests/all.yaml
-
 # Generate and validate the Operator bundle
-cat ./config/manifests/all.yaml | operator-sdk generate bundle ${BUNDLE_GEN_FLAGS} && operator-sdk bundle validate ./bundle
+oc kustomize config/manifests | operator-sdk generate bundle ${BUNDLE_GEN_FLAGS} && operator-sdk bundle validate ./bundle
