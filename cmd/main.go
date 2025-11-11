@@ -25,6 +25,7 @@ import (
 	"github.com/securesign/operator/internal/controller"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/utils"
+	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/klog/v2"
@@ -135,6 +136,10 @@ func main() {
 		setupLog.Info("Platform auto-detected", "openshift", appconfig.Openshift)
 	} else {
 		setupLog.Info("Platform explicitly configured via flag/env", "openshift", appconfig.Openshift)
+	}
+
+	if cryptoutil.FIPSEnabled {
+		setupLog.Info("Operator is running in FIPS enabled environment", "FIPSEnabled", cryptoutil.FIPSEnabled)
 	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
