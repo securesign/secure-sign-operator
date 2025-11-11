@@ -36,6 +36,10 @@ func (i segmentBackupCronJob) Name() string {
 	return "segment-backup-nightly-metrics"
 }
 func (i segmentBackupCronJob) CanHandle(_ context.Context, instance *rhtasv1alpha1.Securesign) bool {
+	if !kubernetes.IsOpenShift() {
+		return false
+	}
+
 	c := meta.FindStatusCondition(instance.Status.Conditions, MetricsCondition)
 	if c == nil || c.Reason == constants.Ready {
 		return false
