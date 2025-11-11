@@ -153,6 +153,7 @@ func withProxy(hostname string) func(pod *v1.Pod) {
 		".svc",
 		"localhost",
 		"127.0.0.1",
+		"10.96.0.1",
 	}
 
 	url := fmt.Sprintf("http://%s:80", hostname)

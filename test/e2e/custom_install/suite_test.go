@@ -29,6 +29,9 @@ import (
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/utils/ptr"
 
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	runtimeCli "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -79,10 +82,14 @@ func installOperator(ctx context.Context, cli runtimeCli.Client, ns string, opts
 		Expect(cli.Create(ctx, o)).To(Succeed())
 	}
 
-	Expect(cli.Create(ctx, managerPod(ns, opts...))).To(Succeed())
+	pod := managerPod(ns, opts...)
+	Expect(cli.Create(ctx, pod)).To(Succeed())
 
-	time.Sleep(1 * time.Minute)
+	Expect(WaitForPodReadiness(ctx, cli, pod)).To(Succeed(), "Timed out waiting for manager Pod readiness")
 
+	const webhookConfigName = "validation.securesigns.rhtas.redhat.com"
+	Expect(WaitForWebhookCaInjection(ctx, cli, webhookConfigName)).To(Succeed(),
+		"Timed out waiting for ValidatingWebhookConfiguration to receive CA bundle injection.")
 }
 
 type optManagerPod func(pod *v1.Pod)
@@ -327,4 +334,45 @@ func webhookInfra(ns string) []runtimeCli.Object {
 	}
 
 	return objects
+}
+
+func WaitForPodReadiness(ctx context.Context, cli runtimeCli.Client, pod *v1.Pod) error {
+	return wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, false, func(ctx context.Context) (bool, error) {
+		p := &v1.Pod{}
+		key := types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}
+
+		if err := cli.Get(ctx, key, p); err != nil {
+			return false, nil
+		}
+
+		for _, condition := range p.Status.Conditions {
+			if condition.Type == v1.PodReady && condition.Status == v1.ConditionTrue {
+				return true, nil
+			}
+		}
+		return false, nil
+	})
+}
+
+func WaitForWebhookCaInjection(ctx context.Context, cli runtimeCli.Client, webhookConfigName string) error {
+	const timeout = 2 * time.Minute
+	const pollInterval = 5 * time.Second
+
+	key := types.NamespacedName{Name: webhookConfigName}
+
+	return wait.PollUntilContextTimeout(ctx, pollInterval, timeout, false, func(ctx context.Context) (bool, error) {
+		config := &admissionv1.ValidatingWebhookConfiguration{}
+
+		if err := cli.Get(ctx, key, config); err != nil {
+			return false, nil
+		}
+
+		for _, webhook := range config.Webhooks {
+			if len(webhook.ClientConfig.CABundle) > 0 {
+				return true, nil
+			}
+		}
+
+		return false, nil
+	})
 }
