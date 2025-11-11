@@ -149,6 +149,54 @@ var _ = Describe("Securesign FIPS", Ordered, func() {
 			Expect(strings.TrimSpace(string(out))).To(Equal("1"))
 		})
 
+		It("Verify backfill-redis job is running in FIPS mode", func(ctx SpecContext) {
+			job := &batchv1.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "fips-backfill-redis",
+					Namespace: namespace.Name,
+				},
+				Spec: batchv1.JobSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							RestartPolicy: corev1.RestartPolicyNever,
+							Containers: []corev1.Container{
+								{
+									Name:  "backfill-redis",
+									Image: images.Registry.Get(images.BackfillRedis),
+									Command: []string{
+										"sh", "-c", "sleep 300",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			Expect(cli.Create(ctx, job)).To(Succeed())
+			DeferCleanup(func() {
+				_ = cli.Delete(ctx, job)
+			})
+
+			list := &v1.PodList{}
+			Eventually(func(g Gomega) {
+				g.Expect(cli.List(ctx, list,
+					ctrlclient.InNamespace(namespace.Name),
+					ctrlclient.MatchingLabels{"batch.kubernetes.io/job-name": "fips-backfill-redis"},
+				)).To(Succeed())
+				g.Expect(list.Items).To(HaveLen(1))
+			}).WithContext(ctx).Should(Succeed())
+			testPod := &list.Items[0]
+
+			Eventually(func(g Gomega) string {
+				out, err := k8ssupport.ExecInPodWithOutput(ctx, testPod.Name, "backfill-redis", testPod.Namespace,
+					"cat", "/proc/sys/crypto/fips_enabled",
+				)
+				g.Expect(err).ToNot(HaveOccurred())
+				return strings.TrimSpace(string(out))
+			}).WithContext(ctx).Should(Equal("1"))
+		})
+
 		It("Verify rekor-redis is running in FIPS mode", func(ctx SpecContext) {
 			list := &v1.PodList{}
 			Expect(cli.List(ctx, list,
