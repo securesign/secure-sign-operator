@@ -1,27 +1,43 @@
 #!/bin/bash
 set -e
 
-TOOLS="/tmp"
+KUSTOMIZATION_FILE="config/manager/kustomization.yaml"
 
-if [ -f "/cachi2/output/deps/generic/kustomize_v5.6.0_linux_amd64.tar.gz" ]
-then
-  tar -xzf /cachi2/output/deps/generic/kustomize_v5.6.0_linux_amd64.tar.gz -C ${TOOLS}
-  KUSTOMIZE=${TOOLS}/kustomize
-else
-  curl -Lo ${TOOLS}/kustomize.tar.gz "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.6.0/kustomize_v5.6.0_linux_amd64.tar.gz" && \
-  tar -xzf ${TOOLS}/kustomize.tar.gz -C ${TOOLS}
-  rm ${TOOLS}/kustomize.tar.gz
-  KUSTOMIZE=${TOOLS}/kustomize
+if [ -n "$IMG" ]; then
+  if [[ "$IMG" == *"@"* ]]; then
+    IMG_NAME="${IMG%@*}"
+    IMG_DIGEST="${IMG#*@}"
+
+    sed -i "s|newName:.*|newName: ${IMG_NAME}|" "${KUSTOMIZATION_FILE}"
+    sed -i "/newTag:/d" "${KUSTOMIZATION_FILE}"
+
+    if grep -q "digest:" "${KUSTOMIZATION_FILE}"; then
+      sed -i "s|digest:.*|digest: ${IMG_DIGEST}|" "${KUSTOMIZATION_FILE}"
+    else
+      sed -i "/newName:/a\  digest: ${IMG_DIGEST}" "${KUSTOMIZATION_FILE}"
+    fi
+
+  elif [[ "$IMG" == *":"* ]]; then
+    IMG_NAME="${IMG%%:*}"
+    IMG_TAG="${IMG##*:}"
+
+    sed -i "s|newName:.*|newName: ${IMG_NAME}|" "${KUSTOMIZATION_FILE}"
+    sed -i "/digest:/d" "${KUSTOMIZATION_FILE}"
+
+    if grep -q "newTag:" "${KUSTOMIZATION_FILE}"; then
+      sed -i "s|newTag:.*|newTag: ${IMG_TAG}|" "${KUSTOMIZATION_FILE}"
+    else
+      sed -i "/newName:/a\  newTag: ${IMG_TAG}" "${KUSTOMIZATION_FILE}"
+    fi
+
+  else
+    sed -i "s|newName:.*|newName: ${IMG}|" "${KUSTOMIZATION_FILE}"
+    sed -i "/digest:/d" "${KUSTOMIZATION_FILE}"
+    sed -i "/newTag:/d" "${KUSTOMIZATION_FILE}"
+  fi
+
+  sed -i "s|^images:|images:\n-|" "${KUSTOMIZATION_FILE}"
 fi
-chmod +x ${KUSTOMIZE}
 
-if [[ -n "$IMG" ]]
-then
-  pushd config/manager
-  ${KUSTOMIZE} edit set image controller="${IMG}"
-  popd
-fi
-
-${KUSTOMIZE} build config/manifests | operator-sdk generate bundle ${BUNDLE_GEN_FLAGS}
-
-operator-sdk bundle validate ./bundle
+# Generate and validate the Operator bundle
+oc kustomize config/manifests | operator-sdk generate bundle ${BUNDLE_GEN_FLAGS} && operator-sdk bundle validate ./bundle
