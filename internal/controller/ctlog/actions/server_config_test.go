@@ -57,9 +57,11 @@ func TestServerConfig_CanHandle(t *testing.T) {
 		{
 			name:                  "ConditionTrue: spec.serverConfigRef is nil and status.serverConfigRef is not nil",
 			status:                metav1.ConditionTrue,
-			canHandle:             false,
+			canHandle:             true,
 			serverConfigRef:       nil,
 			statusServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "config"},
+			observedGeneration:    1,
+			generation:            1,
 		},
 		{
 			name:                  "ConditionTrue: spec.serverConfigRef is nil and status.serverConfigRef is nil",
@@ -85,7 +87,7 @@ func TestServerConfig_CanHandle(t *testing.T) {
 		{
 			name:                  "ConditionTrue: observedGeneration == generation",
 			status:                metav1.ConditionTrue,
-			canHandle:             false,
+			canHandle:             true,
 			statusServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "config"},
 			observedGeneration:    1,
 			generation:            1,
@@ -181,6 +183,17 @@ func TestServerConfig_Handle(t *testing.T) {
 				},
 				status: rhtasv1alpha1.CTlogStatus{
 					ServerConfigRef: nil,
+				},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "config",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							ctlogUtils.ConfigKey: []byte("test-config"),
+						},
+					},
 				},
 			},
 			want: want{

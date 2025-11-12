@@ -52,6 +52,8 @@ func (i serverConfig) CanHandle(_ context.Context, instance *rhtasv1alpha1.CTlog
 		return true
 	case instance.Spec.ServerConfigRef != nil:
 		return !equality.Semantic.DeepEqual(instance.Spec.ServerConfigRef, instance.Status.ServerConfigRef)
+	case c.ObservedGeneration != instance.Generation:
+		return true
 	default:
 		// Always run Handle() to validate the secret: exists and is valid
 		return true
