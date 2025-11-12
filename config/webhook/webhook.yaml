@@ -9,7 +9,7 @@ webhooks:
   clientConfig:
     service:
       name: controller-manager-webhook-service
-      namespace: system
+      namespace: openshift-rhtas-operator
       path: /validate
   failurePolicy: Fail
   name: validation.securesigns.rhtas.redhat.com
