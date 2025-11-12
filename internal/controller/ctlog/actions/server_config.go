@@ -99,6 +99,20 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		return i.StatusUpdate(ctx, instance)
 	}
 
+	// Validate prerequisites and normalize Trillian address before validation
+	switch {
+	case instance.Status.TreeID == nil:
+		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrTreeNotSpecified), instance)
+	case instance.Status.PrivateKeyRef == nil:
+		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrPrivateKeyNotSpecified), instance)
+	case instance.Spec.Trillian.Port == nil:
+		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrTrillianPortNotSpecified)), instance)
+	case instance.Spec.Trillian.Address == "":
+		instance.Spec.Trillian.Address = fmt.Sprintf("%s.%s.svc", trillian.LogserverDeploymentName, instance.Namespace)
+	}
+
+	trillianUrl := fmt.Sprintf("%s:%d", instance.Spec.Trillian.Address, *instance.Spec.Trillian.Port)
+
 	// Validate existing secret before attempting recreation
 	if instance.Status.ServerConfigRef != nil && instance.Status.ServerConfigRef.Name != "" {
 		secret, err := kubernetes.GetSecret(i.Client, instance.Namespace, instance.Status.ServerConfigRef.Name)
@@ -117,8 +131,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 			}
 		} else {
 			// Secret exists and is accessible - validate it
-			expectedTrillianAddr := fmt.Sprintf("%s:%d", instance.Spec.Trillian.Address, *instance.Spec.Trillian.Port)
-			if ctlogUtils.IsSecretDataValid(secret.Data, expectedTrillianAddr) {
+			if ctlogUtils.IsSecretDataValid(secret.Data, trillianUrl) {
 				return i.Continue() // nothing to do
 			}
 			// Secret is invalid, will recreate
@@ -129,19 +142,6 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 				"Config secret has invalid configuration, will recreate")
 		}
 	}
-
-	switch {
-	case instance.Status.TreeID == nil:
-		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrTreeNotSpecified), instance)
-	case instance.Status.PrivateKeyRef == nil:
-		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrPrivateKeyNotSpecified), instance)
-	case instance.Spec.Trillian.Port == nil:
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrTrillianPortNotSpecified)), instance)
-	case instance.Spec.Trillian.Address == "":
-		instance.Spec.Trillian.Address = fmt.Sprintf("%s.%s.svc", trillian.LogserverDeploymentName, instance.Namespace)
-	}
-
-	trillianUrl := fmt.Sprintf("%s:%d", instance.Spec.Trillian.Address, *instance.Spec.Trillian.Port)
 
 	configLabels := labels.ForResource(ComponentName, DeploymentName, instance.Name, serverConfigResourceName)
 
