@@ -133,15 +133,32 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 			}
 		} else {
 			// Secret exists and is accessible - validate it
-			if ctlogUtils.IsSecretDataValid(secret.Data, trillianUrl) {
-				return i.Continue() // nothing to do
+			if !ctlogUtils.IsSecretDataValid(secret.Data, trillianUrl) {
+				// Secret has wrong Trillian configuration, will recreate
+				i.Logger.Info("Server config secret is invalid, will recreate",
+					"secret", secret.Name,
+					"reason", "Trillian configuration mismatch")
+				i.Recorder.Event(instance, corev1.EventTypeWarning, "CTLogConfigInvalid",
+					"Config secret has invalid Trillian configuration, will recreate")
+			} else {
+				// Check if root certificates match (for hot updates)
+				expectedRootCertCount := len(instance.Status.RootCertificates)
+				actualRootCertCount := 0
+				for key := range secret.Data {
+					if len(key) >= 6 && key[:6] == "fulcio" {
+						actualRootCertCount++
+					}
+				}
+				if actualRootCertCount == expectedRootCertCount {
+					// Everything matches - no need to recreate
+					return i.Continue()
+				}
+				// Root certificates changed - need to recreate for hot update
+				i.Logger.Info("Server config secret needs update for root certificate change",
+					"secret", secret.Name,
+					"expected_certs", expectedRootCertCount,
+					"actual_certs", actualRootCertCount)
 			}
-			// Secret is invalid, will recreate
-			i.Logger.Info("Server config secret is invalid, will recreate",
-				"secret", secret.Name,
-				"reason", "Trillian configuration mismatch")
-			i.Recorder.Event(instance, corev1.EventTypeWarning, "CTLogConfigInvalid",
-				"Config secret has invalid configuration, will recreate")
 		}
 	}
 

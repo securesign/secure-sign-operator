@@ -251,6 +251,17 @@ func TestServerConfig_Handle(t *testing.T) {
 				status: rhtasv1alpha1.CTlogStatus{
 					ServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "old_config"},
 				},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "new_config",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							ctlogUtils.ConfigKey: []byte("new-test-config"),
+						},
+					},
+				},
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
