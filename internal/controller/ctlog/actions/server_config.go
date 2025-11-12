@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
@@ -142,14 +143,17 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 					"Config secret has invalid Trillian configuration, will recreate")
 			} else {
 				// Check if root certificates match (for hot updates)
-				expectedRootCertCount := len(instance.Status.RootCertificates)
+				// Count fulcio-* keys in the secret
 				actualRootCertCount := 0
 				for key := range secret.Data {
-					if len(key) >= 6 && key[:6] == "fulcio" {
+					if strings.HasPrefix(key, "fulcio-") {
 						actualRootCertCount++
 					}
 				}
-				if actualRootCertCount == expectedRootCertCount {
+				
+				// Compare with expected count from status
+				expectedRootCertCount := len(instance.Status.RootCertificates)
+				if actualRootCertCount == expectedRootCertCount && expectedRootCertCount > 0 {
 					// Everything matches - no need to recreate
 					return i.Continue()
 				}
