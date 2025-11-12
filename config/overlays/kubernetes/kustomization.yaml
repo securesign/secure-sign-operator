@@ -8,7 +8,7 @@ resources:
 - cert_resources.yaml
 
 patches:
-- path: kubernetes_webhook_patch.yaml
+- path: webhook_patch.yaml
   target:
     kind: ValidatingWebhookConfiguration
     name: validation.securesigns.rhtas.redhat.com

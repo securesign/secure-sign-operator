@@ -223,7 +223,7 @@ const (
 	CertResourcesPath    = "../../../config/overlays/kubernetes/cert_resources.yaml"
 	WebhookServicePath   = "../../../config/webhook/service.yaml"
 	WebhookConfigPath    = "../../../config/webhook/webhook.yaml"
-	CertManagerPatchPath = "../../../config/overlays/kubernetes/kubernetes_webhook_patch.yaml"
+	CertManagerPatchPath = "../../../config/overlays/kubernetes/webhook_patch.yaml"
 )
 
 func applyCertManagerAnnotationPatch(u *unstructured.Unstructured, ns string) {
