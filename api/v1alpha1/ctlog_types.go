@@ -58,6 +58,8 @@ type CTlogSpec struct {
 	//+kubebuilder:default:=153600
 	//+optional
 	MaxCertChainSize *int64 `json:"maxCertChainSize,omitempty"`
+
+	ServiceAccountRequirements `json:",inline"`
 }
 
 // CTlogStatus defines the observed state of CTlog component
