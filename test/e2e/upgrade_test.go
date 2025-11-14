@@ -3,16 +3,12 @@
 package e2e
 
 import (
-	"context"
 	"fmt"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/blang/semver/v4"
 	"github.com/onsi/ginkgo/v2/dsl/core"
-	v12 "github.com/operator-framework/api/pkg/operators/v1"
 	tasv1alpha "github.com/securesign/operator/api/v1alpha1"
 	ctl "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcioAction "github.com/securesign/operator/internal/controller/fulcio/actions"
@@ -23,24 +19,23 @@ import (
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
+	"github.com/securesign/operator/test/e2e/support/kubernetes/olm"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	clients "github.com/securesign/operator/test/e2e/support/tas/cli"
 	"github.com/securesign/operator/test/e2e/support/tas/rekor"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	v13 "k8s.io/api/apps/v1"
+	rbacV1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	runtimeCli "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-const testCatalog = "test-catalog"
 
 var _ = Describe("Operator upgrade", Ordered, func() {
 	gomega.SetDefaultEventuallyTimeout(5 * time.Minute)
@@ -49,33 +44,43 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 	var (
 		namespace                              *v1.Namespace
 		baseCatalogImage, targetedCatalogImage string
-		base, updated                          semver.Version
+		baseVersion                            string
 		securesignDeployment                   *tasv1alpha.Securesign
 		rrekor                                 *tasv1alpha.Rekor
 		prevImageName, newImageName            string
 		err                                    error
+		extension                              olm.Extension
+		catalog                                olm.ExtensionSource
 	)
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
+	BeforeAll(func(ctx SpecContext) {
+		DeferCleanup(func(ctx SpecContext) {
+			if extension != nil {
+				_ = cli.Delete(ctx, extension.Unwrap())
+			}
+			if catalog != nil {
+				_ = cli.Delete(ctx, catalog.Unwrap())
+			}
+			if _, ok := os.LookupEnv("OLM_V1"); ok {
+				_ = cli.Delete(ctx, &rbacV1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: fmt.Sprintf("%s-installer-%s", "rhtas-operator", namespace.Name),
+					},
+				})
+			}
+		})
+	})
 
 	JustAfterEach(func(ctx SpecContext) {
 		if CurrentSpecReport().Failed() && support.IsCIEnvironment() {
 			core.GinkgoWriter.Println("----------------------- Dumping operator resources -----------------------")
-			csvs := &v1alpha1.ClusterServiceVersionList{}
-			gomega.Expect(cli.List(ctx, csvs, runtimeCli.InNamespace(namespace.Name))).To(gomega.Succeed())
-			core.GinkgoWriter.Println("\n\nClusterServiceVersions:")
-			for _, p := range csvs.Items {
-				core.GinkgoWriter.Printf("%s %s %s\n", p.Name, p.Spec.Version, p.Status.Phase)
-			}
-
-			catalogs := &v1alpha1.CatalogSourceList{}
-			gomega.Expect(cli.List(ctx, catalogs, runtimeCli.InNamespace(namespace.Name))).To(gomega.Succeed())
-			core.GinkgoWriter.Println("\n\nCatalogSources:")
-			for _, p := range catalogs.Items {
-				core.GinkgoWriter.Printf("%s %s %s\n", p.Name, p.Spec.Image, p.Status.GRPCConnectionState.LastObservedState)
-			}
+			core.GinkgoWriter.Println("\n\nCatalog:")
+			core.GinkgoWriter.Printf("%s ready: %v\n", catalog.GetName(), catalog.IsReady(ctx, cli))
+			core.GinkgoWriter.Println("\n\nExtension:")
+			core.GinkgoWriter.Printf("%s version: %s ready: %v\n", extension.GetName(), extension.GetVersion(ctx, cli), extension.IsReady(ctx, cli))
 		}
 	})
 
@@ -90,71 +95,27 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		newImageName = support.PrepareImage(ctx)
 	})
 
-	It("Install catalogSource", func(ctx SpecContext) {
-		gomega.Expect(baseCatalogImage).To(gomega.Not(gomega.BeEmpty()))
-		gomega.Expect(targetedCatalogImage).To(gomega.Not(gomega.BeEmpty()))
-
-		gomega.Expect(support.CreateOrUpdateCatalogSource(ctx, cli, namespace.Name, testCatalog, baseCatalogImage)).To(gomega.Succeed())
-
-		gomega.Eventually(func(g gomega.Gomega) *v1alpha1.CatalogSource {
-			c := &v1alpha1.CatalogSource{}
-			g.Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: testCatalog}, c)).To(gomega.Succeed())
-			return c
-		}).Should(gomega.And(gomega.Not(gomega.BeNil()), gomega.WithTransform(func(c *v1alpha1.CatalogSource) string {
-			if c.Status.GRPCConnectionState == nil {
-				return ""
-			}
-			return c.Status.GRPCConnectionState.LastObservedState
-		}, gomega.Equal("READY"))))
-	})
-
 	It("Install TAS", func(ctx SpecContext) {
-		og := &v12.OperatorGroup{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace.Name,
-				Name:      "e2e-test",
-			},
-			Spec: v12.OperatorGroupSpec{
-				TargetNamespaces: []string{},
-			},
+		if _, ok := os.LookupEnv("OLM_V1"); ok {
+			extension, catalog, err = olm.OlmV1Installer(ctx, cli, baseCatalogImage, namespace.Name, "rhtas-operator")
+		} else {
+			extension, catalog, err = olm.OlmInstaller(ctx, cli, baseCatalogImage, namespace.Name, "rhtas-operator", "stable", testSupportKubernetes.IsRemoteClusterOpenshift())
 		}
-		gomega.Expect(cli.Create(ctx, og)).To(gomega.Succeed())
-		subscription := &v1alpha1.Subscription{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "e2e-test",
-				Namespace: namespace.Name,
-			},
-			Spec: &v1alpha1.SubscriptionSpec{
-				CatalogSource:          testCatalog,
-				CatalogSourceNamespace: namespace.Name,
-				Package:                "rhtas-operator",
-				Channel:                "stable",
-				Config: &v1alpha1.SubscriptionConfig{
-					Env: []v1.EnvVar{
-						{
-							Name:  "OPENSHIFT",
-							Value: strconv.FormatBool(testSupportKubernetes.IsRemoteClusterOpenshift()),
-						},
-					},
-				},
-			},
-			Status: v1alpha1.SubscriptionStatus{},
-		}
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-		gomega.Expect(cli.Create(ctx, subscription)).To(gomega.Succeed())
+		gomega.Eventually(func(g gomega.Gomega) bool {
+			g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(catalog), catalog.Unwrap())).To(gomega.Succeed())
+			return catalog.IsReady(ctx, cli)
+		}).Should(gomega.BeTrue())
 
-		gomega.Eventually(func(g gomega.Gomega) {
-			csvs := &v1alpha1.ClusterServiceVersionList{}
-			g.Expect(cli.List(ctx, csvs, runtimeCli.InNamespace(namespace.Name))).To(gomega.Succeed())
-		}).Should(gomega.Succeed())
+		gomega.Eventually(func(g gomega.Gomega) bool {
+			g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(extension), extension.Unwrap())).To(gomega.Succeed())
+			return extension.IsReady(ctx, cli)
+		}).Should(gomega.BeTrue())
 
-		gomega.Eventually(findClusterServiceVersion(ctx, cli, func(_ v1alpha1.ClusterServiceVersion) bool {
-			return true
-		}, namespace.Name)).Should(gomega.Not(gomega.BeNil()))
+		gomega.Eventually(extension.GetVersion).WithArguments(ctx, cli).Should(gomega.Not(gomega.BeEmpty()))
 
-		base = findClusterServiceVersion(ctx, cli, func(_ v1alpha1.ClusterServiceVersion) bool {
-			return true
-		}, namespace.Name)().Spec.Version.Version
+		baseVersion = extension.GetVersion(ctx, cli)
 
 		gomega.Eventually(func(g gomega.Gomega) []v13.Deployment {
 			list := &v13.DeploymentList{}
@@ -184,38 +145,34 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 	})
 
 	It("Upgrade operator", func(ctx SpecContext) {
-		gomega.Expect(support.CreateOrUpdateCatalogSource(ctx, cli, namespace.Name, testCatalog, targetedCatalogImage)).To(gomega.Succeed())
+		gomega.Eventually(func(g gomega.Gomega) error {
+			g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(catalog), catalog.Unwrap())).To(gomega.Succeed())
+			catalog.UpdateSourceImage(targetedCatalogImage)
+			return cli.Update(ctx, catalog.Unwrap())
+		}).Should(gomega.Succeed())
 
-		gomega.Eventually(func(g gomega.Gomega) *v1alpha1.CatalogSource {
-			c := &v1alpha1.CatalogSource{}
-			g.Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: testCatalog}, c)).To(gomega.Succeed())
-			return c
-		}).Should(gomega.And(gomega.Not(gomega.BeNil()), gomega.WithTransform(func(c *v1alpha1.CatalogSource) string {
-			if c.Status.GRPCConnectionState == nil {
-				return ""
-			}
-			return c.Status.GRPCConnectionState.LastObservedState
-		}, gomega.Equal("READY"))))
+		// propagate changes
+		time.Sleep(time.Second)
 
-		gomega.Eventually(findClusterServiceVersion(ctx, cli, func(csv v1alpha1.ClusterServiceVersion) bool {
-			return csv.Spec.Version.Version.String() == base.String()
-		}, namespace.Name)).WithTimeout(5 * time.Minute).Should(gomega.WithTransform(func(csv *v1alpha1.ClusterServiceVersion) v1alpha1.ClusterServiceVersionPhase {
-			return csv.Status.Phase
-		}, gomega.Equal(v1alpha1.CSVPhaseReplacing)))
+		gomega.Eventually(func(g gomega.Gomega) bool {
+			g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(catalog), catalog.Unwrap())).To(gomega.Succeed())
+			return catalog.IsReady(ctx, cli)
+		}).Should(gomega.BeTrue())
 
-		gomega.Eventually(findClusterServiceVersion(ctx, cli, func(csv v1alpha1.ClusterServiceVersion) bool {
-			return csv.Spec.Version.Version.String() != base.String()
-		}, namespace.Name)).WithTimeout(5 * time.Minute).Should(gomega.And(gomega.Not(gomega.BeNil()), gomega.WithTransform(func(csv *v1alpha1.ClusterServiceVersion) v1alpha1.ClusterServiceVersionPhase {
-			return csv.Status.Phase
-		}, gomega.Equal(v1alpha1.CSVPhaseSucceeded))))
-
-		updated = findClusterServiceVersion(ctx, cli, func(csv v1alpha1.ClusterServiceVersion) bool {
-			return csv.Spec.Version.Version.String() != base.String()
-		}, namespace.Name)().Spec.Version.Version
+		gomega.Eventually(func(g gomega.Gomega) bool {
+			g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(extension), extension.Unwrap())).To(gomega.Succeed())
+			return extension.IsReady(ctx, cli) && extension.GetVersion(ctx, cli) != baseVersion
+		}).WithTimeout(5 * time.Minute).Should(gomega.BeTrue())
 	})
 
 	It("Verify deployment was upgraded", func(ctx SpecContext) {
-		gomega.Expect(updated.GT(base)).To(gomega.BeTrue())
+		semverBase, err := semver.Make(baseVersion)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+		semverNew, err := semver.Make(extension.GetVersion(ctx, cli))
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+		gomega.Expect(semverNew.GT(semverBase)).To(gomega.BeTrue())
 
 		for k, v := range map[string]string{
 			fulcioAction.DeploymentName:            images.Registry.Get(images.FulcioServer),
@@ -266,18 +223,3 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		}).Should(gomega.Succeed())
 	})
 })
-
-func findClusterServiceVersion(ctx context.Context, cli runtimeCli.Client, conditions func(version v1alpha1.ClusterServiceVersion) bool, ns string) func() *v1alpha1.ClusterServiceVersion {
-	return func() *v1alpha1.ClusterServiceVersion {
-		lst := v1alpha1.ClusterServiceVersionList{}
-		if err := cli.List(ctx, &lst, runtimeCli.InNamespace(ns)); err != nil {
-			panic(err)
-		}
-		for _, s := range lst.Items {
-			if strings.Contains(s.Name, "rhtas-operator") && conditions(s) {
-				return &s
-			}
-		}
-		return nil
-	}
-}
