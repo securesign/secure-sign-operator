@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"crypto/elliptic"
 	"fmt"
 	"time"
 
@@ -298,7 +299,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			Expect(cli.Create(ctx, ctlogRootCASecret)).To(Succeed())
 
 			// Ctlog
-			ctlogSecret := ctlog.CreateSecret(namespaces["ctlog"].Name, "my-ctlog-secret")
+			ctlogSecret := ctlog.CreateSecret(namespaces["ctlog"].Name, "my-ctlog-secret", elliptic.P256())
 
 			tufCtlogSecret := ctlogSecret.DeepCopy()
 			tufCtlogSecret.Namespace = namespaces["tuf"].Name

@@ -2,6 +2,7 @@ package tsa
 
 import (
 	"context"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -105,19 +106,19 @@ func CreateSecrets(ns string, name string) *v1.Secret {
 		IntermediatePrivateKeyPasswords: [][]byte{[]byte(support.CertPassword)},
 		LeafPrivateKeyPassword:          []byte(support.CertPassword),
 	}
-	_, rootPrivateKey, rootCA, err := support.CreateCertificates(true)
+	_, rootPrivateKey, rootCA, err := support.CreateCertificates(elliptic.P256(), true)
 	if err != nil {
 		return nil
 	}
 	config.RootPrivateKey = rootPrivateKey
 
-	intermediatePublicKey, intermediatePrivateKey, _, err := support.CreateCertificates(true)
+	intermediatePublicKey, intermediatePrivateKey, _, err := support.CreateCertificates(elliptic.P256(), true)
 	if err != nil {
 		return nil
 	}
 	config.IntermediatePrivateKeys = append(config.IntermediatePrivateKeys, intermediatePrivateKey)
 
-	leafPublicKey, leafPrivateKey, _, err := support.CreateCertificates(true)
+	leafPublicKey, leafPrivateKey, _, err := support.CreateCertificates(elliptic.P256(), true)
 	if err != nil {
 		return nil
 	}

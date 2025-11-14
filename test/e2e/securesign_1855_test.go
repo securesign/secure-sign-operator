@@ -4,6 +4,7 @@ package e2e
 
 import (
 	"context"
+	"crypto/elliptic"
 
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/labels"
@@ -45,7 +46,7 @@ var _ = Describe("Securesign tuf-repository init test", Ordered, func() {
 
 	Describe("Install with empty pre-created tuf volume", func() {
 		It("create mock secret", func(ctx SpecContext) {
-			pub, priv, crt, err := support.CreateCertificates(false)
+			pub, priv, crt, err := support.CreateCertificates(elliptic.P256(), false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cli.Create(ctx, &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{

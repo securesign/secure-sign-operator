@@ -2,6 +2,7 @@ package fulcio
 
 import (
 	"context"
+	"crypto/elliptic"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
@@ -53,7 +54,7 @@ func Get(ctx context.Context, cli client.Client, ns string, name string) *v1alph
 }
 
 func CreateSecret(ns string, name string) *v1.Secret {
-	public, private, root, err := support.CreateCertificates(true)
+	public, private, root, err := support.CreateCertificates(elliptic.P256(), true)
 	if err != nil {
 		return nil
 	}

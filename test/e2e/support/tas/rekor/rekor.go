@@ -2,6 +2,7 @@ package rekor
 
 import (
 	"context"
+	"crypto/elliptic"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
@@ -61,7 +62,7 @@ func Get(ctx context.Context, cli client.Client, ns string, name string) *v1alph
 }
 
 func CreateSecret(ns string, name string) *v1.Secret {
-	public, private, _, err := support.CreateCertificates(false)
+	public, private, _, err := support.CreateCertificates(elliptic.P256(), false)
 	if err != nil {
 		return nil
 	}

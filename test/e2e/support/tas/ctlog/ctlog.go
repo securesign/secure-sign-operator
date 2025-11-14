@@ -2,6 +2,7 @@ package ctlog
 
 import (
 	"context"
+	"crypto/elliptic"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
@@ -50,8 +51,8 @@ func Get(ctx context.Context, cli client.Client, ns string, name string) *v1alph
 
 }
 
-func CreateSecret(ns string, name string) *v1.Secret {
-	public, private, _, err := support.CreateCertificates(false)
+func CreateSecret(ns string, name string, curve elliptic.Curve) *v1.Secret {
+	public, private, _, err := support.CreateCertificates(curve, false)
 	if err != nil {
 		return nil
 	}
