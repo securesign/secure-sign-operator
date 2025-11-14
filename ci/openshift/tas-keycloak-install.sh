@@ -4,6 +4,12 @@
 max_attempts=30
 sleep_interval=10
 
+usage() {
+  echo "Usage: $0 [rhbk|sso]"
+  echo "  rhbk  -> run install_rhbk_sso_keycloak"
+  echo "  sso   -> run install_sso_keycloak (default if omitted)"
+}
+
 # Function to check pod status
 check_pod_status() {
     local namespace="$1"
@@ -50,5 +56,35 @@ install_sso_keycloak() {
     fi
 }
 
-# Install Red Hat SSO Operator and setup Keycloak service
-install_sso_keycloak
+# Install RHBK Operator and Keycloak service
+install_rhbk_sso_keycloak() {
+    BASE_DOMAIN=apps.$(oc get dns cluster -o jsonpath='{ .spec.baseDomain }')
+    echo "HOSTNAME=https://keycloak-keycloak-system.$BASE_DOMAIN" > ci/rhbk/resources/base/hostname.env
+
+    oc apply --kustomize ci/rhbk/operator/base
+    check_pod_status "keycloak-system" "rhbk-operator"
+    if [ $? -ne 0 ]; then
+        echo "Pod status check failed. Exiting the script."
+        exit 1
+    fi
+    oc apply --kustomize ci/rhbk/resources/base
+    check_pod_status "keycloak-system" "postgresql-db"
+    check_pod_status "keycloak-system" "keycloak"
+    if [ $? -ne 0 ]; then
+        echo "Pod status check failed. Exiting the script."
+        exit 1
+    fi
+}
+
+choice="${1:-sso}"
+case "$choice" in
+  rhbk)
+    install_rhbk_sso_keycloak
+    ;;
+  sso)
+    install_sso_keycloak
+    ;;
+  -h|--help|help)
+    usage
+    ;;
+esac
