@@ -8,9 +8,11 @@ import (
 
 	"github.com/securesign/operator/internal/images"
 
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
+	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/labels"
 	cutils "github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
@@ -21,11 +23,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 )
 
-const storageVolumeName = "monitor-storage"
+const (
+	storageVolumeName = "monitor-storage"
+	tufRepoVolumeName = "tuf-repository"
+	mountPath         = "/data"
+)
 
 func NewStatefulSetAction() action.Action[*rhtasv1alpha1.Rekor] {
 	return &statefulSetAction{}
@@ -51,6 +55,7 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1alpha1.R
 	)
 
 	rekorServerHost := fmt.Sprintf("http://%s.%s.svc", actions.ServerComponentName, instance.Namespace)
+	tufServerHost := fmt.Sprintf("http://%s.%s.svc", tufConstants.ComponentName, instance.Namespace)
 
 	labels := labels.For(actions.MonitorComponentName, actions.MonitorStatefulSetName, instance.Name)
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
@@ -60,8 +65,8 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1alpha1.R
 				Namespace: instance.Namespace,
 			},
 		},
-		i.ensureMonitorStatefulSet(instance, actions.RBACName, labels, rekorServerHost),
-		i.ensureInitContainer(rekorServerHost),
+		i.ensureMonitorStatefulSet(instance, actions.RBACName, labels, rekorServerHost, tufServerHost),
+		i.ensureInitContainer(tufServerHost),
 		ensure.ControllerReference[*v1.StatefulSet](instance, i.Client),
 		ensure.Labels[*v1.StatefulSet](slices.Collect(maps.Keys(labels)), labels),
 		func(object *v1.StatefulSet) error {
@@ -90,7 +95,7 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1alpha1.R
 	return i.Continue()
 }
 
-func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1alpha1.Rekor, sa string, labels map[string]string, rekorServerHost string) func(*v1.StatefulSet) error {
+func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1alpha1.Rekor, sa string, labels map[string]string, rekorServerHost string, tufServerHost string) func(*v1.StatefulSet) error {
 	return func(ss *v1.StatefulSet) error {
 
 		spec := &ss.Spec
@@ -110,7 +115,9 @@ func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1alpha1.Reko
 		container.Command = []string{
 			"/bin/sh",
 			"-c",
-			fmt.Sprintf(`/rekor_monitor --file=/data/checkpoint_log.txt --once=false --interval=%s --url=%s`, interval.String(), rekorServerHost),
+			fmt.Sprintf(
+				`/rekor_monitor --file=/data/checkpoint_log.txt --once=false --interval=%s --url=%s --tuf-repository=%s --tuf-root-path="%s/root.json"`,
+				interval.String(), rekorServerHost, tufServerHost, mountPath),
 		}
 
 		container.Ports = []core.ContainerPort{
@@ -120,9 +127,15 @@ func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1alpha1.Reko
 				Protocol:      core.ProtocolTCP,
 			},
 		}
+		container.Env = []core.EnvVar{
+			{
+				Name:  "HOME",
+				Value: mountPath,
+			},
+		}
 
 		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, storageVolumeName)
-		volumeMount.MountPath = "/data"
+		volumeMount.MountPath = mountPath
 
 		spec.VolumeClaimTemplates = []core.PersistentVolumeClaim{
 			{
@@ -141,19 +154,22 @@ func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1alpha1.Reko
 				},
 			},
 		}
+
 		return nil
 	}
 }
 
-func (i statefulSetAction) ensureInitContainer(rekorServerHost string) func(*v1.StatefulSet) error {
+func (i statefulSetAction) ensureInitContainer(tufHost string) func(*v1.StatefulSet) error {
 	return func(ss *v1.StatefulSet) error {
-		initContainer := kubernetes.FindInitContainerByNameOrCreate(&ss.Spec.Template.Spec, "wait-for-rekor-server")
+		initContainer := kubernetes.FindInitContainerByNameOrCreate(&ss.Spec.Template.Spec, "tuf-init")
 		initContainer.Image = images.Registry.Get(images.RekorMonitor)
+		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(initContainer, storageVolumeName)
+		volumeMount.MountPath = mountPath
 
 		initContainer.Command = []string{
 			"/bin/sh",
 			"-c",
-			fmt.Sprintf(`until curl -sf %s > /dev/null 2>&1; do echo 'Waiting for rekor-server to be ready...'; sleep 5; done`, rekorServerHost),
+			fmt.Sprintf(`until curl %s > /dev/null 2>&1; do echo 'Waiting for tuf to be ready...'; sleep 5; done; echo "Downloading root.json"; curl %s/root.json > %s/root.json`, tufHost, tufHost, mountPath),
 		}
 
 		return nil
