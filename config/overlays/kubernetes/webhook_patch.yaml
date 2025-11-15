@@ -1,0 +1,6 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: validation.securesigns.rhtas.redhat.com
+  annotations:
+    cert-manager.io/inject-ca-from: openshift-rhtas-operator/webhook-serving-cert

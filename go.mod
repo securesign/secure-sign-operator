@@ -17,6 +17,7 @@ require (
 	github.com/operator-framework/api v0.35.0
 	github.com/operator-framework/operator-lib v0.19.0
 	github.com/robfig/cron/v3 v3.0.1
+	github.com/stretchr/testify v1.11.1
 	golang.org/x/net v0.46.0
 	google.golang.org/protobuf v1.36.10
 	k8s.io/api v0.34.1

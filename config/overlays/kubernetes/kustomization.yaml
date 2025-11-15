@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: openshift-rhtas-operator
+
+resources:
+- ../../default
+- cert_resources.yaml
+
+patches:
+- path: webhook_patch.yaml
+  target:
+    kind: ValidatingWebhookConfiguration
+    name: validation.securesigns.rhtas.redhat.com

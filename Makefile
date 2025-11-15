@@ -83,7 +83,19 @@ CONTAINER_TOOL ?= docker
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
+OPENSHIFT ?=
+
+KUSTOMIZE_OVERLAY := config/overlays/kubernetes
 CONFIG_DEFAULT=config/default
+
+ifeq ($(OPENSHIFT), true)
+    KUSTOMIZE_OVERLAY := config/overlays/openshift
+    $(info Platform explicitly configured via flag/env: openshift=$(OPENSHIFT))
+else ifneq ($(OPENSHIFT),)
+    $(info Platform explicitly configured via flag/env: openshift=$(OPENSHIFT))
+else
+    $(info Platform auto-detected: openshift=false (Defaulting to Kubernetes overlay))
+endif
 
 .PHONY: all
 all: build
@@ -108,8 +120,8 @@ help: ## Display this help.
 ##@ Development
 
 .PHONY: manifests
-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+manifests: controller-gen ## Generate ClusterRole and CustomResourceDefinition objects.
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd paths="./..." output:crd:artifacts:config=config/crd/bases
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -201,8 +213,7 @@ endif
 build-installer: manifests generate kustomize ## Generate a consolidated YAML with CRDs and deployment.
 	mkdir -p dist
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build ${CONFIG_DEFAULT} > dist/install.yaml
-
+	$(KUSTOMIZE) build ${KUSTOMIZE_OVERLAY} > dist/install.yaml
 ##@ Deployment
 
 ifndef ignore-not-found
@@ -220,12 +231,12 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build ${CONFIG_DEFAULT} | $(KUBECTL) apply --server-side -f -
+	$(KUSTOMIZE) build ${KUSTOMIZE_OVERLAY} | $(KUBECTL) apply --server-side -f -
 
 
 .PHONY: undeploy
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-	$(KUSTOMIZE) build ${CONFIG_DEFAULT} | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
+	$(KUSTOMIZE) build ${KUSTOMIZE_OVERLAY} | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 ##@ Dependencies
 
