@@ -236,3 +236,60 @@ func Test_ValidatePublicKeyPEM(t *testing.T) {
 		})
 	}
 }
+
+func Test_ValidateCertificatePEM(t *testing.T) {
+	type testCase struct {
+		name        string
+		fipsEnabled bool
+		build       func(t *testing.T) []byte
+		wantErr     error
+	}
+
+	tests := []testCase{
+		{
+			name:        "FIPS disabled returns nil",
+			fipsEnabled: false,
+			build: func(t *testing.T) []byte {
+				return []byte{}
+			},
+			wantErr: nil,
+		},
+		{
+			name:        "invalid PEM with FIPS enabled returns ErrInvalidPEM",
+			fipsEnabled: true,
+			build: func(t *testing.T) []byte {
+				return []byte{}
+			},
+			wantErr: ErrInvalidPEM,
+		},
+		{
+			name:        "valid EC certificate passes",
+			fipsEnabled: true,
+			build: func(t *testing.T) []byte {
+				return fipsTest.GenerateECCertificatePEM(t, elliptic.P256())
+			},
+			wantErr: nil,
+		},
+		{
+			name:        "invalid EC certificate fails",
+			fipsEnabled: true,
+			build: func(t *testing.T) []byte {
+				return fipsTest.GenerateECCertificatePEM(t, elliptic.P224())
+			},
+			wantErr: ErrKeyTooSmall,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			FIPSEnabled = tt.fipsEnabled
+
+			pemBytes := tt.build(t)
+			err := ValidateCertificatePEM(pemBytes)
+
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("expected error %v, got %v", tt.wantErr, err)
+			}
+		})
+	}
+}

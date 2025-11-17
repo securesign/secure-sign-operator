@@ -8,11 +8,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
-	ctlogactions "github.com/securesign/operator/internal/controller/ctlog/actions"
+	fulcioactions "github.com/securesign/operator/internal/controller/fulcio/actions"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
-	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
+	fulciohelpers "github.com/securesign/operator/test/e2e/support/tas/fulcio"
 	"github.com/securesign/operator/test/e2e/support/tas/rekor"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
@@ -21,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = Describe("Securesign FIPS - ctlog signer test", Ordered, func() {
+var _ = Describe("Securesign FIPS - fulcio cert test", Ordered, func() {
 	cli, _ := support.CreateClient()
 
 	var namespace *v1.Namespace
@@ -41,7 +42,7 @@ var _ = Describe("Securesign FIPS - ctlog signer test", Ordered, func() {
 						Name: "fulcio_v1.crt.pem",
 						SecretRef: &v1alpha1.SecretKeySelector{
 							LocalObjectReference: v1alpha1.LocalObjectReference{
-								Name: "my-fulcio-secret",
+								Name: "my-fulcio-tuf-secret",
 							},
 							Key: "cert",
 						},
@@ -59,7 +60,7 @@ var _ = Describe("Securesign FIPS - ctlog signer test", Ordered, func() {
 						Name: "ctfe.pub",
 						SecretRef: &v1alpha1.SecretKeySelector{
 							LocalObjectReference: v1alpha1.LocalObjectReference{
-								Name: "my-ctlog-tuf-secret",
+								Name: "my-ctlog-secret",
 							},
 							Key: "public",
 						},
@@ -78,45 +79,56 @@ var _ = Describe("Securesign FIPS - ctlog signer test", Ordered, func() {
 		)
 	})
 
-	Describe("Reject non-FIPS ctlog key then accept FIPS-compliant key", func() {
+	Describe("Reject non-FIPS fulcio key and cert then accept FIPS-compliant key and cert", func() {
 		BeforeAll(func(ctx SpecContext) {
-			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret", elliptic.P224()))).To(Succeed())
-			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-tuf-secret", elliptic.P256()))).To(Succeed())
-			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret", elliptic.P256()))).To(Succeed())
+			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret", elliptic.P256()))).To(Succeed())
+			Expect(cli.Create(ctx, fulciohelpers.CreateSecret(namespace.Name, "my-fulcio-secret", elliptic.P224()))).To(Succeed())
+			Expect(cli.Create(ctx, fulciohelpers.CreateSecret(namespace.Name, "my-fulcio-tuf-secret", elliptic.P256()))).To(Succeed())
 			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret"))).To(Succeed())
 			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tsa-secret"))).To(Succeed())
 			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 
-		It("CTlog reports ServerConfigAvailable False with SignerKey reason", func(ctx SpecContext) {
-			Eventually(func(g Gomega) bool {
-				ctlog := ctlog.Get(ctx, cli, namespace.Name, s.Name)
-				g.Expect(ctlog).ToNot(BeNil())
-				c := meta.FindStatusCondition(ctlog.Status.Conditions, ctlogactions.ConfigCondition)
-				return c != nil && string(c.Status) == "False" && c.Reason == ctlogactions.SignerKeyReason
-			}).WithContext(ctx).Should(BeTrue())
+		It("Fulcio reports FulcioCertAvailable with Failure reason", func(ctx SpecContext) {
+			Eventually(func(g Gomega) string {
+				f := fulciohelpers.Get(ctx, cli, namespace.Name, s.Name)
+				g.Expect(f).ToNot(BeNil())
+				c := meta.FindStatusCondition(f.Status.Conditions, fulcioactions.CertCondition)
+				g.Expect(c).ToNot(BeNil())
+				return c.Reason
+			}).WithContext(ctx).Should(Equal(constants.Failure))
 		})
 
-		It("Update ctlog signer to use FIPS-compliant secret and verify readiness", func(ctx SpecContext) {
+		It("Update fulcio to use FIPS-compliant secret and verify readiness", func(ctx SpecContext) {
 			Eventually(func(g Gomega) error {
-				Expect(cli.Get(ctx, types.NamespacedName{Name: s.Name, Namespace: namespace.Name}, s)).To(Succeed())
+				g.Expect(cli.Get(ctx, types.NamespacedName{Name: s.Name, Namespace: namespace.Name}, s)).To(Succeed())
 
-				s.Spec.Ctlog.PrivateKeyRef = &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
-						Name: "my-ctlog-tuf-secret",
+				s.Spec.Fulcio.Certificate = v1alpha1.FulcioCert{
+					PrivateKeyRef: &v1alpha1.SecretKeySelector{
+						LocalObjectReference: v1alpha1.LocalObjectReference{
+							Name: "my-fulcio-tuf-secret",
+						},
+						Key: "private",
 					},
-					Key: "private",
-				}
-				s.Spec.Ctlog.PublicKeyRef = &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
-						Name: "my-ctlog-tuf-secret",
+					PrivateKeyPasswordRef: &v1alpha1.SecretKeySelector{
+						LocalObjectReference: v1alpha1.LocalObjectReference{
+							Name: "my-fulcio-tuf-secret",
+						},
+						Key: "password",
 					},
-					Key: "public",
+					CARef: &v1alpha1.SecretKeySelector{
+						LocalObjectReference: v1alpha1.LocalObjectReference{
+							Name: "my-fulcio-tuf-secret",
+						},
+						Key: "cert",
+					},
 				}
 
 				return cli.Update(ctx, s)
 			}).Should(Succeed())
-			ctlog.Verify(ctx, cli, namespace.Name, s.Name)
+
+			fulciohelpers.Verify(ctx, cli, namespace.Name, s.Name)
 		})
 	})
+
 })

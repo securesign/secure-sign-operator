@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"crypto/elliptic"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -84,7 +85,7 @@ var _ = Describe("Fulcio cert rotation test", Ordered, func() {
 
 		It("Update fulcio cert", func(ctx SpecContext) {
 			secretName := "new-fulcio-cert"
-			newCert = fulcio.CreateSecret(namespace.Name, secretName)
+			newCert = fulcio.CreateSecret(namespace.Name, secretName, elliptic.P256())
 			Expect(cli.Create(ctx, newCert)).To(Succeed())
 
 			Eventually(func(g Gomega) error {

@@ -6,8 +6,11 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/pem"
+	"math/big"
 	"testing"
+	"time"
 )
 
 func GenerateRSAPKCS8PEM(t *testing.T, keyBits int) []byte {
@@ -139,6 +142,39 @@ func GenerateECPublicKeyPEM(t *testing.T, curve elliptic.Curve) []byte {
 
 	return pem.EncodeToMemory(&pem.Block{
 		Type:  "PUBLIC KEY",
+		Bytes: der,
+	})
+}
+
+func GenerateECCertificatePEM(t *testing.T, curve elliptic.Curve) []byte {
+	t.Helper()
+
+	key, err := ecdsa.GenerateKey(curve, rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate EC key: %v", err)
+	}
+
+	notBefore := time.Now()
+	notAfter := notBefore.Add(365 * 24 * time.Hour)
+
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			CommonName: "test",
+		},
+		NotBefore: notBefore,
+		NotAfter:  notAfter,
+		KeyUsage:  x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		IsCA:      true,
+	}
+
+	der, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("failed to create certificate: %v", err)
+	}
+
+	return pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
 		Bytes: der,
 	})
 }

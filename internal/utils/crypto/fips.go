@@ -140,4 +140,22 @@ func validatePublicKeyType(key interface{}) error {
 	}
 }
 
+func ValidateCertificatePEM(pemBytes []byte) error {
+	if !FIPSEnabled {
+		return nil
+	}
+
+	block, _ := pem.Decode(pemBytes)
+	if block == nil {
+		return ErrInvalidPEM
+	}
+
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return ErrInvalidPEM
+	}
+
+	return validatePublicKeyType(cert.PublicKey)
+}
+
 //ref: https://gitlab.com/redhat-crypto/fedora-crypto-policies/-/blob/rhel9/policies/FIPS.pol
