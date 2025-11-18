@@ -5,8 +5,6 @@ metadata:
     app.kubernetes.io/name: securesign-sample
     app.kubernetes.io/instance: securesign-sample
     app.kubernetes.io/part-of: trusted-artifact-signer
-  annotations:
-    rhtas.redhat.com/metrics: "true"
   name: securesign-sample
 spec:
   rekor:

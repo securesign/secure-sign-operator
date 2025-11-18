@@ -5,7 +5,6 @@ import (
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/condition"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -44,9 +43,6 @@ func Create(namespace, name string, opts ...Opts) *v1alpha1.Securesign {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
-			Annotations: map[string]string{
-				annotations.Metrics: "false",
-			},
 		},
 	}
 

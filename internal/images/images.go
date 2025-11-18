@@ -32,9 +32,8 @@ const (
 
 	TimestampAuthority Image = "RELATED_IMAGE_TIMESTAMP_AUTHORITY"
 
-	HttpServer    Image = "RELATED_IMAGE_HTTP_SERVER"
-	SegmentBackup Image = "RELATED_IMAGE_SEGMENT_REPORTING"
-	ClientServer  Image = "RELATED_IMAGE_CLIENT_SERVER"
+	HttpServer   Image = "RELATED_IMAGE_HTTP_SERVER"
+	ClientServer Image = "RELATED_IMAGE_CLIENT_SERVER"
 )
 
 var Images = []Image{
@@ -53,7 +52,6 @@ var Images = []Image{
 	CTLog,
 	TimestampAuthority,
 	HttpServer,
-	SegmentBackup,
 	ClientServer,
 }
 
