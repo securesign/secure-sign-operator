@@ -61,8 +61,8 @@ func Get(ctx context.Context, cli client.Client, ns string, name string) *v1alph
 	return instance
 }
 
-func CreateSecret(ns string, name string) *v1.Secret {
-	public, private, _, err := support.CreateCertificates(elliptic.P256(), false)
+func CreateSecret(ns string, name string, curve elliptic.Curve) *v1.Secret {
+	public, private, _, err := support.CreateCertificates(curve, false)
 	if err != nil {
 		return nil
 	}

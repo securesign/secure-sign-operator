@@ -17,6 +17,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/labels"
+	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
@@ -174,6 +175,47 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 			}
 		}
 	}
+
+	if cryptoutil.FIPSEnabled && newSigner.KeyRef != nil {
+		privateKey, err := kubernetes.GetSecretData(g.Client, instance.Namespace, newSigner.KeyRef)
+		if err != nil {
+			return g.Error(ctx, fmt.Errorf("could not load signer private key: %w", err), instance,
+				metav1.Condition{
+					Type:    actions.SignerCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  constants.Failure,
+					Message: err.Error(),
+				},
+			)
+		}
+
+		var password []byte
+		if newSigner.PasswordRef != nil {
+			password, err = kubernetes.GetSecretData(g.Client, instance.Namespace, newSigner.PasswordRef)
+			if err != nil {
+				return g.Error(ctx, fmt.Errorf("could not load signer password: %w", err), instance,
+					metav1.Condition{
+						Type:    actions.SignerCondition,
+						Status:  metav1.ConditionFalse,
+						Reason:  constants.Failure,
+						Message: err.Error(),
+					},
+				)
+			}
+		}
+
+		if err := cryptoutil.ValidatePrivateKeyPEM(privateKey, password); err != nil {
+			return g.Error(ctx, fmt.Errorf("signer key is not FIPS-compliant: %w", err), instance,
+				metav1.Condition{
+					Type:    actions.SignerCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  constants.Failure,
+					Message: err.Error(),
+				},
+			)
+		}
+	}
+
 	instance.Status.Signer = newSigner
 	// force recreation of public key ref
 	instance.Status.PublicKeyRef = nil

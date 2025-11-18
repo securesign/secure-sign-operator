@@ -277,7 +277,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 		BeforeAll(func(ctx SpecContext) {
 			By("stores secrets into namespaces")
 			// Rekor
-			rekorSecret := rekor.CreateSecret(namespaces["rekor"].Name, "my-rekor-secret")
+			rekorSecret := rekor.CreateSecret(namespaces["rekor"].Name, "my-rekor-secret", elliptic.P256())
 
 			tufRekorSecret := rekorSecret.DeepCopy()
 			tufRekorSecret.Namespace = namespaces["tuf"].Name
