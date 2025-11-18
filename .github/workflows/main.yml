@@ -267,7 +267,8 @@ jobs:
 
   test-upgrade:
     name: Test upgrade operator
-    runs-on: ubuntu-24.04
+    runs-on:
+      labels: ubuntu-4core
     permissions:
       contents: read
       packages: read
