@@ -3,8 +3,14 @@ on:
   push:
     branches: [ "main", "release*" ]
     tags: [ "*" ]
-  pull_request:
+  pull_request_target:
     branches: [ "main", "release*" ]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to test (optional)'
+        required: false
+        type: string
 
 env:
   GO_VERSION: 1.24
@@ -20,12 +26,19 @@ jobs:
   build-operator:
     name: Build-operator
     runs-on: ubuntu-24.04
+    # Use protected environment for security - requires manual approval for forked PRs
+    environment:
+      name: "secure-build"
     permissions:
       contents: read
       packages: write
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          # For pull_request_target, checkout the PR head
+          # For workflow_dispatch, checkout specified PR or current ref
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' && format('refs/pull/{0}/head', github.event.inputs.pr_number)) || github.ref }}
 
       - name: Install Go
         uses: actions/setup-go@v5
@@ -49,12 +62,16 @@ jobs:
   build-bundle:
     name: Build-bundle-image
     runs-on: ubuntu-24.04
+    environment:
+      name: "secure-build"
     permissions:
       contents: read
       packages: write
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' && format('refs/pull/{0}/head', github.event.inputs.pr_number)) || github.ref }}
 
       - name: Log in to GitHub Container Registry
         uses: redhat-actions/podman-login@v1
@@ -81,6 +98,8 @@ jobs:
   build-fbc:
     name: Build-fbc
     runs-on: ubuntu-24.04
+    environment:
+      name: "secure-build"
     permissions:
       contents: read
       packages: write
@@ -88,6 +107,8 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' && format('refs/pull/{0}/head', github.event.inputs.pr_number)) || github.ref }}
 
       - name: Log in to GitHub Container Registry
         uses: redhat-actions/podman-login@v1
@@ -180,6 +201,8 @@ jobs:
   test-kind:
     name: Test kind deployment
     runs-on: ubuntu-24.04
+    environment:
+      name: "secure-build"
     permissions:
       contents: read
       packages: read
@@ -189,6 +212,8 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' && format('refs/pull/{0}/head', github.event.inputs.pr_number)) || github.ref }}
 
       - name: Install Go
         uses: actions/setup-go@v5
@@ -268,6 +293,8 @@ jobs:
   test-upgrade:
     name: Test upgrade operator
     runs-on: ubuntu-24.04
+    environment:
+      name: "secure-build"
     permissions:
       contents: read
       packages: read
@@ -278,6 +305,8 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' && format('refs/pull/{0}/head', github.event.inputs.pr_number)) || github.ref }}
 
       - name: Install Go
         uses: actions/setup-go@v5
@@ -350,6 +379,8 @@ jobs:
   test-ha-install:
     name: Test with High Availability
     runs-on: ubuntu-24.04
+    environment:
+      name: "secure-build"
     permissions:
       contents: read
       packages: read
@@ -358,6 +389,8 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' && format('refs/pull/{0}/head', github.event.inputs.pr_number)) || github.ref }}
 
       - name: Install Go
         uses: actions/setup-go@v5
@@ -439,6 +472,8 @@ jobs:
   test-custom-install:
     name: Test with custom operator installation
     runs-on: ubuntu-24.04
+    environment:
+      name: "secure-build"
     permissions:
       contents: read
       packages: read
@@ -447,6 +482,8 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' && format('refs/pull/{0}/head', github.event.inputs.pr_number)) || github.ref }}
 
       - name: Install Go
         uses: actions/setup-go@v5
@@ -462,7 +499,7 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Log in to registry.redhat.io
-        uses: redhat-actions/podman-login@9184318aae1ee5034fbfbacc0388acf12669171f # v1
+        uses: redhat-actions/podman-login@v1
         with:
           username: ${{ secrets.REGISTRY_USER }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
@@ -514,6 +551,8 @@ jobs:
   test-e2e:
     name: Execute securesign/sigstore-e2e
     runs-on: ubuntu-24.04
+    environment:
+      name: "secure-build"
     permissions:
       contents: read
       packages: read
@@ -524,6 +563,8 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' && format('refs/pull/{0}/head', github.event.inputs.pr_number)) || github.ref }}
       - name: Checkout test source repository
         uses: actions/checkout@v4
         with:
@@ -544,7 +585,7 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Log in to registry.redhat.io
-        uses: redhat-actions/podman-login@9184318aae1ee5034fbfbacc0388acf12669171f # v1
+        uses: redhat-actions/podman-login@v1
         with:
           username: ${{ secrets.REGISTRY_USER }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
