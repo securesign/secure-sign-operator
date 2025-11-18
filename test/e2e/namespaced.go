@@ -308,7 +308,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			Expect(cli.Create(ctx, tufCtlogSecret)).To(Succeed())
 
 			// TSA
-			tsaSecret := tsa.CreateSecrets(namespaces["tsa"].Name, "test-tsa-secret")
+			tsaSecret := tsa.CreateSecrets(namespaces["tsa"].Name, "test-tsa-secret", elliptic.P256())
 
 			tufTSASecret := tsaSecret.DeepCopy()
 			tufTSASecret.Namespace = namespaces["tuf"].Name

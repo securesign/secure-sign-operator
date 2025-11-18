@@ -2,13 +2,16 @@ package actions
 
 import (
 	"context"
+	"crypto/elliptic"
 	"encoding/json"
 	"testing"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
 	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 	v1 "k8s.io/api/core/v1"
 
@@ -186,7 +189,7 @@ func Test_SignerHandle(t *testing.T) {
 					},
 				}
 
-				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret")
+				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret", elliptic.P256())
 				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret)
 			},
 			testCase: func(g Gomega, a action.Action[*rhtasv1alpha1.TimestampAuthority], client client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {
@@ -206,6 +209,60 @@ func Test_SignerHandle(t *testing.T) {
 				g.Expect(secret.Annotations).To(Equal(generateSecretAnnotations(instance.Spec.Signer)), "Secret annotation mismatch")
 
 				g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, TSASignerCondition)).To(BeTrue())
+
+				return true
+			},
+		},
+		{
+			name: "FIPS enabled rejects non-compliant root key",
+			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
+				instance.Status.Conditions[0].Reason = constants.Pending
+				instance.Spec.Signer = rhtasv1alpha1.TimestampAuthoritySigner{
+					CertificateChain: rhtasv1alpha1.CertificateChain{
+						RootCA: &rhtasv1alpha1.TsaCertificateAuthority{
+							OrganizationName: "Red Hat",
+							PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
+								LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+									Name: "tsa-invalid-secret",
+								},
+								Key: "rootPrivateKey",
+							},
+							PasswordRef: &rhtasv1alpha1.SecretKeySelector{
+								LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+									Name: "tsa-invalid-secret",
+								},
+								Key: "rootPrivateKeyPassword",
+							},
+						},
+					},
+				}
+				_, priv, _, err := support.CreateCertificates(elliptic.P224(), true)
+				if err != nil {
+					t.Fatalf("failed to create test certificates: %v", err)
+				}
+				secret := &v1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tsa-invalid-secret",
+						Namespace: instance.Namespace,
+					},
+					Data: map[string][]byte{
+						"rootPrivateKey":         priv,
+						"rootPrivateKeyPassword": []byte(support.CertPassword),
+					},
+				}
+				cryptoutil.FIPSEnabled = true
+				t.Cleanup(func() {
+					cryptoutil.FIPSEnabled = false
+				})
+
+				cli, act := common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret)
+				return cli, act
+			},
+			testCase: func(g Gomega, _ action.Action[*rhtasv1alpha1.TimestampAuthority], _ client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {
+				cond := meta.FindStatusCondition(instance.Status.Conditions, TSASignerCondition)
+				g.Expect(cond).NotTo(BeNil(), "TSASignerCondition should be present")
+				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse), "TSASignerCondition status should be False")
+				g.Expect(cond.Reason).To(Equal(constants.Failure), "TSASignerCondition reason should be Failure")
 
 				return true
 			},
@@ -238,7 +295,7 @@ func Test_SignerHandle(t *testing.T) {
 						},
 					},
 				}
-				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret")
+				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret", elliptic.P256())
 				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret)
 			},
 			testCase: func(g Gomega, a action.Action[*rhtasv1alpha1.TimestampAuthority], client client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {
@@ -309,8 +366,8 @@ func Test_SignerHandle(t *testing.T) {
 					},
 				}
 
-				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret")
-				old := tsa.CreateSecrets(instance.Namespace, "old")
+				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret", elliptic.P256())
+				old := tsa.CreateSecrets(instance.Namespace, "old", elliptic.P256())
 				old.Annotations = generateSecretAnnotations(*instance.Status.Signer)
 				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret, old)
 			},
@@ -378,7 +435,7 @@ func Test_SignerHandle(t *testing.T) {
 					},
 				}
 
-				old := tsa.CreateSecrets(instance.Namespace, "old")
+				old := tsa.CreateSecrets(instance.Namespace, "old", elliptic.P256())
 				old.Annotations = generateSecretAnnotations(*instance.Status.Signer)
 				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), old)
 			},
@@ -422,7 +479,7 @@ func Test_SignerHandle(t *testing.T) {
 					},
 				}
 
-				secret := tsa.CreateSecrets(instance.Namespace, "secret")
+				secret := tsa.CreateSecrets(instance.Namespace, "secret", elliptic.P256())
 				secret.Annotations = generateSecretAnnotations(instance.Spec.Signer)
 				secret.Labels = map[string]string{TSACertCALabel: "fake"}
 				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret)

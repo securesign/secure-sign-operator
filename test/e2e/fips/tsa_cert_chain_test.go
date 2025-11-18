@@ -8,7 +8,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
-	ctlogactions "github.com/securesign/operator/internal/controller/ctlog/actions"
+	"github.com/securesign/operator/internal/constants"
+	tsaactions "github.com/securesign/operator/internal/controller/tsa/actions"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
@@ -21,7 +22,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = Describe("Securesign FIPS - ctlog signer test", Ordered, func() {
+var _ = Describe("Securesign FIPS - TSA Cert chain", Ordered, func() {
+
 	cli, _ := support.CreateClient()
 
 	var namespace *v1.Namespace
@@ -59,7 +61,7 @@ var _ = Describe("Securesign FIPS - ctlog signer test", Ordered, func() {
 						Name: "ctfe.pub",
 						SecretRef: &v1alpha1.SecretKeySelector{
 							LocalObjectReference: v1alpha1.LocalObjectReference{
-								Name: "my-ctlog-tuf-secret",
+								Name: "my-ctlog-secret",
 							},
 							Key: "public",
 						},
@@ -68,7 +70,7 @@ var _ = Describe("Securesign FIPS - ctlog signer test", Ordered, func() {
 						Name: "tsa.certchain.pem",
 						SecretRef: &v1alpha1.SecretKeySelector{
 							LocalObjectReference: v1alpha1.LocalObjectReference{
-								Name: "test-tsa-secret",
+								Name: "test-tuf-tsa-secret",
 							},
 							Key: "certificateChain",
 						},
@@ -78,45 +80,56 @@ var _ = Describe("Securesign FIPS - ctlog signer test", Ordered, func() {
 		)
 	})
 
-	Describe("Reject non-FIPS ctlog key then accept FIPS-compliant key", func() {
+	Describe("Reject non-FIPS TSA Cert chain and key then accept FIPS-compliant key", func() {
 		BeforeAll(func(ctx SpecContext) {
-			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret", elliptic.P224()))).To(Succeed())
-			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-tuf-secret", elliptic.P256()))).To(Succeed())
+			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret", elliptic.P256()))).To(Succeed())
 			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret", elliptic.P256()))).To(Succeed())
 			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret", elliptic.P256()))).To(Succeed())
-			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tsa-secret", elliptic.P256()))).To(Succeed())
+			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tuf-tsa-secret", elliptic.P256()))).To(Succeed())
+			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tsa-secret", elliptic.P224()))).To(Succeed())
 			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 
-		It("CTlog reports ServerConfigAvailable False with SignerKey reason", func(ctx SpecContext) {
+		It("TSA reports TSASignerCondition False with Failure reason", func(ctx SpecContext) {
 			Eventually(func(g Gomega) bool {
-				ctlog := ctlog.Get(ctx, cli, namespace.Name, s.Name)
-				g.Expect(ctlog).ToNot(BeNil())
-				c := meta.FindStatusCondition(ctlog.Status.Conditions, ctlogactions.ConfigCondition)
-				return c != nil && string(c.Status) == "False" && c.Reason == ctlogactions.SignerKeyReason
+				t := tsa.Get(ctx, cli, namespace.Name, s.Name)
+				g.Expect(t).ToNot(BeNil())
+				c := meta.FindStatusCondition(t.Status.Conditions, tsaactions.TSASignerCondition)
+				return c != nil && string(c.Status) == "False" && c.Reason == constants.Failure
 			}).WithContext(ctx).Should(BeTrue())
 		})
 
-		It("Update ctlog signer to use FIPS-compliant secret and verify readiness", func(ctx SpecContext) {
+		It("Update TSA secret to FIPS-compliant EC P256/P384 and verify readiness", func(ctx SpecContext) {
 			Eventually(func(g Gomega) error {
 				Expect(cli.Get(ctx, types.NamespacedName{Name: s.Name, Namespace: namespace.Name}, s)).To(Succeed())
 
-				s.Spec.Ctlog.PrivateKeyRef = &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
-						Name: "my-ctlog-tuf-secret",
+				s.Spec.TimestampAuthority.Signer = v1alpha1.TimestampAuthoritySigner{
+					CertificateChain: v1alpha1.CertificateChain{
+						CertificateChainRef: &v1alpha1.SecretKeySelector{
+							LocalObjectReference: v1alpha1.LocalObjectReference{
+								Name: "test-tuf-tsa-secret",
+							},
+							Key: "certificateChain",
+						},
 					},
-					Key: "private",
-				}
-				s.Spec.Ctlog.PublicKeyRef = &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
-						Name: "my-ctlog-tuf-secret",
+					File: &v1alpha1.File{
+						PrivateKeyRef: &v1alpha1.SecretKeySelector{
+							LocalObjectReference: v1alpha1.LocalObjectReference{
+								Name: "test-tuf-tsa-secret",
+							},
+							Key: "leafPrivateKey",
+						},
+						PasswordRef: &v1alpha1.SecretKeySelector{
+							LocalObjectReference: v1alpha1.LocalObjectReference{
+								Name: "test-tuf-tsa-secret",
+							},
+							Key: "leafPrivateKeyPassword",
+						},
 					},
-					Key: "public",
 				}
-
 				return cli.Update(ctx, s)
 			}).Should(Succeed())
-			ctlog.Verify(ctx, cli, namespace.Name, s.Name)
+			tsa.Verify(ctx, cli, namespace.Name, s.Name)
 		})
 	})
 })

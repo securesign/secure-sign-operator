@@ -85,7 +85,7 @@ var _ = Describe("Securesign FIPS - fulcio cert test", Ordered, func() {
 			Expect(cli.Create(ctx, fulciohelpers.CreateSecret(namespace.Name, "my-fulcio-secret", elliptic.P224()))).To(Succeed())
 			Expect(cli.Create(ctx, fulciohelpers.CreateSecret(namespace.Name, "my-fulcio-tuf-secret", elliptic.P256()))).To(Succeed())
 			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret", elliptic.P256()))).To(Succeed())
-			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tsa-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tsa-secret", elliptic.P256()))).To(Succeed())
 			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 

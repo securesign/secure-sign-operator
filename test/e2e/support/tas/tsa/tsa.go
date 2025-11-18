@@ -99,26 +99,26 @@ func GetCertificateChain(ctx context.Context, cli client.Client, ns string, name
 	return nil
 }
 
-func CreateSecrets(ns string, name string) *v1.Secret {
+func CreateSecrets(ns string, name string, curve elliptic.Curve) *v1.Secret {
 
 	config := &tsaUtils.TsaCertChainConfig{
 		RootPrivateKeyPassword:          []byte(support.CertPassword),
 		IntermediatePrivateKeyPasswords: [][]byte{[]byte(support.CertPassword)},
 		LeafPrivateKeyPassword:          []byte(support.CertPassword),
 	}
-	_, rootPrivateKey, rootCA, err := support.CreateCertificates(elliptic.P256(), true)
+	_, rootPrivateKey, rootCA, err := support.CreateCertificates(curve, true)
 	if err != nil {
 		return nil
 	}
 	config.RootPrivateKey = rootPrivateKey
 
-	intermediatePublicKey, intermediatePrivateKey, _, err := support.CreateCertificates(elliptic.P256(), true)
+	intermediatePublicKey, intermediatePrivateKey, _, err := support.CreateCertificates(curve, true)
 	if err != nil {
 		return nil
 	}
 	config.IntermediatePrivateKeys = append(config.IntermediatePrivateKeys, intermediatePrivateKey)
 
-	leafPublicKey, leafPrivateKey, _, err := support.CreateCertificates(elliptic.P256(), true)
+	leafPublicKey, leafPrivateKey, _, err := support.CreateCertificates(curve, true)
 	if err != nil {
 		return nil
 	}
