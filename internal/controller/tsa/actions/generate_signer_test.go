@@ -10,6 +10,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
 	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
+	fipsTest "github.com/securesign/operator/internal/utils/crypto/test"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
@@ -189,7 +190,7 @@ func Test_SignerHandle(t *testing.T) {
 					},
 				}
 
-				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret", elliptic.P256())
+				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret")
 				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret)
 			},
 			testCase: func(g Gomega, a action.Action[*rhtasv1alpha1.TimestampAuthority], client client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {
@@ -236,10 +237,7 @@ func Test_SignerHandle(t *testing.T) {
 						},
 					},
 				}
-				_, priv, _, err := support.CreateCertificates(elliptic.P224(), true)
-				if err != nil {
-					t.Fatalf("failed to create test certificates: %v", err)
-				}
+				priv := fipsTest.GenerateECPrivateKeyPEM(t, elliptic.P224())
 				secret := &v1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "tsa-invalid-secret",
@@ -295,7 +293,7 @@ func Test_SignerHandle(t *testing.T) {
 						},
 					},
 				}
-				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret", elliptic.P256())
+				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret")
 				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret)
 			},
 			testCase: func(g Gomega, a action.Action[*rhtasv1alpha1.TimestampAuthority], client client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {
@@ -366,8 +364,8 @@ func Test_SignerHandle(t *testing.T) {
 					},
 				}
 
-				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret", elliptic.P256())
-				old := tsa.CreateSecrets(instance.Namespace, "old", elliptic.P256())
+				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret")
+				old := tsa.CreateSecrets(instance.Namespace, "old")
 				old.Annotations = generateSecretAnnotations(*instance.Status.Signer)
 				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret, old)
 			},
@@ -435,7 +433,7 @@ func Test_SignerHandle(t *testing.T) {
 					},
 				}
 
-				old := tsa.CreateSecrets(instance.Namespace, "old", elliptic.P256())
+				old := tsa.CreateSecrets(instance.Namespace, "old")
 				old.Annotations = generateSecretAnnotations(*instance.Status.Signer)
 				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), old)
 			},
@@ -479,7 +477,7 @@ func Test_SignerHandle(t *testing.T) {
 					},
 				}
 
-				secret := tsa.CreateSecrets(instance.Namespace, "secret", elliptic.P256())
+				secret := tsa.CreateSecrets(instance.Namespace, "secret")
 				secret.Annotations = generateSecretAnnotations(instance.Spec.Signer)
 				secret.Labels = map[string]string{TSACertCALabel: "fake"}
 				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret)

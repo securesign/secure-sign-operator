@@ -3,7 +3,6 @@
 package update
 
 import (
-	"crypto/elliptic"
 	"time"
 
 	"github.com/securesign/operator/internal/constants"
@@ -115,7 +114,7 @@ var _ = Describe("TSA update", Ordered, func() {
 		})
 
 		It("created my-tsa-secret", func(ctx SpecContext) {
-			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "my-tsa-secret", elliptic.P256()))).Should(Succeed())
+			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "my-tsa-secret"))).Should(Succeed())
 		})
 
 		It("has status Ready", func(ctx SpecContext) {

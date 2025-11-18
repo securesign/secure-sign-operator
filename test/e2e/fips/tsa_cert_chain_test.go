@@ -4,12 +4,14 @@ package fips
 
 import (
 	"crypto/elliptic"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/constants"
 	tsaactions "github.com/securesign/operator/internal/controller/tsa/actions"
+	fipsTest "github.com/securesign/operator/internal/utils/crypto/test"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
@@ -19,6 +21,7 @@ import (
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -82,11 +85,11 @@ var _ = Describe("Securesign FIPS - TSA Cert chain", Ordered, func() {
 
 	Describe("Reject non-FIPS TSA Cert chain and key then accept FIPS-compliant key", func() {
 		BeforeAll(func(ctx SpecContext) {
-			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret", elliptic.P256()))).To(Succeed())
-			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret", elliptic.P256()))).To(Succeed())
-			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret", elliptic.P256()))).To(Succeed())
-			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tuf-tsa-secret", elliptic.P256()))).To(Succeed())
-			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tsa-secret", elliptic.P224()))).To(Succeed())
+			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tuf-tsa-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, createCustomTsaSecret(namespace.Name, "test-tsa-secret"))).To(Succeed())
 			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 
@@ -133,3 +136,20 @@ var _ = Describe("Securesign FIPS - TSA Cert chain", Ordered, func() {
 		})
 	})
 })
+
+func createCustomTsaSecret(ns, name string) *v1.Secret {
+	leafPriv := fipsTest.GenerateECPrivateKeyPEM(&testing.T{}, elliptic.P224())
+	chain := fipsTest.GenerateECCertificatePEM(&testing.T{}, elliptic.P256())
+
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Data: map[string][]byte{
+			"leafPrivateKey":         leafPriv,
+			"leafPrivateKeyPassword": []byte(support.CertPassword),
+			"certificateChain":       chain,
+		},
+	}
+}

@@ -3,7 +3,6 @@
 package update
 
 import (
-	"crypto/elliptic"
 	"time"
 
 	"github.com/securesign/operator/internal/constants"
@@ -115,7 +114,7 @@ var _ = Describe("Fulcio update", Ordered, func() {
 		})
 
 		It("created my-fulcio-secret", func(ctx SpecContext) {
-			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret", elliptic.P256()))).Should(Succeed())
+			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret"))).Should(Succeed())
 		})
 
 		It("has status Ready", func(ctx SpecContext) {

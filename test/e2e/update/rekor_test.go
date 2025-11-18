@@ -3,7 +3,6 @@
 package update
 
 import (
-	"crypto/elliptic"
 	"time"
 
 	"github.com/securesign/operator/internal/constants"
@@ -96,7 +95,7 @@ var _ = Describe("Rekor update", Ordered, func() {
 		})
 
 		It("created my-rekor-secret", func(ctx SpecContext) {
-			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret", elliptic.P256()))).Should(Succeed())
+			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret"))).Should(Succeed())
 		})
 
 		It("has status Ready", func(ctx SpecContext) {

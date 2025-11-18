@@ -4,12 +4,14 @@ package fips
 
 import (
 	"crypto/elliptic"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/constants"
 	fulcioactions "github.com/securesign/operator/internal/controller/fulcio/actions"
+	fipsTest "github.com/securesign/operator/internal/utils/crypto/test"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
@@ -19,6 +21,7 @@ import (
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -81,11 +84,11 @@ var _ = Describe("Securesign FIPS - fulcio cert test", Ordered, func() {
 
 	Describe("Reject non-FIPS fulcio key and cert then accept FIPS-compliant key and cert", func() {
 		BeforeAll(func(ctx SpecContext) {
-			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret", elliptic.P256()))).To(Succeed())
-			Expect(cli.Create(ctx, fulciohelpers.CreateSecret(namespace.Name, "my-fulcio-secret", elliptic.P224()))).To(Succeed())
-			Expect(cli.Create(ctx, fulciohelpers.CreateSecret(namespace.Name, "my-fulcio-tuf-secret", elliptic.P256()))).To(Succeed())
-			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret", elliptic.P256()))).To(Succeed())
-			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tsa-secret", elliptic.P256()))).To(Succeed())
+			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, createCustomFulcioSecret(namespace.Name, "my-fulcio-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, fulciohelpers.CreateSecret(namespace.Name, "my-fulcio-tuf-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tsa-secret"))).To(Succeed())
 			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 
@@ -132,3 +135,20 @@ var _ = Describe("Securesign FIPS - fulcio cert test", Ordered, func() {
 	})
 
 })
+
+func createCustomFulcioSecret(ns, name string) *v1.Secret {
+	priv := fipsTest.GenerateECPrivateKeyPEM(&testing.T{}, elliptic.P224())
+	cert := fipsTest.GenerateECCertificatePEM(&testing.T{}, elliptic.P224())
+
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Data: map[string][]byte{
+			"password": []byte(support.CertPassword),
+			"private":  priv,
+			"cert":     cert,
+		},
+	}
+}

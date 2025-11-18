@@ -13,12 +13,8 @@ import (
 
 const CertPassword = "LetMeIn123"
 
-func CreateCertificates(curve elliptic.Curve, passwordProtected bool) ([]byte, []byte, []byte, error) {
-	if curve == nil {
-		curve = elliptic.P256()
-	}
-
-	key, err := ecdsa.GenerateKey(curve, rand.Reader)
+func CreateCertificates(passwordProtected bool) ([]byte, []byte, []byte, error) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, nil, nil, err
 	}

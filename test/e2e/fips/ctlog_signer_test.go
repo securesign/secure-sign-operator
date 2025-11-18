@@ -4,11 +4,13 @@ package fips
 
 import (
 	"crypto/elliptic"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	ctlogactions "github.com/securesign/operator/internal/controller/ctlog/actions"
+	fipsTest "github.com/securesign/operator/internal/utils/crypto/test"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
@@ -18,6 +20,7 @@ import (
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -80,11 +83,11 @@ var _ = Describe("Securesign FIPS - ctlog signer test", Ordered, func() {
 
 	Describe("Reject non-FIPS ctlog key then accept FIPS-compliant key", func() {
 		BeforeAll(func(ctx SpecContext) {
-			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret", elliptic.P224()))).To(Succeed())
-			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-tuf-secret", elliptic.P256()))).To(Succeed())
-			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret", elliptic.P256()))).To(Succeed())
-			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret", elliptic.P256()))).To(Succeed())
-			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tsa-secret", elliptic.P256()))).To(Succeed())
+			Expect(cli.Create(ctx, createCustomCtlogSecret(namespace.Name, "my-ctlog-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-tuf-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tsa-secret"))).To(Succeed())
 			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 
@@ -120,3 +123,18 @@ var _ = Describe("Securesign FIPS - ctlog signer test", Ordered, func() {
 		})
 	})
 })
+
+func createCustomCtlogSecret(ns string, name string) *v1.Secret {
+	private := fipsTest.GenerateECPrivateKeyPEM(&testing.T{}, elliptic.P224())
+	public := fipsTest.GenerateECPublicKeyPEM(&testing.T{}, elliptic.P224())
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Data: map[string][]byte{
+			"private": private,
+			"public":  public,
+		},
+	}
+}

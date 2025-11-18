@@ -3,7 +3,6 @@
 package e2e
 
 import (
-	"crypto/elliptic"
 	"fmt"
 	"time"
 
@@ -277,7 +276,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 		BeforeAll(func(ctx SpecContext) {
 			By("stores secrets into namespaces")
 			// Rekor
-			rekorSecret := rekor.CreateSecret(namespaces["rekor"].Name, "my-rekor-secret", elliptic.P256())
+			rekorSecret := rekor.CreateSecret(namespaces["rekor"].Name, "my-rekor-secret")
 
 			tufRekorSecret := rekorSecret.DeepCopy()
 			tufRekorSecret.Namespace = namespaces["tuf"].Name
@@ -286,7 +285,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			Expect(cli.Create(ctx, tufRekorSecret)).To(Succeed())
 
 			// Fulcio
-			fulcioSecret := fulcio.CreateSecret(namespaces["fulcio"].Name, "my-fulcio-secret", elliptic.P256())
+			fulcioSecret := fulcio.CreateSecret(namespaces["fulcio"].Name, "my-fulcio-secret")
 
 			tufFulcioSecret := fulcioSecret.DeepCopy()
 			tufFulcioSecret.Namespace = namespaces["tuf"].Name
@@ -299,7 +298,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			Expect(cli.Create(ctx, ctlogRootCASecret)).To(Succeed())
 
 			// Ctlog
-			ctlogSecret := ctlog.CreateSecret(namespaces["ctlog"].Name, "my-ctlog-secret", elliptic.P256())
+			ctlogSecret := ctlog.CreateSecret(namespaces["ctlog"].Name, "my-ctlog-secret")
 
 			tufCtlogSecret := ctlogSecret.DeepCopy()
 			tufCtlogSecret.Namespace = namespaces["tuf"].Name
@@ -308,7 +307,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			Expect(cli.Create(ctx, tufCtlogSecret)).To(Succeed())
 
 			// TSA
-			tsaSecret := tsa.CreateSecrets(namespaces["tsa"].Name, "test-tsa-secret", elliptic.P256())
+			tsaSecret := tsa.CreateSecrets(namespaces["tsa"].Name, "test-tsa-secret")
 
 			tufTSASecret := tsaSecret.DeepCopy()
 			tufTSASecret.Namespace = namespaces["tuf"].Name

@@ -18,7 +18,6 @@ limitations under the License.
 
 import (
 	"context"
-	"crypto/elliptic"
 	"time"
 
 	"github.com/securesign/operator/internal/constants"
@@ -188,7 +187,7 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			}).Should(Equal(constants.Pending))
 
 			By("Creating new certificate chain and signer keys")
-			secret := tsa.CreateSecrets(Namespace, "tsa-test-secret", elliptic.P256())
+			secret := tsa.CreateSecrets(Namespace, "tsa-test-secret")
 			Expect(suite.Client().Create(context.TODO(), secret)).NotTo(HaveOccurred())
 
 			By("Status field changed for cert chain")
