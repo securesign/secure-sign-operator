@@ -54,8 +54,12 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1alpha1.R
 		result controllerutil.OperationResult
 	)
 
+	switch instance.Spec.Tuf.Address {
+	case "":
+		instance.Spec.Tuf.Address = fmt.Sprintf("%s.%s.svc", tufConstants.DeploymentName, instance.Namespace)
+	}
+	tufServerHost := fmt.Sprintf("http://%s", instance.Spec.Tuf.Address)
 	rekorServerHost := fmt.Sprintf("http://%s.%s.svc", actions.ServerComponentName, instance.Namespace)
-	tufServerHost := fmt.Sprintf("http://%s.%s.svc", tufConstants.ComponentName, instance.Namespace)
 
 	labels := labels.For(actions.MonitorComponentName, actions.MonitorStatefulSetName, instance.Name)
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
@@ -66,7 +70,7 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1alpha1.R
 			},
 		},
 		i.ensureMonitorStatefulSet(instance, actions.RBACName, labels, rekorServerHost, tufServerHost),
-		i.ensureInitContainer(tufServerHost),
+		i.ensureInitContainer(rekorServerHost, tufServerHost),
 		ensure.ControllerReference[*v1.StatefulSet](instance, i.Client),
 		ensure.Labels[*v1.StatefulSet](slices.Collect(maps.Keys(labels)), labels),
 		func(object *v1.StatefulSet) error {
@@ -159,17 +163,30 @@ func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1alpha1.Reko
 	}
 }
 
-func (i statefulSetAction) ensureInitContainer(tufHost string) func(*v1.StatefulSet) error {
+func (i statefulSetAction) ensureInitContainer(rekorServerHost string, tufHost string) func(*v1.StatefulSet) error {
 	return func(ss *v1.StatefulSet) error {
 		initContainer := kubernetes.FindInitContainerByNameOrCreate(&ss.Spec.Template.Spec, "tuf-init")
 		initContainer.Image = images.Registry.Get(images.RekorMonitor)
 		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(initContainer, storageVolumeName)
 		volumeMount.MountPath = mountPath
-
 		initContainer.Command = []string{
 			"/bin/sh",
 			"-c",
-			fmt.Sprintf(`until curl %s > /dev/null 2>&1; do echo 'Waiting for tuf to be ready...'; sleep 5; done; echo "Downloading root.json"; curl %s/root.json > %s/root.json`, tufHost, tufHost, mountPath),
+			fmt.Sprintf(`
+                echo "Waiting for rekor-server...";
+                until curl -sf %s > /dev/null 2>&1; do
+                    echo "rekor-server not ready...";
+                    sleep 5;
+                done;
+                echo "Waiting for TUF server...";
+                until curl %s > /dev/null 2>&1; do
+                    echo "TUF server not ready...";
+                    sleep 5;
+                done;
+                echo "Downloading root.json";
+                curl %s/root.json > %s/root.json
+                echo "tuf-init completed."
+            `, rekorServerHost, tufHost, tufHost, mountPath),
 		}
 
 		return nil
