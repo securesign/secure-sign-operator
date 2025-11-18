@@ -134,6 +134,17 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 			func(v *tasv1alpha.Securesign) {
 				v.Spec.Trillian.Db.Pvc.Retain = nil
 			},
+			func(v *tasv1alpha.Securesign) {
+				if v.Annotations == nil {
+					v.Annotations = map[string]string{}
+				}
+
+				if testSupportKubernetes.IsRemoteClusterOpenshift() {
+					v.Annotations["rhtas.redhat.com/metrics"] = "true"
+				} else {
+					v.Annotations["rhtas.redhat.com/metrics"] = "false"
+				}
+			},
 		)
 		gomega.Expect(cli.Create(ctx, securesignDeployment)).To(gomega.Succeed())
 

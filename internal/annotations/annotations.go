@@ -20,24 +20,6 @@
 //	  annotations:
 //	    rhtas.redhat.com/pause-reconciliation: "true"
 //
-// # Annotation: rhtas.redhat.com/metrics
-//
-// [Metrics] controls whether analytic metrics are collected for installed services.
-// This annotation applies only to the Securesign resource.
-//
-// Options:
-//   - "true": Enables metrics collection (default).
-//   - "false": Disables metrics collection.
-//
-// Example usage:
-//
-//	apiVersion: rhtas.redhat.com/v1alpha1
-//	kind: Securesign
-//	metadata:
-//	  name: example
-//	  annotations:
-//	    rhtas.redhat.com/metrics: "false"
-//
 // # Annotation: rhtas.redhat.com/trusted-ca
 //
 // [TrustedCA] specifies the name of a ConfigMap containing a custom CA bundle.
@@ -94,9 +76,6 @@ package annotations
 const (
 	// PausedReconciliation defines the annotation key used to pause reconciliation for a resource.
 	PausedReconciliation = "rhtas.redhat.com/pause-reconciliation"
-
-	// Metrics defines the annotation key used to enable or disable metric collection by the operator.
-	Metrics = "rhtas.redhat.com/metrics"
 
 	// TrustedCA defines the annotation key for specifying a custom CA bundle ConfigMap.
 	TrustedCA = "rhtas.redhat.com/trusted-ca"

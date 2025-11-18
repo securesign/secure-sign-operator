@@ -21,18 +21,14 @@ import (
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/annotations"
-	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller"
-	"github.com/securesign/operator/internal/labels"
 	v12 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 
 	"github.com/operator-framework/operator-lib/predicate"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/securesign/actions"
-	v1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -63,9 +59,6 @@ func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.Even
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=securesigns,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=securesigns/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=securesigns/finalizers,verbs=update
-//+kubebuilder:rbac:groups="operator.openshift.io",resources=consoles,verbs=get;list
-//+kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list
-//+kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheuses/api,verbs=create;get;update
 
 // TODO: rework Securesign controller to watch resources
 func (r *securesignReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -91,21 +84,6 @@ func (r *securesignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	if instance.DeletionTimestamp != nil {
-		instanceLabels := labels.For(actions.SegmentBackupJobName, actions.SegmentBackupCronJobName, instance.Name)
-		instanceLabels[labels.LabelAppNamespace] = instance.Namespace
-		if err := r.DeleteAllOf(ctx, &v1.ClusterRoleBinding{}, client.MatchingLabels(instanceLabels)); err != nil {
-			log.Error(err, "problem with removing clusterRoleBinding resource")
-		}
-		if err := r.DeleteAllOf(ctx, &v1.ClusterRole{}, client.MatchingLabels(instanceLabels)); err != nil {
-			log.Error(err, "problem with removing ClusterRole resource")
-		}
-		if err := r.DeleteAllOf(ctx, &v1.Role{}, client.InNamespace(actions.OpenshiftMonitoringNS), client.MatchingLabels(instanceLabels)); err != nil {
-			log.Error(err, "problem with removing Role resource in %s", actions.OpenshiftMonitoringNS)
-		}
-		if err := r.DeleteAllOf(ctx, &v1.RoleBinding{}, client.InNamespace(actions.OpenshiftMonitoringNS), client.MatchingLabels(instanceLabels)); err != nil {
-			log.Error(err, "problem with removing RoleBinding resource in %s", actions.OpenshiftMonitoringNS)
-		}
-
 		controllerutil.RemoveFinalizer(target, finalizer)
 		return ctrl.Result{}, r.Update(ctx, target)
 	}
@@ -119,7 +97,6 @@ func (r *securesignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	acs := []action.Action[*rhtasv1alpha1.Securesign]{
 		actions.NewInitializeStatusAction(),
 		actions.NewSBJRBACAction(),
-		actions.NewSegmentBackupJobAction(),
 		actions.NewSegmentBackupCronJobAction(),
 		actions.NewTrillianAction(),
 		actions.NewFulcioAction(),
@@ -133,12 +110,6 @@ func (r *securesignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	for _, a := range acs {
 		a.InjectClient(r.Client)
 		a.InjectLogger(log.WithName(a.Name()))
-
-		if a.Name() == actions.SegmentBackupJobName {
-			if c := meta.FindStatusCondition(instance.GetConditions(), actions.MetricsCondition); c != nil && c.Reason == constants.Creating {
-				continue
-			}
-		}
 
 		if a.CanHandle(ctx, target) {
 			result := a.Handle(ctx, target)
