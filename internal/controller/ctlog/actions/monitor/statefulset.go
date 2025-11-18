@@ -195,7 +195,7 @@ func (i statefulSetAction) ensureInitContainer(ctlogServerHost string, tufHost s
 	return func(ss *v1.StatefulSet) error {
 		initContainer := kubernetes.FindInitContainerByNameOrCreate(&ss.Spec.Template.Spec, "tuf-init")
 
-		initContainer.Image = images.Registry.Get(images.RekorMonitor)
+		initContainer.Image = images.Registry.Get(images.CTLogMonitor)
 		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(initContainer, storageVolumeName)
 		volumeMount.MountPath = mountPath
 
