@@ -21,6 +21,7 @@ type RekorSpec struct {
 	Trillian TrillianService `json:"trillian,omitempty"`
 	// TUF service configuration
 	//+kubebuilder:default:={port: 8080}
+	//+optional
 	Tuf TufService `json:"tuf,omitempty"`
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
