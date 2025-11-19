@@ -44,6 +44,10 @@ type CTlogSpec struct {
 	//+kubebuilder:default:={port: 8091}
 	Trillian TrillianService `json:"trillian,omitempty"`
 
+	// TUF service configuration
+	//+kubebuilder:default:={port: 8080}
+	Tuf TufService `json:"tuf,omitempty"`
+
 	// Secret holding Certificate Transparency server config in text proto format
 	// If it is set then any setting of treeID, privateKeyRef, privateKeyPasswordRef,
 	// publicKeyRef, rootCertificates and trillian will be overridden.

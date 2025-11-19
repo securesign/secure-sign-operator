@@ -1282,6 +1282,22 @@ spec:
                         minimum: 1
                         type: integer
                     type: object
+                  tuf:
+                    default:
+                      port: 8080
+                    description: TUF service configuration
+                    properties:
+                      address:
+                        description: Address to TUF Server End point
+                        type: string
+                      port:
+                        default: 8080
+                        description: Port of TUF Server End point
+                        format: int32
+                        maximum: 65535
+                        minimum: 1
+                        type: integer
+                    type: object
                 type: object
                 x-kubernetes-validations:
                 - message: privateKeyRef cannot be empty
