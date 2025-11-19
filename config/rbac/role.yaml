@@ -159,14 +159,6 @@ rules:
 - apiGroups:
   - monitoring.coreos.com
   resources:
-  - prometheuses/api
-  verbs:
-  - create
-  - get
-  - update
-- apiGroups:
-  - monitoring.coreos.com
-  resources:
   - servicemonitors
   verbs:
   - create
@@ -188,13 +180,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - operator.openshift.io
-  resources:
-  - consoles
-  verbs:
-  - get
-  - list
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
@@ -255,10 +240,3 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - route.openshift.io
-  resources:
-  - routes
-  verbs:
-  - get
-  - list

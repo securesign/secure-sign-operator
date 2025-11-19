@@ -84,9 +84,6 @@ func installTAS(ctx context.Context, cli client.Client, namespace string) error 
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      "test",
-			Annotations: map[string]string{
-				"rhtas.redhat.com/metrics": "false",
-			},
 		},
 		Spec: v1alpha1.SecuresignSpec{
 			Rekor: v1alpha1.RekorSpec{
