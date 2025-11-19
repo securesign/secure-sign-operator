@@ -254,8 +254,8 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(strings.Contains(logContent, "Root hash consistency verified")).To(BeFalse(),
 					fmt.Sprintf("Expected 'Root hash consistency verified' NOT to be in logs, but got: %s", logContent))
-				g.Expect(strings.Contains(logContent, "empty log")).To(BeTrue(),
-					fmt.Sprintf("Expected 'empty log' to be in logs, but got: %s", logContent))
+				g.Expect(strings.Contains(logContent, "skipping write of checkpoint: size is 0")).To(BeTrue(),
+					fmt.Sprintf("Expected 'skipping write of checkpoint: size is 0' to be in logs, but got: %s", logContent))
 			}, 30*time.Second, 1*time.Second).Should(Succeed(),
 				"Monitor log should be empty and not contain root hash consistency verification")
 		})

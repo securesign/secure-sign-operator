@@ -58,6 +58,19 @@ type TrillianService struct {
 	Port *int32 `json:"port,omitempty"`
 }
 
+// TufService configuration to connect TUF server
+type TufService struct {
+	// Address to TUF Server End point
+	//+optional
+	Address string `json:"address,omitempty"`
+	// Port of TUF Server End point
+	//+kubebuilder:validation:Minimum:=1
+	//+kubebuilder:validation:Maximum:=65535
+	//+kubebuilder:default:=8080
+	//+optional
+	Port *int32 `json:"port,omitempty"`
+}
+
 // CtlogService configuration to connect Ctlog server
 type CtlogService struct {
 	// Address to Ctlog Log Server End point
