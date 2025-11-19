@@ -116,8 +116,11 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 
 	trillianUrl := fmt.Sprintf("%s:%d", instance.Spec.Trillian.Address, *instance.Spec.Trillian.Port)
 
-	// Validate existing secret before attempting recreation
-	if instance.Status.ServerConfigRef != nil && instance.Status.ServerConfigRef.Name != "" {
+	c := meta.FindStatusCondition(instance.Status.Conditions, ConfigCondition)
+	isSpecChange := c != nil && c.ObservedGeneration != instance.Generation
+
+	// Validate existing secret before attempting recreation (only for hot updates, not spec changes)
+	if !isSpecChange && instance.Status.ServerConfigRef != nil && instance.Status.ServerConfigRef.Name != "" {
 		secret, err := kubernetes.GetSecret(i.Client, instance.Namespace, instance.Status.ServerConfigRef.Name)
 
 		if err != nil {
@@ -133,7 +136,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 					"Error accessing config secret, will recreate")
 			}
 		} else {
-			// Secret exists and is accessible - validate it
+			// Secret exists and is accessible - validate it (for hot updates only)
 			if !ctlogUtils.IsSecretDataValid(secret.Data, trillianUrl) {
 				// Secret has wrong Trillian configuration, will recreate
 				i.Logger.Info("Server config secret is invalid, will recreate",
@@ -150,7 +153,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 						actualRootCertCount++
 					}
 				}
-				
+
 				// Compare with expected count from status
 				expectedRootCertCount := len(instance.Status.RootCertificates)
 				if actualRootCertCount == expectedRootCertCount && expectedRootCertCount > 0 {
