@@ -38,11 +38,16 @@ type CTlogSpec struct {
 	RootCertificates []SecretKeySelector `json:"rootCertificates,omitempty"`
 
 	//Enable Service monitors for ctlog
-	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
+	Monitoring MonitoringWithTLogConfig `json:"monitoring,omitempty"`
 
 	// Trillian service configuration
 	//+kubebuilder:default:={port: 8091}
 	Trillian TrillianService `json:"trillian,omitempty"`
+
+	// TUF service configuration
+	//+kubebuilder:default:={port: 8080}
+	//+optional
+	Tuf TufService `json:"tuf,omitempty"`
 
 	// Secret holding Certificate Transparency server config in text proto format
 	// If it is set then any setting of treeID, privateKeyRef, privateKeyPasswordRef,
