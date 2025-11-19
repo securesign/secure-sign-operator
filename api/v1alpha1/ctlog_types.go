@@ -46,6 +46,7 @@ type CTlogSpec struct {
 
 	// TUF service configuration
 	//+kubebuilder:default:={port: 8080}
+	//+optional
 	Tuf TufService `json:"tuf,omitempty"`
 
 	// Secret holding Certificate Transparency server config in text proto format
