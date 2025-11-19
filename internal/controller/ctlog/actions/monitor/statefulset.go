@@ -66,8 +66,12 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1alpha1.C
 		protocol = "http"
 	}
 
+	switch instance.Spec.Tuf.Address {
+	case "":
+		instance.Spec.Tuf.Address = fmt.Sprintf("%s.%s.svc", tufConstants.DeploymentName, instance.Namespace)
+	}
+	tufServerHost := fmt.Sprintf("http://%s", instance.Spec.Tuf.Address)
 	ctlogServerHost := fmt.Sprintf("%s://%s.%s.svc", protocol, actions.ComponentName, instance.Namespace)
-	tufServerHost := fmt.Sprintf("http://%s.%s.svc", tufConstants.ComponentName, instance.Namespace)
 
 	labels := labels.For(actions.MonitorComponentName, actions.MonitorStatefulSetName, instance.Name)
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
