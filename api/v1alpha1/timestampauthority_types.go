@@ -42,6 +42,8 @@ type TimestampAuthoritySpec struct {
 	//+kubebuilder:default:=1048576
 	//+optional
 	MaxRequestBodySize *int64 `json:"maxRequestBodySize,omitempty"`
+
+	ServiceAccountRequirements `json:",inline"`
 }
 
 // TimestampAuthoritySigner defines the desired state of the Timestamp Authority Signer

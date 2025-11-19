@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 
@@ -56,6 +57,10 @@ func (i tufAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 		ensure.Annotations[*rhtasv1alpha1.Tuf](annotations.InheritableAnnotations, instance.Annotations),
 		func(object *rhtasv1alpha1.Tuf) error {
 			object.Spec = instance.Spec.Tuf
+			object.Spec.ImagePullSecrets = utils.MergeImagePullSecrets(
+				instance.Spec.ImagePullSecrets,
+				instance.Spec.Tuf.ImagePullSecrets,
+			)
 			return nil
 		},
 	); err != nil {
