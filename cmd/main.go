@@ -61,6 +61,7 @@ import (
 	"github.com/securesign/operator/internal/controller/trillian"
 	"github.com/securesign/operator/internal/controller/tsa"
 	"github.com/securesign/operator/internal/controller/tuf"
+	rhtas_webhook "github.com/securesign/operator/internal/webhook"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -203,6 +204,17 @@ func main() {
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+
+	if err := ctrl.NewWebhookManagedBy(mgr).
+		For(&rhtasv1alpha1.Securesign{}).
+		WithValidator(&rhtas_webhook.SecureSignValidator{
+			Client: mgr.GetClient(),
+		}).
+		WithValidatorCustomPath("/validate").
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create SecureSign validating webhook")
 		os.Exit(1)
 	}
 

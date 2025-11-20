@@ -67,6 +67,10 @@ spec:
         - --leader-elect
         image: controller:latest
         name: manager
+        volumeMounts:
+        - name: webhook-cert
+          mountPath: /tmp/k8s-webhook-server/serving-certs
+          readOnly: true
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
@@ -97,3 +101,7 @@ spec:
             memory: 64Mi
       serviceAccountName: operator-controller-manager
       terminationGracePeriodSeconds: 10
+      volumes:
+      - name: webhook-cert
+        secret:
+          secretName: webhook-server-tls
