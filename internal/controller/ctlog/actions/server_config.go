@@ -13,6 +13,7 @@ import (
 	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/labels"
+	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	corev1 "k8s.io/api/core/v1"
@@ -108,7 +109,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 			Type:               ConfigCondition,
 			Status:             metav1.ConditionFalse,
 			Reason:             SignerKeyReason,
-			Message:            "Waiting for Ctlog private key secret",
+			Message:            fmt.Sprintf("Waiting for Ctlog private key secret: %v", err),
 			ObservedGeneration: instance.Generation,
 		})
 		i.StatusUpdate(ctx, instance)
@@ -209,6 +210,15 @@ func (i serverConfig) handlePrivateKey(instance *rhtasv1alpha1.CTlog) (*ctlogUti
 	password, err := kubernetes.GetSecretData(i.Client, instance.Namespace, instance.Status.PrivateKeyPasswordRef)
 	if err != nil {
 		return nil, err
+	}
+
+	if cryptoutil.FIPSEnabled {
+		if err := cryptoutil.ValidatePrivateKeyPEM(private, password); err != nil {
+			return nil, err
+		}
+		if err := cryptoutil.ValidatePublicKeyPEM(public); err != nil {
+			return nil, err
+		}
 	}
 
 	return &ctlogUtils.KeyConfig{
