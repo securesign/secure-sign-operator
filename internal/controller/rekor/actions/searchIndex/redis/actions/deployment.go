@@ -13,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	cutils "github.com/securesign/operator/internal/utils"
+	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
@@ -58,6 +59,18 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 	caPath, err := tls.CAPath(ctx, i.Client, instance)
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("failed to get CA path: %w", err), instance)
+	}
+
+	if cryptoutil.FIPSEnabled {
+		if err := cryptoutil.ValidateTrustedCA(ctx, i.Client, instance.Namespace, instance.GetTrustedCA()); err != nil {
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:    actions.RedisCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			})
+			return i.StatusUpdate(ctx, instance)
+		}
 	}
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,

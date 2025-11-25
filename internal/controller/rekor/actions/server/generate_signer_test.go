@@ -2,12 +2,15 @@ package server
 
 import (
 	"context"
+	"crypto/elliptic"
 	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
+	fipsTest "github.com/securesign/operator/internal/utils/crypto/test"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -453,6 +456,184 @@ func TestGenerateSigner_Handle(t *testing.T) {
 			if got := a.Handle(ctx, instance); !reflect.DeepEqual(got, tt.want.result) {
 				t.Errorf("CanHandle() = %v, want %v", got, tt.want.result)
 			}
+			if tt.want.verify != nil {
+				tt.want.verify(g, instance)
+			}
+		})
+	}
+}
+
+func TestGenerateSigner_Handle_FIPS(t *testing.T) {
+	g := NewWithT(t)
+	cryptoutil.FIPSEnabled = true
+	t.Cleanup(func() {
+		cryptoutil.FIPSEnabled = false
+	})
+
+	_, invalidPriv, _, err := fipsTest.GenerateECCertificatePEM(false, "", elliptic.P224())
+	g.Expect(err).NotTo(HaveOccurred())
+
+	_, validPriv, _, err := fipsTest.GenerateECCertificatePEM(false, "", elliptic.P256())
+	g.Expect(err).NotTo(HaveOccurred())
+
+	type env struct {
+		spec    rhtasv1alpha1.RekorSigner
+		status  rhtasv1alpha1.RekorSigner
+		objects []client.Object
+	}
+	type want struct {
+		expectError bool
+		result      *action.Result
+		verify      func(Gomega, *rhtasv1alpha1.Rekor)
+	}
+
+	tests := []struct {
+		name string
+		env  env
+		want want
+	}{
+		{
+			name: "valid private key (EC P256)",
+			env: env{
+				spec: rhtasv1alpha1.RekorSigner{
+					KeyRef: &rhtasv1alpha1.SecretKeySelector{
+						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+							Name: "secret",
+						},
+						Key: "private",
+					},
+				},
+				status: rhtasv1alpha1.RekorSigner{},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"private": validPriv,
+						},
+					},
+				},
+			},
+			want: want{
+				result: testAction.StatusUpdate(),
+				verify: func(g Gomega, instance *rhtasv1alpha1.Rekor) {
+					g.Expect(instance.Status.Signer.KeyRef).ShouldNot(BeNil())
+					g.Expect(instance.Status.Signer.KeyRef.Name).Should(Equal("secret"))
+					g.Expect(instance.Status.Signer.KeyRef.Key).Should(Equal("private"))
+
+					g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, actions.SignerCondition)).Should(BeTrue())
+					g.Expect(meta.IsStatusConditionFalse(instance.Status.Conditions, actions.ServerCondition)).Should(BeTrue())
+				},
+			},
+		},
+		{
+			name: "invalid private key (EC P224)",
+			env: env{
+				spec: rhtasv1alpha1.RekorSigner{
+					KeyRef: &rhtasv1alpha1.SecretKeySelector{
+						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+							Name: "secret",
+						},
+						Key: "private",
+					},
+				},
+				status: rhtasv1alpha1.RekorSigner{},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"private": invalidPriv,
+						},
+					},
+				},
+			},
+			want: want{
+				expectError: true,
+				verify: func(g Gomega, instance *rhtasv1alpha1.Rekor) {
+					cond := meta.FindStatusCondition(instance.Status.Conditions, actions.SignerCondition)
+					g.Expect(cond).ToNot(BeNil())
+					g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(cond.Reason).To(Equal(constants.Failure))
+				},
+			},
+		},
+		{
+			name: "missing secret keeps rekor waiting for signer secret",
+			env: env{
+				spec: rhtasv1alpha1.RekorSigner{
+					KeyRef: &rhtasv1alpha1.SecretKeySelector{
+						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+							Name: "secret",
+						},
+						Key: "private",
+					},
+				},
+			},
+			want: want{
+				result: testAction.Requeue(),
+				verify: func(g Gomega, instance *rhtasv1alpha1.Rekor) {
+					signerCond := meta.FindStatusCondition(instance.Status.Conditions, actions.SignerCondition)
+					g.Expect(signerCond).ToNot(BeNil())
+					g.Expect(signerCond.Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(signerCond.Reason).To(Equal(constants.Failure))
+
+					serverCond := meta.FindStatusCondition(instance.Status.Conditions, actions.ServerCondition)
+					g.Expect(serverCond).ToNot(BeNil())
+					g.Expect(serverCond.Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(serverCond.Reason).To(Equal(constants.Initialize))
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.TODO()
+			instance := &rhtasv1alpha1.Rekor{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "rekor",
+					Namespace: "default",
+				},
+				Spec: rhtasv1alpha1.RekorSpec{
+					Signer: tt.env.spec,
+				},
+				Status: rhtasv1alpha1.RekorStatus{
+					Signer: tt.env.status,
+				},
+			}
+
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:   constants.Ready,
+				Reason: constants.Pending,
+			})
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:   actions.SignerCondition,
+				Status: metav1.ConditionFalse,
+				Reason: constants.Pending,
+			})
+
+			c := testAction.FakeClientBuilder().
+				WithObjects(instance).
+				WithStatusSubresource(instance).
+				WithObjects(tt.env.objects...).
+				Build()
+
+			a := testAction.PrepareAction(c, NewGenerateSignerAction())
+			res := a.Handle(ctx, instance)
+
+			if tt.want.expectError {
+				if !action.IsError(res) {
+					t.Fatalf("expected error result, got: %#v", res)
+				}
+			} else if !reflect.DeepEqual(res, tt.want.result) {
+				t.Errorf("Handle() = %v, want %v", res, tt.want.result)
+			}
+
 			if tt.want.verify != nil {
 				tt.want.verify(g, instance)
 			}

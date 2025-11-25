@@ -15,6 +15,7 @@ import (
 	"github.com/securesign/operator/internal/controller/rekor/actions/searchIndex/redis"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
+	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	tlsensure "github.com/securesign/operator/internal/utils/tls/ensure"
@@ -61,6 +62,18 @@ func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 	}
 
 	labels := labels.For(actions.BackfillRedisCronJobName, actions.BackfillRedisCronJobName, instance.Name)
+
+	if cryptoutil.FIPSEnabled {
+		if err := cryptoutil.ValidateTrustedCA(ctx, i.Client, instance.Namespace, instance.GetTrustedCA()); err != nil {
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:    actions.RedisCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  constants.Failure,
+				Message: err.Error(),
+			})
+			return i.StatusUpdate(ctx, instance)
+		}
+	}
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		&batchv1.CronJob{

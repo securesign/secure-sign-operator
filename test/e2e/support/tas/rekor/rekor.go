@@ -77,6 +77,16 @@ func CreateSecret(ns string, name string) *v1.Secret {
 	}
 }
 
+func CreateCustomRekorSecret(ns string, name string, data map[string][]byte) *v1.Secret {
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Data: data,
+	}
+}
+
 func SetRekorReplicaCount(ctx context.Context, cli client.Client, namespace, securesignDeploymentName string, replicaCount int32) {
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		s := securesign.Get(ctx, cli, namespace, securesignDeploymentName)
