@@ -44,6 +44,8 @@ spec:
     value: '{"type": "gomod", "path": "."}'
   - name: image-expires-after
     value: 5d
+  - name: fips-check
+    value: "true"
   pipelineRef:
     params:
     - name: url

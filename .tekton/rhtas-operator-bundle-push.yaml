@@ -37,9 +37,11 @@ spec:
   - name: hermetic
     value: "true"
   - name: manager-pipelinerun-selector
-    value: appstudio.openshift.io/application=operator,appstudio.openshift.io/component=rhtas-operator,pipelinesascode.tekton.dev/sha={{revision}},pipelinesascode.tekton.dev/event-type in (push,incoming)
+    value: appstudio.openshift.io/application=operator,appstudio.openshift.io/component=rhtas-operator,pipelinesascode.tekton.dev/sha={{revision}},pipelinesascode.tekton.dev/event-type in (push,incoming,retest-all-comment)
   - name: manager-registry-url
     value: registry.redhat.io/rhtas/rhtas-rhel9-operator
+  - name: fips-check
+    value: "true"
   pipelineRef:
     params:
     - name: url
