@@ -57,10 +57,12 @@ func Get(ctx context.Context, cli client.Client, ns string, name string) *v1alph
 func GetServerPod(ctx context.Context, cli client.Client, ns string) *v1.Pod {
 	list := &v1.PodList{}
 	_ = cli.List(ctx, list, client.InNamespace(ns), client.MatchingLabels{labels.LabelAppComponent: constants.ComponentName})
-	if len(list.Items) != 1 {
-		return nil
+	for _, pod := range list.Items {
+		if _, hasLabel := pod.Labels["batch.kubernetes.io/job-name"]; !hasLabel {
+			return &pod
+		}
 	}
-	return &list.Items[0]
+	return nil
 }
 
 func RefreshTufRepository(ctx context.Context, cli client.Client, ns string, name string) {
