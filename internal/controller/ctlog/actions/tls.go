@@ -6,6 +6,8 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/constants"
+	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -32,6 +34,18 @@ func (i tlsAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) *a
 	// TLS
 	switch {
 	case instance.Spec.TLS.CertRef != nil:
+		if cryptoutil.FIPSEnabled {
+			if err := cryptoutil.ValidateTLS(i.Client, instance.Namespace, instance.Spec.TLS); err != nil {
+				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+					Type:    TLSCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  constants.Failure,
+					Message: fmt.Sprintf("TLS material is not FIPS-compliant: %v", err),
+				})
+				i.StatusUpdate(ctx, instance)
+				return i.Requeue()
+			}
+		}
 		instance.Status.TLS = instance.Spec.TLS
 	case kubernetes.IsOpenShift():
 		instance.Status.TLS = rhtasv1alpha1.TLS{

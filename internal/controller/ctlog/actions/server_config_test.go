@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"crypto/elliptic"
 	_ "embed"
 	"reflect"
 	"testing"
@@ -9,6 +10,8 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
+	fipsTest "github.com/securesign/operator/internal/utils/crypto/test"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -483,6 +486,355 @@ func TestServerConfig_Handle(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestServerConfig_Handle_FIPS(t *testing.T) {
+	g := NewWithT(t)
+	cryptoutil.FIPSEnabled = true
+	t.Cleanup(func() {
+		cryptoutil.FIPSEnabled = false
+	})
+
+	invalidPub, invalidPriv, invalidCert, err := fipsTest.GenerateECCertificatePEM(true, "pass", elliptic.P224())
+	g.Expect(err).NotTo(HaveOccurred())
+
+	validPub, validPriv, validCert, err := fipsTest.GenerateECCertificatePEM(true, "pass", elliptic.P256())
+	g.Expect(err).NotTo(HaveOccurred())
+
+	type env struct {
+		spec    rhtasv1alpha1.CTlogSpec
+		status  rhtasv1alpha1.CTlogStatus
+		objects []client.Object
+	}
+	type want struct {
+		result *action.Result
+		verify func(Gomega, *rhtasv1alpha1.CTlog, client.WithWatch)
+	}
+
+	tests := []struct {
+		name string
+		env  env
+		want want
+	}{
+		{
+			name: "valid private key (EC P256)",
+			env: env{
+				spec: rhtasv1alpha1.CTlogSpec{
+					ServerConfigRef: nil,
+					Trillian:        rhtasv1alpha1.TrillianService{Port: ptr.To(int32(80))},
+				},
+				status: rhtasv1alpha1.CTlogStatus{
+					ServerConfigRef: nil,
+					TreeID:          ptr.To(int64(123456)),
+					RootCertificates: []rhtasv1alpha1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+					},
+					PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "private"},
+					PublicKeyRef:  &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "public"},
+					PrivateKeyPasswordRef: &rhtasv1alpha1.SecretKeySelector{
+						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"},
+						Key:                  "password",
+					},
+				},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"cert":     validCert,
+							"private":  validPriv,
+							"public":   validPub,
+							"password": []byte("pass"),
+						},
+					},
+				},
+			},
+			want: want{
+				result: testAction.StatusUpdate(),
+				verify: func(g Gomega, instance *rhtasv1alpha1.CTlog, cli client.WithWatch) {
+					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
+					g.Expect(instance.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
+				},
+			},
+		},
+		{
+			name: "invalid private key (EC P224)",
+			env: env{
+				spec: rhtasv1alpha1.CTlogSpec{
+					ServerConfigRef: nil,
+					Trillian:        rhtasv1alpha1.TrillianService{Port: ptr.To(int32(80))},
+				},
+				status: rhtasv1alpha1.CTlogStatus{
+					ServerConfigRef: nil,
+					TreeID:          ptr.To(int64(123456)),
+					RootCertificates: []rhtasv1alpha1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+					},
+					PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "private"},
+					PublicKeyRef:  &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "public"},
+					PrivateKeyPasswordRef: &rhtasv1alpha1.SecretKeySelector{
+						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"},
+						Key:                  "password",
+					},
+				},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"cert":     validCert,
+							"private":  invalidPriv,
+							"public":   validPub,
+							"password": []byte("pass"),
+						},
+					},
+				},
+			},
+			want: want{
+				result: testAction.Requeue(),
+				verify: func(g Gomega, instance *rhtasv1alpha1.CTlog, cli client.WithWatch) {
+					g.Expect(instance.Status.ServerConfigRef).Should(BeNil())
+					g.Expect(instance.Status.Conditions).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Status": Equal(metav1.ConditionFalse),
+						"Reason": Equal(SignerKeyReason),
+					})))
+				},
+			},
+		},
+		{
+			name: "valid public key (EC P256)",
+			env: env{
+				spec: rhtasv1alpha1.CTlogSpec{
+					ServerConfigRef: nil,
+					Trillian:        rhtasv1alpha1.TrillianService{Port: ptr.To(int32(80))},
+				},
+				status: rhtasv1alpha1.CTlogStatus{
+					ServerConfigRef: nil,
+					TreeID:          ptr.To(int64(123456)),
+					RootCertificates: []rhtasv1alpha1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+					},
+					PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "private"},
+					PublicKeyRef:  &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "public"},
+					PrivateKeyPasswordRef: &rhtasv1alpha1.SecretKeySelector{
+						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"},
+						Key:                  "password",
+					},
+				},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"cert":     validCert,
+							"private":  validPriv,
+							"public":   validPub,
+							"password": []byte("pass"),
+						},
+					},
+				},
+			},
+			want: want{
+				result: testAction.StatusUpdate(),
+				verify: func(g Gomega, instance *rhtasv1alpha1.CTlog, cli client.WithWatch) {
+					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
+					g.Expect(instance.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
+				},
+			},
+		},
+		{
+			name: "invalid public key (EC P224)",
+			env: env{
+				spec: rhtasv1alpha1.CTlogSpec{
+					ServerConfigRef: nil,
+					Trillian:        rhtasv1alpha1.TrillianService{Port: ptr.To(int32(80))},
+				},
+				status: rhtasv1alpha1.CTlogStatus{
+					ServerConfigRef: nil,
+					TreeID:          ptr.To(int64(123456)),
+					RootCertificates: []rhtasv1alpha1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+					},
+					PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "private"},
+					PublicKeyRef:  &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "public"},
+					PrivateKeyPasswordRef: &rhtasv1alpha1.SecretKeySelector{
+						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"},
+						Key:                  "password",
+					},
+				},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"cert":     validCert,
+							"private":  validPriv,
+							"public":   invalidPub,
+							"password": []byte("pass"),
+						},
+					},
+				},
+			},
+			want: want{
+				result: testAction.Requeue(),
+				verify: func(g Gomega, instance *rhtasv1alpha1.CTlog, cli client.WithWatch) {
+					g.Expect(instance.Status.ServerConfigRef).Should(BeNil())
+					g.Expect(instance.Status.Conditions).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Status": Equal(metav1.ConditionFalse),
+						"Reason": Equal(SignerKeyReason),
+					})))
+				},
+			},
+		},
+		{
+			name: "invalid root certificate (EC P224)",
+			env: env{
+				spec: rhtasv1alpha1.CTlogSpec{
+					ServerConfigRef: nil,
+					Trillian:        rhtasv1alpha1.TrillianService{Port: ptr.To(int32(80))},
+				},
+				status: rhtasv1alpha1.CTlogStatus{
+					ServerConfigRef: nil,
+					TreeID:          ptr.To(int64(123456)),
+					RootCertificates: []rhtasv1alpha1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+					},
+					PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "private"},
+					PublicKeyRef:  &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "public"},
+					PrivateKeyPasswordRef: &rhtasv1alpha1.SecretKeySelector{
+						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"},
+						Key:                  "password",
+					},
+				},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"cert":     invalidCert,
+							"private":  validPriv,
+							"public":   validPub,
+							"password": []byte("pass"),
+						},
+					},
+				},
+			},
+			want: want{
+				result: testAction.Requeue(),
+				verify: func(g Gomega, instance *rhtasv1alpha1.CTlog, cli client.WithWatch) {
+					g.Expect(instance.Status.ServerConfigRef).Should(BeNil())
+					g.Expect(instance.Status.Conditions).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Status": Equal(metav1.ConditionFalse),
+						"Reason": Equal(FulcioReason),
+					})))
+				},
+			},
+		},
+		{
+			name: "custom server config is FIPS-compliant",
+			env: env{
+				spec: rhtasv1alpha1.CTlogSpec{
+					ServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "custom-config"},
+					Trillian:        rhtasv1alpha1.TrillianService{Port: ptr.To(int32(80))},
+				},
+				status: rhtasv1alpha1.CTlogStatus{},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: "custom-config", Namespace: "default"},
+						Data: map[string][]byte{
+							ctlogUtils.PrivateKey: validPriv,
+							ctlogUtils.PublicKey:  validPub,
+							ctlogUtils.Password:   []byte("pass"),
+							"fulcio-0":            validCert,
+						},
+					},
+				},
+			},
+			want: want{
+				result: testAction.StatusUpdate(),
+				verify: func(g Gomega, instance *rhtasv1alpha1.CTlog, cli client.WithWatch) {
+					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
+					g.Expect(instance.Status.ServerConfigRef.Name).To(Equal("custom-config"))
+					g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, ConfigCondition)).To(BeTrue())
+				},
+			},
+		},
+		{
+			name: "custom server config is not FIPS-compliant",
+			env: env{
+				spec: rhtasv1alpha1.CTlogSpec{
+					ServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "custom-config"},
+					Trillian:        rhtasv1alpha1.TrillianService{Port: ptr.To(int32(80))},
+				},
+				status: rhtasv1alpha1.CTlogStatus{},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: "custom-config", Namespace: "default"},
+						Data: map[string][]byte{
+							ctlogUtils.PrivateKey: invalidPriv,
+							ctlogUtils.PublicKey:  invalidPub,
+							ctlogUtils.Password:   []byte("pass"),
+						},
+					},
+				},
+			},
+			want: want{
+				result: testAction.Requeue(),
+				verify: func(g Gomega, instance *rhtasv1alpha1.CTlog, cli client.WithWatch) {
+					g.Expect(instance.Status.ServerConfigRef).Should(BeNil())
+					g.Expect(instance.Status.Conditions).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Status": Equal(metav1.ConditionFalse),
+						"Reason": Equal(constants.Failure),
+					})))
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.TODO()
+			instance := &rhtasv1alpha1.CTlog{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "ctlog",
+					Namespace:  "default",
+					Generation: int64(1),
+				},
+				Spec:   tt.env.spec,
+				Status: tt.env.status,
+			}
+
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:   constants.Ready,
+				Reason: constants.Creating,
+			})
+
+			c := testAction.FakeClientBuilder().
+				WithObjects(instance).
+				WithStatusSubresource(instance).
+				WithObjects(tt.env.objects...).
+				Build()
+
+			a := testAction.PrepareAction(c, NewServerConfigAction())
+
+			if got := a.Handle(ctx, instance); !reflect.DeepEqual(got, tt.want.result) {
+				t.Errorf("CanHandle() = %v, want %v", got, tt.want.result)
+			}
+			if tt.want.verify != nil {
+				tt.want.verify(g, instance, c)
+			}
+		})
+	}
+
 }
 
 func TestServerConfig_Update(t *testing.T) {
