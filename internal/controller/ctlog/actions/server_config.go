@@ -5,17 +5,24 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"path"
 	"slices"
 	"strings"
 
+	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
+	"github.com/google/trillian/crypto/keyspb"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
+	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -87,6 +94,20 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 				})
 		}
 
+		if cryptoutil.FIPSEnabled {
+			if err := validateServerConfigSecret(secret); err != nil {
+				i.Logger.Error(err, "invalid server config secret", "secret", instance.Spec.ServerConfigRef.Name)
+				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+					Type:               ConfigCondition,
+					Status:             metav1.ConditionFalse,
+					Reason:             state.Failure.String(),
+					Message:            "Invalid server config",
+					ObservedGeneration: instance.Generation,
+				})
+				i.StatusUpdate(ctx, instance)
+				return i.Requeue()
+			}
+		}
 		instance.Status.ServerConfigRef = instance.Spec.ServerConfigRef
 		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigUpdated", "CTLog config updated: %s", instance.Spec.ServerConfigRef.Name)
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -143,11 +164,12 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 
 	rootCerts, err := i.handleRootCertificates(instance)
 	if err != nil {
+		i.Logger.Info("waiting for Fulcio root certificate", "error", err.Error())
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               ConfigCondition,
 			Status:             metav1.ConditionFalse,
 			Reason:             FulcioReason,
-			Message:            fmt.Sprintf("Waiting for Fulcio root certificate: %v", err.Error()),
+			Message:            "Waiting for Fulcio root certificate",
 			ObservedGeneration: instance.Generation,
 		})
 		i.StatusUpdate(ctx, instance)
@@ -156,6 +178,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 
 	certConfig, err := i.handlePrivateKey(instance)
 	if err != nil {
+		i.Logger.Info("waiting for Ctlog private key secret", "error", err.Error())
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               ConfigCondition,
 			Status:             metav1.ConditionFalse,
@@ -267,6 +290,15 @@ func (i serverConfig) handlePrivateKey(instance *rhtasv1alpha1.CTlog) (*ctlogUti
 		return nil, err
 	}
 
+	if cryptoutil.FIPSEnabled {
+		if err := cryptoutil.ValidatePrivateKeyPEM(private, password); err != nil {
+			return nil, err
+		}
+		if err := cryptoutil.ValidatePublicKeyPEM(public); err != nil {
+			return nil, err
+		}
+	}
+
 	return &ctlogUtils.KeyConfig{
 		PrivateKey:     private,
 		PublicKey:      public,
@@ -281,6 +313,11 @@ func (i serverConfig) handleRootCertificates(instance *rhtasv1alpha1.CTlog) ([]c
 		data, err := kubernetes.GetSecretData(i.Client, instance.Namespace, &selector)
 		if err != nil {
 			return nil, fmt.Errorf("%s/%s: %w", selector.Name, selector.Key, err)
+		}
+		if cryptoutil.FIPSEnabled {
+			if err := cryptoutil.ValidateCertificatePEM(data); err != nil {
+				return nil, fmt.Errorf("%s/%s: %w", selector.Name, selector.Key, err)
+			}
 		}
 		certs = append(certs, data)
 	}
@@ -306,6 +343,12 @@ func (i serverConfig) validateExistingSecret(instance *rhtasv1alpha1.CTlog, tril
 	expectedAnnotations := i.configMatchingAnnotations(instance, trillianUrl)
 	if !equality.Semantic.DeepDerivative(expectedAnnotations, secret.GetAnnotations()) {
 		return errSecretInvalid
+	}
+
+	if cryptoutil.FIPSEnabled {
+		if err := validateServerConfigSecret(secret); err != nil {
+			return fmt.Errorf("%w: %v", errSecretInvalid, err)
+		}
 	}
 
 	return nil
@@ -337,4 +380,77 @@ func (i serverConfig) configMatchingAnnotations(instance *rhtasv1alpha1.CTlog, t
 	}
 
 	return annotations
+}
+
+func validateServerConfigSecret(secret *corev1.Secret) error {
+	configData, ok := secret.Data[ctlogUtils.ConfigKey]
+	if !ok || len(configData) == 0 {
+		return fmt.Errorf("server config secret is missing %q", ctlogUtils.ConfigKey)
+	}
+
+	var multiConfig configpb.LogMultiConfig
+	if err := prototext.Unmarshal(configData, &multiConfig); err != nil {
+		return fmt.Errorf("failed to parse server config: %w", err)
+	}
+
+	if multiConfig.LogConfigs == nil || len(multiConfig.LogConfigs.Config) == 0 {
+		return fmt.Errorf("server config does not contain any log configs")
+	}
+
+	for _, logConfig := range multiConfig.LogConfigs.Config {
+		if logConfig == nil {
+			continue
+		}
+		if err := validateServerConfigLog(secret.Data, logConfig); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateServerConfigLog(secretData map[string][]byte, logConfig *configpb.LogConfig) error {
+	if logConfig.PublicKey == nil || len(logConfig.PublicKey.Der) == 0 {
+		return fmt.Errorf("server config public key is missing")
+	}
+	if err := cryptoutil.ValidatePublicKeyDER(logConfig.PublicKey.Der); err != nil {
+		return fmt.Errorf("public key is not FIPS-compliant: %w", err)
+	}
+
+	if logConfig.PrivateKey == nil {
+		return fmt.Errorf("server config private key is missing")
+	}
+
+	var pemKey keyspb.PEMKeyFile
+	if err := anypb.UnmarshalTo(logConfig.PrivateKey, &pemKey, proto.UnmarshalOptions{}); err != nil {
+		return fmt.Errorf("failed to parse private key config: %w", err)
+	}
+	if pemKey.Path == "" {
+		return fmt.Errorf("server config private key path is empty")
+	}
+
+	privateKeyName := path.Base(pemKey.Path)
+	privateKey, ok := secretData[privateKeyName]
+	if !ok {
+		return fmt.Errorf("private key %s is missing from secret", privateKeyName)
+	}
+	if err := cryptoutil.ValidatePrivateKeyPEM(privateKey, []byte(pemKey.Password)); err != nil {
+		return fmt.Errorf("private key is not FIPS-compliant: %w", err)
+	}
+
+	for _, rootPath := range logConfig.RootsPemFile {
+		if rootPath == "" {
+			return fmt.Errorf("root certificate path is empty")
+		}
+		rootName := path.Base(rootPath)
+		rootData, ok := secretData[rootName]
+		if !ok {
+			return fmt.Errorf("root certificate %s is missing from secret", rootName)
+		}
+		if err := cryptoutil.ValidateCertificatePEM(rootData); err != nil {
+			return fmt.Errorf("root certificate %s is not FIPS-compliant: %w", rootName, err)
+		}
+	}
+
+	return nil
 }
