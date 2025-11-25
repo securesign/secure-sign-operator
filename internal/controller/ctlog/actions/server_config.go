@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
@@ -13,6 +14,7 @@ import (
 	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/labels"
+	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	corev1 "k8s.io/api/core/v1"
@@ -20,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels2 "k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -62,6 +65,19 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	)
 
 	if instance.Spec.ServerConfigRef != nil {
+		if cryptoutil.FIPSEnabled {
+			if err := validateExternalConfig(i.Client, instance); err != nil {
+				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+					Type:               ConfigCondition,
+					Status:             metav1.ConditionFalse,
+					Reason:             constants.Failure,
+					Message:            fmt.Sprintf("Invalid server config: %v", err),
+					ObservedGeneration: instance.Generation,
+				})
+				i.StatusUpdate(ctx, instance)
+				return i.Requeue()
+			}
+		}
 		instance.Status.ServerConfigRef = instance.Spec.ServerConfigRef
 		i.Recorder.Event(instance, corev1.EventTypeNormal, "CTLogConfigUpdated", "CTLog config updated")
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -108,7 +124,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 			Type:               ConfigCondition,
 			Status:             metav1.ConditionFalse,
 			Reason:             SignerKeyReason,
-			Message:            "Waiting for Ctlog private key secret",
+			Message:            fmt.Sprintf("Waiting for Ctlog private key secret: %v", err),
 			ObservedGeneration: instance.Generation,
 		})
 		i.StatusUpdate(ctx, instance)
@@ -211,6 +227,15 @@ func (i serverConfig) handlePrivateKey(instance *rhtasv1alpha1.CTlog) (*ctlogUti
 		return nil, err
 	}
 
+	if cryptoutil.FIPSEnabled {
+		if err := cryptoutil.ValidatePrivateKeyPEM(private, password); err != nil {
+			return nil, err
+		}
+		if err := cryptoutil.ValidatePublicKeyPEM(public); err != nil {
+			return nil, err
+		}
+	}
+
 	return &ctlogUtils.KeyConfig{
 		PrivateKey:     private,
 		PublicKey:      public,
@@ -226,8 +251,42 @@ func (i serverConfig) handleRootCertificates(instance *rhtasv1alpha1.CTlog) ([]c
 		if err != nil {
 			return nil, fmt.Errorf("%s/%s: %w", selector.Name, selector.Key, err)
 		}
+		if cryptoutil.FIPSEnabled {
+			if err := cryptoutil.ValidateCertificatePEM(data); err != nil {
+				return nil, fmt.Errorf("%s/%s: %w", selector.Name, selector.Key, err)
+			}
+		}
 		certs = append(certs, data)
 	}
 
 	return certs, nil
+}
+
+func validateExternalConfig(cli client.Client, instance *rhtasv1alpha1.CTlog) error {
+	secret, err := kubernetes.GetSecret(cli, instance.Namespace, instance.Spec.ServerConfigRef.Name)
+	if err != nil {
+		return fmt.Errorf("could not retrieve server config secret %s: %w", instance.Spec.ServerConfigRef.Name, err)
+	}
+
+	if key, ok := secret.Data[ctlogUtils.PrivateKey]; ok {
+		if err := cryptoutil.ValidatePrivateKeyPEM(key, secret.Data[ctlogUtils.Password]); err != nil {
+			return fmt.Errorf("private key is not FIPS-compliant: %w", err)
+		}
+	}
+
+	if key, ok := secret.Data[ctlogUtils.PublicKey]; ok {
+		if err := cryptoutil.ValidatePublicKeyPEM(key); err != nil {
+			return fmt.Errorf("public key is not FIPS-compliant: %w", err)
+		}
+	}
+
+	for k, v := range secret.Data {
+		if strings.HasPrefix(k, "fulcio-") {
+			if err := cryptoutil.ValidateCertificatePEM(v); err != nil {
+				return fmt.Errorf("root certificate %s is not FIPS-compliant: %w", k, err)
+			}
+		}
+	}
+
+	return nil
 }

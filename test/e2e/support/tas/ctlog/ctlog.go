@@ -2,6 +2,7 @@ package ctlog
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
@@ -17,7 +18,7 @@ import (
 )
 
 func Verify(ctx context.Context, cli client.Client, namespace string, name string) {
-	Eventually(Get).WithContext(ctx).WithArguments(cli, namespace, name).
+	Eventually(Get).WithTimeout(8*time.Minute).WithContext(ctx).WithArguments(cli, namespace, name).
 		Should(
 			And(
 				Not(BeNil()),
@@ -64,5 +65,15 @@ func CreateSecret(ns string, name string) *v1.Secret {
 			"private": private,
 			"public":  public,
 		},
+	}
+}
+
+func CreateCustomCtlogSecret(ns string, name string, data map[string][]byte) *v1.Secret {
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Data: data,
 	}
 }

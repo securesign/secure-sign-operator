@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"crypto/elliptic"
 	"reflect"
 	"testing"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	utils2 "github.com/securesign/operator/internal/utils"
+	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
+	fipsTest "github.com/securesign/operator/internal/utils/crypto/test"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -561,6 +564,196 @@ func TestKeys_Handle(t *testing.T) {
 				find := &v1alpha1.CTlog{}
 				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(instance), find)).To(Succeed())
 				tt.want.verify(g, find.Status, c, configSecretWatch.ResultChan())
+			}
+		})
+	}
+}
+
+func TestKeys_Handle_FIPS(t *testing.T) {
+	g := NewWithT(t)
+
+	cryptoutil.FIPSEnabled = true
+	t.Cleanup(func() {
+		cryptoutil.FIPSEnabled = false
+	})
+
+	invalidPub, invalidPriv, _, err := fipsTest.GenerateECCertificatePEM(false, "", elliptic.P224())
+	g.Expect(err).NotTo(HaveOccurred())
+
+	validPub, validPriv, _, err := fipsTest.GenerateECCertificatePEM(false, "", elliptic.P256())
+	g.Expect(err).NotTo(HaveOccurred())
+
+	type env struct {
+		spec    v1alpha1.CTlogSpec
+		objects []client.Object
+		status  v1alpha1.CTlogStatus
+	}
+
+	type want struct {
+		expectError bool
+		result      *action.Result
+	}
+
+	tests := []struct {
+		name string
+		env  env
+		want want
+	}{
+		{
+			name: "valid private key (EC P256)",
+			env: env{
+				spec: v1alpha1.CTlogSpec{
+					PrivateKeyRef: &v1alpha1.SecretKeySelector{
+						LocalObjectReference: v1alpha1.LocalObjectReference{
+							Name: "privateKey",
+						},
+						Key: "private",
+					},
+				},
+				status: v1alpha1.CTlogStatus{},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "privateKey",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"private": validPriv,
+						},
+					},
+				},
+			},
+			want: want{
+				expectError: false,
+				result:      testAction.StatusUpdate(),
+			},
+		},
+		{
+			name: "valid public key",
+			env: env{
+				spec: v1alpha1.CTlogSpec{
+					PublicKeyRef: &v1alpha1.SecretKeySelector{
+						LocalObjectReference: v1alpha1.LocalObjectReference{
+							Name: "pubKey",
+						},
+						Key: "public",
+					},
+				},
+				status: v1alpha1.CTlogStatus{},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "pubKey",
+							Namespace: "default",
+						}, Data: map[string][]byte{
+							"public": validPub,
+						},
+					},
+				},
+			},
+			want: want{
+				expectError: false,
+				result:      testAction.StatusUpdate(),
+			},
+		},
+		{
+			name: "invalid private key (EC P224)",
+			env: env{
+				spec: v1alpha1.CTlogSpec{
+					PrivateKeyRef: &v1alpha1.SecretKeySelector{
+						LocalObjectReference: v1alpha1.LocalObjectReference{
+							Name: "bad",
+						},
+						Key: "private",
+					},
+				},
+				status: v1alpha1.CTlogStatus{},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "bad",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"private": invalidPriv,
+						},
+					},
+				},
+			},
+			want: want{
+				expectError: false,
+				result:      testAction.Requeue(),
+			},
+		},
+		{
+			name: "invalid public key",
+			env: env{
+				spec: v1alpha1.CTlogSpec{
+					PrivateKeyRef: &v1alpha1.SecretKeySelector{
+						LocalObjectReference: v1alpha1.LocalObjectReference{
+							Name: "privateKey",
+						}, Key: "private",
+					},
+					PublicKeyRef: &v1alpha1.SecretKeySelector{
+						LocalObjectReference: v1alpha1.LocalObjectReference{
+							Name: "badPubKey",
+						},
+						Key: "public",
+					},
+				},
+				status: v1alpha1.CTlogStatus{},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "badPubKey",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"public": invalidPub,
+						},
+					},
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "privateKey",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{"private": validPriv},
+					},
+				},
+			},
+			want: want{
+				expectError: false,
+				result:      testAction.Requeue(),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.TODO()
+			instance := &v1alpha1.CTlog{
+				ObjectMeta: metav1.ObjectMeta{Name: "instance", Namespace: "default"},
+				Spec:       tt.env.spec,
+				Status:     tt.env.status,
+			}
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready, Reason: constants.Creating})
+
+			c := testAction.FakeClientBuilder().
+				WithObjects(instance).
+				WithStatusSubresource(instance).
+				WithObjects(tt.env.objects...).
+				Build()
+			a := testAction.PrepareAction(c, NewHandleKeysAction())
+			res := a.Handle(ctx, instance)
+
+			if tt.want.expectError {
+				if !action.IsError(res) {
+					t.Fatalf("expected error result, got: %#v", res)
+				}
+				return
+			}
+
+			if !reflect.DeepEqual(res, tt.want.result) {
+				t.Errorf("Handle() = %v, want %v", res, tt.want.result)
 			}
 		})
 	}

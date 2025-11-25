@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/labels"
+	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
@@ -77,10 +78,26 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 
 	keys, err := g.setupKeys(instance.Namespace, newKeyStatus)
 	if err != nil {
-		return g.Error(ctx, fmt.Errorf("could not generate keys: %w", err), instance)
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:               ConfigCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             SignerKeyReason,
+			Message:            fmt.Sprintf("Waiting for Ctlog signer key: %v", err),
+			ObservedGeneration: instance.Generation,
+		})
+		g.StatusUpdate(ctx, instance)
+		return g.Requeue()
 	}
 	if _, err = g.generateAndUploadSecret(ctx, instance, newKeyStatus, keys); err != nil {
-		return g.Error(ctx, fmt.Errorf("could not generate Secret: %w", err), instance)
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:               ConfigCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             SignerKeyReason,
+			Message:            fmt.Sprintf("Waiting for Ctlog signer key: %v", err),
+			ObservedGeneration: instance.Generation,
+		})
+		g.StatusUpdate(ctx, instance)
+		return g.Requeue()
 	}
 
 	instance.Status = *newKeyStatus
@@ -122,6 +139,11 @@ func (g handleKeys) setupKeys(ns string, instanceStatus *v1alpha1.CTlogStatus) (
 		if err != nil {
 			return nil, err
 		}
+		if cryptoutil.FIPSEnabled {
+			if err := cryptoutil.ValidatePrivateKeyPEM(config.PrivateKey, config.PrivateKeyPass); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	if instanceStatus.PublicKeyRef == nil {
@@ -130,6 +152,11 @@ func (g handleKeys) setupKeys(ns string, instanceStatus *v1alpha1.CTlogStatus) (
 		config.PublicKey, err = kubernetes.GetSecretData(g.Client, ns, instanceStatus.PublicKeyRef)
 		if err != nil {
 			return nil, err
+		}
+		if cryptoutil.FIPSEnabled {
+			if err := cryptoutil.ValidatePublicKeyPEM(config.PublicKey); err != nil {
+				return nil, err
+			}
 		}
 		return config, nil
 	}
