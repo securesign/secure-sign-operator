@@ -15,6 +15,7 @@ import (
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/labels"
 	utils2 "github.com/securesign/operator/internal/utils"
+	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -210,6 +211,11 @@ func (g handleCert) setupCert(instance *v1alpha1.Fulcio) (*utils.FulcioCertConfi
 		if err != nil {
 			return nil, err
 		}
+		if cryptoutil.FIPSEnabled {
+			if err := cryptoutil.ValidatePrivateKeyPEM(key, config.PrivateKeyPassword); err != nil {
+				return nil, err
+			}
+		}
 		config.PrivateKey = key
 	} else {
 		key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
@@ -234,6 +240,11 @@ func (g handleCert) setupCert(instance *v1alpha1.Fulcio) (*utils.FulcioCertConfi
 		key, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
 		if err != nil {
 			return nil, err
+		}
+		if cryptoutil.FIPSEnabled {
+			if err := cryptoutil.ValidateCertificatePEM(key); err != nil {
+				return nil, err
+			}
 		}
 		config.RootCert = key
 	} else {
