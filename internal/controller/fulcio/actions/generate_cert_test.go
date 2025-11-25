@@ -14,6 +14,8 @@ import (
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/labels"
 	testAction "github.com/securesign/operator/internal/testing/action"
+	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
+	fipsTest "github.com/securesign/operator/internal/utils/crypto/test"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -444,6 +446,225 @@ func TestGenerateCert_Handle(t *testing.T) {
 				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(instance), found)).To(Succeed())
 				tt.want.verify(g, found.Status, c)
 			}
+		})
+	}
+}
+
+func TestGenerateCert_Handle_FIPS(t *testing.T) {
+	ctx := context.TODO()
+	g := NewWithT(t)
+	cryptoutil.FIPSEnabled = true
+	t.Cleanup(func() {
+		cryptoutil.FIPSEnabled = false
+	})
+
+	_, invalidPriv, invalidCert, err := fipsTest.GenerateECCertificatePEM(false, "", elliptic.P224())
+	g.Expect(err).NotTo(HaveOccurred())
+
+	_, validPriv, validCert, err := fipsTest.GenerateECCertificatePEM(false, "", elliptic.P256())
+	g.Expect(err).NotTo(HaveOccurred())
+
+	type env struct {
+		spec    rhtasv1alpha1.FulcioCert
+		status  rhtasv1alpha1.FulcioStatus
+		objects []client.Object
+	}
+
+	type want struct {
+		result        *action.Result
+		certCondition metav1.ConditionStatus
+	}
+
+	tests := []struct {
+		name string
+		env  env
+		want want
+	}{
+		{
+			name: "valid private key (EC P256)",
+			env: env{
+				spec: rhtasv1alpha1.FulcioCert{
+					OrganizationName:  "RH",
+					OrganizationEmail: "jdoe@redhat.com",
+					PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
+						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+							Name: "fulcio-private-valid",
+						},
+						Key: "private",
+					},
+				},
+				status: rhtasv1alpha1.FulcioStatus{},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "fulcio-private-valid",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"private": validPriv,
+						},
+					},
+				},
+			},
+			want: want{
+				result:        testAction.StatusUpdate(),
+				certCondition: metav1.ConditionTrue,
+			},
+		},
+		{
+			name: "invalid private key (EC P224)",
+			env: env{
+				spec: rhtasv1alpha1.FulcioCert{
+					OrganizationName:  "RH",
+					OrganizationEmail: "jdoe@redhat.com",
+					PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
+						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+							Name: "fulcio-private-invalid",
+						},
+						Key: "private",
+					},
+				},
+				status: rhtasv1alpha1.FulcioStatus{},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "fulcio-private-invalid",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"private": invalidPriv,
+						},
+					},
+				},
+			},
+			want: want{
+				result:        testAction.Requeue(),
+				certCondition: metav1.ConditionFalse,
+			},
+		},
+		{
+			name: "valid CA certificate (EC P256)",
+			env: env{
+				spec: rhtasv1alpha1.FulcioCert{
+					OrganizationName:  "RH",
+					OrganizationEmail: "jdoe@redhat.com",
+					PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
+						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+							Name: "fulcio-private-valid",
+						},
+						Key: "private",
+					},
+					CARef: &rhtasv1alpha1.SecretKeySelector{
+						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+							Name: "fulcio-ca-valid",
+						},
+						Key: "cert",
+					},
+				},
+				status: rhtasv1alpha1.FulcioStatus{},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "fulcio-private-valid",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"private": validPriv,
+						},
+					},
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "fulcio-ca-valid",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"cert": validCert,
+						},
+					},
+				},
+			},
+			want: want{
+				result:        testAction.StatusUpdate(),
+				certCondition: metav1.ConditionTrue,
+			},
+		},
+		{
+			name: "invalid CA certificate (EC P224)",
+			env: env{
+				spec: rhtasv1alpha1.FulcioCert{
+					OrganizationName:  "RH",
+					OrganizationEmail: "jdoe@redhat.com",
+					PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
+						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+							Name: "fulcio-private-valid",
+						},
+						Key: "private",
+					},
+					CARef: &rhtasv1alpha1.SecretKeySelector{
+						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+							Name: "fulcio-ca-invalid",
+						},
+						Key: "cert",
+					},
+				},
+				status: rhtasv1alpha1.FulcioStatus{},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "fulcio-private-valid",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"private": validPriv,
+						},
+					},
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "fulcio-ca-invalid",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"cert": invalidCert,
+						},
+					},
+				},
+			},
+			want: want{
+				result:        testAction.Requeue(),
+				certCondition: metav1.ConditionFalse,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			instance := &rhtasv1alpha1.Fulcio{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "instance",
+					Namespace: "default",
+				},
+				Spec: rhtasv1alpha1.FulcioSpec{
+					Certificate: tt.env.spec,
+				},
+				Status: tt.env.status,
+			}
+			instance.SetCondition(metav1.Condition{
+				Type:   constants.Ready,
+				Reason: constants.Pending,
+			})
+
+			c := testAction.FakeClientBuilder().
+				WithObjects(instance).
+				WithStatusSubresource(instance).
+				WithObjects(tt.env.objects...).
+				Build()
+
+			a := testAction.PrepareAction(c, NewHandleCertAction())
+			g.Expect(a.CanHandle(ctx, instance)).To(BeTrue())
+
+			res := a.Handle(ctx, instance)
+			g.Expect(res).To(Equal(tt.want.result))
+			g.Expect(meta.IsStatusConditionPresentAndEqual(instance.Status.Conditions, CertCondition, tt.want.certCondition)).To(BeTrue())
 		})
 	}
 }

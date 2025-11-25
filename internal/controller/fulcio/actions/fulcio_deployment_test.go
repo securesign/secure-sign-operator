@@ -1,6 +1,8 @@
 package actions
 
 import (
+	"context"
+	"crypto/elliptic"
 	"maps"
 	"slices"
 	"testing"
@@ -9,12 +11,17 @@ import (
 	"github.com/onsi/gomega/gstruct"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/labels"
+	testAction "github.com/securesign/operator/internal/testing/action"
+	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
+	fipsTest "github.com/securesign/operator/internal/utils/crypto/test"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 	v13 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
@@ -175,6 +182,49 @@ func TestCtlogConfig(t *testing.T) {
 			tt.verify(g, deployment, err)
 		})
 	}
+}
+
+func TestTrustedCAFIPS(t *testing.T) {
+	g := NewWithT(t)
+	cryptoutil.FIPSEnabled = true
+	t.Cleanup(func() {
+		cryptoutil.FIPSEnabled = false
+	})
+
+	_, _, invalidCert, err := fipsTest.GenerateECCertificatePEM(false, "", elliptic.P224())
+	g.Expect(err).ShouldNot(HaveOccurred())
+
+	instance := createInstance()
+	instance.Spec.TrustedCA = &v1alpha1.LocalObjectReference{Name: "trusted"}
+	instance.SetCondition(v1.Condition{
+		Type:   constants.Ready,
+		Reason: constants.Creating,
+	})
+
+	cm := &v12.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "trusted",
+			Namespace: "default",
+		},
+		Data: map[string]string{
+			"ca.crt": string(invalidCert),
+		},
+	}
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance, cm).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewDeployAction())
+	g.Expect(a.CanHandle(context.Background(), instance)).To(BeTrue())
+
+	res := a.Handle(context.Background(), instance)
+	g.Expect(res).To(Equal(testAction.StatusUpdate()))
+
+	ready := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	g.Expect(ready).ToNot(BeNil())
+	g.Expect(ready.Reason).To(Equal(constants.Failure))
 }
 
 func findVolume(name string, volumes []v12.Volume) *v12.Volume {
