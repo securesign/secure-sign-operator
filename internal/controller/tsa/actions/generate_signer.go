@@ -6,6 +6,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"maps"
 	"slices"
@@ -16,6 +17,7 @@ import (
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils"
+	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
@@ -219,22 +221,30 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 	return g.StatusUpdate(ctx, instance)
 }
 
-func (g generateSigner) handleSignerKeys(instance *v1alpha1.TimestampAuthority, config *tsaUtils.TsaCertChainConfig) (*tsaUtils.TsaCertChainConfig, error) {
+func (g generateSigner) handleSignerKeys(instance *v1alpha1.TimestampAuthority, config *tsaUtils.TsaCertChainConfig) (*tsaUtils.TsaCertChainConfig, error) { //nolint:gocyclo
 	if instance.Spec.Signer.File != nil {
 		if instance.Spec.Signer.File.PrivateKeyRef != nil {
 			key, err := kubernetes.GetSecretData(g.Client, instance.Namespace, instance.Spec.Signer.File.PrivateKeyRef)
 			if err != nil {
 				return nil, err
 			}
-			config.LeafPrivateKey = key
 
+			var password []byte
 			if ref := instance.Spec.Signer.File.PasswordRef; ref != nil {
-				password, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
+				password, err = kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
 				if err != nil {
 					return nil, err
 				}
-				config.LeafPrivateKeyPassword = password
 			}
+
+			if cryptoutil.FIPSEnabled {
+				if err := cryptoutil.ValidatePrivateKeyPEM(key, password); err != nil {
+					return nil, err
+				}
+			}
+
+			config.LeafPrivateKey = key
+			config.LeafPrivateKeyPassword = password
 		}
 
 		if ref := instance.Spec.Signer.CertificateChain.CertificateChainRef; ref == nil {
@@ -257,15 +267,23 @@ func (g generateSigner) handleSignerKeys(instance *v1alpha1.TimestampAuthority, 
 				if err != nil {
 					return nil, err
 				}
-				config.RootPrivateKey = key
 
-				if ref := instance.Spec.Signer.CertificateChain.RootCA.PasswordRef; ref != nil {
-					password, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
+				var password []byte
+				if pref := instance.Spec.Signer.CertificateChain.RootCA.PasswordRef; pref != nil {
+					password, err = kubernetes.GetSecretData(g.Client, instance.Namespace, pref)
 					if err != nil {
 						return nil, err
 					}
-					config.RootPrivateKeyPassword = password
 				}
+
+				if cryptoutil.FIPSEnabled {
+					if err := cryptoutil.ValidatePrivateKeyPEM(key, password); err != nil {
+						return nil, err
+					}
+				}
+
+				config.RootPrivateKey = key
+				config.RootPrivateKeyPassword = password
 			} else {
 				config.RootPrivateKeyPassword = utils.GeneratePassword(8)
 				key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
@@ -286,17 +304,25 @@ func (g generateSigner) handleSignerKeys(instance *v1alpha1.TimestampAuthority, 
 				if err != nil {
 					return nil, err
 				}
-				config.IntermediatePrivateKeys = append(config.IntermediatePrivateKeys, key)
 
-				if ref := intermediateCA.PasswordRef; ref != nil {
-					password, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
+				var password []byte
+				if pref := intermediateCA.PasswordRef; pref != nil {
+					password, err = kubernetes.GetSecretData(g.Client, instance.Namespace, pref)
 					if err != nil {
 						return nil, err
 					}
-					config.IntermediatePrivateKeyPasswords = append(config.IntermediatePrivateKeyPasswords, password)
 				} else {
-					config.IntermediatePrivateKeyPasswords = append(config.IntermediatePrivateKeyPasswords, []byte(""))
+					password = []byte("")
 				}
+
+				if cryptoutil.FIPSEnabled {
+					if err := cryptoutil.ValidatePrivateKeyPEM(key, password); err != nil {
+						return nil, err
+					}
+				}
+
+				config.IntermediatePrivateKeys = append(config.IntermediatePrivateKeys, key)
+				config.IntermediatePrivateKeyPasswords = append(config.IntermediatePrivateKeyPasswords, password)
 			} else {
 				config.IntermediatePrivateKeyPasswords = append(config.IntermediatePrivateKeyPasswords, utils.GeneratePassword(8))
 				key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
@@ -317,15 +343,23 @@ func (g generateSigner) handleSignerKeys(instance *v1alpha1.TimestampAuthority, 
 				if err != nil {
 					return nil, err
 				}
-				config.LeafPrivateKey = key
 
-				if ref := instance.Spec.Signer.CertificateChain.LeafCA.PasswordRef; ref != nil {
-					password, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
+				var password []byte
+				if pref := instance.Spec.Signer.CertificateChain.LeafCA.PasswordRef; pref != nil {
+					password, err = kubernetes.GetSecretData(g.Client, instance.Namespace, pref)
 					if err != nil {
 						return nil, err
 					}
-					config.LeafPrivateKeyPassword = password
 				}
+
+				if cryptoutil.FIPSEnabled {
+					if err := cryptoutil.ValidatePrivateKeyPEM(key, password); err != nil {
+						return nil, err
+					}
+				}
+
+				config.LeafPrivateKey = key
+				config.LeafPrivateKeyPassword = password
 			} else {
 				config.LeafPrivateKeyPassword = utils.GeneratePassword(8)
 				key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
@@ -348,6 +382,28 @@ func (g generateSigner) handleCertificateChain(ctx context.Context, instance *v1
 		certificateChain, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
 		if err != nil {
 			return nil, err
+		}
+
+		if cryptoutil.FIPSEnabled {
+			remaining := certificateChain
+			var validated bool
+
+			for len(remaining) > 0 {
+				var block *pem.Block
+				block, remaining = pem.Decode(remaining)
+				if block == nil {
+					break
+				}
+
+				if err := cryptoutil.ValidateCertificatePEM(pem.EncodeToMemory(block)); err != nil {
+					return nil, err
+				}
+				validated = true
+			}
+
+			if !validated {
+				return nil, cryptoutil.ErrInvalidPEM
+			}
 		}
 		config.CertificateChain = certificateChain
 	} else {

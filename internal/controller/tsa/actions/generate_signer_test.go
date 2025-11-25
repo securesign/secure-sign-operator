@@ -2,12 +2,15 @@ package actions
 
 import (
 	"context"
+	"crypto/elliptic"
 	"encoding/json"
 	"testing"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
+	fipsTest "github.com/securesign/operator/internal/utils/crypto/test"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 	v1 "k8s.io/api/core/v1"
@@ -206,6 +209,106 @@ func Test_SignerHandle(t *testing.T) {
 				g.Expect(secret.Annotations).To(Equal(generateSecretAnnotations(instance.Spec.Signer)), "Secret annotation mismatch")
 
 				g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, TSASignerCondition)).To(BeTrue())
+
+				return true
+			},
+		},
+		{
+			name: "FIPS enabled rejects non-compliant root key",
+			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
+				instance.Status.Conditions[0].Reason = constants.Pending
+				instance.Spec.Signer = rhtasv1alpha1.TimestampAuthoritySigner{
+					CertificateChain: rhtasv1alpha1.CertificateChain{
+						RootCA: &rhtasv1alpha1.TsaCertificateAuthority{
+							OrganizationName: "Red Hat",
+							PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
+								LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+									Name: "tsa-invalid-secret",
+								},
+								Key: "rootPrivateKey",
+							},
+							PasswordRef: &rhtasv1alpha1.SecretKeySelector{
+								LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+									Name: "tsa-invalid-secret",
+								},
+								Key: "rootPrivateKeyPassword",
+							},
+						},
+					},
+				}
+				g := NewWithT(t)
+				_, invalidPriv, _, err := fipsTest.GenerateECCertificatePEM(false, "", elliptic.P224())
+				g.Expect(err).NotTo(HaveOccurred())
+				secret := &v1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tsa-invalid-secret",
+						Namespace: instance.Namespace,
+					},
+					Data: map[string][]byte{
+						"rootPrivateKey": invalidPriv,
+					},
+				}
+				cryptoutil.FIPSEnabled = true
+				t.Cleanup(func() {
+					cryptoutil.FIPSEnabled = false
+				})
+
+				cli, act := common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret)
+				return cli, act
+			},
+			testCase: func(g Gomega, _ action.Action[*rhtasv1alpha1.TimestampAuthority], _ client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {
+				cond := meta.FindStatusCondition(instance.Status.Conditions, TSASignerCondition)
+				g.Expect(cond).NotTo(BeNil(), "TSASignerCondition should be present")
+				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse), "TSASignerCondition status should be False")
+				g.Expect(cond.Reason).To(Equal(constants.Failure), "TSASignerCondition reason should be Failure")
+
+				return true
+			},
+		},
+		{
+			name: "FIPS enabled rejects non-compliant certificate chain ref",
+			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
+				instance.Status.Conditions[0].Reason = constants.Pending
+				instance.Spec.Signer = rhtasv1alpha1.TimestampAuthoritySigner{
+					CertificateChain: rhtasv1alpha1.CertificateChain{
+						CertificateChainRef: &rhtasv1alpha1.SecretKeySelector{
+							LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+								Name: "tsa-invalid-cert",
+							},
+							Key: "certificateChain",
+						},
+					},
+					Kms: &rhtasv1alpha1.KMS{
+						KeyResource: "gcpkms://projects/p/locations/l/keyRings/r/cryptoKeys/k",
+					},
+				}
+
+				g := NewWithT(t)
+				_, _, invalidCert, err := fipsTest.GenerateECCertificatePEM(true, "pass", elliptic.P224())
+				g.Expect(err).NotTo(HaveOccurred())
+
+				secret := &v1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tsa-invalid-cert",
+						Namespace: instance.Namespace,
+					},
+					Data: map[string][]byte{
+						"certificateChain": invalidCert,
+					},
+				}
+
+				cryptoutil.FIPSEnabled = true
+				t.Cleanup(func() {
+					cryptoutil.FIPSEnabled = false
+				})
+
+				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret)
+			},
+			testCase: func(g Gomega, _ action.Action[*rhtasv1alpha1.TimestampAuthority], _ client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {
+				cond := meta.FindStatusCondition(instance.Status.Conditions, TSASignerCondition)
+				g.Expect(cond).NotTo(BeNil(), "TSASignerCondition should be present")
+				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse), "TSASignerCondition status should be False")
+				g.Expect(cond.Reason).To(Equal(constants.Failure), "TSASignerCondition reason should be Failure")
 
 				return true
 			},

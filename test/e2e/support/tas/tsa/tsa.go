@@ -197,6 +197,16 @@ func CreateSecrets(ns string, name string) *v1.Secret {
 	}
 }
 
+func CreateCustomTsaSecret(ns string, name string, data map[string][]byte) *v1.Secret {
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Data: data,
+	}
+}
+
 func getCertTemplate(isCA bool) *x509.Certificate {
 	notBefore := time.Now()
 	notAfter := notBefore.Add(365 * 24 * 10 * time.Hour)
