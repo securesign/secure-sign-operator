@@ -1290,6 +1290,11 @@ spec:
                     x-kubernetes-validations:
                     - message: Feature cannot be disabled
                       rule: (self || !oldSelf)
+                  serviceMonitor:
+                    description: |-
+                      If true, the Operator will create ServiceMonitor resources for metrics collection.
+                      When not specified, defaults to true on OpenShift and false on other platforms.
+                    type: boolean
                 required:
                 - enabled
                 type: object
