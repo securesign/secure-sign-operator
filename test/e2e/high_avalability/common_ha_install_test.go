@@ -212,15 +212,27 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 			leaderBefore, err := kubernetes.GetLeaseHolderIdentity(ctx, cli, namespace.Name, trillianactions.LogSignerComponentName)
 			Expect(err).NotTo(HaveOccurred())
 
-			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, trillianactions.LogSignerComponentName, func() {
-				Eventually(func(ctx SpecContext) string {
-					leaderAfter, _ := kubernetes.GetLeaseHolderIdentity(
-						ctx, cli, namespace.Name, trillianactions.LogSignerComponentName,
-					)
-					return leaderAfter
-				}).WithContext(ctx).ShouldNot(Equal(leaderBefore))
-			})
+			// Find the pod that is the leader
+			pod := &v1.Pod{}
+			Expect(cli.Get(ctx, types.NamespacedName{Name: leaderBefore, Namespace: namespace.Name}, pod)).To(Succeed())
 
+			// Delete the leader explicitly
+			Expect(cli.Delete(ctx, pod)).To(Succeed())
+
+			Eventually(kubernetes.ExpectServiceHasAtLeastNReadyEndpoints).WithContext(ctx).
+				WithArguments(cli, namespace.Name, trillianactions.LogSignerComponentName, 1).
+				Should(Succeed(), "service lost all ready endpoints after a single pod deletion")
+
+			Eventually(func(ctx SpecContext) string {
+				leaderAfter, _ := kubernetes.GetLeaseHolderIdentity(
+					ctx, cli, namespace.Name, trillianactions.LogSignerComponentName,
+				)
+				return leaderAfter
+			}).WithContext(ctx).ShouldNot(Equal(leaderBefore))
+
+			Eventually(kubernetes.ExpectServiceHasAtLeastNReadyEndpoints).WithContext(ctx).
+				WithArguments(cli, namespace.Name, trillianactions.LogSignerComponentName, 2).
+				Should(Succeed(), "expected service to recover to 2 ready endpoints")
 		})
 		It("Tsa remains functional when a pod is deleted", func(ctx SpecContext) {
 			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, tsaactions.DeploymentName, func() {
