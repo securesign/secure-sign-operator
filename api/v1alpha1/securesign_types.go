@@ -24,7 +24,8 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// SecuresignSpec defines the desired state of Securesign
+// SecuresignSpec defines the desired state of Securesign.
+// Service account settings defined at this level (such as imagePullSecrets) are inherited by all components.
 // +kubebuilder:validation:XValidation:rule="(has(self.rekor.attestations.enabled) && !self.rekor.attestations.enabled) || !self.rekor.attestations.url.startsWith('file://') || (!(self.rekor.replicas > 1) || ('ReadWriteMany' in self.rekor.pvc.accessModes))",message="When Rekor's rich attestation storage is enabled, and it's URL starts with 'file://', then PVC accessModes must contain 'ReadWriteMany' for replicas greater than 1."
 // +kubebuilder:validation:XValidation:rule="!(self.tuf.replicas > 1) || ('ReadWriteMany' in self.tuf.pvc.accessModes)",message="For TUF deployments with more than 1 replica, tuf.pvc.accessModes must include 'ReadWriteMany'."
 type SecuresignSpec struct {
@@ -35,6 +36,8 @@ type SecuresignSpec struct {
 	Tuf                TufSpec                 `json:"tuf,omitempty"`
 	Ctlog              CTlogSpec               `json:"ctlog,omitempty"`
 	TimestampAuthority *TimestampAuthoritySpec `json:"tsa,omitempty"`
+
+	ServiceAccountRequirements `json:",inline"`
 }
 
 // SecuresignStatus defines the observed state of Securesign

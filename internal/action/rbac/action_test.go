@@ -275,6 +275,99 @@ func testServiceAccount(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "create with ImagePullSecrets",
+			pre: pre{
+				opts: []func(action2 *rbacAction[*v1alpha1.Rekor]){
+					WithImagePullSecrets[*v1alpha1.Rekor](func(instance *v1alpha1.Rekor) []corev1.LocalObjectReference {
+						return []corev1.LocalObjectReference{
+							{Name: "pull-secret-1"},
+							{Name: "pull-secret-2"},
+						}
+					}),
+				},
+			},
+			want: want{
+				result: testAction.Continue(),
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch) {
+					sa := corev1.ServiceAccount{}
+					g.Expect(c.Get(ctx, nnObject, &sa)).To(Succeed())
+					g.Expect(sa.ImagePullSecrets).To(HaveLen(2))
+					g.Expect(sa.ImagePullSecrets).To(ContainElement(corev1.LocalObjectReference{Name: "pull-secret-1"}))
+					g.Expect(sa.ImagePullSecrets).To(ContainElement(corev1.LocalObjectReference{Name: "pull-secret-2"}))
+				},
+			},
+		},
+		{
+			desc: "create without ImagePullSecrets when function returns nil",
+			pre: pre{
+				opts: []func(action2 *rbacAction[*v1alpha1.Rekor]){
+					WithImagePullSecrets[*v1alpha1.Rekor](func(instance *v1alpha1.Rekor) []corev1.LocalObjectReference {
+						return nil
+					}),
+				},
+			},
+			want: want{
+				result: testAction.Continue(),
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch) {
+					sa := corev1.ServiceAccount{}
+					g.Expect(c.Get(ctx, nnObject, &sa)).To(Succeed())
+					g.Expect(sa.ImagePullSecrets).To(BeEmpty())
+				},
+			},
+		},
+		{
+			desc: "create without ImagePullSecrets when function returns empty list",
+			pre: pre{
+				opts: []func(action2 *rbacAction[*v1alpha1.Rekor]){
+					WithImagePullSecrets[*v1alpha1.Rekor](func(instance *v1alpha1.Rekor) []corev1.LocalObjectReference {
+						return []corev1.LocalObjectReference{}
+					}),
+				},
+			},
+			want: want{
+				result: testAction.Continue(),
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch) {
+					sa := corev1.ServiceAccount{}
+					g.Expect(c.Get(ctx, nnObject, &sa)).To(Succeed())
+					g.Expect(sa.ImagePullSecrets).To(BeEmpty())
+				},
+			},
+		},
+		{
+			desc: "update ServiceAccount with ImagePullSecrets",
+			pre: pre{
+				before: func(ctx context.Context, g Gomega, c client.WithWatch) {
+					sa := corev1.ServiceAccount{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      nnObject.Name,
+							Namespace: nnObject.Namespace,
+						},
+						ImagePullSecrets: []corev1.LocalObjectReference{
+							{Name: "old-secret"},
+						},
+					}
+					g.Expect(c.Create(ctx, &sa)).To(Succeed())
+				},
+				opts: []func(action2 *rbacAction[*v1alpha1.Rekor]){
+					WithImagePullSecrets[*v1alpha1.Rekor](func(instance *v1alpha1.Rekor) []corev1.LocalObjectReference {
+						return []corev1.LocalObjectReference{
+							{Name: "new-secret"},
+						}
+					}),
+				},
+			},
+			want: want{
+				result: testAction.Continue(),
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch) {
+					sa := corev1.ServiceAccount{}
+					g.Expect(c.Get(ctx, nnObject, &sa)).To(Succeed())
+					g.Expect(sa.ImagePullSecrets).To(HaveLen(1))
+					g.Expect(sa.ImagePullSecrets).To(ContainElement(corev1.LocalObjectReference{Name: "new-secret"}))
+					g.Expect(sa.ImagePullSecrets).ToNot(ContainElement(corev1.LocalObjectReference{Name: "old-secret"}))
+				},
+			},
+		},
 	} {
 		t.Run(tc.desc, testRunner(tc.pre, tc.want, func(r *rbacAction[*v1alpha1.Rekor], ctx context.Context, rekor *v1alpha1.Rekor) *action.Result {
 			return r.handleServiceAccount(ctx, rekor)
