@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/monitoring"
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller"
@@ -46,15 +47,17 @@ import (
 // trillianReconciler reconciles a Trillian object
 type trillianReconciler struct {
 	client.Client
-	scheme   *runtime.Scheme
-	recorder record.EventRecorder
+	scheme             *runtime.Scheme
+	recorder           record.EventRecorder
+	monitoringRegistry *monitoring.ServiceMonitorRegistry
 }
 
-func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.EventRecorder) controller.Controller {
+func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.EventRecorder, monitoringRegistry *monitoring.ServiceMonitorRegistry) controller.Controller {
 	return &trillianReconciler{
-		Client:   c,
-		scheme:   scheme,
-		recorder: recorder,
+		Client:             c,
+		scheme:             scheme,
+		recorder:           recorder,
+		monitoringRegistry: monitoringRegistry,
 	}
 }
 
@@ -115,11 +118,11 @@ func (r *trillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 		logserver.NewDeployAction(),
 		logserver.NewCreateServiceAction(),
-		logserver.NewCreateMonitorAction(),
+		logserver.NewCreateMonitorAction(r.monitoringRegistry),
 
 		logsigner.NewDeployAction(),
 		logsigner.NewCreateServiceAction(),
-		logsigner.NewCreateMonitorAction(),
+		logsigner.NewCreateMonitorAction(r.monitoringRegistry),
 
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.Trillian](),
 

@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/action/monitoring"
 	"github.com/securesign/operator/internal/controller"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -104,11 +105,14 @@ func (t *controllerSuite) BeforeSuite() {
 	Expect(t.k8sClient).NotTo(BeNil())
 
 	recorder := record.NewFakeRecorder(1000)
+	logger := logf.FromContext(context.TODO()).WithName("servicemonitor-watcher")
+	monitoringRegistry := monitoring.NewRegistry(k8sManager.GetClient(), recorder, logger)
 
 	err = t.supplier(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		recorder,
+		monitoringRegistry,
 	).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 

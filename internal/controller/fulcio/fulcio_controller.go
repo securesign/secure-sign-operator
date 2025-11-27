@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/monitoring"
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller"
@@ -44,15 +45,17 @@ import (
 // fulcioReconciler reconciles a Fulcio object
 type fulcioReconciler struct {
 	client.Client
-	scheme   *runtime.Scheme
-	recorder record.EventRecorder
+	scheme             *runtime.Scheme
+	recorder           record.EventRecorder
+	monitoringRegistry *monitoring.ServiceMonitorRegistry
 }
 
-func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.EventRecorder) controller.Controller {
+func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.EventRecorder, monitoringRegistry *monitoring.ServiceMonitorRegistry) controller.Controller {
 	return &fulcioReconciler{
-		Client:   c,
-		scheme:   scheme,
-		recorder: recorder,
+		Client:             c,
+		scheme:             scheme,
+		recorder:           recorder,
+		monitoringRegistry: monitoringRegistry,
 	}
 }
 
@@ -100,7 +103,7 @@ func (r *fulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		actions.NewRBACAction(),
 		actions.NewServerConfigAction(),
 		actions.NewDeployAction(),
-		actions.NewCreateMonitorAction(),
+		actions.NewCreateMonitorAction(r.monitoringRegistry),
 		actions.NewServiceAction(),
 		actions.NewIngressAction(),
 		actions.NewStatusUrlAction(),

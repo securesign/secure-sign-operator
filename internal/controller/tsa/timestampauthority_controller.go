@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/monitoring"
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller"
@@ -43,15 +44,17 @@ import (
 // timestampAuthorityReconciler reconciles a TimestampAuthority object
 type timestampAuthorityReconciler struct {
 	client.Client
-	scheme   *runtime.Scheme
-	recorder record.EventRecorder
+	scheme             *runtime.Scheme
+	recorder           record.EventRecorder
+	monitoringRegistry *monitoring.ServiceMonitorRegistry
 }
 
-func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.EventRecorder) controller.Controller {
+func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.EventRecorder, monitoringRegistry *monitoring.ServiceMonitorRegistry) controller.Controller {
 	return &timestampAuthorityReconciler{
-		Client:   c,
-		scheme:   scheme,
-		recorder: recorder,
+		Client:             c,
+		scheme:             scheme,
+		recorder:           recorder,
+		monitoringRegistry: monitoringRegistry,
 	}
 }
 
@@ -103,7 +106,7 @@ func (r *timestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 		actions.NewServiceAction(),
 		actions.NewIngressAction(),
 		actions.NewStatusUrlAction(),
-		actions.NewMonitoringAction(),
+		actions.NewMonitoringAction(r.monitoringRegistry),
 
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.TimestampAuthority](),
 
