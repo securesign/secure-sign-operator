@@ -601,13 +601,14 @@ jobs:
           export TUF_URL=$(kubectl get tuf -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})
           export TSA_URL=$(kubectl get timestampauthorities -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})/api/v1/timestamp
           
-          export  CLI_STRATEGY=cli_server
+          export CLI_STRATEGY=cli_server
           export CLI_SERVER_URL="http://cli-server.local"
           
           cd e2e
           source ./tas-env-variables.sh
-          # exclude UI tests
-          go test -v $(go list ./test/... | grep -v rekorsearchui)
+          # Install Playwright with dependencies for UI tests
+          go run github.com/playwright-community/playwright-go/cmd/playwright install --with-deps
+          go test -v ./test/...
 
       - name: dump the logs of the operator
         run: |
