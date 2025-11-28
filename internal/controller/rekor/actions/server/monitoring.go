@@ -32,7 +32,9 @@ func (i monitoringAction) Name() string {
 
 func (i monitoringAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && instance.Spec.Monitoring.Enabled
+	return (c.Reason == constants.Creating || c.Reason == constants.Ready) &&
+		instance.Spec.Monitoring.Enabled &&
+		instance.Spec.Monitoring.IsServiceMonitorEnabled(kubernetes.IsOpenShift())
 }
 
 func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {

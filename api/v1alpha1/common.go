@@ -35,6 +35,19 @@ type MonitoringConfig struct {
 	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
 	//+kubebuilder:default:=true
 	Enabled bool `json:"enabled"`
+	// If true, the Operator will create ServiceMonitor resources for metrics collection.
+	// When not specified, defaults to true on OpenShift and false on other platforms.
+	//+optional
+	ServiceMonitor *bool `json:"serviceMonitor,omitempty"`
+}
+
+// IsServiceMonitorEnabled returns whether ServiceMonitor resources should be created.
+// If ServiceMonitor is explicitly set, returns that value, otherwise returns the default.
+func (m *MonitoringConfig) IsServiceMonitorEnabled(defaultVal bool) bool {
+	if m.ServiceMonitor != nil {
+		return *m.ServiceMonitor
+	}
+	return defaultVal
 }
 
 type MonitoringWithTLogConfig struct {
