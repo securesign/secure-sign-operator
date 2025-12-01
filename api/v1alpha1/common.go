@@ -43,6 +43,9 @@ type MonitoringWithTLogConfig struct {
 	// Configuration for Rekor transparency log monitoring
 	//+optional
 	TLog TlogMonitoring `json:"tlog"`
+	// TUF service configuration
+	//+optional
+	Tuf TufService `json:"tuf,omitempty"`
 }
 
 // TrillianService configuration to connect Trillian server
@@ -54,6 +57,18 @@ type TrillianService struct {
 	//+kubebuilder:validation:Minimum:=1
 	//+kubebuilder:validation:Maximum:=65535
 	//+kubebuilder:default:=8091
+	//+optional
+	Port *int32 `json:"port,omitempty"`
+}
+
+// TufService configuration to connect TUF server
+type TufService struct {
+	// Address to TUF Server End point
+	//+optional
+	Address string `json:"address,omitempty"`
+	// Port of TUF Server End point
+	//+kubebuilder:validation:Minimum:=1
+	//+kubebuilder:validation:Maximum:=65535
 	//+optional
 	Port *int32 `json:"port,omitempty"`
 }
