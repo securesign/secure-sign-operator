@@ -14,14 +14,13 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/steps"
-	rekorSupport "github.com/securesign/operator/test/e2e/support/tas/rekor"
-	"github.com/securesign/operator/test/e2e/support/tas/trillian"
+	"github.com/securesign/operator/test/e2e/support/tas"
+	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -30,10 +29,9 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 
 	var (
 		namespace             *v1.Namespace
-		trillianCR            *v1alpha1.Trillian
-		rekorCR               *v1alpha1.Rekor
 		rekorMonitorPod       v1.Pod
 		rekorMonitorContainer v1.Container
+		s                     *v1alpha1.Securesign
 	)
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
@@ -41,47 +39,20 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 	}))
 
 	BeforeAll(func(ctx SpecContext) {
-		trillianCR = &v1alpha1.Trillian{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-trillian",
-				Namespace: namespace.Name,
+		s = securesign.Create(namespace.Name, "test",
+			securesign.WithDefaults(),
+			securesign.WithMonitoring(),
+			func(v *v1alpha1.Securesign) {
+				v.Spec.Rekor.Monitoring.TLog.Enabled = true
+				v.Spec.Rekor.Monitoring.TLog.Interval = metav1.Duration{Duration: time.Second * 10}
 			},
-			Spec: v1alpha1.TrillianSpec{
-				Db: v1alpha1.TrillianDB{Create: ptr.To(true)},
-			},
-		}
-		Expect(cli.Create(ctx, trillianCR)).To(Succeed())
-
-		By("Waiting for Trillian to be ready")
-		trillian.Verify(ctx, cli, namespace.Name, trillianCR.Name, true)
+		)
 	})
 
 	BeforeAll(func(ctx SpecContext) {
-		rekorCR = &v1alpha1.Rekor{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-rekor-monitor",
-				Namespace: namespace.Name,
-			},
-			Spec: v1alpha1.RekorSpec{
-				Monitoring: v1alpha1.MonitoringWithTLogConfig{
-					MonitoringConfig: v1alpha1.MonitoringConfig{
-						Enabled: true,
-					},
-					TLog: v1alpha1.TlogMonitoring{
-						Enabled:  true,
-						Interval: metav1.Duration{Duration: time.Minute * 10},
-					},
-				},
-				Trillian: v1alpha1.TrillianService{
-					Address: fmt.Sprintf("trillian-logserver.%s.svc.cluster.local", namespace.Name),
-					Port:    ptr.To(int32(8091)),
-				},
-			},
-		}
-		Expect(cli.Create(ctx, rekorCR)).To(Succeed())
-
-		By("Waiting for Rekor to be ready")
-		rekorSupport.Verify(ctx, cli, namespace.Name, rekorCR.Name, true)
+		Expect(cli.Create(ctx, s)).To(Succeed())
+		By("Waiting for all TAS components to be ready")
+		tas.VerifyAllComponents(ctx, cli, s, true)
 	})
 
 	Describe("Monitor Pod Deployment", func() {
@@ -123,7 +94,7 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 				updated := &v1alpha1.Rekor{}
 				err := cli.Get(ctx, types.NamespacedName{
 					Namespace: namespace.Name,
-					Name:      rekorCR.Name,
+					Name:      s.Name,
 				}, updated)
 				g.Expect(err).ToNot(HaveOccurred())
 
