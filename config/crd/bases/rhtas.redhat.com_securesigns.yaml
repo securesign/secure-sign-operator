@@ -994,6 +994,37 @@ spec:
                         x-kubernetes-validations:
                         - message: Feature cannot be disabled
                           rule: (self || !oldSelf)
+                      tlog:
+                        description: Configuration for Rekor transparency log monitoring
+                        properties:
+                          enabled:
+                            default: false
+                            description: If true, the Operator will create the Rekor
+                              log monitor resources
+                            type: boolean
+                            x-kubernetes-validations:
+                            - message: Feature cannot be disabled
+                              rule: (self || !oldSelf)
+                          interval:
+                            default: 10m
+                            description: Interval between log monitoring checks
+                            type: string
+                        required:
+                        - enabled
+                        type: object
+                      tuf:
+                        description: TUF service configuration
+                        properties:
+                          address:
+                            description: Address to TUF Server End point
+                            type: string
+                          port:
+                            description: Port of TUF Server End point
+                            format: int32
+                            maximum: 65535
+                            minimum: 1
+                            type: integer
+                        type: object
                     required:
                     - enabled
                     type: object
