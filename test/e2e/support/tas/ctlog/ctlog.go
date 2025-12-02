@@ -66,3 +66,40 @@ func CreateSecret(ns string, name string) *v1.Secret {
 		},
 	}
 }
+
+// GetConfigSecret retrieves the ctlog-config secret by name
+func GetConfigSecret(ctx context.Context, cli client.Client, namespace string, secretName string) (*v1.Secret, error) {
+	secret := &v1.Secret{}
+	err := cli.Get(ctx, client.ObjectKey{
+		Namespace: namespace,
+		Name:      secretName,
+	}, secret)
+	return secret, err
+}
+
+// DeleteConfigSecret deletes a config secret
+func DeleteConfigSecret(ctx context.Context, cli client.Client, namespace string, secretName string) error {
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: namespace,
+		},
+	}
+	return cli.Delete(ctx, secret)
+}
+
+// GetTrillianAddressFromSecret extracts Trillian address from config secret
+func GetTrillianAddressFromSecret(secret *v1.Secret) string {
+	if secret == nil {
+		return ""
+	}
+	configData, ok := secret.Data["config"]
+	if !ok {
+		return ""
+	}
+	// Simple extraction - look for backend_spec pattern
+	// In protobuf text format: backend_spec: "address:port"
+	config := string(configData)
+	// Return config for substring matching in tests
+	return config
+}
