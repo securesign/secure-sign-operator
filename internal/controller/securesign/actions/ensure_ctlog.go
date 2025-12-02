@@ -10,6 +10,7 @@ import (
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 
@@ -56,6 +57,10 @@ func (i ctlogAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secures
 		ensure.Annotations[*rhtasv1alpha1.CTlog](annotations.InheritableAnnotations, instance.Annotations),
 		func(object *rhtasv1alpha1.CTlog) error {
 			object.Spec = instance.Spec.Ctlog
+			object.Spec.ImagePullSecrets = utils.MergeImagePullSecrets(
+				instance.Spec.ImagePullSecrets,
+				instance.Spec.Ctlog.ImagePullSecrets,
+			)
 			return nil
 		},
 	); err != nil {

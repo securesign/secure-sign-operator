@@ -31,27 +31,27 @@ jobs:
           go-version-file: 'go.mod'
       - name: Install crdifi
         run: |
-          go install sigs.k8s.io/crdify@v0.4.0
+          go install sigs.k8s.io/crdify@v0.5.0
       - name: Compare CTlog CRD
         run: |
-          crdify "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_ctlogs.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_ctlogs.yaml"
+          crdify --config .crdify.yaml "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_ctlogs.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_ctlogs.yaml"
       - name: Compare Fulcio CRD
         run: |
-          crdify "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_fulcios.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_fulcios.yaml"
+          crdify --config .crdify.yaml "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_fulcios.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_fulcios.yaml"
       - name: Compare Rekor CRD
         run: |
-          crdify "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_rekors.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_rekors.yaml"
+          crdify --config .crdify.yaml "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_rekors.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_rekors.yaml"
       - name: Compare TSA CRD
         run: |
-          crdify "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_timestampauthorities.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_timestampauthorities.yaml"
+          crdify --config .crdify.yaml "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_timestampauthorities.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_timestampauthorities.yaml"
       - name: Compare Trillian CRD
         run: |
-          crdify "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_trillians.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_trillians.yaml"
+          crdify --config .crdify.yaml "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_trillians.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_trillians.yaml"
       - name: Compare TUF CRD
         run: |
-          crdify "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_tufs.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_tufs.yaml"
+          crdify --config .crdify.yaml "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_tufs.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_tufs.yaml"
       - name: Compare Securesign CRD
         run: |
-          crdify "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_securesigns.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_securesigns.yaml"
+          crdify --config .crdify.yaml "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_securesigns.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_securesigns.yaml"
 
 
