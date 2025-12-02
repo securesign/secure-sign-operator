@@ -10,10 +10,12 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
 	k8sutils "github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func NewResolveKeysAction() action.Action[*rhtasv1alpha1.Tuf] {
@@ -93,12 +95,19 @@ func (i resolveKeysAction) handleKey(ctx context.Context, instance *rhtasv1alpha
 			return nil, err
 		}
 		key.SecretRef = sks
-		return key, nil
 	case key.SecretRef != nil:
-		return key, nil
+		// continue to validation
 	default:
 		return nil, fmt.Errorf("unable to resolve %s key. Enable autodiscovery or set secret reference", key.Name)
 	}
+
+	if cryptoutil.FIPSEnabled {
+		if err := validateKey(i.Client, instance.Namespace, key); err != nil {
+			return nil, fmt.Errorf("key %s is not FIPS-compliant: %w", key.Name, err)
+		}
+	}
+
+	return key, nil
 }
 
 func (i resolveKeysAction) discoverSecret(ctx context.Context, namespace string, key *rhtasv1alpha1.TufKey) (*rhtasv1alpha1.SecretKeySelector, error) {
@@ -122,4 +131,24 @@ func (i resolveKeysAction) discoverSecret(ctx context.Context, namespace string,
 	}
 
 	return nil, errors.New("secret not found")
+}
+
+func validateKey(cli client.Client, namespace string, key *rhtasv1alpha1.TufKey) error {
+	if key.SecretRef == nil {
+		return errors.New("secret reference is not set")
+	}
+
+	data, err := k8sutils.GetSecretData(cli, namespace, key.SecretRef)
+	if err != nil {
+		return err
+	}
+
+	switch key.Name {
+	case "rekor.pub", "ctfe.pub":
+		return cryptoutil.ValidatePublicKeyPEM(data)
+	case "fulcio_v1.crt.pem", "tsa.certchain.pem":
+		return cryptoutil.ValidateCertificatePEM(data)
+	default:
+		return fmt.Errorf("unsupported key %q", key.Name)
+	}
 }
