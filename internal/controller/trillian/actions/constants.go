@@ -2,7 +2,7 @@ package actions
 
 const (
 	DbDeploymentName        = "trillian-db"
-	DbPvcName               = "trillian-mysql"
+	DbPvcName               = "trillian-db"
 	LogserverDeploymentName = "trillian-logserver"
 	LogsignerDeploymentName = "trillian-logsigner"
 
@@ -29,10 +29,10 @@ const (
 	MetricsPort     = 8090
 	MetricsPortName = "metrics"
 
-	SecretRootPassword = "mysql-root-password"
-	SecretPassword     = "mysql-password"
-	SecretDatabaseName = "mysql-database"
-	SecretUser         = "mysql-user"
-	SecretPort         = "mysql-port"
-	SecretHost         = "mysql-host"
+	SecretRootPassword = "db-root-password" // Only used for MySQL; ignored for PostgreSQL
+	SecretPassword     = "db-password"
+	SecretDatabaseName = "db-name"
+	SecretUser         = "db-user"
+	SecretPort         = "db-port"
+	SecretHost         = "db-host"
 )

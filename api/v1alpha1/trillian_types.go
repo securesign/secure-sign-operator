@@ -60,12 +60,17 @@ type TrillianDB struct {
 	//+kubebuilder:default:=true
 	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
 	Create *bool `json:"create"`
+	// Whether to use PostgreSQL instead of MySQL/MariaDB
+	// If false (default), MySQL/MariaDB is expected.
+	//+kubebuilder:default:=false
+	//+optional
+	UsePostgreSQL bool `json:"usePostgreSQL"`
 	// Secret with values to be used to connect to an existing DB or to be used with the creation of a new DB
-	// mysql-host: The host of the MySQL server
-	// mysql-port: The port of the MySQL server
-	// mysql-user: The user to connect to the MySQL server
-	// mysql-password: The password to connect to the MySQL server
-	// mysql-database: The database to connect to
+	// db-host: The host of the MySQL/PostgreSQL server
+	// db-port: The port of the MySQL/PostgreSQL server
+	// db-user: The user to connect to the MySQL/PostgreSQL server
+	// db-password: The password to connect to the MySQL/PostgreSQL server
+	// database: The database to connect to
 	//+optional
 	DatabaseSecretRef *LocalObjectReference `json:"databaseSecretRef,omitempty"`
 	// PVC configuration

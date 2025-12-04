@@ -53,7 +53,7 @@ func ensureInitContainer(instance *v1alpha1.Trillian) func(*apps.Deployment) err
 		initContainer := kubernetes.FindInitContainerByNameOrCreate(&dp.Spec.Template.Spec, "wait-for-trillian-db")
 		initContainer.Image = images.Registry.Get(images.TrillianNetcat)
 
-		hostnameEnv := kubernetes.FindEnvByNameOrCreate(initContainer, "MYSQL_HOSTNAME")
+		hostnameEnv := kubernetes.FindEnvByNameOrCreate(initContainer, "DB_HOSTNAME")
 		hostnameEnv.ValueFrom = &core.EnvVarSource{
 			SecretKeyRef: &core.SecretKeySelector{
 				Key: actions.SecretHost,
@@ -63,7 +63,7 @@ func ensureInitContainer(instance *v1alpha1.Trillian) func(*apps.Deployment) err
 			},
 		}
 
-		portEnv := kubernetes.FindEnvByNameOrCreate(initContainer, "MYSQL_PORT")
+		portEnv := kubernetes.FindEnvByNameOrCreate(initContainer, "DB_PORT")
 		portEnv.ValueFrom = &core.EnvVarSource{
 			SecretKeyRef: &core.SecretKeySelector{
 				Key: actions.SecretPort,
@@ -75,7 +75,7 @@ func ensureInitContainer(instance *v1alpha1.Trillian) func(*apps.Deployment) err
 		initContainer.Command = []string{
 			"sh",
 			"-c",
-			"until nc -z -v -w30 $MYSQL_HOSTNAME $MYSQL_PORT; do echo \"Waiting for MySQL to start\"; sleep 5; done;",
+			"until nc -z -v -w30 $DB_HOSTNAME $DB_PORT; do echo \"Waiting for database to start\"; sleep 5; done;",
 		}
 
 		return nil
@@ -126,16 +126,27 @@ func ensureDeployment(instance *v1alpha1.Trillian, image string, name string, sa
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, name)
 		container.Image = image
 
-		container.Args = append([]string{
-			"--storage_system=mysql",
-			"--quota_system=mysql",
-			"--mysql_uri=$(MYSQL_USER):$(MYSQL_PASSWORD)@tcp($(MYSQL_HOSTNAME):$(MYSQL_PORT))/$(MYSQL_DATABASE)",
-			"--mysql_max_conns=30",
-			"--mysql_max_idle_conns=10",
+		if instance.Spec.Db.UsePostgreSQL {
+			container.Args = append([]string{
+				"--storage_system=postgresql",
+				"--quota_system=postgresql",
+				"--postgresql_uri=postgresql://$(DB_USER):$(DB_PASSWORD)@$(DB_HOSTNAME):$(DB_PORT)/$(DB_NAME)",
+			}, args...)
+		} else {
+			container.Args = append([]string{
+				"--storage_system=mysql",
+				"--quota_system=mysql",
+				"--mysql_uri=$(DB_USER):$(DB_PASSWORD)@tcp($(DB_HOSTNAME):$(DB_PORT))/$(DB_NAME)",
+				"--mysql_max_conns=30",
+				"--mysql_max_idle_conns=10",
+			}, args...)
+		}
+
+		container.Args = append(container.Args, []string{
 			"--rpc_endpoint=0.0.0.0:" + strconv.Itoa(int(actions.ServerPort)),
 			"--http_endpoint=0.0.0.0:" + strconv.Itoa(int(actions.MetricsPort)),
 			"--alsologtostderr",
-		}, args...)
+		}...)
 
 		if instance.Spec.MaxRecvMessageSize != nil {
 			container.Args = append(container.Args, "--max_msg_size_bytes", fmt.Sprintf("%d", *instance.Spec.MaxRecvMessageSize))
@@ -143,7 +154,7 @@ func ensureDeployment(instance *v1alpha1.Trillian, image string, name string, sa
 
 		//Ports = containerPorts
 		// Env variables from secret trillian-mysql
-		userEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_USER")
+		userEnv := kubernetes.FindEnvByNameOrCreate(container, "DB_USER")
 		userEnv.ValueFrom = &core.EnvVarSource{
 			SecretKeyRef: &core.SecretKeySelector{
 				Key: actions.SecretUser,
@@ -153,7 +164,7 @@ func ensureDeployment(instance *v1alpha1.Trillian, image string, name string, sa
 			},
 		}
 
-		passwordEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_PASSWORD")
+		passwordEnv := kubernetes.FindEnvByNameOrCreate(container, "DB_PASSWORD")
 		passwordEnv.ValueFrom = &core.EnvVarSource{
 			SecretKeyRef: &core.SecretKeySelector{
 				Key: actions.SecretPassword,
@@ -163,7 +174,7 @@ func ensureDeployment(instance *v1alpha1.Trillian, image string, name string, sa
 			},
 		}
 
-		hostEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_HOSTNAME")
+		hostEnv := kubernetes.FindEnvByNameOrCreate(container, "DB_HOSTNAME")
 		hostEnv.ValueFrom = &core.EnvVarSource{
 			SecretKeyRef: &core.SecretKeySelector{
 				Key: actions.SecretHost,
@@ -173,7 +184,7 @@ func ensureDeployment(instance *v1alpha1.Trillian, image string, name string, sa
 			},
 		}
 
-		containerPortEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_PORT")
+		containerPortEnv := kubernetes.FindEnvByNameOrCreate(container, "DB_PORT")
 		containerPortEnv.ValueFrom = &core.EnvVarSource{
 			SecretKeyRef: &core.SecretKeySelector{
 				Key: actions.SecretPort,
@@ -183,7 +194,7 @@ func ensureDeployment(instance *v1alpha1.Trillian, image string, name string, sa
 			},
 		}
 
-		dbEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_DATABASE")
+		dbEnv := kubernetes.FindEnvByNameOrCreate(container, "DB_NAME")
 		dbEnv.ValueFrom = &core.EnvVarSource{
 			SecretKeyRef: &core.SecretKeySelector{
 				Key: actions.SecretDatabaseName,
@@ -225,13 +236,17 @@ func ensureDeployment(instance *v1alpha1.Trillian, image string, name string, sa
 func WithTlsDB(instance *v1alpha1.Trillian, caPath string, name string) func(*apps.Deployment) error {
 	return func(dp *apps.Deployment) error {
 		c := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, name)
-		c.Args = append(c.Args, "--mysql_tls_ca", caPath)
+		if instance.Spec.Db.UsePostgreSQL {
+			c.Args = append(c.Args, "--postgresql_tls_ca", caPath)
+		} else {
+			c.Args = append(c.Args, "--mysql_tls_ca", caPath)
 
-		mysqlServerName := "$(MYSQL_HOSTNAME)." + instance.Namespace + ".svc"
-		if !*instance.Spec.Db.Create {
-			mysqlServerName = "$(MYSQL_HOSTNAME)"
+			mysqlServerName := "$(DB_HOSTNAME)." + instance.Namespace + ".svc"
+			if !*instance.Spec.Db.Create {
+				mysqlServerName = "$(DB_HOSTNAME)"
+			}
+			c.Args = append(c.Args, "--mysql_server_name", mysqlServerName)
 		}
-		c.Args = append(c.Args, "--mysql_server_name", mysqlServerName)
 		return nil
 	}
 }
