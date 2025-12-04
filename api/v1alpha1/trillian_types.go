@@ -70,7 +70,7 @@ type TrillianDB struct {
 	// db-port: The port of the MySQL/PostgreSQL server
 	// db-user: The user to connect to the MySQL/PostgreSQL server
 	// db-password: The password to connect to the MySQL/PostgreSQL server
-	// database: The database to connect to
+	// db-name: The database to connect to
 	//+optional
 	DatabaseSecretRef *LocalObjectReference `json:"databaseSecretRef,omitempty"`
 	// PVC configuration

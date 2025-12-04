@@ -29,7 +29,7 @@ const (
 	MetricsPort     = 8090
 	MetricsPortName = "metrics"
 
-	SecretRootPassword = "db-root-password" // Only used for MySQL; ignored for PostgreSQL
+	SecretRootPassword = "mysql-root-password"
 	SecretPassword     = "db-password"
 	SecretDatabaseName = "db-name"
 	SecretUser         = "db-user"
