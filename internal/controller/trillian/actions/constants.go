@@ -2,7 +2,7 @@ package actions
 
 const (
 	DbDeploymentName        = "trillian-db"
-	DbPvcName               = "trillian-db"
+	DbPvcName               = "trillian-mysql"
 	LogserverDeploymentName = "trillian-logserver"
 	LogsignerDeploymentName = "trillian-logsigner"
 
