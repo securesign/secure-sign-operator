@@ -30,9 +30,9 @@ const (
 	MetricsPortName = "metrics"
 
 	SecretRootPassword = "mysql-root-password"
-	SecretPassword     = "mysql-password"
-	SecretDatabaseName = "mysql-database"
-	SecretUser         = "mysql-user"
-	SecretPort         = "mysql-port"
-	SecretHost         = "mysql-host"
+	SecretPassword     = "db-password"
+	SecretDatabaseName = "db-name"
+	SecretUser         = "db-user"
+	SecretPort         = "db-port"
+	SecretHost         = "db-host"
 )
