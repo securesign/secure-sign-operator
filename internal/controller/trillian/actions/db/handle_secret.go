@@ -173,12 +173,12 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 func (i handleSecretAction) defaultDBData() map[string][]byte {
 	// Define a new Secret object
 	var rootPass []byte
-	var dbPass []byte
+	var mysqlPass []byte
 	rootPass = utils2.GeneratePassword(12)
-	dbPass = utils2.GeneratePassword(12)
+	mysqlPass = utils2.GeneratePassword(12)
 	return map[string][]byte{
 		trillian.SecretRootPassword: rootPass,
-		trillian.SecretPassword:     dbPass,
+		trillian.SecretPassword:     mysqlPass,
 		trillian.SecretDatabaseName: []byte(databaseName),
 		trillian.SecretUser:         []byte(user),
 		trillian.SecretPort:         []byte(strconv.Itoa(port)),
