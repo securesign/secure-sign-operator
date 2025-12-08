@@ -29,10 +29,18 @@ const (
 	MetricsPort     = 8090
 	MetricsPortName = "metrics"
 
+	// MySQL
 	SecretRootPassword = "mysql-root-password"
-	SecretPassword     = "db-password"
-	SecretDatabaseName = "db-name"
-	SecretUser         = "db-user"
-	SecretPort         = "db-port"
-	SecretHost         = "db-host"
+	SecretPassword     = "mysql-password"
+	SecretDatabaseName = "mysql-database"
+	SecretUser         = "mysql-user"
+	SecretPort         = "mysql-port"
+	SecretHost         = "mysql-host"
+
+	// PostgreSQL
+	PgSecretPassword     = "postgresql-password"
+	PgSecretDatabaseName = "postgresql-database"
+	PgSecretUser         = "postgresql-user"
+	PgSecretPort         = "postgresql-port"
+	PgSecretHost         = "postgresql-host"
 )

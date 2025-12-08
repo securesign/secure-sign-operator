@@ -57,7 +57,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 								LocalObjectReference: v1.LocalObjectReference{
 									Name: dbAuth,
 								},
-								Key: "db-user",
+								Key: "mysql-user",
 							}},
 						},
 						{
@@ -66,7 +66,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 								LocalObjectReference: v1.LocalObjectReference{
 									Name: dbAuth,
 								},
-								Key: "db-password",
+								Key: "mysql-password",
 							}},
 						},
 						{
@@ -75,7 +75,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 								LocalObjectReference: v1.LocalObjectReference{
 									Name: dbAuth,
 								},
-								Key: "db-name",
+								Key: "mysql-database",
 							}},
 						},
 						{
@@ -187,12 +187,12 @@ func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef s
 	err = cli.Create(ctx, &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: secretRef},
 		Data: map[string][]byte{
-			"db-name":             []byte("my_db"),
-			"db-host":             []byte("my-mysql"),
-			"db-password":         []byte("password"),
-			"db-port":             []byte("3300"),
+			"mysql-database":      []byte("my_db"),
+			"mysql-host":          []byte("my-mysql"),
+			"mysql-password":      []byte("password"),
+			"mysql-port":          []byte("3300"),
 			"mysql-root-password": []byte("password"),
-			"db-user":             []byte("mysql"),
+			"mysql-user":          []byte("mysql"),
 		},
 	})
 	if err != nil {
@@ -275,7 +275,7 @@ func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef s
 								LocalObjectReference: v1.LocalObjectReference{
 									Name: secretRef,
 								},
-								Key: "db-user",
+								Key: "mysql-user",
 							}},
 						},
 						{
@@ -284,7 +284,7 @@ func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef s
 								LocalObjectReference: v1.LocalObjectReference{
 									Name: secretRef,
 								},
-								Key: "db-password",
+								Key: "mysql-password",
 							}},
 						},
 						{
@@ -293,7 +293,7 @@ func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef s
 								LocalObjectReference: v1.LocalObjectReference{
 									Name: secretRef,
 								},
-								Key: "db-name",
+								Key: "mysql-database",
 							}},
 						},
 					},

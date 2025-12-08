@@ -201,6 +201,7 @@ var _ = Describe("Trillian", func() {
 							Namespace: "default",
 						},
 					}
+					expectedTrillianInstance.Spec.Db.Provider = "mysql"
 
 					Expect(k8sClient.Create(context.Background(), &trillianInstance)).To(Succeed())
 					fetched := &Trillian{}
@@ -262,6 +263,7 @@ var _ = Describe("Trillian", func() {
 					expectedTrillianInstance.Spec.Db.DatabaseSecretRef = &LocalObjectReference{
 						Name: "secret",
 					}
+					expectedTrillianInstance.Spec.Db.Provider = "mysql"
 
 					Expect(k8sClient.Create(context.Background(), &trillianInstance)).To(Succeed())
 					fetchedTrillian := &Trillian{}
