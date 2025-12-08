@@ -10449,6 +10449,26 @@ spec:
                             x-kubernetes-list-type: atomic
                         type: object
                     type: object
+                  ctlog:
+                    description: Ctlog service configuration
+                    properties:
+                      address:
+                        description: Address to Ctlog Log Server End point
+                        type: string
+                      port:
+                        description: Port of Ctlog Log Server End point
+                        format: int32
+                        maximum: 65535
+                        minimum: 1
+                        type: integer
+                      prefix:
+                        default: trusted-artifact-signer
+                        description: |-
+                          Prefix is the name of the log. The prefix cannot be empty and can
+                          contain "/" path separator characters to define global override handler prefix.
+                        pattern: ^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$
+                        type: string
+                    type: object
                   externalAccess:
                     description: Define whether you want to export service or not
                     properties:
@@ -10474,6 +10494,19 @@ spec:
                           rule: (oldSelf.size() == 0 || self == oldSelf)
                     required:
                     - enabled
+                    type: object
+                  fulcio:
+                    description: Fulcio service configuration
+                    properties:
+                      address:
+                        description: Address to Fulcio End point
+                        type: string
+                      port:
+                        description: Port of Fulcio End point
+                        format: int32
+                        maximum: 65535
+                        minimum: 1
+                        type: integer
                     type: object
                   keys:
                     default:
@@ -10586,6 +10619,19 @@ spec:
                     - message: accessModes is immutable when a PVC name is not specified
                       rule: oldSelf == null || has(self.name) || (!has(oldSelf.accessModes)
                         || has(self.accessModes) && oldSelf.accessModes == self.accessModes)
+                  rekor:
+                    description: Rekor service configuration
+                    properties:
+                      address:
+                        description: Address to Rekor End point
+                        type: string
+                      port:
+                        description: Port of Rekor End point
+                        format: int32
+                        maximum: 65535
+                        minimum: 1
+                        type: integer
+                    type: object
                   replicas:
                     default: 1
                     description: Number of desired pods.
@@ -10706,6 +10752,19 @@ spec:
                           type: string
                       type: object
                     type: array
+                  tsa:
+                    description: TSA service configuration
+                    properties:
+                      address:
+                        description: Address to TSA End point
+                        type: string
+                      port:
+                        description: Port of TSA End point
+                        format: int32
+                        maximum: 65535
+                        minimum: 1
+                        type: integer
+                    type: object
                 type: object
             type: object
             x-kubernetes-validations:

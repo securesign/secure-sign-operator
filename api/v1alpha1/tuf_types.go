@@ -29,6 +29,18 @@ type TufSpec struct {
 	// You can use ReadWriteOnce accessMode if you don't have suitable storage provider but your deployment will not support HA mode
 	//+kubebuilder:default:={size: "100Mi",retain: true,accessModes: {ReadWriteOnce}}
 	Pvc TufPvc `json:"pvc,omitempty"`
+	// Ctlog service configuration
+	//+optional
+	Ctlog CtlogService `json:"ctlog,omitempty"`
+	// Fulcio service configuration
+	//+optional
+	Fulcio FulcioService `json:"fulcio,omitempty"`
+	// Rekor service configuration
+	//+optional
+	Rekor RekorService `json:"rekor,omitempty"`
+	// TSA service configuration
+	//+optional
+	Tsa TsaService `json:"tsa,omitempty"`
 }
 
 // TufPvc configuration of the persistent storage claim for deployment in the cluster.
@@ -119,4 +131,14 @@ func (i *Tuf) GetConditions() []metav1.Condition {
 
 func (i *Tuf) SetCondition(newCondition metav1.Condition) {
 	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
+}
+
+func (i *Tuf) GetTrustedCA() *LocalObjectReference {
+	if v, ok := i.GetAnnotations()["rhtas.redhat.com/trusted-ca"]; ok {
+		return &LocalObjectReference{
+			Name: v,
+		}
+	}
+
+	return nil
 }
