@@ -25,6 +25,23 @@ type dbKeys struct {
 	Database string
 }
 
+var dbProviderKeys = map[string]dbKeys{
+	"mysql": {
+		User:     actions.SecretUser,
+		Password: actions.SecretPassword,
+		Host:     actions.SecretHost,
+		Port:     actions.SecretPort,
+		Database: actions.SecretDatabaseName,
+	},
+	"postgresql": {
+		User:     actions.PgSecretUser,
+		Password: actions.PgSecretPassword,
+		Host:     actions.PgSecretHost,
+		Port:     actions.PgSecretPort,
+		Database: actions.PgSecretDatabaseName,
+	},
+}
+
 func EnsureServerDeployment(instance *v1alpha1.Trillian, labels map[string]string) []func(*apps.Deployment) error {
 	return []func(deployment *apps.Deployment) error{
 		ensureDeployment(instance,
@@ -61,10 +78,15 @@ func ensureInitContainer(instance *v1alpha1.Trillian) func(*apps.Deployment) err
 		initContainer := kubernetes.FindInitContainerByNameOrCreate(&dp.Spec.Template.Spec, "wait-for-trillian-db")
 		initContainer.Image = images.Registry.Get(images.TrillianNetcat)
 
+		keys, ok := dbProviderKeys[instance.Spec.Db.Provider]
+		if !ok {
+			return fmt.Errorf("unsupported database provider %s", instance.Spec.Db.Provider)
+		}
+
 		hostnameEnv := kubernetes.FindEnvByNameOrCreate(initContainer, "DB_HOSTNAME")
 		hostnameEnv.ValueFrom = &core.EnvVarSource{
 			SecretKeyRef: &core.SecretKeySelector{
-				Key: actions.SecretHost,
+				Key: keys.Host,
 				LocalObjectReference: core.LocalObjectReference{
 					Name: instance.Status.Db.DatabaseSecretRef.Name,
 				},
@@ -74,7 +96,7 @@ func ensureInitContainer(instance *v1alpha1.Trillian) func(*apps.Deployment) err
 		portEnv := kubernetes.FindEnvByNameOrCreate(initContainer, "DB_PORT")
 		portEnv.ValueFrom = &core.EnvVarSource{
 			SecretKeyRef: &core.SecretKeySelector{
-				Key: actions.SecretPort,
+				Key: keys.Port,
 				LocalObjectReference: core.LocalObjectReference{
 					Name: instance.Status.Db.DatabaseSecretRef.Name,
 				},
@@ -165,22 +187,6 @@ func ensureDeployment(instance *v1alpha1.Trillian, image string, name string, sa
 
 		//Ports = containerPorts
 		// Env variables from secret trillian-mysql
-		dbProviderKeys := map[string]dbKeys{
-			"mysql": {
-				User:     actions.SecretUser,
-				Password: actions.SecretPassword,
-				Host:     actions.SecretHost,
-				Port:     actions.SecretPort,
-				Database: actions.SecretDatabaseName,
-			},
-			"postgresql": {
-				User:     actions.PgSecretUser,
-				Password: actions.PgSecretPassword,
-				Host:     actions.PgSecretHost,
-				Port:     actions.PgSecretPort,
-				Database: actions.PgSecretDatabaseName,
-			},
-		}
 		keys, ok := dbProviderKeys[instance.Spec.Db.Provider]
 		if !ok {
 			return fmt.Errorf("unsupported database provider %s", instance.Spec.Db.Provider)
