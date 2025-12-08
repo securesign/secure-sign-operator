@@ -71,14 +71,12 @@ type TrillianDB struct {
 	// mysql-user: The user to connect to the MySQL server
 	// mysql-password: The password to connect to the MySQL server
 	// mysql-database: The database to connect to
-
 	// For PostgreSQL, only connection is supported, the secret must contain:
 	// postgresql-host: The host of the PostgreSQL server
 	// postgresql-port: The port of the PostgreSQL server
 	// postgresql-user: The user to connect to the PostgreSQL server
 	// postgresql-password: The password to connect to the PostgreSQL server
 	// postgresql-database: The database to connect to
-
 	// +optional
 	DatabaseSecretRef *LocalObjectReference `json:"databaseSecretRef,omitempty"`
 	// PVC configuration
