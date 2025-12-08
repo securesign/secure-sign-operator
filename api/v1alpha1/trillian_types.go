@@ -60,13 +60,24 @@ type TrillianDB struct {
 	//+kubebuilder:default:=true
 	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
 	Create *bool `json:"create"`
-	// Secret with values to be used to connect to an existing DB or to be used with the creation of a new DB
+	// DB provider. Supported are mysql and postgresql.
+	//+kubebuilder:validation:Enum={postgresql,mysql}
+	//+kubebuilder:default:=mysql
+	Provider string `json:"provider,omitempty"`
+	// Secret with values to be used to connect to an existing DB or to be used with the creation of a new MySQL DB
+	// For MySQL, the secret must contain the following keys:
 	// mysql-host: The host of the MySQL server
 	// mysql-port: The port of the MySQL server
 	// mysql-user: The user to connect to the MySQL server
 	// mysql-password: The password to connect to the MySQL server
 	// mysql-database: The database to connect to
-	//+optional
+	// For PostgreSQL, only connection is supported, the secret must contain:
+	// postgresql-host: The host of the PostgreSQL server
+	// postgresql-port: The port of the PostgreSQL server
+	// postgresql-user: The user to connect to the PostgreSQL server
+	// postgresql-password: The password to connect to the PostgreSQL server
+	// postgresql-database: The database to connect to
+	// +optional
 	DatabaseSecretRef *LocalObjectReference `json:"databaseSecretRef,omitempty"`
 	// PVC configuration
 	//+kubebuilder:default:={size: "5Gi", retain: true}
