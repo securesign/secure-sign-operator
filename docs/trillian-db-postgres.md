@@ -203,7 +203,7 @@ env:
 ```
 - Update the check command:
 ```
-until nc -z -v -w30 $DB_HOSTNAME $DB_PORT; ...
+until nc -z -v -w30 $DB_HOSTNAME $DB_PORT; do echo \"Waiting for DB to start\"; sleep 5; done;",
 ```
 
 4- Use the latest Trillian images:
