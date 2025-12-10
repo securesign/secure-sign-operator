@@ -1,7 +1,26 @@
-# Testing PostgreSQL as Trillian backend (Preview feature)
+# Testing PostgreSQL as the Trillian backend database (Preview feature)
 
 This is an experimental feature not yet officially supported in the stable RHTAS operator (version 1.3.1). It is used for testing purposes only. The setup requires manual modifications to the Trillian logserver & logsigner deployments after installation, as the operator currently defaults to MySQL. Ensure you have administrative access to your OpenShift cluster and a pre-existing PostgreSQL database ready for connection.
 
+### PostgreSQL setup overview
+```mermaid
+flowchart TB
+  A["PostgreSQL Setup Guide"]:::main --> B["Database Configuration"]:::step
+  A --> C["RHTAS Operator Installation"]:::step
+  A --> D["Manual Deployment Updates"]:::step
+  A --> E["Troubleshooting"]:::step
+  B --> F["Create Database & User"]:::sub
+  B --> G["Apply Schema"]:::sub
+  C --> H["Configure Secrets & ConfigMaps"]:::sub
+  D --> I["Update Logserver & Logsigner"]:::sub
+  I --> J["Replace MySQL → PostgreSQL Flags"]:::sub
+  I --> K["Update Environment Variables"]:::sub
+  I --> L["Use PostgreSQL-enabled Images"]:::sub
+
+  classDef main fill:#2563eb,stroke:#1d4ed8,stroke-width:3px,color:#fff,font-weight:bold,rx:12px,ry:12px
+  classDef step fill:#059669,stroke:#047857,stroke-width:2px,color:#fff,font-weight:bold,rx:10px,ry:10px
+  classDef sub fill:#d97706,stroke:#b45309,stroke-width:2px,color:#fff,rx:8px,ry:8px
+```
 ## Prequisites
 - OpenShift cluster with oc CLI installed and logged in.
 - Access to a PostgreSQL database instance (e.g., AWS RDS PostgreSQL).
