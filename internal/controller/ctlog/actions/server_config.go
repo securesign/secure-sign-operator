@@ -314,7 +314,7 @@ func (i serverConfig) validateExistingSecret(instance *rhtasv1alpha1.CTlog, tril
 // used to generate the server config secret.
 func (i serverConfig) configMatchingAnnotations(instance *rhtasv1alpha1.CTlog, trillianUrl string) map[string]string {
 	// Build a string representation of root certificate references
-	var rootCertRefs []string
+	rootCertRefs := make([]string, 0, len(instance.Status.RootCertificates))
 	for _, ref := range instance.Status.RootCertificates {
 		rootCertRefs = append(rootCertRefs, fmt.Sprintf("%s/%s", ref.Name, ref.Key))
 	}
