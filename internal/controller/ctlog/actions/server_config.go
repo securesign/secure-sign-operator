@@ -106,51 +106,11 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 
 	// Validate existing secret before attempting recreation (only for hot updates, not spec changes)
 	if !isSpecChange && instance.Status.ServerConfigRef != nil && instance.Status.ServerConfigRef.Name != "" {
-		secret, err := kubernetes.GetSecret(i.Client, instance.Namespace, instance.Status.ServerConfigRef.Name)
-
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				i.Logger.Info("Server config secret is missing, will recreate",
-					"secret", instance.Status.ServerConfigRef.Name)
-				i.Recorder.Event(instance, corev1.EventTypeWarning, "CTLogConfigMissing",
-					"Config secret is missing, will recreate")
-			} else {
-				i.Logger.Error(err, "Error accessing server config secret, will attempt to recreate",
-					"secret", instance.Status.ServerConfigRef.Name)
-				i.Recorder.Event(instance, corev1.EventTypeWarning, "CTLogConfigError",
-					"Error accessing config secret, will recreate")
-			}
+		if err := i.validateExistingSecret(instance, trillianUrl); err != nil {
+			i.Logger.Info(err.Error(), "secret", instance.Status.ServerConfigRef.Name)
+			i.Recorder.Event(instance, corev1.EventTypeWarning, "CTLogConfigRecreate", err.Error())
 		} else {
-			// Secret exists and is accessible - validate it (for hot updates only)
-			if !ctlogUtils.IsSecretDataValid(secret.Data, trillianUrl) {
-				// Secret has wrong Trillian configuration, will recreate
-				i.Logger.Info("Server config secret is invalid, will recreate",
-					"secret", secret.Name,
-					"reason", "Trillian configuration mismatch")
-				i.Recorder.Event(instance, corev1.EventTypeWarning, "CTLogConfigInvalid",
-					"Config secret has invalid Trillian configuration, will recreate")
-			} else {
-				// Check if root certificates match (for hot updates)
-				// Count fulcio-* keys in the secret
-				actualRootCertCount := 0
-				for key := range secret.Data {
-					if strings.HasPrefix(key, "fulcio-") {
-						actualRootCertCount++
-					}
-				}
-
-				// Compare with expected count from status
-				expectedRootCertCount := len(instance.Status.RootCertificates)
-				if actualRootCertCount == expectedRootCertCount && expectedRootCertCount > 0 {
-					// Everything matches - no need to recreate
-					return i.Continue()
-				}
-				// Root certificates changed - need to recreate for hot update
-				i.Logger.Info("Server config secret needs update for root certificate change",
-					"secret", secret.Name,
-					"expected_certs", expectedRootCertCount,
-					"actual_certs", actualRootCertCount)
-			}
+			return i.Continue()
 		}
 	}
 
@@ -297,4 +257,36 @@ func (i serverConfig) handleRootCertificates(instance *rhtasv1alpha1.CTlog) ([]c
 	}
 
 	return certs, nil
+}
+
+func (i serverConfig) validateExistingSecret(instance *rhtasv1alpha1.CTlog, trillianUrl string) error {
+	secret, err := kubernetes.GetSecret(i.Client, instance.Namespace, instance.Status.ServerConfigRef.Name)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return errors.New("config secret is missing, will recreate")
+		}
+		return fmt.Errorf("error accessing config secret, will recreate: %w", err)
+	}
+
+	// Secret exists and is accessible - validate its content
+	if !ctlogUtils.IsSecretDataValid(secret.Data, trillianUrl) {
+		return errors.New("config secret has invalid Trillian configuration, will recreate")
+	}
+
+	// Check if root certificates match
+	actualRootCertCount := 0
+	for key := range secret.Data {
+		if strings.HasPrefix(key, "fulcio-") {
+			actualRootCertCount++
+		}
+	}
+
+	expectedRootCertCount := len(instance.Status.RootCertificates)
+	if actualRootCertCount != expectedRootCertCount || expectedRootCertCount == 0 {
+		return fmt.Errorf("root certificate count mismatch (expected: %d, actual: %d), will recreate",
+			expectedRootCertCount, actualRootCertCount)
+	}
+
+	// Secret is valid
+	return nil
 }
