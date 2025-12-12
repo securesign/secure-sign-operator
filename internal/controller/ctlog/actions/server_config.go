@@ -17,7 +17,6 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,22 +42,8 @@ func (i serverConfig) Name() string {
 
 func (i serverConfig) CanHandle(_ context.Context, instance *rhtasv1alpha1.CTlog) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, ConfigCondition)
-
-	switch {
-	case c == nil:
-		return false
-	case !meta.IsStatusConditionTrue(instance.Status.Conditions, ConfigCondition):
-		return true
-	case instance.Status.ServerConfigRef == nil:
-		return true
-	case instance.Spec.ServerConfigRef != nil:
-		return !equality.Semantic.DeepEqual(instance.Spec.ServerConfigRef, instance.Status.ServerConfigRef)
-	case c.ObservedGeneration != instance.Generation:
-		return true
-	default:
-		// Always run Handle() to validate the secret: exists and is valid
-		return true
-	}
+	// Always run Handle() to validate the config secret exists and is valid
+	return c != nil
 }
 
 func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) *action.Result {
