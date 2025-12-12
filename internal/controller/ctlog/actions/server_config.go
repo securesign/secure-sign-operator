@@ -106,12 +106,24 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 
 	// Validate existing secret before attempting recreation (only for hot updates, not spec changes)
 	if !isSpecChange && instance.Status.ServerConfigRef != nil && instance.Status.ServerConfigRef.Name != "" {
-		if err := i.validateExistingSecret(instance, trillianUrl); err != nil {
-			i.Logger.Info(err.Error(), "secret", instance.Status.ServerConfigRef.Name)
-			i.Recorder.Event(instance, corev1.EventTypeWarning, "CTLogConfigRecreate", err.Error())
-		} else {
+		valid, err := i.validateExistingSecret(instance, trillianUrl)
+		if err != nil {
+			// API error other than NotFound - fail reconciliation
+			return i.Error(ctx, fmt.Errorf("error validating server config secret: %w", err), instance,
+				metav1.Condition{
+					Type:               ConfigCondition,
+					Status:             metav1.ConditionFalse,
+					Reason:             constants.Failure,
+					Message:            fmt.Sprintf("Error accessing config secret: %s", instance.Status.ServerConfigRef.Name),
+					ObservedGeneration: instance.Generation,
+				})
+		}
+		if valid {
 			return i.Continue()
 		}
+		// Secret needs recreation - log and continue
+		i.Logger.Info("Server config secret needs recreation", "secret", instance.Status.ServerConfigRef.Name)
+		i.Recorder.Event(instance, corev1.EventTypeWarning, "CTLogConfigRecreate", "Config secret will be recreated")
 	}
 
 	configLabels := labels.ForResource(ComponentName, DeploymentName, instance.Name, serverConfigResourceName)
@@ -259,18 +271,25 @@ func (i serverConfig) handleRootCertificates(instance *rhtasv1alpha1.CTlog) ([]c
 	return certs, nil
 }
 
-func (i serverConfig) validateExistingSecret(instance *rhtasv1alpha1.CTlog, trillianUrl string) error {
+// validateExistingSecret checks if the existing server config secret is valid.
+// Returns:
+//   - (true, nil) if the secret is valid and no recreation is needed
+//   - (false, nil) if the secret needs recreation (NotFound or validation failed)
+//   - (false, error) if there was an API error (other than NotFound) - reconciliation should fail
+func (i serverConfig) validateExistingSecret(instance *rhtasv1alpha1.CTlog, trillianUrl string) (bool, error) {
 	secret, err := kubernetes.GetSecret(i.Client, instance.Namespace, instance.Status.ServerConfigRef.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return errors.New("config secret is missing, will recreate")
+			// Secret doesn't exist - needs recreation
+			return false, nil
 		}
-		return fmt.Errorf("error accessing config secret, will recreate: %w", err)
+		// Other API error (Forbidden, etc.) - fail reconciliation
+		return false, err
 	}
 
 	// Secret exists and is accessible - validate its content
 	if !ctlogUtils.IsSecretDataValid(secret.Data, trillianUrl) {
-		return errors.New("config secret has invalid Trillian configuration, will recreate")
+		return false, nil
 	}
 
 	// Check if root certificates match
@@ -283,10 +302,9 @@ func (i serverConfig) validateExistingSecret(instance *rhtasv1alpha1.CTlog, tril
 
 	expectedRootCertCount := len(instance.Status.RootCertificates)
 	if actualRootCertCount != expectedRootCertCount || expectedRootCertCount == 0 {
-		return fmt.Errorf("root certificate count mismatch (expected: %d, actual: %d), will recreate",
-			expectedRootCertCount, actualRootCertCount)
+		return false, nil
 	}
 
 	// Secret is valid
-	return nil
+	return true, nil
 }
