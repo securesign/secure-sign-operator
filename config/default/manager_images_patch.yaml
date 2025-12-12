@@ -36,8 +36,6 @@ spec:
               value: PLACEHOLDER
             - name: RELATED_IMAGE_HTTP_SERVER
               value: PLACEHOLDER
-            - name: RELATED_IMAGE_SEGMENT_REPORTING
-              value: PLACEHOLDER
             - name: RELATED_IMAGE_TIMESTAMP_AUTHORITY
               value: PLACEHOLDER
             - name: RELATED_IMAGE_CLIENT_SERVER
