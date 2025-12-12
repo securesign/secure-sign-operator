@@ -80,7 +80,7 @@ func TestServerConfig_CanHandle(t *testing.T) {
 		{
 			name:                  "ConditionTrue: spec.serverConfigRef == status.serverConfigRef",
 			status:                metav1.ConditionTrue,
-			canHandle:             false,
+			canHandle:             true, // Always true for periodic validation
 			serverConfigRef:       &rhtasv1alpha1.LocalObjectReference{Name: "config"},
 			statusServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "config"},
 		},
