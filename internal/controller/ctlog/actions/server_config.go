@@ -17,6 +17,7 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +28,14 @@ import (
 const (
 	serverConfigResourceName = "ctlog-server-config"
 )
+
+// Annotations used to track the data sources for server config secret
+var serverConfigAnnotations = []string{
+	labels.LabelNamespace + "/treeID",
+	labels.LabelNamespace + "/trillianUrl",
+	labels.LabelNamespace + "/rootCertificates",
+	labels.LabelNamespace + "/privateKeyRef",
+}
 
 func NewServerConfigAction() action.Action[*rhtasv1alpha1.CTlog] {
 	return &serverConfig{}
@@ -172,10 +181,13 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		},
 	}
 
+	configAnnotations := i.configMatchingAnnotations(instance, trillianUrl)
+
 	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		newConfig,
 		ensure.ControllerReference[*corev1.Secret](instance, i.Client),
 		ensure.Labels[*corev1.Secret](slices.Collect(maps.Keys(configLabels)), configLabels),
+		ensure.Annotations[*corev1.Secret](serverConfigAnnotations, configAnnotations),
 		kubernetes.EnsureSecretData(true, cfg),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Server config: %w", err), instance,
@@ -287,24 +299,40 @@ func (i serverConfig) validateExistingSecret(instance *rhtasv1alpha1.CTlog, tril
 		return false, err
 	}
 
-	// Secret exists and is accessible - validate its content
-	if !ctlogUtils.IsSecretDataValid(secret.Data, trillianUrl) {
-		return false, nil
-	}
-
-	// Check if root certificates match
-	actualRootCertCount := 0
-	for key := range secret.Data {
-		if strings.HasPrefix(key, "fulcio-") {
-			actualRootCertCount++
-		}
-	}
-
-	expectedRootCertCount := len(instance.Status.RootCertificates)
-	if actualRootCertCount != expectedRootCertCount || expectedRootCertCount == 0 {
+	// Check if the secret was generated from the same data sources using annotations
+	expectedAnnotations := i.configMatchingAnnotations(instance, trillianUrl)
+	if !equality.Semantic.DeepDerivative(expectedAnnotations, secret.GetAnnotations()) {
 		return false, nil
 	}
 
 	// Secret is valid
 	return true, nil
+}
+
+// configMatchingAnnotations generates annotations that identify the data sources
+// used to generate the server config secret.
+func (i serverConfig) configMatchingAnnotations(instance *rhtasv1alpha1.CTlog, trillianUrl string) map[string]string {
+	// Build a string representation of root certificate references
+	var rootCertRefs []string
+	for _, ref := range instance.Status.RootCertificates {
+		rootCertRefs = append(rootCertRefs, fmt.Sprintf("%s/%s", ref.Name, ref.Key))
+	}
+
+	annotations := map[string]string{
+		labels.LabelNamespace + "/trillianUrl": trillianUrl,
+	}
+
+	if instance.Status.TreeID != nil {
+		annotations[labels.LabelNamespace+"/treeID"] = fmt.Sprintf("%d", *instance.Status.TreeID)
+	}
+
+	if len(rootCertRefs) > 0 {
+		annotations[labels.LabelNamespace+"/rootCertificates"] = strings.Join(rootCertRefs, ",")
+	}
+
+	if instance.Status.PrivateKeyRef != nil {
+		annotations[labels.LabelNamespace+"/privateKeyRef"] = fmt.Sprintf("%s/%s", instance.Status.PrivateKeyRef.Name, instance.Status.PrivateKeyRef.Key)
+	}
+
+	return annotations
 }
