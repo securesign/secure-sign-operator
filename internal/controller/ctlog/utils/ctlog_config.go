@@ -200,3 +200,50 @@ func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertifi
 	}
 	return data, nil
 }
+
+// IsSecretDataValid validates that a CTLog config secret contains valid configuration
+// with the correct Trillian backend address.
+//
+// This function parses the protobuf text configuration and validates:
+// 1. The configuration can be unmarshalled into the expected structure
+// 2. At least one backend exists
+// 3. The backend's BackendSpec matches the expected Trillian address
+//
+// Parameters:
+//   - secretData: The Data field from a Kubernetes Secret containing CTLog configuration
+//   - expectedTrillianAddr: The Trillian address to validate against (e.g., "trillian-logserver.namespace.svc:8091")
+//
+// Returns true if the secret contains valid configuration with the correct Trillian address,
+// false otherwise. Used by the operator for self-healing to detect missing or invalid
+// configuration secrets that need to be recreated.
+func IsSecretDataValid(secretData map[string][]byte, expectedTrillianAddr string) bool {
+	if secretData == nil {
+		return false
+	}
+
+	configData, ok := secretData[ConfigKey]
+	if !ok || len(configData) == 0 {
+		return false
+	}
+
+	// Parse the protobuf text format configuration
+	var multiConfig configpb.LogMultiConfig
+	if err := prototext.Unmarshal(configData, &multiConfig); err != nil {
+		// Failed to parse - invalid configuration
+		return false
+	}
+
+	// Validate that at least one backend exists
+	if multiConfig.Backends == nil || multiConfig.Backends.Backend == nil || len(multiConfig.Backends.Backend) == 0 {
+		return false
+	}
+
+	// Check if any backend matches the expected Trillian address
+	for _, backend := range multiConfig.Backends.Backend {
+		if backend.BackendSpec == expectedTrillianAddr {
+			return true
+		}
+	}
+
+	return false
+}
