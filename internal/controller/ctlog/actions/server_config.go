@@ -29,6 +29,9 @@ const (
 	serverConfigResourceName = "ctlog-server-config"
 )
 
+// errSecretInvalid indicates the secret needs to be recreated (not a failure)
+var errSecretInvalid = errors.New("secret needs recreation")
+
 // Annotations used to track the data sources for server config secret
 var serverConfigAnnotations = []string{
 	labels.LabelNamespace + "/treeID",
@@ -115,24 +118,25 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 
 	// Validate existing secret before attempting recreation (only for hot updates, not spec changes)
 	if !isSpecChange && instance.Status.ServerConfigRef != nil && instance.Status.ServerConfigRef.Name != "" {
-		valid, err := i.validateExistingSecret(instance, trillianUrl)
-		if err != nil {
-			// API error other than NotFound - fail reconciliation
-			return i.Error(ctx, fmt.Errorf("error validating server config secret: %w", err), instance,
-				metav1.Condition{
-					Type:               ConfigCondition,
-					Status:             metav1.ConditionFalse,
-					Reason:             constants.Failure,
-					Message:            fmt.Sprintf("Error accessing config secret: %s", instance.Status.ServerConfigRef.Name),
-					ObservedGeneration: instance.Generation,
-				})
-		}
-		if valid {
+		if err := i.validateExistingSecret(instance, trillianUrl); err != nil {
+			if errors.Is(err, errSecretInvalid) {
+				// Secret needs recreation - log and continue
+				i.Logger.Info("Server config secret needs recreation", "secret", instance.Status.ServerConfigRef.Name)
+				i.Recorder.Eventf(instance, corev1.EventTypeWarning, "CTLogConfigRecreate", "Config secret will be recreated: %s", instance.Status.ServerConfigRef.Name)
+			} else {
+				// API error - fail reconciliation
+				return i.Error(ctx, fmt.Errorf("error validating server config secret: %w", err), instance,
+					metav1.Condition{
+						Type:               ConfigCondition,
+						Status:             metav1.ConditionFalse,
+						Reason:             constants.Failure,
+						Message:            fmt.Sprintf("Error accessing config secret: %s", instance.Status.ServerConfigRef.Name),
+						ObservedGeneration: instance.Generation,
+					})
+			}
+		} else {
 			return i.Continue()
 		}
-		// Secret needs recreation - log and continue
-		i.Logger.Info("Server config secret needs recreation", "secret", instance.Status.ServerConfigRef.Name)
-		i.Recorder.Eventf(instance, corev1.EventTypeWarning, "CTLogConfigRecreate", "Config secret will be recreated: %s", instance.Status.ServerConfigRef.Name)
 	}
 
 	configLabels := labels.ForResource(ComponentName, DeploymentName, instance.Name, serverConfigResourceName)
@@ -286,28 +290,25 @@ func (i serverConfig) handleRootCertificates(instance *rhtasv1alpha1.CTlog) ([]c
 
 // validateExistingSecret checks if the existing server config secret is valid.
 // Returns:
-//   - (true, nil) if the secret is valid and no recreation is needed
-//   - (false, nil) if the secret needs recreation (NotFound or validation failed)
-//   - (false, error) if there was an API error (other than NotFound) - reconciliation should fail
-func (i serverConfig) validateExistingSecret(instance *rhtasv1alpha1.CTlog, trillianUrl string) (bool, error) {
+//   - nil if the secret is valid
+//   - errSecretInvalid if the secret needs recreation (not a failure)
+//   - other error for API errors - reconciliation should fail
+func (i serverConfig) validateExistingSecret(instance *rhtasv1alpha1.CTlog, trillianUrl string) error {
 	secret, err := kubernetes.GetSecret(i.Client, instance.Namespace, instance.Status.ServerConfigRef.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			// Secret doesn't exist - needs recreation
-			return false, nil
+			return errSecretInvalid
 		}
-		// Other API error (Forbidden, etc.) - fail reconciliation
-		return false, err
+		return err
 	}
 
 	// Check if the secret was generated from the same data sources using annotations
 	expectedAnnotations := i.configMatchingAnnotations(instance, trillianUrl)
 	if !equality.Semantic.DeepDerivative(expectedAnnotations, secret.GetAnnotations()) {
-		return false, nil
+		return errSecretInvalid
 	}
 
-	// Secret is valid
-	return true, nil
+	return nil
 }
 
 // configMatchingAnnotations generates annotations that identify the data sources
