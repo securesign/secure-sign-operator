@@ -21,6 +21,7 @@ import (
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/monitoring"
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller"
@@ -50,15 +51,17 @@ import (
 // ctlogReconciler reconciles a CTlog object
 type ctlogReconciler struct {
 	client.Client
-	scheme   *runtime.Scheme
-	recorder record.EventRecorder
+	scheme             *runtime.Scheme
+	recorder           record.EventRecorder
+	monitoringRegistry *monitoring.ServiceMonitorRegistry
 }
 
-func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.EventRecorder) controller.Controller {
+func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.EventRecorder, monitoringRegistry *monitoring.ServiceMonitorRegistry) controller.Controller {
 	return &ctlogReconciler{
-		Client:   c,
-		scheme:   scheme,
-		recorder: recorder,
+		Client:             c,
+		scheme:             scheme,
+		recorder:           recorder,
+		monitoringRegistry: monitoringRegistry,
 	}
 }
 
@@ -114,7 +117,7 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		actions.NewRBACAction(),
 		actions.NewDeployAction(),
 		actions.NewServiceAction(),
-		actions.NewCreateMonitorAction(),
+		actions.NewCreateMonitorAction(r.monitoringRegistry),
 
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.CTlog](),
 
