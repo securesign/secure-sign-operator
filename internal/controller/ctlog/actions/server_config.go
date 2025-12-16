@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
@@ -17,6 +18,7 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels2 "k8s.io/apimachinery/pkg/labels"
@@ -26,6 +28,17 @@ import (
 const (
 	serverConfigResourceName = "ctlog-server-config"
 )
+
+// errSecretInvalid indicates the secret needs to be recreated (not a failure)
+var errSecretInvalid = errors.New("secret needs recreation")
+
+// Annotations used to track the data sources for server config secret
+var serverConfigAnnotations = []string{
+	labels.LabelNamespace + "/treeID",
+	labels.LabelNamespace + "/trillianUrl",
+	labels.LabelNamespace + "/rootCertificates",
+	labels.LabelNamespace + "/privateKeyRef",
+}
 
 func NewServerConfigAction() action.Action[*rhtasv1alpha1.CTlog] {
 	return &serverConfig{}
@@ -41,19 +54,8 @@ func (i serverConfig) Name() string {
 
 func (i serverConfig) CanHandle(_ context.Context, instance *rhtasv1alpha1.CTlog) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, ConfigCondition)
-
-	switch {
-	case c == nil:
-		return false
-	case !meta.IsStatusConditionTrue(instance.Status.Conditions, ConfigCondition):
-		return true
-	case instance.Status.ServerConfigRef == nil:
-		return true
-	case instance.Spec.ServerConfigRef != nil:
-		return !equality.Semantic.DeepEqual(instance.Spec.ServerConfigRef, instance.Status.ServerConfigRef)
-	default:
-		return instance.Generation != c.ObservedGeneration
-	}
+	// Always run Handle() to validate the config secret exists and is valid
+	return c != nil
 }
 
 func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) *action.Result {
@@ -62,8 +64,31 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	)
 
 	if instance.Spec.ServerConfigRef != nil {
+		// Validate that the custom secret is accessible
+		secret, err := kubernetes.GetSecret(i.Client, instance.Namespace, instance.Spec.ServerConfigRef.Name)
+		if err != nil {
+			return i.Error(ctx, fmt.Errorf("error accessing custom server config secret: %w", err), instance,
+				metav1.Condition{
+					Type:               ConfigCondition,
+					Status:             metav1.ConditionFalse,
+					Reason:             constants.Failure,
+					Message:            fmt.Sprintf("Error accessing custom server config secret: %s", instance.Spec.ServerConfigRef.Name),
+					ObservedGeneration: instance.Generation,
+				})
+		}
+		if secret.Data == nil || secret.Data[ctlogUtils.ConfigKey] == nil {
+			return i.Error(ctx, fmt.Errorf("custom server config secret is invalid"), instance,
+				metav1.Condition{
+					Type:               ConfigCondition,
+					Status:             metav1.ConditionFalse,
+					Reason:             constants.Failure,
+					Message:            fmt.Sprintf("Custom server config secret is missing '%s' key: %s", ctlogUtils.ConfigKey, instance.Spec.ServerConfigRef.Name),
+					ObservedGeneration: instance.Generation,
+				})
+		}
+
 		instance.Status.ServerConfigRef = instance.Spec.ServerConfigRef
-		i.Recorder.Event(instance, corev1.EventTypeNormal, "CTLogConfigUpdated", "CTLog config updated")
+		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigUpdated", "CTLog config updated: %s", instance.Spec.ServerConfigRef.Name)
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               ConfigCondition,
 			Status:             metav1.ConditionTrue,
@@ -74,6 +99,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		return i.StatusUpdate(ctx, instance)
 	}
 
+	// Validate prerequisites and normalize Trillian address before validation
 	switch {
 	case instance.Status.TreeID == nil:
 		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrTreeNotSpecified), instance)
@@ -86,6 +112,32 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	}
 
 	trillianUrl := fmt.Sprintf("%s:%d", instance.Spec.Trillian.Address, *instance.Spec.Trillian.Port)
+
+	c := meta.FindStatusCondition(instance.Status.Conditions, ConfigCondition)
+	isSpecChange := c != nil && c.ObservedGeneration != instance.Generation
+
+	// Validate existing secret before attempting recreation (only for hot updates, not spec changes)
+	if !isSpecChange && instance.Status.ServerConfigRef != nil && instance.Status.ServerConfigRef.Name != "" {
+		if err := i.validateExistingSecret(instance, trillianUrl); err != nil {
+			if errors.Is(err, errSecretInvalid) {
+				// Secret needs recreation - log and continue
+				i.Logger.Info("Server config secret needs recreation", "secret", instance.Status.ServerConfigRef.Name)
+				i.Recorder.Eventf(instance, corev1.EventTypeWarning, "CTLogConfigRecreate", "Config secret will be recreated: %s", instance.Status.ServerConfigRef.Name)
+			} else {
+				// API error - fail reconciliation
+				return i.Error(ctx, fmt.Errorf("error validating server config secret: %w", err), instance,
+					metav1.Condition{
+						Type:               ConfigCondition,
+						Status:             metav1.ConditionFalse,
+						Reason:             constants.Failure,
+						Message:            fmt.Sprintf("Error accessing config secret: %s", instance.Status.ServerConfigRef.Name),
+						ObservedGeneration: instance.Generation,
+					})
+			}
+		} else {
+			return i.Continue()
+		}
+	}
 
 	configLabels := labels.ForResource(ComponentName, DeploymentName, instance.Name, serverConfigResourceName)
 
@@ -133,10 +185,13 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		},
 	}
 
+	configAnnotations := i.configMatchingAnnotations(instance, trillianUrl)
+
 	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		newConfig,
 		ensure.ControllerReference[*corev1.Secret](instance, i.Client),
 		ensure.Labels[*corev1.Secret](slices.Collect(maps.Keys(configLabels)), configLabels),
+		ensure.Annotations[*corev1.Secret](serverConfigAnnotations, configAnnotations),
 		kubernetes.EnsureSecretData(true, cfg),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Server config: %w", err), instance,
@@ -151,7 +206,8 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 
 	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
 
-	i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigCreated", "Secret with ctlog configuration created: %s", newConfig.Name)
+	i.Logger.Info("Server config secret created", "secret", newConfig.Name)
+	i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigCreated", "Config secret created successfully: %s", newConfig.Name)
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               ConfigCondition,
 		Status:             metav1.ConditionTrue,
@@ -186,11 +242,11 @@ func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.CTlog
 		err = i.Client.Delete(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: partialConfig.Name, Namespace: partialConfig.Namespace}})
 		if err != nil {
 			i.Logger.Error(err, "unable to delete secret", "namespace", instance.Namespace, "name", partialConfig.Name)
-			i.Recorder.Eventf(instance, corev1.EventTypeWarning, "CTLogConfigDeleted", "Unable to delete secret: %s", partialConfig.Name)
+			i.Recorder.Eventf(instance, corev1.EventTypeWarning, "CTLogConfigCleanupFailed", "Unable to delete old config secret: %s", partialConfig.Name)
 			continue
 		}
 		i.Logger.Info("Remove invalid Secret with ctlog configuration", "Name", partialConfig.Name)
-		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigDeleted", "Secret with ctlog configuration deleted: %s", partialConfig.Name)
+		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigCleanedUp", "Old config secret deleted successfully: %s", partialConfig.Name)
 	}
 }
 
@@ -230,4 +286,55 @@ func (i serverConfig) handleRootCertificates(instance *rhtasv1alpha1.CTlog) ([]c
 	}
 
 	return certs, nil
+}
+
+// validateExistingSecret checks if the existing server config secret is valid.
+// Returns:
+//   - nil if the secret is valid
+//   - errSecretInvalid if the secret needs recreation (not a failure)
+//   - other error for API errors - reconciliation should fail
+func (i serverConfig) validateExistingSecret(instance *rhtasv1alpha1.CTlog, trillianUrl string) error {
+	secret, err := kubernetes.GetSecret(i.Client, instance.Namespace, instance.Status.ServerConfigRef.Name)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return errSecretInvalid
+		}
+		return err
+	}
+
+	// Check if the secret was generated from the same data sources using annotations
+	expectedAnnotations := i.configMatchingAnnotations(instance, trillianUrl)
+	if !equality.Semantic.DeepDerivative(expectedAnnotations, secret.GetAnnotations()) {
+		return errSecretInvalid
+	}
+
+	return nil
+}
+
+// configMatchingAnnotations generates annotations that identify the data sources
+// used to generate the server config secret.
+func (i serverConfig) configMatchingAnnotations(instance *rhtasv1alpha1.CTlog, trillianUrl string) map[string]string {
+	// Build a string representation of root certificate references
+	rootCertRefs := make([]string, 0, len(instance.Status.RootCertificates))
+	for _, ref := range instance.Status.RootCertificates {
+		rootCertRefs = append(rootCertRefs, fmt.Sprintf("%s/%s", ref.Name, ref.Key))
+	}
+
+	annotations := map[string]string{
+		labels.LabelNamespace + "/trillianUrl": trillianUrl,
+	}
+
+	if instance.Status.TreeID != nil {
+		annotations[labels.LabelNamespace+"/treeID"] = fmt.Sprintf("%d", *instance.Status.TreeID)
+	}
+
+	if len(rootCertRefs) > 0 {
+		annotations[labels.LabelNamespace+"/rootCertificates"] = strings.Join(rootCertRefs, ",")
+	}
+
+	if instance.Status.PrivateKeyRef != nil {
+		annotations[labels.LabelNamespace+"/privateKeyRef"] = fmt.Sprintf("%s/%s", instance.Status.PrivateKeyRef.Name, instance.Status.PrivateKeyRef.Key)
+	}
+
+	return annotations
 }

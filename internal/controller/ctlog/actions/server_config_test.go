@@ -57,9 +57,11 @@ func TestServerConfig_CanHandle(t *testing.T) {
 		{
 			name:                  "ConditionTrue: spec.serverConfigRef is nil and status.serverConfigRef is not nil",
 			status:                metav1.ConditionTrue,
-			canHandle:             false,
+			canHandle:             true,
 			serverConfigRef:       nil,
 			statusServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "config"},
+			observedGeneration:    1,
+			generation:            1,
 		},
 		{
 			name:                  "ConditionTrue: spec.serverConfigRef is nil and status.serverConfigRef is nil",
@@ -78,14 +80,14 @@ func TestServerConfig_CanHandle(t *testing.T) {
 		{
 			name:                  "ConditionTrue: spec.serverConfigRef == status.serverConfigRef",
 			status:                metav1.ConditionTrue,
-			canHandle:             false,
+			canHandle:             true, // Always true for periodic validation
 			serverConfigRef:       &rhtasv1alpha1.LocalObjectReference{Name: "config"},
 			statusServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "config"},
 		},
 		{
 			name:                  "ConditionTrue: observedGeneration == generation",
 			status:                metav1.ConditionTrue,
-			canHandle:             false,
+			canHandle:             true,
 			statusServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "config"},
 			observedGeneration:    1,
 			generation:            1,
@@ -182,6 +184,17 @@ func TestServerConfig_Handle(t *testing.T) {
 				status: rhtasv1alpha1.CTlogStatus{
 					ServerConfigRef: nil,
 				},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "config",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							ctlogUtils.ConfigKey: []byte("test-config"),
+						},
+					},
+				},
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
@@ -237,6 +250,17 @@ func TestServerConfig_Handle(t *testing.T) {
 				},
 				status: rhtasv1alpha1.CTlogStatus{
 					ServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "old_config"},
+				},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "new_config",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							ctlogUtils.ConfigKey: []byte("new-test-config"),
+						},
+					},
 				},
 			},
 			want: want{

@@ -200,3 +200,35 @@ func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertifi
 	}
 	return data, nil
 }
+
+func IsSecretDataValid(secretData map[string][]byte, expectedTrillianAddr string) bool {
+	if secretData == nil {
+		return false
+	}
+
+	configData, ok := secretData[ConfigKey]
+	if !ok || len(configData) == 0 {
+		return false
+	}
+
+	// Parse the protobuf text format configuration
+	var multiConfig configpb.LogMultiConfig
+	if err := prototext.Unmarshal(configData, &multiConfig); err != nil {
+		// Failed to parse - invalid configuration
+		return false
+	}
+
+	// Validate that at least one backend exists
+	if multiConfig.Backends == nil || multiConfig.Backends.Backend == nil || len(multiConfig.Backends.Backend) == 0 {
+		return false
+	}
+
+	// Check if any backend matches the expected Trillian address
+	for _, backend := range multiConfig.Backends.Backend {
+		if backend.BackendSpec == expectedTrillianAddr {
+			return true
+		}
+	}
+
+	return false
+}
