@@ -29,7 +29,7 @@ flowchart TB
 ## Steps
 ### Step 1: Configure Database for Trusted Artifact Signer 
 
-1- From your workstation, log in to the database by providing the regional endpoint, the port, and the user credentials:
+1- From your workstation, log in to the database as a superuser (or a user with CREATEDB privileges) by providing the regional endpoint, port, and user credentials:
 ```
 psql "host=<HOST> port=<PORT> user=<USER> sslmode=verify-full sslrootcert=<PATH_TO_CA_CERT>"
 ```
@@ -46,8 +46,8 @@ CREATE DATABASE trillian;
 
 3- Create a new database user named `trillian`, and set a PASSWORD for the newly created user:
 ```
-CREATE USER trillian WITH PASSWORD '<POSTGRES_PASSWORD>';
-GRANT ALL PRIVILEGES ON DATABASE trillian TO trillian;
+CREATE USER trillian WITH PASSWORD '<TRILLIAN_USER_PASSWORD>';
+ALTER DATABASE trillian OWNER TO trillian;
 ```
 
 4- Disconnect from the database:
@@ -74,7 +74,7 @@ oc login --token=TOKEN --server=SERVER_URL_AND_PORT
 2- Create a new secret containing the credentials for the Trillian database within the PostgreSQL instance which was created previously:
 ```
 oc create secret generic trillian-db-config \
-  --from-literal=postgresql-password="<POSTGRES_PASSWORD>" \
+  --from-literal=postgresql-password="<TRILLIAN_USER_PASSWORD>" \
   --from-literal=postgresql-database="trillian" \
   --from-literal=postgresql-user="trillian" \
   --from-literal=postgresql-port="<DB_PORT>" \
