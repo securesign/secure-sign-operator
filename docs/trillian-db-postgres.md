@@ -257,4 +257,11 @@ Once the operator is up, it will deploys the remaining RHTAS resources.
 ## Troubleshooting
 - If the pods still fail, ensure your PostgreSQL secret keys match exactly (e.g., `postgresql-host` not `mysql-host`).
 - Connection issues: Verify CA bundle in configMap and PostgreSQL TLS settings.
+- Stalled resources: If after scaling up the operator the remaining components are not created
+  (e.g., `Rekor`, `CTLog`, or `Tuf` CRs stay in `Creating`), delete the affected CRs to force reconciliation:
+  ```
+  oc delete rekor securesign-sample
+  oc delete ctlog securesign-sample
+  oc delete tuf securesign-sample
+  ```
 - Revert changes: Scale down operator, delete/edit the deployment back to MySQL defaults, or reinstall the CR.
