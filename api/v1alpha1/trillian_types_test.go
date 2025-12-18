@@ -14,6 +14,7 @@ import (
 )
 
 var _ = Describe("Trillian", func() {
+	const mysqlProvider = "mysql"
 
 	Context("TrillianSpec", func() {
 		It("can be created", func() {
@@ -201,6 +202,7 @@ var _ = Describe("Trillian", func() {
 							Namespace: "default",
 						},
 					}
+					expectedTrillianInstance.Spec.Db.Provider = mysqlProvider
 
 					Expect(k8sClient.Create(context.Background(), &trillianInstance)).To(Succeed())
 					fetched := &Trillian{}
@@ -262,6 +264,7 @@ var _ = Describe("Trillian", func() {
 					expectedTrillianInstance.Spec.Db.DatabaseSecretRef = &LocalObjectReference{
 						Name: "secret",
 					}
+					expectedTrillianInstance.Spec.Db.Provider = mysqlProvider
 
 					Expect(k8sClient.Create(context.Background(), &trillianInstance)).To(Succeed())
 					fetchedTrillian := &Trillian{}
