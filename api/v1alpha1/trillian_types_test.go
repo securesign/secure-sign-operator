@@ -47,7 +47,7 @@ var _ = Describe("Trillian", func() {
 
 		It("can be created with database secret", func() {
 			created := generateTrillianObject("trillian-database-secret")
-			created.Spec.Db.DatabaseSecretRef = &LocalObjectReference{
+			created.Spec.Db.DatabaseSecretRef = &DatabaseSecretRef{
 				Name: "database-secret-name",
 			}
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
@@ -87,17 +87,6 @@ var _ = Describe("Trillian", func() {
 						validObject.Spec.Db.Create = ptr.To(true)
 						validObject.Spec.Db.DatabaseSecretRef = nil
 						Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
-					})
-				})
-
-				It("false", func() {
-					By("databaseSecretRef is mandatory", func() {
-						invalidObject := generateTrillianObject("database-secret-2")
-						invalidObject.Spec.Db.Create = ptr.To(false)
-						invalidObject.Spec.Db.DatabaseSecretRef = nil
-						Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
-						Expect(k8sClient.Create(context.Background(), invalidObject)).
-							To(MatchError(ContainSubstring("databaseSecretRef cannot be empty")))
 					})
 				})
 			})
@@ -227,7 +216,7 @@ var _ = Describe("Trillian", func() {
 									StorageClass: "storage-class",
 									Size:         &storage,
 								},
-								DatabaseSecretRef: &LocalObjectReference{
+								DatabaseSecretRef: &DatabaseSecretRef{
 									Name: "secret",
 								},
 							},
@@ -252,14 +241,14 @@ var _ = Describe("Trillian", func() {
 						},
 						Spec: TrillianSpec{
 							Db: TrillianDB{
-								DatabaseSecretRef: &LocalObjectReference{
+								DatabaseSecretRef: &DatabaseSecretRef{
 									Name: "secret",
 								},
 							},
 						},
 					}
 
-					expectedTrillianInstance.Spec.Db.DatabaseSecretRef = &LocalObjectReference{
+					expectedTrillianInstance.Spec.Db.DatabaseSecretRef = &DatabaseSecretRef{
 						Name: "secret",
 					}
 

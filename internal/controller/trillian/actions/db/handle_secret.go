@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"strconv"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
@@ -27,22 +26,15 @@ import (
 )
 
 const (
-	port                   = 3306
-	host                   = "trillian-mysql"
-	user                   = "mysql"
-	databaseName           = "trillian"
+	annotationManagedDB    = labels.LabelNamespace + "/managed-db-connection"
 	dbConnectionResource   = "trillian-db-connection"
 	dbConnectionSecretName = "trillian-db-connection-"
-
-	annotationDatabase = labels.LabelNamespace + "/" + trillian.SecretDatabaseName
-	annotationUser     = labels.LabelNamespace + "/" + trillian.SecretUser
-	annotationPort     = labels.LabelNamespace + "/" + trillian.SecretPort
-	annotationHost     = labels.LabelNamespace + "/" + trillian.SecretHost
 )
 
-var managedAnnotations = []string{annotationDatabase, annotationUser, annotationPort, annotationHost}
-
-var ErrMissingDBConfiguration = errors.New("expecting external DB configuration")
+var (
+	managedAnnotations        = []string{annotationManagedDB}
+	ErrMissingDBConfiguration = errors.New("expecting external DB configuration")
+)
 
 func NewHandleSecretAction() action.Action[*rhtasv1alpha1.Trillian] {
 	return &handleSecretAction{}
@@ -58,6 +50,8 @@ func (i handleSecretAction) Name() string {
 
 func (i handleSecretAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	switch {
+	case instance.Spec.Db.Create != nil && !*instance.Spec.Db.Create:
+		return false
 	case instance.Status.Db.DatabaseSecretRef == nil:
 		return true
 	case !equality.Semantic.DeepDerivative(instance.Spec.Db.DatabaseSecretRef, instance.Status.Db.DatabaseSecretRef):
@@ -121,11 +115,13 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 	}
 
 	for _, partialSecret := range partialSecrets.Items {
-		// use first db-connection and remove all other
+		// use first managed db-connection and remove all others
 		if instance.Status.Db.DatabaseSecretRef == nil &&
 			equality.Semantic.DeepDerivative(i.secretAnnotations(), partialSecret.GetAnnotations()) {
-			instance.Status.Db.DatabaseSecretRef = &rhtasv1alpha1.LocalObjectReference{
-				Name: partialSecret.Name,
+			instance.Status.Db.DatabaseSecretRef = &rhtasv1alpha1.DatabaseSecretRef{
+				Name:            partialSecret.Name,
+				PasswordKey:     trillian.SecretPassword,
+				RootPasswordKey: trillian.SecretRootPassword,
 			}
 			continue
 		}
@@ -165,8 +161,10 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 			})
 	}
 
-	instance.Status.Db.DatabaseSecretRef = &rhtasv1alpha1.LocalObjectReference{
-		Name: dbSecret.Name,
+	instance.Status.Db.DatabaseSecretRef = &rhtasv1alpha1.DatabaseSecretRef{
+		Name:            dbSecret.Name,
+		PasswordKey:     trillian.SecretPassword,
+		RootPasswordKey: trillian.SecretRootPassword,
 	}
 	return i.StatusUpdate(ctx, instance)
 }
@@ -179,18 +177,11 @@ func (i handleSecretAction) defaultDBData() map[string][]byte {
 	return map[string][]byte{
 		trillian.SecretRootPassword: rootPass,
 		trillian.SecretPassword:     mysqlPass,
-		trillian.SecretDatabaseName: []byte(databaseName),
-		trillian.SecretUser:         []byte(user),
-		trillian.SecretPort:         []byte(strconv.Itoa(port)),
-		trillian.SecretHost:         []byte(host),
 	}
 }
 
 func (i handleSecretAction) secretAnnotations() map[string]string {
 	return map[string]string{
-		annotationDatabase: databaseName,
-		annotationUser:     user,
-		annotationPort:     strconv.Itoa(port),
-		annotationHost:     host,
+		annotationManagedDB: "true",
 	}
 }
