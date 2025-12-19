@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
@@ -139,55 +140,21 @@ func (i deployAction) ensureDbDeployment(instance *rhtasv1alpha1.Trillian, sa st
 		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, volumeName)
 		volumeMount.MountPath = "/var/lib/mysql"
 
-		// Env variables from secret trillian-mysql
-		userEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_USER")
-		userEnv.ValueFrom = &v1.EnvVarSource{
-			SecretKeyRef: &v1.SecretKeySelector{
-				Key: actions.SecretUser,
-				LocalObjectReference: v1.LocalObjectReference{
-					Name: instance.Status.Db.DatabaseSecretRef.Name,
-				},
-			},
-		}
+		// Env variables from secret DatabaseSecretRef.Name
+		keys := []string{actions.SecretUser, actions.SecretPassword, actions.SecretRootPassword, actions.SecretPort, actions.SecretDatabaseName}
+		for _, v := range keys {
+			temp := strings.ReplaceAll(v, "-", "_")
+			temp = strings.ToUpper(temp)
 
-		passwordEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_PASSWORD")
-		passwordEnv.ValueFrom = &v1.EnvVarSource{
-			SecretKeyRef: &v1.SecretKeySelector{
-				Key: actions.SecretPassword,
-				LocalObjectReference: v1.LocalObjectReference{
-					Name: instance.Status.Db.DatabaseSecretRef.Name,
+			userEnv := kubernetes.FindEnvByNameOrCreate(container, temp)
+			userEnv.ValueFrom = &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					Key: v,
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: instance.Status.Db.DatabaseSecretRef.Name,
+					},
 				},
-			},
-		}
-
-		rootPasswordEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_ROOT_PASSWORD")
-		rootPasswordEnv.ValueFrom = &v1.EnvVarSource{
-			SecretKeyRef: &v1.SecretKeySelector{
-				Key: actions.SecretRootPassword,
-				LocalObjectReference: v1.LocalObjectReference{
-					Name: instance.Status.Db.DatabaseSecretRef.Name,
-				},
-			},
-		}
-
-		portEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_PORT")
-		portEnv.ValueFrom = &v1.EnvVarSource{
-			SecretKeyRef: &v1.SecretKeySelector{
-				Key: actions.SecretPort,
-				LocalObjectReference: v1.LocalObjectReference{
-					Name: instance.Status.Db.DatabaseSecretRef.Name,
-				},
-			},
-		}
-
-		dbEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_DATABASE")
-		dbEnv.ValueFrom = &v1.EnvVarSource{
-			SecretKeyRef: &v1.SecretKeySelector{
-				Key: actions.SecretDatabaseName,
-				LocalObjectReference: v1.LocalObjectReference{
-					Name: instance.Status.Db.DatabaseSecretRef.Name,
-				},
-			},
+			}
 		}
 
 		if container.ReadinessProbe == nil {

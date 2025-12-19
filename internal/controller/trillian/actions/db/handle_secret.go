@@ -2,28 +2,25 @@ package db
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
 	"strconv"
 
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
+	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	utils2 "github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierros "k8s.io/apimachinery/pkg/api/errors"
-	apilabels "k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apilabels "k8s.io/apimachinery/pkg/labels"
 )
 
 const (
@@ -42,8 +39,6 @@ const (
 
 var managedAnnotations = []string{annotationDatabase, annotationUser, annotationPort, annotationHost}
 
-var ErrMissingDBConfiguration = errors.New("expecting external DB configuration")
-
 func NewHandleSecretAction() action.Action[*rhtasv1alpha1.Trillian] {
 	return &handleSecretAction{}
 }
@@ -58,7 +53,7 @@ func (i handleSecretAction) Name() string {
 
 func (i handleSecretAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Trillian) bool {
 	switch {
-	case instance.Status.Db.DatabaseSecretRef == nil:
+	case utils2.OptionalBool(instance.Spec.Db.Create) && instance.Status.Db.DatabaseSecretRef == nil:
 		return true
 	case !equality.Semantic.DeepDerivative(instance.Spec.Db.DatabaseSecretRef, instance.Status.Db.DatabaseSecretRef):
 		return true
@@ -70,26 +65,17 @@ func (i handleSecretAction) CanHandle(_ context.Context, instance *rhtasv1alpha1
 func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
 	// external database
 	if !utils2.OptionalBool(instance.Spec.Db.Create) {
-		if instance.Spec.Db.DatabaseSecretRef == nil {
-			return i.Error(ctx, reconcile.TerminalError(ErrMissingDBConfiguration), instance, metav1.Condition{
-				Type:    trillian.DbCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  state.Failure.String(),
-				Message: ErrMissingDBConfiguration.Error(),
-			})
-		}
-
+		// copy deprecated DatabaseSecretRef for backward compatibility
 		if !equality.Semantic.DeepEqual(instance.Spec.Db.DatabaseSecretRef, instance.Status.Db.DatabaseSecretRef) {
 			instance.Status.Db.DatabaseSecretRef = instance.Spec.Db.DatabaseSecretRef
-			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:    trillian.DbCondition,
-				Status:  metav1.ConditionTrue,
-				Reason:  state.Ready.String(),
-				Message: "Working with external DB",
-			})
-			return i.StatusUpdate(ctx, instance)
 		}
-		return i.Continue()
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    trillian.DbCondition,
+			Status:  metav1.ConditionTrue,
+			Reason:  state.Ready.String(),
+			Message: "Working with external DB",
+		})
+		return i.StatusUpdate(ctx, instance)
 	}
 
 	// managed database

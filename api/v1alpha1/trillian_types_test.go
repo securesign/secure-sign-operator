@@ -89,17 +89,6 @@ var _ = Describe("Trillian", func() {
 						Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 					})
 				})
-
-				It("false", func() {
-					By("databaseSecretRef is mandatory", func() {
-						invalidObject := generateTrillianObject("database-secret-2")
-						invalidObject.Spec.Db.Create = ptr.To(false)
-						invalidObject.Spec.Db.DatabaseSecretRef = nil
-						Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
-						Expect(k8sClient.Create(context.Background(), invalidObject)).
-							To(MatchError(ContainSubstring("databaseSecretRef cannot be empty")))
-					})
-				})
 			})
 
 			It("checking pvc name", func() {
@@ -288,6 +277,8 @@ func generateTrillianObject(name string) *Trillian {
 					Size:        &storage,
 					AccessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"},
 				},
+				Provider: "mysql",
+				Url:      "$(MYSQL_USER):$(MYSQL_PASSWORD)@tcp($(MYSQL_HOST):$(MYSQL_PORT))/$(MYSQL_DATABASE)",
 			},
 			LogServer: TrillianLogServer{
 				PodRequirements: PodRequirements{
