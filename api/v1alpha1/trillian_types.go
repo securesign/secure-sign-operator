@@ -21,10 +21,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type DatabaseSecretRef struct {
+	Name            string `json:"name"`
+	PasswordKey     string `json:"passwordKey"`
+	RootPasswordKey string `json:"rootPasswordKey,omitempty"`
+}
+
 // TrillianSpec defines the desired state of Trillian
 type TrillianSpec struct {
 	// Define your database connection
-	//+kubebuilder:validation:XValidation:rule=((!self.create && self.databaseSecretRef != null) || self.create),message=databaseSecretRef cannot be empty
 	//+kubebuilder:default:={create: true, pvc: {size: "5Gi", retain: true, accessModes: {ReadWriteOnce}}}
 	Db TrillianDB `json:"database,omitempty"`
 	// Enable Monitoring for Logsigner and Logserver
@@ -42,6 +47,9 @@ type TrillianSpec struct {
 	//+kubebuilder:default:=153600
 	//+optional
 	MaxRecvMessageSize *int64 `json:"maxRecvMessageSize,omitempty"`
+	//Configuration for authentication for key management services
+	//+optional
+	Auth *Auth `json:"auth,omitempty"`
 }
 
 type trillianService struct {
@@ -60,20 +68,23 @@ type TrillianDB struct {
 	//+kubebuilder:default:=true
 	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
 	Create *bool `json:"create"`
-	// Secret with values to be used to connect to an existing DB or to be used with the creation of a new DB
-	// mysql-host: The host of the MySQL server
-	// mysql-port: The port of the MySQL server
-	// mysql-user: The user to connect to the MySQL server
-	// mysql-password: The password to connect to the MySQL server
-	// mysql-database: The database to connect to
+	// Secret reference containing credentials for the database.
+	// The referenced Secret must contain the following keys:
+	// - passwordKey: Password for the database user
+	// - rootPasswordKey: (optional) Root password for database initialization or administration
 	//+optional
-	DatabaseSecretRef *LocalObjectReference `json:"databaseSecretRef,omitempty"`
+	DatabaseSecretRef *DatabaseSecretRef `json:"databaseSecretRef,omitempty"`
 	// PVC configuration
 	//+kubebuilder:default:={size: "5Gi", retain: true}
 	Pvc Pvc `json:"pvc,omitempty"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged database.
 	//+optional
 	TLS TLS `json:"tls,omitempty"`
+	// DB provider. Supported are mysql.
+	//+kubebuilder:validation:Enum={mysql}
+	Provider string `json:"provider,omitempty"`
+	// DB connection URL.
+	Url string `json:"url,omitempty"`
 }
 
 // TrillianStatus defines the observed state of Trillian
@@ -98,6 +109,7 @@ type Trillian struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	//+kubebuilder:validation:XValidation:rule=(self.database.create || self.auth != null),message=auth must be set when database.create is false
 	Spec   TrillianSpec   `json:"spec,omitempty"`
 	Status TrillianStatus `json:"status,omitempty"`
 }

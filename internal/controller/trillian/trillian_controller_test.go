@@ -117,7 +117,7 @@ var _ = Describe("Trillian controller", func() {
 			found := &v1alpha1.Trillian{}
 
 			By("Database secret created")
-			Eventually(func(g Gomega) *v1alpha1.LocalObjectReference {
+			Eventually(func(g Gomega) *v1alpha1.DatabaseSecretRef {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Db.DatabaseSecretRef
 			}).Should(Not(BeNil()))
