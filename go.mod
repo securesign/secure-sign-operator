@@ -15,7 +15,6 @@ require (
 	github.com/operator-framework/api v0.36.0
 	github.com/operator-framework/operator-lib v0.19.0
 	github.com/robfig/cron/v3 v3.0.1
-	golang.org/x/net v0.47.0
 	google.golang.org/protobuf v1.36.10
 	k8s.io/api v0.34.2
 	k8s.io/apimachinery v0.34.2
@@ -84,6 +83,7 @@ require (
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/oauth2 v0.33.0 // indirect
 	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect

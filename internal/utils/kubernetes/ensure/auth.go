@@ -15,8 +15,13 @@ const (
 
 func Auth(containerName string, auth *v1alpha1.Auth) func(spec *core.PodSpec) error {
 	return func(templateSpec *core.PodSpec) error {
+		container := kubernetes.FindContainerByNameOrCreate(templateSpec, containerName)
+		return ContainerAuth(container, auth)(templateSpec)
+	}
+}
+func ContainerAuth(container *core.Container, auth *v1alpha1.Auth) func(spec *core.PodSpec) error {
+	return func(templateSpec *core.PodSpec) error {
 		if auth != nil {
-			container := kubernetes.FindContainerByNameOrCreate(templateSpec, containerName)
 			for _, env := range auth.Env {
 				e := kubernetes.FindEnvByNameOrCreate(container, env.Name)
 				if !equality.Semantic.DeepEqual(env, e) {

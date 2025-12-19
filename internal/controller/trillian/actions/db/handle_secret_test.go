@@ -7,22 +7,20 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
+	testAction "github.com/securesign/operator/internal/testing/action"
 	core "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	testAction "github.com/securesign/operator/internal/testing/action"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestHandleSecret_CanHandle(t *testing.T) {
@@ -45,6 +43,11 @@ func TestHandleSecret_CanHandle(t *testing.T) {
 			name:      "ConditionTrue: status.db.databaseSecretRef == nil",
 			condition: metav1.ConditionTrue,
 			instance: rhtasv1alpha1.Trillian{
+				Spec: rhtasv1alpha1.TrillianSpec{
+					Db: rhtasv1alpha1.TrillianDB{
+						Create: ptr.To(true),
+					},
+				},
 				Status: rhtasv1alpha1.TrillianStatus{
 					Db: rhtasv1alpha1.TrillianDB{
 						DatabaseSecretRef: nil,
@@ -52,6 +55,23 @@ func TestHandleSecret_CanHandle(t *testing.T) {
 				},
 			},
 			canHandle: true,
+		},
+		{
+			name:      "external: ConditionTrue: status.db.databaseSecretRef == nil",
+			condition: metav1.ConditionTrue,
+			instance: rhtasv1alpha1.Trillian{
+				Spec: rhtasv1alpha1.TrillianSpec{
+					Db: rhtasv1alpha1.TrillianDB{
+						Create: ptr.To(false),
+					},
+				},
+				Status: rhtasv1alpha1.TrillianStatus{
+					Db: rhtasv1alpha1.TrillianDB{
+						DatabaseSecretRef: nil,
+					},
+				},
+			},
+			canHandle: false,
 		},
 		{
 			name:      "ConditionTrue: status.db.databaseSecretRef != nil",
@@ -150,7 +170,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 		want want
 	}{
 		{
-			name: "external: missing spec.db.databaseSecretRef",
+			name: "external: missing spec.db.databaseSecretRef - may use Auth or without login",
 			env: env{
 				spec: rhtasv1alpha1.TrillianSpec{
 					Db: rhtasv1alpha1.TrillianDB{
@@ -160,14 +180,16 @@ func TestHandleSecret_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.Error(reconcile.TerminalError(ErrMissingDBConfiguration)),
+				result: testAction.StatusUpdate(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
-					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
-					g.Expect(condition.Reason).Should(Equal(state.Failure.String()))
+					g.Expect(condition.Status).Should(Equal(metav1.ConditionTrue))
+					g.Expect(condition.Reason).Should(Equal(constants.ReadyCondition))
+
+					g.Expect(instance.Status.Db.DatabaseSecretRef).Should(BeNil())
 
 					g.Expect(events).To(BeEmpty())
 				},
@@ -250,13 +272,14 @@ func TestHandleSecret_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.Continue(),
+				result: testAction.StatusUpdate(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
 					g.Expect(instance.Status.Db.DatabaseSecretRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.Db.DatabaseSecretRef.Name).To(Equal("connection"))
+					g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, actions.DbCondition)).To(BeTrue())
 
 					g.Expect(events).To(BeEmpty())
 				},
