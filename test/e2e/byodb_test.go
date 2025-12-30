@@ -1,4 +1,4 @@
-//go:build integration
+//go:build integrationbydb
 
 package e2e
 
@@ -48,6 +48,50 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 		s = securesign.Create(namespace.Name, "test",
 			securesign.WithDefaults(),
 			securesign.WithExternalDatabase(dbAuth),
+			func(v *v1alpha1.Securesign) {
+				v.Spec.Trillian.Auth = &v1alpha1.Auth{
+					Env: []v1.EnvVar{
+						{
+							Name: "MYSQL_USER",
+							ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: dbAuth,
+								},
+								Key: "mysql-user",
+							}},
+						},
+						{
+							Name: "MYSQL_PASSWORD",
+							ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: dbAuth,
+								},
+								Key: "mysql-password",
+							}},
+						},
+						{
+							Name: "MYSQL_DB",
+							ValueFrom: &v1.EnvVarSource{SecretKeyRef: &v1.SecretKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: dbAuth,
+								},
+								Key: "mysql-database",
+							}},
+						},
+						{
+							Name: "NAMESPACE",
+							ValueFrom: &v1.EnvVarSource{FieldRef: &v1.ObjectFieldSelector{
+								APIVersion: "v1",
+								FieldPath:  "metadata.namespace",
+							}},
+						},
+					},
+				}
+
+				v.Spec.Trillian.Db.Create = ptr.To(false)
+				v.Spec.Trillian.Db.Provider = "mysql"
+				v.Spec.Trillian.Db.Url = dsn
+			},
 			func(v *v1alpha1.Securesign) {
 				v.Spec.Rekor.Auth = &v1alpha1.Auth{
 					Env: []v1.EnvVar{

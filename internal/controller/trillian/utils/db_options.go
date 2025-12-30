@@ -2,7 +2,9 @@ package trillianUtils
 
 import (
 	"fmt"
-	"net/url"
+	"net"
+
+	"github.com/go-sql-driver/mysql"
 )
 
 type MySQLOptions struct {
@@ -15,41 +17,26 @@ type MySQLOptions struct {
 }
 
 func ParseMySQL(dsn string) (*MySQLOptions, error) {
-	u, err := url.Parse(dsn)
+	cfg, err := mysql.ParseDSN(dsn)
 	if err != nil {
 		return nil, fmt.Errorf("can't parse mysql dsn: %w", err)
 	}
 
-	if u.Hostname() == "" {
-		return nil, fmt.Errorf("mysql host is empty")
-	}
-
 	opts := &MySQLOptions{
-		Host: u.Hostname(),
+		User:     cfg.User,
+		Password: cfg.Passwd,
+		Host:     cfg.Addr,
+		Database: cfg.DBName,
 	}
 
-	if u.Port() != "" {
-		opts.Port = u.Port()
+	// Split host:port if present
+	if host, port, err := net.SplitHostPort(cfg.Addr); err == nil {
+		opts.Host = host
+		opts.Port = port
 	}
 
-	// Extract username/password
-	if u.User != nil {
-		opts.User = u.User.Username()
-
-		if p, ok := u.User.Password(); ok {
-			opts.Password = p
-		}
-	}
-
-	// Remove leading "/"
-	if db := u.Path; len(db) > 1 {
-		opts.Database = db[1:]
-	}
-
-	// TLS based on scheme or query parameters
-	if u.Scheme == "mysqls" {
-		opts.TlsEnabled = true
-	} else if q := u.Query().Get("tls"); q == "true" || q == "1" {
+	// TLS enabled if configured
+	if cfg.TLSConfig != "" {
 		opts.TlsEnabled = true
 	}
 

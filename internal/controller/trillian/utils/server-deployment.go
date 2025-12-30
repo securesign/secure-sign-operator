@@ -32,6 +32,7 @@ func EnsureServerDeployment(instance *v1alpha1.Trillian, labels map[string]strin
 		deployment.Proxy(),
 		deployment.TrustedCA(instance.GetTrustedCA(), initContainerName, actions.LogserverDeploymentName),
 		deployment.Auth(actions.LogserverDeploymentName, instance.Spec.Auth),
+		deployment.AuthInit(initContainerName, instance.Spec.Auth),
 	}
 }
 
@@ -49,6 +50,7 @@ func EnsureSignerDeployment(instance *v1alpha1.Trillian, labels map[string]strin
 		deployment.Proxy(),
 		deployment.TrustedCA(instance.GetTrustedCA(), initContainerName, actions.LogsignerDeploymentName),
 		deployment.Auth(actions.LogsignerDeploymentName, instance.Spec.Auth),
+		deployment.AuthInit(initContainerName, instance.Spec.Auth),
 	}
 }
 
@@ -156,21 +158,37 @@ func ensureDeployment(instance *v1alpha1.Trillian, image string, name string, sa
 func ensureMysqlParams(isInitContainer bool) func(*v1alpha1.Trillian, *MySQLOptions, *core.Container) error {
 	return func(instance *v1alpha1.Trillian, options *MySQLOptions, container *core.Container) error {
 
-		hostEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_HOSTNAME")
-		hostEnv.Value = options.Host
+		var err error
+		options.Host, err = EnsureEnvVar(container, envMysqlHost, options.Host)
+		if err != nil {
+			return err
+		}
 
-		portEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_PORT")
-		portEnv.Value = options.Port
+		options.Port, err = EnsureEnvVar(container, envMysqlPort, options.Port)
+		if err != nil {
+			return err
+		}
 
 		if isInitContainer {
 			container.Command = []string{
 				"sh",
 				"-c",
-				"until nc -z -v -w30 $MYSQL_HOSTNAME $MYSQL_PORT; do echo \"Waiting for MySQL to start\"; sleep 5; done;",
+				`until nc -z -v -w30 "$(eval echo "$MYSQL_HOSTNAME")" "$MYSQL_PORT"; do
+					echo "Waiting for MySQL to start"
+					sleep 5
+				done`,
 			}
 		} else {
-			userEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_USER")
-			userEnv.Value = options.User
+
+			options.User, err = EnsureEnvVar(container, envMysqlUser, options.User)
+			if err != nil {
+				return err
+			}
+
+			options.Database, err = EnsureEnvVar(container, envMysqlDatabase, options.Database)
+			if err != nil {
+				return err
+			}
 
 			if instance.Status.Db.DatabaseSecretRef != nil {
 				passwordEnvName, ok := ExtractEnvVarName(options.Password)
@@ -188,15 +206,21 @@ func ensureMysqlParams(isInitContainer bool) func(*v1alpha1.Trillian, *MySQLOpti
 				}
 			}
 
-			dbEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_DATABASE")
-			dbEnv.Value = options.Database
-
+			mysqlURI := fmt.Sprintf(
+				"%s:%s@tcp(%s:%s)/%s",
+				options.User,
+				options.Password,
+				options.Host,
+				options.Port,
+				options.Database,
+			)
+			if instance.Spec.Db.Url != "" {
+				mysqlURI = instance.Spec.Db.Url
+			}
 			container.Args = append([]string{
 				"--storage_system=mysql",
 				"--quota_system=mysql",
-				fmt.Sprintf(
-					"--mysql_uri=$(MYSQL_USER):%s@tcp($(MYSQL_HOSTNAME):$(MYSQL_PORT))/$(MYSQL_DATABASE)", options.Password,
-				),
+				"--mysql_uri=" + mysqlURI,
 				"--mysql_max_conns=30",
 				"--mysql_max_idle_conns=10",
 			}, container.Args...)

@@ -37,6 +37,13 @@ func Auth(containerName string, auth *v1alpha1.Auth) func(dp *v1.Deployment) err
 	}
 }
 
+// AuthInit mounts v1alpha1.Auth credentials into init containers
+func AuthInit(containerName string, auth *v1alpha1.Auth) func(dp *v1.Deployment) error {
+	return func(dp *v1.Deployment) error {
+		return ensure.AuthInit(containerName, auth)(&dp.Spec.Template.Spec)
+	}
+}
+
 func PodRequirements(requirements v1alpha1.PodRequirements, containerName string) func(*v1.Deployment) error {
 	return func(deployment *v1.Deployment) error {
 		deployment.Spec.Replicas = requirements.Replicas

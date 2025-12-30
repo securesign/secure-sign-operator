@@ -13,29 +13,50 @@ const (
 	AuthMountPath  = constants.SecretMountPath + "/auth"
 )
 
+func applyAuthToContainer(templateSpec *core.PodSpec, container *core.Container, auth *v1alpha1.Auth) {
+	for _, env := range auth.Env {
+		e := kubernetes.FindEnvByNameOrCreate(container, env.Name)
+		if !equality.Semantic.DeepEqual(env, e) {
+			env.DeepCopyInto(e)
+		}
+	}
+
+	authProjected := kubernetes.FindVolumeByNameOrCreate(templateSpec, authVolumeName)
+	if authProjected.Projected == nil {
+		authProjected.Projected = &core.ProjectedVolumeSource{}
+	}
+
+	for _, secret := range auth.SecretMount {
+		findSecretProjectedVolumeByNameOrCreate(authProjected.Projected, secret.Name)
+	}
+
+	vm := kubernetes.FindVolumeMountByNameOrCreate(container, authVolumeName)
+	vm.MountPath = AuthMountPath
+	vm.ReadOnly = true
+}
+
 func Auth(containerName string, auth *v1alpha1.Auth) func(spec *core.PodSpec) error {
 	return func(templateSpec *core.PodSpec) error {
-		if auth != nil {
-			container := kubernetes.FindContainerByNameOrCreate(templateSpec, containerName)
-			for _, env := range auth.Env {
-				e := kubernetes.FindEnvByNameOrCreate(container, env.Name)
-				if !equality.Semantic.DeepEqual(env, e) {
-					env.DeepCopyInto(e)
-				}
-			}
-			authProjected := kubernetes.FindVolumeByNameOrCreate(templateSpec, authVolumeName)
-			if authProjected.Projected == nil {
-				authProjected.Projected = &core.ProjectedVolumeSource{}
-			}
-
-			for _, secret := range auth.SecretMount {
-				findSecretProjectedVolumeByNameOrCreate(authProjected.Projected, secret.Name)
-			}
-
-			vm := kubernetes.FindVolumeMountByNameOrCreate(container, authVolumeName)
-			vm.MountPath = AuthMountPath
-			vm.ReadOnly = true
+		if auth == nil {
+			return nil
 		}
+
+		container := kubernetes.FindContainerByNameOrCreate(templateSpec, containerName)
+		applyAuthToContainer(templateSpec, container, auth)
+
+		return nil
+	}
+}
+
+func AuthInit(containerName string, auth *v1alpha1.Auth) func(spec *core.PodSpec) error {
+	return func(templateSpec *core.PodSpec) error {
+		if auth == nil {
+			return nil
+		}
+
+		initContainer := kubernetes.FindInitContainerByNameOrCreate(templateSpec, containerName)
+		applyAuthToContainer(templateSpec, initContainer, auth)
+
 		return nil
 	}
 }
