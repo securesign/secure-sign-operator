@@ -277,6 +277,7 @@ func generateTrillianObject(name string) *Trillian {
 					Size:        &storage,
 					AccessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"},
 				},
+				Provider: "mysql",
 			},
 			LogServer: TrillianLogServer{
 				PodRequirements: PodRequirements{
