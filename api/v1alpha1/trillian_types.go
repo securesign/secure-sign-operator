@@ -82,8 +82,11 @@ type TrillianDB struct {
 	TLS TLS `json:"tls,omitempty"`
 	// DB provider. Supported are mysql.
 	//+kubebuilder:validation:Enum={mysql}
+	//+kubebuilder:default:=mysql
+	//+optional
 	Provider string `json:"provider,omitempty"`
 	// DB connection URL.
+	//+optional
 	Url string `json:"url,omitempty"`
 }
 

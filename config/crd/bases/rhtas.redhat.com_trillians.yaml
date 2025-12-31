@@ -265,6 +265,7 @@ spec:
                     - passwordKey
                     type: object
                   provider:
+                    default: mysql
                     description: DB provider. Supported are mysql.
                     enum:
                     - mysql
@@ -2649,6 +2650,7 @@ spec:
                     - passwordKey
                     type: object
                   provider:
+                    default: mysql
                     description: DB provider. Supported are mysql.
                     enum:
                     - mysql
