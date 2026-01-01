@@ -54,6 +54,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/action/monitoring"
 	"github.com/securesign/operator/internal/controller/ctlog"
 	"github.com/securesign/operator/internal/controller/fulcio"
 	"github.com/securesign/operator/internal/controller/rekor"
@@ -61,6 +62,7 @@ import (
 	"github.com/securesign/operator/internal/controller/trillian"
 	"github.com/securesign/operator/internal/controller/tsa"
 	"github.com/securesign/operator/internal/controller/tuf"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -76,6 +78,7 @@ func init() {
 	utilruntime.Must(v1.AddToScheme(scheme))
 	utilruntime.Must(configv1.AddToScheme(scheme))
 	utilruntime.Must(consolev1.AddToScheme(scheme))
+	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -206,14 +209,35 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupController("securesign", securesign.NewReconciler, mgr)
-	setupController("fulcio", fulcio.NewReconciler, mgr)
-	setupController("trillian", trillian.NewReconciler, mgr)
-	setupController("rekor", rekor.NewReconciler, mgr)
-	setupController("tuf", tuf.NewReconciler, mgr)
-	setupController("ctlog", ctlog.NewReconciler, mgr)
-	setupController("tsa", tsa.NewReconciler, mgr)
+	monitoringRegistry := monitoring.NewRegistry(
+		mgr.GetClient(),
+		mgr.GetEventRecorderFor("servicemmonitor-watcher"),
+		setupLog,
+	)
+
+	setupController("securesign", securesign.NewReconciler, mgr, monitoringRegistry)
+	setupController("fulcio", fulcio.NewReconciler, mgr, monitoringRegistry)
+	setupController("trillian", trillian.NewReconciler, mgr, monitoringRegistry)
+	setupController("rekor", rekor.NewReconciler, mgr, monitoringRegistry)
+	setupController("tuf", tuf.NewReconciler, mgr, monitoringRegistry)
+	setupController("ctlog", ctlog.NewReconciler, mgr, monitoringRegistry)
+	setupController("tsa", tsa.NewReconciler, mgr, monitoringRegistry)
 	//+kubebuilder:scaffold:builder
+
+	// Setup CRD watcher for ServiceMonitor availability
+	crdWatcher, err := monitoring.NewCRDWatcher(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		monitoringRegistry,
+	)
+	if err != nil {
+		setupLog.Error(err, "unable to create CRD watcher")
+		os.Exit(1)
+	}
+	if err := crdWatcher.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to setup CRD watcher")
+		os.Exit(1)
+	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
@@ -240,11 +264,12 @@ func main() {
 	}
 }
 
-func setupController(name string, constructor controller.Constructor, manager ctrl.Manager) {
+func setupController(name string, constructor controller.Constructor, manager ctrl.Manager, monitoringRegistry *monitoring.ServiceMonitorRegistry) {
 	if err := constructor(
 		manager.GetClient(),
 		manager.GetScheme(),
 		manager.GetEventRecorderFor(name+"-controller"),
+		monitoringRegistry,
 	).SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", name)
 		os.Exit(1)

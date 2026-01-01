@@ -22,6 +22,7 @@ import (
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/monitoring"
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller"
@@ -48,7 +49,7 @@ type tufReconciler struct {
 	recorder record.EventRecorder
 }
 
-func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.EventRecorder) controller.Controller {
+func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.EventRecorder, _ *monitoring.ServiceMonitorRegistry) controller.Controller {
 	return &tufReconciler{
 		Client:   c,
 		scheme:   scheme,
