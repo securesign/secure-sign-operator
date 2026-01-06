@@ -47,7 +47,7 @@ var _ = Describe("Trillian", func() {
 
 		It("can be created with database secret", func() {
 			created := generateTrillianObject("trillian-database-secret")
-			created.Spec.Db.DatabaseSecretRef = &DatabaseSecretRef{
+			created.Spec.Db.DatabaseSecretRef = &LocalObjectReference{
 				Name: "database-secret-name",
 			}
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
@@ -216,7 +216,7 @@ var _ = Describe("Trillian", func() {
 									StorageClass: "storage-class",
 									Size:         &storage,
 								},
-								DatabaseSecretRef: &DatabaseSecretRef{
+								DatabaseSecretRef: &LocalObjectReference{
 									Name: "secret",
 								},
 							},
@@ -241,14 +241,14 @@ var _ = Describe("Trillian", func() {
 						},
 						Spec: TrillianSpec{
 							Db: TrillianDB{
-								DatabaseSecretRef: &DatabaseSecretRef{
+								DatabaseSecretRef: &LocalObjectReference{
 									Name: "secret",
 								},
 							},
 						},
 					}
 
-					expectedTrillianInstance.Spec.Db.DatabaseSecretRef = &DatabaseSecretRef{
+					expectedTrillianInstance.Spec.Db.DatabaseSecretRef = &LocalObjectReference{
 						Name: "secret",
 					}
 

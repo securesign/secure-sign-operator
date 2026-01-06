@@ -95,7 +95,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 func (i deployAction) ensureDbDeployment(instance *rhtasv1alpha1.Trillian, sa string, labels map[string]string) func(deployment *v2.Deployment) error {
 	return func(dp *v2.Deployment) error {
 		switch {
-		case instance.Status.Db.DatabaseSecretRef == nil:
+		case instance.Status.Db.DatabaseSecretRef == nil && instance.Status.Db.DatabasePasswordSecretRef == nil:
 			{
 				return errors.New("reference to database secret is not set")
 			}
@@ -140,8 +140,61 @@ func (i deployAction) ensureDbDeployment(instance *rhtasv1alpha1.Trillian, sa st
 		volumeMount.MountPath = "/var/lib/mysql"
 
 		// Env variables from secret DatabaseSecretRef.Name
-		if err := trillianUtils.EnsureDB(instance, ensureMysqlEnvs())(container); err != nil {
-			return err
+		if instance.Status.Db.DatabaseSecretRef == nil {
+			if err := trillianUtils.EnsureDB(instance, ensureMysqlEnvs())(container); err != nil {
+				return err
+			}
+		} else {
+			// Only when DatabaseSecretRef is not empty (backward compatibility)
+			userEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_USER")
+			userEnv.ValueFrom = &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					Key: actions.SecretUser,
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: instance.Status.Db.DatabaseSecretRef.Name,
+					},
+				},
+			}
+
+			passwordEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_PASSWORD")
+			passwordEnv.ValueFrom = &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					Key: actions.SecretPassword,
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: instance.Status.Db.DatabaseSecretRef.Name,
+					},
+				},
+			}
+
+			rootPasswordEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_ROOT_PASSWORD")
+			rootPasswordEnv.ValueFrom = &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					Key: actions.SecretRootPassword,
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: instance.Status.Db.DatabaseSecretRef.Name,
+					},
+				},
+			}
+
+			portEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_PORT")
+			portEnv.ValueFrom = &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					Key: actions.SecretPort,
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: instance.Status.Db.DatabaseSecretRef.Name,
+					},
+				},
+			}
+
+			dbEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_DATABASE")
+			dbEnv.ValueFrom = &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					Key: actions.SecretDatabaseName,
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: instance.Status.Db.DatabaseSecretRef.Name,
+					},
+				},
+			}
 		}
 
 		if container.ReadinessProbe == nil {
@@ -175,9 +228,9 @@ func ensureMysqlEnvs() func(*rhtasv1alpha1.Trillian, *trillianUtils.MySQLOptions
 		passwordEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_PASSWORD")
 		passwordEnv.ValueFrom = &v1.EnvVarSource{
 			SecretKeyRef: &v1.SecretKeySelector{
-				Key: instance.Status.Db.DatabaseSecretRef.PasswordKey,
+				Key: actions.SecretPassword,
 				LocalObjectReference: v1.LocalObjectReference{
-					Name: instance.Status.Db.DatabaseSecretRef.Name,
+					Name: instance.Status.Db.DatabasePasswordSecretRef.Name,
 				},
 			},
 		}
@@ -185,9 +238,9 @@ func ensureMysqlEnvs() func(*rhtasv1alpha1.Trillian, *trillianUtils.MySQLOptions
 		rootPasswordEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_ROOT_PASSWORD")
 		rootPasswordEnv.ValueFrom = &v1.EnvVarSource{
 			SecretKeyRef: &v1.SecretKeySelector{
-				Key: instance.Status.Db.DatabaseSecretRef.RootPasswordKey,
+				Key: actions.SecretRootPassword,
 				LocalObjectReference: v1.LocalObjectReference{
-					Name: instance.Status.Db.DatabaseSecretRef.Name,
+					Name: instance.Status.Db.DatabasePasswordSecretRef.Name,
 				},
 			},
 		}

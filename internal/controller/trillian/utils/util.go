@@ -64,7 +64,7 @@ func defaultMysqlDB(instance *rhtasv1alpha1.Trillian, container *v1.Container) *
 		User:       User,
 		TlsEnabled: instance.Status.Db.TLS.CertRef != nil,
 	}
-	if instance.Status.Db.DatabaseSecretRef != nil {
+	if instance.Status.Db.DatabasePasswordSecretRef != nil {
 		// use env alias to avoid plain-text printing
 		options.Password = fmt.Sprintf("$(%s)", envMysqlPassword)
 

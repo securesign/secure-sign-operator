@@ -14,7 +14,16 @@ spec:
       enabled: true
   trillian:
     database:
-      create: true
+      create: false
+      provider: mysql
+      url: trillian:$(MYSQL_PASSWORD)@tcp(database-1.c3aymq248jlv.eu-north-1.rds.amazonaws.com:3306)/trillian
+    auth:
+      env:
+      - name: MYSQL_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: trillian-db-secret
+            key: mysql-password
     monitoring:
       enabled: true
   fulcio:
