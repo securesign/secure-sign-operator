@@ -42,6 +42,8 @@ type TrillianSpec struct {
 	//+kubebuilder:default:=153600
 	//+optional
 	MaxRecvMessageSize *int64 `json:"maxRecvMessageSize,omitempty"`
+
+	ServiceAccountRequirements `json:",inline"`
 }
 
 type trillianService struct {

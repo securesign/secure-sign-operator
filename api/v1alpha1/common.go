@@ -174,3 +174,9 @@ type PodRequirements struct {
 	Resources   *core.ResourceRequirements `json:"resources,omitempty"`
 	Tolerations []core.Toleration          `json:"tolerations,omitempty"`
 }
+
+type ServiceAccountRequirements struct {
+	// ImagePullSecrets is an optional list of references to secrets for pulling container images.
+	//+optional
+	ImagePullSecrets []core.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+}

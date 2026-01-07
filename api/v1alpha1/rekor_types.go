@@ -58,6 +58,8 @@ type RekorSpec struct {
 	//+kubebuilder:default:=10485760
 	//+optional
 	MaxRequestBodySize *int64 `json:"maxRequestBodySize,omitempty"`
+
+	ServiceAccountRequirements `json:",inline"`
 }
 
 // RekorAttestations defines the configuration for storing attestations.
