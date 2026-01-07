@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/state"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -142,7 +143,7 @@ var _ = Describe("TimestampAuthority Controller", func() {
 			By("Status conditions are initialized")
 			Eventually(func(g Gomega) bool {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
+				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
 			}).Should(BeTrue())
 
 			By("Tsa signer should be resolved")
@@ -168,13 +169,13 @@ var _ = Describe("TimestampAuthority Controller", func() {
 			By("Should be in a creating phase")
 			Eventually(func(g Gomega) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}).Should(Equal(constants.Creating))
+				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
+			}).Should(Equal(state.Creating.String()))
 
 			By("NTP monitoring should be resolved")
 			Eventually(func(g Gomega) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Message
+				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Message
 			}).Should(Equal("Waiting for deployment to be ready"))
 
 			By("NTP monitoring config should be created")
@@ -210,7 +211,7 @@ var _ = Describe("TimestampAuthority Controller", func() {
 			By("Waiting until Timestamp Authority instance is Ready")
 			Eventually(func(g Gomega) bool {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
+				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())
 
 		})

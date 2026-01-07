@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/securesign/operator/internal/action"
-	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/utils/ptr"
 
@@ -223,7 +223,7 @@ func TestResolvePubKey_Handle(t *testing.T) {
 					Conditions: []metav1.Condition{
 						{
 							Type:   actions.ServerCondition,
-							Reason: constants.Initialize,
+							Reason: state.Initialize.String(),
 							Status: metav1.ConditionFalse,
 						},
 					},

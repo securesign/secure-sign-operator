@@ -12,6 +12,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
@@ -34,9 +35,9 @@ func (i generatePasswordAction) Name() string {
 }
 
 func (i generatePasswordAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return (c.Reason == constants.Pending || c.Reason == constants.Ready) &&
-		instance.Status.SearchIndex.DbPasswordRef == nil && enabled(instance)
+	return enabled(instance) &&
+		instance.Status.SearchIndex.DbPasswordRef == nil &&
+		state.FromInstance(instance, constants.ReadyCondition) >= state.Pending
 }
 
 func (i generatePasswordAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
@@ -60,7 +61,7 @@ func (i generatePasswordAction) Handle(ctx context.Context, instance *rhtasv1alp
 			metav1.Condition{
 				Type:    actions.RedisCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
+				Reason:  state.Failure.String(),
 				Message: err.Error(),
 			},
 		)
@@ -74,7 +75,7 @@ func (i generatePasswordAction) Handle(ctx context.Context, instance *rhtasv1alp
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               actions.RedisCondition,
 		Status:             metav1.ConditionFalse,
-		Reason:             constants.Pending,
+		Reason:             state.Pending.String(),
 		Message:            "Redis password created",
 		ObservedGeneration: instance.Generation,
 	})

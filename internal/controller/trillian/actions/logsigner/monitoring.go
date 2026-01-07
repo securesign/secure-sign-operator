@@ -11,9 +11,9 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -31,8 +31,7 @@ func (i monitoringAction) Name() string {
 }
 
 func (i monitoringAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Trillian) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && instance.Spec.Monitoring.Enabled
+	return instance.Spec.Monitoring.Enabled && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
@@ -65,7 +64,7 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tr
 			metav1.Condition{
 				Type:    actions.ServerCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
+				Reason:  state.Failure.String(),
 				Message: err.Error(),
 			},
 		)

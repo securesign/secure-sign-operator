@@ -12,6 +12,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -48,16 +49,7 @@ type FulcioMapConfig struct {
 }
 
 func (i serverConfig) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	switch {
-	case c == nil:
-		return false
-	case c.Reason != constants.Creating && c.Reason != constants.Ready:
-		return false
-	default:
-		return true
-	}
-
+	return state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func ConvertToFulcioMapConfig(fulcioConfig rhtasv1alpha1.FulcioConfig) *FulcioMapConfig {
@@ -144,10 +136,11 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 
 	meta.SetStatusCondition(&instance.Status.Conditions,
 		metav1.Condition{
-			Type:    constants.Ready,
-			Status:  metav1.ConditionFalse,
-			Reason:  constants.Creating,
-			Message: "Server config created"},
+			Type:               constants.ReadyCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Creating.String(),
+			Message:            "Server config created",
+			ObservedGeneration: instance.Generation},
 	)
 
 	result := i.StatusUpdate(ctx, instance)

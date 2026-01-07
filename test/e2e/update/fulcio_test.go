@@ -7,6 +7,7 @@ import (
 
 	"github.com/securesign/operator/internal/constants"
 	tufAction "github.com/securesign/operator/internal/controller/tuf/constants"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/test/e2e/support/steps"
 
 	"github.com/securesign/operator/test/e2e/support/tas"
@@ -110,19 +111,19 @@ var _ = Describe("Fulcio update", Ordered, func() {
 				c := meta.FindStatusCondition(ctl.Status.Conditions, fulcioAction.CertCondition)
 				g.Expect(c).ToNot(BeNil())
 				return c.Reason
-			}).Should(Equal(constants.Failure))
+			}).Should(Equal(state.Failure.String()))
 		})
 
 		It("created my-fulcio-secret", func(ctx SpecContext) {
 			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret"))).Should(Succeed())
 		})
 
-		It("has status Ready", func(ctx SpecContext) {
+		It("has status ReadyCondition", func(ctx SpecContext) {
 			Eventually(func(g Gomega) string {
 				ctl := fulcio.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
-				return meta.FindStatusCondition(ctl.Status.Conditions, constants.Ready).Reason
-			}).Should(Equal(constants.Ready))
+				return meta.FindStatusCondition(ctl.Status.Conditions, constants.ReadyCondition).Reason
+			}).Should(Equal(state.Ready.String()))
 		})
 
 		It("updated Fulcio deployment", func(ctx SpecContext) {
@@ -221,8 +222,8 @@ var _ = Describe("Fulcio update", Ordered, func() {
 			Eventually(func(g Gomega) string {
 				ctl := fulcio.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
-				return meta.FindStatusCondition(ctl.Status.Conditions, constants.Ready).Reason
-			}).Should(Equal(constants.Ready))
+				return meta.FindStatusCondition(ctl.Status.Conditions, constants.ReadyCondition).Reason
+			}).Should(Equal(state.Ready.String()))
 		})
 
 		It("updated Fulcio deployment", func(ctx SpecContext) {

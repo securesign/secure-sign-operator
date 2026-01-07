@@ -6,6 +6,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/state"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -23,20 +24,20 @@ func (i toReady[T]) Name() string {
 }
 
 func (i toReady[T]) CanHandle(_ context.Context, instance T) bool {
-	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
+	c := meta.FindStatusCondition(instance.GetConditions(), constants.ReadyCondition)
 	if c == nil {
 		return false
 	}
-	return c.Reason != constants.Ready ||
+	return c.Reason != state.Ready.String() ||
 		c.Status != metav1.ConditionTrue ||
 		c.ObservedGeneration != instance.GetGeneration()
 }
 
 func (i toReady[T]) Handle(ctx context.Context, instance T) *action.Result {
 	instance.SetCondition(metav1.Condition{
-		Type:               constants.Ready,
+		Type:               constants.ReadyCondition,
 		Status:             metav1.ConditionTrue,
-		Reason:             constants.Ready,
+		Reason:             state.Ready.String(),
 		ObservedGeneration: instance.GetGeneration(),
 	})
 

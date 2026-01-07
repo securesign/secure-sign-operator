@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -540,37 +541,37 @@ func testRunner(pre pre, want want, handleFn handleFn) func(t *testing.T) {
 func TestRbac_CanHandle(t *testing.T) {
 	tests := []struct {
 		name      string
-		reason    string
+		reason    state.State
 		opts      []func(*rbacAction[*v1alpha1.Rekor])
 		canHandle bool
 	}{
 		{
-			name:      constants.Ready,
-			reason:    constants.Ready,
+			name:      state.Ready.String(),
+			reason:    state.Ready,
 			canHandle: true,
 		}, {
-			name:      constants.Creating,
-			reason:    constants.Creating,
+			name:      state.Creating.String(),
+			reason:    state.Creating,
 			canHandle: true,
 		}, {
-			name:      constants.Failure,
-			reason:    constants.Failure,
+			name:      state.Failure.String(),
+			reason:    state.Failure,
 			canHandle: false,
 		}, {
-			name:      constants.Initialize,
-			reason:    constants.Initialize,
-			canHandle: false,
+			name:      state.Initialize.String(),
+			reason:    state.Initialize,
+			canHandle: true,
 		}, {
-			name:      constants.Pending,
-			reason:    constants.Pending,
+			name:      state.Pending.String(),
+			reason:    state.Pending,
 			canHandle: false,
 		}, {
 			name:      "empty status",
-			reason:    "",
+			reason:    state.None,
 			canHandle: false,
 		}, {
 			name:      "custom can handle func: pass",
-			reason:    "",
+			reason:    state.None,
 			canHandle: true,
 			opts: []func(*rbacAction[*v1alpha1.Rekor]){
 				WithCanHandle(func(ctx context.Context, t *v1alpha1.Rekor) bool {
@@ -579,7 +580,7 @@ func TestRbac_CanHandle(t *testing.T) {
 			},
 		}, {
 			name:      "custom can handle func: reject",
-			reason:    "",
+			reason:    state.None,
 			canHandle: false,
 			opts: []func(*rbacAction[*v1alpha1.Rekor]){
 				WithCanHandle(func(ctx context.Context, t *v1alpha1.Rekor) bool {
@@ -593,10 +594,10 @@ func TestRbac_CanHandle(t *testing.T) {
 			c := testAction.FakeClientBuilder().Build()
 			a := testAction.PrepareAction(c, NewAction[*v1alpha1.Rekor]("component", "test", tt.opts...))
 			instance := v1alpha1.Rekor{}
-			if tt.reason != "" {
+			if tt.reason != state.None {
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-					Type:   constants.Ready,
-					Reason: tt.reason,
+					Type:   constants.ReadyCondition,
+					Reason: tt.reason.String(),
 				})
 			}
 

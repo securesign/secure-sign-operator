@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/securesign/operator/internal/action"
-	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 	v1 "k8s.io/api/core/v1"
@@ -50,7 +50,7 @@ func Test_SignerCanHandle(t *testing.T) {
 		{
 			name: "Pending condition",
 			testCase: func(instance *rhtasv1alpha1.TimestampAuthority) {
-				instance.Status.Conditions[0].Reason = constants.Pending
+				instance.Status.Conditions[0].Reason = state.Pending.String()
 			},
 			expected: true,
 		},
@@ -61,7 +61,7 @@ func Test_SignerCanHandle(t *testing.T) {
 					{
 						Type:   "TSASignerCondition",
 						Status: metav1.ConditionTrue,
-						Reason: constants.Ready,
+						Reason: state.Ready.String(),
 					},
 				}
 				instance.Status.Signer = &instance.Spec.Signer
@@ -111,7 +111,7 @@ func Test_SignerHandle(t *testing.T) {
 		{
 			name: "generate all resources",
 			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
-				instance.Status.Conditions[0].Reason = constants.Pending
+				instance.Status.Conditions[0].Reason = state.Pending.String()
 				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), []client.Object{}...)
 			},
 			testCase: func(g Gomega, _ action.Action[*rhtasv1alpha1.TimestampAuthority], client client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {
@@ -133,7 +133,7 @@ func Test_SignerHandle(t *testing.T) {
 		{
 			name: "generate certs with user-specified keys",
 			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
-				instance.Status.Conditions[0].Reason = constants.Pending
+				instance.Status.Conditions[0].Reason = state.Pending.String()
 				instance.Spec.Signer = rhtasv1alpha1.TimestampAuthoritySigner{
 					CertificateChain: rhtasv1alpha1.CertificateChain{
 						RootCA: &rhtasv1alpha1.TsaCertificateAuthority{
@@ -213,7 +213,7 @@ func Test_SignerHandle(t *testing.T) {
 		{
 			name: "user-spec keys and certs",
 			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
-				instance.Status.Conditions[0].Reason = constants.Pending
+				instance.Status.Conditions[0].Reason = state.Pending.String()
 				instance.Spec.Signer = rhtasv1alpha1.TimestampAuthoritySigner{
 					CertificateChain: rhtasv1alpha1.CertificateChain{
 						CertificateChainRef: &rhtasv1alpha1.SecretKeySelector{
@@ -259,7 +259,7 @@ func Test_SignerHandle(t *testing.T) {
 		{
 			name: "update cert secret resource on key change",
 			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
-				instance.Status.Conditions[0].Reason = constants.Pending
+				instance.Status.Conditions[0].Reason = state.Pending.String()
 				instance.Spec.Signer = rhtasv1alpha1.TimestampAuthoritySigner{
 					CertificateChain: rhtasv1alpha1.CertificateChain{
 						CertificateChainRef: &rhtasv1alpha1.SecretKeySelector{
@@ -337,7 +337,7 @@ func Test_SignerHandle(t *testing.T) {
 		{
 			name: "update cert secret resource on cert field change",
 			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
-				instance.Status.Conditions[0].Reason = constants.Pending
+				instance.Status.Conditions[0].Reason = state.Pending.String()
 				instance.Spec.Signer = rhtasv1alpha1.TimestampAuthoritySigner{
 					CertificateChain: rhtasv1alpha1.CertificateChain{
 						RootCA: &rhtasv1alpha1.TsaCertificateAuthority{
@@ -405,7 +405,7 @@ func Test_SignerHandle(t *testing.T) {
 		{
 			name: "find existing secret",
 			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
-				instance.Status.Conditions[0].Reason = constants.Pending
+				instance.Status.Conditions[0].Reason = state.Pending.String()
 				instance.Spec.Signer = rhtasv1alpha1.TimestampAuthoritySigner{
 					CertificateChain: rhtasv1alpha1.CertificateChain{
 						RootCA: &rhtasv1alpha1.TsaCertificateAuthority{

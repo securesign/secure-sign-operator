@@ -9,8 +9,8 @@ import (
 	"strconv"
 
 	"github.com/securesign/operator/internal/action"
-	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	utils2 "github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
@@ -74,7 +74,7 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 			return i.Error(ctx, reconcile.TerminalError(ErrMissingDBConfiguration), instance, metav1.Condition{
 				Type:    trillian.DbCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
+				Reason:  state.Failure.String(),
 				Message: ErrMissingDBConfiguration.Error(),
 			})
 		}
@@ -84,7 +84,7 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:    trillian.DbCondition,
 				Status:  metav1.ConditionTrue,
-				Reason:  constants.Ready,
+				Reason:  state.Ready.String(),
 				Message: "Working with external DB",
 			})
 			return i.StatusUpdate(ctx, instance)
@@ -160,7 +160,7 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 			metav1.Condition{
 				Type:    trillian.DbCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
+				Reason:  state.Failure.String(),
 				Message: err.Error(),
 			})
 	}

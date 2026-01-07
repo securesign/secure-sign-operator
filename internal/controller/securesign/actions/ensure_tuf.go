@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 
@@ -63,7 +64,7 @@ func (i tufAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 			v1.Condition{
 				Type:    TufCondition,
 				Status:  v1.ConditionFalse,
-				Reason:  constants.Failure,
+				Reason:  state.Failure.String(),
 				Message: err.Error(),
 			})
 	}
@@ -72,7 +73,7 @@ func (i tufAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 			Type:    TufCondition,
 			Status:  v1.ConditionFalse,
-			Reason:  constants.Creating,
+			Reason:  state.Creating.String(),
 			Message: "Tuf resource created " + tuf.Name,
 		})
 		return i.StatusUpdate(ctx, instance)
@@ -82,7 +83,7 @@ func (i tufAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 }
 
 func (i tufAction) CopyStatus(ctx context.Context, object *rhtasv1alpha1.Tuf, instance *rhtasv1alpha1.Securesign) *action.Result {
-	objectStatus := meta.FindStatusCondition(object.Status.Conditions, constants.Ready)
+	objectStatus := meta.FindStatusCondition(object.Status.Conditions, constants.ReadyCondition)
 	if objectStatus == nil {
 		// not initialized yet, wait for update
 		return i.Continue()

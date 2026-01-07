@@ -7,8 +7,8 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/state"
 	v12 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -25,11 +25,7 @@ func (i statusUrlAction) Name() string {
 }
 
 func (i statusUrlAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.TimestampAuthority) bool {
-	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
-	if c == nil {
-		return false
-	}
-	return c.Reason == constants.Creating || c.Reason == constants.Ready
+	return state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1alpha1.TimestampAuthority) *action.Result {

@@ -10,6 +10,7 @@ import (
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 
@@ -63,7 +64,7 @@ func (i ctlogAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secures
 			v1.Condition{
 				Type:    CTlogCondition,
 				Status:  v1.ConditionFalse,
-				Reason:  constants.Failure,
+				Reason:  state.Failure.String(),
 				Message: err.Error(),
 			})
 	}
@@ -72,7 +73,7 @@ func (i ctlogAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secures
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 			Type:    CTlogCondition,
 			Status:  v1.ConditionFalse,
-			Reason:  constants.Creating,
+			Reason:  state.Creating.String(),
 			Message: "CTLog resource updated " + ctl.Name,
 		})
 		return i.StatusUpdate(ctx, instance)
@@ -82,7 +83,7 @@ func (i ctlogAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secures
 }
 
 func (i ctlogAction) CopyStatus(ctx context.Context, ctl *rhtasv1alpha1.CTlog, instance *rhtasv1alpha1.Securesign) *action.Result {
-	objectStatus := meta.FindStatusCondition(ctl.Status.Conditions, constants.Ready)
+	objectStatus := meta.FindStatusCondition(ctl.Status.Conditions, constants.ReadyCondition)
 	if objectStatus == nil {
 		// not initialized yet, wait for update
 		return i.Continue()

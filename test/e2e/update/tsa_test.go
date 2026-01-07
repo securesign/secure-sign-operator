@@ -9,6 +9,7 @@ import (
 	tsaAction "github.com/securesign/operator/internal/controller/tsa/actions"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
 	tufAction "github.com/securesign/operator/internal/controller/tuf/constants"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 	"sigs.k8s.io/yaml"
@@ -107,22 +108,22 @@ var _ = Describe("TSA update", Ordered, func() {
 			Eventually(func(g Gomega) string {
 				ctl := tsa.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
-				c := meta.FindStatusCondition(ctl.Status.Conditions, constants.Ready)
+				c := meta.FindStatusCondition(ctl.Status.Conditions, constants.ReadyCondition)
 				g.Expect(c).ToNot(BeNil())
 				return c.Reason
-			}).Should(Equal(constants.Pending))
+			}).Should(Equal(state.Pending.String()))
 		})
 
 		It("created my-tsa-secret", func(ctx SpecContext) {
 			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "my-tsa-secret"))).Should(Succeed())
 		})
 
-		It("has status Ready", func(ctx SpecContext) {
+		It("has status ReadyCondition", func(ctx SpecContext) {
 			Eventually(func(g Gomega) string {
 				ctl := rekor.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
-				return meta.FindStatusCondition(ctl.Status.Conditions, constants.Ready).Reason
-			}).Should(Equal(constants.Ready))
+				return meta.FindStatusCondition(ctl.Status.Conditions, constants.ReadyCondition).Reason
+			}).Should(Equal(state.Ready.String()))
 		})
 
 		It("updated TSA deployment", func(ctx SpecContext) {
@@ -237,8 +238,8 @@ var _ = Describe("TSA update", Ordered, func() {
 			Eventually(func(g Gomega) string {
 				ctl := rekor.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
-				return meta.FindStatusCondition(ctl.Status.Conditions, constants.Ready).Reason
-			}).Should(Equal(constants.Ready))
+				return meta.FindStatusCondition(ctl.Status.Conditions, constants.ReadyCondition).Reason
+			}).Should(Equal(state.Ready.String()))
 		})
 
 		It("updated TSA deployment", func(ctx SpecContext) {

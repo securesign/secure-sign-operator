@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	commonUtils "github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,8 +28,7 @@ func (i initializeAction) Name() string {
 }
 
 func (i initializeAction) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Tuf) bool {
-	c := meta.FindStatusCondition(tuf.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Initialize
+	return state.FromInstance(tuf, constants.ReadyCondition) == state.Initialize
 }
 
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
@@ -47,9 +47,9 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tu
 	if !ok {
 		i.Logger.Info("Waiting for deployment")
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
+			Type:    constants.ReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  constants.Initialize,
+			Reason:  state.Initialize.String(),
 			Message: "Waiting for deployment to be ready",
 		})
 		return i.StatusUpdate(ctx, instance)

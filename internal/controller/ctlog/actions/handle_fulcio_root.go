@@ -8,6 +8,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
+	"github.com/securesign/operator/internal/state"
 	k8sutils "github.com/securesign/operator/internal/utils/kubernetes"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -29,11 +30,11 @@ func (g handleFulcioCert) Name() string {
 }
 
 func (g handleFulcioCert) CanHandle(ctx context.Context, instance *v1alpha1.CTlog) bool {
-	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
+	c := meta.FindStatusCondition(instance.GetConditions(), constants.ReadyCondition)
 	switch {
 	case c == nil:
 		return false
-	case c.Reason != constants.Creating && c.Reason != constants.Ready:
+	case state.FromReason(c.Reason) < state.Creating:
 		return false
 	case len(instance.Status.RootCertificates) == 0:
 		return true
@@ -53,11 +54,11 @@ func (g handleFulcioCert) CanHandle(ctx context.Context, instance *v1alpha1.CTlo
 }
 
 func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) *action.Result {
-	if meta.FindStatusCondition(instance.Status.Conditions, constants.Ready).Reason != constants.Creating {
+	if state.FromInstance(instance, constants.ReadyCondition) != state.Creating {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               constants.Ready,
+			Type:               constants.ReadyCondition,
 			Status:             metav1.ConditionFalse,
-			Reason:             constants.Creating,
+			Reason:             state.Creating.String(),
 			ObservedGeneration: instance.Generation,
 		},
 		)
@@ -74,7 +75,7 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) 
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:    CertCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
+				Reason:  state.Failure.String(),
 				Message: "Cert not found",
 			})
 			g.StatusUpdate(ctx, instance)

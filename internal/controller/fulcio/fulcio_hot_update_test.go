@@ -22,6 +22,7 @@ import (
 
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
 
 	"github.com/securesign/operator/api/v1alpha1"
@@ -138,7 +139,7 @@ var _ = Describe("Fulcio hot update", func() {
 			found := &v1alpha1.Fulcio{}
 			Eventually(func(g Gomega) bool {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
+				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())
 
 			By("Key rotation")
@@ -157,8 +158,8 @@ var _ = Describe("Fulcio hot update", func() {
 			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}).Should(Equal(constants.Pending))
+				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
+			}).Should(Equal(state.Pending.String()))
 
 			By("Creating password secret with cert password")
 			Expect(suite.Client().Create(ctx, &corev1.Secret{

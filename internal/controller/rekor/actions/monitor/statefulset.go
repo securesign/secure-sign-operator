@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/securesign/operator/internal/images"
+	"github.com/securesign/operator/internal/state"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
@@ -43,8 +44,7 @@ func (i statefulSetAction) Name() string {
 }
 
 func (i statefulSetAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return (c.Reason == constants.Creating || c.Reason == constants.Ready) && enabled(instance)
+	return enabled(instance) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
@@ -76,7 +76,7 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1alpha1.R
 			metav1.Condition{
 				Type:    actions.MonitorCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
+				Reason:  state.Failure.String(),
 				Message: err.Error(),
 			},
 		)
@@ -86,7 +86,7 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1alpha1.R
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.MonitorCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  constants.Creating,
+			Reason:  state.Creating.String(),
 			Message: "Monitor created",
 		})
 		_ = i.StatusUpdate(ctx, instance)

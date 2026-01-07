@@ -13,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	v1 "k8s.io/api/core/v1"
@@ -421,8 +422,8 @@ func TestGenerateCert_Handle(t *testing.T) {
 				Status: tt.env.status,
 			}
 			instance.SetCondition(metav1.Condition{
-				Type:   constants.Ready,
-				Reason: constants.Pending,
+				Type:   constants.ReadyCondition,
+				Reason: state.Pending.String(),
 			})
 
 			c := testAction.FakeClientBuilder().

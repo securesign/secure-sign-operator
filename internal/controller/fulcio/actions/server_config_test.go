@@ -10,6 +10,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -34,7 +35,7 @@ func TestServerConfig_CanHandle(t *testing.T) {
 	}
 	tests := []struct {
 		name            string
-		phase           string
+		phase           state.State
 		canHandle       bool
 		config          rhtasv1alpha1.FulcioConfig
 		statusConfigRef *rhtasv1alpha1.LocalObjectReference
@@ -69,7 +70,7 @@ func TestServerConfig_CanHandle(t *testing.T) {
 				},
 			},
 			canHandle: true,
-			phase:     constants.Ready,
+			phase:     state.Ready,
 		},
 		{
 			name: "same config.yaml",
@@ -100,7 +101,7 @@ func TestServerConfig_CanHandle(t *testing.T) {
 				},
 			},
 			canHandle: true,
-			phase:     constants.Ready,
+			phase:     state.Ready,
 		},
 		{
 			name: "different config.yaml",
@@ -131,7 +132,7 @@ func TestServerConfig_CanHandle(t *testing.T) {
 				},
 			},
 			canHandle: true,
-			phase:     constants.Ready,
+			phase:     state.Ready,
 		},
 	}
 	for _, tt := range tests {
@@ -154,10 +155,10 @@ func TestServerConfig_CanHandle(t *testing.T) {
 					ServerConfigRef: tt.statusConfigRef,
 				},
 			}
-			if tt.phase != "" {
+			if tt.phase != state.None {
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-					Type:   constants.Ready,
-					Reason: tt.phase,
+					Type:   constants.ReadyCondition,
+					Reason: tt.phase.String(),
 				})
 			}
 
@@ -200,7 +201,7 @@ func TestConfig_Handle(t *testing.T) {
 				},
 				status: rhtasv1alpha1.FulcioStatus{
 					Conditions: []metav1.Condition{
-						{Type: constants.Ready, Reason: constants.Creating},
+						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
 				},
 			},
@@ -234,7 +235,7 @@ func TestConfig_Handle(t *testing.T) {
 						Name: "config",
 					},
 					Conditions: []metav1.Condition{
-						{Type: constants.Ready, Reason: constants.Creating},
+						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
 				},
 				objects: []client.Object{
@@ -284,7 +285,7 @@ func TestConfig_Handle(t *testing.T) {
 						Name: "config",
 					},
 					Conditions: []metav1.Condition{
-						{Type: constants.Ready, Reason: constants.Creating},
+						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
 				},
 				objects: []client.Object{
@@ -326,7 +327,7 @@ func TestConfig_Handle(t *testing.T) {
 						Name: "config",
 					},
 					Conditions: []metav1.Condition{
-						{Type: constants.Ready, Reason: constants.Creating},
+						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
 				},
 				objects: []client.Object{
@@ -374,7 +375,7 @@ func TestConfig_Handle(t *testing.T) {
 				},
 				status: rhtasv1alpha1.FulcioStatus{
 					Conditions: []metav1.Condition{
-						{Type: constants.Ready, Reason: constants.Creating},
+						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
 				},
 				objects: []client.Object{
@@ -449,7 +450,7 @@ func TestConfig_Handle(t *testing.T) {
 						Name: "config",
 					},
 					Conditions: []metav1.Condition{
-						{Type: constants.Ready, Reason: constants.Creating},
+						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
 				},
 			},

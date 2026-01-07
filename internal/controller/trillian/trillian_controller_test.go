@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/state"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
 	"github.com/securesign/operator/internal/utils"
 
@@ -112,7 +113,7 @@ var _ = Describe("Trillian controller", func() {
 			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Trillian{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
+				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
 			}).Should(BeTrue())
 			found := &v1alpha1.Trillian{}
 
@@ -160,8 +161,8 @@ var _ = Describe("Trillian controller", func() {
 			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Trillian{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}).Should(Equal(constants.Initialize))
+				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
+			}).Should(Equal(state.Initialize.String()))
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase
@@ -175,7 +176,7 @@ var _ = Describe("Trillian controller", func() {
 			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Trillian{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
+				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())
 
 			By("Checking if controller will return deployment to desired state")

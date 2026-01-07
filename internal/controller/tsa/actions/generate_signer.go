@@ -15,6 +15,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
@@ -43,11 +44,8 @@ func (g generateSigner) Name() string {
 }
 
 func (g generateSigner) CanHandle(_ context.Context, instance *v1alpha1.TimestampAuthority) bool {
-	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
 	switch {
-	case c == nil:
-		return false
-	case c.Reason != constants.Pending && c.Reason != constants.Ready:
+	case state.FromInstance(instance, constants.ReadyCondition) < state.Pending:
 		return false
 	case !meta.IsStatusConditionTrue(instance.GetConditions(), TSASignerCondition):
 		return true
@@ -61,17 +59,17 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 		err error
 	)
 
-	if meta.FindStatusCondition(instance.Status.Conditions, constants.Ready).Reason != constants.Pending {
+	if state.FromInstance(instance, constants.ReadyCondition) != state.Pending {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               constants.Ready,
+			Type:               constants.ReadyCondition,
 			Status:             metav1.ConditionFalse,
-			Reason:             constants.Pending,
+			Reason:             state.Pending.String(),
 			ObservedGeneration: instance.Generation,
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               TSASignerCondition,
 			Status:             metav1.ConditionFalse,
-			Reason:             constants.Creating,
+			Reason:             state.Creating.String(),
 			ObservedGeneration: instance.Generation,
 		})
 		return g.StatusUpdate(ctx, instance)
@@ -142,14 +140,14 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:               TSASignerCondition,
 				Status:             metav1.ConditionFalse,
-				Reason:             constants.Failure,
+				Reason:             state.Failure.String(),
 				Message:            err.Error(),
 				ObservedGeneration: instance.Generation,
 			})
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:               constants.Ready,
+				Type:               constants.ReadyCondition,
 				Status:             metav1.ConditionFalse,
-				Reason:             constants.Pending,
+				Reason:             state.Pending.String(),
 				Message:            "Resolving keys",
 				ObservedGeneration: instance.Generation,
 			})
@@ -165,14 +163,14 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               TSASignerCondition,
 			Status:             metav1.ConditionFalse,
-			Reason:             constants.Failure,
+			Reason:             state.Failure.String(),
 			Message:            err.Error(),
 			ObservedGeneration: instance.Generation,
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               constants.Ready,
+			Type:               constants.ReadyCondition,
 			Status:             metav1.ConditionFalse,
-			Reason:             constants.Pending,
+			Reason:             state.Pending.String(),
 			Message:            "Resolving keys",
 			ObservedGeneration: instance.Generation,
 		})
@@ -202,7 +200,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 			metav1.Condition{
 				Type:               TSASignerCondition,
 				Status:             metav1.ConditionFalse,
-				Reason:             constants.Failure,
+				Reason:             state.Failure.String(),
 				Message:            err.Error(),
 				ObservedGeneration: instance.Generation,
 			})

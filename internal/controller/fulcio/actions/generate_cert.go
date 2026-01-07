@@ -14,6 +14,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	utils2 "github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
@@ -51,12 +52,12 @@ func (g handleCert) Name() string {
 }
 
 func (g handleCert) CanHandle(_ context.Context, instance *v1alpha1.Fulcio) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
 
 	switch {
 	case c == nil:
 		return false
-	case c.Reason != constants.Pending && c.Reason != constants.Ready:
+	case state.FromCondition(c) < state.Pending:
 		return false
 	case !meta.IsStatusConditionTrue(instance.GetConditions(), CertCondition):
 		return true
@@ -67,16 +68,17 @@ func (g handleCert) CanHandle(_ context.Context, instance *v1alpha1.Fulcio) bool
 }
 
 func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *action.Result {
-	if meta.FindStatusCondition(instance.Status.Conditions, constants.Ready).Reason != constants.Pending {
+	if state.FromInstance(instance, constants.ReadyCondition) != state.Pending {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:   constants.Ready,
-			Status: metav1.ConditionFalse,
-			Reason: constants.Pending,
+			Type:               constants.ReadyCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Pending.String(),
+			ObservedGeneration: instance.Generation,
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:   CertCondition,
 			Status: metav1.ConditionFalse,
-			Reason: constants.Creating,
+			Reason: state.Creating.String(),
 		})
 		return g.StatusUpdate(ctx, instance)
 	}
@@ -86,7 +88,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 		return g.Error(ctx, err, instance, metav1.Condition{
 			Type:    CertCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
+			Reason:  state.Failure.String(),
 			Message: err.Error(),
 		})
 	}
@@ -123,7 +125,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 			return g.Error(ctx, err, instance, metav1.Condition{
 				Type:    CertCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
+				Reason:  state.Failure.String(),
 				Message: err.Error(),
 			})
 		}
@@ -138,13 +140,13 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    CertCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
+			Reason:  state.Failure.String(),
 			Message: err.Error(),
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
+			Type:    constants.ReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  constants.Pending,
+			Reason:  state.Pending.String(),
 			Message: "Resolving keys",
 		})
 		g.StatusUpdate(ctx, instance)
@@ -173,7 +175,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 			metav1.Condition{
 				Type:    CertCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
+				Reason:  state.Failure.String(),
 				Message: err.Error(),
 			})
 	}

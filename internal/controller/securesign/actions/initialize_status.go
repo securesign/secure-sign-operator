@@ -6,12 +6,13 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/state"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var conditions = []string{
-	constants.Ready, TrillianCondition, FulcioCondition, RekorCondition, CTlogCondition, TufCondition, TSACondition, MetricsCondition,
+	constants.ReadyCondition, TrillianCondition, FulcioCondition, RekorCondition, CTlogCondition, TufCondition, TSACondition, MetricsCondition,
 }
 
 func NewInitializeStatusAction() action.Action[*rhtasv1alpha1.Securesign] {
@@ -41,7 +42,7 @@ func (i initializeStatus) Handle(ctx context.Context, instance *rhtasv1alpha1.Se
 			meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 				Type:   conditionType,
 				Status: v1.ConditionUnknown,
-				Reason: constants.Pending,
+				Reason: state.Pending.String(),
 			})
 		}
 	}

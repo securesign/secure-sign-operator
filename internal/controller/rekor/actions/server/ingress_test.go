@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"github.com/securesign/operator/internal/state"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/constants"
@@ -21,19 +22,19 @@ func TestIngress_CanHandle(t *testing.T) {
 	}{
 		{
 			name:           "ingress is enabled and rekor is ready",
-			conditions:     []metav1.Condition{{Type: constants.Ready, Status: metav1.ConditionTrue, Reason: constants.Ready}},
+			conditions:     []metav1.Condition{{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: state.Ready.String()}},
 			externalAccess: true,
 			expected:       true,
 		},
 		{
 			name:           "ingress is enabled and rekor is not ready",
-			conditions:     []metav1.Condition{{Type: constants.Ready, Status: metav1.ConditionFalse, Reason: constants.Pending}},
+			conditions:     []metav1.Condition{{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Pending.String()}},
 			externalAccess: true,
 			expected:       false,
 		},
 		{
 			name:           "ingress is disabled",
-			conditions:     []metav1.Condition{{Type: constants.Ready, Status: metav1.ConditionTrue, Reason: constants.Ready}},
+			conditions:     []metav1.Condition{{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: state.Ready.String()}},
 			externalAccess: false,
 			expected:       false,
 		},

@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	trillianUtils "github.com/securesign/operator/internal/controller/trillian/utils"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/tls"
@@ -35,8 +36,7 @@ func (i deployAction) Name() string {
 }
 
 func (i deployAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Trillian) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Creating || c.Reason == constants.Ready
+	return state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
@@ -74,7 +74,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		return i.Error(ctx, fmt.Errorf("could not create Trillian server: %w", err), instance, metav1.Condition{
 			Type:    actions.ServerCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
+			Reason:  state.Failure.String(),
 			Message: err.Error(),
 		})
 	}
@@ -83,7 +83,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ServerCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  constants.Creating,
+			Reason:  state.Creating.String(),
 			Message: "Deployment created",
 		})
 		return i.StatusUpdate(ctx, instance)

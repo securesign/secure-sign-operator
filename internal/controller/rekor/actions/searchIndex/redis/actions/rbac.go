@@ -8,15 +8,11 @@ import (
 	"github.com/securesign/operator/internal/action/rbac"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
-	"k8s.io/apimachinery/pkg/api/meta"
+	"github.com/securesign/operator/internal/state"
 )
 
 func NewRBACAction() action.Action[*rhtasv1alpha1.Rekor] {
 	return rbac.NewAction[*rhtasv1alpha1.Rekor](actions.RedisDeploymentName, actions.RBACRedisName, rbac.WithCanHandle(func(ctx context.Context, instance *rhtasv1alpha1.Rekor) bool {
-		c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
-		if c == nil {
-			return false
-		}
-		return (c.Reason == constants.Ready || c.Reason == constants.Creating) && enabled(instance)
+		return enabled(instance) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 	}))
 }

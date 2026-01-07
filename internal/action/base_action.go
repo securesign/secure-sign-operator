@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/state"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
@@ -72,9 +73,9 @@ func (action *BaseAction) StatusUpdate(ctx context.Context, obj client.Object) *
 func (action *BaseAction) Error(ctx context.Context, err error, instance apis.ConditionsAwareObject, conditions ...metav1.Condition) *Result {
 	if errors.Is(err, reconcile.TerminalError(err)) {
 		instance.SetCondition(metav1.Condition{
-			Type:               constants.Ready,
+			Type:               constants.ReadyCondition,
 			Status:             metav1.ConditionFalse,
-			Reason:             constants.Failure,
+			Reason:             state.Failure.String(),
 			Message:            err.Error(),
 			ObservedGeneration: instance.GetGeneration(),
 		})

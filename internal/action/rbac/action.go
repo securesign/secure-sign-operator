@@ -10,11 +10,11 @@ import (
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -59,11 +59,7 @@ func (i rbacAction[T]) Name() string {
 }
 
 func defaultCanHandle[T apis.ConditionsAwareObject](_ context.Context, instance T) bool {
-	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
-	if c == nil {
-		return false
-	}
-	return c.Reason == constants.Creating || c.Reason == constants.Ready
+	return state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func (i rbacAction[T]) CanHandle(ctx context.Context, instance T) bool {

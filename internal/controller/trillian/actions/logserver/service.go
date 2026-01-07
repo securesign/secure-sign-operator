@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -35,8 +36,7 @@ func (i createServiceAction) Name() string {
 }
 
 func (i createServiceAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Trillian) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Creating || c.Reason == constants.Ready
+	return state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
@@ -86,7 +86,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ServerCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  constants.Creating,
+			Reason:  state.Creating.String(),
 			Message: "Service created",
 		})
 		return i.StatusUpdate(ctx, instance)

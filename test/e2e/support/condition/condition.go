@@ -15,7 +15,7 @@ func IsReady(f apis.ConditionsAwareObject) bool {
 	if f == nil {
 		return false
 	}
-	return meta.IsStatusConditionTrue(f.GetConditions(), constants.Ready)
+	return meta.IsStatusConditionTrue(f.GetConditions(), constants.ReadyCondition)
 }
 
 func DeploymentIsRunning(ctx context.Context, cli client.Client, namespace, component string) (bool, error) {

@@ -6,8 +6,8 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
-	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -34,13 +34,13 @@ func (i tlsAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Trillian
 		return false
 	case !enabled(instance):
 		return false
-	case c.Reason == constants.Pending:
+	case c.Reason == state.Pending.String():
 		return true
 	case !equality.Semantic.DeepDerivative(specTLS(instance), statusTLS(instance)):
 		return true
 	default:
 		// enable TLS on OCP by default
-		return c.Reason == constants.Ready && kubernetes.IsOpenShift() && statusTLS(instance).CertRef == nil
+		return c.Reason == state.Ready.String() && kubernetes.IsOpenShift() && statusTLS(instance).CertRef == nil
 	}
 }
 

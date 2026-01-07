@@ -8,6 +8,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,7 +24,7 @@ import (
 func TestCertCan_Handle(t *testing.T) {
 
 	type env struct {
-		phase        string
+		phase        state.State
 		certificates []v1alpha1.SecretKeySelector
 		objects      []client.Object
 		status       v1alpha1.CTlogStatus
@@ -39,7 +40,7 @@ func TestCertCan_Handle(t *testing.T) {
 		{
 			name: "update spec key",
 			env: env{
-				phase: constants.Creating,
+				phase: state.Creating,
 				certificates: []v1alpha1.SecretKeySelector{
 					{
 						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
@@ -62,7 +63,7 @@ func TestCertCan_Handle(t *testing.T) {
 		{
 			name: "new spec key",
 			env: env{
-				phase: constants.Creating,
+				phase: state.Creating,
 				certificates: []v1alpha1.SecretKeySelector{
 					{
 						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
@@ -78,7 +79,7 @@ func TestCertCan_Handle(t *testing.T) {
 		{
 			name: "autodiscovery new fulcio-cert",
 			env: env{
-				phase:        constants.Creating,
+				phase:        state.Creating,
 				certificates: nil,
 				status:       v1alpha1.CTlogStatus{},
 				objects: []client.Object{
@@ -99,7 +100,7 @@ func TestCertCan_Handle(t *testing.T) {
 		{
 			name: "autodiscovery update fulcio-cert - ready phase",
 			env: env{
-				phase:        constants.Ready,
+				phase:        state.Ready,
 				certificates: nil,
 				status: v1alpha1.CTlogStatus{
 					RootCertificates: []v1alpha1.SecretKeySelector{
@@ -127,7 +128,7 @@ func TestCertCan_Handle(t *testing.T) {
 		{
 			name: "pending phase",
 			env: env{
-				phase: constants.Pending,
+				phase: state.Pending,
 			},
 			want: want{
 				canHandle: false,
@@ -136,7 +137,7 @@ func TestCertCan_Handle(t *testing.T) {
 		{
 			name: "matching cert-set",
 			env: env{
-				phase: constants.Creating,
+				phase: state.Creating,
 				certificates: []v1alpha1.SecretKeySelector{
 					{
 						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
@@ -176,8 +177,8 @@ func TestCertCan_Handle(t *testing.T) {
 				Status: tt.env.status,
 			}
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:   constants.Ready,
-				Reason: tt.env.phase,
+				Type:   constants.ReadyCondition,
+				Reason: tt.env.phase.String(),
 			})
 
 			if got := a.CanHandle(context.TODO(), &instance); !reflect.DeepEqual(got, tt.want.canHandle) {
@@ -208,7 +209,7 @@ func TestCert_Handle(t *testing.T) {
 				certificates: nil,
 				status: v1alpha1.CTlogStatus{
 					Conditions: []metav1.Condition{
-						{Type: constants.Ready, Reason: constants.Creating},
+						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
 				},
 				objects: []client.Object{
@@ -243,7 +244,7 @@ func TestCert_Handle(t *testing.T) {
 				certificates: nil,
 				status: v1alpha1.CTlogStatus{
 					Conditions: []metav1.Condition{
-						{Type: constants.Ready, Reason: constants.Creating},
+						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
 				},
 			},
@@ -290,7 +291,7 @@ func TestCert_Handle(t *testing.T) {
 				},
 				status: v1alpha1.CTlogStatus{
 					Conditions: []metav1.Condition{
-						{Type: constants.Ready, Reason: constants.Creating},
+						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
 				},
 			},
@@ -337,7 +338,7 @@ func TestCert_Handle(t *testing.T) {
 				},
 				status: v1alpha1.CTlogStatus{
 					Conditions: []metav1.Condition{
-						{Type: constants.Ready, Reason: constants.Creating},
+						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
 				},
 			},
@@ -383,7 +384,7 @@ func TestCert_Handle(t *testing.T) {
 				status: v1alpha1.CTlogStatus{
 					ServerConfigRef: &v1alpha1.LocalObjectReference{Name: "ctlog-config"},
 					Conditions: []metav1.Condition{
-						{Type: constants.Ready, Reason: constants.Creating},
+						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
 				},
 			},
@@ -429,7 +430,7 @@ func TestCert_Handle(t *testing.T) {
 						},
 					},
 					Conditions: []metav1.Condition{
-						{Type: constants.Ready, Reason: constants.Creating},
+						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
 				},
 			},
@@ -464,8 +465,8 @@ func TestCert_Handle(t *testing.T) {
 				Status: tt.env.status,
 			}
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:   constants.Ready,
-				Reason: constants.Creating,
+				Type:   constants.ReadyCondition,
+				Reason: state.Creating.String(),
 			})
 
 			c := testAction.FakeClientBuilder().
