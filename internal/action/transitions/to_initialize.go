@@ -6,7 +6,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/constants"
-	"k8s.io/apimachinery/pkg/api/meta"
+	"github.com/securesign/operator/internal/state"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -23,16 +23,12 @@ func (i toInitializeAction[T]) Name() string {
 }
 
 func (i toInitializeAction[T]) CanHandle(_ context.Context, instance T) bool {
-	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
-	if c == nil {
-		return false
-	}
-	return c.Reason == constants.Creating
+	return state.FromInstance(instance, constants.ReadyCondition) == state.Creating
 }
 
 func (i toInitializeAction[T]) Handle(ctx context.Context, instance T) *action.Result {
-	instance.SetCondition(metav1.Condition{Type: constants.Ready,
-		Status: metav1.ConditionFalse, Reason: constants.Initialize})
-
+	instance.SetCondition(metav1.Condition{Type: constants.ReadyCondition,
+		Status: metav1.ConditionFalse, Reason: state.Initialize.String(),
+		ObservedGeneration: instance.GetGeneration()})
 	return i.StatusUpdate(ctx, instance)
 }

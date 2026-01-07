@@ -25,6 +25,7 @@ import (
 
 	"github.com/onsi/gomega/gstruct"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/state"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/utils/ptr"
@@ -223,7 +224,7 @@ func deployAndVerify(ctx context.Context, instance *v1alpha1.Rekor) {
 	Eventually(func(g Gomega) bool {
 		found := &v1alpha1.Rekor{}
 		g.Expect(suite.Client().Get(ctx, client.ObjectKeyFromObject(instance), found)).Should(Succeed())
-		return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
+		return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
 	}).Should(BeTrue())
 
 	By("Rekor signer created")
@@ -262,8 +263,8 @@ func deployAndVerify(ctx context.Context, instance *v1alpha1.Rekor) {
 	Eventually(func(g Gomega) string {
 		found := &v1alpha1.Rekor{}
 		g.Expect(suite.Client().Get(ctx, client.ObjectKeyFromObject(instance), found)).Should(Succeed())
-		return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-	}).Should(Equal(constants.Initialize))
+		return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
+	}).Should(Equal(state.Initialize.String()))
 
 	By("Move to Ready phase")
 	// Workaround to succeed condition for Ready phase
@@ -277,7 +278,7 @@ func deployAndVerify(ctx context.Context, instance *v1alpha1.Rekor) {
 	Eventually(func(g Gomega) bool {
 		found := &v1alpha1.Rekor{}
 		g.Expect(suite.Client().Get(ctx, client.ObjectKeyFromObject(instance), found)).Should(Succeed())
-		return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
+		return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 	}).Should(BeTrue())
 }
 

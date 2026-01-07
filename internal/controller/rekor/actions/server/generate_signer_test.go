@@ -8,6 +8,7 @@ import (
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/state"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -36,7 +37,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				{
 					Type:   actions.SignerCondition,
 					Status: metav1.ConditionTrue,
-					Reason: constants.Ready,
+					Reason: state.Ready.String(),
 				},
 			},
 			canHandle: true,
@@ -50,7 +51,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				{
 					Type:   actions.SignerCondition,
 					Status: metav1.ConditionTrue,
-					Reason: constants.Ready,
+					Reason: state.Ready.String(),
 				},
 			},
 			canHandle: false,
@@ -64,7 +65,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				{
 					Type:   actions.SignerCondition,
 					Status: metav1.ConditionTrue,
-					Reason: constants.Ready,
+					Reason: state.Ready.String(),
 				},
 			},
 			canHandle: true,
@@ -75,7 +76,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				{
 					Type:   actions.SignerCondition,
 					Status: metav1.ConditionTrue,
-					Reason: constants.Ready,
+					Reason: state.Ready.String(),
 				},
 			},
 			canHandle: true,
@@ -92,7 +93,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				{
 					Type:   actions.SignerCondition,
 					Status: metav1.ConditionTrue,
-					Reason: constants.Ready,
+					Reason: state.Ready.String(),
 				},
 			},
 			canHandle: false,
@@ -109,7 +110,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				{
 					Type:   actions.SignerCondition,
 					Status: metav1.ConditionTrue,
-					Reason: constants.Ready,
+					Reason: state.Ready.String(),
 				},
 			},
 			canHandle: false,
@@ -128,7 +129,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				{
 					Type:   actions.SignerCondition,
 					Status: metav1.ConditionTrue,
-					Reason: constants.Ready,
+					Reason: state.Ready.String(),
 				},
 			},
 			canHandle: true, signer: rhtasv1alpha1.RekorSigner{
@@ -146,7 +147,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				{
 					Type:   actions.SignerCondition,
 					Status: metav1.ConditionTrue,
-					Reason: constants.Ready,
+					Reason: state.Ready.String(),
 				},
 			},
 			canHandle: true,
@@ -163,7 +164,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				{
 					Type:   actions.SignerCondition,
 					Status: metav1.ConditionTrue,
-					Reason: constants.Ready,
+					Reason: state.Ready.String(),
 				},
 			},
 			canHandle: false,
@@ -185,7 +186,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				{
 					Type:   actions.SignerCondition,
 					Status: metav1.ConditionFalse,
-					Reason: constants.Pending,
+					Reason: state.Pending.String(),
 				},
 			},
 			canHandle: true,
@@ -196,7 +197,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				{
 					Type:   actions.SignerCondition,
 					Status: metav1.ConditionTrue,
-					Reason: constants.Ready,
+					Reason: state.Ready.String(),
 				},
 			},
 			canHandle: false,
@@ -213,7 +214,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				{
 					Type:   actions.SignerCondition,
 					Status: metav1.ConditionUnknown,
-					Reason: constants.Ready,
+					Reason: state.Ready.String(),
 				},
 			},
 			canHandle: true,
@@ -432,14 +433,14 @@ func TestGenerateSigner_Handle(t *testing.T) {
 			}
 
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:   constants.Ready,
-				Reason: constants.Pending,
+				Type:   constants.ReadyCondition,
+				Reason: state.Pending.String(),
 			})
 
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:   actions.SignerCondition,
 				Status: metav1.ConditionFalse,
-				Reason: constants.Pending,
+				Reason: state.Pending.String(),
 			})
 
 			c := testAction.FakeClientBuilder().
@@ -553,14 +554,14 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 			}
 
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:   constants.Ready,
-				Reason: constants.Pending,
+				Type:   constants.ReadyCondition,
+				Reason: state.Pending.String(),
 			})
 
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:   actions.SignerCondition,
 				Status: metav1.ConditionFalse,
-				Reason: constants.Pending,
+				Reason: state.Pending.String(),
 			})
 
 			c := testAction.FakeClientBuilder().

@@ -7,6 +7,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -22,8 +23,8 @@ func GenerateTSAInstance() *rhtasv1alpha1.TimestampAuthority {
 		Status: rhtasv1alpha1.TimestampAuthorityStatus{
 			Conditions: []metav1.Condition{
 				{
-					Type:   constants.Ready,
-					Reason: constants.Ready,
+					Type:   constants.ReadyCondition,
+					Reason: state.Ready.String(),
 				},
 			},
 			NTPMonitoring: nil,

@@ -12,6 +12,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -62,7 +63,7 @@ func (i fulcioAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secure
 			v1.Condition{
 				Type:    FulcioCondition,
 				Status:  v1.ConditionFalse,
-				Reason:  constants.Failure,
+				Reason:  state.Failure.String(),
 				Message: err.Error(),
 			})
 	}
@@ -71,7 +72,7 @@ func (i fulcioAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secure
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 			Type:    FulcioCondition,
 			Status:  v1.ConditionFalse,
-			Reason:  constants.Creating,
+			Reason:  state.Creating.String(),
 			Message: "Fulcio resource created " + fulcio.Name,
 		})
 		return i.StatusUpdate(ctx, instance)
@@ -81,7 +82,7 @@ func (i fulcioAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secure
 }
 
 func (i fulcioAction) CopyStatus(ctx context.Context, object *rhtasv1alpha1.Fulcio, instance *rhtasv1alpha1.Securesign) *action.Result {
-	objectStatus := meta.FindStatusCondition(object.Status.Conditions, constants.Ready)
+	objectStatus := meta.FindStatusCondition(object.Status.Conditions, constants.ReadyCondition)
 	if objectStatus == nil {
 		// not initialized yet, wait for update
 		return i.Continue()

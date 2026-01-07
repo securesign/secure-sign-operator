@@ -6,7 +6,7 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
-	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/state"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -102,7 +102,7 @@ func (i rbacAction) cleanupResource(ctx context.Context, instance *rhtasv1alpha1
 			metav1.Condition{
 				Type:    MetricsCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
+				Reason:  state.Failure.String(),
 				Message: err.Error(),
 			})
 	}

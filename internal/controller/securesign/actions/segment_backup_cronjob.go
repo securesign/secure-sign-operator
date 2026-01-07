@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/securesign/operator/internal/action"
-	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/state"
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -45,7 +45,7 @@ func (i segmentBackupCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 			return i.Error(ctx, fmt.Errorf("could not delete segment backup cron job: %w", err), instance, metav1.Condition{
 				Type:    MetricsCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
+				Reason:  state.Failure.String(),
 				Message: err.Error(),
 			})
 		}

@@ -26,6 +26,7 @@ import (
 	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -114,7 +115,7 @@ var _ = Describe("CTlog controller", func() {
 			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
+				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
 			}).Should(BeTrue())
 
 			By("Creating trillian service")
@@ -122,8 +123,8 @@ var _ = Describe("CTlog controller", func() {
 			Eventually(func(g Gomega) string {
 				found := &v1alpha1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}).Should(Equal(constants.Creating))
+				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
+			}).Should(Equal(state.Creating.String()))
 
 			By("Creating fulcio root cert")
 			Expect(suite.Client().Create(ctx, &corev1.Secret{
@@ -138,8 +139,8 @@ var _ = Describe("CTlog controller", func() {
 			Eventually(func(g Gomega) string {
 				found := &v1alpha1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}).Should(Equal(constants.Creating))
+				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
+			}).Should(Equal(state.Creating.String()))
 
 			By("Key Secret is created")
 			found := &v1alpha1.CTlog{}
@@ -172,7 +173,7 @@ var _ = Describe("CTlog controller", func() {
 			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
+				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())
 
 			By("Checking if controller will return deployment to desired state")

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
@@ -148,7 +149,7 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			By("Waiting until Timestamp Authority is Ready")
 			Eventually(func(g Gomega) bool {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
+				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())
 
 			By("Cert and Key rotation")
@@ -183,8 +184,8 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			By("Pending phase until new keys and certs are resolved")
 			Eventually(func(g Gomega) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}).Should(Equal(constants.Pending))
+				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
+			}).Should(Equal(state.Pending.String()))
 
 			By("Creating new certificate chain and signer keys")
 			secret := tsa.CreateSecrets(Namespace, "tsa-test-secret")
@@ -242,7 +243,7 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			By("NTP monitoring should be resolved")
 			Eventually(func(g Gomega) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Message
+				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Message
 			}).Should(Equal("Waiting for deployment to be ready"))
 
 			By("Timestamp Authority deployment is updated")

@@ -17,6 +17,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
@@ -64,42 +65,43 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 		instance.Status.PublicKeyRef = nil
 		// skip signer resolution and move to creating
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:   constants.Ready,
-			Status: metav1.ConditionFalse,
-			Reason: constants.Creating,
+			Type:               constants.ReadyCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Creating.String(),
+			ObservedGeneration: instance.Generation,
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.SignerCondition,
 			Status:  metav1.ConditionTrue,
-			Reason:  constants.Ready,
+			Reason:  state.Ready.String(),
 			Message: "Not using Secret resource",
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:   actions.ServerCondition,
 			Status: metav1.ConditionFalse,
-			Reason: constants.Creating,
+			Reason: state.Creating.String(),
 		})
 		return g.StatusUpdate(ctx, instance)
 	}
 
 	// Return to pending state because Signer spec changed
-	if meta.FindStatusCondition(instance.Status.Conditions, constants.Ready).Reason != constants.Pending {
+	if state.FromInstance(instance, constants.ReadyCondition) != state.Pending {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:   constants.Ready,
-			Status: metav1.ConditionFalse,
-			Reason: constants.Pending,
+			Type:               constants.ReadyCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Pending.String(),
+			ObservedGeneration: instance.Generation,
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.SignerCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  constants.Pending,
+			Reason:  state.Pending.String(),
 			Message: "resolving keys",
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:   actions.ServerCondition,
-			Status: metav1.ConditionFalse,
-			Reason: constants.Pending,
-
+			Type:    actions.ServerCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  state.Pending.String(),
 			Message: "resolving keys",
 		})
 		return g.StatusUpdate(ctx, instance)
@@ -129,7 +131,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 					meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 						Type:    actions.SignerCondition,
 						Status:  metav1.ConditionFalse,
-						Reason:  constants.Failure,
+						Reason:  state.Failure.String(),
 						Message: err.Error(),
 					})
 					return g.StatusUpdate(ctx, instance)
@@ -160,7 +162,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 					metav1.Condition{
 						Type:    actions.SignerCondition,
 						Status:  metav1.ConditionFalse,
-						Reason:  constants.Failure,
+						Reason:  state.Failure.String(),
 						Message: err.Error(),
 					})
 			}
@@ -181,12 +183,12 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:   actions.ServerCondition,
 		Status: metav1.ConditionFalse,
-		Reason: constants.Creating,
+		Reason: state.Creating.String(),
 	})
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:   actions.SignerCondition,
 		Status: metav1.ConditionTrue,
-		Reason: constants.Ready,
+		Reason: state.Ready.String(),
 	})
 	return g.StatusUpdate(ctx, instance)
 }

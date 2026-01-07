@@ -10,6 +10,7 @@ import (
 	common "github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,8 +46,8 @@ func TestKeyAutogenerate(t *testing.T) {
 	}},
 		Status: v1alpha1.TufStatus{Conditions: []metav1.Condition{
 			{
-				Type:   constants.Ready,
-				Reason: constants.Pending,
+				Type:   constants.ReadyCondition,
+				Reason: state.Pending.String(),
 				Status: metav1.ConditionFalse,
 			},
 		}}}
@@ -74,8 +75,8 @@ func TestKeyProvided(t *testing.T) {
 	}},
 		Status: v1alpha1.TufStatus{Conditions: []metav1.Condition{
 			{
-				Type:   constants.Ready,
-				Reason: constants.Pending,
+				Type:   constants.ReadyCondition,
+				Reason: state.Pending.String(),
 				Status: metav1.ConditionFalse,
 			}}}}
 	testAction.Handle(testContext, instance)
@@ -113,8 +114,8 @@ func TestKeyUpdate(t *testing.T) {
 		},
 			Conditions: []metav1.Condition{
 				{
-					Type:   constants.Ready,
-					Reason: constants.Pending,
+					Type:   constants.ReadyCondition,
+					Reason: state.Pending.String(),
 					Status: metav1.ConditionFalse,
 				}}}}
 
@@ -157,8 +158,8 @@ func TestKeyDelete(t *testing.T) {
 		},
 			Conditions: []metav1.Condition{
 				{
-					Type:   constants.Ready,
-					Reason: constants.Pending,
+					Type:   constants.ReadyCondition,
+					Reason: state.Pending.String(),
 					Status: metav1.ConditionFalse,
 				},
 			}}}

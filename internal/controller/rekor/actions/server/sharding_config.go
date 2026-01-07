@@ -10,9 +10,9 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
-	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
@@ -43,15 +43,7 @@ func (i shardingConfig) Name() string {
 }
 
 func (i shardingConfig) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, actions.ServerCondition)
-	switch {
-	case c == nil:
-		return false
-	case c.Reason != constants.Creating && c.Reason != constants.Ready:
-		return false
-	default:
-		return true
-	}
+	return state.FromInstance(instance, actions.ServerCondition) >= state.Creating
 }
 
 func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
@@ -106,7 +98,7 @@ func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Reko
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:    actions.ServerCondition,
 		Status:  metav1.ConditionFalse,
-		Reason:  constants.Creating,
+		Reason:  state.Creating.String(),
 		Message: "Sharding config created",
 	})
 

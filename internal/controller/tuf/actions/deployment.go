@@ -12,6 +12,7 @@ import (
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
@@ -36,8 +37,7 @@ func (i deployAction) Name() string {
 }
 
 func (i deployAction) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Tuf) bool {
-	c := meta.FindStatusCondition(tuf.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Creating || c.Reason == constants.Ready
+	return state.FromInstance(tuf, constants.ReadyCondition) >= state.Creating
 }
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
@@ -66,8 +66,9 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *
 	}
 
 	if result != controllerutil.OperationResultNone {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
-			Status: metav1.ConditionFalse, Reason: constants.Creating, Message: "Deployment created"})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.ReadyCondition,
+			Status: metav1.ConditionFalse, Reason: state.Creating.String(), Message: "Deployment created",
+			ObservedGeneration: instance.Generation})
 		return i.StatusUpdate(ctx, instance)
 	} else {
 		return i.Continue()

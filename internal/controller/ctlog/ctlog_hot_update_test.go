@@ -138,11 +138,11 @@ var _ = Describe("CTlog update test", func() {
 			// Workaround to succeed condition for Ready phase
 			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
 
-			By("Waiting until CTlog instance is Ready")
+			By("Waiting until CTlog instance is ReadyCondition")
 			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
+				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())
 
 			By("Fulcio CA has changed")

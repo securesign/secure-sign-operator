@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -487,8 +488,8 @@ func TestServerConfig_Handle(t *testing.T) {
 			}
 
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:   constants.Ready,
-				Reason: constants.Creating,
+				Type:   constants.ReadyCondition,
+				Reason: state.Creating.String(),
 			})
 
 			c := testAction.FakeClientBuilder().
@@ -548,8 +549,8 @@ func TestServerConfig_Update(t *testing.T) {
 						PublicKeyRef:          &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "public"},
 						Conditions: []metav1.Condition{
 							{
-								Type:               constants.Ready,
-								Reason:             constants.Ready,
+								Type:               constants.ReadyCondition,
+								Reason:             state.Ready.String(),
 								ObservedGeneration: 1,
 							},
 						},
@@ -623,8 +624,8 @@ func TestServerConfig_Update(t *testing.T) {
 						PublicKeyRef:          &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "public"},
 						Conditions: []metav1.Condition{
 							{
-								Type:               constants.Ready,
-								Reason:             constants.Ready,
+								Type:               constants.ReadyCondition,
+								Reason:             state.Ready.String(),
 								ObservedGeneration: 1,
 							},
 						},

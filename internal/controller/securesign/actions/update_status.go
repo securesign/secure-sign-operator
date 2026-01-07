@@ -7,6 +7,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/state"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -24,7 +25,7 @@ func (i updateStatusAction) Name() string {
 }
 
 func (i updateStatusAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Securesign) bool {
-	return meta.FindStatusCondition(instance.Status.Conditions, constants.Ready) != nil
+	return meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition) != nil
 }
 
 func (i updateStatusAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
@@ -32,17 +33,19 @@ func (i updateStatusAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 
 	if !meta.IsStatusConditionTrue(instance.Status.Conditions, sorted[0]) {
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
-			Type:   constants.Ready,
-			Status: v1.ConditionFalse,
-			Reason: meta.FindStatusCondition(instance.Status.Conditions, sorted[0]).Reason,
+			Type:               constants.ReadyCondition,
+			Status:             v1.ConditionFalse,
+			Reason:             meta.FindStatusCondition(instance.Status.Conditions, sorted[0]).Reason,
+			ObservedGeneration: instance.Generation,
 		})
 		return i.StatusUpdate(ctx, instance)
 	}
-	if !meta.IsStatusConditionTrue(instance.Status.Conditions, constants.Ready) {
+	if !meta.IsStatusConditionTrue(instance.Status.Conditions, constants.ReadyCondition) {
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
-			Type:   constants.Ready,
-			Status: v1.ConditionTrue,
-			Reason: constants.Ready,
+			Type:               constants.ReadyCondition,
+			Status:             v1.ConditionTrue,
+			Reason:             state.Ready.String(),
+			ObservedGeneration: instance.Generation,
 		})
 		return i.StatusUpdate(ctx, instance)
 	}
@@ -56,11 +59,11 @@ func sortByStatus(conditions []v1.Condition) []string {
 		jCondition := meta.FindStatusCondition(conditions, sorted[j])
 
 		order := map[string]int{
-			constants.Pending:    0,
-			constants.Initialize: 1,
-			constants.Creating:   2,
-			constants.Ready:      3,
-			constants.NotDefined: 4,
+			state.Pending.String():    0,
+			state.Initialize.String(): 1,
+			state.Creating.String():   2,
+			state.Ready.String():      3,
+			state.NotDefined.String(): 4,
 		}
 
 		return order[iCondition.Reason] < order[jCondition.Reason]

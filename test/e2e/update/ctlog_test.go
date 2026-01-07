@@ -7,6 +7,7 @@ import (
 
 	"github.com/securesign/operator/internal/constants"
 	tufAction "github.com/securesign/operator/internal/controller/tuf/constants"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 
@@ -91,8 +92,8 @@ var _ = Describe("CTlog update", Ordered, func() {
 			Eventually(func(g Gomega) string {
 				ctl := ctlog.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
-				return meta.FindStatusCondition(ctl.Status.Conditions, constants.Ready).Reason
-			}).Should(Equal(constants.Creating))
+				return meta.FindStatusCondition(ctl.Status.Conditions, constants.ReadyCondition).Reason
+			}).Should(Equal(state.Creating.String()))
 		})
 
 		It("created my-ctlog-secret", func(ctx SpecContext) {
@@ -103,8 +104,8 @@ var _ = Describe("CTlog update", Ordered, func() {
 			Eventually(func(g Gomega) string {
 				ctl := ctlog.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
-				return meta.FindStatusCondition(ctl.Status.Conditions, constants.Ready).Reason
-			}).Should(Equal(constants.Ready))
+				return meta.FindStatusCondition(ctl.Status.Conditions, constants.ReadyCondition).Reason
+			}).Should(Equal(state.Ready.String()))
 		})
 
 		It("updated CTlog deployment", func(ctx SpecContext) {

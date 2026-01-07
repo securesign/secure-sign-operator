@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -166,7 +167,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
-					g.Expect(condition.Reason).Should(Equal(constants.Failure))
+					g.Expect(condition.Reason).Should(Equal(state.Failure.String()))
 
 					g.Expect(events).To(BeEmpty())
 				},
@@ -190,7 +191,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionTrue))
-					g.Expect(condition.Reason).Should(Equal(constants.Ready))
+					g.Expect(condition.Reason).Should(Equal(constants.ReadyCondition))
 
 					g.Expect(instance.Status.Db.DatabaseSecretRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.Db.DatabaseSecretRef.Name).To(Equal("connection"))
@@ -223,7 +224,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionTrue))
-					g.Expect(condition.Reason).Should(Equal(constants.Ready))
+					g.Expect(condition.Reason).Should(Equal(constants.ReadyCondition))
 
 					g.Expect(instance.Status.Db.DatabaseSecretRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.Db.DatabaseSecretRef.Name).To(Equal("new-connection"))
@@ -279,7 +280,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
-					g.Expect(condition.Reason).Should(Equal(constants.Pending))
+					g.Expect(condition.Reason).Should(Equal(state.Pending.String()))
 
 					g.Expect(instance.Status.Db.DatabaseSecretRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.Db.DatabaseSecretRef.Name).To(Equal("connection"))
@@ -306,7 +307,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
-					g.Expect(condition.Reason).Should(Equal(constants.Pending))
+					g.Expect(condition.Reason).Should(Equal(state.Pending.String()))
 
 					g.Expect(events).To(HaveLen(1))
 					event := <-events
@@ -342,7 +343,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
-					g.Expect(condition.Reason).Should(Equal(constants.Pending))
+					g.Expect(condition.Reason).Should(Equal(state.Pending.String()))
 
 					g.Expect(instance.Status.Db.DatabaseSecretRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.Db.DatabaseSecretRef.Name).To(Equal("new-connection"))
@@ -375,7 +376,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
-					g.Expect(condition.Reason).Should(Equal(constants.Pending))
+					g.Expect(condition.Reason).Should(Equal(state.Pending.String()))
 
 					g.Expect(instance.Status.Db.DatabaseSecretRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.Db.DatabaseSecretRef.Name).To(Equal("connection"))
@@ -407,7 +408,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
-					g.Expect(condition.Reason).Should(Equal(constants.Pending))
+					g.Expect(condition.Reason).Should(Equal(state.Pending.String()))
 
 					g.Expect(instance.Status.Db.DatabaseSecretRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.Db.DatabaseSecretRef.Name).To(Equal("connection"))
@@ -460,7 +461,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
-					g.Expect(condition.Reason).Should(Equal(constants.Pending))
+					g.Expect(condition.Reason).Should(Equal(state.Pending.String()))
 
 					g.Expect(instance.Status.Db.DatabaseSecretRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.Db.DatabaseSecretRef.Name).To(Equal("unlinked-connection"))
@@ -527,7 +528,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
-					g.Expect(condition.Reason).Should(Equal(constants.Pending))
+					g.Expect(condition.Reason).Should(Equal(state.Pending.String()))
 
 					g.Expect(events).To(HaveLen(3))
 
@@ -614,7 +615,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
-					g.Expect(condition.Reason).Should(Equal(constants.Pending))
+					g.Expect(condition.Reason).Should(Equal(state.Pending.String()))
 
 					g.Expect(events).To(HaveLen(1))
 					for event := range events {
@@ -648,7 +649,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:   actions.DbCondition,
 				Status: metav1.ConditionFalse,
-				Reason: constants.Pending,
+				Reason: state.Pending.String(),
 			})
 
 			c := testAction.FakeClientBuilder().

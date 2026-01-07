@@ -22,6 +22,7 @@ import (
 
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 
@@ -139,15 +140,15 @@ var _ = Describe("Fulcio controller", func() {
 			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
+				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
 			}).Should(BeTrue())
 
 			By("Pending phase until password key is resolved")
 			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}).Should(Equal(constants.Pending))
+				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
+			}).Should(Equal(state.Pending.String()))
 
 			By("Creating password secret with cert password")
 			Expect(suite.Client().Create(ctx, &corev1.Secret{
@@ -209,7 +210,7 @@ var _ = Describe("Fulcio controller", func() {
 			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
+				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())
 
 			By("Checking if Service was successfully created in the reconciliation")

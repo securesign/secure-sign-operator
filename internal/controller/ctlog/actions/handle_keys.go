@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
@@ -36,12 +37,12 @@ func (g handleKeys) Name() string {
 }
 
 func (g handleKeys) CanHandle(ctx context.Context, instance *v1alpha1.CTlog) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
 
 	switch {
 	case c == nil:
 		return false
-	case c.Reason != constants.Creating && c.Reason != constants.Ready:
+	case state.FromReason(c.Reason) < state.Creating:
 		return false
 	case instance.Status.PrivateKeyRef == nil || instance.Status.PublicKeyRef == nil:
 		return true
@@ -56,11 +57,11 @@ func (g handleKeys) CanHandle(ctx context.Context, instance *v1alpha1.CTlog) boo
 }
 
 func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *action.Result {
-	if meta.FindStatusCondition(instance.Status.Conditions, constants.Ready).Reason != constants.Creating {
+	if state.FromInstance(instance, constants.ReadyCondition) != state.Creating {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               constants.Ready,
+			Type:               constants.ReadyCondition,
 			Status:             metav1.ConditionFalse,
-			Reason:             constants.Creating,
+			Reason:             state.Creating.String(),
 			ObservedGeneration: instance.Generation,
 		},
 		)
@@ -94,9 +95,9 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 	})
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:               constants.Ready,
+		Type:               constants.ReadyCondition,
 		Status:             metav1.ConditionFalse,
-		Reason:             constants.Creating,
+		Reason:             state.Creating.String(),
 		Message:            "Keys resolved",
 		ObservedGeneration: instance.Generation,
 	})

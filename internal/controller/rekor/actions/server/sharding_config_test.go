@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"github.com/securesign/operator/internal/testing/errors"
 	v1 "k8s.io/api/core/v1"
@@ -25,37 +26,37 @@ import (
 func TestShardingConfig_CanHandle(t *testing.T) {
 	tests := []struct {
 		name      string
-		phase     string
+		phase     state.State
 		canHandle bool
 	}{
 		{
 			name:      "no phase condition",
-			phase:     "",
+			phase:     state.None,
 			canHandle: false,
 		},
 		{
-			name:      constants.Ready,
-			phase:     constants.Ready,
+			name:      constants.ReadyCondition,
+			phase:     state.Ready,
 			canHandle: true,
 		},
 		{
-			name:      constants.Pending,
-			phase:     constants.Pending,
+			name:      state.Pending.String(),
+			phase:     state.Pending,
 			canHandle: false,
 		},
 		{
-			name:      constants.Creating,
-			phase:     constants.Creating,
+			name:      state.Creating.String(),
+			phase:     state.Creating,
 			canHandle: true,
 		},
 		{
-			name:      constants.Initialize,
-			phase:     constants.Initialize,
-			canHandle: false,
+			name:      state.Initialize.String(),
+			phase:     state.Initialize,
+			canHandle: true,
 		},
 		{
-			name:      constants.Failure,
-			phase:     constants.Failure,
+			name:      state.Failure.String(),
+			phase:     state.Failure,
 			canHandle: false,
 		},
 	}
@@ -73,10 +74,10 @@ func TestShardingConfig_CanHandle(t *testing.T) {
 					},
 				},
 			}
-			if tt.phase != "" {
+			if tt.phase != state.None {
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 					Type:   actions.ServerCondition,
-					Reason: tt.phase,
+					Reason: tt.phase.String(),
 				})
 			}
 
@@ -513,7 +514,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 			}
 
 			meta.SetStatusCondition(&instance.Status.Conditions,
-				metav1.Condition{Type: constants.Ready, Reason: constants.Creating},
+				metav1.Condition{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 			)
 
 			c := testAction.FakeClientBuilder().

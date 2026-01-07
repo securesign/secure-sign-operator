@@ -24,6 +24,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	apilabels "k8s.io/apimachinery/pkg/labels"
@@ -141,15 +142,15 @@ var _ = Describe("TUF controller", func() {
 			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Tuf{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)
+				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
 			}).Should(BeTrue())
 
 			By("Pending phase until ctlog public key is resolved")
 			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Tuf{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}).Should(Equal(constants.Pending))
+				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
+			}).Should(Equal(state.Pending.String()))
 
 			By("Creating ctlog secret with public key")
 			secretLabels := map[string]string{
@@ -185,7 +186,7 @@ var _ = Describe("TUF controller", func() {
 			// Workaround to succeed condition for Ready phase
 			initJob := &initJobList.Items[0]
 			initJob.Status.Conditions = []batchv1.JobCondition{
-				{Status: corev1.ConditionTrue, Type: batchv1.JobComplete, Reason: constants.Ready}}
+				{Status: corev1.ConditionTrue, Type: batchv1.JobComplete, Reason: state.Ready.String()}}
 			Expect(suite.Client().Status().Update(ctx, initJob)).Should(Succeed())
 
 			By("Repository condition gets ready")
@@ -199,8 +200,8 @@ var _ = Describe("TUF controller", func() {
 			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Tuf{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}).Should(Equal(constants.Initialize))
+				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
+			}).Should(Equal(state.Initialize.String()))
 
 			deployment := &appsv1.Deployment{}
 			By("Checking if Deployment was successfully created in the reconciliation")
@@ -216,7 +217,7 @@ var _ = Describe("TUF controller", func() {
 			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Tuf{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
+				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())
 
 			By("Checking if Service was successfully created in the reconciliation")
@@ -242,11 +243,11 @@ var _ = Describe("TUF controller", func() {
 				rekorCondition := meta.FindStatusCondition(found.Status.Conditions, "rekor.pub")
 				g.Expect(rekorCondition).Should(Not(BeNil()))
 				g.Expect(rekorCondition.Status).Should(Equal(metav1.ConditionTrue))
-				g.Expect(rekorCondition.Reason).Should(Equal("Ready"))
+				g.Expect(rekorCondition.Reason).Should(Equal(state.Ready.String()))
 				ctlogCondition := meta.FindStatusCondition(found.Status.Conditions, "ctfe.pub")
 				g.Expect(ctlogCondition).Should(Not(BeNil()))
 				g.Expect(ctlogCondition.Status).Should(Equal(metav1.ConditionTrue))
-				g.Expect(ctlogCondition.Reason).Should(Equal("Ready"))
+				g.Expect(ctlogCondition.Reason).Should(Equal(state.Ready.String()))
 				return nil
 			}).Should(Succeed())
 

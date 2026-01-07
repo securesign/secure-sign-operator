@@ -10,6 +10,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	k8sutils "github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -29,18 +30,17 @@ func (i resolveKeysAction) Name() string {
 }
 
 func (i resolveKeysAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Tuf) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	if c.Reason != constants.Pending && c.Reason != constants.Ready {
+	if state.FromInstance(instance, constants.ReadyCondition) < state.Pending {
 		return false
 	}
-
 	return !equality.Semantic.DeepDerivative(instance.Spec.Keys, instance.Status.Keys)
 }
 
 func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
-	if meta.FindStatusCondition(instance.Status.Conditions, constants.Ready).Reason != constants.Pending {
-		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{Type: constants.Ready,
-			Status: v1.ConditionFalse, Reason: constants.Pending, Message: "Resolving keys"})
+	if state.FromInstance(instance, constants.ReadyCondition) != state.Pending {
+		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{Type: constants.ReadyCondition,
+			Status: v1.ConditionFalse, Reason: state.Pending.String(), Message: "Resolving keys",
+			ObservedGeneration: instance.Generation})
 	}
 
 	if cap(instance.Status.Keys) < len(instance.Spec.Keys) {
@@ -49,13 +49,14 @@ func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1alpha1.T
 	for index, key := range instance.Spec.Keys {
 		k, err := i.handleKey(ctx, instance, &key)
 		if err != nil {
-			meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{Type: constants.Ready,
-				Status: v1.ConditionFalse, Reason: constants.Pending, Message: "Resolving keys"})
+			meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{Type: constants.ReadyCondition,
+				Status: v1.ConditionFalse, Reason: state.Pending.String(), Message: "Resolving keys",
+				ObservedGeneration: instance.Generation})
 
 			meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 				Type:    key.Name,
 				Status:  v1.ConditionFalse,
-				Reason:  constants.Failure,
+				Reason:  state.Failure.String(),
 				Message: err.Error(),
 			})
 			i.StatusUpdate(ctx, instance)
@@ -66,7 +67,7 @@ func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1alpha1.T
 			meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 				Type:   key.Name,
 				Status: v1.ConditionTrue,
-				Reason: constants.Ready,
+				Reason: state.Ready.String(),
 			})
 		} else {
 			if !reflect.DeepEqual(*k, instance.Status.Keys[index]) {
@@ -74,7 +75,7 @@ func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1alpha1.T
 				meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 					Type:   key.Name,
 					Status: v1.ConditionTrue,
-					Reason: constants.Ready,
+					Reason: state.Ready.String(),
 				})
 			}
 		}

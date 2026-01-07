@@ -8,6 +8,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	commonUtils "github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,8 +27,7 @@ func (i initializeAction) Name() string {
 }
 
 func (i initializeAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Fulcio) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Initialize
+	return state.FromInstance(instance, constants.ReadyCondition) == state.Initialize
 }
 
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) *action.Result {
@@ -46,9 +46,9 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fu
 	if !ok {
 		i.Logger.Info("Waiting for deployment")
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.Ready,
+			Type:    constants.ReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  constants.Initialize,
+			Reason:  state.Initialize.String(),
 			Message: "Waiting for deployment to be ready",
 		})
 		return i.StatusUpdate(ctx, instance)

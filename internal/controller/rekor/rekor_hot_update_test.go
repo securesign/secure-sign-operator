@@ -25,6 +25,7 @@ import (
 
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
@@ -160,9 +161,9 @@ var _ = Describe("Rekor hot update test", func() {
 			Eventually(func(g Gomega) string {
 				found := &v1alpha1.Rekor{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				g.Expect(meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.Ready, metav1.ConditionFalse)).Should(BeTrue())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.Ready).Reason
-			}).Should(Equal(constants.Initialize))
+				g.Expect(meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)).Should(BeTrue())
+				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
+			}).Should(Equal(state.Initialize.String()))
 
 			By("Move to Ready phase")
 			deployments := &appsv1.DeploymentList{}
@@ -183,7 +184,7 @@ var _ = Describe("Rekor hot update test", func() {
 			Eventually(func(g Gomega) bool {
 				found := &v1alpha1.Rekor{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.Ready)
+				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())
 
 			By("Save the Deployment configuration")

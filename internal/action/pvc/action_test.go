@@ -9,8 +9,8 @@ import (
 	"github.com/onsi/gomega/gstruct"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
-	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -124,7 +124,7 @@ func TestHandle(t *testing.T) {
 					con := meta.FindStatusCondition(obj.GetConditions(), ConditionType)
 					g.Expect(con).To(gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"Status": gomega.Equal(metav1.ConditionFalse),
-						"Reason": gomega.Equal(constants.Failure),
+						"Reason": gomega.Equal(state.Failure.String()),
 					})))
 				},
 			},
@@ -284,7 +284,7 @@ func TestHandle(t *testing.T) {
 					con := meta.FindStatusCondition(obj.GetConditions(), ConditionType)
 					g.Expect(con).To(gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"Status": gomega.Equal(metav1.ConditionTrue),
-						"Reason": gomega.Equal(constants.Ready),
+						"Reason": gomega.Equal(state.Ready.String()),
 					})))
 				},
 			},

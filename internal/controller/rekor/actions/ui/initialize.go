@@ -6,9 +6,9 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
-	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	commonUtils "github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,14 +48,14 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Re
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.UICondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  constants.Initialize,
+			Reason:  state.Initialize.String(),
 			Message: "Waiting for deployment to be ready",
 		})
 		return i.StatusUpdate(ctx, instance)
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: actions.UICondition,
-		Status: metav1.ConditionTrue, Reason: constants.Ready})
+		Status: metav1.ConditionTrue, Reason: state.Ready.String()})
 
 	return i.StatusUpdate(ctx, instance)
 }

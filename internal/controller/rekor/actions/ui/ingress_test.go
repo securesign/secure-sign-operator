@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"github.com/securesign/operator/internal/state"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/constants"
@@ -22,28 +23,28 @@ func TestIngress_CanHandle(t *testing.T) {
 	}{
 		{
 			name:           "ingress is enabled and ui is enabled and ready",
-			conditions:     []metav1.Condition{{Type: constants.Ready, Status: metav1.ConditionTrue, Reason: constants.Ready}},
+			conditions:     []metav1.Condition{{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: state.Ready.String()}},
 			externalAccess: true,
 			uiEnabled:      true,
 			expected:       true,
 		},
 		{
 			name:           "ingress is enabled and ui is enabled but not ready",
-			conditions:     []metav1.Condition{{Type: constants.Ready, Status: metav1.ConditionFalse, Reason: constants.Pending}},
+			conditions:     []metav1.Condition{{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Pending.String()}},
 			externalAccess: true,
 			uiEnabled:      true,
 			expected:       false,
 		},
 		{
 			name:           "ingress is disabled",
-			conditions:     []metav1.Condition{{Type: constants.Ready, Status: metav1.ConditionTrue, Reason: constants.Ready}},
+			conditions:     []metav1.Condition{{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: state.Ready.String()}},
 			externalAccess: false,
 			uiEnabled:      true,
 			expected:       false,
 		},
 		{
 			name:           "ingress is enabled but ui is disabled",
-			conditions:     []metav1.Condition{{Type: constants.Ready, Status: metav1.ConditionTrue, Reason: constants.Ready}},
+			conditions:     []metav1.Condition{{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: state.Ready.String()}},
 			externalAccess: true,
 			uiEnabled:      false,
 			expected:       false,

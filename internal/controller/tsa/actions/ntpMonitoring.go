@@ -12,6 +12,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
@@ -42,12 +43,12 @@ func (i ntpMonitoringAction) Name() string {
 }
 
 func (i ntpMonitoringAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.TimestampAuthority) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.Ready)
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
 
 	switch {
 	case c == nil:
 		return false
-	case c.Reason != constants.Creating && c.Reason != constants.Ready:
+	case state.FromCondition(c) < state.Creating:
 		return false
 	case instance.Status.NTPMonitoring == nil:
 		return true
@@ -66,9 +67,9 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		i.alignStatusFields(&instance.Spec.NTPMonitoring, newStatus, "")
 		instance.Status.NTPMonitoring = newStatus
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               constants.Ready,
+			Type:               constants.ReadyCondition,
 			Status:             metav1.ConditionFalse,
-			Reason:             constants.Creating,
+			Reason:             state.Creating.String(),
 			Message:            "NTP monitoring configured",
 			ObservedGeneration: instance.Generation,
 		})
@@ -79,9 +80,9 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		i.alignStatusFields(&instance.Spec.NTPMonitoring, newStatus, cmName)
 		instance.Status.NTPMonitoring = newStatus
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               constants.Ready,
+			Type:               constants.ReadyCondition,
 			Status:             metav1.ConditionFalse,
-			Reason:             constants.Creating,
+			Reason:             state.Creating.String(),
 			Message:            "NTP monitoring configured",
 			ObservedGeneration: instance.Generation,
 		})
@@ -96,9 +97,9 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	ntpConfig, err := i.marshalNTPMonitoringConfig(instance.Spec.NTPMonitoring.Config)
 	if err != nil {
 		return i.Error(ctx, err, instance, metav1.Condition{
-			Type:               constants.Ready,
+			Type:               constants.ReadyCondition,
 			Status:             metav1.ConditionFalse,
-			Reason:             constants.Failure,
+			Reason:             state.Failure.String(),
 			Message:            err.Error(),
 			ObservedGeneration: instance.Generation,
 		})
@@ -137,9 +138,9 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 			i.alignStatusFields(&instance.Spec.NTPMonitoring, newStatus, cm.Name)
 			instance.Status.NTPMonitoring = newStatus
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:               constants.Ready,
+				Type:               constants.ReadyCondition,
 				Status:             metav1.ConditionFalse,
-				Reason:             constants.Creating,
+				Reason:             state.Creating.String(),
 				Message:            "NTP config discovered",
 				ObservedGeneration: instance.Generation,
 			})
@@ -173,9 +174,9 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	i.alignStatusFields(&instance.Spec.NTPMonitoring, newStatus, cmName)
 	instance.Status.NTPMonitoring = newStatus
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:               constants.Ready,
+		Type:               constants.ReadyCondition,
 		Status:             metav1.ConditionFalse,
-		Reason:             constants.Creating,
+		Reason:             state.Creating.String(),
 		Message:            "NTP monitoring configured",
 		ObservedGeneration: instance.Generation,
 	})

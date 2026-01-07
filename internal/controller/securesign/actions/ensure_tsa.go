@@ -13,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/tsa/actions"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -56,7 +57,7 @@ func (i tsaAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 			Type:    TSACondition,
 			Status:  v1.ConditionTrue,
-			Reason:  constants.NotDefined,
+			Reason:  state.NotDefined.String(),
 			Message: "TSA resource is undefined",
 		})
 		return i.StatusUpdate(ctx, instance)
@@ -76,7 +77,7 @@ func (i tsaAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 			v1.Condition{
 				Type:    TSACondition,
 				Status:  v1.ConditionFalse,
-				Reason:  constants.Failure,
+				Reason:  state.Failure.String(),
 				Message: err.Error(),
 			})
 	}
@@ -85,7 +86,7 @@ func (i tsaAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 			Type:    TSACondition,
 			Status:  v1.ConditionFalse,
-			Reason:  constants.Creating,
+			Reason:  state.Creating.String(),
 			Message: "TSA resource created " + tsa.Name,
 		})
 		return i.StatusUpdate(ctx, instance)
@@ -95,7 +96,7 @@ func (i tsaAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 }
 
 func (i tsaAction) CopyStatus(ctx context.Context, object *rhtasv1alpha1.TimestampAuthority, instance *rhtasv1alpha1.Securesign) *action.Result {
-	objectStatus := meta.FindStatusCondition(object.Status.Conditions, constants.Ready)
+	objectStatus := meta.FindStatusCondition(object.Status.Conditions, constants.ReadyCondition)
 	if objectStatus == nil {
 		// not initialized yet, wait for update
 		return i.Continue()

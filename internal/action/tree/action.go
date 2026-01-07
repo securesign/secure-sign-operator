@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/securesign/operator/internal/action"
-	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
@@ -74,7 +74,7 @@ func (i resolveTree[T]) handleMissingCondition(ctx context.Context, instance T) 
 		instance.SetCondition(metav1.Condition{
 			Type:   JobCondition,
 			Status: metav1.ConditionTrue,
-			Reason: constants.Ready,
+			Reason: state.Ready.String(),
 		})
 		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "ExistingTrillianTreeFound", "Existing Trillian tree found: %d", wrapped.GetStatusTreeID())
 		return i.StatusUpdate(ctx, instance)
@@ -183,7 +183,7 @@ func (i resolveTree[T]) handleConfigMap(ctx context.Context, instance T) *action
 		instance.SetCondition(metav1.Condition{
 			Type:    JobCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  constants.Creating,
+			Reason:  state.Creating.String(),
 			Message: fmt.Sprintf("ConfigMap `%s` %s", configMap.GetName(), result)},
 		)
 		return i.StatusUpdate(ctx, instance)
@@ -258,7 +258,7 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 			metav1.Condition{
 				Type:    JobCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  constants.Creating,
+				Reason:  state.Creating.String(),
 				Message: err.Error(),
 			})
 	}
@@ -272,7 +272,7 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 			metav1.Condition{
 				Type:    JobCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  constants.Creating,
+				Reason:  state.Creating.String(),
 				Message: err.Error(),
 			})
 	}
@@ -280,7 +280,7 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 	instance.SetCondition(metav1.Condition{
 		Type:    JobCondition,
 		Status:  metav1.ConditionFalse,
-		Reason:  constants.Initialize,
+		Reason:  state.Initialize.String(),
 		Message: "createtree job created",
 	})
 
@@ -330,7 +330,7 @@ func (i resolveTree[T]) handleJobFinished(ctx context.Context, instance T) *acti
 		instance.SetCondition(metav1.Condition{
 			Type:    JobCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  constants.Failure,
+			Reason:  state.Failure.String(),
 			Message: ErrJobFailed.Error(),
 		})
 		return i.Error(ctx, reconcile.TerminalError(ErrJobFailed), instance)
@@ -361,7 +361,7 @@ func (i resolveTree[T]) handleExtractJobResult(ctx context.Context, instance T) 
 		instance.SetCondition(metav1.Condition{
 			Type:   JobCondition,
 			Status: metav1.ConditionTrue,
-			Reason: constants.Ready,
+			Reason: state.Ready.String(),
 		})
 		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "TrillianTreeCreated", "New Trillian tree created: %d", treeID)
 		return i.StatusUpdate(ctx, instance)

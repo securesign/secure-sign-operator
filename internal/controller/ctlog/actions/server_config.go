@@ -10,10 +10,10 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
-	"github.com/securesign/operator/internal/constants"
 	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	corev1 "k8s.io/api/core/v1"
@@ -71,7 +71,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 				metav1.Condition{
 					Type:               ConfigCondition,
 					Status:             metav1.ConditionFalse,
-					Reason:             constants.Failure,
+					Reason:             state.Failure.String(),
 					Message:            fmt.Sprintf("Error accessing custom server config secret: %s", instance.Spec.ServerConfigRef.Name),
 					ObservedGeneration: instance.Generation,
 				})
@@ -81,7 +81,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 				metav1.Condition{
 					Type:               ConfigCondition,
 					Status:             metav1.ConditionFalse,
-					Reason:             constants.Failure,
+					Reason:             state.Failure.String(),
 					Message:            fmt.Sprintf("Custom server config secret is missing '%s' key: %s", ctlogUtils.ConfigKey, instance.Spec.ServerConfigRef.Name),
 					ObservedGeneration: instance.Generation,
 				})
@@ -92,7 +92,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               ConfigCondition,
 			Status:             metav1.ConditionTrue,
-			Reason:             constants.Ready,
+			Reason:             state.Ready.String(),
 			Message:            "Using custom server config",
 			ObservedGeneration: instance.Generation,
 		})
@@ -129,7 +129,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 					metav1.Condition{
 						Type:               ConfigCondition,
 						Status:             metav1.ConditionFalse,
-						Reason:             constants.Failure,
+						Reason:             state.Failure.String(),
 						Message:            fmt.Sprintf("Error accessing config secret: %s", instance.Status.ServerConfigRef.Name),
 						ObservedGeneration: instance.Generation,
 					})
@@ -172,7 +172,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		return i.Error(ctx, fmt.Errorf("could not create CTLog configuration: %w", err), instance, metav1.Condition{
 			Type:               ConfigCondition,
 			Status:             metav1.ConditionFalse,
-			Reason:             constants.Failure,
+			Reason:             state.Failure.String(),
 			Message:            err.Error(),
 			ObservedGeneration: instance.Generation,
 		})
@@ -198,7 +198,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 			metav1.Condition{
 				Type:               ConfigCondition,
 				Status:             metav1.ConditionFalse,
-				Reason:             constants.Failure,
+				Reason:             state.Failure.String(),
 				Message:            err.Error(),
 				ObservedGeneration: instance.Generation,
 			})
@@ -211,7 +211,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               ConfigCondition,
 		Status:             metav1.ConditionTrue,
-		Reason:             constants.Ready,
+		Reason:             state.Ready.String(),
 		Message:            "Server config created",
 		ObservedGeneration: instance.Generation,
 	})

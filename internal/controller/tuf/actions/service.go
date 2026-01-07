@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
@@ -33,8 +34,7 @@ func (i serviceAction) Name() string {
 }
 
 func (i serviceAction) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Tuf) bool {
-	c := meta.FindStatusCondition(tuf.Status.Conditions, constants.Ready)
-	return c.Reason == constants.Creating || c.Reason == constants.Ready
+	return state.FromInstance(tuf, constants.ReadyCondition) >= state.Creating
 }
 
 func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
@@ -62,8 +62,9 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) 
 	}
 
 	if result != controllerutil.OperationResultNone {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
-			Status: metav1.ConditionFalse, Reason: constants.Creating, Message: "Service created"})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.ReadyCondition,
+			Status: metav1.ConditionFalse, Reason: state.Creating.String(), Message: "Service created",
+			ObservedGeneration: instance.Generation})
 		return i.StatusUpdate(ctx, instance)
 	} else {
 		return i.Continue()

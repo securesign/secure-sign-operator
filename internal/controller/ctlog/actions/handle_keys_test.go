@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	utils2 "github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
@@ -25,7 +26,7 @@ import (
 func TestKeysCan_Handle(t *testing.T) {
 
 	type env struct {
-		phase   string
+		phase   state.State
 		spec    v1alpha1.CTlogSpec
 		objects []client.Object
 		status  v1alpha1.CTlogStatus
@@ -41,7 +42,7 @@ func TestKeysCan_Handle(t *testing.T) {
 		{
 			name: "generate new",
 			env: env{
-				phase:  constants.Creating,
+				phase:  state.Creating,
 				spec:   v1alpha1.CTlogSpec{},
 				status: v1alpha1.CTlogStatus{},
 			},
@@ -52,7 +53,7 @@ func TestKeysCan_Handle(t *testing.T) {
 		{
 			name: "new spec key",
 			env: env{
-				phase: constants.Creating,
+				phase: state.Creating,
 				spec: v1alpha1.CTlogSpec{
 					PrivateKeyRef: &v1alpha1.SecretKeySelector{
 						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "obj"},
@@ -68,7 +69,7 @@ func TestKeysCan_Handle(t *testing.T) {
 		{
 			name: "spec change",
 			env: env{
-				phase: constants.Creating,
+				phase: state.Creating,
 				spec: v1alpha1.CTlogSpec{
 					PrivateKeyRef: &v1alpha1.SecretKeySelector{
 						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "new"},
@@ -97,7 +98,7 @@ func TestKeysCan_Handle(t *testing.T) {
 		{
 			name: "generated keys-no change",
 			env: env{
-				phase: constants.Ready,
+				phase: state.Ready,
 				spec:  v1alpha1.CTlogSpec{},
 				status: v1alpha1.CTlogStatus{
 					PrivateKeyRef: &v1alpha1.SecretKeySelector{
@@ -121,7 +122,7 @@ func TestKeysCan_Handle(t *testing.T) {
 		{
 			name: "spec keys-no change",
 			env: env{
-				phase: constants.Creating,
+				phase: state.Creating,
 				spec: v1alpha1.CTlogSpec{
 					PrivateKeyRef: &v1alpha1.SecretKeySelector{
 						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "old"},
@@ -158,7 +159,7 @@ func TestKeysCan_Handle(t *testing.T) {
 		{
 			name: "pending phase",
 			env: env{
-				phase: constants.Pending,
+				phase: state.Pending,
 			},
 			want: want{
 				canHandle: false,
@@ -182,8 +183,8 @@ func TestKeysCan_Handle(t *testing.T) {
 				Status: tt.env.status,
 			}
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:   constants.Ready,
-				Reason: tt.env.phase,
+				Type:   constants.ReadyCondition,
+				Reason: tt.env.phase.String(),
 			})
 
 			if got := a.CanHandle(context.TODO(), &instance); !reflect.DeepEqual(got, tt.want.canHandle) {
@@ -538,8 +539,8 @@ func TestKeys_Handle(t *testing.T) {
 				Status: tt.env.status,
 			}
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:   constants.Ready,
-				Reason: constants.Creating,
+				Type:   constants.ReadyCondition,
+				Reason: state.Creating.String(),
 			})
 
 			c := testAction.FakeClientBuilder().

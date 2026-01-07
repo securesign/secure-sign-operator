@@ -7,8 +7,8 @@ import (
 	. "github.com/onsi/gomega"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/config"
-	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
+	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -38,7 +38,7 @@ func TestTlsAction_CanHandle(t *testing.T) {
 					{
 						Type:   actions.ServerCondition,
 						Status: metav1.ConditionFalse,
-						Reason: constants.Pending,
+						Reason: state.Pending.String(),
 					},
 				},
 			},
@@ -53,7 +53,7 @@ func TestTlsAction_CanHandle(t *testing.T) {
 					{
 						Type:   actions.ServerCondition,
 						Status: metav1.ConditionTrue,
-						Reason: constants.Ready,
+						Reason: state.Ready.String(),
 					},
 				},
 				specTLS: rhtasv1alpha1.TLS{
@@ -80,7 +80,7 @@ func TestTlsAction_CanHandle(t *testing.T) {
 					{
 						Type:   actions.ServerCondition,
 						Status: metav1.ConditionTrue,
-						Reason: constants.Ready,
+						Reason: state.Ready.String(),
 					},
 				},
 				specTLS: rhtasv1alpha1.TLS{
@@ -115,7 +115,7 @@ func TestTlsAction_CanHandle(t *testing.T) {
 					{
 						Type:   actions.ServerCondition,
 						Status: metav1.ConditionTrue,
-						Reason: constants.Ready,
+						Reason: state.Ready.String(),
 					},
 				},
 				specTLS: rhtasv1alpha1.TLS{
@@ -145,13 +145,13 @@ func TestTlsAction_CanHandle(t *testing.T) {
 			},
 		},
 		{
-			name: "can handle on OpenShift when Ready and no cert ref in status (enable TLS by default)",
+			name: "can handle on OpenShift when ReadyCondition and no cert ref in status (enable TLS by default)",
 			env: env{
 				conditions: []metav1.Condition{
 					{
 						Type:   actions.ServerCondition,
 						Status: metav1.ConditionTrue,
-						Reason: constants.Ready,
+						Reason: state.Ready.String(),
 					},
 				},
 				specTLS:     rhtasv1alpha1.TLS{},
@@ -163,13 +163,13 @@ func TestTlsAction_CanHandle(t *testing.T) {
 			},
 		},
 		{
-			name: "cannot handle on OpenShift when Ready and cert ref exists in status",
+			name: "cannot handle on OpenShift when ReadyCondition and cert ref exists in status",
 			env: env{
 				conditions: []metav1.Condition{
 					{
 						Type:   actions.ServerCondition,
 						Status: metav1.ConditionTrue,
-						Reason: constants.Ready,
+						Reason: state.Ready.String(),
 					},
 				},
 				specTLS: rhtasv1alpha1.TLS{},
@@ -186,13 +186,13 @@ func TestTlsAction_CanHandle(t *testing.T) {
 			},
 		},
 		{
-			name: "cannot handle on non-OpenShift when Ready - no TLS config",
+			name: "cannot handle on non-OpenShift when ReadyCondition - no TLS config",
 			env: env{
 				conditions: []metav1.Condition{
 					{
 						Type:   actions.ServerCondition,
 						Status: metav1.ConditionTrue,
-						Reason: constants.Ready,
+						Reason: state.Ready.String(),
 					},
 				},
 				specTLS:     rhtasv1alpha1.TLS{},

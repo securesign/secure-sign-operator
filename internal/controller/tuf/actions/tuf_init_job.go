@@ -12,6 +12,7 @@ import (
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/controller/tuf/utils"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	jobUtils "github.com/securesign/operator/internal/utils/kubernetes/job"
@@ -36,8 +37,8 @@ func (i initJobAction) Name() string {
 }
 
 func (i initJobAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Tuf) bool {
-	c := meta.FindStatusCondition(instance.GetConditions(), constants.Ready)
-	return c.Reason == constants.Creating && !meta.IsStatusConditionTrue(instance.GetConditions(), tufConstants.RepositoryCondition)
+	return !meta.IsStatusConditionTrue(instance.GetConditions(), tufConstants.RepositoryCondition) &&
+		state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func (i initJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
@@ -65,7 +66,7 @@ func (i initJobAction) jobPresent(ctx context.Context, job *v2.Job, instance *rh
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:    tufConstants.RepositoryCondition,
 				Status:  metav1.ConditionTrue,
-				Reason:  constants.Ready,
+				Reason:  state.Ready.String(),
 				Message: "tuf-repository-init job passed",
 			})
 			return i.StatusUpdate(ctx, instance)
@@ -74,7 +75,7 @@ func (i initJobAction) jobPresent(ctx context.Context, job *v2.Job, instance *rh
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:    tufConstants.RepositoryCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  constants.Failure,
+				Reason:  state.Failure.String(),
 				Message: err.Error(),
 			})
 			return i.Error(ctx, reconcile.TerminalError(err), instance)

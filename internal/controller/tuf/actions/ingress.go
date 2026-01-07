@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
@@ -34,9 +35,7 @@ func (i ingressAction) Name() string {
 }
 
 func (i ingressAction) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Tuf) bool {
-	c := meta.FindStatusCondition(tuf.Status.Conditions, constants.Ready)
-	return (c.Reason == constants.Creating || c.Reason == constants.Ready) &&
-		tuf.Spec.ExternalAccess.Enabled
+	return tuf.Spec.ExternalAccess.Enabled && state.FromInstance(tuf, constants.ReadyCondition) >= state.Creating
 }
 
 func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
@@ -68,8 +67,9 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) 
 	}
 
 	if result != controllerutil.OperationResultNone {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.Ready,
-			Status: metav1.ConditionFalse, Reason: constants.Creating, Message: "Ingress created"})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.ReadyCondition,
+			Status: metav1.ConditionFalse, Reason: state.Creating.String(), Message: "Ingress created",
+			ObservedGeneration: instance.Generation})
 		return i.StatusUpdate(ctx, instance)
 	} else {
 		return i.Continue()

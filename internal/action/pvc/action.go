@@ -9,8 +9,8 @@ import (
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/apis"
-	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
@@ -114,7 +114,7 @@ func (i pvcAction[T]) Handle(ctx context.Context, instance T) *action.Result {
 		return i.Error(ctx, reconcile.TerminalError(ErrPVCSizeNotSet), instance, metav1.Condition{
 			Type:               ConditionType,
 			Status:             metav1.ConditionFalse,
-			Reason:             constants.Failure,
+			Reason:             state.Failure.String(),
 			Message:            ErrPVCSizeNotSet.Error(),
 			ObservedGeneration: instance.GetGeneration(),
 		})
@@ -130,7 +130,7 @@ func (i pvcAction[T]) Handle(ctx context.Context, instance T) *action.Result {
 		return i.Error(ctx, fmt.Errorf("could not create DB PVC: %w", err), instance, metav1.Condition{
 			Type:               ConditionType,
 			Status:             metav1.ConditionFalse,
-			Reason:             constants.Failure,
+			Reason:             state.Failure.String(),
 			Message:            err.Error(),
 			ObservedGeneration: instance.GetGeneration(),
 		})
@@ -157,7 +157,7 @@ func (i pvcAction[T]) Handle(ctx context.Context, instance T) *action.Result {
 		instance.SetCondition(metav1.Condition{
 			Type:               ConditionType,
 			Status:             metav1.ConditionTrue,
-			Reason:             constants.Ready,
+			Reason:             state.Ready.String(),
 			ObservedGeneration: instance.GetGeneration(),
 		})
 	}

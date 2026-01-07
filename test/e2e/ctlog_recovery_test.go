@@ -13,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	ctlogActions "github.com/securesign/operator/internal/controller/ctlog/actions"
 	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
+	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/condition"
 	"github.com/securesign/operator/test/e2e/support/steps"
@@ -221,12 +222,12 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 			Eventually(func(g Gomega) string {
 				c := ctlog.Get(ctx, cli, namespace.Name, ctlogCR.Name)
 				g.Expect(c).NotTo(BeNil())
-				readyCond := meta.FindStatusCondition(c.Status.Conditions, constants.Ready)
+				readyCond := meta.FindStatusCondition(c.Status.Conditions, constants.ReadyCondition)
 				if readyCond == nil {
 					return ""
 				}
 				return readyCond.Reason
-			}).Should(Equal(constants.Ready),
+			}).Should(Equal(state.Ready.String()),
 				"CTLog should transition to Ready status after config secret recreation")
 		})
 
