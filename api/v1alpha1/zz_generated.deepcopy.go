@@ -186,6 +186,7 @@ func (in *CTlogSpec) DeepCopyInto(out *CTlogSpec) {
 	}
 	out.Monitoring = in.Monitoring
 	in.Trillian.DeepCopyInto(&out.Trillian)
+	in.Monitoring.Tuf.DeepCopyInto(&out.Monitoring.Tuf)
 	if in.ServerConfigRef != nil {
 		in, out := &in.ServerConfigRef, &out.ServerConfigRef
 		*out = new(LocalObjectReference)

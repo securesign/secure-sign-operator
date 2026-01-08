@@ -45,6 +45,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/controller/ctlog/actions/monitor"
 )
 
 // ctlogReconciler reconciles a CTlog object
@@ -115,6 +116,10 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		actions.NewDeployAction(),
 		actions.NewServiceAction(),
 		actions.NewCreateMonitorAction(),
+
+		monitor.NewStatefulSetAction(),
+		monitor.NewCreateServiceAction(),
+		monitor.NewCreateMonitorAction(),
 
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.CTlog](),
 
