@@ -1486,6 +1486,11 @@ func (in *TrillianDB) DeepCopyInto(out *TrillianDB) {
 		*out = new(LocalObjectReference)
 		**out = **in
 	}
+	if in.DatabasePasswordSecretRef != nil {
+		in, out := &in.DatabasePasswordSecretRef, &out.DatabasePasswordSecretRef
+		*out = new(LocalObjectReference)
+		**out = **in
+	}
 	in.Pvc.DeepCopyInto(&out.Pvc)
 	in.TLS.DeepCopyInto(&out.TLS)
 }
@@ -1602,6 +1607,11 @@ func (in *TrillianSpec) DeepCopyInto(out *TrillianSpec) {
 		in, out := &in.MaxRecvMessageSize, &out.MaxRecvMessageSize
 		*out = new(int64)
 		**out = **in
+	}
+	if in.Auth != nil {
+		in, out := &in.Auth, &out.Auth
+		*out = new(Auth)
+		(*in).DeepCopyInto(*out)
 	}
 }
 

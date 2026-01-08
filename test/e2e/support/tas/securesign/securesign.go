@@ -125,9 +125,6 @@ func WithManagedDatabase() Opts {
 func WithExternalDatabase(secretName string) Opts {
 	return func(s *v1alpha1.Securesign) {
 		s.Spec.Trillian.Db.Create = ptr.To(false)
-		s.Spec.Trillian.Db.DatabaseSecretRef = &v1alpha1.LocalObjectReference{
-			Name: secretName,
-		}
 	}
 }
 
