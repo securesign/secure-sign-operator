@@ -91,6 +91,42 @@ type CtlogService struct {
 	Prefix string `json:"prefix,omitempty"`
 }
 
+// FulcioService configuration to connect Fulcio server
+type FulcioService struct {
+	// Address to Fulcio End point
+	//+optional
+	Address string `json:"address,omitempty"`
+	// Port of Fulcio End point
+	//+kubebuilder:validation:Minimum:=1
+	//+kubebuilder:validation:Maximum:=65535
+	//+optional
+	Port *int32 `json:"port,omitempty"`
+}
+
+// RekorService configuration to connect Rekor server
+type RekorService struct {
+	// Address to Rekor End point
+	//+optional
+	Address string `json:"address,omitempty"`
+	// Port of Rekor End point
+	//+kubebuilder:validation:Minimum:=1
+	//+kubebuilder:validation:Maximum:=65535
+	//+optional
+	Port *int32 `json:"port,omitempty"`
+}
+
+// TsaService configuration to connect TSA server
+type TsaService struct {
+	// Address to TSA End point
+	//+optional
+	Address string `json:"address,omitempty"`
+	// Port of TSA End point
+	//+kubebuilder:validation:Minimum:=1
+	//+kubebuilder:validation:Maximum:=65535
+	//+optional
+	Port *int32 `json:"port,omitempty"`
+}
+
 // LocalObjectReference contains enough information to let you locate the
 // referenced object inside the same namespace.
 // +structType=atomic

@@ -237,6 +237,7 @@ var _ = Describe("TUF", func() {
 
 					Expect(k8sClient.Create(context.Background(), &tufInstance)).To(Succeed())
 					fetched := &Tuf{}
+					expectedtufInstance.Spec.Ctlog.Prefix = "trusted-artifact-signer"
 					Expect(k8sClient.Get(context.Background(), getKey(&tufInstance), fetched)).To(Succeed())
 					Expect(fetched.Spec).To(Equal(expectedtufInstance.Spec))
 				})
@@ -293,6 +294,7 @@ var _ = Describe("TUF", func() {
 					}
 
 					expectedtufInstance.Spec.ExternalAccess.Enabled = true
+					expectedtufInstance.Spec.Ctlog.Prefix = "trusted-artifact-signer"
 
 					Expect(k8sClient.Create(context.Background(), &tufInstance)).To(Succeed())
 					fetchedtuf := &Tuf{}
