@@ -1,0 +1,58 @@
+---
+apiVersion: operator.openshift.io/v1alpha1
+kind: ImageDigestMirrorSet
+metadata:
+  name: registries
+spec:
+  imageDigestMirrors:
+    - mirrors:
+        - quay.io/securesign/certificate-transparency-go
+      source: registry.redhat.io/rhtas/certificate-transparency-rhel9
+    - mirrors:
+        - quay.io/securesign/client-server
+      source: registry.redhat.io/rhtas/client-server-rhel9
+    - mirrors:
+        - quay.io/securesign/rhtas-operator-bundle
+      source: registry.redhat.io/rhtas/rhtas-operator-bundle
+    - mirrors:
+        - quay.io/securesign/rhtas-operator
+      source: registry.redhat.io/rhtas/rhtas-rhel9-operator
+    - mirrors:
+        - quay.io/securesign/fulcio-server
+      source: registry.redhat.io/rhtas/fulcio-rhel9
+    - mirrors:
+        - quay.io/securesign/rekor-server
+      source: registry.redhat.io/rhtas/rekor-server-rhel9
+    - mirrors:
+        - quay.io/securesign/rekor-backfill-redis
+      source: registry.redhat.io/rhtas/rekor-backfill-redis-rhel9
+    - mirrors:
+        - quay.io/securesign/rekor-search-ui
+      source: registry.redhat.io/rhtas/rekor-search-ui-rhel9
+    - mirrors:
+        - quay.io/securesign/trillian-logserver
+      source: registry.redhat.io/rhtas/trillian-logserver-rhel9
+    - mirrors:
+        - quay.io/securesign/trillian-logsigner
+      source: registry.redhat.io/rhtas/trillian-logsigner-rhel9
+    - mirrors:
+        - quay.io/securesign/trillian-database
+      source: registry.redhat.io/rhtas/trillian-database-rhel9
+    - mirrors:
+        - quay.io/securesign/trillian-redis
+      source: registry.redhat.io/rhtas/trillian-redis-rhel9
+    - mirrors:
+        - quay.io/securesign/trillian-createtree
+      source: registry.redhat.io/rhtas/createtree-rhel9
+    - mirrors:
+        - quay.io/securesign/segment-backup-job
+      source: registry.redhat.io/rhtas/segment-reporting-rhel9
+    - mirrors:
+        - quay.io/securesign/timestamp-authority
+      source: registry.redhat.io/rhtas/timestamp-authority-rhel9
+    - mirrors:
+        - quay.io/securesign/rekor-monitor
+      source: registry.redhat.io/rhtas/rekor-monitor-rhel9
+    - mirrors:
+        - quay.io/securesign/tuffer
+      source: registry.redhat.io/rhtas/tuffer-rhel9

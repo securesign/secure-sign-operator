@@ -2,6 +2,7 @@ package ctlog
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
@@ -17,7 +18,7 @@ import (
 )
 
 func Verify(ctx context.Context, cli client.Client, namespace string, name string) {
-	Eventually(Get).WithContext(ctx).WithArguments(cli, namespace, name).
+	Eventually(Get).WithTimeout(8*time.Minute).WithContext(ctx).WithArguments(cli, namespace, name).
 		Should(
 			And(
 				Not(BeNil()),
