@@ -17,6 +17,31 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+type dbKeys struct {
+	User     string
+	Password string
+	Host     string
+	Port     string
+	Database string
+}
+
+var dbProviderKeys = map[string]dbKeys{
+	"mysql": {
+		User:     actions.SecretUser,
+		Password: actions.SecretPassword,
+		Host:     actions.SecretHost,
+		Port:     actions.SecretPort,
+		Database: actions.SecretDatabaseName,
+	},
+	"postgresql": {
+		User:     actions.PgSecretUser,
+		Password: actions.PgSecretPassword,
+		Host:     actions.PgSecretHost,
+		Port:     actions.PgSecretPort,
+		Database: actions.PgSecretDatabaseName,
+	},
+}
+
 func EnsureServerDeployment(instance *v1alpha1.Trillian, labels map[string]string) []func(*apps.Deployment) error {
 	return []func(deployment *apps.Deployment) error{
 		ensureDeployment(instance,
@@ -53,20 +78,25 @@ func ensureInitContainer(instance *v1alpha1.Trillian) func(*apps.Deployment) err
 		initContainer := kubernetes.FindInitContainerByNameOrCreate(&dp.Spec.Template.Spec, "wait-for-trillian-db")
 		initContainer.Image = images.Registry.Get(images.TrillianNetcat)
 
-		hostnameEnv := kubernetes.FindEnvByNameOrCreate(initContainer, "MYSQL_HOSTNAME")
+		keys, ok := dbProviderKeys[instance.Spec.Db.Provider]
+		if !ok {
+			return fmt.Errorf("unsupported database provider %s", instance.Spec.Db.Provider)
+		}
+
+		hostnameEnv := kubernetes.FindEnvByNameOrCreate(initContainer, "DB_HOSTNAME")
 		hostnameEnv.ValueFrom = &core.EnvVarSource{
 			SecretKeyRef: &core.SecretKeySelector{
-				Key: actions.SecretHost,
+				Key: keys.Host,
 				LocalObjectReference: core.LocalObjectReference{
 					Name: instance.Status.Db.DatabaseSecretRef.Name,
 				},
 			},
 		}
 
-		portEnv := kubernetes.FindEnvByNameOrCreate(initContainer, "MYSQL_PORT")
+		portEnv := kubernetes.FindEnvByNameOrCreate(initContainer, "DB_PORT")
 		portEnv.ValueFrom = &core.EnvVarSource{
 			SecretKeyRef: &core.SecretKeySelector{
-				Key: actions.SecretPort,
+				Key: keys.Port,
 				LocalObjectReference: core.LocalObjectReference{
 					Name: instance.Status.Db.DatabaseSecretRef.Name,
 				},
@@ -75,7 +105,7 @@ func ensureInitContainer(instance *v1alpha1.Trillian) func(*apps.Deployment) err
 		initContainer.Command = []string{
 			"sh",
 			"-c",
-			"until nc -z -v -w30 $MYSQL_HOSTNAME $MYSQL_PORT; do echo \"Waiting for MySQL to start\"; sleep 5; done;",
+			"until nc -z -v -w30 $DB_HOSTNAME $DB_PORT; do echo \"Waiting for database to start\"; sleep 5; done;",
 		}
 
 		return nil
@@ -126,16 +156,30 @@ func ensureDeployment(instance *v1alpha1.Trillian, image string, name string, sa
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, name)
 		container.Image = image
 
-		container.Args = append([]string{
-			"--storage_system=mysql",
-			"--quota_system=mysql",
-			"--mysql_uri=$(MYSQL_USER):$(MYSQL_PASSWORD)@tcp($(MYSQL_HOSTNAME):$(MYSQL_PORT))/$(MYSQL_DATABASE)",
-			"--mysql_max_conns=30",
-			"--mysql_max_idle_conns=10",
+		switch instance.Spec.Db.Provider {
+		case "postgresql":
+			container.Args = append([]string{
+				"--storage_system=postgresql",
+				"--quota_system=postgresql",
+				"--postgresql_uri=postgresql://$(DB_USER):$(DB_PASSWORD)@$(DB_HOSTNAME):$(DB_PORT)/$(DB_NAME)",
+			}, args...)
+		case "mysql":
+			container.Args = append([]string{
+				"--storage_system=mysql",
+				"--quota_system=mysql",
+				"--mysql_uri=$(DB_USER):$(DB_PASSWORD)@tcp($(DB_HOSTNAME):$(DB_PORT))/$(DB_NAME)",
+				"--mysql_max_conns=30",
+				"--mysql_max_idle_conns=10",
+			}, args...)
+		default:
+			return fmt.Errorf("unsupported database provider %s", instance.Spec.Db.Provider)
+		}
+
+		container.Args = append(container.Args, []string{
 			"--rpc_endpoint=0.0.0.0:" + strconv.Itoa(int(actions.ServerPort)),
 			"--http_endpoint=0.0.0.0:" + strconv.Itoa(int(actions.MetricsPort)),
 			"--alsologtostderr",
-		}, args...)
+		}...)
 
 		if instance.Spec.MaxRecvMessageSize != nil {
 			container.Args = append(container.Args, "--max_msg_size_bytes", fmt.Sprintf("%d", *instance.Spec.MaxRecvMessageSize))
@@ -143,50 +187,55 @@ func ensureDeployment(instance *v1alpha1.Trillian, image string, name string, sa
 
 		//Ports = containerPorts
 		// Env variables from secret trillian-mysql
-		userEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_USER")
+		keys, ok := dbProviderKeys[instance.Spec.Db.Provider]
+		if !ok {
+			return fmt.Errorf("unsupported database provider %s", instance.Spec.Db.Provider)
+		}
+
+		userEnv := kubernetes.FindEnvByNameOrCreate(container, "DB_USER")
 		userEnv.ValueFrom = &core.EnvVarSource{
 			SecretKeyRef: &core.SecretKeySelector{
-				Key: actions.SecretUser,
+				Key: keys.User,
 				LocalObjectReference: core.LocalObjectReference{
 					Name: instance.Status.Db.DatabaseSecretRef.Name,
 				},
 			},
 		}
 
-		passwordEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_PASSWORD")
+		passwordEnv := kubernetes.FindEnvByNameOrCreate(container, "DB_PASSWORD")
 		passwordEnv.ValueFrom = &core.EnvVarSource{
 			SecretKeyRef: &core.SecretKeySelector{
-				Key: actions.SecretPassword,
+				Key: keys.Password,
 				LocalObjectReference: core.LocalObjectReference{
 					Name: instance.Status.Db.DatabaseSecretRef.Name,
 				},
 			},
 		}
 
-		hostEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_HOSTNAME")
+		hostEnv := kubernetes.FindEnvByNameOrCreate(container, "DB_HOSTNAME")
 		hostEnv.ValueFrom = &core.EnvVarSource{
 			SecretKeyRef: &core.SecretKeySelector{
-				Key: actions.SecretHost,
+				Key: keys.Host,
 				LocalObjectReference: core.LocalObjectReference{
 					Name: instance.Status.Db.DatabaseSecretRef.Name,
 				},
 			},
 		}
 
-		containerPortEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_PORT")
+		containerPortEnv := kubernetes.FindEnvByNameOrCreate(container, "DB_PORT")
 		containerPortEnv.ValueFrom = &core.EnvVarSource{
 			SecretKeyRef: &core.SecretKeySelector{
-				Key: actions.SecretPort,
+				Key: keys.Port,
 				LocalObjectReference: core.LocalObjectReference{
 					Name: instance.Status.Db.DatabaseSecretRef.Name,
 				},
 			},
 		}
 
-		dbEnv := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_DATABASE")
+		dbEnv := kubernetes.FindEnvByNameOrCreate(container, "DB_NAME")
 		dbEnv.ValueFrom = &core.EnvVarSource{
 			SecretKeyRef: &core.SecretKeySelector{
-				Key: actions.SecretDatabaseName,
+				Key: keys.Database,
 				LocalObjectReference: core.LocalObjectReference{
 					Name: instance.Status.Db.DatabaseSecretRef.Name,
 				},
@@ -225,13 +274,20 @@ func ensureDeployment(instance *v1alpha1.Trillian, image string, name string, sa
 func WithTlsDB(instance *v1alpha1.Trillian, caPath string, name string) func(*apps.Deployment) error {
 	return func(dp *apps.Deployment) error {
 		c := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, name)
-		c.Args = append(c.Args, "--mysql_tls_ca", caPath)
+		switch instance.Spec.Db.Provider {
+		case "postgresql":
+			c.Args = append(c.Args, "--postgresql_tls_ca", caPath)
+		case "mysql":
+			c.Args = append(c.Args, "--mysql_tls_ca", caPath)
 
-		mysqlServerName := "$(MYSQL_HOSTNAME)." + instance.Namespace + ".svc"
-		if !*instance.Spec.Db.Create {
-			mysqlServerName = "$(MYSQL_HOSTNAME)"
+			mysqlServerName := "$(DB_HOSTNAME)." + instance.Namespace + ".svc"
+			if !*instance.Spec.Db.Create {
+				mysqlServerName = "$(DB_HOSTNAME)"
+			}
+			c.Args = append(c.Args, "--mysql_server_name", mysqlServerName)
+		default:
+			return fmt.Errorf("unsupported database provider %s", instance.Spec.Db.Provider)
 		}
-		c.Args = append(c.Args, "--mysql_server_name", mysqlServerName)
 		return nil
 	}
 }
