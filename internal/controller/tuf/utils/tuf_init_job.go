@@ -34,27 +34,69 @@ type ServicesURIs struct {
 
 func EnsureTufInitJob(instance *rhtasv1alpha1.Tuf, sa string, labels map[string]string) func(*batchv1.Job) error {
 	return func(job *batchv1.Job) error {
+		var (
+			protocol, uri string
+		)
+		if tls.UseTlsClient(instance) {
+			protocol = "https"
+		} else {
+			protocol = "http"
+		}
 
 		// prepare args
-		servicesURIs, err := resolveServicesUrls(instance)
-		if err != nil {
-			return fmt.Errorf("could not resolve services urls: %w", err)
-		}
 		args := []string{"--export-keys", instance.Spec.RootKeySecretRef.Name}
 		for _, key := range instance.Spec.Keys {
 			switch key.Name {
 			case "rekor.pub":
+				if instance.Spec.Rekor.Address != "" {
+					uri = instance.Spec.Rekor.Address
+					if instance.Spec.Rekor.Port != nil {
+						uri = fmt.Sprintf("%s:%d", uri, *instance.Spec.Rekor.Port)
+					}
+				} else {
+					uri = fmt.Sprintf("%s://%s.%s.svc", protocol, rekor.ServerDeploymentName, instance.Namespace)
+				}
 				args = append(args, "--rekor-key", filepath.Join(secretsMonthPath, key.Name))
-				args = append(args, "--rekor-uri", servicesURIs.Rekor)
+				args = append(args, "--rekor-uri", uri)
 			case "ctfe.pub":
+				if instance.Spec.Ctlog.Prefix == "" {
+					return futils.ErrCtlogPrefixNotSpecified
+				}
+
+				if instance.Spec.Ctlog.Address != "" {
+					uri = instance.Spec.Ctlog.Address
+					if instance.Spec.Ctlog.Port != nil {
+						uri = fmt.Sprintf("%s:%d", uri, *instance.Spec.Ctlog.Port)
+					}
+					uri = fmt.Sprintf("%s/%s", uri, instance.Spec.Ctlog.Prefix)
+				} else {
+					uri = fmt.Sprintf("%s://%s.%s.svc/%s", protocol, ctlog.DeploymentName, instance.Namespace, instance.Spec.Ctlog.Prefix)
+				}
+
 				args = append(args, "--ctlog-key", filepath.Join(secretsMonthPath, key.Name))
-				args = append(args, "--ctlog-uri", servicesURIs.Ctlog)
+				args = append(args, "--ctlog-uri", uri)
 			case "fulcio_v1.crt.pem":
+				if instance.Spec.Fulcio.Address != "" {
+					uri = instance.Spec.Fulcio.Address
+					if instance.Spec.Fulcio.Port != nil {
+						uri = fmt.Sprintf("%s:%d", uri, *instance.Spec.Fulcio.Port)
+					}
+				} else {
+					uri = fmt.Sprintf("%s://%s.%s.svc", protocol, fulcio.DeploymentName, instance.Namespace)
+				}
 				args = append(args, "--fulcio-cert", filepath.Join(secretsMonthPath, key.Name))
-				args = append(args, "--fulcio-uri", servicesURIs.Fulcio)
+				args = append(args, "--fulcio-uri", uri)
 			case "tsa.certchain.pem":
+				if instance.Spec.Tsa.Address != "" {
+					uri = instance.Spec.Tsa.Address
+					if instance.Spec.Tsa.Port != nil {
+						uri = fmt.Sprintf("%s:%d", uri, *instance.Spec.Tsa.Port)
+					}
+				} else {
+					uri = fmt.Sprintf("%s://%s.%s.svc", protocol, tsa.DeploymentName, instance.Namespace)
+				}
 				args = append(args, "--tsa-cert", filepath.Join(secretsMonthPath, key.Name))
-				args = append(args, "--tsa-uri", servicesURIs.Tsa)
+				args = append(args, "--tsa-uri", uri)
 			}
 		}
 		args = append(args, targetMonthPath)
@@ -106,66 +148,4 @@ func EnsureTufInitJob(instance *rhtasv1alpha1.Tuf, sa string, labels map[string]
 
 		return nil
 	}
-}
-
-func resolveServicesUrls(instance *rhtasv1alpha1.Tuf) (ServicesURIs, error) {
-	uris := ServicesURIs{}
-	var (
-		protocol string
-	)
-	if tls.UseTlsClient(instance) {
-		protocol = "https"
-	} else {
-		protocol = "http"
-	}
-
-	// Ctlog
-	if instance.Spec.Ctlog.Prefix == "" {
-		return ServicesURIs{}, futils.ErrCtlogPrefixNotSpecified
-	}
-
-	if instance.Spec.Ctlog.Address != "" {
-		url := instance.Spec.Ctlog.Address
-		if instance.Spec.Ctlog.Port != nil {
-			url = fmt.Sprintf("%s:%d", url, *instance.Spec.Ctlog.Port)
-		}
-		uris.Ctlog = fmt.Sprintf("%s/%s", url, instance.Spec.Ctlog.Prefix)
-	} else {
-		uris.Ctlog = fmt.Sprintf("%s://%s.%s.svc/%s", protocol, ctlog.DeploymentName, instance.Namespace, instance.Spec.Ctlog.Prefix)
-	}
-
-	// Fulcio
-	if instance.Spec.Fulcio.Address != "" {
-		url := instance.Spec.Fulcio.Address
-		if instance.Spec.Fulcio.Port != nil {
-			url = fmt.Sprintf("%s:%d", url, *instance.Spec.Fulcio.Port)
-		}
-		uris.Fulcio = url
-	} else {
-		uris.Fulcio = fmt.Sprintf("%s://%s.%s.svc", protocol, fulcio.DeploymentName, instance.Namespace)
-	}
-
-	// Rekor
-	if instance.Spec.Rekor.Address != "" {
-		url := instance.Spec.Rekor.Address
-		if instance.Spec.Rekor.Port != nil {
-			url = fmt.Sprintf("%s:%d", url, *instance.Spec.Rekor.Port)
-		}
-		uris.Rekor = url
-	} else {
-		uris.Rekor = fmt.Sprintf("%s://%s.%s.svc", protocol, rekor.ServerDeploymentName, instance.Namespace)
-	}
-
-	// TSA
-	if instance.Spec.Tsa.Address != "" {
-		url := instance.Spec.Tsa.Address
-		if instance.Spec.Tsa.Port != nil {
-			url = fmt.Sprintf("%s:%d", url, *instance.Spec.Tsa.Port)
-		}
-		uris.Tsa = url
-	} else {
-		uris.Tsa = fmt.Sprintf("%s://%s.%s.svc", protocol, tsa.DeploymentName, instance.Namespace)
-	}
-
-	return uris, nil
 }
