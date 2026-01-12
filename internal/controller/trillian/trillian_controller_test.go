@@ -116,12 +116,12 @@ var _ = Describe("Trillian controller", func() {
 			}).Should(BeTrue())
 			found := &v1alpha1.Trillian{}
 
-			By("Database password secret created")
+			By("Database secret created")
 			Eventually(func(g Gomega) *v1alpha1.LocalObjectReference {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Db.DatabasePasswordSecretRef
+				return found.Status.Db.DatabaseSecretRef
 			}).Should(Not(BeNil()))
-			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Db.DatabasePasswordSecretRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
+			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Db.DatabaseSecretRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
 
 			By("Database PVC created")
 			Eventually(func(g Gomega) string {

@@ -1486,11 +1486,6 @@ func (in *TrillianDB) DeepCopyInto(out *TrillianDB) {
 		*out = new(LocalObjectReference)
 		**out = **in
 	}
-	if in.DatabasePasswordSecretRef != nil {
-		in, out := &in.DatabasePasswordSecretRef, &out.DatabasePasswordSecretRef
-		*out = new(LocalObjectReference)
-		**out = **in
-	}
 	in.Pvc.DeepCopyInto(&out.Pvc)
 	in.TLS.DeepCopyInto(&out.TLS)
 }

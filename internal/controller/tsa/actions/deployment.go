@@ -198,7 +198,10 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.TimestampAuthorit
 			}
 		case tsaUtils.KmsType:
 			{
-				ensure.Auth(container.Name, instance.Spec.Signer.Kms.Auth)
+				err := ensure.ContainerAuth(container, instance.Spec.Signer.Kms.Auth)(&template.Spec)
+				if err != nil {
+					return err
+				}
 
 				appArgs = append(appArgs,
 					"--timestamp-signer=kms",
@@ -207,7 +210,10 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.TimestampAuthorit
 			}
 		case tsaUtils.TinkType:
 			{
-				ensure.Auth(container.Name, instance.Spec.Signer.Kms.Auth)
+				err := ensure.ContainerAuth(container, instance.Spec.Signer.Kms.Auth)(&template.Spec)
+				if err != nil {
+					return err
+				}
 
 				tinkSignerVolume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, tinkSignerVolumeName)
 				if tinkSignerVolume.Secret == nil {
