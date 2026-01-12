@@ -14,9 +14,9 @@ jobs:
         with:
           go-version-file: 'go.mod'
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.2.2
+          version: v2.8.0
           args: --verbose --timeout=15m
   crdify:
     runs-on: ubuntu-latest

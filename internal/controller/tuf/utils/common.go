@@ -7,7 +7,7 @@ import (
 
 func secretsVolumeProjection(keys []v1alpha1.TufKey) *core.ProjectedVolumeSource {
 
-	projections := make([]core.VolumeProjection, 0)
+	projections := make([]core.VolumeProjection, 0, len(keys))
 
 	for _, key := range keys {
 		p := core.VolumeProjection{Secret: selectorToProjection(key.SecretRef, key.Name)}
