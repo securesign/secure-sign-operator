@@ -16,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/securesign/operator/internal/controller/trillian/actions"
-	trillianUtils "github.com/securesign/operator/internal/controller/trillian/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -57,13 +56,13 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		&v1.Service{
-			ObjectMeta: metav1.ObjectMeta{Name: trillianUtils.Host, Namespace: instance.Namespace},
+			ObjectMeta: metav1.ObjectMeta{Name: host, Namespace: instance.Namespace},
 		},
 		kubernetes.EnsureServiceSpec(labels, v1.ServicePort{
-			Name:       trillianUtils.Host,
+			Name:       host,
 			Protocol:   v1.ProtocolTCP,
-			Port:       trillianUtils.Port,
-			TargetPort: intstr.FromInt32(trillianUtils.Port),
+			Port:       port,
+			TargetPort: intstr.FromInt32(port),
 		}),
 		ensure.ControllerReference[*v1.Service](instance, i.Client),
 		ensure.Labels[*v1.Service](slices.Collect(maps.Keys(labels)), labels),

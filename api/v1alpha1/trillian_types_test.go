@@ -278,6 +278,7 @@ func generateTrillianObject(name string) *Trillian {
 					AccessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"},
 				},
 				Provider: "mysql",
+				Url:      "mysql://${MYSQL_HOST}:${MYSQL_PORT}/${DB_NAME}?user=${MYSQL_USER}&password=${MYSQL_PASSWORD}",
 			},
 			LogServer: TrillianLogServer{
 				PodRequirements: PodRequirements{

@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"reflect"
+	"strconv"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -40,25 +41,24 @@ func TestHandleSecret_CanHandle(t *testing.T) {
 			canHandle: true,
 		},
 		{
-			name:      "ConditionTrue: status.db.DatabasePasswordSecretRef == nil",
+			name:      "ConditionTrue: status.db.databaseSecretRef == nil",
 			condition: metav1.ConditionTrue,
 			instance: rhtasv1alpha1.Trillian{
 				Status: rhtasv1alpha1.TrillianStatus{
 					Db: rhtasv1alpha1.TrillianDB{
-						Create:                    ptr.To(true),
-						DatabasePasswordSecretRef: nil,
+						DatabaseSecretRef: nil,
 					},
 				},
 			},
 			canHandle: true,
 		},
 		{
-			name:      "ConditionTrue: status.db.DatabasePasswordSecretRef != nil",
+			name:      "ConditionTrue: status.db.databaseSecretRef != nil",
 			condition: metav1.ConditionTrue,
 			instance: rhtasv1alpha1.Trillian{
 				Status: rhtasv1alpha1.TrillianStatus{
 					Db: rhtasv1alpha1.TrillianDB{
-						DatabasePasswordSecretRef: &rhtasv1alpha1.LocalObjectReference{
+						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{
 							Name: "connection",
 						},
 					},
@@ -67,19 +67,19 @@ func TestHandleSecret_CanHandle(t *testing.T) {
 			canHandle: false,
 		},
 		{
-			name:      "ConditionTrue: status.db.DatabasePasswordSecretRef != spec.db.DatabasePasswordSecretRef",
+			name:      "ConditionTrue: status.db.databaseSecretRef != spec.db.databaseSecretRef",
 			condition: metav1.ConditionTrue,
 			instance: rhtasv1alpha1.Trillian{
 				Spec: rhtasv1alpha1.TrillianSpec{
 					Db: rhtasv1alpha1.TrillianDB{
-						DatabasePasswordSecretRef: &rhtasv1alpha1.LocalObjectReference{
+						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{
 							Name: "new-connection",
 						},
 					},
 				},
 				Status: rhtasv1alpha1.TrillianStatus{
 					Db: rhtasv1alpha1.TrillianDB{
-						DatabasePasswordSecretRef: &rhtasv1alpha1.LocalObjectReference{
+						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{
 							Name: "connection",
 						},
 					},
@@ -88,19 +88,19 @@ func TestHandleSecret_CanHandle(t *testing.T) {
 			canHandle: true,
 		},
 		{
-			name:      "ConditionTrue: status.db.DatabasePasswordSecretRef == spec.db.DatabasePasswordSecretRef",
+			name:      "ConditionTrue: status.db.databaseSecretRef == spec.db.databaseSecretRef",
 			condition: metav1.ConditionTrue,
 			instance: rhtasv1alpha1.Trillian{
 				Spec: rhtasv1alpha1.TrillianSpec{
 					Db: rhtasv1alpha1.TrillianDB{
-						DatabasePasswordSecretRef: &rhtasv1alpha1.LocalObjectReference{
+						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{
 							Name: "connection",
 						},
 					},
 				},
 				Status: rhtasv1alpha1.TrillianStatus{
 					Db: rhtasv1alpha1.TrillianDB{
-						DatabasePasswordSecretRef: &rhtasv1alpha1.LocalObjectReference{
+						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{
 							Name: "connection",
 						},
 					},
@@ -149,7 +149,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 		want want
 	}{
 		{
-			name: "external: missing spec.db.databaseSecretRef and spec.db.auth",
+			name: "external: missing spec.db.databaseSecretRef",
 			env: env{
 				spec: rhtasv1alpha1.TrillianSpec{
 					Db: rhtasv1alpha1.TrillianDB{
@@ -262,12 +262,12 @@ func TestHandleSecret_Handle(t *testing.T) {
 			},
 		},
 		{
-			name: "managed: set spec.db.DatabasePasswordSecretRef",
+			name: "managed: set spec.db.databaseSecretRef",
 			env: env{
 				spec: rhtasv1alpha1.TrillianSpec{
 					Db: rhtasv1alpha1.TrillianDB{
-						Create:                    ptr.To(true),
-						DatabasePasswordSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "connection"},
+						Create:            ptr.To(true),
+						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "connection"},
 					},
 				},
 			},
@@ -281,20 +281,20 @@ func TestHandleSecret_Handle(t *testing.T) {
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
 					g.Expect(condition.Reason).Should(Equal(constants.Pending))
 
-					g.Expect(instance.Status.Db.DatabasePasswordSecretRef).ShouldNot(BeNil())
-					g.Expect(instance.Status.Db.DatabasePasswordSecretRef.Name).To(Equal("connection"))
+					g.Expect(instance.Status.Db.DatabaseSecretRef).ShouldNot(BeNil())
+					g.Expect(instance.Status.Db.DatabaseSecretRef.Name).To(Equal("connection"))
 
 					g.Expect(events).To(BeEmpty())
 				},
 			},
 		},
 		{
-			name: "managed: empty spec.db.DatabasePasswordSecretRef",
+			name: "managed: empty spec.db.databaseSecretRef",
 			env: env{
 				spec: rhtasv1alpha1.TrillianSpec{
 					Db: rhtasv1alpha1.TrillianDB{
-						Create:                    ptr.To(true),
-						DatabasePasswordSecretRef: nil,
+						Create:            ptr.To(true),
+						DatabaseSecretRef: nil,
 					},
 				},
 			},
@@ -313,24 +313,24 @@ func TestHandleSecret_Handle(t *testing.T) {
 					g.Expect(event.Type).To(Equal(watch.Added))
 					secret := event.Object.(*core.Secret)
 
-					g.Expect(instance.Status.Db.DatabasePasswordSecretRef).ShouldNot(BeNil())
-					g.Expect(instance.Status.Db.DatabasePasswordSecretRef.Name).To(Equal(secret.Name))
+					g.Expect(instance.Status.Db.DatabaseSecretRef).ShouldNot(BeNil())
+					g.Expect(instance.Status.Db.DatabaseSecretRef.Name).To(Equal(secret.Name))
 				},
 			},
 		},
 		{
-			name: "managed: update spec.db.DatabasePasswordSecretRef",
+			name: "managed: update spec.db.databaseSecretRef",
 			env: env{
 				spec: rhtasv1alpha1.TrillianSpec{
 					Db: rhtasv1alpha1.TrillianDB{
-						Create:                    ptr.To(true),
-						DatabasePasswordSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "new-connection"},
+						Create:            ptr.To(true),
+						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "new-connection"},
 					},
 				},
 				status: rhtasv1alpha1.TrillianStatus{
 					Db: rhtasv1alpha1.TrillianDB{
-						Create:                    ptr.To(true),
-						DatabasePasswordSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "old-connection"},
+						Create:            ptr.To(true),
+						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "old-connection"},
 					},
 				},
 			},
@@ -344,26 +344,26 @@ func TestHandleSecret_Handle(t *testing.T) {
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
 					g.Expect(condition.Reason).Should(Equal(constants.Pending))
 
-					g.Expect(instance.Status.Db.DatabasePasswordSecretRef).ShouldNot(BeNil())
-					g.Expect(instance.Status.Db.DatabasePasswordSecretRef.Name).To(Equal("new-connection"))
+					g.Expect(instance.Status.Db.DatabaseSecretRef).ShouldNot(BeNil())
+					g.Expect(instance.Status.Db.DatabaseSecretRef.Name).To(Equal("new-connection"))
 
 					g.Expect(events).To(BeEmpty())
 				},
 			},
 		},
 		{
-			name: "managed: unmodified spec.db.DatabasePasswordSecretRef",
+			name: "managed: unmodified spec.db.databaseSecretRef",
 			env: env{
 				spec: rhtasv1alpha1.TrillianSpec{
 					Db: rhtasv1alpha1.TrillianDB{
-						Create:                    ptr.To(true),
-						DatabasePasswordSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "connection"},
+						Create:            ptr.To(true),
+						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "connection"},
 					},
 				},
 				status: rhtasv1alpha1.TrillianStatus{
 					Db: rhtasv1alpha1.TrillianDB{
-						Create:                    ptr.To(true),
-						DatabasePasswordSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "connection"},
+						Create:            ptr.To(true),
+						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "connection"},
 					},
 				},
 			},
@@ -377,8 +377,8 @@ func TestHandleSecret_Handle(t *testing.T) {
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
 					g.Expect(condition.Reason).Should(Equal(constants.Pending))
 
-					g.Expect(instance.Status.Db.DatabasePasswordSecretRef).ShouldNot(BeNil())
-					g.Expect(instance.Status.Db.DatabasePasswordSecretRef.Name).To(Equal("connection"))
+					g.Expect(instance.Status.Db.DatabaseSecretRef).ShouldNot(BeNil())
+					g.Expect(instance.Status.Db.DatabaseSecretRef.Name).To(Equal("connection"))
 
 					g.Expect(events).To(BeEmpty())
 				},
@@ -394,8 +394,8 @@ func TestHandleSecret_Handle(t *testing.T) {
 				},
 				status: rhtasv1alpha1.TrillianStatus{
 					Db: rhtasv1alpha1.TrillianDB{
-						Create:                    ptr.To(true),
-						DatabasePasswordSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "connection"},
+						Create:            ptr.To(true),
+						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "connection"},
 					},
 				},
 			},
@@ -409,8 +409,8 @@ func TestHandleSecret_Handle(t *testing.T) {
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
 					g.Expect(condition.Reason).Should(Equal(constants.Pending))
 
-					g.Expect(instance.Status.Db.DatabasePasswordSecretRef).ShouldNot(BeNil())
-					g.Expect(instance.Status.Db.DatabasePasswordSecretRef.Name).To(Equal("connection"))
+					g.Expect(instance.Status.Db.DatabaseSecretRef).ShouldNot(BeNil())
+					g.Expect(instance.Status.Db.DatabaseSecretRef.Name).To(Equal("connection"))
 
 					g.Expect(events).To(BeEmpty())
 				},
@@ -443,7 +443,10 @@ func TestHandleSecret_Handle(t *testing.T) {
 								labels.LabelResource:     dbConnectionResource,
 							},
 							Annotations: map[string]string{
-								annotationManagedDB: "true",
+								annotationDatabase: "trillian",
+								annotationUser:     "mysql",
+								annotationPort:     strconv.Itoa(port),
+								annotationHost:     host,
 							},
 						},
 					},
@@ -459,8 +462,8 @@ func TestHandleSecret_Handle(t *testing.T) {
 					g.Expect(condition.Status).Should(Equal(metav1.ConditionFalse))
 					g.Expect(condition.Reason).Should(Equal(constants.Pending))
 
-					g.Expect(instance.Status.Db.DatabasePasswordSecretRef).ShouldNot(BeNil())
-					g.Expect(instance.Status.Db.DatabasePasswordSecretRef.Name).To(Equal("unlinked-connection"))
+					g.Expect(instance.Status.Db.DatabaseSecretRef).ShouldNot(BeNil())
+					g.Expect(instance.Status.Db.DatabaseSecretRef.Name).To(Equal("unlinked-connection"))
 
 					g.Expect(events).To(BeEmpty())
 				},
@@ -507,7 +510,10 @@ func TestHandleSecret_Handle(t *testing.T) {
 								labels.LabelResource:     dbConnectionResource,
 							},
 							Annotations: map[string]string{
-								annotationManagedDB: "false",
+								annotationDatabase: "old",
+								annotationUser:     "mysql",
+								annotationPort:     strconv.Itoa(port),
+								annotationHost:     "old",
 							},
 						},
 					},
@@ -538,8 +544,8 @@ func TestHandleSecret_Handle(t *testing.T) {
 						}
 					}
 
-					g.Expect(instance.Status.Db.DatabasePasswordSecretRef).ShouldNot(BeNil())
-					g.Expect(instance.Status.Db.DatabasePasswordSecretRef.Name).To(Equal(newName))
+					g.Expect(instance.Status.Db.DatabaseSecretRef).ShouldNot(BeNil())
+					g.Expect(instance.Status.Db.DatabaseSecretRef.Name).To(Equal(newName))
 
 				},
 			},
@@ -571,7 +577,10 @@ func TestHandleSecret_Handle(t *testing.T) {
 								labels.LabelResource:     dbConnectionResource,
 							},
 							Annotations: map[string]string{
-								annotationManagedDB: "true",
+								annotationDatabase: "trillian",
+								annotationUser:     "mysql",
+								annotationPort:     strconv.Itoa(port),
+								annotationHost:     host,
 							},
 						},
 					},
@@ -586,6 +595,12 @@ func TestHandleSecret_Handle(t *testing.T) {
 								labels.LabelAppPartOf:    constants.AppName,
 								labels.LabelAppManagedBy: "controller-manager",
 								labels.LabelResource:     dbConnectionResource,
+							},
+							Annotations: map[string]string{
+								annotationDatabase: "old",
+								annotationUser:     "mysql",
+								annotationPort:     strconv.Itoa(port),
+								annotationHost:     "old",
 							},
 						},
 					},
@@ -610,8 +625,8 @@ func TestHandleSecret_Handle(t *testing.T) {
 							g.Expect(true).Should(BeFalse(), "should not be executed")
 						}
 
-						g.Expect(instance.Status.Db.DatabasePasswordSecretRef).ShouldNot(BeNil())
-						g.Expect(instance.Status.Db.DatabasePasswordSecretRef.Name).To(Equal("unlinked-connection"))
+						g.Expect(instance.Status.Db.DatabaseSecretRef).ShouldNot(BeNil())
+						g.Expect(instance.Status.Db.DatabaseSecretRef.Name).To(Equal("unlinked-connection"))
 					}
 				},
 			},

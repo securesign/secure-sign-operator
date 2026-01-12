@@ -79,7 +79,10 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 		i.ensureAttestation(insCopy),
 		ensure.ControllerReference[*v2.Deployment](instance, i.Client),
 		ensure.Labels[*v2.Deployment](slices.Collect(maps.Keys(labels)), labels),
-		deployment.Auth(actions.ServerDeploymentName, instance.Spec.Auth),
+		func(object *v2.Deployment) error {
+			err := ensure.Auth(actions.ServerDeploymentName, instance.Spec.Auth)(&object.Spec.Template.Spec)
+			return err
+		},
 		deployment.Proxy(),
 		deployment.TrustedCA(instance.GetTrustedCA(), actions.ServerDeploymentName),
 		ensure.Optional(tls.UseTlsClient(instance), i.ensureTlsTrillian()),

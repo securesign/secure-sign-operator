@@ -72,13 +72,7 @@ type TrillianDB struct {
 	//+optional
 	// +kubebuilder:validation:Deprecated=true
 	DatabaseSecretRef *LocalObjectReference `json:"databaseSecretRef,omitempty"`
-	// DatabasePasswordSecretRef is a reference to a Secret containing database passwords only.
-	// The Secret may contain the following keys:
-	// mysql-password: The password for the MySQL user
-	// mysql-root-password: The password for the MySQL root user
-	//+optional
-	DatabasePasswordSecretRef *LocalObjectReference `json:"databasePasswordSecretRef,omitempty"`
-	// PVC configurationk
+	// PVC configuration
 	//+kubebuilder:default:={size: "5Gi", retain: true}
 	Pvc Pvc `json:"pvc,omitempty"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged database.
@@ -90,6 +84,7 @@ type TrillianDB struct {
 	//+optional
 	Provider string `json:"provider,omitempty"`
 	// DB connection URL.
+	//+kubebuilder:default:="mysql://${MYSQL_HOST}:${MYSQL_PORT}/${DB_NAME}?user=${MYSQL_USER}&password=${MYSQL_PASSWORD}"
 	//+optional
 	Url string `json:"url,omitempty"`
 }

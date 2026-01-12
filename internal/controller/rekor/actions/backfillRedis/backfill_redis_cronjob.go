@@ -71,7 +71,8 @@ func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 		},
 		i.ensureBacfillCronJob(instance),
 		func(object *batchv1.CronJob) error {
-			return ensure.Auth(actions.BackfillRedisCronJobName, instance.Spec.Auth)(&object.Spec.JobTemplate.Spec.Template.Spec)
+			ref := &object.Spec.JobTemplate.Spec.Template.Spec
+			return ensure.Auth(actions.BackfillRedisCronJobName, instance.Spec.Auth)(ref)
 		},
 		func(object *batchv1.CronJob) error {
 			return tlsensure.TrustedCA(instance.GetTrustedCA(), actions.BackfillRedisCronJobName)(&object.Spec.JobTemplate.Spec.Template)
