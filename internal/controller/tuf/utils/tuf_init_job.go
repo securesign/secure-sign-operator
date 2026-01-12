@@ -25,13 +25,6 @@ const (
 	targetMonthPath  = "/var/run/target"
 )
 
-type ServicesURIs struct {
-	Ctlog  string
-	Fulcio string
-	Rekor  string
-	Tsa    string
-}
-
 func EnsureTufInitJob(instance *rhtasv1alpha1.Tuf, sa string, labels map[string]string) func(*batchv1.Job) error {
 	return func(job *batchv1.Job) error {
 		var (
