@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	_ "k8s.io/api/apps/v1"
+	core "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,6 +88,40 @@ var _ = Describe("Trillian", func() {
 						validObject.Spec.Db.Create = ptr.To(true)
 						validObject.Spec.Db.DatabaseSecretRef = nil
 						Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+					})
+				})
+
+				It("false", func() {
+					By("databaseSecretRef or auth must be set", func() {
+						// Neither auth nor databaseSecretRef set (should fail)
+						invalidObject := generateTrillianObject("database-secret-2")
+						invalidObject.Spec.Db.Create = ptr.To(false)
+						invalidObject.Spec.Db.DatabaseSecretRef = nil
+						invalidObject.Spec.Auth = nil
+						Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+						Expect(k8sClient.Create(context.Background(), invalidObject)).
+							To(MatchError(ContainSubstring("auth must be set when database.create is false unless databaseSecretRef is provided")))
+
+						// Auth is set (should succeed)
+						validObject := generateTrillianObject("database-secret-3")
+						validObject.Spec.Db.Create = ptr.To(false)
+						validObject.Spec.Db.DatabaseSecretRef = nil
+						validObject.Spec.Auth = &Auth{
+							Env: []core.EnvVar{
+								{Name: "DB_USER", Value: "admin"},
+								{Name: "DB_PASSWORD", Value: "secret"},
+							},
+						}
+						Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+
+						// databaseSecretRef is set (should succeed)
+						validObject3 := generateTrillianObject("database-secret-4")
+						validObject3.Spec.Db.Create = ptr.To(false)
+						validObject3.Spec.Db.DatabaseSecretRef = &LocalObjectReference{
+							Name: "my-secret",
+						}
+						validObject3.Spec.Auth = nil
+						Expect(k8sClient.Create(context.Background(), validObject3)).To(Succeed())
 					})
 				})
 			})
