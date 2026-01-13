@@ -13,19 +13,8 @@ spec:
     monitoring:
       enabled: true
   trillian:
-    auth:
-      env:
-      - name: MYSQL_PASSWORD
-        valueFrom:
-          secretKeyRef:
-            name: trillian-db-connection
-            key: pass
-    trustedCA:
-      name: db-trusted-ca
     database:
-      create: false
-      provider: mysql
-      url: trillian:$(MYSQL_PASSWORD)@tcp(database-1.c3aymq248jlv.eu-north-1.rds.amazonaws.com:3306)/trillian
+      create: true
     monitoring:
       enabled: true
   fulcio:
@@ -34,8 +23,8 @@ spec:
     config:
       OIDCIssuers:
         - ClientID: "trusted-artifact-signer"
-          IssuerURL: "https://keycloak-keycloak-system.apps.rosa.gjcsj-qjc8s-gcn.2787.p3.openshiftapps.com/auth/realms/trusted-artifact-signer"
-          Issuer: "https://keycloak-keycloak-system.apps.rosa.gjcsj-qjc8s-gcn.2787.p3.openshiftapps.com/auth/realms/trusted-artifact-signer"
+          IssuerURL: "https://your-oidc-issuer-url"
+          Issuer: "https://your-oidc-issuer-url"
           Type: "email"
     certificate:
       organizationName: Red Hat
