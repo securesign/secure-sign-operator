@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -67,7 +68,7 @@ func ensureInitContainer(instance *v1alpha1.Trillian) func(*apps.Deployment) err
 		initContainer.Command = []string{
 			"sh",
 			"-c",
-			"until nc -z -v -w30 $MYSQL_HOSTNAME $MYSQL_PORT; do echo \"Waiting for MySQL to start\"; sleep 5; done;",
+			`until nc -z -v -w30 "$(eval echo "$MYSQL_HOSTNAME")" $MYSQL_PORT; do echo \"Waiting for MySQL to start\"; sleep 5; done;`,
 		}
 
 		return nil
@@ -260,6 +261,8 @@ func ensureDbAuth(instance *v1alpha1.Trillian, containerName, initContainerName 
 func SetMySQLHostPortFromDSN(dsn string, container *core.Container) error {
 	cfg, err := mysql.ParseDSN(dsn)
 	var host, port string
+	var kubeStyleVar = regexp.MustCompile(`\$\(([A-Za-z_][A-Za-z0-9_]*)\)`)
+
 	if err != nil {
 		return fmt.Errorf("can't parse mysql dsn: %w", err)
 	}
@@ -268,11 +271,18 @@ func SetMySQLHostPortFromDSN(dsn string, container *core.Container) error {
 	}
 
 	// Ensure env vars for nc
-	envHost := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_HOSTNAME")
-	envHost.Value = host
+	if kubernetes.FindEnvByName(container, "MYSQL_HOSTNAME") == nil {
+		envHost := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_HOSTNAME")
+		// Convert Kubernetes-style $(VAR) placeholders into shell-expandable ${VAR} for runtime resolution
+		// Needed when the hostname contains env vars, e.g., $(NAMESPACE)
+		host = kubeStyleVar.ReplaceAllString(host, `${$1}`)
+		envHost.Value = host
+	}
 
-	envPort := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_PORT")
-	envPort.Value = port
+	if kubernetes.FindEnvByName(container, "MYSQL_PORT") == nil {
+		envPort := kubernetes.FindEnvByNameOrCreate(container, "MYSQL_PORT")
+		envPort.Value = port
+	}
 
 	return nil
 }

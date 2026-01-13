@@ -198,6 +198,15 @@ func FindEnvByNameOrCreate(container *corev1.Container, envName string) *corev1.
 	return &container.Env[len(container.Env)-1]
 }
 
+func FindEnvByName(container *corev1.Container, envName string) *corev1.EnvVar {
+	for i, v := range container.Env {
+		if v.Name == envName {
+			return &container.Env[i]
+		}
+	}
+	return nil
+}
+
 func RemoveEnvVarByName(container *corev1.Container, envName string) {
 	newEnv := make([]corev1.EnvVar, 0, len(container.Env))
 	for _, env := range container.Env {
