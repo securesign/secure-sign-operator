@@ -63,6 +63,8 @@ type TrillianDB struct {
 	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
 	Create *bool `json:"create"`
 	// DatabaseSecretRef is deprecated.
+	// Use top-level `spec.auth` instead.
+	//
 	// Secret with values to be used to connect to an existing DB or to be used with the creation of a new DB
 	// mysql-host: The host of the MySQL server
 	// mysql-port: The port of the MySQL server
