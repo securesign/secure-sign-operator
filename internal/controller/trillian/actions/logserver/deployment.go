@@ -12,7 +12,6 @@ import (
 	trillianUtils "github.com/securesign/operator/internal/controller/trillian/utils"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
-	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/tls"
@@ -60,13 +59,9 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 				Namespace: instance.Namespace,
 			},
 		},
-		append(trillianUtils.EnsureServerDeployment(instance, labels),
+		append(trillianUtils.EnsureServerDeployment(instance, labels, caPath),
 			ensure.ControllerReference[*apps.Deployment](instance, i.Client),
 			ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(labels)), labels),
-			ensure.Optional(
-				trillianUtils.UseTLSDb(instance),
-				trillianUtils.WithTlsDB(caPath, actions.LogserverDeploymentName, utils.OptionalBool(instance.Spec.Db.Create)),
-			),
 			ensure.Optional(
 				statusTLS(instance).CertRef != nil,
 				trillianUtils.EnsureTLS(statusTLS(instance), actions.LogserverDeploymentName),

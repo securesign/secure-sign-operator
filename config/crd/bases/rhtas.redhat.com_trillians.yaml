@@ -268,9 +268,10 @@ spec:
                     x-kubernetes-map-type: atomic
                   provider:
                     default: mysql
-                    description: DB provider. Supported are mysql.
+                    description: DB provider. Supported are mysql, postgresql.
                     enum:
                     - mysql
+                    - postgresql
                     type: string
                   pvc:
                     default:
@@ -375,7 +376,7 @@ spec:
                     x-kubernetes-validations:
                     - message: privateKeyRef cannot be empty
                       rule: (!has(self.certificateRef) || has(self.privateKeyRef))
-                  url:
+                  uri:
                     default: $(MYSQL_USER):$(MYSQL_PASSWORD)@tcp($(MYSQL_HOST):$(MYSQL_PORT))/$(MYSQL_DATABASE)
                     description: DB connection URL.
                     type: string
@@ -2653,9 +2654,10 @@ spec:
                     x-kubernetes-map-type: atomic
                   provider:
                     default: mysql
-                    description: DB provider. Supported are mysql.
+                    description: DB provider. Supported are mysql, postgresql.
                     enum:
                     - mysql
+                    - postgresql
                     type: string
                   pvc:
                     default:
@@ -2760,7 +2762,7 @@ spec:
                     x-kubernetes-validations:
                     - message: privateKeyRef cannot be empty
                       rule: (!has(self.certificateRef) || has(self.privateKeyRef))
-                  url:
+                  uri:
                     default: $(MYSQL_USER):$(MYSQL_PASSWORD)@tcp($(MYSQL_HOST):$(MYSQL_PORT))/$(MYSQL_DATABASE)
                     description: DB connection URL.
                     type: string

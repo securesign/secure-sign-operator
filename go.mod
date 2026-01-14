@@ -5,6 +5,7 @@ go 1.24.6
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/go-logr/logr v1.4.3
+	github.com/go-sql-driver/mysql v1.9.2
 	github.com/google/certificate-transparency-go v1.3.2
 	github.com/google/go-containerregistry v0.20.6
 	github.com/google/trillian v1.7.2
@@ -27,6 +28,7 @@ require (
 )
 
 require (
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
