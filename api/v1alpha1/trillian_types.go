@@ -78,15 +78,15 @@ type TrillianDB struct {
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged database.
 	//+optional
 	TLS TLS `json:"tls,omitempty"`
-	// DB provider. Supported are mysql.
-	//+kubebuilder:validation:Enum={mysql}
+	// DB provider. Supported are mysql, postgresql.
+	//+kubebuilder:validation:Enum={mysql, postgresql}
 	//+kubebuilder:default:=mysql
 	//+optional
 	Provider string `json:"provider,omitempty"`
 	// DB connection URL.
 	//+kubebuilder:default:="$(MYSQL_USER):$(MYSQL_PASSWORD)@tcp($(MYSQL_HOST):$(MYSQL_PORT))/$(MYSQL_DATABASE)"
 	//+optional
-	Url string `json:"url,omitempty"`
+	Uri string `json:"uri,omitempty"`
 }
 
 // TrillianStatus defines the observed state of Trillian

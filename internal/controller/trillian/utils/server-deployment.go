@@ -4,14 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 	"github.com/securesign/operator/internal/utils/tls"
 	apps "k8s.io/api/apps/v1"
@@ -20,24 +18,21 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-const initContainerName = "wait-for-trillian-db"
-
-func EnsureServerDeployment(instance *v1alpha1.Trillian, labels map[string]string) []func(*apps.Deployment) error {
+func EnsureServerDeployment(instance *v1alpha1.Trillian, labels map[string]string, caPath string) []func(*apps.Deployment) error {
 	return append([]func(deployment *apps.Deployment) error{
 		ensureDeployment(instance,
 			images.Registry.Get(images.TrillianServer),
 			actions.LogserverDeploymentName,
 			actions.RBACServerName,
 			labels),
-		ensureInitContainer(),
 		ensureProbes(actions.LogserverDeploymentName),
 		deployment.PodRequirements(instance.Spec.LogServer.PodRequirements, actions.LogserverDeploymentName),
 		deployment.Proxy(),
-		deployment.TrustedCA(instance.GetTrustedCA(), initContainerName, actions.LogserverDeploymentName)},
-		ensureDbAuth(instance, actions.LogserverDeploymentName, initContainerName)...)
+		deployment.TrustedCA(instance.GetTrustedCA(), actions.LogserverDeploymentName)},
+		EnsureDB(instance, actions.LogserverDeploymentName, caPath)...)
 }
 
-func EnsureSignerDeployment(instance *v1alpha1.Trillian, labels map[string]string) []func(*apps.Deployment) error {
+func EnsureSignerDeployment(instance *v1alpha1.Trillian, labels map[string]string, caPath string) []func(*apps.Deployment) error {
 	return append([]func(deployment *apps.Deployment) error{
 		ensureDeployment(instance,
 			images.Registry.Get(images.TrillianLogSigner),
@@ -45,28 +40,12 @@ func EnsureSignerDeployment(instance *v1alpha1.Trillian, labels map[string]strin
 			actions.RBACSignerName,
 			labels,
 			"--election_system=k8s", "--lock_namespace=$(NAMESPACE)", "--lock_holder_identity=$(POD_NAME)", "--master_hold_interval=5s", "--master_hold_jitter=15s"),
-		ensureInitContainer(),
 		ensureProbes(actions.LogsignerDeploymentName),
 		deployment.PodRequirements(instance.Spec.LogSigner.PodRequirements, actions.LogsignerDeploymentName),
 		deployment.Proxy(),
-		deployment.TrustedCA(instance.GetTrustedCA(), initContainerName, actions.LogsignerDeploymentName),
+		deployment.TrustedCA(instance.GetTrustedCA(), actions.LogsignerDeploymentName),
 	},
-		ensureDbAuth(instance, actions.LogsignerDeploymentName, initContainerName)...)
-}
-
-func ensureInitContainer() func(*apps.Deployment) error {
-	return func(dp *apps.Deployment) error {
-		initContainer := kubernetes.FindInitContainerByNameOrCreate(&dp.Spec.Template.Spec, initContainerName)
-		initContainer.Image = images.Registry.Get(images.TrillianNetcat)
-
-		initContainer.Command = []string{
-			"sh",
-			"-c",
-			"until nc -z -v -w30 $(MYSQL_HOST) $(MYSQL_PORT); do echo \"Waiting for MySQL to start\"; sleep 5; done;",
-		}
-
-		return nil
-	}
+		EnsureDB(instance, actions.LogsignerDeploymentName, caPath)...)
 }
 
 func ensureProbes(containerName string) func(*apps.Deployment) error {
@@ -115,9 +94,7 @@ func ensureDeployment(instance *v1alpha1.Trillian, image string, name string, sa
 
 		container.Args = append([]string{
 			"--storage_system=" + instance.Spec.Db.Provider,
-			"--quota_system=mysql",
-			"--mysql_max_conns=30",
-			"--mysql_max_idle_conns=10",
+			"--quota_system=" + instance.Spec.Db.Provider,
 			"--rpc_endpoint=0.0.0.0:" + strconv.Itoa(int(actions.ServerPort)),
 			"--http_endpoint=0.0.0.0:" + strconv.Itoa(int(actions.MetricsPort)),
 			"--alsologtostderr",
@@ -126,10 +103,6 @@ func ensureDeployment(instance *v1alpha1.Trillian, image string, name string, sa
 		if instance.Spec.MaxRecvMessageSize != nil {
 			container.Args = append(container.Args, "--max_msg_size_bytes", fmt.Sprintf("%d", *instance.Spec.MaxRecvMessageSize))
 		}
-
-		container.Args = append([]string{
-			fmt.Sprintf("--mysql_uri=%s", instance.Spec.Db.Url),
-		}, container.Args...)
 
 		podNameEnv := kubernetes.FindEnvByNameOrCreate(container, "POD_NAME")
 		podNameEnv.ValueFrom = &core.EnvVarSource{
@@ -160,21 +133,6 @@ func ensureDeployment(instance *v1alpha1.Trillian, image string, name string, sa
 	}
 }
 
-func WithTlsDB(caPath string, name string, create bool) func(*apps.Deployment) error {
-	return func(dp *apps.Deployment) error {
-		c := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, name)
-
-		//DB secret is hostname created WITHOUT the .svc suffix (can't change for backward compat) that does not match TLS hostname
-		host := "$(MYSQL_HOST)"
-		if create {
-			host = fmt.Sprintf("$(MYSQL_HOST).%s.svc", dp.Namespace)
-		}
-
-		c.Args = append(c.Args, "--mysql_tls_ca", caPath, "--mysql_server_name", host)
-		return nil
-	}
-}
-
 func EnsureTLS(tlsConfig v1alpha1.TLS, name string) func(*apps.Deployment) error {
 	return func(dp *apps.Deployment) error {
 		if err := deployment.TLS(tlsConfig, name)(dp); err != nil {
@@ -196,57 +154,5 @@ func EnsureTLS(tlsConfig v1alpha1.TLS, name string) func(*apps.Deployment) error
 		container.Args = append(container.Args, "--tls_key_file", tls.TLSKeyPath)
 
 		return nil
-	}
-}
-
-func DbSecretToAuth(databaseSecretRef *v1alpha1.LocalObjectReference) *v1alpha1.Auth {
-	auth := v1alpha1.Auth{}
-	keys := []string{actions.SecretUser, actions.SecretPassword, actions.SecretHost, actions.SecretPort, actions.SecretDatabaseName}
-
-	for _, v := range keys {
-		temp := strings.ReplaceAll(v, "-", "_")
-		temp = strings.ToUpper(temp)
-
-		auth.Env = append(auth.Env, core.EnvVar{
-			Name: temp,
-			ValueFrom: &core.EnvVarSource{
-				SecretKeyRef: &core.SecretKeySelector{
-					Key: v,
-					LocalObjectReference: core.LocalObjectReference{
-						Name: databaseSecretRef.Name,
-					},
-				},
-			},
-		})
-	}
-	return &auth
-}
-
-func ensureDbAuth(instance *v1alpha1.Trillian, containerName, initContainerName string) []func(dp *apps.Deployment) error {
-	return []func(dp *apps.Deployment) error{
-		// ensure user auth
-		func(deploy *apps.Deployment) error {
-			ref := &deploy.Spec.Template.Spec
-			err := ensure.ContainerAuth(kubernetes.FindContainerByNameOrCreate(ref, containerName), instance.Spec.Auth)(ref)
-			if err != nil {
-				return err
-			}
-
-			err = ensure.ContainerAuth(kubernetes.FindInitContainerByNameOrCreate(ref, initContainerName), instance.Spec.Auth)(ref)
-			return err
-		},
-
-		// ensure dbSecret auth
-		ensure.Optional(instance.Status.Db.DatabaseSecretRef != nil,
-			func(deploy *apps.Deployment) error {
-				ref := &deploy.Spec.Template.Spec
-				err := ensure.ContainerAuth(kubernetes.FindContainerByNameOrCreate(ref, containerName), DbSecretToAuth(instance.Status.Db.DatabaseSecretRef))(ref)
-				if err != nil {
-					return err
-				}
-
-				err = ensure.ContainerAuth(kubernetes.FindInitContainerByNameOrCreate(ref, initContainerName), DbSecretToAuth(instance.Status.Db.DatabaseSecretRef))(ref)
-				return err
-			}),
 	}
 }
