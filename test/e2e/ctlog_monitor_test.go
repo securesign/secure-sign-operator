@@ -136,9 +136,9 @@ var _ = Describe("Ctlog Monitor", Ordered, func() {
 			var ctlogServerUrl string
 			var found bool
 
-			protocol := "http://"
+			protocol := "http"
 			if testSupportKubernetes.IsRemoteClusterOpenshift() {
-				protocol = "https://"
+				protocol = "https"
 			}
 
 			for _, cmd := range ctlogMonitorContainer.Command {
