@@ -5,7 +5,6 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -18,7 +17,6 @@ import (
 	k8ssupport "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
-	"github.com/securesign/operator/test/e2e/support/tas/rekor"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,26 +43,6 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 	execOnMonitorPod := func(command ...string) error {
 		return k8ssupport.ExecInPod(context.Background(),
 			rekorMonitorPod.Name, actions.MonitorStatefulSetName, namespace.Name, command...)
-	}
-
-	createSubtleCorruption := func(originalContent string) string {
-		// example: rekor-server-56b7c74d54-7prtd - 8848740706025694979\n1\nEY8H3RdtBezjmTAF2AXq/h/TrZmEvPNQW13p1qQ0FoA=\n\n—
-		re := regexp.MustCompile(`[A-Za-z0-9+/]{40,}=`)
-		firstHash := re.FindString(originalContent)
-		if firstHash == "" {
-			return originalContent
-		}
-
-		// Change the last character before "=" in the first hash
-		lastChar := firstHash[len(firstHash)-2 : len(firstHash)-1]
-		var newLastChar string
-		if lastChar == "0" {
-			newLastChar = "1"
-		} else {
-			newLastChar = "0"
-		}
-		corruptedHash := firstHash[:len(firstHash)-2] + newLastChar + "="
-		return strings.Replace(originalContent, firstHash, corruptedHash, 1)
 	}
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
@@ -265,7 +243,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			By("Getting initial metrics values")
 			Eventually(func(g Gomega) {
-				verTotal, verFailure := rekor.GetMonitorMetricValues(ctx, cli, namespace.Name, g)
+				verTotal, verFailure := support.GetMonitorMetricValues(ctx, cli, namespace.Name, actions.MonitorComponentName, g)
 				initialLogIndexTotal = verTotal
 				g.Expect(verFailure).To(Equal(float64(0)),
 					fmt.Sprintf("Expected log_index_verification_failure to be 0, got %f", verFailure))
@@ -273,7 +251,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			By("Waiting for log_index_verification_total to increase")
 			Eventually(func(g Gomega) {
-				verTotal, verFailure := rekor.GetMonitorMetricValues(ctx, cli, namespace.Name, g)
+				verTotal, verFailure := support.GetMonitorMetricValues(ctx, cli, namespace.Name, actions.MonitorComponentName, g)
 				g.Expect(verTotal).To(BeNumerically(">", initialLogIndexTotal),
 					fmt.Sprintf("Expected log_index_verification_total to increase from %f, but got %f", initialLogIndexTotal, verTotal))
 				g.Expect(verFailure).To(Equal(float64(0)),
@@ -286,7 +264,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 		It("should allow Prometheus to scrape Rekor monitor metrics", func(ctx SpecContext) {
 			By("Testing that metrics are exposed in Prometheus format")
 			Eventually(func(g Gomega) {
-				rawMetricsContent, err := rekor.GetMonitorMetrics(ctx, cli, namespace.Name)
+				rawMetricsContent, err := support.GetMonitorMetrics(ctx, cli, namespace.Name, actions.MonitorComponentName)
 				g.Expect(err).ToNot(HaveOccurred(), "Should be able to get raw metrics content")
 
 				// Verify it follows Prometheus text format conventions
@@ -313,7 +291,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			By("Getting metrics before signing")
 			Eventually(func(g Gomega) {
-				verTotal, verFailure := rekor.GetMonitorMetricValues(ctx, cli, namespace.Name, g)
+				verTotal, verFailure := support.GetMonitorMetricValues(ctx, cli, namespace.Name, actions.MonitorComponentName, g)
 				preSigningTotal = verTotal
 				g.Expect(verFailure).To(Equal(float64(0)), "Expected log_index_verification_failure to be 0 before signing")
 			}, 30*time.Second, 1*time.Second).Should(Succeed())
@@ -332,7 +310,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			By("Verifying metrics after signing - total should increase, failures should remain 0")
 			Eventually(func(g Gomega) {
-				verTotal, verFailure := rekor.GetMonitorMetricValues(ctx, cli, namespace.Name, g)
+				verTotal, verFailure := support.GetMonitorMetricValues(ctx, cli, namespace.Name, actions.MonitorComponentName, g)
 				g.Expect(verTotal).To(BeNumerically(">=", preSigningTotal),
 					fmt.Sprintf("Expected log_index_verification_total to be at least %f after signing, got %f", preSigningTotal, verTotal))
 				g.Expect(verFailure).To(Equal(float64(0)),
@@ -345,7 +323,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			By("Getting initial failure metrics before corruption")
 			Eventually(func(g Gomega) {
-				_, verFailure := rekor.GetMonitorMetricValues(ctx, cli, namespace.Name, g)
+				_, verFailure := support.GetMonitorMetricValues(ctx, cli, namespace.Name, actions.MonitorComponentName, g)
 				initialFailureCount = verFailure
 			}, 30*time.Second, 1*time.Second).Should(Succeed())
 
@@ -355,7 +333,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			By("Corrupting the checkpoint file with subtle hash modification")
 			originalString := string(originalContent)
-			corruptedContent := createSubtleCorruption(originalString)
+			corruptedContent := support.CreateSubtleCorruption(originalString)
 			Expect(corruptedContent).ToNot(Equal(originalString), "Should have modified the root hash")
 
 			err = execOnMonitorPod("sh", "-c",
@@ -369,7 +347,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 
 			By("Waiting for monitor to detect the corruption and increment failure metrics")
 			Eventually(func(g Gomega) {
-				_, verFailure := rekor.GetMonitorMetricValues(ctx, cli, namespace.Name, g)
+				_, verFailure := support.GetMonitorMetricValues(ctx, cli, namespace.Name, actions.MonitorComponentName, g)
 				g.Expect(verFailure).To(BeNumerically(">", initialFailureCount),
 					fmt.Sprintf("Expected log_index_verification_failure to increase from %f, but got %f", initialFailureCount, verFailure))
 			}, 1*time.Minute, 1*time.Second).Should(Succeed(),
