@@ -1,0 +1,62 @@
+package monitor
+
+import (
+	"context"
+	"fmt"
+	"maps"
+	"slices"
+
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/ctlog/actions"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+)
+
+func NewCreateMonitorAction() action.Action[*rhtasv1alpha1.CTlog] {
+	return &monitoringAction{}
+}
+
+type monitoringAction struct {
+	action.BaseAction
+}
+
+func (i monitoringAction) Name() string {
+	return "create monitoring"
+}
+
+func (i monitoringAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.CTlog) bool {
+	return enabled(instance) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
+}
+
+func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) *action.Result {
+	var (
+		err error
+	)
+
+	monitoringLabels := labels.For(actions.MonitorComponentName, actions.MonitoringRoleName, instance.Name)
+
+	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, kubernetes.CreateServiceMonitor(instance.Namespace, actions.MonitorStatefulSetName),
+		ensure.ControllerReference[*unstructured.Unstructured](instance, i.Client),
+		ensure.Labels[*unstructured.Unstructured](slices.Collect(maps.Keys(monitoringLabels)), monitoringLabels),
+		kubernetes.EnsureServiceMonitorSpec(
+			labels.ForComponent(actions.MonitorComponentName, instance.Name),
+			kubernetes.ServiceMonitorEndpoint(actions.MonitorMetricsPortName),
+		),
+	); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not create serviceMonitor: %w", err), instance, metav1.Condition{
+			Type:    actions.MonitorCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  state.Failure.String(),
+			Message: err.Error(),
+		})
+	}
+
+	// monitors & RBAC are not watched - do not need to re-enqueue
+	return i.Continue()
+}

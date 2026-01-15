@@ -118,6 +118,7 @@ func main() {
 	utils.RelatedImageFlag("client-server-image", images.ClientServer, "The image used to serve cosign and gitsign.")
 	utils.RelatedImageFlag("timestamp-authority-image", images.TimestampAuthority, "The image used for Timestamp Authority")
 	utils.RelatedImageFlag("rekor-monitor-image", images.RekorMonitor, "The image used for rekor monitor.")
+	utils.RelatedImageFlag("ctlog-monitor-image", images.CTLogMonitor, "The image used for ctlog monitor.")
 	flag.StringVar(&clidownload.CliHostName, "cli-server-hostname", "", "The hostname for the cli server")
 
 	klog.InitFlags(flag.CommandLine)
