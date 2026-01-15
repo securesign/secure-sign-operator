@@ -24,6 +24,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const ctlogDataDirectory = "/data"
+
 var _ = Describe("Ctlog Monitor Log", Ordered, func() {
 	cli, _ := support.CreateClient()
 
@@ -97,7 +99,7 @@ var _ = Describe("Ctlog Monitor Log", Ordered, func() {
 
 			var dataVolumeMount *v1.VolumeMount
 			for _, vm := range ctlogMonitorContainer.VolumeMounts {
-				if vm.MountPath == "/data" {
+				if vm.MountPath == ctlogDataDirectory {
 					dataVolumeMount = &vm
 					break
 				}
@@ -319,7 +321,7 @@ var _ = Describe("Ctlog Monitor Log", Ordered, func() {
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
 
 		By("Reading the original checkpoint file content")
-		originalContent, err := execOnMonitorPodWithOutput("cat", "/data/checkpoint_log.txt")
+		originalContent, err := execOnMonitorPodWithOutput("cat", fmt.Sprintf("%s/checkpoint_log.txt", ctlogDataDirectory))
 		Expect(err).ToNot(HaveOccurred(), "Should be able to read checkpoint file")
 
 		By("Corrupting the checkpoint file with subtle hash modification")
@@ -328,11 +330,11 @@ var _ = Describe("Ctlog Monitor Log", Ordered, func() {
 		Expect(corruptedContent).ToNot(Equal(originalString), "Should have modified the root hash")
 
 		err = execOnMonitorPod("sh", "-c",
-			fmt.Sprintf("printf '%%s' '%s' > /data/checkpoint_log.txt", corruptedContent))
+			fmt.Sprintf("printf '%%s' '%s' > %s/checkpoint_log.txt", corruptedContent, ctlogDataDirectory))
 		Expect(err).ToNot(HaveOccurred(), "Failed to corrupt checkpoint file")
 
 		By("Verifying the file was corrupted with subtle changes")
-		verifyContent, err := execOnMonitorPodWithOutput("cat", "/data/checkpoint_log.txt")
+		verifyContent, err := execOnMonitorPodWithOutput("cat", fmt.Sprintf("%s/checkpoint_log.txt", ctlogDataDirectory))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(verifyContent)).ToNot(Equal(string(originalContent)), "File content should be different after tampering")
 
