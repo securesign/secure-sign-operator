@@ -5,22 +5,27 @@ import (
 )
 
 const (
-	DeploymentName     = "ctlog"
-	ComponentName      = "ctlog"
-	RBACName           = "ctlog"
-	MonitoringRoleName = "prometheus-k8s-ctlog"
+	DeploymentName         = "ctlog"
+	ComponentName          = "ctlog"
+	RBACName               = "ctlog"
+	MonitoringRoleName     = "prometheus-k8s-ctlog"
+	MonitorStatefulSetName = "ctlog-monitor"
+	MonitorComponentName   = "ctlog-monitor"
 
-	CertCondition   = "FulcioCertAvailable"
-	TLSCondition    = "ServerTLS"
-	ConfigCondition = "ServerConfigAvailable"
-	SignerKeyReason = "SignerKey"
-	FulcioReason    = "FulcioCertificate"
+	CertCondition    = "FulcioCertAvailable"
+	TLSCondition     = "ServerTLS"
+	ConfigCondition  = "ServerConfigAvailable"
+	SignerKeyReason  = "SignerKey"
+	FulcioReason     = "FulcioCertificate"
+	MonitorCondition = "MonitorAvailable"
 
-	ServerPortName   = "http"
-	ServerTargetPort = 6962
-	MetricsPortName  = "metrics"
-	MetricsPort      = 6963
-	TLSSecret        = "%s-ctlog-tls"
+	ServerPortName         = "http"
+	ServerTargetPort       = 6962
+	MetricsPortName        = "metrics"
+	MetricsPort            = 6963
+	TLSSecret              = "%s-ctlog-tls"
+	MonitorMetricsPortName = "monitor-metrics"
+	MonitorMetricsPort     = 9464
 
 	CTLPubLabel       = labels.LabelNamespace + "/ctfe.pub"
 	CTLogPrivateLabel = labels.LabelNamespace + "/ctfe.private"

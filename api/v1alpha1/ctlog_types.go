@@ -38,7 +38,7 @@ type CTlogSpec struct {
 	RootCertificates []SecretKeySelector `json:"rootCertificates,omitempty"`
 
 	//Enable Service monitors for ctlog
-	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
+	Monitoring MonitoringWithTLogConfig `json:"monitoring,omitempty"`
 
 	// Trillian service configuration
 	//+kubebuilder:default:={port: 8091}
