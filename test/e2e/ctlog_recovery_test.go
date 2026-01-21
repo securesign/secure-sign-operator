@@ -58,7 +58,7 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		By("Setting up CTLog prerequisites")
 
-		keysSecret := ctlog.CreateSecret(namespace.Name, "test-ctlog-keys")
+		keysSecret := ctlog.CreateSecret(namespace.Name, "test-ctlog-keys", false)
 		Expect(cli.Create(ctx, keysSecret)).To(Succeed())
 
 		_, _, rootCert, err := support.CreateCertificates(false)
