@@ -298,7 +298,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			Expect(cli.Create(ctx, ctlogRootCASecret)).To(Succeed())
 
 			// Ctlog
-			ctlogSecret := ctlog.CreateSecret(namespaces["ctlog"].Name, "my-ctlog-secret")
+			ctlogSecret := ctlog.CreateSecret(namespaces["ctlog"].Name, "my-ctlog-secret", false)
 
 			tufCtlogSecret := ctlogSecret.DeepCopy()
 			tufCtlogSecret.Namespace = namespaces["tuf"].Name

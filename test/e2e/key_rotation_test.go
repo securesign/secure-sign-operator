@@ -15,9 +15,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
+	"github.com/google/trillian/crypto/keyspb"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
+	ctlogActions "github.com/securesign/operator/internal/controller/ctlog/actions"
+	fulcioActions "github.com/securesign/operator/internal/controller/fulcio/actions"
+	rekorActions "github.com/securesign/operator/internal/controller/rekor/actions"
 	tufAction "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
@@ -26,9 +31,14 @@ import (
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	clients "github.com/securesign/operator/test/e2e/support/tas/cli"
+	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
 	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
 	"github.com/securesign/operator/test/e2e/support/tas/rekor"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -39,12 +49,15 @@ import (
 var _ = Describe("Key rotation test", Ordered, func() {
 	cli, _ := support.CreateClient()
 	var (
-		targetImageName               string
-		namespace                     *v1.Namespace
-		s                             *v1alpha1.Securesign
-		oldFulcioCert, oldRekorSigner []byte
-		newFulcioCert, newRekorSigner *v1.Secret
-		err                           error
+		targetImageName                             string
+		namespace                                   *v1.Namespace
+		s                                           *v1alpha1.Securesign
+		oldFulcioCert, oldRekorPub                  []byte
+		newFulcioCert, newRekorSigner, newCtlConfig *v1.Secret
+		err                                         error
+		tufRepoWorkdir                              string
+		tufPod                                      v1.Pod
+		runningTimestamp                            time.Time
 	)
 
 	BeforeAll(func() {
@@ -75,6 +88,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 
 		It("All other components are running", func(ctx SpecContext) {
 			tas.VerifyAllComponents(ctx, cli, s, true)
+			runningTimestamp = time.Now()
 		})
 
 		It("Use cosign cli", func(ctx SpecContext) {
@@ -97,9 +111,9 @@ var _ = Describe("Key rotation test", Ordered, func() {
 			newFulcioCert = fulcio.CreateSecret(namespace.Name, secretName)
 			Expect(cli.Create(ctx, newFulcioCert)).To(Succeed())
 
-			Eventually(func(g Gomega) error {
-				f := securesign.Get(ctx, cli, namespace.Name, s.Name)
-				g.Expect(f).ToNot(BeNil())
+			Eventually(func() error {
+				f := securesign.Get(ctx, cli, s.Namespace, s.Name)
+
 				f.Spec.Fulcio.Certificate.PrivateKeyRef = &v1alpha1.SecretKeySelector{
 					LocalObjectReference: v1alpha1.LocalObjectReference{
 						Name: secretName,
@@ -132,20 +146,34 @@ var _ = Describe("Key rotation test", Ordered, func() {
 
 				return cli.Update(ctx, f)
 			}).Should(Succeed())
+			Eventually(func(g Gomega) bool {
+				list := &v1.PodList{}
+				g.Expect(cli.List(ctx, list, runtimeCli.InNamespace(s.Namespace), runtimeCli.MatchingLabels{labels.LabelAppComponent: fulcioActions.ComponentName})).To(Succeed())
+				for _, p := range list.Items {
+					if p.CreationTimestamp.After(runningTimestamp) {
+						return true
+					}
+				}
+				return false
 
-			// wait a moment for redeploy
-			time.Sleep(10 * time.Second)
-			tas.VerifyAllComponents(ctx, cli, s, true)
+			}).Should(BeTrue())
 		})
 
 	})
 	Describe("Update rekor signer", func() {
+		var oldRekorSigner []byte
 		It("Download rekor signer", func(ctx SpecContext) {
 			r := rekor.Get(ctx, cli, namespace.Name, s.Name)
 			Expect(r).ToNot(BeNil())
-			oldRekorSigner, err = kubernetes.GetSecretData(cli, namespace.Name, r.Status.Signer.KeyRef)
+			signerSecret, err := kubernetes.GetSecret(cli, namespace.Name, r.Status.Signer.KeyRef.Name)
 			Expect(err).ToNot(HaveOccurred())
+
+			oldRekorSigner = signerSecret.Data[r.Status.Signer.KeyRef.Key]
 			Expect(oldRekorSigner).ToNot(BeEmpty())
+
+			oldRekorPub = signerSecret.Data["public"]
+			Expect(oldRekorPub).ToNot(BeEmpty())
+
 		})
 
 		It("Update rekor signer", func(ctx SpecContext) {
@@ -169,7 +197,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 			logLength, err := rekorTreeLength(rekor.Get(ctx, cli, namespace.Name, s.Name).Status.Url)
 			Expect(err).ToNot(HaveOccurred())
 
-			createPod := createTree(namespace.Name)
+			createPod := createTree(namespace.Name, "rekor-tree")
 			Expect(cli.Create(ctx, createPod)).To(Succeed())
 			Eventually(func(gomega Gomega) bool {
 				gomega.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(createPod), createPod)).To(Succeed())
@@ -185,9 +213,8 @@ var _ = Describe("Key rotation test", Ordered, func() {
 			newRekorSigner = rekor.CreateSecret(namespace.Name, secretName)
 			Expect(cli.Create(ctx, newRekorSigner)).To(Succeed())
 
-			Eventually(func(g Gomega) error {
-				f := securesign.Get(ctx, cli, namespace.Name, s.Name)
-				g.Expect(f).ToNot(BeNil())
+			Eventually(func() error {
+				f := securesign.Get(ctx, cli, s.Namespace, s.Name)
 				f.Spec.Rekor.Signer.KeyRef = &v1alpha1.SecretKeySelector{
 					LocalObjectReference: v1alpha1.LocalObjectReference{
 						Name: secretName,
@@ -204,73 +231,208 @@ var _ = Describe("Key rotation test", Ordered, func() {
 				}
 
 				f.Spec.Rekor.TreeID = &newTreeId
-
 				return cli.Update(ctx, f)
 			}).Should(Succeed())
+			Eventually(func(g Gomega) bool {
+				list := &v1.PodList{}
+				g.Expect(cli.List(ctx, list, runtimeCli.InNamespace(s.Namespace), runtimeCli.MatchingLabels{labels.LabelAppComponent: rekorActions.ServerComponentName})).To(Succeed())
+				for _, p := range list.Items {
+					if p.CreationTimestamp.After(runningTimestamp) {
+						return true
+					}
+				}
+				return false
 
-			// wait a moment for redeploy
-			time.Sleep(10 * time.Second)
-			tas.VerifyAllComponents(ctx, cli, s, true)
+			}).Should(BeTrue())
 		})
+	})
 
-		It("Update TUF repository", func(ctx SpecContext) {
-			var (
-				certs, tufRepoWorkdir string
-				tufPod                v1.Pod
-			)
-			By("Download TUF repository", func() {
-				certs, err = os.MkdirTemp(os.TempDir(), "certs")
-				Expect(err).ToNot(HaveOccurred())
+	Describe("Update transparency log", func() {
+		It("Update ctlog keys", func(ctx SpecContext) {
+			c := ctlog.Get(ctx, cli, namespace.Name, s.Name)
+			Expect(c).ToNot(BeNil())
+			oldTreeId := c.Status.TreeID
+			Expect(oldTreeId).ToNot(BeNil())
 
-				tufRepoWorkdir, err = os.MkdirTemp(os.TempDir(), "tuf-repo")
-				Expect(err).ToNot(HaveOccurred())
+			oldConfig, err := ctlog.GetConfigSecret(ctx, cli, s.Namespace, c.Status.ServerConfigRef.Name)
+			Expect(err).ToNot(HaveOccurred())
 
-				tufKeys := &v1.Secret{}
-				Expect(os.Mkdir(filepath.Join(tufRepoWorkdir, "keys"), 0777)).To(Succeed())
-				Expect(cli.Get(ctx, runtimeCli.ObjectKey{Name: "tuf-root-keys", Namespace: namespace.Name}, tufKeys)).To(Succeed())
-				for k, v := range tufKeys.Data {
-					Expect(os.WriteFile(filepath.Join(tufRepoWorkdir, "keys", k), v, 0644)).To(Succeed())
+			drainingPod := updateTree(namespace.Name, oldTreeId, "DRAINING")
+			Expect(cli.Create(ctx, drainingPod)).To(Succeed())
+			Eventually(func(gomega Gomega) bool {
+				gomega.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(drainingPod), drainingPod)).To(Succeed())
+				return drainingPod.Status.Phase == v1.PodSucceeded
+			}).Should(BeTrue())
+
+			freezePod := updateTree(namespace.Name, oldTreeId, "FROZEN")
+			Expect(cli.Create(ctx, freezePod)).To(Succeed())
+			Eventually(func(gomega Gomega) bool {
+				gomega.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(freezePod), freezePod)).To(Succeed())
+				return freezePod.Status.Phase == v1.PodSucceeded
+			}).Should(BeTrue())
+
+			createPod := createTree(namespace.Name, "ctlog-tree")
+			Expect(cli.Create(ctx, createPod)).To(Succeed())
+			Eventually(func(gomega Gomega) bool {
+				gomega.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(createPod), createPod)).To(Succeed())
+				return createPod.Status.Phase == v1.PodSucceeded
+			}).Should(BeTrue())
+			createTreeLog, err := testKubernetes.GetPodLogs(ctx, createPod.Name, "createtree", namespace.Name)
+			Expect(err).ToNot(HaveOccurred())
+			lines := strings.Split(strings.TrimSpace(createTreeLog), "\n")
+			newTreeId, err := strconv.ParseInt(lines[len(lines)-1], 10, 64)
+			Expect(err).ToNot(HaveOccurred())
+
+			secretName := "new-ctlog"
+			newCtlConfig = ctlog.CreateSecret(namespace.Name, secretName, true)
+
+			cfg := &configpb.LogMultiConfig{}
+			now := time.Now()
+			timestamp := &timestamppb.Timestamp{
+				Seconds: now.Unix(), Nanos: int32(now.Nanosecond()),
+			}
+			Expect(prototext.Unmarshal(oldConfig.Data["config"], cfg)).To(Succeed())
+			frozen := cfg.LogConfigs.Config[0]
+			Expect(frozen).ToNot(BeNil())
+
+			cfg.LogConfigs.Config = append(cfg.LogConfigs.Config, proto.Clone(frozen).(*configpb.LogConfig))
+			active := cfg.LogConfigs.Config[1]
+
+			frozen.NotAfterLimit = timestamp
+			frozen.Prefix = "trusted-artifact-signer-0"
+			frozenKey := &keyspb.PEMKeyFile{}
+			Expect(anypb.UnmarshalTo(frozen.PrivateKey, frozenKey, proto.UnmarshalOptions{})).To(Succeed())
+			frozenKey.Path = "/ctfe-keys/private-0"
+			frozenAnyKey, err := anypb.New(frozenKey)
+			Expect(err).ToNot(HaveOccurred())
+			frozen.PrivateKey = frozenAnyKey
+
+			active.LogId = newTreeId
+			active.Prefix = "trusted-artifact-signer"
+			activeAnyKey, err := anypb.New(&keyspb.PEMKeyFile{
+				Path:     "/ctfe-keys/private",
+				Password: string(newCtlConfig.Data["password"]),
+			})
+			Expect(err).ToNot(HaveOccurred())
+			active.PrivateKey = activeAnyKey
+			active.PublicKey = nil
+			active.NotAfterStart = timestamp
+
+			configdata, err := prototext.Marshal(cfg)
+			Expect(err).ToNot(HaveOccurred())
+			newCtlConfig.Data["config"] = configdata
+			newCtlConfig.Data["fulcio-0"] = oldConfig.Data["fulcio-0"]
+			newCtlConfig.Data["private-0"] = oldConfig.Data["private"]
+			newCtlConfig.Data["public-0"] = oldConfig.Data["public"]
+
+			Expect(cli.Create(ctx, newCtlConfig)).To(Succeed())
+
+			Eventually(func() error {
+				f := securesign.Get(ctx, cli, s.Namespace, s.Name)
+				f.Spec.Ctlog.ServerConfigRef = &v1alpha1.LocalObjectReference{
+					Name: secretName,
 				}
 
-				Expect(os.Mkdir(filepath.Join(tufRepoWorkdir, "tuf-repo"), 0777)).To(Succeed())
-				tufPodList := &v1.PodList{}
-				Expect(cli.List(ctx, tufPodList, runtimeCli.InNamespace(namespace.Name), runtimeCli.MatchingLabels{labels.LabelAppName: tufAction.DeploymentName})).To(Succeed())
-				Expect(tufPodList.Items).To(HaveLen(1))
-				tufPod = tufPodList.Items[0]
+				f.Spec.Ctlog.TreeID = &newTreeId
 
-				Expect(testKubernetes.CopyFromPod(ctx, tufPod, "/var/www/html", filepath.Join(tufRepoWorkdir, "tuf-repo"))).To(Succeed())
-			})
+				f.Spec.Ctlog.PrivateKeyRef = &v1alpha1.SecretKeySelector{
+					LocalObjectReference: v1alpha1.LocalObjectReference{
+						Name: secretName,
+					},
+					Key: "private",
+				}
 
-			By("Rotate fulcio certs", func() {
-				Expect(os.WriteFile(certs+"/new-fulcio.cert.pem", newFulcioCert.Data["cert"], 0644)).To(Succeed())
-				Expect(os.WriteFile(certs+"/fulcio_v1.crt.pem", oldFulcioCert, 0644)).To(Succeed())
+				f.Spec.Ctlog.PrivateKeyPasswordRef = &v1alpha1.SecretKeySelector{
+					LocalObjectReference: v1alpha1.LocalObjectReference{
+						Name: secretName,
+					},
+					Key: "password",
+				}
 
-				Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("fulcio", "fulcio_v1.crt.pem", tufRepoWorkdir, true)...)).To(Succeed())
-				Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("fulcio", "new-fulcio.cert.pem", tufRepoWorkdir, false)...)).To(Succeed())
-			})
+				f.Spec.Ctlog.PublicKeyRef = &v1alpha1.SecretKeySelector{
+					LocalObjectReference: v1alpha1.LocalObjectReference{
+						Name: secretName,
+					},
+					Key: "public",
+				}
+				return cli.Update(ctx, f)
+			}).Should(Succeed())
+			Eventually(func(g Gomega) bool {
+				list := &v1.PodList{}
+				g.Expect(cli.List(ctx, list, runtimeCli.InNamespace(s.Namespace), runtimeCli.MatchingLabels{labels.LabelAppComponent: ctlogActions.ComponentName})).To(Succeed())
+				for _, p := range list.Items {
+					if p.CreationTimestamp.After(runningTimestamp) {
+						return true
+					}
+				}
+				return false
 
-			By("Rotate rekor signer ", func() {
-				Expect(os.WriteFile(certs+"/new-rekor.pub", newRekorSigner.Data["public"], 0644)).To(Succeed())
-				Expect(os.WriteFile(certs+"/rekor.pub", newRekorSigner.Data["public"], 0644)).To(Succeed())
+			}).Should(BeTrue())
+		})
+	})
 
-				Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("rekor", "rekor.pub", tufRepoWorkdir, true)...)).To(Succeed())
-				Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("rekor", "new-rekor.pub", tufRepoWorkdir, false)...)).To(Succeed())
-			})
+	Describe("Update TUF repository", func() {
+		var certs string
+		It("Download TUF repository", func(ctx SpecContext) {
+			certs, err = os.MkdirTemp(os.TempDir(), "certs")
+			Expect(err).ToNot(HaveOccurred())
 
-			By("Upload the TUF repository back", func() {
-				Expect(testKubernetes.CopyToPod(ctx, config.GetConfigOrDie(), tufPod, filepath.Join(tufRepoWorkdir, "tuf-repo"), "/var/www/html")).To(Succeed())
-			})
+			tufRepoWorkdir, err = os.MkdirTemp(os.TempDir(), "tuf-repo")
+			Expect(err).ToNot(HaveOccurred())
+
+			tufKeys := &v1.Secret{}
+			Expect(os.Mkdir(filepath.Join(tufRepoWorkdir, "keys"), 0777)).To(Succeed())
+			Expect(cli.Get(ctx, runtimeCli.ObjectKey{Name: "tuf-root-keys", Namespace: namespace.Name}, tufKeys)).To(Succeed())
+			for k, v := range tufKeys.Data {
+				Expect(os.WriteFile(filepath.Join(tufRepoWorkdir, "keys", k), v, 0644)).To(Succeed())
+			}
+
+			Expect(os.Mkdir(filepath.Join(tufRepoWorkdir, "tuf-repo"), 0777)).To(Succeed())
+			tufPodList := &v1.PodList{}
+			Expect(cli.List(ctx, tufPodList, runtimeCli.InNamespace(namespace.Name), runtimeCli.MatchingLabels{labels.LabelAppName: tufAction.DeploymentName})).To(Succeed())
+			Expect(tufPodList.Items).To(HaveLen(1))
+			tufPod = tufPodList.Items[0]
+
+			Expect(testKubernetes.CopyFromPod(ctx, tufPod, "/var/www/html", filepath.Join(tufRepoWorkdir, "tuf-repo"))).To(Succeed())
 		})
 
-		It("All other components are running", func(ctx SpecContext) {
-			tas.VerifyAllComponents(ctx, cli, s, true)
+		It("Rotate fulcio certs", func(ctx SpecContext) {
+			Expect(os.WriteFile(certs+"/new-fulcio.cert.pem", newFulcioCert.Data["cert"], 0644)).To(Succeed())
+			Expect(os.WriteFile(certs+"/fulcio_v1.crt.pem", oldFulcioCert, 0644)).To(Succeed())
+
+			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("fulcio", "fulcio_v1.crt.pem", tufRepoWorkdir, true)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("fulcio", "new-fulcio.cert.pem", tufRepoWorkdir, false)...)).To(Succeed())
 		})
 
-		It("Use cosign cli", func(ctx SpecContext) {
-			tas.VerifyByCosign(ctx, cli, s, targetImageName)
-			newImage := support.PrepareImage(ctx)
-			tas.VerifyByCosign(ctx, cli, s, newImage)
+		It("Rotate rekor signer ", func(ctx SpecContext) {
+			Expect(os.WriteFile(certs+"/new-rekor.pub", newRekorSigner.Data["public"], 0644)).To(Succeed())
+			Expect(os.WriteFile(certs+"/rekor.pub", oldRekorPub, 0644)).To(Succeed())
+
+			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("rekor", "rekor.pub", tufRepoWorkdir, true)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("rekor", "new-rekor.pub", tufRepoWorkdir, false)...)).To(Succeed())
 		})
+
+		It("Rotate transparency log ", func(ctx SpecContext) {
+			Expect(os.WriteFile(certs+"/new-ctlog-public.pem", newCtlConfig.Data["public"], 0644)).To(Succeed())
+			Expect(os.WriteFile(certs+"/ctfe.pub", newCtlConfig.Data["public-0"], 0644)).To(Succeed())
+
+			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("ctlog", "ctfe.pub", tufRepoWorkdir, true)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("ctlog", "new-ctlog-public.pem", tufRepoWorkdir, false)...)).To(Succeed())
+		})
+	})
+
+	It("Upload the TUF repository back", func(ctx SpecContext) {
+		Expect(testKubernetes.CopyToPod(ctx, config.GetConfigOrDie(), tufPod, filepath.Join(tufRepoWorkdir, "tuf-repo"), "/var/www/html")).To(Succeed())
+	})
+
+	It("Validate all pods are running", func(ctx SpecContext) {
+		tas.VerifyAllComponents(ctx, cli, s, true)
+	})
+
+	It("Use cosign cli", func(ctx SpecContext) {
+		tas.VerifyByCosign(ctx, cli, s, targetImageName)
+		newImage := support.PrepareImage(ctx)
+		tas.VerifyByCosign(ctx, cli, s, newImage)
 	})
 
 })
@@ -283,7 +445,7 @@ func tufToolParams(component, targetName string, workdir string, expire bool) []
 		"--key", workdir + "/keys/targets.pem",
 		"--key", workdir + "/keys/timestamp.pem",
 		fmt.Sprintf("--set-%s-target", component), targetName,
-		fmt.Sprintf("--%s-uri", component), fmt.Sprintf("https://%s.localhost", component),
+		fmt.Sprintf("--%s-uri", component), fmt.Sprintf("https://%s.rhtas", component),
 		"--outdir", workdir + "/tuf-repo",
 		"--metadata-url", "file://" + workdir + "/tuf-repo",
 	}
@@ -329,10 +491,10 @@ func updateTree(namespace string, treeId *int64, state string) *v1.Pod {
 	}
 }
 
-func createTree(namespace string) *v1.Pod {
+func createTree(namespace, displayName string) *v1.Pod {
 	args := []string{
 		"--admin_server", fmt.Sprintf("trillian-logserver.%s.svc:8091", namespace),
-		"--display_name", "rekor-tree",
+		"--display_name", displayName,
 	}
 	if testKubernetes.IsRemoteClusterOpenshift() {
 		args = append(args, "--tls_cert_file", "/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt")
