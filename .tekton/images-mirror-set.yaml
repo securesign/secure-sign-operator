@@ -56,3 +56,6 @@ spec:
     - mirrors:
         - quay.io/securesign/tuffer
       source: registry.redhat.io/rhtas/tuffer-rhel9
+    - mirrors:
+        - quay.io/securesign/ctlog-monitor
+      source: registry.redhat.io/rhtas/ctlog-monitor-rhel9
