@@ -25,6 +25,7 @@ import (
 	"github.com/securesign/operator/internal/controller"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/utils"
+	cryptoutil "github.com/securesign/operator/internal/utils/crypto"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/klog/v2"
@@ -138,6 +139,15 @@ func main() {
 		setupLog.Info("Platform explicitly configured via flag/env", "openshift", appconfig.Openshift)
 	}
 
+	tlsOpts := []func(*tls.Config){}
+	if cryptoutil.FIPSEnabled {
+		setupLog.Info("Operator is running in FIPS enabled environment", "FIPSEnabled", cryptoutil.FIPSEnabled)
+		fipsTLSOpts := func(c *tls.Config) {
+			c.MinVersion = tls.VersionTLS12
+		}
+		tlsOpts = append(tlsOpts, fipsTLSOpts)
+	}
+
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
 	// prevent from being vulnerable to the HTTP/2 Stream Cancelation and
@@ -149,7 +159,6 @@ func main() {
 		c.NextProtos = []string{"http/1.1"}
 	}
 
-	tlsOpts := []func(*tls.Config){}
 	if !enableHTTP2 {
 		tlsOpts = append(tlsOpts, disableHTTP2)
 	}
