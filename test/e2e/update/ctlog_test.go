@@ -97,7 +97,7 @@ var _ = Describe("CTlog update", Ordered, func() {
 		})
 
 		It("created my-ctlog-secret", func(ctx SpecContext) {
-			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret"))).Should(Succeed())
+			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret", false))).Should(Succeed())
 		})
 
 		It("has status Ready", func(ctx SpecContext) {
