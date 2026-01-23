@@ -118,7 +118,7 @@ jobs:
         with:
           source: "github"
           github_pat: ${{ github.token }}
-          opm: latest
+          opm: 1.61.0
 
       - name: Checkout FBC source
         uses: actions/checkout@v4
