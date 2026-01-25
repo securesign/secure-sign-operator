@@ -18,6 +18,8 @@ metadata:
   namespace: rhtas-tenant
 spec:
   params:
+  - name: release-version
+    value: "1.2.2"
   - name: dockerfile
     value: Dockerfile.rhtas-operator.rh
   - name: git-url
@@ -43,7 +45,8 @@ spec:
         value: 'main'
       - name: pathInRepo
         value: 'pipelines/docker-build-multi-platform-oci-ta.yaml'
-  taskRunTemplate: {}
+  taskRunTemplate:
+    serviceAccountName: build-pipeline-rhtas-operator-v1-2
   workspaces:
   - name: workspace
     volumeClaimTemplate:

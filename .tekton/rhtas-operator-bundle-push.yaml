@@ -17,6 +17,8 @@ metadata:
   namespace: rhtas-tenant
 spec:
   params:
+  - name: release-version
+    value: "1.2.2"
   - name: dockerfile
     value: bundle.Dockerfile
   - name: git-url
@@ -539,7 +541,8 @@ spec:
         operator: in
         values:
         - 'false'
-  taskRunTemplate: {}
+  taskRunTemplate:
+    serviceAccountName: build-pipeline-rhtas-operator-bundle-v1-2
   workspaces:
   - name: workspace
     volumeClaimTemplate:
