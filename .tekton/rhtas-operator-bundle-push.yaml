@@ -541,7 +541,8 @@ spec:
         operator: in
         values:
         - 'false'
-  taskRunTemplate: {}
+  taskRunTemplate:
+    serviceAccountName: build-pipeline-rhtas-operator-bundle-v1-3
   workspaces:
   - name: workspace
     volumeClaimTemplate:
