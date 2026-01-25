@@ -50,7 +50,7 @@ spec:
     - name: url
       value: https://github.com/securesign/pipelines.git
     - name: revision
-      value: main
+      value: tdalton/E2EDownloadBinariesFix
     - name: pathInRepo
       value: pipelines/bundle-build-oci-ta.yaml
     resolver: git
