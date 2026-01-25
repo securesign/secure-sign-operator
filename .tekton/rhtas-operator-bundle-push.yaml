@@ -542,7 +542,7 @@ spec:
         values:
         - 'false'
   taskRunTemplate:
-    serviceAccountName: build-pipeline-rhtas-operator-bundle-v1-3
+    serviceAccountName: build-pipeline-rhtas-operator-bundle-v1-2
   workspaces:
   - name: workspace
     volumeClaimTemplate:

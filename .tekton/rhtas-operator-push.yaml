@@ -46,7 +46,7 @@ spec:
       - name: pathInRepo
         value: 'pipelines/docker-build-multi-platform-oci-ta.yaml'
   taskRunTemplate:
-    serviceAccountName: build-pipeline-rhtas-operator-v1-3
+    serviceAccountName: build-pipeline-rhtas-operator-v1-2
   workspaces:
   - name: workspace
     volumeClaimTemplate:
