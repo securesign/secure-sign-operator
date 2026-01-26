@@ -37,6 +37,12 @@ var _ = Describe("CliServer", Ordered, func() {
 		It("is available", func(ctx SpecContext) {
 			lst := &v1.IngressList{}
 			Expect(cli.List(ctx, lst, ctrl.InNamespace(cliServerNs))).To(Succeed())
+
+			fmt.Println("Debug ingress")
+			for _, i := range lst.Items {
+				fmt.Println(i.Name)
+			}
+
 			Expect(lst.Items).To(HaveLen(1))
 			protocol := "http://"
 			if len(lst.Items[0].Spec.TLS) > 0 {
