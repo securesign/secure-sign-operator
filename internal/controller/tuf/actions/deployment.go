@@ -108,17 +108,21 @@ func (i deployAction) createTufDeployment(instance *rhtasv1alpha1.Tuf, sa string
 		// let user upload manual update using `oc rsync` command
 		volumeMount.ReadOnly = false
 
+		// Liveness probe - verifies HTTP server process is alive
 		if container.LivenessProbe == nil {
 			container.LivenessProbe = &core.Probe{}
 		}
-		if container.LivenessProbe.Exec == nil {
-			container.LivenessProbe.Exec = &core.ExecAction{}
+		if container.LivenessProbe.TCPSocket == nil {
+			container.LivenessProbe.TCPSocket = &core.TCPSocketAction{}
 		}
-		// server is running returning any status code (including 403 - noindex.html)
-		container.LivenessProbe.Exec.Command = []string{"curl", "localhost:8080"}
-		container.LivenessProbe.InitialDelaySeconds = 30
+		container.LivenessProbe.Exec = nil // Clear any existing exec probe
+		container.LivenessProbe.TCPSocket.Port = intstr.FromInt32(8080)
+		container.LivenessProbe.InitialDelaySeconds = 15
 		container.LivenessProbe.PeriodSeconds = 10
+		container.LivenessProbe.TimeoutSeconds = 1
+		container.LivenessProbe.FailureThreshold = 3
 
+		// Readiness probe - verifies TUF repository is serving content
 		if container.ReadinessProbe == nil {
 			container.ReadinessProbe = &core.Probe{}
 		}
@@ -128,11 +132,10 @@ func (i deployAction) createTufDeployment(instance *rhtasv1alpha1.Tuf, sa string
 		container.ReadinessProbe.HTTPGet.Path = "/root.json"
 		container.ReadinessProbe.HTTPGet.Port = intstr.FromInt32(8080)
 		container.ReadinessProbe.HTTPGet.Scheme = "HTTP"
-
-		container.ReadinessProbe.InitialDelaySeconds = 10
+		container.ReadinessProbe.InitialDelaySeconds = 5
 		container.ReadinessProbe.PeriodSeconds = 10
+		container.ReadinessProbe.TimeoutSeconds = 1
 		container.ReadinessProbe.FailureThreshold = 3
-		container.ReadinessProbe.TimeoutSeconds = 5
 
 		return nil
 	}
