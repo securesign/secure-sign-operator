@@ -2,7 +2,8 @@ package tas
 
 import (
 	"context"
-	"time"
+	"fmt"
+	"net/http"
 
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
@@ -50,8 +51,18 @@ func VerifyByCosign(ctx context.Context, cli runtimeCli.Client, s *rhtasv1alpha1
 	Expect(err).ToNot(HaveOccurred())
 	Expect(oidcToken).ToNot(BeEmpty())
 
-	// sleep for a while to be sure everything has settled down
-	time.Sleep(time.Duration(10) * time.Second)
+	// Wait for TUF root.json to be accessible via route/ingress
+	Eventually(func() error {
+		resp, err := http.Get(t.Status.Url + "/root.json")
+		if err != nil {
+			return err
+		}
+		defer func() { _ = resp.Body.Close() }()
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("TUF root.json not ready: status %d", resp.StatusCode)
+		}
+		return nil
+	}).Should(Succeed())
 
 	Expect(clients.Execute("cosign", "initialize", "--mirror="+t.Status.Url, "--root="+t.Status.Url+"/root.json")).To(Succeed())
 
