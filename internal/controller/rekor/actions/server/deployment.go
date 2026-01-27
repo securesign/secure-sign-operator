@@ -238,9 +238,15 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 		if container.ReadinessProbe.HTTPGet == nil {
 			container.ReadinessProbe.HTTPGet = &v1.HTTPGetAction{}
 		}
-		container.ReadinessProbe.HTTPGet.Path = "/ping"
+		// Use /api/v1/log endpoint for readiness probe instead of /ping
+		// This endpoint verifies Trillian connectivity and tree accessibility,
+		// ensuring Rekor can actually process signing requests
+		container.ReadinessProbe.HTTPGet.Path = "/api/v1/log"
 		container.ReadinessProbe.HTTPGet.Port = intstr.FromInt32(3000)
 		container.ReadinessProbe.InitialDelaySeconds = 10
+		container.ReadinessProbe.PeriodSeconds = 10
+		container.ReadinessProbe.TimeoutSeconds = 5
+		container.ReadinessProbe.FailureThreshold = 3
 
 		return nil
 	}
