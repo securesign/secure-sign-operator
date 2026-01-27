@@ -180,10 +180,14 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		semverBase, err := semver.Make(baseVersion)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-		semverNew, err := semver.Make(extension.GetVersion(ctx, cli))
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
-		gomega.Expect(semverNew.GT(semverBase)).To(gomega.BeTrue())
+		// Wait for the extension to stabilize after upgrade - OLM may briefly transition CSV states
+		gomega.Eventually(func(g gomega.Gomega) {
+			version := extension.GetVersion(ctx, cli)
+			g.Expect(version).ToNot(gomega.BeEmpty(), "Extension version should not be empty")
+			semverNew, err := semver.Make(version)
+			g.Expect(err).ToNot(gomega.HaveOccurred())
+			g.Expect(semverNew.GT(semverBase)).To(gomega.BeTrue(), "New version should be greater than base version")
+		}).Should(gomega.Succeed())
 
 		for k, v := range map[string]string{
 			fulcioAction.DeploymentName:            images.Registry.Get(images.FulcioServer),
