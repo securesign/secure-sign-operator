@@ -128,7 +128,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 				CatalogSource:          testCatalog,
 				CatalogSourceNamespace: namespace.Name,
 				Package:                "rhtas-operator",
-				Channel:                "stable",
+				Channel:                support.EnvOrDefault("TEST_UPGRADE_CHANNEL", "stable"),
 				Config: &v1alpha1.SubscriptionConfig{
 					Env: []v1.EnvVar{
 						{
