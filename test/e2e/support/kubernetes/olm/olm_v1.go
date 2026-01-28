@@ -46,7 +46,7 @@ func (c *clusterCatalogSource) UpdateSourceImage(s string) {
 	_ = unstructured.SetNestedField(c.Object, s, "spec", "source", "image", "ref")
 }
 
-func OlmV1Installer(ctx context.Context, cli client.Client, catalogImage, ns, packageName string) (Extension, ExtensionSource, error) {
+func OlmV1Installer(ctx context.Context, cli client.Client, catalogImage, ns, packageName, channel string) (Extension, ExtensionSource, error) {
 	sa := &coreV1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-installer", packageName),
@@ -107,7 +107,10 @@ func OlmV1Installer(ctx context.Context, cli client.Client, catalogImage, ns, pa
 	}, "spec"); err != nil {
 		return nil, nil, err
 	}
-	if err := unstructured.SetNestedStringMap(cs.Object, selector, "spec", "source", "catalog", "selector", "matchLabels"); err != nil {
+	if err := unstructured.SetNestedStringMap(es.Object, selector, "spec", "source", "catalog", "selector", "matchLabels"); err != nil {
+		return nil, nil, err
+	}
+	if err := unstructured.SetNestedStringSlice(es.Object, []string{channel}, "spec", "source", "catalog", "channels"); err != nil {
 		return nil, nil, err
 	}
 

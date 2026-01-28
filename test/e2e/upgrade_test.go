@@ -96,10 +96,11 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 	})
 
 	It("Install TAS", func(ctx SpecContext) {
+		channel := support.EnvOrDefault("TEST_UPGRADE_CHANNEL", "stable")
 		if _, ok := os.LookupEnv("OLM_V1"); ok {
-			extension, catalog, err = olm.OlmV1Installer(ctx, cli, baseCatalogImage, namespace.Name, "rhtas-operator")
+			extension, catalog, err = olm.OlmV1Installer(ctx, cli, baseCatalogImage, namespace.Name, "rhtas-operator", channel)
 		} else {
-			extension, catalog, err = olm.OlmInstaller(ctx, cli, baseCatalogImage, namespace.Name, "rhtas-operator", "stable", testSupportKubernetes.IsRemoteClusterOpenshift())
+			extension, catalog, err = olm.OlmInstaller(ctx, cli, baseCatalogImage, namespace.Name, "rhtas-operator", channel, testSupportKubernetes.IsRemoteClusterOpenshift())
 		}
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
