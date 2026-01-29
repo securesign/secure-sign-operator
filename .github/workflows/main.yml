@@ -9,15 +9,21 @@ on:
 
 env:
   GO_VERSION: 1.23
-  IMG: ttl.sh/securesign/secure-sign-operator-${{github.run_number}}:1h
-  BUNDLE_IMG: ttl.sh/securesign/bundle-secure-sign-${{github.run_number}}:1h
-  CATALOG_IMG: ttl.sh/securesign/catalog-${{github.run_number}}:1h
+  REGISTRY: ghcr.io
   CONTAINER_TOOL: podman
+  IMG: ghcr.io/securesign/secure-sign-operator:dev-${{ github.sha }}
+  BUNDLE_IMG: ghcr.io/securesign/secure-sign-operator-bundle:dev-${{ github.sha }}
+  CATALOG_IMG: ghcr.io/securesign/secure-sign-operator-fbc:dev-${{ github.sha }}
+  OCP_VERSION: v4.19
+  FBC_DIR: rhtas-operator
 
 jobs:
   build-operator:
     name: Build-operator
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -27,52 +33,93 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - name: Log in to GitHub Container Registry
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          auth_file_path: /tmp/config.json
+
       - name: Replace images
         run: make dev-images && cat internal/images/images.env
 
       - name: Build operator container
         run: make docker-build docker-push
 
-      - name: Save container image
-        run: podman save -o /tmp/operator-oci.tar --format oci-archive $IMG
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: operator-image
-          path: /tmp/operator-oci.tar
-          retention-days: 1
-
   build-bundle:
     name: Build-bundle-image
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      bundle_name: ${{ steps.version.outputs.bundle_name }}
+      bundle_version: ${{ steps.version.outputs.bundle_version }}
+      base_channel: ${{ steps.version.outputs.base_channel }}
+      channels: ${{ steps.version.outputs.channels }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-
-      - name: Replace images
-        run: make dev-images && cat internal/images/images.env
-
-      - name: Build operator bundle
-        run: make bundle bundle-build bundle-push
-
-      - name: Save container image
-        run: podman save -o /tmp/bundle-oci.tar --format oci-archive $BUNDLE_IMG
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
         with:
-          name: bundle-image
-          path: /tmp/bundle-oci.tar
-          retention-days: 1
+          fetch-depth: 0
 
-  build-fbc:
-    name: Build-fbc
-    runs-on: ubuntu-24.04
-    needs: build-bundle
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+      - name: Determine bundle version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            BRANCH="${{ github.base_ref }}"
+          else
+            BRANCH="${{ github.ref_name }}"
+          fi
+
+          if [[ "$BRANCH" =~ ^release-([0-9]+)\.([0-9]+) ]]; then
+            MAJOR="${BASH_REMATCH[1]}"
+            MINOR="${BASH_REMATCH[2]}"
+          else
+            echo "Error: Could not determine version from branch: $BRANCH"
+            exit 1
+          fi
+
+          # Find the latest tag for this release stream
+          LATEST_TAG=$(git tag -l "v${MAJOR}.${MINOR}.*" | sort -V | tail -1)
+
+          if [ -z "$LATEST_TAG" ]; then
+            # No tags for this stream, start at .0
+            PATCH=0
+          else
+            CURRENT_PATCH=$(echo "$LATEST_TAG" | grep -oE '[0-9]+$')
+            PATCH=$((CURRENT_PATCH + 1))
+          fi
+
+          BUNDLE_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          BUNDLE_NAME="rhtas-operator.v${BUNDLE_VERSION}"
+          CHANNEL="stable-v${MAJOR}.${MINOR}"
+
+          if [ -n "$LATEST_TAG" ]; then
+            BASE_CHANNEL="stable-v${MAJOR}.${MINOR}"
+          else
+            BASE_CHANNEL="stable"
+          fi
+
+          echo "Branch: $BRANCH"
+          echo "Latest tag: ${LATEST_TAG:-none}"
+          echo "New bundle: $BUNDLE_NAME"
+          echo "Base channel: ${BASE_CHANNEL}"
+          echo "Channel: $CHANNEL"
+
+          echo "bundle_name=${BUNDLE_NAME}" >> $GITHUB_OUTPUT
+          echo "bundle_version=${BUNDLE_VERSION}" >> $GITHUB_OUTPUT
+          echo "base_channel=${BASE_CHANNEL}" >> $GITHUB_OUTPUT
+          echo "channels=stable,${CHANNEL}" >> $GITHUB_OUTPUT
+
+      - name: Log in to GitHub Container Registry
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          auth_file_path: /tmp/config.json
 
       - name: Log in to registry.redhat.io
         uses: redhat-actions/podman-login@v1
@@ -82,20 +129,53 @@ jobs:
           registry: registry.redhat.io
           auth_file_path: /tmp/config.json
 
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          pattern: "*-image"
-          merge-multiple: true
-          path: /tmp
+      - name: Replace images
+        run: make dev-images && cat internal/images/images.env
 
-      - name: Load images
-        run: podman load -i /tmp/bundle-oci.tar
+      - name: Build operator bundle
+        run: make bundle bundle-build bundle-push VERSION=${{ steps.version.outputs.bundle_version }}
+
+  build-fbc:
+    name: Build-fbc
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    needs: build-bundle
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          auth_file_path: /tmp/config.json
+
+      - name: Log in to registry.redhat.io
+        uses: redhat-actions/podman-login@v1
+        with:
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+          registry: registry.redhat.io
+          auth_file_path: /tmp/config.json
+
+      - name: Log in to brew.registry.redhat.io
+        uses: redhat-actions/podman-login@v1
+        with:
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+          registry: brew.registry.redhat.io
+          auth_file_path: /tmp/config.json
 
       - name: Install OPM
-        run: |
-          make opm
-          echo "OPM=${{ github.workspace }}/bin/opm" >> $GITHUB_ENV
+        uses: redhat-actions/openshift-tools-installer@v1
+        with:
+          source: "github"
+          github_pat: ${{ github.token }}
+          opm: 1.61.0
 
       - name: Checkout FBC source
         uses: actions/checkout@v4
@@ -104,33 +184,35 @@ jobs:
           path: fbc
 
       - name: Build catalog
+        env:
+          BUNDLE_IMAGE: ${{ env.BUNDLE_IMG }}
+          BUNDLE_NAME: ${{ needs.build-bundle.outputs.bundle_name }}
+          GRAPH: ${{ env.OCP_VERSION }}/${{ env.FBC_DIR }}/graph.yaml
+          CHANNELS: ${{ needs.build-bundle.outputs.channels }}
+          CATALOG_FILE: ${{ env.OCP_VERSION }}/${{ env.FBC_DIR }}/catalog/${{ env.FBC_DIR }}/catalog.json
         run: |
           cd fbc
-          cp v4.14/rhtas-operator/catalog.Dockerfile v4.14
-          chmod +x ./generate-fbc.sh && OPM_CMD=${{ env.OPM }} ./generate-fbc.sh --init-basic v4.14 jq
-          cat << EOF >> v4.14/graph.json
-          {
-             "schema": "olm.bundle",
-             "image": "$BUNDLE_IMG"
-          }
-          EOF
-          #TODO: versions needs to be maintained - try to eliminate
-          cat <<< $(jq  'select(.schema == "olm.channel" and .name == "stable").entries += [{"name":"rhtas-operator.v1.2.1", "replaces": "${{ vars.LATEST_OLM_CHANNEL }}"}]' v4.14/graph.json) > v4.14/graph.json
-          cat v4.14/graph.json
-          ${{ env.OPM }} alpha render-template basic v4.14/graph.json > v4.14/rhtas-operator/catalog/rhtas-operator/catalog.json
-          ${{ env.OPM }} validate v4.14/rhtas-operator/catalog/rhtas-operator
-          podman build v4.14/rhtas-operator -f v4.14/rhtas-operator/catalog.Dockerfile -t $CATALOG_IMG
+          utils/configure_bundles.sh
+          utils/configure_channels.sh
+
+          # Filter out bundle images that don't exist in the registry
+          echo "Checking bundle image availability..."
+          for IMAGE in $(yq e '.entries[] | select(.schema == "olm.bundle") | .image' "$GRAPH"); do
+            if ! skopeo inspect "docker://${IMAGE}" > /dev/null 2>&1; then
+              echo "Image not available: $IMAGE - removing from graph"
+              BUNDLE=$(yq e ".entries[] | select(.schema == \"olm.bundle\" and .image == \"$IMAGE\") | .name" "$GRAPH")
+              yq -i "del(.entries[] | select(.schema == \"olm.bundle\" and .image == \"$IMAGE\"))" "$GRAPH"
+              yq -i "(.entries[] | select(.schema == \"olm.channel\").entries) |= map(select(.name != \"$BUNDLE\"))" "$GRAPH"
+              yq -i "(.entries[] | select(.schema == \"olm.channel\").entries[].skips) |= map(select(. != \"$BUNDLE\"))" "$GRAPH"
+            fi
+          done
+
+          utils/render_catalog.sh
+
+          cat $GRAPH
+          opm validate ${{ env.OCP_VERSION }}/${{ env.FBC_DIR }}/catalog/${{ env.FBC_DIR }}
+          podman build ${{ env.OCP_VERSION }}/${{ env.FBC_DIR }} -f catalog.Dockerfile -t $CATALOG_IMG
           podman push $CATALOG_IMG
-
-      - name: Save container image
-        run: podman save -o /tmp/catalog-oci.tar --format oci-archive $CATALOG_IMG
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: catalog-image
-          path: /tmp/catalog-oci.tar
-          retention-days: 1
 
   build-tuftool:
     name: Build-tuftool
@@ -167,6 +249,9 @@ jobs:
   test-kind:
     name: Test kind deployment
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
     needs:
     - build-operator
     - build-tuftool
@@ -186,6 +271,14 @@ jobs:
           path: /tmp/tuftool
       - run: echo "/tmp/tuftool" >> $GITHUB_PATH
 
+      - name: Log in to GitHub Container Registry
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          auth_file_path: /tmp/config.json
+
       - name: Log in to registry.redhat.io
         uses: redhat-actions/podman-login@v1
         with:
@@ -194,16 +287,6 @@ jobs:
           registry: registry.redhat.io
           auth_file_path: /tmp/config.json
 
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          pattern: "*-image"
-          merge-multiple: true
-          path: /tmp
-
-      - name: Load images
-        run: podman load -i /tmp/operator-oci.tar
-
       - name: Install Cluster
         uses: ./.github/actions/kind-cluster
         with:
@@ -211,6 +294,14 @@ jobs:
           prometheus: 'true'
           keycloak: 'true'
           olm: 'true'
+
+      - name: Pull Container image from GHCR
+        run: podman pull ${{ env.IMG }}
+
+      - name: Load Docker image into Kind cluster
+        run: |
+          podman save ${{ env.IMG }} -o operator-oci.tar
+          kind load image-archive operator-oci.tar
 
       - name: Replace images
         run: make dev-images && cat internal/images/images.env
@@ -248,15 +339,14 @@ jobs:
   test-upgrade:
     name: Test upgrade operator
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
     needs:
       - build-operator
       - build-bundle
       - build-fbc
     steps:
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: true
       - name: Checkout source
         uses: actions/checkout@v4
 
@@ -264,6 +354,14 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+
+      - name: Log in to GitHub Container Registry
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          auth_file_path: /tmp/config.json
 
       - name: Log in to registry.redhat.io
         uses: redhat-actions/podman-login@v1
@@ -273,19 +371,6 @@ jobs:
           registry: registry.redhat.io
           auth_file_path: /tmp/config.json
 
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          pattern: "*-image"
-          merge-multiple: true
-          path: /tmp
-
-      - name: Load images
-        run: |
-          podman load -i /tmp/operator-oci.tar
-          podman load -i /tmp/bundle-oci.tar
-          podman load -i /tmp/catalog-oci.tar
-
       - name: Install Cluster
         uses: ./.github/actions/kind-cluster
         with:
@@ -293,6 +378,22 @@ jobs:
           prometheus: 'true'
           keycloak: 'true'
           olm: 'true'
+
+      - name: Pull Container image from GHCR
+        run: |
+          podman pull ${{ env.IMG }}
+          podman pull ${{ env.BUNDLE_IMG }}
+          podman pull ${{ env.CATALOG_IMG }}
+
+      - name: Load Docker image into Kind cluster
+        run: |
+          podman save ${{ env.IMG }} -o operator-oci.tar
+          podman save ${{ env.BUNDLE_IMG }} -o operator-bundle-oci.tar
+          podman save ${{ env.CATALOG_IMG }} -o operator-fbc-oci.tar
+
+          kind load image-archive operator-oci.tar
+          kind load image-archive operator-bundle-oci.tar
+          kind load image-archive operator-fbc-oci.tar
 
       - name: Add service hosts to /etc/hosts
         run: |
@@ -305,7 +406,8 @@ jobs:
 
       - name: Run tests
         env:
-          TEST_BASE_CATALOG: registry.redhat.io/redhat/redhat-operator-index:v4.14
+          TEST_BASE_CATALOG: registry.redhat.io/redhat/redhat-operator-index:${{ env.OCP_VERSION }}
+          TEST_BASE_CHANNEL: ${{ needs.build-bundle.outputs.base_channel }}
           TEST_TARGET_CATALOG: ${{ env.CATALOG_IMG }}
           OPENSHIFT: false
         run: go test -p 1 ./test/e2e/... -tags=upgrade -timeout 20m
@@ -321,13 +423,12 @@ jobs:
   test-custom-install:
     name: Test with custom operator installation
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
     needs:
       - build-operator
     steps:
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: true
       - name: Checkout source
         uses: actions/checkout@v4
 
@@ -336,31 +437,34 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - name: Log in to GitHub Container Registry
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          auth_file_path: /tmp/config.json
+
       - name: Log in to registry.redhat.io
-        uses: redhat-actions/podman-login@9184318aae1ee5034fbfbacc0388acf12669171f # v1
+        uses: redhat-actions/podman-login@v1
         with:
           username: ${{ secrets.REGISTRY_USER }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
           registry: registry.redhat.io
           auth_file_path: /tmp/config.json
 
-      - name: Image prune
-        run: podman image prune -af
-
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          pattern: "*-image"
-          merge-multiple: true
-          path: /tmp
-
-      - name: Load images
-        run: podman load -i /tmp/operator-oci.tar
-
       - name: Install Cluster
         uses: ./.github/actions/kind-cluster
         with:
           config: ./ci/config.yaml
+
+      - name: Pull Container image from GHCR
+        run: podman pull ${{ env.IMG }}
+
+      - name: Load Docker image into Kind cluster
+        run: |
+          podman save ${{ env.IMG }} -o operator-oci.tar
+          kind load image-archive operator-oci.tar
 
       - name: Add service hosts to /etc/hosts
         run: |
@@ -386,6 +490,9 @@ jobs:
   test-e2e:
     name: Execute securesign/sigstore-e2e
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
     needs:
       - build-operator
     env:
@@ -397,6 +504,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: "securesign/sigstore-e2e"
+          ref: ${{ github.base_ref || github.ref_name }}
           path: e2e
 
       - name: Install Go
@@ -404,27 +512,21 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - name: Log in to GitHub Container Registry
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          auth_file_path: /tmp/config.json
+
       - name: Log in to registry.redhat.io
-        uses: redhat-actions/podman-login@9184318aae1ee5034fbfbacc0388acf12669171f # v1
+        uses: redhat-actions/podman-login@v1
         with:
           username: ${{ secrets.REGISTRY_USER }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
           registry: registry.redhat.io
           auth_file_path: /tmp/config.json
-
-      - name: Image prune
-        run: podman image prune -af
-
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          pattern: "*-image"
-          merge-multiple: true
-          path: /tmp
-
-      - name: Load images
-        run: |
-          podman load -i /tmp/operator-oci.tar
 
       - name: Install Cluster
         id: kind
@@ -434,6 +536,14 @@ jobs:
           keycloak: 'true'
           olm: 'true'
           prometheus: 'true'
+
+      - name: Pull Container image from GHCR
+        run: podman pull ${{ env.IMG }}
+
+      - name: Load Docker image into Kind cluster
+        run: |
+          podman save ${{ env.IMG }} -o operator-oci.tar
+          kind load image-archive operator-oci.tar
 
       - name: Add service hosts to /etc/hosts
         run: |
@@ -485,6 +595,9 @@ jobs:
   test-eks:
     name: Test EKS deployment
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
     needs: build-operator
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     env:
@@ -527,6 +640,14 @@ jobs:
           kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/aws/deploy.yaml
           kubectl patch storageclass gp2 -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
 
+      - name: Log in to GitHub Container Registry
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          auth_file_path: /tmp/config.json
+
       - name: Log in to registry.redhat.io
         uses: redhat-actions/podman-login@v1
         with:
@@ -535,18 +656,8 @@ jobs:
           registry: registry.redhat.io
           auth_file_path: /tmp/config.json
 
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          pattern: "*-image"
-          merge-multiple: true
-          path: /tmp
-
-      - name: Load images
-        run: podman load -i /tmp/operator-oci.tar
-
-      - name: Push images
-        run: podman push $IMG
+      - name: Pull Container image from GHCR
+        run: podman pull ${{ env.IMG }}
 
       - name: Create namespace and serviceaccounts with redhat registry login
         run: |
