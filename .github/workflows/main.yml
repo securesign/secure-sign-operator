@@ -93,9 +93,11 @@ jobs:
         run: podman load -i /tmp/bundle-oci.tar
 
       - name: Install OPM
-        run: |
-          make opm
-          echo "OPM=${{ github.workspace }}/bin/opm" >> $GITHUB_ENV
+        uses: redhat-actions/openshift-tools-installer@v1
+        with:
+          source: "github"
+          github_pat: ${{ github.token }}
+
 
       - name: Checkout FBC source
         uses: actions/checkout@v4
@@ -398,6 +400,7 @@ jobs:
         with:
           repository: "securesign/sigstore-e2e"
           path: e2e
+          revision: release-1.2
 
       - name: Install Go
         uses: actions/setup-go@v5
