@@ -401,7 +401,7 @@ jobs:
         with:
           repository: "securesign/sigstore-e2e"
           path: e2e
-          revision: release-1.2
+          ref: release-1.2
 
       - name: Install Go
         uses: actions/setup-go@v5
