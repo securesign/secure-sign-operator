@@ -2,7 +2,7 @@
 FROM registry.redhat.io/ubi9/go-toolset:9.7@sha256:41b9533b2203f451a29ea2e6babd5ddcbee3a2422a1984d0e9f8172ab230cd23 AS builder
 ARG TARGETOS
 ARG TARGETARCH
-
+#
 ENV GOEXPERIMENT=strictfipsruntime
 ENV CGO_ENABLED=1
 
