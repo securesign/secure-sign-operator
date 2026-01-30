@@ -40,4 +40,9 @@ if [ -n "$IMG" ]; then
 fi
 
 # Generate and validate the Operator bundle
-oc kustomize config/manifests | operator-sdk generate bundle ${BUNDLE_GEN_FLAGS} && operator-sdk bundle validate ./bundle
+oc kustomize config/manifests | operator-sdk generate bundle ${BUNDLE_GEN_FLAGS}
+
+# Add OpenShift-specific annotations to bundle metadata
+cat config/bundle/metadata/annotations.yaml >> bundle/metadata/annotations.yaml
+
+operator-sdk bundle validate ./bundle
