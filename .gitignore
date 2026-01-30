@@ -10,7 +10,7 @@ testbin/*
 Dockerfile.cross
 
 # Generated bundle resources
-bundle/
+/bundle/
 
 # Environment variables script
 *tas-env-vars.sh
