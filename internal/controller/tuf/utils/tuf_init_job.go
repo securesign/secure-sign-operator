@@ -25,7 +25,7 @@ const (
 	targetMonthPath  = "/var/run/target"
 )
 
-func EnsureTufInitJob(instance *rhtasv1alpha1.Tuf, sa string, labels map[string]string) func(*batchv1.Job) error {
+func EnsureTufInitJob(instance *rhtasv1alpha1.Tuf, sa string, labels map[string]string, oidcIssuers []string) func(*batchv1.Job) error {
 	return func(job *batchv1.Job) error {
 		var (
 			protocol, uri string
@@ -91,6 +91,9 @@ func EnsureTufInitJob(instance *rhtasv1alpha1.Tuf, sa string, labels map[string]
 				args = append(args, "--tsa-cert", filepath.Join(secretsMonthPath, key.Name))
 				args = append(args, "--tsa-uri", uri)
 			}
+		}
+		for _, issuer := range oidcIssuers {
+			args = append(args, "--oidc-uri", issuer)
 		}
 		args = append(args, targetMonthPath)
 
