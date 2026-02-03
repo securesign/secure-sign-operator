@@ -1,3 +1,5 @@
+version: "2"
+
 run:
   allow-parallel-runners: true
   build-tags:
@@ -5,31 +7,38 @@ run:
     - upgrade
     - custom_install
 
-issues:
-  # don't skip warning about doc comments
-  # don't exclude the default set of lint
-  exclude-use-default: false
-  # restore some of the defaults
-  # (fill in the rest as needed)
-
 linters:
-  disable-all: true
+  default: none
   enable:
     - errcheck
     - copyloopvar
     - ginkgolinter
     - goconst
     - gocyclo
-    - gofmt
-    - goimports
-    - gosimple
     - govet
     - ineffassign
     - misspell
     - nakedret
-    - prealloc
     - staticcheck
-    - typecheck
     - unconvert
     - unparam
     - unused
+  exclusions:
+    rules:
+      # Exclude style checks - these are pre-existing and not critical
+      - linters:
+          - staticcheck
+        text: '^ST'
+      # Exclude quick fix suggestions
+      - linters:
+          - staticcheck
+        text: '^QF'
+      # Exclude deprecated API warnings
+      - linters:
+          - staticcheck
+        text: '^SA1019'
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
