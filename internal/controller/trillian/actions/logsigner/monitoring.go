@@ -14,6 +14,7 @@ import (
 	v1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -114,7 +115,7 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tr
 			{
 				Interval: monitoringv1.Duration("30s"),
 				Port:     actions.MetricsPortName,
-				Scheme:   "http",
+				Scheme:   ptr.To(monitoringv1.Scheme("http")),
 			},
 		},
 		labels.ForComponent(actions.LogSignerComponentName, instance.Name),
