@@ -9,11 +9,26 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+// TufSigningConfigURLMode controls which URLs are used in the TUF signing config.
+// +kubebuilder:validation:Enum:=external;internal
+type TufSigningConfigURLMode string
+
+const (
+	SigningConfigURLExternal TufSigningConfigURLMode = "external"
+	SigningConfigURLInternal TufSigningConfigURLMode = "internal"
+)
+
 // TufSpec defines the desired state of Tuf
 type TufSpec struct {
 	PodRequirements `json:",inline"`
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
+	// Controls which URLs are used in the signing config:
+	// "external" (default) resolves URLs from Ingress routes,
+	// "internal" uses internal Kubernetes service URLs.
+	//+kubebuilder:default:=external
+	//+optional
+	SigningConfigURLMode TufSigningConfigURLMode `json:"signingConfigURLMode,omitempty"`
 	//+kubebuilder:default:=80
 	//+kubebuilder:validation:Minimum:=1
 	//+kubebuilder:validation:Maximum:=65535
