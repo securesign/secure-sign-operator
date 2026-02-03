@@ -129,6 +129,13 @@ spec:
               key: mysql-database
     server:
       replicas: 3
+      resources:
+        requests:
+          cpu: "500m"
+          memory: "256Mi"
+        limits:
+          cpu: "1000m"
+          memory: "512Mi"
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -143,6 +150,13 @@ spec:
                 topologyKey: kubernetes.io/hostname
     signer:
       replicas: 3
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "128Mi"
+        limits:
+          cpu: "250m"
+          memory: "256Mi"
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -158,6 +172,13 @@ spec:
 
   rekor:
     replicas: 3
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "256Mi"
+      limits:
+        cpu: "1000m"
+        memory: "512Mi"
     affinity:
       podAntiAffinity:
         preferredDuringSchedulingIgnoredDuringExecution:
@@ -192,6 +213,13 @@ spec:
 
   fulcio:
     replicas: 3
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "128Mi"
+      limits:
+        cpu: "500m"
+        memory: "256Mi"
     affinity:
       podAntiAffinity:
         preferredDuringSchedulingIgnoredDuringExecution:
@@ -216,6 +244,13 @@ spec:
 
   ctlog:
     replicas: 3
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "250m"
+        memory: "256Mi"
     affinity:
       podAntiAffinity:
         preferredDuringSchedulingIgnoredDuringExecution:
@@ -231,6 +266,13 @@ spec:
 
   tuf:
     replicas: 3
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "250m"
+        memory: "256Mi"
     affinity:
       podAntiAffinity:
         preferredDuringSchedulingIgnoredDuringExecution:
@@ -251,6 +293,13 @@ spec:
 
   tsa:
     replicas: 3
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "250m"
+        memory: "256Mi"
     affinity:
       podAntiAffinity:
         preferredDuringSchedulingIgnoredDuringExecution:
