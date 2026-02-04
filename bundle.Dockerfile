@@ -1,20 +1,49 @@
+ARG VERSION="1.2.2"
+ARG CHANNELS="stable,stable-v1.2"
+ARG DEFAULT_CHANNEL="stable"
+ARG BUNDLE_GEN_FLAGS="-q --overwrite=false --version $VERSION --channels=$CHANNELS --default-channel=$DEFAULT_CHANNEL"
+ARG IMG
+
+FROM registry.redhat.io/openshift4/ose-cli-rhel9@sha256:64867e62dbbafe779cdb4233b7c7c8686932717177e5825058e23beccbb3207b AS oc-builder
+
+FROM registry.redhat.io/openshift4/ose-operator-sdk-rhel9@sha256:9219e2a127987e3be7c77e62391e5b50a22ea85307c11a94b8517713768cccf8 as builder
+
+COPY --from=oc-builder /usr/bin/oc /usr/bin/oc
+
+ARG BUNDLE_GEN_FLAGS
+ARG IMG
+
+WORKDIR /tmp
+
+COPY ./config/ ./config/
+COPY PROJECT .
+COPY hack/build-bundle.sh build-bundle.sh
+
+USER root
+
+RUN ./build-bundle.sh
+
 FROM scratch
+
+ARG CHANNELS
+ARG VERSION
 
 ## Core bundle labels.
 LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1
 LABEL operators.operatorframework.io.bundle.manifests.v1=manifests/
 LABEL operators.operatorframework.io.bundle.metadata.v1=metadata/
 LABEL operators.operatorframework.io.bundle.package.v1=rhtas-operator
-LABEL operators.operatorframework.io.bundle.channels.v1=stable,stable-v1.2
-LABEL operators.operatorframework.io.metrics.builder=operator-sdk-v1.37.0
+LABEL operators.operatorframework.io.bundle.channels.v1=$CHANNELS
+LABEL operators.operatorframework.io.metrics.builder=operator-sdk-v1.38.0-ocp
 LABEL operators.operatorframework.io.metrics.mediatype.v1=metrics+v1
 LABEL operators.operatorframework.io.metrics.project_layout=go.kubebuilder.io/v4
 LABEL operators.openshift.io/valid-subscription="Red Hat Trusted Artifact Signer"
 
+LABEL maintainer="Red Hat, Inc."
 LABEL vendor="Red Hat, Inc."
 LABEL url="https://www.redhat.com"
 LABEL distribution-scope="public"
-LABEL version="1.2.1"
+LABEL version=$VERSION
 
 LABEL description="The bundle image for the rhtas-operator, containing manifests, metadata and testing scorecard."
 LABEL io.k8s.description="The bundle image for the rhtas-operator, containing manifests, metadata and testing scorecard."
@@ -23,7 +52,6 @@ LABEL io.openshift.tags="rhtas-operator-bundle, rhtas-operator, Red Hat Trusted 
 LABEL summary="Operator Bundle for the rhtas-operator."
 LABEL com.redhat.component="rhtas-operator-bundle"
 LABEL name="rhtas/rhtas-operator-bundle"
-LABEL cpe="cpe:/a:redhat:trusted_artifact_signer:1.2::el9"
 LABEL features.operators.openshift.io/cni="false"
 LABEL features.operators.openshift.io/disconnected="false"
 LABEL features.operators.openshift.io/fips-compliant="false"
@@ -40,7 +68,7 @@ LABEL operators.operatorframework.io.test.mediatype.v1=scorecard+v1
 LABEL operators.operatorframework.io.test.config.v1=tests/scorecard/
 
 # Copy files to locations specified by labels.
-COPY bundle/manifests /manifests/
-COPY bundle/metadata /metadata/
-COPY bundle/tests/scorecard /tests/scorecard/
+COPY --from=builder /tmp/bundle/manifests /manifests/
+COPY --from=builder /tmp/bundle/metadata /metadata/
+COPY --from=builder /tmp/bundle/tests/scorecard /tests/scorecard/
 COPY LICENSE /licenses/license.txt
