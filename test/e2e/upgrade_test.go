@@ -48,13 +48,13 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 	ctx := context.TODO()
 
 	var (
-		namespace                                           *v1.Namespace
-		baseCatalogImage, baseChannel, targetedCatalogImage string
-		base, updated                                       semver.Version
-		securesignDeployment                                *tasv1alpha.Securesign
-		rrekor                                              *tasv1alpha.Rekor
-		prevImageName, newImageName                         string
-		openshift                                           bool
+		namespace                              *v1.Namespace
+		baseCatalogImage, targetedCatalogImage string
+		base, updated                          semver.Version
+		securesignDeployment                   *tasv1alpha.Securesign
+		rrekor                                 *tasv1alpha.Rekor
+		prevImageName, newImageName            string
+		openshift                              bool
 	)
 
 	AfterEach(func() {
@@ -79,7 +79,6 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 	BeforeAll(func() {
 
 		baseCatalogImage = os.Getenv("TEST_BASE_CATALOG")
-		baseChannel = os.Getenv("TEST_BASE_CHANNEL")
 		targetedCatalogImage = os.Getenv("TEST_TARGET_CATALOG")
 		openshift, _ = strconv.ParseBool(os.Getenv("OPENSHIFT"))
 
@@ -132,7 +131,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 				CatalogSource:          testCatalog,
 				CatalogSourceNamespace: namespace.Name,
 				Package:                "rhtas-operator",
-				Channel:                baseChannel,
+				Channel:                support.EnvOrDefault("TEST_UPGRADE_CHANNEL", "stable"),
 				Config: &v1alpha1.SubscriptionConfig{
 					Env: []v1.EnvVar{
 						{
