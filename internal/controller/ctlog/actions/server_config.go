@@ -113,11 +113,8 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 
 	trillianUrl := fmt.Sprintf("%s:%d", instance.Spec.Trillian.Address, *instance.Spec.Trillian.Port)
 
-	c := meta.FindStatusCondition(instance.Status.Conditions, ConfigCondition)
-	isSpecChange := c != nil && c.ObservedGeneration != instance.Generation
-
-	// Validate existing secret before attempting recreation (only for hot updates, not spec changes)
-	if !isSpecChange && instance.Status.ServerConfigRef != nil && instance.Status.ServerConfigRef.Name != "" {
+	// Validate existing secret before attempting recreation
+	if instance.Status.ServerConfigRef != nil && instance.Status.ServerConfigRef.Name != "" {
 		if err := i.validateExistingSecret(instance, trillianUrl); err != nil {
 			if errors.Is(err, errSecretInvalid) {
 				// Secret needs recreation - log and continue
@@ -135,6 +132,20 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 					})
 			}
 		} else {
+			// Secret is valid - update observedGeneration if spec changed (e.g. replicas-only change)
+			// to prevent unnecessary recreation on next reconciliation
+			c := meta.FindStatusCondition(instance.Status.Conditions, ConfigCondition)
+			isSpecChange := c != nil && c.ObservedGeneration != instance.Generation
+			if isSpecChange {
+				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+					Type:               ConfigCondition,
+					Status:             metav1.ConditionTrue,
+					Reason:             c.Reason,
+					Message:            c.Message,
+					ObservedGeneration: instance.Generation,
+				})
+				return i.StatusUpdate(ctx, instance)
+			}
 			return i.Continue()
 		}
 	}
