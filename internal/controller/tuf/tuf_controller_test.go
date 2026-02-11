@@ -185,7 +185,12 @@ var _ = Describe("TUF controller", func() {
 			// Workaround to succeed condition for Ready phase
 			initJob := &initJobList.Items[0]
 			initJob.Status.Conditions = []batchv1.JobCondition{
-				{Status: corev1.ConditionTrue, Type: batchv1.JobComplete, Reason: constants.Ready}}
+				{Status: corev1.ConditionTrue, Type: batchv1.JobComplete, Reason: constants.Ready},
+				{Status: corev1.ConditionTrue, Type: batchv1.JobSuccessCriteriaMet, Reason: constants.Ready},
+			}
+			now := metav1.Now()
+			initJob.Status.StartTime = &now
+			initJob.Status.CompletionTime = &now
 			Expect(suite.Client().Status().Update(ctx, initJob)).Should(Succeed())
 
 			By("Repository condition gets ready")
