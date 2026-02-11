@@ -407,7 +407,7 @@ jobs:
       - name: Run tests
         env:
           TEST_BASE_CATALOG: registry.redhat.io/redhat/redhat-operator-index:${{ env.OCP_VERSION }}
-          TEST_BASE_CHANNEL: ${{ needs.build-bundle.outputs.base_channel }}
+          TEST_UPGRADE_CHANNEL: ${{ needs.build-bundle.outputs.base_channel }}
           TEST_TARGET_CATALOG: ${{ env.CATALOG_IMG }}
           OPENSHIFT: false
         run: go test -p 1 ./test/e2e/... -tags=upgrade -timeout 20m

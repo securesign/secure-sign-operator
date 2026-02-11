@@ -9,11 +9,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/annotations"
-	"github.com/securesign/operator/internal/controller/common/utils"
 	"github.com/securesign/operator/internal/controller/common/utils/kubernetes"
-	"github.com/securesign/operator/internal/controller/constants"
 	"github.com/securesign/operator/internal/controller/labels"
 	"github.com/securesign/operator/test/e2e/support"
+	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,7 +21,6 @@ import (
 )
 
 var _ = Describe("Securesign install with byodb", Ordered, func() {
-	utils.BoolFlagOrEnv(&constants.Openshift, "openshift", "OPENSHIFT", false, "Enable to ensures the operator applies OpenShift specific configurations.")
 	cli, _ := support.CreateClient()
 	ctx := context.TODO()
 
@@ -176,7 +174,8 @@ func createDB(ctx context.Context, cli runtimeCli.Client, ns string, secretRef s
 			},
 		},
 	}
-	if kubernetes.IsOpenShift() {
+
+	if testSupportKubernetes.IsRemoteClusterOpenshift() {
 		if mysql.Annotations == nil {
 			mysql.Annotations = make(map[string]string)
 		}
