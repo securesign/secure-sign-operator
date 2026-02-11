@@ -1,7 +1,7 @@
 ARG VERSION="1.3.3"
 #
 # Build the manager binary
-FROM registry.redhat.io/ubi9/go-toolset:9.7@sha256:dc1f887fd22e4cc112f59b3173754ef97f1c6b7202a720e697b2798d8053b7be AS builder
+FROM registry.redhat.io/ubi9/go-toolset:9.7@sha256:c928a8d014091005444cd8d0de2f9815d2162b89ac9d075c1f8d7c9caf41177e AS builder
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -34,7 +34,7 @@ RUN go generate -mod=readonly ./...
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
 RUN GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -mod=readonly -a -o manager cmd/main.go
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal@sha256:bb08f2300cb8d12a7eb91dddf28ea63692b3ec99e7f0fa71a1b300f2756ea829
+FROM registry.access.redhat.com/ubi9/ubi-minimal@sha256:759f5f42d9d6ce2a705e290b7fc549e2d2cd39312c4fa345f93c02e4abb8da95
 ARG VERSION
 WORKDIR /
 COPY --from=builder /workspace/manager .
