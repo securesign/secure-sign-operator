@@ -197,15 +197,33 @@ jobs:
 
           # Filter out bundle images that don't exist in the registry
           echo "Checking bundle image availability..."
-          for IMAGE in $(yq e '.entries[] | select(.schema == "olm.bundle") | .image' "$GRAPH"); do
-            if ! skopeo inspect "docker://${IMAGE}" > /dev/null 2>&1; then
-              echo "Image not available: $IMAGE - removing from graph"
-              BUNDLE=$(yq e ".entries[] | select(.schema == \"olm.bundle\" and .image == \"$IMAGE\") | .name" "$GRAPH")
-              yq -i "del(.entries[] | select(.schema == \"olm.bundle\" and .image == \"$IMAGE\"))" "$GRAPH"
-              yq -i "(.entries[] | select(.schema == \"olm.channel\").entries) |= map(select(.name != \"$BUNDLE\"))" "$GRAPH"
-              yq -i "(.entries[] | select(.schema == \"olm.channel\").entries[].skips) |= map(select(. != \"$BUNDLE\"))" "$GRAPH"
+          BUNDLES=$(yq e '.entries[] | select(.schema == "olm.bundle") | .name + "|" + .image' "$GRAPH")
+
+          while IFS='|' read -r BUNDLE IMAGE; do
+            [[ -z "$BUNDLE" || -z "$IMAGE" ]] && continue
+
+            echo -n "Checking $BUNDLE... "
+
+            if skopeo inspect --no-tags "docker://${IMAGE}" > /dev/null 2>&1; then
+              echo "EXISTS"
+            else
+              echo "NOT FOUND - removing"
+              export BUNDLE
+
+              # Remove bundle entry
+              yq -i 'del(.entries[] | select(.schema == "olm.bundle" and .name == env(BUNDLE)))' "$GRAPH"
+              # Remove from channel entries
+              yq -i '(.entries[] | select(.schema == "olm.channel").entries) |= map(select(.name != env(BUNDLE)))' "$GRAPH"
+              # Remove from skips arrays
+              yq -i '(.entries[] | select(.schema == "olm.channel").entries[].skips) |= map(select(. != env(BUNDLE)))' "$GRAPH"
+              # Remove from replaces references
+              yq -i 'del(.entries[] | select(.schema == "olm.channel").entries[] | select(.replaces == env(BUNDLE)).replaces)' "$GRAPH"
             fi
-          done
+          done <<< "$BUNDLES"
+
+          # Remove empty channels
+          echo "Removing empty channels..."
+          yq -i 'del(.entries[] | select(.schema == "olm.channel" and (.entries | length) == 0))' "$GRAPH"
 
           utils/render_catalog.sh
 
