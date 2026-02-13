@@ -5,7 +5,7 @@ metadata:
 spec:
   selector:
     app: keycloak
-    component: keycloak
+    app.kubernetes.io/managed-by: keycloak-operator
   ports:
     - protocol: TCP
       port: 80
