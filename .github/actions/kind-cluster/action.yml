@@ -88,6 +88,11 @@ runs:
         until [[ $( kubectl get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system 2>/dev/null) == "true" ]]
         do
           printf "Waiting for keycloak deployment. \n Keycloak ready: %s\n" $(kubectl get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system)
+          echo "--- Pods ---"
+          kubectl get pods -n keycloak-system
+          echo "--- Keycloak status ---"
+          kubectl get keycloak keycloak -n keycloak-system -o jsonpath='{.status}' 2>/dev/null || true
+          echo ""
           sleep 10
         done
 
