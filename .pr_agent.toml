@@ -1,0 +1,54 @@
+[config]
+git_provider="github"
+ignore_pr_authors = ["renovate","openshift-cherrypick-robot","red-hat-konflux"]
+
+[jira]
+jira_api_token = "${{ secrets.JIRA_API_TOKEN }}"
+jira_base_url = "https://issues.redhat.com"
+
+[github_app]
+handle_pr_actions = ['opened', 'reopened', 'ready_for_review']
+
+# What runs automatically when PR is opened
+pr_commands = [
+    "/describe --pr_description.final_update_message=false",
+    "/review",
+    "/improve"
+]
+
+# Do NOT auto-trigger on push (avoid noise)
+handle_push_trigger = false
+
+# If you later want re-review on new commits, enable:
+# handle_push_trigger = true
+# push_commands = ["/review"]
+
+[pr_reviewer] # /review #
+persistent_comment = true
+require_tests_review = false
+require_security_review = true
+require_ticket_analysis_review = true
+require_estimate_effort_to_review = true
+require_can_be_split_review = false
+enable_review_labels_security = true
+enable_review_labels_effort = true
+final_update_message = true
+
+[pr_description] # /describe #
+publish_labels = true
+add_original_user_description = false
+generate_ai_title = false
+use_bullet_points = true
+enable_pr_type = true # Enhancement, Feature, Documentation,...
+enable_pr_diagram = false
+publish_description_as_comment = true
+publish_description_as_comment_persistent = true
+final_update_message = true
+enable_help_text = false
+
+[pr_code_suggestions]
+commitable_code_suggestions = false
+persistent_comment = true
+
+[rag_arguments]
+enable_rag=true
