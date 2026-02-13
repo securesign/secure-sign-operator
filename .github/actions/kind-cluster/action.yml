@@ -31,12 +31,12 @@ runs:
   using: 'composite'
   steps:
     - name: Install Cluster
-      uses: container-tools/kind-action@v2.0.4
+      uses: helm/kind-action@v1.13.0
       with:
         version: v0.30.0
         node_image: kindest/node:v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a
-        cpu: 3
-        registry: false
+        kubectl_version: v1.34.0
+        cluster_name: kind
         config: ${{ inputs.config }}
 
     - name: Configure ingress
