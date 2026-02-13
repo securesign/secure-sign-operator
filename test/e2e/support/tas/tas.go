@@ -2,7 +2,9 @@ package tas
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
@@ -51,7 +53,7 @@ func VerifyByCosign(ctx context.Context, cli runtimeCli.Client, s *rhtasv1alpha1
 	Expect(err).ToNot(HaveOccurred())
 	Expect(oidcToken).ToNot(BeEmpty())
 
-	// Wait for TUF root.json to be accessible via route/ingress
+	// Wait for TUF root.json to be accessible via route/ingress and contain valid JSON
 	Eventually(func() error {
 		resp, err := http.Get(t.Status.Url + "/root.json")
 		if err != nil {
@@ -60,6 +62,13 @@ func VerifyByCosign(ctx context.Context, cli runtimeCli.Client, s *rhtasv1alpha1
 		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("TUF root.json not ready: status %d", resp.StatusCode)
+		}
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("failed to read TUF root.json body: %w", err)
+		}
+		if !json.Valid(body) {
+			return fmt.Errorf("TUF root.json returned invalid JSON (got %d bytes starting with %q)", len(body), string(body[:min(len(body), 64)]))
 		}
 		return nil
 	}).Should(Succeed())
