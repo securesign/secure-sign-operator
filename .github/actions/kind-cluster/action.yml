@@ -93,6 +93,8 @@ runs:
           echo "--- Keycloak status ---"
           kubectl get keycloak keycloak -n keycloak-system -o jsonpath='{.status}' 2>/dev/null || true
           echo ""
+          echo "--- Keycloak pod logs (last 30 lines) ---"
+          kubectl logs keycloak-0 -n keycloak-system --tail=30 2>/dev/null || true
           sleep 10
         done
 
