@@ -5,6 +5,4 @@ namespace: keycloak-system
 
 resources:
 - keycloak.yaml
-- realm.yaml
-- tas-client.yaml
-- user.yaml
+- realm-import.yaml

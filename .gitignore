@@ -50,4 +50,4 @@ ts_chain.pem
 ci/**/charts
 
 # RHBK Resources
-ci/rhbk/resources/base/hostname.env
+ci/keycloak/resources/overlay/openshift/hostname.env

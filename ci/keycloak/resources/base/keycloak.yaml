@@ -1,14 +1,21 @@
-apiVersion: keycloak.org/v1alpha1
+apiVersion: k8s.keycloak.org/v2alpha1
 kind: Keycloak
 metadata:
   labels:
     app: sso
   name: keycloak
 spec:
-  externalAccess:
-    enabled: true
   instances: 1
-  keycloakDeploymentSpec:
-    imagePullPolicy: Always
-  postgresDeploymentSpec:
-    imagePullPolicy: Always
+  db:
+    vendor: postgres
+    host: postgres-db
+    usernameSecret:
+      name: keycloak-db-secret
+      key: username
+    passwordSecret:
+      name: keycloak-db-secret
+      key: password
+  http:
+    httpEnabled: true
+  proxy:
+    headers: xforwarded
