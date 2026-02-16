@@ -36,6 +36,27 @@ check_pod_status() {
     return 1
 }
 
+wait_for_realm_import() {
+    local namespace="$1"
+    local realm_name="${2:-trusted-artifact-signer-realm}"
+    local attempts=0
+
+    echo "Waiting for KeycloakRealmImport '$realm_name' to complete..."
+    while [[ $attempts -lt $max_attempts ]]; do
+        status=$(kubectl get keycloakrealmimport "$realm_name" -n "$namespace" -o jsonpath='{.status.conditions[?(@.type=="Done")].status}' 2>/dev/null)
+        if [ "$status" == "True" ]; then
+            echo "KeycloakRealmImport '$realm_name' completed successfully."
+            return 0
+        fi
+        echo "Realm import not done yet (status: $status). Retrying in $sleep_interval seconds..."
+        sleep $sleep_interval
+        attempts=$((attempts + 1))
+    done
+
+    echo "Timed out waiting for KeycloakRealmImport '$realm_name' to complete."
+    return 1
+}
+
 install_openshift_keycloak() {
     BASE_DOMAIN=apps.$(oc get dns cluster -o jsonpath='{ .spec.baseDomain }')
     echo "HOSTNAME=https://keycloak-keycloak-system.$BASE_DOMAIN" > ci/keycloak/resources/overlay/openshift/hostname.env
@@ -51,6 +72,12 @@ install_openshift_keycloak() {
     check_pod_status "keycloak-system" "keycloak"
     if [ $? -ne 0 ]; then
         echo "Pod status check failed. Exiting the script."
+        exit 1
+    fi
+
+    wait_for_realm_import "keycloak-system"
+    if [ $? -ne 0 ]; then
+        echo "Realm import failed. Exiting the script."
         exit 1
     fi
 }
@@ -91,6 +118,12 @@ install_kind_keycloak() {
 
     if [ "$status" != "True" ]; then
         echo "Timed out waiting for Keycloak to become ready."
+        return 1
+    fi
+
+    wait_for_realm_import "keycloak-system"
+    if [ $? -ne 0 ]; then
+        echo "Realm import failed."
         return 1
     fi
 
