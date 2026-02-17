@@ -5,8 +5,8 @@ namespace: keycloak-system
 
 resources:
   - ../../base
+  - postgres.yaml
   - keycloak-svc.yaml
 
 patches:
 - path: keycloak_patch.yaml
-- path: realm_patch.yaml
