@@ -1,16 +1,14 @@
 #!/usr/bin/env sh
 
-# Define the maximum number of attempts and the sleep interval (in seconds)
 max_attempts=30
 sleep_interval=10
 
 usage() {
-  echo "Usage: $0 [rhbk|sso]"
-  echo "  rhbk  -> run install_rhbk_sso_keycloak"
-  echo "  sso   -> run install_sso_keycloak (default if omitted)"
+  echo "Usage: $0 [openshift|kind]"
+  echo "  openshift -> install RHBK operator via OLM (OpenShift)"
+  echo "  kind      -> install upstream Keycloak operator (Kind)"
 }
 
-# Function to check pod status
 check_pod_status() {
     local namespace="$1"
     local pod_name_prefix="$2"
@@ -38,51 +36,124 @@ check_pod_status() {
     return 1
 }
 
-# Install SSO Operator and Keycloak service
-install_sso_keycloak() {
-    oc apply --kustomize ci/keycloak/operator/base
-    check_pod_status "keycloak-system" "rhsso-operator"
-    # Check the return value from the function
-    if [ $? -ne 0 ]; then
-        echo "Pod status check failed. Exiting the script."
-        exit 1
-    fi
-    oc apply --kustomize ci/keycloak/resources/base
-    check_pod_status "keycloak-system" "keycloak-postgresql"
-    # Check the return value from the function
-    if [ $? -ne 0 ]; then
-        echo "Pod status check failed. Exiting the script."
-        exit 1
-    fi
+wait_for_realm_import() {
+    local namespace="$1"
+    local realm_name="${2:-trusted-artifact-signer-realm}"
+    local attempts=0
+
+    echo "Waiting for KeycloakRealmImport '$realm_name' to complete..."
+    while [[ $attempts -lt $max_attempts ]]; do
+        status=$(kubectl get keycloakrealmimport "$realm_name" -n "$namespace" -o jsonpath='{.status.conditions[?(@.type=="Done")].status}' 2>/dev/null)
+        if [ "$status" == "True" ]; then
+            echo "KeycloakRealmImport '$realm_name' completed successfully."
+            return 0
+        fi
+        echo "Realm import not done yet (status: $status). Retrying in $sleep_interval seconds..."
+        sleep $sleep_interval
+        attempts=$((attempts + 1))
+    done
+
+    echo "Timed out waiting for KeycloakRealmImport '$realm_name' to complete."
+    return 1
 }
 
-# Install RHBK Operator and Keycloak service
-install_rhbk_sso_keycloak() {
+install_openshift_keycloak() {
     BASE_DOMAIN=apps.$(oc get dns cluster -o jsonpath='{ .spec.baseDomain }')
-    echo "HOSTNAME=https://keycloak-keycloak-system.$BASE_DOMAIN" > ci/rhbk/resources/base/hostname.env
+    echo "HOSTNAME=https://keycloak-keycloak-system.$BASE_DOMAIN" > ci/keycloak/resources/overlay/openshift/hostname.env
 
-    oc apply --kustomize ci/rhbk/operator/base
+    oc apply --kustomize ci/keycloak/operator/overlay/openshift
     check_pod_status "keycloak-system" "rhbk-operator"
     if [ $? -ne 0 ]; then
         echo "Pod status check failed. Exiting the script."
         exit 1
     fi
-    oc apply --kustomize ci/rhbk/resources/base
+    oc apply --kustomize ci/keycloak/resources/overlay/openshift
     check_pod_status "keycloak-system" "postgresql-db"
     check_pod_status "keycloak-system" "keycloak"
     if [ $? -ne 0 ]; then
         echo "Pod status check failed. Exiting the script."
         exit 1
     fi
+
+    wait_for_realm_import "keycloak-system"
+    if [ $? -ne 0 ]; then
+        echo "Realm import failed. Exiting the script."
+        exit 1
+    fi
 }
 
-choice="${1:-sso}"
+install_kind_keycloak() {
+    KEYCLOAK_VERSION="${KEYCLOAK_VERSION:-26.5.3}"
+
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.14.3/deploy/static/provider/kind/deploy.yaml
+    kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
+
+    kubectl apply --kustomize ci/keycloak/operator/overlay/kind
+
+    kubectl apply -f "https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${KEYCLOAK_VERSION}/kubernetes/keycloaks.k8s.keycloak.org-v1.yml"
+    kubectl apply -f "https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${KEYCLOAK_VERSION}/kubernetes/keycloakrealmimports.k8s.keycloak.org-v1.yml"
+    kubectl -n keycloak-system apply -f "https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${KEYCLOAK_VERSION}/kubernetes/kubernetes.yml"
+
+    kubectl patch clusterrolebinding keycloak-operator-clusterrole-binding \
+      --type='json' -p='[{"op": "replace", "path": "/subjects/0/namespace", "value":"keycloak-system"}]'
+
+    kubectl wait --for=condition=available deployment/keycloak-operator -n keycloak-system --timeout=120s
+
+    kubectl apply --kustomize ci/keycloak/resources/overlay/kind
+
+    kubectl rollout status statefulset/postgresql-db -n keycloak-system --timeout=120s
+
+    local attempts=0
+    while [[ $attempts -lt $max_attempts ]]; do
+        status=$(kubectl get keycloaks/keycloak -n keycloak-system -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null)
+        if [ "$status" == "True" ]; then
+            echo "Keycloak is ready."
+            break
+        fi
+        echo "Keycloak not ready yet (status: $status). Retrying in $sleep_interval seconds..."
+        kubectl get pods -n keycloak-system
+        sleep $sleep_interval
+        attempts=$((attempts + 1))
+    done
+
+    if [ "$status" != "True" ]; then
+        echo "Timed out waiting for Keycloak to become ready."
+        return 1
+    fi
+
+    wait_for_realm_import "keycloak-system"
+    if [ $? -ne 0 ]; then
+        echo "Realm import failed."
+        return 1
+    fi
+
+    kubectl create -n keycloak-system -f - <<EOF
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycloak
+spec:
+  rules:
+  - host: keycloak-internal.keycloak-system.svc
+    http:
+      paths:
+      - backend:
+          service:
+            name: keycloak-internal
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+EOF
+}
+
+choice="${1:-openshift}"
 case "$choice" in
-  rhbk)
-    install_rhbk_sso_keycloak
+  openshift)
+    install_openshift_keycloak
     ;;
-  sso)
-    install_sso_keycloak
+  kind)
+    install_kind_keycloak
     ;;
   -h|--help|help)
     usage

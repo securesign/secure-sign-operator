@@ -31,7 +31,7 @@ kubectl apply -f config/samples/rhtas_v1alpha1_securesign.yaml -n openshift-rhta
 NOTE: Please define the values of YOUR_KEYCLOAK and YOUR_REALM for the OIDC provider, USER, PASSWORD, IMAGE, and OCP_APPS_URL. Finally specify a container image that you have authorization to push images to.
 
 ```sh
-export OIDC_ISSUER_URL=https://$YOUR_KEYCLOAK/auth/realms/$YOUR_REALM
+export OIDC_ISSUER_URL=https://$YOUR_KEYCLOAK/realms/$YOUR_REALM
 TOKEN=$(curl -X POST -H "Content-Type: application/x-www-form-urlencoded" -d "username=$USER" -d "password=$PASSWORD" -d "grant_type=password" -d "scope=openid" -d "client_id=$YOUR_REALM" $OIDC_ISSUER_URL/protocol/openid-connect/token |  sed -E 's/.*"access_token":"([^"]*).*/\1/')
 cosign initialize --mirror=https://tuf.$OCP_APPS_URL/ --root=https://tuf.$OCP_APPS_URL/root.json
 cosign sign -y --fulcio-url=https://fulcio.$OCP_APPS_URL/ --oidc-issuer=$OIDC_ISSUER_URL --identity-token=$TOKEN $IMAGE
@@ -158,7 +158,7 @@ podman tag alpine ttl.sh/tas-test:5m
 podman push ttl.sh/tas-test:5m
 export FULCIO_URL=https://fulcio.example.com
 export REKOR_URL=https://rekor.example.com
-export OIDC_ISSUER_URL=https://keycloak-keycloak-system.example/auth/realms/trusted-artifact-signer
+export OIDC_ISSUER_URL=https://keycloak-keycloak-system.example/realms/trusted-artifact-signer
 TOKEN=$(curl -X POST -H "Content-Type: application/x-www-form-urlencoded" -d "username=jdoe" -d "password=secure" -d "grant_type=password" -d "scope=openid" -d "client_id=trusted-artifact-signer" $OIDC_ISSUER_URL/protocol/openid-connect/token |  sed -E 's/.*"access_token":"([^"]*).*/\1/')
 cosign sign -y --fulcio-url=$FULCIO_URL --rekor-url=$REKOR_URL --oidc-issuer=$OIDC_ISSUER_URL --oidc-client-id=trusted-artifact-signer --identity-token=$TOKEN ttl.sh/tas-test:
 cosign verify --rekor-url=\$REKOR_URL --certificate-identity-regexp ".*@redhat" --certificate-oidc-issuer-regexp ".*keycloak.*" ttl.sh/tas-test:5m

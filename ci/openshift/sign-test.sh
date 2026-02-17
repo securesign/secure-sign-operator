@@ -1,6 +1,6 @@
 #!/bin/bash
 BASE_DOMAIN=apps.$(oc get dns cluster -o jsonpath='{ .spec.baseDomain }')
-OIDC_ISSUER=https://keycloak-keycloak-system.$BASE_DOMAIN/auth/realms/trusted-artifact-signer
+OIDC_ISSUER=https://keycloak-keycloak-system.$BASE_DOMAIN/realms/trusted-artifact-signer
 
 cat config/samples/rhtas_v1alpha1_securesign.yaml | sed "s|https://your-oidc-issuer-url|$OIDC_ISSUER|g" > securesign.yaml
 
@@ -51,7 +51,7 @@ spec:
         - name: FULCIO_URL
           value: "https://fulcio-server-securesign.${BASE_DOMAIN}"
         - name: OIDC_ISSUER_URL
-          value: "https://keycloak-keycloak-system.${BASE_DOMAIN}/auth/realms/trusted-artifact-signer"
+          value: "https://keycloak-keycloak-system.${BASE_DOMAIN}/realms/trusted-artifact-signer"
         - name: REKOR_URL
           value: "https://rekor-server-securesign.${BASE_DOMAIN}"
         - name: TUF_URL
