@@ -27,18 +27,19 @@ runs:
   using: 'composite'
   steps:
     - name: Install Cluster
-      uses: container-tools/kind-action@v2.0.1
+      uses: helm/kind-action@v1.12.0
       with:
-        version: v0.20.0
-        node_image: kindest/node:v1.26.6@sha256:6e2d8b28a5b601defe327b98bd1c2d1930b49e5d8c512e1895099e4504007adb
-        cpu: 3
-        registry: false
+        version: v0.31.0
+        node_image: kindest/node:v1.35.0
+        kubectl_version: v1.35.0
+        cluster_name: kind
         config: ${{ inputs.config }}
 
     - name: Configure ingress
       shell: bash
       run: |
-        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.14.3/deploy/static/provider/kind/deploy.yaml
+
         kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
     - name: Install prometheus
       if: ${{ inputs.prometheus == 'true'}}
@@ -64,40 +65,5 @@ runs:
       id: install-keycloak
       shell: bash
       run: |
-        kubectl create --kustomize ci/keycloak/operator/overlay/kind
-        until [ ! -z "$(kubectl get pod -l name=keycloak-operator -n keycloak-system 2>/dev/null)" ]
-        do
-          echo "Waiting for keycloak operator. Pods in keycloak-system namespace:"
-          kubectl get pods -n keycloak-system
-          sleep 10
-        done
-        kubectl create --kustomize ci/keycloak/resources/overlay/kind
-        until [[ $( kubectl get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system 2>/dev/null) == "true" ]]
-        do
-          printf "Waiting for keycloak deployment. \n Keycloak ready: %s\n" $(kubectl get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system)
-          sleep 10
-        done
-
-        # HACK - expose keycloak under the same name as the internal SVC has so it will be accessible:
-        # - within the cluster (where the localhost does not work)
-        # - outside the cluster (resolved from /etc/hosts and redirect to the localhost)
-        kubectl create -n keycloak-system -f - <<EOF
-        apiVersion: networking.k8s.io/v1
-        kind: Ingress
-        metadata:
-          name: keycloak
-        spec:
-          rules:
-          - host: keycloak-internal.keycloak-system.svc
-            http:
-              paths:
-              - backend:
-                  service:
-                    name: keycloak-internal
-                    port:
-                      number: 80
-                path: /
-                pathType: Prefix
-        EOF
-        
+        bash ci/openshift/tas-keycloak-install.sh kind
         echo "oidc_host=keycloak-internal.keycloak-system.svc" >> $GITHUB_OUTPUT

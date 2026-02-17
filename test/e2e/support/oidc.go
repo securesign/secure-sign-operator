@@ -20,7 +20,7 @@ const (
 )
 
 func OidcIssuerUrl() string {
-	return EnvOrDefault(OIDC_ISSUER_URL, "http://keycloak-internal.keycloak-system.svc/auth/realms/trusted-artifact-signer")
+	return EnvOrDefault(OIDC_ISSUER_URL, "http://keycloak-internal.keycloak-system.svc/realms/trusted-artifact-signer")
 }
 
 func OidcClientID() string {

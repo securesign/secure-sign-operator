@@ -4,5 +4,5 @@ kind: Kustomization
 namespace: keycloak-system
 
 resources:
-- keycloak.yaml
-- realm-import.yaml
+  - ../../base
+  - subscription.yaml

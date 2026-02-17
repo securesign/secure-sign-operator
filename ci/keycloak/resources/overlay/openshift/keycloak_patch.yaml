@@ -4,6 +4,6 @@ metadata:
   name: keycloak
 spec:
   hostname:
-    hostname: keycloak-internal.keycloak-system.svc
+    hostname: PLACEHOLDER
   ingress:
-    enabled: false
+    enabled: true
