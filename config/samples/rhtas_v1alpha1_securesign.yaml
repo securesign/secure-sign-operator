@@ -35,6 +35,7 @@ spec:
   tuf:
     externalAccess:
       enabled: true
+    signingConfigURLMode: external
     keys:
       - name: rekor.pub
       - name: ctfe.pub

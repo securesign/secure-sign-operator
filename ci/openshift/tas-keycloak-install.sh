@@ -69,9 +69,26 @@ install_openshift_keycloak() {
     fi
     oc apply --kustomize ci/keycloak/resources/overlay/openshift
     check_pod_status "keycloak-system" "postgresql-db"
-    check_pod_status "keycloak-system" "keycloak"
     if [ $? -ne 0 ]; then
         echo "Pod status check failed. Exiting the script."
+        exit 1
+    fi
+
+    local attempts=0
+    while [[ $attempts -lt $max_attempts ]]; do
+        status=$(oc get keycloaks/keycloak -n keycloak-system -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null)
+        if [ "$status" == "True" ]; then
+            echo "Keycloak CR is ready."
+            break
+        fi
+        echo "Keycloak CR not ready yet (status: $status). Retrying in $sleep_interval seconds..."
+        sleep $sleep_interval
+        attempts=$((attempts + 1))
+    done
+
+    if [ "$status" != "True" ]; then
+        echo "Timed out waiting for Keycloak CR to become ready."
+        oc get keycloaks/keycloak -n keycloak-system -o yaml
         exit 1
     fi
 

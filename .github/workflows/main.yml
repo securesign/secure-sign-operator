@@ -595,11 +595,10 @@ jobs:
       - name: Run tests
         run: |
           export OIDC_ISSUER_URL="http://${{ steps.kind.outputs.oidc_host }}/realms/trusted-artifact-signer"
-          export FULCIO_URL=$(kubectl get fulcio -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})
-          export REKOR_URL=$(kubectl get rekor -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})
           export REKOR_UI_URL=$(kubectl  get rekor -o jsonpath='{.items[0].status.rekorSearchUIUrl}' -n ${{ env.TEST_NAMESPACE }})
           export TUF_URL=$(kubectl get tuf -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})
-          export TSA_URL=$(kubectl get timestampauthorities -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})/api/v1/timestamp
+          export REKOR_URL=$(kubectl get rekor -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})
+          export FULCIO_URL=$(kubectl get fulcio -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})
           
           export CLI_STRATEGY=cli_server
           export CLI_SERVER_URL="http://cli-server.local"
