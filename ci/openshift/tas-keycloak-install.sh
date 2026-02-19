@@ -55,6 +55,10 @@ wait_for_realm_import() {
     done
 
     echo "Timed out waiting for KeycloakRealmImport '$realm_name' to complete."
+    echo "--- KeycloakRealmImport status ---"
+    kubectl get keycloakrealmimport "$realm_name" -n "$namespace" -o yaml 2>/dev/null
+    echo "--- Realm import pod logs ---"
+    kubectl logs -n "$namespace" -l app=keycloak-realm-import --tail=50 2>/dev/null || echo "No realm import pod logs found"
     return 1
 }
 
