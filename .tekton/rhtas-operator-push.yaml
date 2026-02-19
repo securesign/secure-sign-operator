@@ -11,7 +11,7 @@ metadata:
       || "bundle.Dockerfile".pathChanged() || "Dockerfile.rhtas-operator.rh".pathChanged()
       || "config/***".pathChanged() || "hack/***".pathChanged()
       || "api/***".pathChanged() || "internal/***".pathChanged() || "cmd/***".pathChanged()
-      || "test/***".pathChanged()
+      || "test/***".pathChanged() || "ci/***".pathChanged()
       || "go.mod".pathChanged() || "go.sum".pathChanged())
   creationTimestamp: null
   labels:
