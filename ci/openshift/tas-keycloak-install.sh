@@ -39,10 +39,11 @@ check_pod_status() {
 wait_for_realm_import() {
     local namespace="$1"
     local realm_name="${2:-trusted-artifact-signer-realm}"
+    local limit="${3:-$max_attempts}"
     local attempts=0
 
     echo "Waiting for KeycloakRealmImport '$realm_name' to complete..."
-    while [[ $attempts -lt $max_attempts ]]; do
+    while [[ $attempts -lt $limit ]]; do
         status=$(kubectl get keycloakrealmimport "$realm_name" -n "$namespace" -o jsonpath='{.status.conditions[?(@.type=="Done")].status}' 2>/dev/null)
         if [ "$status" == "True" ]; then
             echo "KeycloakRealmImport '$realm_name' completed successfully."
@@ -58,6 +59,8 @@ wait_for_realm_import() {
 }
 
 install_openshift_keycloak() {
+    local openshift_max_attempts=60
+
     BASE_DOMAIN=apps.$(oc get dns cluster -o jsonpath='{ .spec.baseDomain }')
     echo "HOSTNAME=https://keycloak-keycloak-system.$BASE_DOMAIN" > ci/keycloak/resources/overlay/openshift/hostname.env
 
@@ -75,7 +78,7 @@ install_openshift_keycloak() {
     fi
 
     local attempts=0
-    while [[ $attempts -lt $max_attempts ]]; do
+    while [[ $attempts -lt $openshift_max_attempts ]]; do
         status=$(oc get keycloaks/keycloak -n keycloak-system -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null)
         if [ "$status" == "True" ]; then
             echo "Keycloak CR is ready."
@@ -92,7 +95,7 @@ install_openshift_keycloak() {
         exit 1
     fi
 
-    wait_for_realm_import "keycloak-system"
+    wait_for_realm_import "keycloak-system" "trusted-artifact-signer-realm" "$openshift_max_attempts"
     if [ $? -ne 0 ]; then
         echo "Realm import failed. Exiting the script."
         exit 1
