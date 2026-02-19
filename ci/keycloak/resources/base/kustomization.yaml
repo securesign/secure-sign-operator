@@ -5,4 +5,3 @@ namespace: keycloak-system
 
 resources:
 - keycloak.yaml
-- realm-import.yaml
