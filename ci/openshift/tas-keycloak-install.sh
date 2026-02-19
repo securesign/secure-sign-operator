@@ -95,6 +95,7 @@ install_openshift_keycloak() {
         exit 1
     fi
 
+    oc apply -f ci/keycloak/resources/base/realm-import.yaml -n keycloak-system
     wait_for_realm_import "keycloak-system" "trusted-artifact-signer-realm" "$openshift_max_attempts"
     if [ $? -ne 0 ]; then
         echo "Realm import failed. Exiting the script."
@@ -141,6 +142,7 @@ install_kind_keycloak() {
         return 1
     fi
 
+    kubectl apply -f ci/keycloak/resources/base/realm-import.yaml -n keycloak-system
     wait_for_realm_import "keycloak-system"
     if [ $? -ne 0 ]; then
         echo "Realm import failed."
