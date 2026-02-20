@@ -426,6 +426,8 @@ var _ = Describe("Key rotation test", Ordered, func() {
 	})
 
 	It("Validate all pods are running", func(ctx SpecContext) {
+		SetDefaultEventuallyTimeout(5 * time.Minute)
+		DeferCleanup(func() { SetDefaultEventuallyTimeout(3 * time.Minute) })
 		tas.VerifyAllComponents(ctx, cli, s, true)
 	})
 

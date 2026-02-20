@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
@@ -66,16 +67,33 @@ func VerifyByCosign(ctx context.Context, cli runtimeCli.Client, s *rhtasv1alpha1
 
 	Expect(clients.Execute("cosign", "initialize", "--mirror="+t.Status.Url, "--root="+t.Status.Url+"/root.json")).To(Succeed())
 
-	Expect(clients.Execute(
+	// Retry cosign sign up to 3 times with 30s between attempts; Rekor can be temporarily unavailable.
+	signArgs := []string{
 		"cosign", "sign", "-y",
-		"--fulcio-url="+f.Status.Url,
-		"--rekor-url="+r.Status.Url,
-		"--timestamp-server-url="+ts.Status.Url+"/api/v1/timestamp",
-		"--oidc-issuer="+support.OidcIssuerUrl(),
-		"--oidc-client-id="+support.OidcClientID(),
-		"--identity-token="+oidcToken,
+		"--fulcio-url=" + f.Status.Url,
+		"--rekor-url=" + r.Status.Url,
+		"--timestamp-server-url=" + ts.Status.Url + "/api/v1/timestamp",
+		"--oidc-issuer=" + support.OidcIssuerUrl(),
+		"--oidc-client-id=" + support.OidcClientID(),
+		"--identity-token=" + oidcToken,
 		targetImageName,
-	)).To(Succeed())
+	}
+	var lastSignErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				Expect(lastSignErr).NotTo(HaveOccurred())
+				return
+			case <-time.After(30 * time.Second):
+			}
+		}
+		lastSignErr = clients.Execute(signArgs[0], signArgs[1:]...)
+		if lastSignErr == nil {
+			break
+		}
+	}
+	Expect(lastSignErr).NotTo(HaveOccurred())
 
 	Expect(clients.Execute(
 		"cosign", "verify",
