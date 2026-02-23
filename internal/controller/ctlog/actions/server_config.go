@@ -87,6 +87,13 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 				})
 		}
 
+		c := meta.FindStatusCondition(instance.Status.Conditions, ConfigCondition)
+		if c != nil && c.Status == metav1.ConditionTrue &&
+			c.ObservedGeneration == instance.Generation &&
+			equality.Semantic.DeepEqual(instance.Status.ServerConfigRef, instance.Spec.ServerConfigRef) {
+			return i.Continue()
+		}
+
 		instance.Status.ServerConfigRef = instance.Spec.ServerConfigRef
 		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "CTLogConfigUpdated", "CTLog config updated: %s", instance.Spec.ServerConfigRef.Name)
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{

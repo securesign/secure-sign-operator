@@ -854,6 +854,92 @@ func TestServerConfig_Update(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "custom config steady state - status already reflects spec, should return Continue",
+			env: func() env {
+				inst := newBaseInstance()
+				inst.Generation = 2
+				inst.Spec.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: "custom_config"}
+				inst.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: "custom_config"}
+				inst.Status.Conditions = []metav1.Condition{
+					{
+						Type:               ConfigCondition,
+						Status:             metav1.ConditionTrue,
+						Reason:             state.Ready.String(),
+						Message:            "Using custom server config",
+						ObservedGeneration: 2,
+					},
+				}
+				return env{
+					instance: inst,
+					objects: []client.Object{
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "custom_config", Namespace: "default"},
+							Data: errors.IgnoreError(ctlogUtils.CreateCtlogConfig(
+								"trillian-logserver.custom.svc:80", 9999999,
+								[]ctlogUtils.RootCertificate{cert},
+								&ctlogUtils.KeyConfig{PrivateKey: privateKey, PublicKey: publicKey, PrivateKeyPass: []byte("secure")},
+							)),
+						},
+					},
+				}
+			}(),
+			want: want{
+				result: testAction.Continue(),
+				verify: func(g Gomega, cli client.Client, current *rhtasv1alpha1.CTlog) {
+					g.Expect(current.Status.ServerConfigRef).ShouldNot(BeNil())
+					g.Expect(current.Status.ServerConfigRef.Name).Should(Equal("custom_config"))
+
+					c := meta.FindStatusCondition(current.Status.Conditions, ConfigCondition)
+					g.Expect(c).ShouldNot(BeNil())
+					g.Expect(c.Status).Should(Equal(metav1.ConditionTrue))
+					g.Expect(c.ObservedGeneration).Should(Equal(int64(2)))
+				},
+			},
+		},
+		{
+			name: "custom config with generation change - should update observedGeneration",
+			env: func() env {
+				inst := newBaseInstance()
+				inst.Generation = 3
+				inst.Spec.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: "custom_config"}
+				inst.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: "custom_config"}
+				inst.Status.Conditions = []metav1.Condition{
+					{
+						Type:               ConfigCondition,
+						Status:             metav1.ConditionTrue,
+						Reason:             state.Ready.String(),
+						Message:            "Using custom server config",
+						ObservedGeneration: 2,
+					},
+				}
+				return env{
+					instance: inst,
+					objects: []client.Object{
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "custom_config", Namespace: "default"},
+							Data: errors.IgnoreError(ctlogUtils.CreateCtlogConfig(
+								"trillian-logserver.custom.svc:80", 9999999,
+								[]ctlogUtils.RootCertificate{cert},
+								&ctlogUtils.KeyConfig{PrivateKey: privateKey, PublicKey: publicKey, PrivateKeyPass: []byte("secure")},
+							)),
+						},
+					},
+				}
+			}(),
+			want: want{
+				result: testAction.StatusUpdate(),
+				verify: func(g Gomega, cli client.Client, current *rhtasv1alpha1.CTlog) {
+					g.Expect(current.Status.ServerConfigRef).ShouldNot(BeNil())
+					g.Expect(current.Status.ServerConfigRef.Name).Should(Equal("custom_config"))
+
+					c := meta.FindStatusCondition(current.Status.Conditions, ConfigCondition)
+					g.Expect(c).ShouldNot(BeNil())
+					g.Expect(c.Status).Should(Equal(metav1.ConditionTrue))
+					g.Expect(c.ObservedGeneration).Should(Equal(int64(3)))
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
