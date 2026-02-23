@@ -47,10 +47,6 @@ import (
 )
 
 var _ = Describe("Key rotation test", Ordered, func() {
-	BeforeAll(func() {
-		Skip("SECURESIGN-3873: key rotation test suite disabled")
-	})
-
 	cli, _ := support.CreateClient()
 	var (
 		targetImageName                             string
