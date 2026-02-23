@@ -48,7 +48,7 @@ import (
 
 var _ = Describe("Key rotation test", Ordered, func() {
 	BeforeAll(func() {
-		Skip("key rotation test suite disabled")
+		Skip("SECURESIGN-3873: key rotation test suite disabled")
 	})
 
 	cli, _ := support.CreateClient()
