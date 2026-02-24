@@ -212,6 +212,7 @@ func (c *Component) ensureConsoleCLIDownload(clientServerUrl, cliDescription, cl
 		spec.Description = cliDescription
 		spec.DisplayName = fmt.Sprintf("%s - Command Line Interface (CLI)", cliName)
 
+		spec.Links = make([]consolev1.CLIDownloadLink, 0, len(supportedArchs))
 		for _, arch := range supportedArchs {
 			spec.Links = append(spec.Links, consolev1.CLIDownloadLink{
 				Text: fmt.Sprintf(arch.descriptionTemplate, cliName),
