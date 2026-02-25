@@ -99,6 +99,20 @@ install_openshift_keycloak() {
         exit 1
     fi
 
+    local kc_route
+    kc_route="https://keycloak-keycloak-system.${BASE_DOMAIN}"
+    echo "Waiting for Keycloak health endpoint to confirm readiness at ${kc_route} ..."
+    local health_attempts=0
+    while [[ $health_attempts -lt 30 ]]; do
+        if curl -sk "${kc_route}/health/ready" | grep -q '"status".*"UP"'; then
+            echo "Keycloak health endpoint is UP."
+            break
+        fi
+        echo "Keycloak health not ready yet. Retrying in 5 seconds..."
+        sleep 5
+        health_attempts=$((health_attempts + 1))
+    done
+
     oc apply -f ci/keycloak/resources/base/realm-import.yaml -n keycloak-system
     wait_for_realm_import "keycloak-system" "trusted-artifact-signer-realm" "$openshift_max_attempts"
     if [ $? -ne 0 ]; then
