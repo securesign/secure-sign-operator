@@ -65,5 +65,5 @@ runs:
       id: install-keycloak
       shell: bash
       run: |
-        bash ci/openshift/tas-keycloak-install.sh kind
+        bash ci/keycloak/tas-keycloak-install.sh kind
         echo "oidc_host=keycloak-internal.keycloak-system.svc" >> $GITHUB_OUTPUT
