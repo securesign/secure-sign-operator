@@ -7,7 +7,7 @@ on:
     branches: [ "main", "release*" ]
 
 env:
-  GO_VERSION: 1.24
+  GO_VERSION: 1.25
   REGISTRY: ghcr.io
   CONTAINER_TOOL: podman
   IMG: ghcr.io/securesign/secure-sign-operator:dev-${{ github.sha }}
@@ -596,6 +596,7 @@ jobs:
       - name: Install securesign
         run: |
           sed -i 's#https://your-oidc-issuer-url#http://${{ steps.kind.outputs.oidc_host }}/realms/trusted-artifact-signer#' config/samples/rhtas_v1alpha1_securesign.yaml
+          sed -i 's#rhtas.redhat.com/metrics: "true"#rhtas.redhat.com/metrics: "false"#' config/samples/rhtas_v1alpha1_securesign.yaml
           kubectl create ns ${{ env.TEST_NAMESPACE }}
           kubectl create -f config/samples/rhtas_v1alpha1_securesign.yaml -n ${{ env.TEST_NAMESPACE }}
           sleep 1
