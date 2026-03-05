@@ -64,19 +64,8 @@ runs:
       id: install-keycloak
       shell: bash
       run: |
-        kubectl create --kustomize ci/keycloak/operator/overlay/kind
-        until [ ! -z "$(kubectl get pod -l name=keycloak-operator -n keycloak-system 2>/dev/null)" ]
-        do
-          echo "Waiting for keycloak operator. Pods in keycloak-system namespace:"
-          kubectl get pods -n keycloak-system
-          sleep 10
-        done
-        kubectl create --kustomize ci/keycloak/resources/overlay/kind
-        until [[ $( kubectl get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system 2>/dev/null) == "true" ]]
-        do
-          printf "Waiting for keycloak deployment. \n Keycloak ready: %s\n" $(kubectl get keycloak keycloak -o jsonpath='{.status.ready}' -n keycloak-system)
-          sleep 10
-        done
+        bash ci/keycloak/tas-keycloak-install.sh kind
+        echo "oidc_host=keycloak-internal.keycloak-system.svc" >> $GITHUB_OUTPUT
 
         # HACK - expose keycloak under the same name as the internal SVC has so it will be accessible:
         # - within the cluster (where the localhost does not work)
