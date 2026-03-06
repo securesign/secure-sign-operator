@@ -48,3 +48,6 @@ ts_chain.pem
 
 # HELM Charts
 ci/**/charts
+
+# RHBK Resources
+ci/keycloak/resources/overlay/openshift/hostname.env
