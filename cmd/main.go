@@ -54,6 +54,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/controller/console"
 	"github.com/securesign/operator/internal/controller/ctlog"
 	"github.com/securesign/operator/internal/controller/fulcio"
 	"github.com/securesign/operator/internal/controller/rekor"
@@ -118,6 +119,9 @@ func main() {
 	utils.RelatedImageFlag("client-server-image", images.ClientServer, "The image used to serve cosign and gitsign.")
 	utils.RelatedImageFlag("timestamp-authority-image", images.TimestampAuthority, "The image used for Timestamp Authority")
 	utils.RelatedImageFlag("rekor-monitor-image", images.RekorMonitor, "The image used for rekor monitor.")
+	utils.RelatedImageFlag("console-ui-image", images.ConsoleUi, "The image used for Console UI.")
+	utils.RelatedImageFlag("console-api-image", images.ConsoleApi, "The image used for Console API.")
+	utils.RelatedImageFlag("console-db-image", images.ConsoleDb, "The image used for Console DB.")
 	flag.StringVar(&clidownload.CliHostName, "cli-server-hostname", "", "The hostname for the cli server")
 
 	klog.InitFlags(flag.CommandLine)
@@ -213,6 +217,7 @@ func main() {
 	setupController("tuf", tuf.NewReconciler, mgr)
 	setupController("ctlog", ctlog.NewReconciler, mgr)
 	setupController("tsa", tsa.NewReconciler, mgr)
+	setupController("console", console.NewReconciler, mgr)
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

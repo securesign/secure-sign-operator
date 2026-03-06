@@ -25,6 +25,9 @@ const (
 	RekorSearchUi Image = "RELATED_IMAGE_REKOR_SEARCH_UI"
 	RekorMonitor  Image = "RELATED_IMAGE_REKOR_MONITOR"
 	BackfillRedis Image = "RELATED_IMAGE_BACKFILL_REDIS"
+	ConsoleUi     Image = "RELATED_IMAGE_CONSOLE_UI"
+	ConsoleApi    Image = "RELATED_IMAGE_CONSOLE_API"
+	ConsoleDb     Image = "RELATED_IMAGE_CONSOLE_DB"
 
 	Tuf Image = "RELATED_IMAGE_TUF"
 
@@ -53,6 +56,9 @@ var Images = []Image{
 	TimestampAuthority,
 	HttpServer,
 	ClientServer,
+	ConsoleUi,
+	ConsoleApi,
+	ConsoleDb,
 }
 
 //go:generate cp ../../config/default/images.env embed/images.env

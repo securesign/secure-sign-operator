@@ -71,3 +71,11 @@ spec:
           organizationName: Red Hat
           organizationEmail: jdoe@redhat.com
           commonName: tsa.hostname-leaf
+  console:
+    enabled: true
+    database:
+      create: true
+    ui:
+      externalAccess:
+        enabled: true
+      

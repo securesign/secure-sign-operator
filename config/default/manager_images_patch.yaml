@@ -40,3 +40,9 @@ spec:
               value: PLACEHOLDER
             - name: RELATED_IMAGE_CLIENT_SERVER
               value: PLACEHOLDER
+            - name: RELATED_IMAGE_CONSOLE_UI
+              value: PLACEHOLDER
+            - name: RELATED_IMAGE_CONSOLE_API
+              value: PLACEHOLDER
+            - name: RELATED_IMAGE_CONSOLE_DB
+              value: PLACEHOLDER

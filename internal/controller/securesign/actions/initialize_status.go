@@ -12,7 +12,7 @@ import (
 )
 
 var conditions = []string{
-	constants.ReadyCondition, TrillianCondition, FulcioCondition, RekorCondition, CTlogCondition, TufCondition, TSACondition, MetricsCondition,
+	constants.ReadyCondition, TrillianCondition, FulcioCondition, RekorCondition, CTlogCondition, TufCondition, TSACondition, ConsoleCondition, MetricsCondition,
 }
 
 func NewInitializeStatusAction() action.Action[*rhtasv1alpha1.Securesign] {
