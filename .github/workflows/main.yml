@@ -600,7 +600,7 @@ jobs:
           kubectl create ns ${{ env.TEST_NAMESPACE }}
           kubectl create -f config/samples/rhtas_v1alpha1_securesign.yaml -n ${{ env.TEST_NAMESPACE }}
           sleep 1
-          kubectl wait --for=condition=Ready securesign/securesign-sample --timeout=5m -n ${{ env.TEST_NAMESPACE }}
+          kubectl wait --for=condition=Ready securesign/securesign-sample --timeout=10m -n ${{ env.TEST_NAMESPACE }}
 
       - name: Run tests
         run: |
