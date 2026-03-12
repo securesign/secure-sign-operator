@@ -1,5 +1,5 @@
 ## Build the manager binary
-FROM registry.redhat.io/ubi9/go-toolset:9.7@sha256:c928a8d014091005444cd8d0de2f9815d2162b89ac9d075c1f8d7c9caf41177e AS builder
+FROM registry.redhat.io/ubi9/go-toolset:9.7-1773318690@sha256:2a6a828a4020b8a03875bb0fa72cf41c0bd8695c2e5c60f49acb5fcdbd1e35cf AS builder
 ARG TARGETOS
 ARG TARGETARCH
 #
@@ -27,7 +27,7 @@ COPY internal/ internal/
 RUN go mod download && \
     GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -mod=readonly -a -o manager cmd/main.go
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal@sha256:759f5f42d9d6ce2a705e290b7fc549e2d2cd39312c4fa345f93c02e4abb8da95
+FROM registry.access.redhat.com/ubi9/ubi-minimal@sha256:69f5c9886ecb19b23e88275a5cd904c47dd982dfa370fbbd0c356d7b1047ef68
 WORKDIR /
 COPY --from=builder /workspace/manager .
 COPY LICENSE /licenses/license.txt
