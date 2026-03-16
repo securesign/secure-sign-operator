@@ -256,7 +256,10 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.TimestampAuthorit
 		}
 		container.LivenessProbe.HTTPGet.Path = "/ping"
 		container.LivenessProbe.HTTPGet.Port = intstr.FromInt32(3000)
-		container.LivenessProbe.InitialDelaySeconds = 5
+		container.LivenessProbe.InitialDelaySeconds = 10
+		container.LivenessProbe.PeriodSeconds = 10
+		container.LivenessProbe.TimeoutSeconds = 1
+		container.LivenessProbe.FailureThreshold = 3
 
 		if container.ReadinessProbe == nil {
 			container.ReadinessProbe = &core.Probe{}
@@ -264,10 +267,26 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.TimestampAuthorit
 		if container.ReadinessProbe.HTTPGet == nil {
 			container.ReadinessProbe.HTTPGet = &core.HTTPGetAction{}
 		}
-
 		container.ReadinessProbe.HTTPGet.Path = "/ping"
 		container.ReadinessProbe.HTTPGet.Port = intstr.FromInt32(3000)
 		container.ReadinessProbe.InitialDelaySeconds = 5
+		container.ReadinessProbe.PeriodSeconds = 10
+		container.ReadinessProbe.TimeoutSeconds = 1
+		container.ReadinessProbe.FailureThreshold = 3
+
+		// StartupProbe verifies TSA is fully initialized by checking certificate chain endpoint
+		// This runs only at startup, allowing heavy checks without impacting ongoing probes
+		if container.StartupProbe == nil {
+			container.StartupProbe = &core.Probe{}
+		}
+		if container.StartupProbe.HTTPGet == nil {
+			container.StartupProbe.HTTPGet = &core.HTTPGetAction{}
+		}
+		container.StartupProbe.HTTPGet.Path = "/api/v1/timestamp/certchain"
+		container.StartupProbe.HTTPGet.Port = intstr.FromInt32(3000)
+		container.StartupProbe.PeriodSeconds = 5
+		container.StartupProbe.TimeoutSeconds = 10
+		container.StartupProbe.FailureThreshold = 12 // 60s total startup time
 
 		return nil
 	}
