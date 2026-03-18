@@ -299,7 +299,8 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 			}, 30*time.Second, 1*time.Second).Should(Succeed())
 
 			By("Using cosign to sign an image")
-			tas.VerifyByCosign(ctx, cli, s, signedImageName)
+			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
+			tas.VerifyByCosign(ctx, signedImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
 
 			By("Waiting for monitor to detect the new entries and verify consistency")
 			Eventually(func(g Gomega) {

@@ -248,7 +248,7 @@ jobs:
         run: |
           sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local cli-server.local tsa-server.local" | sudo tee -a /etc/hosts
       - name: Install cosign
-        run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.4.0
+        run: go install github.com/sigstore/cosign/v3/cmd/cosign@v3.0.5
 
       - name: Run tests
         run: make test-e2e
@@ -329,6 +329,7 @@ jobs:
         run: |
           sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local cli-server.local tsa-server.local" | sudo tee -a /etc/hosts
       - name: Install cosign
+        #keep upgrade scenario on cosign v2 (latest released version does not support cosign v3)
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.4.0
 
       - name: Replace images
@@ -413,7 +414,7 @@ jobs:
           sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local cli-server.local tsa-server.local" | sudo tee -a /etc/hosts
 
       - name: Install cosign
-        run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.4.0
+        run: go install github.com/sigstore/cosign/v3/cmd/cosign@v3.0.5
 
       - name: Run tests
         run: |

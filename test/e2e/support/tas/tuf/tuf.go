@@ -9,14 +9,19 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/annotations"
+	tsaActions "github.com/securesign/operator/internal/controller/tsa/actions"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	utils2 "github.com/securesign/operator/internal/controller/tuf/utils"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/job"
+	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/condition"
+	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
+	"github.com/securesign/operator/test/e2e/support/tas/rekor"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
+	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 	appsv1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
@@ -83,6 +88,10 @@ func RefreshTufRepository(ctx context.Context, cli client.Client, ns string, nam
 
 	t := Get(ctx, cli, ns, name)
 	Expect(t).ToNot(BeNil())
+
+	t.Spec.Fulcio.Address = fulcio.Get(ctx, cli, ns, name).Status.Url
+	t.Spec.Rekor.Address = rekor.Get(ctx, cli, ns, name).Status.Url
+	t.Spec.Tsa.Address = tsa.Get(ctx, cli, ns, name).Status.Url + tsaActions.TimestampPath
 	refreshJob := refreshTufJob(t)
 	Expect(cli.Create(ctx, refreshJob)).To(Succeed())
 
@@ -113,7 +122,7 @@ func refreshTufJob(instance *v1alpha1.Tuf) *v12.Job {
 	}
 	l := maps.Clone(instance.Labels)
 	l[labels.LabelAppComponent] = "test"
-	Expect(utils2.EnsureTufInitJob(instance, constants.RBACInitJobName, instance.Labels, nil)(j)).To(Succeed())
+	Expect(utils2.EnsureTufInitJob(instance, constants.RBACInitJobName, instance.Labels, []string{support.OidcIssuerUrl()})(j)).To(Succeed())
 	Expect(ensure.PodSecurityContext(&j.Spec.Template.Spec)).To(Succeed())
 	c := kubernetes.FindContainerByNameOrCreate(&j.Spec.Template.Spec, "tuf-init")
 	args := c.Args
