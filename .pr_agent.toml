@@ -3,9 +3,12 @@ git_provider="github"
 ignore_pr_authors = ["renovate","openshift-cherrypick-robot","red-hat-konflux"]
 
 [github_app]
+handle_pr_actions = ['opened', 'reopened', 'ready_for_review']
+
+# What runs automatically when PR is opened
 pr_commands = [
-    "/describe",
-    "/agentic_review",
+    "/describe --pr_description.final_update_message=false",
+    "/review",
     "/improve"
 ]
 
@@ -16,7 +19,7 @@ handle_push_trigger = false
 # handle_push_trigger = true
 # push_commands = ["/review"]
 
-[pr_reviewer]
+[pr_reviewer] # /review #
 persistent_comment = true
 require_tests_review = false
 require_security_review = true
@@ -27,7 +30,7 @@ enable_review_labels_security = true
 enable_review_labels_effort = true
 final_update_message = true
 
-[pr_description]
+[pr_description] # /describe #
 publish_labels = true
 add_original_user_description = false
 generate_ai_title = false
@@ -45,7 +48,3 @@ persistent_comment = true
 
 [rag_arguments]
 enable_rag=true
-
-[review_agent]
-enabled = true
-publish_output = true
