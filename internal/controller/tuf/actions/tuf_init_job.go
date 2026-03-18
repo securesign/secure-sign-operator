@@ -93,7 +93,9 @@ func (i initJobAction) jobPresent(ctx context.Context, job *v2.Job, instance *rh
 }
 
 func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]string, instance *rhtasv1alpha1.Tuf) *action.Result {
-	i.resolveServiceURLs(ctx, instance)
+	if err := i.resolveServiceURLs(ctx, instance); err != nil {
+		return i.Error(ctx, fmt.Errorf("fail to resolve service url: %w", err), instance)
+	}
 	oidcIssuers := i.resolveOIDCIssuers(ctx, instance.Namespace)
 
 	if _, err := kubernetes.CreateOrUpdate(ctx, i.Client,
@@ -121,9 +123,9 @@ func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]stri
 	return i.Requeue()
 }
 
-func (i initJobAction) resolveServiceURLs(ctx context.Context, instance *rhtasv1alpha1.Tuf) {
+func (i initJobAction) resolveServiceURLs(ctx context.Context, instance *rhtasv1alpha1.Tuf) error {
 	if instance.Spec.SigningConfigURLMode == rhtasv1alpha1.SigningConfigURLInternal {
-		return
+		return nil
 	}
 	services := []struct {
 		address     *string
@@ -136,26 +138,29 @@ func (i initJobAction) resolveServiceURLs(ctx context.Context, instance *rhtasv1
 	}
 	for _, svc := range services {
 		if *svc.address == "" {
-			if url := i.resolveURLFromIngress(ctx, svc.ingressName, instance.Namespace); url != "" {
+			if url, err := i.resolveURLFromIngress(ctx, svc.ingressName, instance.Namespace); err == nil {
 				*svc.address = url + svc.suffix
+			} else {
+				return err
 			}
 		}
 	}
+	return nil
 }
 
-func (i initJobAction) resolveURLFromIngress(ctx context.Context, ingressName, namespace string) string {
+func (i initJobAction) resolveURLFromIngress(ctx context.Context, ingressName, namespace string) (string, error) {
 	ingress := &v3.Ingress{}
 	if err := i.Client.Get(ctx, types.NamespacedName{Name: ingressName, Namespace: namespace}, ingress); err != nil {
-		return ""
+		return "", err
 	}
 	if len(ingress.Spec.Rules) == 0 || ingress.Spec.Rules[0].Host == "" {
-		return ""
+		return "", fmt.Errorf("fail to resolve host name from ingress %s", ingress.Name)
 	}
 	protocol := "http"
 	if len(ingress.Spec.TLS) > 0 {
 		protocol = "https"
 	}
-	return fmt.Sprintf("%s://%s", protocol, ingress.Spec.Rules[0].Host)
+	return fmt.Sprintf("%s://%s", protocol, ingress.Spec.Rules[0].Host), nil
 }
 
 func (i initJobAction) resolveOIDCIssuers(ctx context.Context, namespace string) []string {
