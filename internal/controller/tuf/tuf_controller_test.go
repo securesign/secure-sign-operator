@@ -98,6 +98,7 @@ var _ = Describe("TUF controller", func() {
 						Namespace: TufNamespace,
 					},
 					Spec: v1alpha1.TufSpec{
+						SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
 						ExternalAccess: v1alpha1.ExternalAccess{
 							Host:    "tuf.localhost",
 							Enabled: true,

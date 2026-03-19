@@ -299,7 +299,8 @@ var _ = Describe("Ctlog Monitor Log", Ordered, func() {
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
 
 		By("Using cosign to sign an image")
-		tas.VerifyByCosign(ctx, cli, s, signedImageName)
+		s = securesign.Get(ctx, cli, namespace.Name, s.Name)
+		tas.VerifyByCosign(ctx, signedImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
 
 		By("Verifying metrics after signing - total should increase, failures should remain 0")
 		Eventually(func(g Gomega) {

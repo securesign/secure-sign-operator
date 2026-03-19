@@ -120,6 +120,7 @@ func createInstance(name, ns string) *v1alpha1.Tuf {
 			Name:      name,
 		},
 		Spec: v1alpha1.TufSpec{
+			SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
 			Keys: []v1alpha1.TufKey{
 				{
 					Name: "rekor.pub",

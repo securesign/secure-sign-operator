@@ -15,6 +15,7 @@ import (
 	fulcioAction "github.com/securesign/operator/internal/controller/fulcio/actions"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
 	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
+	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	"github.com/securesign/operator/test/e2e/support/tas/tuf"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -191,7 +192,8 @@ var _ = Describe("Fulcio update", Ordered, func() {
 		})
 
 		It("verify by cosign", func(ctx SpecContext) {
-			tas.VerifyByCosign(ctx, cli, s, targetImageName)
+			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
+			tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
 		})
 	})
 
@@ -256,7 +258,8 @@ var _ = Describe("Fulcio update", Ordered, func() {
 		})
 
 		It("verify by cosign", func(ctx SpecContext) {
-			tas.VerifyByCosign(ctx, cli, s, targetImageName)
+			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
+			tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
 		})
 	})
 })

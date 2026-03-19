@@ -93,7 +93,8 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 		})
 
 		It("Use cosign cli", func(ctx SpecContext) {
-			tas.VerifyByCosign(ctx, cli, s, targetImageName)
+			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
+			tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
 		})
 	})
 })

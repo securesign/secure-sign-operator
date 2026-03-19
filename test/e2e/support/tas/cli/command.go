@@ -20,3 +20,8 @@ func ExecuteInDir(workdir string, command string, args ...string) error {
 	cmd.Stdout = core.GinkgoWriter
 	return cmd.Run()
 }
+
+func ExecuteWithOutput(command string, args ...string) ([]byte, error) {
+	cmd := exec.Command(command, args...)
+	return cmd.Output()
+}

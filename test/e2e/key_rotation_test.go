@@ -92,7 +92,8 @@ var _ = Describe("Key rotation test", Ordered, func() {
 		})
 
 		It("Use cosign cli", func(ctx SpecContext) {
-			tas.VerifyByCosign(ctx, cli, s, targetImageName)
+			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
+			tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
 		})
 	})
 
@@ -430,9 +431,11 @@ var _ = Describe("Key rotation test", Ordered, func() {
 	})
 
 	It("Use cosign cli", func(ctx SpecContext) {
-		tas.VerifyByCosign(ctx, cli, s, targetImageName)
+		s = securesign.Get(ctx, cli, namespace.Name, s.Name)
+		tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
 		newImage := support.PrepareImage(ctx)
-		tas.VerifyByCosign(ctx, cli, s, newImage)
+		s = securesign.Get(ctx, cli, namespace.Name, s.Name)
+		tas.VerifyByCosign(ctx, newImage, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
 	})
 
 })

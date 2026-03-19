@@ -14,6 +14,7 @@ import (
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/tas"
+	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -57,7 +58,8 @@ func BenchmarkInstall(b *testing.B) {
 		if err != nil {
 			b.Fatalf("could not install: %v", err)
 		}
-		tas.VerifyByCosign(ctx, cli, &v1alpha1.Securesign{ObjectMeta: metav1.ObjectMeta{Namespace: namespaceName, Name: "test"}}, targetImageName)
+		s := securesign.Get(ctx, cli, namespaceName, "test")
+		tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
 	}
 
 	b.ResetTimer()
