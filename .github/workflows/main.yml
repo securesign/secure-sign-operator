@@ -529,6 +529,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: "securesign/sigstore-e2e"
+          ref: addECtestsBack
           path: e2e
 
       - name: Install Go
