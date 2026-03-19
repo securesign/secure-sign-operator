@@ -63,6 +63,7 @@ IMG ?= $(IMAGE_TAG_BASE)@$(IMAGE_DIGEST)
 endif
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
+
 ENVTEST_K8S_VERSION = 1.32.0
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
@@ -85,7 +86,7 @@ SHELL = /usr/bin/env bash -o pipefail
 
 OPENSHIFT ?= true
 
-CONFIG_DEFAULT=config/env/kubernetes
+CONFIG_DEFAULT=config/default
 ifeq ($(OPENSHIFT), true)
 CONFIG_DEFAULT=config/env/openshift
 endif

@@ -42,3 +42,9 @@ k8s-dump-*.tar.gz
 
 #tsa certificate chain file
 ts_chain.pem
+
+# HELM Charts
+ci/**/charts
+
+# RHBK Resources
+ci/keycloak/resources/overlay/openshift/hostname.env
