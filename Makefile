@@ -86,7 +86,7 @@ SHELL = /usr/bin/env bash -o pipefail
 
 OPENSHIFT ?= true
 
-CONFIG_DEFAULT=config/env/kubernetes
+CONFIG_DEFAULT=config/default
 ifeq ($(OPENSHIFT), true)
 CONFIG_DEFAULT=config/env/openshift
 endif
