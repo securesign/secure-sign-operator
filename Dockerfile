@@ -1,4 +1,4 @@
-# Build the manager binary
+# Build the manager binary test
 FROM golang:1.25 AS builder
 ARG TARGETOS
 ARG TARGETARCH
