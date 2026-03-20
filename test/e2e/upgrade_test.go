@@ -124,6 +124,12 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		}, gomega.BeNumerically(">=", 1))))
 	})
 
+	It("Verify CRD REST endpoints", func(ctx SpecContext) {
+		gomega.Eventually(func(g gomega.Gomega) {
+			tas.VerifyCRDRESTEndpoints(ctx, cli)
+		}).Should(gomega.Succeed())
+	})
+
 	It("Install securesign", func(ctx SpecContext) {
 		securesignDeployment = securesign.Create(namespace.Name, "test",
 			securesign.WithDefaults(),
