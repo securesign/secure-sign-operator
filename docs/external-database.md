@@ -58,7 +58,7 @@ $(MYSQL_USER):$(MYSQL_PASSWORD)@tcp($(MYSQL_HOST):$(MYSQL_PORT))/$(MYSQL_DATABAS
 
 **PostgreSQL format**:
 ```
-$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)
+postgresql://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)
 ```
 
 ## Using External MySQL
@@ -256,7 +256,7 @@ spec:
   database:
     create: false
     provider: postgresql
-    uri: "$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)"
+    uri: "postgresql://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)"
   auth:
     env:
       - name: DB_HOST
