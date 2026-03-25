@@ -53,7 +53,7 @@ spec:
     - name: url
       value: https://github.com/securesign/pipelines.git
     - name: revision
-      value: main
+      value: add-manager-support-docker-build
     - name: pathInRepo
       value: pipelines/docker-build-multi-platform-oci-ta.yaml
     resolver: git
