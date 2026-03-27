@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -100,7 +101,7 @@ func (t *remoteTarPipe) initReadFrom(n uint64) {
 	options := &corev1.PodExecOptions{
 		Container: t.pod.Spec.Containers[0].Name,
 		Command:   []string{"tar", "cf", "-", "-C", t.srcPath, "."},
-		Stdin:     true,
+		Stdin:     false,
 		Stdout:    true,
 		Stderr:    true,
 		TTY:       false,
@@ -126,7 +127,6 @@ func (t *remoteTarPipe) initReadFrom(n uint64) {
 	go func() {
 		defer func() { _ = t.outStream.Close() }()
 		_ = exec.StreamWithContext(t.ctx, remotecommand.StreamOptions{
-			Stdin:  os.Stdin,
 			Stdout: t.outStream,
 			Stderr: os.Stderr,
 			Tty:    false,
@@ -137,6 +137,12 @@ func (t *remoteTarPipe) initReadFrom(n uint64) {
 func (t *remoteTarPipe) Read(p []byte) (n int, err error) {
 	n, err = t.reader.Read(p)
 	if err != nil {
+		if errors.Is(err, io.EOF) {
+			if n > 0 {
+				t.bytesRead += uint64(n)
+			}
+			return n, err
+		}
 		if t.retries < t.maxRetries {
 			t.retries++
 			fmt.Printf("Resuming copy at %d bytes, retry %d/%d\n", t.bytesRead, t.retries, t.maxRetries)
