@@ -12,7 +12,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.38.2
-	github.com/openshift/api v0.0.0-20260327052435-9b07872d3fa6
+	github.com/openshift/api v0.0.0-20260329113031-1e7cd4b531e7
 	github.com/operator-framework/api v0.42.0
 	github.com/operator-framework/operator-lib v0.19.0
 	github.com/robfig/cron/v3 v3.0.1
@@ -99,5 +99,5 @@ require (
 	k8s.io/kube-openapi v0.0.0-20260319004828-5883c5ee87b9 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v6 v6.3.2-0.20260122202528-d9cc6641c482 // indirect
+	sigs.k8s.io/structured-merge-diff/v6 v6.3.3-0.20260224192135-eedc5365731c // indirect
 )
