@@ -397,28 +397,35 @@ var _ = Describe("Key rotation test", Ordered, func() {
 			Expect(testKubernetes.CopyFromPod(ctx, tufPod, "/var/www/html", filepath.Join(tufRepoWorkdir, "tuf-repo"))).To(Succeed())
 		})
 
+		It("Resolve service URLs", func(ctx SpecContext) {
+			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
+			Expect(s.Status.FulcioStatus.Url).ToNot(BeEmpty())
+			Expect(s.Status.RekorStatus.Url).ToNot(BeEmpty())
+			Expect(s.Status.TufStatus.Url).ToNot(BeEmpty())
+			Expect(s.Status.TSAStatus.Url).ToNot(BeEmpty())
+		})
+
 		It("Rotate fulcio certs", func(ctx SpecContext) {
 			Expect(os.WriteFile(certs+"/new-fulcio.cert.pem", newFulcioCert.Data["cert"], 0644)).To(Succeed())
 			Expect(os.WriteFile(certs+"/fulcio_v1.crt.pem", oldFulcioCert, 0644)).To(Succeed())
-
-			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("fulcio", "fulcio_v1.crt.pem", tufRepoWorkdir, true)...)).To(Succeed())
-			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("fulcio", "new-fulcio.cert.pem", tufRepoWorkdir, false)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("fulcio", "fulcio_v1.crt.pem", s.Status.FulcioStatus.Url, tufRepoWorkdir, true)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("fulcio", "new-fulcio.cert.pem", s.Status.FulcioStatus.Url, tufRepoWorkdir, false)...)).To(Succeed())
 		})
 
 		It("Rotate rekor signer ", func(ctx SpecContext) {
 			Expect(os.WriteFile(certs+"/new-rekor.pub", newRekorSigner.Data["public"], 0644)).To(Succeed())
 			Expect(os.WriteFile(certs+"/rekor.pub", oldRekorPub, 0644)).To(Succeed())
 
-			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("rekor", "rekor.pub", tufRepoWorkdir, true)...)).To(Succeed())
-			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("rekor", "new-rekor.pub", tufRepoWorkdir, false)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("rekor", "rekor.pub", s.Status.RekorStatus.Url, tufRepoWorkdir, true)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("rekor", "new-rekor.pub", s.Status.RekorStatus.Url, tufRepoWorkdir, false)...)).To(Succeed())
 		})
 
 		It("Rotate transparency log ", func(ctx SpecContext) {
 			Expect(os.WriteFile(certs+"/new-ctlog-public.pem", newCtlConfig.Data["public"], 0644)).To(Succeed())
 			Expect(os.WriteFile(certs+"/ctfe.pub", newCtlConfig.Data["public-0"], 0644)).To(Succeed())
 
-			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("ctlog", "ctfe.pub", tufRepoWorkdir, true)...)).To(Succeed())
-			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("ctlog", "new-ctlog-public.pem", tufRepoWorkdir, false)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("ctlog", "ctfe.pub", fmt.Sprintf("https://%s.%s.svc", ctlogActions.DeploymentName, namespace.Name), tufRepoWorkdir, true)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("ctlog", "new-ctlog-public.pem", fmt.Sprintf("https://%s.%s.svc", ctlogActions.DeploymentName, namespace.Name), tufRepoWorkdir, false)...)).To(Succeed())
 		})
 	})
 
@@ -440,7 +447,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 
 })
 
-func tufToolParams(component, targetName string, workdir string, expire bool) []string {
+func tufToolParams(component, targetName, url string, workdir string, expire bool) []string {
 	args := []string{
 		"rhtas",
 		"--root", workdir + "/tuf-repo/root.json",
@@ -448,7 +455,7 @@ func tufToolParams(component, targetName string, workdir string, expire bool) []
 		"--key", workdir + "/keys/targets.pem",
 		"--key", workdir + "/keys/timestamp.pem",
 		fmt.Sprintf("--set-%s-target", component), targetName,
-		fmt.Sprintf("--%s-uri", component), fmt.Sprintf("https://%s.rhtas", component),
+		fmt.Sprintf("--%s-uri", component), url,
 		"--outdir", workdir + "/tuf-repo",
 		"--metadata-url", "file://" + workdir + "/tuf-repo",
 	}
