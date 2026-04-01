@@ -134,8 +134,17 @@ func (i initJobAction) resolveServiceURLs(ctx context.Context, instance *rhtasv1
 	}{
 		{&instance.Spec.Fulcio.Address, fulcio.DeploymentName, ""},
 		{&instance.Spec.Rekor.Address, rekor.ServerDeploymentName, ""},
-		{&instance.Spec.Tsa.Address, tsa.DeploymentName, tsa.TimestampPath},
 	}
+
+	// Only resolve TSA ingress if tsa.certchain.pem key is configured
+	if hasTSAKey(instance.Spec.Keys) {
+		services = append(services, struct {
+			address     *string
+			ingressName string
+			suffix      string
+		}{&instance.Spec.Tsa.Address, tsa.DeploymentName, tsa.TimestampPath})
+	}
+
 	for _, svc := range services {
 		if *svc.address == "" {
 			if url, err := i.resolveURLFromIngress(ctx, svc.ingressName, instance.Namespace); err == nil {
@@ -146,6 +155,15 @@ func (i initJobAction) resolveServiceURLs(ctx context.Context, instance *rhtasv1
 		}
 	}
 	return nil
+}
+
+func hasTSAKey(keys []rhtasv1alpha1.TufKey) bool {
+	for _, key := range keys {
+		if key.Name == "tsa.certchain.pem" {
+			return true
+		}
+	}
+	return false
 }
 
 func (i initJobAction) resolveURLFromIngress(ctx context.Context, ingressName, namespace string) (string, error) {
