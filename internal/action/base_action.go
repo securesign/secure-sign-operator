@@ -71,7 +71,8 @@ func (action *BaseAction) StatusUpdate(ctx context.Context, obj client.Object) *
 }
 
 func (action *BaseAction) Error(ctx context.Context, err error, instance apis.ConditionsAwareObject, conditions ...metav1.Condition) *Result {
-	if errors.Is(err, reconcile.TerminalError(err)) {
+	isTerminal := errors.Is(err, reconcile.TerminalError(err))
+	if isTerminal {
 		instance.SetCondition(metav1.Condition{
 			Type:               constants.ReadyCondition,
 			Status:             metav1.ConditionFalse,
@@ -84,8 +85,27 @@ func (action *BaseAction) Error(ctx context.Context, err error, instance apis.Co
 	for _, condition := range conditions {
 		instance.SetCondition(condition)
 	}
-	if errors.Is(err, reconcile.TerminalError(err)) || len(conditions) != 0 {
-		if updateErr := action.Client.Status().Update(ctx, instance); updateErr != nil {
+	if isTerminal || len(conditions) != 0 {
+		updateErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			current := instance.DeepCopyObject().(apis.ConditionsAwareObject)
+			if getErr := action.Client.Get(ctx, client.ObjectKeyFromObject(instance), current); getErr != nil {
+				return getErr
+			}
+			if isTerminal {
+				current.SetCondition(metav1.Condition{
+					Type:               constants.ReadyCondition,
+					Status:             metav1.ConditionFalse,
+					Reason:             state.Failure.String(),
+					Message:            err.Error(),
+					ObservedGeneration: current.GetGeneration(),
+				})
+			}
+			for _, condition := range conditions {
+				current.SetCondition(condition)
+			}
+			return action.Client.Status().Update(ctx, current)
+		})
+		if updateErr != nil {
 			err = errors.Join(err, updateErr)
 		}
 	}
