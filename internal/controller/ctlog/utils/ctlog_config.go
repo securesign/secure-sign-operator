@@ -18,6 +18,8 @@ import (
 
 // reference code https://github.com/sigstore/scaffolding/blob/main/cmd/ctlog/createctconfig/main.go
 const (
+	// DefaultPrefix is the default prefix for the CTLog.
+	DefaultPrefix = "trusted-artifact-signer"
 	// ConfigKey is the key in the map holding the marshalled CTLog config.
 	ConfigKey = "config"
 	// PrivateKey is the key in the map holding the encrypted PEM private key
@@ -174,7 +176,7 @@ func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertifi
 		return nil, err
 	}
 	ctlogConfig.LogID = treeID
-	ctlogConfig.LogPrefix = "trusted-artifact-signer"
+	ctlogConfig.LogPrefix = DefaultPrefix
 	ctlogConfig.TrillianServerAddr = trillianUrl
 
 	for _, cert := range rootCerts {

@@ -25,6 +25,7 @@ import (
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller"
+	"github.com/securesign/operator/internal/controller/predicate"
 	"github.com/securesign/operator/internal/controller/tuf/actions"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	v1 "k8s.io/api/apps/v1"
@@ -34,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -115,6 +117,7 @@ func (r *tufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.Tuf](),
 
+		actions.NewMigrationJobAction(),
 		actions.NewInitializeAction(),
 
 		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.Tuf](),
@@ -150,7 +153,7 @@ func (r *tufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
-		For(&rhtasv1alpha1.Tuf{}).
+		For(&rhtasv1alpha1.Tuf{}, builder.WithPredicates(predicate.IgnoreFailurePredicate[*rhtasv1alpha1.Tuf]())).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		Owns(&v13.Ingress{}).

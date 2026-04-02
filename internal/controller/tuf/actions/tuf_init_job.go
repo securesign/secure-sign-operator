@@ -9,9 +9,6 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
-	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
-	rekor "github.com/securesign/operator/internal/controller/rekor/actions"
-	tsa "github.com/securesign/operator/internal/controller/tsa/actions"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/controller/tuf/utils"
 	"github.com/securesign/operator/internal/labels"
@@ -21,12 +18,10 @@ import (
 	jobUtils "github.com/securesign/operator/internal/utils/kubernetes/job"
 	v2 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
-	v3 "k8s.io/api/networking/v1"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apilabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -69,6 +64,13 @@ func (i initJobAction) jobPresent(ctx context.Context, job *v2.Job, instance *rh
 	i.Logger.Info("Tuf tuf-repository-init is present.", "Succeeded", job.Status.Succeeded, "Failures", job.Status.Failed)
 	if jobUtils.IsCompleted(*job) {
 		if !jobUtils.IsFailed(*job) {
+			//annotate self to signal that we are already on tuf v1
+			if _, err := kubernetes.CreateOrUpdate(ctx, i.Client, instance,
+				ensure.Annotations[*rhtasv1alpha1.Tuf]([]string{tufVersionAnnotation}, map[string]string{tufVersionAnnotation: "v1"}),
+			); err != nil {
+				return i.Error(ctx, err, instance)
+			}
+
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:    tufConstants.RepositoryCondition,
 				Status:  metav1.ConditionTrue,
@@ -93,10 +95,10 @@ func (i initJobAction) jobPresent(ctx context.Context, job *v2.Job, instance *rh
 }
 
 func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]string, instance *rhtasv1alpha1.Tuf) *action.Result {
-	if err := i.resolveServiceURLs(ctx, instance); err != nil {
+	if err := utils.ResolveServiceAddress(ctx, i.Client, instance); err != nil {
 		return i.Error(ctx, fmt.Errorf("fail to resolve service url: %w", err), instance)
 	}
-	oidcIssuers := i.resolveOIDCIssuers(ctx, instance.Namespace)
+	oidcIssuers := utils.ResolveOIDCIssuers(ctx, i.Client, instance.Namespace)
 
 	if _, err := kubernetes.CreateOrUpdate(ctx, i.Client,
 		&v2.Job{
@@ -121,65 +123,4 @@ func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]stri
 
 	i.Recorder.Event(instance, v1.EventTypeNormal, "JobCreated", "Tuf init-repository job created.")
 	return i.Requeue()
-}
-
-func (i initJobAction) resolveServiceURLs(ctx context.Context, instance *rhtasv1alpha1.Tuf) error {
-	if instance.Spec.SigningConfigURLMode == rhtasv1alpha1.SigningConfigURLInternal {
-		return nil
-	}
-	services := []struct {
-		address     *string
-		ingressName string
-		suffix      string
-	}{
-		{&instance.Spec.Fulcio.Address, fulcio.DeploymentName, ""},
-		{&instance.Spec.Rekor.Address, rekor.ServerDeploymentName, ""},
-		{&instance.Spec.Tsa.Address, tsa.DeploymentName, tsa.TimestampPath},
-	}
-	for _, svc := range services {
-		if *svc.address == "" {
-			if url, err := i.resolveURLFromIngress(ctx, svc.ingressName, instance.Namespace); err == nil {
-				*svc.address = url + svc.suffix
-			} else {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (i initJobAction) resolveURLFromIngress(ctx context.Context, ingressName, namespace string) (string, error) {
-	ingress := &v3.Ingress{}
-	if err := i.Client.Get(ctx, types.NamespacedName{Name: ingressName, Namespace: namespace}, ingress); err != nil {
-		return "", err
-	}
-	if len(ingress.Spec.Rules) == 0 || ingress.Spec.Rules[0].Host == "" {
-		return "", fmt.Errorf("fail to resolve host name from ingress %s", ingress.Name)
-	}
-	protocol := "http"
-	if len(ingress.Spec.TLS) > 0 {
-		protocol = "https"
-	}
-	return fmt.Sprintf("%s://%s", protocol, ingress.Spec.Rules[0].Host), nil
-}
-
-func (i initJobAction) resolveOIDCIssuers(ctx context.Context, namespace string) []string {
-	fulcioList := &rhtasv1alpha1.FulcioList{}
-	if err := i.Client.List(ctx, fulcioList, client.InNamespace(namespace)); err != nil {
-		return nil
-	}
-	if len(fulcioList.Items) == 0 {
-		return nil
-	}
-
-	fulcioInstance := &fulcioList.Items[0]
-	var issuers []string
-	for _, oidc := range fulcioInstance.Spec.Config.OIDCIssuers {
-		if oidc.IssuerURL != "" {
-			issuers = append(issuers, oidc.IssuerURL)
-		} else if oidc.Issuer != "" {
-			issuers = append(issuers, oidc.Issuer)
-		}
-	}
-	return issuers
 }
