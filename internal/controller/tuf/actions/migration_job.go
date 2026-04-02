@@ -85,7 +85,7 @@ func (i migrationJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 func (i migrationJobAction) jobPresent(ctx context.Context, job *batchv1.Job, instance *rhtasv1alpha1.Tuf) *action.Result {
 	i.Logger.Info("Tuf migration job is present.", "Succeeded", job.Status.Succeeded, "Failures", job.Status.Failed)
 	if jobUtils.IsCompleted(*job) {
-		//scale the deployment back in any case
+		//bring the deployment back online in any case
 		// can't use kubernetes.CreateOrUpdate because it is paused by annotation
 		if err := retry.RetryOnConflict(retry.DefaultRetry, func() (err error) {
 			deployment := &appsv1.Deployment{}
@@ -152,7 +152,7 @@ func (i migrationJobAction) ensureMigrationJob(ctx context.Context, labels map[s
 				Namespace:    instance.Namespace,
 			},
 		},
-		// use init job RBAC and do not introduce new RBAC for migration job
+		// use init job RBAC and do not introduce new RBAC for the migration job
 		utils.EnsureTufMigrationJob(instance, tufConstants.RBACInitJobName, labels, oidcIssuers),
 		ensure.ControllerReference[*batchv1.Job](instance, i.Client),
 		ensure.Labels[*batchv1.Job](slices.Collect(maps.Keys(labels)), labels),
@@ -164,14 +164,13 @@ func (i migrationJobAction) ensureMigrationJob(ctx context.Context, labels map[s
 			return ensure.PodSecurityContext(&object.Spec.Template.Spec)
 		},
 	); err != nil {
-		//do not terminate - retry with exponential backoff
 		return i.Error(ctx, fmt.Errorf("could not create TUF migration job: %w", err),
 			instance, metav1.Condition{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Initialize.String(), Message: "TUF migration job creation failed"})
 	}
 
 	i.Recorder.Event(instance, corev1.EventTypeNormal, "TUFMigrationJob", "Tuf migration job created.")
 
-	//scale the deployment to 0 to free up PVC access for migration job
+	//scale the deployment down to 0 to free up the PVC access for the migration job
 	deployment := &appsv1.Deployment{}
 	if err := i.Client.Get(ctx, types.NamespacedName{
 		Namespace: instance.Namespace,
@@ -185,7 +184,7 @@ func (i migrationJobAction) ensureMigrationJob(ctx context.Context, labels map[s
 	); err != nil {
 		return i.Error(ctx, err, instance)
 	}
-	i.Recorder.Event(instance, corev1.EventTypeNormal, "TUFMigrationJob", "TUF deployment scaled down to 0 to free up PVC access for migration job")
+	i.Recorder.Event(instance, corev1.EventTypeNormal, "TUFMigrationJob", "TUF deployment scaled down to 0 to free up the PVC access for the migration job")
 	return i.Requeue()
 
 }

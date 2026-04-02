@@ -71,26 +71,33 @@ func (action *BaseAction) StatusUpdate(ctx context.Context, obj client.Object) *
 }
 
 func (action *BaseAction) Error(ctx context.Context, err error, instance apis.ConditionsAwareObject, conditions ...metav1.Condition) *Result {
-	if errors.Is(err, reconcile.TerminalError(err)) {
-		instance.SetCondition(metav1.Condition{
-			Type:               constants.ReadyCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             state.Failure.String(),
-			Message:            err.Error(),
-			ObservedGeneration: instance.GetGeneration(),
-		})
-	}
+	action.Logger.Error(err, "error during action execution")
+	isTerminal := errors.Is(err, reconcile.TerminalError(err))
 
-	for _, condition := range conditions {
-		instance.SetCondition(condition)
-	}
-	if errors.Is(err, reconcile.TerminalError(err)) || len(conditions) != 0 {
-		if updateErr := action.Client.Status().Update(ctx, instance); updateErr != nil {
+	if isTerminal || len(conditions) != 0 {
+		updateErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if getErr := action.Client.Get(ctx, client.ObjectKeyFromObject(instance), instance); getErr != nil {
+				return getErr
+			}
+			for _, condition := range conditions {
+				instance.SetCondition(condition)
+			}
+			if isTerminal {
+				instance.SetCondition(metav1.Condition{
+					Type:               constants.ReadyCondition,
+					Status:             metav1.ConditionFalse,
+					Reason:             state.Failure.String(),
+					Message:            err.Error(),
+					ObservedGeneration: instance.GetGeneration(),
+				})
+			}
+			return action.Client.Status().Update(ctx, instance)
+		})
+		if updateErr != nil {
 			err = errors.Join(err, updateErr)
 		}
 	}
 
-	action.Logger.Error(err, "error during action execution")
 	return &Result{
 		Err: err,
 	}
