@@ -64,13 +64,6 @@ func (i initJobAction) jobPresent(ctx context.Context, job *v2.Job, instance *rh
 	i.Logger.Info("Tuf tuf-repository-init is present.", "Succeeded", job.Status.Succeeded, "Failures", job.Status.Failed)
 	if jobUtils.IsCompleted(*job) {
 		if !jobUtils.IsFailed(*job) {
-			//annotate self to signal that we are already on tuf v1
-			if _, err := kubernetes.CreateOrUpdate(ctx, i.Client, instance,
-				ensure.Annotations[*rhtasv1alpha1.Tuf]([]string{tufVersionAnnotation}, map[string]string{tufVersionAnnotation: "v1"}),
-			); err != nil {
-				return i.Error(ctx, err, instance)
-			}
-
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:    tufConstants.RepositoryCondition,
 				Status:  metav1.ConditionTrue,

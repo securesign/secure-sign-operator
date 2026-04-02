@@ -50,7 +50,8 @@ func (i migrationJobAction) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Tuf)
 	case "v1":
 		return false
 	default:
-		return state.FromInstance(tuf, constants.ReadyCondition) == state.Initialize
+		s := state.FromInstance(tuf, constants.ReadyCondition)
+		return s == state.Initialize || s == state.Ready
 	}
 }
 
