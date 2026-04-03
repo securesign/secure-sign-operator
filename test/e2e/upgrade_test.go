@@ -215,6 +215,8 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 			}).Should(gomega.Equal(v), fmt.Sprintf("Expected %s deployment image to be equal to %s", k, v))
 		}
 
+		time.Sleep(100 * time.Second)
+
 		tas.VerifyAllComponents(ctx, cli, securesignDeployment, true)
 	})
 
