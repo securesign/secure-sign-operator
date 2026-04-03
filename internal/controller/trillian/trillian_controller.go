@@ -36,11 +36,13 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	tasPredicate "github.com/securesign/operator/internal/controller/predicate"
 )
 
 // trillianReconciler reconciles a Trillian object
@@ -156,7 +158,7 @@ func (r *trillianReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
-		For(&rhtasv1alpha1.Trillian{}).
+		For(&rhtasv1alpha1.Trillian{}, builder.WithPredicates(tasPredicate.IgnoreFailurePredicate[*rhtasv1alpha1.Trillian]())).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		Complete(r)
