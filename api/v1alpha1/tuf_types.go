@@ -45,6 +45,7 @@ type TufSpec struct {
 	//+kubebuilder:default:={size: "100Mi",retain: true,accessModes: {ReadWriteOnce}}
 	Pvc TufPvc `json:"pvc,omitempty"`
 	// Ctlog service configuration
+	//+kubebuilder:default:={prefix: trusted-artifact-signer}
 	//+optional
 	Ctlog CtlogService `json:"ctlog,omitempty"`
 	// Fulcio service configuration
