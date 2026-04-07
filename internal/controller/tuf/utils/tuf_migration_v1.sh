@@ -67,10 +67,19 @@ fix_valid_for_start() {
 import json, sys
 data = json.load(open(sys.argv[1]))
 count = 0
+
+# Check tlogs and ctlogs (nested under publicKey)
 for key in ['tlogs', 'ctlogs']:
     for log in data.get(key, []):
         if 'start' not in log.get('publicKey', {}).get('validFor', {}):
             count += 1
+
+# Check CAs and TSAs (root level of the item)
+for key in ['certificateAuthorities', 'timestampAuthorities']:
+    for auth in data.get(key, []):
+        if 'start' not in auth.get('validFor', {}):
+            count += 1
+
 print(count)
 " "$target_file")
 
@@ -81,10 +90,22 @@ print(count)
 import json, sys
 data = json.load(open(sys.argv[1]))
 start_time = sys.argv[3]
+
+# Update tlogs and ctlogs
 for key in ['tlogs', 'ctlogs']:
     for log in data.get(key, []):
-        if 'start' not in log.get('publicKey', {}).get('validFor', {}):
-            log['publicKey']['validFor']['start'] = start_time
+        pub_key = log.setdefault('publicKey', {})
+        valid_for = pub_key.setdefault('validFor', {})
+        if 'start' not in valid_for:
+            valid_for['start'] = start_time
+
+# Update CAs and TSAs
+for key in ['certificateAuthorities', 'timestampAuthorities']:
+    for auth in data.get(key, []):
+        valid_for = auth.setdefault('validFor', {})
+        if 'start' not in valid_for:
+            valid_for['start'] = start_time
+
 with open(sys.argv[2], 'w') as f:
     json.dump(data, f, indent=2)
 " "$target_file" "${target_file}.tmp" "$TAS_START"
@@ -276,6 +297,6 @@ else
     
 fi
 
-    echo "Storing backup file for any catastrophic failure on $TUF_REPO/backup/$BACKUP_NAME"
-    mkdir -p "$TUF_REPO/backup"
-    mv "$WORKDIR/$BACKUP_NAME" "$TUF_REPO/backup/$BACKUP_NAME"
+echo "Storing backup file for any catastrophic failure on $TUF_REPO/backup/$BACKUP_NAME"
+mkdir -p "$TUF_REPO/backup"
+mv "$WORKDIR/$BACKUP_NAME" "$TUF_REPO/backup/$BACKUP_NAME"

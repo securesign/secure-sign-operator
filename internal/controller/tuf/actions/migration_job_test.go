@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"context"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -25,8 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
-
-var migrateJobTestContext = context.TODO()
 
 func setupMigrateAction() migrationJobAction {
 	migrateJobTestAction := migrationJobAction{
@@ -65,7 +62,7 @@ func TestMigrateJob_AlreadyMigrated(t *testing.T) {
 				Status: metav1.ConditionFalse,
 			},
 		}}}
-	result := migrateJobTestAction.CanHandle(migrateJobTestContext, instance)
+	result := migrateJobTestAction.CanHandle(t.Context(), instance)
 	g.Expect(result).To(BeFalse())
 }
 
@@ -82,7 +79,7 @@ func TestMigrateJob_NoRootKeySecret(t *testing.T) {
 			Replicas: ptr.To(int32(1)),
 		},
 	}
-	g.Expect(migrateJobTestAction.Client.Create(migrateJobTestContext, deployment)).To(Succeed())
+	g.Expect(migrateJobTestAction.Client.Create(t.Context(), deployment)).To(Succeed())
 
 	instance := &v1alpha1.Tuf{
 		ObjectMeta: metav1.ObjectMeta{
@@ -103,17 +100,17 @@ func TestMigrateJob_NoRootKeySecret(t *testing.T) {
 				Status: metav1.ConditionFalse,
 			},
 		}}}
-	g.Expect(migrateJobTestAction.Client.Create(migrateJobTestContext, instance)).To(Succeed())
+	g.Expect(migrateJobTestAction.Client.Create(t.Context(), instance)).To(Succeed())
 
-	g.Expect(migrateJobTestAction.CanHandle(migrateJobTestContext, instance)).To(BeTrue())
-	result := migrateJobTestAction.Handle(migrateJobTestContext, instance)
+	g.Expect(migrateJobTestAction.CanHandle(t.Context(), instance)).To(BeTrue())
+	result := migrateJobTestAction.Handle(t.Context(), instance)
 	g.Expect(result.Err).To(HaveOccurred())
 	g.Expect(result.Err).To(MatchError(ContainSubstring("cannot migrate TUF: root key secret test-secret not found")))
 
 	g.Expect(meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition).Reason).To(Equal(state.Failure.String()))
 	g.Expect(meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition).Message).To(ContainSubstring("cannot migrate TUF: root key secret test-secret not found"))
 
-	g.Expect(migrateJobTestAction.Client.Get(migrateJobTestContext, client.ObjectKeyFromObject(deployment), deployment)).To(Succeed())
+	g.Expect(migrateJobTestAction.Client.Get(t.Context(), client.ObjectKeyFromObject(deployment), deployment)).To(Succeed())
 	g.Expect(*deployment.Spec.Replicas).To(BeNumerically("==", 1))
 }
 
@@ -130,9 +127,9 @@ func TestMigrateJob_Succeeded(t *testing.T) {
 			Replicas: ptr.To(int32(1)),
 		},
 	}
-	g.Expect(migrateJobTestAction.Client.Create(migrateJobTestContext, deployment)).To(Succeed())
+	g.Expect(migrateJobTestAction.Client.Create(t.Context(), deployment)).To(Succeed())
 
-	g.Expect(migrateJobTestAction.Client.Create(migrateJobTestContext, &corev1.Secret{
+	g.Expect(migrateJobTestAction.Client.Create(t.Context(), &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-secret",
 			Namespace: t.Name(),
@@ -160,16 +157,16 @@ func TestMigrateJob_Succeeded(t *testing.T) {
 				Status: metav1.ConditionFalse,
 			},
 		}}}
-	g.Expect(migrateJobTestAction.Client.Create(migrateJobTestContext, instance)).To(Succeed())
-	g.Expect(migrateJobTestAction.CanHandle(migrateJobTestContext, instance)).To(BeTrue())
-	result := migrateJobTestAction.Handle(migrateJobTestContext, instance)
+	g.Expect(migrateJobTestAction.Client.Create(t.Context(), instance)).To(Succeed())
+	g.Expect(migrateJobTestAction.CanHandle(t.Context(), instance)).To(BeTrue())
+	result := migrateJobTestAction.Handle(t.Context(), instance)
 	g.Expect(result).To(Equal(action.Requeue()))
 
-	g.Expect(migrateJobTestAction.Client.Get(migrateJobTestContext, client.ObjectKeyFromObject(deployment), deployment)).To(Succeed())
+	g.Expect(migrateJobTestAction.Client.Get(t.Context(), client.ObjectKeyFromObject(deployment), deployment)).To(Succeed())
 	g.Expect(*deployment.Spec.Replicas).To(BeNumerically("==", 0))
 
 	jobList := &batchv1.JobList{}
-	g.Expect(migrateJobTestAction.Client.List(migrateJobTestContext, jobList, client.MatchingLabels(labels.ForResource(tufConstants.ComponentName, tufConstants.MigrationJobName, instance.Name, instance.Status.PvcName)))).To(Succeed())
+	g.Expect(migrateJobTestAction.Client.List(t.Context(), jobList, client.MatchingLabels(labels.ForResource(tufConstants.ComponentName, tufConstants.MigrationJobName, instance.Name, instance.Status.PvcName)))).To(Succeed())
 	g.Expect(jobList.Items).To(HaveLen(1))
 	job := &jobList.Items[0]
 
@@ -181,19 +178,19 @@ func TestMigrateJob_Succeeded(t *testing.T) {
 			Status: corev1.ConditionTrue,
 		},
 	}
-	g.Expect(migrateJobTestAction.Client.Status().Update(migrateJobTestContext, job)).To(Succeed())
+	g.Expect(migrateJobTestAction.Client.Status().Update(t.Context(), job)).To(Succeed())
 
-	g.Expect(migrateJobTestAction.CanHandle(migrateJobTestContext, instance)).To(BeTrue())
-	result = migrateJobTestAction.Handle(migrateJobTestContext, instance)
+	g.Expect(migrateJobTestAction.CanHandle(t.Context(), instance)).To(BeTrue())
+	result = migrateJobTestAction.Handle(t.Context(), instance)
 	g.Expect(result).To(Equal(action.Requeue()))
 	found := &v1alpha1.Tuf{}
-	g.Expect(migrateJobTestAction.Client.Get(migrateJobTestContext, client.ObjectKeyFromObject(instance), found)).To(Succeed())
+	g.Expect(migrateJobTestAction.Client.Get(t.Context(), client.ObjectKeyFromObject(instance), found)).To(Succeed())
 	g.Expect(found.Annotations[tufConstants.RepositoryVersionAnnotation]).To(Equal(tufConstants.TufVersionV1))
 
-	g.Expect(migrateJobTestAction.Client.Get(migrateJobTestContext, types.NamespacedName{Namespace: t.Name(), Name: tufConstants.DeploymentName}, deployment)).To(Succeed())
+	g.Expect(migrateJobTestAction.Client.Get(t.Context(), types.NamespacedName{Namespace: t.Name(), Name: tufConstants.DeploymentName}, deployment)).To(Succeed())
 	g.Expect(*deployment.Spec.Replicas).To(BeNumerically("==", 1))
 
-	g.Expect(migrateJobTestAction.CanHandle(migrateJobTestContext, instance)).To(BeFalse())
+	g.Expect(migrateJobTestAction.CanHandle(t.Context(), instance)).To(BeFalse())
 }
 
 func TestMigrateJob_Failed(t *testing.T) {
@@ -209,9 +206,9 @@ func TestMigrateJob_Failed(t *testing.T) {
 			Replicas: ptr.To(int32(1)),
 		},
 	}
-	g.Expect(migrateJobTestAction.Client.Create(migrateJobTestContext, deployment)).To(Succeed())
+	g.Expect(migrateJobTestAction.Client.Create(t.Context(), deployment)).To(Succeed())
 
-	g.Expect(migrateJobTestAction.Client.Create(migrateJobTestContext, &corev1.Secret{
+	g.Expect(migrateJobTestAction.Client.Create(t.Context(), &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-secret",
 			Namespace: t.Name(),
@@ -239,16 +236,16 @@ func TestMigrateJob_Failed(t *testing.T) {
 				Status: metav1.ConditionFalse,
 			},
 		}}}
-	g.Expect(migrateJobTestAction.Client.Create(migrateJobTestContext, instance)).To(Succeed())
-	g.Expect(migrateJobTestAction.CanHandle(migrateJobTestContext, instance)).To(BeTrue())
-	result := migrateJobTestAction.Handle(migrateJobTestContext, instance)
+	g.Expect(migrateJobTestAction.Client.Create(t.Context(), instance)).To(Succeed())
+	g.Expect(migrateJobTestAction.CanHandle(t.Context(), instance)).To(BeTrue())
+	result := migrateJobTestAction.Handle(t.Context(), instance)
 	g.Expect(result).To(Equal(action.Requeue()))
 
-	g.Expect(migrateJobTestAction.Client.Get(migrateJobTestContext, client.ObjectKeyFromObject(deployment), deployment)).To(Succeed())
+	g.Expect(migrateJobTestAction.Client.Get(t.Context(), client.ObjectKeyFromObject(deployment), deployment)).To(Succeed())
 	g.Expect(*deployment.Spec.Replicas).To(BeNumerically("==", 0))
 
 	jobList := &batchv1.JobList{}
-	g.Expect(migrateJobTestAction.Client.List(migrateJobTestContext, jobList, client.MatchingLabels(labels.ForResource(tufConstants.ComponentName, tufConstants.MigrationJobName, instance.Name, instance.Status.PvcName)))).To(Succeed())
+	g.Expect(migrateJobTestAction.Client.List(t.Context(), jobList, client.MatchingLabels(labels.ForResource(tufConstants.ComponentName, tufConstants.MigrationJobName, instance.Name, instance.Status.PvcName)))).To(Succeed())
 	g.Expect(jobList.Items).To(HaveLen(1))
 	job := &jobList.Items[0]
 
@@ -264,9 +261,9 @@ func TestMigrateJob_Failed(t *testing.T) {
 			Status: corev1.ConditionTrue,
 		},
 	}
-	g.Expect(migrateJobTestAction.Client.Status().Update(migrateJobTestContext, job)).To(Succeed())
+	g.Expect(migrateJobTestAction.Client.Status().Update(t.Context(), job)).To(Succeed())
 
-	result = migrateJobTestAction.Handle(migrateJobTestContext, instance)
+	result = migrateJobTestAction.Handle(t.Context(), instance)
 	g.Expect(result.Err).To(HaveOccurred())
 	g.Expect(result.Err).To(MatchError(ContainSubstring("tuf-repository-migration job failed")))
 
@@ -274,10 +271,10 @@ func TestMigrateJob_Failed(t *testing.T) {
 	g.Expect(meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition).Message).To(ContainSubstring("tuf-repository-migration job failed"))
 
 	found := &v1alpha1.Tuf{}
-	g.Expect(migrateJobTestAction.Client.Get(migrateJobTestContext, client.ObjectKeyFromObject(instance), found)).To(Succeed())
+	g.Expect(migrateJobTestAction.Client.Get(t.Context(), client.ObjectKeyFromObject(instance), found)).To(Succeed())
 	g.Expect(found.Annotations).ToNot(HaveKey(tufConstants.RepositoryVersionAnnotation))
 
-	g.Expect(migrateJobTestAction.Client.Get(migrateJobTestContext, types.NamespacedName{Namespace: t.Name(), Name: tufConstants.DeploymentName}, deployment)).To(Succeed())
+	g.Expect(migrateJobTestAction.Client.Get(t.Context(), types.NamespacedName{Namespace: t.Name(), Name: tufConstants.DeploymentName}, deployment)).To(Succeed())
 	g.Expect(*deployment.Spec.Replicas).To(BeNumerically("==", 1))
 
 }

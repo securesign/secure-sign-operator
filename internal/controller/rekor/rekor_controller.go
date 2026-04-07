@@ -46,7 +46,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	tasPredicate "github.com/securesign/operator/internal/controller/predicate"
+	"github.com/securesign/operator/internal/controller/predicate"
 	batchv1 "k8s.io/api/batch/v1"
 )
 
@@ -181,7 +181,7 @@ func (r *rekorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
-		For(&rhtasv1alpha1.Rekor{}, builder.WithPredicates(tasPredicate.IgnoreFailurePredicate[*rhtasv1alpha1.Rekor]())).
+		For(&rhtasv1alpha1.Rekor{}, builder.WithPredicates(predicate.ConfigurationChangedOnFailurePredicate[*rhtasv1alpha1.Rekor]())).
 		Owns(&v12.Deployment{}).
 		Owns(&v12.StatefulSet{}).
 		Owns(&v13.Service{}).

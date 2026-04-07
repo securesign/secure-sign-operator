@@ -40,7 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	tasPredicate "github.com/securesign/operator/internal/controller/predicate"
+	"github.com/securesign/operator/internal/controller/predicate"
 )
 
 // fulcioReconciler reconciles a Fulcio object
@@ -137,7 +137,7 @@ func (r *fulcioReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
-		For(&rhtasv1alpha1.Fulcio{}, builder.WithPredicates(tasPredicate.IgnoreFailurePredicate[*rhtasv1alpha1.Fulcio]())).
+		For(&rhtasv1alpha1.Fulcio{}, builder.WithPredicates(predicate.ConfigurationChangedOnFailurePredicate[*rhtasv1alpha1.Fulcio]())).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		Owns(&v13.Ingress{}).

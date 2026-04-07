@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -14,8 +13,7 @@ import (
 )
 
 var (
-	ctx = context.TODO()
-	c   = fake.NewFakeClient()
+	c = fake.NewFakeClient()
 )
 
 func TestResolveServiceAddress_UserSpecifiedAddress(t *testing.T) {
@@ -55,7 +53,7 @@ func TestResolveServiceAddress_UserSpecifiedAddress(t *testing.T) {
 			SigningConfigURLMode: v1alpha1.SigningConfigURLExternal,
 		},
 	}
-	err := ResolveServiceAddress(ctx, c, instance)
+	err := ResolveServiceAddress(t.Context(), c, instance)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(instance.Spec.Rekor.Address).To(Equal("http://rekor.fakeserver.com"))
 	g.Expect(instance.Spec.Ctlog.Address).To(Equal("http://ctlog.fakeserver.com"))
@@ -86,7 +84,7 @@ func TestResolveServiceAddress_NoTsaKey(t *testing.T) {
 			SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
 		},
 	}
-	err := ResolveServiceAddress(ctx, c, instance)
+	err := ResolveServiceAddress(t.Context(), c, instance)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(instance.Spec.Rekor.Address).To(Equal("http://rekor-server.testNamespace.svc"))
 	g.Expect(instance.Spec.Ctlog.Address).To(Equal("http://ctlog.testNamespace.svc"))
@@ -119,7 +117,7 @@ func TestResolveServiceAddress_Internal(t *testing.T) {
 			SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
 		},
 	}
-	err := ResolveServiceAddress(ctx, c, instance)
+	err := ResolveServiceAddress(t.Context(), c, instance)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(instance.Spec.Rekor.Address).To(Equal("http://rekor-server.testNamespace.svc"))
 	g.Expect(instance.Spec.Ctlog.Address).To(Equal("http://ctlog.testNamespace.svc"))
@@ -144,7 +142,7 @@ func TestResolveServiceAddress_External(t *testing.T) {
 				},
 			},
 		}
-		err := c.Create(ctx, ingress)
+		err := c.Create(t.Context(), ingress)
 		g.Expect(err).ToNot(HaveOccurred())
 	}
 	instance := &v1alpha1.Tuf{
@@ -170,7 +168,7 @@ func TestResolveServiceAddress_External(t *testing.T) {
 			SigningConfigURLMode: v1alpha1.SigningConfigURLExternal,
 		},
 	}
-	err := ResolveServiceAddress(ctx, c, instance)
+	err := ResolveServiceAddress(t.Context(), c, instance)
 	g.Expect(err).ToNot(HaveOccurred())
 
 	g.Expect(instance.Spec.Ctlog.Address).To(Equal("http://ctlog.testNamespace.svc"), "ctlog is never exposed externally, so we always use internal mode")

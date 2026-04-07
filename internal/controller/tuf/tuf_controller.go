@@ -155,7 +155,7 @@ func (r *tufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
-		For(&rhtasv1alpha1.Tuf{}, builder.WithPredicates(predicate.IgnoreFailurePredicate[*rhtasv1alpha1.Tuf]())).
+		For(&rhtasv1alpha1.Tuf{}, builder.WithPredicates(predicate.ConfigurationChangedOnFailurePredicate[*rhtasv1alpha1.Tuf]())).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		Owns(&v13.Ingress{}).

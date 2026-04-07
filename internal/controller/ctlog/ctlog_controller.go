@@ -173,7 +173,7 @@ func (r *ctlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
-		For(&rhtasv1alpha1.CTlog{}, builder.WithPredicates(tasPredicate.IgnoreFailurePredicate[*rhtasv1alpha1.CTlog]())).
+		For(&rhtasv1alpha1.CTlog{}, builder.WithPredicates(tasPredicate.ConfigurationChangedOnFailurePredicate[*rhtasv1alpha1.CTlog]())).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		WatchesMetadata(partialSecret, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {

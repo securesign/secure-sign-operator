@@ -158,7 +158,7 @@ func (r *trillianReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
-		For(&rhtasv1alpha1.Trillian{}, builder.WithPredicates(tasPredicate.IgnoreFailurePredicate[*rhtasv1alpha1.Trillian]())).
+		For(&rhtasv1alpha1.Trillian{}, builder.WithPredicates(tasPredicate.ConfigurationChangedOnFailurePredicate[*rhtasv1alpha1.Trillian]())).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		Complete(r)
