@@ -11,6 +11,7 @@ set -euo pipefail
 if [ -z "${TUF_REPO:-}" ]; then echo "Error: TUF_REPO is not set."; exit 1; fi
 if [ -z "${KEYDIR:-}" ]; then echo "Error: KEYDIR is not set."; exit 1; fi
 if [ -z "${WORKDIR:-}" ]; then echo "Error: WORKDIR is not set."; exit 1; fi
+if [ -z "${OPERATOR_NAME:-}" ]; then echo "Error: OPERATOR_NAME is not set."; exit 1; fi
 
 if [ -z "${FULCIO_URL:-}" ]; then echo "Warning: FULCIO_URL is not set. Skipping FULCIO configuration."; fi
 if [ -z "${REKOR_URL:-}" ]; then echo "Warning: REKOR_URL is not set. Skipping REKOR configuration."; fi
@@ -174,6 +175,82 @@ else:
     fi
 }
 
+update_authority_subject() {
+    local target_file="$1"
+    local auth_key="$2" # E.g., "certificateAuthorities" or "timestampAuthorities"
+    echo "Checking and updating subject for $auth_key..."
+
+    local update_status
+    update_status=$(python3 -c "
+import json, sys, subprocess, re, base64, os
+
+target_file = sys.argv[1]
+auth_key = sys.argv[2]
+updated = False
+
+try:
+    with open(target_file, 'r') as f:
+        data = json.load(f)
+
+    for auth in data.get(auth_key, []):
+        certs = auth.get('certChain', {}).get('certificates', [])
+        if not certs or 'rawBytes' not in certs[0]:
+            continue
+        
+        try:
+            cert_der = base64.b64decode(certs[0]['rawBytes'])
+            
+            proc = subprocess.run(
+                ['openssl', 'x509', '-inform', 'der', '-noout', '-subject'],
+                input=cert_der, capture_output=True, check=True
+            )
+            
+            # Decode the raw stdout back into a string
+            subject_str = proc.stdout.decode('utf-8')
+            
+            # Parse Organization (O) and Common Name (CN), default to empty string
+            org_match = re.search(r'O\s*=\s*([^,\n/]+)', subject_str)
+            cn_match = re.search(r'CN\s*=\s*([^,\n/]+)', subject_str)
+            
+            org = org_match.group(1).strip() if org_match else ''
+            cn = cn_match.group(1).strip() if cn_match else ''
+            
+            # Update JSON if values differ
+            auth.setdefault('subject', {})
+            if auth['subject'].get('organization') != org or auth['subject'].get('commonName') != cn:
+                auth['subject']['organization'] = org
+                auth['subject']['commonName'] = cn
+                updated = True
+                
+        except Exception as e:
+            print(f'Error processing cert in {auth_key}: {e}', file=sys.stderr)
+            continue
+
+    # Save changes atomically if updated
+    if updated:
+        tmp_file = target_file + '.tmp'
+        with open(tmp_file, 'w') as f:
+            json.dump(data, f, indent=2)
+        
+        # Atomically replace the old file with the new complete file
+        os.replace(tmp_file, target_file)
+        print('true')
+    else:
+        print('false')
+
+except Exception as main_e:
+    print(f'Fatal error in python script: {main_e}', file=sys.stderr)
+    print('false')
+" "$target_file" "$auth_key")
+
+    if [ "$update_status" = "true" ]; then
+        echo " -> Subject fields updated successfully for $auth_key."
+        NEEDS_UPDATE=true
+    else
+        echo " -> OK: Subject already matches or no updates needed for $auth_key."
+    fi
+}
+
 add_signing_config() {
     local target_file="$1"
     local targets_json="$2"
@@ -193,23 +270,23 @@ add_signing_config() {
 
     # Using the new TAS_START constant everywhere
     if [ -n "$FULCIO_URL" ]; then
-        cmd+=("--fulcio=url=$FULCIO_URL,api-version=1,start-time=$TAS_START,operator=sigstore.dev")
+        cmd+=("--fulcio=url=$FULCIO_URL,api-version=1,start-time=$TAS_START,operator=$OPERATOR_NAME")
     fi
 
     if [ -n "$REKOR_URL" ]; then
-        cmd+=("--rekor=url=$REKOR_URL,api-version=1,start-time=$TAS_START,operator=sigstore.dev")
+        cmd+=("--rekor=url=$REKOR_URL,api-version=1,start-time=$TAS_START,operator=$OPERATOR_NAME")
         cmd+=("--rekor-config=ANY")
     fi
 
     if [ -n "${TSA_URL:-}" ]; then
-        cmd+=("--tsa=url=$TSA_URL,api-version=1,start-time=$TAS_START,operator=sigstore.dev")
+        cmd+=("--tsa=url=$TSA_URL,api-version=1,start-time=$TAS_START,operator=$OPERATOR_NAME")
         cmd+=("--tsa-config=ANY")
     fi
 
     if [ -n "${OIDC_ISSUERS:-}" ]; then
         IFS=',' read -ra ISSUERS <<< "$OIDC_ISSUERS"
         for issuer in "${ISSUERS[@]}"; do
-            cmd+=("--oidc-provider=url=$issuer,api-version=1,start-time=$TAS_START,operator=sigstore.dev")
+            cmd+=("--oidc-provider=url=$issuer,api-version=1,start-time=$TAS_START,operator=$OPERATOR_NAME")
         done
     fi
 
@@ -263,6 +340,8 @@ fix_checkpoint_key_id "$WORK_TR"
 fix_valid_for_start "$WORK_TR"
 fix_service_urls "$WORK_TR"
 add_signing_config "$WORK_TR" "$TARGETS_FILE"
+update_authority_subject "$WORK_TR" "certificateAuthorities"
+update_authority_subject "$WORK_TR" "timestampAuthorities"
 echo "-------------------------------"
 
 # --- Finalize ---

@@ -15,4 +15,5 @@ const (
 
 	RepositoryVersionAnnotation = "rhtas.redhat.com/tuf-version"
 	TufVersionV1                = "v1"
+	OperatorName                = "rhtas.redhat.com"
 )
