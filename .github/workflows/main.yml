@@ -7,13 +7,13 @@ on:
     branches: [ "main", "release*" ]
 
 env:
-  GO_VERSION: 1.25
+  GO_VERSION: 1.25.7
   REGISTRY: ghcr.io
   CONTAINER_TOOL: podman
   IMG: ghcr.io/securesign/secure-sign-operator:dev-${{ github.sha }}
   BUNDLE_IMG: ghcr.io/securesign/secure-sign-operator-bundle:dev-${{ github.sha }}
   CATALOG_IMG: ghcr.io/securesign/secure-sign-operator-fbc:dev-${{ github.sha }}
-  NEW_OLM_CHANNEL: rhtas-operator.v1.3.3
+  NEW_OLM_CHANNEL: rhtas-operator.v1.3.4
   OCP_VERSION: ${{ vars.OLM_INDEX_VERSION }}
 
 jobs:
@@ -124,6 +124,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: "securesign/fbc"
+          ref: main
           path: fbc
 
       - name: Build catalog
