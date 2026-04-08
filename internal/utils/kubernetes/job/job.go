@@ -22,7 +22,7 @@ func IsCompleted(job batchv1.Job) bool {
 	if completed != nil {
 		return completed.Status == corev1.ConditionTrue
 	}
-	return false
+	return IsFailed(job)
 }
 
 func IsFailed(job batchv1.Job) bool {

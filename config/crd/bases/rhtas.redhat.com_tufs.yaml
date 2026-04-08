@@ -961,6 +961,8 @@ spec:
                     type: object
                 type: object
               ctlog:
+                default:
+                  prefix: trusted-artifact-signer
                 description: Ctlog service configuration
                 properties:
                   address:
