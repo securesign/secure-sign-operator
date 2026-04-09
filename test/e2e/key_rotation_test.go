@@ -35,6 +35,7 @@ import (
 	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
 	"github.com/securesign/operator/test/e2e/support/tas/rekor"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
+	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -49,15 +50,15 @@ import (
 var _ = Describe("Key rotation test", Ordered, func() {
 	cli, _ := support.CreateClient()
 	var (
-		targetImageName                             string
-		namespace                                   *v1.Namespace
-		s                                           *v1alpha1.Securesign
-		oldFulcioCert, oldRekorPub                  []byte
-		newFulcioCert, newRekorSigner, newCtlConfig *v1.Secret
-		err                                         error
-		tufRepoWorkdir                              string
-		tufPod                                      v1.Pod
-		runningTimestamp                            time.Time
+		targetImageName                                           string
+		namespace                                                 *v1.Namespace
+		s                                                         *v1alpha1.Securesign
+		oldFulcioCert, oldRekorPub, oldTsa                        []byte
+		newFulcioCert, newRekorSigner, newCtlConfig, newTsaSecret *v1.Secret
+		err                                                       error
+		tufRepoWorkdir                                            string
+		tufPod                                                    v1.Pod
+		runningTimestamp                                          time.Time
 	)
 
 	BeforeAll(func() {
@@ -372,6 +373,64 @@ var _ = Describe("Key rotation test", Ordered, func() {
 		})
 	})
 
+	Describe("Update tsa", func() {
+
+		It("Download tsa cert", func(ctx SpecContext) {
+			t := tsa.Get(ctx, cli, namespace.Name, s.Name)
+			Expect(t).ToNot(BeNil())
+			oldTsa, err = kubernetes.GetSecretData(cli, namespace.Name, t.Status.Signer.CertificateChain.CertificateChainRef)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(oldTsa).ToNot(BeEmpty())
+		})
+
+		It("Update tsa cert", func(ctx SpecContext) {
+			secretName := "new-tsa-cert"
+			newTsaSecret = tsa.CreateSecrets(namespace.Name, secretName)
+			Expect(cli.Create(ctx, newTsaSecret)).To(Succeed())
+
+			Eventually(func() error {
+				f := securesign.Get(ctx, cli, s.Namespace, s.Name)
+
+				f.Spec.TimestampAuthority.Signer.CertificateChain = v1alpha1.CertificateChain{
+					CertificateChainRef: &v1alpha1.SecretKeySelector{
+						LocalObjectReference: v1alpha1.LocalObjectReference{
+							Name: secretName,
+						},
+						Key: "certificateChain",
+					}}
+
+				f.Spec.TimestampAuthority.Signer.File = &v1alpha1.File{
+					PrivateKeyRef: &v1alpha1.SecretKeySelector{
+						LocalObjectReference: v1alpha1.LocalObjectReference{
+							Name: secretName,
+						},
+						Key: "leafPrivateKey",
+					},
+
+					PasswordRef: &v1alpha1.SecretKeySelector{
+						LocalObjectReference: v1alpha1.LocalObjectReference{
+							Name: secretName,
+						},
+						Key: "leafPrivateKeyPassword",
+					},
+				}
+
+				return cli.Update(ctx, f)
+			}).Should(Succeed())
+			Eventually(func(g Gomega) bool {
+				list := &v1.PodList{}
+				g.Expect(cli.List(ctx, list, runtimeCli.InNamespace(s.Namespace), runtimeCli.MatchingLabels{labels.LabelAppComponent: fulcioActions.ComponentName})).To(Succeed())
+				for _, p := range list.Items {
+					if p.CreationTimestamp.After(runningTimestamp) {
+						return true
+					}
+				}
+				return false
+
+			}).Should(BeTrue())
+		})
+	})
+
 	Describe("Update TUF repository", func() {
 		var certs string
 		It("Download TUF repository", func(ctx SpecContext) {
@@ -426,6 +485,14 @@ var _ = Describe("Key rotation test", Ordered, func() {
 
 			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("ctlog", "ctfe.pub", fmt.Sprintf("https://%s.%s.svc", ctlogActions.DeploymentName, namespace.Name), tufRepoWorkdir, true)...)).To(Succeed())
 			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("ctlog", "new-ctlog-public.pem", fmt.Sprintf("https://%s.%s.svc", ctlogActions.DeploymentName, namespace.Name), tufRepoWorkdir, false)...)).To(Succeed())
+		})
+
+		It("Rotate tsa ", func(ctx SpecContext) {
+			Expect(os.WriteFile(certs+"/new-tsa.certchain.pem", newTsaSecret.Data["certificateChain"], 0644)).To(Succeed())
+			Expect(os.WriteFile(certs+"/tsa.certchain.pem", oldTsa, 0644)).To(Succeed())
+
+			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("tsa", "tsa.certchain.pem", tufRepoWorkdir, true)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("tsa", "new-tsa.certchain.pem", tufRepoWorkdir, false)...)).To(Succeed())
 		})
 	})
 
