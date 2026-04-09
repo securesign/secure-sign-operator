@@ -23,6 +23,7 @@ import (
 	ctlogActions "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcioActions "github.com/securesign/operator/internal/controller/fulcio/actions"
 	rekorActions "github.com/securesign/operator/internal/controller/rekor/actions"
+	tsaActions "github.com/securesign/operator/internal/controller/tsa/actions"
 	tufAction "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
@@ -491,8 +492,8 @@ var _ = Describe("Key rotation test", Ordered, func() {
 			Expect(os.WriteFile(certs+"/new-tsa.certchain.pem", newTsaSecret.Data["certificateChain"], 0644)).To(Succeed())
 			Expect(os.WriteFile(certs+"/tsa.certchain.pem", oldTsa, 0644)).To(Succeed())
 
-			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("tsa", "tsa.certchain.pem", tufRepoWorkdir, true)...)).To(Succeed())
-			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("tsa", "new-tsa.certchain.pem", tufRepoWorkdir, false)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("tsa", "tsa.certchain.pem", s.Status.TSAStatus.Url+tsaActions.TimestampPath, tufRepoWorkdir, true)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("tsa", "new-tsa.certchain.pem", s.Status.TSAStatus.Url+tsaActions.TimestampPath, tufRepoWorkdir, false)...)).To(Succeed())
 		})
 	})
 
