@@ -27,6 +27,10 @@ const (
 
 func EnsureTufInitJob(instance *rhtasv1alpha1.Tuf, sa string, labels map[string]string, oidcIssuers []string) func(*batchv1.Job) error {
 	return func(job *batchv1.Job) error {
+		if instance.Spec.RootKeySecretRef == nil {
+			return fmt.Errorf("rootKeySecretRef is not set")
+		}
+
 		var (
 			protocol, uri string
 		)
