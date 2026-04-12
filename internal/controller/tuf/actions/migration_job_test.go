@@ -114,6 +114,58 @@ func TestMigrateJob_NoRootKeySecret(t *testing.T) {
 	g.Expect(*deployment.Spec.Replicas).To(BeNumerically("==", 1))
 }
 
+func TestMigrateJob_NilRootKeySecretRef(t *testing.T) {
+	g := NewWithT(t)
+
+	migrateJobTestAction := setupMigrateAction()
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      tufConstants.DeploymentName,
+			Namespace: t.Name(),
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: ptr.To(int32(1)),
+		},
+	}
+	g.Expect(migrateJobTestAction.Client.Create(t.Context(), deployment)).To(Succeed())
+
+	instance := &v1alpha1.Tuf{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: t.Name(),
+		},
+		Spec: v1alpha1.TufSpec{
+			// RootKeySecretRef is nil — simulates upgrade with externally stored TUF signing keys
+			RootKeySecretRef:    nil,
+			SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
+		},
+		Status: v1alpha1.TufStatus{Conditions: []metav1.Condition{
+			{
+				Type:   constants.ReadyCondition,
+				Reason: state.Initialize.String(),
+				Status: metav1.ConditionFalse,
+			},
+		}}}
+	g.Expect(migrateJobTestAction.Client.Create(t.Context(), instance)).To(Succeed())
+
+	g.Expect(migrateJobTestAction.CanHandle(t.Context(), instance)).To(BeTrue())
+	result := migrateJobTestAction.Handle(t.Context(), instance)
+	g.Expect(result.Err).To(HaveOccurred())
+	g.Expect(result.Err).To(MatchError(ContainSubstring("cannot migrate TUF: root key secret not specified")))
+
+	g.Expect(meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition).Reason).To(Equal(state.Failure.String()))
+	g.Expect(meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition).Message).To(ContainSubstring("cannot migrate TUF: root key secret not specified"))
+
+	// Verify deployment is NOT touched (non-destructive)
+	g.Expect(migrateJobTestAction.Client.Get(t.Context(), client.ObjectKeyFromObject(deployment), deployment)).To(Succeed())
+	g.Expect(*deployment.Spec.Replicas).To(BeNumerically("==", 1))
+
+	// Verify no migration job was created
+	jobList := &batchv1.JobList{}
+	g.Expect(migrateJobTestAction.Client.List(t.Context(), jobList, client.InNamespace(t.Name()))).To(Succeed())
+	g.Expect(jobList.Items).To(BeEmpty())
+}
+
 func TestMigrateJob_Succeeded(t *testing.T) {
 	g := NewWithT(t)
 
