@@ -105,6 +105,16 @@ func (i initJobAction) jobPresent(ctx context.Context, job *v2.Job, instance *rh
 }
 
 func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]string, instance *rhtasv1.Tuf) *action.Result {
+	if instance.Spec.RootKeySecretRef == nil {
+		err := fmt.Errorf("rootKeySecretRef is not set")
+		return i.Error(ctx, reconcile.TerminalError(err), instance, metav1.Condition{
+			Type:    tufConstants.RepositoryCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  state.Failure.String(),
+			Message: err.Error(),
+		})
+	}
+
 	if _, err := kubernetes.CreateOrUpdate(ctx, i.Client,
 		&v2.Job{
 			ObjectMeta: metav1.ObjectMeta{
