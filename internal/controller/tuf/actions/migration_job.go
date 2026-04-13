@@ -8,7 +8,6 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
-	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/controller/tuf/utils"
@@ -17,16 +16,12 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	jobUtils "github.com/securesign/operator/internal/utils/kubernetes/job"
-	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apilabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
-	"k8s.io/utils/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -85,54 +80,43 @@ func (i migrationJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 func (i migrationJobAction) jobPresent(ctx context.Context, job *batchv1.Job, instance *rhtasv1alpha1.Tuf) *action.Result {
 	i.Logger.Info("Tuf migration job is present.", "Succeeded", job.Status.Succeeded, "Failures", job.Status.Failed)
 	if jobUtils.IsCompleted(*job) {
-		//bring the deployment back online in any case
-		// can't use kubernetes.CreateOrUpdate because it is paused by annotation
-		if err := retry.RetryOnConflict(retry.DefaultRetry, func() (err error) {
-			deployment := &appsv1.Deployment{}
-			if err := i.Client.Get(ctx, types.NamespacedName{
-				Namespace: instance.Namespace,
-				Name:      tufConstants.DeploymentName,
-			}, deployment); err != nil {
-				return err
-			}
-			if err := ensure.Annotations[*appsv1.Deployment]([]string{annotations.PausedReconciliation}, map[string]string{})(deployment); err != nil {
-				return err
-			}
-			if err := i.scaleDeployment(instance.Spec.Replicas)(deployment); err != nil {
-				return err
-			}
-			return i.Client.Update(ctx, deployment)
-		}); err != nil {
-			return i.Error(ctx, err, instance)
-		}
-		i.Recorder.Event(instance, corev1.EventTypeNormal, "TUFMigrationJob", "TUF deployment scaled up")
-
 		if !jobUtils.IsFailed(*job) {
 			i.Recorder.Event(instance, corev1.EventTypeNormal, "TUFMigrationJob", "TUF migration job passed")
 
 			//annotate self to signal that the migration is complete
 			var (
-				result controllerutil.OperationResult
-				err    error
+				err error
 			)
-			if result, err = kubernetes.CreateOrUpdate(ctx, i.Client, instance,
+			if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, instance,
 				ensure.Annotations[*rhtasv1alpha1.Tuf]([]string{tufConstants.RepositoryVersionAnnotation}, map[string]string{tufConstants.RepositoryVersionAnnotation: tufConstants.TufVersionV1}),
 			); err != nil {
 				return i.Error(ctx, err, instance)
 			}
 
-			if result != controllerutil.OperationResultNone {
-				return i.Requeue()
-			} else {
-				return i.Continue()
-			}
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:    state.Ready.String(),
+				Status:  metav1.ConditionFalse,
+				Reason:  state.Initialize.String(),
+				Message: "migration job passed",
+			})
+			return i.StatusUpdate(ctx, instance)
 		} else {
 			err := fmt.Errorf("tuf-repository-migration job failed")
 			i.Recorder.Event(instance, corev1.EventTypeWarning, "TUFMigrationJob", err.Error())
 			return i.Error(ctx, reconcile.TerminalError(err), instance)
 		}
 	} else {
-		// job not completed yet
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    state.Ready.String(),
+			Status:  metav1.ConditionFalse,
+			Reason:  state.Initialize.String(),
+			Message: "waiting for migration job to complete",
+		})
+		result := i.StatusUpdate(ctx, instance)
+		if result.Err != nil {
+			return result
+		}
+		// ensure that new requeue iteration is triggered even if no status update happened
 		return i.Requeue()
 	}
 }
@@ -169,29 +153,12 @@ func (i migrationJobAction) ensureMigrationJob(ctx context.Context, labels map[s
 	}
 
 	i.Recorder.Event(instance, corev1.EventTypeNormal, "TUFMigrationJob", "Tuf migration job created.")
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:    state.Ready.String(),
+		Status:  metav1.ConditionFalse,
+		Reason:  state.Initialize.String(),
+		Message: "migration job created",
+	})
+	return i.StatusUpdate(ctx, instance)
 
-	//scale the deployment down to 0 to free up the PVC access for the migration job
-	deployment := &appsv1.Deployment{}
-	if err := i.Client.Get(ctx, types.NamespacedName{
-		Namespace: instance.Namespace,
-		Name:      tufConstants.DeploymentName,
-	}, deployment); err != nil {
-		return i.Error(ctx, err, instance)
-	}
-	if _, err := kubernetes.CreateOrUpdate(ctx, i.Client, deployment,
-		i.scaleDeployment(ptr.To[int32](0)),
-		ensure.Annotations[*appsv1.Deployment]([]string{annotations.PausedReconciliation}, map[string]string{annotations.PausedReconciliation: "true"}),
-	); err != nil {
-		return i.Error(ctx, err, instance)
-	}
-	i.Recorder.Event(instance, corev1.EventTypeNormal, "TUFMigrationJob", "TUF deployment scaled down to 0 to free up the PVC access for the migration job")
-	return i.Requeue()
-
-}
-
-func (i migrationJobAction) scaleDeployment(replicas *int32) func(*appsv1.Deployment) error {
-	return func(dp *appsv1.Deployment) error {
-		dp.Spec.Replicas = replicas
-		return nil
-	}
 }
