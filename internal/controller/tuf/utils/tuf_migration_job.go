@@ -10,9 +10,11 @@ import (
 	futils "github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/images"
+	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
 
@@ -25,18 +27,30 @@ const (
 //go:embed tuf_migration_v1.sh
 var script string
 
-func EnsureTufMigrationJob(instance *rhtasv1alpha1.Tuf, sa string, labels map[string]string, oidcIssuers []string) func(*batchv1.Job) error {
+func EnsureTufMigrationJob(instance *rhtasv1alpha1.Tuf, sa string, jobLabels map[string]string, oidcIssuers []string) func(*batchv1.Job) error {
 	return func(job *batchv1.Job) error {
 
 		jobSpec := &job.Spec
 		jobSpec.Parallelism = ptr.To[int32](1)
 		jobSpec.Completions = ptr.To[int32](1)
 		jobSpec.BackoffLimit = ptr.To(int32(0))
-		jobSpec.Template.Labels = labels
+		jobSpec.Template.Labels = jobLabels
 
 		templateSpec := &jobSpec.Template.Spec
 		templateSpec.ServiceAccountName = sa
 		templateSpec.RestartPolicy = v1.RestartPolicyNever
+		templateSpec.Affinity = &v1.Affinity{
+			PodAffinity: &v1.PodAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []v1.PodAffinityTerm{
+					{
+						LabelSelector: &metav1.LabelSelector{
+							MatchLabels: labels.For(constants.ComponentName, constants.DeploymentName, instance.Name),
+						},
+						TopologyKey: "kubernetes.io/hostname",
+					},
+				},
+			},
+		}
 
 		rootKeyVolume := kubernetes.FindVolumeByNameOrCreate(templateSpec, "root-key")
 		rootKeyVolume.VolumeSource = v1.VolumeSource{
