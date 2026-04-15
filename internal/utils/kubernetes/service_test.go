@@ -81,3 +81,57 @@ func TestService(t *testing.T) {
 		})
 	}
 }
+
+func TestHeadlessService(t *testing.T) {
+	tests := []struct {
+		name    string
+		objects []client.Object
+		result  controllerutil.OperationResult
+	}{
+		{
+			"create new headless service",
+			[]client.Object{},
+			controllerutil.OperationResultCreated,
+		},
+		{
+			"existing headless service with expected values",
+			[]client.Object{
+				&v1.Service{
+					ObjectMeta: v2.ObjectMeta{Name: name, Namespace: "default"},
+					Spec: v1.ServiceSpec{
+						ClusterIP: v1.ClusterIPNone,
+						Ports: []v1.ServicePort{
+							{Name: "grpc", Port: 8091},
+						},
+						Selector: map[string]string{"app": "logserver"},
+					},
+				},
+			},
+			controllerutil.OperationResultNone,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.TODO()
+			g := gomega.NewWithT(t)
+			c := testAction.FakeClientBuilder().
+				WithObjects(tt.objects...).
+				Build()
+
+			ports := []v1.ServicePort{{Name: "grpc", Port: 8091}}
+			l := map[string]string{"app": "logserver"}
+
+			result, err := CreateOrUpdate(ctx, c,
+				&v1.Service{ObjectMeta: v2.ObjectMeta{Name: name, Namespace: "default"}},
+				EnsureHeadlessServiceSpec(l, ports...))
+			g.Expect(err).ToNot(gomega.HaveOccurred())
+			g.Expect(result).To(gomega.Equal(tt.result))
+
+			existing := &v1.Service{}
+			g.Expect(c.Get(ctx, client.ObjectKey{Namespace: "default", Name: name}, existing)).To(gomega.Succeed())
+			g.Expect(existing.Spec.Ports).To(gomega.Equal(ports))
+			g.Expect(existing.Spec.Selector).To(gomega.Equal(l))
+			g.Expect(existing.Spec.ClusterIP).To(gomega.Equal(v1.ClusterIPNone))
+		})
+	}
+}
