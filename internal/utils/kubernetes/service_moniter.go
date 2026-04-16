@@ -54,7 +54,7 @@ func ServiceMonitorEndpoint(port string) serviceMonitorEndpoint {
 func EnsureServiceMonitorSpec(selectorLabels map[string]string, endpoints ...serviceMonitorEndpoint) func(*unstructured.Unstructured) error {
 	return func(monitor *unstructured.Unstructured) error {
 		// need to convert []ServiceMonitorEndpoint to []interface{}
-		var epInterfaces []interface{}
+		epInterfaces := make([]interface{}, 0, len(endpoints))
 		for _, ep := range endpoints {
 			epInterfaces = append(epInterfaces, ep.toMap())
 		}
