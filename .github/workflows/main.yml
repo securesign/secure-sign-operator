@@ -13,7 +13,7 @@ env:
   IMG: ghcr.io/securesign/secure-sign-operator:dev-${{ github.sha }}
   BUNDLE_IMG: ghcr.io/securesign/secure-sign-operator-bundle:dev-${{ github.sha }}
   CATALOG_IMG: ghcr.io/securesign/secure-sign-operator-fbc:dev-${{ github.sha }}
-  NEW_OLM_CHANNEL: rhtas-operator.v1.3.4
+  NEW_OLM_CHANNEL: rhtas-operator.v1.3.5
   OCP_VERSION: ${{ vars.OLM_INDEX_VERSION }}
 
 jobs:
@@ -341,6 +341,7 @@ jobs:
         env:
           TEST_BASE_CATALOG: registry.redhat.io/redhat/redhat-operator-index:${{ vars.OLM_INDEX_VERSION }}
           TEST_TARGET_CATALOG: ${{ env.CATALOG_IMG }}
+          TEST_UPGRADE_CHANNEL: stable-v1.3
           OPENSHIFT: false
         run: go test -p 1 ./test/e2e/... -tags=upgrade -timeout 20m
 
