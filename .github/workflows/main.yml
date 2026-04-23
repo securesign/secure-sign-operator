@@ -13,7 +13,7 @@ env:
   IMG: ghcr.io/securesign/secure-sign-operator:dev-${{ github.sha }}
   BUNDLE_IMG: ghcr.io/securesign/secure-sign-operator-bundle:dev-${{ github.sha }}
   CATALOG_IMG: ghcr.io/securesign/secure-sign-operator-fbc:dev-${{ github.sha }}
-  NEW_OLM_CHANNEL: rhtas-operator.v1.4.0
+  NEW_OLM_CHANNEL: rhtas-operator.v1.5.0
   OCP_VERSION: ${{ vars.OLM_INDEX_VERSION }}
 
 jobs:
@@ -133,7 +133,7 @@ jobs:
           BUNDLE_NAME: ${{ env.NEW_OLM_CHANNEL }}
           FBC_DIR: rhtas-operator
           GRAPH: ${{ env.OCP_VERSION }}/rhtas-operator/graph.yaml
-          CHANNELS: "stable,stable-v1.4"
+          CHANNELS: "stable,stable-v1.5"
           CATALOG_FILE: ${{ env.OCP_VERSION }}/rhtas-operator/catalog/rhtas-operator/catalog.json
         run: |
           cd fbc
