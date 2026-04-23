@@ -22,7 +22,7 @@ metadata:
 spec:
   params:
   - name: release-version
-    value: "1.4.0"
+    value: "1.4.1"
   - name: git-url
     value: '{{source_url}}'
   - name: revision
@@ -38,7 +38,7 @@ spec:
   - name: hermetic
     value: "true"
   - name: manager-pipelinerun-selector
-    value: appstudio.openshift.io/application=operator,appstudio.openshift.io/component=rhtas-operator,pipelinesascode.tekton.dev/sha={{revision}},pipelinesascode.tekton.dev/event-type in (push,incoming,retest-all-comment)
+    value: appstudio.openshift.io/application=operator-v1-4,appstudio.openshift.io/component=rhtas-operator-v1-4,pipelinesascode.tekton.dev/sha={{revision}},pipelinesascode.tekton.dev/event-type in (push,incoming,retest-all-comment)
   - name: manager-registry-url
     value: registry.redhat.io/rhtas/rhtas-rhel9-operator
   - name: fips-check
