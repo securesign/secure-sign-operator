@@ -1,4 +1,4 @@
-ARG VERSION="1.4.0"
+ARG VERSION="1.5.0"
 
 # Build the manager binary
 FROM registry.redhat.io/ubi9/go-toolset:9.7-1774618347@sha256:0f4f6f7868962aa75dddfe4230b664bdf77071e92c43c70c824c58450e37693f AS builder
