@@ -62,7 +62,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 
 	insCopy := instance.DeepCopy()
 	if insCopy.Spec.Trillian.Address == "" {
-		insCopy.Spec.Trillian.Address = fmt.Sprintf("%s.%s.svc", actions2.LogserverDeploymentName, instance.Namespace)
+		insCopy.Spec.Trillian.Address = fmt.Sprintf("dns:///%s.%s.svc", actions2.LogserverDeploymentName, instance.Namespace)
 	}
 	i.Logger.V(1).Info("trillian logserver", "address", insCopy.Spec.Trillian.Address)
 
