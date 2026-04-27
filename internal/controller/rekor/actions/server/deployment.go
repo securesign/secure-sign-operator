@@ -62,7 +62,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 
 	insCopy := instance.DeepCopy()
 	if insCopy.Spec.Trillian.Address == "" {
-		insCopy.Spec.Trillian.Address = fmt.Sprintf("%s.%s.svc", actions2.LogserverDeploymentName, instance.Namespace)
+		insCopy.Spec.Trillian.Address = fmt.Sprintf("dns:///%s.%s.svc", actions2.LogserverDeploymentName, instance.Namespace)
 	}
 	i.Logger.V(1).Info("trillian logserver", "address", insCopy.Spec.Trillian.Address)
 
@@ -140,6 +140,7 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 			"--trillian_log_server.address", instance.Spec.Trillian.Address,
 			"--trillian_log_server.port", strconv.Itoa(int(*instance.Spec.Trillian.Port)),
 			"--trillian_log_server.sharding_config", "/sharding/sharding-config.yaml",
+			"--trillian_log_server.grpc_default_service_config", `{"loadBalancingConfig":[{"round_robin":{}}]}`,
 
 			"--rekor_server.address", "0.0.0.0",
 			// boolean flag MUST be without parameter (default value) or use the equal sign (https://github.com/spf13/pflag?tab=readme-ov-file#command-line-flag-syntax)
