@@ -29,6 +29,12 @@ This is necessary because you'll need the length of the current shard later on, 
 
 Follow these steps to shard the log:
 
+1. Set the RHTAS release version you are running, for example:
+
+   ```bash
+   VERSION=1.4.0
+   ```
+
 1. Connect to your Kubernetes cluster and switch to the namespace that contains the running RHTAS stack:
 
    ```bash
@@ -44,7 +50,7 @@ Follow these steps to shard the log:
 1. Stop all traffic to Rekor so new entries can't be added by setting the log tree to a `DRAINING` state.
 
    ```bash
-   kubectl run --image registry.redhat.io/rhtas/updatetree-rhel9:latest --restart=Never --attach=true --rm=true -q -- updatetree --admin_server=trillian-logserver:8091 --tree_id=${CURRENT_TREE_ID} --tree_state=DRAINING
+   kubectl run --image registry.redhat.io/rhtas/updatetree-rhel9:${VERSION} --restart=Never --attach=true --rm=true -q -- updatetree --admin_server=trillian-logserver:8091 --tree_id=${CURRENT_TREE_ID} --tree_state=DRAINING
    ```
 
    At this point, the log will not accept new entries, but there may be some that have already been submitted but not yet integrated.
@@ -58,7 +64,7 @@ Follow these steps to shard the log:
    **Warning**: Be sure to have completed the queue monitoring process set out in the previous section. If there are still queued leaves that have not been integrated, then setting the tree to frozen will put the log on a path to exceeding its MMD (Maximum Merge Delay).
 
    ```bash
-   kubectl run --image registry.redhat.io/rhtas/updatetree-rhel9:latest --restart=Never --attach=true --rm=true -q -- updatetree --admin_server=trillian-logserver:8091 --tree_id=${CURRENT_TREE_ID} --tree_state=FROZEN
+   kubectl run --image registry.redhat.io/rhtas/updatetree-rhel9:${VERSION} --restart=Never --attach=true --rm=true -q -- updatetree --admin_server=trillian-logserver:8091 --tree_id=${CURRENT_TREE_ID} --tree_state=FROZEN
    ```
 
 1. Store the length of the frozen tree:
@@ -76,7 +82,7 @@ Follow these steps to shard the log:
 1. Create a new Merkle Tree which will become the new active shard:
 
    ```bash
-   NEW_TREE_ID=$(kubectl run createtree --image registry.redhat.io/rhtas/createtree-rhel9:latest --restart=Never --attach=true --rm=true -q -- -logtostderr=false --admin_server=trillian-logserver:8091 --display_name=rekor-tree)
+   NEW_TREE_ID=$(kubectl run createtree --image registry.redhat.io/rhtas/createtree-rhel9:${VERSION} --restart=Never --attach=true --rm=true -q -- -logtostderr=false --admin_server=trillian-logserver:8091 --display_name=rekor-tree)
    ```
 
 1. At this point, we should have two trees: one is frozen, and the second is a new that will be used as the active shard. Example of stored values:

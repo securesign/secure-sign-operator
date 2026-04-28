@@ -11,7 +11,15 @@ Before starting, ensure that:
 
 ## Key Rotation Steps
 
-### 1. Connect to Kubernetes Cluster
+### 1. Set the Release Version
+
+Set the RHTAS release version you are running, for example:
+
+```bash
+VERSION=1.4.0
+```
+
+### 2. Connect to Kubernetes Cluster
 
 Set your context to the namespace that contains the CT log service:
 
@@ -19,7 +27,7 @@ Set your context to the namespace that contains the CT log service:
 kubectl config set-context --current --namespace=<namespace-name>
 ```
 
-### 2. Backup the Current CT Log Configuration
+### 3. Backup the Current CT Log Configuration
 
 Before making any changes, store the current CT log configuration and related keys for backup:
 
@@ -33,7 +41,7 @@ kubectl get secret $SERVER_CONFIG_NAME -o jsonpath="{.data.public}" | base64 --d
 
 This backup will be needed for generating a new configuration.
 
-### 3. Record the Current Tree ID
+### 4. Record the Current Tree ID
 
 Store the `treeID` of the currently active CT log shard:
 
@@ -41,35 +49,35 @@ Store the `treeID` of the currently active CT log shard:
 CURRENT_TREE_ID=$(kubectl get ctlog -o jsonpath='{.items[0].status.treeID}')
 ```
 
-### 4. Drain the CT Log
+### 5. Drain the CT Log
 
 Stop new entries from being added by setting the current log to a `DRAINING` state. This will prevent new entries but allow already submitted entries to be processed:
 
 ```bash
-kubectl run --image registry.redhat.io/rhtas/updatetree-rhel9:latest --restart=Never --attach=true --rm=true -q -- updatetree --admin_server=trillian-logserver:8091 --tree_id=${CURRENT_TREE_ID} --tree_state=DRAINING
+kubectl run --image registry.redhat.io/rhtas/updatetree-rhel9:${VERSION} --restart=Never --attach=true --rm=true -q -- updatetree --admin_server=trillian-logserver:8091 --tree_id=${CURRENT_TREE_ID} --tree_state=DRAINING
 ```
 
-### 5. Monitor Queue Draining
+### 6. Monitor Queue Draining
 
 It's critical to ensure that all pending entries in the log queue are processed before proceeding. Follow the instructions in [Trillian's documentation on freezing a log](https://github.com/google/trillian/blob/master/docs/howto/freeze_a_ct_log.md#monitor-queue--integration) to monitor the queue.
 
-### 6. Freeze the CT Log
+### 7. Freeze the CT Log
 
 Once the queue has fully drained, freeze the log by setting the log state to `FROZEN`:
 
 ```bash
-kubectl run --image registry.redhat.io/rhtas/updatetree-rhel9:latest --restart=Never --attach=true --rm=true -q -- updatetree --admin_server=trillian-logserver:8091 --tree_id=${CURRENT_TREE_ID} --tree_state=FROZEN
+kubectl run --image registry.redhat.io/rhtas/updatetree-rhel9:${VERSION} --restart=Never --attach=true --rm=true -q -- updatetree --admin_server=trillian-logserver:8091 --tree_id=${CURRENT_TREE_ID} --tree_state=FROZEN
 ```
 
-### 7. Create a New Merkle Tree
+### 8. Create a New Merkle Tree
 
 Now, create a new Merkle Tree that will serve as the new active shard:
 
 ```bash
-NEW_TREE_ID=$(kubectl run createtree --image registry.redhat.io/rhtas/createtree-rhel9:latest --restart=Never --attach=true --rm=true -q -- -logtostderr=false --admin_server=trillian-logserver:8091 --display_name=ctlog-tree)
+NEW_TREE_ID=$(kubectl run createtree --image registry.redhat.io/rhtas/createtree-rhel9:${VERSION} --restart=Never --attach=true --rm=true -q -- -logtostderr=false --admin_server=trillian-logserver:8091 --display_name=ctlog-tree)
 ```
 
-### 8. Generate New Private Key
+### 9. Generate New Private Key
 
 Generate a new private key for the new CT log shard using OpenSSL:
 
@@ -79,7 +87,7 @@ openssl ec -in new-ctlog.pem -pubout -out new-ctlog-public.pem
 openssl ec -in new-ctlog.pem -out new-ctlog.pass.pem -des3 -passout pass:"changeit"
 ```
 
-### 9. Update the CT Log Configuration
+### 10. Update the CT Log Configuration
 
 You will now modify the old configuration stored in `config.txtpb` to:
 - Add a `not_after_limit` field to the frozen log entry.
@@ -130,7 +138,7 @@ In this configuration:
 - The `frozen log` (identified by `CURRENT_TREE_ID`) has the `prefix` renamed to `trusted-artifact-signer-0`, and it includes a `not_after_limit` timestamp to stop accepting certificates with a `NotAfter` date beyond this point.
 - The `new active log` (identified by `NEW_TREE_ID`) is set up with a new prefix (`trusted-artifact-signer`), a new private key, and includes a `not_after_start` timestamp, marking when the log will start accepting certificates.
 
-### 10. Create a new Kubernetes secret
+### 11. Create a new Kubernetes secret
 
 Store the new configuration and keys in a Kubernetes secret:
 
