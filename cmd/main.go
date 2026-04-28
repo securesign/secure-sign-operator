@@ -168,8 +168,6 @@ func main() {
 	// Restrict informer caches for high-cardinality core types to only objects managed by this operator.
 	// Without this, each Owns() watch caches ALL objects of that type cluster-wide, causing OOM on
 	// production clusters with hundreds of Deployments/Services from other workloads (SECURESIGN-4123).
-	// Secrets and ConfigMaps are intentionally excluded: user-provided refs (e.g. Spec.RootKeySecretRef,
-	// Spec.Signer.File.PrivateKeyRef, Spec.Db.DatabaseSecretRef) may lack operator labels.
 	operatorLabelSelector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			labels.LabelAppPartOf: constants.AppName,
@@ -186,7 +184,9 @@ func main() {
 	cacheOpts := cache.Options{
 		ByObject: map[client.Object]cache.ByObject{
 			&appsv1.Deployment{}:    operatorCacheSelector,
+			&appsv1.ReplicaSet{}:    operatorCacheSelector,
 			&appsv1.StatefulSet{}:   operatorCacheSelector,
+			&corev1.Pod{}:           operatorCacheSelector,
 			&corev1.Service{}:       operatorCacheSelector,
 			&networkingv1.Ingress{}: operatorCacheSelector,
 			&batchv1.CronJob{}:      operatorCacheSelector,
