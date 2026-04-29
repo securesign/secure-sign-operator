@@ -7,4 +7,5 @@ var (
 	Openshift              bool
 	OpenshiftAPIServerName string
 	APIServerTimeout       time.Duration
+	IngressHostTemplate    = "%[1]s.local"
 )

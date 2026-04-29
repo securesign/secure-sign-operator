@@ -111,6 +111,9 @@ func main() {
 	utils.BoolFlagOrEnv(&appconfig.Openshift, "openshift", "OPENSHIFT", false, "Enable to ensures the operator applies OpenShift specific configurations.")
 	utils.StringFlagOrEnv(&appconfig.OpenshiftAPIServerName, "openshift-apiserver-name", "OPENSHIFT_APISERVER_NAME", "openshift-apiserver", "The OpenShift API Server name.")
 	utils.DurationFlagOrEnv(&appconfig.APIServerTimeout, "apiserver-timeout", "APISERVER_TIMEOUT", 30*time.Second, "The initial timeout for contacting the API Server, defaults to 30 seconds.")
+	utils.StringFlagOrEnv(&appconfig.IngressHostTemplate, "ingress-host-template", "INGRESS_HOST_TEMPLATE", appconfig.IngressHostTemplate,
+		"Default hostname template for non-OpenShift Ingress resources when ExternalAccess.Host is not set. "+
+			"Uses Go fmt.Sprintf with %[1]s=service name, %[2]s=namespace. Ignored on OpenShift.")
 	utils.RelatedImageFlag("trillian-log-signer-image", images.TrillianLogSigner, "The image used for trillian log signer.")
 	utils.RelatedImageFlag("trillian-log-server-image", images.TrillianServer, "The image used for trillian log server.")
 	utils.RelatedImageFlag("trillian-db-image", images.TrillianDb, "The image used for trillian's database.")
