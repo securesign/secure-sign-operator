@@ -183,13 +183,15 @@ func main() {
 
 	cacheOpts := cache.Options{
 		ByObject: map[client.Object]cache.ByObject{
-			&appsv1.Deployment{}:    operatorCacheSelector,
-			&appsv1.ReplicaSet{}:    operatorCacheSelector,
-			&appsv1.StatefulSet{}:   operatorCacheSelector,
-			&corev1.Pod{}:           operatorCacheSelector,
-			&corev1.Service{}:       operatorCacheSelector,
-			&networkingv1.Ingress{}: operatorCacheSelector,
-			&batchv1.CronJob{}:      operatorCacheSelector,
+			&appsv1.Deployment{}:            operatorCacheSelector,
+			&appsv1.ReplicaSet{}:            operatorCacheSelector,
+			&appsv1.StatefulSet{}:           operatorCacheSelector,
+			&corev1.Pod{}:                   operatorCacheSelector,
+			&corev1.Service{}:               operatorCacheSelector,
+			&networkingv1.Ingress{}:         operatorCacheSelector,
+			&batchv1.CronJob{}:              operatorCacheSelector,
+			&batchv1.Job{}:                  operatorCacheSelector,
+			&corev1.PersistentVolumeClaim{}: operatorCacheSelector,
 		},
 	}
 
