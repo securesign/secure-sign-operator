@@ -3,6 +3,7 @@ package olm
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -113,12 +114,7 @@ func OlmInstaller(ctx context.Context, cli client.Client, catalogImage, ns, pack
 				Package:                packageName,
 				Channel:                channel,
 				Config: &v1alpha1.SubscriptionConfig{
-					Env: []coreV1.EnvVar{
-						{
-							Name:  "OPENSHIFT",
-							Value: strconv.FormatBool(ocp),
-						},
-					},
+					Env: subscriptionEnv(ocp),
 				},
 			},
 		},
@@ -131,4 +127,20 @@ func OlmInstaller(ctx context.Context, cli client.Client, catalogImage, ns, pack
 	}
 
 	return subscription, catalog, nil
+}
+
+func subscriptionEnv(ocp bool) []coreV1.EnvVar {
+	env := []coreV1.EnvVar{
+		{
+			Name:  "OPENSHIFT",
+			Value: strconv.FormatBool(ocp),
+		},
+	}
+	if v, ok := os.LookupEnv("INGRESS_HOST_TEMPLATE"); ok {
+		env = append(env, coreV1.EnvVar{
+			Name:  "INGRESS_HOST_TEMPLATE",
+			Value: v,
+		})
+	}
+	return env
 }

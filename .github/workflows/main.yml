@@ -15,6 +15,7 @@ env:
   CATALOG_IMG: ghcr.io/securesign/secure-sign-operator-fbc:dev-${{ github.sha }}
   NEW_OLM_CHANNEL: rhtas-operator.v1.5.0
   OCP_VERSION: ${{ vars.OLM_INDEX_VERSION }}
+  INGRESS_HOST_TEMPLATE: '%[1]s.%[2]s.127.0.0.1.nip.io'
 
 jobs:
   build-operator:
@@ -244,9 +245,14 @@ jobs:
         run: |
           kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n openshift-rhtas-operator
 
+      - name: Configure Ingress hostname template
+        run: |
+          kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
+          kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
+
       - name: Add service hosts to /etc/hosts
         run: |
-          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local cli-server.local tsa-server.local" | sudo tee -a /etc/hosts
+          sudo echo "127.0.0.1 keycloak-internal.keycloak-system.svc" | sudo tee -a /etc/hosts
       - name: Install cosign
         run: go install github.com/sigstore/cosign/v3/cmd/cosign@v3.0.5
 
@@ -325,6 +331,8 @@ jobs:
           kind load image-archive operator-bundle-oci.tar
           kind load image-archive operator-fbc-oci.tar
 
+      # The base (released) operator version does not support INGRESS_HOST_TEMPLATE,
+      # so it produces static .local hostnames that require /etc/hosts entries.
       - name: Add service hosts to /etc/hosts
         run: |
           sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local cli-server.local tsa-server.local" | sudo tee -a /etc/hosts
@@ -339,6 +347,9 @@ jobs:
         env:
           TEST_BASE_CATALOG: registry.redhat.io/redhat/redhat-operator-index:${{ vars.OLM_INDEX_VERSION }}
           TEST_TARGET_CATALOG: ${{ env.CATALOG_IMG }}
+          # Keep default .local hostnames — the base operator doesn't support INGRESS_HOST_TEMPLATE,
+          # and switching hostnames mid-upgrade would break Ingress routing.
+          INGRESS_HOST_TEMPLATE: '%[1]s.local'
         run: go test -p 1 ./test/e2e/... -tags=upgrade -timeout 20m
 
       - name: Archive test artifacts
@@ -409,9 +420,14 @@ jobs:
         run: |
           kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n openshift-rhtas-operator
 
+      - name: Configure Ingress hostname template
+        run: |
+          kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
+          kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
+
       - name: Add service hosts to /etc/hosts
         run: |
-          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local cli-server.local tsa-server.local" | sudo tee -a /etc/hosts
+          sudo echo "127.0.0.1 keycloak-internal.keycloak-system.svc" | sudo tee -a /etc/hosts
 
       - name: Install cosign
         run: go install github.com/sigstore/cosign/v3/cmd/cosign@v3.0.5
@@ -489,7 +505,7 @@ jobs:
 
       - name: Add service hosts to /etc/hosts
         run: |
-          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local rekor-search-ui.local cli-server.local" | sudo tee -a /etc/hosts
+          echo "# service hosts added here if needed"
 
       - name: Replace images
         run: make dev-images generate && cat config/default/images.env
@@ -573,7 +589,7 @@ jobs:
 
       - name: Add service hosts to /etc/hosts
         run: |
-          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local rekor-search-ui.local tsa-server.local cli-server.local ${{ steps.kind.outputs.oidc_host }}" | sudo tee -a /etc/hosts
+          sudo echo "127.0.0.1 ${{ steps.kind.outputs.oidc_host }}" | sudo tee -a /etc/hosts
 
       - name: Replace images
         run: make dev-images generate && cat config/default/images.env
@@ -584,6 +600,11 @@ jobs:
       - name: Wait for operator to be ready
         run: |
           kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n openshift-rhtas-operator
+
+      - name: Configure Ingress hostname template
+        run: |
+          kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
+          kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
 
       - name: Install securesign
         run: |
@@ -602,7 +623,7 @@ jobs:
           export FULCIO_URL=$(kubectl get fulcio -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})
           
           export CLI_STRATEGY=cli_server
-          export CLI_SERVER_URL="http://cli-server.local"
+          export CLI_SERVER_URL="http://cli-server.trusted-artifact-signer.127.0.0.1.nip.io"
           
           cd e2e
           source ./tas-env-variables.sh
