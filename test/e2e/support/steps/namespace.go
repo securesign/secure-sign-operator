@@ -15,7 +15,7 @@ func CreateNamespace(cli client.Client, callback func(*v1.Namespace)) func(ctx g
 	return func(ctx ginkgo.SpecContext) {
 		namespace := support.CreateTestNamespace(ctx, cli)
 		ginkgo.DeferCleanup(func(ctx ginkgo.SpecContext) {
-			_ = cli.Delete(ctx, namespace)
+			support.DeleteNamespace(ctx, cli, namespace)
 		})
 		ginkgo.DeferCleanup(DumpNamespace(cli, namespace))
 		callback(namespace)

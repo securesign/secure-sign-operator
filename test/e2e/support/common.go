@@ -11,10 +11,12 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	routev1 "github.com/openshift/api/route/v1"
 	v12 "k8s.io/api/apps/v1"
 	v13 "k8s.io/api/batch/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -74,6 +76,16 @@ func CreateTestNamespace(ctx context.Context, cli client.Client) *v1.Namespace {
 	Expect(cli.Create(ctx, ns)).To(Succeed())
 	core.GinkgoWriter.Println("Created test namespace: " + ns.Name)
 	return ns
+}
+
+// DeleteNamespace deletes a namespace and waits for it to be fully removed.
+// Without the wait, Kubernetes' async deletion leaves cluster-scoped or uniquely-constrained
+// resources alive, causing conflicts when the next test creates resources with the same identifiers.
+func DeleteNamespace(ctx context.Context, cli client.Client, ns *v1.Namespace) {
+	_ = cli.Delete(ctx, ns)
+	Eventually(func(ctx context.Context) error {
+		return cli.Get(ctx, client.ObjectKeyFromObject(ns), &v1.Namespace{})
+	}).WithContext(ctx).WithTimeout(1 * time.Minute).Should(And(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())))
 }
 
 func PrepareImage(ctx context.Context) string {

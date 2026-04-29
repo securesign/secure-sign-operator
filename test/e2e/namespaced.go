@@ -51,7 +51,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 					continue
 				}
 				steps.DumpNamespace(cli, n)(ctx)
-				_ = cli.Delete(ctx, n)
+				support.DeleteNamespace(ctx, cli, n)
 			}
 		})
 		for i := range namespaces {
