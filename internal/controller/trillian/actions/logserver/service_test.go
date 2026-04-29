@@ -14,6 +14,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	testNamespace    = "default"
+	testTrillianName = "test-trillian"
+)
+
 func TestMigrateToHeadless(t *testing.T) {
 	ctx := context.TODO()
 
@@ -37,7 +42,7 @@ func TestMigrateToHeadless(t *testing.T) {
 				&v1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      actions.LogserverDeploymentName,
-						Namespace: "default",
+						Namespace: testNamespace,
 					},
 					Spec: v1.ServiceSpec{
 						ClusterIP: "10.0.0.1",
@@ -58,7 +63,7 @@ func TestMigrateToHeadless(t *testing.T) {
 				&v1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      actions.LogserverDeploymentName,
-						Namespace: "default",
+						Namespace: testNamespace,
 					},
 					Spec: v1.ServiceSpec{
 						ClusterIP: v1.ClusterIPNone,
@@ -88,8 +93,8 @@ func TestMigrateToHeadless(t *testing.T) {
 
 			instance := &rhtasv1alpha1.Trillian{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-trillian",
-					Namespace: "default",
+					Name:      testTrillianName,
+					Namespace: testNamespace,
 				},
 			}
 
@@ -106,7 +111,7 @@ func TestMigrateToHeadless(t *testing.T) {
 				svc := &v1.Service{}
 				err := c.Get(ctx, client.ObjectKey{
 					Name:      actions.LogserverDeploymentName,
-					Namespace: "default",
+					Namespace: testNamespace,
 				}, svc)
 				g.Expect(err).To(HaveOccurred())
 			}
@@ -120,8 +125,8 @@ func TestCreateServiceAction_Handle_CreatesHeadless(t *testing.T) {
 
 	instance := &rhtasv1alpha1.Trillian{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-trillian",
-			Namespace: "default",
+			Name:      testTrillianName,
+			Namespace: testNamespace,
 		},
 		Status: rhtasv1alpha1.TrillianStatus{
 			Conditions: []metav1.Condition{
@@ -147,7 +152,7 @@ func TestCreateServiceAction_Handle_CreatesHeadless(t *testing.T) {
 	svc := &v1.Service{}
 	g.Expect(c.Get(ctx, client.ObjectKey{
 		Name:      actions.LogserverDeploymentName,
-		Namespace: "default",
+		Namespace: testNamespace,
 	}, svc)).To(Succeed())
 	g.Expect(svc.Spec.ClusterIP).To(Equal(v1.ClusterIPNone))
 }
