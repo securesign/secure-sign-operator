@@ -309,7 +309,7 @@ func (i deployAction) ensureFileCADeployment(instance *rhtasv1alpha1.Fulcio, tem
 	}
 }
 
-func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1alpha1.Fulcio, p *rhtasv1alpha1.PKCS11Config, template *core.PodTemplateSpec, container *core.Container) {
+func (i deployAction) ensurePKCS11Deployment(_ *rhtasv1alpha1.Fulcio, p *rhtasv1alpha1.PKCS11Config, template *core.PodTemplateSpec, container *core.Container) {
 
 	// --- Shared volumes (operator-managed, vendor-agnostic) ---
 	tokensVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "hsm-tokens")
@@ -415,17 +415,18 @@ func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1alpha1.Fulcio, p *
 		createCAArgs = append(createCAArgs, fmt.Sprintf("--province=%s", p.RootCA.Province))
 	}
 	createCAContainer.Args = createCAArgs
-	createCAEnv := []core.EnvVar{}
+	createCAEnv := make([]core.EnvVar, 0, len(p.InitContainer.Env))
 	for _, e := range p.InitContainer.Env {
 		createCAEnv = append(createCAEnv, core.EnvVar{Name: e.Name, Value: e.Value})
 	}
 	createCAContainer.Env = createCAEnv
 
-	createCAMounts := []core.VolumeMount{
-		{Name: "hsm-tokens", MountPath: HSMTokenMountPath},
-		{Name: "hsm-lib", MountPath: HSMLibMountPath},
-		{Name: "pkcs11-config", MountPath: PKCS11ConfigMountPath, ReadOnly: true},
-	}
+	createCAMounts := make([]core.VolumeMount, 0, 3+len(p.InitContainer.Volumes))
+	createCAMounts = append(createCAMounts,
+		core.VolumeMount{Name: "hsm-tokens", MountPath: HSMTokenMountPath},
+		core.VolumeMount{Name: "hsm-lib", MountPath: HSMLibMountPath},
+		core.VolumeMount{Name: "pkcs11-config", MountPath: PKCS11ConfigMountPath, ReadOnly: true},
+	)
 	for _, v := range p.InitContainer.Volumes {
 		createCAMounts = append(createCAMounts,
 			core.VolumeMount{Name: v.Name, MountPath: v.MountPath, ReadOnly: v.ReadOnly})
