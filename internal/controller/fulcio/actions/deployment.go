@@ -143,7 +143,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.Fulcio, sa string
 				return errors.New("PKCS#11 config not yet resolved — waiting for ensure-pkcs11-config")
 			}
 			container.Args = i.buildPKCS11Args(instance, sp, ctlogUrl)
-			i.ensurePKCS11Deployment(instance, sp, template, container)
+			i.ensurePKCS11Deployment(sp, template, container)
 		} else {
 			if instance.Status.Certificate.PrivateKeyRef == nil {
 				return errors.New("private key secret is not specified")
@@ -309,7 +309,7 @@ func (i deployAction) ensureFileCADeployment(instance *rhtasv1alpha1.Fulcio, tem
 	}
 }
 
-func (i deployAction) ensurePKCS11Deployment(_ *rhtasv1alpha1.Fulcio, p *rhtasv1alpha1.PKCS11Config, template *core.PodTemplateSpec, container *core.Container) {
+func (i deployAction) ensurePKCS11Deployment(p *rhtasv1alpha1.PKCS11Config, template *core.PodTemplateSpec, container *core.Container) {
 
 	// --- Shared volumes (operator-managed, vendor-agnostic) ---
 	tokensVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "hsm-tokens")
@@ -403,7 +403,7 @@ func (i deployAction) ensurePKCS11Deployment(_ *rhtasv1alpha1.Fulcio, p *rhtasv1
 		fmt.Sprintf("--hsm-caroot-id=%d", p.KeyConfig.ID),
 		fmt.Sprintf("--pkcs11-config-path=%s/%s", PKCS11ConfigMountPath, configKey),
 		fmt.Sprintf("--out=%s", PKCS11RootPEMPath),
-		"--hsm=aws",
+		"--hsm=aws", // required by fulcio createca regardless of HSM vendor
 	}
 	if p.RootCA.Country != "" {
 		createCAArgs = append(createCAArgs, fmt.Sprintf("--country=%s", p.RootCA.Country))

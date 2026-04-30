@@ -30,8 +30,9 @@ const (
 	pkcs11ConfSecretFormat = "fulcio-pkcs11-conf-%s-"
 	pkcs11VolumesCMFormat  = "fulcio-pkcs11-%s-%s-"
 
-	PKCS11CredLabel = labels.LabelNamespace + "/fulcio.pkcs11.credentials"
-	PKCS11ConfLabel = labels.LabelNamespace + "/fulcio.pkcs11.config"
+	PKCS11CredLabel      = labels.LabelNamespace + "/fulcio.pkcs11.credentials"
+	PKCS11ConfLabel      = labels.LabelNamespace + "/fulcio.pkcs11.config"
+	PKCS11VolLabelPrefix = labels.LabelNamespace + "/fulcio.pkcs11.volume."
 )
 
 type crypto11Conf struct {
@@ -240,10 +241,19 @@ func (e ensurePKCS11Config) ensureInlineVolumes(
 			continue
 		}
 
-		cmName := fmt.Sprintf(pkcs11VolumesCMFormat, vol.Name, instance.Name)
+		volLabel := PKCS11VolLabelPrefix + vol.Name
+		existing, err := kubernetes.FindConfigMap(ctx, e.Client, instance.Namespace, volLabel)
+		if err == nil && existing != nil {
+			if i < len(status.InitContainer.Volumes) {
+				status.InitContainer.Volumes[i].ConfigMapName = existing.Name
+			}
+			continue
+		}
+
+		volLabels := map[string]string{volLabel: vol.Name}
 		cm := &v1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: cmName,
+				GenerateName: fmt.Sprintf(pkcs11VolumesCMFormat, vol.Name, instance.Name),
 				Namespace:    instance.Namespace,
 			},
 		}
@@ -251,6 +261,7 @@ func (e ensurePKCS11Config) ensureInlineVolumes(
 			cm,
 			ensure.ControllerReference[*v1.ConfigMap](instance, e.Client),
 			ensure.Labels[*v1.ConfigMap](slices.Collect(maps.Keys(componentLabels)), componentLabels),
+			ensure.Labels[*v1.ConfigMap](slices.Collect(maps.Keys(volLabels)), volLabels),
 			kubernetes.EnsureConfigMapData(true, vol.InlineData),
 		); err != nil {
 			return fmt.Errorf("creating ConfigMap for volume %s: %w", vol.Name, err)

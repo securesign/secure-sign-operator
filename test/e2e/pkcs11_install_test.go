@@ -148,14 +148,20 @@ var _ = Describe("Securesign install with PKCS#11 CA", Ordered, func() {
 		})
 
 		It("HSM root CA secret was created and labeled for CTLog/TUF discovery", func(ctx SpecContext) {
-			f := fulcio.Get(ctx, cli, namespace.Name, s.Name)
-			Expect(f).NotTo(BeNil())
-			Expect(f.Status.Certificate.CARef).NotTo(BeNil())
+			var caRef *v1alpha1.SecretKeySelector
+			Eventually(func() *v1alpha1.SecretKeySelector {
+				f := fulcio.Get(ctx, cli, namespace.Name, s.Name)
+				if f == nil || f.Status.Certificate == nil {
+					return nil
+				}
+				caRef = f.Status.Certificate.CARef
+				return caRef
+			}).WithTimeout(3 * time.Minute).ShouldNot(BeNil())
 
 			secret := &v1.Secret{}
 			Expect(cli.Get(ctx, types.NamespacedName{
 				Namespace: namespace.Name,
-				Name:      f.Status.Certificate.CARef.Name,
+				Name:      caRef.Name,
 			}, secret)).To(Succeed())
 			Expect(secret.Labels).To(HaveKeyWithValue(labels.LabelNamespace+"/fulcio_v1.crt.pem", "cert"))
 		})

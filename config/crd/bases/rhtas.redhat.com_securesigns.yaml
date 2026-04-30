@@ -2298,7 +2298,7 @@ spec:
                               env:
                                 description: |-
                                   Additional environment variables for the init container (vendor-specific).
-                                  The operator always injects HSM_PIN and EXPORT_LIB_DIR automatically.
+                                  The operator always injects HSM_PIN automatically.
                                 items:
                                   description: PKCS11EnvVar defines a simple name/value
                                     environment variable.
@@ -2359,6 +2359,12 @@ spec:
                                   - mountPath
                                   - name
                                   type: object
+                                  x-kubernetes-validations:
+                                  - message: only one of configMapName, secretName,
+                                      or inlineData may be set
+                                    rule: '[has(self.configMapName), has(self.secretName),
+                                      has(self.inlineData)].filter(x, x).size() <=
+                                      1'
                                 type: array
                             required:
                             - image

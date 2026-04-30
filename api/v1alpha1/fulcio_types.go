@@ -164,7 +164,7 @@ type PKCS11InitContainer struct {
 	Image string `json:"image"`
 
 	// Additional environment variables for the init container (vendor-specific).
-	// The operator always injects HSM_PIN and EXPORT_LIB_DIR automatically.
+	// The operator always injects HSM_PIN automatically.
 	//+optional
 	Env []PKCS11EnvVar `json:"env,omitempty"`
 
@@ -184,6 +184,7 @@ type PKCS11EnvVar struct {
 }
 
 // PKCS11Volume defines a volume to mount into the init container and/or server container.
+// +kubebuilder:validation:XValidation:rule="[has(self.configMapName), has(self.secretName), has(self.inlineData)].filter(x, x).size() <= 1",message="only one of configMapName, secretName, or inlineData may be set"
 type PKCS11Volume struct {
 	// Volume name (must be unique within the pod).
 	//+required

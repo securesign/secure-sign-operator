@@ -7,6 +7,7 @@ import (
 	"maps"
 	"net/http"
 	"slices"
+	"time"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
@@ -33,7 +34,7 @@ func (e extractHSMRoot) Name() string {
 	return "extract-hsm-root"
 }
 
-func (e extractHSMRoot) CanHandle(_ context.Context, instance *rhtasv1alpha1.Fulcio) bool {
+func (e extractHSMRoot) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) bool {
 	if instance.Spec.Certificate.CAType != rhtasv1alpha1.CATypePKCS11 {
 		return false
 	}
@@ -45,14 +46,14 @@ func (e extractHSMRoot) CanHandle(_ context.Context, instance *rhtasv1alpha1.Ful
 		return false
 	}
 
-	existing, _ := kubernetes.FindSecret(context.Background(), e.Client, instance.Namespace, FulcioCALabel)
+	existing, _ := kubernetes.FindSecret(ctx, e.Client, instance.Namespace, FulcioCALabel)
 	return existing == nil
 }
 
 func (e extractHSMRoot) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) *action.Result {
 	componentLabels := fulcioLabels.ForComponent(ComponentName, instance.Name)
 
-	pemData, err := e.resolveRootCert(instance)
+	pemData, err := e.resolveRootCert(ctx, instance)
 	if err != nil {
 		e.Logger.Info("Waiting for Fulcio root cert to become available", "error", err.Error())
 		return e.Requeue()
@@ -67,6 +68,7 @@ func (e extractHSMRoot) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulc
 	}
 	if _, err = kubernetes.CreateOrUpdate(ctx, e.Client,
 		secret,
+		ensure.ControllerReference[*v1.Secret](instance, e.Client),
 		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(componentLabels)), componentLabels),
 		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(keyLabels)), keyLabels),
 		kubernetes.EnsureSecretData(true, map[string][]byte{"cert": pemData}),
@@ -79,30 +81,45 @@ func (e extractHSMRoot) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulc
 		})
 	}
 
+	instance.Status.Certificate.CARef = &rhtasv1alpha1.SecretKeySelector{
+		Key: "cert",
+		LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+			Name: secret.Name,
+		},
+	}
+
 	e.Recorder.Event(instance, v1.EventTypeNormal, "HSMRootCAPublished",
 		fmt.Sprintf("HSM root CA published to secret %s", secret.Name))
 	e.Logger.Info("HSM root CA secret created", "secret", secret.Name)
 
-	return e.Continue()
+	return e.StatusUpdate(ctx, instance)
 }
 
-func (e extractHSMRoot) resolveRootCert(instance *rhtasv1alpha1.Fulcio) ([]byte, error) {
-	url := fmt.Sprintf("http://%s.%s.svc:%d", DeploymentName, instance.Namespace, ServerPort)
+func (e extractHSMRoot) resolveRootCert(ctx context.Context, instance *rhtasv1alpha1.Fulcio) ([]byte, error) {
+	baseURL := fmt.Sprintf("http://%s.%s.svc:%d", DeploymentName, instance.Namespace, ServerPort)
 
 	inContainer, err := kubernetes.ContainerMode()
 	if err == nil {
 		if !inContainer && instance.Status.Url != "" {
-			url = instance.Status.Url
+			baseURL = instance.Status.Url
 		}
 	} else {
 		klog.Info("Can't recognise operator mode - expecting in-container run")
 	}
 
-	return e.requestRootCert(url)
+	return e.requestRootCert(ctx, baseURL)
 }
 
-func (e extractHSMRoot) requestRootCert(basePath string) ([]byte, error) {
-	response, err := http.Get(fmt.Sprintf("%s/api/v1/rootCert", basePath))
+func (e extractHSMRoot) requestRootCert(ctx context.Context, basePath string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v1/rootCert", basePath), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
