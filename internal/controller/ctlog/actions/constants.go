@@ -8,6 +8,7 @@ const (
 	DeploymentName         = "ctlog"
 	ComponentName          = "ctlog"
 	RBACName               = "ctlog"
+	RBACMonitorName        = "ctlog-monitor"
 	MonitoringRoleName     = "prometheus-k8s-ctlog"
 	MonitorStatefulSetName = "ctlog-monitor"
 	MonitorComponentName   = "ctlog-monitor"

@@ -121,6 +121,7 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		ui.NewRBACAction(),
 		redis.NewRBACAction(),
 		backfillredis.NewRBACAction(),
+		monitor.NewRBACAction(),
 
 		server.NewShardingConfigAction(),
 		server.NewResolveTreeAction(),
