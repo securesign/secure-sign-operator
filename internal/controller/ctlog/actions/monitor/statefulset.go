@@ -76,7 +76,7 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1alpha1.C
 				Namespace: instance.Namespace,
 			},
 		},
-		i.ensureMonitorStatefulSet(instance, actions.RBACName, labels, ctlogServerHost, tufServerHost),
+		i.ensureMonitorStatefulSet(instance, actions.RBACMonitorName, labels, ctlogServerHost, tufServerHost),
 		i.ensureInitContainer(ctlogServerHost, tufServerHost),
 		ensure.ControllerReference[*v1.StatefulSet](instance, i.Client),
 		ensure.Labels[*v1.StatefulSet](slices.Collect(maps.Keys(labels)), labels),
