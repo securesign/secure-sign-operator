@@ -137,13 +137,12 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.Fulcio, sa string
 
 		isPKCS11 := instance.Spec.Certificate.CAType == rhtasv1alpha1.CATypePKCS11
 
-		var args []string
 		if isPKCS11 {
 			sp := instance.Status.Certificate.PKCS11
 			if sp == nil || sp.CredentialsRef == nil || sp.PKCS11ConfigRef == nil {
 				return errors.New("PKCS#11 config not yet resolved — waiting for ensure-pkcs11-config")
 			}
-			args = i.buildPKCS11Args(instance, sp, ctlogUrl)
+			container.Args = i.buildPKCS11Args(instance, sp, ctlogUrl)
 			i.ensurePKCS11Deployment(instance, sp, template, container)
 		} else {
 			if instance.Status.Certificate.PrivateKeyRef == nil {
@@ -152,11 +151,9 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.Fulcio, sa string
 			if instance.Status.Certificate.CARef == nil {
 				return errors.New("CA secret is not specified")
 			}
-			args = i.buildFileCAArgs(instance, ctlogUrl)
+			container.Args = i.buildFileCAArgs(instance, ctlogUrl)
 			i.ensureFileCADeployment(instance, template, container)
 		}
-
-		container.Args = args
 
 		http := kubernetes.FindPortByNameOrCreate(container, "http")
 		http.ContainerPort = 5555
@@ -316,7 +313,7 @@ func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1alpha1.Fulcio, p *
 
 	// --- Shared volumes (operator-managed, vendor-agnostic) ---
 	tokensVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "hsm-tokens")
-	if p.Persistence != nil {
+	if p.Persistence != nil && p.Persistence.Name != "" {
 		tokensVol.PersistentVolumeClaim = &core.PersistentVolumeClaimVolumeSource{
 			ClaimName: p.Persistence.Name,
 		}

@@ -20,10 +20,10 @@ apiVersion: rhtas.redhat.com/v1alpha1
 kind: Securesign
 metadata:
   labels:
-    app.kubernetes.io/name: securesign-sample
-    app.kubernetes.io/instance: securesign-sample
+    app.kubernetes.io/name: securesign-sample-pkcs11
+    app.kubernetes.io/instance: securesign-sample-pkcs11
     app.kubernetes.io/part-of: trusted-artifact-signer
-  name: securesign-sample
+  name: securesign-sample-pkcs11
 spec:
   trillian:
     database:
