@@ -321,6 +321,19 @@ var _ = Describe("Ctlog Monitor Log", Ordered, func() {
 			initialFailureCount = verFailure
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
 
+		By("Waiting for checkpoint file to stabilize (monitor no longer writing new tree heads)")
+		var prevFileContent string
+		Eventually(func(g Gomega) {
+			content, err := execOnMonitorPodWithOutput("cat", fmt.Sprintf("%s/checkpoint_log.txt", ctlogDataDirectory))
+			g.Expect(err).ToNot(HaveOccurred())
+			currentContent := string(content)
+			g.Expect(currentContent).ToNot(BeEmpty(), "checkpoint file should not be empty")
+			prev := prevFileContent
+			prevFileContent = currentContent
+			g.Expect(currentContent).To(Equal(prev),
+				"checkpoint file should stabilize (tree size no longer changing) before corrupting")
+		}, 30*time.Second, 3*time.Second).Should(Succeed())
+
 		By("Reading the original checkpoint file content")
 		originalContent, err := execOnMonitorPodWithOutput("cat", fmt.Sprintf("%s/checkpoint_log.txt", ctlogDataDirectory))
 		Expect(err).ToNot(HaveOccurred(), "Should be able to read checkpoint file")
