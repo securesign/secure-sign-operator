@@ -142,9 +142,9 @@ func TestExtractHSMRoot_Handle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
 
-			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(tt.httpStatus)
-				w.Write([]byte(tt.httpBody))
+				_, _ = w.Write([]byte(tt.httpBody))
 			}))
 			defer srv.Close()
 
