@@ -144,7 +144,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	)
 
 	result := i.StatusUpdate(ctx, instance)
-	if action.IsSuccess(result) {
+	if !action.IsError(result) {
 		i.cleanup(ctx, instance, configLabel)
 	}
 	return result

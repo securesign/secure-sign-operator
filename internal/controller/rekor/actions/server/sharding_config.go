@@ -103,7 +103,7 @@ func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Reko
 	})
 
 	result := i.StatusUpdate(ctx, instance)
-	if action.IsSuccess(result) {
+	if !action.IsError(result) {
 		i.cleanup(ctx, instance, labels)
 	}
 	return result

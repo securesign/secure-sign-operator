@@ -234,7 +234,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		ObservedGeneration: instance.Generation,
 	})
 	result := i.StatusUpdate(ctx, instance)
-	if action.IsSuccess(result) {
+	if !action.IsError(result) {
 		i.cleanup(ctx, instance, configLabels)
 	}
 	return result

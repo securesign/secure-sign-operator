@@ -159,7 +159,6 @@ func TestServerConfig_CanHandle(t *testing.T) {
 }
 
 func TestServerConfig_Handle(t *testing.T) {
-	g := NewWithT(t)
 	labels := labels.ForResource(ComponentName, DeploymentName, "ctlog", serverConfigResourceName)
 
 	type env struct {
@@ -476,6 +475,7 @@ func TestServerConfig_Handle(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
 			ctx := context.TODO()
 			instance := &rhtasv1alpha1.CTlog{
 				ObjectMeta: metav1.ObjectMeta{
