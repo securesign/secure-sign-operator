@@ -131,6 +131,64 @@ func WithExternalDatabase(secretName string) Opts {
 	}
 }
 
+func WithPKCS11Certs() Opts {
+	return func(s *v1alpha1.Securesign) {
+		s.Spec.Fulcio.Certificate = v1alpha1.FulcioCert{
+			CAType:            v1alpha1.CATypePKCS11,
+			OrganizationName:  "MyOrg",
+			OrganizationEmail: "my@email.org",
+			CommonName:        "fulcio",
+			PKCS11: &v1alpha1.PKCS11Config{
+				Pin:         "test-pin-2324",
+				TokenLabel:  "fulcio",
+				LibraryPath: "/usr/lib64/pkcs11/libsofthsm2.so",
+				InitContainer: v1alpha1.PKCS11InitContainer{
+					Image: support.EnvOrDefault("SOFTHSM_INIT_IMAGE", "quay.io/rh-ee-sacm/softhsm-init:latest"),
+					Env: []v1alpha1.PKCS11EnvVar{
+						{Name: "SOFTHSM2_CONF", Value: "/etc/softhsm/softhsm2.conf"},
+					},
+					Volumes: []v1alpha1.PKCS11Volume{
+						{
+							Name:      "softhsm-config",
+							MountPath: "/etc/softhsm",
+							InlineData: map[string]string{
+								"softhsm2.conf": "directories.tokendir = /var/lib/hsm/tokens\nobjectstore.backend = file\nlog.level = INFO\n",
+							},
+						},
+					},
+				},
+				ServerEnv: []v1alpha1.PKCS11EnvVar{
+					{Name: "SOFTHSM2_CONF", Value: "/etc/softhsm/softhsm2.conf"},
+				},
+			},
+		}
+
+		if s.Spec.TimestampAuthority != nil {
+			s.Spec.TimestampAuthority.Signer = v1alpha1.TimestampAuthoritySigner{
+				CertificateChain: v1alpha1.CertificateChain{
+					RootCA: &v1alpha1.TsaCertificateAuthority{
+						OrganizationName:  "MyOrg",
+						OrganizationEmail: "my@email.org",
+						CommonName:        "tsa.hostname",
+					},
+					IntermediateCA: []*v1alpha1.TsaCertificateAuthority{
+						{
+							OrganizationName:  "MyOrg",
+							OrganizationEmail: "my@email.org",
+							CommonName:        "tsa.hostname",
+						},
+					},
+					LeafCA: &v1alpha1.TsaCertificateAuthority{
+						OrganizationName:  "MyOrg",
+						OrganizationEmail: "my@email.org",
+						CommonName:        "tsa.hostname",
+					},
+				},
+			}
+		}
+	}
+}
+
 func WithGeneratedCerts() Opts {
 	return func(s *v1alpha1.Securesign) {
 		s.Spec.Fulcio.Certificate = v1alpha1.FulcioCert{
