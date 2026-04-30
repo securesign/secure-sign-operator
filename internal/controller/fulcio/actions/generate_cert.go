@@ -83,6 +83,16 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 		return g.StatusUpdate(ctx, instance)
 	}
 
+	if instance.Spec.Certificate.CAType == v1alpha1.CATypePKCS11 {
+		instance.Status.Certificate = instance.Spec.Certificate.DeepCopy()
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:   CertCondition,
+			Status: metav1.ConditionTrue,
+			Reason: "PKCS11Deferred",
+		})
+		return g.StatusUpdate(ctx, instance)
+	}
+
 	if instance.Spec.Certificate.PrivateKeyRef == nil && instance.Spec.Certificate.CARef != nil {
 		err := reconcile.TerminalError(fmt.Errorf("missing private key for CA certificate"))
 		return g.Error(ctx, err, instance, metav1.Condition{

@@ -964,7 +964,7 @@ spec:
                 description: Certificate configuration
                 properties:
                   caRef:
-                    description: Reference to CA certificate
+                    description: Reference to CA certificate (file CA only)
                     properties:
                       key:
                         description: The key of the secret to select from. Must be
@@ -981,6 +981,14 @@ spec:
                     - name
                     type: object
                     x-kubernetes-map-type: atomic
+                  caType:
+                    default: file
+                    description: 'CAType selects the CA backend: "file" (default)
+                      or "pkcs11".'
+                    enum:
+                    - file
+                    - pkcs11
+                    type: string
                   commonName:
                     description: |-
                       CommonName specifies the common name for the Fulcio certificate.
@@ -990,8 +998,266 @@ spec:
                     type: string
                   organizationName:
                     type: string
+                  pkcs11:
+                    description: PKCS11 configuration. Required when caType is "pkcs11".
+                    properties:
+                      credentialsRef:
+                        description: |-
+                          Reference to a pre-existing Secret containing the HSM PIN.
+                          Takes precedence over inline pin field.
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      initContainer:
+                        description: |-
+                          Init container plugin that provisions the PKCS#11 token and library.
+                          The operator mounts two shared volumes into this container:
+                            - /var/lib/hsm/tokens  (persistent or emptyDir for token data)
+                          The operator also injects HSM_PIN automatically.
+                          The operator handles copying the PKCS#11 library to the shared lib volume
+                          via a separate init container using libraryPath.
+                        properties:
+                          env:
+                            description: |-
+                              Additional environment variables for the init container (vendor-specific).
+                              The operator always injects HSM_PIN and EXPORT_LIB_DIR automatically.
+                            items:
+                              description: PKCS11EnvVar defines a simple name/value
+                                environment variable.
+                              properties:
+                                name:
+                                  type: string
+                                value:
+                                  type: string
+                              required:
+                              - name
+                              - value
+                              type: object
+                            type: array
+                          image:
+                            description: |-
+                              Container image that provisions the HSM token and library.
+                              Examples: quay.io/rh-ee-sacm/softhsm-init:latest (SoftHSM),
+                              or a vendor-specific image for hardware HSMs.
+                            type: string
+                          volumes:
+                            description: |-
+                              Additional volumes to mount into the init container (vendor-specific configs).
+                              Use this for things like softhsm2.conf ConfigMaps, vendor config files, etc.
+                              These volumes are also added to the pod spec.
+                            items:
+                              description: PKCS11Volume defines a volume to mount
+                                into the init container and/or server container.
+                              properties:
+                                configMapName:
+                                  description: ConfigMap name to mount (mutually exclusive
+                                    with secretName and inlineData).
+                                  type: string
+                                inlineData:
+                                  additionalProperties:
+                                    type: string
+                                  description: |-
+                                    Inline data — operator creates a ConfigMap from this map.
+                                    Keys are filenames, values are file contents.
+                                    Mutually exclusive with configMapName and secretName.
+                                  type: object
+                                mountPath:
+                                  description: Mount path inside the container.
+                                  type: string
+                                name:
+                                  description: Volume name (must be unique within
+                                    the pod).
+                                  type: string
+                                readOnly:
+                                  default: true
+                                  description: ReadOnly mount. Defaults to true for
+                                    config volumes.
+                                  type: boolean
+                                secretName:
+                                  description: Secret name to mount (mutually exclusive
+                                    with configMapName and inlineData).
+                                  type: string
+                              required:
+                              - mountPath
+                              - name
+                              type: object
+                            type: array
+                        required:
+                        - image
+                        type: object
+                      keyConfig:
+                        default:
+                          algorithm: EC:secp384r1
+                          id: 99
+                          label: PKCS11CA
+                        description: PKCS#11 key parameters.
+                        properties:
+                          algorithm:
+                            default: EC:secp384r1
+                            description: Key algorithm (passed to pkcs11-tool --key-type).
+                            type: string
+                          id:
+                            default: 99
+                            description: PKCS#11 object ID for the CA root key.
+                            type: integer
+                          label:
+                            default: PKCS11CA
+                            description: Key label in the HSM token.
+                            type: string
+                        type: object
+                      libraryPath:
+                        description: |-
+                          Full path to the PKCS#11 .so library inside the init container image
+                          (e.g. "/usr/lib64/pkcs11/libsofthsm2.so", "/usr/lib/libCryptoki2_64.so").
+                          The operator copies this library to the shared volume automatically
+                          and derives the filename for crypto11.conf.
+                          Mutually exclusive with pkcs11ConfigRef.
+                        type: string
+                      persistence:
+                        description: |-
+                          Persistent storage for HSM tokens (key survives pod restarts).
+                          When nil, an emptyDir is used (key is regenerated on every pod restart).
+                          Not needed for hardware HSMs where keys live on the device.
+                        properties:
+                          accessModes:
+                            default:
+                            - ReadWriteOnce
+                            description: PVC AccessModes
+                            items:
+                              enum:
+                              - ReadWriteOnce
+                              - ReadOnlyMany
+                              - ReadWriteMany
+                              - ReadWriteOncePod
+                              type: string
+                            minItems: 1
+                            type: array
+                          name:
+                            description: Name of the PVC
+                            maxLength: 253
+                            minLength: 1
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                            type: string
+                          retain:
+                            default: true
+                            description: Retain policy for the PVC
+                            type: boolean
+                            x-kubernetes-validations:
+                            - message: Field is immutable
+                              rule: (self == oldSelf)
+                          size:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            default: 5Gi
+                            description: |-
+                              The requested size of the persistent volume attached to Pod.
+                              The format of this field matches that defined by kubernetes/apimachinery.
+                              See https://pkg.go.dev/k8s.io/apimachinery/pkg/api/resource#Quantity for more info on the format of this field.
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                          storageClass:
+                            description: The name of the StorageClass to claim a PersistentVolume
+                              from.
+                            type: string
+                        required:
+                        - retain
+                        type: object
+                        x-kubernetes-validations:
+                        - message: storageClass is immutable when a PVC name is not
+                            specified
+                          rule: oldSelf == null || has(self.name) || (!has(oldSelf.storageClass)
+                            || has(self.storageClass) && oldSelf.storageClass == self.storageClass)
+                        - message: accessModes is immutable when a PVC name is not
+                            specified
+                          rule: oldSelf == null || has(self.name) || (!has(oldSelf.accessModes)
+                            || has(self.accessModes) && oldSelf.accessModes == self.accessModes)
+                      pin:
+                        description: |-
+                          HSM PIN value. The operator creates a Secret from this.
+                          Mutually exclusive with credentialsRef.
+                        type: string
+                      pkcs11ConfigRef:
+                        description: |-
+                          Reference to a pre-existing Secret containing crypto11.conf.
+                          Takes precedence over inline fields (tokenLabel, libraryPath, pin).
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      rootCA:
+                        default:
+                          org: RHTAS
+                        description: Root CA subject for the createca init container.
+                        properties:
+                          country:
+                            type: string
+                          locality:
+                            type: string
+                          org:
+                            default: RHTAS
+                            type: string
+                          province:
+                            type: string
+                        type: object
+                      serverEnv:
+                        description: |-
+                          Additional environment variables for the main Fulcio server container.
+                          Use this for vendor-specific env vars (e.g. SOFTHSM2_CONF for SoftHSM).
+                        items:
+                          description: PKCS11EnvVar defines a simple name/value environment
+                            variable.
+                          properties:
+                            name:
+                              type: string
+                            value:
+                              type: string
+                          required:
+                          - name
+                          - value
+                          type: object
+                        type: array
+                      tokenLabel:
+                        description: |-
+                          PKCS#11 token label (e.g. "fulcio"). Used to build crypto11.conf.
+                          Mutually exclusive with pkcs11ConfigRef.
+                        type: string
+                    required:
+                    - initContainer
+                    type: object
+                    x-kubernetes-validations:
+                    - message: provide either inline config (pin + tokenLabel + libraryPath)
+                        or references (credentialsRef + pkcs11ConfigRef)
+                      rule: (has(self.pin) && has(self.tokenLabel) && has(self.libraryPath))
+                        || (has(self.credentialsRef) && has(self.pkcs11ConfigRef))
                   privateKeyPasswordRef:
-                    description: Reference to password to encrypt CA private key
+                    description: Reference to password to encrypt CA private key (file
+                      CA only)
                     properties:
                       key:
                         description: The key of the secret to select from. Must be
@@ -1009,7 +1275,7 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   privateKeyRef:
-                    description: Reference to CA private key
+                    description: Reference to CA private key (file CA only)
                     properties:
                       key:
                         description: The key of the secret to select from. Must be
@@ -1029,9 +1295,12 @@ spec:
                 type: object
                 x-kubernetes-validations:
                 - message: organizationName cannot be empty
-                  rule: (has(self.caRef) || self.organizationName != "")
+                  rule: (has(self.caRef) || self.organizationName != "" || (has(self.caType)
+                    && self.caType == 'pkcs11'))
                 - message: privateKeyRef cannot be empty
                   rule: (!has(self.caRef) || has(self.privateKeyRef))
+                - message: pkcs11 config is required when caType is pkcs11
+                  rule: (!has(self.caType) || self.caType != 'pkcs11' || has(self.pkcs11))
               config:
                 description: Fulcio Configuration
                 properties:
@@ -1420,7 +1689,7 @@ spec:
                 description: FulcioCert defines fields for system-generated certificate
                 properties:
                   caRef:
-                    description: Reference to CA certificate
+                    description: Reference to CA certificate (file CA only)
                     properties:
                       key:
                         description: The key of the secret to select from. Must be
@@ -1437,6 +1706,14 @@ spec:
                     - name
                     type: object
                     x-kubernetes-map-type: atomic
+                  caType:
+                    default: file
+                    description: 'CAType selects the CA backend: "file" (default)
+                      or "pkcs11".'
+                    enum:
+                    - file
+                    - pkcs11
+                    type: string
                   commonName:
                     description: |-
                       CommonName specifies the common name for the Fulcio certificate.
@@ -1446,8 +1723,266 @@ spec:
                     type: string
                   organizationName:
                     type: string
+                  pkcs11:
+                    description: PKCS11 configuration. Required when caType is "pkcs11".
+                    properties:
+                      credentialsRef:
+                        description: |-
+                          Reference to a pre-existing Secret containing the HSM PIN.
+                          Takes precedence over inline pin field.
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      initContainer:
+                        description: |-
+                          Init container plugin that provisions the PKCS#11 token and library.
+                          The operator mounts two shared volumes into this container:
+                            - /var/lib/hsm/tokens  (persistent or emptyDir for token data)
+                          The operator also injects HSM_PIN automatically.
+                          The operator handles copying the PKCS#11 library to the shared lib volume
+                          via a separate init container using libraryPath.
+                        properties:
+                          env:
+                            description: |-
+                              Additional environment variables for the init container (vendor-specific).
+                              The operator always injects HSM_PIN and EXPORT_LIB_DIR automatically.
+                            items:
+                              description: PKCS11EnvVar defines a simple name/value
+                                environment variable.
+                              properties:
+                                name:
+                                  type: string
+                                value:
+                                  type: string
+                              required:
+                              - name
+                              - value
+                              type: object
+                            type: array
+                          image:
+                            description: |-
+                              Container image that provisions the HSM token and library.
+                              Examples: quay.io/rh-ee-sacm/softhsm-init:latest (SoftHSM),
+                              or a vendor-specific image for hardware HSMs.
+                            type: string
+                          volumes:
+                            description: |-
+                              Additional volumes to mount into the init container (vendor-specific configs).
+                              Use this for things like softhsm2.conf ConfigMaps, vendor config files, etc.
+                              These volumes are also added to the pod spec.
+                            items:
+                              description: PKCS11Volume defines a volume to mount
+                                into the init container and/or server container.
+                              properties:
+                                configMapName:
+                                  description: ConfigMap name to mount (mutually exclusive
+                                    with secretName and inlineData).
+                                  type: string
+                                inlineData:
+                                  additionalProperties:
+                                    type: string
+                                  description: |-
+                                    Inline data — operator creates a ConfigMap from this map.
+                                    Keys are filenames, values are file contents.
+                                    Mutually exclusive with configMapName and secretName.
+                                  type: object
+                                mountPath:
+                                  description: Mount path inside the container.
+                                  type: string
+                                name:
+                                  description: Volume name (must be unique within
+                                    the pod).
+                                  type: string
+                                readOnly:
+                                  default: true
+                                  description: ReadOnly mount. Defaults to true for
+                                    config volumes.
+                                  type: boolean
+                                secretName:
+                                  description: Secret name to mount (mutually exclusive
+                                    with configMapName and inlineData).
+                                  type: string
+                              required:
+                              - mountPath
+                              - name
+                              type: object
+                            type: array
+                        required:
+                        - image
+                        type: object
+                      keyConfig:
+                        default:
+                          algorithm: EC:secp384r1
+                          id: 99
+                          label: PKCS11CA
+                        description: PKCS#11 key parameters.
+                        properties:
+                          algorithm:
+                            default: EC:secp384r1
+                            description: Key algorithm (passed to pkcs11-tool --key-type).
+                            type: string
+                          id:
+                            default: 99
+                            description: PKCS#11 object ID for the CA root key.
+                            type: integer
+                          label:
+                            default: PKCS11CA
+                            description: Key label in the HSM token.
+                            type: string
+                        type: object
+                      libraryPath:
+                        description: |-
+                          Full path to the PKCS#11 .so library inside the init container image
+                          (e.g. "/usr/lib64/pkcs11/libsofthsm2.so", "/usr/lib/libCryptoki2_64.so").
+                          The operator copies this library to the shared volume automatically
+                          and derives the filename for crypto11.conf.
+                          Mutually exclusive with pkcs11ConfigRef.
+                        type: string
+                      persistence:
+                        description: |-
+                          Persistent storage for HSM tokens (key survives pod restarts).
+                          When nil, an emptyDir is used (key is regenerated on every pod restart).
+                          Not needed for hardware HSMs where keys live on the device.
+                        properties:
+                          accessModes:
+                            default:
+                            - ReadWriteOnce
+                            description: PVC AccessModes
+                            items:
+                              enum:
+                              - ReadWriteOnce
+                              - ReadOnlyMany
+                              - ReadWriteMany
+                              - ReadWriteOncePod
+                              type: string
+                            minItems: 1
+                            type: array
+                          name:
+                            description: Name of the PVC
+                            maxLength: 253
+                            minLength: 1
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                            type: string
+                          retain:
+                            default: true
+                            description: Retain policy for the PVC
+                            type: boolean
+                            x-kubernetes-validations:
+                            - message: Field is immutable
+                              rule: (self == oldSelf)
+                          size:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            default: 5Gi
+                            description: |-
+                              The requested size of the persistent volume attached to Pod.
+                              The format of this field matches that defined by kubernetes/apimachinery.
+                              See https://pkg.go.dev/k8s.io/apimachinery/pkg/api/resource#Quantity for more info on the format of this field.
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                          storageClass:
+                            description: The name of the StorageClass to claim a PersistentVolume
+                              from.
+                            type: string
+                        required:
+                        - retain
+                        type: object
+                        x-kubernetes-validations:
+                        - message: storageClass is immutable when a PVC name is not
+                            specified
+                          rule: oldSelf == null || has(self.name) || (!has(oldSelf.storageClass)
+                            || has(self.storageClass) && oldSelf.storageClass == self.storageClass)
+                        - message: accessModes is immutable when a PVC name is not
+                            specified
+                          rule: oldSelf == null || has(self.name) || (!has(oldSelf.accessModes)
+                            || has(self.accessModes) && oldSelf.accessModes == self.accessModes)
+                      pin:
+                        description: |-
+                          HSM PIN value. The operator creates a Secret from this.
+                          Mutually exclusive with credentialsRef.
+                        type: string
+                      pkcs11ConfigRef:
+                        description: |-
+                          Reference to a pre-existing Secret containing crypto11.conf.
+                          Takes precedence over inline fields (tokenLabel, libraryPath, pin).
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      rootCA:
+                        default:
+                          org: RHTAS
+                        description: Root CA subject for the createca init container.
+                        properties:
+                          country:
+                            type: string
+                          locality:
+                            type: string
+                          org:
+                            default: RHTAS
+                            type: string
+                          province:
+                            type: string
+                        type: object
+                      serverEnv:
+                        description: |-
+                          Additional environment variables for the main Fulcio server container.
+                          Use this for vendor-specific env vars (e.g. SOFTHSM2_CONF for SoftHSM).
+                        items:
+                          description: PKCS11EnvVar defines a simple name/value environment
+                            variable.
+                          properties:
+                            name:
+                              type: string
+                            value:
+                              type: string
+                          required:
+                          - name
+                          - value
+                          type: object
+                        type: array
+                      tokenLabel:
+                        description: |-
+                          PKCS#11 token label (e.g. "fulcio"). Used to build crypto11.conf.
+                          Mutually exclusive with pkcs11ConfigRef.
+                        type: string
+                    required:
+                    - initContainer
+                    type: object
+                    x-kubernetes-validations:
+                    - message: provide either inline config (pin + tokenLabel + libraryPath)
+                        or references (credentialsRef + pkcs11ConfigRef)
+                      rule: (has(self.pin) && has(self.tokenLabel) && has(self.libraryPath))
+                        || (has(self.credentialsRef) && has(self.pkcs11ConfigRef))
                   privateKeyPasswordRef:
-                    description: Reference to password to encrypt CA private key
+                    description: Reference to password to encrypt CA private key (file
+                      CA only)
                     properties:
                       key:
                         description: The key of the secret to select from. Must be
@@ -1465,7 +2000,7 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   privateKeyRef:
-                    description: Reference to CA private key
+                    description: Reference to CA private key (file CA only)
                     properties:
                       key:
                         description: The key of the secret to select from. Must be
@@ -1485,9 +2020,12 @@ spec:
                 type: object
                 x-kubernetes-validations:
                 - message: organizationName cannot be empty
-                  rule: (has(self.caRef) || self.organizationName != "")
+                  rule: (has(self.caRef) || self.organizationName != "" || (has(self.caType)
+                    && self.caType == 'pkcs11'))
                 - message: privateKeyRef cannot be empty
                   rule: (!has(self.caRef) || has(self.privateKeyRef))
+                - message: pkcs11 config is required when caType is pkcs11
+                  rule: (!has(self.caType) || self.caType != 'pkcs11' || has(self.pkcs11))
               conditions:
                 items:
                   description: Condition contains details for one aspect of the current

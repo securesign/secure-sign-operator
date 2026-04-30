@@ -25,15 +25,17 @@ func TrustedCA(lor *v1alpha1.LocalObjectReference, containerName string, moreNam
 			}
 		}
 
-		projections := make([]corev1.VolumeProjection, 0)
+		var projections []corev1.VolumeProjection
 		if lor != nil {
-			projections = append(projections, corev1.VolumeProjection{
-				ConfigMap: &corev1.ConfigMapProjection{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: lor.Name,
+			projections = []corev1.VolumeProjection{
+				{
+					ConfigMap: &corev1.ConfigMapProjection{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: lor.Name,
+						},
 					},
 				},
-			})
+			}
 		}
 
 		volume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, tls.CaTrustVolumeName)

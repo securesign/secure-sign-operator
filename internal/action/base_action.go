@@ -67,7 +67,10 @@ func (action *BaseAction) StatusUpdate(ctx context.Context, obj client.Object) *
 		}
 		return action.Client.Status().Update(ctx, current)
 	})
-	return &Result{Err: err}
+	return &Result{
+		Result: reconcile.Result{RequeueAfter: time.Second},
+		Err:    err,
+	}
 }
 
 func (action *BaseAction) Error(ctx context.Context, err error, instance apis.ConditionsAwareObject, conditions ...metav1.Condition) *Result {

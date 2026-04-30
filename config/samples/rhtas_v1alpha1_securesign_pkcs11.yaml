@@ -1,0 +1,140 @@
+# Full Securesign stack with Fulcio using PKCS#11 (SoftHSM example).
+#
+# This uses inline mode — the operator creates all Secrets/ConfigMaps
+# automatically. No manual kubectl create secret/configmap needed.
+#
+# For reference mode (pre-created secrets), replace the inline fields
+# (pin, tokenLabel, libraryPath, inlineData) with:
+#   credentialsRef:
+#     name: hsm-credentials
+#     key: pin
+#   pkcs11ConfigRef:
+#     name: fulcio-pkcs11-config
+#     key: crypto11.conf
+#   volumes:
+#     - name: softhsm-config
+#       mountPath: /etc/softhsm
+#       configMapName: softhsm-config
+
+apiVersion: rhtas.redhat.com/v1alpha1
+kind: Securesign
+metadata:
+  labels:
+    app.kubernetes.io/name: securesign-sample
+    app.kubernetes.io/instance: securesign-sample
+    app.kubernetes.io/part-of: trusted-artifact-signer
+  name: securesign-sample
+spec:
+  trillian:
+    database:
+      create: true
+      pvc:
+        retain: true
+        size: 5Gi
+    monitoring:
+      enabled: false
+  fulcio:
+    externalAccess:
+      enabled: true
+    config:
+      OIDCIssuers:
+        - ClientID: "trusted-artifact-signer"
+          IssuerURL: "https://your-oidc-issuer-url"
+          Issuer: "https://your-oidc-issuer-url"
+          Type: "email"
+    ctlog:
+      prefix: trusted-artifact-signer
+    certificate:
+      caType: pkcs11
+      pkcs11:
+        pin: "secretpin123"
+        tokenLabel: "fulcio"
+        libraryPath: "/usr/lib64/pkcs11/libsofthsm2.so"
+        initContainer:
+          image: "quay.io/rh-ee-sacm/softhsm-init:latest"
+          env:
+            - name: SOFTHSM2_CONF
+              value: /etc/softhsm/softhsm2.conf
+          volumes:
+            - name: softhsm-config
+              mountPath: /etc/softhsm
+              inlineData:
+                softhsm2.conf: |
+                  directories.tokendir = /var/lib/hsm/tokens
+                  objectstore.backend = file
+                  log.level = DEBUG
+        serverEnv:
+          - name: SOFTHSM2_CONF
+            value: /etc/softhsm/softhsm2.conf
+        keyConfig:
+          id: 99
+          label: PKCS11CA
+          algorithm: "EC:secp384r1"
+        rootCA:
+          org: "RHTAS-HSM-Test"
+          country: "US"
+    monitoring:
+      enabled: false
+  ctlog:
+    monitoring:
+      enabled: false
+    trillian:
+      port: 8091
+  rekor:
+    externalAccess:
+      enabled: true
+    searchIndex:
+      create: true
+    signer:
+      kms: secret
+    trillian:
+      port: 8091
+    rekorSearchUI:
+      enabled: true
+    monitoring:
+      enabled: false
+    backFillRedis:
+      enabled: true
+      schedule: "0 0 * * *"
+    pvc:
+      retain: true
+      size: 5Gi
+  tuf:
+    externalAccess:
+      enabled: true
+    signingConfigURLMode: external
+    ctlog:
+      prefix: trusted-artifact-signer
+    keys:
+      - name: rekor.pub
+      - name: ctfe.pub
+      - name: fulcio_v1.crt.pem
+      - name: tsa.certchain.pem
+    rootKeySecretRef:
+      name: tuf-root-keys
+    pvc:
+      accessModes:
+        - ReadWriteOnce
+      retain: true
+      size: 100Mi
+  tsa:
+    externalAccess:
+      enabled: true
+    monitoring:
+      enabled: false
+    ntpMonitoring:
+      enabled: true
+    signer:
+      certificateChain:
+        rootCA:
+          organizationName: RHTAS-HSM-Test
+          organizationEmail: jdoe@redhat.com
+          commonName: tsa.hostname-root
+        intermediateCA:
+          - organizationName: RHTAS-HSM-Test
+            organizationEmail: jdoe@redhat.com
+            commonName: tsa.hostname-intermediate
+        leafCA:
+          organizationName: RHTAS-HSM-Test
+          organizationEmail: jdoe@redhat.com
+          commonName: tsa.hostname-leaf

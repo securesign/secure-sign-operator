@@ -27,9 +27,31 @@ spec:
           Issuer: "https://your-oidc-issuer-url"
           Type: "email"
     certificate:
+      caType: file
       organizationName: Red Hat
       organizationEmail: jdoe@redhat.com
       commonName: fulcio.hostname
+      # To use PKCS#11 instead of file-based CA, replace the above with:
+      # caType: pkcs11
+      # pkcs11:
+      #   pin: "<SECRET_PIN>" Ex: secretpin123
+      #   tokenLabel: "<TOKEN_LABEL>" Ex: fulcio
+      #   libraryPath: "<FULL_PATH_TO_LIB>" Ex: /usr/lib64/pkcs11/libsofthsm2.so
+      #   initContainer:
+      #     image: "<INIT_CONTAINER_IMAGE>" Ex: quay.io/rh-ee-sacm/softhsm-init:latest
+      #     env:
+      #       - name: SOFTHSM2_CONF
+      #         value: /etc/softhsm/softhsm2.conf
+      #     volumes:
+      #       - name: softhsm-config
+      #         mountPath: /etc/softhsm
+      #         inlineData:
+      #           softhsm2.conf: |
+      #             directories.tokendir = /var/lib/hsm/tokens
+      #             objectstore.backend = file
+      #   serverEnv:
+      #     - name: SOFTHSM2_CONF
+      #       value: /etc/softhsm/softhsm2.conf
     monitoring:
       enabled: true
   tuf:

@@ -66,8 +66,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		i.ensureDeployment(instance, RBACName, labels),
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
-		// need to add Fulcio's unix domain socket used for the legacy gRPC server other way it will be
-		// rest v1 api will be routed through proxy
 		deployment.Proxy("@fulcio-legacy-grpc-socket"),
 		deployment.TrustedCA(instance.GetTrustedCA(), containerName),
 		deployment.PodRequirements(instance.Spec.PodRequirements, containerName),
@@ -117,30 +115,10 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.Fulcio, sa string
 		if instance.Status.Certificate == nil {
 			return errors.New("certificate config is not specified")
 		}
-		if instance.Status.Certificate.PrivateKeyRef == nil {
-			return errors.New("private key secret is not specified")
-		}
-
-		if instance.Status.Certificate.CARef == nil {
-			return errors.New("CA secret is not specified")
-		}
 
 		ctlogUrl, err := i.resolveCTlogUrl(instance)
 		if err != nil {
 			return fmt.Errorf("could not resolve CTLog url: %w", err)
-		}
-
-		args := []string{
-			"serve",
-			"--port=5555",
-			"--grpc-port=5554",
-			fmt.Sprintf("--log_type=%s", utils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
-			"--ca=fileca",
-			"--fileca-key",
-			"/var/run/fulcio-secrets/key.pem",
-			"--fileca-cert",
-			"/var/run/fulcio-secrets/cert.pem",
-			fmt.Sprintf("--ct-log-url=%s", ctlogUrl),
 		}
 
 		spec := &dp.Spec
@@ -157,17 +135,25 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.Fulcio, sa string
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, containerName)
 		container.Image = images.Registry.Get(images.FulcioServer)
 
-		if instance.Status.Certificate.PrivateKeyPasswordRef != nil {
-			env := kubernetes.FindEnvByNameOrCreate(container, "PASSWORD")
-			env.ValueFrom = &core.EnvVarSource{
-				SecretKeyRef: &core.SecretKeySelector{
-					Key: instance.Status.Certificate.PrivateKeyPasswordRef.Key,
-					LocalObjectReference: core.LocalObjectReference{
-						Name: instance.Status.Certificate.PrivateKeyPasswordRef.Name,
-					},
-				},
+		isPKCS11 := instance.Spec.Certificate.CAType == rhtasv1alpha1.CATypePKCS11
+
+		var args []string
+		if isPKCS11 {
+			sp := instance.Status.Certificate.PKCS11
+			if sp == nil || sp.CredentialsRef == nil || sp.PKCS11ConfigRef == nil {
+				return errors.New("PKCS#11 config not yet resolved — waiting for ensure-pkcs11-config")
 			}
-			args = append(args, "--fileca-key-passwd", "$(PASSWORD)")
+			args = i.buildPKCS11Args(instance, sp, ctlogUrl)
+			i.ensurePKCS11Deployment(instance, sp, template, container)
+		} else {
+			if instance.Status.Certificate.PrivateKeyRef == nil {
+				return errors.New("private key secret is not specified")
+			}
+			if instance.Status.Certificate.CARef == nil {
+				return errors.New("CA secret is not specified")
+			}
+			args = i.buildFileCAArgs(instance, ctlogUrl)
+			i.ensureFileCADeployment(instance, template, container)
 		}
 
 		container.Args = args
@@ -186,10 +172,6 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.Fulcio, sa string
 			monitoringPort.Protocol = core.ProtocolTCP
 		}
 
-		certMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-cert")
-		certMount.MountPath = "/var/run/fulcio-secrets"
-		certMount.ReadOnly = true
-
 		configMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-config")
 		configMount.MountPath = "/etc/fulcio-config"
 
@@ -201,39 +183,6 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.Fulcio, sa string
 			config.ConfigMap = &core.ConfigMapVolumeSource{}
 		}
 		config.ConfigMap.Name = instance.Status.ServerConfigRef.Name
-
-		cert := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-cert")
-		if cert.Projected == nil {
-			cert.Projected = &core.ProjectedVolumeSource{}
-		}
-		cert.Projected.Sources = []core.VolumeProjection{
-			{
-				Secret: &core.SecretProjection{
-					LocalObjectReference: core.LocalObjectReference{
-						Name: instance.Status.Certificate.PrivateKeyRef.Name,
-					},
-					Items: []core.KeyToPath{
-						{
-							Key:  instance.Status.Certificate.PrivateKeyRef.Key,
-							Path: "key.pem",
-						},
-					},
-				},
-			},
-			{
-				Secret: &core.SecretProjection{
-					LocalObjectReference: core.LocalObjectReference{
-						Name: instance.Status.Certificate.CARef.Name,
-					},
-					Items: []core.KeyToPath{
-						{
-							Key:  instance.Status.Certificate.CARef.Key,
-							Path: "cert.pem",
-						},
-					},
-				},
-			},
-		}
 
 		oidcInfo := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "oidc-info")
 		if oidcInfo.Projected == nil {
@@ -271,10 +220,243 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.Fulcio, sa string
 		if container.ReadinessProbe.HTTPGet == nil {
 			container.ReadinessProbe.HTTPGet = &core.HTTPGetAction{}
 		}
-
 		container.ReadinessProbe.HTTPGet.Path = "/healthz"
 		container.ReadinessProbe.HTTPGet.Port = intstr.FromInt32(5555)
 
 		return nil
+	}
+}
+
+func (i deployAction) buildFileCAArgs(instance *rhtasv1alpha1.Fulcio, ctlogUrl string) []string {
+	return []string{
+		"serve",
+		"--port=5555",
+		"--grpc-port=5554",
+		fmt.Sprintf("--log_type=%s", utils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
+		"--ca=fileca",
+		"--fileca-key",
+		"/var/run/fulcio-secrets/key.pem",
+		"--fileca-cert",
+		"/var/run/fulcio-secrets/cert.pem",
+		fmt.Sprintf("--ct-log-url=%s", ctlogUrl),
+	}
+}
+
+func (i deployAction) buildPKCS11Args(instance *rhtasv1alpha1.Fulcio, p *rhtasv1alpha1.PKCS11Config, ctlogUrl string) []string {
+	configKey := "crypto11.conf"
+	if p.PKCS11ConfigRef != nil && p.PKCS11ConfigRef.Key != "" {
+		configKey = p.PKCS11ConfigRef.Key
+	}
+	return []string{
+		"serve",
+		"--port=5555",
+		"--grpc-port=5554",
+		fmt.Sprintf("--log_type=%s", utils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
+		"--ca=pkcs11ca",
+		fmt.Sprintf("--hsm-caroot-id=%d", p.KeyConfig.ID),
+		fmt.Sprintf("--aws-hsm-root-ca-path=%s", PKCS11RootPEMPath),
+		fmt.Sprintf("--pkcs11-config-path=%s/%s", PKCS11ConfigMountPath, configKey),
+		fmt.Sprintf("--ct-log-url=%s", ctlogUrl),
+	}
+}
+
+func (i deployAction) ensureFileCADeployment(instance *rhtasv1alpha1.Fulcio, template *core.PodTemplateSpec, container *core.Container) {
+	if instance.Status.Certificate.PrivateKeyPasswordRef != nil {
+		env := kubernetes.FindEnvByNameOrCreate(container, "PASSWORD")
+		env.ValueFrom = &core.EnvVarSource{
+			SecretKeyRef: &core.SecretKeySelector{
+				Key: instance.Status.Certificate.PrivateKeyPasswordRef.Key,
+				LocalObjectReference: core.LocalObjectReference{
+					Name: instance.Status.Certificate.PrivateKeyPasswordRef.Name,
+				},
+			},
+		}
+		container.Args = append(container.Args, "--fileca-key-passwd", "$(PASSWORD)")
+	}
+
+	certMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-cert")
+	certMount.MountPath = "/var/run/fulcio-secrets"
+	certMount.ReadOnly = true
+
+	cert := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-cert")
+	if cert.Projected == nil {
+		cert.Projected = &core.ProjectedVolumeSource{}
+	}
+	cert.Projected.Sources = []core.VolumeProjection{
+		{
+			Secret: &core.SecretProjection{
+				LocalObjectReference: core.LocalObjectReference{
+					Name: instance.Status.Certificate.PrivateKeyRef.Name,
+				},
+				Items: []core.KeyToPath{
+					{
+						Key:  instance.Status.Certificate.PrivateKeyRef.Key,
+						Path: "key.pem",
+					},
+				},
+			},
+		},
+		{
+			Secret: &core.SecretProjection{
+				LocalObjectReference: core.LocalObjectReference{
+					Name: instance.Status.Certificate.CARef.Name,
+				},
+				Items: []core.KeyToPath{
+					{
+						Key:  instance.Status.Certificate.CARef.Key,
+						Path: "cert.pem",
+					},
+				},
+			},
+		},
+	}
+}
+
+func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1alpha1.Fulcio, p *rhtasv1alpha1.PKCS11Config, template *core.PodTemplateSpec, container *core.Container) {
+
+	// --- Shared volumes (operator-managed, vendor-agnostic) ---
+	tokensVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "hsm-tokens")
+	if p.Persistence != nil {
+		tokensVol.PersistentVolumeClaim = &core.PersistentVolumeClaimVolumeSource{
+			ClaimName: p.Persistence.Name,
+		}
+	} else {
+		tokensVol.EmptyDir = &core.EmptyDirVolumeSource{}
+	}
+
+	libVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "hsm-lib")
+	libVol.EmptyDir = &core.EmptyDirVolumeSource{}
+
+	pkcs11Vol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "pkcs11-config")
+	if pkcs11Vol.Secret == nil {
+		pkcs11Vol.Secret = &core.SecretVolumeSource{}
+	}
+	if p.PKCS11ConfigRef != nil {
+		pkcs11Vol.Secret.SecretName = p.PKCS11ConfigRef.Name
+	}
+
+	// --- Vendor-specific volumes from initContainer.volumes ---
+	for _, v := range p.InitContainer.Volumes {
+		vol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, v.Name)
+		if v.ConfigMapName != "" {
+			if vol.ConfigMap == nil {
+				vol.ConfigMap = &core.ConfigMapVolumeSource{}
+			}
+			vol.ConfigMap.Name = v.ConfigMapName
+		} else if v.SecretName != "" {
+			if vol.Secret == nil {
+				vol.Secret = &core.SecretVolumeSource{}
+			}
+			vol.Secret.SecretName = v.SecretName
+		}
+	}
+
+	// --- Init container: hsm-init (vendor plugin) ---
+	// Responsible for: token initialization + key pair generation.
+	// The operator handles library copy separately via hsm-lib-export.
+	initContainer := kubernetes.FindInitContainerByNameOrCreate(&template.Spec, HSMInitContainerName)
+	initContainer.Image = p.InitContainer.Image
+	initContainer.ImagePullPolicy = core.PullIfNotPresent
+	initContainer.Env = []core.EnvVar{}
+	if p.CredentialsRef != nil {
+		initContainer.Env = append(initContainer.Env, core.EnvVar{
+			Name: "HSM_PIN",
+			ValueFrom: &core.EnvVarSource{
+				SecretKeyRef: &core.SecretKeySelector{
+					Key:                  p.CredentialsRef.Key,
+					LocalObjectReference: core.LocalObjectReference{Name: p.CredentialsRef.Name},
+				},
+			},
+		})
+	}
+	for _, e := range p.InitContainer.Env {
+		initContainer.Env = append(initContainer.Env, core.EnvVar{Name: e.Name, Value: e.Value})
+	}
+	initContainer.VolumeMounts = []core.VolumeMount{
+		{Name: "hsm-tokens", MountPath: HSMTokenMountPath},
+	}
+	for _, v := range p.InitContainer.Volumes {
+		initContainer.VolumeMounts = append(initContainer.VolumeMounts,
+			core.VolumeMount{Name: v.Name, MountPath: v.MountPath, ReadOnly: v.ReadOnly})
+	}
+
+	// --- Init container: hsm-lib-export (operator-managed, inline mode only) ---
+	// Copies the PKCS#11 .so library from the vendor image to the shared lib volume.
+	if p.LibraryPath != "" {
+		libExportContainer := kubernetes.FindInitContainerByNameOrCreate(&template.Spec, HSMLibExportContainerName)
+		libExportContainer.Image = p.InitContainer.Image
+		libExportContainer.ImagePullPolicy = core.PullIfNotPresent
+		libExportContainer.Command = []string{"cp", p.LibraryPath, fmt.Sprintf("%s/", HSMLibMountPath)}
+		libExportContainer.VolumeMounts = []core.VolumeMount{
+			{Name: "hsm-lib", MountPath: HSMLibMountPath},
+		}
+	}
+
+	// --- Init container: fulcio-createca (operator-managed) ---
+	createCAContainer := kubernetes.FindInitContainerByNameOrCreate(&template.Spec, FulcioCreateCAContainerName)
+	createCAContainer.Image = container.Image
+	createCAContainer.Command = []string{"/usr/local/bin/fulcio-server"}
+	configKey := "crypto11.conf"
+	if p.PKCS11ConfigRef != nil && p.PKCS11ConfigRef.Key != "" {
+		configKey = p.PKCS11ConfigRef.Key
+	}
+	createCAArgs := []string{
+		"createca",
+		fmt.Sprintf("--org=%s", p.RootCA.Org),
+		fmt.Sprintf("--hsm-caroot-id=%d", p.KeyConfig.ID),
+		fmt.Sprintf("--pkcs11-config-path=%s/%s", PKCS11ConfigMountPath, configKey),
+		fmt.Sprintf("--out=%s", PKCS11RootPEMPath),
+		"--hsm=aws",
+	}
+	if p.RootCA.Country != "" {
+		createCAArgs = append(createCAArgs, fmt.Sprintf("--country=%s", p.RootCA.Country))
+	}
+	if p.RootCA.Locality != "" {
+		createCAArgs = append(createCAArgs, fmt.Sprintf("--locality=%s", p.RootCA.Locality))
+	}
+	if p.RootCA.Province != "" {
+		createCAArgs = append(createCAArgs, fmt.Sprintf("--province=%s", p.RootCA.Province))
+	}
+	createCAContainer.Args = createCAArgs
+	createCAEnv := []core.EnvVar{}
+	for _, e := range p.InitContainer.Env {
+		createCAEnv = append(createCAEnv, core.EnvVar{Name: e.Name, Value: e.Value})
+	}
+	createCAContainer.Env = createCAEnv
+
+	createCAMounts := []core.VolumeMount{
+		{Name: "hsm-tokens", MountPath: HSMTokenMountPath},
+		{Name: "hsm-lib", MountPath: HSMLibMountPath},
+		{Name: "pkcs11-config", MountPath: PKCS11ConfigMountPath, ReadOnly: true},
+	}
+	for _, v := range p.InitContainer.Volumes {
+		createCAMounts = append(createCAMounts,
+			core.VolumeMount{Name: v.Name, MountPath: v.MountPath, ReadOnly: v.ReadOnly})
+	}
+	createCAContainer.VolumeMounts = createCAMounts
+
+	// --- Main container: generic PKCS#11 mounts ---
+	tokenMount := kubernetes.FindVolumeMountByNameOrCreate(container, "hsm-tokens")
+	tokenMount.MountPath = HSMTokenMountPath
+
+	libMount := kubernetes.FindVolumeMountByNameOrCreate(container, "hsm-lib")
+	libMount.MountPath = HSMLibMountPath
+	libMount.ReadOnly = true
+
+	pkcs11Mount := kubernetes.FindVolumeMountByNameOrCreate(container, "pkcs11-config")
+	pkcs11Mount.MountPath = PKCS11ConfigMountPath
+	pkcs11Mount.ReadOnly = true
+
+	// User-specified env vars for the server container (vendor-specific)
+	for _, e := range p.ServerEnv {
+		env := kubernetes.FindEnvByNameOrCreate(container, e.Name)
+		env.Value = e.Value
+	}
+
+	// Vendor-specific volumes also mounted into the server container
+	for _, v := range p.InitContainer.Volumes {
+		vm := kubernetes.FindVolumeMountByNameOrCreate(container, v.Name)
+		vm.MountPath = v.MountPath
+		vm.ReadOnly = v.ReadOnly
 	}
 }

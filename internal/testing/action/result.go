@@ -12,7 +12,7 @@ func Continue() *action.Result {
 }
 
 func StatusUpdate() *action.Result {
-	return &action.Result{Result: reconcile.Result{}}
+	return &action.Result{Result: reconcile.Result{RequeueAfter: time.Second}}
 }
 
 func Error(err error) *action.Result {

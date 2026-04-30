@@ -35,18 +35,37 @@ type FulcioSpec struct {
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
 }
 
+// CAType specifies how the Fulcio CA key is managed.
+// +kubebuilder:validation:Enum=file;pkcs11
+type CAType string
+
+const (
+	CATypeFile   CAType = "file"
+	CATypePKCS11 CAType = "pkcs11"
+)
+
 // FulcioCert defines fields for system-generated certificate
-// +kubebuilder:validation:XValidation:rule=(has(self.caRef) || self.organizationName != ""),message=organizationName cannot be empty
+// +kubebuilder:validation:XValidation:rule=(has(self.caRef) || self.organizationName != "" || (has(self.caType) && self.caType == 'pkcs11')),message=organizationName cannot be empty
 // +kubebuilder:validation:XValidation:rule=(!has(self.caRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
+// +kubebuilder:validation:XValidation:rule=(!has(self.caType) || self.caType != 'pkcs11' || has(self.pkcs11)),message=pkcs11 config is required when caType is pkcs11
 type FulcioCert struct {
-	// Reference to CA private key
+	// CAType selects the CA backend: "file" (default) or "pkcs11".
+	//+optional
+	//+kubebuilder:default:="file"
+	CAType CAType `json:"caType,omitempty"`
+
+	// PKCS11 configuration. Required when caType is "pkcs11".
+	//+optional
+	PKCS11 *PKCS11Config `json:"pkcs11,omitempty"`
+
+	// Reference to CA private key (file CA only)
 	//+optional
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
-	// Reference to password to encrypt CA private key
+	// Reference to password to encrypt CA private key (file CA only)
 	//+optional
 	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
 
-	// Reference to CA certificate
+	// Reference to CA certificate (file CA only)
 	//+optional
 	CARef *SecretKeySelector `json:"caRef,omitempty"`
 
@@ -58,6 +77,160 @@ type FulcioCert struct {
 	OrganizationName string `json:"organizationName,omitempty"`
 	//+optional
 	OrganizationEmail string `json:"organizationEmail,omitempty"`
+}
+
+// PKCS11Config configures Fulcio to use a PKCS#11 backend.
+// The operator is vendor-agnostic: the init container is a plugin that provisions
+// the token and makes the .so library available. SoftHSM, Thales Luna, AWS CloudHSM,
+// or any PKCS#11-compliant backend can be used by supplying the appropriate init image
+// and vendor-specific configuration.
+//
+// Two modes are supported:
+//   - Inline: provide pin, tokenLabel, libraryPath — operator generates Secrets
+//   - Reference: provide credentialsRef, pkcs11ConfigRef — user pre-creates Secrets
+//
+// +kubebuilder:validation:XValidation:rule="(has(self.pin) && has(self.tokenLabel) && has(self.libraryPath)) || (has(self.credentialsRef) && has(self.pkcs11ConfigRef))",message="provide either inline config (pin + tokenLabel + libraryPath) or references (credentialsRef + pkcs11ConfigRef)"
+type PKCS11Config struct {
+	// Init container plugin that provisions the PKCS#11 token and library.
+	// The operator mounts two shared volumes into this container:
+	//   - /var/lib/hsm/tokens  (persistent or emptyDir for token data)
+	// The operator also injects HSM_PIN automatically.
+	// The operator handles copying the PKCS#11 library to the shared lib volume
+	// via a separate init container using libraryPath.
+	//+required
+	InitContainer PKCS11InitContainer `json:"initContainer"`
+
+	// HSM PIN value. The operator creates a Secret from this.
+	// Mutually exclusive with credentialsRef.
+	//+optional
+	Pin string `json:"pin,omitempty"`
+
+	// PKCS#11 token label (e.g. "fulcio"). Used to build crypto11.conf.
+	// Mutually exclusive with pkcs11ConfigRef.
+	//+optional
+	TokenLabel string `json:"tokenLabel,omitempty"`
+
+	// Full path to the PKCS#11 .so library inside the init container image
+	// (e.g. "/usr/lib64/pkcs11/libsofthsm2.so", "/usr/lib/libCryptoki2_64.so").
+	// The operator copies this library to the shared volume automatically
+	// and derives the filename for crypto11.conf.
+	// Mutually exclusive with pkcs11ConfigRef.
+	//+optional
+	LibraryPath string `json:"libraryPath,omitempty"`
+
+	// Reference to a pre-existing Secret containing crypto11.conf.
+	// Takes precedence over inline fields (tokenLabel, libraryPath, pin).
+	//+optional
+	PKCS11ConfigRef *SecretKeySelector `json:"pkcs11ConfigRef,omitempty"`
+
+	// Reference to a pre-existing Secret containing the HSM PIN.
+	// Takes precedence over inline pin field.
+	//+optional
+	CredentialsRef *SecretKeySelector `json:"credentialsRef,omitempty"`
+
+	// Additional environment variables for the main Fulcio server container.
+	// Use this for vendor-specific env vars (e.g. SOFTHSM2_CONF for SoftHSM).
+	//+optional
+	ServerEnv []PKCS11EnvVar `json:"serverEnv,omitempty"`
+
+	// PKCS#11 key parameters.
+	//+optional
+	//+kubebuilder:default:={id: 99, label: "PKCS11CA", algorithm: "EC:secp384r1"}
+	KeyConfig PKCS11KeyConfig `json:"keyConfig,omitempty"`
+
+	// Root CA subject for the createca init container.
+	//+optional
+	//+kubebuilder:default:={org: "RHTAS"}
+	RootCA PKCS11RootCA `json:"rootCA,omitempty"`
+
+	// Persistent storage for HSM tokens (key survives pod restarts).
+	// When nil, an emptyDir is used (key is regenerated on every pod restart).
+	// Not needed for hardware HSMs where keys live on the device.
+	//+optional
+	Persistence *Pvc `json:"persistence,omitempty"`
+}
+
+// PKCS11InitContainer defines the vendor-specific init container plugin.
+// This container is responsible for:
+//  1. Initializing the HSM token (e.g. softhsm2-util --init-token)
+//  2. Generating the key pair (e.g. pkcs11-tool --keypairgen)
+//
+// The operator handles copying the PKCS#11 library automatically via libraryPath.
+type PKCS11InitContainer struct {
+	// Container image that provisions the HSM token and library.
+	// Examples: quay.io/rh-ee-sacm/softhsm-init:latest (SoftHSM),
+	// or a vendor-specific image for hardware HSMs.
+	//+required
+	Image string `json:"image"`
+
+	// Additional environment variables for the init container (vendor-specific).
+	// The operator always injects HSM_PIN and EXPORT_LIB_DIR automatically.
+	//+optional
+	Env []PKCS11EnvVar `json:"env,omitempty"`
+
+	// Additional volumes to mount into the init container (vendor-specific configs).
+	// Use this for things like softhsm2.conf ConfigMaps, vendor config files, etc.
+	// These volumes are also added to the pod spec.
+	//+optional
+	Volumes []PKCS11Volume `json:"volumes,omitempty"`
+}
+
+// PKCS11EnvVar defines a simple name/value environment variable.
+type PKCS11EnvVar struct {
+	//+required
+	Name string `json:"name"`
+	//+required
+	Value string `json:"value"`
+}
+
+// PKCS11Volume defines a volume to mount into the init container and/or server container.
+type PKCS11Volume struct {
+	// Volume name (must be unique within the pod).
+	//+required
+	Name string `json:"name"`
+	// Mount path inside the container.
+	//+required
+	MountPath string `json:"mountPath"`
+	// ReadOnly mount. Defaults to true for config volumes.
+	//+optional
+	//+kubebuilder:default:=true
+	ReadOnly bool `json:"readOnly,omitempty"`
+	// ConfigMap name to mount (mutually exclusive with secretName and inlineData).
+	//+optional
+	ConfigMapName string `json:"configMapName,omitempty"`
+	// Secret name to mount (mutually exclusive with configMapName and inlineData).
+	//+optional
+	SecretName string `json:"secretName,omitempty"`
+	// Inline data — operator creates a ConfigMap from this map.
+	// Keys are filenames, values are file contents.
+	// Mutually exclusive with configMapName and secretName.
+	//+optional
+	InlineData map[string]string `json:"inlineData,omitempty"`
+}
+
+// PKCS11KeyConfig defines the HSM key parameters.
+type PKCS11KeyConfig struct {
+	// PKCS#11 object ID for the CA root key.
+	//+kubebuilder:default:=99
+	ID int `json:"id,omitempty"`
+	// Key label in the HSM token.
+	//+kubebuilder:default:="PKCS11CA"
+	Label string `json:"label,omitempty"`
+	// Key algorithm (passed to pkcs11-tool --key-type).
+	//+kubebuilder:default:="EC:secp384r1"
+	Algorithm string `json:"algorithm,omitempty"`
+}
+
+// PKCS11RootCA defines the root CA subject for createca.
+type PKCS11RootCA struct {
+	//+kubebuilder:default:="RHTAS"
+	Org string `json:"org,omitempty"`
+	//+optional
+	Country string `json:"country,omitempty"`
+	//+optional
+	Locality string `json:"locality,omitempty"`
+	//+optional
+	Province string `json:"province,omitempty"`
 }
 
 // FulcioConfig configuration of OIDC issuers

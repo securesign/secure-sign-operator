@@ -100,6 +100,7 @@ func (r *fulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		actions.NewHandleCertAction(),
 		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.Fulcio](),
 		actions.NewRBACAction(),
+		actions.NewEnsurePKCS11ConfigAction(),
 		actions.NewServerConfigAction(),
 		actions.NewDeployAction(),
 		actions.NewCreateMonitorAction(),
@@ -108,6 +109,7 @@ func (r *fulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		actions.NewStatusUrlAction(),
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.Fulcio](),
 		actions.NewInitializeAction(),
+		actions.NewExtractHSMRootAction(),
 		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.Fulcio](),
 	}
 

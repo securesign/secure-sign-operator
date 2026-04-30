@@ -6,7 +6,6 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	tlsensure "github.com/securesign/operator/internal/utils/tls/ensure"
 	v1 "k8s.io/api/apps/v1"
-	core "k8s.io/api/core/v1"
 )
 
 func Proxy(noProxy ...string) func(*v1.Deployment) error {
@@ -32,17 +31,21 @@ func TLS(tls v1alpha1.TLS, containerNames ...string) func(dp *v1.Deployment) err
 
 func PodRequirements(requirements v1alpha1.PodRequirements, containerName string) func(*v1.Deployment) error {
 	return func(deployment *v1.Deployment) error {
-		deployment.Spec.Replicas = requirements.Replicas
+		if requirements.Replicas != nil {
+			deployment.Spec.Replicas = requirements.Replicas
+		}
 
 		template := &deployment.Spec.Template
-		template.Spec.Affinity = requirements.Affinity
-		template.Spec.Tolerations = requirements.Tolerations
+		if requirements.Affinity != nil {
+			template.Spec.Affinity = requirements.Affinity
+		}
+		if requirements.Tolerations != nil {
+			template.Spec.Tolerations = requirements.Tolerations
+		}
 
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, containerName)
 		if requirements.Resources != nil {
 			container.Resources = *requirements.Resources
-		} else {
-			container.Resources = core.ResourceRequirements{}
 		}
 		return nil
 	}
