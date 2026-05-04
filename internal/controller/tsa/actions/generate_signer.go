@@ -125,7 +125,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 			g.Logger.Error(err, "can't remove label from TSA signer secret", "Name", partialSecret.Name)
 		}
 		message := fmt.Sprintf("Removed '%s' label from %s secret", TSACertCALabel, partialSecret.Name)
-		g.Recorder.Event(instance, v1.EventTypeNormal, "CertificateSecretLabelRemoved", message)
+		g.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "CertificateSecretLabelRemoved", "LabelRemoved", message)
 		g.Logger.Info(message)
 	}
 	if meta.IsStatusConditionTrue(instance.GetConditions(), TSASignerCondition) {
@@ -206,7 +206,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 			})
 	}
 
-	g.Recorder.Event(instance, v1.EventTypeNormal, "TSACertUpdated", "TSA certificate secret updated")
+	g.Recorder.Eventf(instance, certificateChain, v1.EventTypeNormal, "TSACertUpdated", "Updated", "TSA certificate secret updated")
 	g.alignStatusFields(certificateChain.Name, instance)
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               TSASignerCondition,

@@ -153,12 +153,12 @@ func (g handleKeys) discoverPrivateKey(ctx context.Context, instance *v1alpha1.C
 			if newKeyStatus.PrivateKeyPasswordRef != nil {
 				// we search for password encrypted private key
 				if isEncrypted && newKeyStatus.PrivateKeyPasswordRef.Name == passwordKeyRef {
-					g.Recorder.Event(instance, v1.EventTypeNormal, "PrivateKeyDiscovered", "Existing private key discovered")
+					g.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "PrivateKeyDiscovered", "Discovered", "Existing private key discovered")
 					newKeyStatus.PrivateKeyRef = g.sksByLabel(partialPrivateSecret, CTLogPrivateLabel)
 					continue
 				}
 			} else if !isEncrypted {
-				g.Recorder.Event(instance, v1.EventTypeNormal, "PrivateKeyDiscovered", "Existing private key discovered")
+				g.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "PrivateKeyDiscovered", "Discovered", "Existing private key discovered")
 				newKeyStatus.PrivateKeyRef = g.sksByLabel(partialPrivateSecret, CTLogPrivateLabel)
 				continue
 			}
@@ -167,7 +167,7 @@ func (g handleKeys) discoverPrivateKey(ctx context.Context, instance *v1alpha1.C
 		if err != nil {
 			g.Logger.Error(err, "problem with invalidating private key secret", "namespace", instance.Namespace)
 		}
-		g.Recorder.Event(instance, v1.EventTypeNormal, "PrivateSecretLabelRemoved", "Private key secret invalidated")
+		g.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "PrivateSecretLabelRemoved", "LabelRemoved", "Private key secret invalidated")
 	}
 }
 
@@ -189,7 +189,7 @@ func (g handleKeys) discoverPubliceKey(ctx context.Context, instance *v1alpha1.C
 		if newKeyStatus.PublicKeyRef == nil {
 			// we are still searching for new key
 			if privateKeyRef, ok := partialPubSecret.Annotations[privateKeyRefAnnotation]; ok && privateKeyRef == newKeyStatus.PrivateKeyRef.Name {
-				g.Recorder.Event(instance, v1.EventTypeNormal, "PublicKeyDiscovered", "Existing public key discovered")
+				g.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "PublicKeyDiscovered", "Discovered", "Existing public key discovered")
 				newKeyStatus.PublicKeyRef = g.sksByLabel(partialPubSecret, CTLPubLabel)
 				continue
 			}
@@ -198,7 +198,7 @@ func (g handleKeys) discoverPubliceKey(ctx context.Context, instance *v1alpha1.C
 		if err != nil {
 			g.Logger.Error(err, "problem with invalidating public key secret", "namespace", instance.Namespace)
 		}
-		g.Recorder.Event(instance, v1.EventTypeNormal, "PrivateSecretLabelRemoved", "Public key secret invalidated")
+		g.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "PrivateSecretLabelRemoved", "LabelRemoved", "Public key secret invalidated")
 	}
 }
 

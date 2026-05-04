@@ -245,7 +245,7 @@ func setupController(name string, constructor controller.Constructor, manager ct
 	if err := constructor(
 		manager.GetClient(),
 		manager.GetScheme(),
-		manager.GetEventRecorderFor(name+"-controller"),
+		manager.GetEventRecorder(name+"-controller"),
 	).SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", name)
 		os.Exit(1)

@@ -35,7 +35,7 @@ import (
 	"github.com/securesign/operator/internal/controller/rekor/actions/ui"
 	v13 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 
 	v12 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -54,10 +54,10 @@ import (
 type rekorReconciler struct {
 	client.Client
 	scheme   *runtime.Scheme
-	recorder record.EventRecorder
+	recorder events.EventRecorder
 }
 
-func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.EventRecorder) controller.Controller {
+func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder events.EventRecorder) controller.Controller {
 	return &rekorReconciler{
 		Client:   c,
 		scheme:   scheme,

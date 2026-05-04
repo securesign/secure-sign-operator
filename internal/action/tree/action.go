@@ -76,7 +76,7 @@ func (i resolveTree[T]) handleMissingCondition(ctx context.Context, instance T) 
 			Status: metav1.ConditionTrue,
 			Reason: state.Ready.String(),
 		})
-		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "ExistingTrillianTreeFound", "Existing Trillian tree found: %d", wrapped.GetStatusTreeID())
+		i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "ExistingTrillianTreeFound", "Discovered", "Existing Trillian tree found: %d", wrapped.GetStatusTreeID())
 		return i.StatusUpdate(ctx, instance)
 	}
 	return nil
@@ -363,7 +363,7 @@ func (i resolveTree[T]) handleExtractJobResult(ctx context.Context, instance T) 
 			Status: metav1.ConditionTrue,
 			Reason: state.Ready.String(),
 		})
-		i.Recorder.Eventf(instance, corev1.EventTypeNormal, "TrillianTreeCreated", "New Trillian tree created: %d", treeID)
+		i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "TrillianTreeCreated", "Created", "New Trillian tree created: %d", treeID)
 		return i.StatusUpdate(ctx, instance)
 	} else {
 		i.Logger.V(1).Info("ConfigMap not ready or data is empty, requeuing reconciliation")

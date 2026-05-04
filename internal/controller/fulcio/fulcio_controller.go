@@ -29,7 +29,7 @@ import (
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
 	v12 "k8s.io/api/core/v1"
 	v13 "k8s.io/api/networking/v1"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -47,10 +47,10 @@ import (
 type fulcioReconciler struct {
 	client.Client
 	scheme   *runtime.Scheme
-	recorder record.EventRecorder
+	recorder events.EventRecorder
 }
 
-func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder record.EventRecorder) controller.Controller {
+func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder events.EventRecorder) controller.Controller {
 	return &fulcioReconciler{
 		Client:   c,
 		scheme:   scheme,

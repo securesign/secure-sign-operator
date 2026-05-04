@@ -81,7 +81,7 @@ func (i migrationJobAction) jobPresent(ctx context.Context, job *batchv1.Job, in
 	i.Logger.Info("Tuf migration job is present.", "Succeeded", job.Status.Succeeded, "Failures", job.Status.Failed)
 	if jobUtils.IsCompleted(*job) {
 		if !jobUtils.IsFailed(*job) {
-			i.Recorder.Event(instance, corev1.EventTypeNormal, "TUFMigrationJob", "TUF migration job passed")
+			i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "TUFMigrationJob", "Completed", "TUF migration job passed")
 
 			//annotate self to signal that the migration is complete
 			var (
@@ -102,7 +102,7 @@ func (i migrationJobAction) jobPresent(ctx context.Context, job *batchv1.Job, in
 			return i.StatusUpdate(ctx, instance)
 		} else {
 			err := fmt.Errorf("tuf-repository-migration job failed")
-			i.Recorder.Event(instance, corev1.EventTypeWarning, "TUFMigrationJob", err.Error())
+			i.Recorder.Eventf(instance, nil, corev1.EventTypeWarning, "TUFMigrationJob", "Failed", err.Error())
 			return i.Error(ctx, reconcile.TerminalError(err), instance)
 		}
 	} else {
@@ -122,7 +122,7 @@ func (i migrationJobAction) jobPresent(ctx context.Context, job *batchv1.Job, in
 }
 
 func (i migrationJobAction) ensureMigrationJob(ctx context.Context, labels map[string]string, instance *rhtasv1alpha1.Tuf) *action.Result {
-	i.Recorder.Event(instance, corev1.EventTypeNormal, "TUFMigrationJob", "Starting TUF migration")
+	i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "TUFMigrationJob", "Started", "Starting TUF migration")
 
 	if err := utils.ResolveServiceAddress(ctx, i.Client, instance); err != nil {
 		return i.Error(ctx, fmt.Errorf("fail to resolve service url: %w", err), instance)
@@ -152,7 +152,7 @@ func (i migrationJobAction) ensureMigrationJob(ctx context.Context, labels map[s
 			instance, metav1.Condition{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Initialize.String(), Message: "TUF migration job creation failed"})
 	}
 
-	i.Recorder.Event(instance, corev1.EventTypeNormal, "TUFMigrationJob", "Tuf migration job created.")
+	i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "TUFMigrationJob", "Created", "Tuf migration job created.")
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:    state.Ready.String(),
 		Status:  metav1.ConditionFalse,

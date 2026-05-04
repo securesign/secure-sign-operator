@@ -78,13 +78,13 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		}
 		if bytes.Equal(existingPublicKey, publicKey) && instance.Status.PublicKeyRef == nil {
 			instance.Status.PublicKeyRef = sks
-			i.Recorder.Eventf(instance, v1.EventTypeNormal, "PublicKeySecretDiscovered", "Existing public key discovered: %s", sks.Name)
+			i.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "PublicKeySecretDiscovered", "Discovered", "Existing public key discovered: %s", sks.Name)
 		} else {
 			if err = labels.Remove(ctx, &partialSecret, i.Client, RekorPubLabel); err != nil {
 				return i.Error(ctx, fmt.Errorf("ResolvePubKey: %w", err), instance)
 			}
 			message := fmt.Sprintf("Removed '%s' label from %s secret", RekorPubLabel, partialSecret.Name)
-			i.Recorder.Event(instance, v1.EventTypeNormal, "PublicKeySecretLabelRemoved", message)
+			i.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "PublicKeySecretLabelRemoved", "LabelRemoved", message)
 			i.Logger.Info(message)
 		}
 	}
@@ -123,7 +123,7 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 			})
 	}
 
-	i.Recorder.Eventf(instance, v1.EventTypeNormal, "PublicKeySecretCreated", "New Rekor public key created: %s", newConfig.Name)
+	i.Recorder.Eventf(instance, newConfig, v1.EventTypeNormal, "PublicKeySecretCreated", "Created", "New Rekor public key created: %s", newConfig.Name)
 	c := meta.FindStatusCondition(instance.Status.Conditions, actions.ServerCondition)
 	c.Message = "Public key resolved"
 	meta.SetStatusCondition(&instance.Status.Conditions, *c)
