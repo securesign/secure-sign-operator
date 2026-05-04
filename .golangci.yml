@@ -33,6 +33,11 @@ linters:
       - third_party$
       - builtin$
       - examples$
+    rules:
+      # TODO: Migrate to GetEventRecorder - https://issues.redhat.com/browse/SECURESIGN-3651
+      - linters:
+          - staticcheck
+        text: "SA1019: manager.GetEventRecorderFor is deprecated"
 formatters:
   enable:
     - gofmt
