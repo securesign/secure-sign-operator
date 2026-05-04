@@ -21,6 +21,7 @@ const (
 	RBACUIName       = "rekor-ui"
 	RBACRedisName    = "rekor-redis"
 	RBACBackfillName = "rekor-backfill"
+	RBACMonitorName  = "rekor-monitor"
 
 	MonitoringRoleName       = "prometheus-k8s-rekor"
 	ServerComponentName      = "rekor-server"
