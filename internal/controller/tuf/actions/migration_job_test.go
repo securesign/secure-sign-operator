@@ -18,7 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -32,7 +32,7 @@ func setupMigrateAction() migrationJobAction {
 	migrateJobTestAction := migrationJobAction{
 		BaseAction: common.BaseAction{
 			Client:   fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&v1alpha1.Tuf{}).Build(),
-			Recorder: record.NewFakeRecorder(10),
+			Recorder: events.NewFakeRecorder(10),
 			Logger:   logr.Logger{},
 		},
 	}

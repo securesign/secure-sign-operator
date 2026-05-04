@@ -28,7 +28,7 @@ import (
 	"github.com/securesign/operator/internal/controller"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -103,7 +103,7 @@ func (t *controllerSuite) BeforeSuite() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.k8sClient).NotTo(BeNil())
 
-	recorder := record.NewFakeRecorder(1000)
+	recorder := events.NewFakeRecorder(1000)
 
 	err = t.supplier(
 		k8sManager.GetClient(),

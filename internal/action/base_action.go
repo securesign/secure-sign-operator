@@ -11,7 +11,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -19,7 +19,7 @@ import (
 
 type BaseAction struct {
 	Client   client.Client
-	Recorder record.EventRecorder
+	Recorder events.EventRecorder
 	Logger   logr.Logger
 }
 
@@ -27,7 +27,7 @@ func (action *BaseAction) InjectClient(client client.Client) {
 	action.Client = client
 }
 
-func (action *BaseAction) InjectRecorder(recorder record.EventRecorder) {
+func (action *BaseAction) InjectRecorder(recorder events.EventRecorder) {
 	action.Recorder = recorder
 }
 

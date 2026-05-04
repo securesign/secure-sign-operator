@@ -121,6 +121,6 @@ func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]stri
 		return i.Error(ctx, fmt.Errorf("could not create TUF init job: %w", err), instance)
 	}
 
-	i.Recorder.Event(instance, v1.EventTypeNormal, "JobCreated", "Tuf init-repository job created.")
+	i.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "JobCreated", "Created", "Tuf init-repository job created.")
 	return i.Requeue()
 }

@@ -167,7 +167,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 					})
 			}
 
-			g.Recorder.Eventf(instance, v1.EventTypeNormal, "SignerKeyCreated", "Signer private key created: %s", secret.Name)
+			g.Recorder.Eventf(instance, secret, v1.EventTypeNormal, "SignerKeyCreated", "Created", "Signer private key created: %s", secret.Name)
 			newSigner.KeyRef = &v1alpha1.SecretKeySelector{
 				Key: "private",
 				LocalObjectReference: v1alpha1.LocalObjectReference{
