@@ -251,6 +251,10 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 		ensure.ControllerReference[*batchv1.Job](instance, i.Client),
 		ensure.Labels[*batchv1.Job](slices.Collect(maps.Keys(labels)), labels),
 		func(object *batchv1.Job) error {
+			object.Spec.Template.Labels = labels
+			return nil
+		},
+		func(object *batchv1.Job) error {
 			return ensureTls.TrustedCA(instance.GetTrustedCA(), createTreeContainerName)(&object.Spec.Template)
 		},
 	); err != nil {

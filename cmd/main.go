@@ -22,10 +22,17 @@ import (
 	"os"
 
 	appconfig "github.com/securesign/operator/internal/config"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller"
 	"github.com/securesign/operator/internal/images"
+	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -158,8 +165,34 @@ func main() {
 		TLSOpts: tlsOpts,
 	})
 
+	// Restrict informer caches for high-cardinality core types to only objects managed by this operator.
+	// Without this, each Owns() watch caches ALL objects of that type cluster-wide, causing OOM on
+	// production clusters with hundreds of Deployments/Services from other workloads (SECURESIGN-4123).
+	operatorLabelSelector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			labels.LabelAppPartOf: constants.AppName,
+		},
+	})
+	if err != nil {
+		setupLog.Error(err, "unable to create operator label selector for cache")
+		os.Exit(1)
+	}
+	operatorCacheSelector := cache.ByObject{
+		Label: operatorLabelSelector,
+	}
+
 	cacheOpts := cache.Options{
-		ByObject: map[client.Object]cache.ByObject{},
+		ByObject: map[client.Object]cache.ByObject{
+			&appsv1.Deployment{}:            operatorCacheSelector,
+			&appsv1.ReplicaSet{}:            operatorCacheSelector,
+			&appsv1.StatefulSet{}:           operatorCacheSelector,
+			&corev1.Pod{}:                   operatorCacheSelector,
+			&corev1.Service{}:               operatorCacheSelector,
+			&networkingv1.Ingress{}:         operatorCacheSelector,
+			&batchv1.CronJob{}:              operatorCacheSelector,
+			&batchv1.Job{}:                  operatorCacheSelector,
+			&corev1.PersistentVolumeClaim{}: operatorCacheSelector,
+		},
 	}
 
 	if kubernetes.IsOpenShift() {
