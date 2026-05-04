@@ -3,6 +3,15 @@
   "extends": [
     "github>securesign/renovate-config//org-inherited-config.json"
   ],
+  "packageRules": [
+    {
+      "description": "Group all images.env container image updates together",
+      "matchManagers": ["custom.regex"],
+      "matchDatasources": ["docker"],
+      "groupName": "Docker Images",
+      "groupSlug": "docker-deps"
+    }
+  ],
   "customManagers": [
     {
       "customType": "regex",
