@@ -153,7 +153,7 @@ func (e ensurePKCS11Config) ensureCredentials(
 		return fmt.Errorf("creating PIN secret: %w", err)
 	}
 
-	e.Recorder.Eventf(instance, v1.EventTypeNormal, "PKCS11CredentialsCreated", "PIN secret created: %s", secret.Name)
+	e.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "PKCS11CredentialsCreated", "Created", "PIN secret created: %s", secret.Name)
 	status.CredentialsRef = &rhtasv1alpha1.SecretKeySelector{
 		Key:                  "pin",
 		LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: secret.Name},
@@ -221,7 +221,7 @@ func (e ensurePKCS11Config) ensurePKCS11Conf(
 		return fmt.Errorf("creating crypto11.conf secret: %w", err)
 	}
 
-	e.Recorder.Eventf(instance, v1.EventTypeNormal, "PKCS11ConfigCreated", "crypto11.conf secret created: %s", secret.Name)
+	e.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "PKCS11ConfigCreated", "Created", "crypto11.conf secret created: %s", secret.Name)
 	status.PKCS11ConfigRef = &rhtasv1alpha1.SecretKeySelector{
 		Key:                  "crypto11.conf",
 		LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: secret.Name},
@@ -267,7 +267,7 @@ func (e ensurePKCS11Config) ensureInlineVolumes(
 			return fmt.Errorf("creating ConfigMap for volume %s: %w", vol.Name, err)
 		}
 
-		e.Recorder.Eventf(instance, v1.EventTypeNormal, "PKCS11VolumeConfigMapCreated",
+		e.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "PKCS11VolumeConfigMapCreated", "Created",
 			"ConfigMap created for volume %s: %s", vol.Name, cm.Name)
 
 		if i < len(status.InitContainer.Volumes) {

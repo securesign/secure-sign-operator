@@ -135,26 +135,6 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.Fulcio, sa string
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, containerName)
 		container.Image = images.Registry.Get(images.FulcioServer)
 
-		isPKCS11 := instance.Spec.Certificate.CAType == rhtasv1alpha1.CATypePKCS11
-
-		if isPKCS11 {
-			sp := instance.Status.Certificate.PKCS11
-			if sp == nil || sp.CredentialsRef == nil || sp.PKCS11ConfigRef == nil {
-				return errors.New("PKCS#11 config not yet resolved — waiting for ensure-pkcs11-config")
-			}
-			container.Args = i.buildPKCS11Args(instance, sp, ctlogUrl)
-			i.ensurePKCS11Deployment(sp, template, container)
-		} else {
-			if instance.Status.Certificate.PrivateKeyRef == nil {
-				return errors.New("private key secret is not specified")
-			}
-			if instance.Status.Certificate.CARef == nil {
-				return errors.New("CA secret is not specified")
-			}
-			container.Args = i.buildFileCAArgs(instance, ctlogUrl)
-			i.ensureFileCADeployment(instance, template, container)
-		}
-
 		http := kubernetes.FindPortByNameOrCreate(container, "http")
 		http.ContainerPort = 5555
 		http.Protocol = core.ProtocolTCP
@@ -200,6 +180,26 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.Fulcio, sa string
 					},
 				},
 			},
+		}
+
+		isPKCS11 := instance.Spec.Certificate.CAType == rhtasv1alpha1.CATypePKCS11
+
+		if isPKCS11 {
+			sp := instance.Status.Certificate.PKCS11
+			if sp == nil || sp.CredentialsRef == nil || sp.PKCS11ConfigRef == nil {
+				return errors.New("PKCS#11 config not yet resolved — waiting for ensure-pkcs11-config")
+			}
+			container.Args = i.buildPKCS11Args(instance, sp, ctlogUrl)
+			i.ensurePKCS11Deployment(sp, template, container)
+		} else {
+			if instance.Status.Certificate.PrivateKeyRef == nil {
+				return errors.New("private key secret is not specified")
+			}
+			if instance.Status.Certificate.CARef == nil {
+				return errors.New("CA secret is not specified")
+			}
+			container.Args = i.buildFileCAArgs(instance, ctlogUrl)
+			i.ensureFileCADeployment(instance, template, container)
 		}
 
 		if container.LivenessProbe == nil {

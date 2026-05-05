@@ -88,8 +88,8 @@ func (e extractHSMRoot) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulc
 		},
 	}
 
-	e.Recorder.Event(instance, v1.EventTypeNormal, "HSMRootCAPublished",
-		fmt.Sprintf("HSM root CA published to secret %s", secret.Name))
+	e.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "HSMRootCAPublished", "Created",
+		"HSM root CA published to secret %s", secret.Name)
 	e.Logger.Info("HSM root CA secret created", "secret", secret.Name)
 
 	return e.StatusUpdate(ctx, instance)

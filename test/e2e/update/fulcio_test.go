@@ -248,7 +248,14 @@ var _ = Describe("Fulcio update", Ordered, func() {
 				g.Expect(fulcioPod).NotTo(BeNil())
 			}).Should(Succeed())
 
-			Expect(fulcioPod.Spec.Volumes[0].VolumeSource.ConfigMap.Name).To(Equal(f.Status.ServerConfigRef.Name))
+			var configVolName string
+			for _, vol := range fulcioPod.Spec.Volumes {
+				if vol.ConfigMap != nil && vol.ConfigMap.Name == f.Status.ServerConfigRef.Name {
+					configVolName = vol.Name
+					break
+				}
+			}
+			Expect(configVolName).NotTo(BeEmpty(), "fulcio-config volume should reference the server config ConfigMap")
 
 			cm := &v1.ConfigMap{}
 			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: f.Status.ServerConfigRef.Name}, cm)).To(Succeed())
