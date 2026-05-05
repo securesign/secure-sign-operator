@@ -227,3 +227,7 @@ func (i *TimestampAuthority) GetTrustedCA() *LocalObjectReference {
 
 	return nil
 }
+
+func (i *TimestampAuthority) GetServiceURL() string {
+	return i.Status.Url
+}

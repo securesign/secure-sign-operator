@@ -42,7 +42,7 @@ func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tim
 		}
 		url = protocol + ingress.Spec.Rules[0].Host
 	} else {
-		url = fmt.Sprintf("http://%s.%s.svc", DeploymentName, instance.Namespace)
+		url = fmt.Sprintf("http://%s.%s.svc:%d", DeploymentName, instance.Namespace, ServerPort)
 	}
 
 	if url == instance.Status.Url {
