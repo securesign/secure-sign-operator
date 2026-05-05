@@ -1,0 +1,44 @@
+# Both controller and node pods run the nfs container with privileged: true,
+# hostNetwork, and hostPath volumes — hardcoded in the upstream chart templates.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: csi-nfs-scc-role
+  namespace: nfs-storage
+rules:
+  - apiGroups: [ "security.openshift.io" ]
+    resources: [ "securitycontextconstraints" ]
+    verbs: [ "use" ]
+    resourceNames: [ "privileged" ]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: csi-nfs-controller-scc-rb
+  namespace: nfs-storage
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: csi-nfs-scc-role
+subjects:
+  - kind: ServiceAccount
+    name: csi-nfs-controller-sa
+    namespace: nfs-storage
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: csi-nfs-node-scc-rb
+  namespace: nfs-storage
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: csi-nfs-scc-role
+subjects:
+  - kind: ServiceAccount
+    name: csi-nfs-node-sa
+    namespace: nfs-storage
