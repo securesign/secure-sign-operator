@@ -1478,6 +1478,8 @@ spec:
                 description: The ID of a Trillian tree that stores the log data.
                 format: int64
                 type: number
+              url:
+                type: string
             type: object
         type: object
     served: true

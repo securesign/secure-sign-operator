@@ -19,10 +19,14 @@ package tuf
 import (
 	"context"
 	"maps"
+	"reflect"
+	"strconv"
 	"time"
 
+	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/constants"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
+	"github.com/securesign/operator/internal/controller/tuf/utils"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
@@ -30,7 +34,6 @@ import (
 	apilabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/securesign/operator/api/v1alpha1"
-	actions2 "github.com/securesign/operator/internal/controller/ctlog/actions"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -38,6 +41,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	ctlogActions "github.com/securesign/operator/internal/controller/ctlog/actions"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -98,7 +102,6 @@ var _ = Describe("TUF controller", func() {
 						Namespace: TufNamespace,
 					},
 					Spec: v1alpha1.TufSpec{
-						SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
 						ExternalAccess: v1alpha1.ExternalAccess{
 							Host:    "tuf.localhost",
 							Enabled: true,
@@ -157,7 +160,7 @@ var _ = Describe("TUF controller", func() {
 			secretLabels := map[string]string{
 				labels.LabelNamespace + "/ctfe.pub": "public",
 			}
-			maps.Copy(secretLabels, labels.For(actions2.ComponentName, actions2.ComponentName, actions2.ComponentName))
+			maps.Copy(secretLabels, labels.For(ctlogActions.ComponentName, ctlogActions.ComponentName, ctlogActions.ComponentName))
 			_ = suite.Client().Create(ctx, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ctlog-test",
@@ -175,6 +178,83 @@ var _ = Describe("TUF controller", func() {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.PvcName
 			}).ShouldNot(BeEmpty())
+
+			Eventually(func(g Gomega) *metav1.Condition {
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return meta.FindStatusCondition(found.Status.Conditions, tufConstants.RepositoryCondition)
+			}).Should(
+				And(
+					WithTransform(func(condition *metav1.Condition) string {
+						return condition.Reason
+					}, Equal(state.Pending.String())),
+					WithTransform(func(condition *metav1.Condition) string {
+						return condition.Message
+					}, ContainSubstring("no items found")),
+				))
+
+			componentObjects := []utils.AddressableConditionAware{
+				&v1alpha1.CTlog{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ctlog-test",
+						Namespace: typeNamespaceName.Namespace,
+					},
+				},
+				&v1alpha1.Fulcio{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "fulcio-test",
+						Namespace: typeNamespaceName.Namespace,
+					},
+					Spec: v1alpha1.FulcioSpec{
+						Config: v1alpha1.FulcioConfig{
+							OIDCIssuers: []v1alpha1.OIDCIssuer{
+								{
+									ClientID: "test",
+									Issuer:   "test",
+								},
+							},
+						},
+						Certificate: v1alpha1.FulcioCert{
+							CommonName:        "test",
+							OrganizationName:  "test",
+							OrganizationEmail: "test@test.com",
+						},
+					},
+				},
+				&v1alpha1.Rekor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "rekor-test",
+						Namespace: typeNamespaceName.Namespace,
+					},
+				},
+			}
+			for _, component := range componentObjects {
+				Expect(suite.Client().Create(ctx, component)).To(Succeed())
+			}
+
+			Eventually(func(g Gomega) *metav1.Condition {
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return meta.FindStatusCondition(found.Status.Conditions, tufConstants.RepositoryCondition)
+			}).Should(
+				And(
+					WithTransform(func(condition *metav1.Condition) string {
+						return condition.Reason
+					}, Equal(state.Pending.String())),
+					WithTransform(func(condition *metav1.Condition) string {
+						return condition.Message
+					}, ContainSubstring("service is not ready")),
+				))
+
+			for i, component := range componentObjects {
+				Expect(setStatusURL(component, "https://example.com/"+strconv.Itoa(i))).To(BeTrue())
+				component.SetCondition(metav1.Condition{
+					Type:    constants.ReadyCondition,
+					Status:  metav1.ConditionTrue,
+					Reason:  state.Ready.String(),
+					Message: "Component is ready",
+				})
+				Expect(suite.Client().Status().Update(ctx, component)).To(Succeed())
+			}
+
 			initJobList := &batchv1.JobList{}
 			Eventually(func() []batchv1.Job {
 				jobLabels := labels.ForResource(tufConstants.ComponentName, tufConstants.InitJobName, TufName, found.Status.PvcName)
@@ -274,3 +354,24 @@ var _ = Describe("TUF controller", func() {
 		})
 	})
 })
+
+func setStatusURL(obj apis.Addressable, url string) bool {
+	v := reflect.ValueOf(obj)
+	if v.Kind() != reflect.Pointer || v.IsNil() {
+		return false
+	}
+	v = v.Elem()
+	if v.Kind() != reflect.Struct {
+		return false
+	}
+	status := v.FieldByName("Status")
+	if !status.IsValid() || status.Kind() != reflect.Struct {
+		return false
+	}
+	urlField := status.FieldByName("Url")
+	if !urlField.IsValid() || urlField.Kind() != reflect.String || !urlField.CanSet() {
+		return false
+	}
+	urlField.SetString(url)
+	return true
+}

@@ -1,27 +1,33 @@
 package utils
 
 import (
-	"fmt"
 	"testing"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
-	tsa "github.com/securesign/operator/internal/controller/tsa/actions"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-var (
-	c = fake.NewFakeClient()
-)
+var scheme = func() *runtime.Scheme {
+	scheme := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1.AddToScheme(scheme))
+	return scheme
+}()
 
 func TestResolveServiceAddress_UserSpecifiedAddress(t *testing.T) {
 	g := NewWithT(t)
+	c := fake.NewClientBuilder().WithScheme(scheme).Build()
 	instance := &v1alpha1.Tuf{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
-			Namespace: "testNamespace",
+			Namespace: t.Name(),
 		},
 		Spec: v1alpha1.TufSpec{
 			Rekor: v1alpha1.RekorService{
@@ -50,7 +56,6 @@ func TestResolveServiceAddress_UserSpecifiedAddress(t *testing.T) {
 					Name: "tsa.certchain.pem",
 				},
 			},
-			SigningConfigURLMode: v1alpha1.SigningConfigURLExternal,
 		},
 	}
 	err := ResolveServiceAddress(t.Context(), c, instance)
@@ -62,119 +67,49 @@ func TestResolveServiceAddress_UserSpecifiedAddress(t *testing.T) {
 	g.Expect(instance.Spec.Tsa.Address).To(Equal("http://tsa.fakeserver.com"))
 }
 
-func TestResolveServiceAddress_NoTsaKey(t *testing.T) {
+func TestResolveServiceAddress_InternalServiceLoading(t *testing.T) {
 	g := NewWithT(t)
+	c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&v1alpha1.Rekor{}).Build()
+
 	instance := &v1alpha1.Tuf{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
-			Namespace: "testNamespace",
+			Namespace: t.Name(),
 		},
 		Spec: v1alpha1.TufSpec{
 			Keys: []v1alpha1.TufKey{
 				{
 					Name: "rekor.pub",
 				},
-				{
-					Name: "ctfe.pub",
-				},
-				{
-					Name: "fulcio_v1.crt.pem",
-				},
 			},
-			SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
 		},
 	}
 	err := ResolveServiceAddress(t.Context(), c, instance)
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(instance.Spec.Rekor.Address).To(Equal("http://rekor-server.testNamespace.svc"))
-	g.Expect(instance.Spec.Ctlog.Address).To(Equal("http://ctlog.testNamespace.svc"))
-	g.Expect(instance.Spec.Fulcio.Address).To(Equal("http://fulcio-server.testNamespace.svc"))
-	g.Expect(instance.Spec.Tsa.Address).To(BeEmpty())
-}
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(err).To(MatchError(And(ContainSubstring("no items found in"), ContainSubstring("Rekor"))))
 
-func TestResolveServiceAddress_Internal(t *testing.T) {
-	g := NewWithT(t)
-	instance := &v1alpha1.Tuf{
+	rekor := &v1alpha1.Rekor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
-			Namespace: "testNamespace",
-		},
-		Spec: v1alpha1.TufSpec{
-			Keys: []v1alpha1.TufKey{
-				{
-					Name: "rekor.pub",
-				},
-				{
-					Name: "ctfe.pub",
-				},
-				{
-					Name: "fulcio_v1.crt.pem",
-				},
-				{
-					Name: "tsa.certchain.pem",
-				},
-			},
-			SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
+			Namespace: t.Name(),
 		},
 	}
-	err := ResolveServiceAddress(t.Context(), c, instance)
+	g.Expect(c.Create(t.Context(), rekor)).To(Succeed())
+
+	err = ResolveServiceAddress(t.Context(), c, instance)
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(err).To(MatchError(And(ContainSubstring("service is not ready"), ContainSubstring("test"))))
+
+	rekor.Status.Conditions = []metav1.Condition{
+		{
+			Type:   "Ready",
+			Status: metav1.ConditionTrue,
+			Reason: "Ready",
+		},
+	}
+	rekor.Status.Url = "http://rekor.fakeserver.com"
+	g.Expect(c.Status().Update(t.Context(), rekor)).To(Succeed())
+	err = ResolveServiceAddress(t.Context(), c, instance)
 	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(instance.Spec.Rekor.Address).To(Equal("http://rekor-server.testNamespace.svc"))
-	g.Expect(instance.Spec.Ctlog.Address).To(Equal("http://ctlog.testNamespace.svc"))
-	g.Expect(instance.Spec.Fulcio.Address).To(Equal("http://fulcio-server.testNamespace.svc"))
-	g.Expect(instance.Spec.Tsa.Address).To(Equal("http://tsa-server.testNamespace.svc" + tsa.TimestampPath))
-}
-
-func TestResolveServiceAddress_External(t *testing.T) {
-	g := NewWithT(t)
-
-	for _, ingress := range []string{"rekor-server", "fulcio-server", "tsa-server"} {
-		ingress := &v1.Ingress{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      ingress,
-				Namespace: "testNamespace",
-			},
-			Spec: v1.IngressSpec{
-				Rules: []v1.IngressRule{
-					{
-						Host: fmt.Sprintf("%s.external.com", ingress),
-					},
-				},
-			},
-		}
-		err := c.Create(t.Context(), ingress)
-		g.Expect(err).ToNot(HaveOccurred())
-	}
-	instance := &v1alpha1.Tuf{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
-			Namespace: "testNamespace",
-		},
-		Spec: v1alpha1.TufSpec{
-			Keys: []v1alpha1.TufKey{
-				{
-					Name: "rekor.pub",
-				},
-				{
-					Name: "ctfe.pub",
-				},
-				{
-					Name: "fulcio_v1.crt.pem",
-				},
-				{
-					Name: "tsa.certchain.pem",
-				},
-			},
-			SigningConfigURLMode: v1alpha1.SigningConfigURLExternal,
-		},
-	}
-	err := ResolveServiceAddress(t.Context(), c, instance)
-	g.Expect(err).ToNot(HaveOccurred())
-
-	g.Expect(instance.Spec.Ctlog.Address).To(Equal("http://ctlog.testNamespace.svc"), "ctlog is never exposed externally, so we always use internal mode")
-
-	g.Expect(instance.Spec.Rekor.Address).To(Equal("http://rekor-server.external.com"))
-	g.Expect(instance.Spec.Fulcio.Address).To(Equal("http://fulcio-server.external.com"))
-	// tsa should have the timestamp path appended
-	g.Expect(instance.Spec.Tsa.Address).To(Equal("http://tsa-server.external.com" + tsa.TimestampPath))
+	g.Expect(instance.Spec.Rekor.Address).To(Equal("http://rekor.fakeserver.com"))
 }

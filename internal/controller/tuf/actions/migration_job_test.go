@@ -54,9 +54,6 @@ func TestMigrateJob_AlreadyMigrated(t *testing.T) {
 				tufConstants.RepositoryVersionAnnotation: tufConstants.TufVersionV1,
 			},
 		},
-		Spec: v1alpha1.TufSpec{
-			SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
-		},
 		Status: v1alpha1.TufStatus{Conditions: []metav1.Condition{
 			{
 				Type:   constants.ReadyCondition,
@@ -83,7 +80,6 @@ func TestMigrateJob_NoRootKeySecret(t *testing.T) {
 				// root key is specified but secret does not exist
 				Name: "test-secret",
 			},
-			SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
 		},
 		Status: v1alpha1.TufStatus{Conditions: []metav1.Condition{
 			{
@@ -127,7 +123,6 @@ func TestMigrateJob_Succeeded(t *testing.T) {
 			PodRequirements: v1alpha1.PodRequirements{
 				Replicas: ptr.To(int32(1)),
 			},
-			SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
 		},
 		Status: v1alpha1.TufStatus{Conditions: []metav1.Condition{
 			{
@@ -218,7 +213,6 @@ func TestMigrateJob_Failed(t *testing.T) {
 			PodRequirements: v1alpha1.PodRequirements{
 				Replicas: ptr.To(int32(1)),
 			},
-			SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
 		},
 		Status: v1alpha1.TufStatus{Conditions: []metav1.Condition{
 			{

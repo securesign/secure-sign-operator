@@ -4,6 +4,7 @@ import (
 	"context"
 
 	. "github.com/onsi/gomega"
+	"github.com/securesign/operator/test/e2e/support/tas/cosign"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 
@@ -60,4 +61,9 @@ func VerifyAllComponents(ctx context.Context, cli runtimeCli.Client, s *rhtasv1a
 	ctlog.Verify(ctx, cli, s.Namespace, s.Name)
 	tuf.Verify(ctx, cli, s.Namespace, s.Name)
 	securesign.Verify(ctx, cli, s.Namespace, s.Name)
+}
+
+func VerifyByCosign(ctx context.Context, targetImageName string, tufUrl, fulcioUrl, rekorUrl, tsaUrl string) {
+	// use local cosign as default option
+	cosign.NewLocalCosign(tufUrl, fulcioUrl, rekorUrl, tsaUrl).VerifyByCosign(ctx, targetImageName)
 }
