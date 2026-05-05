@@ -319,7 +319,7 @@ func generateTufObject(name string) *Tuf {
 				Replicas: ptr.To(int32(1)),
 			},
 			Port:                 80,
-			SigningConfigURLMode: SigningConfigURLExternal,
+			SigningConfigURLMode: SigningConfigURLInternal,
 			ExternalAccess: ExternalAccess{
 				Enabled: false,
 			},

@@ -7,6 +7,7 @@ import (
 
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
@@ -15,19 +16,23 @@ import (
 	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
 	rekor "github.com/securesign/operator/internal/controller/rekor/actions"
 	tsa "github.com/securesign/operator/internal/controller/tsa/actions"
-	"github.com/securesign/operator/internal/utils/tls"
 )
 
+type serviceEndpoint struct {
+	Service             apis.TasService
+	ServiceName, Suffix string
+	Port                *int32
+}
+
 func ResolveServiceAddress(ctx context.Context, c client.Client, instance *rhtasv1alpha1.Tuf) error {
-	var keyToService = map[string]struct {
-		Service             apis.TasService
-		ServiceName, Suffix string
-	}{
+	var keyToService = map[string]serviceEndpoint{
 		rekorKey:  {Service: &instance.Spec.Rekor, ServiceName: rekor.ServerDeploymentName, Suffix: ""},
 		ctfeKey:   {Service: &instance.Spec.Ctlog, ServiceName: ctlog.DeploymentName, Suffix: ""},
 		fulcioKey: {Service: &instance.Spec.Fulcio, ServiceName: fulcio.DeploymentName, Suffix: ""},
-		tsaKey:    {Service: &instance.Spec.Tsa, ServiceName: tsa.DeploymentName, Suffix: tsa.TimestampPath},
+		tsaKey:    {Service: &instance.Spec.Tsa, ServiceName: tsa.DeploymentName, Suffix: tsa.TimestampPath, Port: ptr.To(int32(3000))},
 	}
+	useTlsClient := false // TODO: https://redhat.atlassian.net/browse/SECURESIGN-994: Use TLS client for internal mode
+	// useTlsClient := tls.UseTlsClient(instance)
 
 	for _, key := range instance.Spec.Keys {
 		signingConfigURLMode := instance.Spec.SigningConfigURLMode
@@ -39,7 +44,7 @@ func ResolveServiceAddress(ctx context.Context, c client.Client, instance *rhtas
 			// ctlog is never exposed externally, so we always use internal mode
 			signingConfigURLMode = rhtasv1alpha1.SigningConfigURLInternal
 		}
-		if err := resolveServiceAddress(ctx, c, service.Service, service.Suffix, types.NamespacedName{Name: service.ServiceName, Namespace: instance.Namespace}, signingConfigURLMode, tls.UseTlsClient(instance)); err != nil {
+		if err := resolveServiceAddress(ctx, c, service, types.NamespacedName{Name: service.ServiceName, Namespace: instance.Namespace}, signingConfigURLMode, useTlsClient); err != nil {
 			return err
 		}
 	}
@@ -47,30 +52,34 @@ func ResolveServiceAddress(ctx context.Context, c client.Client, instance *rhtas
 	return nil
 }
 
-func resolveServiceAddress(ctx context.Context, c client.Client, tasService apis.TasService, suffix string, namespacedName types.NamespacedName, signingConfigURLMode rhtasv1alpha1.TufSigningConfigURLMode, useTlsClient bool) error {
+func resolveServiceAddress(ctx context.Context, c client.Client, serviceEndpoint serviceEndpoint, namespacedName types.NamespacedName, signingConfigURLMode rhtasv1alpha1.TufSigningConfigURLMode, useTlsClient bool) error {
 	var (
 		protocol string
 	)
 	switch {
-	case tasService.GetAddress() != "":
+	case serviceEndpoint.Service.GetAddress() != "":
 		return nil // user config bypass the signingConfigURLMode and prefix
 	case signingConfigURLMode == rhtasv1alpha1.SigningConfigURLInternal:
+
 		if useTlsClient {
 			protocol = "https"
 		} else {
 			protocol = "http"
 		}
-		tasService.SetAddress(fmt.Sprintf("%s://%s.%s.svc", protocol, namespacedName.Name, namespacedName.Namespace))
 
+		serviceEndpoint.Service.SetAddress(fmt.Sprintf("%s://%s.%s.svc", protocol, namespacedName.Name, namespacedName.Namespace))
+		if serviceEndpoint.Port != nil {
+			serviceEndpoint.Service.SetPort(serviceEndpoint.Port)
+		}
 	default: // external mode
 		if url, err := resolveURLFromIngress(ctx, c, namespacedName.Name, namespacedName.Namespace); err != nil {
 			return err
 		} else {
-			tasService.SetAddress(url)
+			serviceEndpoint.Service.SetAddress(url)
 		}
 	}
-	if suffix != "" {
-		tasService.SetAddress(tasService.GetAddress() + suffix)
+	if serviceEndpoint.Suffix != "" {
+		serviceEndpoint.Service.SetAddress(serviceEndpoint.Service.GetAddress() + serviceEndpoint.Suffix)
 	}
 	return nil
 }

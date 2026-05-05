@@ -10950,7 +10950,7 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   signingConfigURLMode:
-                    default: external
+                    default: internal
                     description: |-
                       Controls which URLs are used in the signing config:
                       "external" (default) resolves URLs from Ingress routes,

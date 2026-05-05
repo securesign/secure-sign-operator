@@ -125,7 +125,15 @@ func (i migrationJobAction) ensureMigrationJob(ctx context.Context, labels map[s
 	i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "TUFMigrationJob", "Started", "Starting TUF migration")
 
 	if err := utils.ResolveServiceAddress(ctx, i.Client, instance); err != nil {
-		return i.Error(ctx, fmt.Errorf("fail to resolve service url: %w", err), instance)
+		err = fmt.Errorf("fail to resolve service url: %w", err)
+		return i.Error(ctx, err, instance,
+			metav1.Condition{
+				Type:    tufConstants.RepositoryCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  state.Failure.String(),
+				Message: err.Error(),
+			},
+		)
 	}
 	oidcIssuers := utils.ResolveOIDCIssuers(ctx, i.Client, instance.Namespace)
 

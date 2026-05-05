@@ -61,6 +61,7 @@ func WithDefaults() Opts {
 		WithExternalAccess()(s)
 		WithDefaultOIDC()(s)
 		WithNTPMonitoring()(s)
+		WithExternalSigningMode()(s)
 	}
 }
 
@@ -298,5 +299,11 @@ func WithNFSPVC() Opts {
 			AccessModes:  pvcConf.AccessModes,
 			StorageClass: pvcConf.StorageClass,
 		}
+	}
+}
+
+func WithExternalSigningMode() Opts {
+	return func(s *v1alpha1.Securesign) {
+		s.Spec.Tuf.SigningConfigURLMode = v1alpha1.SigningConfigURLExternal
 	}
 }

@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"github.com/securesign/operator/test/e2e/support"
+	cosignSupport "github.com/securesign/operator/test/e2e/support/tas/cosign"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	runtimeCli "sigs.k8s.io/controller-runtime/pkg/client"
@@ -48,6 +49,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		err                                    error
 		extension                              olm.Extension
 		catalog                                olm.ExtensionSource
+		cosign                                 cosignSupport.Cosign
 	)
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
@@ -153,11 +155,16 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		gomega.Expect(cli.Create(ctx, securesignDeployment)).To(gomega.Succeed())
 
 		tas.VerifyAllComponents(ctx, cli, securesignDeployment, true)
+
+	})
+
+	It("Initialize cosign cli", func(ctx SpecContext) {
+		s := securesign.Get(ctx, cli, namespace.Name, securesignDeployment.Name)
+		cosign = cosignSupport.NewLocalCosign(s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
 	})
 
 	It("Sign image with cosign cli", func(ctx SpecContext) {
-		s := securesign.Get(ctx, cli, namespace.Name, securesignDeployment.Name)
-		tas.VerifyByCosign(ctx, prevImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+		cosign.VerifyByCosign(ctx, prevImageName)
 	})
 
 	It("Upgrade operator", func(ctx SpecContext) {
@@ -219,13 +226,11 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 	})
 
 	It("Verify image signature after upgrade", func(ctx SpecContext) {
-		s := securesign.Get(ctx, cli, namespace.Name, securesignDeployment.Name)
-		tas.CosignVerify(ctx, prevImageName, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+		gomega.Expect(cosign.Verify(ctx, prevImageName)).To(gomega.Succeed())
 	})
 
 	It("Sign and Verify new image after upgrade", func(ctx SpecContext) {
-		s := securesign.Get(ctx, cli, namespace.Name, securesignDeployment.Name)
-		tas.VerifyByCosign(ctx, newImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+		cosign.VerifyByCosign(ctx, newImageName)
 	})
 
 	It("Make sure securesign can be deleted after upgrade", func(ctx SpecContext) {

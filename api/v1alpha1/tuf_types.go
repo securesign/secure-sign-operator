@@ -26,7 +26,7 @@ type TufSpec struct {
 	// Controls which URLs are used in the signing config:
 	// "external" (default) resolves URLs from Ingress routes,
 	// "internal" uses internal Kubernetes service URLs.
-	//+kubebuilder:default:=external
+	//+kubebuilder:default:=internal
 	//+optional
 	SigningConfigURLMode TufSigningConfigURLMode `json:"signingConfigURLMode,omitempty"`
 	//+kubebuilder:default:=80
