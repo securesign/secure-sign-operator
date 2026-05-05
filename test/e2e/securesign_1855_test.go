@@ -120,7 +120,18 @@ func createInstance(name, ns string) *v1alpha1.Tuf {
 			Name:      name,
 		},
 		Spec: v1alpha1.TufSpec{
-			SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
+			Ctlog: v1alpha1.CtlogService{
+				Address: "http://ctlog.fakeserver.com",
+			},
+			Fulcio: v1alpha1.FulcioService{
+				Address: "http://fulcio.fakeserver.com",
+			},
+			Rekor: v1alpha1.RekorService{
+				Address: "http://rekor.fakeserver.com",
+			},
+			Tsa: v1alpha1.TsaService{
+				Address: "http://tsa.fakeserver.com",
+			},
 			Keys: []v1alpha1.TufKey{
 				{
 					Name: "rekor.pub",

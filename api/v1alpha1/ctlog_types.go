@@ -72,7 +72,8 @@ type CTlogStatus struct {
 	TreeID *int64 `json:"treeID,omitempty"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
 	//+optional
-	TLS TLS `json:"tls,omitempty"`
+	TLS TLS    `json:"tls,omitempty"`
+	Url string `json:"url,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge
@@ -123,4 +124,8 @@ func (i *CTlog) GetTrustedCA() *LocalObjectReference {
 	}
 
 	return nil
+}
+
+func (i *CTlog) GetServiceURL() string {
+	return i.Status.Url
 }

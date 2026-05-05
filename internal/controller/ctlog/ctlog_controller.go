@@ -122,6 +122,7 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		monitor.NewCreateServiceAction(),
 		monitor.NewCreateMonitorAction(),
 
+		actions.NewStatusUrlAction(),
 		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.CTlog](),
 
 		actions.NewInitializeAction(),

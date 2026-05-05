@@ -237,3 +237,7 @@ func (i *Fulcio) GetTrustedCA() *LocalObjectReference {
 
 	return nil
 }
+
+func (i *Fulcio) GetServiceURL() string {
+	return i.Status.Url
+}
