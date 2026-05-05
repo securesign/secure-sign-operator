@@ -3,9 +3,9 @@ package tas
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	tsaActions "github.com/securesign/operator/internal/controller/tsa/actions"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
@@ -28,11 +28,15 @@ func ensureCosignConfig() {
 	})
 }
 
-func CosignSign(ctx context.Context, targetImageName, tufUrl, fulcioUrl, rekorUrl, tsaUrl string) {
+func tryCosignSign(ctx context.Context, targetImageName, fulcioUrl, rekorUrl, tsaUrl string) error {
 	ensureCosignConfig()
 	oidcToken, err := support.OidcToken(ctx)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(oidcToken).ToNot(BeEmpty())
+	if err != nil {
+		return fmt.Errorf("failed to get OIDC token: %w", err)
+	}
+	if oidcToken == "" {
+		return fmt.Errorf("received empty OIDC token")
+	}
 
 	signArgs := []string{"sign", "-y", "--identity-token=" + oidcToken, targetImageName}
 	if !useSigningConfig {
@@ -42,7 +46,7 @@ func CosignSign(ctx context.Context, targetImageName, tufUrl, fulcioUrl, rekorUr
 			"--oidc-issuer="+support.OidcIssuerUrl(),
 			"--oidc-client-id="+support.OidcClientID())
 	}
-	Expect(clients.Execute("cosign", signArgs...)).To(Succeed())
+	return clients.Execute("cosign", signArgs...)
 }
 
 func CosignVerify(ctx context.Context, targetImageName, rekorUrl, tsaUrl string) {
@@ -61,18 +65,11 @@ func CosignVerify(ctx context.Context, targetImageName, rekorUrl, tsaUrl string)
 }
 
 func VerifyByCosign(ctx context.Context, targetImageName, tufUrl, fulcioUrl, rekorUrl, tsaUrl string) {
-	Eventually(func() error {
-		resp, err := http.Get(tufUrl + "/root.json")
-		if err != nil {
-			return err
-		}
-		defer func() { _ = resp.Body.Close() }()
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("TUF root.json not ready: status %d", resp.StatusCode)
-		}
-		return nil
-	}).Should(Succeed())
-	Expect(clients.Execute("cosign", "initialize", "--mirror="+tufUrl, "--root="+tufUrl+"/root.json")).To(Succeed())
-	CosignSign(ctx, targetImageName, tufUrl, fulcioUrl, rekorUrl, tsaUrl)
+	Eventually(func(ctx context.Context) error {
+		return clients.Execute("cosign", "initialize", "--mirror="+tufUrl, "--root="+tufUrl+"/root.json")
+	}).WithContext(ctx).WithPolling(2 * time.Second).Should(Succeed())
+	Eventually(func(ctx context.Context) error {
+		return tryCosignSign(ctx, targetImageName, fulcioUrl, rekorUrl, tsaUrl)
+	}).WithContext(ctx).WithPolling(2 * time.Second).Should(Succeed())
 	CosignVerify(ctx, targetImageName, rekorUrl, tsaUrl)
 }

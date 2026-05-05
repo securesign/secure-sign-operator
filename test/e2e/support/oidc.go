@@ -46,6 +46,7 @@ func OidcToken(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer func() { _ = resp.Body.Close() }()
 
 	// Success is indicated with 2xx status codes:
 	statusOK := resp.StatusCode >= 200 && resp.StatusCode < 300
