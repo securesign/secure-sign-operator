@@ -46,7 +46,7 @@ const (
 
 // FulcioCert defines fields for system-generated certificate
 // +kubebuilder:validation:XValidation:rule=(has(self.caRef) || self.organizationName != "" || (has(self.caType) && self.caType == 'pkcs11')),message=organizationName cannot be empty
-// +kubebuilder:validation:XValidation:rule=(!has(self.caRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
+// +kubebuilder:validation:XValidation:rule=(!has(self.caRef) || has(self.privateKeyRef) || (has(self.caType) && self.caType == 'pkcs11')),message=privateKeyRef cannot be empty
 // +kubebuilder:validation:XValidation:rule=(!has(self.caType) || self.caType != 'pkcs11' || has(self.pkcs11)),message=pkcs11 config is required when caType is pkcs11
 type FulcioCert struct {
 	// CAType selects the CA backend: "file" (default) or "pkcs11".

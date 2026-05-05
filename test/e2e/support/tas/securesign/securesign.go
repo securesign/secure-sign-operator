@@ -143,7 +143,7 @@ func WithPKCS11Certs() Opts {
 				TokenLabel:  "fulcio",
 				LibraryPath: "/usr/lib64/pkcs11/libsofthsm2.so",
 				InitContainer: v1alpha1.PKCS11InitContainer{
-					Image: support.EnvOrDefault("SOFTHSM_INIT_IMAGE", "quay.io/rh-ee-sacm/softhsm-init:latest"),
+					Image: support.EnvOrDefault("PKCS11_INIT_IMAGE", "quay.io/rh-ee-sacm/softhsm-init:latest"),
 					Env: []v1alpha1.PKCS11EnvVar{
 						{Name: "SOFTHSM2_CONF", Value: "/etc/softhsm/softhsm2.conf"},
 					},

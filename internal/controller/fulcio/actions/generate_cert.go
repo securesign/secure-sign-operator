@@ -62,6 +62,12 @@ func (g handleCert) CanHandle(_ context.Context, instance *v1alpha1.Fulcio) bool
 	case !meta.IsStatusConditionTrue(instance.GetConditions(), CertCondition):
 		return true
 	default:
+		if instance.Spec.Certificate.CAType == v1alpha1.CATypePKCS11 {
+			// PKCS11 status is enriched by EnsurePKCS11Config (credentialsRef,
+			// pkcs11ConfigRef, configMapName). Re-running HandleCert would
+			// overwrite those enrichments via DeepCopy from spec.
+			return false
+		}
 		return !equality.Semantic.DeepDerivative(instance.Spec.Certificate, *instance.Status.Certificate)
 	}
 

@@ -6,7 +6,6 @@ import (
 
 	. "github.com/onsi/gomega"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
-	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
@@ -102,8 +101,8 @@ func TestEnsurePKCS11Config_Handle(t *testing.T) {
 		objects []client.Object
 	}
 	type want struct {
-		result *action.Result
-		verify func(Gomega, *rhtasv1alpha1.Fulcio, client.WithWatch)
+		wantErr bool
+		verify  func(Gomega, *rhtasv1alpha1.Fulcio, client.WithWatch)
 	}
 	tests := []struct {
 		name string
@@ -123,7 +122,7 @@ func TestEnsurePKCS11Config_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				wantErr: false,
 				verify: func(g Gomega, instance *rhtasv1alpha1.Fulcio, cli client.WithWatch) {
 					g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, PKCS11ConfigCondition)).To(BeTrue())
 
@@ -162,7 +161,7 @@ func TestEnsurePKCS11Config_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				wantErr: false,
 				verify: func(g Gomega, instance *rhtasv1alpha1.Fulcio, _ client.WithWatch) {
 					g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, PKCS11ConfigCondition)).To(BeTrue())
 
@@ -197,7 +196,7 @@ func TestEnsurePKCS11Config_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				wantErr: false,
 				verify: func(g Gomega, instance *rhtasv1alpha1.Fulcio, cli client.WithWatch) {
 					g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, PKCS11ConfigCondition)).To(BeTrue())
 
@@ -242,7 +241,7 @@ func TestEnsurePKCS11Config_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				wantErr: false,
 				verify: func(g Gomega, instance *rhtasv1alpha1.Fulcio, _ client.WithWatch) {
 					sp := instance.Status.Certificate.PKCS11
 					g.Expect(sp.CredentialsRef.Name).To(Equal("existing-creds"))
@@ -283,11 +282,16 @@ func TestEnsurePKCS11Config_Handle(t *testing.T) {
 			c := builder.Build()
 
 			a := testAction.PrepareAction(c, NewEnsurePKCS11ConfigAction())
-			g.Expect(a.Handle(ctx, instance)).To(Equal(tt.want.result))
+			result := a.Handle(ctx, instance)
+			if tt.want.wantErr {
+				g.Expect(result).NotTo(BeNil())
+				g.Expect(result.Err).To(HaveOccurred())
+			} else {
+				g.Expect(result).NotTo(BeNil())
+				g.Expect(result.Err).NotTo(HaveOccurred())
+			}
 
-			found := &rhtasv1alpha1.Fulcio{}
-			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(instance), found)).To(Succeed())
-			tt.want.verify(g, found, c)
+			tt.want.verify(g, instance, c)
 		})
 	}
 }

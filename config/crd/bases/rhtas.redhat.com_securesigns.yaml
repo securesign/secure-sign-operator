@@ -2572,7 +2572,8 @@ spec:
                       rule: (has(self.caRef) || self.organizationName != "" || (has(self.caType)
                         && self.caType == 'pkcs11'))
                     - message: privateKeyRef cannot be empty
-                      rule: (!has(self.caRef) || has(self.privateKeyRef))
+                      rule: (!has(self.caRef) || has(self.privateKeyRef) || (has(self.caType)
+                        && self.caType == 'pkcs11'))
                     - message: pkcs11 config is required when caType is pkcs11
                       rule: (!has(self.caType) || self.caType != 'pkcs11' || has(self.pkcs11))
                   config:

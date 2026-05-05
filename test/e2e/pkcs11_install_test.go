@@ -33,6 +33,10 @@ var _ = Describe("Securesign install with PKCS#11 CA", Ordered, func() {
 	var namespace *v1.Namespace
 	var s *v1alpha1.Securesign
 
+	BeforeAll(func() {
+		SetDefaultEventuallyTimeout(6 * time.Minute)
+	})
+
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))

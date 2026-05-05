@@ -246,6 +246,7 @@ func (e ensurePKCS11Config) ensureInlineVolumes(
 		if err == nil && existing != nil {
 			if i < len(status.InitContainer.Volumes) {
 				status.InitContainer.Volumes[i].ConfigMapName = existing.Name
+				status.InitContainer.Volumes[i].InlineData = nil
 			}
 			continue
 		}
@@ -272,6 +273,7 @@ func (e ensurePKCS11Config) ensureInlineVolumes(
 
 		if i < len(status.InitContainer.Volumes) {
 			status.InitContainer.Volumes[i].ConfigMapName = cm.Name
+			status.InitContainer.Volumes[i].InlineData = nil
 		}
 	}
 	return nil
