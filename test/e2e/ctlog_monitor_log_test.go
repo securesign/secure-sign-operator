@@ -352,6 +352,10 @@ var _ = Describe("Ctlog Monitor Log", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(verifyContent)).ToNot(Equal(string(originalContent)), "File content should be different after tampering")
 
+		By("Signing another image to force the CT log tree to grow beyond the corrupted checkpoint")
+		s = securesign.Get(ctx, cli, namespace.Name, s.Name)
+		tas.VerifyByCosign(ctx, signedImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+
 		By("Waiting for monitor to detect the corruption and increment failure metrics")
 		Eventually(func(g Gomega) {
 			_, verFailure := support.GetMonitorMetricValues(ctx, cli, namespace.Name, actions.MonitorComponentName, g)
