@@ -18,8 +18,14 @@ jobs:
         with:
           go-version-file: 'go.mod'
 
+      - name: Generate code and setup envtest
+        run: make manifests generate envtest
+
       - name: Run tests with coverage
-        run: go test -v -coverprofile=coverage.out ./...
+        run: |
+          ENVTEST="./bin/setup-envtest-release-0.20"
+          KUBEBUILDER_ASSETS="$($ENVTEST use 1.32.0 --bin-dir ./bin -p path)" \
+            go test -v -coverprofile=coverage.out $(go list ./... | grep -v /e2e)
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
