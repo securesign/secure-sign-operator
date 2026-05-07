@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
@@ -15,7 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewInitializeAction() action.Action[*rhtasv1alpha1.Tuf] {
+func NewInitializeAction() action.Action[*rhtasv1.Tuf] {
 	return &initializeAction{}
 }
 
@@ -27,11 +27,11 @@ func (i initializeAction) Name() string {
 	return "initialize"
 }
 
-func (i initializeAction) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Tuf) bool {
+func (i initializeAction) CanHandle(_ context.Context, tuf *rhtasv1.Tuf) bool {
 	return state.FromInstance(tuf, constants.ReadyCondition) == state.Initialize
 }
 
-func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
+func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *action.Result {
 	var (
 		ok  bool
 		err error

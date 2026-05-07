@@ -1,4 +1,4 @@
-package v1alpha1
+package common
 
 // TrillianService implementation of TasService interface
 func (i *TrillianService) GetAddress() string {

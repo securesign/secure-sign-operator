@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/tools/events"
 
 	"github.com/operator-framework/operator-lib/predicate"
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/securesign/actions"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -62,7 +62,7 @@ func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder events.Even
 
 // TODO: rework Securesign controller to watch resources
 func (r *securesignReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var instance rhtasv1alpha1.Securesign
+	var instance rhtasv1.Securesign
 	log := ctrllog.FromContext(ctx)
 
 	if err := r.Get(ctx, req.NamespacedName, &instance); err != nil {
@@ -94,7 +94,7 @@ func (r *securesignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 
-	acs := []action.Action[*rhtasv1alpha1.Securesign]{
+	acs := []action.Action[*rhtasv1.Securesign]{
 		actions.NewInitializeStatusAction(),
 		actions.NewSBJRBACAction(),
 		actions.NewSegmentBackupCronJobAction(),
@@ -131,12 +131,12 @@ func (r *securesignReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
-		For(&rhtasv1alpha1.Securesign{}).
-		Owns(&rhtasv1alpha1.Fulcio{}).
-		Owns(&rhtasv1alpha1.Rekor{}).
-		Owns(&rhtasv1alpha1.Tuf{}).
-		Owns(&rhtasv1alpha1.Trillian{}).
-		Owns(&rhtasv1alpha1.CTlog{}).
-		Owns(&rhtasv1alpha1.TimestampAuthority{}).
+		For(&rhtasv1.Securesign{}).
+		Owns(&rhtasv1.Fulcio{}).
+		Owns(&rhtasv1.Rekor{}).
+		Owns(&rhtasv1.Tuf{}).
+		Owns(&rhtasv1.Trillian{}).
+		Owns(&rhtasv1.CTlog{}).
+		Owns(&rhtasv1.TimestampAuthority{}).
 		Complete(r)
 }

@@ -17,8 +17,13 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"encoding/json"
+	"github.com/securesign/operator/api/common"
+	v1 "github.com/securesign/operator/api/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
 // TrillianSpec defines the desired state of Trillian
@@ -27,7 +32,7 @@ type TrillianSpec struct {
 	//+kubebuilder:default:={create: true, pvc: {size: "5Gi", retain: true, accessModes: {ReadWriteOnce}}}
 	Db TrillianDB `json:"database,omitempty"`
 	// Enable Monitoring for Logsigner and Logserver
-	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
+	Monitoring common.MonitoringConfig `json:"monitoring,omitempty"`
 	// Configuration for Trillian log server service
 	LogServer TrillianLogServer `json:"server,omitempty"`
 	// Configuration for Trillian log signer service
@@ -35,7 +40,7 @@ type TrillianSpec struct {
 
 	// ConfigMap with additional bundle of trusted CA
 	//+optional
-	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
+	TrustedCA *common.LocalObjectReference `json:"trustedCA,omitempty"`
 
 	// MaxRecvMessageSize sets the maximum size in bytes for incoming gRPC messages handled by the Trillian logserver and logsigner
 	//+kubebuilder:default:=153600
@@ -43,14 +48,14 @@ type TrillianSpec struct {
 	MaxRecvMessageSize *int64 `json:"maxRecvMessageSize,omitempty"`
 	//Configuration for authentication for key management services
 	//+optional
-	Auth *Auth `json:"auth,omitempty"`
+	Auth *common.Auth `json:"auth,omitempty"`
 }
 
 type trillianService struct {
-	PodRequirements `json:",inline"`
-	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
+	common.PodRequirements `json:",inline"`
+	// Configuration for enabling common.TLS (Transport Layer Security) encryption for manged service.
 	//+optional
-	TLS TLS `json:"tls,omitempty"`
+	common.TLS `json:"tls,omitempty"`
 }
 
 type TrillianLogServer trillianService
@@ -71,13 +76,13 @@ type TrillianDB struct {
 	// mysql-database: The database to connect to
 	//+optional
 	// +kubebuilder:validation:Deprecated=true
-	DatabaseSecretRef *LocalObjectReference `json:"databaseSecretRef,omitempty"`
+	DatabaseSecretRef *common.LocalObjectReference `json:"databaseSecretRef,omitempty"`
 	// PVC configuration
 	//+kubebuilder:default:={size: "5Gi", retain: true}
-	Pvc Pvc `json:"pvc,omitempty"`
-	// Configuration for enabling TLS (Transport Layer Security) encryption for manged database.
+	common.Pvc `json:"pvc,omitempty"`
+	// Configuration for enabling common.TLS (Transport Layer Security) encryption for manged database.
 	//+optional
-	TLS TLS `json:"tls,omitempty"`
+	common.TLS `json:"tls,omitempty"`
 	// DB provider. Supported are mysql, postgresql.
 	//+kubebuilder:validation:Enum={mysql, postgresql}
 	//+kubebuilder:default:=mysql
@@ -136,16 +141,69 @@ func (i *Trillian) SetCondition(newCondition metav1.Condition) {
 	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
 }
 
-func (i *Trillian) GetTrustedCA() *LocalObjectReference {
+func (i *Trillian) GetTrustedCA() *common.LocalObjectReference {
 	if i.Spec.TrustedCA != nil {
 		return i.Spec.TrustedCA
 	}
 
 	if v, ok := i.GetAnnotations()["rhtas.redhat.com/trusted-ca"]; ok {
-		return &LocalObjectReference{
+		return &common.LocalObjectReference{
 			Name: v,
 		}
 	}
 
 	return nil
+}
+
+// ConvertTo converts this v1alpha1 Trillian to the Hub version (v1)
+func (src *Trillian) ConvertTo(dstRaw conversion.Hub) error {
+	dst := dstRaw.(*v1.Trillian)
+
+	// Copy metadata directly
+	dst.ObjectMeta = src.ObjectMeta
+
+	// Convert Spec via JSON (safe since schemas are identical)
+	bytes, err := json.Marshal(src.Spec)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(bytes, &dst.Spec); err != nil {
+		return err
+	}
+
+	// Convert Status via JSON
+	bytes, err = json.Marshal(src.Status)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(bytes, &dst.Status)
+}
+
+// ConvertFrom converts from the Hub version (v1) to this v1alpha1 Trillian
+func (dst *Trillian) ConvertFrom(srcRaw conversion.Hub) error {
+	src := srcRaw.(*v1.Trillian)
+
+	// Copy metadata directly
+	dst.ObjectMeta = src.ObjectMeta
+
+	// Convert Spec via JSON
+	bytes, err := json.Marshal(src.Spec)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(bytes, &dst.Spec); err != nil {
+		return err
+	}
+
+	// Convert Status via JSON
+	bytes, err = json.Marshal(src.Status)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(bytes, &dst.Status)
+}
+
+// SetupWebhookWithManager sets up the conversion webhook with the Manager
+func (r *Trillian) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr, r).Complete()
 }

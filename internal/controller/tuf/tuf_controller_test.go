@@ -29,7 +29,8 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	apilabels "k8s.io/apimachinery/pkg/labels"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	actions2 "github.com/securesign/operator/internal/controller/ctlog/actions"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/networking/v1"
@@ -61,7 +62,7 @@ var _ = Describe("TUF controller", func() {
 		}
 
 		typeNamespaceName := types.NamespacedName{Name: TufName, Namespace: TufNamespace}
-		tuf := &v1alpha1.Tuf{}
+		tuf := &rhtasv1.Tuf{}
 
 		BeforeEach(func() {
 			By("Creating the Namespace to perform the tests")
@@ -71,7 +72,7 @@ var _ = Describe("TUF controller", func() {
 
 		AfterEach(func() {
 			By("removing the custom resource for the Kind Tuf")
-			found := &v1alpha1.Tuf{}
+			found := &rhtasv1.Tuf{}
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
 
@@ -92,23 +93,23 @@ var _ = Describe("TUF controller", func() {
 			if err != nil && errors.IsNotFound(err) {
 				// Let's mock our custom resource at the same way that we would
 				// apply on the cluster the manifest under config/samples
-				tuf := &v1alpha1.Tuf{
+				tuf := &rhtasv1.Tuf{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      TufName,
 						Namespace: TufNamespace,
 					},
-					Spec: v1alpha1.TufSpec{
-						SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
-						ExternalAccess: v1alpha1.ExternalAccess{
+					Spec: rhtasv1.TufSpec{
+						SigningConfigURLMode: rhtasv1.SigningConfigURLInternal,
+						ExternalAccess: common.ExternalAccess{
 							Host:    "tuf.localhost",
 							Enabled: true,
 						},
 						Port: 8181,
-						Keys: []v1alpha1.TufKey{
+						Keys: []rhtasv1.TufKey{
 							{
 								Name: "fulcio_v1.crt.pem",
-								SecretRef: &v1alpha1.SecretKeySelector{
-									LocalObjectReference: v1alpha1.LocalObjectReference{
+								SecretRef: &common.SecretKeySelector{
+									LocalObjectReference: common.LocalObjectReference{
 										Name: "fulcio-pub-key",
 									},
 									Key: "cert",
@@ -119,8 +120,8 @@ var _ = Describe("TUF controller", func() {
 							},
 							{
 								Name: "rekor.pub",
-								SecretRef: &v1alpha1.SecretKeySelector{
-									LocalObjectReference: v1alpha1.LocalObjectReference{
+								SecretRef: &common.SecretKeySelector{
+									LocalObjectReference: common.LocalObjectReference{
 										Name: "rekor-pub-key",
 									},
 									Key: "public",
@@ -135,20 +136,20 @@ var _ = Describe("TUF controller", func() {
 
 			By("Checking if the custom resource was successfully created")
 			Eventually(func() error {
-				found := &v1alpha1.Tuf{}
+				found := &rhtasv1.Tuf{}
 				return suite.Client().Get(ctx, typeNamespaceName, found)
 			}).Should(Succeed())
 
 			By("Status conditions are initialized")
 			Eventually(func(g Gomega) bool {
-				found := &v1alpha1.Tuf{}
+				found := &rhtasv1.Tuf{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
 			}).Should(BeTrue())
 
 			By("Pending phase until ctlog public key is resolved")
 			Eventually(func(g Gomega) string {
-				found := &v1alpha1.Tuf{}
+				found := &rhtasv1.Tuf{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
 			}).Should(Equal(state.Pending.String()))
@@ -170,7 +171,7 @@ var _ = Describe("TUF controller", func() {
 			})
 
 			By("Waiting until Tuf init job is created")
-			found := &v1alpha1.Tuf{}
+			found := &rhtasv1.Tuf{}
 			Eventually(func(g Gomega) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.PvcName
@@ -198,14 +199,14 @@ var _ = Describe("TUF controller", func() {
 
 			By("Repository condition gets ready")
 			Eventually(func(g Gomega) bool {
-				found := &v1alpha1.Tuf{}
+				found := &rhtasv1.Tuf{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, tufConstants.RepositoryCondition)
 			}).Should(BeTrue())
 
 			By("Waiting until Tuf instance is Initialization")
 			Eventually(func(g Gomega) string {
-				found := &v1alpha1.Tuf{}
+				found := &rhtasv1.Tuf{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
 			}).Should(Equal(state.Initialize.String()))
@@ -222,7 +223,7 @@ var _ = Describe("TUF controller", func() {
 
 			By("Waiting until Tuf instance is Ready")
 			Eventually(func(g Gomega) bool {
-				found := &v1alpha1.Tuf{}
+				found := &rhtasv1.Tuf{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())
@@ -245,7 +246,7 @@ var _ = Describe("TUF controller", func() {
 
 			By("Checking the latest Status Condition added to the Tuf instance")
 			Eventually(func(g Gomega) error {
-				found := &v1alpha1.Tuf{}
+				found := &rhtasv1.Tuf{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				rekorCondition := meta.FindStatusCondition(found.Status.Conditions, "rekor.pub")
 				g.Expect(rekorCondition).Should(Not(BeNil()))

@@ -21,10 +21,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 )
 
-func NewDeployAction() action.Action[*rhtasv1alpha1.Trillian] {
+func NewDeployAction() action.Action[*rhtasv1.Trillian] {
 	return &deployAction{}
 }
 
@@ -36,11 +36,11 @@ func (i deployAction) Name() string {
 	return "deploy"
 }
 
-func (i deployAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Trillian) bool {
+func (i deployAction) CanHandle(_ context.Context, instance *rhtasv1.Trillian) bool {
 	return state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
-func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
+func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Trillian) *action.Result {
 	var (
 		err    error
 		result controllerutil.OperationResult

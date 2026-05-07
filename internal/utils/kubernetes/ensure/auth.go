@@ -1,7 +1,7 @@
 package ensure
 
 import (
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	core "k8s.io/api/core/v1"
@@ -13,13 +13,13 @@ const (
 	AuthMountPath  = constants.SecretMountPath + "/auth"
 )
 
-func Auth(containerName string, auth *v1alpha1.Auth) func(spec *core.PodSpec) error {
+func Auth(containerName string, auth *common.Auth) func(spec *core.PodSpec) error {
 	return func(templateSpec *core.PodSpec) error {
 		container := kubernetes.FindContainerByNameOrCreate(templateSpec, containerName)
 		return ContainerAuth(container, auth)(templateSpec)
 	}
 }
-func ContainerAuth(container *core.Container, auth *v1alpha1.Auth) func(spec *core.PodSpec) error {
+func ContainerAuth(container *core.Container, auth *common.Auth) func(spec *core.PodSpec) error {
 	return func(templateSpec *core.PodSpec) error {
 		if auth != nil {
 			for _, env := range auth.Env {

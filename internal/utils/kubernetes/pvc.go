@@ -1,11 +1,11 @@
 package kubernetes
 
 import (
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
 	corev1 "k8s.io/api/core/v1"
 )
 
-func EnsurePVCSpec(instancePvc v1alpha1.Pvc) func(pvc *corev1.PersistentVolumeClaim) error {
+func EnsurePVCSpec(instancePvc common.Pvc) func(pvc *corev1.PersistentVolumeClaim) error {
 	return func(pvc *corev1.PersistentVolumeClaim) error {
 		spec := &pvc.Spec
 

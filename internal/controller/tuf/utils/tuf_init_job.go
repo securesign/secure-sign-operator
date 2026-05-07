@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/apis"
 	futils "github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
@@ -21,7 +21,7 @@ const (
 	targetMonthPath  = "/var/run/target"
 )
 
-func EnsureTufInitJob(instance *rhtasv1alpha1.Tuf, sa string, labels map[string]string, oidcIssuers []string) func(*batchv1.Job) error {
+func EnsureTufInitJob(instance *rhtasv1.Tuf, sa string, labels map[string]string, oidcIssuers []string) func(*batchv1.Job) error {
 	return func(job *batchv1.Job) error {
 		// prepare args
 		args := []string{"--operator", constants.OperatorName, "--export-keys", instance.Spec.RootKeySecretRef.Name}

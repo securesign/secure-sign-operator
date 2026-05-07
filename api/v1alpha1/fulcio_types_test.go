@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"context"
+	"github.com/securesign/operator/api/common"
 	"math"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -125,9 +126,9 @@ var _ = Describe("Fulcio", func() {
 		Context("is validated", func() {
 			It("private key", func() {
 				invalidObject := generateFulcioObject("private-key-invalid")
-				invalidObject.Spec.Certificate.CARef = &SecretKeySelector{
+				invalidObject.Spec.Certificate.CARef = &common.SecretKeySelector{
 					Key:                  "key",
-					LocalObjectReference: LocalObjectReference{Name: "name"},
+					LocalObjectReference: common.LocalObjectReference{Name: "name"},
 				}
 
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
@@ -249,10 +250,10 @@ var _ = Describe("Fulcio", func() {
 							Namespace: "default",
 						},
 						Spec: FulcioSpec{
-							Monitoring: MonitoringConfig{
+							Monitoring: common.MonitoringConfig{
 								Enabled: true,
 							},
-							ExternalAccess: ExternalAccess{
+							ExternalAccess: common.ExternalAccess{
 								Enabled: true,
 								Host:    "hostname",
 							},
@@ -282,11 +283,11 @@ var _ = Describe("Fulcio", func() {
 								CommonName:            "CommonName",
 								OrganizationName:      "OrganizationName",
 								OrganizationEmail:     "OrganizationEmail",
-								CARef:                 &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
-								PrivateKeyRef:         &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
-								PrivateKeyPasswordRef: &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
+								CARef:                 &common.SecretKeySelector{Key: "key", LocalObjectReference: common.LocalObjectReference{Name: "name"}},
+								PrivateKeyRef:         &common.SecretKeySelector{Key: "key", LocalObjectReference: common.LocalObjectReference{Name: "name"}},
+								PrivateKeyPasswordRef: &common.SecretKeySelector{Key: "key", LocalObjectReference: common.LocalObjectReference{Name: "name"}},
 							},
-							Ctlog: CtlogService{
+							Ctlog: common.CtlogService{
 								Address: "ctlog.default.svc",
 								Port:    ptr.To(int32(80)),
 								Prefix:  "trusted-artifact-signer",
@@ -311,7 +312,7 @@ func generateFulcioObject(name string) *Fulcio {
 			Namespace: "default",
 		},
 		Spec: FulcioSpec{
-			PodRequirements: PodRequirements{
+			PodRequirements: common.PodRequirements{
 				Replicas: ptr.To(int32(1)),
 			},
 			Config: FulcioConfig{
@@ -349,7 +350,7 @@ func generateFulcioObject(name string) *Fulcio {
 				CommonName:       "hostname",
 				OrganizationName: "organization",
 			},
-			Ctlog: CtlogService{
+			Ctlog: common.CtlogService{
 				Address: "",
 				Port:    ptr.To(int32(80)),
 				Prefix:  "trusted-artifact-signer",

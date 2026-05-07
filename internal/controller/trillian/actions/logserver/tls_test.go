@@ -5,7 +5,8 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/config"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/state"
@@ -19,8 +20,8 @@ func TestTlsAction_CanHandle(t *testing.T) {
 
 	type env struct {
 		conditions  []metav1.Condition
-		specTLS     rhtasv1alpha1.TLS
-		statusTLS   rhtasv1alpha1.TLS
+		specTLS     common.TLS
+		statusTLS   common.TLS
 		isOpenShift bool
 	}
 	type want struct {
@@ -56,17 +57,17 @@ func TestTlsAction_CanHandle(t *testing.T) {
 						Reason: state.Ready.String(),
 					},
 				},
-				specTLS: rhtasv1alpha1.TLS{
-					CertRef: &rhtasv1alpha1.SecretKeySelector{
-						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "new-cert"},
+				specTLS: common.TLS{
+					CertRef: &common.SecretKeySelector{
+						LocalObjectReference: common.LocalObjectReference{Name: "new-cert"},
 						Key:                  "tls.crt",
 					},
-					PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
-						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "new-key"},
+					PrivateKeyRef: &common.SecretKeySelector{
+						LocalObjectReference: common.LocalObjectReference{Name: "new-key"},
 						Key:                  "tls.key",
 					},
 				},
-				statusTLS: rhtasv1alpha1.TLS{},
+				statusTLS: common.TLS{},
 			},
 			want: want{
 				canHandle: true,
@@ -83,23 +84,23 @@ func TestTlsAction_CanHandle(t *testing.T) {
 						Reason: state.Ready.String(),
 					},
 				},
-				specTLS: rhtasv1alpha1.TLS{
-					CertRef: &rhtasv1alpha1.SecretKeySelector{
-						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "new-cert"},
+				specTLS: common.TLS{
+					CertRef: &common.SecretKeySelector{
+						LocalObjectReference: common.LocalObjectReference{Name: "new-cert"},
 						Key:                  "tls.crt",
 					},
-					PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
-						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "key"},
+					PrivateKeyRef: &common.SecretKeySelector{
+						LocalObjectReference: common.LocalObjectReference{Name: "key"},
 						Key:                  "tls.key",
 					},
 				},
-				statusTLS: rhtasv1alpha1.TLS{
-					CertRef: &rhtasv1alpha1.SecretKeySelector{
-						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "old-cert"},
+				statusTLS: common.TLS{
+					CertRef: &common.SecretKeySelector{
+						LocalObjectReference: common.LocalObjectReference{Name: "old-cert"},
 						Key:                  "tls.crt",
 					},
-					PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
-						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "key"},
+					PrivateKeyRef: &common.SecretKeySelector{
+						LocalObjectReference: common.LocalObjectReference{Name: "key"},
 						Key:                  "tls.key",
 					},
 				},
@@ -118,23 +119,23 @@ func TestTlsAction_CanHandle(t *testing.T) {
 						Reason: state.Ready.String(),
 					},
 				},
-				specTLS: rhtasv1alpha1.TLS{
-					CertRef: &rhtasv1alpha1.SecretKeySelector{
-						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "same-cert"},
+				specTLS: common.TLS{
+					CertRef: &common.SecretKeySelector{
+						LocalObjectReference: common.LocalObjectReference{Name: "same-cert"},
 						Key:                  "tls.crt",
 					},
-					PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
-						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "key"},
+					PrivateKeyRef: &common.SecretKeySelector{
+						LocalObjectReference: common.LocalObjectReference{Name: "key"},
 						Key:                  "tls.key",
 					},
 				},
-				statusTLS: rhtasv1alpha1.TLS{
-					CertRef: &rhtasv1alpha1.SecretKeySelector{
-						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "same-cert"},
+				statusTLS: common.TLS{
+					CertRef: &common.SecretKeySelector{
+						LocalObjectReference: common.LocalObjectReference{Name: "same-cert"},
 						Key:                  "tls.crt",
 					},
-					PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
-						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "key"},
+					PrivateKeyRef: &common.SecretKeySelector{
+						LocalObjectReference: common.LocalObjectReference{Name: "key"},
 						Key:                  "tls.key",
 					},
 				},
@@ -154,8 +155,8 @@ func TestTlsAction_CanHandle(t *testing.T) {
 						Reason: state.Ready.String(),
 					},
 				},
-				specTLS:     rhtasv1alpha1.TLS{},
-				statusTLS:   rhtasv1alpha1.TLS{},
+				specTLS:     common.TLS{},
+				statusTLS:   common.TLS{},
 				isOpenShift: true,
 			},
 			want: want{
@@ -172,10 +173,10 @@ func TestTlsAction_CanHandle(t *testing.T) {
 						Reason: state.Ready.String(),
 					},
 				},
-				specTLS: rhtasv1alpha1.TLS{},
-				statusTLS: rhtasv1alpha1.TLS{
-					CertRef: &rhtasv1alpha1.SecretKeySelector{
-						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "existing-cert"},
+				specTLS: common.TLS{},
+				statusTLS: common.TLS{
+					CertRef: &common.SecretKeySelector{
+						LocalObjectReference: common.LocalObjectReference{Name: "existing-cert"},
 						Key:                  "tls.crt",
 					},
 				},
@@ -195,8 +196,8 @@ func TestTlsAction_CanHandle(t *testing.T) {
 						Reason: state.Ready.String(),
 					},
 				},
-				specTLS:     rhtasv1alpha1.TLS{},
-				statusTLS:   rhtasv1alpha1.TLS{},
+				specTLS:     common.TLS{},
+				statusTLS:   common.TLS{},
 				isOpenShift: false,
 			},
 			want: want{
@@ -207,18 +208,18 @@ func TestTlsAction_CanHandle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			instance := &rhtasv1alpha1.Trillian{
+			instance := &rhtasv1.Trillian{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-trillian",
 					Namespace: "default",
 				},
-				Spec: rhtasv1alpha1.TrillianSpec{
-					LogServer: rhtasv1alpha1.TrillianLogServer{
+				Spec: rhtasv1.TrillianSpec{
+					LogServer: rhtasv1.TrillianLogServer{
 						TLS: tt.env.specTLS,
 					},
 				},
-				Status: rhtasv1alpha1.TrillianStatus{
-					LogServer: rhtasv1alpha1.TrillianLogServer{
+				Status: rhtasv1.TrillianStatus{
+					LogServer: rhtasv1.TrillianLogServer{
 						TLS: tt.env.statusTLS,
 					},
 					Conditions: tt.env.conditions,

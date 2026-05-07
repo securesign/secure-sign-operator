@@ -11,7 +11,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/test/e2e/support"
@@ -39,7 +40,7 @@ var _ = Describe("Trillian install with byodb", Ordered, func() {
 	cli, _ := support.CreateClient()
 
 	var namespace *v1.Namespace
-	var t *v1alpha1.Trillian
+	var t *rhtasv1.Trillian
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
@@ -47,13 +48,13 @@ var _ = Describe("Trillian install with byodb", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 
-		t = &v1alpha1.Trillian{
+		t = &rhtasv1.Trillian{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace.Name,
 				Name:      "postgresql-test",
 			},
-			Spec: v1alpha1.TrillianSpec{
-				Auth: &v1alpha1.Auth{
+			Spec: rhtasv1.TrillianSpec{
+				Auth: &common.Auth{
 					Env: []v1.EnvVar{
 						{
 							Name:  "POSTGRESQL_HOST",
@@ -82,7 +83,7 @@ var _ = Describe("Trillian install with byodb", Ordered, func() {
 						},
 					},
 				},
-				Db: v1alpha1.TrillianDB{
+				Db: rhtasv1.TrillianDB{
 					Create:   ptr.To(false),
 					Provider: "postgresql",
 					Uri:      "postgresql:///$(POSTGRESQL_DATABASE)?host=$(POSTGRESQL_HOST)&user=$(POSTGRESQL_USER)&password=$(POSTGRESQL_PASSWORD)",

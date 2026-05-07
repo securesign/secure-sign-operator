@@ -1,7 +1,7 @@
 package utils
 
-import "github.com/securesign/operator/api/v1alpha1"
+import rhtasv1 "github.com/securesign/operator/api/v1"
 
-func TlsEnabled(instance *v1alpha1.CTlog) bool {
+func TlsEnabled(instance *rhtasv1.CTlog) bool {
 	return instance.Status.TLS.CertRef != nil
 }

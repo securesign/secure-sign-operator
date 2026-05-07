@@ -5,8 +5,9 @@ import (
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
-	common "github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
+	actioncommon "github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/labels"
@@ -28,16 +29,16 @@ func setupMigrateAction() migrationJobAction {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(batchv1.AddToScheme(scheme))
-	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(rhtasv1.AddToScheme(scheme))
 	migrateJobTestAction := migrationJobAction{
-		BaseAction: common.BaseAction{
-			Client:   fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&v1alpha1.Tuf{}).Build(),
+		BaseAction: actioncommon.BaseAction{
+			Client:   fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&rhtasv1.Tuf{}).Build(),
 			Recorder: events.NewFakeRecorder(10),
 			Logger:   logr.Logger{},
 		},
 	}
 
-	utilruntime.Must(v1alpha1.AddToScheme(migrateJobTestAction.Client.Scheme()))
+	utilruntime.Must(rhtasv1.AddToScheme(migrateJobTestAction.Client.Scheme()))
 	return migrateJobTestAction
 }
 
@@ -46,7 +47,7 @@ func TestMigrateJob_AlreadyMigrated(t *testing.T) {
 
 	migrateJobTestAction := setupMigrateAction()
 
-	instance := &v1alpha1.Tuf{
+	instance := &rhtasv1.Tuf{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: t.Name(),
@@ -54,10 +55,10 @@ func TestMigrateJob_AlreadyMigrated(t *testing.T) {
 				tufConstants.RepositoryVersionAnnotation: tufConstants.TufVersionV1,
 			},
 		},
-		Spec: v1alpha1.TufSpec{
-			SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
+		Spec: rhtasv1.TufSpec{
+			SigningConfigURLMode: rhtasv1.SigningConfigURLInternal,
 		},
-		Status: v1alpha1.TufStatus{Conditions: []metav1.Condition{
+		Status: rhtasv1.TufStatus{Conditions: []metav1.Condition{
 			{
 				Type:   constants.ReadyCondition,
 				Reason: state.Initialize.String(),
@@ -73,19 +74,19 @@ func TestMigrateJob_NoRootKeySecret(t *testing.T) {
 
 	migrateJobTestAction := setupMigrateAction()
 
-	instance := &v1alpha1.Tuf{
+	instance := &rhtasv1.Tuf{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: t.Name(),
 		},
-		Spec: v1alpha1.TufSpec{
-			RootKeySecretRef: &v1alpha1.LocalObjectReference{
+		Spec: rhtasv1.TufSpec{
+			RootKeySecretRef: &common.LocalObjectReference{
 				// root key is specified but secret does not exist
 				Name: "test-secret",
 			},
-			SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
+			SigningConfigURLMode: rhtasv1.SigningConfigURLInternal,
 		},
-		Status: v1alpha1.TufStatus{Conditions: []metav1.Condition{
+		Status: rhtasv1.TufStatus{Conditions: []metav1.Condition{
 			{
 				Type:   constants.ReadyCondition,
 				Reason: state.Initialize.String(),
@@ -115,21 +116,21 @@ func TestMigrateJob_Succeeded(t *testing.T) {
 		},
 	})).To(Succeed())
 
-	instance := &v1alpha1.Tuf{
+	instance := &rhtasv1.Tuf{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: t.Name(),
 		},
-		Spec: v1alpha1.TufSpec{
-			RootKeySecretRef: &v1alpha1.LocalObjectReference{
+		Spec: rhtasv1.TufSpec{
+			RootKeySecretRef: &common.LocalObjectReference{
 				Name: "test-secret",
 			},
-			PodRequirements: v1alpha1.PodRequirements{
+			PodRequirements: common.PodRequirements{
 				Replicas: ptr.To(int32(1)),
 			},
-			SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
+			SigningConfigURLMode: rhtasv1.SigningConfigURLInternal,
 		},
-		Status: v1alpha1.TufStatus{Conditions: []metav1.Condition{
+		Status: rhtasv1.TufStatus{Conditions: []metav1.Condition{
 			{
 				Type:   constants.ReadyCondition,
 				Reason: state.Initialize.String(),
@@ -187,7 +188,7 @@ func TestMigrateJob_Succeeded(t *testing.T) {
 	}))
 	g.Expect(result).To(Equal(action.StatusUpdate()))
 
-	found := &v1alpha1.Tuf{}
+	found := &rhtasv1.Tuf{}
 	g.Expect(migrateJobTestAction.Client.Get(t.Context(), client.ObjectKeyFromObject(instance), found)).To(Succeed())
 	g.Expect(found.Annotations[tufConstants.RepositoryVersionAnnotation]).To(Equal(tufConstants.TufVersionV1))
 
@@ -206,21 +207,21 @@ func TestMigrateJob_Failed(t *testing.T) {
 		},
 	})).To(Succeed())
 
-	instance := &v1alpha1.Tuf{
+	instance := &rhtasv1.Tuf{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: t.Name(),
 		},
-		Spec: v1alpha1.TufSpec{
-			RootKeySecretRef: &v1alpha1.LocalObjectReference{
+		Spec: rhtasv1.TufSpec{
+			RootKeySecretRef: &common.LocalObjectReference{
 				Name: "test-secret",
 			},
-			PodRequirements: v1alpha1.PodRequirements{
+			PodRequirements: common.PodRequirements{
 				Replicas: ptr.To(int32(1)),
 			},
-			SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
+			SigningConfigURLMode: rhtasv1.SigningConfigURLInternal,
 		},
-		Status: v1alpha1.TufStatus{Conditions: []metav1.Condition{
+		Status: rhtasv1.TufStatus{Conditions: []metav1.Condition{
 			{
 				Type:   constants.ReadyCondition,
 				Reason: state.Initialize.String(),
@@ -273,7 +274,7 @@ func TestMigrateJob_Failed(t *testing.T) {
 	g.Expect(meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition).Reason).To(Equal(state.Failure.String()))
 	g.Expect(meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition).Message).To(ContainSubstring("tuf-repository-migration job failed"))
 
-	found := &v1alpha1.Tuf{}
+	found := &rhtasv1.Tuf{}
 	g.Expect(migrateJobTestAction.Client.Get(t.Context(), client.ObjectKeyFromObject(instance), found)).To(Succeed())
 	g.Expect(found.Annotations).ToNot(HaveKey(tufConstants.RepositoryVersionAnnotation))
 

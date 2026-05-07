@@ -15,13 +15,13 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func NewTufAction() action.Action[*rhtasv1alpha1.Securesign] {
+func NewTufAction() action.Action[*rhtasv1.Securesign] {
 	return &tufAction{}
 }
 
@@ -33,16 +33,16 @@ func (i tufAction) Name() string {
 	return "create tuf"
 }
 
-func (i tufAction) CanHandle(context.Context, *rhtasv1alpha1.Securesign) bool {
+func (i tufAction) CanHandle(context.Context, *rhtasv1.Securesign) bool {
 	return true
 }
 
-func (i tufAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
+func (i tufAction) Handle(ctx context.Context, instance *rhtasv1.Securesign) *action.Result {
 	var (
 		err    error
 		result controllerutil.OperationResult
 		l      = labels.For(tufConstants.ComponentName, instance.Name, instance.Name)
-		tuf    = &rhtasv1alpha1.Tuf{
+		tuf    = &rhtasv1.Tuf{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      instance.Name,
 				Namespace: instance.Namespace,
@@ -52,10 +52,10 @@ func (i tufAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		tuf,
-		ensure.ControllerReference[*rhtasv1alpha1.Tuf](instance, i.Client),
-		ensure.Labels[*rhtasv1alpha1.Tuf](slices.Collect(maps.Keys(l)), l),
-		ensure.Annotations[*rhtasv1alpha1.Tuf](annotations.InheritableAnnotations, instance.Annotations),
-		func(object *rhtasv1alpha1.Tuf) error {
+		ensure.ControllerReference[*rhtasv1.Tuf](instance, i.Client),
+		ensure.Labels[*rhtasv1.Tuf](slices.Collect(maps.Keys(l)), l),
+		ensure.Annotations[*rhtasv1.Tuf](annotations.InheritableAnnotations, instance.Annotations),
+		func(object *rhtasv1.Tuf) error {
 			object.Spec = instance.Spec.Tuf
 			return nil
 		},
@@ -82,7 +82,7 @@ func (i tufAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 	return i.CopyStatus(ctx, tuf, instance)
 }
 
-func (i tufAction) CopyStatus(ctx context.Context, object *rhtasv1alpha1.Tuf, instance *rhtasv1alpha1.Securesign) *action.Result {
+func (i tufAction) CopyStatus(ctx context.Context, object *rhtasv1.Tuf, instance *rhtasv1.Securesign) *action.Result {
 	objectStatus := meta.FindStatusCondition(object.Status.Conditions, constants.ReadyCondition)
 	if objectStatus == nil {
 		// not initialized yet, wait for update

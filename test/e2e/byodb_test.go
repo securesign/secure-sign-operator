@@ -9,7 +9,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/labels"
@@ -33,7 +34,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 
 	var targetImageName string
 	var namespace *v1.Namespace
-	var s *v1alpha1.Securesign
+	var s *rhtasv1.Securesign
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
@@ -48,8 +49,8 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 		s = securesign.Create(namespace.Name, "test",
 			securesign.WithDefaults(),
 			securesign.WithExternalDatabase(dbAuth),
-			func(v *v1alpha1.Securesign) {
-				v.Spec.Rekor.Auth = &v1alpha1.Auth{
+			func(v *rhtasv1.Securesign) {
+				v.Spec.Rekor.Auth = &common.Auth{
 					Env: []v1.EnvVar{
 						{
 							Name: "MYSQL_USER",
@@ -87,12 +88,12 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 						},
 					},
 				}
-				v.Spec.Rekor.BackFillRedis = v1alpha1.BackFillRedis{
+				v.Spec.Rekor.BackFillRedis = rhtasv1.BackFillRedis{
 					Enabled:  ptr.To(true),
 					Schedule: "* * * * *",
 				}
 
-				v.Spec.Rekor.SearchIndex = v1alpha1.SearchIndex{
+				v.Spec.Rekor.SearchIndex = rhtasv1.SearchIndex{
 					Create:   ptr.To(false),
 					Provider: "mysql",
 					Url:      dsn,

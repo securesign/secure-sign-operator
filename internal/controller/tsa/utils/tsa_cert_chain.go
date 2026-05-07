@@ -16,7 +16,7 @@ import (
 	"math/big"
 	"time"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -87,7 +87,7 @@ func CreatePrivateKey(key *ecdsa.PrivateKey, password []byte) ([]byte, error) {
 	return pemData.Bytes(), nil
 }
 
-func CreateTSACertChain(ctx context.Context, instance *rhtasv1alpha1.TimestampAuthority, deploymentName string, client client.Client, config *TsaCertChainConfig) ([]byte, error) {
+func CreateTSACertChain(ctx context.Context, instance *rhtasv1.TimestampAuthority, deploymentName string, client client.Client, config *TsaCertChainConfig) ([]byte, error) {
 	var err error
 
 	rootIssuer, err := CreateCAIssuer(instance, instance.Spec.Signer.CertificateChain.RootCA, ctx, deploymentName, client)
@@ -231,7 +231,7 @@ func parsePrivateKey(privateKeyPEM []byte, password []byte) (crypto.PrivateKey, 
 	}
 }
 
-func CreateCAIssuer(instance *rhtasv1alpha1.TimestampAuthority, tsaCA *rhtasv1alpha1.TsaCertificateAuthority, ctx context.Context, deploymentName string, client client.Client) (*Issuer, error) {
+func CreateCAIssuer(instance *rhtasv1.TimestampAuthority, tsaCA *rhtasv1.TsaCertificateAuthority, ctx context.Context, deploymentName string, client client.Client) (*Issuer, error) {
 	issuer := &Issuer{}
 	var err error
 

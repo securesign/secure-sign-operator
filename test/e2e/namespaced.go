@@ -7,7 +7,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	tsaActions "github.com/securesign/operator/internal/controller/tsa/actions"
 	"github.com/securesign/operator/test/e2e/support"
 	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
@@ -37,12 +38,12 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 		"tuf":      nil,
 	}
 
-	var rekorObject *v1alpha1.Rekor
-	var fulcioObject *v1alpha1.Fulcio
-	var ctlogObject *v1alpha1.CTlog
-	var trillianObject *v1alpha1.Trillian
-	var tsaObject *v1alpha1.TimestampAuthority
-	var tufObject *v1alpha1.Tuf
+	var rekorObject *rhtasv1.Rekor
+	var fulcioObject *rhtasv1.Fulcio
+	var ctlogObject *rhtasv1.CTlog
+	var trillianObject *rhtasv1.Trillian
+	var tsaObject *rhtasv1.TimestampAuthority
+	var tufObject *rhtasv1.Tuf
 
 	BeforeAll(func(ctx SpecContext) {
 		DeferCleanup(func(ctx SpecContext) {
@@ -59,32 +60,32 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			AddReportEntry(steps.Namespace, namespaces[i].Name)
 		}
 
-		trillianObject = &v1alpha1.Trillian{
+		trillianObject = &rhtasv1.Trillian{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespaces["trillian"].Name,
 				Name:      "test",
 			},
-			Spec: v1alpha1.TrillianSpec{
-				Db: v1alpha1.TrillianDB{Create: ptr.To(true)},
+			Spec: rhtasv1.TrillianSpec{
+				Db: rhtasv1.TrillianDB{Create: ptr.To(true)},
 			},
 		}
 
-		rekorObject = &v1alpha1.Rekor{
+		rekorObject = &rhtasv1.Rekor{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespaces["rekor"].Name,
 				Name:      "test",
 			},
-			Spec: v1alpha1.RekorSpec{
-				ExternalAccess: v1alpha1.ExternalAccess{
+			Spec: rhtasv1.RekorSpec{
+				ExternalAccess: common.ExternalAccess{
 					Enabled: true,
 				},
-				Trillian: v1alpha1.TrillianService{
+				Trillian: common.TrillianService{
 					Address: fmt.Sprintf("trillian-logserver.%s.svc.cluster.local", namespaces["trillian"].Name),
 				},
-				Signer: v1alpha1.RekorSigner{
+				Signer: rhtasv1.RekorSigner{
 					KMS: "secret",
-					KeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+					KeyRef: &common.SecretKeySelector{
+						LocalObjectReference: common.LocalObjectReference{
 							Name: "my-rekor-secret",
 						},
 						Key: "private",
@@ -93,24 +94,24 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			},
 		}
 
-		ctlogObject = &v1alpha1.CTlog{
+		ctlogObject = &rhtasv1.CTlog{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespaces["ctlog"].Name,
 				Name:      "test",
 			},
-			Spec: v1alpha1.CTlogSpec{
-				Trillian: v1alpha1.TrillianService{
+			Spec: rhtasv1.CTlogSpec{
+				Trillian: common.TrillianService{
 					Address: fmt.Sprintf("trillian-logserver.%s.svc.cluster.local", namespaces["trillian"].Name),
 				},
-				PrivateKeyRef: &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
+				PrivateKeyRef: &common.SecretKeySelector{
+					LocalObjectReference: common.LocalObjectReference{
 						Name: "my-ctlog-secret",
 					},
 					Key: "private",
 				},
-				RootCertificates: []v1alpha1.SecretKeySelector{
+				RootCertificates: []common.SecretKeySelector{
 					{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+						LocalObjectReference: common.LocalObjectReference{
 							Name: "my-fulcio-secret",
 						},
 						Key: "cert",
@@ -125,20 +126,20 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			protocol = "https"
 		}
 
-		fulcioObject = &v1alpha1.Fulcio{
+		fulcioObject = &rhtasv1.Fulcio{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespaces["fulcio"].Name,
 				Name:      "test",
 			},
-			Spec: v1alpha1.FulcioSpec{
-				Ctlog: v1alpha1.CtlogService{
+			Spec: rhtasv1.FulcioSpec{
+				Ctlog: common.CtlogService{
 					Address: fmt.Sprintf("%s://ctlog.%s.svc.cluster.local", protocol, namespaces["ctlog"].Name),
 				},
-				ExternalAccess: v1alpha1.ExternalAccess{
+				ExternalAccess: common.ExternalAccess{
 					Enabled: true,
 				},
-				Config: v1alpha1.FulcioConfig{
-					OIDCIssuers: []v1alpha1.OIDCIssuer{
+				Config: rhtasv1.FulcioConfig{
+					OIDCIssuers: []rhtasv1.OIDCIssuer{
 						{
 							ClientID:  support.OidcClientID(),
 							IssuerURL: support.OidcIssuerUrl(),
@@ -146,21 +147,21 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 							Type:      "email",
 						},
 					}},
-				Certificate: v1alpha1.FulcioCert{
-					PrivateKeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+				Certificate: rhtasv1.FulcioCert{
+					PrivateKeyRef: &common.SecretKeySelector{
+						LocalObjectReference: common.LocalObjectReference{
 							Name: "my-fulcio-secret",
 						},
 						Key: "private",
 					},
-					PrivateKeyPasswordRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+					PrivateKeyPasswordRef: &common.SecretKeySelector{
+						LocalObjectReference: common.LocalObjectReference{
 							Name: "my-fulcio-secret",
 						},
 						Key: "password",
 					},
-					CARef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+					CARef: &common.SecretKeySelector{
+						LocalObjectReference: common.LocalObjectReference{
 							Name: "my-fulcio-secret",
 						},
 						Key: "cert",
@@ -169,42 +170,42 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			},
 		}
 
-		tsaObject = &v1alpha1.TimestampAuthority{
+		tsaObject = &rhtasv1.TimestampAuthority{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespaces["tsa"].Name,
 				Name:      "test",
 			},
-			Spec: v1alpha1.TimestampAuthoritySpec{
-				ExternalAccess: v1alpha1.ExternalAccess{
+			Spec: rhtasv1.TimestampAuthoritySpec{
+				ExternalAccess: common.ExternalAccess{
 					Enabled: true,
 				},
-				Signer: v1alpha1.TimestampAuthoritySigner{
-					CertificateChain: v1alpha1.CertificateChain{
-						CertificateChainRef: &v1alpha1.SecretKeySelector{
-							LocalObjectReference: v1alpha1.LocalObjectReference{
+				Signer: rhtasv1.TimestampAuthoritySigner{
+					CertificateChain: rhtasv1.CertificateChain{
+						CertificateChainRef: &common.SecretKeySelector{
+							LocalObjectReference: common.LocalObjectReference{
 								Name: "test-tsa-secret",
 							},
 							Key: "certificateChain",
 						},
 					},
-					File: &v1alpha1.File{
-						PrivateKeyRef: &v1alpha1.SecretKeySelector{
-							LocalObjectReference: v1alpha1.LocalObjectReference{
+					File: &rhtasv1.File{
+						PrivateKeyRef: &common.SecretKeySelector{
+							LocalObjectReference: common.LocalObjectReference{
 								Name: "test-tsa-secret",
 							},
 							Key: "leafPrivateKey",
 						},
-						PasswordRef: &v1alpha1.SecretKeySelector{
-							LocalObjectReference: v1alpha1.LocalObjectReference{
+						PasswordRef: &common.SecretKeySelector{
+							LocalObjectReference: common.LocalObjectReference{
 								Name: "test-tsa-secret",
 							},
 							Key: "leafPrivateKeyPassword",
 						},
 					},
 				},
-				NTPMonitoring: v1alpha1.NTPMonitoring{
+				NTPMonitoring: rhtasv1.NTPMonitoring{
 					Enabled: true,
-					Config: &v1alpha1.NtpMonitoringConfig{
+					Config: &rhtasv1.NtpMonitoringConfig{
 						RequestAttempts: 3,
 						RequestTimeout:  5,
 						NumServers:      4,
@@ -217,20 +218,20 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			},
 		}
 
-		tufObject = &v1alpha1.Tuf{
+		tufObject = &rhtasv1.Tuf{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespaces["tuf"].Name,
 				Name:      "test",
 			},
-			Spec: v1alpha1.TufSpec{
-				ExternalAccess: v1alpha1.ExternalAccess{
+			Spec: rhtasv1.TufSpec{
+				ExternalAccess: common.ExternalAccess{
 					Enabled: true,
 				},
-				Keys: []v1alpha1.TufKey{
+				Keys: []rhtasv1.TufKey{
 					{
 						Name: "fulcio_v1.crt.pem",
-						SecretRef: &v1alpha1.SecretKeySelector{
-							LocalObjectReference: v1alpha1.LocalObjectReference{
+						SecretRef: &common.SecretKeySelector{
+							LocalObjectReference: common.LocalObjectReference{
 								Name: "my-fulcio-secret",
 							},
 							Key: "cert",
@@ -238,8 +239,8 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 					},
 					{
 						Name: "rekor.pub",
-						SecretRef: &v1alpha1.SecretKeySelector{
-							LocalObjectReference: v1alpha1.LocalObjectReference{
+						SecretRef: &common.SecretKeySelector{
+							LocalObjectReference: common.LocalObjectReference{
 								Name: "my-rekor-secret",
 							},
 							Key: "public",
@@ -247,8 +248,8 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 					},
 					{
 						Name: "ctfe.pub",
-						SecretRef: &v1alpha1.SecretKeySelector{
-							LocalObjectReference: v1alpha1.LocalObjectReference{
+						SecretRef: &common.SecretKeySelector{
+							LocalObjectReference: common.LocalObjectReference{
 								Name: "my-ctlog-secret",
 							},
 							Key: "public",
@@ -256,8 +257,8 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 					},
 					{
 						Name: "tsa.certchain.pem",
-						SecretRef: &v1alpha1.SecretKeySelector{
-							LocalObjectReference: v1alpha1.LocalObjectReference{
+						SecretRef: &common.SecretKeySelector{
+							LocalObjectReference: common.LocalObjectReference{
 								Name: "test-tsa-secret",
 							},
 							Key: "certificateChain",

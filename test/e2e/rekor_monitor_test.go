@@ -9,7 +9,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/test/e2e/support"
@@ -31,7 +31,7 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 		namespace             *v1.Namespace
 		rekorMonitorPod       v1.Pod
 		rekorMonitorContainer v1.Container
-		s                     *v1alpha1.Securesign
+		s                     *rhtasv1.Securesign
 	)
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
@@ -42,7 +42,7 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 		s = securesign.Create(namespace.Name, "test",
 			securesign.WithDefaults(),
 			securesign.WithMonitoring(),
-			func(v *v1alpha1.Securesign) {
+			func(v *rhtasv1.Securesign) {
 				v.Spec.Rekor.Monitoring.TLog.Enabled = true
 				v.Spec.Rekor.Monitoring.TLog.Interval = metav1.Duration{Duration: time.Second * 10}
 			},
@@ -91,7 +91,7 @@ var _ = Describe("Rekor Monitor", Ordered, func() {
 
 		It("should verify the Rekor CR has monitor condition created", func(ctx SpecContext) {
 			Eventually(func(g Gomega) {
-				updated := &v1alpha1.Rekor{}
+				updated := &rhtasv1.Rekor{}
 				err := cli.Get(ctx, types.NamespacedName{
 					Namespace: namespace.Name,
 					Name:      s.Name,

@@ -44,6 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/ctlog/actions/monitor"
 	tasPredicate "github.com/securesign/operator/internal/controller/predicate"
@@ -79,7 +80,7 @@ func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder events.Even
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 
-	var instance rhtasv1alpha1.CTlog
+	var instance rhtasv1.CTlog
 	rlog := log.FromContext(ctx)
 
 	if err := r.Get(ctx, req.NamespacedName, &instance); err != nil {
@@ -99,14 +100,14 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	target := instance.DeepCopy()
-	acs := []action.Action[*rhtasv1alpha1.CTlog]{
-		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.CTlog](func(_ *rhtasv1alpha1.CTlog) []string {
+	acs := []action.Action[*rhtasv1.CTlog]{
+		transitions.NewToPendingPhaseAction[*rhtasv1.CTlog](func(_ *rhtasv1.CTlog) []string {
 			return []string{actions.CertCondition, actions.ConfigCondition, actions.TLSCondition}
 		}),
 
 		actions.NewTlsAction(),
 
-		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.CTlog](),
+		transitions.NewToCreatePhaseAction[*rhtasv1.CTlog](),
 
 		actions.NewHandleFulcioCertAction(),
 		actions.NewHandleKeysAction(),
@@ -123,11 +124,11 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		monitor.NewCreateServiceAction(),
 		monitor.NewCreateMonitorAction(),
 
-		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.CTlog](),
+		transitions.NewToInitializePhaseAction[*rhtasv1.CTlog](),
 
 		actions.NewInitializeAction(),
 
-		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.CTlog](),
+		transitions.NewToReadyPhaseAction[*rhtasv1.CTlog](),
 	}
 
 	for _, a := range acs {
@@ -174,7 +175,7 @@ func (r *ctlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
-		For(&rhtasv1alpha1.CTlog{}, builder.WithPredicates(tasPredicate.ConfigurationChangedOnFailurePredicate[*rhtasv1alpha1.CTlog]())).
+		For(&rhtasv1.CTlog{}, builder.WithPredicates(tasPredicate.ConfigurationChangedOnFailurePredicate[*rhtasv1.CTlog]())).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		WatchesMetadata(partialSecret, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {

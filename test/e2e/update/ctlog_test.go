@@ -17,7 +17,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/api/common"
 	ctlogAction "github.com/securesign/operator/internal/controller/ctlog/actions"
 	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/core/v1"
@@ -32,7 +33,7 @@ var _ = Describe("CTlog update", Ordered, func() {
 
 	var targetImageName string
 	var namespace *v1.Namespace
-	var s *v1alpha1.Securesign
+	var s *rhtasv1.Securesign
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
@@ -73,14 +74,14 @@ var _ = Describe("CTlog update", Ordered, func() {
 		It("modified ctlog.privateKeyRef and ctlog.publicKeyRef", func(ctx SpecContext) {
 			Eventually(func(g Gomega) error {
 				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-				s.Spec.Ctlog.PrivateKeyRef = &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
+				s.Spec.Ctlog.PrivateKeyRef = &common.SecretKeySelector{
+					LocalObjectReference: common.LocalObjectReference{
 						Name: "my-ctlog-secret",
 					},
 					Key: "private",
 				}
-				s.Spec.Ctlog.PublicKeyRef = &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
+				s.Spec.Ctlog.PublicKeyRef = &common.SecretKeySelector{
+					LocalObjectReference: common.LocalObjectReference{
 						Name: "my-ctlog-secret",
 					},
 					Key: "public",
@@ -118,7 +119,7 @@ var _ = Describe("CTlog update", Ordered, func() {
 		It("update TUF deployment", func(ctx SpecContext) {
 			Eventually(func(g Gomega) error {
 				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-				s.Spec.Tuf.Keys = []v1alpha1.TufKey{
+				s.Spec.Tuf.Keys = []rhtasv1.TufKey{
 					{
 						Name: "rekor.pub",
 					},
@@ -130,8 +131,8 @@ var _ = Describe("CTlog update", Ordered, func() {
 					},
 					{
 						Name: "ctfe.pub",
-						SecretRef: &v1alpha1.SecretKeySelector{
-							LocalObjectReference: v1alpha1.LocalObjectReference{
+						SecretRef: &common.SecretKeySelector{
+							LocalObjectReference: common.LocalObjectReference{
 								Name: "my-ctlog-secret",
 							},
 							Key: "public",
@@ -140,10 +141,10 @@ var _ = Describe("CTlog update", Ordered, func() {
 				}
 				return cli.Update(ctx, s)
 			}).WithTimeout(1 * time.Second).Should(Succeed())
-			Eventually(func(g Gomega) []v1alpha1.TufKey {
+			Eventually(func(g Gomega) []rhtasv1.TufKey {
 				t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 				return t.Status.Keys
-			}).Should(And(HaveLen(4), WithTransform(func(keys []v1alpha1.TufKey) string {
+			}).Should(And(HaveLen(4), WithTransform(func(keys []rhtasv1.TufKey) string {
 				return keys[3].SecretRef.Name
 			}, Equal("my-ctlog-secret"))))
 			tuf.RefreshTufRepository(ctx, cli, namespace.Name, s.Name)
@@ -155,7 +156,7 @@ var _ = Describe("CTlog update", Ordered, func() {
 		})
 
 		It("verify new configuration", func(ctx SpecContext) {
-			var ctl *v1alpha1.CTlog
+			var ctl *rhtasv1.CTlog
 			var ctlPod *v1.Pod
 			Eventually(func(g Gomega) {
 				ctl = ctlog.Get(ctx, cli, namespace.Name, s.Name)

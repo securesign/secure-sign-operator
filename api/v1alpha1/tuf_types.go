@@ -1,9 +1,14 @@
 package v1alpha1
 
 import (
+	"encoding/json"
+	"github.com/securesign/operator/api/common"
+	v1 "github.com/securesign/operator/api/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -20,9 +25,9 @@ const (
 
 // TufSpec defines the desired state of Tuf
 type TufSpec struct {
-	PodRequirements `json:",inline"`
+	common.PodRequirements `json:",inline"`
 	// Define whether you want to export service or not
-	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
+	common.ExternalAccess `json:"externalAccess,omitempty"`
 	// Controls which URLs are used in the signing config:
 	// "external" (default) resolves URLs from Ingress routes,
 	// "internal" uses internal Kubernetes service URLs.
@@ -39,7 +44,7 @@ type TufSpec struct {
 	Keys []TufKey `json:"keys,omitempty"`
 	// Secret object reference that will hold you repository root keys. This parameter will be used only with operator-managed repository.
 	//+kubebuilder:default:={name: tuf-root-keys}
-	RootKeySecretRef *LocalObjectReference `json:"rootKeySecretRef,omitempty"`
+	RootKeySecretRef *common.LocalObjectReference `json:"rootKeySecretRef,omitempty"`
 	// Pvc configuration of the persistent storage claim for deployment in the cluster.
 	// You can use ReadWriteOnce accessMode if you don't have suitable storage provider but your deployment will not support HA mode
 	//+kubebuilder:default:={size: "100Mi",retain: true,accessModes: {ReadWriteOnce}}
@@ -47,16 +52,16 @@ type TufSpec struct {
 	// Ctlog service configuration
 	//+kubebuilder:default:={prefix: trusted-artifact-signer}
 	//+optional
-	Ctlog CtlogService `json:"ctlog,omitempty"`
+	Ctlog common.CtlogService `json:"ctlog,omitempty"`
 	// Fulcio service configuration
 	//+optional
-	Fulcio FulcioService `json:"fulcio,omitempty"`
+	Fulcio common.FulcioService `json:"fulcio,omitempty"`
 	// Rekor service configuration
 	//+optional
-	Rekor RekorService `json:"rekor,omitempty"`
+	Rekor common.RekorService `json:"rekor,omitempty"`
 	// TSA service configuration
 	//+optional
-	Tsa TsaService `json:"tsa,omitempty"`
+	Tsa common.TsaService `json:"tsa,omitempty"`
 }
 
 // TufPvc configuration of the persistent storage claim for deployment in the cluster.
@@ -85,7 +90,7 @@ type TufPvc struct {
 	// PersistentVolume AccessModes. Configure ReadWriteMany for HA deployment.
 	//+kubebuilder:default:={ReadWriteOnce}
 	//+kubebuilder:validation:MinItems:=1
-	AccessModes []PersistentVolumeAccessMode `json:"accessModes,omitempty"`
+	AccessModes []common.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
 }
 
 type TufKey struct {
@@ -97,7 +102,7 @@ type TufKey struct {
 	// If it is unset, the operator will try to autoconfigure secret reference, by searching secrets in namespace which
 	// contain `rhtas.redhat.com/$name` label.
 	//+optional
-	SecretRef *SecretKeySelector `json:"secretRef,omitempty"`
+	SecretRef *common.SecretKeySelector `json:"secretRef,omitempty"`
 }
 
 // TufStatus defines the observed state of Tuf
@@ -149,12 +154,65 @@ func (i *Tuf) SetCondition(newCondition metav1.Condition) {
 	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
 }
 
-func (i *Tuf) GetTrustedCA() *LocalObjectReference {
+func (i *Tuf) GetTrustedCA() *common.LocalObjectReference {
 	if v, ok := i.GetAnnotations()["rhtas.redhat.com/trusted-ca"]; ok {
-		return &LocalObjectReference{
+		return &common.LocalObjectReference{
 			Name: v,
 		}
 	}
 
 	return nil
+}
+
+// ConvertTo converts this v1alpha1 Tuf to the Hub version (v1)
+func (src *Tuf) ConvertTo(dstRaw conversion.Hub) error {
+	dst := dstRaw.(*v1.Tuf)
+
+	// Copy metadata directly
+	dst.ObjectMeta = src.ObjectMeta
+
+	// Convert Spec via JSON (safe since schemas are identical)
+	bytes, err := json.Marshal(src.Spec)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(bytes, &dst.Spec); err != nil {
+		return err
+	}
+
+	// Convert Status via JSON
+	bytes, err = json.Marshal(src.Status)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(bytes, &dst.Status)
+}
+
+// ConvertFrom converts from the Hub version (v1) to this v1alpha1 Tuf
+func (dst *Tuf) ConvertFrom(srcRaw conversion.Hub) error {
+	src := srcRaw.(*v1.Tuf)
+
+	// Copy metadata directly
+	dst.ObjectMeta = src.ObjectMeta
+
+	// Convert Spec via JSON
+	bytes, err := json.Marshal(src.Spec)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(bytes, &dst.Spec); err != nil {
+		return err
+	}
+
+	// Convert Status via JSON
+	bytes, err = json.Marshal(src.Status)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(bytes, &dst.Status)
+}
+
+// SetupWebhookWithManager sets up the conversion webhook with the Manager
+func (r *Tuf) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr, r).Complete()
 }

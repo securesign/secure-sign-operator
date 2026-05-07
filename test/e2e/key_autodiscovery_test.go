@@ -16,7 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/core/v1"
 )
@@ -26,7 +26,7 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 
 	var targetImageName string
 	var namespace *v1.Namespace
-	var s *v1alpha1.Securesign
+	var s *rhtasv1.Securesign
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
@@ -59,7 +59,7 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 		It("Verify TUF keys", func(ctx SpecContext) {
 			t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 			Expect(t).ToNot(BeNil())
-			Expect(t.Status.Keys).To(HaveEach(WithTransform(func(k v1alpha1.TufKey) string { return k.SecretRef.Name }, Not(BeEmpty()))))
+			Expect(t.Status.Keys).To(HaveEach(WithTransform(func(k rhtasv1.TufKey) string { return k.SecretRef.Name }, Not(BeEmpty()))))
 			var (
 				expected, actual []byte
 				err              error

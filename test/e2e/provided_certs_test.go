@@ -14,7 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/core/v1"
 )
@@ -24,7 +25,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 
 	var targetImageName string
 	var namespace *v1.Namespace
-	var s *v1alpha1.Securesign
+	var s *rhtasv1.Securesign
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
@@ -34,12 +35,12 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 		s = securesign.Create(namespace.Name, "test",
 			securesign.WithDefaults(),
 			securesign.WithProvidedCerts(),
-			func(v *v1alpha1.Securesign) {
-				v.Spec.Tuf.Keys = []v1alpha1.TufKey{
+			func(v *rhtasv1.Securesign) {
+				v.Spec.Tuf.Keys = []rhtasv1.TufKey{
 					{
 						Name: "fulcio_v1.crt.pem",
-						SecretRef: &v1alpha1.SecretKeySelector{
-							LocalObjectReference: v1alpha1.LocalObjectReference{
+						SecretRef: &common.SecretKeySelector{
+							LocalObjectReference: common.LocalObjectReference{
 								Name: "my-fulcio-secret",
 							},
 							Key: "cert",
@@ -47,8 +48,8 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 					},
 					{
 						Name: "rekor.pub",
-						SecretRef: &v1alpha1.SecretKeySelector{
-							LocalObjectReference: v1alpha1.LocalObjectReference{
+						SecretRef: &common.SecretKeySelector{
+							LocalObjectReference: common.LocalObjectReference{
 								Name: "my-rekor-secret",
 							},
 							Key: "public",
@@ -56,8 +57,8 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 					},
 					{
 						Name: "ctfe.pub",
-						SecretRef: &v1alpha1.SecretKeySelector{
-							LocalObjectReference: v1alpha1.LocalObjectReference{
+						SecretRef: &common.SecretKeySelector{
+							LocalObjectReference: common.LocalObjectReference{
 								Name: "my-ctlog-secret",
 							},
 							Key: "public",
@@ -65,8 +66,8 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 					},
 					{
 						Name: "tsa.certchain.pem",
-						SecretRef: &v1alpha1.SecretKeySelector{
-							LocalObjectReference: v1alpha1.LocalObjectReference{
+						SecretRef: &common.SecretKeySelector{
+							LocalObjectReference: common.LocalObjectReference{
 								Name: "test-tsa-secret",
 							},
 							Key: "certificateChain",

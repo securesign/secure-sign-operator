@@ -10,7 +10,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/tas/tuf"
 	v1 "k8s.io/api/core/v1"
@@ -20,7 +20,7 @@ var _ = Describe("Securesign install with in-cluster services and internal TUF s
 	cli, _ := support.CreateClient()
 
 	var namespace *v1.Namespace
-	var s *v1alpha1.Securesign
+	var s *rhtasv1.Securesign
 	var targetImageName string
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
@@ -52,7 +52,7 @@ var _ = Describe("Securesign install with in-cluster services and internal TUF s
 
 		It("TUF uses internal signing config URL mode", func(ctx SpecContext) {
 			tufInst := tuf.Get(ctx, cli, namespace.Name, s.Name)
-			Expect(tufInst.Spec.SigningConfigURLMode).To(Equal(v1alpha1.SigningConfigURLInternal))
+			Expect(tufInst.Spec.SigningConfigURLMode).To(Equal(rhtasv1.SigningConfigURLInternal))
 		})
 
 		It("Securesign status exposes in-cluster service URLs", func(ctx SpecContext) {

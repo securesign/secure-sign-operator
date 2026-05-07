@@ -9,7 +9,7 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/onsi/ginkgo/v2/dsl/core"
-	tasv1alpha "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	ctl "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcioAction "github.com/securesign/operator/internal/controller/fulcio/actions"
 	rekorAction "github.com/securesign/operator/internal/controller/rekor/actions"
@@ -44,7 +44,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		namespace                              *v1.Namespace
 		baseCatalogImage, targetedCatalogImage string
 		baseVersion                            string
-		securesignDeployment                   *tasv1alpha.Securesign
+		securesignDeployment                   *rhtasv1.Securesign
 		prevImageName, newImageName            string
 		err                                    error
 		extension                              olm.Extension
@@ -137,10 +137,10 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 			securesign.WithDefaults(),
 			securesign.WithSearchUI(),
 			securesign.WithMonitoring(),
-			func(v *tasv1alpha.Securesign) {
+			func(v *rhtasv1.Securesign) {
 				v.Spec.Trillian.Db.Pvc.Retain = nil
 			},
-			func(v *tasv1alpha.Securesign) {
+			func(v *rhtasv1.Securesign) {
 				if v.Annotations == nil {
 					v.Annotations = map[string]string{}
 				}

@@ -10,7 +10,8 @@ import (
 	"slices"
 	"strconv"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
@@ -30,7 +31,7 @@ const (
 	pubSecretNameFormat = "rekor-public-%s-"
 )
 
-func NewResolvePubKeyAction() action.Action[*rhtasv1alpha1.Rekor] {
+func NewResolvePubKeyAction() action.Action[*rhtasv1.Rekor] {
 	return &resolvePubKeyAction{}
 }
 
@@ -42,12 +43,12 @@ func (i resolvePubKeyAction) Name() string {
 	return "resolve public key"
 }
 
-func (i resolvePubKeyAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
+func (i resolvePubKeyAction) CanHandle(_ context.Context, instance *rhtasv1.Rekor) bool {
 	return meta.IsStatusConditionTrue(instance.Status.Conditions, actions.ServerCondition) &&
 		instance.Status.PublicKeyRef == nil
 }
 
-func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
+func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
 	var (
 		err            error
 		publicKey      []byte
@@ -71,7 +72,7 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	}
 
 	for _, partialSecret := range partialSecrets.Items {
-		sks := &rhtasv1alpha1.SecretKeySelector{Key: partialSecret.Labels[RekorPubLabel], LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: partialSecret.Name}}
+		sks := &common.SecretKeySelector{Key: partialSecret.Labels[RekorPubLabel], LocalObjectReference: common.LocalObjectReference{Name: partialSecret.Name}}
 		existingPublicKey, err := kubernetes.GetSecretData(i.Client, instance.Namespace, sks)
 		if err != nil {
 			return i.Error(ctx, fmt.Errorf("ResolvePubKey: failed to read `%s` secret's data: %w", sks.Name, err), instance)
@@ -130,7 +131,7 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	return i.StatusUpdate(ctx, instance)
 }
 
-func (i resolvePubKeyAction) resolvePubKey(instance rhtasv1alpha1.Rekor) ([]byte, error) {
+func (i resolvePubKeyAction) resolvePubKey(instance rhtasv1.Rekor) ([]byte, error) {
 	var (
 		data []byte
 		err  error

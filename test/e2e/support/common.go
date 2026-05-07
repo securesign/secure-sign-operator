@@ -29,7 +29,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/dsl/core"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -48,7 +48,7 @@ func IsCIEnvironment() bool {
 func CreateClient() (client.Client, error) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(rhtasv1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 
 	cfg, err := config.GetConfig()
@@ -122,13 +122,13 @@ func DumpNamespace(ctx context.Context, cli client.Client, ns string) {
 	secretList.SetGroupVersionKind(gvk)
 
 	toDump := map[string]client.ObjectList{
-		"securesign.yaml": &v1alpha1.SecuresignList{},
-		"fulcio.yaml":     &v1alpha1.FulcioList{},
-		"rekor.yaml":      &v1alpha1.RekorList{},
-		"tuf.yaml":        &v1alpha1.TufList{},
-		"ctlog.yaml":      &v1alpha1.CTlogList{},
-		"trillian.yaml":   &v1alpha1.TrillianList{},
-		"tsa.yaml":        &v1alpha1.TimestampAuthorityList{},
+		"securesign.yaml": &rhtasv1.SecuresignList{},
+		"fulcio.yaml":     &rhtasv1.FulcioList{},
+		"rekor.yaml":      &rhtasv1.RekorList{},
+		"tuf.yaml":        &rhtasv1.TufList{},
+		"ctlog.yaml":      &rhtasv1.CTlogList{},
+		"trillian.yaml":   &rhtasv1.TrillianList{},
+		"tsa.yaml":        &rhtasv1.TimestampAuthorityList{},
 		"pod.yaml":        &v1.PodList{},
 		"configmap.yaml":  &v1.ConfigMapList{},
 		"deployment.yaml": &v12.DeploymentList{},

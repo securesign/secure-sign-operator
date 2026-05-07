@@ -6,7 +6,7 @@ import (
 	"maps"
 	"slices"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
@@ -21,7 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func NewIngressAction() action.Action[*rhtasv1alpha1.Fulcio] {
+func NewIngressAction() action.Action[*rhtasv1.Fulcio] {
 	return &ingressAction{}
 }
 
@@ -33,11 +33,11 @@ func (i ingressAction) Name() string {
 	return "ingress"
 }
 
-func (i ingressAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Fulcio) bool {
+func (i ingressAction) CanHandle(_ context.Context, instance *rhtasv1.Fulcio) bool {
 	return instance.Spec.ExternalAccess.Enabled && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
-func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) *action.Result {
+func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *action.Result {
 	var (
 		result controllerutil.OperationResult
 		err    error

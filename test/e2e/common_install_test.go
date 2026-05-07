@@ -25,7 +25,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/matchers"
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -36,7 +37,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 
 	var targetImageName string
 	var namespace *v1.Namespace
-	var s *v1alpha1.Securesign
+	var s *rhtasv1.Securesign
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
@@ -47,11 +48,11 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			securesign.WithDefaults(),
 			securesign.WithSearchUI(),
 			securesign.WithMonitoring(),
-			func(v *v1alpha1.Securesign) {
+			func(v *rhtasv1.Securesign) {
 				// cover SECURESIGN-2694
 				v.Spec.Rekor.Attestations.Enabled = ptr.To(false)
 			},
-			func(v *v1alpha1.Securesign) {
+			func(v *rhtasv1.Securesign) {
 				v.Spec.Tuf.ExternalAccess.RouteSelectorLabels = map[string]string{"foo": "bar"}
 			},
 		)
@@ -90,7 +91,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 		})
 
 		It("operator should generate rekor secret", func(ctx SpecContext) {
-			Eventually(func() *v1alpha1.SecretKeySelector {
+			Eventually(func() *common.SecretKeySelector {
 				return rekor.Get(ctx, cli, namespace.Name, s.Name).Status.Signer.KeyRef
 			}).Should(Not(BeNil()))
 			Eventually(func(g Gomega) *v1.Secret {

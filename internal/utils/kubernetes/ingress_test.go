@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"github.com/securesign/operator/internal/utils"
 	v1 "k8s.io/api/core/v1"
@@ -108,7 +108,7 @@ func TestEnsureIngressSpec(t *testing.T) {
 				&networkingv1.Ingress{ObjectMeta: v2.ObjectMeta{Name: name, Namespace: "default"}},
 				EnsureIngressSpec(ctx, c,
 					v1.Service{ObjectMeta: v2.ObjectMeta{Name: name, Namespace: "default"}},
-					v1alpha1.ExternalAccess{
+					common.ExternalAccess{
 						Host: "host",
 					},
 					name),

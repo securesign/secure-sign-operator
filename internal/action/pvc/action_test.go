@@ -7,6 +7,7 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
+	"github.com/securesign/operator/api/common"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/labels"
@@ -72,8 +73,8 @@ func TestHandle(t *testing.T) {
 				mutateObj: func(obj *v1alpha1.Rekor) {
 					size := resource.MustParse("1Gi")
 					obj.Spec.Pvc.Size = &size
-					obj.Spec.Pvc.AccessModes = []v1alpha1.PersistentVolumeAccessMode{
-						v1alpha1.PersistentVolumeAccessMode(v1.ReadWriteOnce),
+					obj.Spec.Pvc.AccessModes = []common.PersistentVolumeAccessMode{
+						common.PersistentVolumeAccessMode(v1.ReadWriteOnce),
 					}
 					obj.Spec.Pvc.StorageClass = storageClass
 					obj.Spec.Pvc.Retain = ptr.To(true)
@@ -105,8 +106,8 @@ func TestHandle(t *testing.T) {
 			name: "failure missing PVC size",
 			pre: pre{
 				mutateObj: func(obj *v1alpha1.Rekor) {
-					obj.Spec.Pvc.AccessModes = []v1alpha1.PersistentVolumeAccessMode{
-						v1alpha1.PersistentVolumeAccessMode(v1.ReadWriteOnce),
+					obj.Spec.Pvc.AccessModes = []common.PersistentVolumeAccessMode{
+						common.PersistentVolumeAccessMode(v1.ReadWriteOnce),
 					}
 					obj.Spec.Pvc.StorageClass = storageClass
 				},
@@ -155,8 +156,8 @@ func TestHandle(t *testing.T) {
 				mutateObj: func(obj *v1alpha1.Rekor) {
 					size := resource.MustParse("1Gi")
 					obj.Spec.Pvc.Size = &size
-					obj.Spec.Pvc.AccessModes = []v1alpha1.PersistentVolumeAccessMode{
-						v1alpha1.PersistentVolumeAccessMode(v1.ReadWriteOnce),
+					obj.Spec.Pvc.AccessModes = []common.PersistentVolumeAccessMode{
+						common.PersistentVolumeAccessMode(v1.ReadWriteOnce),
 					}
 					obj.Spec.Pvc.StorageClass = storageClass
 					obj.Spec.Pvc.Retain = ptr.To(true)
@@ -259,8 +260,8 @@ func TestHandle(t *testing.T) {
 				mutateObj: func(obj *v1alpha1.Rekor) {
 					size := resource.MustParse("1Gi")
 					obj.Spec.Pvc.Size = &size
-					obj.Spec.Pvc.AccessModes = []v1alpha1.PersistentVolumeAccessMode{
-						v1alpha1.PersistentVolumeAccessMode(v1.ReadWriteOnce),
+					obj.Spec.Pvc.AccessModes = []common.PersistentVolumeAccessMode{
+						common.PersistentVolumeAccessMode(v1.ReadWriteOnce),
 					}
 					obj.Spec.Pvc.StorageClass = storageClass
 					obj.Spec.Pvc.Retain = ptr.To(true)
@@ -308,7 +309,7 @@ func TestHandle(t *testing.T) {
 				WithStatusSubresource(instance).
 				Build()
 			w := Wrapper[*v1alpha1.Rekor](
-				func(r *v1alpha1.Rekor) v1alpha1.Pvc {
+				func(r *v1alpha1.Rekor) common.Pvc {
 					return r.Spec.Pvc
 				},
 				func(r *v1alpha1.Rekor) string {
@@ -337,7 +338,7 @@ func TestCanHandle(t *testing.T) {
 	type args struct {
 		condition  *metav1.Condition
 		enabled    bool
-		pvc        v1alpha1.Pvc
+		pvc        common.Pvc
 		statusPvc  string
 		generation int64
 	}
@@ -446,7 +447,7 @@ func TestCanHandle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c := testAction.FakeClientBuilder().Build()
 			w := Wrapper[*v1alpha1.Rekor](
-				func(r *v1alpha1.Rekor) v1alpha1.Pvc {
+				func(r *v1alpha1.Rekor) common.Pvc {
 					return tt.args.pvc
 				},
 				func(r *v1alpha1.Rekor) string {

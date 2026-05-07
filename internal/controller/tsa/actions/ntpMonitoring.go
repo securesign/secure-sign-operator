@@ -7,7 +7,8 @@ import (
 	"reflect"
 	"slices"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
@@ -34,7 +35,7 @@ type ntpMonitoringAction struct {
 	action.BaseAction
 }
 
-func NewNtpMonitoringAction() action.Action[*rhtasv1alpha1.TimestampAuthority] {
+func NewNtpMonitoringAction() action.Action[*rhtasv1.TimestampAuthority] {
 	return &ntpMonitoringAction{}
 }
 
@@ -42,7 +43,7 @@ func (i ntpMonitoringAction) Name() string {
 	return "ntpMonitoring"
 }
 
-func (i ntpMonitoringAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.TimestampAuthority) bool {
+func (i ntpMonitoringAction) CanHandle(ctx context.Context, instance *rhtasv1.TimestampAuthority) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
 
 	switch {
@@ -59,7 +60,7 @@ func (i ntpMonitoringAction) CanHandle(ctx context.Context, instance *rhtasv1alp
 	}
 }
 
-func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.TimestampAuthority) *action.Result {
+func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.TimestampAuthority) *action.Result {
 
 	var newStatus = instance.Spec.NTPMonitoring.DeepCopy()
 
@@ -183,7 +184,7 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	return i.StatusUpdate(ctx, instance)
 }
 
-func (i ntpMonitoringAction) marshalNTPMonitoringConfig(instance *rhtasv1alpha1.NtpMonitoringConfig) ([]byte, error) {
+func (i ntpMonitoringAction) marshalNTPMonitoringConfig(instance *rhtasv1.NtpMonitoringConfig) ([]byte, error) {
 	var (
 		err    error
 		config []byte
@@ -209,7 +210,7 @@ func (i ntpMonitoringAction) marshalNTPMonitoringConfig(instance *rhtasv1alpha1.
 	return config, nil
 }
 
-func (i ntpMonitoringAction) alignStatusFields(spec *rhtasv1alpha1.NTPMonitoring, newStatus *rhtasv1alpha1.NTPMonitoring, cmName string) {
+func (i ntpMonitoringAction) alignStatusFields(spec *rhtasv1.NTPMonitoring, newStatus *rhtasv1.NTPMonitoring, cmName string) {
 	if spec.Config == nil || newStatus == nil {
 		return
 	}
@@ -218,6 +219,6 @@ func (i ntpMonitoringAction) alignStatusFields(spec *rhtasv1alpha1.NTPMonitoring
 	if spec.Config.NtpConfigRef != nil {
 		newStatus.Config.NtpConfigRef = spec.Config.NtpConfigRef
 	} else if cmName != "" {
-		newStatus.Config.NtpConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: cmName}
+		newStatus.Config.NtpConfigRef = &common.LocalObjectReference{Name: cmName}
 	}
 }

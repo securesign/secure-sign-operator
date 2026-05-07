@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"context"
+	"github.com/securesign/operator/api/common"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -506,7 +507,7 @@ var _ = Describe("Rekor", func() {
 		})
 
 		DescribeTable("replicas conditions",
-			func(replicas *int32, attestationEnabled *bool, attestationUrl string, pvcAccessModes []PersistentVolumeAccessMode, isValid bool) {
+			func(replicas *int32, attestationEnabled *bool, attestationUrl string, pvcAccessModes []common.PersistentVolumeAccessMode, isValid bool) {
 				object := generateRekorObject("")
 				object.GenerateName = "replicas-conditions-"
 				object.Spec.Replicas = replicas
@@ -521,37 +522,37 @@ var _ = Describe("Rekor", func() {
 				}
 
 			},
-			Entry(nil, nil, nil, "mem://", []PersistentVolumeAccessMode{"ReadWriteOnce"}, true),
-			Entry(nil, nil, nil, "file:///var/run/attestations", []PersistentVolumeAccessMode{"ReadWriteOnce"}, true),
-			Entry(nil, nil, ptr.To(true), "file:///var/run/attestations", []PersistentVolumeAccessMode{}, true),
-			Entry(nil, nil, ptr.To(true), "mem://", []PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}, true),
-			Entry(nil, nil, ptr.To(false), "file:///var/run/attestations", []PersistentVolumeAccessMode{"ReadWriteMany"}, true),
+			Entry(nil, nil, nil, "mem://", []common.PersistentVolumeAccessMode{"ReadWriteOnce"}, true),
+			Entry(nil, nil, nil, "file:///var/run/attestations", []common.PersistentVolumeAccessMode{"ReadWriteOnce"}, true),
+			Entry(nil, nil, ptr.To(true), "file:///var/run/attestations", []common.PersistentVolumeAccessMode{}, true),
+			Entry(nil, nil, ptr.To(true), "mem://", []common.PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}, true),
+			Entry(nil, nil, ptr.To(false), "file:///var/run/attestations", []common.PersistentVolumeAccessMode{"ReadWriteMany"}, true),
 
-			Entry(nil, ptr.To(int32(0)), ptr.To(false), "file:///var/run/attestations", []PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}, true),
-			Entry(nil, ptr.To(int32(0)), nil, "mem://", []PersistentVolumeAccessMode{}, true),
-			Entry(nil, ptr.To(int32(0)), ptr.To(true), "mem://", []PersistentVolumeAccessMode{"ReadWriteOnce"}, true),
-			Entry(nil, ptr.To(int32(0)), nil, "file:///var/run/attestations", []PersistentVolumeAccessMode{"ReadWriteMany"}, true),
+			Entry(nil, ptr.To(int32(0)), ptr.To(false), "file:///var/run/attestations", []common.PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}, true),
+			Entry(nil, ptr.To(int32(0)), nil, "mem://", []common.PersistentVolumeAccessMode{}, true),
+			Entry(nil, ptr.To(int32(0)), ptr.To(true), "mem://", []common.PersistentVolumeAccessMode{"ReadWriteOnce"}, true),
+			Entry(nil, ptr.To(int32(0)), nil, "file:///var/run/attestations", []common.PersistentVolumeAccessMode{"ReadWriteMany"}, true),
 
-			Entry(nil, ptr.To(int32(1)), ptr.To(false), "mem://", []PersistentVolumeAccessMode{"ReadWriteOnce"}, true),
-			Entry(nil, ptr.To(int32(1)), ptr.To(true), "file:///var/run/attestations", []PersistentVolumeAccessMode{"ReadWriteMany"}, true),
-			Entry(nil, ptr.To(int32(1)), nil, "file:///var/run/attestations", []PersistentVolumeAccessMode{}, true),
-			Entry(nil, ptr.To(int32(1)), nil, "file:///var/run/attestations", []PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}, true),
+			Entry(nil, ptr.To(int32(1)), ptr.To(false), "mem://", []common.PersistentVolumeAccessMode{"ReadWriteOnce"}, true),
+			Entry(nil, ptr.To(int32(1)), ptr.To(true), "file:///var/run/attestations", []common.PersistentVolumeAccessMode{"ReadWriteMany"}, true),
+			Entry(nil, ptr.To(int32(1)), nil, "file:///var/run/attestations", []common.PersistentVolumeAccessMode{}, true),
+			Entry(nil, ptr.To(int32(1)), nil, "file:///var/run/attestations", []common.PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}, true),
 
-			Entry(nil, ptr.To(int32(2)), ptr.To(true), "file:///var/run/attestations", []PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}, true),
-			Entry(nil, ptr.To(int32(2)), nil, "mem://", []PersistentVolumeAccessMode{"ReadWriteMany"}, true),
-			Entry(nil, ptr.To(int32(2)), ptr.To(false), "mem://", []PersistentVolumeAccessMode{}, true),
-			Entry(nil, ptr.To(int32(2)), ptr.To(true), "mem://", []PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}, true),
+			Entry(nil, ptr.To(int32(2)), ptr.To(true), "file:///var/run/attestations", []common.PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}, true),
+			Entry(nil, ptr.To(int32(2)), nil, "mem://", []common.PersistentVolumeAccessMode{"ReadWriteMany"}, true),
+			Entry(nil, ptr.To(int32(2)), ptr.To(false), "mem://", []common.PersistentVolumeAccessMode{}, true),
+			Entry(nil, ptr.To(int32(2)), ptr.To(true), "mem://", []common.PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}, true),
 
 			// not valid scenarios
-			Entry(nil, ptr.To(int32(2)), ptr.To(true), "file:///var/run/attestations", []PersistentVolumeAccessMode{"ReadWriteOnce"}, false),
-			Entry(nil, ptr.To(int32(2)), nil, "file:///var/run/attestations", []PersistentVolumeAccessMode{"ReadWriteOnce"}, false),
-			Entry(nil, ptr.To(int32(2)), ptr.To(true), "file:///var/run/attestations", []PersistentVolumeAccessMode{}, false),
+			Entry(nil, ptr.To(int32(2)), ptr.To(true), "file:///var/run/attestations", []common.PersistentVolumeAccessMode{"ReadWriteOnce"}, false),
+			Entry(nil, ptr.To(int32(2)), nil, "file:///var/run/attestations", []common.PersistentVolumeAccessMode{"ReadWriteOnce"}, false),
+			Entry(nil, ptr.To(int32(2)), ptr.To(true), "file:///var/run/attestations", []common.PersistentVolumeAccessMode{}, false),
 		)
 
 		type pvcArgs struct {
 			name         string
 			storageClass string
-			accessModes  []PersistentVolumeAccessMode
+			accessModes  []common.PersistentVolumeAccessMode
 		}
 		DescribeTable("pvc", func(ctx context.Context, origObj pvcArgs, updateObj *pvcArgs, isValid bool, errMessage string) {
 			object := generateRekorObject("")
@@ -583,13 +584,13 @@ var _ = Describe("Rekor", func() {
 			Entry("create default", pvcArgs{}, nil, true, ""),
 			Entry("bring your own pvc", pvcArgs{name: "byo-pvc"}, nil, true, ""),
 			Entry("change name", pvcArgs{}, &pvcArgs{name: "new"}, true, ""),
-			Entry("no changes", pvcArgs{storageClass: "default", accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"}}, &pvcArgs{storageClass: "default", accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"}}, true, ""),
+			Entry("no changes", pvcArgs{storageClass: "default", accessModes: []common.PersistentVolumeAccessMode{"ReadWriteOnce"}}, &pvcArgs{storageClass: "default", accessModes: []common.PersistentVolumeAccessMode{"ReadWriteOnce"}}, true, ""),
 			Entry("immutable storageClass", pvcArgs{storageClass: "default"}, &pvcArgs{storageClass: "new"}, false, "storageClass is immutable"),
 			Entry("change storageClass when name is set", pvcArgs{name: "named", storageClass: "old"}, &pvcArgs{name: "named", storageClass: "new"}, true, ""),
 			Entry("change storageClass and name", pvcArgs{storageClass: "old"}, &pvcArgs{name: "new", storageClass: "new"}, true, ""),
-			Entry("immutable accessModes", pvcArgs{accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"}}, &pvcArgs{accessModes: []PersistentVolumeAccessMode{"ReadWriteMany"}}, false, "accessModes is immutable"),
-			Entry("change accessModes when name is set", pvcArgs{name: "named", accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"}}, &pvcArgs{name: "named", accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}}, true, ""),
-			Entry("change accessModes and name", pvcArgs{accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"}}, &pvcArgs{name: "new", accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}}, true, ""),
+			Entry("immutable accessModes", pvcArgs{accessModes: []common.PersistentVolumeAccessMode{"ReadWriteOnce"}}, &pvcArgs{accessModes: []common.PersistentVolumeAccessMode{"ReadWriteMany"}}, false, "accessModes is immutable"),
+			Entry("change accessModes when name is set", pvcArgs{name: "named", accessModes: []common.PersistentVolumeAccessMode{"ReadWriteOnce"}}, &pvcArgs{name: "named", accessModes: []common.PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}}, true, ""),
+			Entry("change accessModes and name", pvcArgs{accessModes: []common.PersistentVolumeAccessMode{"ReadWriteOnce"}}, &pvcArgs{name: "new", accessModes: []common.PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}}, true, ""),
 		)
 
 		Context("Default settings", func() {
@@ -633,15 +634,15 @@ var _ = Describe("Rekor", func() {
 							Namespace: "default",
 						},
 						Spec: RekorSpec{
-							Monitoring: MonitoringWithTLogConfig{
-								MonitoringConfig: MonitoringConfig{
+							Monitoring: common.MonitoringWithTLogConfig{
+								MonitoringConfig: common.MonitoringConfig{
 									Enabled: true,
 								},
-								TLog: TlogMonitoring{
+								TLog: common.TlogMonitoring{
 									Enabled: true,
 								},
 							},
-							ExternalAccess: ExternalAccess{
+							ExternalAccess: common.ExternalAccess{
 								Enabled: true,
 								Host:    "hostname",
 							},
@@ -653,7 +654,7 @@ var _ = Describe("Rekor", func() {
 								Schedule: "* */2 * * 0-3",
 							},
 							TreeID: &tree,
-							Pvc: Pvc{
+							Pvc: common.Pvc{
 								Name:         "name",
 								Size:         &storage,
 								StorageClass: "name",
@@ -661,20 +662,20 @@ var _ = Describe("Rekor", func() {
 							},
 							Signer: RekorSigner{
 								KMS: "secret",
-								KeyRef: &SecretKeySelector{
-									LocalObjectReference: LocalObjectReference{
+								KeyRef: &common.SecretKeySelector{
+									LocalObjectReference: common.LocalObjectReference{
 										Name: "secret",
 									},
 									Key: "key",
 								},
-								PasswordRef: &SecretKeySelector{
-									LocalObjectReference: LocalObjectReference{
+								PasswordRef: &common.SecretKeySelector{
+									LocalObjectReference: common.LocalObjectReference{
 										Name: "secret",
 									},
 									Key: "key",
 								},
 							},
-							Trillian: TrillianService{
+							Trillian: common.TrillianService{
 								Address: "trillian-system.default.svc",
 								Port:    &port,
 							},
@@ -707,7 +708,7 @@ var _ = Describe("Rekor", func() {
 							Namespace: "default",
 						},
 						Spec: RekorSpec{
-							Pvc: Pvc{
+							Pvc: common.Pvc{
 								Name: "custom-name",
 							},
 						},
@@ -748,14 +749,14 @@ func generateRekorObject(name string) *Rekor {
 				Url:     "file:///var/run/attestations?no_tmp_dir=true",
 				MaxSize: &maxSize,
 			},
-			Pvc: Pvc{
+			Pvc: common.Pvc{
 				Retain: ptr.To(true),
 				Size:   &storage,
-				AccessModes: []PersistentVolumeAccessMode{
+				AccessModes: []common.PersistentVolumeAccessMode{
 					"ReadWriteOnce",
 				},
 			},
-			Trillian: TrillianService{
+			Trillian: common.TrillianService{
 				Port: ptr.To(int32(8091)),
 			},
 			MaxRequestBodySize: ptr.To(int64(10485760)),

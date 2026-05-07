@@ -32,7 +32,7 @@ Usage:
 		func(rekor *v1alpha1.Rekor, i *int64) {
 			obj.Status.TreeID = i
 		},
-		func(obj *v1alpha1.Rekor) *v1alpha1.TrillianService {
+		func(obj *v1alpha1.Rekor) *common.TrillianService {
 			return &obj.Spec.Trillian
 		})
 	tree.NewResolveTreeAction[*v1alpha1.Rekor]("rekor", wrapper)

@@ -14,13 +14,13 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func NewTrillianAction() action.Action[*rhtasv1alpha1.Securesign] {
+func NewTrillianAction() action.Action[*rhtasv1.Securesign] {
 	return &trillianAction{}
 }
 
@@ -32,16 +32,16 @@ func (i trillianAction) Name() string {
 	return "create trillian"
 }
 
-func (i trillianAction) CanHandle(context.Context, *rhtasv1alpha1.Securesign) bool {
+func (i trillianAction) CanHandle(context.Context, *rhtasv1.Securesign) bool {
 	return true
 }
 
-func (i trillianAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
+func (i trillianAction) Handle(ctx context.Context, instance *rhtasv1.Securesign) *action.Result {
 	var (
 		err      error
 		result   controllerutil.OperationResult
 		l        = labels.For("trillian", instance.Name, instance.Name)
-		trillian = &rhtasv1alpha1.Trillian{
+		trillian = &rhtasv1.Trillian{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      instance.Name,
 				Namespace: instance.Namespace,
@@ -51,10 +51,10 @@ func (i trillianAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secu
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		trillian,
-		ensure.ControllerReference[*rhtasv1alpha1.Trillian](instance, i.Client),
-		ensure.Labels[*rhtasv1alpha1.Trillian](slices.Collect(maps.Keys(l)), l),
-		ensure.Annotations[*rhtasv1alpha1.Trillian](annotations.InheritableAnnotations, instance.Annotations),
-		func(object *rhtasv1alpha1.Trillian) error {
+		ensure.ControllerReference[*rhtasv1.Trillian](instance, i.Client),
+		ensure.Labels[*rhtasv1.Trillian](slices.Collect(maps.Keys(l)), l),
+		ensure.Annotations[*rhtasv1.Trillian](annotations.InheritableAnnotations, instance.Annotations),
+		func(object *rhtasv1.Trillian) error {
 			object.Spec = instance.Spec.Trillian
 			return nil
 		},
@@ -81,7 +81,7 @@ func (i trillianAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secu
 	return i.CopyStatus(ctx, trillian, instance)
 }
 
-func (i trillianAction) CopyStatus(ctx context.Context, object *rhtasv1alpha1.Trillian, instance *rhtasv1alpha1.Securesign) *action.Result {
+func (i trillianAction) CopyStatus(ctx context.Context, object *rhtasv1.Trillian, instance *rhtasv1.Securesign) *action.Result {
 	objectStatus := meta.FindStatusCondition(object.Status.Conditions, constants.ReadyCondition)
 	if objectStatus == nil {
 		// not initialized yet, wait for update

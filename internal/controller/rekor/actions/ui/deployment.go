@@ -23,10 +23,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 )
 
-func NewDeployAction() action.Action[*rhtasv1alpha1.Rekor] {
+func NewDeployAction() action.Action[*rhtasv1.Rekor] {
 	return &deployAction{}
 }
 
@@ -38,11 +38,11 @@ func (i deployAction) Name() string {
 	return "deploy"
 }
 
-func (i deployAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Rekor) bool {
+func (i deployAction) CanHandle(ctx context.Context, instance *rhtasv1.Rekor) bool {
 	return enabled(instance) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
-func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
+func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
 	var (
 		err    error
 		result controllerutil.OperationResult
@@ -83,7 +83,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 	}
 }
 
-func (i deployAction) ensureUIDeployment(instance *rhtasv1alpha1.Rekor, sa string, labels map[string]string) func(*v2.Deployment) error {
+func (i deployAction) ensureUIDeployment(instance *rhtasv1.Rekor, sa string, labels map[string]string) func(*v2.Deployment) error {
 	return func(dp *v2.Deployment) error {
 		spec := &dp.Spec
 		spec.Selector = &metav1.LabelSelector{

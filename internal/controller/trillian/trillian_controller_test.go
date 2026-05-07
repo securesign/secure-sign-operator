@@ -25,7 +25,8 @@ import (
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
 	"github.com/securesign/operator/internal/utils"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -57,7 +58,7 @@ var _ = Describe("Trillian controller", func() {
 		}
 
 		typeNamespaceName := types.NamespacedName{Name: Name, Namespace: Namespace}
-		trillian := &v1alpha1.Trillian{}
+		trillian := &rhtasv1.Trillian{}
 
 		BeforeEach(func() {
 			By("Creating the Namespace to perform the tests")
@@ -67,7 +68,7 @@ var _ = Describe("Trillian controller", func() {
 
 		AfterEach(func() {
 			By("removing the custom resource for the Kind Trillian")
-			found := &v1alpha1.Trillian{}
+			found := &rhtasv1.Trillian{}
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
 
@@ -88,13 +89,13 @@ var _ = Describe("Trillian controller", func() {
 			if err != nil && errors.IsNotFound(err) {
 				// Let's mock our custom resource at the same way that we would
 				// apply on the cluster the manifest under config/samples
-				trillian := &v1alpha1.Trillian{
+				trillian := &rhtasv1.Trillian{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      Name,
 						Namespace: Namespace,
 					},
-					Spec: v1alpha1.TrillianSpec{
-						Db: v1alpha1.TrillianDB{
+					Spec: rhtasv1.TrillianSpec{
+						Db: rhtasv1.TrillianDB{
 							Create: utils.Pointer(true),
 						},
 					},
@@ -105,20 +106,20 @@ var _ = Describe("Trillian controller", func() {
 
 			By("Checking if the custom resource was successfully created")
 			Eventually(func() error {
-				found := &v1alpha1.Trillian{}
+				found := &rhtasv1.Trillian{}
 				return suite.Client().Get(ctx, typeNamespaceName, found)
 			}).Should(Succeed())
 
 			By("Status conditions are initialized")
 			Eventually(func(g Gomega) bool {
-				found := &v1alpha1.Trillian{}
+				found := &rhtasv1.Trillian{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
 			}).Should(BeTrue())
-			found := &v1alpha1.Trillian{}
+			found := &rhtasv1.Trillian{}
 
 			By("Database secret created")
-			Eventually(func(g Gomega) *v1alpha1.LocalObjectReference {
+			Eventually(func(g Gomega) *common.LocalObjectReference {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Db.DatabaseSecretRef
 			}).Should(Not(BeNil()))
@@ -159,7 +160,7 @@ var _ = Describe("Trillian controller", func() {
 
 			By("Waiting until Trillian instance is Initialization")
 			Eventually(func(g Gomega) string {
-				found := &v1alpha1.Trillian{}
+				found := &rhtasv1.Trillian{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
 			}).Should(Equal(state.Initialize.String()))
@@ -174,7 +175,7 @@ var _ = Describe("Trillian controller", func() {
 
 			By("Waiting until Trillian instance is Ready")
 			Eventually(func(g Gomega) bool {
-				found := &v1alpha1.Trillian{}
+				found := &rhtasv1.Trillian{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())

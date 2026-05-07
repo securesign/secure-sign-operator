@@ -3,14 +3,14 @@ package ensure
 import (
 	"slices"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/tls"
 	corev1 "k8s.io/api/core/v1"
 )
 
 // TLS mount secret with tls cert to all deployment's containers.
-func TLS(tlsCfg v1alpha1.TLS, containerNames ...string) func(*corev1.PodTemplateSpec) error {
+func TLS(tlsCfg common.TLS, containerNames ...string) func(*corev1.PodTemplateSpec) error {
 	return func(template *corev1.PodTemplateSpec) error {
 		for i, c := range template.Spec.Containers {
 			if slices.Contains(containerNames, c.Name) {

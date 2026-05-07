@@ -27,7 +27,7 @@ Usage:
 
 	// First, define a wrapper that provides access to the custom resource's PVC fields.
 	pvcWrapper := pvc.Wrapper[*v1alpha1.Rekor](
-	    func(r *v1alpha1.Rekor) v1alpha1.Pvc {
+	    func(r *v1alpha1.Rekor) common.Pvc {
 	        return r.Spec.Pvc
 	    },
 	    func(r *v1alpha1.Rekor) string {

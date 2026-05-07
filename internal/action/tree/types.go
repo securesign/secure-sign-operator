@@ -3,7 +3,7 @@ package tree
 import (
 	_ "embed"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
 	"github.com/securesign/operator/internal/apis"
 )
 
@@ -19,7 +19,7 @@ const (
 	configMapResultField    = "tree_id"
 )
 
-func Wrapper[T tlsAwareObject](getTree, getStatusTree func(T) *int64, setStatusTree func(T, *int64), getTrillianService func(T) *v1alpha1.TrillianService) func(T) *wrapper[T] {
+func Wrapper[T tlsAwareObject](getTree, getStatusTree func(T) *int64, setStatusTree func(T, *int64), getTrillianService func(T) *common.TrillianService) func(T) *wrapper[T] {
 	return func(obj T) *wrapper[T] {
 		return &wrapper[T]{
 			object:              obj,
@@ -37,7 +37,7 @@ type wrapper[T tlsAwareObject] struct {
 	callTree            func(T) *int64
 	callStatusTree      func(T) *int64
 	callSetStatusTree   func(T, *int64)
-	callTrillianService func(T) *v1alpha1.TrillianService
+	callTrillianService func(T) *common.TrillianService
 }
 
 func (c *wrapper[T]) GetTreeID() *int64 {
@@ -52,7 +52,7 @@ func (c *wrapper[T]) SetStatusTreeID(treeID *int64) {
 	c.callSetStatusTree(c.object, treeID)
 }
 
-func (c *wrapper[T]) GetTrillianService() *v1alpha1.TrillianService {
+func (c *wrapper[T]) GetTrillianService() *common.TrillianService {
 	return c.callTrillianService(c.object)
 }
 

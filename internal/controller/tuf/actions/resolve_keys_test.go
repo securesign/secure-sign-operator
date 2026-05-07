@@ -6,8 +6,9 @@ import (
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
-	common "github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
+	actioncommon "github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
@@ -19,7 +20,7 @@ import (
 )
 
 var testAction = resolveKeysAction{
-	BaseAction: common.BaseAction{
+	BaseAction: actioncommon.BaseAction{
 		Client:   fake.NewFakeClient(),
 		Recorder: events.NewFakeRecorder(3),
 		Logger:   logr.Logger{},
@@ -39,12 +40,12 @@ func TestKeyAutogenerate(t *testing.T) {
 		},
 		Data: map[string][]byte{"key": nil},
 	})).To(Succeed())
-	instance := &v1alpha1.Tuf{Spec: v1alpha1.TufSpec{Keys: []v1alpha1.TufKey{
+	instance := &rhtasv1.Tuf{Spec: rhtasv1.TufSpec{Keys: []rhtasv1.TufKey{
 		{
 			Name: "rekor.pub",
 		},
 	}},
-		Status: v1alpha1.TufStatus{Conditions: []metav1.Condition{
+		Status: rhtasv1.TufStatus{Conditions: []metav1.Condition{
 			{
 				Type:   constants.ReadyCondition,
 				Reason: state.Pending.String(),
@@ -62,18 +63,18 @@ func TestKeyAutogenerate(t *testing.T) {
 
 func TestKeyProvided(t *testing.T) {
 	g := NewWithT(t)
-	instance := &v1alpha1.Tuf{Spec: v1alpha1.TufSpec{Keys: []v1alpha1.TufKey{
+	instance := &rhtasv1.Tuf{Spec: rhtasv1.TufSpec{Keys: []rhtasv1.TufKey{
 		{
 			Name: "rekor.pub",
-			SecretRef: &v1alpha1.SecretKeySelector{
-				LocalObjectReference: v1alpha1.LocalObjectReference{
+			SecretRef: &common.SecretKeySelector{
+				LocalObjectReference: common.LocalObjectReference{
 					Name: "secret",
 				},
 				Key: "key",
 			},
 		},
 	}},
-		Status: v1alpha1.TufStatus{Conditions: []metav1.Condition{
+		Status: rhtasv1.TufStatus{Conditions: []metav1.Condition{
 			{
 				Type:   constants.ReadyCondition,
 				Reason: state.Pending.String(),
@@ -89,23 +90,23 @@ func TestKeyProvided(t *testing.T) {
 
 func TestKeyUpdate(t *testing.T) {
 	g := NewWithT(t)
-	instance := &v1alpha1.Tuf{
-		Spec: v1alpha1.TufSpec{Keys: []v1alpha1.TufKey{
+	instance := &rhtasv1.Tuf{
+		Spec: rhtasv1.TufSpec{Keys: []rhtasv1.TufKey{
 			{
 				Name: "rekor.pub",
-				SecretRef: &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
+				SecretRef: &common.SecretKeySelector{
+					LocalObjectReference: common.LocalObjectReference{
 						Name: "new",
 					},
 					Key: "key",
 				},
 			},
 		}},
-		Status: v1alpha1.TufStatus{Keys: []v1alpha1.TufKey{
+		Status: rhtasv1.TufStatus{Keys: []rhtasv1.TufKey{
 			{
 				Name: "rekor.pub",
-				SecretRef: &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
+				SecretRef: &common.SecretKeySelector{
+					LocalObjectReference: common.LocalObjectReference{
 						Name: "old",
 					},
 					Key: "key",
@@ -138,18 +139,18 @@ func TestKeyDelete(t *testing.T) {
 		},
 		Data: map[string][]byte{"key": nil},
 	})).To(Succeed())
-	instance := &v1alpha1.Tuf{
-		Spec: v1alpha1.TufSpec{Keys: []v1alpha1.TufKey{
+	instance := &rhtasv1.Tuf{
+		Spec: rhtasv1.TufSpec{Keys: []rhtasv1.TufKey{
 			{
 				Name:      "ctfe.pub",
 				SecretRef: nil,
 			},
 		}},
-		Status: v1alpha1.TufStatus{Keys: []v1alpha1.TufKey{
+		Status: rhtasv1.TufStatus{Keys: []rhtasv1.TufKey{
 			{
 				Name: "ctfe.pub",
-				SecretRef: &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
+				SecretRef: &common.SecretKeySelector{
+					LocalObjectReference: common.LocalObjectReference{
 						Name: "old",
 					},
 					Key: "key",

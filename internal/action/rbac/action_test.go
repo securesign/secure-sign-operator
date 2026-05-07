@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"github.com/securesign/operator/api/common"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
@@ -504,7 +505,7 @@ func testRunner(pre pre, want want, handleFn handleFn) func(t *testing.T) {
 				Namespace: nnObject.Namespace,
 			},
 			Spec: v1alpha1.RekorSpec{
-				Trillian: v1alpha1.TrillianService{
+				Trillian: common.TrillianService{
 					Address: "trillian-logserver",
 					Port:    ptr.To(int32(8091)),
 				},

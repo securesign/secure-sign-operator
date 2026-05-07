@@ -60,6 +60,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/ctlog"
 	"github.com/securesign/operator/internal/controller/fulcio"
@@ -79,6 +80,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(rhtasv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(rhtasv1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(v1.AddToScheme(scheme))
 	utilruntime.Must(configv1.AddToScheme(scheme))
@@ -248,6 +250,38 @@ func main() {
 	setupController("ctlog", ctlog.NewReconciler, mgr)
 	setupController("tsa", tsa.NewReconciler, mgr)
 	//+kubebuilder:scaffold:builder
+
+	// Setup conversion webhooks
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err = (&rhtasv1alpha1.Securesign{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Securesign")
+			os.Exit(1)
+		}
+		if err = (&rhtasv1alpha1.Fulcio{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Fulcio")
+			os.Exit(1)
+		}
+		if err = (&rhtasv1alpha1.Trillian{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Trillian")
+			os.Exit(1)
+		}
+		if err = (&rhtasv1alpha1.Rekor{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Rekor")
+			os.Exit(1)
+		}
+		if err = (&rhtasv1alpha1.Tuf{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Tuf")
+			os.Exit(1)
+		}
+		if err = (&rhtasv1alpha1.CTlog{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CTlog")
+			os.Exit(1)
+		}
+		if err = (&rhtasv1alpha1.TimestampAuthority{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "TimestampAuthority")
+			os.Exit(1)
+		}
+	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

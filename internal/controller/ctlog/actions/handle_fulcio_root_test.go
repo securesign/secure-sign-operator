@@ -14,7 +14,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -25,9 +26,9 @@ func TestCertCan_Handle(t *testing.T) {
 
 	type env struct {
 		phase        state.State
-		certificates []v1alpha1.SecretKeySelector
+		certificates []common.SecretKeySelector
 		objects      []client.Object
-		status       v1alpha1.CTlogStatus
+		status       rhtasv1.CTlogStatus
 	}
 	type want struct {
 		canHandle bool
@@ -41,16 +42,16 @@ func TestCertCan_Handle(t *testing.T) {
 			name: "update spec key",
 			env: env{
 				phase: state.Creating,
-				certificates: []v1alpha1.SecretKeySelector{
+				certificates: []common.SecretKeySelector{
 					{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
+						LocalObjectReference: common.LocalObjectReference{Name: "secret"},
 						Key:                  "key",
 					},
 				},
-				status: v1alpha1.CTlogStatus{
-					RootCertificates: []v1alpha1.SecretKeySelector{
+				status: rhtasv1.CTlogStatus{
+					RootCertificates: []common.SecretKeySelector{
 						{
-							LocalObjectReference: v1alpha1.LocalObjectReference{Name: "fake"},
+							LocalObjectReference: common.LocalObjectReference{Name: "fake"},
 							Key:                  "fake",
 						},
 					},
@@ -64,13 +65,13 @@ func TestCertCan_Handle(t *testing.T) {
 			name: "new spec key",
 			env: env{
 				phase: state.Creating,
-				certificates: []v1alpha1.SecretKeySelector{
+				certificates: []common.SecretKeySelector{
 					{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
+						LocalObjectReference: common.LocalObjectReference{Name: "secret"},
 						Key:                  "key",
 					},
 				},
-				status: v1alpha1.CTlogStatus{},
+				status: rhtasv1.CTlogStatus{},
 			},
 			want: want{
 				canHandle: true,
@@ -81,7 +82,7 @@ func TestCertCan_Handle(t *testing.T) {
 			env: env{
 				phase:        state.Creating,
 				certificates: nil,
-				status:       v1alpha1.CTlogStatus{},
+				status:       rhtasv1.CTlogStatus{},
 				objects: []client.Object{
 					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
@@ -102,10 +103,10 @@ func TestCertCan_Handle(t *testing.T) {
 			env: env{
 				phase:        state.Ready,
 				certificates: nil,
-				status: v1alpha1.CTlogStatus{
-					RootCertificates: []v1alpha1.SecretKeySelector{
+				status: rhtasv1.CTlogStatus{
+					RootCertificates: []common.SecretKeySelector{
 						{
-							LocalObjectReference: v1alpha1.LocalObjectReference{Name: "fake"},
+							LocalObjectReference: common.LocalObjectReference{Name: "fake"},
 							Key:                  "fake",
 						},
 					},
@@ -138,16 +139,16 @@ func TestCertCan_Handle(t *testing.T) {
 			name: "matching cert-set",
 			env: env{
 				phase: state.Creating,
-				certificates: []v1alpha1.SecretKeySelector{
+				certificates: []common.SecretKeySelector{
 					{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
+						LocalObjectReference: common.LocalObjectReference{Name: "secret"},
 						Key:                  "key",
 					},
 				},
-				status: v1alpha1.CTlogStatus{
-					RootCertificates: []v1alpha1.SecretKeySelector{
+				status: rhtasv1.CTlogStatus{
+					RootCertificates: []common.SecretKeySelector{
 						{
-							LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
+							LocalObjectReference: common.LocalObjectReference{Name: "secret"},
 							Key:                  "key",
 						},
 					},
@@ -166,12 +167,12 @@ func TestCertCan_Handle(t *testing.T) {
 				Build()
 			a := testAction.PrepareAction(c, NewHandleFulcioCertAction())
 
-			instance := v1alpha1.CTlog{
+			instance := rhtasv1.CTlog{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "instance",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.CTlogSpec{
+				Spec: rhtasv1.CTlogSpec{
 					RootCertificates: tt.env.certificates,
 				},
 				Status: tt.env.status,
@@ -190,13 +191,13 @@ func TestCertCan_Handle(t *testing.T) {
 func TestCert_Handle(t *testing.T) {
 
 	type env struct {
-		certificates []v1alpha1.SecretKeySelector
+		certificates []common.SecretKeySelector
 		objects      []client.Object
-		status       v1alpha1.CTlogStatus
+		status       rhtasv1.CTlogStatus
 	}
 	type want struct {
 		result *action.Result
-		verify func(Gomega, v1alpha1.CTlogStatus, client.WithWatch, <-chan watch.Event)
+		verify func(Gomega, rhtasv1.CTlogStatus, client.WithWatch, <-chan watch.Event)
 	}
 	tests := []struct {
 		name string
@@ -207,7 +208,7 @@ func TestCert_Handle(t *testing.T) {
 			name: "autodiscover new fulcio-cert",
 			env: env{
 				certificates: nil,
-				status: v1alpha1.CTlogStatus{
+				status: rhtasv1.CTlogStatus{
 					Conditions: []metav1.Condition{
 						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
@@ -225,12 +226,12 @@ func TestCert_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
+				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
 					g.Expect(status.RootCertificates).To(HaveLen(1))
-					g.Expect(status.RootCertificates).To(ContainElement(v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
+					g.Expect(status.RootCertificates).To(ContainElement(common.SecretKeySelector{
+						LocalObjectReference: common.LocalObjectReference{Name: "secret"},
 						Key:                  "key",
 					}))
 
@@ -242,7 +243,7 @@ func TestCert_Handle(t *testing.T) {
 			name: "autodiscover missing cert",
 			env: env{
 				certificates: nil,
-				status: v1alpha1.CTlogStatus{
+				status: rhtasv1.CTlogStatus{
 					Conditions: []metav1.Condition{
 						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
@@ -250,7 +251,7 @@ func TestCert_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Requeue(),
-				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
+				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
 					g.Expect(status.RootCertificates).To(BeEmpty())
@@ -279,17 +280,17 @@ func TestCert_Handle(t *testing.T) {
 					},
 				},
 
-				certificates: []v1alpha1.SecretKeySelector{
+				certificates: []common.SecretKeySelector{
 					{
 						Key:                  "key",
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
+						LocalObjectReference: common.LocalObjectReference{Name: "secret"},
 					},
 					{
 						Key:                  "key",
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret-2"},
+						LocalObjectReference: common.LocalObjectReference{Name: "secret-2"},
 					},
 				},
-				status: v1alpha1.CTlogStatus{
+				status: rhtasv1.CTlogStatus{
 					Conditions: []metav1.Condition{
 						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
@@ -297,7 +298,7 @@ func TestCert_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
+				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
 					g.Expect(status.RootCertificates).Should(HaveLen(2))
@@ -313,10 +314,10 @@ func TestCert_Handle(t *testing.T) {
 		{
 			name: "configured take priority",
 			env: env{
-				certificates: []v1alpha1.SecretKeySelector{
+				certificates: []common.SecretKeySelector{
 					{
 						Key:                  "key",
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "my-secret"},
+						LocalObjectReference: common.LocalObjectReference{Name: "my-secret"},
 					},
 				},
 				objects: []client.Object{
@@ -336,7 +337,7 @@ func TestCert_Handle(t *testing.T) {
 						Data: map[string][]byte{"key": nil},
 					},
 				},
-				status: v1alpha1.CTlogStatus{
+				status: rhtasv1.CTlogStatus{
 					Conditions: []metav1.Condition{
 						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
@@ -344,7 +345,7 @@ func TestCert_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
+				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
 					g.Expect(status.RootCertificates).Should(HaveLen(1))
@@ -358,10 +359,10 @@ func TestCert_Handle(t *testing.T) {
 		{
 			name: "invalidate server config",
 			env: env{
-				certificates: []v1alpha1.SecretKeySelector{
+				certificates: []common.SecretKeySelector{
 					{
 						Key:                  "key",
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "my-secret"},
+						LocalObjectReference: common.LocalObjectReference{Name: "my-secret"},
 					},
 				},
 				objects: []client.Object{
@@ -381,8 +382,8 @@ func TestCert_Handle(t *testing.T) {
 						Data: map[string][]byte{},
 					},
 				},
-				status: v1alpha1.CTlogStatus{
-					ServerConfigRef: &v1alpha1.LocalObjectReference{Name: "ctlog-config"},
+				status: rhtasv1.CTlogStatus{
+					ServerConfigRef: &common.LocalObjectReference{Name: "ctlog-config"},
 					Conditions: []metav1.Condition{
 						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
 					},
@@ -390,7 +391,7 @@ func TestCert_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
+				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.RootCertificates).Should(HaveLen(1))
 					g.Expect(status.RootCertificates[0].Key).Should(Equal("key"))
 					g.Expect(status.RootCertificates[0].Name).Should(Equal("my-secret"))
@@ -422,10 +423,10 @@ func TestCert_Handle(t *testing.T) {
 						Data: map[string][]byte{"key": nil},
 					},
 				},
-				status: v1alpha1.CTlogStatus{
-					RootCertificates: []v1alpha1.SecretKeySelector{
+				status: rhtasv1.CTlogStatus{
+					RootCertificates: []common.SecretKeySelector{
 						{
-							LocalObjectReference: v1alpha1.LocalObjectReference{Name: "old"},
+							LocalObjectReference: common.LocalObjectReference{Name: "old"},
 							Key:                  "key",
 						},
 					},
@@ -436,14 +437,14 @@ func TestCert_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
-				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
+				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
 					g.Expect(status.RootCertificates).Should(HaveLen(2))
 					g.Expect(status.RootCertificates).
 						Should(And(
-							ContainElement(WithTransform(func(ks v1alpha1.SecretKeySelector) string { return ks.Name }, Equal("old"))),
-							ContainElement(WithTransform(func(ks v1alpha1.SecretKeySelector) string { return ks.Name }, Equal("new"))),
+							ContainElement(WithTransform(func(ks common.SecretKeySelector) string { return ks.Name }, Equal("old"))),
+							ContainElement(WithTransform(func(ks common.SecretKeySelector) string { return ks.Name }, Equal("new"))),
 						))
 					g.Expect(meta.IsStatusConditionTrue(status.Conditions, CertCondition)).To(BeTrue())
 				},
@@ -454,12 +455,12 @@ func TestCert_Handle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
 			ctx := context.TODO()
-			instance := &v1alpha1.CTlog{
+			instance := &rhtasv1.CTlog{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "instance",
 					Namespace: "default",
 				},
-				Spec: v1alpha1.CTlogSpec{
+				Spec: rhtasv1.CTlogSpec{
 					RootCertificates: tt.env.certificates,
 				},
 				Status: tt.env.status,
@@ -485,7 +486,7 @@ func TestCert_Handle(t *testing.T) {
 			}
 			configSecretWatch.Stop()
 			if tt.want.verify != nil {
-				find := &v1alpha1.CTlog{}
+				find := &rhtasv1.CTlog{}
 				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(instance), find)).To(Succeed())
 				tt.want.verify(g, find.Status, c, configSecretWatch.ResultChan())
 			}

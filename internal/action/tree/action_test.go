@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/securesign/operator/api/common"
 	"github.com/securesign/operator/api/v1alpha1"
 	"k8s.io/utils/ptr"
 )
@@ -41,7 +42,7 @@ var defaultWrapper = Wrapper[*v1alpha1.Rekor](
 	func(rekor *v1alpha1.Rekor, i *int64) {
 		rekor.Status.TreeID = i
 	},
-	func(rekor *v1alpha1.Rekor) *v1alpha1.TrillianService {
+	func(rekor *v1alpha1.Rekor) *common.TrillianService {
 		return &rekor.Spec.Trillian
 	},
 )
@@ -574,7 +575,7 @@ func testRunner(pre pre, want want, handleFn handleFn) func(t *testing.T) {
 				Namespace: nnObject.Namespace,
 			},
 			Spec: v1alpha1.RekorSpec{
-				Trillian: v1alpha1.TrillianService{
+				Trillian: common.TrillianService{
 					Address: "trillian-logserver",
 					Port:    ptr.To(int32(8091)),
 				},

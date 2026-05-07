@@ -9,10 +9,11 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"maps"
 	"slices"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
@@ -33,7 +34,7 @@ const (
 	signerKMSSecret  = "secret"
 )
 
-func NewGenerateSignerAction() action.Action[*v1alpha1.Rekor] {
+func NewGenerateSignerAction() action.Action[*rhtasv1.Rekor] {
 	return &generateSigner{}
 }
 
@@ -45,7 +46,7 @@ func (g generateSigner) Name() string {
 	return "generate-signer"
 }
 
-func (g generateSigner) CanHandle(_ context.Context, instance *v1alpha1.Rekor) bool {
+func (g generateSigner) CanHandle(_ context.Context, instance *rhtasv1.Rekor) bool {
 	if !meta.IsStatusConditionTrue(instance.Status.Conditions, actions.SignerCondition) {
 		return true
 	}
@@ -58,7 +59,7 @@ func (g generateSigner) CanHandle(_ context.Context, instance *v1alpha1.Rekor) b
 	}
 }
 
-func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *action.Result {
+func (g generateSigner) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
 	if instance.Spec.Signer.KMS != signerKMSSecret && instance.Spec.Signer.KMS != "" {
 		instance.Status.Signer = instance.Spec.Signer
 		// force recreation of public key ref
@@ -116,9 +117,9 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 			g.Logger.Error(err, "problem with finding secret", "namespace", instance.Namespace)
 		}
 		if partialSecret != nil {
-			newSigner.KeyRef = &v1alpha1.SecretKeySelector{
+			newSigner.KeyRef = &common.SecretKeySelector{
 				Key: "private",
-				LocalObjectReference: v1alpha1.LocalObjectReference{
+				LocalObjectReference: common.LocalObjectReference{
 					Name: partialSecret.Name,
 				},
 			}
@@ -168,9 +169,9 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 			}
 
 			g.Recorder.Eventf(instance, secret, v1.EventTypeNormal, "SignerKeyCreated", "Created", "Signer private key created: %s", secret.Name)
-			newSigner.KeyRef = &v1alpha1.SecretKeySelector{
+			newSigner.KeyRef = &common.SecretKeySelector{
 				Key: "private",
-				LocalObjectReference: v1alpha1.LocalObjectReference{
+				LocalObjectReference: common.LocalObjectReference{
 					Name: secret.Name,
 				},
 			}

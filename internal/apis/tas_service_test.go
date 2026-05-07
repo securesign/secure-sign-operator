@@ -4,13 +4,13 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
 	"k8s.io/utils/ptr"
 )
 
 func TestResolveServiceAddress_WithoutProtocol(t *testing.T) {
 	g := NewWithT(t)
-	service := &v1alpha1.FulcioService{
+	service := &common.FulcioService{
 		Address: "path.org/test",
 		Port:    ptr.To(int32(8080)),
 	}
@@ -21,7 +21,7 @@ func TestResolveServiceAddress_WithoutProtocol(t *testing.T) {
 
 func TestResolveServiceAddress_WithProtocol(t *testing.T) {
 	g := NewWithT(t)
-	service := &v1alpha1.FulcioService{
+	service := &common.FulcioService{
 		Address: "https://path.org/test",
 		Port:    ptr.To(int32(8080)),
 	}
@@ -32,7 +32,7 @@ func TestResolveServiceAddress_WithProtocol(t *testing.T) {
 
 func TestResolveServiceAddress_WithoutPort(t *testing.T) {
 	g := NewWithT(t)
-	service := &v1alpha1.FulcioService{
+	service := &common.FulcioService{
 		Address: "path.org/test",
 	}
 	url, err := ServiceAsUrl(service)

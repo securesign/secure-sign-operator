@@ -7,7 +7,8 @@ import (
 	"maps"
 	"slices"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
@@ -22,7 +23,7 @@ import (
 	labels2 "k8s.io/apimachinery/pkg/labels"
 )
 
-func NewGeneratePasswordAction() action.Action[*rhtasv1alpha1.Rekor] {
+func NewGeneratePasswordAction() action.Action[*rhtasv1.Rekor] {
 	return &generatePasswordAction{}
 }
 
@@ -34,13 +35,13 @@ func (i generatePasswordAction) Name() string {
 	return "redis-config"
 }
 
-func (i generatePasswordAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
+func (i generatePasswordAction) CanHandle(_ context.Context, instance *rhtasv1.Rekor) bool {
 	return enabled(instance) &&
 		instance.Status.SearchIndex.DbPasswordRef == nil &&
 		state.FromInstance(instance, constants.ReadyCondition) >= state.Pending
 }
 
-func (i generatePasswordAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
+func (i generatePasswordAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
 	var (
 		err error
 	)
@@ -67,8 +68,8 @@ func (i generatePasswordAction) Handle(ctx context.Context, instance *rhtasv1alp
 		)
 	}
 
-	instance.Status.SearchIndex.DbPasswordRef = &rhtasv1alpha1.SecretKeySelector{
-		LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: obj.Name},
+	instance.Status.SearchIndex.DbPasswordRef = &common.SecretKeySelector{
+		LocalObjectReference: common.LocalObjectReference{Name: obj.Name},
 		Key:                  "password",
 	}
 	i.Recorder.Eventf(instance, obj, core.EventTypeNormal, "RedisSecretCreated", "Created", "Secret with redis password created: %s", obj.Name)
@@ -86,7 +87,7 @@ func (i generatePasswordAction) Handle(ctx context.Context, instance *rhtasv1alp
 	return r
 }
 
-func (i generatePasswordAction) cleanup(ctx context.Context, instance *rhtasv1alpha1.Rekor, configLabels map[string]string) {
+func (i generatePasswordAction) cleanup(ctx context.Context, instance *rhtasv1.Rekor, configLabels map[string]string) {
 	if instance.Status.SearchIndex.DbPasswordRef == nil || instance.Status.SearchIndex.DbPasswordRef.Name == "" {
 		i.Logger.Error(errors.New("new Secret name is empty"), "unable to clean old objects", "namespace", instance.Namespace)
 		return

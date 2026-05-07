@@ -10,10 +10,10 @@ import (
 	v12 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 )
 
-func NewStatusUrlAction() action.Action[*rhtasv1alpha1.Fulcio] {
+func NewStatusUrlAction() action.Action[*rhtasv1.Fulcio] {
 	return &statusUrlAction{}
 }
 
@@ -25,11 +25,11 @@ func (i statusUrlAction) Name() string {
 	return "status-url"
 }
 
-func (i statusUrlAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Fulcio) bool {
+func (i statusUrlAction) CanHandle(_ context.Context, instance *rhtasv1.Fulcio) bool {
 	return state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
-func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) *action.Result {
+func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *action.Result {
 	var url string
 	if instance.Spec.ExternalAccess.Enabled {
 		protocol := "http://"

@@ -28,7 +28,8 @@ import (
 
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
@@ -61,7 +62,7 @@ var _ = Describe("CTlog update test", func() {
 		}
 
 		typeNamespaceName := types.NamespacedName{Name: Name, Namespace: Namespace}
-		instance := &v1alpha1.CTlog{}
+		instance := &rhtasv1.CTlog{}
 
 		BeforeEach(func() {
 			By("Creating the Namespace to perform the tests")
@@ -71,7 +72,7 @@ var _ = Describe("CTlog update test", func() {
 
 		AfterEach(func() {
 			By("removing the custom resource for the Kind CTlog")
-			found := &v1alpha1.CTlog{}
+			found := &rhtasv1.CTlog{}
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
 
@@ -93,13 +94,13 @@ var _ = Describe("CTlog update test", func() {
 				// Let's mock our custom resource at the same way that we would
 				// apply on the cluster the manifest under config/samples
 				ptr := int64(1)
-				instance := &v1alpha1.CTlog{
+				instance := &rhtasv1.CTlog{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      Name,
 						Namespace: Namespace,
 					},
 
-					Spec: v1alpha1.CTlogSpec{
+					Spec: rhtasv1.CTlogSpec{
 						TreeID: &ptr,
 					},
 				}
@@ -110,7 +111,7 @@ var _ = Describe("CTlog update test", func() {
 
 			By("Checking if the custom resource was successfully created")
 			Eventually(func() error {
-				found := &v1alpha1.CTlog{}
+				found := &rhtasv1.CTlog{}
 				return suite.Client().Get(ctx, typeNamespaceName, found)
 			}).Should(Succeed())
 
@@ -140,7 +141,7 @@ var _ = Describe("CTlog update test", func() {
 
 			By("Waiting until CTlog instance is ReadyCondition")
 			Eventually(func(g Gomega) bool {
-				found := &v1alpha1.CTlog{}
+				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())
@@ -164,14 +165,14 @@ var _ = Describe("CTlog update test", func() {
 
 			By("CA has changed in status field")
 			Eventually(func(g Gomega) {
-				found := &v1alpha1.CTlog{}
+				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 
 				// both certs are present
 				g.Expect(found.Status.RootCertificates).
 					Should(And(
-						ContainElement(WithTransform(func(ks v1alpha1.SecretKeySelector) string { return ks.Name }, Equal("test"))),
-						ContainElement(WithTransform(func(ks v1alpha1.SecretKeySelector) string { return ks.Name }, Equal("test2"))),
+						ContainElement(WithTransform(func(ks common.SecretKeySelector) string { return ks.Name }, Equal("test"))),
+						ContainElement(WithTransform(func(ks common.SecretKeySelector) string { return ks.Name }, Equal("test2"))),
 					),
 					)
 			}).Should(Succeed())
@@ -201,17 +202,17 @@ var _ = Describe("CTlog update test", func() {
 			})).To(Succeed())
 
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
-			found := &v1alpha1.CTlog{}
+			found := &rhtasv1.CTlog{}
 			Eventually(func(g Gomega) error {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				found.Spec.PrivateKeyRef = &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
+				found.Spec.PrivateKeyRef = &common.SecretKeySelector{
+					LocalObjectReference: common.LocalObjectReference{
 						Name: "key-secret",
 					},
 					Key: "private",
 				}
-				found.Spec.PrivateKeyPasswordRef = &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
+				found.Spec.PrivateKeyPasswordRef = &common.SecretKeySelector{
+					LocalObjectReference: common.LocalObjectReference{
 						Name: "key-secret",
 					},
 					Key: "password",
@@ -221,7 +222,7 @@ var _ = Describe("CTlog update test", func() {
 
 			By("CTLog status field changed")
 			Eventually(func(g Gomega) string {
-				found := &v1alpha1.CTlog{}
+				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.PrivateKeyRef.Name
 			}).Should(Equal("key-secret"))

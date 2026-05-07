@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"context"
+	"github.com/securesign/operator/api/common"
 	"math"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -47,7 +48,7 @@ var _ = Describe("Trillian", func() {
 
 		It("can be created with database secret", func() {
 			created := generateTrillianObject("trillian-database-secret")
-			created.Spec.Db.DatabaseSecretRef = &LocalObjectReference{
+			created.Spec.Db.DatabaseSecretRef = &common.LocalObjectReference{
 				Name: "database-secret-name",
 			}
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
@@ -131,7 +132,7 @@ var _ = Describe("Trillian", func() {
 		type pvcArgs struct {
 			name         string
 			storageClass string
-			accessModes  []PersistentVolumeAccessMode
+			accessModes  []common.PersistentVolumeAccessMode
 		}
 		DescribeTable("pvc", func(ctx context.Context, origObj pvcArgs, updateObj *pvcArgs, isValid bool, errMessage string) {
 			object := generateTrillianObject("")
@@ -163,13 +164,13 @@ var _ = Describe("Trillian", func() {
 			Entry("create default", pvcArgs{}, nil, true, ""),
 			Entry("bring your own pvc", pvcArgs{name: "byo-pvc"}, nil, true, ""),
 			Entry("change name", pvcArgs{}, &pvcArgs{name: "new"}, true, ""),
-			Entry("no changes", pvcArgs{storageClass: "default", accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"}}, &pvcArgs{storageClass: "default", accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"}}, true, ""),
+			Entry("no changes", pvcArgs{storageClass: "default", accessModes: []common.PersistentVolumeAccessMode{"ReadWriteOnce"}}, &pvcArgs{storageClass: "default", accessModes: []common.PersistentVolumeAccessMode{"ReadWriteOnce"}}, true, ""),
 			Entry("immutable storageClass", pvcArgs{storageClass: "default"}, &pvcArgs{storageClass: "new"}, false, "storageClass is immutable"),
 			Entry("change storageClass when name is set", pvcArgs{name: "named", storageClass: "old"}, &pvcArgs{name: "named", storageClass: "new"}, true, ""),
 			Entry("change storageClass and name", pvcArgs{storageClass: "old"}, &pvcArgs{name: "new", storageClass: "new"}, true, ""),
-			Entry("immutable accessModes", pvcArgs{accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"}}, &pvcArgs{accessModes: []PersistentVolumeAccessMode{"ReadWriteMany"}}, false, "accessModes is immutable"),
-			Entry("change accessModes when name is set", pvcArgs{name: "named", accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"}}, &pvcArgs{name: "named", accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}}, true, ""),
-			Entry("change accessModes and name", pvcArgs{accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"}}, &pvcArgs{name: "new", accessModes: []PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}}, true, ""),
+			Entry("immutable accessModes", pvcArgs{accessModes: []common.PersistentVolumeAccessMode{"ReadWriteOnce"}}, &pvcArgs{accessModes: []common.PersistentVolumeAccessMode{"ReadWriteMany"}}, false, "accessModes is immutable"),
+			Entry("change accessModes when name is set", pvcArgs{name: "named", accessModes: []common.PersistentVolumeAccessMode{"ReadWriteOnce"}}, &pvcArgs{name: "named", accessModes: []common.PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}}, true, ""),
+			Entry("change accessModes and name", pvcArgs{accessModes: []common.PersistentVolumeAccessMode{"ReadWriteOnce"}}, &pvcArgs{name: "new", accessModes: []common.PersistentVolumeAccessMode{"ReadWriteOnce", "ReadWriteMany"}}, true, ""),
 		)
 
 		Context("Default settings", func() {
@@ -210,13 +211,13 @@ var _ = Describe("Trillian", func() {
 						Spec: TrillianSpec{
 							Db: TrillianDB{
 								Create: ptr.To(true),
-								Pvc: Pvc{
+								Pvc: common.Pvc{
 									Retain:       ptr.To(true),
 									Name:         "storage",
 									StorageClass: "storage-class",
 									Size:         &storage,
 								},
-								DatabaseSecretRef: &LocalObjectReference{
+								DatabaseSecretRef: &common.LocalObjectReference{
 									Name: "secret",
 								},
 							},
@@ -241,14 +242,14 @@ var _ = Describe("Trillian", func() {
 						},
 						Spec: TrillianSpec{
 							Db: TrillianDB{
-								DatabaseSecretRef: &LocalObjectReference{
+								DatabaseSecretRef: &common.LocalObjectReference{
 									Name: "secret",
 								},
 							},
 						},
 					}
 
-					expectedTrillianInstance.Spec.Db.DatabaseSecretRef = &LocalObjectReference{
+					expectedTrillianInstance.Spec.Db.DatabaseSecretRef = &common.LocalObjectReference{
 						Name: "secret",
 					}
 
@@ -272,21 +273,21 @@ func generateTrillianObject(name string) *Trillian {
 		Spec: TrillianSpec{
 			Db: TrillianDB{
 				Create: ptr.To(true),
-				Pvc: Pvc{
+				Pvc: common.Pvc{
 					Retain:      ptr.To(true),
 					Size:        &storage,
-					AccessModes: []PersistentVolumeAccessMode{"ReadWriteOnce"},
+					AccessModes: []common.PersistentVolumeAccessMode{"ReadWriteOnce"},
 				},
 				Provider: "mysql",
 				Uri:      "$(MYSQL_USER):$(MYSQL_PASSWORD)@tcp($(MYSQL_HOST):$(MYSQL_PORT))/$(MYSQL_DATABASE)",
 			},
 			LogServer: TrillianLogServer{
-				PodRequirements: PodRequirements{
+				PodRequirements: common.PodRequirements{
 					Replicas: ptr.To(int32(1)),
 				},
 			},
 			LogSigner: TrillianLogSigner{
-				PodRequirements: PodRequirements{
+				PodRequirements: common.PodRequirements{
 					Replicas: ptr.To(int32(1)),
 				},
 			},

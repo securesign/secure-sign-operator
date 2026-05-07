@@ -1,7 +1,8 @@
 package utils
 
 import (
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	core "k8s.io/api/core/v1"
 )
 
@@ -12,7 +13,7 @@ const (
 	tsaKey    = "tsa.certchain.pem"
 )
 
-func secretsVolumeProjection(keys []v1alpha1.TufKey) *core.ProjectedVolumeSource {
+func secretsVolumeProjection(keys []rhtasv1.TufKey) *core.ProjectedVolumeSource {
 
 	projections := make([]core.VolumeProjection, 0, len(keys))
 
@@ -26,7 +27,7 @@ func secretsVolumeProjection(keys []v1alpha1.TufKey) *core.ProjectedVolumeSource
 	}
 }
 
-func selectorToProjection(secret *v1alpha1.SecretKeySelector, path string) *core.SecretProjection {
+func selectorToProjection(secret *common.SecretKeySelector, path string) *core.SecretProjection {
 	return &core.SecretProjection{
 		LocalObjectReference: core.LocalObjectReference{
 			Name: secret.Name,

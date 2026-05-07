@@ -10,7 +10,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/apis"
 	ctlog "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
@@ -24,7 +24,7 @@ type serviceEndpoint struct {
 	Port                *int32
 }
 
-func ResolveServiceAddress(ctx context.Context, c client.Client, instance *rhtasv1alpha1.Tuf) error {
+func ResolveServiceAddress(ctx context.Context, c client.Client, instance *rhtasv1.Tuf) error {
 	var keyToService = map[string]serviceEndpoint{
 		rekorKey:  {Service: &instance.Spec.Rekor, ServiceName: rekor.ServerDeploymentName, Suffix: ""},
 		ctfeKey:   {Service: &instance.Spec.Ctlog, ServiceName: ctlog.DeploymentName, Suffix: ""},
@@ -42,7 +42,7 @@ func ResolveServiceAddress(ctx context.Context, c client.Client, instance *rhtas
 		}
 		if key.Name == ctfeKey {
 			// ctlog is never exposed externally, so we always use internal mode
-			signingConfigURLMode = rhtasv1alpha1.SigningConfigURLInternal
+			signingConfigURLMode = rhtasv1.SigningConfigURLInternal
 		}
 		if err := resolveServiceAddress(ctx, c, service, types.NamespacedName{Name: service.ServiceName, Namespace: instance.Namespace}, signingConfigURLMode, useTlsClient); err != nil {
 			return err
@@ -52,14 +52,14 @@ func ResolveServiceAddress(ctx context.Context, c client.Client, instance *rhtas
 	return nil
 }
 
-func resolveServiceAddress(ctx context.Context, c client.Client, serviceEndpoint serviceEndpoint, namespacedName types.NamespacedName, signingConfigURLMode rhtasv1alpha1.TufSigningConfigURLMode, useTlsClient bool) error {
+func resolveServiceAddress(ctx context.Context, c client.Client, serviceEndpoint serviceEndpoint, namespacedName types.NamespacedName, signingConfigURLMode rhtasv1.TufSigningConfigURLMode, useTlsClient bool) error {
 	var (
 		protocol string
 	)
 	switch {
 	case serviceEndpoint.Service.GetAddress() != "":
 		return nil // user config bypass the signingConfigURLMode and prefix
-	case signingConfigURLMode == rhtasv1alpha1.SigningConfigURLInternal:
+	case signingConfigURLMode == rhtasv1.SigningConfigURLInternal:
 
 		if useTlsClient {
 			protocol = "https"
@@ -100,7 +100,7 @@ func resolveURLFromIngress(ctx context.Context, c client.Client, ingressName, na
 }
 
 func ResolveOIDCIssuers(ctx context.Context, c client.Client, namespace string) []string {
-	fulcioList := &rhtasv1alpha1.FulcioList{}
+	fulcioList := &rhtasv1.FulcioList{}
 	if err := c.List(ctx, fulcioList, client.InNamespace(namespace)); err != nil {
 		return nil
 	}

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
 	"github.com/securesign/operator/internal/apis"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	v1 "k8s.io/api/core/v1"
@@ -19,10 +19,10 @@ type fakeObjectWithTlsClient struct {
 }
 
 type fakeTlsClient struct {
-	lor v1alpha1.LocalObjectReference
+	lor common.LocalObjectReference
 }
 
-func (f fakeTlsClient) GetTrustedCA() *v1alpha1.LocalObjectReference {
+func (f fakeTlsClient) GetTrustedCA() *common.LocalObjectReference {
 	return &f.lor
 }
 
@@ -49,7 +49,7 @@ func TestCAPath(t *testing.T) {
 					},
 				},
 				TlsClient: fakeTlsClient{
-					lor: v1alpha1.LocalObjectReference{
+					lor: common.LocalObjectReference{
 						Name: "ca-configmap",
 					},
 				},
@@ -72,7 +72,7 @@ func TestCAPath(t *testing.T) {
 					},
 				},
 				TlsClient: fakeTlsClient{
-					lor: v1alpha1.LocalObjectReference{
+					lor: common.LocalObjectReference{
 						Name: "wrong-name",
 					},
 				},
@@ -95,7 +95,7 @@ func TestCAPath(t *testing.T) {
 					},
 				},
 				TlsClient: fakeTlsClient{
-					lor: v1alpha1.LocalObjectReference{
+					lor: common.LocalObjectReference{
 						Name: "ca-configmap",
 					},
 				},

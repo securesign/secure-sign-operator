@@ -4,7 +4,7 @@ import (
 	"context"
 
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/test/e2e/support"
@@ -41,8 +41,8 @@ func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.
 	}
 }
 
-func Get(ctx context.Context, cli client.Client, ns string, name string) *v1alpha1.Fulcio {
-	instance := &v1alpha1.Fulcio{}
+func Get(ctx context.Context, cli client.Client, ns string, name string) *rhtasv1.Fulcio {
+	instance := &rhtasv1.Fulcio{}
 	if e := cli.Get(ctx, types.NamespacedName{
 		Namespace: ns,
 		Name:      name,

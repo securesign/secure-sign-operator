@@ -7,8 +7,15 @@
 package v1alpha1
 
 import (
+	"encoding/json"
+
+	"github.com/securesign/operator/api/common"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/conversion"
+
+	v1 "github.com/securesign/operator/api/v1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -16,23 +23,23 @@ import (
 
 // FulcioSpec defines the desired state of Fulcio
 type FulcioSpec struct {
-	PodRequirements `json:",inline"`
+	common.PodRequirements `json:",inline"`
 	// Define whether you want to export service or not
-	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
+	common.ExternalAccess `json:"externalAccess,omitempty"`
 	// Ctlog service configuration
 	//+optional
 	//+kubebuilder:default:={prefix: trusted-artifact-signer}
-	Ctlog CtlogService `json:"ctlog,omitempty"`
+	Ctlog common.CtlogService `json:"ctlog,omitempty"`
 	// Fulcio Configuration
 	//+required
 	Config FulcioConfig `json:"config"`
 	// Certificate configuration
 	Certificate FulcioCert `json:"certificate"`
 	//Enable Service monitors for fulcio
-	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
+	Monitoring common.MonitoringConfig `json:"monitoring,omitempty"`
 	// ConfigMap with additional bundle of trusted CA
 	//+optional
-	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
+	TrustedCA *common.LocalObjectReference `json:"trustedCA,omitempty"`
 }
 
 // FulcioCert defines fields for system-generated certificate
@@ -41,14 +48,14 @@ type FulcioSpec struct {
 type FulcioCert struct {
 	// Reference to CA private key
 	//+optional
-	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+	PrivateKeyRef *common.SecretKeySelector `json:"privateKeyRef,omitempty"`
 	// Reference to password to encrypt CA private key
 	//+optional
-	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
+	PrivateKeyPasswordRef *common.SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
 
 	// Reference to CA certificate
 	//+optional
-	CARef *SecretKeySelector `json:"caRef,omitempty"`
+	CARef *common.SecretKeySelector `json:"caRef,omitempty"`
 
 	//+optional
 	// CommonName specifies the common name for the Fulcio certificate.
@@ -178,9 +185,9 @@ type Extensions struct {
 
 // FulcioStatus defines the observed state of Fulcio
 type FulcioStatus struct {
-	ServerConfigRef *LocalObjectReference `json:"serverConfigRef,omitempty"`
-	Certificate     *FulcioCert           `json:"certificate,omitempty"`
-	Url             string                `json:"url,omitempty"`
+	ServerConfigRef *common.LocalObjectReference `json:"serverConfigRef,omitempty"`
+	Certificate     *FulcioCert                  `json:"certificate,omitempty"`
+	Url             string                       `json:"url,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge
@@ -224,16 +231,69 @@ func (i *Fulcio) SetCondition(newCondition metav1.Condition) {
 	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
 }
 
-func (i *Fulcio) GetTrustedCA() *LocalObjectReference {
+func (i *Fulcio) GetTrustedCA() *common.LocalObjectReference {
 	if i.Spec.TrustedCA != nil {
 		return i.Spec.TrustedCA
 	}
 
 	if v, ok := i.GetAnnotations()["rhtas.redhat.com/trusted-ca"]; ok {
-		return &LocalObjectReference{
+		return &common.LocalObjectReference{
 			Name: v,
 		}
 	}
 
 	return nil
+}
+
+// ConvertTo converts this v1alpha1 Fulcio to the Hub version (v1)
+func (src *Fulcio) ConvertTo(dstRaw conversion.Hub) error {
+	dst := dstRaw.(*v1.Fulcio)
+
+	// Copy metadata directly
+	dst.ObjectMeta = src.ObjectMeta
+
+	// Convert Spec via JSON (safe since schemas are identical)
+	bytes, err := json.Marshal(src.Spec)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(bytes, &dst.Spec); err != nil {
+		return err
+	}
+
+	// Convert Status via JSON
+	bytes, err = json.Marshal(src.Status)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(bytes, &dst.Status)
+}
+
+// ConvertFrom converts from the Hub version (v1) to this v1alpha1 Fulcio
+func (dst *Fulcio) ConvertFrom(srcRaw conversion.Hub) error {
+	src := srcRaw.(*v1.Fulcio)
+
+	// Copy metadata directly
+	dst.ObjectMeta = src.ObjectMeta
+
+	// Convert Spec via JSON
+	bytes, err := json.Marshal(src.Spec)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(bytes, &dst.Spec); err != nil {
+		return err
+	}
+
+	// Convert Status via JSON
+	bytes, err = json.Marshal(src.Status)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(bytes, &dst.Status)
+}
+
+// SetupWebhookWithManager sets up the conversion webhook with the Manager
+func (r *Fulcio) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr, r).Complete()
 }

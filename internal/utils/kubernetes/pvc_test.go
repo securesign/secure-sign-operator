@@ -6,7 +6,7 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"github.com/securesign/operator/internal/utils"
 	v1 "k8s.io/api/core/v1"
@@ -21,12 +21,12 @@ const name = "test"
 func TestEnsurePVCSpec(t *testing.T) {
 	storage := resource.MustParse("987Gi")
 	mode := v1.ReadWriteOnce
-	pvc := v1alpha1.Pvc{
+	pvc := common.Pvc{
 		Size:         &storage,
 		Retain:       utils.Pointer(true),
 		Name:         "test",
 		StorageClass: "class",
-		AccessModes:  []v1alpha1.PersistentVolumeAccessMode{v1alpha1.PersistentVolumeAccessMode(mode)},
+		AccessModes:  []common.PersistentVolumeAccessMode{common.PersistentVolumeAccessMode(mode)},
 	}
 
 	verify := func(ctx context.Context, g gomega.Gomega, c client.WithWatch) {

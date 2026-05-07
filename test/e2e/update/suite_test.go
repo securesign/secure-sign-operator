@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	runtimeCli "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -32,7 +32,7 @@ func TestUpdateComponents(t *testing.T) {
 	format.MaxLength = 0
 }
 
-func securesignResource(namespace *v1.Namespace) *rhtasv1alpha1.Securesign {
+func securesignResource(namespace *v1.Namespace) *rhtasrhtasv1.Securesign {
 	return securesign.Create(namespace.Name, "test",
 		securesign.WithDefaults(),
 		securesign.WithoutSearchUI(),

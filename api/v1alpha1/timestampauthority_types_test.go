@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"context"
+	"github.com/securesign/operator/api/common"
 	"math"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -171,9 +172,9 @@ var _ = Describe("TSA", func() {
 
 			It("missing leaf private key", func() {
 				invalidObject := generateTSAObject("missing-leaf-private-key")
-				invalidObject.Spec.Signer.CertificateChain.RootCA.PrivateKeyRef = &SecretKeySelector{
+				invalidObject.Spec.Signer.CertificateChain.RootCA.PrivateKeyRef = &common.SecretKeySelector{
 					Key:                  "private",
-					LocalObjectReference: LocalObjectReference{Name: "root-private-key"},
+					LocalObjectReference: common.LocalObjectReference{Name: "root-private-key"},
 				}
 				invalidObject.Spec.Signer.CertificateChain.RootCA.OrganizationName = "root_test1"
 				invalidObject.Spec.Signer.CertificateChain.LeafCA.OrganizationName = "leaf_test1"
@@ -184,9 +185,9 @@ var _ = Describe("TSA", func() {
 
 			It("missing root private key", func() {
 				invalidObject := generateTSAObject("missing-root-private-key")
-				invalidObject.Spec.Signer.CertificateChain.LeafCA.PrivateKeyRef = &SecretKeySelector{
+				invalidObject.Spec.Signer.CertificateChain.LeafCA.PrivateKeyRef = &common.SecretKeySelector{
 					Key:                  "private",
-					LocalObjectReference: LocalObjectReference{Name: "leaf-private-key"},
+					LocalObjectReference: common.LocalObjectReference{Name: "leaf-private-key"},
 				}
 				invalidObject.Spec.Signer.CertificateChain.RootCA.OrganizationName = "root_test1"
 				invalidObject.Spec.Signer.CertificateChain.LeafCA.OrganizationName = "leaf_test1"
@@ -197,9 +198,9 @@ var _ = Describe("TSA", func() {
 
 			It("only cert chain passed in", func() {
 				invalidObject := generateTSAObject("just-cert-chain")
-				invalidObject.Spec.Signer.CertificateChain.CertificateChainRef = &SecretKeySelector{
+				invalidObject.Spec.Signer.CertificateChain.CertificateChainRef = &common.SecretKeySelector{
 					Key:                  "private",
-					LocalObjectReference: LocalObjectReference{Name: "leaf-private-key"},
+					LocalObjectReference: common.LocalObjectReference{Name: "leaf-private-key"},
 				}
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
@@ -209,9 +210,9 @@ var _ = Describe("TSA", func() {
 			It("missing certificate chain for file signer type", func() {
 				invalidObject := generateTSAObject("missing-cert-chain")
 				invalidObject.Spec.Signer.File = &File{
-					PrivateKeyRef: &SecretKeySelector{
+					PrivateKeyRef: &common.SecretKeySelector{
 						Key:                  "private",
-						LocalObjectReference: LocalObjectReference{Name: "private-key-signer"},
+						LocalObjectReference: common.LocalObjectReference{Name: "private-key-signer"},
 					},
 				}
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
@@ -233,9 +234,9 @@ var _ = Describe("TSA", func() {
 				invalidObject := generateTSAObject("missing-cert-chain")
 				invalidObject.Spec.Signer.Tink = &Tink{
 					KeyResource: "tink-resource",
-					KeysetRef: &SecretKeySelector{
+					KeysetRef: &common.SecretKeySelector{
 						Key:                  "tink-resource",
-						LocalObjectReference: LocalObjectReference{Name: "tink-resource"},
+						LocalObjectReference: common.LocalObjectReference{Name: "tink-resource"},
 					},
 				}
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
@@ -247,15 +248,15 @@ var _ = Describe("TSA", func() {
 				invalidObject := generateTSAObject("more-than-one-signer")
 				invalidObject.Spec.Signer.Tink = &Tink{
 					KeyResource: "tink-resource",
-					KeysetRef: &SecretKeySelector{
+					KeysetRef: &common.SecretKeySelector{
 						Key:                  "tink-resource",
-						LocalObjectReference: LocalObjectReference{Name: "tink-resource"},
+						LocalObjectReference: common.LocalObjectReference{Name: "tink-resource"},
 					},
 				}
 				invalidObject.Spec.Signer.File = &File{
-					PrivateKeyRef: &SecretKeySelector{
+					PrivateKeyRef: &common.SecretKeySelector{
 						Key:                  "private",
-						LocalObjectReference: LocalObjectReference{Name: "private-key-signer"},
+						LocalObjectReference: common.LocalObjectReference{Name: "private-key-signer"},
 					},
 				}
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
@@ -267,9 +268,9 @@ var _ = Describe("TSA", func() {
 				invalidObject := generateTSAObject("invalidObj")
 				invalidObject.Spec.Signer = TimestampAuthoritySigner{
 					CertificateChain: CertificateChain{
-						CertificateChainRef: &SecretKeySelector{
+						CertificateChainRef: &common.SecretKeySelector{
 							Key:                  "cert_chain",
-							LocalObjectReference: LocalObjectReference{Name: "cert_chain"},
+							LocalObjectReference: common.LocalObjectReference{Name: "cert_chain"},
 						},
 						RootCA: &TsaCertificateAuthority{
 							CommonName:        "root_test.com",

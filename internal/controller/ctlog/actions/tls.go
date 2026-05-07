@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -12,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewTlsAction() action.Action[*rhtasv1alpha1.CTlog] {
+func NewTlsAction() action.Action[*rhtasv1.CTlog] {
 	return &tlsAction{}
 }
 
@@ -24,23 +25,23 @@ func (i tlsAction) Name() string {
 	return "resolve server TLS"
 }
 
-func (i tlsAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.CTlog) bool {
+func (i tlsAction) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool {
 	return !meta.IsStatusConditionTrue(instance.Status.Conditions, TLSCondition) || !equality.Semantic.DeepDerivative(instance.Spec.TLS, instance.Status.TLS)
 }
 
-func (i tlsAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) *action.Result {
+func (i tlsAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
 	// TLS
 	switch {
 	case instance.Spec.TLS.CertRef != nil:
 		instance.Status.TLS = instance.Spec.TLS
 	case kubernetes.IsOpenShift():
-		instance.Status.TLS = rhtasv1alpha1.TLS{
-			CertRef: &rhtasv1alpha1.SecretKeySelector{
-				LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: fmt.Sprintf(TLSSecret, instance.Name)},
+		instance.Status.TLS = common.TLS{
+			CertRef: &common.SecretKeySelector{
+				LocalObjectReference: common.LocalObjectReference{Name: fmt.Sprintf(TLSSecret, instance.Name)},
 				Key:                  "tls.crt",
 			},
-			PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
-				LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: fmt.Sprintf(TLSSecret, instance.Name)},
+			PrivateKeyRef: &common.SecretKeySelector{
+				LocalObjectReference: common.LocalObjectReference{Name: fmt.Sprintf(TLSSecret, instance.Name)},
 				Key:                  "tls.key",
 			},
 		}

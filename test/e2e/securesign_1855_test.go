@@ -19,7 +19,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,7 +34,7 @@ var _ = Describe("Securesign tuf-repository init test", Ordered, func() {
 	cli, _ := support.CreateClient()
 
 	var namespace *v1.Namespace
-	var s *v1alpha1.Tuf
+	var s *rhtasv1.Tuf
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
@@ -113,19 +114,19 @@ var _ = Describe("Securesign tuf-repository init test", Ordered, func() {
 	})
 })
 
-func createInstance(name, ns string) *v1alpha1.Tuf {
-	return &v1alpha1.Tuf{
+func createInstance(name, ns string) *rhtasv1.Tuf {
+	return &rhtasv1.Tuf{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ns,
 			Name:      name,
 		},
-		Spec: v1alpha1.TufSpec{
-			SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
-			Keys: []v1alpha1.TufKey{
+		Spec: rhtasv1.TufSpec{
+			SigningConfigURLMode: rhtasv1.SigningConfigURLInternal,
+			Keys: []rhtasv1.TufKey{
 				{
 					Name: "rekor.pub",
-					SecretRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+					SecretRef: &common.SecretKeySelector{
+						LocalObjectReference: common.LocalObjectReference{
 							Name: "test",
 						},
 						Key: "public",
@@ -133,8 +134,8 @@ func createInstance(name, ns string) *v1alpha1.Tuf {
 				},
 				{
 					Name: "ctfe.pub",
-					SecretRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+					SecretRef: &common.SecretKeySelector{
+						LocalObjectReference: common.LocalObjectReference{
 							Name: "test",
 						},
 						Key: "public",
@@ -142,8 +143,8 @@ func createInstance(name, ns string) *v1alpha1.Tuf {
 				},
 				{
 					Name: "fulcio_v1.crt.pem",
-					SecretRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+					SecretRef: &common.SecretKeySelector{
+						LocalObjectReference: common.LocalObjectReference{
 							Name: "test",
 						},
 						Key: "cert",
@@ -151,15 +152,15 @@ func createInstance(name, ns string) *v1alpha1.Tuf {
 				},
 				{
 					Name: "tsa.certchain.pem",
-					SecretRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+					SecretRef: &common.SecretKeySelector{
+						LocalObjectReference: common.LocalObjectReference{
 							Name: "test",
 						},
 						Key: "cert",
 					},
 				},
 			},
-			Pvc: v1alpha1.TufPvc{
+			Pvc: rhtasv1.TufPvc{
 				Name: tufPvcName,
 			},
 		},

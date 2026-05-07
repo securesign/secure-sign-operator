@@ -17,24 +17,29 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"encoding/json"
+	"github.com/securesign/operator/api/common"
+	v1 "github.com/securesign/operator/api/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
 // TimestampAuthoritySpec defines the desired state of TimestampAuthority
 // +kubebuilder:validation:XValidation:rule=!(has(self.signer.certificateChain.certificateChainRef) && (has(self.signer.certificateChain.intermediateCA) || has(self.signer.certificateChain.leafCA) || has(self.signer.certificateChain.rootCA))),message="when certificateChainRef is set, intermediateCA, leafCA, and rootCA must not be set"
 type TimestampAuthoritySpec struct {
-	PodRequirements `json:",inline"`
+	common.PodRequirements `json:",inline"`
 	//Define whether you want to export service or not
-	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
+	common.ExternalAccess `json:"externalAccess,omitempty"`
 	//Signer configuration
 	//+required
 	Signer TimestampAuthoritySigner `json:"signer"`
 	//Enable Service monitors for Timestamp Authority
-	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
+	Monitoring common.MonitoringConfig `json:"monitoring,omitempty"`
 	//ConfigMap with additional bundle of trusted CA
 	//+optional
-	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
+	TrustedCA *common.LocalObjectReference `json:"trustedCA,omitempty"`
 	//Configuration for NTP monitoring
 	//+optional
 	NTPMonitoring NTPMonitoring `json:"ntpMonitoring,omitempty"`
@@ -71,7 +76,7 @@ type TimestampAuthoritySigner struct {
 type CertificateChain struct {
 	//Reference to the certificate chain
 	//+optional
-	CertificateChainRef *SecretKeySelector `json:"certificateChainRef,omitempty"`
+	CertificateChainRef *common.SecretKeySelector `json:"certificateChainRef,omitempty"`
 	//Root Certificate Authority Config
 	//+optional
 	RootCA *TsaCertificateAuthority `json:"rootCA,omitempty"`
@@ -97,20 +102,20 @@ type TsaCertificateAuthority struct {
 	OrganizationEmail string `json:"organizationEmail,omitempty"`
 	//Password to decrypt the signer's root private key
 	//+optional
-	PasswordRef *SecretKeySelector `json:"passwordRef,omitempty"`
+	PasswordRef *common.SecretKeySelector `json:"passwordRef,omitempty"`
 	// Reference to the signer's root private key
 	//+optional
-	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+	PrivateKeyRef *common.SecretKeySelector `json:"privateKeyRef,omitempty"`
 }
 
 // TSA File signer configuration
 type File struct {
 	//Password to decrypt the signer's root private key
 	//+optional
-	PasswordRef *SecretKeySelector `json:"passwordRef,omitempty"`
+	PasswordRef *common.SecretKeySelector `json:"passwordRef,omitempty"`
 	//Reference to the signer's root private key
 	//+optional
-	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+	PrivateKeyRef *common.SecretKeySelector `json:"privateKeyRef,omitempty"`
 }
 
 // TSA KMS signer config
@@ -120,7 +125,7 @@ type KMS struct {
 	KeyResource string `json:"keyResource,omitempty"`
 	//Configuration for authentication for key management services
 	//+optional
-	Auth *Auth `json:"auth,omitempty"`
+	Auth *common.Auth `json:"auth,omitempty"`
 }
 
 // TSA Tink signer config
@@ -130,10 +135,10 @@ type Tink struct {
 	KeyResource string `json:"keyResource,omitempty"`
 	//+required
 	//Path to KMS-encrypted keyset for Tink, decrypted by TinkKeyResource
-	KeysetRef *SecretKeySelector `json:"keysetRef,omitempty"`
+	KeysetRef *common.SecretKeySelector `json:"keysetRef,omitempty"`
 	// Configuration for authentication for key management services
 	//+optional
-	Auth *Auth `json:"auth,omitempty"`
+	Auth *common.Auth `json:"auth,omitempty"`
 }
 
 type NTPMonitoring struct {
@@ -147,7 +152,7 @@ type NTPMonitoring struct {
 type NtpMonitoringConfig struct {
 	//ConfigMap containing YAML configuration for NTP monitoring
 	//Default configuration: https://github.com/securesign/timestamp-authority/blob/main/pkg/ntpmonitor/ntpsync.yaml
-	NtpConfigRef *LocalObjectReference `json:"ntpConfigRef,omitempty"`
+	NtpConfigRef *common.LocalObjectReference `json:"ntpConfigRef,omitempty"`
 	//Number of attempts to contact a ntp server before giving up.
 	RequestAttempts int `json:"requestAttempts,omitempty"`
 	//The timeout in seconds for a request to respond. This value must be
@@ -214,16 +219,69 @@ func init() {
 	SchemeBuilder.Register(&TimestampAuthority{}, &TimestampAuthorityList{})
 }
 
-func (i *TimestampAuthority) GetTrustedCA() *LocalObjectReference {
+func (i *TimestampAuthority) GetTrustedCA() *common.LocalObjectReference {
 	if i.Spec.TrustedCA != nil {
 		return i.Spec.TrustedCA
 	}
 
 	if v, ok := i.GetAnnotations()["rhtas.redhat.com/trusted-ca"]; ok {
-		return &LocalObjectReference{
+		return &common.LocalObjectReference{
 			Name: v,
 		}
 	}
 
 	return nil
+}
+
+// ConvertTo converts this v1alpha1 TimestampAuthority to the Hub version (v1)
+func (src *TimestampAuthority) ConvertTo(dstRaw conversion.Hub) error {
+	dst := dstRaw.(*v1.TimestampAuthority)
+
+	// Copy metadata directly
+	dst.ObjectMeta = src.ObjectMeta
+
+	// Convert Spec via JSON (safe since schemas are identical)
+	bytes, err := json.Marshal(src.Spec)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(bytes, &dst.Spec); err != nil {
+		return err
+	}
+
+	// Convert Status via JSON
+	bytes, err = json.Marshal(src.Status)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(bytes, &dst.Status)
+}
+
+// ConvertFrom converts from the Hub version (v1) to this v1alpha1 TimestampAuthority
+func (dst *TimestampAuthority) ConvertFrom(srcRaw conversion.Hub) error {
+	src := srcRaw.(*v1.TimestampAuthority)
+
+	// Copy metadata directly
+	dst.ObjectMeta = src.ObjectMeta
+
+	// Convert Spec via JSON
+	bytes, err := json.Marshal(src.Spec)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(bytes, &dst.Spec); err != nil {
+		return err
+	}
+
+	// Convert Status via JSON
+	bytes, err = json.Marshal(src.Status)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(bytes, &dst.Status)
+}
+
+// SetupWebhookWithManager sets up the conversion webhook with the Manager
+func (r *TimestampAuthority) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr, r).Complete()
 }

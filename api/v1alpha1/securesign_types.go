@@ -17,8 +17,14 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"encoding/json"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/conversion"
+
+	v1 "github.com/securesign/operator/api/v1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -102,4 +108,57 @@ func (i *Securesign) GetConditions() []metav1.Condition {
 
 func (i *Securesign) SetCondition(newCondition metav1.Condition) {
 	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
+}
+
+// ConvertTo converts this v1alpha1 Securesign to the Hub version (v1)
+func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
+	dst := dstRaw.(*v1.Securesign)
+
+	// Copy metadata directly
+	dst.ObjectMeta = src.ObjectMeta
+
+	// Convert Spec via JSON (safe since schemas are identical)
+	bytes, err := json.Marshal(src.Spec)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(bytes, &dst.Spec); err != nil {
+		return err
+	}
+
+	// Convert Status via JSON
+	bytes, err = json.Marshal(src.Status)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(bytes, &dst.Status)
+}
+
+// ConvertFrom converts from the Hub version (v1) to this v1alpha1 Securesign
+func (dst *Securesign) ConvertFrom(srcRaw conversion.Hub) error {
+	src := srcRaw.(*v1.Securesign)
+
+	// Copy metadata directly
+	dst.ObjectMeta = src.ObjectMeta
+
+	// Convert Spec via JSON
+	bytes, err := json.Marshal(src.Spec)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(bytes, &dst.Spec); err != nil {
+		return err
+	}
+
+	// Convert Status via JSON
+	bytes, err = json.Marshal(src.Status)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(bytes, &dst.Status)
+}
+
+// SetupWebhookWithManager sets up the conversion webhook with the Manager
+func (r *Securesign) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr, r).Complete()
 }

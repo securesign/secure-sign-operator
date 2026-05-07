@@ -32,7 +32,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/tsa/actions"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -57,8 +58,8 @@ var _ = Describe("TimestampAuthority Controller", func() {
 		}
 
 		typeNamespaceName := types.NamespacedName{Name: Name, Namespace: Namespace}
-		timestampAuthority := &rhtasv1alpha1.TimestampAuthority{}
-		found := &rhtasv1alpha1.TimestampAuthority{}
+		timestampAuthority := &rhtasv1.TimestampAuthority{}
+		found := &rhtasv1.TimestampAuthority{}
 		deployment := &appsv1.Deployment{}
 		service := &corev1.Service{}
 		ingress := &v1.Ingress{}
@@ -91,35 +92,35 @@ var _ = Describe("TimestampAuthority Controller", func() {
 			if err != nil && errors.IsNotFound(err) {
 				// Let's mock our custom resource at the same way that we would
 				// apply on the cluster the manifest under config/samples
-				tsa := &rhtasv1alpha1.TimestampAuthority{
+				tsa := &rhtasv1.TimestampAuthority{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      Name,
 						Namespace: Namespace,
 					},
-					Spec: rhtasv1alpha1.TimestampAuthoritySpec{
-						ExternalAccess: rhtasv1alpha1.ExternalAccess{
+					Spec: rhtasv1.TimestampAuthoritySpec{
+						ExternalAccess: common.ExternalAccess{
 							Host:    "tsa.localhost",
 							Enabled: true,
 						},
-						Monitoring: rhtasv1alpha1.MonitoringConfig{Enabled: false},
-						Signer: rhtasv1alpha1.TimestampAuthoritySigner{
-							CertificateChain: rhtasv1alpha1.CertificateChain{
-								RootCA: &rhtasv1alpha1.TsaCertificateAuthority{
+						Monitoring: common.MonitoringConfig{Enabled: false},
+						Signer: rhtasv1.TimestampAuthoritySigner{
+							CertificateChain: rhtasv1.CertificateChain{
+								RootCA: &rhtasv1.TsaCertificateAuthority{
 									OrganizationName: "Red Hat",
 								},
-								IntermediateCA: []*rhtasv1alpha1.TsaCertificateAuthority{
+								IntermediateCA: []*rhtasv1.TsaCertificateAuthority{
 									{
 										OrganizationName: "Red Hat",
 									},
 								},
-								LeafCA: &rhtasv1alpha1.TsaCertificateAuthority{
+								LeafCA: &rhtasv1.TsaCertificateAuthority{
 									OrganizationName: "Red Hat",
 								},
 							},
 						},
-						NTPMonitoring: rhtasv1alpha1.NTPMonitoring{
+						NTPMonitoring: rhtasv1.NTPMonitoring{
 							Enabled: true,
-							Config: &rhtasv1alpha1.NtpMonitoringConfig{
+							Config: &rhtasv1.NtpMonitoringConfig{
 								RequestAttempts: 3,
 								RequestTimeout:  5,
 								NumServers:      4,
@@ -153,14 +154,14 @@ var _ = Describe("TimestampAuthority Controller", func() {
 			}).Should(BeTrue())
 
 			By("Certificate chain secret should be created")
-			Eventually(func(g Gomega) *rhtasv1alpha1.SecretKeySelector {
+			Eventually(func(g Gomega) *common.SecretKeySelector {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Signer.CertificateChain.CertificateChainRef
 			}).Should(Not(BeNil()))
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Signer.CertificateChain.CertificateChainRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
 
 			By("File Signer secret should be created")
-			Eventually(func(g Gomega) *rhtasv1alpha1.SecretKeySelector {
+			Eventually(func(g Gomega) *common.SecretKeySelector {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Signer.File.PrivateKeyRef
 			}).Should(Not(BeNil()))
@@ -179,7 +180,7 @@ var _ = Describe("TimestampAuthority Controller", func() {
 			}).Should(Equal("Waiting for deployment to be ready"))
 
 			By("NTP monitoring config should be created")
-			Eventually(func(g Gomega) *rhtasv1alpha1.LocalObjectReference {
+			Eventually(func(g Gomega) *common.LocalObjectReference {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.NTPMonitoring.Config.NtpConfigRef
 			}).Should(Not(BeNil()))

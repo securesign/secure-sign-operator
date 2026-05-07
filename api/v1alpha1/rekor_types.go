@@ -1,9 +1,14 @@
 package v1alpha1
 
 import (
+	"encoding/json"
+	"github.com/securesign/operator/api/common"
+	v1 "github.com/securesign/operator/api/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -11,18 +16,18 @@ import (
 
 // RekorSpec defines the desired state of Rekor
 type RekorSpec struct {
-	PodRequirements `json:",inline"`
+	common.PodRequirements `json:",inline"`
 	// ID of Merkle tree in Trillian backend
 	// If it is unset, the operator will create new Merkle tree in the Trillian backend
 	//+optional
 	TreeID *int64 `json:"treeID,omitempty"`
 	// Trillian service configuration
 	//+kubebuilder:default:={port: 8091}
-	Trillian TrillianService `json:"trillian,omitempty"`
+	Trillian common.TrillianService `json:"trillian,omitempty"`
 	// Define whether you want to export service or not
-	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
+	common.ExternalAccess `json:"externalAccess,omitempty"`
 	//Enable Service monitors for rekor
-	Monitoring MonitoringWithTLogConfig `json:"monitoring,omitempty"`
+	Monitoring common.MonitoringWithTLogConfig `json:"monitoring,omitempty"`
 	// Rekor Search UI
 	//+kubebuilder:default:={enabled: true}
 	RekorSearchUI RekorSearchUI `json:"rekorSearchUI,omitempty"`
@@ -36,7 +41,7 @@ type RekorSpec struct {
 	SearchIndex SearchIndex `json:"searchIndex,omitempty"`
 	// PVC configuration
 	//+kubebuilder:default:={size: "5Gi", retain: true, accessModes: {ReadWriteOnce}}
-	Pvc Pvc `json:"pvc,omitempty"`
+	common.Pvc `json:"pvc,omitempty"`
 	// BackFillRedis CronJob Configuration
 	//+kubebuilder:default:={enabled: true, schedule: "0 0 * * *"}
 	BackFillRedis BackFillRedis `json:"backFillRedis,omitempty"`
@@ -49,10 +54,10 @@ type RekorSpec struct {
 	Sharding []RekorLogRange `json:"sharding,omitempty"`
 	// ConfigMap with additional bundle of trusted CA
 	//+optional
-	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
+	TrustedCA *common.LocalObjectReference `json:"trustedCA,omitempty"`
 	//Configuration for authentication for key management services
 	//+optional
-	Auth *Auth `json:"auth,omitempty"`
+	Auth *common.Auth `json:"auth,omitempty"`
 
 	// MaxRequestBodySize sets the maximum size in bytes for HTTP request body. Passed as --max_request_body_size.
 	//+kubebuilder:default:=10485760
@@ -114,17 +119,17 @@ type RekorSigner struct {
 	// Optional field. This should be set only if the private key referenced by `keyRef` is encrypted with a password.
 	// If KMS is set to a value other than "secret", this field is ignored.
 	// +optional
-	PasswordRef *SecretKeySelector `json:"passwordRef,omitempty"`
+	PasswordRef *common.SecretKeySelector `json:"passwordRef,omitempty"`
 
 	// Reference to the signer private key.
 	//
 	// Optional field. When KMS is set to "secret", this field can be left empty, in which case the operator will automatically generate a signer key.
 	// +optional
-	KeyRef *SecretKeySelector `json:"keyRef,omitempty"`
+	KeyRef *common.SecretKeySelector `json:"keyRef,omitempty"`
 }
 
 type RekorSearchUI struct {
-	PodRequirements `json:",inline"`
+	common.PodRequirements `json:",inline"`
 	// If set to true, the Operator will deploy a Rekor Search UI
 	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
 	//+kubebuilder:default:=true
@@ -144,9 +149,9 @@ type SearchIndex struct {
 	//+kubebuilder:default:=true
 	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
 	Create *bool `json:"create"`
-	// Configuration for enabling TLS (Transport Layer Security) encryption for manged database.
+	// Configuration for enabling common.TLS (Transport Layer Security) encryption for manged database.
 	//+optional
-	TLS TLS `json:"tls,omitempty"`
+	common.TLS `json:"tls,omitempty"`
 	// DB provider. Supported are redis and mysql.
 	//+kubebuilder:validation:Enum={redis,mysql}
 	Provider string `json:"provider,omitempty"`
@@ -183,22 +188,22 @@ type RekorLogRange struct {
 }
 
 type SearchIndexStatus struct {
-	TLS           TLS                `json:"tls,omitempty"`
-	DbPasswordRef *SecretKeySelector `json:"dbPasswordRef,omitempty"`
+	TLS           common.TLS                `json:"tls,omitempty"`
+	DbPasswordRef *common.SecretKeySelector `json:"dbPasswordRef,omitempty"`
 }
 
 // RekorStatus defines the observed state of Rekor
 type RekorStatus struct {
 	// Reference to secret with Rekor's signer public key.
 	// Public key is automatically generated from signer private key.
-	PublicKeyRef     *SecretKeySelector    `json:"publicKeyRef,omitempty"`
-	ServerConfigRef  *LocalObjectReference `json:"serverConfigRef,omitempty"`
-	Signer           RekorSigner           `json:"signer,omitempty"`
-	SearchIndex      SearchIndexStatus     `json:"searchIndex,omitempty"`
-	PvcName          string                `json:"pvcName,omitempty"`
-	MonitorPvcName   string                `json:"monitorpvcName,omitempty"`
-	Url              string                `json:"url,omitempty"`
-	RekorSearchUIUrl string                `json:"rekorSearchUIUrl,omitempty"`
+	PublicKeyRef     *common.SecretKeySelector    `json:"publicKeyRef,omitempty"`
+	ServerConfigRef  *common.LocalObjectReference `json:"serverConfigRef,omitempty"`
+	Signer           RekorSigner                  `json:"signer,omitempty"`
+	SearchIndex      SearchIndexStatus            `json:"searchIndex,omitempty"`
+	PvcName          string                       `json:"pvcName,omitempty"`
+	MonitorPvcName   string                       `json:"monitorpvcName,omitempty"`
+	Url              string                       `json:"url,omitempty"`
+	RekorSearchUIUrl string                       `json:"rekorSearchUIUrl,omitempty"`
 	// The ID of a Trillian tree that stores the log data.
 	// +kubebuilder:validation:Type=number
 	TreeID *int64 `json:"treeID,omitempty"`
@@ -246,16 +251,69 @@ func (i *Rekor) SetCondition(newCondition metav1.Condition) {
 	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
 }
 
-func (i *Rekor) GetTrustedCA() *LocalObjectReference {
+func (i *Rekor) GetTrustedCA() *common.LocalObjectReference {
 	if i.Spec.TrustedCA != nil {
 		return i.Spec.TrustedCA
 	}
 
 	if v, ok := i.GetAnnotations()["rhtas.redhat.com/trusted-ca"]; ok {
-		return &LocalObjectReference{
+		return &common.LocalObjectReference{
 			Name: v,
 		}
 	}
 
 	return nil
+}
+
+// ConvertTo converts this v1alpha1 Rekor to the Hub version (v1)
+func (src *Rekor) ConvertTo(dstRaw conversion.Hub) error {
+	dst := dstRaw.(*v1.Rekor)
+
+	// Copy metadata directly
+	dst.ObjectMeta = src.ObjectMeta
+
+	// Convert Spec via JSON (safe since schemas are identical)
+	bytes, err := json.Marshal(src.Spec)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(bytes, &dst.Spec); err != nil {
+		return err
+	}
+
+	// Convert Status via JSON
+	bytes, err = json.Marshal(src.Status)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(bytes, &dst.Status)
+}
+
+// ConvertFrom converts from the Hub version (v1) to this v1alpha1 Rekor
+func (dst *Rekor) ConvertFrom(srcRaw conversion.Hub) error {
+	src := srcRaw.(*v1.Rekor)
+
+	// Copy metadata directly
+	dst.ObjectMeta = src.ObjectMeta
+
+	// Convert Spec via JSON
+	bytes, err := json.Marshal(src.Spec)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(bytes, &dst.Spec); err != nil {
+		return err
+	}
+
+	// Convert Status via JSON
+	bytes, err = json.Marshal(src.Status)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(bytes, &dst.Status)
+}
+
+// SetupWebhookWithManager sets up the conversion webhook with the Manager
+func (r *Rekor) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr, r).Complete()
 }

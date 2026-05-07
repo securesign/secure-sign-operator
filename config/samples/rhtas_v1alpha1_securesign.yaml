@@ -1,4 +1,4 @@
-apiVersion: rhtas.redhat.com/v1alpha1
+apiVersion: rhtas.redhat.com/v1
 kind: Securesign
 metadata:
   labels:
@@ -23,8 +23,8 @@ spec:
     config:
       OIDCIssuers:
         - ClientID: "trusted-artifact-signer"
-          IssuerURL: "https://your-oidc-issuer-url"
-          Issuer: "https://your-oidc-issuer-url"
+          IssuerURL: "https://keycloak-keycloak-system.apps.rhtas-aws-multinode-dwzw9.rhtas.ccitredhat.com/realms/trusted-artifact-signer"
+          Issuer: "https://keycloak-keycloak-system.apps.rhtas-aws-multinode-dwzw9.rhtas.ccitredhat.com/realms/trusted-artifact-signer"
           Type: "email"
     certificate:
       organizationName: Red Hat

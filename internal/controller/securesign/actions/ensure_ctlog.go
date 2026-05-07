@@ -14,14 +14,14 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func NewCtlogAction() action.Action[*rhtasv1alpha1.Securesign] {
+func NewCtlogAction() action.Action[*rhtasv1.Securesign] {
 	return &ctlogAction{}
 }
 
@@ -33,16 +33,16 @@ func (i ctlogAction) Name() string {
 	return "create ctlog"
 }
 
-func (i ctlogAction) CanHandle(context.Context, *rhtasv1alpha1.Securesign) bool {
+func (i ctlogAction) CanHandle(context.Context, *rhtasv1.Securesign) bool {
 	return true
 }
 
-func (i ctlogAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
+func (i ctlogAction) Handle(ctx context.Context, instance *rhtasv1.Securesign) *action.Result {
 	var (
 		err    error
 		result controllerutil.OperationResult
 		l      = labels.For(actions.ComponentName, instance.Name, instance.Name)
-		ctl    = &rhtasv1alpha1.CTlog{
+		ctl    = &rhtasv1.CTlog{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      instance.Name,
 				Namespace: instance.Namespace,
@@ -52,10 +52,10 @@ func (i ctlogAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secures
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		ctl,
-		ensure.ControllerReference[*rhtasv1alpha1.CTlog](instance, i.Client),
-		ensure.Labels[*rhtasv1alpha1.CTlog](slices.Collect(maps.Keys(l)), l),
-		ensure.Annotations[*rhtasv1alpha1.CTlog](annotations.InheritableAnnotations, instance.Annotations),
-		func(object *rhtasv1alpha1.CTlog) error {
+		ensure.ControllerReference[*rhtasv1.CTlog](instance, i.Client),
+		ensure.Labels[*rhtasv1.CTlog](slices.Collect(maps.Keys(l)), l),
+		ensure.Annotations[*rhtasv1.CTlog](annotations.InheritableAnnotations, instance.Annotations),
+		func(object *rhtasv1.CTlog) error {
 			object.Spec = instance.Spec.Ctlog
 			return nil
 		},
@@ -82,7 +82,7 @@ func (i ctlogAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secures
 	return i.CopyStatus(ctx, ctl, instance)
 }
 
-func (i ctlogAction) CopyStatus(ctx context.Context, ctl *rhtasv1alpha1.CTlog, instance *rhtasv1alpha1.Securesign) *action.Result {
+func (i ctlogAction) CopyStatus(ctx context.Context, ctl *rhtasv1.CTlog, instance *rhtasv1.Securesign) *action.Result {
 	objectStatus := meta.FindStatusCondition(ctl.Status.Conditions, constants.ReadyCondition)
 	if objectStatus == nil {
 		// not initialized yet, wait for update

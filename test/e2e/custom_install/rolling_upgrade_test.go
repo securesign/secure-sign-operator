@@ -8,7 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	ctlogAction "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcioAction "github.com/securesign/operator/internal/controller/fulcio/actions"
 	rekorAction "github.com/securesign/operator/internal/controller/rekor/actions"
@@ -45,7 +45,7 @@ func withRelatedImages() optManagerPod {
 }
 
 func withReplicas(replicas int32) securesign.Opts {
-	return func(s *v1alpha1.Securesign) {
+	return func(s *rhtasv1.Securesign) {
 		s.Spec.Rekor.Replicas = ptr.To(replicas)
 		s.Spec.Rekor.RekorSearchUI.Replicas = ptr.To(replicas)
 		s.Spec.Fulcio.Replicas = ptr.To(replicas)
@@ -61,7 +61,7 @@ var _ = Describe("rolling upgrade with replicas", Ordered, func() {
 	cli, _ := support.CreateClient()
 
 	var namespace *v1.Namespace
-	var s *v1alpha1.Securesign
+	var s *rhtasv1.Securesign
 
 	Describe("Successful installation of manager", func() {
 		BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
@@ -72,7 +72,7 @@ var _ = Describe("rolling upgrade with replicas", Ordered, func() {
 			_ = cli.Delete(ctx, s)
 			// wait until object has been deleted. Manager need to handle finalizer
 			Eventually(func(ctx context.Context) error {
-				return cli.Get(ctx, client.ObjectKeyFromObject(s), &v1alpha1.Securesign{})
+				return cli.Get(ctx, client.ObjectKeyFromObject(s), &rhtasv1.Securesign{})
 			}).WithContext(ctx).Should(And(HaveOccurred(), WithTransform(apierrors.IsNotFound, BeTrue())))
 			uninstallOperator(ctx, cli, namespace.Name)
 		})
@@ -86,9 +86,9 @@ var _ = Describe("rolling upgrade with replicas", Ordered, func() {
 				securesign.WithDefaults(),
 				securesign.WithNFSPVC(),
 				withReplicas(2),
-				func(v *v1alpha1.Securesign) {
-					v.Spec.Fulcio.Config = v1alpha1.FulcioConfig{
-						OIDCIssuers: []v1alpha1.OIDCIssuer{
+				func(v *rhtasv1.Securesign) {
+					v.Spec.Fulcio.Config = rhtasv1.FulcioConfig{
+						OIDCIssuers: []rhtasv1.OIDCIssuer{
 							{
 								ClientID:  "sigstore",
 								IssuerURL: "https://oauth2.sigstore.dev/auth",

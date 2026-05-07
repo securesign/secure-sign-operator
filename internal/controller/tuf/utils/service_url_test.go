@@ -5,7 +5,8 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	tsa "github.com/securesign/operator/internal/controller/tsa/actions"
 	v1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,25 +19,25 @@ var (
 
 func TestResolveServiceAddress_UserSpecifiedAddress(t *testing.T) {
 	g := NewWithT(t)
-	instance := &v1alpha1.Tuf{
+	instance := &rhtasv1.Tuf{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "testNamespace",
 		},
-		Spec: v1alpha1.TufSpec{
-			Rekor: v1alpha1.RekorService{
+		Spec: rhtasv1.TufSpec{
+			Rekor: common.RekorService{
 				Address: "http://rekor.fakeserver.com",
 			},
-			Ctlog: v1alpha1.CtlogService{
+			Ctlog: common.CtlogService{
 				Address: "http://ctlog.fakeserver.com",
 			},
-			Fulcio: v1alpha1.FulcioService{
+			Fulcio: common.FulcioService{
 				Address: "http://fulcio.fakeserver.com",
 			},
-			Tsa: v1alpha1.TsaService{
+			Tsa: common.TsaService{
 				Address: "http://tsa.fakeserver.com",
 			},
-			Keys: []v1alpha1.TufKey{
+			Keys: []rhtasv1.TufKey{
 				{
 					Name: "rekor.pub",
 				},
@@ -50,7 +51,7 @@ func TestResolveServiceAddress_UserSpecifiedAddress(t *testing.T) {
 					Name: "tsa.certchain.pem",
 				},
 			},
-			SigningConfigURLMode: v1alpha1.SigningConfigURLExternal,
+			SigningConfigURLMode: rhtasv1.SigningConfigURLExternal,
 		},
 	}
 	err := ResolveServiceAddress(t.Context(), c, instance)
@@ -64,13 +65,13 @@ func TestResolveServiceAddress_UserSpecifiedAddress(t *testing.T) {
 
 func TestResolveServiceAddress_NoTsaKey(t *testing.T) {
 	g := NewWithT(t)
-	instance := &v1alpha1.Tuf{
+	instance := &rhtasv1.Tuf{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "testNamespace",
 		},
-		Spec: v1alpha1.TufSpec{
-			Keys: []v1alpha1.TufKey{
+		Spec: rhtasv1.TufSpec{
+			Keys: []rhtasv1.TufKey{
 				{
 					Name: "rekor.pub",
 				},
@@ -81,7 +82,7 @@ func TestResolveServiceAddress_NoTsaKey(t *testing.T) {
 					Name: "fulcio_v1.crt.pem",
 				},
 			},
-			SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
+			SigningConfigURLMode: rhtasv1.SigningConfigURLInternal,
 		},
 	}
 	err := ResolveServiceAddress(t.Context(), c, instance)
@@ -94,13 +95,13 @@ func TestResolveServiceAddress_NoTsaKey(t *testing.T) {
 
 func TestResolveServiceAddress_Internal(t *testing.T) {
 	g := NewWithT(t)
-	instance := &v1alpha1.Tuf{
+	instance := &rhtasv1.Tuf{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "testNamespace",
 		},
-		Spec: v1alpha1.TufSpec{
-			Keys: []v1alpha1.TufKey{
+		Spec: rhtasv1.TufSpec{
+			Keys: []rhtasv1.TufKey{
 				{
 					Name: "rekor.pub",
 				},
@@ -114,7 +115,7 @@ func TestResolveServiceAddress_Internal(t *testing.T) {
 					Name: "tsa.certchain.pem",
 				},
 			},
-			SigningConfigURLMode: v1alpha1.SigningConfigURLInternal,
+			SigningConfigURLMode: rhtasv1.SigningConfigURLInternal,
 		},
 	}
 	err := ResolveServiceAddress(t.Context(), c, instance)
@@ -145,13 +146,13 @@ func TestResolveServiceAddress_External(t *testing.T) {
 		err := c.Create(t.Context(), ingress)
 		g.Expect(err).ToNot(HaveOccurred())
 	}
-	instance := &v1alpha1.Tuf{
+	instance := &rhtasv1.Tuf{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "testNamespace",
 		},
-		Spec: v1alpha1.TufSpec{
-			Keys: []v1alpha1.TufKey{
+		Spec: rhtasv1.TufSpec{
+			Keys: []rhtasv1.TufKey{
 				{
 					Name: "rekor.pub",
 				},
@@ -165,7 +166,7 @@ func TestResolveServiceAddress_External(t *testing.T) {
 					Name: "tsa.certchain.pem",
 				},
 			},
-			SigningConfigURLMode: v1alpha1.SigningConfigURLExternal,
+			SigningConfigURLMode: rhtasv1.SigningConfigURLExternal,
 		},
 	}
 	err := ResolveServiceAddress(t.Context(), c, instance)

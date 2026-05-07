@@ -1,7 +1,7 @@
 package apis
 
-import "github.com/securesign/operator/api/v1alpha1"
+import "github.com/securesign/operator/api/common"
 
 type TlsClient interface {
-	GetTrustedCA() *v1alpha1.LocalObjectReference
+	GetTrustedCA() *common.LocalObjectReference
 }

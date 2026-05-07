@@ -19,11 +19,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	v1 "k8s.io/api/core/v1"
 )
 
-func NewCreateServiceAction() action.Action[*rhtasv1alpha1.Trillian] {
+func NewCreateServiceAction() action.Action[*rhtasv1.Trillian] {
 	return &createServiceAction{}
 }
 
@@ -35,11 +35,11 @@ func (i createServiceAction) Name() string {
 	return "create service"
 }
 
-func (i createServiceAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Trillian) bool {
+func (i createServiceAction) CanHandle(ctx context.Context, instance *rhtasv1.Trillian) bool {
 	return state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
-func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
+func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1.Trillian) *action.Result {
 
 	var (
 		err    error

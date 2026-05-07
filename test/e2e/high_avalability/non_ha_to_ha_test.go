@@ -5,7 +5,8 @@ package ha
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	ctlogactions "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcioactions "github.com/securesign/operator/internal/controller/fulcio/actions"
 	rekoractions "github.com/securesign/operator/internal/controller/rekor/actions"
@@ -41,7 +42,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 
 	var targetImageName string
 	var namespace *v1.Namespace
-	var s *v1alpha1.Securesign
+	var s *rhtasv1.Securesign
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
@@ -52,7 +53,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			securesign.WithDefaults(),
 			securesign.WithSearchUI(),
 			securesign.WithMonitoring(),
-			func(v *v1alpha1.Securesign) {
+			func(v *rhtasv1.Securesign) {
 				v.Spec.Rekor.Attestations.Enabled = ptr.To(true)
 			},
 		)
@@ -123,7 +124,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				s.Spec.Tuf.Pvc.Name = newTufPVCName
 				s.Spec.Tuf.Pvc.Retain = ptr.To(true)
 				s.Spec.Tuf.Pvc.Size = ptr.To(resource.MustParse("100Mi"))
-				s.Spec.Tuf.Pvc.AccessModes = []v1alpha1.PersistentVolumeAccessMode{"ReadWriteMany"}
+				s.Spec.Tuf.Pvc.AccessModes = []common.PersistentVolumeAccessMode{"ReadWriteMany"}
 				s.Spec.Tuf.Pvc.StorageClass = "nfs-csi"
 
 				err := cli.Update(ctx, s)
@@ -140,7 +141,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				s.Spec.Rekor.Pvc.Name = newRekorPVCName
 				s.Spec.Rekor.Pvc.Retain = ptr.To(true)
 				s.Spec.Rekor.Pvc.Size = ptr.To(resource.MustParse("100Mi"))
-				s.Spec.Rekor.Pvc.AccessModes = []v1alpha1.PersistentVolumeAccessMode{"ReadWriteMany"}
+				s.Spec.Rekor.Pvc.AccessModes = []common.PersistentVolumeAccessMode{"ReadWriteMany"}
 				s.Spec.Rekor.Pvc.StorageClass = "nfs-csi"
 
 				err := cli.Update(ctx, s)

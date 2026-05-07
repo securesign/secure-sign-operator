@@ -3,14 +3,14 @@ package kubernetes
 import (
 	"context"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/common"
 	v12 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateIngress(ctx context.Context, cli client.Client, svc v12.Service, conf v1alpha1.ExternalAccess, port string, labels map[string]string) (*networkingv1.Ingress, error) {
+func CreateIngress(ctx context.Context, cli client.Client, svc v12.Service, conf common.ExternalAccess, port string, labels map[string]string) (*networkingv1.Ingress, error) {
 	path := networkingv1.PathTypePrefix
 	host := conf.Host
 	var tlsConfig []networkingv1.IngressTLS
@@ -86,7 +86,7 @@ func CreateIngress(ctx context.Context, cli client.Client, svc v12.Service, conf
 	}, nil
 }
 
-func EnsureIngressSpec(ctx context.Context, cli client.Client, svc v12.Service, conf v1alpha1.ExternalAccess, port string) func(ingress *networkingv1.Ingress) error {
+func EnsureIngressSpec(ctx context.Context, cli client.Client, svc v12.Service, conf common.ExternalAccess, port string) func(ingress *networkingv1.Ingress) error {
 	return func(ingress *networkingv1.Ingress) error {
 		path := networkingv1.PathTypePrefix
 		host := conf.Host
