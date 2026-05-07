@@ -114,8 +114,8 @@ Amazon S3 is the recommended storage backend for production deployments due to i
 
 ### Prerequisites
 
-1. An S3 bucket created in your AWS account
-2. IAM credentials with permissions to read/write to the bucket
+1. A dedicated S3 bucket for Rekor attestations
+2. IAM credentials with minimal permissions (`s3:PutObject`, `s3:GetObject`) scoped to the bucket (see [Security Considerations](#security-considerations))
 3. Network connectivity from the OpenShift cluster to AWS S3
 
 ### Creating S3 Credentials Secret
@@ -202,8 +202,8 @@ Google Cloud Storage provides a highly durable and available storage option for 
 
 ### Prerequisites
 
-1. A GCS bucket created in your GCP project
-2. Service account with Storage Object Admin permissions
+1. A dedicated GCS bucket for Rekor attestations
+2. Service account with minimal permissions scoped to the attestation bucket (see [Security Considerations](#security-considerations))
 3. Service account key file
 
 ### Creating GCS Credentials Secret
@@ -345,6 +345,24 @@ spec:
             name: rekor-attestations-bucket  # Auto-generated secret
             key: AWS_SECRET_ACCESS_KEY
 ```
+
+## Security Considerations
+
+When using cloud object storage, apply least-privilege principles to the credentials provided via `spec.auth`:
+
+- **Dedicated bucket**: Use a single-purpose bucket exclusively for Rekor attestations. Do not share it with other workloads.
+- **Minimal IAM permissions**: Rekor only needs to create and read objects. It does not need delete, overwrite, or bucket-level administrative access.
+- **Scoped to the bucket**: Restrict the credential to the specific attestation bucket, not the entire project or account.
+
+### Recommended IAM Roles by Provider
+
+| Provider | Recommended Role | Grants |
+|----------|-----------------|--------|
+| GCS | `roles/storage.objectUser` on the bucket | `storage.objects.create`, `storage.objects.get`, `storage.objects.list` |
+| AWS S3 | Custom policy with `s3:PutObject`, `s3:GetObject` on the bucket ARN | Write and read only |
+| Azure | `Storage Blob Data Contributor` scoped to the container | Read, write, no management plane access |
+
+> **Important**: Avoid broad roles like GCS `Storage Object Admin`, AWS `AmazonS3FullAccess`, or Azure `Storage Account Contributor`. If the Rekor component is compromised, overly permissive credentials expand the blast radius beyond the attestation bucket.
 
 ## Limitations
 
