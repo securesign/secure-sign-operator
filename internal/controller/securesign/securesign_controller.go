@@ -60,7 +60,6 @@ func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder events.Even
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=securesigns/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=securesigns/finalizers,verbs=update
 
-// TODO: rework Securesign controller to watch resources
 func (r *securesignReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var instance rhtasv1.Securesign
 	log := ctrllog.FromContext(ctx)

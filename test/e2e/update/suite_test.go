@@ -32,7 +32,7 @@ func TestUpdateComponents(t *testing.T) {
 	format.MaxLength = 0
 }
 
-func securesignResource(namespace *v1.Namespace) *rhtasrhtasv1.Securesign {
+func securesignResource(namespace *v1.Namespace) *rhtasv1.Securesign {
 	return securesign.Create(namespace.Name, "test",
 		securesign.WithDefaults(),
 		securesign.WithoutSearchUI(),

@@ -1,0 +1,13 @@
+# This config tells kustomize how to update Certificate resources
+nameReference:
+- kind: Issuer
+  group: cert-manager.io
+  fieldSpecs:
+  - kind: Certificate
+    group: cert-manager.io
+    path: spec/issuerRef/name
+
+varReference:
+- path: spec/dnsNames
+  kind: Certificate
+  group: cert-manager.io

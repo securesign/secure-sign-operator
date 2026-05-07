@@ -1,0 +1,39 @@
+# Certificate and Issuer for webhook TLS certificates
+# This will be used on vanilla Kubernetes (Kind, EKS without OLM)
+# On OpenShift, the Service CA Operator handles certificates via annotations
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  labels:
+    app.kubernetes.io/name: certificate
+    app.kubernetes.io/instance: serving-cert
+    app.kubernetes.io/component: certificate
+    app.kubernetes.io/part-of: rhtas-operator
+  name: selfsigned-issuer
+  namespace: system
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/name: certificate
+    app.kubernetes.io/instance: serving-cert
+    app.kubernetes.io/component: certificate
+    app.kubernetes.io/part-of: rhtas-operator
+  name: serving-cert
+  namespace: system
+spec:
+  dnsNames:
+  - SERVICE_NAME.SERVICE_NAMESPACE.svc
+  - SERVICE_NAME.SERVICE_NAMESPACE.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: webhook-server-cert
+  usages:
+  - digital signature
+  - key encipherment
+  - server auth
