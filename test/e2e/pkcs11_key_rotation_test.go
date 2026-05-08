@@ -3,22 +3,29 @@
 package e2e
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	fulcioActions "github.com/securesign/operator/internal/controller/fulcio/actions"
+	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/test/e2e/support"
+	testKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
+	clients "github.com/securesign/operator/test/e2e/support/tas/cli"
 	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	runtimeCli "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 var _ = Describe("PKCS#11 key rotation", Ordered, func() {
@@ -28,9 +35,15 @@ var _ = Describe("PKCS#11 key rotation", Ordered, func() {
 		namespace        *v1.Namespace
 		s                *v1alpha1.Securesign
 		runningTimestamp time.Time
+		oldCACert        []byte
+		tufRepoWorkdir   string
+		tufPod           v1.Pod
 	)
 
 	BeforeAll(func() {
+		if _, err := exec.LookPath("tuftool"); err != nil {
+			Skip("tuftool command not found")
+		}
 		SetDefaultEventuallyTimeout(6 * time.Minute)
 	})
 
@@ -70,8 +83,6 @@ var _ = Describe("PKCS#11 key rotation", Ordered, func() {
 	})
 
 	Describe("Rotate PKCS#11 key via keyConfig.id change", func() {
-		var oldCACert []byte
-
 		It("Download old CA cert", func(ctx SpecContext) {
 			f := fulcio.Get(ctx, cli, namespace.Name, s.Name)
 			Expect(f).NotTo(BeNil())
@@ -147,11 +158,62 @@ var _ = Describe("PKCS#11 key rotation", Ordered, func() {
 		It("All components are running after rotation", func(ctx SpecContext) {
 			tas.VerifyAllComponents(ctx, cli, s, true)
 		})
+	})
 
-		It("Use cosign cli after rotation", func(ctx SpecContext) {
-			newImage := support.PrepareImage(ctx)
-			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
-			tas.VerifyByCosign(ctx, newImage, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+	Describe("Update TUF repository after rotation", func() {
+		var certs string
+
+		It("Download TUF repository", func(ctx SpecContext) {
+			var err error
+			certs, err = os.MkdirTemp(os.TempDir(), "certs")
+			Expect(err).ToNot(HaveOccurred())
+
+			tufRepoWorkdir, err = os.MkdirTemp(os.TempDir(), "tuf-repo")
+			Expect(err).ToNot(HaveOccurred())
+
+			tufKeys := &v1.Secret{}
+			Expect(os.Mkdir(filepath.Join(tufRepoWorkdir, "keys"), 0777)).To(Succeed())
+			Expect(cli.Get(ctx, runtimeCli.ObjectKey{Name: "tuf-root-keys", Namespace: namespace.Name}, tufKeys)).To(Succeed())
+			for k, v := range tufKeys.Data {
+				Expect(os.WriteFile(filepath.Join(tufRepoWorkdir, "keys", k), v, 0644)).To(Succeed())
+			}
+
+			Expect(os.Mkdir(filepath.Join(tufRepoWorkdir, "tuf-repo"), 0777)).To(Succeed())
+			tufPodList := &v1.PodList{}
+			Expect(cli.List(ctx, tufPodList, runtimeCli.InNamespace(namespace.Name), runtimeCli.MatchingLabels{labels.LabelAppName: tufConstants.DeploymentName})).To(Succeed())
+			Expect(tufPodList.Items).To(HaveLen(1))
+			tufPod = tufPodList.Items[0]
+
+			Expect(testKubernetes.CopyFromPod(ctx, tufPod, "/var/www/html", filepath.Join(tufRepoWorkdir, "tuf-repo"))).To(Succeed())
 		})
+
+		It("Rotate fulcio cert in TUF", func(ctx SpecContext) {
+			f := fulcio.Get(ctx, cli, namespace.Name, s.Name)
+			Expect(f).NotTo(BeNil())
+			Expect(f.Status.Certificate).NotTo(BeNil())
+			Expect(f.Status.Certificate.CARef).NotTo(BeNil())
+
+			newCACert, err := kubernetes.GetSecretData(cli, namespace.Name, f.Status.Certificate.CARef)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(newCACert).NotTo(BeEmpty())
+
+			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
+
+			Expect(os.WriteFile(certs+"/fulcio_v1.crt.pem", oldCACert, 0644)).To(Succeed())
+			Expect(os.WriteFile(certs+"/new-fulcio.cert.pem", newCACert, 0644)).To(Succeed())
+
+			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("fulcio", "fulcio_v1.crt.pem", s.Status.FulcioStatus.Url, tufRepoWorkdir, true)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("fulcio", "new-fulcio.cert.pem", s.Status.FulcioStatus.Url, tufRepoWorkdir, false)...)).To(Succeed())
+		})
+
+		It("Upload the TUF repository back", func(ctx SpecContext) {
+			Expect(testKubernetes.CopyToPod(ctx, config.GetConfigOrDie(), tufPod, filepath.Join(tufRepoWorkdir, "tuf-repo"), "/var/www/html")).To(Succeed())
+		})
+	})
+
+	It("Use cosign cli after rotation", func(ctx SpecContext) {
+		newImage := support.PrepareImage(ctx)
+		s = securesign.Get(ctx, cli, namespace.Name, s.Name)
+		tas.VerifyByCosign(ctx, newImage, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
 	})
 })

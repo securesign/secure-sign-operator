@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/labels"
 	fulcioLabels "github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
@@ -42,12 +44,7 @@ func (e extractHSMRoot) CanHandle(ctx context.Context, instance *rhtasv1alpha1.F
 	if c == nil {
 		return false
 	}
-	if state.FromCondition(c) != state.Initialize {
-		return false
-	}
-
-	existing, _ := kubernetes.FindSecret(ctx, e.Client, instance.Namespace, FulcioCALabel)
-	return existing == nil
+	return state.FromCondition(c) == state.Initialize
 }
 
 func (e extractHSMRoot) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) *action.Result {
@@ -57,6 +54,21 @@ func (e extractHSMRoot) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulc
 	if err != nil {
 		e.Logger.Info("Waiting for Fulcio root cert to become available", "error", err.Error())
 		return e.Requeue()
+	}
+
+	existingMeta, _ := kubernetes.FindSecret(ctx, e.Client, instance.Namespace, FulcioCALabel)
+	if existingMeta != nil {
+		existingFull, err := kubernetes.GetSecret(e.Client, instance.Namespace, existingMeta.Name)
+		if err == nil && bytes.Equal(existingFull.Data["cert"], pemData) {
+			e.Logger.Info("HSM root CA secret already up-to-date", "secret", existingMeta.Name)
+			return e.Continue()
+		}
+		e.Logger.Info("HSM root CA changed, rotating secret", "oldSecret", existingMeta.Name)
+		if err := labels.Remove(ctx, existingMeta, e.Client, FulcioCALabel); err != nil {
+			return e.Error(ctx, err, instance)
+		}
+		e.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "HSMRootCARotated", "LabelRemoved",
+			"Removed '%s' label from old secret %s", FulcioCALabel, existingMeta.Name)
 	}
 
 	keyLabels := map[string]string{FulcioCALabel: "cert"}

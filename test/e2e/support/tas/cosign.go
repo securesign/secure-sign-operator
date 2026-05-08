@@ -61,7 +61,9 @@ func CosignVerify(ctx context.Context, targetImageName, rekorUrl, tsaUrl string)
 		}).WithContext(ctx).Should(Succeed())
 		verifyArgs = append(verifyArgs, "--rekor-url="+rekorUrl, "--timestamp-certificate-chain=ts_chain.pem")
 	}
-	Expect(clients.Execute("cosign", verifyArgs...)).To(Succeed())
+	Eventually(func() error {
+		return clients.Execute("cosign", verifyArgs...)
+	}).WithContext(ctx).WithPolling(2 * time.Second).Should(Succeed())
 }
 
 func VerifyByCosign(ctx context.Context, targetImageName, tufUrl, fulcioUrl, rekorUrl, tsaUrl string) {
