@@ -306,6 +306,21 @@ func WithTSA() Opts {
 	}
 }
 
+func WithPKCS11Persistence() Opts {
+	return func(s *v1alpha1.Securesign) {
+		if s.Spec.Fulcio.Certificate.PKCS11 != nil {
+			s.Spec.Fulcio.Certificate.PKCS11.Persistence = &v1alpha1.Pvc{
+				Retain: ptr.To(false),
+				Size:   ptr.To(resource.MustParse("100Mi")),
+				AccessModes: []v1alpha1.PersistentVolumeAccessMode{
+					"ReadWriteMany",
+				},
+				StorageClass: "nfs-csi",
+			}
+		}
+	}
+}
+
 func WithNTPMonitoring() Opts {
 	return func(s *v1alpha1.Securesign) {
 		if s.Spec.TimestampAuthority != nil {

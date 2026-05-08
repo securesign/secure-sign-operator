@@ -49,6 +49,7 @@ var _ = Describe("Securesign install with PKCS#11 CA", Ordered, func() {
 			securesign.WithExternalAccess(),
 			securesign.WithDefaultOIDC(),
 			securesign.WithNTPMonitoring(),
+			securesign.WithMonitoring(),
 		)
 	})
 

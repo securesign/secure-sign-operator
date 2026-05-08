@@ -28,6 +28,14 @@ func OidcClientID() string {
 	return EnvOrDefault(OIDC_CLIENT_ID, "trusted-artifact-signer")
 }
 
+// oidcTokenUrl returns the URL used to fetch OIDC tokens.
+// OIDC_TOKEN_URL overrides this for environments where the issuer URL
+// is not reachable from the test machine (e.g. cluster-internal URLs
+// accessed via port-forward on a different address).
+func oidcTokenUrl() string {
+	return EnvOrDefault("OIDC_TOKEN_URL", OidcIssuerUrl())
+}
+
 func OidcToken(ctx context.Context) (string, error) {
 	data := url.Values{}
 	data.Set("username", EnvOrDefault(OIDC_USER, "jdoe"))
@@ -35,7 +43,7 @@ func OidcToken(ctx context.Context) (string, error) {
 	data.Set("grant_type", "password")
 	data.Set("scope", "openid")
 	data.Set("client_id", OidcClientID())
-	r, err := http.NewRequestWithContext(ctx, http.MethodPost, OidcIssuerUrl()+"/protocol/openid-connect/token", strings.NewReader(data.Encode()))
+	r, err := http.NewRequestWithContext(ctx, http.MethodPost, oidcTokenUrl()+"/protocol/openid-connect/token", strings.NewReader(data.Encode()))
 	if err != nil {
 		return "", err
 	}

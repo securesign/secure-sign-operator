@@ -1,0 +1,157 @@
+//go:build integration
+
+package e2e
+
+import (
+	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/securesign/operator/api/v1alpha1"
+	fulcioActions "github.com/securesign/operator/internal/controller/fulcio/actions"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/test/e2e/support"
+	"github.com/securesign/operator/test/e2e/support/steps"
+	"github.com/securesign/operator/test/e2e/support/tas"
+	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
+	"github.com/securesign/operator/test/e2e/support/tas/securesign"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	runtimeCli "sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+var _ = Describe("PKCS#11 key rotation", Ordered, func() {
+	cli, _ := support.CreateClient()
+	var (
+		targetImageName  string
+		namespace        *v1.Namespace
+		s                *v1alpha1.Securesign
+		runningTimestamp time.Time
+	)
+
+	BeforeAll(func() {
+		SetDefaultEventuallyTimeout(6 * time.Minute)
+	})
+
+	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
+		namespace = new
+	}))
+
+	BeforeAll(func(ctx SpecContext) {
+		s = securesign.Create(namespace.Name, "test",
+			securesign.WithTSA(),
+			securesign.WithPKCS11Certs(),
+			securesign.WithManagedDatabase(),
+			securesign.WithExternalAccess(),
+			securesign.WithDefaultOIDC(),
+			securesign.WithNTPMonitoring(),
+		)
+	})
+
+	BeforeAll(func(ctx SpecContext) {
+		targetImageName = support.PrepareImage(ctx)
+	})
+
+	Describe("Install with PKCS#11 CA", func() {
+		BeforeAll(func(ctx SpecContext) {
+			Expect(cli.Create(ctx, s)).To(Succeed())
+		})
+
+		It("All components are running", func(ctx SpecContext) {
+			tas.VerifyAllComponents(ctx, cli, s, true)
+			runningTimestamp = time.Now()
+		})
+
+		It("Use cosign cli", func(ctx SpecContext) {
+			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
+			tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+		})
+	})
+
+	Describe("Rotate PKCS#11 key via keyConfig.id change", func() {
+		var oldCACert []byte
+
+		It("Download old CA cert", func(ctx SpecContext) {
+			f := fulcio.Get(ctx, cli, namespace.Name, s.Name)
+			Expect(f).NotTo(BeNil())
+			Expect(f.Status.Certificate).NotTo(BeNil())
+			Expect(f.Status.Certificate.CARef).NotTo(BeNil())
+			var err error
+			oldCACert, err = kubernetes.GetSecretData(cli, namespace.Name, f.Status.Certificate.CARef)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(oldCACert).NotTo(BeEmpty())
+		})
+
+		It("Update keyConfig.id to trigger rotation", func(ctx SpecContext) {
+			Eventually(func() error {
+				f := securesign.Get(ctx, cli, s.Namespace, s.Name)
+				f.Spec.Fulcio.Certificate.PKCS11.KeyConfig.ID = 200
+				return cli.Update(ctx, f)
+			}).Should(Succeed())
+		})
+
+		It("Status reflects new keyConfig.id", func(ctx SpecContext) {
+			Eventually(func(g Gomega) int {
+				f := fulcio.Get(ctx, cli, namespace.Name, s.Name)
+				g.Expect(f).NotTo(BeNil())
+				g.Expect(f.Status.Certificate).NotTo(BeNil())
+				g.Expect(f.Status.Certificate.PKCS11).NotTo(BeNil())
+				return f.Status.Certificate.PKCS11.KeyConfig.ID
+			}).Should(Equal(200))
+		})
+
+		It("Fulcio pod is recreated after rotation", func(ctx SpecContext) {
+			Eventually(func(g Gomega) bool {
+				list := &v1.PodList{}
+				g.Expect(cli.List(ctx, list, runtimeCli.InNamespace(s.Namespace), runtimeCli.MatchingLabels{labels.LabelAppComponent: fulcioActions.ComponentName})).To(Succeed())
+				for _, p := range list.Items {
+					if p.CreationTimestamp.After(runningTimestamp) {
+						return true
+					}
+				}
+				return false
+			}).Should(BeTrue())
+		})
+
+		It("PKCS11ConfigAvailable is true", func(ctx SpecContext) {
+			Eventually(func(g Gomega) bool {
+				f := fulcio.Get(ctx, cli, namespace.Name, s.Name)
+				g.Expect(f).NotTo(BeNil())
+				return meta.IsStatusConditionTrue(f.GetConditions(), fulcioActions.PKCS11ConfigCondition)
+			}).Should(BeTrue())
+		})
+
+		It("New CA cert is different from old cert", func(ctx SpecContext) {
+			Eventually(func(g Gomega) {
+				f := fulcio.Get(ctx, cli, namespace.Name, s.Name)
+				g.Expect(f).NotTo(BeNil())
+				g.Expect(f.Status.Certificate).NotTo(BeNil())
+				g.Expect(f.Status.Certificate.CARef).NotTo(BeNil())
+
+				newCACert, err := kubernetes.GetSecretData(cli, namespace.Name, f.Status.Certificate.CARef)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(newCACert).NotTo(BeEmpty())
+				g.Expect(newCACert).NotTo(Equal(oldCACert))
+			}).Should(Succeed())
+		})
+
+		It("Only one secret has the Fulcio discovery label", func(ctx SpecContext) {
+			list := &v1.SecretList{}
+			Expect(cli.List(ctx, list,
+				runtimeCli.InNamespace(namespace.Name),
+				runtimeCli.MatchingLabels{labels.LabelNamespace + "/fulcio_v1.crt.pem": "cert"})).To(Succeed())
+			Expect(list.Items).To(HaveLen(1))
+		})
+
+		It("All components are running after rotation", func(ctx SpecContext) {
+			tas.VerifyAllComponents(ctx, cli, s, true)
+		})
+
+		It("Use cosign cli after rotation", func(ctx SpecContext) {
+			newImage := support.PrepareImage(ctx)
+			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
+			tas.VerifyByCosign(ctx, newImage, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+		})
+	})
+})

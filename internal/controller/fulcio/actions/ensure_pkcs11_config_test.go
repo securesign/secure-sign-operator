@@ -51,12 +51,22 @@ func TestEnsurePKCS11Config_CanHandle(t *testing.T) {
 			canHandle: true,
 		},
 		{
-			name: "pkcs11 type, condition already true",
+			name: "pkcs11 type, condition already true, no drift",
 			instance: &rhtasv1alpha1.Fulcio{
 				Spec: rhtasv1alpha1.FulcioSpec{
-					Certificate: rhtasv1alpha1.FulcioCert{CAType: rhtasv1alpha1.CATypePKCS11},
+					Certificate: rhtasv1alpha1.FulcioCert{
+						CAType: rhtasv1alpha1.CATypePKCS11,
+						PKCS11: &rhtasv1alpha1.PKCS11Config{
+							KeyConfig: rhtasv1alpha1.PKCS11KeyConfig{ID: 99, Label: "PKCS11CA", Algorithm: "EC:secp384r1"},
+						},
+					},
 				},
 				Status: rhtasv1alpha1.FulcioStatus{
+					Certificate: &rhtasv1alpha1.FulcioCert{
+						PKCS11: &rhtasv1alpha1.PKCS11Config{
+							KeyConfig: rhtasv1alpha1.PKCS11KeyConfig{ID: 99, Label: "PKCS11CA", Algorithm: "EC:secp384r1"},
+						},
+					},
 					Conditions: []metav1.Condition{
 						{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Creating.String()},
 						{Type: PKCS11ConfigCondition, Status: metav1.ConditionTrue, Reason: "Resolved"},
@@ -64,6 +74,97 @@ func TestEnsurePKCS11Config_CanHandle(t *testing.T) {
 				},
 			},
 			canHandle: false,
+		},
+		{
+			name: "pkcs11 type, condition true, keyConfig.id drift",
+			instance: &rhtasv1alpha1.Fulcio{
+				Spec: rhtasv1alpha1.FulcioSpec{
+					Certificate: rhtasv1alpha1.FulcioCert{
+						CAType: rhtasv1alpha1.CATypePKCS11,
+						PKCS11: &rhtasv1alpha1.PKCS11Config{
+							KeyConfig: rhtasv1alpha1.PKCS11KeyConfig{ID: 100, Label: "PKCS11CA", Algorithm: "EC:secp384r1"},
+						},
+					},
+				},
+				Status: rhtasv1alpha1.FulcioStatus{
+					Certificate: &rhtasv1alpha1.FulcioCert{
+						PKCS11: &rhtasv1alpha1.PKCS11Config{
+							KeyConfig: rhtasv1alpha1.PKCS11KeyConfig{ID: 99, Label: "PKCS11CA", Algorithm: "EC:secp384r1"},
+						},
+					},
+					Conditions: []metav1.Condition{
+						{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Creating.String()},
+						{Type: PKCS11ConfigCondition, Status: metav1.ConditionTrue, Reason: "Resolved"},
+					},
+				},
+			},
+			canHandle: true,
+		},
+		{
+			name: "pkcs11 type, condition true, credentialsRef drift",
+			instance: &rhtasv1alpha1.Fulcio{
+				Spec: rhtasv1alpha1.FulcioSpec{
+					Certificate: rhtasv1alpha1.FulcioCert{
+						CAType: rhtasv1alpha1.CATypePKCS11,
+						PKCS11: &rhtasv1alpha1.PKCS11Config{
+							CredentialsRef: &rhtasv1alpha1.SecretKeySelector{
+								Key:                  "pin",
+								LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "new-creds"},
+							},
+							KeyConfig: rhtasv1alpha1.PKCS11KeyConfig{ID: 99},
+						},
+					},
+				},
+				Status: rhtasv1alpha1.FulcioStatus{
+					Certificate: &rhtasv1alpha1.FulcioCert{
+						PKCS11: &rhtasv1alpha1.PKCS11Config{
+							CredentialsRef: &rhtasv1alpha1.SecretKeySelector{
+								Key:                  "pin",
+								LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "old-creds"},
+							},
+							KeyConfig: rhtasv1alpha1.PKCS11KeyConfig{ID: 99},
+						},
+					},
+					Conditions: []metav1.Condition{
+						{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Creating.String()},
+						{Type: PKCS11ConfigCondition, Status: metav1.ConditionTrue, Reason: "Resolved"},
+					},
+				},
+			},
+			canHandle: true,
+		},
+		{
+			name: "pkcs11 type, condition true, pkcs11ConfigRef drift",
+			instance: &rhtasv1alpha1.Fulcio{
+				Spec: rhtasv1alpha1.FulcioSpec{
+					Certificate: rhtasv1alpha1.FulcioCert{
+						CAType: rhtasv1alpha1.CATypePKCS11,
+						PKCS11: &rhtasv1alpha1.PKCS11Config{
+							PKCS11ConfigRef: &rhtasv1alpha1.SecretKeySelector{
+								Key:                  "crypto11.conf",
+								LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "new-config"},
+							},
+							KeyConfig: rhtasv1alpha1.PKCS11KeyConfig{ID: 99},
+						},
+					},
+				},
+				Status: rhtasv1alpha1.FulcioStatus{
+					Certificate: &rhtasv1alpha1.FulcioCert{
+						PKCS11: &rhtasv1alpha1.PKCS11Config{
+							PKCS11ConfigRef: &rhtasv1alpha1.SecretKeySelector{
+								Key:                  "crypto11.conf",
+								LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "old-config"},
+							},
+							KeyConfig: rhtasv1alpha1.PKCS11KeyConfig{ID: 99},
+						},
+					},
+					Conditions: []metav1.Condition{
+						{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Creating.String()},
+						{Type: PKCS11ConfigCondition, Status: metav1.ConditionTrue, Reason: "Resolved"},
+					},
+				},
+			},
+			canHandle: true,
 		},
 		{
 			name: "pkcs11 type, state too early",
@@ -294,4 +395,85 @@ func TestEnsurePKCS11Config_Handle(t *testing.T) {
 			tt.want.verify(g, instance, c)
 		})
 	}
+}
+
+func TestEnsurePKCS11Config_HandleRotation(t *testing.T) {
+	ctx := context.TODO()
+	g := NewWithT(t)
+
+	instance := &rhtasv1alpha1.Fulcio{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "test-fulcio",
+			Namespace:  "default",
+			Generation: 2,
+		},
+		Spec: rhtasv1alpha1.FulcioSpec{
+			Certificate: rhtasv1alpha1.FulcioCert{
+				CAType: rhtasv1alpha1.CATypePKCS11,
+				PKCS11: &rhtasv1alpha1.PKCS11Config{
+					KeyConfig: rhtasv1alpha1.PKCS11KeyConfig{ID: 100, Label: "PKCS11CA", Algorithm: "EC:secp384r1"},
+					InitContainer: rhtasv1alpha1.PKCS11InitContainer{
+						Image: "quay.io/test/softhsm-init:latest",
+					},
+				},
+			},
+		},
+		Status: rhtasv1alpha1.FulcioStatus{
+			Certificate: &rhtasv1alpha1.FulcioCert{
+				CAType: rhtasv1alpha1.CATypePKCS11,
+				PKCS11: &rhtasv1alpha1.PKCS11Config{
+					KeyConfig: rhtasv1alpha1.PKCS11KeyConfig{ID: 99, Label: "PKCS11CA", Algorithm: "EC:secp384r1"},
+					CredentialsRef: &rhtasv1alpha1.SecretKeySelector{
+						Key:                  "pin",
+						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "existing-creds"},
+					},
+					PKCS11ConfigRef: &rhtasv1alpha1.SecretKeySelector{
+						Key:                  "crypto11.conf",
+						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "existing-conf"},
+					},
+				},
+			},
+			Conditions: []metav1.Condition{
+				{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: state.Ready.String()},
+				{Type: PKCS11ConfigCondition, Status: metav1.ConditionTrue, Reason: "Resolved"},
+				{Type: CertCondition, Status: metav1.ConditionTrue, Reason: "PKCS11Deferred"},
+			},
+		},
+	}
+
+	oldCertSecret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "fulcio-pkcs11-cert-test-fulcio-abc",
+			Namespace: "default",
+			Labels:    map[string]string{FulcioCALabel: "cert"},
+		},
+		Data: map[string][]byte{"cert": []byte("old-cert-pem")},
+	}
+
+	cli := testAction.FakeClientBuilder().
+		WithObjects(instance, oldCertSecret).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(cli, NewEnsurePKCS11ConfigAction())
+
+	g.Expect(a.CanHandle(ctx, instance)).To(BeTrue(), "should detect keyConfig drift")
+
+	result := a.Handle(ctx, instance)
+	g.Expect(result).NotTo(BeNil())
+	g.Expect(result.Err).NotTo(HaveOccurred())
+
+	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, PKCS11ConfigCondition)).To(BeFalse(),
+		"PKCS11ConfigCondition should be reset to false")
+	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, CertCondition)).To(BeFalse(),
+		"CertCondition should be reset to false")
+
+	readyCond := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
+	g.Expect(readyCond).NotTo(BeNil())
+	g.Expect(readyCond.Reason).To(Equal(state.Pending.String()),
+		"ReadyCondition should be reset to Pending")
+
+	certSecret := &v1.Secret{}
+	g.Expect(cli.Get(ctx, client.ObjectKeyFromObject(oldCertSecret), certSecret)).To(Succeed(),
+		"old cert Secret should still exist")
 }
