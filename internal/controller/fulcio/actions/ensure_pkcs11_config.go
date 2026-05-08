@@ -16,6 +16,7 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -60,10 +61,36 @@ func (e ensurePKCS11Config) CanHandle(_ context.Context, instance *rhtasv1alpha1
 	if state.FromInstance(instance, constants.ReadyCondition) < state.Creating {
 		return false
 	}
-	return !meta.IsStatusConditionTrue(instance.Status.Conditions, PKCS11ConfigCondition)
+	if !meta.IsStatusConditionTrue(instance.Status.Conditions, PKCS11ConfigCondition) {
+		return true
+	}
+	return e.hasPKCS11ConfigDrift(instance)
+}
+
+func (e ensurePKCS11Config) hasPKCS11ConfigDrift(instance *rhtasv1alpha1.Fulcio) bool {
+	if instance.Status.Certificate == nil || instance.Status.Certificate.PKCS11 == nil {
+		return true
+	}
+	spec := instance.Spec.Certificate.PKCS11
+	status := instance.Status.Certificate.PKCS11
+
+	if !equality.Semantic.DeepDerivative(spec.CredentialsRef, status.CredentialsRef) {
+		return true
+	}
+	if !equality.Semantic.DeepDerivative(spec.PKCS11ConfigRef, status.PKCS11ConfigRef) {
+		return true
+	}
+	if !equality.Semantic.DeepDerivative(spec.KeyConfig, status.KeyConfig) {
+		return true
+	}
+	return false
 }
 
 func (e ensurePKCS11Config) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) *action.Result {
+	if meta.IsStatusConditionTrue(instance.Status.Conditions, PKCS11ConfigCondition) {
+		return e.handleRotation(ctx, instance)
+	}
+
 	p := instance.Spec.Certificate.PKCS11
 	if p == nil {
 		return e.Error(ctx, fmt.Errorf("pkcs11 config is nil"), instance)
@@ -227,6 +254,36 @@ func (e ensurePKCS11Config) ensurePKCS11Conf(
 		LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: secret.Name},
 	}
 	return nil
+}
+
+func (e ensurePKCS11Config) handleRotation(ctx context.Context, instance *rhtasv1alpha1.Fulcio) *action.Result {
+	existing, _ := kubernetes.FindSecret(ctx, e.Client, instance.Namespace, FulcioCALabel)
+	if existing != nil {
+		if err := labels.Remove(ctx, existing, e.Client, FulcioCALabel); err != nil {
+			return e.Error(ctx, err, instance)
+		}
+		e.Recorder.Eventf(instance, nil, v1.EventTypeNormal,
+			"PKCS11RotationCertPreserved", "Rotation",
+			"Old cert label removed from %s", existing.Name)
+	}
+
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type: PKCS11ConfigCondition, Status: metav1.ConditionFalse,
+		Reason: "Rotation", Message: "PKCS#11 configuration drift detected",
+	})
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type: CertCondition, Status: metav1.ConditionFalse, Reason: "Rotation",
+	})
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type: constants.ReadyCondition, Status: metav1.ConditionFalse,
+		Reason: state.Pending.String(), ObservedGeneration: instance.Generation,
+	})
+
+	e.Recorder.Eventf(instance, nil, v1.EventTypeNormal,
+		"PKCS11RotationStarted", "Rotation",
+		"Key rotation initiated, re-deploying Fulcio")
+
+	return e.StatusUpdate(ctx, instance)
 }
 
 func (e ensurePKCS11Config) ensureInlineVolumes(
