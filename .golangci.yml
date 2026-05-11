@@ -8,6 +8,7 @@ run:
 linters:
   default: none
   enable:
+    - actionlint
     - copyloopvar
     - errcheck
     - ginkgolinter
@@ -23,6 +24,10 @@ linters:
     - unparam
     - unused
   settings:
+    custom:
+      actionlint:
+        type: "module"
+        description: "Checks action framework patterns (PersistStatus errors, Spec mutations)"
     staticcheck:
       dot-import-whitelist:
         - github.com/onsi/gomega
