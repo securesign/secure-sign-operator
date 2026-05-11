@@ -306,6 +306,68 @@ func WithTSA() Opts {
 	}
 }
 
+func WithPKCS11RefCerts(credSecretName, confSecretName, softhsmCMName string) Opts {
+	return func(s *v1alpha1.Securesign) {
+		s.Spec.Fulcio.Certificate = v1alpha1.FulcioCert{
+			CAType:            v1alpha1.CATypePKCS11,
+			OrganizationName:  "MyOrg",
+			OrganizationEmail: "my@email.org",
+			CommonName:        "fulcio",
+			PKCS11: &v1alpha1.PKCS11Config{
+				CredentialsRef: &v1alpha1.SecretKeySelector{
+					LocalObjectReference: v1alpha1.LocalObjectReference{Name: credSecretName},
+					Key:                  "pin",
+				},
+				PKCS11ConfigRef: &v1alpha1.SecretKeySelector{
+					LocalObjectReference: v1alpha1.LocalObjectReference{Name: confSecretName},
+					Key:                  "crypto11.conf",
+				},
+				LibraryPath: "/usr/lib64/pkcs11/libsofthsm2.so",
+				InitContainer: v1alpha1.PKCS11InitContainer{
+					Image: support.EnvOrDefault("PKCS11_INIT_IMAGE", "quay.io/rh-ee-sacm/softhsm-init:latest"),
+					Env: []v1alpha1.PKCS11EnvVar{
+						{Name: "SOFTHSM2_CONF", Value: "/etc/softhsm/softhsm2.conf"},
+					},
+					Volumes: []v1alpha1.PKCS11Volume{
+						{
+							Name:          "softhsm-config",
+							MountPath:     "/etc/softhsm",
+							ConfigMapName: softhsmCMName,
+						},
+					},
+				},
+				ServerEnv: []v1alpha1.PKCS11EnvVar{
+					{Name: "SOFTHSM2_CONF", Value: "/etc/softhsm/softhsm2.conf"},
+				},
+			},
+		}
+
+		if s.Spec.TimestampAuthority != nil {
+			s.Spec.TimestampAuthority.Signer = v1alpha1.TimestampAuthoritySigner{
+				CertificateChain: v1alpha1.CertificateChain{
+					RootCA: &v1alpha1.TsaCertificateAuthority{
+						OrganizationName:  "MyOrg",
+						OrganizationEmail: "my@email.org",
+						CommonName:        "tsa.hostname",
+					},
+					IntermediateCA: []*v1alpha1.TsaCertificateAuthority{
+						{
+							OrganizationName:  "MyOrg",
+							OrganizationEmail: "my@email.org",
+							CommonName:        "tsa.hostname",
+						},
+					},
+					LeafCA: &v1alpha1.TsaCertificateAuthority{
+						OrganizationName:  "MyOrg",
+						OrganizationEmail: "my@email.org",
+						CommonName:        "tsa.hostname",
+					},
+				},
+			}
+		}
+	}
+}
+
 func WithPKCS11Persistence() Opts {
 	return func(s *v1alpha1.Securesign) {
 		if s.Spec.Fulcio.Certificate.PKCS11 != nil {
