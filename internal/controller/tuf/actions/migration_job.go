@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"time"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
@@ -99,7 +100,14 @@ func (i migrationJobAction) jobPresent(ctx context.Context, job *batchv1.Job, in
 				Reason:  state.Initialize.String(),
 				Message: "migration job passed",
 			})
-			return i.StatusUpdate(ctx, instance)
+			changed, err := i.PersistStatus(ctx, instance)
+			if err != nil {
+				return i.Error(ctx, err, instance)
+			}
+			if !changed {
+				return i.Requeue()
+			}
+			return i.Return()
 		} else {
 			err := fmt.Errorf("tuf-repository-migration job failed")
 			i.Recorder.Eventf(instance, nil, corev1.EventTypeWarning, "TUFMigrationJob", "Failed", err.Error())
@@ -112,12 +120,11 @@ func (i migrationJobAction) jobPresent(ctx context.Context, job *batchv1.Job, in
 			Reason:  state.Initialize.String(),
 			Message: "waiting for migration job to complete",
 		})
-		result := i.StatusUpdate(ctx, instance)
-		if result.Err != nil {
-			return result
+		if _, err := i.PersistStatus(ctx, instance); err != nil {
+			return i.Error(ctx, err, instance)
 		}
 		// ensure that new requeue iteration is triggered even if no status update happened
-		return i.Requeue()
+		return i.RequeueAfter(5 * time.Second)
 	}
 }
 
@@ -159,6 +166,13 @@ func (i migrationJobAction) ensureMigrationJob(ctx context.Context, labels map[s
 		Reason:  state.Initialize.String(),
 		Message: "migration job created",
 	})
-	return i.StatusUpdate(ctx, instance)
+	changed, err := i.PersistStatus(ctx, instance)
+	if err != nil {
+		return i.Error(ctx, err, instance)
+	}
+	if !changed {
+		return i.Requeue()
+	}
+	return i.Return()
 
 }

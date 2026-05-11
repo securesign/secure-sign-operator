@@ -38,7 +38,14 @@ func (i updateStatusAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 			Reason:             meta.FindStatusCondition(instance.Status.Conditions, sorted[0]).Reason,
 			ObservedGeneration: instance.Generation,
 		})
-		return i.StatusUpdate(ctx, instance)
+		changed, err := i.PersistStatus(ctx, instance)
+		if err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		if !changed {
+			return i.Requeue()
+		}
+		return i.Return()
 	}
 	if !meta.IsStatusConditionTrue(instance.Status.Conditions, constants.ReadyCondition) {
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
@@ -47,7 +54,14 @@ func (i updateStatusAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 			Reason:             state.Ready.String(),
 			ObservedGeneration: instance.Generation,
 		})
-		return i.StatusUpdate(ctx, instance)
+		changed, err := i.PersistStatus(ctx, instance)
+		if err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		if !changed {
+			return i.Requeue()
+		}
+		return i.Return()
 	}
 	return i.Continue()
 }

@@ -51,7 +51,7 @@ func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Reko
 
 	content, err := createShardingConfigData(instance.Spec.Sharding)
 	if err != nil {
-		i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create sharding config: %w", err)), instance)
+		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create sharding config: %w", err)), instance)
 	}
 
 	// verify existing config
@@ -102,11 +102,15 @@ func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Reko
 		Message: "Sharding config created",
 	})
 
-	result := i.StatusUpdate(ctx, instance)
-	if action.IsSuccess(result) {
-		i.cleanup(ctx, instance, labels)
+	changed, err := i.PersistStatus(ctx, instance)
+	if err != nil {
+		return i.Error(ctx, err, instance)
 	}
-	return result
+	i.cleanup(ctx, instance, labels)
+	if !changed {
+		return i.Requeue()
+	}
+	return i.Return()
 }
 
 func (i shardingConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.Rekor, configLabels map[string]string) {

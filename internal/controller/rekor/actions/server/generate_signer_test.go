@@ -268,7 +268,7 @@ func TestGenerateSigner_Handle(t *testing.T) {
 				status: rhtasv1alpha1.RekorSigner{},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, instance *rhtasv1alpha1.Rekor) {
 					g.Expect(instance.Status.Signer.KeyRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.Signer.KeyRef.Name).Should(Equal("secret"))
@@ -286,7 +286,7 @@ func TestGenerateSigner_Handle(t *testing.T) {
 				status: rhtasv1alpha1.RekorSigner{},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, instance *rhtasv1alpha1.Rekor) {
 					g.Expect(instance.Status.Signer.KeyRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.Signer.KeyRef.Name).Should(ContainSubstring("rekor-signer-rekor-"))
@@ -307,7 +307,7 @@ func TestGenerateSigner_Handle(t *testing.T) {
 				status: rhtasv1alpha1.RekorSigner{},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, instance *rhtasv1alpha1.Rekor) {
 					g.Expect(instance.Status.Signer.KeyRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.Signer.KeyRef.Name).Should(Equal("new_secret"))
@@ -333,7 +333,7 @@ func TestGenerateSigner_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, instance *rhtasv1alpha1.Rekor) {
 					g.Expect(instance.Status.Signer.KeyRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.Signer.KeyRef.Name).Should(Equal("secret"))
@@ -353,7 +353,7 @@ func TestGenerateSigner_Handle(t *testing.T) {
 				status: rhtasv1alpha1.RekorSigner{},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, instance *rhtasv1alpha1.Rekor) {
 					g.Expect(instance.Status.Signer.KMS).ShouldNot(BeNil())
 					g.Expect(instance.Status.Signer.KMS).Should(Equal("awskms://1234abcd-12ab-34cd-56ef-1234567890ab?region=us-east-1"))
@@ -377,7 +377,7 @@ func TestGenerateSigner_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, instance *rhtasv1alpha1.Rekor) {
 					g.Expect(instance.Status.Signer.KMS).ShouldNot(BeNil())
 					g.Expect(instance.Status.Signer.KMS).Should(Equal("new-kms"))
@@ -400,7 +400,7 @@ func TestGenerateSigner_Handle(t *testing.T) {
 				status: rhtasv1alpha1.RekorSigner{},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, instance *rhtasv1alpha1.Rekor) {
 					g.Expect(instance.Status.Signer.KeyRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.Signer.KeyRef.Name).Should(Equal("secret"))
@@ -494,7 +494,7 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					rekor := &rhtasv1alpha1.Rekor{}
 					g.Expect(cli.Get(context.TODO(), rekorNN, rekor)).Should(Succeed())
@@ -523,7 +523,7 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					rekor := &rhtasv1alpha1.Rekor{}
 					g.Expect(cli.Get(context.TODO(), rekorNN, rekor)).Should(Succeed())
@@ -579,9 +579,9 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 				t.Errorf("CanHandle() = %v, want %v", got, tt.want.result)
 			}
 
-			// secound execution should not modify result
+			// second execution should not modify result
 			if got := a.Handle(ctx, instance); !reflect.DeepEqual(got, tt.want.result) {
-				t.Errorf("CanHandle() = %v, want %v", got, tt.want.result)
+				t.Errorf("second Handle() = %v, want %v", got, tt.want.result)
 			}
 
 			watchSecrets.Stop()

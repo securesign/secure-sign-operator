@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -81,7 +82,7 @@ func testMissingCondition(t *testing.T) {
 		{
 			desc: "treeID set, condition not-set",
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(ctx context.Context, g Gomega, c client.WithWatch) {
 					r := v1alpha1.Rekor{}
 					g.Expect(c.Get(ctx, nnObject, &r)).To(Succeed())
@@ -142,7 +143,7 @@ func testManual(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(ctx context.Context, g Gomega, c client.WithWatch) {
 					r := v1alpha1.Rekor{}
 					g.Expect(c.Get(ctx, nnObject, &r)).To(Succeed())
@@ -196,7 +197,7 @@ func testConfigMap(t *testing.T) {
 				warmUp: false,
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(ctx context.Context, g Gomega, c client.WithWatch) {
 					g.Expect(c.Get(ctx, nnResult, &corev1.ConfigMap{})).To(Succeed())
 				},
@@ -251,7 +252,7 @@ func testCreateJob(t *testing.T) {
 		{
 			desc: "requeue",
 			want: want{
-				result: testAction.Requeue(),
+				result: testAction.RequeueAfter(5 * time.Second),
 			},
 		},
 		{
@@ -288,7 +289,7 @@ func testCreateJob(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(ctx context.Context, g Gomega, c client.WithWatch) {
 					jobs := &v1.JobList{}
 					g.Expect(c.List(ctx, jobs, client.InNamespace("default"))).To(Succeed())
@@ -320,7 +321,7 @@ func testMonitorJob(t *testing.T) {
 		{
 			desc: "requeue: missing configmap",
 			want: want{
-				result: testAction.Requeue(),
+				result: testAction.RequeueAfter(5 * time.Second),
 			},
 		},
 		{
@@ -337,7 +338,7 @@ func testMonitorJob(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.Requeue(),
+				result: testAction.RequeueAfter(5 * time.Second),
 			},
 		},
 		{
@@ -357,7 +358,7 @@ func testMonitorJob(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.Requeue(),
+				result: testAction.RequeueAfter(5 * time.Second),
 			},
 		},
 		{
@@ -385,7 +386,7 @@ func testMonitorJob(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.Requeue(),
+				result: testAction.RequeueAfter(5 * time.Second),
 			},
 		},
 		{
@@ -476,7 +477,7 @@ func testExtractResult(t *testing.T) {
 		{
 			desc: "requeue: missing configmap",
 			want: want{
-				result: testAction.Requeue(),
+				result: testAction.RequeueAfter(5 * time.Second),
 			},
 		},
 		{
@@ -496,7 +497,7 @@ func testExtractResult(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.Requeue(),
+				result: testAction.RequeueAfter(5 * time.Second),
 			},
 		},
 		{
@@ -544,7 +545,7 @@ func testExtractResult(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(ctx context.Context, g Gomega, c client.WithWatch) {
 					r := v1alpha1.Rekor{}
 					g.Expect(c.Get(ctx, nnObject, &r)).To(Succeed())

@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"errors"
+	"time"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
@@ -51,7 +52,10 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fu
 			Reason:  state.Initialize.String(),
 			Message: "Waiting for deployment to be ready",
 		})
-		return i.StatusUpdate(ctx, instance)
+		if _, err := i.PersistStatus(ctx, instance); err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		return i.RequeueAfter(5 * time.Second)
 	}
 
 	return i.Continue()

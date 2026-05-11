@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"time"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
@@ -76,7 +77,14 @@ func (i initJobAction) jobPresent(ctx context.Context, job *v2.Job, instance *rh
 					return i.Error(ctx, err, instance)
 				}
 			}
-			return i.StatusUpdate(ctx, instance)
+			changed, err := i.PersistStatus(ctx, instance)
+			if err != nil {
+				return i.Error(ctx, err, instance)
+			}
+			if !changed {
+				return i.Requeue()
+			}
+			return i.Return()
 		} else {
 			err := fmt.Errorf("tuf-repository-init job failed")
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -89,7 +97,7 @@ func (i initJobAction) jobPresent(ctx context.Context, job *v2.Job, instance *rh
 		}
 	} else {
 		// job not completed yet
-		return i.Requeue()
+		return i.RequeueAfter(5 * time.Second)
 	}
 }
 
@@ -122,5 +130,5 @@ func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]stri
 	}
 
 	i.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "JobCreated", "Created", "Tuf init-repository job created.")
-	return i.Requeue()
+	return i.RequeueAfter(5 * time.Second)
 }

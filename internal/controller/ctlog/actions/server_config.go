@@ -7,6 +7,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"time"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
@@ -103,7 +104,14 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 			Message:            "Using custom server config",
 			ObservedGeneration: instance.Generation,
 		})
-		return i.StatusUpdate(ctx, instance)
+		changed, err := i.PersistStatus(ctx, instance)
+		if err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		if !changed {
+			return i.Requeue()
+		}
+		return i.Return()
 	}
 
 	// Validate prerequisites and normalize Trillian address before validation
@@ -151,7 +159,14 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 					Message:            c.Message,
 					ObservedGeneration: instance.Generation,
 				})
-				return i.StatusUpdate(ctx, instance)
+				changed, err := i.PersistStatus(ctx, instance)
+				if err != nil {
+					return i.Error(ctx, err, instance)
+				}
+				if !changed {
+					return i.Requeue()
+				}
+				return i.Return()
 			}
 			return i.Continue()
 		}
@@ -168,8 +183,10 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 			Message:            fmt.Sprintf("Waiting for Fulcio root certificate: %v", err.Error()),
 			ObservedGeneration: instance.Generation,
 		})
-		i.StatusUpdate(ctx, instance)
-		return i.Requeue()
+		if _, err := i.PersistStatus(ctx, instance); err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		return i.RequeueAfter(5 * time.Second)
 	}
 
 	certConfig, err := i.handlePrivateKey(instance)
@@ -181,8 +198,10 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 			Message:            "Waiting for Ctlog private key secret",
 			ObservedGeneration: instance.Generation,
 		})
-		i.StatusUpdate(ctx, instance)
-		return i.Requeue()
+		if _, err := i.PersistStatus(ctx, instance); err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		return i.RequeueAfter(5 * time.Second)
 	}
 
 	var cfg map[string][]byte
@@ -233,11 +252,15 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		Message:            "Server config created",
 		ObservedGeneration: instance.Generation,
 	})
-	result := i.StatusUpdate(ctx, instance)
-	if action.IsSuccess(result) {
-		i.cleanup(ctx, instance, configLabels)
+	changed, err := i.PersistStatus(ctx, instance)
+	if err != nil {
+		return i.Error(ctx, err, instance)
 	}
-	return result
+	i.cleanup(ctx, instance, configLabels)
+	if !changed {
+		return i.Requeue()
+	}
+	return i.Return()
 }
 
 func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.CTlog, configLabels map[string]string) {

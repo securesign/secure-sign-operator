@@ -116,7 +116,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
 					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
@@ -155,7 +155,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
 					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
@@ -213,7 +213,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
 					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
@@ -268,7 +268,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
 					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
@@ -391,7 +391,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
 					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
@@ -429,7 +429,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
 					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())
@@ -475,7 +475,7 @@ func TestShardingConfig_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, c client.WithWatch, events <-chan watch.Event) {
 					r := rhtasv1alpha1.Rekor{}
 					g.Expect(c.Get(context.TODO(), rekorNN, &r)).To(Succeed())

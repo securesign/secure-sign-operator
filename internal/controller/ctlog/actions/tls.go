@@ -52,7 +52,14 @@ func (i tlsAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) *a
 			Reason:  "NotProvided",
 			Message: "Communication to CTLog is insecure",
 		})
-		return i.StatusUpdate(ctx, instance)
+		changed, err := i.PersistStatus(ctx, instance)
+		if err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		if !changed {
+			return i.Requeue()
+		}
+		return i.Return()
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -61,5 +68,12 @@ func (i tlsAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) *a
 		Reason:  "TLSResolved",
 		Message: "TLS configuration resolved",
 	})
-	return i.StatusUpdate(ctx, instance)
+	changed, err := i.PersistStatus(ctx, instance)
+	if err != nil {
+		return i.Error(ctx, err, instance)
+	}
+	if !changed {
+		return i.Requeue()
+	}
+	return i.Return()
 }

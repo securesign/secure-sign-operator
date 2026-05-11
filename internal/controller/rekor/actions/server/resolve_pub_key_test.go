@@ -104,7 +104,7 @@ func TestResolvePubKey_Handle(t *testing.T) {
 				objects: []client.Object{},
 			},
 			want: want{
-				result:    testAction.StatusUpdate(),
+				result:    testAction.Return(),
 				publicKey: testPublicKey,
 			},
 		},
@@ -127,7 +127,7 @@ func TestResolvePubKey_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result:    testAction.StatusUpdate(),
+				result:    testAction.Return(),
 				publicKey: testPublicKey,
 			},
 		},
@@ -150,7 +150,7 @@ func TestResolvePubKey_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result:    testAction.StatusUpdate(),
+				result:    testAction.Return(),
 				publicKey: testPublicKey,
 			},
 		},
@@ -197,7 +197,7 @@ func TestResolvePubKey_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result:    testAction.StatusUpdate(),
+				result:    testAction.Return(),
 				publicKey: testPublicKey,
 			},
 		},
