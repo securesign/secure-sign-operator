@@ -297,7 +297,7 @@ func (g handleCert) calculateHostname(ctx context.Context, instance *v1alpha1.Fu
 		return nil
 	}
 
-	instance.Spec.ExternalAccess.Host, err = kubernetes.CalculateHostname(ctx, g.Client, DeploymentName, instance.Namespace)
+	instance.Status.Certificate.CommonName, err = kubernetes.CalculateHostname(ctx, g.Client, DeploymentName, instance.Namespace)
 
 	return err
 }
