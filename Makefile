@@ -144,12 +144,12 @@ dev-images:
 	fi
 
 .PHONY: lint
-lint: golangci-lint ## Run golangci-lint linter & yamllint
-	$(GOLANGCI_LINT) run
+lint: custom-golangci-lint ## Run golangci-lint linter (includes action framework checks).
+	$(CUSTOM_GOLANGCI_LINT) run
 
 .PHONY: lint-fix
-lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
-	$(GOLANGCI_LINT) run --fix
+lint-fix: custom-golangci-lint ## Run golangci-lint linter and perform fixes
+	$(CUSTOM_GOLANGCI_LINT) run --fix
 
 ##@ Build
 
@@ -245,6 +245,7 @@ KUSTOMIZE ?= $(LOCALBIN)/kustomize-$(KUSTOMIZE_VERSION)
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
 ENVTEST ?= $(LOCALBIN)/setup-envtest-$(ENVTEST_VERSION)
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
+CUSTOM_GOLANGCI_LINT = $(LOCALBIN)/custom-gcl
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.6.0
@@ -271,6 +272,10 @@ $(ENVTEST): $(LOCALBIN)
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
 	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/v2/cmd/golangci-lint,${GOLANGCI_LINT_VERSION})
+
+.PHONY: custom-golangci-lint
+custom-golangci-lint: golangci-lint ## Build golangci-lint with action framework linter plugin.
+	$(GOLANGCI_LINT) custom --destination $(LOCALBIN)
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary (ideally with version)
