@@ -21,7 +21,6 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
-	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	v1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,11 +56,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	)
 
 	labels := labels.For(ComponentName, DeploymentName, instance.Name)
-
-	switch instance.Spec.Trillian.Address {
-	case "":
-		instance.Spec.Trillian.Address = fmt.Sprintf("%s.%s.svc", trillian.LogserverDeploymentName, instance.Namespace)
-	}
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		&v1.Deployment{
@@ -113,7 +107,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.CTlog, sa string,
 			return fmt.Errorf("CreateCTLogDeployment: %w", utils.ErrServerConfigNotSpecified)
 		case instance.Status.TreeID == nil:
 			return fmt.Errorf("CreateCTLogDeployment: %w", utils.ErrTreeNotSpecified)
-		case instance.Spec.Trillian.Address == "":
+		case resolveTrillianAddress(instance) == "":
 			return fmt.Errorf("CreateCTLogDeployment: %w", utils.ErrTrillianAddressNotSpecified)
 		case instance.Spec.Trillian.Port == nil:
 			return fmt.Errorf("CreateCTLogDeployment: %w", utils.ErrTrillianPortNotSpecified)

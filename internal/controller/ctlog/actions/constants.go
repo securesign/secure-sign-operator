@@ -1,7 +1,12 @@
 package actions
 
 import (
+	"fmt"
+
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/labels"
+
+	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 )
 
 const (
@@ -39,3 +44,10 @@ var (
 	ManagedLabels      = []string{CTLogPrivateLabel, CTLPubLabel}
 	ManagedAnnotations = []string{privateKeyRefAnnotation, passwordKeyRefAnnotation}
 )
+
+func resolveTrillianAddress(instance *rhtasv1alpha1.CTlog) string {
+	if instance.Spec.Trillian.Address != "" {
+		return instance.Spec.Trillian.Address
+	}
+	return fmt.Sprintf("%s.%s.svc", trillian.LogserverDeploymentName, instance.Namespace)
+}

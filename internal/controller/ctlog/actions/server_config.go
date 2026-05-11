@@ -12,7 +12,6 @@ import (
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
-	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
@@ -76,11 +75,9 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrPrivateKeyNotSpecified), instance)
 	case instance.Spec.Trillian.Port == nil:
 		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrTrillianPortNotSpecified)), instance)
-	case instance.Spec.Trillian.Address == "":
-		instance.Spec.Trillian.Address = fmt.Sprintf("%s.%s.svc", trillian.LogserverDeploymentName, instance.Namespace)
 	}
 
-	trillianUrl := fmt.Sprintf("%s:%d", instance.Spec.Trillian.Address, *instance.Spec.Trillian.Port)
+	trillianUrl := fmt.Sprintf("%s:%d", resolveTrillianAddress(instance), *instance.Spec.Trillian.Port)
 
 	// Validate existing secret before attempting recreation
 	if instance.Status.ServerConfigRef != nil && instance.Status.ServerConfigRef.Name != "" {
