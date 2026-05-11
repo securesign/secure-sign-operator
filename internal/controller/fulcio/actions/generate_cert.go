@@ -9,7 +9,7 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	v1alpha1 "github.com/securesign/operator/api/v1beta1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
@@ -222,7 +222,7 @@ func (g handleCert) setupCert(instance *v1alpha1.Fulcio) (*utils.FulcioCertConfi
 	}
 
 	if ref := instance.Status.Certificate.PrivateKeyPasswordRef; ref != nil {
-		password, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
+		password, err := kubernetes.GetSecretData(g.Client, instance.Namespace, toAlphaSecretKeySelector(ref))
 		if err != nil {
 			return nil, err
 		}
@@ -231,7 +231,7 @@ func (g handleCert) setupCert(instance *v1alpha1.Fulcio) (*utils.FulcioCertConfi
 		config.PrivateKeyPassword = utils2.GeneratePassword(8)
 	}
 	if ref := instance.Status.Certificate.PrivateKeyRef; ref != nil {
-		key, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
+		key, err := kubernetes.GetSecretData(g.Client, instance.Namespace, toAlphaSecretKeySelector(ref))
 		if err != nil {
 			return nil, err
 		}
@@ -256,7 +256,7 @@ func (g handleCert) setupCert(instance *v1alpha1.Fulcio) (*utils.FulcioCertConfi
 	}
 
 	if ref := instance.Status.Certificate.CARef; ref != nil {
-		key, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
+		key, err := kubernetes.GetSecretData(g.Client, instance.Namespace, toAlphaSecretKeySelector(ref))
 		if err != nil {
 			return nil, err
 		}

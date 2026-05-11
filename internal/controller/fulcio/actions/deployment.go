@@ -25,7 +25,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1beta1"
 	futils "github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/images"
 )
@@ -67,8 +67,8 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy("@fulcio-legacy-grpc-socket"),
-		deployment.TrustedCA(instance.GetTrustedCA(), containerName),
-		deployment.PodRequirements(instance.Spec.PodRequirements, containerName),
+		deployment.TrustedCA(toAlphaLocalObjectReference(instance.GetTrustedCA()), containerName),
+		deployment.PodRequirements(toAlphaPodRequirements(instance.Spec.PodRequirements), containerName),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Fulcio: %w", err), instance)
 	}
@@ -99,7 +99,7 @@ func (i deployAction) resolveCTlogUrl(instance *rhtasv1alpha1.Fulcio) (string, e
 	var (
 		protocol string
 	)
-	if tls.UseTlsClient(instance) {
+	if tls.UseTlsClient(newFulcioTLSBridge(instance)) {
 		protocol = "https"
 	} else {
 		protocol = "http"

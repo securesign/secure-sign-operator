@@ -8,7 +8,7 @@ import (
 	"path"
 	"slices"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1beta1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
@@ -215,7 +215,7 @@ func (e ensurePKCS11Config) ensurePKCS11Conf(
 
 	pin := spec.Pin
 	if status.CredentialsRef != nil {
-		pinData, pinErr := kubernetes.GetSecretData(e.Client, instance.Namespace, status.CredentialsRef)
+		pinData, pinErr := kubernetes.GetSecretData(e.Client, instance.Namespace, toAlphaSecretKeySelector(status.CredentialsRef))
 		if pinErr == nil {
 			pin = string(pinData)
 		}

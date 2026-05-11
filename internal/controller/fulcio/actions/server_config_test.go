@@ -16,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1beta1"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

@@ -4,6 +4,6 @@ resources:
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
-- newTag: 1.5.0
-  name: controller
-  newName: registry.redhat.io/rhtas/rhtas-rhel9-operator
+- name: controller
+  newName: quay.io/rh-ee-sacm/rhtas-operator
+  newTag: pkcs11-v9

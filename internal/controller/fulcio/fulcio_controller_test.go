@@ -26,7 +26,7 @@ import (
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/v1beta1"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -58,7 +58,7 @@ var _ = Describe("Fulcio controller", func() {
 		}
 
 		typeNamespaceName := types.NamespacedName{Name: Name, Namespace: Namespace}
-		instance := &v1alpha1.Fulcio{}
+		instance := &v1beta1.Fulcio{}
 
 		BeforeEach(func() {
 			By("Creating the Namespace to perform the tests")
@@ -68,7 +68,7 @@ var _ = Describe("Fulcio controller", func() {
 
 		AfterEach(func() {
 			By("removing the custom resource for the Kind Fulcio")
-			found := &v1alpha1.Fulcio{}
+			found := &v1beta1.Fulcio{}
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
 
@@ -89,18 +89,18 @@ var _ = Describe("Fulcio controller", func() {
 			if err != nil && errors.IsNotFound(err) {
 				// Let's mock our custom resource at the same way that we would
 				// apply on the cluster the manifest under config/samples
-				instance := &v1alpha1.Fulcio{
+				instance := &v1beta1.Fulcio{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      Name,
 						Namespace: Namespace,
 					},
-					Spec: v1alpha1.FulcioSpec{
-						ExternalAccess: v1alpha1.ExternalAccess{
+					Spec: v1beta1.FulcioSpec{
+						ExternalAccess: v1beta1.ExternalAccess{
 							Host:    "fulcio.localhost",
 							Enabled: true,
 						},
-						Config: v1alpha1.FulcioConfig{
-							OIDCIssuers: []v1alpha1.OIDCIssuer{
+						Config: v1beta1.FulcioConfig{
+							OIDCIssuers: []v1beta1.OIDCIssuer{
 								{
 									IssuerURL: "test",
 									Issuer:    "test",
@@ -109,19 +109,19 @@ var _ = Describe("Fulcio controller", func() {
 								},
 							},
 						},
-						Certificate: v1alpha1.FulcioCert{
+						Certificate: v1beta1.FulcioCert{
 							OrganizationName:  "MyOrg",
 							OrganizationEmail: "my@email.com",
 							CommonName:        "local",
-							PrivateKeyPasswordRef: &v1alpha1.SecretKeySelector{
-								LocalObjectReference: v1alpha1.LocalObjectReference{
+							PrivateKeyPasswordRef: &v1beta1.SecretKeySelector{
+								LocalObjectReference: v1beta1.LocalObjectReference{
 									Name: "password-secret",
 								},
 								Key: "password",
 							},
 						},
-						Monitoring: v1alpha1.MonitoringConfig{Enabled: false},
-						TrustedCA: &v1alpha1.LocalObjectReference{
+						Monitoring: v1beta1.MonitoringConfig{Enabled: false},
+						TrustedCA: &v1beta1.LocalObjectReference{
 							Name: "trusted-ca-bundle",
 						},
 					},
@@ -132,20 +132,20 @@ var _ = Describe("Fulcio controller", func() {
 
 			By("Checking if the custom resource was successfully created")
 			Eventually(func() error {
-				found := &v1alpha1.Fulcio{}
+				found := &v1beta1.Fulcio{}
 				return suite.Client().Get(ctx, typeNamespaceName, found)
 			}).Should(Succeed())
 
 			By("Status conditions are initialized")
 			Eventually(func(g Gomega) bool {
-				found := &v1alpha1.Fulcio{}
+				found := &v1beta1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
 			}).Should(BeTrue())
 
 			By("Pending phase until password key is resolved")
 			Eventually(func(g Gomega) string {
-				found := &v1alpha1.Fulcio{}
+				found := &v1beta1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
 			}).Should(Equal(state.Pending.String()))
@@ -174,22 +174,22 @@ var _ = Describe("Fulcio controller", func() {
 			}).Should(Not(BeNil()))
 
 			Eventually(func(g Gomega) bool {
-				found := &v1alpha1.Fulcio{}
+				found := &v1beta1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, actions.CertCondition)
 			}).Should(BeTrue())
 			Eventually(func(g Gomega) string {
-				found := &v1alpha1.Fulcio{}
+				found := &v1beta1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Certificate.CARef.Name
 			}).Should(Equal(certSecret.Name))
 			Eventually(func(g Gomega) string {
-				found := &v1alpha1.Fulcio{}
+				found := &v1beta1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Certificate.PrivateKeyRef.Name
 			}).Should(Equal(certSecret.Name))
 			Eventually(func(g Gomega) string {
-				found := &v1alpha1.Fulcio{}
+				found := &v1beta1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Certificate.PrivateKeyPasswordRef.Name
 			}).Should(Equal("password-secret"))
@@ -208,7 +208,7 @@ var _ = Describe("Fulcio controller", func() {
 
 			By("Waiting until Fulcio instance is Ready")
 			Eventually(func(g Gomega) bool {
-				found := &v1alpha1.Fulcio{}
+				found := &v1beta1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())

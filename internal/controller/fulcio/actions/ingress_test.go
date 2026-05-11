@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/internal/state"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1beta1"
 	"github.com/securesign/operator/internal/constants"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

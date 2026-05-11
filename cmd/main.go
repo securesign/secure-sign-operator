@@ -62,6 +62,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1beta1 "github.com/securesign/operator/api/v1beta1"
 	"github.com/securesign/operator/internal/controller/ctlog"
 	"github.com/securesign/operator/internal/controller/fulcio"
 	"github.com/securesign/operator/internal/controller/rekor"
@@ -80,6 +81,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(rhtasv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(rhtasv1beta1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(v1.AddToScheme(scheme))
 	utilruntime.Must(configv1.AddToScheme(scheme))

@@ -6,7 +6,7 @@ import (
 	"maps"
 	"slices"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1beta1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
@@ -54,7 +54,7 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulci
 		&v2.Ingress{
 			ObjectMeta: metav1.ObjectMeta{Name: svc.Name, Namespace: svc.Namespace},
 		},
-		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.ExternalAccess, ServerPortName),
+		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, toAlphaExternalAccess(instance.Spec.ExternalAccess), ServerPortName),
 		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
 		// add route selector labels
 		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.ExternalAccess.RouteSelectorLabels)), instance.Spec.ExternalAccess.RouteSelectorLabels),

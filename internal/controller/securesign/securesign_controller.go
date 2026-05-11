@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/tools/events"
 
 	"github.com/operator-framework/operator-lib/predicate"
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1beta1"
 	"github.com/securesign/operator/internal/controller/securesign/actions"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"

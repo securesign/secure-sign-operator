@@ -4,7 +4,7 @@ import (
 	"context"
 
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/api/v1beta1"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/condition"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -25,8 +25,8 @@ func Verify(ctx context.Context, cli client.Client, namespace string, name strin
 			))
 }
 
-func Get(ctx context.Context, cli client.Client, ns string, name string) *v1alpha1.Securesign {
-	instance := &v1alpha1.Securesign{}
+func Get(ctx context.Context, cli client.Client, ns string, name string) *v1beta1.Securesign {
+	instance := &v1beta1.Securesign{}
 	if e := cli.Get(ctx, types.NamespacedName{
 		Namespace: ns,
 		Name:      name,
@@ -36,10 +36,10 @@ func Get(ctx context.Context, cli client.Client, ns string, name string) *v1alph
 	return instance
 }
 
-type Opts func(*v1alpha1.Securesign)
+type Opts func(*v1beta1.Securesign)
 
-func Create(namespace, name string, opts ...Opts) *v1alpha1.Securesign {
-	obj := &v1alpha1.Securesign{
+func Create(namespace, name string, opts ...Opts) *v1beta1.Securesign {
+	obj := &v1beta1.Securesign{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -54,7 +54,7 @@ func Create(namespace, name string, opts ...Opts) *v1alpha1.Securesign {
 }
 
 func WithDefaults() Opts {
-	return func(s *v1alpha1.Securesign) {
+	return func(s *v1beta1.Securesign) {
 		WithTSA()(s)
 		WithGeneratedCerts()(s)
 		WithManagedDatabase()(s)
@@ -65,7 +65,7 @@ func WithDefaults() Opts {
 }
 
 func WithExternalAccess() Opts {
-	return func(s *v1alpha1.Securesign) {
+	return func(s *v1beta1.Securesign) {
 		s.Spec.Rekor.ExternalAccess.Enabled = true
 		s.Spec.Tuf.ExternalAccess.Enabled = true
 		s.Spec.Fulcio.ExternalAccess.Enabled = true
@@ -76,7 +76,7 @@ func WithExternalAccess() Opts {
 }
 
 func WithMonitoring() Opts {
-	return func(s *v1alpha1.Securesign) {
+	return func(s *v1beta1.Securesign) {
 		s.Spec.Rekor.Monitoring.Enabled = true
 		s.Spec.Fulcio.Monitoring.Enabled = true
 		s.Spec.Trillian.Monitoring.Enabled = true
@@ -88,21 +88,21 @@ func WithMonitoring() Opts {
 }
 
 func WithSearchUI() Opts {
-	return func(s *v1alpha1.Securesign) {
+	return func(s *v1beta1.Securesign) {
 		s.Spec.Rekor.RekorSearchUI.Enabled = ptr.To(true)
 	}
 }
 
 func WithoutSearchUI() Opts {
-	return func(s *v1alpha1.Securesign) {
+	return func(s *v1beta1.Securesign) {
 		s.Spec.Rekor.RekorSearchUI.Enabled = ptr.To(false)
 	}
 }
 
 func WithDefaultOIDC() Opts {
-	return func(s *v1alpha1.Securesign) {
-		s.Spec.Fulcio.Config = v1alpha1.FulcioConfig{
-			OIDCIssuers: []v1alpha1.OIDCIssuer{
+	return func(s *v1beta1.Securesign) {
+		s.Spec.Fulcio.Config = v1beta1.FulcioConfig{
+			OIDCIssuers: []v1beta1.OIDCIssuer{
 				{
 					ClientID:  support.OidcClientID(),
 					IssuerURL: support.OidcIssuerUrl(),
@@ -114,40 +114,40 @@ func WithDefaultOIDC() Opts {
 }
 
 func WithManagedDatabase() Opts {
-	return func(s *v1alpha1.Securesign) {
+	return func(s *v1beta1.Securesign) {
 		s.Spec.Trillian.Db.Create = ptr.To(true)
-		s.Spec.Trillian.Db.Pvc = v1alpha1.Pvc{
+		s.Spec.Trillian.Db.Pvc = v1beta1.Pvc{
 			Retain: ptr.To(false),
 		}
 	}
 }
 
 func WithExternalDatabase(secretName string) Opts {
-	return func(s *v1alpha1.Securesign) {
+	return func(s *v1beta1.Securesign) {
 		s.Spec.Trillian.Db.Create = ptr.To(false)
-		s.Spec.Trillian.Db.DatabaseSecretRef = &v1alpha1.LocalObjectReference{
+		s.Spec.Trillian.Db.DatabaseSecretRef = &v1beta1.LocalObjectReference{
 			Name: secretName,
 		}
 	}
 }
 
 func WithPKCS11Certs() Opts {
-	return func(s *v1alpha1.Securesign) {
-		s.Spec.Fulcio.Certificate = v1alpha1.FulcioCert{
-			CAType:            v1alpha1.CATypePKCS11,
+	return func(s *v1beta1.Securesign) {
+		s.Spec.Fulcio.Certificate = v1beta1.FulcioCert{
+			CAType:            v1beta1.CATypePKCS11,
 			OrganizationName:  "MyOrg",
 			OrganizationEmail: "my@email.org",
 			CommonName:        "fulcio",
-			PKCS11: &v1alpha1.PKCS11Config{
+			PKCS11: &v1beta1.PKCS11Config{
 				Pin:         "test-pin-2324",
 				TokenLabel:  "fulcio",
 				LibraryPath: "/usr/lib64/pkcs11/libsofthsm2.so",
-				InitContainer: v1alpha1.PKCS11InitContainer{
+				InitContainer: v1beta1.PKCS11InitContainer{
 					Image: support.EnvOrDefault("PKCS11_INIT_IMAGE", "quay.io/rh-ee-sacm/softhsm-init:latest"),
-					Env: []v1alpha1.PKCS11EnvVar{
+					Env: []v1beta1.PKCS11EnvVar{
 						{Name: "SOFTHSM2_CONF", Value: "/etc/softhsm/softhsm2.conf"},
 					},
-					Volumes: []v1alpha1.PKCS11Volume{
+					Volumes: []v1beta1.PKCS11Volume{
 						{
 							Name:      "softhsm-config",
 							MountPath: "/etc/softhsm",
@@ -157,28 +157,28 @@ func WithPKCS11Certs() Opts {
 						},
 					},
 				},
-				ServerEnv: []v1alpha1.PKCS11EnvVar{
+				ServerEnv: []v1beta1.PKCS11EnvVar{
 					{Name: "SOFTHSM2_CONF", Value: "/etc/softhsm/softhsm2.conf"},
 				},
 			},
 		}
 
 		if s.Spec.TimestampAuthority != nil {
-			s.Spec.TimestampAuthority.Signer = v1alpha1.TimestampAuthoritySigner{
-				CertificateChain: v1alpha1.CertificateChain{
-					RootCA: &v1alpha1.TsaCertificateAuthority{
+			s.Spec.TimestampAuthority.Signer = v1beta1.TimestampAuthoritySigner{
+				CertificateChain: v1beta1.CertificateChain{
+					RootCA: &v1beta1.TsaCertificateAuthority{
 						OrganizationName:  "MyOrg",
 						OrganizationEmail: "my@email.org",
 						CommonName:        "tsa.hostname",
 					},
-					IntermediateCA: []*v1alpha1.TsaCertificateAuthority{
+					IntermediateCA: []*v1beta1.TsaCertificateAuthority{
 						{
 							OrganizationName:  "MyOrg",
 							OrganizationEmail: "my@email.org",
 							CommonName:        "tsa.hostname",
 						},
 					},
-					LeafCA: &v1alpha1.TsaCertificateAuthority{
+					LeafCA: &v1beta1.TsaCertificateAuthority{
 						OrganizationName:  "MyOrg",
 						OrganizationEmail: "my@email.org",
 						CommonName:        "tsa.hostname",
@@ -190,29 +190,29 @@ func WithPKCS11Certs() Opts {
 }
 
 func WithGeneratedCerts() Opts {
-	return func(s *v1alpha1.Securesign) {
-		s.Spec.Fulcio.Certificate = v1alpha1.FulcioCert{
+	return func(s *v1beta1.Securesign) {
+		s.Spec.Fulcio.Certificate = v1beta1.FulcioCert{
 			OrganizationName:  "MyOrg",
 			OrganizationEmail: "my@email.org",
 			CommonName:        "fulcio",
 		}
 
 		if s.Spec.TimestampAuthority != nil {
-			s.Spec.TimestampAuthority.Signer = v1alpha1.TimestampAuthoritySigner{
-				CertificateChain: v1alpha1.CertificateChain{
-					RootCA: &v1alpha1.TsaCertificateAuthority{
+			s.Spec.TimestampAuthority.Signer = v1beta1.TimestampAuthoritySigner{
+				CertificateChain: v1beta1.CertificateChain{
+					RootCA: &v1beta1.TsaCertificateAuthority{
 						OrganizationName:  "MyOrg",
 						OrganizationEmail: "my@email.org",
 						CommonName:        "tsa.hostname",
 					},
-					IntermediateCA: []*v1alpha1.TsaCertificateAuthority{
+					IntermediateCA: []*v1beta1.TsaCertificateAuthority{
 						{
 							OrganizationName:  "MyOrg",
 							OrganizationEmail: "my@email.org",
 							CommonName:        "tsa.hostname",
 						},
 					},
-					LeafCA: &v1alpha1.TsaCertificateAuthority{
+					LeafCA: &v1beta1.TsaCertificateAuthority{
 						OrganizationName:  "MyOrg",
 						OrganizationEmail: "my@email.org",
 						CommonName:        "tsa.hostname",
@@ -224,47 +224,47 @@ func WithGeneratedCerts() Opts {
 }
 
 func WithProvidedCerts() Opts {
-	return func(s *v1alpha1.Securesign) {
-		s.Spec.Rekor.Signer = v1alpha1.RekorSigner{
+	return func(s *v1beta1.Securesign) {
+		s.Spec.Rekor.Signer = v1beta1.RekorSigner{
 			KMS: "secret",
-			KeyRef: &v1alpha1.SecretKeySelector{
-				LocalObjectReference: v1alpha1.LocalObjectReference{
+			KeyRef: &v1beta1.SecretKeySelector{
+				LocalObjectReference: v1beta1.LocalObjectReference{
 					Name: "my-rekor-secret",
 				},
 				Key: "private",
 			},
 		}
 
-		s.Spec.Fulcio.Certificate = v1alpha1.FulcioCert{
-			PrivateKeyRef: &v1alpha1.SecretKeySelector{
-				LocalObjectReference: v1alpha1.LocalObjectReference{
+		s.Spec.Fulcio.Certificate = v1beta1.FulcioCert{
+			PrivateKeyRef: &v1beta1.SecretKeySelector{
+				LocalObjectReference: v1beta1.LocalObjectReference{
 					Name: "my-fulcio-secret",
 				},
 				Key: "private",
 			},
-			PrivateKeyPasswordRef: &v1alpha1.SecretKeySelector{
-				LocalObjectReference: v1alpha1.LocalObjectReference{
+			PrivateKeyPasswordRef: &v1beta1.SecretKeySelector{
+				LocalObjectReference: v1beta1.LocalObjectReference{
 					Name: "my-fulcio-secret",
 				},
 				Key: "password",
 			},
-			CARef: &v1alpha1.SecretKeySelector{
-				LocalObjectReference: v1alpha1.LocalObjectReference{
+			CARef: &v1beta1.SecretKeySelector{
+				LocalObjectReference: v1beta1.LocalObjectReference{
 					Name: "my-fulcio-secret",
 				},
 				Key: "cert",
 			},
 		}
 
-		s.Spec.Ctlog.PrivateKeyRef = &v1alpha1.SecretKeySelector{
-			LocalObjectReference: v1alpha1.LocalObjectReference{
+		s.Spec.Ctlog.PrivateKeyRef = &v1beta1.SecretKeySelector{
+			LocalObjectReference: v1beta1.LocalObjectReference{
 				Name: "my-ctlog-secret",
 			},
 			Key: "private",
 		}
-		s.Spec.Ctlog.RootCertificates = []v1alpha1.SecretKeySelector{
+		s.Spec.Ctlog.RootCertificates = []v1beta1.SecretKeySelector{
 			{
-				LocalObjectReference: v1alpha1.LocalObjectReference{
+				LocalObjectReference: v1beta1.LocalObjectReference{
 					Name: "my-fulcio-secret",
 				},
 				Key: "cert",
@@ -272,24 +272,24 @@ func WithProvidedCerts() Opts {
 		}
 
 		if s.Spec.TimestampAuthority != nil {
-			s.Spec.TimestampAuthority.Signer = v1alpha1.TimestampAuthoritySigner{
-				CertificateChain: v1alpha1.CertificateChain{
-					CertificateChainRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+			s.Spec.TimestampAuthority.Signer = v1beta1.TimestampAuthoritySigner{
+				CertificateChain: v1beta1.CertificateChain{
+					CertificateChainRef: &v1beta1.SecretKeySelector{
+						LocalObjectReference: v1beta1.LocalObjectReference{
 							Name: "test-tsa-secret",
 						},
 						Key: "certificateChain",
 					},
 				},
-				File: &v1alpha1.File{
-					PrivateKeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+				File: &v1beta1.File{
+					PrivateKeyRef: &v1beta1.SecretKeySelector{
+						LocalObjectReference: v1beta1.LocalObjectReference{
 							Name: "test-tsa-secret",
 						},
 						Key: "leafPrivateKey",
 					},
-					PasswordRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+					PasswordRef: &v1beta1.SecretKeySelector{
+						LocalObjectReference: v1beta1.LocalObjectReference{
 							Name: "test-tsa-secret",
 						},
 						Key: "leafPrivateKeyPassword",
@@ -301,34 +301,34 @@ func WithProvidedCerts() Opts {
 }
 
 func WithTSA() Opts {
-	return func(s *v1alpha1.Securesign) {
-		s.Spec.TimestampAuthority = &v1alpha1.TimestampAuthoritySpec{}
+	return func(s *v1beta1.Securesign) {
+		s.Spec.TimestampAuthority = &v1beta1.TimestampAuthoritySpec{}
 	}
 }
 
 func WithPKCS11RefCerts(credSecretName, confSecretName, softhsmCMName string) Opts {
-	return func(s *v1alpha1.Securesign) {
-		s.Spec.Fulcio.Certificate = v1alpha1.FulcioCert{
-			CAType:            v1alpha1.CATypePKCS11,
+	return func(s *v1beta1.Securesign) {
+		s.Spec.Fulcio.Certificate = v1beta1.FulcioCert{
+			CAType:            v1beta1.CATypePKCS11,
 			OrganizationName:  "MyOrg",
 			OrganizationEmail: "my@email.org",
 			CommonName:        "fulcio",
-			PKCS11: &v1alpha1.PKCS11Config{
-				CredentialsRef: &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{Name: credSecretName},
+			PKCS11: &v1beta1.PKCS11Config{
+				CredentialsRef: &v1beta1.SecretKeySelector{
+					LocalObjectReference: v1beta1.LocalObjectReference{Name: credSecretName},
 					Key:                  "pin",
 				},
-				PKCS11ConfigRef: &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{Name: confSecretName},
+				PKCS11ConfigRef: &v1beta1.SecretKeySelector{
+					LocalObjectReference: v1beta1.LocalObjectReference{Name: confSecretName},
 					Key:                  "crypto11.conf",
 				},
 				LibraryPath: "/usr/lib64/pkcs11/libsofthsm2.so",
-				InitContainer: v1alpha1.PKCS11InitContainer{
+				InitContainer: v1beta1.PKCS11InitContainer{
 					Image: support.EnvOrDefault("PKCS11_INIT_IMAGE", "quay.io/rh-ee-sacm/softhsm-init:latest"),
-					Env: []v1alpha1.PKCS11EnvVar{
+					Env: []v1beta1.PKCS11EnvVar{
 						{Name: "SOFTHSM2_CONF", Value: "/etc/softhsm/softhsm2.conf"},
 					},
-					Volumes: []v1alpha1.PKCS11Volume{
+					Volumes: []v1beta1.PKCS11Volume{
 						{
 							Name:          "softhsm-config",
 							MountPath:     "/etc/softhsm",
@@ -336,28 +336,28 @@ func WithPKCS11RefCerts(credSecretName, confSecretName, softhsmCMName string) Op
 						},
 					},
 				},
-				ServerEnv: []v1alpha1.PKCS11EnvVar{
+				ServerEnv: []v1beta1.PKCS11EnvVar{
 					{Name: "SOFTHSM2_CONF", Value: "/etc/softhsm/softhsm2.conf"},
 				},
 			},
 		}
 
 		if s.Spec.TimestampAuthority != nil {
-			s.Spec.TimestampAuthority.Signer = v1alpha1.TimestampAuthoritySigner{
-				CertificateChain: v1alpha1.CertificateChain{
-					RootCA: &v1alpha1.TsaCertificateAuthority{
+			s.Spec.TimestampAuthority.Signer = v1beta1.TimestampAuthoritySigner{
+				CertificateChain: v1beta1.CertificateChain{
+					RootCA: &v1beta1.TsaCertificateAuthority{
 						OrganizationName:  "MyOrg",
 						OrganizationEmail: "my@email.org",
 						CommonName:        "tsa.hostname",
 					},
-					IntermediateCA: []*v1alpha1.TsaCertificateAuthority{
+					IntermediateCA: []*v1beta1.TsaCertificateAuthority{
 						{
 							OrganizationName:  "MyOrg",
 							OrganizationEmail: "my@email.org",
 							CommonName:        "tsa.hostname",
 						},
 					},
-					LeafCA: &v1alpha1.TsaCertificateAuthority{
+					LeafCA: &v1beta1.TsaCertificateAuthority{
 						OrganizationName:  "MyOrg",
 						OrganizationEmail: "my@email.org",
 						CommonName:        "tsa.hostname",
@@ -369,12 +369,12 @@ func WithPKCS11RefCerts(credSecretName, confSecretName, softhsmCMName string) Op
 }
 
 func WithPKCS11Persistence() Opts {
-	return func(s *v1alpha1.Securesign) {
+	return func(s *v1beta1.Securesign) {
 		if s.Spec.Fulcio.Certificate.PKCS11 != nil {
-			s.Spec.Fulcio.Certificate.PKCS11.Persistence = &v1alpha1.Pvc{
+			s.Spec.Fulcio.Certificate.PKCS11.Persistence = &v1beta1.Pvc{
 				Retain: ptr.To(false),
 				Size:   ptr.To(resource.MustParse("100Mi")),
-				AccessModes: []v1alpha1.PersistentVolumeAccessMode{
+				AccessModes: []v1beta1.PersistentVolumeAccessMode{
 					"ReadWriteMany",
 				},
 				StorageClass: "nfs-csi",
@@ -384,11 +384,11 @@ func WithPKCS11Persistence() Opts {
 }
 
 func WithNTPMonitoring() Opts {
-	return func(s *v1alpha1.Securesign) {
+	return func(s *v1beta1.Securesign) {
 		if s.Spec.TimestampAuthority != nil {
-			s.Spec.TimestampAuthority.NTPMonitoring = v1alpha1.NTPMonitoring{
+			s.Spec.TimestampAuthority.NTPMonitoring = v1beta1.NTPMonitoring{
 				Enabled: true,
-				Config: &v1alpha1.NtpMonitoringConfig{
+				Config: &v1beta1.NtpMonitoringConfig{
 					RequestAttempts: 3,
 					RequestTimeout:  5,
 					NumServers:      4,
@@ -403,7 +403,7 @@ func WithNTPMonitoring() Opts {
 }
 
 func WithReplicas(replicas *int32) Opts {
-	return func(s *v1alpha1.Securesign) {
+	return func(s *v1beta1.Securesign) {
 		s.Spec.Fulcio.Replicas = replicas
 		s.Spec.Rekor.Replicas = replicas
 		s.Spec.Rekor.RekorSearchUI.Replicas = replicas
@@ -416,18 +416,18 @@ func WithReplicas(replicas *int32) Opts {
 }
 
 func WithNFSPVC() Opts {
-	return func(s *v1alpha1.Securesign) {
-		pvcConf := v1alpha1.Pvc{
+	return func(s *v1beta1.Securesign) {
+		pvcConf := v1beta1.Pvc{
 			Retain: ptr.To(false),
 			Size:   ptr.To(resource.MustParse("100Mi")),
-			AccessModes: []v1alpha1.PersistentVolumeAccessMode{
+			AccessModes: []v1beta1.PersistentVolumeAccessMode{
 				"ReadWriteMany",
 			},
 			StorageClass: "nfs-csi",
 		}
 
 		s.Spec.Rekor.Pvc = pvcConf
-		s.Spec.Tuf.Pvc = v1alpha1.TufPvc{
+		s.Spec.Tuf.Pvc = v1beta1.TufPvc{
 			Retain:       pvcConf.Retain,
 			Size:         pvcConf.Size,
 			AccessModes:  pvcConf.AccessModes,

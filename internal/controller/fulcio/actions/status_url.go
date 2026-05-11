@@ -10,7 +10,7 @@ import (
 	v12 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1beta1"
 )
 
 func NewStatusUrlAction() action.Action[*rhtasv1alpha1.Fulcio] {

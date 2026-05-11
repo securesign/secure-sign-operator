@@ -14,7 +14,7 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1beta1"
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

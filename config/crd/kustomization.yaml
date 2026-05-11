@@ -11,16 +11,15 @@ resources:
 - bases/rhtas.redhat.com_timestampauthorities.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
-patches: []
-# [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
-# patches here are for enabling the conversion webhook for each CRD
-#- path: patches/webhook_in_securesigns.yaml
-#- path: patches/webhook_in_fulcios.yaml
-#- path: patches/webhook_in_trillians.yaml
-#- path: patches/webhook_in_rekors.yaml
-#- path: patches/webhook_in_tufs.yaml
-#- path: patches/webhook_in_ctlogs.yaml
-#- path: patches/webhook_in_timestampauthorities.yaml
+patches:
+# [WEBHOOK] Conversion webhook patches for multi-version CRDs
+- path: patches/webhook_in_securesigns.yaml
+- path: patches/webhook_in_fulcios.yaml
+- path: patches/webhook_in_trillians.yaml
+- path: patches/webhook_in_rekors.yaml
+- path: patches/webhook_in_tufs.yaml
+- path: patches/webhook_in_ctlogs.yaml
+- path: patches/webhook_in_timestampauthorities.yaml
 #+kubebuilder:scaffold:crdkustomizewebhookpatch
 
 # [CERTMANAGER] To enable cert-manager, uncomment all the sections with [CERTMANAGER] prefix.
