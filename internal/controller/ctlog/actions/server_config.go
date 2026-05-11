@@ -252,6 +252,55 @@ func (i serverConfig) handleCustomConfig(ctx context.Context, instance *rhtasv1a
 	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }
 
+func (i serverConfig) handleCustomConfig(ctx context.Context, instance *rhtasv1alpha1.CTlog) *action.Result {
+	secret, err := kubernetes.GetSecret(i.Client, instance.Namespace, instance.Spec.ServerConfigRef.Name)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("error accessing custom server config secret: %w", err), instance,
+			metav1.Condition{
+				Type:               ConfigCondition,
+				Status:             metav1.ConditionFalse,
+				Reason:             state.Failure.String(),
+				Message:            fmt.Sprintf("Error accessing custom server config secret: %s", instance.Spec.ServerConfigRef.Name),
+				ObservedGeneration: instance.Generation,
+			})
+	}
+	if secret.Data == nil || secret.Data[ctlogUtils.ConfigKey] == nil {
+		return i.Error(ctx, fmt.Errorf("custom server config secret is invalid"), instance,
+			metav1.Condition{
+				Type:               ConfigCondition,
+				Status:             metav1.ConditionFalse,
+				Reason:             state.Failure.String(),
+				Message:            fmt.Sprintf("Custom server config secret is missing '%s' key: %s", ctlogUtils.ConfigKey, instance.Spec.ServerConfigRef.Name),
+				ObservedGeneration: instance.Generation,
+			})
+	}
+
+	c := meta.FindStatusCondition(instance.Status.Conditions, ConfigCondition)
+	if c != nil && c.Status == metav1.ConditionTrue &&
+		c.ObservedGeneration == instance.Generation &&
+		equality.Semantic.DeepEqual(instance.Status.ServerConfigRef, instance.Spec.ServerConfigRef) {
+		return i.Continue()
+	}
+
+	instance.Status.ServerConfigRef = instance.Spec.ServerConfigRef
+	i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "CTLogConfigUpdated", "Updated", "CTLog config updated: %s", instance.Spec.ServerConfigRef.Name)
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:               ConfigCondition,
+		Status:             metav1.ConditionTrue,
+		Reason:             state.Ready.String(),
+		Message:            "Using custom server config",
+		ObservedGeneration: instance.Generation,
+	})
+	changed, err := i.PersistStatus(ctx, instance)
+	if err != nil {
+		return i.Error(ctx, err, instance)
+	}
+	if !changed {
+		return i.Requeue()
+	}
+	return i.Return()
+}
+
 func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.CTlog, configLabels map[string]string) {
 	if instance.Status.ServerConfigRef == nil || instance.Status.ServerConfigRef.Name == "" {
 		i.Logger.Error(errors.New("new Secret name is empty"), "unable to clean old objects", "namespace", instance.Namespace)
@@ -367,4 +416,11 @@ func (i serverConfig) configMatchingAnnotations(instance *rhtasv1alpha1.CTlog, t
 	}
 
 	return annotations
+}
+
+func resolveTrillianAddress(instance *rhtasv1alpha1.CTlog) string {
+	if instance.Spec.Trillian.Address != "" {
+		return instance.Spec.Trillian.Address
+	}
+	return fmt.Sprintf("%s.%s.svc", trillian.LogserverDeploymentName, instance.Namespace)
 }
