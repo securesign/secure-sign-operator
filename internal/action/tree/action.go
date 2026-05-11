@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/images"
@@ -77,7 +78,7 @@ func (i resolveTree[T]) handleMissingCondition(ctx context.Context, instance T) 
 			Reason: state.Ready.String(),
 		})
 		i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "ExistingTrillianTreeFound", "Discovered", "Existing Trillian tree found: %d", wrapped.GetStatusTreeID())
-		return i.StatusUpdate(ctx, instance)
+		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	}
 	return nil
 }
@@ -87,7 +88,7 @@ func (i resolveTree[T]) handleManual(ctx context.Context, instance T) *action.Re
 
 	if wrapped.GetTreeID() != nil && *wrapped.GetTreeID() != int64(0) {
 		wrapped.SetStatusTreeID(wrapped.GetTreeID())
-		return i.StatusUpdate(ctx, instance)
+		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	}
 
 	return i.Continue()
@@ -186,7 +187,7 @@ func (i resolveTree[T]) handleConfigMap(ctx context.Context, instance T) *action
 			Reason:  state.Creating.String(),
 			Message: fmt.Sprintf("ConfigMap `%s` %s", configMap.GetName(), result)},
 		)
-		return i.StatusUpdate(ctx, instance)
+		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	} else {
 		return i.Continue()
 	}
@@ -203,7 +204,7 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 	configMap, err := kubernetes.GetConfigMap(ctx, i.Client, instance.GetNamespace(), configMapName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return i.Requeue()
+			return i.RequeueAfter(5 * time.Second)
 		}
 		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not get configmap: %w", err)), instance)
 	}
@@ -288,7 +289,7 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 		Message: "createtree job created",
 	})
 
-	return i.StatusUpdate(ctx, instance)
+	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }
 
 func (i resolveTree[T]) handleJobFinished(ctx context.Context, instance T) *action.Result {
@@ -301,7 +302,7 @@ func (i resolveTree[T]) handleJobFinished(ctx context.Context, instance T) *acti
 	configMap, err := kubernetes.GetConfigMap(ctx, i.Client, instance.GetNamespace(), configMapName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return i.Requeue()
+			return i.RequeueAfter(5 * time.Second)
 		}
 		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not get configmap: %w", err)), instance)
 	}
@@ -313,7 +314,7 @@ func (i resolveTree[T]) handleJobFinished(ctx context.Context, instance T) *acti
 		}
 	}
 	if jobName == "" {
-		return i.Requeue()
+		return i.RequeueAfter(5 * time.Second)
 	}
 
 	j, err := job.GetJob(ctx, i.Client, instance.GetNamespace(), jobName)
@@ -322,12 +323,12 @@ func (i resolveTree[T]) handleJobFinished(ctx context.Context, instance T) *acti
 	}
 
 	if j == nil {
-		return i.Requeue()
+		return i.RequeueAfter(5 * time.Second)
 	}
 	i.Logger.V(1).Info("createtree job is already present.", "Succeeded", j.Status.Succeeded, "Failures", j.Status.Failed)
 
 	if !job.IsCompleted(*j) {
-		return i.Requeue()
+		return i.RequeueAfter(5 * time.Second)
 	}
 
 	if job.IsFailed(*j) {
@@ -350,7 +351,7 @@ func (i resolveTree[T]) handleExtractJobResult(ctx context.Context, instance T) 
 	configMap, err := kubernetes.GetConfigMap(ctx, i.Client, instance.GetNamespace(), configMapName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return i.Requeue()
+			return i.RequeueAfter(5 * time.Second)
 		}
 		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not get configmap: %w", err)), instance)
 	}
@@ -368,10 +369,10 @@ func (i resolveTree[T]) handleExtractJobResult(ctx context.Context, instance T) 
 			Reason: state.Ready.String(),
 		})
 		i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "TrillianTreeCreated", "Created", "New Trillian tree created: %d", treeID)
-		return i.StatusUpdate(ctx, instance)
+		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	} else {
 		i.Logger.V(1).Info("ConfigMap not ready or data is empty, requeuing reconciliation")
-		return i.Requeue()
+		return i.RequeueAfter(5 * time.Second)
 	}
 }
 

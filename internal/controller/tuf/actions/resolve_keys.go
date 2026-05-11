@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"time"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
@@ -59,8 +60,10 @@ func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1alpha1.T
 				Reason:  state.Failure.String(),
 				Message: err.Error(),
 			})
-			i.StatusUpdate(ctx, instance)
-			return i.Requeue()
+			if _, err := i.PersistStatus(ctx, instance); err != nil {
+				return i.Error(ctx, err, instance)
+			}
+			return i.RequeueAfter(5 * time.Second)
 		}
 		if len(instance.Status.Keys) < index+1 {
 			instance.Status.Keys = append(instance.Status.Keys, *k)
@@ -80,10 +83,13 @@ func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1alpha1.T
 			}
 		}
 		if index == len(instance.Spec.Keys)-1 {
+			if _, err := i.PersistStatus(ctx, instance); err != nil {
+				return i.Error(ctx, err, instance)
+			}
 			return i.Continue()
 		}
 	}
-	return i.StatusUpdate(ctx, instance)
+	return i.Continue()
 }
 
 func (i resolveKeysAction) handleKey(ctx context.Context, instance *rhtasv1alpha1.Tuf, key *rhtasv1alpha1.TufKey) (*rhtasv1alpha1.TufKey, error) {

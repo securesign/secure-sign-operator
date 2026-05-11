@@ -89,7 +89,7 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		}
 	}
 	if instance.Status.PublicKeyRef != nil {
-		return i.StatusUpdate(ctx, instance)
+		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	}
 
 	// Create new secret with public key
@@ -127,7 +127,7 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 	c := meta.FindStatusCondition(instance.Status.Conditions, actions.ServerCondition)
 	c.Message = "Public key resolved"
 	meta.SetStatusCondition(&instance.Status.Conditions, *c)
-	return i.StatusUpdate(ctx, instance)
+	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }
 
 func (i resolvePubKeyAction) resolvePubKey(instance rhtasv1alpha1.Rekor) ([]byte, error) {

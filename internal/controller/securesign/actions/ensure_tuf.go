@@ -76,7 +76,7 @@ func (i tufAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 			Reason:  state.Creating.String(),
 			Message: "Tuf resource created " + tuf.Name,
 		})
-		return i.StatusUpdate(ctx, instance)
+		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	}
 
 	return i.CopyStatus(ctx, tuf, instance)
@@ -102,5 +102,5 @@ func (i tufAction) CopyStatus(ctx context.Context, object *rhtasv1alpha1.Tuf, in
 		return i.Continue()
 	}
 
-	return i.StatusUpdate(ctx, instance)
+	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }

@@ -50,7 +50,7 @@ func TestHandle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(ctx context.Context, g gomega.Gomega, c client.WithWatch) {
 					g.Expect(c.Get(ctx, types.NamespacedName{Name: pvcNameFormat, Namespace: namespace}, &v1.PersistentVolumeClaim{})).
 						To(gomega.WithTransform(apierrors.IsNotFound, gomega.BeTrue()))
@@ -80,7 +80,7 @@ func TestHandle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(ctx context.Context, g gomega.Gomega, c client.WithWatch) {
 					pvc := &v1.PersistentVolumeClaim{}
 					g.Expect(c.Get(ctx, types.NamespacedName{Name: pvcNameFormat, Namespace: namespace}, pvc)).
@@ -164,7 +164,7 @@ func TestHandle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(ctx context.Context, g gomega.Gomega, c client.WithWatch) {
 					pvc := &v1.PersistentVolumeClaim{}
 					g.Expect(c.Get(ctx, types.NamespacedName{Name: pvcNameFormat, Namespace: namespace}, pvc)).
@@ -211,7 +211,7 @@ func TestHandle(t *testing.T) {
 				mutateObj: func(obj *v1alpha1.Rekor) {},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(ctx context.Context, g gomega.Gomega, c client.WithWatch) {
 					pvc := &v1.PersistentVolumeClaim{}
 					g.Expect(c.Get(ctx, types.NamespacedName{Name: pvcNameFormat, Namespace: namespace}, pvc)).
@@ -268,7 +268,7 @@ func TestHandle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(ctx context.Context, g gomega.Gomega, c client.WithWatch) {
 					pvc := &v1.PersistentVolumeClaim{}
 					g.Expect(c.Get(ctx, types.NamespacedName{Name: pvcNameFormat, Namespace: namespace}, pvc)).

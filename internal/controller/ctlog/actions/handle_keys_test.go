@@ -231,7 +231,7 @@ func TestKeys_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
@@ -292,7 +292,7 @@ func TestKeys_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
@@ -357,7 +357,7 @@ func TestKeys_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
@@ -424,7 +424,7 @@ func TestKeys_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
@@ -462,7 +462,7 @@ func TestKeys_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
@@ -505,7 +505,7 @@ func TestKeys_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 

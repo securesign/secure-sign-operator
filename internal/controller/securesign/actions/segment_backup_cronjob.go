@@ -57,5 +57,5 @@ func (i segmentBackupCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 		Reason:  "Removed",
 		Message: "Segment backup Cron Job removed",
 	})
-	return i.StatusUpdate(ctx, instance)
+	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }

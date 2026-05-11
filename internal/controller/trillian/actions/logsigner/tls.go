@@ -67,5 +67,5 @@ func (i tlsAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian)
 		Reason:  "TLSResolved",
 		Message: "TLS configuration resolved",
 	})
-	return i.StatusUpdate(ctx, instance)
+	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }

@@ -101,7 +101,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor)
 			Message: "Deployment created",
 		})
 		i.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "DeploymentUpdated", "Updated", "Deployment updated: %s", instance.Name)
-		return i.StatusUpdate(ctx, instance)
+		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	} else {
 		return i.Continue()
 	}

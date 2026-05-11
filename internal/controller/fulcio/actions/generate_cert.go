@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"time"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
@@ -80,7 +81,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 			Status: metav1.ConditionFalse,
 			Reason: state.Creating.String(),
 		})
-		return g.StatusUpdate(ctx, instance)
+		return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 	}
 
 	if instance.Spec.Certificate.PrivateKeyRef == nil && instance.Spec.Certificate.CARef != nil {
@@ -116,7 +117,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 					Status: metav1.ConditionTrue,
 					Reason: "Resolved",
 				})
-				return g.StatusUpdate(ctx, instance)
+				return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 			}
 		}
 
@@ -149,9 +150,11 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 			Reason:  state.Pending.String(),
 			Message: "Resolving keys",
 		})
-		g.StatusUpdate(ctx, instance)
+		if _, err := g.PersistStatus(ctx, instance); err != nil {
+			return g.Error(ctx, err, instance)
+		}
 		// swallow error and retry
-		return g.Requeue()
+		return g.RequeueAfter(5 * time.Second)
 	}
 
 	componentLabels := labels.For(ComponentName, DeploymentName, instance.Name)
@@ -188,7 +191,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 		Status: metav1.ConditionTrue,
 		Reason: "Resolved",
 	})
-	return g.StatusUpdate(ctx, instance)
+	return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 }
 
 func (g handleCert) setupCert(instance *v1alpha1.Fulcio) (*utils.FulcioCertConfig, error) {
