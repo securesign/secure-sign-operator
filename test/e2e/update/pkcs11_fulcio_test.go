@@ -10,19 +10,17 @@ import (
 	"time"
 
 	"github.com/securesign/operator/internal/constants"
+	fulcioAction "github.com/securesign/operator/internal/controller/fulcio/actions"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
+	testKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/steps"
-
 	"github.com/securesign/operator/test/e2e/support/tas"
-
-	fulcioAction "github.com/securesign/operator/internal/controller/fulcio/actions"
 	clients "github.com/securesign/operator/test/e2e/support/tas/cli"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
 	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
-	testKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	"github.com/securesign/operator/test/e2e/support/tas/tuf"
 

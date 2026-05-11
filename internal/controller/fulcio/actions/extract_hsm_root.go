@@ -14,7 +14,6 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
-	fulcioLabels "github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
@@ -48,7 +47,7 @@ func (e extractHSMRoot) CanHandle(ctx context.Context, instance *rhtasv1alpha1.F
 }
 
 func (e extractHSMRoot) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) *action.Result {
-	componentLabels := fulcioLabels.ForComponent(ComponentName, instance.Name)
+	componentLabels := labels.ForComponent(ComponentName, instance.Name)
 
 	pemData, err := e.resolveRootCert(ctx, instance)
 	if err != nil {

@@ -18,8 +18,8 @@ import (
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -27,9 +27,9 @@ var _ = Describe("Securesign install with PKCS#11 reference mode", Ordered, func
 	cli, _ := support.CreateClient()
 
 	const (
-		credSecretName  = "my-hsm-credentials"
-		confSecretName  = "my-hsm-pkcs11-config"
-		softhsmCMName   = "my-softhsm-config"
+		credSecretName = "my-hsm-credentials"
+		confSecretName = "my-hsm-pkcs11-config"
+		softhsmCMName  = "my-softhsm-config"
 	)
 
 	var targetImageName string
