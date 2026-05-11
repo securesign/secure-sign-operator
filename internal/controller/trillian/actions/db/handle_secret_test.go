@@ -180,7 +180,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
@@ -206,7 +206,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
@@ -239,7 +239,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
@@ -272,7 +272,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
@@ -296,7 +296,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
@@ -323,7 +323,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
@@ -359,7 +359,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
@@ -477,7 +477,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
@@ -544,7 +544,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
@@ -631,7 +631,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
 					instance := &rhtasv1alpha1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())

@@ -74,7 +74,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 			Reason:  state.Creating.String(),
 			Message: "Service created",
 		})
-		return i.StatusUpdate(ctx, instance)
+		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	} else {
 		return i.Continue()
 	}

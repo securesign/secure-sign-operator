@@ -82,7 +82,7 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor
 			Reason:  state.Creating.String(),
 			Message: "Ingress created",
 		})
-		return i.StatusUpdate(ctx, instance)
+		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	} else {
 		return i.Continue()
 	}

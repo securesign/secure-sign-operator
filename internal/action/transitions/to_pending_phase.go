@@ -40,5 +40,5 @@ func (i toPending[T]) Handle(ctx context.Context, instance T) *action.Result {
 		instance.SetCondition(metav1.Condition{Type: c,
 			Status: metav1.ConditionUnknown, Reason: state.Pending.String()})
 	}
-	return i.StatusUpdate(ctx, instance)
+	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }

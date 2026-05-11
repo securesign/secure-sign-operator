@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	_ "embed"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/internal/action"
@@ -59,7 +60,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 			},
 			want: want{
 				canHandle:     true,
-				result:        testAction.StatusUpdate(),
+				result:        testAction.Return(),
 				certCondition: metav1.ConditionTrue,
 				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
 					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
@@ -92,7 +93,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 			},
 			want: want{
 				canHandle:     true,
-				result:        testAction.Requeue(),
+				result:        testAction.RequeueAfter(5 * time.Second),
 				certCondition: metav1.ConditionFalse,
 				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
 					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
@@ -129,7 +130,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 			},
 			want: want{
 				canHandle:     true,
-				result:        testAction.StatusUpdate(),
+				result:        testAction.Return(),
 				certCondition: metav1.ConditionTrue,
 				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
 					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
@@ -171,7 +172,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 			},
 			want: want{
 				canHandle:     true,
-				result:        testAction.StatusUpdate(),
+				result:        testAction.Return(),
 				certCondition: metav1.ConditionTrue,
 				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
 					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
@@ -232,7 +233,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 			},
 			want: want{
 				canHandle:     true,
-				result:        testAction.StatusUpdate(),
+				result:        testAction.Return(),
 				certCondition: metav1.ConditionTrue,
 				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
 					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
@@ -294,7 +295,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 			},
 			want: want{
 				canHandle:     true,
-				result:        testAction.StatusUpdate(),
+				result:        testAction.Return(),
 				certCondition: metav1.ConditionTrue,
 				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
 					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
@@ -349,7 +350,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 			},
 			want: want{
 				canHandle:     true,
-				result:        testAction.StatusUpdate(),
+				result:        testAction.Return(),
 				certCondition: metav1.ConditionTrue,
 				verify: func(g Gomega, fulcio rhtasv1alpha1.FulcioStatus, cli client.WithWatch) {
 					g.Expect(fulcio.Certificate.CommonName).To(Equal("fulcio.local"))

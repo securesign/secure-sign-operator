@@ -4,6 +4,7 @@ import (
 	"context"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
@@ -224,7 +225,7 @@ func TestCert_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
@@ -249,7 +250,7 @@ func TestCert_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.Requeue(),
+				result: testAction.RequeueAfter(5 * time.Second),
 				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
@@ -296,7 +297,7 @@ func TestCert_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
@@ -343,7 +344,7 @@ func TestCert_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
@@ -389,7 +390,7 @@ func TestCert_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.RootCertificates).Should(HaveLen(1))
 					g.Expect(status.RootCertificates[0].Key).Should(Equal("key"))
@@ -435,7 +436,7 @@ func TestCert_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 

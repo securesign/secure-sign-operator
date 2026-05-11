@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"time"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
@@ -76,7 +77,7 @@ func (i initJobAction) jobPresent(ctx context.Context, job *v2.Job, instance *rh
 					return i.Error(ctx, err, instance)
 				}
 			}
-			return i.StatusUpdate(ctx, instance)
+			return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 		} else {
 			err := fmt.Errorf("tuf-repository-init job failed")
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -94,12 +95,10 @@ func (i initJobAction) jobPresent(ctx context.Context, job *v2.Job, instance *rh
 			Reason:  state.Initialize.String(),
 			Message: "waiting for init-repository job to complete",
 		})
-		result := i.StatusUpdate(ctx, instance)
-		if result.Err != nil {
-			return result
+		if _, err := i.PersistStatus(ctx, instance); err != nil {
+			return i.Error(ctx, err, instance)
 		}
-		// ensure that new requeue iteration is triggered even if no status update happened
-		return i.Requeue()
+		return i.RequeueAfter(5 * time.Second)
 	}
 }
 
@@ -147,5 +146,5 @@ func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]stri
 		Reason:  state.Initialize.String(),
 		Message: msg,
 	})
-	return i.StatusUpdate(ctx, instance)
+	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }

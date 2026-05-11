@@ -80,7 +80,7 @@ func (i pvcAction[T]) Handle(ctx context.Context, instance T) *action.Result {
 			Reason:             ReasonSpecified,
 			ObservedGeneration: instance.GetGeneration(),
 		})
-		return i.StatusUpdate(ctx, instance)
+		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	}
 
 	var name string
@@ -107,7 +107,7 @@ func (i pvcAction[T]) Handle(ctx context.Context, instance T) *action.Result {
 			Message:            fmt.Sprintf("Discovered and using  existing default PVC `%s`.", pvc.GetName()),
 			ObservedGeneration: instance.GetGeneration(),
 		})
-		return i.StatusUpdate(ctx, instance)
+		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	}
 
 	if pvcSpec.Size == nil {
@@ -163,5 +163,5 @@ func (i pvcAction[T]) Handle(ctx context.Context, instance T) *action.Result {
 	}
 
 	wrapped.SetStatusPVCName(pvc.Name)
-	return i.StatusUpdate(ctx, instance)
+	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }

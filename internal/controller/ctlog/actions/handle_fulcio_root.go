@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"slices"
+	"time"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
@@ -62,7 +63,7 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) 
 			ObservedGeneration: instance.Generation,
 		},
 		)
-		return g.StatusUpdate(ctx, instance)
+		return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 	}
 
 	if len(instance.Spec.RootCertificates) == 0 {
@@ -78,8 +79,10 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) 
 				Reason:  state.Failure.String(),
 				Message: "Cert not found",
 			})
-			g.StatusUpdate(ctx, instance)
-			return g.Requeue()
+			if _, err := g.PersistStatus(ctx, instance); err != nil {
+				return g.Error(ctx, err, instance)
+			}
+			return g.RequeueAfter(5 * time.Second)
 		}
 		sks := v1alpha1.SecretKeySelector{
 			LocalObjectReference: v1alpha1.LocalObjectReference{
@@ -110,5 +113,5 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *v1alpha1.CTlog) 
 		Reason: "Resolved",
 	},
 	)
-	return g.StatusUpdate(ctx, instance)
+	return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 }

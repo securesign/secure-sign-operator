@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/labels"
@@ -49,10 +50,13 @@ func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tr
 			Reason:  state.Initialize.String(),
 			Message: "Waiting for deployment to be ready",
 		})
-		return i.StatusUpdate(ctx, instance)
+		if _, err := i.PersistStatus(ctx, instance); err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		return i.RequeueAfter(5 * time.Second)
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: actions.DbCondition,
 		Status: metav1.ConditionTrue, Reason: state.Ready.String()})
-	return i.StatusUpdate(ctx, instance)
+	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }

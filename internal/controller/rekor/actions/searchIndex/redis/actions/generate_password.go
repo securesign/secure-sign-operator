@@ -79,11 +79,15 @@ func (i generatePasswordAction) Handle(ctx context.Context, instance *rhtasv1alp
 		Message:            "Redis password created",
 		ObservedGeneration: instance.Generation,
 	})
-	r := i.StatusUpdate(ctx, instance)
-	if action.IsSuccess(r) {
-		i.cleanup(ctx, instance, labels)
+	changed, err := i.PersistStatus(ctx, instance)
+	if err != nil {
+		return i.Error(ctx, err, instance)
 	}
-	return r
+	i.cleanup(ctx, instance, labels)
+	if changed {
+		return i.Return()
+	}
+	return i.Continue()
 }
 
 func (i generatePasswordAction) cleanup(ctx context.Context, instance *rhtasv1alpha1.Rekor, configLabels map[string]string) {

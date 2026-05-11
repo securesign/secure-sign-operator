@@ -2,6 +2,7 @@ package actions
 
 import (
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/gomega"
@@ -134,7 +135,7 @@ func TestMigrateJob_Succeeded(t *testing.T) {
 	g.Expect(migrateJobTestAction.Client.Create(t.Context(), instance)).To(Succeed())
 	g.Expect(migrateJobTestAction.CanHandle(t.Context(), instance)).To(BeTrue())
 	result := migrateJobTestAction.Handle(t.Context(), instance)
-	g.Expect(result).To(Equal(action.StatusUpdate()))
+	g.Expect(result).To(Equal(action.Return()))
 	g.Expect(instance.Status.Conditions).To(ContainElement(metav1.Condition{
 		Type:    constants.ReadyCondition,
 		Reason:  state.Initialize.String(),
@@ -160,7 +161,7 @@ func TestMigrateJob_Succeeded(t *testing.T) {
 		Status:  metav1.ConditionFalse,
 		Message: "waiting for migration job to complete",
 	}))
-	g.Expect(result).To(Equal(action.Requeue()))
+	g.Expect(result).To(Equal(action.RequeueAfter(5 * time.Second)))
 
 	job.Status.Succeeded = 1
 	job.Status.Failed = 0
@@ -180,7 +181,7 @@ func TestMigrateJob_Succeeded(t *testing.T) {
 		Status:  metav1.ConditionFalse,
 		Message: "migration job passed",
 	}))
-	g.Expect(result).To(Equal(action.StatusUpdate()))
+	g.Expect(result).To(Equal(action.Return()))
 
 	found := &v1alpha1.Tuf{}
 	g.Expect(migrateJobTestAction.Client.Get(t.Context(), client.ObjectKeyFromObject(instance), found)).To(Succeed())
@@ -224,7 +225,7 @@ func TestMigrateJob_Failed(t *testing.T) {
 	g.Expect(migrateJobTestAction.Client.Create(t.Context(), instance)).To(Succeed())
 	g.Expect(migrateJobTestAction.CanHandle(t.Context(), instance)).To(BeTrue())
 	result := migrateJobTestAction.Handle(t.Context(), instance)
-	g.Expect(result).To(Equal(action.StatusUpdate()))
+	g.Expect(result).To(Equal(action.Return()))
 	g.Expect(instance.Status.Conditions).To(ContainElement(metav1.Condition{
 		Type:    constants.ReadyCondition,
 		Reason:  state.Initialize.String(),
@@ -244,7 +245,7 @@ func TestMigrateJob_Failed(t *testing.T) {
 		Status:  metav1.ConditionFalse,
 		Message: "waiting for migration job to complete",
 	}))
-	g.Expect(result).To(Equal(action.Requeue()))
+	g.Expect(result).To(Equal(action.RequeueAfter(5 * time.Second)))
 
 	job.Status.Succeeded = 0
 	job.Status.Failed = 1

@@ -60,7 +60,7 @@ func (i tsaAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 			Reason:  state.NotDefined.String(),
 			Message: "TSA resource is undefined",
 		})
-		return i.StatusUpdate(ctx, instance)
+		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	}
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
@@ -89,7 +89,7 @@ func (i tsaAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 			Reason:  state.Creating.String(),
 			Message: "TSA resource created " + tsa.Name,
 		})
-		return i.StatusUpdate(ctx, instance)
+		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	}
 
 	return i.CopyStatus(ctx, tsa, instance)
@@ -114,5 +114,5 @@ func (i tsaAction) CopyStatus(ctx context.Context, object *rhtasv1alpha1.Timesta
 		return i.Continue()
 	}
 
-	return i.StatusUpdate(ctx, instance)
+	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }

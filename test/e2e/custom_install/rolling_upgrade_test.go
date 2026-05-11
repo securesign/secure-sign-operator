@@ -111,6 +111,20 @@ var _ = Describe("rolling upgrade with replicas", Ordered, func() {
 
 			By("install operator with modified related images")
 			installOperator(ctx, cli, s.Namespace, withRelatedImages())
+
+			By("waiting for operator to be ready")
+			Eventually(func(g Gomega, ctx context.Context) {
+				pod := &v1.Pod{}
+				g.Expect(cli.Get(ctx, types.NamespacedName{Namespace: s.Namespace, Name: managerPodName}, pod)).To(Succeed())
+				g.Expect(pod.Status.Phase).To(Equal(v1.PodRunning))
+				ready := false
+				for _, c := range pod.Status.Conditions {
+					if c.Type == v1.PodReady && c.Status == v1.ConditionTrue {
+						ready = true
+					}
+				}
+				g.Expect(ready).To(BeTrue())
+			}).WithContext(ctx).Should(Succeed())
 		})
 
 		It("Verify rolling update done", func(ctx SpecContext) {

@@ -76,7 +76,7 @@ func (i ctlogAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secures
 			Reason:  state.Creating.String(),
 			Message: "CTLog resource updated " + ctl.Name,
 		})
-		return i.StatusUpdate(ctx, instance)
+		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	}
 
 	return i.CopyStatus(ctx, ctl, instance)
@@ -94,7 +94,7 @@ func (i ctlogAction) CopyStatus(ctx context.Context, ctl *rhtasv1alpha1.CTlog, i
 			Status: objectStatus.Status,
 			Reason: objectStatus.Reason,
 		})
-		return i.StatusUpdate(ctx, instance)
+		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	}
 	return i.Continue()
 }

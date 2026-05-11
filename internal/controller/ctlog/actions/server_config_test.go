@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
@@ -198,7 +199,7 @@ func TestServerConfig_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, instance *rhtasv1alpha1.CTlog, cli client.WithWatch) {
 					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.ServerConfigRef.Name).Should(Equal("config"))
@@ -236,7 +237,7 @@ func TestServerConfig_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, instance *rhtasv1alpha1.CTlog, cli client.WithWatch) {
 					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
@@ -265,7 +266,7 @@ func TestServerConfig_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, instance *rhtasv1alpha1.CTlog, cli client.WithWatch) {
 					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.ServerConfigRef.Name).Should(Equal("new_config"))
@@ -304,7 +305,7 @@ func TestServerConfig_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.Requeue(),
+				result: testAction.RequeueAfter(5 * time.Second),
 				verify: func(g Gomega, instance *rhtasv1alpha1.CTlog, cli client.WithWatch) {
 					g.Expect(instance.Status.ServerConfigRef).Should(BeNil())
 					g.Expect(instance.Status.Conditions).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
@@ -346,7 +347,7 @@ func TestServerConfig_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.Requeue(),
+				result: testAction.RequeueAfter(5 * time.Second),
 				verify: func(g Gomega, instance *rhtasv1alpha1.CTlog, cli client.WithWatch) {
 					g.Expect(instance.Status.ServerConfigRef).Should(BeNil())
 					g.Expect(instance.Status.Conditions).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
@@ -397,7 +398,7 @@ func TestServerConfig_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, instance *rhtasv1alpha1.CTlog, cli client.WithWatch) {
 					g.Expect(instance.Status.ServerConfigRef).Should(Not(BeNil()))
 
@@ -459,7 +460,7 @@ func TestServerConfig_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, instance *rhtasv1alpha1.CTlog, cli client.WithWatch) {
 					g.Expect(instance.Status.ServerConfigRef).Should(Not(BeNil()))
 					g.Expect(instance.Status.ServerConfigRef.Name).Should(Not(Equal("config")))
@@ -625,7 +626,7 @@ func TestServerConfig_Update(t *testing.T) {
 				}
 			}(),
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, cli client.Client, current *rhtasv1alpha1.CTlog) {
 					g.Expect(current.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(current.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
@@ -653,7 +654,7 @@ func TestServerConfig_Update(t *testing.T) {
 				}
 			}(),
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, cli client.Client, current *rhtasv1alpha1.CTlog) {
 					g.Expect(current.Status.ServerConfigRef.Name).Should(Equal("existing-config"))
 
@@ -700,7 +701,7 @@ func TestServerConfig_Update(t *testing.T) {
 				}
 			}(),
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, cli client.Client, current *rhtasv1alpha1.CTlog) {
 					g.Expect(current.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(current.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
@@ -729,7 +730,7 @@ func TestServerConfig_Update(t *testing.T) {
 				}
 			}(),
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, cli client.Client, current *rhtasv1alpha1.CTlog) {
 					g.Expect(current.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
 					g.Expect(current.Status.ServerConfigRef.Name).ShouldNot(Equal("old-config"))
@@ -771,7 +772,7 @@ func TestServerConfig_Update(t *testing.T) {
 				}
 			}(),
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, cli client.Client, current *rhtasv1alpha1.CTlog) {
 					g.Expect(current.Status.ServerConfigRef.Name).ShouldNot(Equal("old-config"))
 
@@ -798,7 +799,7 @@ func TestServerConfig_Update(t *testing.T) {
 				}
 			}(),
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, cli client.Client, current *rhtasv1alpha1.CTlog) {
 					g.Expect(current.Status.ServerConfigRef).ShouldNot(BeNil())
 
@@ -844,7 +845,7 @@ func TestServerConfig_Update(t *testing.T) {
 				}
 			}(),
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, cli client.Client, current *rhtasv1alpha1.CTlog) {
 					g.Expect(current.Status.ServerConfigRef.Name).Should(Equal("custom_config"))
 
@@ -928,7 +929,7 @@ func TestServerConfig_Update(t *testing.T) {
 				}
 			}(),
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, cli client.Client, current *rhtasv1alpha1.CTlog) {
 					g.Expect(current.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(current.Status.ServerConfigRef.Name).Should(Equal("custom_config"))

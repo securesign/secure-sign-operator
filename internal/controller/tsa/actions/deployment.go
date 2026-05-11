@@ -87,7 +87,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Timest
 			Message:            "TSA server deployment created",
 			ObservedGeneration: instance.Generation,
 		})
-		return i.StatusUpdate(ctx, instance)
+		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	} else {
 		return i.Continue()
 	}

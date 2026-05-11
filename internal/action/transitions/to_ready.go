@@ -41,5 +41,5 @@ func (i toReady[T]) Handle(ctx context.Context, instance T) *action.Result {
 		ObservedGeneration: instance.GetGeneration(),
 	})
 
-	return i.StatusUpdate(ctx, instance)
+	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }

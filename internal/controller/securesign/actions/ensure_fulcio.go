@@ -75,7 +75,7 @@ func (i fulcioAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secure
 			Reason:  state.Creating.String(),
 			Message: "Fulcio resource created " + fulcio.Name,
 		})
-		return i.StatusUpdate(ctx, instance)
+		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	}
 
 	return i.CopyStatus(ctx, fulcio, instance)
@@ -100,5 +100,5 @@ func (i fulcioAction) CopyStatus(ctx context.Context, object *rhtasv1alpha1.Fulc
 		return i.Continue()
 	}
 
-	return i.StatusUpdate(ctx, instance)
+	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }
