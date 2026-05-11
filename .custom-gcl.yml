@@ -1,0 +1,5 @@
+version: v2.8.0
+plugins:
+  - module: 'github.com/securesign/operator/pkg/analyzer'
+    import: 'github.com/securesign/operator/pkg/analyzer'
+    path: ./pkg/analyzer
