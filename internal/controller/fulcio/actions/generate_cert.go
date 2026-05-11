@@ -90,7 +90,14 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 	}
 
 	if instance.Spec.Certificate.CAType == v1alpha1.CATypePKCS11 {
+		var existingCARef *v1alpha1.SecretKeySelector
+		if instance.Status.Certificate != nil {
+			existingCARef = instance.Status.Certificate.CARef
+		}
 		instance.Status.Certificate = instance.Spec.Certificate.DeepCopy()
+		if existingCARef != nil {
+			instance.Status.Certificate.CARef = existingCARef
+		}
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:   CertCondition,
 			Status: metav1.ConditionTrue,

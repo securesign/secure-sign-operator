@@ -188,14 +188,18 @@ var _ = Describe("PKCS#11 key rotation", Ordered, func() {
 		})
 
 		It("Rotate fulcio cert in TUF", func(ctx SpecContext) {
-			f := fulcio.Get(ctx, cli, namespace.Name, s.Name)
-			Expect(f).NotTo(BeNil())
-			Expect(f.Status.Certificate).NotTo(BeNil())
-			Expect(f.Status.Certificate.CARef).NotTo(BeNil())
+			var newCACert []byte
+			Eventually(func(g Gomega) {
+				f := fulcio.Get(ctx, cli, namespace.Name, s.Name)
+				g.Expect(f).NotTo(BeNil())
+				g.Expect(f.Status.Certificate).NotTo(BeNil())
+				g.Expect(f.Status.Certificate.CARef).NotTo(BeNil())
 
-			newCACert, err := kubernetes.GetSecretData(cli, namespace.Name, f.Status.Certificate.CARef)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(newCACert).NotTo(BeEmpty())
+				var err error
+				newCACert, err = kubernetes.GetSecretData(cli, namespace.Name, f.Status.Certificate.CARef)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(newCACert).NotTo(BeEmpty())
+			}).Should(Succeed())
 
 			s = securesign.Get(ctx, cli, namespace.Name, s.Name)
 
