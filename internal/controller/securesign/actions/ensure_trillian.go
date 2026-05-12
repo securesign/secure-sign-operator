@@ -75,7 +75,14 @@ func (i trillianAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secu
 			Reason:  state.Creating.String(),
 			Message: "Trillian resource created " + trillian.Name,
 		})
-		return i.StatusUpdate(ctx, instance)
+		changed, err := i.PersistStatus(ctx, instance)
+		if err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		if !changed {
+			return i.Requeue()
+		}
+		return i.Return()
 	}
 
 	return i.CopyStatus(ctx, trillian, instance)
@@ -93,7 +100,14 @@ func (i trillianAction) CopyStatus(ctx context.Context, object *rhtasv1alpha1.Tr
 			Status: objectStatus.Status,
 			Reason: objectStatus.Reason,
 		})
-		return i.StatusUpdate(ctx, instance)
+		changed, err := i.PersistStatus(ctx, instance)
+		if err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		if !changed {
+			return i.Requeue()
+		}
+		return i.Return()
 	}
 	return i.Continue()
 }

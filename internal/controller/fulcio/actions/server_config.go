@@ -143,11 +143,15 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 			ObservedGeneration: instance.Generation},
 	)
 
-	result := i.StatusUpdate(ctx, instance)
-	if action.IsSuccess(result) {
-		i.cleanup(ctx, instance, configLabel)
+	changed, err := i.PersistStatus(ctx, instance)
+	if err != nil {
+		return i.Error(ctx, err, instance)
 	}
-	return result
+	i.cleanup(ctx, instance, configLabel)
+	if !changed {
+		return i.Requeue()
+	}
+	return i.Return()
 }
 
 func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.Fulcio, configLabels map[string]string) {

@@ -30,5 +30,12 @@ func (i toInitializeAction[T]) Handle(ctx context.Context, instance T) *action.R
 	instance.SetCondition(metav1.Condition{Type: constants.ReadyCondition,
 		Status: metav1.ConditionFalse, Reason: state.Initialize.String(),
 		ObservedGeneration: instance.GetGeneration()})
-	return i.StatusUpdate(ctx, instance)
+	changed, err := i.PersistStatus(ctx, instance)
+	if err != nil {
+		return i.Error(ctx, err, instance)
+	}
+	if !changed {
+		return i.Requeue()
+	}
+	return i.Return()
 }

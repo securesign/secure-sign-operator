@@ -75,7 +75,14 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 			Reason:  state.Ready.String(),
 			Message: "Working with external DB",
 		})
-		return i.StatusUpdate(ctx, instance)
+		changed, err := i.PersistStatus(ctx, instance)
+		if err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		if !changed {
+			return i.Requeue()
+		}
+		return i.Return()
 	}
 
 	// managed database
@@ -90,7 +97,14 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 
 		// update database connection by spec
 		instance.Status.Db.DatabaseSecretRef = instance.Spec.Db.DatabaseSecretRef
-		return i.StatusUpdate(ctx, instance)
+		changed, err := i.PersistStatus(ctx, instance)
+		if err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		if !changed {
+			return i.Requeue()
+		}
+		return i.Return()
 	}
 
 	// skip if status exists
@@ -127,7 +141,14 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 	}
 
 	if instance.Status.Db.DatabaseSecretRef != nil {
-		return i.StatusUpdate(ctx, instance)
+		changed, err := i.PersistStatus(ctx, instance)
+		if err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		if !changed {
+			return i.Requeue()
+		}
+		return i.Return()
 	}
 
 	dbSecret := &corev1.Secret{
@@ -154,7 +175,14 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 	instance.Status.Db.DatabaseSecretRef = &rhtasv1alpha1.LocalObjectReference{
 		Name: dbSecret.Name,
 	}
-	return i.StatusUpdate(ctx, instance)
+	changed, err := i.PersistStatus(ctx, instance)
+	if err != nil {
+		return i.Error(ctx, err, instance)
+	}
+	if !changed {
+		return i.Requeue()
+	}
+	return i.Return()
 }
 func (i handleSecretAction) defaultDBData() map[string][]byte {
 	// Define a new Secret object

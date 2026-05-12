@@ -98,7 +98,14 @@ func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 			Message:            "Backfill redis job created",
 			ObservedGeneration: instance.Generation,
 		})
-		return i.StatusUpdate(ctx, instance)
+		changed, err := i.PersistStatus(ctx, instance)
+		if err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		if !changed {
+			return i.Requeue()
+		}
+		return i.Return()
 	} else {
 		return i.Continue()
 	}

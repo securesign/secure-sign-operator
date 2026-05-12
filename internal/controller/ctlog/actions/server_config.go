@@ -7,11 +7,11 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"time"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
-	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
@@ -64,46 +64,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	)
 
 	if instance.Spec.ServerConfigRef != nil {
-		// Validate that the custom secret is accessible
-		secret, err := kubernetes.GetSecret(i.Client, instance.Namespace, instance.Spec.ServerConfigRef.Name)
-		if err != nil {
-			return i.Error(ctx, fmt.Errorf("error accessing custom server config secret: %w", err), instance,
-				metav1.Condition{
-					Type:               ConfigCondition,
-					Status:             metav1.ConditionFalse,
-					Reason:             state.Failure.String(),
-					Message:            fmt.Sprintf("Error accessing custom server config secret: %s", instance.Spec.ServerConfigRef.Name),
-					ObservedGeneration: instance.Generation,
-				})
-		}
-		if secret.Data == nil || secret.Data[ctlogUtils.ConfigKey] == nil {
-			return i.Error(ctx, fmt.Errorf("custom server config secret is invalid"), instance,
-				metav1.Condition{
-					Type:               ConfigCondition,
-					Status:             metav1.ConditionFalse,
-					Reason:             state.Failure.String(),
-					Message:            fmt.Sprintf("Custom server config secret is missing '%s' key: %s", ctlogUtils.ConfigKey, instance.Spec.ServerConfigRef.Name),
-					ObservedGeneration: instance.Generation,
-				})
-		}
-
-		c := meta.FindStatusCondition(instance.Status.Conditions, ConfigCondition)
-		if c != nil && c.Status == metav1.ConditionTrue &&
-			c.ObservedGeneration == instance.Generation &&
-			equality.Semantic.DeepEqual(instance.Status.ServerConfigRef, instance.Spec.ServerConfigRef) {
-			return i.Continue()
-		}
-
-		instance.Status.ServerConfigRef = instance.Spec.ServerConfigRef
-		i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "CTLogConfigUpdated", "Updated", "CTLog config updated: %s", instance.Spec.ServerConfigRef.Name)
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               ConfigCondition,
-			Status:             metav1.ConditionTrue,
-			Reason:             state.Ready.String(),
-			Message:            "Using custom server config",
-			ObservedGeneration: instance.Generation,
-		})
-		return i.StatusUpdate(ctx, instance)
+		return i.handleCustomConfig(ctx, instance)
 	}
 
 	// Validate prerequisites and normalize Trillian address before validation
@@ -114,11 +75,9 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrPrivateKeyNotSpecified), instance)
 	case instance.Spec.Trillian.Port == nil:
 		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrTrillianPortNotSpecified)), instance)
-	case instance.Spec.Trillian.Address == "":
-		instance.Spec.Trillian.Address = fmt.Sprintf("%s.%s.svc", trillian.LogserverDeploymentName, instance.Namespace)
 	}
 
-	trillianUrl := fmt.Sprintf("%s:%d", instance.Spec.Trillian.Address, *instance.Spec.Trillian.Port)
+	trillianUrl := fmt.Sprintf("%s:%d", resolveTrillianAddress(instance), *instance.Spec.Trillian.Port)
 
 	// Validate existing secret before attempting recreation
 	if instance.Status.ServerConfigRef != nil && instance.Status.ServerConfigRef.Name != "" {
@@ -151,7 +110,14 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 					Message:            c.Message,
 					ObservedGeneration: instance.Generation,
 				})
-				return i.StatusUpdate(ctx, instance)
+				changed, err := i.PersistStatus(ctx, instance)
+				if err != nil {
+					return i.Error(ctx, err, instance)
+				}
+				if !changed {
+					return i.Requeue()
+				}
+				return i.Return()
 			}
 			return i.Continue()
 		}
@@ -168,8 +134,10 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 			Message:            fmt.Sprintf("Waiting for Fulcio root certificate: %v", err.Error()),
 			ObservedGeneration: instance.Generation,
 		})
-		i.StatusUpdate(ctx, instance)
-		return i.Requeue()
+		if _, err := i.PersistStatus(ctx, instance); err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		return i.RequeueAfter(5 * time.Second)
 	}
 
 	certConfig, err := i.handlePrivateKey(instance)
@@ -181,8 +149,10 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 			Message:            "Waiting for Ctlog private key secret",
 			ObservedGeneration: instance.Generation,
 		})
-		i.StatusUpdate(ctx, instance)
-		return i.Requeue()
+		if _, err := i.PersistStatus(ctx, instance); err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		return i.RequeueAfter(5 * time.Second)
 	}
 
 	var cfg map[string][]byte
@@ -233,11 +203,64 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		Message:            "Server config created",
 		ObservedGeneration: instance.Generation,
 	})
-	result := i.StatusUpdate(ctx, instance)
-	if action.IsSuccess(result) {
-		i.cleanup(ctx, instance, configLabels)
+	changed, err := i.PersistStatus(ctx, instance)
+	if err != nil {
+		return i.Error(ctx, err, instance)
 	}
-	return result
+	i.cleanup(ctx, instance, configLabels)
+	if !changed {
+		return i.Requeue()
+	}
+	return i.Return()
+}
+
+func (i serverConfig) handleCustomConfig(ctx context.Context, instance *rhtasv1alpha1.CTlog) *action.Result {
+	secret, err := kubernetes.GetSecret(i.Client, instance.Namespace, instance.Spec.ServerConfigRef.Name)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("error accessing custom server config secret: %w", err), instance,
+			metav1.Condition{
+				Type:               ConfigCondition,
+				Status:             metav1.ConditionFalse,
+				Reason:             state.Failure.String(),
+				Message:            fmt.Sprintf("Error accessing custom server config secret: %s", instance.Spec.ServerConfigRef.Name),
+				ObservedGeneration: instance.Generation,
+			})
+	}
+	if secret.Data == nil || secret.Data[ctlogUtils.ConfigKey] == nil {
+		return i.Error(ctx, fmt.Errorf("custom server config secret is invalid"), instance,
+			metav1.Condition{
+				Type:               ConfigCondition,
+				Status:             metav1.ConditionFalse,
+				Reason:             state.Failure.String(),
+				Message:            fmt.Sprintf("Custom server config secret is missing '%s' key: %s", ctlogUtils.ConfigKey, instance.Spec.ServerConfigRef.Name),
+				ObservedGeneration: instance.Generation,
+			})
+	}
+
+	c := meta.FindStatusCondition(instance.Status.Conditions, ConfigCondition)
+	if c != nil && c.Status == metav1.ConditionTrue &&
+		c.ObservedGeneration == instance.Generation &&
+		equality.Semantic.DeepEqual(instance.Status.ServerConfigRef, instance.Spec.ServerConfigRef) {
+		return i.Continue()
+	}
+
+	instance.Status.ServerConfigRef = instance.Spec.ServerConfigRef
+	i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "CTLogConfigUpdated", "Updated", "CTLog config updated: %s", instance.Spec.ServerConfigRef.Name)
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:               ConfigCondition,
+		Status:             metav1.ConditionTrue,
+		Reason:             state.Ready.String(),
+		Message:            "Using custom server config",
+		ObservedGeneration: instance.Generation,
+	})
+	changed, err := i.PersistStatus(ctx, instance)
+	if err != nil {
+		return i.Error(ctx, err, instance)
+	}
+	if !changed {
+		return i.Requeue()
+	}
+	return i.Return()
 }
 
 func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.CTlog, configLabels map[string]string) {

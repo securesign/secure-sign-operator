@@ -206,7 +206,7 @@ func TestConfig_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, status rhtasv1alpha1.FulcioStatus, cli client.WithWatch, events <-chan watch.Event) {
 
 					g.Expect(status.ServerConfigRef).ShouldNot(BeNil())
@@ -249,7 +249,7 @@ func TestConfig_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, status rhtasv1alpha1.FulcioStatus, cli client.WithWatch, events <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(status.ServerConfigRef.Name).Should(Not(Equal("config")))
@@ -342,7 +342,7 @@ func TestConfig_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, status rhtasv1alpha1.FulcioStatus, cli client.WithWatch, events <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(status.ServerConfigRef.Name).Should(Not(Equal("config")))
@@ -403,7 +403,7 @@ func TestConfig_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, status rhtasv1alpha1.FulcioStatus, cli client.WithWatch, events <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(status.ServerConfigRef.Name).ShouldNot(Equal("config"))
@@ -455,7 +455,7 @@ func TestConfig_Handle(t *testing.T) {
 				},
 			},
 			want: want{
-				result: testAction.StatusUpdate(),
+				result: testAction.Return(),
 				verify: func(g Gomega, status rhtasv1alpha1.FulcioStatus, cli client.WithWatch, events <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(status.ServerConfigRef.Name).Should(Not(Equal("config")))

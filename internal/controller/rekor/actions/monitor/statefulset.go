@@ -89,7 +89,9 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1alpha1.R
 			Reason:  state.Creating.String(),
 			Message: "Monitor created",
 		})
-		_ = i.StatusUpdate(ctx, instance)
+		if _, err := i.PersistStatus(ctx, instance); err != nil {
+			return i.Error(ctx, err, instance)
+		}
 	}
 	return i.Continue()
 }

@@ -65,7 +65,14 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 			ObservedGeneration: instance.Generation,
 		},
 		)
-		return g.StatusUpdate(ctx, instance)
+		changed, err := g.PersistStatus(ctx, instance)
+		if err != nil {
+			return g.Error(ctx, err, instance)
+		}
+		if !changed {
+			return g.Requeue()
+		}
+		return g.Return()
 	}
 
 	newKeyStatus := instance.Status.DeepCopy()
@@ -101,7 +108,14 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 		Message:            "Keys resolved",
 		ObservedGeneration: instance.Generation,
 	})
-	return g.StatusUpdate(ctx, instance)
+	changed, err := g.PersistStatus(ctx, instance)
+	if err != nil {
+		return g.Error(ctx, err, instance)
+	}
+	if !changed {
+		return g.Requeue()
+	}
+	return g.Return()
 }
 
 func (g handleKeys) setupKeys(ns string, instanceStatus *v1alpha1.CTlogStatus) (*utils.KeyConfig, error) {

@@ -69,7 +69,14 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulci
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{Type: constants.ReadyCondition,
 			Status: metav1.ConditionFalse, Reason: state.Creating.String(), Message: "Ingress created",
 			ObservedGeneration: instance.Generation})
-		return i.StatusUpdate(ctx, instance)
+		changed, err := i.PersistStatus(ctx, instance)
+		if err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		if !changed {
+			return i.Requeue()
+		}
+		return i.Return()
 	} else {
 		return i.Continue()
 	}

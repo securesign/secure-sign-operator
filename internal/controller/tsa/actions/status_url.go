@@ -50,5 +50,12 @@ func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tim
 	}
 
 	instance.Status.Url = url
-	return i.StatusUpdate(ctx, instance)
+	changed, err := i.PersistStatus(ctx, instance)
+	if err != nil {
+		return i.Error(ctx, err, instance)
+	}
+	if !changed {
+		return i.Requeue()
+	}
+	return i.Return()
 }

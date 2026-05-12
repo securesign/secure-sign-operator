@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"time"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
@@ -81,7 +82,14 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 			Status: metav1.ConditionFalse,
 			Reason: state.Creating.String(),
 		})
-		return g.StatusUpdate(ctx, instance)
+		changed, err := g.PersistStatus(ctx, instance)
+		if err != nil {
+			return g.Error(ctx, err, instance)
+		}
+		if !changed {
+			return g.Requeue()
+		}
+		return g.Return()
 	}
 
 	// Return to pending state because Signer spec changed
@@ -104,7 +112,14 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 			Reason:  state.Pending.String(),
 			Message: "resolving keys",
 		})
-		return g.StatusUpdate(ctx, instance)
+		changed, err := g.PersistStatus(ctx, instance)
+		if err != nil {
+			return g.Error(ctx, err, instance)
+		}
+		if !changed {
+			return g.Requeue()
+		}
+		return g.Return()
 	}
 
 	newSigner := *instance.Spec.Signer.DeepCopy()
@@ -134,10 +149,17 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 						Reason:  state.Failure.String(),
 						Message: err.Error(),
 					})
-					return g.StatusUpdate(ctx, instance)
+					changed, err := g.PersistStatus(ctx, instance)
+					if err != nil {
+						return g.Error(ctx, err, instance)
+					}
+					if !changed {
+						return g.Requeue()
+					}
+					return g.Return()
 				}
 				// swallow error and retry
-				return g.Requeue()
+				return g.RequeueAfter(5 * time.Second)
 			}
 
 			data := map[string][]byte{
@@ -190,7 +212,14 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 		Status: metav1.ConditionTrue,
 		Reason: state.Ready.String(),
 	})
-	return g.StatusUpdate(ctx, instance)
+	changed, err := g.PersistStatus(ctx, instance)
+	if err != nil {
+		return g.Error(ctx, err, instance)
+	}
+	if !changed {
+		return g.Requeue()
+	}
+	return g.Return()
 }
 
 func (g generateSigner) createSignerKey() ([]byte, []byte, error) {

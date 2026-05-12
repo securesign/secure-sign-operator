@@ -73,7 +73,14 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 			Message:            "NTP monitoring configured",
 			ObservedGeneration: instance.Generation,
 		})
-		return i.StatusUpdate(ctx, instance)
+		changed, err := i.PersistStatus(ctx, instance)
+		if err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		if !changed {
+			return i.Requeue()
+		}
+		return i.Return()
 	}
 
 	if instance.Spec.NTPMonitoring.Config.NtpConfigRef != nil {
@@ -86,7 +93,14 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 			Message:            "NTP monitoring configured",
 			ObservedGeneration: instance.Generation,
 		})
-		return i.StatusUpdate(ctx, instance)
+		changed, err := i.PersistStatus(ctx, instance)
+		if err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		if !changed {
+			return i.Requeue()
+		}
+		return i.Return()
 	}
 
 	var (
@@ -150,7 +164,14 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		}
 	}
 	if newStatus.Config.NtpConfigRef != nil {
-		return i.StatusUpdate(ctx, instance)
+		changed, err := i.PersistStatus(ctx, instance)
+		if err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		if !changed {
+			return i.Requeue()
+		}
+		return i.Return()
 	}
 
 	configMap := &v1.ConfigMap{
@@ -180,7 +201,14 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		Message:            "NTP monitoring configured",
 		ObservedGeneration: instance.Generation,
 	})
-	return i.StatusUpdate(ctx, instance)
+	changed, err := i.PersistStatus(ctx, instance)
+	if err != nil {
+		return i.Error(ctx, err, instance)
+	}
+	if !changed {
+		return i.Requeue()
+	}
+	return i.Return()
 }
 
 func (i ntpMonitoringAction) marshalNTPMonitoringConfig(instance *rhtasv1alpha1.NtpMonitoringConfig) ([]byte, error) {

@@ -75,7 +75,14 @@ func (i rekorAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secures
 			Reason:  state.Creating.String(),
 			Message: "Rekor resource created " + rekor.Name,
 		})
-		return i.StatusUpdate(ctx, instance)
+		changed, err := i.PersistStatus(ctx, instance)
+		if err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		if !changed {
+			return i.Requeue()
+		}
+		return i.Return()
 	}
 
 	return i.CopyStatus(ctx, rekor, instance)
@@ -100,5 +107,12 @@ func (i rekorAction) CopyStatus(ctx context.Context, object *rhtasv1alpha1.Rekor
 		return i.Continue()
 	}
 
-	return i.StatusUpdate(ctx, instance)
+	changed, err := i.PersistStatus(ctx, instance)
+	if err != nil {
+		return i.Error(ctx, err, instance)
+	}
+	if !changed {
+		return i.Requeue()
+	}
+	return i.Return()
 }

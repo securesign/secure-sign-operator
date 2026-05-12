@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"time"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
@@ -72,7 +73,14 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 			Reason:             state.Creating.String(),
 			ObservedGeneration: instance.Generation,
 		})
-		return g.StatusUpdate(ctx, instance)
+		changed, err := g.PersistStatus(ctx, instance)
+		if err != nil {
+			return g.Error(ctx, err, instance)
+		}
+		if !changed {
+			return g.Requeue()
+		}
+		return g.Return()
 	}
 
 	anno, err := g.secretAnnotations(instance.Spec.Signer)
@@ -94,7 +102,14 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 					Reason:             "Resolved",
 					ObservedGeneration: instance.Generation,
 				})
-				return g.StatusUpdate(ctx, instance)
+				changed, err := g.PersistStatus(ctx, instance)
+				if err != nil {
+					return g.Error(ctx, err, instance)
+				}
+				if !changed {
+					return g.Requeue()
+				}
+				return g.Return()
 			}
 			return g.Continue()
 		}
@@ -129,7 +144,14 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 		g.Logger.Info(message)
 	}
 	if meta.IsStatusConditionTrue(instance.GetConditions(), TSASignerCondition) {
-		return g.StatusUpdate(ctx, instance)
+		changed, err := g.PersistStatus(ctx, instance)
+		if err != nil {
+			return g.Error(ctx, err, instance)
+		}
+		if !changed {
+			return g.Requeue()
+		}
+		return g.Return()
 	}
 
 	tsaCertChainConfig := &tsaUtils.TsaCertChainConfig{}
@@ -151,9 +173,11 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 				Message:            "Resolving keys",
 				ObservedGeneration: instance.Generation,
 			})
-			g.StatusUpdate(ctx, instance)
+			if _, err := g.PersistStatus(ctx, instance); err != nil {
+				return g.Error(ctx, err, instance)
+			}
 			// swallow error and retry
-			return g.Requeue()
+			return g.RequeueAfter(5 * time.Second)
 		}
 	}
 
@@ -174,9 +198,11 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 			Message:            "Resolving keys",
 			ObservedGeneration: instance.Generation,
 		})
-		g.StatusUpdate(ctx, instance)
+		if _, err := g.PersistStatus(ctx, instance); err != nil {
+			return g.Error(ctx, err, instance)
+		}
 		// swallow error and retry
-		return g.Requeue()
+		return g.RequeueAfter(5 * time.Second)
 	}
 
 	componentLabels := labels.For(ComponentName, DeploymentName, instance.Name)
@@ -214,7 +240,14 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 		Reason:             "Resolved",
 		ObservedGeneration: instance.Generation,
 	})
-	return g.StatusUpdate(ctx, instance)
+	changed, err := g.PersistStatus(ctx, instance)
+	if err != nil {
+		return g.Error(ctx, err, instance)
+	}
+	if !changed {
+		return g.Requeue()
+	}
+	return g.Return()
 }
 
 func (g generateSigner) handleSignerKeys(instance *v1alpha1.TimestampAuthority, config *tsaUtils.TsaCertChainConfig) (*tsaUtils.TsaCertChainConfig, error) {

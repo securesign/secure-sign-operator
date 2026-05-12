@@ -17,6 +17,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+// BaseAction provides shared functionality for action implementations.
+// Embed it in your action struct and use its methods for status persistence
+// and flow control.
+//
+// Status persistence ([PersistStatus]) and flow control ([Return], [Requeue],
+// [RequeueAfter], [Continue], [Error]) are intentionally separate concerns.
+// After persisting status, the developer must explicitly choose what happens
+// next in the reconciliation loop.
 type BaseAction struct {
 	Client   client.Client
 	Recorder events.EventRecorder
@@ -35,11 +43,19 @@ func (action *BaseAction) InjectLogger(logger logr.Logger) {
 	action.Logger = logger
 }
 
+// Continue signals the reconciler to proceed to the next action in the chain.
+// Returns nil, which the reconciler loop interprets as "keep going."
 func (action *BaseAction) Continue() *Result {
 	return nil
 }
 
-func (action *BaseAction) StatusUpdate(ctx context.Context, obj client.Object) *Result {
+// PersistStatus writes the in-memory status of obj to the API server.
+// It retries on conflict and skips the write if the status has not changed.
+//
+// Returns (true, nil) when the status was written, (false, nil) when
+// unchanged (no API call made), or (false, error) on failure.
+func (action *BaseAction) PersistStatus(ctx context.Context, obj client.Object) (bool, error) {
+	changed := false
 	current := obj.DeepCopyObject().(client.Object)
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		var (
@@ -59,17 +75,27 @@ func (action *BaseAction) StatusUpdate(ctx context.Context, obj client.Object) *
 			return e
 		}
 
-		if !reflect.DeepEqual(expectedStatus.Interface(), currentStatus.Interface()) {
-			if !currentStatus.CanSet() {
-				return errors.New("can not set status field")
-			}
-			currentStatus.Set(*expectedStatus)
+		if reflect.DeepEqual(expectedStatus.Interface(), currentStatus.Interface()) {
+			changed = false
+			return nil
 		}
-		return action.Client.Status().Update(ctx, current)
+		if !currentStatus.CanSet() {
+			return errors.New("can not set status field")
+		}
+		currentStatus.Set(*expectedStatus)
+		if e = action.Client.Status().Update(ctx, current); e != nil {
+			return e
+		}
+		changed = true
+		return nil
 	})
-	return &Result{Err: err}
+	return changed, err
 }
 
+// Error logs the error, persists any provided conditions to the API server,
+// and returns the error to controller-runtime for retry with backoff.
+// For terminal errors (wrapped with [reconcile.TerminalError]), it sets the
+// Ready condition to Failure and controller-runtime will not retry.
 func (action *BaseAction) Error(ctx context.Context, err error, instance apis.ConditionsAwareObject, conditions ...metav1.Condition) *Result {
 	action.Logger.Error(err, "error during action execution")
 	isTerminal := errors.Is(err, reconcile.TerminalError(err))
@@ -103,6 +129,8 @@ func (action *BaseAction) Error(ctx context.Context, err error, instance apis.Co
 	}
 }
 
+// Return stops the action chain. The next reconciliation happens when
+// a watch event fires (e.g., status update or owned resource change).
 func (action *BaseAction) Return() *Result {
 	return &Result{
 		Result: reconcile.Result{},
@@ -110,11 +138,16 @@ func (action *BaseAction) Return() *Result {
 	}
 }
 
+// Requeue stops the action chain and re-reconciles after 100 milliseconds.
 func (action *BaseAction) Requeue() *Result {
+	return action.RequeueAfter(100 * time.Millisecond)
+}
+
+// RequeueAfter signals the reconciler to stop the action chain and re-reconcile
+// after the specified delay.
+func (action *BaseAction) RequeueAfter(delay time.Duration) *Result {
 	return &Result{
-		// always wait for a while before requeqe
-		Result: reconcile.Result{RequeueAfter: 5 * time.Second},
-		Err:    nil,
+		Result: reconcile.Result{RequeueAfter: delay},
 	}
 }
 
