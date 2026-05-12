@@ -3,16 +3,15 @@ package action
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
+	testenvhelper "github.com/securesign/operator/internal/testing/envtest"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -32,8 +31,7 @@ func TestMain(m *testing.M) {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
-		BinaryAssetsDirectory: filepath.Join("..", "..", "bin", "k8s",
-			fmt.Sprintf("1.32.0-%s-%s", runtime.GOOS, runtime.GOARCH)),
+		BinaryAssetsDirectory: testenvhelper.FindBinaryAssetsDir(),
 	}
 
 	if err := v1alpha1.AddToScheme(scheme.Scheme); err != nil {

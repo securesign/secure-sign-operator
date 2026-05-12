@@ -1,11 +1,10 @@
 package v1alpha1
 
 import (
-	"fmt"
 	"path/filepath"
-	"runtime"
 	"testing"
 
+	testenvhelper "github.com/securesign/operator/internal/testing/envtest"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/test"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -42,9 +41,8 @@ func TestAPIs(t *testing.T) {
 var _ = BeforeSuite(func() {
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "config", "crd", "bases")},
-		BinaryAssetsDirectory: filepath.Join("..", "..", "bin", "k8s",
-			fmt.Sprintf("1.29.1-%s-%s", runtime.GOOS, runtime.GOARCH)),
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		BinaryAssetsDirectory: testenvhelper.FindBinaryAssetsDir(),
 	}
 
 	err := SchemeBuilder.AddToScheme(scheme.Scheme)
