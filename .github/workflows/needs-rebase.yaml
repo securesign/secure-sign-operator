@@ -4,17 +4,26 @@ on:
   push:
     branches: [main, release-*]
   pull_request_target:
-    types: [synchronize]
+    types: [opened, synchronize, reopened]
+    branches: [main, release-*]
 
-permissions:
-  contents: read
-  pull-requests: write
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   label:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: eps1lon/actions-label-merge-conflict@1df065ebe6e3310545d4f4c4e862e43bdca146f0 # v3.0.3
         with:
           dirtyLabel: needs-rebase
           repoToken: ${{ secrets.GITHUB_TOKEN }}
+          continueOnMissingPermissions: true
+          retryAfter: 60
+          retryMax: 5
