@@ -5,89 +5,87 @@ import (
 
 	"fmt"
 
-	v1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/apis"
-	ctlog "github.com/securesign/operator/internal/controller/ctlog/actions"
-	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
-	rekor "github.com/securesign/operator/internal/controller/rekor/actions"
+	"github.com/securesign/operator/internal/constants"
 	tsa "github.com/securesign/operator/internal/controller/tsa/actions"
-	"github.com/securesign/operator/internal/utils/tls"
+	"k8s.io/apimachinery/pkg/api/meta"
 )
 
+type AddressableConditionAware interface {
+	apis.Addressable
+	apis.ConditionsAwareObject
+}
+
+type serviceEndpoint struct {
+	Service       apis.TasService
+	Suffix        string
+	ComponentList client.ObjectList
+}
+
 func ResolveServiceAddress(ctx context.Context, c client.Client, instance *rhtasv1alpha1.Tuf) error {
-	var keyToService = map[string]struct {
-		Service             apis.TasService
-		ServiceName, Suffix string
-	}{
-		rekorKey:  {Service: &instance.Spec.Rekor, ServiceName: rekor.ServerDeploymentName, Suffix: ""},
-		ctfeKey:   {Service: &instance.Spec.Ctlog, ServiceName: ctlog.DeploymentName, Suffix: ""},
-		fulcioKey: {Service: &instance.Spec.Fulcio, ServiceName: fulcio.DeploymentName, Suffix: ""},
-		tsaKey:    {Service: &instance.Spec.Tsa, ServiceName: tsa.DeploymentName, Suffix: tsa.TimestampPath},
+	var keyToService = map[string]serviceEndpoint{
+		rekorKey:  {Service: &instance.Spec.Rekor, ComponentList: &rhtasv1alpha1.RekorList{}, Suffix: ""},
+		ctfeKey:   {Service: &instance.Spec.Ctlog, ComponentList: &rhtasv1alpha1.CTlogList{}, Suffix: ""},
+		fulcioKey: {Service: &instance.Spec.Fulcio, ComponentList: &rhtasv1alpha1.FulcioList{}, Suffix: ""},
+		tsaKey:    {Service: &instance.Spec.Tsa, ComponentList: &rhtasv1alpha1.TimestampAuthorityList{}, Suffix: tsa.TimestampPath},
 	}
 
 	for _, key := range instance.Spec.Keys {
-		signingConfigURLMode := instance.Spec.SigningConfigURLMode
-		service, ok := keyToService[key.Name]
+		serviceEndpoint, ok := keyToService[key.Name]
 		if !ok {
 			return fmt.Errorf("unknown key %s", key.Name)
 		}
-		if key.Name == ctfeKey {
-			// ctlog is never exposed externally, so we always use internal mode
-			signingConfigURLMode = rhtasv1alpha1.SigningConfigURLInternal
-		}
-		if err := resolveServiceAddress(ctx, c, service.Service, service.Suffix, types.NamespacedName{Name: service.ServiceName, Namespace: instance.Namespace}, signingConfigURLMode, tls.UseTlsClient(instance)); err != nil {
-			return err
+		switch {
+		case serviceEndpoint.Service.GetAddress() != "":
+			continue // user specified address
+
+		default:
+			if url, err := resolveURLFromService(ctx, c, serviceEndpoint.ComponentList, instance.Namespace); err != nil {
+				return err
+			} else {
+				serviceEndpoint.Service.SetAddress(url)
+			}
+			if serviceEndpoint.Suffix != "" {
+				serviceEndpoint.Service.SetAddress(serviceEndpoint.Service.GetAddress() + serviceEndpoint.Suffix)
+			}
 		}
 	}
 
 	return nil
 }
 
-func resolveServiceAddress(ctx context.Context, c client.Client, tasService apis.TasService, suffix string, namespacedName types.NamespacedName, signingConfigURLMode rhtasv1alpha1.TufSigningConfigURLMode, useTlsClient bool) error {
-	var (
-		protocol string
-	)
-	switch {
-	case tasService.GetAddress() != "":
-		return nil // user config bypass the signingConfigURLMode and prefix
-	case signingConfigURLMode == rhtasv1alpha1.SigningConfigURLInternal:
-		if useTlsClient {
-			protocol = "https"
-		} else {
-			protocol = "http"
-		}
-		tasService.SetAddress(fmt.Sprintf("%s://%s.%s.svc", protocol, namespacedName.Name, namespacedName.Namespace))
-
-	default: // external mode
-		if url, err := resolveURLFromIngress(ctx, c, namespacedName.Name, namespacedName.Namespace); err != nil {
-			return err
-		} else {
-			tasService.SetAddress(url)
-		}
-	}
-	if suffix != "" {
-		tasService.SetAddress(tasService.GetAddress() + suffix)
-	}
-	return nil
-}
-
-func resolveURLFromIngress(ctx context.Context, c client.Client, ingressName, namespace string) (string, error) {
-	ingress := &v1.Ingress{}
-	if err := c.Get(ctx, types.NamespacedName{Name: ingressName, Namespace: namespace}, ingress); err != nil {
+func resolveURLFromService(ctx context.Context, c client.Client, list client.ObjectList, namespace string) (string, error) {
+	list = list.DeepCopyObject().(client.ObjectList)
+	if err := c.List(ctx, list, client.InNamespace(namespace)); err != nil {
 		return "", err
 	}
-	if len(ingress.Spec.Rules) == 0 || ingress.Spec.Rules[0].Host == "" {
-		return "", fmt.Errorf("fail to resolve host name from ingress %s", ingress.Name)
+
+	l, err := meta.ExtractList(list)
+	if err != nil {
+		return "", err
 	}
-	protocol := "http"
-	if len(ingress.Spec.TLS) > 0 {
-		protocol = "https"
+	switch {
+	case len(l) == 0:
+		return "", fmt.Errorf("no items found in %T", list)
+	case len(l) > 1:
+		return "", fmt.Errorf("multiple items found in %T", list)
+	default:
+		instance, ok := l[0].(AddressableConditionAware)
+		if !ok {
+			return "", fmt.Errorf("service %T is not addressable or not a condition aware object", l[0])
+		}
+		if !meta.IsStatusConditionTrue(instance.GetConditions(), constants.ReadyCondition) {
+			return "", fmt.Errorf("service is not ready Kind: %T, Name: %s", instance, instance.GetName())
+		}
+		url := instance.GetServiceURL()
+		if url == "" {
+			return "", fmt.Errorf("service %T url is empty", instance)
+		}
+		return url, nil
 	}
-	return fmt.Sprintf("%s://%s", protocol, ingress.Spec.Rules[0].Host), nil
 }
 
 func ResolveOIDCIssuers(ctx context.Context, c client.Client, namespace string) []string {

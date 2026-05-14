@@ -88,14 +88,32 @@ func (i initJobAction) jobPresent(ctx context.Context, job *v2.Job, instance *rh
 			return i.Error(ctx, reconcile.TerminalError(err), instance)
 		}
 	} else {
-		// job not completed yet
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    tufConstants.RepositoryCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  state.Initialize.String(),
+			Message: "waiting for init-repository job to complete",
+		})
+		result := i.StatusUpdate(ctx, instance)
+		if result.Err != nil {
+			return result
+		}
+		// ensure that new requeue iteration is triggered even if no status update happened
 		return i.Requeue()
 	}
 }
 
 func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]string, instance *rhtasv1alpha1.Tuf) *action.Result {
 	if err := utils.ResolveServiceAddress(ctx, i.Client, instance); err != nil {
-		return i.Error(ctx, fmt.Errorf("fail to resolve service url: %w", err), instance)
+		err = fmt.Errorf("fail to resolve service url: %w", err)
+		return i.Error(ctx, err, instance,
+			metav1.Condition{
+				Type:    tufConstants.RepositoryCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  state.Pending.String(),
+				Message: err.Error(),
+			},
+		)
 	}
 	oidcIssuers := utils.ResolveOIDCIssuers(ctx, i.Client, instance.Namespace)
 
@@ -121,6 +139,13 @@ func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]stri
 		return i.Error(ctx, fmt.Errorf("could not create TUF init job: %w", err), instance)
 	}
 
-	i.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "JobCreated", "Created", "Tuf init-repository job created.")
-	return i.Requeue()
+	msg := "Tuf init-repository job created."
+	i.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "JobCreated", "Created", msg)
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:    tufConstants.RepositoryCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  state.Initialize.String(),
+		Message: msg,
+	})
+	return i.StatusUpdate(ctx, instance)
 }

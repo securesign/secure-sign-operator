@@ -259,3 +259,7 @@ func (i *Rekor) GetTrustedCA() *LocalObjectReference {
 
 	return nil
 }
+
+func (i *Rekor) GetServiceURL() string {
+	return i.Status.Url
+}

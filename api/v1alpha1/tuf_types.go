@@ -21,14 +21,12 @@ const (
 // TufSpec defines the desired state of Tuf
 type TufSpec struct {
 	PodRequirements `json:",inline"`
+	// SigningConfigURLMode is deprecated. URL mode is now autoresolved from Component Custom Resources.
+	//+kubebuilder:default:=external
+	// +kubebuilder:validation:Deprecated=true
+	SigningConfigURLMode TufSigningConfigURLMode `json:"signingConfigURLMode,omitempty"`
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
-	// Controls which URLs are used in the signing config:
-	// "external" (default) resolves URLs from Ingress routes,
-	// "internal" uses internal Kubernetes service URLs.
-	//+kubebuilder:default:=external
-	//+optional
-	SigningConfigURLMode TufSigningConfigURLMode `json:"signingConfigURLMode,omitempty"`
 	//+kubebuilder:default:=80
 	//+kubebuilder:validation:Minimum:=1
 	//+kubebuilder:validation:Maximum:=65535
@@ -157,4 +155,8 @@ func (i *Tuf) GetTrustedCA() *LocalObjectReference {
 	}
 
 	return nil
+}
+
+func (i *Tuf) GetServiceURL() string {
+	return i.Status.Url
 }

@@ -10951,10 +10951,8 @@ spec:
                     x-kubernetes-map-type: atomic
                   signingConfigURLMode:
                     default: external
-                    description: |-
-                      Controls which URLs are used in the signing config:
-                      "external" (default) resolves URLs from Ingress routes,
-                      "internal" uses internal Kubernetes service URLs.
+                    description: SigningConfigURLMode is deprecated. URL mode is now
+                      autoresolved from Component Custom Resources.
                     enum:
                     - external
                     - internal
