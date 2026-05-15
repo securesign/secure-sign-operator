@@ -9,10 +9,18 @@ runs:
   using: 'composite'
   steps:
     - name: Uninstall NFS-CSI and cleanup volumes
-      if: always() && ${{ inputs.nfs-csi == true }}
+      if: always() && inputs.nfs-csi == 'true'
       shell: bash
       run: |
         kubectl delete pvc --all -A --ignore-not-found --wait=false || true
         kubectl delete pv --all --ignore-not-found --wait=false || true
         kustomize build --enable-helm ./ci/nfs/overlay/ | kubectl delete -f - --ignore-not-found || true
-        sudo systemctl restart docker || sudo service docker restart || true
+        # let NFS mounts release inside the kind node before cluster deletion
+        sleep 5
+
+    - name: Delete Kind cluster
+      if: always()
+      shell: bash
+      run: |
+        # delete before kind-action's post step to avoid Docker race with lingering NFS mounts
+        kind delete cluster --name kind || true
