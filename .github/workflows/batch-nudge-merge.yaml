@@ -42,8 +42,8 @@ jobs:
         run: |
           REGEX=$(gh pr list --repo "${{ github.repository }}" \
             --label konflux-nudge --state open --base "${{ matrix.base_branch }}" \
-            --json headRefName \
-            --jq '[.[].headRefName | gsub("(?<x>[.\\\\^$|?*+()\\[\\]{}])"; "\\\(.x)")] | join("|")')
+            --json headRefName,labels \
+            --jq '[.[] | select(.labels | map(.name) | index("skip-batch-combine") | not) | .headRefName | gsub("(?<x>[.\\\\^$|?*+()\\[\\]{}])"; "\\\(.x)")] | join("|")')
           if [ -z "$REGEX" ]; then
             echo "No open nudge PRs found for ${{ matrix.base_branch }}, skipping"
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -62,7 +62,7 @@ jobs:
           pr_body_header: '## Batch Container Image Digest Update for `${{ matrix.base_branch }}`'
           ci_required: 'false'
           review_required: 'false'
-          labels: konflux-nudge
+          labels: konflux-nudge,skip-batch-combine
           autoclose: 'true'
           min_combine_number: '2'
           create_from_scratch: 'true'
