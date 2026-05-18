@@ -36,14 +36,65 @@ check_pod_status() {
     return 1
 }
 
+log_realm_import_progress() {
+    local namespace="$1"
+    local realm_name="$2"
+    local cli="$3"
+
+    local started_msg has_errors_msg
+    started_msg=$($cli get keycloakrealmimport "$realm_name" -n "$namespace" \
+        -o jsonpath='{.status.conditions[?(@.type=="Started")].message}' 2>/dev/null)
+    has_errors_msg=$($cli get keycloakrealmimport "$realm_name" -n "$namespace" \
+        -o jsonpath='{.status.conditions[?(@.type=="HasErrors")].message}' 2>/dev/null)
+    echo "  Started: ${started_msg:-unknown}"
+    if [ -n "$has_errors_msg" ]; then
+        echo "  HasErrors: $has_errors_msg"
+    fi
+    echo "  Import job:"
+    $cli get job "$realm_name" -n "$namespace" -o custom-columns=NAME:.metadata.name,ACTIVE:.status.active,SUCCEEDED:.status.succeeded,FAILED:.status.failed 2>/dev/null \
+        || echo "    (job not created yet)"
+    echo "  Import pods:"
+    $cli get pods -n "$namespace" -l app=keycloak-realm-import -o wide 2>/dev/null \
+        || $cli get pods -n "$namespace" --field-selector=status.phase=Running 2>/dev/null | grep "$realm_name" || true
+}
+
+wait_for_realm_import_job() {
+    local namespace="$1"
+    local realm_name="$2"
+    local timeout="${3:-900s}"
+    local cli="${4:-kubectl}"
+
+    local attempts=0
+    while [[ $attempts -lt 30 ]]; do
+        if $cli get job "$realm_name" -n "$namespace" >/dev/null 2>&1; then
+            echo "Waiting for realm import Job '$realm_name' to complete (timeout: $timeout) ..."
+            if $cli wait --for=condition=complete "job/${realm_name}" -n "$namespace" --timeout="$timeout"; then
+                return 0
+            fi
+            if $cli wait --for=condition=failed "job/${realm_name}" -n "$namespace" --timeout=5s 2>/dev/null; then
+                echo "Realm import Job '$realm_name' failed."
+                return 1
+            fi
+            return 1
+        fi
+        sleep 2
+        attempts=$((attempts + 1))
+    done
+    echo "Realm import Job '$realm_name' was not created."
+    return 1
+}
+
 wait_for_realm_import() {
     local namespace="$1"
     local realm_name="${2:-trusted-artifact-signer-realm}"
     local limit="${3:-$max_attempts}"
     local cli="${4:-kubectl}"
+    local job_timeout="${5:-900s}"
     local attempts=0
+    local progress_interval=6
+    local job_wait_started=false
 
-    echo "Waiting for KeycloakRealmImport '$realm_name' to complete..."
+    echo "Waiting for KeycloakRealmImport '$realm_name' to complete (up to $((limit * sleep_interval))s, job timeout: ${job_timeout}) ..."
     while [[ $attempts -lt $limit ]]; do
         status=$($cli get keycloakrealmimport "$realm_name" -n "$namespace" -o jsonpath='{.status.conditions[?(@.type=="Done")].status}' 2>/dev/null)
         if [ "$status" == "True" ]; then
@@ -55,16 +106,44 @@ wait_for_realm_import() {
             echo "KeycloakRealmImport '$realm_name' reported errors."
             break
         fi
-        echo "Realm import not done yet (status: $status). Retrying in $sleep_interval seconds..."
+
+        if [ "$job_wait_started" != "true" ] && $cli get job "$realm_name" -n "$namespace" >/dev/null 2>&1; then
+            job_wait_started=true
+            echo "Realm import Job detected; waiting for Job completion ..."
+            if wait_for_realm_import_job "$namespace" "$realm_name" "$job_timeout" "$cli"; then
+                sleep 5
+                status=$($cli get keycloakrealmimport "$realm_name" -n "$namespace" -o jsonpath='{.status.conditions[?(@.type=="Done")].status}' 2>/dev/null)
+                if [ "$status" == "True" ]; then
+                    echo "KeycloakRealmImport '$realm_name' completed successfully."
+                    return 0
+                fi
+            fi
+            has_errors=$($cli get keycloakrealmimport "$realm_name" -n "$namespace" -o jsonpath='{.status.conditions[?(@.type=="HasErrors")].status}' 2>/dev/null)
+            if [ "$has_errors" == "True" ]; then
+                break
+            fi
+        fi
+
+        if [ $((attempts % progress_interval)) -eq 0 ]; then
+            echo "Realm import not done yet (Done: ${status:-False})."
+            log_realm_import_progress "$namespace" "$realm_name" "$cli"
+        else
+            echo "Realm import not done yet (Done: ${status:-False}). Retrying in $sleep_interval seconds..."
+        fi
         sleep $sleep_interval
         attempts=$((attempts + 1))
     done
 
     echo "Timed out waiting for KeycloakRealmImport '$realm_name' to complete."
+    log_realm_import_progress "$namespace" "$realm_name" "$cli"
     echo "--- KeycloakRealmImport status ---"
     $cli get keycloakrealmimport "$realm_name" -n "$namespace" -o yaml 2>/dev/null
+    echo "--- Realm import job describe ---"
+    $cli describe job "$realm_name" -n "$namespace" 2>/dev/null || echo "No realm import job found"
     echo "--- Realm import pod logs ---"
-    $cli logs -n "$namespace" -l app=keycloak-realm-import --tail=50 2>/dev/null || echo "No realm import pod logs found"
+    $cli logs -n "$namespace" -l app=keycloak-realm-import --tail=100 2>/dev/null \
+        || $cli logs -n "$namespace" --selector="job-name=${realm_name}" --tail=100 2>/dev/null \
+        || echo "No realm import pod logs found"
     return 1
 }
 
@@ -74,17 +153,27 @@ apply_realm_import_with_retry() {
     local realm_name="${3:-trusted-artifact-signer-realm}"
     local limit="${4:-$max_attempts}"
     local cli="${5:-kubectl}"
+    local job_timeout="${6:-900s}"
     local attempt
+    local had_errors=false
 
     for attempt in 1 2; do
         $cli apply -f "$realm_manifest" -n "$namespace"
-        if wait_for_realm_import "$namespace" "$realm_name" "$limit" "$cli"; then
+        if wait_for_realm_import "$namespace" "$realm_name" "$limit" "$cli" "$job_timeout"; then
             return 0
         fi
-        if [ "$attempt" -eq 1 ]; then
-            echo "Realm import failed; deleting KeycloakRealmImport and retrying once ..."
+        has_errors=$($cli get keycloakrealmimport "$realm_name" -n "$namespace" -o jsonpath='{.status.conditions[?(@.type=="HasErrors")].status}' 2>/dev/null)
+        if [ "$has_errors" == "True" ]; then
+            had_errors=true
+        fi
+        if [ "$attempt" -eq 1 ] && [ "$had_errors" == "true" ]; then
+            echo "Realm import reported errors; deleting KeycloakRealmImport and retrying once ..."
             $cli delete keycloakrealmimport "$realm_name" -n "$namespace" --ignore-not-found
+            $cli delete job "$realm_name" -n "$namespace" --ignore-not-found
             wait_for_keycloak_pod_ready "$namespace" "120s" "$cli" || return 1
+            had_errors=false
+        else
+            break
         fi
     done
     return 1
@@ -111,7 +200,9 @@ wait_for_keycloak_pod_ready() {
 }
 
 install_openshift_keycloak() {
-    local openshift_max_attempts=60
+    # Pipelines often run on slower clusters; allow override via env.
+    local openshift_max_attempts="${KEYCLOAK_REALM_IMPORT_ATTEMPTS:-90}"
+    local realm_import_job_timeout="${KEYCLOAK_REALM_IMPORT_JOB_TIMEOUT:-1200s}"
 
     BASE_DOMAIN=apps.$(oc get dns cluster -o jsonpath='{.spec.baseDomain}')
     echo "HOSTNAME=https://keycloak-keycloak-system.$BASE_DOMAIN" > ci/keycloak/resources/overlay/openshift/hostname.env
@@ -153,7 +244,7 @@ install_openshift_keycloak() {
     fi
 
     if ! apply_realm_import_with_retry "keycloak-system" "ci/keycloak/resources/base/realm-import.yaml" \
-        "trusted-artifact-signer-realm" "$openshift_max_attempts" oc; then
+        "trusted-artifact-signer-realm" "$openshift_max_attempts" oc "$realm_import_job_timeout"; then
         echo "Realm import failed. Exiting the script."
         exit 1
     fi
