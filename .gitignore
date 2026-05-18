@@ -20,7 +20,6 @@ bundle/
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
-coverage.out
 
 # Kubernetes Generated files - skip generated files, except for vendored files
 
