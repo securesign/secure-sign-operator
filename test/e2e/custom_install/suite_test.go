@@ -99,6 +99,10 @@ func managerPod(ns string, opts ...optManagerPod) *v1.Pod {
 							Name:  "OPENSHIFT",
 							Value: support.EnvOrDefault("OPENSHIFT", "false"),
 						},
+						{
+							Name:  "INGRESS_HOST_TEMPLATE",
+							Value: support.EnvOrDefault("INGRESS_HOST_TEMPLATE", "%[1]s.local"),
+						},
 					},
 					LivenessProbe: &v1.Probe{
 						ProbeHandler: v1.ProbeHandler{
