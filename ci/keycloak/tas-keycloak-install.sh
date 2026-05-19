@@ -40,11 +40,12 @@ wait_for_realm_import() {
     local namespace="$1"
     local realm_name="${2:-trusted-artifact-signer-realm}"
     local limit="${3:-$max_attempts}"
+    local cli="${4:-kubectl}"
     local attempts=0
 
     echo "Waiting for KeycloakRealmImport '$realm_name' to complete..."
     while [[ $attempts -lt $limit ]]; do
-        status=$(kubectl get keycloakrealmimport "$realm_name" -n "$namespace" -o jsonpath='{.status.conditions[?(@.type=="Done")].status}' 2>/dev/null)
+        status=$($cli get keycloakrealmimport "$realm_name" -n "$namespace" -o jsonpath='{.status.conditions[?(@.type=="Done")].status}' 2>/dev/null)
         if [ "$status" == "True" ]; then
             echo "KeycloakRealmImport '$realm_name' completed successfully."
             return 0
@@ -55,17 +56,15 @@ wait_for_realm_import() {
     done
 
     echo "Timed out waiting for KeycloakRealmImport '$realm_name' to complete."
-    echo "--- KeycloakRealmImport status ---"
-    kubectl get keycloakrealmimport "$realm_name" -n "$namespace" -o yaml 2>/dev/null
-    echo "--- Realm import pod logs ---"
-    kubectl logs -n "$namespace" -l app=keycloak-realm-import --tail=50 2>/dev/null || echo "No realm import pod logs found"
+    $cli get keycloakrealmimport "$realm_name" -n "$namespace" -o yaml 2>/dev/null
+    $cli get pods -n "$namespace" -l "job-name=${realm_name}" -o wide 2>/dev/null
     return 1
 }
 
 install_openshift_keycloak() {
     local openshift_max_attempts=60
 
-    BASE_DOMAIN=apps.$(oc get dns cluster -o jsonpath='{ .spec.baseDomain }')
+    BASE_DOMAIN=apps.$(oc get dns cluster -o jsonpath='{.spec.baseDomain}')
     echo "HOSTNAME=https://keycloak-keycloak-system.$BASE_DOMAIN" > ci/keycloak/resources/overlay/openshift/hostname.env
 
     oc apply --kustomize ci/keycloak/operator/overlay/openshift
@@ -75,9 +74,8 @@ install_openshift_keycloak() {
         exit 1
     fi
     oc apply --kustomize ci/keycloak/resources/overlay/openshift
-    check_pod_status "keycloak-system" "postgresql-db"
-    if [ $? -ne 0 ]; then
-        echo "Pod status check failed. Exiting the script."
+    if ! oc rollout status statefulset/postgresql-db -n keycloak-system --timeout=600s; then
+        echo "PostgreSQL rollout failed. Exiting the script."
         exit 1
     fi
 
@@ -100,7 +98,7 @@ install_openshift_keycloak() {
     fi
 
     oc apply -f ci/keycloak/resources/base/realm-import.yaml -n keycloak-system
-    wait_for_realm_import "keycloak-system" "trusted-artifact-signer-realm" "$openshift_max_attempts"
+    wait_for_realm_import "keycloak-system" "trusted-artifact-signer-realm" "$openshift_max_attempts" oc
     if [ $? -ne 0 ]; then
         echo "Realm import failed. Exiting the script."
         exit 1
@@ -111,7 +109,8 @@ install_kind_keycloak() {
     KEYCLOAK_VERSION="${KEYCLOAK_VERSION:-26.5.3}"
 
     kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.14.3/deploy/static/provider/kind/deploy.yaml
-    kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
+    kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=300s 2>/dev/null \
+        || echo "Warning: ingress-nginx not ready yet."
 
     kubectl apply --kustomize ci/keycloak/operator/overlay/kind
 
@@ -153,6 +152,7 @@ install_kind_keycloak() {
         return 1
     fi
 
+    if kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=300s 2>/dev/null; then
     kubectl create -n keycloak-system -f - <<EOF
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -171,6 +171,7 @@ spec:
         path: /
         pathType: Prefix
 EOF
+    fi
 }
 
 choice="${1:-openshift}"

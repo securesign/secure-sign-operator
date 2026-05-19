@@ -4,6 +4,15 @@ metadata:
   name: trusted-artifact-signer-realm
 spec:
   keycloakCRName: keycloak
+  # Import is a short-lived Job; avoid inheriting Keycloak's default ~1700Mi request
+  # which often cannot schedule on CI clusters already running the Keycloak pod.
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
   realm:
     id: trusted-artifact-signer
     realm: trusted-artifact-signer
