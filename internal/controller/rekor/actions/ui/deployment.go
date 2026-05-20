@@ -111,8 +111,10 @@ func (i deployAction) ensureUIDeployment(instance *rhtasv1alpha1.Rekor, sa strin
 		}
 		container.ReadinessProbe.HTTPGet.Path = "/"
 		container.ReadinessProbe.HTTPGet.Port = intstr.FromInt(3000)
-		container.ReadinessProbe.InitialDelaySeconds = 10
+		container.ReadinessProbe.InitialDelaySeconds = 0
+		container.ReadinessProbe.PeriodSeconds = 10
 		container.ReadinessProbe.TimeoutSeconds = 5
+		container.ReadinessProbe.FailureThreshold = 3
 
 		if container.LivenessProbe == nil {
 			container.LivenessProbe = &core.Probe{}
@@ -122,8 +124,22 @@ func (i deployAction) ensureUIDeployment(instance *rhtasv1alpha1.Rekor, sa strin
 		}
 		container.LivenessProbe.HTTPGet.Path = "/"
 		container.LivenessProbe.HTTPGet.Port = intstr.FromInt(3000)
-		container.LivenessProbe.InitialDelaySeconds = 30
+		container.LivenessProbe.InitialDelaySeconds = 0
+		container.LivenessProbe.PeriodSeconds = 10
 		container.LivenessProbe.TimeoutSeconds = 5
+		container.LivenessProbe.FailureThreshold = 3
+
+		if container.StartupProbe == nil {
+			container.StartupProbe = &core.Probe{}
+		}
+		if container.StartupProbe.HTTPGet == nil {
+			container.StartupProbe.HTTPGet = &core.HTTPGetAction{}
+		}
+		container.StartupProbe.HTTPGet.Path = "/"
+		container.StartupProbe.HTTPGet.Port = intstr.FromInt(3000)
+		container.StartupProbe.PeriodSeconds = 5
+		container.StartupProbe.TimeoutSeconds = 5
+		container.StartupProbe.FailureThreshold = 12
 
 		return nil
 	}
