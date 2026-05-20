@@ -165,8 +165,10 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.CTlog, sa string,
 		}
 		container.LivenessProbe.HTTPGet.Path = "/healthz"
 		container.LivenessProbe.HTTPGet.Port = intstr.FromInt32(ServerTargetPort)
-		container.LivenessProbe.InitialDelaySeconds = 10
+		container.LivenessProbe.InitialDelaySeconds = 0
 		container.LivenessProbe.PeriodSeconds = 10
+		container.LivenessProbe.TimeoutSeconds = 1
+		container.LivenessProbe.FailureThreshold = 3
 
 		if container.ReadinessProbe == nil {
 			container.ReadinessProbe = &core.Probe{}
@@ -174,12 +176,24 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.CTlog, sa string,
 		if container.ReadinessProbe.HTTPGet == nil {
 			container.ReadinessProbe.HTTPGet = &core.HTTPGetAction{}
 		}
-
 		container.ReadinessProbe.HTTPGet.Path = "/healthz"
 		container.ReadinessProbe.HTTPGet.Port = intstr.FromInt32(ServerTargetPort)
-
-		container.ReadinessProbe.InitialDelaySeconds = 10
+		container.ReadinessProbe.InitialDelaySeconds = 0
 		container.ReadinessProbe.PeriodSeconds = 10
+		container.ReadinessProbe.TimeoutSeconds = 1
+		container.ReadinessProbe.FailureThreshold = 3
+
+		if container.StartupProbe == nil {
+			container.StartupProbe = &core.Probe{}
+		}
+		if container.StartupProbe.HTTPGet == nil {
+			container.StartupProbe.HTTPGet = &core.HTTPGetAction{}
+		}
+		container.StartupProbe.HTTPGet.Path = "/healthz"
+		container.StartupProbe.HTTPGet.Port = intstr.FromInt32(ServerTargetPort)
+		container.StartupProbe.PeriodSeconds = 5
+		container.StartupProbe.TimeoutSeconds = 5
+		container.StartupProbe.FailureThreshold = 12
 
 		return nil
 	}
@@ -216,6 +230,10 @@ func (i deployAction) ensureTLS(tlsConfig rhtasv1alpha1.TLS, name string) func(d
 
 		if container.LivenessProbe != nil {
 			container.LivenessProbe.HTTPGet.Scheme = core.URISchemeHTTPS
+		}
+
+		if container.StartupProbe != nil {
+			container.StartupProbe.HTTPGet.Scheme = core.URISchemeHTTPS
 		}
 
 		return nil
