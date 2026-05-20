@@ -165,7 +165,10 @@ func (i deployAction) ensureDbDeployment(instance *rhtasv1alpha1.Trillian, sa st
 		}
 
 		container.ReadinessProbe.Exec.Command = []string{"bash", "-c", readinessCommand}
-		container.ReadinessProbe.InitialDelaySeconds = 10
+		container.ReadinessProbe.InitialDelaySeconds = 0
+		container.ReadinessProbe.PeriodSeconds = 10
+		container.ReadinessProbe.TimeoutSeconds = 1
+		container.ReadinessProbe.FailureThreshold = 3
 
 		if container.LivenessProbe == nil {
 			container.LivenessProbe = &v1.Probe{}
@@ -173,9 +176,23 @@ func (i deployAction) ensureDbDeployment(instance *rhtasv1alpha1.Trillian, sa st
 		if container.LivenessProbe.Exec == nil {
 			container.LivenessProbe.Exec = &v1.ExecAction{}
 		}
-
 		container.LivenessProbe.Exec.Command = []string{"bash", "-c", livenessCommand}
-		container.LivenessProbe.InitialDelaySeconds = 30
+		container.LivenessProbe.InitialDelaySeconds = 0
+		container.LivenessProbe.PeriodSeconds = 10
+		container.LivenessProbe.TimeoutSeconds = 1
+		container.LivenessProbe.FailureThreshold = 3
+
+		if container.StartupProbe == nil {
+			container.StartupProbe = &v1.Probe{}
+		}
+		if container.StartupProbe.Exec == nil {
+			container.StartupProbe.Exec = &v1.ExecAction{}
+		}
+		container.StartupProbe.Exec.Command = []string{"bash", "-c", readinessCommand}
+		container.StartupProbe.PeriodSeconds = 5
+		container.StartupProbe.TimeoutSeconds = 5
+		container.StartupProbe.FailureThreshold = 24
+
 		return nil
 	}
 }
@@ -205,6 +222,14 @@ func (i deployAction) ensureTLS(tlsConfig rhtasv1alpha1.TLS) func(deployment *v2
 		}
 
 		container.LivenessProbe.Exec.Command = []string{"bash", "-c", livenessCommand + " --ssl"}
+
+		if container.StartupProbe == nil {
+			container.StartupProbe = &v1.Probe{}
+		}
+		if container.StartupProbe.Exec == nil {
+			container.StartupProbe.Exec = &v1.ExecAction{}
+		}
+		container.StartupProbe.Exec.Command = []string{"bash", "-c", readinessCommand + " --ssl"}
 
 		if i := slices.Index(container.Args, "--ssl-cert"); i == -1 {
 			container.Args = append(container.Args, "--ssl-cert", tls.TLSCertPath)
