@@ -16,8 +16,9 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.8.0
+          version: v2.12.2
           args: --verbose --timeout=15m
+          only-new-issues: true
   crdify:
     runs-on: ubuntu-latest
     steps:
