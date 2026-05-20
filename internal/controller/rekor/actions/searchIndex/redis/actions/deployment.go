@@ -135,7 +135,10 @@ func (i deployAction) ensureRedisDeployment(instance *rhtasv1alpha1.Rekor, sa st
 			"-i",
 			"test $(redis-cli -h 127.0.0.1 -a $REDIS_PASSWORD ping) = 'PONG'",
 		}
-		container.ReadinessProbe.InitialDelaySeconds = 5
+		container.ReadinessProbe.InitialDelaySeconds = 0
+		container.ReadinessProbe.PeriodSeconds = 10
+		container.ReadinessProbe.TimeoutSeconds = 1
+		container.ReadinessProbe.FailureThreshold = 3
 
 		if container.LivenessProbe == nil {
 			container.LivenessProbe = &core.Probe{}
@@ -149,7 +152,26 @@ func (i deployAction) ensureRedisDeployment(instance *rhtasv1alpha1.Rekor, sa st
 			"-i",
 			"test $(redis-cli -h 127.0.0.1 -a $REDIS_PASSWORD ping) = 'PONG'",
 		}
-		container.LivenessProbe.InitialDelaySeconds = 10
+		container.LivenessProbe.InitialDelaySeconds = 0
+		container.LivenessProbe.PeriodSeconds = 10
+		container.LivenessProbe.TimeoutSeconds = 1
+		container.LivenessProbe.FailureThreshold = 3
+
+		if container.StartupProbe == nil {
+			container.StartupProbe = &core.Probe{}
+		}
+		if container.StartupProbe.Exec == nil {
+			container.StartupProbe.Exec = &core.ExecAction{}
+		}
+		container.StartupProbe.Exec.Command = []string{
+			"/bin/sh",
+			"-c",
+			"-i",
+			"test $(redis-cli -h 127.0.0.1 -a $REDIS_PASSWORD ping) = 'PONG'",
+		}
+		container.StartupProbe.PeriodSeconds = 5
+		container.StartupProbe.TimeoutSeconds = 5
+		container.StartupProbe.FailureThreshold = 12
 
 		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, storageVolumeName)
 		volumeMount.MountPath = "/data"
@@ -244,6 +266,19 @@ func (i deployAction) ensureTLS(tlsConfig rhtasv1alpha1.TLS, caPath string) func
 		}
 
 		container.LivenessProbe.Exec.Command = []string{
+			"/bin/sh",
+			"-c",
+			"-i",
+			fmt.Sprintf("test $(redis-cli --tls --cacert %s -h 127.0.0.1 -a $REDIS_PASSWORD ping) = 'PONG'", caPath),
+		}
+
+		if container.StartupProbe == nil {
+			container.StartupProbe = &core.Probe{}
+		}
+		if container.StartupProbe.Exec == nil {
+			container.StartupProbe.Exec = &core.ExecAction{}
+		}
+		container.StartupProbe.Exec.Command = []string{
 			"/bin/sh",
 			"-c",
 			"-i",
