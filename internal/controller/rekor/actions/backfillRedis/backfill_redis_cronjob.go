@@ -105,6 +105,7 @@ func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 func (i backfillRedisCronJob) ensureBacfillCronJob(instance *rhtasv1alpha1.Rekor) func(*batchv1.CronJob) error {
 	return func(job *batchv1.CronJob) error {
 		job.Spec.Schedule = instance.Spec.BackFillRedis.Schedule
+		job.Spec.JobTemplate.Spec.Template.Labels = labels.For(actions.BackfillRedisCronJobName, actions.BackfillRedisCronJobName, instance.Name)
 		templateSpec := &job.Spec.JobTemplate.Spec.Template.Spec
 		templateSpec.ServiceAccountName = actions.RBACName
 		templateSpec.RestartPolicy = "OnFailure"
