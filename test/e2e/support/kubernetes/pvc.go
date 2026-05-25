@@ -41,6 +41,15 @@ func CreatePVCCopyJob(namespace, srcPVC, destPVC string) *batchv1.Job {
 			Template: v1.PodTemplateSpec{
 				Spec: v1.PodSpec{
 					RestartPolicy: v1.RestartPolicyOnFailure,
+					SecurityContext: &v1.PodSecurityContext{
+						RunAsNonRoot: ptr.To(true),
+						RunAsUser:    ptr.To(int64(1001)),
+						RunAsGroup:   ptr.To(int64(1001)),
+						FSGroup:      ptr.To(int64(1001)),
+						SeccompProfile: &v1.SeccompProfile{
+							Type: v1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
 					Containers: []v1.Container{
 						{
 							Name:    "pvc-copy",
@@ -51,6 +60,12 @@ func CreatePVCCopyJob(namespace, srcPVC, destPVC string) *batchv1.Job {
 								echo "Copying from /src to /dest..."
 								rsync -rlH --no-perms --no-owner --no-group --numeric-ids /src/ /dest/
 								echo "Done."`,
+							},
+							SecurityContext: &v1.SecurityContext{
+								AllowPrivilegeEscalation: ptr.To(false),
+								Capabilities: &v1.Capabilities{
+									Drop: []v1.Capability{"ALL"},
+								},
 							},
 							VolumeMounts: []v1.VolumeMount{
 								{

@@ -19,7 +19,7 @@ import (
 )
 
 func EnsureServerDeployment(instance *v1alpha1.Trillian, labels map[string]string, caPath string) []func(*apps.Deployment) error {
-	return append([]func(deployment *apps.Deployment) error{
+	return append(append([]func(deployment *apps.Deployment) error{
 		ensureDeployment(instance,
 			images.Registry.Get(images.TrillianServer),
 			actions.LogserverDeploymentName,
@@ -29,11 +29,12 @@ func EnsureServerDeployment(instance *v1alpha1.Trillian, labels map[string]strin
 		deployment.PodRequirements(instance.Spec.LogServer.PodRequirements, actions.LogserverDeploymentName),
 		deployment.Proxy(),
 		deployment.TrustedCA(instance.GetTrustedCA(), actions.LogserverDeploymentName)},
-		EnsureDB(instance, actions.LogserverDeploymentName, caPath)...)
+		EnsureDB(instance, actions.LogserverDeploymentName, caPath)...),
+		deployment.PodSecurityContext())
 }
 
 func EnsureSignerDeployment(instance *v1alpha1.Trillian, labels map[string]string, caPath string) []func(*apps.Deployment) error {
-	return append([]func(deployment *apps.Deployment) error{
+	return append(append([]func(deployment *apps.Deployment) error{
 		ensureDeployment(instance,
 			images.Registry.Get(images.TrillianLogSigner),
 			actions.LogsignerDeploymentName,
@@ -45,7 +46,8 @@ func EnsureSignerDeployment(instance *v1alpha1.Trillian, labels map[string]strin
 		deployment.Proxy(),
 		deployment.TrustedCA(instance.GetTrustedCA(), actions.LogsignerDeploymentName),
 	},
-		EnsureDB(instance, actions.LogsignerDeploymentName, caPath)...)
+		EnsureDB(instance, actions.LogsignerDeploymentName, caPath)...),
+		deployment.PodSecurityContext())
 }
 
 func ensureProbes(containerName string) func(*apps.Deployment) error {

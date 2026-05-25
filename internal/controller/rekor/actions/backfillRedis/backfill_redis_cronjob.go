@@ -71,6 +71,9 @@ func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 		},
 		i.ensureBacfillCronJob(instance),
 		func(object *batchv1.CronJob) error {
+			return ensure.PodSecurityContext(&object.Spec.JobTemplate.Spec.Template.Spec)
+		},
+		func(object *batchv1.CronJob) error {
 			ref := &object.Spec.JobTemplate.Spec.Template.Spec
 			return ensure.Auth(actions.BackfillRedisCronJobName, instance.Spec.Auth)(ref)
 		},

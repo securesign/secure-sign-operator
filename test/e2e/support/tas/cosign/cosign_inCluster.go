@@ -75,12 +75,24 @@ func (c *InClusterCosign) executeInJob(ctx context.Context, script string) error
 			Template: v1.PodTemplateSpec{
 				Spec: v1.PodSpec{
 					RestartPolicy: v1.RestartPolicyNever,
+					SecurityContext: &v1.PodSecurityContext{
+						RunAsNonRoot: ptr.To(true),
+						SeccompProfile: &v1.SeccompProfile{
+							Type: v1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
 					Containers: []v1.Container{
 						{
 							Name:    "cosign",
 							Image:   cosignImage,
 							Command: []string{"/bin/sh", "-c"},
 							Args:    []string{script},
+							SecurityContext: &v1.SecurityContext{
+								AllowPrivilegeEscalation: ptr.To(false),
+								Capabilities: &v1.Capabilities{
+									Drop: []v1.Capability{"ALL"},
+								},
+							},
 						},
 					},
 				},

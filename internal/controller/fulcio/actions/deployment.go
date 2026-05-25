@@ -71,6 +71,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 		deployment.Proxy("@fulcio-legacy-grpc-socket"),
 		deployment.TrustedCA(instance.GetTrustedCA(), containerName),
 		deployment.PodRequirements(instance.Spec.PodRequirements, containerName),
+		deployment.PodSecurityContext(),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Fulcio: %w", err), instance)
 	}

@@ -22,6 +22,17 @@ func CreateNamespace(cli client.Client, callback func(*v1.Namespace)) func(ctx g
 	}
 }
 
+func CreateNamespaceWithoutPSA(cli client.Client, callback func(*v1.Namespace)) func(ctx ginkgo.SpecContext) {
+	return func(ctx ginkgo.SpecContext) {
+		namespace := support.CreateTestNamespaceWithoutPSA(ctx, cli)
+		ginkgo.DeferCleanup(func(ctx ginkgo.SpecContext) {
+			_ = cli.Delete(ctx, namespace)
+		})
+		ginkgo.DeferCleanup(DumpNamespace(cli, namespace))
+		callback(namespace)
+	}
+}
+
 func DumpNamespace(cli client.Client, namespace *v1.Namespace) func(ctx ginkgo.SpecContext) {
 	return func(ctx ginkgo.SpecContext) {
 		report := ctx.SpecReport()

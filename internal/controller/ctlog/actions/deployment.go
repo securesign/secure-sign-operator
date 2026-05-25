@@ -76,6 +76,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		deployment.Proxy(),
 		deployment.TrustedCA(instance.GetTrustedCA(), containerName),
 		deployment.PodRequirements(instance.Spec.PodRequirements, containerName),
+		deployment.PodSecurityContext(),
 		ensure.Optional(
 			utils.TlsEnabled(instance),
 			i.ensureTLS(instance.Status.TLS, containerName),

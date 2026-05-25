@@ -75,6 +75,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Timest
 		deployment.Proxy(),
 		deployment.TrustedCA(instance.GetTrustedCA(), DeploymentName),
 		deployment.PodRequirements(instance.Spec.PodRequirements, DeploymentName),
+		deployment.PodSecurityContext(),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create TSA Server: %w", err), instance)
 	}

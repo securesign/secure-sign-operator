@@ -256,6 +256,9 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 			return nil
 		},
 		func(object *batchv1.Job) error {
+			return ensure.PodSecurityContext(&object.Spec.Template.Spec)
+		},
+		func(object *batchv1.Job) error {
 			return ensureTls.TrustedCA(instance.GetTrustedCA(), createTreeContainerName)(&object.Spec.Template)
 		},
 	); err != nil {

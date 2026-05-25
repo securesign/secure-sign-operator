@@ -94,6 +94,12 @@ func managerPod(ns string, opts ...optManagerPod) *v1.Pod {
 					Name:    "manager",
 					Image:   image,
 					Command: []string{"/manager"},
+					SecurityContext: &v1.SecurityContext{
+						AllowPrivilegeEscalation: ptr.To(false),
+						Capabilities: &v1.Capabilities{
+							Drop: []v1.Capability{"ALL"},
+						},
+					},
 					Env: []v1.EnvVar{
 						{
 							Name:  "OPENSHIFT",
