@@ -24,6 +24,9 @@ spec:
     image: mirror.gcr.io/httpd:2.4.46
     securityContext:
       runAsUser: 1001
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
     command:
      - httpd
     args:

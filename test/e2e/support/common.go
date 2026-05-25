@@ -60,6 +60,26 @@ func CreateClient() (client.Client, error) {
 
 }
 func CreateTestNamespace(ctx context.Context, cli client.Client) *v1.Namespace {
+	return createTestNamespace(ctx, cli, true)
+}
+
+func CreateTestNamespaceWithoutPSA(ctx context.Context, cli client.Client) *v1.Namespace {
+	return createTestNamespace(ctx, cli, false)
+}
+
+func EnforcePSARestricted(ctx context.Context, cli client.Client, ns *v1.Namespace) {
+	Eventually(func(g Gomega) {
+		g.Expect(cli.Get(ctx, client.ObjectKeyFromObject(ns), ns)).To(Succeed())
+		if ns.Labels == nil {
+			ns.Labels = map[string]string{}
+		}
+		ns.Labels["pod-security.kubernetes.io/enforce"] = "restricted"
+		ns.Labels["pod-security.kubernetes.io/enforce-version"] = "latest"
+		g.Expect(cli.Update(ctx, ns)).To(Succeed())
+	}).Should(Succeed())
+}
+
+func createTestNamespace(ctx context.Context, cli client.Client, withPSA bool) *v1.Namespace {
 	sp := ginkgo.CurrentSpecReport()
 	fn := filepath.Base(sp.LeafNodeLocation.FileName)
 	// Replace invalid characters with '-'
@@ -69,7 +89,12 @@ func CreateTestNamespace(ctx context.Context, cli client.Client) *v1.Namespace {
 	ns := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: name + "-",
+			Labels:       map[string]string{},
 		},
+	}
+	if withPSA {
+		ns.Labels["pod-security.kubernetes.io/enforce"] = "restricted"
+		ns.Labels["pod-security.kubernetes.io/enforce-version"] = "latest"
 	}
 	Expect(cli.Create(ctx, ns)).To(Succeed())
 	core.GinkgoWriter.Println("Created test namespace: " + ns.Name)

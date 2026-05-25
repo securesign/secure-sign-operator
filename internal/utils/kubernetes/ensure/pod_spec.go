@@ -28,40 +28,34 @@ func PodSecurityContext(spec *core.PodSpec) error {
 	}
 
 	for i := range spec.InitContainers {
-		container := &spec.InitContainers[i]
-
-		if container.SecurityContext == nil {
-			container.SecurityContext = &core.SecurityContext{}
-		}
-
-		if container.SecurityContext.RunAsNonRoot == nil {
-			container.SecurityContext.RunAsNonRoot = ptr.To(true)
-		}
-		if container.SecurityContext.AllowPrivilegeEscalation == nil {
-			container.SecurityContext.AllowPrivilegeEscalation = ptr.To(false)
-		}
-		if !kubernetes.IsOpenShift() && container.SecurityContext.RunAsUser == nil {
-			container.SecurityContext.RunAsUser = ptr.To(runAsUser)
-		}
+		ensureContainerSecurityContext(&spec.InitContainers[i])
 	}
 
 	for i := range spec.Containers {
-		container := &spec.Containers[i]
-
-		if container.SecurityContext == nil {
-			container.SecurityContext = &core.SecurityContext{}
-		}
-
-		if container.SecurityContext.RunAsNonRoot == nil {
-			container.SecurityContext.RunAsNonRoot = ptr.To(true)
-		}
-		if container.SecurityContext.AllowPrivilegeEscalation == nil {
-			container.SecurityContext.AllowPrivilegeEscalation = ptr.To(false)
-		}
-		if !kubernetes.IsOpenShift() && container.SecurityContext.RunAsUser == nil {
-			container.SecurityContext.RunAsUser = ptr.To(runAsUser)
-		}
+		ensureContainerSecurityContext(&spec.Containers[i])
 	}
 
 	return nil
+}
+
+func ensureContainerSecurityContext(container *core.Container) {
+	if container.SecurityContext == nil {
+		container.SecurityContext = &core.SecurityContext{}
+	}
+
+	if container.SecurityContext.RunAsNonRoot == nil {
+		container.SecurityContext.RunAsNonRoot = ptr.To(true)
+	}
+	if container.SecurityContext.AllowPrivilegeEscalation == nil {
+		container.SecurityContext.AllowPrivilegeEscalation = ptr.To(false)
+	}
+	if container.SecurityContext.Capabilities == nil {
+		container.SecurityContext.Capabilities = &core.Capabilities{}
+	}
+	if container.SecurityContext.Capabilities.Drop == nil {
+		container.SecurityContext.Capabilities.Drop = []core.Capability{"ALL"}
+	}
+	if !kubernetes.IsOpenShift() && container.SecurityContext.RunAsUser == nil {
+		container.SecurityContext.RunAsUser = ptr.To(runAsUser)
+	}
 }

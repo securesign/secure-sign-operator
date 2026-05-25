@@ -52,7 +52,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		cosign                                 cosignSupport.Cosign
 	)
 
-	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
+	BeforeAll(steps.CreateNamespaceWithoutPSA(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
 	BeforeAll(func(ctx SpecContext) {
@@ -223,6 +223,10 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		}
 
 		tas.VerifyAllComponents(ctx, cli, securesignDeployment, true)
+	})
+
+	It("Enforce PSA restricted:latest after upgrade", func(ctx SpecContext) {
+		support.EnforcePSARestricted(ctx, cli, namespace)
 	})
 
 	It("Verify image signature after upgrade", func(ctx SpecContext) {
