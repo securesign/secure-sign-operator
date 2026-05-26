@@ -104,6 +104,7 @@ func (r *securesignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		actions.NewCtlogAction(),
 		actions.NewTufAction(),
 		actions.NewTsaAction(),
+		actions.NewConsoleAction(),
 		actions.NewUpdateStatusAction(),
 	}
 
@@ -138,5 +139,6 @@ func (r *securesignReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&rhtasv1alpha1.Trillian{}).
 		Owns(&rhtasv1alpha1.CTlog{}).
 		Owns(&rhtasv1alpha1.TimestampAuthority{}).
+		Owns(&rhtasv1alpha1.Console{}).
 		Complete(r)
 }
