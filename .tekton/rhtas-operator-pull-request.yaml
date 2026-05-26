@@ -45,7 +45,7 @@ spec:
   - name: prefetch-input
     value: '{"type": "gomod", "path": "."}'
   - name: image-expires-after
-    value: 5d
+    value: 180d
   - name: fips-check
     value: "true"
   pipelineRef:
