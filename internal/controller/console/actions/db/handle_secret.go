@@ -57,8 +57,8 @@ func (i handleSecretAction) Name() string {
 }
 
 func (i handleSecretAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Console) bool {
-	switch {
-	case instance.Status.Db.DatabaseSecretRef == nil:
+	switch instance.Status.Db.DatabaseSecretRef {
+	case nil:
 		return true
 	default:
 		return !meta.IsStatusConditionTrue(instance.GetConditions(), console.DbCondition)

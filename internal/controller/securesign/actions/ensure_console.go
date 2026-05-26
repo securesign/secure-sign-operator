@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"reflect"
 	"slices"
 
 	"github.com/securesign/operator/internal/action"
@@ -48,6 +49,19 @@ func (i consoleAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secur
 			},
 		}
 	)
+
+	if reflect.ValueOf(instance.Spec.Console).IsZero() {
+		if meta.IsStatusConditionTrue(instance.Status.Conditions, ConsoleCondition) {
+			return i.Continue()
+		}
+		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
+			Type:    ConsoleCondition,
+			Status:  v1.ConditionTrue,
+			Reason:  state.NotDefined.String(),
+			Message: "Console resource is undefined",
+		})
+		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
+	}
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		console,

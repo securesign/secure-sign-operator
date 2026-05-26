@@ -27,7 +27,7 @@ func (i initializeAction) Name() string {
 }
 
 func (i initializeAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Console) bool {
-	return !meta.IsStatusConditionTrue(instance.Status.Conditions, actions.UICondition)
+	return instance.Spec.Enabled && !meta.IsStatusConditionTrue(instance.Status.Conditions, actions.UICondition)
 }
 
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Console) *action.Result {

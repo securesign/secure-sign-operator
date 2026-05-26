@@ -17,7 +17,6 @@ import (
 	"github.com/securesign/operator/internal/controller/console/actions"
 	consoleUtils "github.com/securesign/operator/internal/controller/console/utils"
 	apps "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -64,8 +63,8 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Consol
 		},
 		append([]func(*apps.Deployment) error{
 			i.ensureAPIDeployment(instance, actions.RBACApiName, labels, tufURL),
-			ensure.ControllerReference[*v1.Deployment](instance, i.Client),
-			ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
+			ensure.ControllerReference[*apps.Deployment](instance, i.Client),
+			ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(labels)), labels),
 			deployment.Proxy(),
 			deployment.PodRequirements(instance.Spec.Api.PodRequirements, actions.ApiComponentName),
 			deployment.TrustedCA(instance.GetTrustedCA(), actions.ApiComponentName),
@@ -112,21 +111,15 @@ func (i deployAction) ensureAPIDeployment(instance *rhtasv1alpha1.Console, sa st
 		template.Labels = labels
 		template.Spec.ServiceAccountName = sa
 
-		dbCheckCmd := fmt.Sprintf("mysqladmin ping -h%s --silent", actions.DbDeploymentName)
-		if consoleUtils.UseTLSDb(instance) {
-			dbCheckCmd += " --ssl"
-		}
-
 		initContainer := kubernetes.FindInitContainerByNameOrCreate(&template.Spec, "wait-for-console-db-tuf")
-		initContainer.Image = images.Registry.Get(images.ConsoleDb)
+		initContainer.Image = images.Registry.Get(images.TrillianNetcat)
 
-		initContainer.Command = []string{
-			"/bin/sh",
-			"-c",
+		initContainer.Command = []string{"sh", "-c"}
+		initContainer.Args = []string{
 			fmt.Sprintf(`
                 echo "Waiting for console database...";
-                until %s > /dev/null 2>&1; do
-                    echo "Waiting for the console database to be ready...";
+                until nc -z -v -w30 $1 $2; do
+                    echo "Waiting for MySQL to start";
                     sleep 5;
                 done;
                 echo "Waiting for TUF server...";
@@ -135,23 +128,10 @@ func (i deployAction) ensureAPIDeployment(instance *rhtasv1alpha1.Console, sa st
                     sleep 5;
                 done;
                 echo "tuf-init completed."
-            `, dbCheckCmd, tufServerHost),
-		}
-
-		// Apply Auth to init container
-		ref := &template.Spec
-		if instance.Spec.Auth != nil {
-			err := ensure.ContainerAuth(initContainer, instance.Spec.Auth)(ref)
-			if err != nil {
-				return err
-			}
-		}
-		// Apply DatabaseSecretRef auth to init container
-		if instance.Status.Db.DatabaseSecretRef != nil {
-			err := ensure.ContainerAuth(initContainer, dbSecretToAuth(instance.Status.Db.DatabaseSecretRef))(ref)
-			if err != nil {
-				return err
-			}
+            `, tufServerHost),
+			"inlineScript",
+			actions.DbDeploymentName,
+			"3306",
 		}
 
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, actions.ApiDeploymentName)

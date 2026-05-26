@@ -30,6 +30,7 @@ import (
 )
 
 const (
+	shellCommand     = "bash"
 	livenessCommand  = "mariadb-admin -u ${MYSQL_USER} -p${MYSQL_PASSWORD} ping"
 	readinessCommand = "mariadb -u ${MYSQL_USER} -p${MYSQL_PASSWORD} -e \"SELECT 1;\""
 )
@@ -198,7 +199,7 @@ func (i deployAction) ensureDbDeployment(instance *rhtasv1alpha1.Console, sa str
 			container.ReadinessProbe.Exec = &v1.ExecAction{}
 		}
 
-		container.ReadinessProbe.Exec.Command = []string{"bash", "-c", readinessCommand}
+		container.ReadinessProbe.Exec.Command = []string{shellCommand, "-c", readinessCommand}
 		container.ReadinessProbe.InitialDelaySeconds = 10
 
 		if container.LivenessProbe == nil {
@@ -208,7 +209,7 @@ func (i deployAction) ensureDbDeployment(instance *rhtasv1alpha1.Console, sa str
 			container.LivenessProbe.Exec = &v1.ExecAction{}
 		}
 
-		container.LivenessProbe.Exec.Command = []string{"bash", "-c", livenessCommand}
+		container.LivenessProbe.Exec.Command = []string{shellCommand, "-c", livenessCommand}
 		container.LivenessProbe.InitialDelaySeconds = 30
 		return nil
 	}
@@ -229,7 +230,7 @@ func (i deployAction) ensureTLS(tlsConfig rhtasv1alpha1.TLS) func(deployment *v2
 			container.ReadinessProbe.Exec = &v1.ExecAction{}
 		}
 
-		container.ReadinessProbe.Exec.Command = []string{"bash", "-c", readinessCommand + " --ssl"}
+		container.ReadinessProbe.Exec.Command = []string{shellCommand, "-c", readinessCommand + " --ssl"}
 
 		if container.LivenessProbe == nil {
 			container.LivenessProbe = &v1.Probe{}
@@ -238,7 +239,7 @@ func (i deployAction) ensureTLS(tlsConfig rhtasv1alpha1.TLS) func(deployment *v2
 			container.LivenessProbe.Exec = &v1.ExecAction{}
 		}
 
-		container.LivenessProbe.Exec.Command = []string{"bash", "-c", livenessCommand + " --ssl"}
+		container.LivenessProbe.Exec.Command = []string{shellCommand, "-c", livenessCommand + " --ssl"}
 
 		if i := slices.Index(container.Args, "--ssl-cert"); i == -1 {
 			container.Args = append(container.Args, "--ssl-cert", tls.TLSCertPath)

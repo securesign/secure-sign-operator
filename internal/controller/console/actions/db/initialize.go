@@ -28,8 +28,7 @@ func (i initializeAction) Name() string {
 }
 
 func (i initializeAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Console) bool {
-	return !meta.IsStatusConditionTrue(instance.Status.Conditions, actions.DbCondition) &&
-		enabled(instance)
+	return !meta.IsStatusConditionTrue(instance.Status.Conditions, actions.DbCondition) && enabled(instance)
 }
 
 func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Console) *action.Result {
