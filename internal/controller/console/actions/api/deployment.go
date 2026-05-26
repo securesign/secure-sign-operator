@@ -62,7 +62,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Consol
 			},
 		},
 		append([]func(*apps.Deployment) error{
-			i.ensureAPIDeployment(instance, actions.RBACApiName, labels, tufURL),
+			i.ensureAPIDeployment(actions.RBACApiName, labels, tufURL),
 			ensure.ControllerReference[*apps.Deployment](instance, i.Client),
 			ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(labels)), labels),
 			deployment.Proxy(),
@@ -93,9 +93,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Consol
 	}
 }
 
-func (i deployAction) ensureAPIDeployment(instance *rhtasv1alpha1.Console, sa string, labels map[string]string, tufURL string,
-) func(*apps.Deployment) error {
-
+func (i deployAction) ensureAPIDeployment(sa string, labels map[string]string, tufURL string) func(*apps.Deployment) error {
 	return func(dp *apps.Deployment) error {
 		tufServerHost := tufURL
 
