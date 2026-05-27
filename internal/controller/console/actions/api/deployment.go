@@ -138,9 +138,6 @@ func (i deployAction) ensureAPIDeployment(sa string, labels map[string]string, t
 		tufRepoUrlEnv := kubernetes.FindEnvByNameOrCreate(container, "TUF_REPO_URL")
 		tufRepoUrlEnv.Value = tufServerHost
 
-		sslCertDirEnv := kubernetes.FindEnvByNameOrCreate(container, "SSL_CERT_DIR")
-		sslCertDirEnv.Value = "/var/run/configs/tas/ca-trust:/var/run/secrets/kubernetes.io/serviceaccount"
-
 		port := kubernetes.FindPortByNameOrCreate(container, "http")
 		port.ContainerPort = actions.ApiServerPort
 		port.Protocol = core.ProtocolTCP
