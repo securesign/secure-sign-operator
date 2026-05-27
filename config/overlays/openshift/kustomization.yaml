@@ -1,0 +1,35 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../../default
+- prometheus_role.yaml
+- prometheus_role_binding.yaml
+- metrics_reader_clusterrolebinding.yaml
+
+patches:
+- path: metrics_service_tls_patch.yaml
+- path: monitor_patch.yaml
+  target:
+    kind: ServiceMonitor
+    name: operator-controller-manager-metrics-monitor
+- target:
+    kind: Deployment
+    name: operator-controller-manager
+  patch: |
+    - op: add
+      path: /spec/template/spec/containers/0/args/-
+      value: "--metrics-tls-cert-dir=/var/run/tls/metrics/"
+    - op: add
+      path: /spec/template/spec/containers/0/volumeMounts
+      value:
+        - name: metrics-cert
+          mountPath: /var/run/tls/metrics
+          readOnly: true
+    - op: add
+      path: /spec/template/spec/volumes
+      value:
+        - name: metrics-cert
+          secret:
+            secretName: rhtas-operator-metrics-cert
+            defaultMode: 420

@@ -2,6 +2,7 @@ ARG VERSION="1.5.0"
 ARG CHANNELS="stable,stable-v1.5"
 ARG DEFAULT_CHANNEL="stable"
 ARG BUNDLE_GEN_FLAGS="-q --overwrite=false --version $VERSION --channels=$CHANNELS --default-channel=$DEFAULT_CHANNEL"
+ARG TARGET_PLATFORM="openshift"
 ARG IMG
 
 FROM registry.redhat.io/openshift4/ose-cli-rhel9@sha256:1b960c8a1a29c21dc858eccc9ca01e198e2e187079a2bd26984f462035cc2f25 AS oc-builder
@@ -13,6 +14,7 @@ COPY --from=oc-builder /usr/bin/oc /usr/bin/oc
 
 ARG BUNDLE_GEN_FLAGS
 ARG IMG
+ARG TARGET_PLATFORM
 
 WORKDIR /tmp
 

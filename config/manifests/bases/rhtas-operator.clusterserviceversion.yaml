@@ -15,6 +15,8 @@ metadata:
     features.operators.openshift.io/token-auth-aws: "false"
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
+    operatorframework.io/suggested-namespace: openshift-rhtas-operator
+    operatorframework.io/suggested-namespace-template: '{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"openshift-rhtas-operator","labels":{"openshift.io/cluster-monitoring":"true"}}}'
     operators.openshift.io/valid-subscription: '["Red Hat Trusted Artifact Signer"]'
     repository: https://github.com/securesign/secure-sign-operator
     support: Red Hat

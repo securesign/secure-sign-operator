@@ -1,0 +1,13 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: operator-controller-manager-metrics-monitor
+spec:
+  endpoints:
+  - path: /metrics
+    port: https
+    scheme: https
+    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    tlsConfig:
+      caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
+      serverName: rhtas-operator-controller-manager-metrics-service.openshift-rhtas-operator.svc
