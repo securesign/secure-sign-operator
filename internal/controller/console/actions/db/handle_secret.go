@@ -20,7 +20,6 @@ import (
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	console "github.com/securesign/operator/internal/controller/console/actions"
-	consoleUtils "github.com/securesign/operator/internal/controller/console/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,11 +65,38 @@ func (i handleSecretAction) CanHandle(_ context.Context, instance *rhtasv1alpha1
 }
 
 func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Console) *action.Result {
+	// external database
+	if !enabled(instance) {
+		// copy deprecated DatabaseSecretRef for backward compatibility
+		if !equality.Semantic.DeepEqual(instance.Spec.Db.DatabaseSecretRef, instance.Status.Db.DatabaseSecretRef) {
+			instance.Status.Db.DatabaseSecretRef = instance.Spec.Db.DatabaseSecretRef
+		}
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:    console.DbCondition,
+			Status:  metav1.ConditionTrue,
+			Reason:  state.Ready.String(),
+			Message: "Working with external DB",
+		})
+		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
+	}
 
+	// managed database
 	var (
 		err error
 	)
 
+	if instance.Spec.Db.DatabaseSecretRef != nil {
+		// skip if spec and status is equal
+		if equality.Semantic.DeepEqual(instance.Spec.Db.DatabaseSecretRef, instance.Status.Db.DatabaseSecretRef) {
+			return i.Continue()
+		}
+
+		// update database connection by spec
+		instance.Status.Db.DatabaseSecretRef = instance.Spec.Db.DatabaseSecretRef
+		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
+	}
+
+	// skip if status exists
 	if instance.Status.Db.DatabaseSecretRef != nil {
 		return i.Continue()
 	}
@@ -140,13 +166,6 @@ func (i handleSecretAction) defaultDBData(instance *rhtasv1alpha1.Console) map[s
 	rootPass = utils2.GeneratePassword(12)
 	mysqlPass = utils2.GeneratePassword(12)
 
-	dbHost := host
-	if consoleUtils.UseTLSDb(instance) {
-		dbHost = fmt.Sprintf("%s.%s.svc", host, instance.Namespace)
-	}
-
-	dsn := fmt.Sprintf("mysql:%s@tcp(%s:%d)/%s", mysqlPass, dbHost, port, databaseName)
-
 	return map[string][]byte{
 		console.SecretRootPassword: rootPass,
 		console.SecretPassword:     mysqlPass,
@@ -154,7 +173,6 @@ func (i handleSecretAction) defaultDBData(instance *rhtasv1alpha1.Console) map[s
 		console.SecretUser:         []byte(user),
 		console.SecretPort:         []byte(strconv.Itoa(port)),
 		console.SecretHost:         []byte(host),
-		console.SecretDsn:          []byte(dsn),
 	}
 }
 

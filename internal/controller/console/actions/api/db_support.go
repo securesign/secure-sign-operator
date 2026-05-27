@@ -32,7 +32,7 @@ func ensureDbAuth(instance *v1alpha1.Console, containerName string) []func(dp *a
 
 func dbSecretToAuth(databaseSecretRef *v1alpha1.LocalObjectReference) *v1alpha1.Auth {
 	auth := v1alpha1.Auth{}
-	keys := []string{actions.SecretUser, actions.SecretPassword, actions.SecretHost, actions.SecretPort, actions.SecretDatabaseName, actions.SecretDsn}
+	keys := []string{actions.SecretUser, actions.SecretPassword, actions.SecretHost, actions.SecretPort, actions.SecretDatabaseName}
 
 	for _, v := range keys {
 		temp := strings.ReplaceAll(v, "-", "_")

@@ -128,6 +128,16 @@ func WithExternalDatabase(secretName string) Opts {
 		s.Spec.Trillian.Db.DatabaseSecretRef = &v1alpha1.LocalObjectReference{
 			Name: secretName,
 		}
+
+		// Enable Console with external DB
+		if s.Spec.Console == nil {
+			s.Spec.Console = &v1alpha1.ConsoleSpec{}
+		}
+		s.Spec.Console.Enabled = true
+		s.Spec.Console.Db.Create = ptr.To(false)
+		s.Spec.Console.Db.DatabaseSecretRef = &v1alpha1.LocalObjectReference{
+			Name: secretName,
+		}
 	}
 }
 

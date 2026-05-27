@@ -39,5 +39,4 @@ const (
 	SecretUser         = "mysql-user"
 	SecretPort         = "mysql-port"
 	SecretHost         = "mysql-host"
-	SecretDsn          = "db-dsn"
 )

@@ -1350,6 +1350,12 @@ spec:
                     - name
                     type: object
                     x-kubernetes-map-type: atomic
+                  provider:
+                    default: mysql
+                    description: DB provider. Currently only mysql is supported.
+                    enum:
+                    - mysql
+                    type: string
                   pvc:
                     default:
                       retain: true
@@ -1453,6 +1459,10 @@ spec:
                     x-kubernetes-validations:
                     - message: privateKeyRef cannot be empty
                       rule: (!has(self.certificateRef) || has(self.privateKeyRef))
+                  uri:
+                    default: $(MYSQL_USER):$(MYSQL_PASSWORD)@tcp($(MYSQL_HOST):$(MYSQL_PORT))/$(MYSQL_DATABASE)
+                    description: DB connection URL (DSN format for MySQL).
+                    type: string
                 required:
                 - create
                 type: object
@@ -3721,6 +3731,12 @@ spec:
                     - name
                     type: object
                     x-kubernetes-map-type: atomic
+                  provider:
+                    default: mysql
+                    description: DB provider. Currently only mysql is supported.
+                    enum:
+                    - mysql
+                    type: string
                   pvc:
                     default:
                       retain: true
@@ -3824,6 +3840,10 @@ spec:
                     x-kubernetes-validations:
                     - message: privateKeyRef cannot be empty
                       rule: (!has(self.certificateRef) || has(self.privateKeyRef))
+                  uri:
+                    default: $(MYSQL_USER):$(MYSQL_PASSWORD)@tcp($(MYSQL_HOST):$(MYSQL_PORT))/$(MYSQL_DATABASE)
+                    description: DB connection URL (DSN format for MySQL).
+                    type: string
                 required:
                 - create
                 type: object

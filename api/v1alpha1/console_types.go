@@ -82,6 +82,15 @@ type ConsoleDB struct {
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged database.
 	//+optional
 	TLS TLS `json:"tls,omitempty"`
+	// DB provider. Currently only mysql is supported.
+	//+kubebuilder:validation:Enum={mysql}
+	//+kubebuilder:default:=mysql
+	//+optional
+	Provider string `json:"provider,omitempty"`
+	// DB connection URL (DSN format for MySQL).
+	//+kubebuilder:default:="$(MYSQL_USER):$(MYSQL_PASSWORD)@tcp($(MYSQL_HOST):$(MYSQL_PORT))/$(MYSQL_DATABASE)"
+	//+optional
+	Uri string `json:"uri,omitempty"`
 }
 
 // ConsoleStatus defines the observed state of the Console
