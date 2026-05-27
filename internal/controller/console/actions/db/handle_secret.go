@@ -143,7 +143,7 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 		dbSecret,
 		ensure.Labels[*corev1.Secret](slices.Collect(maps.Keys(dbLabels)), dbLabels),
 		ensure.Annotations[*corev1.Secret](managedAnnotations, i.secretAnnotations()),
-		kubernetes.EnsureSecretData(true, i.defaultDBData(instance)),
+		kubernetes.EnsureSecretData(true, i.defaultDBData()),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("can't generate certificate secret: %w", err), instance,
 			metav1.Condition{
