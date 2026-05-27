@@ -159,7 +159,7 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 	}
 	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }
-func (i handleSecretAction) defaultDBData(instance *rhtasv1alpha1.Console) map[string][]byte {
+func (i handleSecretAction) defaultDBData() map[string][]byte {
 	// Define a new Secret object
 	var rootPass []byte
 	var mysqlPass []byte
