@@ -2,6 +2,7 @@
 set -e
 
 KUSTOMIZATION_FILE="config/manager/kustomization.yaml"
+TARGET_PLATFORM=${TARGET_PLATFORM:-openshift}
 
 if [ -n "$IMG" ]; then
   if [[ "$IMG" == *"@"* ]]; then
@@ -40,4 +41,4 @@ if [ -n "$IMG" ]; then
 fi
 
 # Generate and validate the Operator bundle
-oc kustomize config/manifests | operator-sdk generate bundle ${BUNDLE_GEN_FLAGS} && operator-sdk bundle validate ./bundle
+oc kustomize config/manifests/${TARGET_PLATFORM} | operator-sdk generate bundle ${BUNDLE_GEN_FLAGS} && operator-sdk bundle validate ./bundle

@@ -16,6 +16,7 @@ env:
   NEW_OLM_CHANNEL: rhtas-operator.v1.5.0
   OCP_VERSION: ${{ vars.OLM_INDEX_VERSION }}
   INGRESS_HOST_TEMPLATE: '%[1]s.%[2]s.127.0.0.1.nip.io'
+  TARGET_PLATFORM: kubernetes
 
 jobs:
   build-operator:

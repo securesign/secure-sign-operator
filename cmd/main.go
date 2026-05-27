@@ -58,6 +58,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -95,18 +96,21 @@ func main() {
 		pprofAddr            string
 		secureMetrics        bool
 		enableHTTP2          bool
+		metricsCertDir       string
 	)
 
 	flag.StringVar(&pprofAddr, "pprof-address", "", "The address to expose the pprof server. Default is empty string which disables the pprof server.")
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8443", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.BoolVar(&secureMetrics, "metrics-secure", false,
-		"If set the metrics endpoint is served securely")
+	flag.BoolVar(&secureMetrics, "metrics-secure", true,
+		"If set the metrics endpoint is served securely via HTTPS with authentication and authorization")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.StringVar(&metricsCertDir, "metrics-tls-cert-dir", "",
+		"Directory containing tls.crt and tls.key for metrics server TLS. If empty, a self-signed certificate is generated.")
 	flag.Int64Var(&appconfig.CreateTreeDeadline, "create-tree-deadline", appconfig.CreateTreeDeadline, "The time allowance (in seconds) for the create tree job to run before failing.")
 	utils.BoolFlagOrEnv(&appconfig.Openshift, "openshift", "OPENSHIFT", false, "Enable to ensures the operator applies OpenShift specific configurations.")
 	utils.StringFlagOrEnv(&appconfig.OpenshiftAPIServerName, "openshift-apiserver-name", "OPENSHIFT_APISERVER_NAME", "openshift-apiserver", "The OpenShift API Server name.")
@@ -211,13 +215,21 @@ func main() {
 		}
 	}
 
+	metricsOpts := metricsserver.Options{
+		BindAddress:   metricsAddr,
+		SecureServing: secureMetrics,
+		TLSOpts:       tlsOpts,
+	}
+	if secureMetrics {
+		metricsOpts.FilterProvider = filters.WithAuthenticationAndAuthorization
+	}
+	if metricsCertDir != "" {
+		metricsOpts.CertDir = metricsCertDir
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme: scheme,
-		Metrics: metricsserver.Options{
-			BindAddress:   metricsAddr,
-			SecureServing: secureMetrics,
-			TLSOpts:       tlsOpts,
-		},
+		Scheme:                 scheme,
+		Metrics:                metricsOpts,
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		PprofBindAddress:       pprofAddr,
