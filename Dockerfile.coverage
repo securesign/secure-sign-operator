@@ -1,0 +1,31 @@
+# Build the coverage-instrumented manager binary
+FROM golang:1.26 AS builder
+ARG TARGETOS
+ARG TARGETARCH
+
+WORKDIR /workspace
+COPY go.mod go.mod
+COPY go.sum go.sum
+RUN go mod download
+
+# Copy ALL of cmd/ (includes coverage.go with Coverport blank import)
+COPY cmd/ cmd/
+COPY api/ api/
+COPY internal/ internal/
+
+COPY config/default/images.env config/default/images.env
+RUN go generate ./...
+
+# -cover enables coverage instrumentation in the binary.
+# -covermode=atomic is required by runtime/coverage.WriteCounters().
+# -tags=coverage includes cmd/coverage.go which embeds the Coverport HTTP server.
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} \
+    go build -cover -covermode=atomic -tags=coverage \
+    -a -o manager ./cmd
+
+FROM registry.access.redhat.com/ubi9/ubi-minimal@sha256:24650313873554b6ba16c1a1b6b9f9142604f6ab735113e1695faf2dd07fdede
+WORKDIR /
+COPY --from=builder /workspace/manager .
+USER 65532:65532
+
+ENTRYPOINT ["/manager"]

@@ -10,6 +10,19 @@ coverage:
         threshold: 5%
         informational: true
 
+flags:
+  unit:
+    carryforward: true
+    paths:
+      - internal/
+      - api/
+      - cmd/
+  e2e:
+    carryforward: true
+    paths:
+      - internal/controller/
+      - cmd/
+
 flag_management:
   default_rules:
     carryforward: true
