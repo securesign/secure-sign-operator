@@ -15,8 +15,11 @@ import (
 )
 
 const (
-	testNamespace    = "default"
-	testTrillianName = "test-trillian"
+	testNamespace     = "default"
+	testTrillianName  = "test-trillian"
+	testSelectorKey   = "app"
+	testSelectorValue = "trillian-logserver"
+	testPortName      = "grpc"
 )
 
 func TestMigrateToHeadless(t *testing.T) {
@@ -46,9 +49,9 @@ func TestMigrateToHeadless(t *testing.T) {
 					},
 					Spec: v1.ServiceSpec{
 						ClusterIP: "10.0.0.1",
-						Selector:  map[string]string{"app": "trillian-logserver"},
+						Selector:  map[string]string{testSelectorKey: testSelectorValue},
 						Ports: []v1.ServicePort{
-							{Name: "grpc", Port: 8091},
+							{Name: testPortName, Port: actions.ServerPort},
 						},
 					},
 				},
@@ -67,9 +70,9 @@ func TestMigrateToHeadless(t *testing.T) {
 					},
 					Spec: v1.ServiceSpec{
 						ClusterIP: v1.ClusterIPNone,
-						Selector:  map[string]string{"app": "trillian-logserver"},
+						Selector:  map[string]string{testSelectorKey: testSelectorValue},
 						Ports: []v1.ServicePort{
-							{Name: "grpc", Port: 8091},
+							{Name: testPortName, Port: actions.ServerPort},
 						},
 					},
 				},
@@ -155,4 +158,57 @@ func TestCreateServiceAction_Handle_CreatesHeadless(t *testing.T) {
 		Namespace: testNamespace,
 	}, svc)).To(Succeed())
 	g.Expect(svc.Spec.ClusterIP).To(Equal(v1.ClusterIPNone))
+}
+
+func TestCreateServiceAction_Handle_MigratesClusterIP(t *testing.T) {
+	ctx := context.TODO()
+	g := NewWithT(t)
+
+	instance := &rhtasv1alpha1.Trillian{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testTrillianName,
+			Namespace: testNamespace,
+		},
+		Status: rhtasv1alpha1.TrillianStatus{
+			Conditions: []metav1.Condition{
+				{
+					Type:   actions.ServerCondition,
+					Status: metav1.ConditionFalse,
+					Reason: state.Creating.String(),
+				},
+			},
+		},
+	}
+
+	existingSvc := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      actions.LogserverDeploymentName,
+			Namespace: testNamespace,
+		},
+		Spec: v1.ServiceSpec{
+			ClusterIP: "10.0.0.1",
+			Selector:  map[string]string{testSelectorKey: testSelectorValue},
+			Ports: []v1.ServicePort{
+				{Name: testPortName, Port: actions.ServerPort},
+			},
+		},
+	}
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance, existingSvc).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewCreateServiceAction())
+	result := a.Handle(ctx, instance)
+	g.Expect(result).ToNot(BeNil())
+	g.Expect(result.Err).ToNot(HaveOccurred())
+	g.Expect(result.Result.RequeueAfter).To(BeNumerically(">", 0))
+
+	svc := &v1.Service{}
+	err := c.Get(ctx, client.ObjectKey{
+		Name:      actions.LogserverDeploymentName,
+		Namespace: testNamespace,
+	}, svc)
+	g.Expect(err).To(HaveOccurred())
 }
