@@ -35,3 +35,16 @@ func EnsureServiceSpec(selectorLabels map[string]string, ports ...corev1.Service
 		return nil
 	}
 }
+
+// EnsureHeadlessServiceSpec sets ClusterIP to None, making the service headless.
+// Headless services return individual pod IPs in DNS responses instead of a
+// single virtual IP, which is required for gRPC client-side load balancing.
+func EnsureHeadlessServiceSpec(selectorLabels map[string]string, ports ...corev1.ServicePort) func(*corev1.Service) error {
+	return func(svc *corev1.Service) error {
+		spec := &svc.Spec
+		spec.Selector = selectorLabels
+		spec.Ports = ports
+		spec.ClusterIP = corev1.ClusterIPNone
+		return nil
+	}
+}
