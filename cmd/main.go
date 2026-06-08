@@ -265,6 +265,19 @@ func main() {
 	setupController("tsa", tsa.NewReconciler, mgr)
 	//+kubebuilder:scaffold:builder
 
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		setupWebhook("Securesign", rhtasv1alpha1.SetupSecuresignWebhookWithManager, mgr)
+		setupWebhook("Fulcio", rhtasv1alpha1.SetupFulcioWebhookWithManager, mgr)
+		setupWebhook("Trillian", rhtasv1alpha1.SetupTrillianWebhookWithManager, mgr)
+		setupWebhook("Rekor", rhtasv1alpha1.SetupRekorWebhookWithManager, mgr)
+		setupWebhook("Tuf", rhtasv1alpha1.SetupTufWebhookWithManager, mgr)
+		setupWebhook("CTlog", rhtasv1alpha1.SetupCTlogWebhookWithManager, mgr)
+		setupWebhook("TimestampAuthority", rhtasv1alpha1.SetupTimestampAuthorityWebhookWithManager, mgr)
+
+		// TODO(SECURESIGN-4575): register conversion webhook handler via
+		// conversion.NewWebhookHandler — required before adding a new API version.
+	}
+
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
@@ -297,6 +310,13 @@ func setupController(name string, constructor controller.Constructor, manager ct
 		manager.GetEventRecorder(name+"-controller"),
 	).SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", name)
+		os.Exit(1)
+	}
+}
+
+func setupWebhook(name string, setup func(ctrl.Manager) error, manager ctrl.Manager) {
+	if err := setup(manager); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", name)
 		os.Exit(1)
 	}
 }

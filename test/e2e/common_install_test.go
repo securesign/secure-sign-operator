@@ -66,6 +66,10 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 
+		It("webhook server is running and configured", func(ctx SpecContext) {
+			tas.VerifyWebhook(ctx, cli)
+		})
+
 		It("All other components are running", func(ctx SpecContext) {
 			tas.VerifyAllComponents(ctx, cli, s, true)
 		})

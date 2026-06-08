@@ -109,6 +109,10 @@ func managerPod(ns string, opts ...optManagerPod) *v1.Pod {
 							Name:  "INGRESS_HOST_TEMPLATE",
 							Value: support.EnvOrDefault("INGRESS_HOST_TEMPLATE", "%[1]s.local"),
 						},
+						{
+							Name:  "ENABLE_WEBHOOKS",
+							Value: "false",
+						},
 					},
 					LivenessProbe: &v1.Probe{
 						ProbeHandler: v1.ProbeHandler{
