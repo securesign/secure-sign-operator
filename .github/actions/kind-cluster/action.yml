@@ -45,6 +45,15 @@ runs:
       run: |
         kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.14.3/deploy/static/provider/kind/deploy.yaml
         kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
+
+    - name: Install cert-manager
+      shell: bash
+      run: |
+        kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.20.2/cert-manager.yaml
+        kubectl wait --for=condition=Available deployment/cert-manager -n cert-manager --timeout=120s
+        kubectl wait --for=condition=Available deployment/cert-manager-webhook -n cert-manager --timeout=120s
+        kubectl wait --for=condition=Available deployment/cert-manager-cainjector -n cert-manager --timeout=120s
+
     - name: Install prometheus
       if: ${{ inputs.prometheus == 'true'}}
       shell: bash

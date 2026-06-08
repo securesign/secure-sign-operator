@@ -10,6 +10,9 @@ patches:
         value: []
   - target:
       kind: ClusterServiceVersion
+    path: webhook_definitions.yaml
+  - target:
+      kind: ClusterServiceVersion
     path: ctlog_descriptors.yaml
   - target:
       kind: ClusterServiceVersion

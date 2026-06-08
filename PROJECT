@@ -20,6 +20,9 @@ resources:
   kind: Securesign
   path: github.com/securesign/secure-sign-operator/api/v1alpha1
   version: v1alpha1
+  webhooks:
+    defaulting: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -29,6 +32,9 @@ resources:
   kind: Fulcio
   path: github.com/securesign/secure-sign-operator/api/v1alpha1
   version: v1alpha1
+  webhooks:
+    defaulting: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -38,6 +44,9 @@ resources:
   kind: Trillian
   path: github.com/securesign/secure-sign-operator/api/v1alpha1
   version: v1alpha1
+  webhooks:
+    defaulting: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -47,6 +56,9 @@ resources:
   kind: Rekor
   path: github.com/securesign/secure-sign-operator/api/v1alpha1
   version: v1alpha1
+  webhooks:
+    defaulting: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -56,6 +68,9 @@ resources:
   kind: Tuf
   path: github.com/securesign/secure-sign-operator/api/v1alpha1
   version: v1alpha1
+  webhooks:
+    defaulting: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -65,6 +80,9 @@ resources:
   kind: CTlog
   path: github.com/securesign/secure-sign-operator/api/v1alpha1
   version: v1alpha1
+  webhooks:
+    defaulting: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -74,4 +92,7 @@ resources:
   kind: TimestampAuthority
   path: github.com/securesign/secure-sign-operator/api/v1alpha1
   version: v1alpha1
+  webhooks:
+    defaulting: true
+    webhookVersion: v1
 version: "3"
