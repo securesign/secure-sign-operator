@@ -172,6 +172,10 @@ docker-build: test ## Build docker image with the manager.
 docker-build-skip-test: ## Build docker image with the manager.
 	$(CONTAINER_TOOL) build . -t ${IMG}
 
+.PHONY: docker-build-coverage
+docker-build-coverage: ## Build coverage-instrumented docker image for E2E coverage collection.
+	$(CONTAINER_TOOL) build -f Dockerfile.coverage -t ${IMG}-coverage .
+
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
 	$(CONTAINER_TOOL) push ${IMG}

@@ -646,3 +646,159 @@ jobs:
         run: |
           kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
         if: failure()
+
+  build-operator-coverage:
+    name: Build-operator-coverage
+    runs-on: ubuntu-24.04
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' && github.base_ref == 'main')
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          auth_file_path: /tmp/config.json
+
+      - name: Replace images
+        run: make dev-images && cat config/default/images.env
+
+      - name: Build coverage-instrumented operator container
+        run: make docker-build-coverage
+
+      - name: Push coverage image
+        run: podman push ${{ env.IMG }}-coverage
+
+  test-kind-coverage:
+    name: Test E2E with coverage
+    runs-on: ubuntu-24.04
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' && github.base_ref == 'main')
+    permissions:
+      contents: read
+      packages: read
+      id-token: write
+    needs:
+      - build-operator-coverage
+      - build-tuftool
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install coverport CLI
+        run: |
+          go install github.com/konflux-ci/coverport/cli@latest
+          mv "$(go env GOPATH)/bin/cli" "$(go env GOPATH)/bin/coverport"
+
+      - name: Download tuftool
+        uses: actions/download-artifact@v4
+        with:
+          name: tuftool
+          path: /tmp/tuftool
+      - run: echo "/tmp/tuftool" >> $GITHUB_PATH
+
+      - name: Log in to GitHub Container Registry
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          auth_file_path: /tmp/config.json
+
+      - name: Log in to registry.redhat.io
+        uses: redhat-actions/podman-login@v1
+        with:
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+          registry: registry.redhat.io
+          auth_file_path: /tmp/config.json
+
+      - name: Install Cluster
+        uses: ./.github/actions/kind-cluster
+        with:
+          config: ./ci/config.yaml
+          prometheus: 'true'
+          keycloak: 'true'
+          olm: 'true'
+
+      - name: Pull coverage image from GHCR
+        run: podman pull ${{ env.IMG }}-coverage
+
+      - name: Load coverage image into Kind cluster
+        run: |
+          podman save ${{ env.IMG }}-coverage -o operator-coverage-oci.tar
+          kind load image-archive operator-coverage-oci.tar
+
+      - name: Replace images
+        run: make dev-images && cat config/default/images.env
+
+      - name: Deploy operator with coverage image
+        run: make deploy
+        env:
+          IMG: ${{ env.IMG }}-coverage
+
+      - name: Wait for operator to be ready
+        run: |
+          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n openshift-rhtas-operator
+
+      - name: Configure Ingress hostname template
+        run: |
+          kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
+          kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
+
+      - name: Add service hosts to /etc/hosts
+        run: |
+          sudo echo "127.0.0.1 keycloak-internal.keycloak-system.svc" | sudo tee -a /etc/hosts
+
+      - name: Install cosign
+        run: go install github.com/sigstore/cosign/v3/cmd/cosign@v3.0.5
+
+      - name: Run E2E tests
+        run: make test-e2e
+
+      - name: Collect coverage from operator pod via Coverport
+        if: always()
+        run: |
+          coverport collect \
+            --namespace=openshift-rhtas-operator \
+            --label-selector=control-plane=operator-controller-manager \
+            --test-name=e2e \
+            --output=./e2e-coverage-data \
+            --source-dir=. \
+            --auto-process
+          find ./e2e-coverage-data -name '*.out' -type f || true
+
+      - name: Upload E2E coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v6
+        with:
+          directory: ./e2e-coverage-data
+          flags: e2e
+          use_oidc: true
+          fail_ci_if_error: false
+
+      - name: Archive test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-kind-coverage
+          path: test/**/k8s-dump-*.tar.gz
+          if-no-files-found: ignore
+
+      - name: dump the logs of the operator
+        run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
+        if: always()
