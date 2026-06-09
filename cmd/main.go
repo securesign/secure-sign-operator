@@ -61,7 +61,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	webhookconversion "sigs.k8s.io/controller-runtime/pkg/webhook/conversion"
 
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/ctlog"
 	"github.com/securesign/operator/internal/controller/fulcio"
@@ -81,6 +83,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(rhtasv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(rhtasv1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(v1.AddToScheme(scheme))
 	utilruntime.Must(configv1.AddToScheme(scheme))
@@ -274,8 +277,8 @@ func main() {
 		setupWebhook("CTlog", rhtasv1alpha1.SetupCTlogWebhookWithManager, mgr)
 		setupWebhook("TimestampAuthority", rhtasv1alpha1.SetupTimestampAuthorityWebhookWithManager, mgr)
 
-		// TODO(SECURESIGN-4575): register conversion webhook handler via
-		// conversion.NewWebhookHandler — required before adding a new API version.
+		conversionHandler := webhookconversion.NewWebhookHandler(scheme, webhookconversion.NewRegistry())
+		mgr.GetWebhookServer().Register("/convert", conversionHandler)
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
