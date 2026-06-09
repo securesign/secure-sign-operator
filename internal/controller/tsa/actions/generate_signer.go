@@ -369,10 +369,13 @@ func (g generateSigner) alignStatusFields(secretName string, instance *v1alpha1.
 	if instance.Status.Signer == nil {
 		instance.Status.Signer = new(v1alpha1.TimestampAuthoritySigner)
 	}
-	if instance.Spec.Signer.File == nil && instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
-		instance.Spec.Signer.File = new(v1alpha1.File)
-	}
 	instance.Spec.Signer.DeepCopyInto(instance.Status.Signer)
+
+	// Default to File-based signer when no signer type (File/Tink/KMS) and no
+	// external cert chain are configured.
+	if instance.Spec.Signer.File == nil && instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
+		instance.Status.Signer.File = new(v1alpha1.File)
+	}
 
 	if instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
 		instance.Status.Signer.CertificateChain.CertificateChainRef = &v1alpha1.SecretKeySelector{
@@ -382,7 +385,7 @@ func (g generateSigner) alignStatusFields(secretName string, instance *v1alpha1.
 			},
 		}
 
-		if instance.Spec.Signer.File.PrivateKeyRef == nil {
+		if instance.Spec.Signer.File == nil || instance.Spec.Signer.File.PrivateKeyRef == nil {
 			instance.Status.Signer.File.PrivateKeyRef = &v1alpha1.SecretKeySelector{
 				Key: "leafPrivateKey",
 				LocalObjectReference: v1alpha1.LocalObjectReference{
@@ -391,7 +394,7 @@ func (g generateSigner) alignStatusFields(secretName string, instance *v1alpha1.
 			}
 		}
 
-		if instance.Spec.Signer.File.PasswordRef == nil {
+		if instance.Spec.Signer.File == nil || instance.Spec.Signer.File.PasswordRef == nil {
 			instance.Status.Signer.File.PasswordRef = &v1alpha1.SecretKeySelector{
 				Key: "leafPrivateKeyPassword",
 				LocalObjectReference: v1alpha1.LocalObjectReference{

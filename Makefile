@@ -84,6 +84,7 @@ SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
 CONFIG_DEFAULT=config/default
+TARGET_PLATFORM ?= openshift
 
 .PHONY: all
 all: build
@@ -143,12 +144,12 @@ dev-images:
 	fi
 
 .PHONY: lint
-lint: golangci-lint ## Run golangci-lint linter & yamllint
-	$(GOLANGCI_LINT) run
+lint: custom-golangci-lint ## Run golangci-lint linter (includes action framework checks).
+	$(CUSTOM_GOLANGCI_LINT) run
 
 .PHONY: lint-fix
-lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
-	$(GOLANGCI_LINT) run --fix
+lint-fix: custom-golangci-lint ## Run golangci-lint linter and perform fixes
+	$(CUSTOM_GOLANGCI_LINT) run --fix
 
 ##@ Build
 
@@ -170,6 +171,10 @@ docker-build: test ## Build docker image with the manager.
 .PHONY: docker-build-skip-test
 docker-build-skip-test: ## Build docker image with the manager.
 	$(CONTAINER_TOOL) build . -t ${IMG}
+
+.PHONY: docker-build-coverage
+docker-build-coverage: ## Build coverage-instrumented docker image for E2E coverage collection.
+	$(CONTAINER_TOOL) build -f Dockerfile.coverage -t ${IMG}-coverage .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
@@ -201,7 +206,7 @@ endif
 build-installer: manifests generate kustomize ## Generate a consolidated YAML with CRDs and deployment.
 	mkdir -p dist
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build ${CONFIG_DEFAULT} > dist/install.yaml
+	$(KUSTOMIZE) build config/overlays/$(TARGET_PLATFORM) > dist/install.yaml
 
 ##@ Deployment
 
@@ -220,12 +225,12 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build ${CONFIG_DEFAULT} | $(KUBECTL) apply --server-side -f -
+	$(KUSTOMIZE) build config/overlays/$(TARGET_PLATFORM) | $(KUBECTL) apply --server-side -f -
 
 
 .PHONY: undeploy
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-	$(KUSTOMIZE) build ${CONFIG_DEFAULT} | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
+	$(KUSTOMIZE) build config/overlays/$(TARGET_PLATFORM) | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 ##@ Dependencies
 
@@ -240,6 +245,7 @@ KUSTOMIZE ?= $(LOCALBIN)/kustomize-$(KUSTOMIZE_VERSION)
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
 ENVTEST ?= $(LOCALBIN)/setup-envtest-$(ENVTEST_VERSION)
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
+CUSTOM_GOLANGCI_LINT = $(LOCALBIN)/custom-gcl
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.6.0
@@ -266,6 +272,10 @@ $(ENVTEST): $(LOCALBIN)
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
 	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/v2/cmd/golangci-lint,${GOLANGCI_LINT_VERSION})
+
+.PHONY: custom-golangci-lint
+custom-golangci-lint: golangci-lint ## Build golangci-lint with action framework linter plugin.
+	$(GOLANGCI_LINT) custom --destination $(LOCALBIN)
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary (ideally with version)
@@ -302,12 +312,12 @@ endif
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
+	$(KUSTOMIZE) build config/manifests/$(TARGET_PLATFORM) | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 	$(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
-	$(CONTAINER_TOOL) build --build-arg VERSION="$(VERSION)" --build-arg CHANNELS="$(CHANNELS)" --build-arg IMG=$(IMG) --build-arg BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+	$(CONTAINER_TOOL) build --build-arg VERSION="$(VERSION)" --build-arg CHANNELS="$(CHANNELS)" --build-arg IMG=$(IMG) --build-arg BUNDLE_GEN_FLAGS="$(BUNDLE_GEN_FLAGS)" --build-arg TARGET_PLATFORM="$(TARGET_PLATFORM)" -f bundle.Dockerfile -t $(BUNDLE_IMG) .
 
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.

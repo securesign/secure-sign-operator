@@ -76,11 +76,9 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrPrivateKeyNotSpecified), instance)
 	case instance.Spec.Trillian.Port == nil:
 		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrTrillianPortNotSpecified)), instance)
-	case instance.Spec.Trillian.Address == "":
-		instance.Spec.Trillian.Address = fmt.Sprintf("%s.%s.svc", trillian.LogserverDeploymentName, instance.Namespace)
 	}
 
-	trillianUrl := fmt.Sprintf("%s:%d", instance.Spec.Trillian.Address, *instance.Spec.Trillian.Port)
+	trillianUrl := fmt.Sprintf("%s:%d", resolveTrillianAddress(instance), *instance.Spec.Trillian.Port)
 
 	// Validate existing secret before attempting recreation
 	if instance.Status.ServerConfigRef != nil && instance.Status.ServerConfigRef.Name != "" {
@@ -367,4 +365,11 @@ func (i serverConfig) configMatchingAnnotations(instance *rhtasv1alpha1.CTlog, t
 	}
 
 	return annotations
+}
+
+func resolveTrillianAddress(instance *rhtasv1alpha1.CTlog) string {
+	if instance.Spec.Trillian.Address != "" {
+		return instance.Spec.Trillian.Address
+	}
+	return fmt.Sprintf("%s.%s.svc", trillian.LogserverDeploymentName, instance.Namespace)
 }

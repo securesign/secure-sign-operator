@@ -13,9 +13,14 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
+      - name: Build custom golangci-lint
+        run: |
+          make custom-golangci-lint
+          install ./bin/custom-gcl /usr/local/bin/golangci-lint
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
+          install-mode: none
           version: v2.12.2
           args: --verbose --timeout=15m
           only-new-issues: true

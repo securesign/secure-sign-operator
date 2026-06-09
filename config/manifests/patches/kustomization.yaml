@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+patches:
+  - target:
+      kind: ClusterServiceVersion
+    patch: |
+      - op: add
+        path: /spec/customresourcedefinitions/owned/3/specDescriptors
+        value: []
+  - target:
+      kind: ClusterServiceVersion
+    path: ctlog_descriptors.yaml
+  - target:
+      kind: ClusterServiceVersion
+    path: fulcio_descriptors.yaml
+  - target:
+      kind: ClusterServiceVersion
+    path: rekor_descriptors.yaml
+  - target:
+      kind: ClusterServiceVersion
+    path: timestampauthority_descriptions.yaml
+  - target:
+      kind: ClusterServiceVersion
+    path: trillian_descriptors.yaml
+  - target:
+      kind: ClusterServiceVersion
+    path: tuf_descriptors.yaml

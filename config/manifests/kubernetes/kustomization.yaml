@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../bases
+- ../../overlays/kubernetes
+- ../../samples
+- ../../scorecard
+
+components:
+- ../patches
+
+replacements:
+  - source:
+      fieldPath: spec.template.spec.containers.[name=manager].image
+      kind: Deployment
+      name: operator-controller-manager
+    targets:
+      - fieldPaths:
+          - metadata.annotations.containerImage
+        select:
+          kind: ClusterServiceVersion

@@ -1,4 +1,5 @@
-# This patch exposes metrics endpoint in plain HTTP 8080 port
+# This patch configures secure HTTPS metrics on port 8443
+# with authentication and authorization via controller-runtime filters.
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -11,7 +12,9 @@ spec:
       - name: manager
         args:
         - "--leader-elect"
-        - "--metrics-bind-address=0.0.0.0:8080"
+        - "--metrics-bind-address=:8443"
+        - "--metrics-secure=true"
         ports:
-        - containerPort: 8080
-          name: metrics
+        - containerPort: 8443
+          name: https
+          protocol: TCP
