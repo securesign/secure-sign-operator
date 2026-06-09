@@ -1,11 +1,11 @@
 package actions
 
 import (
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/action/rbac"
 )
 
-func NewRBACAction() action.Action[*rhtasv1alpha1.CTlog] {
-	return rbac.NewAction[*rhtasv1alpha1.CTlog](ComponentName, RBACName)
+func NewRBACAction() action.Action[*rhtasv1.CTlog] {
+	return rbac.NewAction[*rhtasv1.CTlog](ComponentName, RBACName)
 }

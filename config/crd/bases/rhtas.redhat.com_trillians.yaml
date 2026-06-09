@@ -14,7 +14,12 @@ spec:
     singular: trillian
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - description: The component status
+      jsonPath: .status.conditions[?(@.type=="Ready")].reason
+      name: Status
+      type: string
+    name: v1
     schema:
       openAPIV3Schema:
         description: Trillian is the Schema for the trillians API

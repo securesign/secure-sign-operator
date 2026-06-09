@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/controller/rekor/actions/searchIndex/redis"
 	"github.com/securesign/operator/internal/utils"
@@ -14,7 +14,7 @@ import (
 
 const redisPasswordEnv = "REDIS_PASSWORD"
 
-func EnsureSearchIndex(instance *rhtasv1alpha1.Rekor, redisOpts func(options *redis.RedisOptions, container *v1.Container), mysqlOpts func(url string, container *v1.Container)) func(*v1.Container) error {
+func EnsureSearchIndex(instance *rhtasv1.Rekor, redisOpts func(options *redis.RedisOptions, container *v1.Container), mysqlOpts func(url string, container *v1.Container)) func(*v1.Container) error {
 	return func(container *v1.Container) error {
 		var (
 			options *redis.RedisOptions
@@ -44,7 +44,7 @@ func EnsureSearchIndex(instance *rhtasv1alpha1.Rekor, redisOpts func(options *re
 	}
 }
 
-func defaultSearchIndexDB(instance *rhtasv1alpha1.Rekor, container *v1.Container) *redis.RedisOptions {
+func defaultSearchIndexDB(instance *rhtasv1.Rekor, container *v1.Container) *redis.RedisOptions {
 	options := &redis.RedisOptions{
 		Host:       fmt.Sprintf("%s.%s.svc", actions.RedisDeploymentName, instance.Namespace),
 		Port:       strconv.Itoa(actions.RedisDeploymentPort),

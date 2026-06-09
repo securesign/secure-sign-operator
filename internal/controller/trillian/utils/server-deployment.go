@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/images"
@@ -19,7 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func EnsureServerDeployment(instance *v1alpha1.Trillian, labels map[string]string, caPath string) []func(*apps.Deployment) error {
+func EnsureServerDeployment(instance *rhtasv1.Trillian, labels map[string]string, caPath string) []func(*apps.Deployment) error {
 	return append(append([]func(deployment *apps.Deployment) error{
 		ensureDeployment(instance,
 			images.Registry.Get(images.TrillianServer),
@@ -34,7 +34,7 @@ func EnsureServerDeployment(instance *v1alpha1.Trillian, labels map[string]strin
 		deployment.PodSecurityContext())
 }
 
-func EnsureSignerDeployment(instance *v1alpha1.Trillian, labels map[string]string, caPath string) []func(*apps.Deployment) error {
+func EnsureSignerDeployment(instance *rhtasv1.Trillian, labels map[string]string, caPath string) []func(*apps.Deployment) error {
 	return append(append([]func(deployment *apps.Deployment) error{
 		ensureDeployment(instance,
 			images.Registry.Get(images.TrillianLogSigner),
@@ -97,7 +97,7 @@ func ensureProbes(containerName string) func(*apps.Deployment) error {
 	}
 }
 
-func ensureDeployment(instance *v1alpha1.Trillian, image string, name string, sa string, labels map[string]string, args ...string) func(*apps.Deployment) error {
+func ensureDeployment(instance *rhtasv1.Trillian, image string, name string, sa string, labels map[string]string, args ...string) func(*apps.Deployment) error {
 	return func(dp *apps.Deployment) error {
 		if instance.Status.Db.DatabaseSecretRef == nil && utils.OptionalBool(instance.Spec.Db.Create) {
 			return errors.New("reference to database secret is not set")
@@ -156,7 +156,7 @@ func ensureDeployment(instance *v1alpha1.Trillian, image string, name string, sa
 	}
 }
 
-func EnsureTLS(tlsConfig v1alpha1.TLS, name string) func(*apps.Deployment) error {
+func EnsureTLS(tlsConfig rhtasv1.TLS, name string) func(*apps.Deployment) error {
 	return func(dp *apps.Deployment) error {
 		if err := deployment.TLS(tlsConfig, name)(dp); err != nil {
 			return err

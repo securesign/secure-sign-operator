@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"slices"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/labels"
@@ -30,7 +30,7 @@ const (
 	shardingConfigName  = "sharding-config.yaml"
 )
 
-func NewShardingConfigAction() action.Action[*rhtasv1alpha1.Rekor] {
+func NewShardingConfigAction() action.Action[*rhtasv1.Rekor] {
 	return &shardingConfig{}
 }
 
@@ -42,11 +42,11 @@ func (i shardingConfig) Name() string {
 	return "sharding config"
 }
 
-func (i shardingConfig) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
+func (i shardingConfig) CanHandle(_ context.Context, instance *rhtasv1.Rekor) bool {
 	return state.FromInstance(instance, actions.ServerCondition) >= state.Creating
 }
 
-func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
+func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
 	labels := labels.ForResource(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name, shardingConfigLabel)
 
 	content, err := createShardingConfigData(instance.Spec.Sharding)
@@ -93,7 +93,7 @@ func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Reko
 	}
 
 	i.Recorder.Eventf(instance, newConfig, v1.EventTypeNormal, "ShardingConfigCreated", "Created", "ConfigMap with sharding configuration created: %s", newConfig.Name)
-	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
+	instance.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: newConfig.Name}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:    actions.ServerCondition,
@@ -113,7 +113,7 @@ func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Reko
 	return i.Continue()
 }
 
-func (i shardingConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.Rekor, configLabels map[string]string) {
+func (i shardingConfig) cleanup(ctx context.Context, instance *rhtasv1.Rekor, configLabels map[string]string) {
 	if instance.Status.ServerConfigRef == nil || instance.Status.ServerConfigRef.Name == "" {
 		i.Logger.Error(errors.New("new ConfigMap name is empty"), "unable to clean old objects", "namespace", instance.Namespace)
 		return
@@ -146,7 +146,7 @@ func (i shardingConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.Rek
 	}
 }
 
-func createShardingConfigData(sharding []rhtasv1alpha1.RekorLogRange) (map[string]string, error) {
+func createShardingConfigData(sharding []rhtasv1.RekorLogRange) (map[string]string, error) {
 	var content string
 	if len(sharding) > 0 {
 		marshal, err := yaml.Marshal(sharding)

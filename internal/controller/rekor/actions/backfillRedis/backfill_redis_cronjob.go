@@ -7,7 +7,7 @@ import (
 	"slices"
 
 	"github.com/robfig/cron/v3"
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func NewBackfillRedisCronJobAction() action.Action[*rhtasv1alpha1.Rekor] {
+func NewBackfillRedisCronJobAction() action.Action[*rhtasv1.Rekor] {
 	return &backfillRedisCronJob{}
 }
 
@@ -39,11 +39,11 @@ func (i backfillRedisCronJob) Name() string {
 	return "backfill-redis"
 }
 
-func (i backfillRedisCronJob) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
+func (i backfillRedisCronJob) CanHandle(_ context.Context, instance *rhtasv1.Rekor) bool {
 	return enabled(instance) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
-func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
+func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
 	var (
 		err    error
 		result controllerutil.OperationResult
@@ -107,7 +107,7 @@ func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1alpha
 	}
 }
 
-func (i backfillRedisCronJob) ensureBacfillCronJob(instance *rhtasv1alpha1.Rekor) func(*batchv1.CronJob) error {
+func (i backfillRedisCronJob) ensureBacfillCronJob(instance *rhtasv1.Rekor) func(*batchv1.CronJob) error {
 	return func(job *batchv1.CronJob) error {
 		job.Spec.Schedule = instance.Spec.BackFillRedis.Schedule
 		job.Spec.JobTemplate.Spec.Template.Labels = labels.For(actions.BackfillRedisCronJobName, actions.BackfillRedisCronJobName, instance.Name)

@@ -7,7 +7,7 @@ import (
 	"slices"
 	"time"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func NewMigrationJobAction() action.Action[*rhtasv1alpha1.Tuf] {
+func NewMigrationJobAction() action.Action[*rhtasv1.Tuf] {
 	return &migrationJobAction{}
 }
 
@@ -38,7 +38,7 @@ func (i migrationJobAction) Name() string {
 	return "migration job"
 }
 
-func (i migrationJobAction) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Tuf) bool {
+func (i migrationJobAction) CanHandle(_ context.Context, tuf *rhtasv1.Tuf) bool {
 	switch tuf.Annotations[tufConstants.RepositoryVersionAnnotation] {
 	case tufConstants.TufVersionV1:
 		return false
@@ -47,7 +47,7 @@ func (i migrationJobAction) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Tuf)
 	}
 }
 
-func (i migrationJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
+func (i migrationJobAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *action.Result {
 	if instance.Spec.RootKeySecretRef != nil && instance.Spec.RootKeySecretRef.Name != "" {
 		if _, err := kubernetes.GetSecret(i.Client, instance.Namespace, instance.Spec.RootKeySecretRef.Name); err != nil {
 			if errors.IsNotFound(err) {
@@ -78,7 +78,7 @@ func (i migrationJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 	}
 }
 
-func (i migrationJobAction) jobPresent(ctx context.Context, job *batchv1.Job, instance *rhtasv1alpha1.Tuf) *action.Result {
+func (i migrationJobAction) jobPresent(ctx context.Context, job *batchv1.Job, instance *rhtasv1.Tuf) *action.Result {
 	i.Logger.Info("Tuf migration job is present.", "Succeeded", job.Status.Succeeded, "Failures", job.Status.Failed)
 	if jobUtils.IsCompleted(*job) {
 		if !jobUtils.IsFailed(*job) {
@@ -89,7 +89,7 @@ func (i migrationJobAction) jobPresent(ctx context.Context, job *batchv1.Job, in
 				err error
 			)
 			if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, instance,
-				ensure.Annotations[*rhtasv1alpha1.Tuf]([]string{tufConstants.RepositoryVersionAnnotation}, map[string]string{tufConstants.RepositoryVersionAnnotation: tufConstants.TufVersionV1}),
+				ensure.Annotations[*rhtasv1.Tuf]([]string{tufConstants.RepositoryVersionAnnotation}, map[string]string{tufConstants.RepositoryVersionAnnotation: tufConstants.TufVersionV1}),
 			); err != nil {
 				return i.Error(ctx, err, instance)
 			}
@@ -121,7 +121,7 @@ func (i migrationJobAction) jobPresent(ctx context.Context, job *batchv1.Job, in
 	}
 }
 
-func (i migrationJobAction) ensureMigrationJob(ctx context.Context, labels map[string]string, instance *rhtasv1alpha1.Tuf) *action.Result {
+func (i migrationJobAction) ensureMigrationJob(ctx context.Context, labels map[string]string, instance *rhtasv1.Tuf) *action.Result {
 	i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "TUFMigrationJob", "Started", "Starting TUF migration")
 
 	if err := utils.ResolveServiceAddress(ctx, i.Client, instance); err != nil {

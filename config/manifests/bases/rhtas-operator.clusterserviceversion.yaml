@@ -30,37 +30,37 @@ spec:
       displayName: CTlog
       kind: CTlog
       name: ctlogs.rhtas.redhat.com
-      version: v1alpha1
+      version: v1
     - description: Fulcio is the Schema for the fulcios API
       displayName: Fulcio
       kind: Fulcio
       name: fulcios.rhtas.redhat.com
-      version: v1alpha1
+      version: v1
     - description: Rekor is the Schema for the rekors API
       displayName: Rekor
       kind: Rekor
       name: rekors.rhtas.redhat.com
-      version: v1alpha1
+      version: v1
     - description: Securesign is the Schema for the securesigns API
       displayName: Securesign
       kind: Securesign
       name: securesigns.rhtas.redhat.com
-      version: v1alpha1
+      version: v1
     - description: TimestampAuthority is the Schema for the timestampauthorities API
       displayName: Timestamp Authority
       kind: TimestampAuthority
       name: timestampauthorities.rhtas.redhat.com
-      version: v1alpha1
+      version: v1
     - description: Trillian is the Schema for the trillians API
       displayName: Trillian
       kind: Trillian
       name: trillians.rhtas.redhat.com
-      version: v1alpha1
+      version: v1
     - description: Tuf is the Schema for the tufs API
       displayName: Tuf
       kind: Tuf
       name: tufs.rhtas.redhat.com
-      version: v1alpha1
+      version: v1
   description: Red Hat Trusted Artifact Signer enhances software supply chain security
     by simplifying cryptographic signing and verifying of software artifacts, such
     as container images, binaries and documents. Trusted Artifact Signer provides

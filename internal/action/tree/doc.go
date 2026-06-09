@@ -22,19 +22,19 @@ Workflow:
 
 Usage:
 
-	wrapper := tree.Wrapper[*v1alpha1.Rekor](
-		func(obj *v1alpha1.Rekor) *int64 {
+	wrapper := tree.Wrapper[*rhtasv1.Rekor](
+		func(obj *rhtasv1.Rekor) *int64 {
 			return obj.Spec.TreeID
 		},
-		func(obj *v1alpha1.Rekor) *int64 {
+		func(obj *rhtasv1.Rekor) *int64 {
 			return obj.Status.TreeID
 		},
-		func(rekor *v1alpha1.Rekor, i *int64) {
+		func(rekor *rhtasv1.Rekor, i *int64) {
 			obj.Status.TreeID = i
 		},
-		func(obj *v1alpha1.Rekor) *v1alpha1.TrillianService {
+		func(obj *rhtasv1.Rekor) *rhtasv1.TrillianService {
 			return &obj.Spec.Trillian
 		})
-	tree.NewResolveTreeAction[*v1alpha1.Rekor]("rekor", wrapper)
+	tree.NewResolveTreeAction[*rhtasv1.Rekor]("rekor", wrapper)
 */
 package tree

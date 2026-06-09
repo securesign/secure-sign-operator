@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strconv"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/labels"
@@ -39,7 +39,7 @@ const (
 
 var managedAnnotations = []string{annotationDatabase, annotationUser, annotationPort, annotationHost}
 
-func NewHandleSecretAction() action.Action[*rhtasv1alpha1.Trillian] {
+func NewHandleSecretAction() action.Action[*rhtasv1.Trillian] {
 	return &handleSecretAction{}
 }
 
@@ -51,7 +51,7 @@ func (i handleSecretAction) Name() string {
 	return "create db secret"
 }
 
-func (i handleSecretAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Trillian) bool {
+func (i handleSecretAction) CanHandle(_ context.Context, instance *rhtasv1.Trillian) bool {
 	switch {
 	case utils2.OptionalBool(instance.Spec.Db.Create) && instance.Status.Db.DatabaseSecretRef == nil:
 		return true
@@ -62,7 +62,7 @@ func (i handleSecretAction) CanHandle(_ context.Context, instance *rhtasv1alpha1
 	}
 }
 
-func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
+func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1.Trillian) *action.Result {
 	// external database
 	if !utils2.OptionalBool(instance.Spec.Db.Create) {
 		// copy deprecated DatabaseSecretRef for backward compatibility
@@ -110,7 +110,7 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 		// use first db-connection and remove all other
 		if instance.Status.Db.DatabaseSecretRef == nil &&
 			equality.Semantic.DeepDerivative(i.secretAnnotations(), partialSecret.GetAnnotations()) {
-			instance.Status.Db.DatabaseSecretRef = &rhtasv1alpha1.LocalObjectReference{
+			instance.Status.Db.DatabaseSecretRef = &rhtasv1.LocalObjectReference{
 				Name: partialSecret.Name,
 			}
 			continue
@@ -151,7 +151,7 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1alpha1.
 			})
 	}
 
-	instance.Status.Db.DatabaseSecretRef = &rhtasv1alpha1.LocalObjectReference{
+	instance.Status.Db.DatabaseSecretRef = &rhtasv1.LocalObjectReference{
 		Name: dbSecret.Name,
 	}
 	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)

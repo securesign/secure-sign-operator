@@ -10,7 +10,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/test/e2e/support"
@@ -31,7 +31,7 @@ var _ = Describe("Ctlog Monitor Log", Ordered, func() {
 
 	var (
 		namespace           *v1.Namespace
-		s                   *v1alpha1.Securesign
+		s                   *rhtasv1.Securesign
 		signedImageName     string
 		ctlogMonitorPod     v1.Pod
 		ctlogMonitorService *v1.Service
@@ -55,7 +55,7 @@ var _ = Describe("Ctlog Monitor Log", Ordered, func() {
 		s = securesign.Create(namespace.Name, "test",
 			securesign.WithDefaults(),
 			securesign.WithMonitoring(),
-			func(v *v1alpha1.Securesign) {
+			func(v *rhtasv1.Securesign) {
 				v.Spec.Ctlog.Monitoring.TLog.Enabled = true
 				v.Spec.Ctlog.Monitoring.TLog.Interval = metav1.Duration{Duration: time.Second * 2}
 			},

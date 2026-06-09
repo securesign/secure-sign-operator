@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/tls"
@@ -57,7 +57,7 @@ func TestEnsureTrustedCA(t *testing.T) {
 
 		result, err := kubernetes.CreateOrUpdate(ctx, c,
 			&v1.Deployment{ObjectMeta: v2.ObjectMeta{Name: name, Namespace: "default"}},
-			TrustedCA(&v1alpha1.LocalObjectReference{Name: "test"}, name),
+			TrustedCA(&rhtasv1.LocalObjectReference{Name: "test"}, name),
 		)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -109,15 +109,15 @@ func TestEnsureTLS(t *testing.T) {
 
 		result, err := kubernetes.CreateOrUpdate(ctx, c,
 			&v1.Deployment{ObjectMeta: v2.ObjectMeta{Name: name, Namespace: "default"}},
-			TLS(v1alpha1.TLS{
-				PrivateKeyRef: &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
+			TLS(rhtasv1.TLS{
+				PrivateKeyRef: &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: "testSecret",
 					},
 					Key: "key",
 				},
-				CertRef: &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
+				CertRef: &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: "testSecret",
 					},
 					Key: "cert",
@@ -164,7 +164,7 @@ func TestEnsureTLS(t *testing.T) {
 
 func TestPodRequirements(t *testing.T) {
 	type args struct {
-		requirements  v1alpha1.PodRequirements
+		requirements  rhtasv1.PodRequirements
 		containerName string
 	}
 	tests := []struct {
@@ -175,7 +175,7 @@ func TestPodRequirements(t *testing.T) {
 		{
 			name: "empty requirements",
 			args: args{
-				requirements:  v1alpha1.PodRequirements{},
+				requirements:  rhtasv1.PodRequirements{},
 				containerName: "container",
 			},
 			verify: func(g gomega.Gomega, deployment *v1.Deployment) {
@@ -191,7 +191,7 @@ func TestPodRequirements(t *testing.T) {
 		{
 			name: "affinity",
 			args: args{
-				requirements: v1alpha1.PodRequirements{
+				requirements: rhtasv1.PodRequirements{
 					Affinity: &core.Affinity{},
 				},
 				containerName: "container",
@@ -203,7 +203,7 @@ func TestPodRequirements(t *testing.T) {
 		{
 			name: "resources",
 			args: args{
-				requirements: v1alpha1.PodRequirements{
+				requirements: rhtasv1.PodRequirements{
 					Resources: &core.ResourceRequirements{
 						Limits: core.ResourceList{
 							core.ResourceCPU: resource.MustParse("100m"),
@@ -222,7 +222,7 @@ func TestPodRequirements(t *testing.T) {
 		{
 			name: "tolerations",
 			args: args{
-				requirements: v1alpha1.PodRequirements{
+				requirements: rhtasv1.PodRequirements{
 					Tolerations: []core.Toleration{
 						{
 							Key:      "key",
@@ -240,7 +240,7 @@ func TestPodRequirements(t *testing.T) {
 		{
 			name: "replicas",
 			args: args{
-				requirements: v1alpha1.PodRequirements{
+				requirements: rhtasv1.PodRequirements{
 					Replicas: ptr.To(int32(10)),
 				},
 			},

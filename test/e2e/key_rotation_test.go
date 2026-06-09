@@ -19,7 +19,7 @@ import (
 	"github.com/google/trillian/crypto/keyspb"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	ctlogActions "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcioActions "github.com/securesign/operator/internal/controller/fulcio/actions"
 	rekorActions "github.com/securesign/operator/internal/controller/rekor/actions"
@@ -53,7 +53,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 	var (
 		targetImageName                                           string
 		namespace                                                 *v1.Namespace
-		s                                                         *v1alpha1.Securesign
+		s                                                         *rhtasv1.Securesign
 		oldFulcioCert, oldRekorPub, oldTsa                        []byte
 		newFulcioCert, newRekorSigner, newCtlConfig, newTsaSecret *v1.Secret
 		err                                                       error
@@ -117,30 +117,30 @@ var _ = Describe("Key rotation test", Ordered, func() {
 			Eventually(func() error {
 				f := securesign.Get(ctx, cli, s.Namespace, s.Name)
 
-				f.Spec.Fulcio.Certificate.PrivateKeyRef = &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
+				f.Spec.Fulcio.Certificate.PrivateKeyRef = &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: secretName,
 					},
 					Key: "private",
 				}
 
-				f.Spec.Fulcio.Certificate.PrivateKeyPasswordRef = &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
+				f.Spec.Fulcio.Certificate.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: secretName,
 					},
 					Key: "password",
 				}
 
-				f.Spec.Fulcio.Certificate.CARef = &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
+				f.Spec.Fulcio.Certificate.CARef = &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: secretName,
 					},
 					Key: "cert",
 				}
 
-				f.Spec.Ctlog.RootCertificates = []v1alpha1.SecretKeySelector{
+				f.Spec.Ctlog.RootCertificates = []rhtasv1.SecretKeySelector{
 					{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: secretName,
 						},
 						Key: "cert",
@@ -218,14 +218,14 @@ var _ = Describe("Key rotation test", Ordered, func() {
 
 			Eventually(func() error {
 				f := securesign.Get(ctx, cli, s.Namespace, s.Name)
-				f.Spec.Rekor.Signer.KeyRef = &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
+				f.Spec.Rekor.Signer.KeyRef = &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: secretName,
 					},
 					Key: "private",
 				}
 
-				f.Spec.Rekor.Sharding = []v1alpha1.RekorLogRange{
+				f.Spec.Rekor.Sharding = []rhtasv1.RekorLogRange{
 					{
 						TreeID:           *oldTreeId,
 						TreeLength:       logLength,
@@ -332,28 +332,28 @@ var _ = Describe("Key rotation test", Ordered, func() {
 
 			Eventually(func() error {
 				f := securesign.Get(ctx, cli, s.Namespace, s.Name)
-				f.Spec.Ctlog.ServerConfigRef = &v1alpha1.LocalObjectReference{
+				f.Spec.Ctlog.ServerConfigRef = &rhtasv1.LocalObjectReference{
 					Name: secretName,
 				}
 
 				f.Spec.Ctlog.TreeID = &newTreeId
 
-				f.Spec.Ctlog.PrivateKeyRef = &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
+				f.Spec.Ctlog.PrivateKeyRef = &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: secretName,
 					},
 					Key: "private",
 				}
 
-				f.Spec.Ctlog.PrivateKeyPasswordRef = &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
+				f.Spec.Ctlog.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: secretName,
 					},
 					Key: "password",
 				}
 
-				f.Spec.Ctlog.PublicKeyRef = &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
+				f.Spec.Ctlog.PublicKeyRef = &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: secretName,
 					},
 					Key: "public",
@@ -392,24 +392,24 @@ var _ = Describe("Key rotation test", Ordered, func() {
 			Eventually(func() error {
 				f := securesign.Get(ctx, cli, s.Namespace, s.Name)
 
-				f.Spec.TimestampAuthority.Signer.CertificateChain = v1alpha1.CertificateChain{
-					CertificateChainRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+				f.Spec.TimestampAuthority.Signer.CertificateChain = rhtasv1.CertificateChain{
+					CertificateChainRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: secretName,
 						},
 						Key: "certificateChain",
 					}}
 
-				f.Spec.TimestampAuthority.Signer.File = &v1alpha1.File{
-					PrivateKeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+				f.Spec.TimestampAuthority.Signer.File = &rhtasv1.File{
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: secretName,
 						},
 						Key: "leafPrivateKey",
 					},
 
-					PasswordRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+					PasswordRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: secretName,
 						},
 						Key: "leafPrivateKeyPassword",

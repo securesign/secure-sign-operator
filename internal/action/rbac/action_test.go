@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
@@ -43,7 +43,7 @@ func init() {
 
 type pre struct {
 	warmUp bool
-	opts   []func(*rbacAction[*v1alpha1.Rekor])
+	opts   []func(*rbacAction[*rhtasv1.Rekor])
 	before func(context.Context, Gomega, client.WithWatch)
 }
 type want struct {
@@ -121,8 +121,8 @@ func testHandle(t *testing.T) {
 		{
 			desc: "create with rules",
 			pre: pre{
-				opts: []func(action2 *rbacAction[*v1alpha1.Rekor]){
-					WithRule[*v1alpha1.Rekor](rbacv1.PolicyRule{
+				opts: []func(action2 *rbacAction[*rhtasv1.Rekor]){
+					WithRule[*rhtasv1.Rekor](rbacv1.PolicyRule{
 						Resources: []string{"configmaps"},
 						Verbs:     []string{"list", "watch"},
 					}),
@@ -191,8 +191,8 @@ func testHandle(t *testing.T) {
 						},
 					})).To(Succeed())
 				},
-				opts: []func(action2 *rbacAction[*v1alpha1.Rekor]){
-					WithRule[*v1alpha1.Rekor](rbacv1.PolicyRule{
+				opts: []func(action2 *rbacAction[*rhtasv1.Rekor]){
+					WithRule[*rhtasv1.Rekor](rbacv1.PolicyRule{
 						Resources: []string{"configmaps"},
 						Verbs:     []string{"list", "watch"},
 					}),
@@ -230,7 +230,7 @@ func testHandle(t *testing.T) {
 			},
 		},
 	} {
-		t.Run(tc.desc, testRunner(tc.pre, tc.want, func(r *rbacAction[*v1alpha1.Rekor], ctx context.Context, rekor *v1alpha1.Rekor) *action.Result {
+		t.Run(tc.desc, testRunner(tc.pre, tc.want, func(r *rbacAction[*rhtasv1.Rekor], ctx context.Context, rekor *rhtasv1.Rekor) *action.Result {
 			return r.Handle(ctx, rekor)
 		}))
 	}
@@ -277,7 +277,7 @@ func testServiceAccount(t *testing.T) {
 			},
 		},
 	} {
-		t.Run(tc.desc, testRunner(tc.pre, tc.want, func(r *rbacAction[*v1alpha1.Rekor], ctx context.Context, rekor *v1alpha1.Rekor) *action.Result {
+		t.Run(tc.desc, testRunner(tc.pre, tc.want, func(r *rbacAction[*rhtasv1.Rekor], ctx context.Context, rekor *rhtasv1.Rekor) *action.Result {
 			return r.handleServiceAccount(ctx, rekor)
 		}))
 	}
@@ -325,8 +325,8 @@ func testRole(t *testing.T) {
 		{
 			desc: "create",
 			pre: pre{
-				opts: []func(action2 *rbacAction[*v1alpha1.Rekor]){
-					WithRule[*v1alpha1.Rekor](rbacv1.PolicyRule{
+				opts: []func(action2 *rbacAction[*rhtasv1.Rekor]){
+					WithRule[*rhtasv1.Rekor](rbacv1.PolicyRule{
 						APIGroups: []string{""},
 						Resources: []string{"configmaps"},
 						Verbs:     []string{"list", "watch"},
@@ -360,8 +360,8 @@ func testRole(t *testing.T) {
 					}
 					g.Expect(c.Create(ctx, &sa)).To(Succeed())
 				},
-				opts: []func(action2 *rbacAction[*v1alpha1.Rekor]){
-					WithRule[*v1alpha1.Rekor](rbacv1.PolicyRule{
+				opts: []func(action2 *rbacAction[*rhtasv1.Rekor]){
+					WithRule[*rhtasv1.Rekor](rbacv1.PolicyRule{
 						Resources: []string{"configmaps"},
 						Verbs:     []string{"list", "watch"},
 					}),
@@ -384,7 +384,7 @@ func testRole(t *testing.T) {
 			},
 		},
 	} {
-		t.Run(tc.desc, testRunner(tc.pre, tc.want, func(r *rbacAction[*v1alpha1.Rekor], ctx context.Context, rekor *v1alpha1.Rekor) *action.Result {
+		t.Run(tc.desc, testRunner(tc.pre, tc.want, func(r *rbacAction[*rhtasv1.Rekor], ctx context.Context, rekor *rhtasv1.Rekor) *action.Result {
 			return r.handleRole(ctx, rekor)
 		}))
 	}
@@ -431,8 +431,8 @@ func testRoleBinding(t *testing.T) {
 		{
 			desc: "create",
 			pre: pre{
-				opts: []func(action2 *rbacAction[*v1alpha1.Rekor]){
-					WithRule[*v1alpha1.Rekor](rbacv1.PolicyRule{
+				opts: []func(action2 *rbacAction[*rhtasv1.Rekor]){
+					WithRule[*rhtasv1.Rekor](rbacv1.PolicyRule{
 						APIGroups: []string{""},
 						Resources: []string{"configmaps"},
 						Verbs:     []string{"list", "watch"},
@@ -465,8 +465,8 @@ func testRoleBinding(t *testing.T) {
 					}
 					g.Expect(c.Create(ctx, &sa)).To(Succeed())
 				},
-				opts: []func(action2 *rbacAction[*v1alpha1.Rekor]){
-					WithRule[*v1alpha1.Rekor](rbacv1.PolicyRule{
+				opts: []func(action2 *rbacAction[*rhtasv1.Rekor]){
+					WithRule[*rhtasv1.Rekor](rbacv1.PolicyRule{
 						Resources: []string{"configmaps"},
 						Verbs:     []string{"list", "watch"},
 					}),
@@ -485,26 +485,26 @@ func testRoleBinding(t *testing.T) {
 			},
 		},
 	} {
-		t.Run(tc.desc, testRunner(tc.pre, tc.want, func(r *rbacAction[*v1alpha1.Rekor], ctx context.Context, rekor *v1alpha1.Rekor) *action.Result {
+		t.Run(tc.desc, testRunner(tc.pre, tc.want, func(r *rbacAction[*rhtasv1.Rekor], ctx context.Context, rekor *rhtasv1.Rekor) *action.Result {
 			return r.handleRoleBinding(ctx, rekor)
 		}))
 	}
 }
 
-type handleFn func(*rbacAction[*v1alpha1.Rekor], context.Context, *v1alpha1.Rekor) *action.Result
+type handleFn func(*rbacAction[*rhtasv1.Rekor], context.Context, *rhtasv1.Rekor) *action.Result
 
 func testRunner(pre pre, want want, handleFn handleFn) func(t *testing.T) {
 	return func(t *testing.T) {
 		g := NewWithT(t)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		instance := &v1alpha1.Rekor{
+		instance := &rhtasv1.Rekor{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      nnObject.Name,
 				Namespace: nnObject.Namespace,
 			},
-			Spec: v1alpha1.RekorSpec{
-				Trillian: v1alpha1.TrillianService{
+			Spec: rhtasv1.RekorSpec{
+				Trillian: rhtasv1.TrillianService{
 					Address: "trillian-logserver",
 					Port:    ptr.To(int32(8091)),
 				},
@@ -516,8 +516,8 @@ func testRunner(pre pre, want want, handleFn handleFn) func(t *testing.T) {
 			WithStatusSubresource(instance).
 			Build()
 
-		a := testAction.PrepareAction(c, NewAction[*v1alpha1.Rekor]("component", nnObject.Name, pre.opts...))
-		ra := a.(*rbacAction[*v1alpha1.Rekor])
+		a := testAction.PrepareAction(c, NewAction[*rhtasv1.Rekor]("component", nnObject.Name, pre.opts...))
+		ra := a.(*rbacAction[*rhtasv1.Rekor])
 
 		if pre.warmUp {
 			handleFn(ra, ctx, instance)
@@ -542,7 +542,7 @@ func TestRbac_CanHandle(t *testing.T) {
 	tests := []struct {
 		name      string
 		reason    state.State
-		opts      []func(*rbacAction[*v1alpha1.Rekor])
+		opts      []func(*rbacAction[*rhtasv1.Rekor])
 		canHandle bool
 	}{
 		{
@@ -573,8 +573,8 @@ func TestRbac_CanHandle(t *testing.T) {
 			name:      "custom can handle func: pass",
 			reason:    state.None,
 			canHandle: true,
-			opts: []func(*rbacAction[*v1alpha1.Rekor]){
-				WithCanHandle(func(ctx context.Context, t *v1alpha1.Rekor) bool {
+			opts: []func(*rbacAction[*rhtasv1.Rekor]){
+				WithCanHandle(func(ctx context.Context, t *rhtasv1.Rekor) bool {
 					return true
 				}),
 			},
@@ -582,8 +582,8 @@ func TestRbac_CanHandle(t *testing.T) {
 			name:      "custom can handle func: reject",
 			reason:    state.None,
 			canHandle: false,
-			opts: []func(*rbacAction[*v1alpha1.Rekor]){
-				WithCanHandle(func(ctx context.Context, t *v1alpha1.Rekor) bool {
+			opts: []func(*rbacAction[*rhtasv1.Rekor]){
+				WithCanHandle(func(ctx context.Context, t *rhtasv1.Rekor) bool {
 					return false
 				}),
 			},
@@ -592,8 +592,8 @@ func TestRbac_CanHandle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := testAction.FakeClientBuilder().Build()
-			a := testAction.PrepareAction(c, NewAction[*v1alpha1.Rekor]("component", "test", tt.opts...))
-			instance := v1alpha1.Rekor{}
+			a := testAction.PrepareAction(c, NewAction[*rhtasv1.Rekor]("component", "test", tt.opts...))
+			instance := rhtasv1.Rekor{}
 			if tt.reason != state.None {
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 					Type:   constants.ReadyCondition,

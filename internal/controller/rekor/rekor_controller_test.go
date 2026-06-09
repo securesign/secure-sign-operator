@@ -32,7 +32,7 @@ import (
 	"github.com/securesign/operator/internal/controller/rekor/actions/server"
 	httpmock "github.com/securesign/operator/internal/testing/http"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -65,7 +65,7 @@ var _ = Describe("Rekor controller", func() {
 		}
 
 		typeNamespaceName := types.NamespacedName{Name: Name, Namespace: Namespace}
-		instance := &v1alpha1.Rekor{}
+		instance := &rhtasv1.Rekor{}
 
 		BeforeEach(func() {
 			By("Creating the Namespace to perform the tests")
@@ -80,7 +80,7 @@ var _ = Describe("Rekor controller", func() {
 			})
 
 			By("removing the custom resource for the Kind Rekor")
-			found := &v1alpha1.Rekor{}
+			found := &rhtasv1.Rekor{}
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
 
@@ -102,21 +102,21 @@ var _ = Describe("Rekor controller", func() {
 				// Let's mock our custom resource at the same way that we would
 				// apply on the cluster the manifest under config/samples
 				ptr := int64(123)
-				instance := &v1alpha1.Rekor{
+				instance := &rhtasv1.Rekor{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      Name,
 						Namespace: Namespace,
 					},
-					Spec: v1alpha1.RekorSpec{
+					Spec: rhtasv1.RekorSpec{
 						TreeID: &ptr,
-						ExternalAccess: v1alpha1.ExternalAccess{
+						ExternalAccess: rhtasv1.ExternalAccess{
 							Enabled: true,
 							Host:    "rekor.local",
 						},
-						RekorSearchUI: v1alpha1.RekorSearchUI{
+						RekorSearchUI: rhtasv1.RekorSearchUI{
 							Enabled: utils.Pointer(true),
 						},
-						BackFillRedis: v1alpha1.BackFillRedis{
+						BackFillRedis: rhtasv1.BackFillRedis{
 							Enabled:  utils.Pointer(true),
 							Schedule: "0 0 * * *",
 						},
@@ -128,28 +128,28 @@ var _ = Describe("Rekor controller", func() {
 
 			By("Checking if the custom resource was successfully created")
 			Eventually(func() error {
-				found := &v1alpha1.Rekor{}
+				found := &rhtasv1.Rekor{}
 				return suite.Client().Get(ctx, typeNamespaceName, found)
 			}).Should(Succeed())
 
 			By("Status conditions are initialized")
 			Eventually(func(g Gomega) bool {
-				found := &v1alpha1.Rekor{}
+				found := &rhtasv1.Rekor{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
 			}).Should(BeTrue())
 
 			By("Rekor signer created")
-			found := &v1alpha1.Rekor{}
-			Eventually(func(g Gomega) *v1alpha1.SecretKeySelector {
+			found := &rhtasv1.Rekor{}
+			Eventually(func(g Gomega) *rhtasv1.SecretKeySelector {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).To(Succeed())
 				return found.Status.Signer.KeyRef
 			}).Should(Not(BeNil()))
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Signer.KeyRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
 
 			By("Mock http client to return public key on /api/v1/log/publicKey call")
-			pubKeyData, err := kubernetes.GetSecretData(suite.Client(), Namespace, &v1alpha1.SecretKeySelector{
-				LocalObjectReference: v1alpha1.LocalObjectReference{
+			pubKeyData, err := kubernetes.GetSecretData(suite.Client(), Namespace, &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{
 					Name: found.Status.Signer.KeyRef.Name,
 				},
 				Key: "public",
@@ -210,7 +210,7 @@ var _ = Describe("Rekor controller", func() {
 
 			By("Waiting until Rekor instance is Initialization")
 			Eventually(func(g Gomega) string {
-				found := &v1alpha1.Rekor{}
+				found := &rhtasv1.Rekor{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
 			}).Should(Equal(state.Initialize.String()))
@@ -232,14 +232,14 @@ var _ = Describe("Rekor controller", func() {
 
 			By("Public key status has been set")
 			Eventually(func(g Gomega) {
-				found := &v1alpha1.Rekor{}
+				found := &rhtasv1.Rekor{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).To(Succeed())
 				g.Expect(found.Status.PublicKeyRef).ShouldNot(BeNil())
 			}).Should(Succeed())
 
 			By("Waiting until Rekor instance is Ready")
 			Eventually(func(g Gomega) bool {
-				found := &v1alpha1.Rekor{}
+				found := &rhtasv1.Rekor{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())

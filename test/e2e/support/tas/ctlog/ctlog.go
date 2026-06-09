@@ -4,7 +4,7 @@ import (
 	"context"
 
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/test/e2e/support"
@@ -38,8 +38,8 @@ func GetServerPod(ctx context.Context, cli client.Client, ns string) *v1.Pod {
 	return &list.Items[0]
 }
 
-func Get(ctx context.Context, cli client.Client, ns string, name string) *v1alpha1.CTlog {
-	instance := &v1alpha1.CTlog{}
+func Get(ctx context.Context, cli client.Client, ns string, name string) *rhtasv1.CTlog {
+	instance := &rhtasv1.CTlog{}
 	if e := cli.Get(ctx, types.NamespacedName{
 		Namespace: ns,
 		Name:      name,

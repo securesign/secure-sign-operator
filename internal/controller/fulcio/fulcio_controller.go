@@ -39,7 +39,7 @@ import (
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/predicate"
 )
 
@@ -73,7 +73,7 @@ func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder events.Even
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *fulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 
-	var instance rhtasv1alpha1.Fulcio
+	var instance rhtasv1.Fulcio
 	log := ctrllog.FromContext(ctx)
 
 	if err := r.Get(ctx, req.NamespacedName, &instance); err != nil {
@@ -93,12 +93,12 @@ func (r *fulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	target := instance.DeepCopy()
-	acs := []action.Action[*rhtasv1alpha1.Fulcio]{
-		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Fulcio](func(_ *rhtasv1alpha1.Fulcio) []string {
+	acs := []action.Action[*rhtasv1.Fulcio]{
+		transitions.NewToPendingPhaseAction[*rhtasv1.Fulcio](func(_ *rhtasv1.Fulcio) []string {
 			return []string{actions.CertCondition}
 		}),
 		actions.NewHandleCertAction(),
-		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.Fulcio](),
+		transitions.NewToCreatePhaseAction[*rhtasv1.Fulcio](),
 		actions.NewRBACAction(),
 		actions.NewServerConfigAction(),
 		actions.NewDeployAction(),
@@ -106,9 +106,9 @@ func (r *fulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		actions.NewServiceAction(),
 		actions.NewIngressAction(),
 		actions.NewStatusUrlAction(),
-		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.Fulcio](),
+		transitions.NewToInitializePhaseAction[*rhtasv1.Fulcio](),
 		actions.NewInitializeAction(),
-		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.Fulcio](),
+		transitions.NewToReadyPhaseAction[*rhtasv1.Fulcio](),
 	}
 
 	for _, a := range acs {
@@ -137,7 +137,7 @@ func (r *fulcioReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
-		For(&rhtasv1alpha1.Fulcio{}, builder.WithPredicates(predicate.ConfigurationChangedOnFailurePredicate[*rhtasv1alpha1.Fulcio]())).
+		For(&rhtasv1.Fulcio{}, builder.WithPredicates(predicate.ConfigurationChangedOnFailurePredicate[*rhtasv1.Fulcio]())).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		Owns(&v13.Ingress{}).

@@ -8,7 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	ctlogactions "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcioactions "github.com/securesign/operator/internal/controller/fulcio/actions"
 	rekoractions "github.com/securesign/operator/internal/controller/rekor/actions"
@@ -37,7 +37,7 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 
 	var targetImageName string
 	var namespace *v1.Namespace
-	var s *v1alpha1.Securesign
+	var s *rhtasv1.Securesign
 	var replicas *int32
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {

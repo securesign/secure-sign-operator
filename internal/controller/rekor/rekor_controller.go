@@ -45,7 +45,7 @@ import (
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/predicate"
 	batchv1 "k8s.io/api/batch/v1"
 )
@@ -79,7 +79,7 @@ func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder events.Even
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var instance rhtasv1alpha1.Rekor
+	var instance rhtasv1.Rekor
 	log := ctrllog.FromContext(ctx)
 
 	if err := r.Get(ctx, req.NamespacedName, &instance); err != nil {
@@ -99,8 +99,8 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	target := instance.DeepCopy()
-	actions := []action.Action[*rhtasv1alpha1.Rekor]{
-		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Rekor](func(rekor *rhtasv1alpha1.Rekor) []string {
+	actions := []action.Action[*rhtasv1.Rekor]{
+		transitions.NewToPendingPhaseAction[*rhtasv1.Rekor](func(rekor *rhtasv1.Rekor) []string {
 			components := []string{actions2.ServerCondition, actions2.SignerCondition}
 			if utils.OptionalBool(rekor.Spec.RekorSearchUI.Enabled) {
 				components = append(components, actions2.UICondition)
@@ -115,7 +115,7 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		redis.NewGeneratePasswordAction(),
 		server.NewGenerateSignerAction(),
 
-		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.Rekor](),
+		transitions.NewToCreatePhaseAction[*rhtasv1.Rekor](),
 
 		server.NewRBACAction(),
 		ui.NewRBACAction(),
@@ -146,14 +146,14 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		monitor.NewCreateServiceAction(),
 		monitor.NewCreateMonitorAction(),
 
-		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.Rekor](),
+		transitions.NewToInitializePhaseAction[*rhtasv1.Rekor](),
 
 		server.NewInitializeAction(),
 		server.NewResolvePubKeyAction(),
 		ui.NewInitializeAction(),
 		redis.NewInitializeAction(),
 
-		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.Rekor](),
+		transitions.NewToReadyPhaseAction[*rhtasv1.Rekor](),
 	}
 
 	for _, a := range actions {
@@ -182,7 +182,7 @@ func (r *rekorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
-		For(&rhtasv1alpha1.Rekor{}, builder.WithPredicates(predicate.ConfigurationChangedOnFailurePredicate[*rhtasv1alpha1.Rekor]())).
+		For(&rhtasv1.Rekor{}, builder.WithPredicates(predicate.ConfigurationChangedOnFailurePredicate[*rhtasv1.Rekor]())).
 		Owns(&v12.Deployment{}).
 		Owns(&v12.StatefulSet{}).
 		Owns(&v13.Service{}).

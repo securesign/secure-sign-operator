@@ -7,7 +7,7 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/annotations"
 	tsaActions "github.com/securesign/operator/internal/controller/tsa/actions"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
@@ -47,8 +47,8 @@ func Verify(ctx context.Context, cli client.Client, namespace string, name strin
 		Should(BeTrue())
 }
 
-func Get(ctx context.Context, cli client.Client, ns string, name string) *v1alpha1.Tuf {
-	instance := &v1alpha1.Tuf{}
+func Get(ctx context.Context, cli client.Client, ns string, name string) *rhtasv1.Tuf {
+	instance := &rhtasv1.Tuf{}
 	if e := cli.Get(ctx, types.NamespacedName{
 		Namespace: ns,
 		Name:      name,
@@ -113,7 +113,7 @@ func RefreshTufRepository(ctx context.Context, cli client.Client, ns string, nam
 	time.Sleep(5 * time.Second)
 }
 
-func refreshTufJob(instance *v1alpha1.Tuf) *v12.Job {
+func refreshTufJob(instance *rhtasv1.Tuf) *v12.Job {
 	j := &v12.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:    instance.Namespace,

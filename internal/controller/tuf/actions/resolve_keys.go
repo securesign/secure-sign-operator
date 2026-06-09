@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"time"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
@@ -18,7 +18,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewResolveKeysAction() action.Action[*rhtasv1alpha1.Tuf] {
+func NewResolveKeysAction() action.Action[*rhtasv1.Tuf] {
 	return &resolveKeysAction{}
 }
 
@@ -30,14 +30,14 @@ func (i resolveKeysAction) Name() string {
 	return "resolve keys"
 }
 
-func (i resolveKeysAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Tuf) bool {
+func (i resolveKeysAction) CanHandle(ctx context.Context, instance *rhtasv1.Tuf) bool {
 	if state.FromInstance(instance, constants.ReadyCondition) < state.Pending {
 		return false
 	}
 	return !equality.Semantic.DeepDerivative(instance.Spec.Keys, instance.Status.Keys)
 }
 
-func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
+func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *action.Result {
 	if state.FromInstance(instance, constants.ReadyCondition) != state.Pending {
 		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{Type: constants.ReadyCondition,
 			Status: v1.ConditionFalse, Reason: state.Pending.String(), Message: "Resolving keys",
@@ -45,7 +45,7 @@ func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1alpha1.T
 	}
 
 	if cap(instance.Status.Keys) < len(instance.Spec.Keys) {
-		instance.Status.Keys = make([]rhtasv1alpha1.TufKey, 0, len(instance.Spec.Keys))
+		instance.Status.Keys = make([]rhtasv1.TufKey, 0, len(instance.Spec.Keys))
 	}
 	for index, key := range instance.Spec.Keys {
 		k, err := i.handleKey(ctx, instance, &key)
@@ -92,7 +92,7 @@ func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1alpha1.T
 	return i.Continue()
 }
 
-func (i resolveKeysAction) handleKey(ctx context.Context, instance *rhtasv1alpha1.Tuf, key *rhtasv1alpha1.TufKey) (*rhtasv1alpha1.TufKey, error) {
+func (i resolveKeysAction) handleKey(ctx context.Context, instance *rhtasv1.Tuf, key *rhtasv1.TufKey) (*rhtasv1.TufKey, error) {
 	switch {
 	case key.SecretRef == nil:
 		sks, err := i.discoverSecret(ctx, instance.Namespace, key)
@@ -108,7 +108,7 @@ func (i resolveKeysAction) handleKey(ctx context.Context, instance *rhtasv1alpha
 	}
 }
 
-func (i resolveKeysAction) discoverSecret(ctx context.Context, namespace string, key *rhtasv1alpha1.TufKey) (*rhtasv1alpha1.SecretKeySelector, error) {
+func (i resolveKeysAction) discoverSecret(ctx context.Context, namespace string, key *rhtasv1.TufKey) (*rhtasv1.SecretKeySelector, error) {
 	labelName := labels.LabelNamespace + "/" + key.Name
 	s, err := k8sutils.FindSecret(ctx, i.Client, namespace, labelName)
 	if err != nil {
@@ -120,9 +120,9 @@ func (i resolveKeysAction) discoverSecret(ctx context.Context, namespace string,
 			err = fmt.Errorf("label %s is empty", labelName)
 			return nil, err
 		}
-		return &rhtasv1alpha1.SecretKeySelector{
+		return &rhtasv1.SecretKeySelector{
 			Key: keySelector,
-			LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+			LocalObjectReference: rhtasv1.LocalObjectReference{
 				Name: s.Name,
 			},
 		}, nil

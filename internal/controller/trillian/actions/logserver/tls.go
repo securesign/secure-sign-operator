@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/state"
@@ -15,7 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewTlsAction() action.Action[*rhtasv1alpha1.Trillian] {
+func NewTlsAction() action.Action[*rhtasv1.Trillian] {
 	return &tlsAction{}
 }
 
@@ -27,7 +27,7 @@ func (i tlsAction) Name() string {
 	return "resolve TLS"
 }
 
-func (i tlsAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Trillian) bool {
+func (i tlsAction) CanHandle(_ context.Context, instance *rhtasv1.Trillian) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, actions.ServerCondition)
 
 	switch {
@@ -43,18 +43,18 @@ func (i tlsAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Trillian
 	}
 }
 
-func (i tlsAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
+func (i tlsAction) Handle(ctx context.Context, instance *rhtasv1.Trillian) *action.Result {
 	switch {
 	case specTLS(instance).CertRef != nil:
 		setStatusTLS(instance, specTLS(instance))
 	case kubernetes.IsOpenShift():
-		setStatusTLS(instance, rhtasv1alpha1.TLS{
-			CertRef: &rhtasv1alpha1.SecretKeySelector{
-				LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: fmt.Sprintf(actions.LogServerTLSSecret, instance.Name)},
+		setStatusTLS(instance, rhtasv1.TLS{
+			CertRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: fmt.Sprintf(actions.LogServerTLSSecret, instance.Name)},
 				Key:                  tls.KeyCert,
 			},
-			PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
-				LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: fmt.Sprintf(actions.LogServerTLSSecret, instance.Name)},
+			PrivateKeyRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: fmt.Sprintf(actions.LogServerTLSSecret, instance.Name)},
 				Key:                  tls.KeyPrivate,
 			},
 		})

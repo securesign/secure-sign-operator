@@ -11,7 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-
 // FulcioSpec defines the desired state of Fulcio
 type FulcioSpec struct {
 	PodRequirements `json:",inline"`
@@ -190,6 +189,8 @@ type FulcioStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:storageversion
+//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
+//+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
 
 // Fulcio is the Schema for the fulcios API
 type Fulcio struct {
@@ -209,10 +210,6 @@ type FulcioList struct {
 	Items           []Fulcio `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&Fulcio{}, &FulcioList{})
-}
-
 func (i *Fulcio) GetConditions() []metav1.Condition {
 	return i.Status.Conditions
 }
@@ -221,4 +218,20 @@ func (i *Fulcio) SetCondition(newCondition metav1.Condition) {
 	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
 }
 
+func (i *Fulcio) GetTrustedCA() *LocalObjectReference {
+	if i.Spec.TrustedCA != nil {
+		return i.Spec.TrustedCA
+	}
 
+	if v, ok := i.GetAnnotations()["rhtas.redhat.com/trusted-ca"]; ok {
+		return &LocalObjectReference{
+			Name: v,
+		}
+	}
+
+	return nil
+}
+
+func (i *Fulcio) GetServiceURL() string {
+	return i.Status.Url
+}

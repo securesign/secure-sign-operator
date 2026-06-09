@@ -25,7 +25,7 @@
 // [TrustedCA] specifies the name of a ConfigMap containing a custom CA bundle.
 //
 // If set on the Securesign resource, this annotation is automatically propagated
-// to child resources. ([github.com/securesign/operator/api/v1alpha1.Securesign])
+// to child resources. ([github.com/securesign/operator/api/rhtasv1.Securesign])
 //
 // Example usage:
 //
@@ -56,12 +56,12 @@
 //   - "prod": Enables minimal, structured logging optimized for performance.
 //
 // Affects the following services:
-//   - Rekor ([github.com/securesign/operator/api/v1alpha1.Rekor])
-//   - Timestamp Authority ([github.com/securesign/operator/api/v1alpha1.TimestampAuthority])
-//   - Fulcio ([github.com/securesign/operator/api/v1alpha1.Fulcio])
+//   - Rekor ([github.com/securesign/operator/api/rhtasv1.Rekor])
+//   - Timestamp Authority ([github.com/securesign/operator/api/rhtasv1.TimestampAuthority])
+//   - Fulcio ([github.com/securesign/operator/api/rhtasv1.Fulcio])
 //
 // If set on the Securesign resource, this annotation is automatically propagated
-// to child resources. ([github.com/securesign/operator/api/v1alpha1.Securesign])
+// to child resources. ([github.com/securesign/operator/api/rhtasv1.Securesign])
 //
 // Example usage:
 //

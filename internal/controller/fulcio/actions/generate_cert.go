@@ -10,7 +10,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
@@ -40,7 +40,7 @@ var managedAnnotations = []string{
 	labels.LabelNamespace + "/passwordKeyRef",
 }
 
-func NewHandleCertAction() action.Action[*v1alpha1.Fulcio] {
+func NewHandleCertAction() action.Action[*rhtasv1.Fulcio] {
 	return &handleCert{}
 }
 
@@ -52,7 +52,7 @@ func (g handleCert) Name() string {
 	return "handle-cert"
 }
 
-func (g handleCert) CanHandle(_ context.Context, instance *v1alpha1.Fulcio) bool {
+func (g handleCert) CanHandle(_ context.Context, instance *rhtasv1.Fulcio) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
 
 	switch {
@@ -68,7 +68,7 @@ func (g handleCert) CanHandle(_ context.Context, instance *v1alpha1.Fulcio) bool
 
 }
 
-func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *action.Result {
+func (g handleCert) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *action.Result {
 	if state.FromInstance(instance, constants.ReadyCondition) != state.Pending {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               constants.ReadyCondition,
@@ -194,7 +194,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 	return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 }
 
-func (g handleCert) setupCert(instance *v1alpha1.Fulcio) (*utils.FulcioCertConfig, error) {
+func (g handleCert) setupCert(instance *rhtasv1.Fulcio) (*utils.FulcioCertConfig, error) {
 	config := &utils.FulcioCertConfig{
 		OrganizationEmail: instance.Status.Certificate.OrganizationEmail,
 		OrganizationName:  instance.Status.Certificate.OrganizationName,
@@ -252,36 +252,36 @@ func (g handleCert) setupCert(instance *v1alpha1.Fulcio) (*utils.FulcioCertConfi
 	return config, nil
 }
 
-func (g handleCert) alignStatusFields(secret *v1.Secret, instance *v1alpha1.Fulcio) {
+func (g handleCert) alignStatusFields(secret *v1.Secret, instance *rhtasv1.Fulcio) {
 	if instance.Status.Certificate.PrivateKeyRef == nil {
-		instance.Status.Certificate.PrivateKeyRef = &v1alpha1.SecretKeySelector{
+		instance.Status.Certificate.PrivateKeyRef = &rhtasv1.SecretKeySelector{
 			Key: constants.KeyPrivate,
-			LocalObjectReference: v1alpha1.LocalObjectReference{
+			LocalObjectReference: rhtasv1.LocalObjectReference{
 				Name: secret.Name,
 			},
 		}
 	}
 
 	if val, ok := secret.Data[constants.KeyPassword]; instance.Spec.Certificate.PrivateKeyPasswordRef == nil && ok && len(val) > 0 {
-		instance.Status.Certificate.PrivateKeyPasswordRef = &v1alpha1.SecretKeySelector{
+		instance.Status.Certificate.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{
 			Key: constants.KeyPassword,
-			LocalObjectReference: v1alpha1.LocalObjectReference{
+			LocalObjectReference: rhtasv1.LocalObjectReference{
 				Name: secret.Name,
 			},
 		}
 	}
 
 	if instance.Spec.Certificate.CARef == nil {
-		instance.Status.Certificate.CARef = &v1alpha1.SecretKeySelector{
+		instance.Status.Certificate.CARef = &rhtasv1.SecretKeySelector{
 			Key: constants.KeyCert,
-			LocalObjectReference: v1alpha1.LocalObjectReference{
+			LocalObjectReference: rhtasv1.LocalObjectReference{
 				Name: secret.Name,
 			},
 		}
 	}
 }
 
-func (g handleCert) calculateHostname(ctx context.Context, instance *v1alpha1.Fulcio) error {
+func (g handleCert) calculateHostname(ctx context.Context, instance *rhtasv1.Fulcio) error {
 	var err error
 	if instance.Status.Certificate.CommonName != "" {
 		return nil
@@ -301,7 +301,7 @@ func (g handleCert) calculateHostname(ctx context.Context, instance *v1alpha1.Fu
 
 	return err
 }
-func (g handleCert) certMatchingAnnotations(instance *v1alpha1.Fulcio) map[string]string {
+func (g handleCert) certMatchingAnnotations(instance *rhtasv1.Fulcio) map[string]string {
 	m := map[string]string{
 		labels.LabelNamespace + "/commonName":        instance.Status.Certificate.CommonName,
 		labels.LabelNamespace + "/organizationEmail": instance.Status.Certificate.OrganizationEmail,

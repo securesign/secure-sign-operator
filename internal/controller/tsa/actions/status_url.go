@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func NewStatusUrlAction() action.Action[*rhtasv1alpha1.TimestampAuthority] {
+func NewStatusUrlAction() action.Action[*rhtasv1.TimestampAuthority] {
 	return &statusUrlAction{}
 }
 
@@ -24,11 +24,11 @@ func (i statusUrlAction) Name() string {
 	return "status-url"
 }
 
-func (i statusUrlAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.TimestampAuthority) bool {
+func (i statusUrlAction) CanHandle(_ context.Context, instance *rhtasv1.TimestampAuthority) bool {
 	return state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
-func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1alpha1.TimestampAuthority) *action.Result {
+func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1.TimestampAuthority) *action.Result {
 	var url string
 	if instance.Spec.ExternalAccess.Enabled {
 		protocol := "http://"

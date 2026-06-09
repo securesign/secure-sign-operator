@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"slices"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
@@ -21,7 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func NewTsaAction() action.Action[*rhtasv1alpha1.Securesign] {
+func NewTsaAction() action.Action[*rhtasv1.Securesign] {
 	return &tsaAction{}
 }
 
@@ -33,16 +33,16 @@ func (i tsaAction) Name() string {
 	return "create tsa"
 }
 
-func (i tsaAction) CanHandle(context.Context, *rhtasv1alpha1.Securesign) bool {
+func (i tsaAction) CanHandle(context.Context, *rhtasv1.Securesign) bool {
 	return true
 }
 
-func (i tsaAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
+func (i tsaAction) Handle(ctx context.Context, instance *rhtasv1.Securesign) *action.Result {
 	var (
 		err    error
 		result controllerutil.OperationResult
 		l      = labels.For(actions.ComponentName, instance.Name, instance.Name)
-		tsa    = &rhtasv1alpha1.TimestampAuthority{
+		tsa    = &rhtasv1.TimestampAuthority{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      instance.Name,
 				Namespace: instance.Namespace,
@@ -65,10 +65,10 @@ func (i tsaAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		tsa,
-		ensure.ControllerReference[*rhtasv1alpha1.TimestampAuthority](instance, i.Client),
-		ensure.Labels[*rhtasv1alpha1.TimestampAuthority](slices.Collect(maps.Keys(l)), l),
-		ensure.Annotations[*rhtasv1alpha1.TimestampAuthority](annotations.InheritableAnnotations, instance.Annotations),
-		func(object *rhtasv1alpha1.TimestampAuthority) error {
+		ensure.ControllerReference[*rhtasv1.TimestampAuthority](instance, i.Client),
+		ensure.Labels[*rhtasv1.TimestampAuthority](slices.Collect(maps.Keys(l)), l),
+		ensure.Annotations[*rhtasv1.TimestampAuthority](annotations.InheritableAnnotations, instance.Annotations),
+		func(object *rhtasv1.TimestampAuthority) error {
 			object.Spec = *instance.Spec.TimestampAuthority
 			return nil
 		},
@@ -95,7 +95,7 @@ func (i tsaAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesig
 	return i.CopyStatus(ctx, tsa, instance)
 }
 
-func (i tsaAction) CopyStatus(ctx context.Context, object *rhtasv1alpha1.TimestampAuthority, instance *rhtasv1alpha1.Securesign) *action.Result {
+func (i tsaAction) CopyStatus(ctx context.Context, object *rhtasv1.TimestampAuthority, instance *rhtasv1.Securesign) *action.Result {
 	objectStatus := meta.FindStatusCondition(object.Status.Conditions, constants.ReadyCondition)
 	if objectStatus == nil {
 		// not initialized yet, wait for update

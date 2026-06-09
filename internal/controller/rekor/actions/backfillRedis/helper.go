@@ -3,11 +3,11 @@ package backfillredis
 import (
 	"regexp"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/utils"
 )
 
-func enabled(instance *v1alpha1.Rekor) bool {
+func enabled(instance *rhtasv1.Rekor) bool {
 	return utils.OptionalBool(instance.Spec.BackFillRedis.Enabled)
 }
 

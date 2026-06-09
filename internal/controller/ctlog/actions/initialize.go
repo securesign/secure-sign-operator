@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
@@ -15,7 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewInitializeAction() action.Action[*rhtasv1alpha1.CTlog] {
+func NewInitializeAction() action.Action[*rhtasv1.CTlog] {
 	return &initializeAction{}
 }
 
@@ -27,11 +27,11 @@ func (i initializeAction) Name() string {
 	return "initialize"
 }
 
-func (i initializeAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.CTlog) bool {
+func (i initializeAction) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool {
 	return state.FromInstance(instance, constants.ReadyCondition) == state.Initialize
 }
 
-func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) *action.Result {
+func (i initializeAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
 	var (
 		ok  bool
 		err error

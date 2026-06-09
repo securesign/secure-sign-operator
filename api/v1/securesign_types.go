@@ -21,7 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-
 // SecuresignSpec defines the desired state of Securesign
 // +kubebuilder:validation:XValidation:rule="(has(self.rekor.attestations.enabled) && !self.rekor.attestations.enabled) || !self.rekor.attestations.url.startsWith('file://') || (!(self.rekor.replicas > 1) || ('ReadWriteMany' in self.rekor.pvc.accessModes))",message="When Rekor's rich attestation storage is enabled, and it's URL starts with 'file://', then PVC accessModes must contain 'ReadWriteMany' for replicas greater than 1."
 // +kubebuilder:validation:XValidation:rule="!(self.tuf.replicas > 1) || ('ReadWriteMany' in self.tuf.pvc.accessModes)",message="For TUF deployments with more than 1 replica, tuf.pvc.accessModes must include 'ReadWriteMany'."
@@ -68,6 +67,10 @@ type SecuresignTSAStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:storageversion
+//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The Deployment status"
+//+kubebuilder:printcolumn:name="Rekor URL",type=string,JSONPath=`.status.rekor.url`,description="The rekor url"
+//+kubebuilder:printcolumn:name="Fulcio URL",type=string,JSONPath=`.status.fulcio.url`,description="The fulcio url"
+//+kubebuilder:printcolumn:name="Tuf URL",type=string,JSONPath=`.status.tuf.url`,description="The tuf url"
 
 // Securesign is the Schema for the securesigns API
 type Securesign struct {
@@ -85,10 +88,6 @@ type SecuresignList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Securesign `json:"items"`
-}
-
-func init() {
-	SchemeBuilder.Register(&Securesign{}, &SecuresignList{})
 }
 
 func (i *Securesign) GetConditions() []metav1.Condition {

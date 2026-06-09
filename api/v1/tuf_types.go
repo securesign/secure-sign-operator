@@ -1,3 +1,19 @@
+/*
+Copyright 2023.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package v1
 
 import (
@@ -5,7 +21,6 @@ import (
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
 
 // TufSigningConfigURLMode controls which URLs are used in the TUF signing config.
 // +kubebuilder:validation:Enum:=external;internal
@@ -112,6 +127,8 @@ type TufStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:storageversion
+//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
+//+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
 
 // Tuf is the Schema for the tufs API
 // +kubebuilder:validation:XValidation:rule="!(self.spec.replicas > 1) || ('ReadWriteMany' in self.spec.pvc.accessModes)",message="For deployments with more than 1 replica, pvc.accessModes must include 'ReadWriteMany'."
@@ -132,10 +149,6 @@ type TufList struct {
 	Items           []Tuf `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&Tuf{}, &TufList{})
-}
-
 func (i *Tuf) GetConditions() []metav1.Condition {
 	return i.Status.Conditions
 }
@@ -144,4 +157,16 @@ func (i *Tuf) SetCondition(newCondition metav1.Condition) {
 	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
 }
 
+func (i *Tuf) GetTrustedCA() *LocalObjectReference {
+	if v, ok := i.GetAnnotations()["rhtas.redhat.com/trusted-ca"]; ok {
+		return &LocalObjectReference{
+			Name: v,
+		}
+	}
 
+	return nil
+}
+
+func (i *Tuf) GetServiceURL() string {
+	return i.Status.Url
+}

@@ -14,7 +14,24 @@ spec:
     singular: securesign
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - description: The Deployment status
+      jsonPath: .status.conditions[?(@.type=="Ready")].reason
+      name: Status
+      type: string
+    - description: The rekor url
+      jsonPath: .status.rekor.url
+      name: Rekor URL
+      type: string
+    - description: The fulcio url
+      jsonPath: .status.fulcio.url
+      name: Fulcio URL
+      type: string
+    - description: The tuf url
+      jsonPath: .status.tuf.url
+      name: Tuf URL
+      type: string
+    name: v1
     schema:
       openAPIV3Schema:
         description: Securesign is the Schema for the securesigns API

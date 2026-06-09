@@ -73,7 +73,8 @@ func FuzzTestFunc(input FuzzTestFuncInput) func(*testing.T) {
 		}
 		codecFactory := runtimeserializer.NewCodecFactory(scheme)
 
-		allFuncs := []fuzzer.FuzzerFuncs{metafuzzer.Funcs}
+		allFuncs := make([]fuzzer.FuzzerFuncs, 0, 1+len(input.FuzzerFuncs))
+		allFuncs = append(allFuncs, metafuzzer.Funcs)
 		allFuncs = append(allFuncs, input.FuzzerFuncs...)
 		fuzzerFuncs := fuzzer.MergeFuzzerFuncs(allFuncs...)
 

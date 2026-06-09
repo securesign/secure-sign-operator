@@ -7,7 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	ctlogactions "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcioactions "github.com/securesign/operator/internal/controller/fulcio/actions"
 	rekoractions "github.com/securesign/operator/internal/controller/rekor/actions"
@@ -37,7 +37,7 @@ var _ = Describe("Securesign FIPS", Ordered, func() {
 	cli, _ := support.CreateClient()
 
 	var namespace *v1.Namespace
-	var s *v1alpha1.Securesign
+	var s *rhtasv1.Securesign
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
@@ -48,11 +48,11 @@ var _ = Describe("Securesign FIPS", Ordered, func() {
 			securesign.WithDefaults(),
 			securesign.WithSearchUI(),
 			securesign.WithMonitoring(),
-			func(v *v1alpha1.Securesign) {
+			func(v *rhtasv1.Securesign) {
 				// cover SECURESIGN-2694
 				v.Spec.Rekor.Attestations.Enabled = ptr.To(false)
 			},
-			func(v *v1alpha1.Securesign) {
+			func(v *rhtasv1.Securesign) {
 				v.Spec.Tuf.ExternalAccess.RouteSelectorLabels = map[string]string{"foo": "bar"}
 			},
 		)

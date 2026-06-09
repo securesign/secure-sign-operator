@@ -26,23 +26,23 @@ Workflow:
 Usage:
 
 	// First, define a wrapper that provides access to the custom resource's PVC fields.
-	pvcWrapper := pvc.Wrapper[*v1alpha1.Rekor](
-	    func(r *v1alpha1.Rekor) v1alpha1.Pvc {
+	pvcWrapper := pvc.Wrapper[*rhtasv1.Rekor](
+	    func(r *rhtasv1.Rekor) rhtasv1.Pvc {
 	        return r.Spec.Pvc
 	    },
-	    func(r *v1alpha1.Rekor) string {
+	    func(r *rhtasv1.Rekor) string {
 	        return r.Status.PvcName
 	    },
-	    func(r *v1alpha1.Rekor, s string) {
+	    func(r *rhtasv1.Rekor, s string) {
 	        r.Status.PvcName = s
 	    },
 	    // This function determines if the PVC action should run.
-	    func(r *v1alpha1.Rekor) bool {
+	    func(r *rhtasv1.Rekor) bool {
 	        return true
 	    },
 	)
 
 	// Then, create the action with a name format and component details.
-	pvc.NewAction[*v1alpha1.Rekor]("rekor-pvc", "rekor", "deployment", pvcWrapper)
+	pvc.NewAction[*rhtasv1.Rekor]("rekor-pvc", "rekor", "deployment", pvcWrapper)
 */
 package pvc

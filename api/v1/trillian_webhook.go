@@ -1,4 +1,4 @@
-package v1alpha1
+package v1
 
 import (
 	"context"
@@ -12,7 +12,7 @@ var trillianlog = logf.Log.WithName("trillian-resource")
 // TrillianDefaulter is a no-op scaffold; real defaulting logic will be added in SECURESIGN-4581.
 type TrillianDefaulter struct{}
 
-//+kubebuilder:webhook:path=/mutate-rhtas-redhat-com-v1alpha1-trillian,mutating=true,failurePolicy=fail,sideEffects=None,groups=rhtas.redhat.com,resources=trillians,verbs=create;update,versions=v1alpha1,name=mtrillian.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-rhtas-redhat-com-v1-trillian,mutating=true,failurePolicy=fail,sideEffects=None,groups=rhtas.redhat.com,resources=trillians,verbs=create;update,versions=v1,name=mtrillian.kb.io,admissionReviewVersions=v1
 
 func SetupTrillianWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, &Trillian{}).

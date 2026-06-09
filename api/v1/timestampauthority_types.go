@@ -190,6 +190,8 @@ type TimestampAuthorityStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:storageversion
+//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
+//+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
 
 // TimestampAuthority is the Schema for the timestampauthorities API
 type TimestampAuthority struct {
@@ -209,8 +211,20 @@ type TimestampAuthorityList struct {
 	Items           []TimestampAuthority `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&TimestampAuthority{}, &TimestampAuthorityList{})
+func (i *TimestampAuthority) GetTrustedCA() *LocalObjectReference {
+	if i.Spec.TrustedCA != nil {
+		return i.Spec.TrustedCA
+	}
+
+	if v, ok := i.GetAnnotations()["rhtas.redhat.com/trusted-ca"]; ok {
+		return &LocalObjectReference{
+			Name: v,
+		}
+	}
+
+	return nil
 }
 
-
+func (i *TimestampAuthority) GetServiceURL() string {
+	return i.Status.Url
+}

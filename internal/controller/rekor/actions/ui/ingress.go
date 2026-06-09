@@ -14,7 +14,7 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v2 "k8s.io/api/networking/v1"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func NewIngressAction() action.Action[*rhtasv1alpha1.Rekor] {
+func NewIngressAction() action.Action[*rhtasv1.Rekor] {
 	return &ingressAction{}
 }
 
@@ -35,13 +35,13 @@ func (i ingressAction) Name() string {
 	return "ingress"
 }
 
-func (i ingressAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Rekor) bool {
+func (i ingressAction) CanHandle(ctx context.Context, instance *rhtasv1.Rekor) bool {
 	return enabled(instance) &&
 		instance.Spec.ExternalAccess.Enabled &&
 		state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
-func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
+func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
 	var (
 		result controllerutil.OperationResult
 		err    error
@@ -59,7 +59,7 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor
 			ObjectMeta: metav1.ObjectMeta{Name: svc.Name, Namespace: svc.Namespace},
 		},
 		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc,
-			rhtasv1alpha1.ExternalAccess{
+			rhtasv1.ExternalAccess{
 				Enabled:             true,
 				Host:                instance.Spec.RekorSearchUI.Host,
 				RouteSelectorLabels: instance.Spec.RekorSearchUI.RouteSelectorLabels,

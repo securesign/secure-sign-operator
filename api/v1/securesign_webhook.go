@@ -1,4 +1,4 @@
-package v1alpha1
+package v1
 
 import (
 	"context"
@@ -12,7 +12,7 @@ var securesignlog = logf.Log.WithName("securesign-resource")
 // SecuresignDefaulter is a no-op scaffold; real defaulting logic will be added in SECURESIGN-4581.
 type SecuresignDefaulter struct{}
 
-//+kubebuilder:webhook:path=/mutate-rhtas-redhat-com-v1alpha1-securesign,mutating=true,failurePolicy=fail,sideEffects=None,groups=rhtas.redhat.com,resources=securesigns,verbs=create;update,versions=v1alpha1,name=msecuresign.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-rhtas-redhat-com-v1-securesign,mutating=true,failurePolicy=fail,sideEffects=None,groups=rhtas.redhat.com,resources=securesigns,verbs=create;update,versions=v1,name=msecuresign.kb.io,admissionReviewVersions=v1
 
 func SetupSecuresignWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, &Securesign{}).

@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/tsa/actions"
 	v1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
@@ -71,7 +71,7 @@ func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder events.Even
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.16.3/pkg/reconcile
 func (r *timestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var instance rhtasv1alpha1.TimestampAuthority
+	var instance rhtasv1.TimestampAuthority
 	log := ctrllog.FromContext(ctx)
 	log.V(1).Info("Reconciling Timestamp Authority", "request", req)
 
@@ -92,13 +92,13 @@ func (r *timestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	target := instance.DeepCopy()
-	actions := []action.Action[*rhtasv1alpha1.TimestampAuthority]{
-		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.TimestampAuthority](func(ta *rhtasv1alpha1.TimestampAuthority) []string {
+	actions := []action.Action[*rhtasv1.TimestampAuthority]{
+		transitions.NewToPendingPhaseAction[*rhtasv1.TimestampAuthority](func(ta *rhtasv1.TimestampAuthority) []string {
 			components := []string{actions.TSASignerCondition}
 			return components
 		}),
 		actions.NewGenerateSignerAction(),
-		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.TimestampAuthority](),
+		transitions.NewToCreatePhaseAction[*rhtasv1.TimestampAuthority](),
 		actions.NewRBACAction(),
 		actions.NewNtpMonitoringAction(),
 		actions.NewDeployAction(),
@@ -107,11 +107,11 @@ func (r *timestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 		actions.NewStatusUrlAction(),
 		actions.NewMonitoringAction(),
 
-		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.TimestampAuthority](),
+		transitions.NewToInitializePhaseAction[*rhtasv1.TimestampAuthority](),
 
 		actions.NewInitializeAction(),
 
-		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.TimestampAuthority](),
+		transitions.NewToReadyPhaseAction[*rhtasv1.TimestampAuthority](),
 	}
 
 	for _, a := range actions {
@@ -140,7 +140,7 @@ func (r *timestampAuthorityReconciler) SetupWithManager(mgr ctrl.Manager) error 
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
-		For(&rhtasv1alpha1.TimestampAuthority{}, builder.WithPredicates(predicate.ConfigurationChangedOnFailurePredicate[*rhtasv1alpha1.TimestampAuthority]())).
+		For(&rhtasv1.TimestampAuthority{}, builder.WithPredicates(predicate.ConfigurationChangedOnFailurePredicate[*rhtasv1.TimestampAuthority]())).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		Owns(&v13.Ingress{}).

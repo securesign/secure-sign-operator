@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	actions2 "github.com/securesign/operator/internal/controller/trillian/actions"
@@ -27,28 +27,28 @@ func TestDeployAction_Handle_DefaultTrillianAddress(t *testing.T) {
 	ctx := context.TODO()
 	g := NewWithT(t)
 
-	instance := &rhtasv1alpha1.Rekor{
+	instance := &rhtasv1.Rekor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-rekor",
 			Namespace: testNamespace,
 		},
-		Spec: rhtasv1alpha1.RekorSpec{
-			Trillian: rhtasv1alpha1.TrillianService{
+		Spec: rhtasv1.RekorSpec{
+			Trillian: rhtasv1.TrillianService{
 				Port: ptr.To[int32](8091),
 			},
-			Signer: rhtasv1alpha1.RekorSigner{
+			Signer: rhtasv1.RekorSigner{
 				KMS: signerKMSSecret,
 			},
-			SearchIndex: rhtasv1alpha1.SearchIndex{
+			SearchIndex: rhtasv1.SearchIndex{
 				Create: ptr.To(true),
 			},
 		},
-		Status: rhtasv1alpha1.RekorStatus{
+		Status: rhtasv1.RekorStatus{
 			TreeID:          ptr.To[int64](123456),
-			ServerConfigRef: &rhtasv1alpha1.LocalObjectReference{Name: "test-config"},
-			Signer: rhtasv1alpha1.RekorSigner{
-				KeyRef: &rhtasv1alpha1.SecretKeySelector{
-					LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "signer-secret"},
+			ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "test-config"},
+			Signer: rhtasv1.RekorSigner{
+				KeyRef: &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "signer-secret"},
 					Key:                  testPrivateKey,
 				},
 			},

@@ -17,7 +17,7 @@ import (
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,8 +28,8 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 		name         string
 		status       []metav1.Condition
 		canHandle    bool
-		signer       rhtasv1alpha1.RekorSigner
-		statusSigner rhtasv1alpha1.RekorSigner
+		signer       rhtasv1.RekorSigner
+		statusSigner rhtasv1.RekorSigner
 	}{
 		{
 			name: "spec.signer.keyRef is not nil and status.signer.keyRef is nil",
@@ -41,8 +41,8 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				},
 			},
 			canHandle: true,
-			signer: rhtasv1alpha1.RekorSigner{
-				KeyRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "private"},
+			signer: rhtasv1.RekorSigner{
+				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 			},
 		},
 		{
@@ -55,8 +55,8 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				},
 			},
 			canHandle: false,
-			statusSigner: rhtasv1alpha1.RekorSigner{
-				KeyRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "private"},
+			statusSigner: rhtasv1.RekorSigner{
+				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 			},
 		},
 		{
@@ -80,11 +80,11 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				},
 			},
 			canHandle: true,
-			signer: rhtasv1alpha1.RekorSigner{
-				KeyRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "new_secret"}, Key: "private"},
+			signer: rhtasv1.RekorSigner{
+				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new_secret"}, Key: "private"},
 			},
-			statusSigner: rhtasv1alpha1.RekorSigner{
-				KeyRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "old_secret"}, Key: "private"},
+			statusSigner: rhtasv1.RekorSigner{
+				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old_secret"}, Key: "private"},
 			},
 		},
 		{
@@ -97,11 +97,11 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				},
 			},
 			canHandle: false,
-			signer: rhtasv1alpha1.RekorSigner{
-				KeyRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "private"},
+			signer: rhtasv1.RekorSigner{
+				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 			},
-			statusSigner: rhtasv1alpha1.RekorSigner{
-				KeyRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "private"},
+			statusSigner: rhtasv1.RekorSigner{
+				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 			},
 		},
 		{
@@ -114,13 +114,13 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				},
 			},
 			canHandle: false,
-			signer: rhtasv1alpha1.RekorSigner{
-				KeyRef:      &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "private"},
-				PasswordRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "password"},
+			signer: rhtasv1.RekorSigner{
+				KeyRef:      &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
+				PasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "password"},
 			},
-			statusSigner: rhtasv1alpha1.RekorSigner{
-				KeyRef:      &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "private"},
-				PasswordRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "password"},
+			statusSigner: rhtasv1.RekorSigner{
+				KeyRef:      &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
+				PasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "password"},
 			},
 		},
 		{
@@ -132,13 +132,13 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 					Reason: state.Ready.String(),
 				},
 			},
-			canHandle: true, signer: rhtasv1alpha1.RekorSigner{
-				KeyRef:      &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "new_secret"}, Key: "private"},
-				PasswordRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "new_secret"}, Key: "password"},
+			canHandle: true, signer: rhtasv1.RekorSigner{
+				KeyRef:      &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new_secret"}, Key: "private"},
+				PasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new_secret"}, Key: "password"},
 			},
-			statusSigner: rhtasv1alpha1.RekorSigner{
-				KeyRef:      &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "old_secret"}, Key: "private"},
-				PasswordRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "old_secret"}, Key: "password"},
+			statusSigner: rhtasv1.RekorSigner{
+				KeyRef:      &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old_secret"}, Key: "private"},
+				PasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old_secret"}, Key: "password"},
 			},
 		},
 		{
@@ -151,10 +151,10 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				},
 			},
 			canHandle: true,
-			signer: rhtasv1alpha1.RekorSigner{
+			signer: rhtasv1.RekorSigner{
 				KMS: "azurekeyvault://mykeyvaultname.vault.azure.net/keys/mykeyname",
 			},
-			statusSigner: rhtasv1alpha1.RekorSigner{
+			statusSigner: rhtasv1.RekorSigner{
 				KMS: "awskms://1234abcd-12ab-34cd-56ef-1234567890ab?region=us-east-1",
 			},
 		},
@@ -168,10 +168,10 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				},
 			},
 			canHandle: false,
-			signer: rhtasv1alpha1.RekorSigner{
+			signer: rhtasv1.RekorSigner{
 				KMS: "awskms://1234abcd-12ab-34cd-56ef-1234567890ab?region=us-east-1",
 			},
-			statusSigner: rhtasv1alpha1.RekorSigner{
+			statusSigner: rhtasv1.RekorSigner{
 				KMS: "awskms://1234abcd-12ab-34cd-56ef-1234567890ab?region=us-east-1",
 			},
 		},
@@ -201,11 +201,11 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				},
 			},
 			canHandle: false,
-			signer: rhtasv1alpha1.RekorSigner{
-				KeyRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "private"},
+			signer: rhtasv1.RekorSigner{
+				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 			},
-			statusSigner: rhtasv1alpha1.RekorSigner{
-				KeyRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "private"},
+			statusSigner: rhtasv1.RekorSigner{
+				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 			},
 		},
 		{
@@ -224,11 +224,11 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c := testAction.FakeClientBuilder().Build()
 			a := testAction.PrepareAction(c, NewGenerateSignerAction())
-			instance := rhtasv1alpha1.Rekor{
-				Spec: rhtasv1alpha1.RekorSpec{
+			instance := rhtasv1.Rekor{
+				Spec: rhtasv1.RekorSpec{
 					Signer: tt.signer,
 				},
-				Status: rhtasv1alpha1.RekorStatus{
+				Status: rhtasv1.RekorStatus{
 					Signer: tt.statusSigner,
 				},
 			}
@@ -246,13 +246,13 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 func TestGenerateSigner_Handle(t *testing.T) {
 	g := NewWithT(t)
 	type env struct {
-		spec    rhtasv1alpha1.RekorSigner
-		status  rhtasv1alpha1.RekorSigner
+		spec    rhtasv1.RekorSigner
+		status  rhtasv1.RekorSigner
 		objects []client.Object
 	}
 	type want struct {
 		result *action.Result
-		verify func(Gomega, *rhtasv1alpha1.Rekor)
+		verify func(Gomega, *rhtasv1.Rekor)
 	}
 	tests := []struct {
 		name string
@@ -262,14 +262,14 @@ func TestGenerateSigner_Handle(t *testing.T) {
 		{
 			name: "use spec.signer.keyRef",
 			env: env{
-				spec: rhtasv1alpha1.RekorSigner{
-					KeyRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "private"},
+				spec: rhtasv1.RekorSigner{
+					KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 				},
-				status: rhtasv1alpha1.RekorSigner{},
+				status: rhtasv1.RekorSigner{},
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, instance *rhtasv1alpha1.Rekor) {
+				verify: func(g Gomega, instance *rhtasv1.Rekor) {
 					g.Expect(instance.Status.Signer.KeyRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.Signer.KeyRef.Name).Should(Equal("secret"))
 					g.Expect(instance.Status.Signer.KeyRef.Key).Should(Equal("private"))
@@ -282,12 +282,12 @@ func TestGenerateSigner_Handle(t *testing.T) {
 		{
 			name: "generate signer key",
 			env: env{
-				spec:   rhtasv1alpha1.RekorSigner{},
-				status: rhtasv1alpha1.RekorSigner{},
+				spec:   rhtasv1.RekorSigner{},
+				status: rhtasv1.RekorSigner{},
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, instance *rhtasv1alpha1.Rekor) {
+				verify: func(g Gomega, instance *rhtasv1.Rekor) {
 					g.Expect(instance.Status.Signer.KeyRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.Signer.KeyRef.Name).Should(ContainSubstring("rekor-signer-rekor-"))
 
@@ -301,14 +301,14 @@ func TestGenerateSigner_Handle(t *testing.T) {
 		{
 			name: "replace status.signer.keyRef from spec",
 			env: env{
-				spec: rhtasv1alpha1.RekorSigner{
-					KeyRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "new_secret"}, Key: "private"},
+				spec: rhtasv1.RekorSigner{
+					KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new_secret"}, Key: "private"},
 				},
-				status: rhtasv1alpha1.RekorSigner{},
+				status: rhtasv1.RekorSigner{},
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, instance *rhtasv1alpha1.Rekor) {
+				verify: func(g Gomega, instance *rhtasv1.Rekor) {
 					g.Expect(instance.Status.Signer.KeyRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.Signer.KeyRef.Name).Should(Equal("new_secret"))
 
@@ -320,8 +320,8 @@ func TestGenerateSigner_Handle(t *testing.T) {
 		{
 			name: "use existing signer key",
 			env: env{
-				spec:   rhtasv1alpha1.RekorSigner{},
-				status: rhtasv1alpha1.RekorSigner{},
+				spec:   rhtasv1.RekorSigner{},
+				status: rhtasv1.RekorSigner{},
 				objects: []client.Object{
 					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
@@ -334,7 +334,7 @@ func TestGenerateSigner_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, instance *rhtasv1alpha1.Rekor) {
+				verify: func(g Gomega, instance *rhtasv1.Rekor) {
 					g.Expect(instance.Status.Signer.KeyRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.Signer.KeyRef.Name).Should(Equal("secret"))
 					g.Expect(instance.Status.Signer.KeyRef.Key).Should(Equal("private"))
@@ -347,14 +347,14 @@ func TestGenerateSigner_Handle(t *testing.T) {
 		{
 			name: "use spec.signer.KMS",
 			env: env{
-				spec: rhtasv1alpha1.RekorSigner{
+				spec: rhtasv1.RekorSigner{
 					KMS: "awskms://1234abcd-12ab-34cd-56ef-1234567890ab?region=us-east-1",
 				},
-				status: rhtasv1alpha1.RekorSigner{},
+				status: rhtasv1.RekorSigner{},
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, instance *rhtasv1alpha1.Rekor) {
+				verify: func(g Gomega, instance *rhtasv1.Rekor) {
 					g.Expect(instance.Status.Signer.KMS).ShouldNot(BeNil())
 					g.Expect(instance.Status.Signer.KMS).Should(Equal("awskms://1234abcd-12ab-34cd-56ef-1234567890ab?region=us-east-1"))
 
@@ -369,16 +369,16 @@ func TestGenerateSigner_Handle(t *testing.T) {
 		{
 			name: "replace status.signer.KMS from spec",
 			env: env{
-				spec: rhtasv1alpha1.RekorSigner{
+				spec: rhtasv1.RekorSigner{
 					KMS: "new-kms",
 				},
-				status: rhtasv1alpha1.RekorSigner{
+				status: rhtasv1.RekorSigner{
 					KMS: "old-kms",
 				},
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, instance *rhtasv1alpha1.Rekor) {
+				verify: func(g Gomega, instance *rhtasv1.Rekor) {
 					g.Expect(instance.Status.Signer.KMS).ShouldNot(BeNil())
 					g.Expect(instance.Status.Signer.KMS).Should(Equal("new-kms"))
 
@@ -393,15 +393,15 @@ func TestGenerateSigner_Handle(t *testing.T) {
 		{
 			name: "spec with encrypted private key",
 			env: env{
-				spec: rhtasv1alpha1.RekorSigner{
-					KeyRef:      &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "private"},
-					PasswordRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "password"},
+				spec: rhtasv1.RekorSigner{
+					KeyRef:      &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
+					PasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "password"},
 				},
-				status: rhtasv1alpha1.RekorSigner{},
+				status: rhtasv1.RekorSigner{},
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, instance *rhtasv1alpha1.Rekor) {
+				verify: func(g Gomega, instance *rhtasv1.Rekor) {
 					g.Expect(instance.Status.Signer.KeyRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.Signer.KeyRef.Name).Should(Equal("secret"))
 					g.Expect(instance.Status.Signer.KeyRef.Key).Should(Equal("private"))
@@ -419,15 +419,15 @@ func TestGenerateSigner_Handle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.TODO()
-			instance := &rhtasv1alpha1.Rekor{
+			instance := &rhtasv1.Rekor{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "rekor",
 					Namespace: "default",
 				},
-				Spec: rhtasv1alpha1.RekorSpec{
+				Spec: rhtasv1.RekorSpec{
 					Signer: tt.env.spec,
 				},
-				Status: rhtasv1alpha1.RekorStatus{
+				Status: rhtasv1.RekorStatus{
 					Signer: tt.env.status,
 				},
 			}
@@ -465,7 +465,7 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 	g := NewWithT(t)
 	rekorNN := types.NamespacedName{Name: "rekor", Namespace: "default"}
 	type env struct {
-		status  rhtasv1alpha1.RekorSigner
+		status  rhtasv1.RekorSigner
 		objects []client.Object
 	}
 	type want struct {
@@ -480,7 +480,7 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 		{
 			name: "link unassigned signer secret by rekor.signer.pem label",
 			env: env{
-				status: rhtasv1alpha1.RekorSigner{},
+				status: rhtasv1.RekorSigner{},
 				objects: []client.Object{
 					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
@@ -496,7 +496,7 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 			want: want{
 				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
-					rekor := &rhtasv1alpha1.Rekor{}
+					rekor := &rhtasv1.Rekor{}
 					g.Expect(cli.Get(context.TODO(), rekorNN, rekor)).Should(Succeed())
 					g.Expect(rekor.Status.Signer.KeyRef).ShouldNot(BeNil())
 					g.Expect(rekor.Status.Signer.KeyRef.Name).Should(Equal("unassigned-secret"))
@@ -511,7 +511,7 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 		{
 			name: "create new signer secret",
 			env: env{
-				status: rhtasv1alpha1.RekorSigner{},
+				status: rhtasv1.RekorSigner{},
 				objects: []client.Object{
 					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
@@ -525,7 +525,7 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 			want: want{
 				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
-					rekor := &rhtasv1alpha1.Rekor{}
+					rekor := &rhtasv1.Rekor{}
 					g.Expect(cli.Get(context.TODO(), rekorNN, rekor)).Should(Succeed())
 					g.Expect(rekor.Status.Signer.KeyRef).ShouldNot(BeNil())
 					g.Expect(rekor.Status.Signer.KeyRef.Name).ShouldNot(Equal("unassigned-secret"))
@@ -543,12 +543,12 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.TODO()
-			instance := &rhtasv1alpha1.Rekor{
+			instance := &rhtasv1.Rekor{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "rekor",
 					Namespace: "default",
 				},
-				Status: rhtasv1alpha1.RekorStatus{
+				Status: rhtasv1.RekorStatus{
 					Signer: tt.env.status,
 				},
 			}

@@ -9,7 +9,7 @@ import (
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/state"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
@@ -31,7 +31,7 @@ const (
 	mountPath         = "/data"
 )
 
-func NewStatefulSetAction() action.Action[*rhtasv1alpha1.Rekor] {
+func NewStatefulSetAction() action.Action[*rhtasv1.Rekor] {
 	return &statefulSetAction{}
 }
 
@@ -43,11 +43,11 @@ func (i statefulSetAction) Name() string {
 	return "statefulset"
 }
 
-func (i statefulSetAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
+func (i statefulSetAction) CanHandle(_ context.Context, instance *rhtasv1.Rekor) bool {
 	return enabled(instance) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
-func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
+func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
 	var (
 		err    error
 		result controllerutil.OperationResult
@@ -96,7 +96,7 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1alpha1.R
 	return i.Continue()
 }
 
-func (i statefulSetAction) resolveTufUrl(instance *rhtasv1alpha1.Rekor) string {
+func (i statefulSetAction) resolveTufUrl(instance *rhtasv1.Rekor) string {
 	if instance.Spec.Monitoring.Tuf.Address != "" {
 		url := instance.Spec.Monitoring.Tuf.Address
 		if instance.Spec.Monitoring.Tuf.Port != nil {
@@ -107,7 +107,7 @@ func (i statefulSetAction) resolveTufUrl(instance *rhtasv1alpha1.Rekor) string {
 	return fmt.Sprintf("http://tuf.%s.svc", instance.Namespace)
 }
 
-func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1alpha1.Rekor, sa string, labels map[string]string, rekorServerHost string, tufServerHost string) func(*v1.StatefulSet) error {
+func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1.Rekor, sa string, labels map[string]string, rekorServerHost string, tufServerHost string) func(*v1.StatefulSet) error {
 	return func(ss *v1.StatefulSet) error {
 
 		spec := &ss.Spec

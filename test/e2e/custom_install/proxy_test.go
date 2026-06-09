@@ -13,7 +13,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
@@ -31,7 +31,7 @@ var _ = Describe("Securesign install in proxy-env", Ordered, func() {
 	cli, _ := support.CreateClient()
 
 	var namespace *v1.Namespace
-	var s *v1alpha1.Securesign
+	var s *rhtasv1.Securesign
 	var hostname string
 
 	Describe("Successful installation with fake-proxy env", func() {
@@ -43,7 +43,7 @@ var _ = Describe("Securesign install in proxy-env", Ordered, func() {
 			_ = cli.Delete(ctx, s)
 			// wait until object has been deleted. Manager need to handle finalizer
 			Eventually(func(ctx context.Context) error {
-				return cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), &v1alpha1.Securesign{})
+				return cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), &rhtasv1.Securesign{})
 			}).WithContext(ctx).Should(And(HaveOccurred(), WithTransform(apierrors.IsNotFound, BeTrue())))
 			uninstallOperator(ctx, cli, namespace.Name)
 		})
@@ -57,9 +57,9 @@ var _ = Describe("Securesign install in proxy-env", Ordered, func() {
 		It("Install securesign", func(ctx SpecContext) {
 			s = securesign.Create(namespace.Name, "test",
 				securesign.WithDefaults(),
-				func(v *v1alpha1.Securesign) {
-					v.Spec.Fulcio.Config = v1alpha1.FulcioConfig{
-						OIDCIssuers: []v1alpha1.OIDCIssuer{
+				func(v *rhtasv1.Securesign) {
+					v.Spec.Fulcio.Config = rhtasv1.FulcioConfig{
+						OIDCIssuers: []rhtasv1.OIDCIssuer{
 							{
 								ClientID:  "sigstore",
 								IssuerURL: "https://oauth2.sigstore.dev/auth",

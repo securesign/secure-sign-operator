@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
@@ -41,7 +41,7 @@ var serverConfigAnnotations = []string{
 	labels.LabelNamespace + "/privateKeyRef",
 }
 
-func NewServerConfigAction() action.Action[*rhtasv1alpha1.CTlog] {
+func NewServerConfigAction() action.Action[*rhtasv1.CTlog] {
 	return &serverConfig{}
 }
 
@@ -53,13 +53,13 @@ func (i serverConfig) Name() string {
 	return "server config"
 }
 
-func (i serverConfig) CanHandle(_ context.Context, instance *rhtasv1alpha1.CTlog) bool {
+func (i serverConfig) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, ConfigCondition)
 	// Always run Handle() to validate the config secret exists and is valid
 	return c != nil
 }
 
-func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) *action.Result {
+func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
 	var (
 		err error
 	)
@@ -186,7 +186,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 			})
 	}
 
-	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
+	instance.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: newConfig.Name}
 
 	i.Logger.Info("Server config secret created", "secret", newConfig.Name)
 	i.Recorder.Eventf(instance, newConfig, corev1.EventTypeNormal, "CTLogConfigCreated", "Created", "Config secret created successfully: %s", newConfig.Name)
@@ -208,7 +208,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	return i.Continue()
 }
 
-func (i serverConfig) handleCustomConfig(ctx context.Context, instance *rhtasv1alpha1.CTlog) *action.Result {
+func (i serverConfig) handleCustomConfig(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
 	secret, err := kubernetes.GetSecret(i.Client, instance.Namespace, instance.Spec.ServerConfigRef.Name)
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("error accessing custom server config secret: %w", err), instance,
@@ -250,7 +250,7 @@ func (i serverConfig) handleCustomConfig(ctx context.Context, instance *rhtasv1a
 	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }
 
-func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.CTlog, configLabels map[string]string) {
+func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1.CTlog, configLabels map[string]string) {
 	if instance.Status.ServerConfigRef == nil || instance.Status.ServerConfigRef.Name == "" {
 		i.Logger.Error(errors.New("new Secret name is empty"), "unable to clean old objects", "namespace", instance.Namespace)
 		return
@@ -278,7 +278,7 @@ func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.CTlog
 	}
 }
 
-func (i serverConfig) handlePrivateKey(instance *rhtasv1alpha1.CTlog) (*ctlogUtils.KeyConfig, error) {
+func (i serverConfig) handlePrivateKey(instance *rhtasv1.CTlog) (*ctlogUtils.KeyConfig, error) {
 	if instance == nil {
 		return nil, nil
 	}
@@ -302,7 +302,7 @@ func (i serverConfig) handlePrivateKey(instance *rhtasv1alpha1.CTlog) (*ctlogUti
 	}, nil
 }
 
-func (i serverConfig) handleRootCertificates(instance *rhtasv1alpha1.CTlog) ([]ctlogUtils.RootCertificate, error) {
+func (i serverConfig) handleRootCertificates(instance *rhtasv1.CTlog) ([]ctlogUtils.RootCertificate, error) {
 	certs := make([]ctlogUtils.RootCertificate, 0)
 
 	for _, selector := range instance.Status.RootCertificates {
@@ -321,7 +321,7 @@ func (i serverConfig) handleRootCertificates(instance *rhtasv1alpha1.CTlog) ([]c
 //   - nil if the secret is valid
 //   - errSecretInvalid if the secret needs recreation (not a failure)
 //   - other error for API errors - reconciliation should fail
-func (i serverConfig) validateExistingSecret(instance *rhtasv1alpha1.CTlog, trillianUrl string) error {
+func (i serverConfig) validateExistingSecret(instance *rhtasv1.CTlog, trillianUrl string) error {
 	secret, err := kubernetes.GetSecret(i.Client, instance.Namespace, instance.Status.ServerConfigRef.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -341,7 +341,7 @@ func (i serverConfig) validateExistingSecret(instance *rhtasv1alpha1.CTlog, tril
 
 // configMatchingAnnotations generates annotations that identify the data sources
 // used to generate the server config secret.
-func (i serverConfig) configMatchingAnnotations(instance *rhtasv1alpha1.CTlog, trillianUrl string) map[string]string {
+func (i serverConfig) configMatchingAnnotations(instance *rhtasv1.CTlog, trillianUrl string) map[string]string {
 	// Build a string representation of root certificate references
 	rootCertRefs := make([]string, 0, len(instance.Status.RootCertificates))
 	for _, ref := range instance.Status.RootCertificates {
@@ -367,7 +367,7 @@ func (i serverConfig) configMatchingAnnotations(instance *rhtasv1alpha1.CTlog, t
 	return annotations
 }
 
-func resolveTrillianAddress(instance *rhtasv1alpha1.CTlog) string {
+func resolveTrillianAddress(instance *rhtasv1.CTlog) string {
 	if instance.Spec.Trillian.Address != "" {
 		return instance.Spec.Trillian.Address
 	}

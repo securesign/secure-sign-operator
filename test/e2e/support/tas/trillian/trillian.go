@@ -4,7 +4,7 @@ import (
 	"context"
 
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/test/e2e/support/condition"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -38,8 +38,8 @@ func Verify(ctx context.Context, cli client.Client, namespace string, name strin
 		Should(BeTrue())
 }
 
-func Get(ctx context.Context, cli client.Client, ns string, name string) *v1alpha1.Trillian {
-	instance := &v1alpha1.Trillian{}
+func Get(ctx context.Context, cli client.Client, ns string, name string) *rhtasv1.Trillian {
+	instance := &rhtasv1.Trillian{}
 	if e := cli.Get(ctx, types.NamespacedName{
 		Namespace: ns,
 		Name:      name,

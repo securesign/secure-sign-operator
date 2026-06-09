@@ -7,7 +7,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/constants"
 	tsa "github.com/securesign/operator/internal/controller/tsa/actions"
@@ -25,12 +25,12 @@ type serviceEndpoint struct {
 	ComponentList client.ObjectList
 }
 
-func ResolveServiceAddress(ctx context.Context, c client.Client, instance *rhtasv1alpha1.Tuf) error {
+func ResolveServiceAddress(ctx context.Context, c client.Client, instance *rhtasv1.Tuf) error {
 	var keyToService = map[string]serviceEndpoint{
-		rekorKey:  {Service: &instance.Spec.Rekor, ComponentList: &rhtasv1alpha1.RekorList{}, Suffix: ""},
-		ctfeKey:   {Service: &instance.Spec.Ctlog, ComponentList: &rhtasv1alpha1.CTlogList{}, Suffix: ""},
-		fulcioKey: {Service: &instance.Spec.Fulcio, ComponentList: &rhtasv1alpha1.FulcioList{}, Suffix: ""},
-		tsaKey:    {Service: &instance.Spec.Tsa, ComponentList: &rhtasv1alpha1.TimestampAuthorityList{}, Suffix: tsa.TimestampPath},
+		rekorKey:  {Service: &instance.Spec.Rekor, ComponentList: &rhtasv1.RekorList{}, Suffix: ""},
+		ctfeKey:   {Service: &instance.Spec.Ctlog, ComponentList: &rhtasv1.CTlogList{}, Suffix: ""},
+		fulcioKey: {Service: &instance.Spec.Fulcio, ComponentList: &rhtasv1.FulcioList{}, Suffix: ""},
+		tsaKey:    {Service: &instance.Spec.Tsa, ComponentList: &rhtasv1.TimestampAuthorityList{}, Suffix: tsa.TimestampPath},
 	}
 
 	for _, key := range instance.Spec.Keys {
@@ -89,7 +89,7 @@ func resolveURLFromService(ctx context.Context, c client.Client, list client.Obj
 }
 
 func ResolveOIDCIssuers(ctx context.Context, c client.Client, namespace string) []string {
-	fulcioList := &rhtasv1alpha1.FulcioList{}
+	fulcioList := &rhtasv1.FulcioList{}
 	if err := c.List(ctx, fulcioList, client.InNamespace(namespace)); err != nil {
 		return nil
 	}

@@ -105,6 +105,7 @@ type TrillianStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:storageversion
+//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
 
 // Trillian is the Schema for the trillians API
 type Trillian struct {
@@ -124,10 +125,6 @@ type TrillianList struct {
 	Items           []Trillian `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&Trillian{}, &TrillianList{})
-}
-
 func (i *Trillian) GetConditions() []metav1.Condition {
 	return i.Status.Conditions
 }
@@ -136,3 +133,16 @@ func (i *Trillian) SetCondition(newCondition metav1.Condition) {
 	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
 }
 
+func (i *Trillian) GetTrustedCA() *LocalObjectReference {
+	if i.Spec.TrustedCA != nil {
+		return i.Spec.TrustedCA
+	}
+
+	if v, ok := i.GetAnnotations()["rhtas.redhat.com/trusted-ca"]; ok {
+		return &LocalObjectReference{
+			Name: v,
+		}
+	}
+
+	return nil
+}

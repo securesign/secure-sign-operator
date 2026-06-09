@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/apis"
 	futils "github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
@@ -27,7 +27,7 @@ const (
 //go:embed tuf_migration_v1.sh
 var script string
 
-func EnsureTufMigrationJob(instance *rhtasv1alpha1.Tuf, sa string, jobLabels map[string]string, oidcIssuers []string) func(*batchv1.Job) error {
+func EnsureTufMigrationJob(instance *rhtasv1.Tuf, sa string, jobLabels map[string]string, oidcIssuers []string) func(*batchv1.Job) error {
 	return func(job *batchv1.Job) error {
 
 		jobSpec := &job.Spec

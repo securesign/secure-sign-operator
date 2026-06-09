@@ -32,7 +32,7 @@ import (
 
 	httpmock "github.com/securesign/operator/internal/testing/http"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -71,7 +71,7 @@ var _ = Describe("Rekor controller", func() {
 			})
 
 			By("removing the custom resource for the Kind Rekor")
-			found := &v1alpha1.Rekor{}
+			found := &rhtasv1.Rekor{}
 			err := suite.Client().Get(ctx, types.NamespacedName{Name: Name, Namespace: namespace.Name}, found)
 			Expect(err).To(Not(HaveOccurred()))
 
@@ -84,12 +84,12 @@ var _ = Describe("Rekor controller", func() {
 		})
 
 		It("default configuration", func(ctx SpecContext) {
-			instance := &v1alpha1.Rekor{
+			instance := &rhtasv1.Rekor{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      Name,
 					Namespace: namespace.Name,
 				},
-				Spec: v1alpha1.RekorSpec{
+				Spec: rhtasv1.RekorSpec{
 					TreeID: ptr.To(int64(123)),
 				},
 			}
@@ -97,7 +97,7 @@ var _ = Describe("Rekor controller", func() {
 			deployAndVerify(ctx, instance)
 
 			By("Rekor server PVC created")
-			found := &v1alpha1.Rekor{}
+			found := &rhtasv1.Rekor{}
 			Eventually(func(g Gomega) string {
 				g.Expect(suite.Client().Get(ctx, client.ObjectKeyFromObject(instance), found)).Should(Succeed())
 				return found.Status.PvcName
@@ -127,14 +127,14 @@ var _ = Describe("Rekor controller", func() {
 		})
 
 		It("file storage with BYO PVC", func(ctx SpecContext) {
-			instance := &v1alpha1.Rekor{
+			instance := &rhtasv1.Rekor{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      Name,
 					Namespace: namespace.Name,
 				},
-				Spec: v1alpha1.RekorSpec{
+				Spec: rhtasv1.RekorSpec{
 					TreeID: ptr.To(int64(123)),
-					Pvc: v1alpha1.Pvc{
+					Pvc: rhtasv1.Pvc{
 						Name: "byo-pvc",
 					},
 				},
@@ -143,7 +143,7 @@ var _ = Describe("Rekor controller", func() {
 			deployAndVerify(ctx, instance)
 
 			By("Rekor server PVC not created")
-			found := &v1alpha1.Rekor{}
+			found := &rhtasv1.Rekor{}
 			Eventually(func(g Gomega) string {
 				g.Expect(suite.Client().Get(ctx, client.ObjectKeyFromObject(instance), found)).Should(Succeed())
 				return found.Status.PvcName
@@ -173,14 +173,14 @@ var _ = Describe("Rekor controller", func() {
 		})
 
 		It("memory storage", func(ctx SpecContext) {
-			instance := &v1alpha1.Rekor{
+			instance := &rhtasv1.Rekor{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      Name,
 					Namespace: namespace.Name,
 				},
-				Spec: v1alpha1.RekorSpec{
+				Spec: rhtasv1.RekorSpec{
 					TreeID: ptr.To(int64(123)),
-					Attestations: v1alpha1.RekorAttestations{
+					Attestations: rhtasv1.RekorAttestations{
 						Enabled: ptr.To(true),
 						Url:     "mem://",
 					},
@@ -190,7 +190,7 @@ var _ = Describe("Rekor controller", func() {
 			deployAndVerify(ctx, instance)
 
 			By("Rekor server PVC not created")
-			found := &v1alpha1.Rekor{}
+			found := &rhtasv1.Rekor{}
 			Expect(suite.Client().Get(ctx, client.ObjectKeyFromObject(instance), found)).Should(Succeed())
 			Expect(found.Status.PvcName).Should(BeEmpty())
 
@@ -209,7 +209,7 @@ var _ = Describe("Rekor controller", func() {
 	})
 })
 
-func deployAndVerify(ctx context.Context, instance *v1alpha1.Rekor) {
+func deployAndVerify(ctx context.Context, instance *rhtasv1.Rekor) {
 	GinkgoHelper()
 
 	By("creating the custom resource for the Kind Rekor")
@@ -217,27 +217,27 @@ func deployAndVerify(ctx context.Context, instance *v1alpha1.Rekor) {
 
 	By("Checking if the custom resource was successfully created")
 	Eventually(func() error {
-		return suite.Client().Get(ctx, client.ObjectKeyFromObject(instance), &v1alpha1.Rekor{})
+		return suite.Client().Get(ctx, client.ObjectKeyFromObject(instance), &rhtasv1.Rekor{})
 	}).Should(Succeed())
 
 	By("Status conditions are initialized")
 	Eventually(func(g Gomega) bool {
-		found := &v1alpha1.Rekor{}
+		found := &rhtasv1.Rekor{}
 		g.Expect(suite.Client().Get(ctx, client.ObjectKeyFromObject(instance), found)).Should(Succeed())
 		return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
 	}).Should(BeTrue())
 
 	By("Rekor signer created")
-	found := &v1alpha1.Rekor{}
-	Eventually(func(g Gomega) *v1alpha1.SecretKeySelector {
+	found := &rhtasv1.Rekor{}
+	Eventually(func(g Gomega) *rhtasv1.SecretKeySelector {
 		g.Expect(suite.Client().Get(ctx, client.ObjectKeyFromObject(instance), found)).To(Succeed())
 		return found.Status.Signer.KeyRef
 	}).Should(Not(BeNil()))
 	Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Signer.KeyRef.Name, Namespace: instance.Namespace}, &corev1.Secret{})).Should(Succeed())
 
 	By("Mock http client to return public key on /api/v1/log/publicKey call")
-	pubKeyData, err := kubernetes.GetSecretData(suite.Client(), instance.Namespace, &v1alpha1.SecretKeySelector{
-		LocalObjectReference: v1alpha1.LocalObjectReference{
+	pubKeyData, err := kubernetes.GetSecretData(suite.Client(), instance.Namespace, &rhtasv1.SecretKeySelector{
+		LocalObjectReference: rhtasv1.LocalObjectReference{
 			Name: found.Status.Signer.KeyRef.Name,
 		},
 		Key: "public",
@@ -261,7 +261,7 @@ func deployAndVerify(ctx context.Context, instance *v1alpha1.Rekor) {
 
 	By("Waiting until Rekor instance is Initialization")
 	Eventually(func(g Gomega) string {
-		found := &v1alpha1.Rekor{}
+		found := &rhtasv1.Rekor{}
 		g.Expect(suite.Client().Get(ctx, client.ObjectKeyFromObject(instance), found)).Should(Succeed())
 		return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
 	}).Should(Equal(state.Initialize.String()))
@@ -276,7 +276,7 @@ func deployAndVerify(ctx context.Context, instance *v1alpha1.Rekor) {
 
 	By("Waiting until Rekor instance is Ready")
 	Eventually(func(g Gomega) bool {
-		found := &v1alpha1.Rekor{}
+		found := &rhtasv1.Rekor{}
 		g.Expect(suite.Client().Get(ctx, client.ObjectKeyFromObject(instance), found)).Should(Succeed())
 		return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 	}).Should(BeTrue())

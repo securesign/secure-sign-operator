@@ -19,7 +19,7 @@ import (
 	"github.com/securesign/operator/internal/utils/tls"
 	"k8s.io/apimachinery/pkg/api/meta"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	v1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -33,7 +33,7 @@ const (
 	containerName = "ctlog"
 )
 
-func NewDeployAction() action.Action[*rhtasv1alpha1.CTlog] {
+func NewDeployAction() action.Action[*rhtasv1.CTlog] {
 	return &deployAction{}
 }
 
@@ -45,11 +45,11 @@ func (i deployAction) Name() string {
 	return "deploy"
 }
 
-func (i deployAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.CTlog) bool {
+func (i deployAction) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool {
 	return state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
-func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) *action.Result {
+func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
 	var (
 		result controllerutil.OperationResult
 		err    error
@@ -94,7 +94,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 	}
 }
 
-func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.CTlog, sa string, labels map[string]string) func(deployment *v1.Deployment) error {
+func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, labels map[string]string) func(deployment *v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
 		switch {
 		case instance.Status.ServerConfigRef == nil:
@@ -194,7 +194,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.CTlog, sa string,
 	}
 }
 
-func (i deployAction) ensureTlsTrillian(ctx context.Context, instance *rhtasv1alpha1.CTlog) func(*v1.Deployment) error {
+func (i deployAction) ensureTlsTrillian(ctx context.Context, instance *rhtasv1.CTlog) func(*v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
 		caPath, err := tls.CAPath(ctx, i.Client, instance)
 		if err != nil {
@@ -208,7 +208,7 @@ func (i deployAction) ensureTlsTrillian(ctx context.Context, instance *rhtasv1al
 	}
 }
 
-func (i deployAction) ensureTLS(tlsConfig rhtasv1alpha1.TLS, name string) func(deployment *v1.Deployment) error {
+func (i deployAction) ensureTLS(tlsConfig rhtasv1.TLS, name string) func(deployment *v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
 		if err := deployment.TLS(tlsConfig, name)(dp); err != nil {
 			return err

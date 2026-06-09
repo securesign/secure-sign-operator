@@ -27,7 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 )
 
 const (
@@ -35,7 +35,7 @@ const (
 	readinessCommand = "mariadb -u ${MYSQL_USER} -p${MYSQL_PASSWORD} -e \"SELECT 1;\""
 )
 
-func NewDeployAction() action.Action[*rhtasv1alpha1.Trillian] {
+func NewDeployAction() action.Action[*rhtasv1.Trillian] {
 	return &deployAction{}
 }
 
@@ -47,11 +47,11 @@ func (i deployAction) Name() string {
 	return "deploy"
 }
 
-func (i deployAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Trillian) bool {
+func (i deployAction) CanHandle(ctx context.Context, instance *rhtasv1.Trillian) bool {
 	return enabled(instance) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
-func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian) *action.Result {
+func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Trillian) *action.Result {
 	var (
 		err    error
 		result controllerutil.OperationResult
@@ -93,7 +93,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trilli
 	}
 }
 
-func (i deployAction) ensureDbDeployment(instance *rhtasv1alpha1.Trillian, sa string, labels map[string]string) func(deployment *v2.Deployment) error {
+func (i deployAction) ensureDbDeployment(instance *rhtasv1.Trillian, sa string, labels map[string]string) func(deployment *v2.Deployment) error {
 	return func(dp *v2.Deployment) error {
 		switch {
 		case instance.Status.Db.DatabaseSecretRef == nil:
@@ -197,7 +197,7 @@ func (i deployAction) ensureDbDeployment(instance *rhtasv1alpha1.Trillian, sa st
 	}
 }
 
-func (i deployAction) ensureTLS(tlsConfig rhtasv1alpha1.TLS) func(deployment *v2.Deployment) error {
+func (i deployAction) ensureTLS(tlsConfig rhtasv1.TLS) func(deployment *v2.Deployment) error {
 	return func(dp *v2.Deployment) error {
 		if err := deployment.TLS(tlsConfig, actions.DbDeploymentName)(dp); err != nil {
 			return err
