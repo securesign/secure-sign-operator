@@ -4,6 +4,7 @@ import (
 	"context"
 
 	. "github.com/onsi/gomega"
+	"github.com/securesign/operator/test/e2e/support/tas/console"
 	"github.com/securesign/operator/test/e2e/support/tas/cosign"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
@@ -28,6 +29,7 @@ var (
 		"CTlog",
 		"Tuf",
 		"TimestampAuthority",
+		"Console",
 	}
 	gv = rhtasv1alpha1.GroupVersion
 )
@@ -60,6 +62,9 @@ func VerifyAllComponents(ctx context.Context, cli runtimeCli.Client, s *rhtasv1a
 	rekor.Verify(ctx, cli, s.Namespace, s.Name, dbPresent)
 	ctlog.Verify(ctx, cli, s.Namespace, s.Name)
 	tuf.Verify(ctx, cli, s.Namespace, s.Name)
+	if s.Spec.Console != nil && s.Spec.Console.Enabled {
+		console.Verify(ctx, cli, s.Namespace, s.Name, dbPresent)
+	}
 	securesign.Verify(ctx, cli, s.Namespace, s.Name)
 }
 

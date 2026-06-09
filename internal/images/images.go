@@ -32,6 +32,10 @@ const (
 
 	TimestampAuthority Image = "RELATED_IMAGE_TIMESTAMP_AUTHORITY"
 
+	ConsoleUi  Image = "RELATED_IMAGE_CONSOLE_UI"
+	ConsoleApi Image = "RELATED_IMAGE_CONSOLE_API"
+	ConsoleDb  Image = "RELATED_IMAGE_CONSOLE_DB"
+
 	HttpServer   Image = "RELATED_IMAGE_HTTP_SERVER"
 	ClientServer Image = "RELATED_IMAGE_CLIENT_SERVER"
 	CTLogMonitor Image = "RELATED_IMAGE_CTLOG_MONITOR"
@@ -52,6 +56,9 @@ var Images = []Image{
 	Tuf,
 	CTLog,
 	TimestampAuthority,
+	ConsoleUi,
+	ConsoleApi,
+	ConsoleDb,
 	HttpServer,
 	ClientServer,
 	CTLogMonitor,
