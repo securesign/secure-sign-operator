@@ -49,6 +49,33 @@ make bundle-build bundle-push BUNDLE_IMG=<registry>/operator-bundle:tag
 operator-sdk run bundle <registry>/operator-bundle:tag --namespace openshift-rhtas-operator --timeout 5m
 ```
 
+## Upstream Development Images
+
+The operator's `config/default/images.env` references images from `registry.redhat.io`, which requires a Red Hat subscription and only contains released versions. During development, the latest builds from `main` are published to `quay.io/securesign` and can be used instead.
+
+### Option 1: Rewrite images.env (recommended)
+
+Switch all image references from `registry.redhat.io/rhtas` to `quay.io/securesign`:
+
+```sh
+make dev-images
+```
+
+This is a local modification that affects `make run`, `make deploy`, and `make bundle`. The transformation is defined in [`ci/dev-images.sed`](ci/dev-images.sed).
+
+> **Note:** Do not commit the modified `images.env`. To revert: `git checkout config/default/images.env`.
+
+### Option 2: Cluster-level registry mirroring
+
+Configure the cluster's container runtime to transparently redirect image pulls from `registry.redhat.io` to `quay.io/securesign`. No operator code changes are needed — the same digests exist in both registries.
+
+- **OpenShift** — apply the [`ImageDigestMirrorSet`](.tekton/images-mirror-set.yaml). The Machine Config Operator will propagate this to all nodes (may trigger a rolling reboot on older OpenShift versions):
+  ```sh
+  kubectl apply -f .tekton/images-mirror-set.yaml
+  ```
+- **CRI-O** — copy [`ci/registries.conf`](ci/registries.conf) to `/etc/containers/registries.conf.d/rhtas-dev-mirrors.conf` on each node and restart CRI-O.
+- **containerd** (e.g., EKS) — configure mirror hosts under `/etc/containerd/certs.d/`. See the [containerd hosts documentation](https://github.com/containerd/containerd/blob/main/docs/hosts.md) for details.
+
 ## Cleanup
 
 | Method | Uninstall command |
