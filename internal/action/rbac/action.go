@@ -165,10 +165,10 @@ func (i rbacAction[T]) handleRoleBinding(ctx context.Context, instance T) *actio
 		kubernetes.EnsureRoleBinding(
 			rbacv1.RoleRef{
 				APIGroup: v1.SchemeGroupVersion.Group,
-				Kind:     "Role",
+				Kind:     "Role", //nolint:goconst
 				Name:     i.rbacName,
 			},
-			rbacv1.Subject{Kind: "ServiceAccount", Name: i.rbacName, Namespace: instance.GetNamespace()},
+			rbacv1.Subject{Kind: "ServiceAccount", Name: i.rbacName, Namespace: instance.GetNamespace()}, //nolint:goconst
 		),
 	); err != nil {
 		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create RoleBinding: %w", err)), instance)

@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/utils"
@@ -60,7 +61,7 @@ func ensureProbes(containerName string) func(*apps.Deployment) error {
 		if container.LivenessProbe.HTTPGet == nil {
 			container.LivenessProbe.HTTPGet = &core.HTTPGetAction{}
 		}
-		container.LivenessProbe.HTTPGet.Path = "/healthz"
+		container.LivenessProbe.HTTPGet.Path = constants.HealthzPath
 		container.LivenessProbe.HTTPGet.Port = intstr.FromInt32(actions.MetricsPort)
 		container.LivenessProbe.InitialDelaySeconds = 0
 		container.LivenessProbe.PeriodSeconds = 10
@@ -73,7 +74,7 @@ func ensureProbes(containerName string) func(*apps.Deployment) error {
 		if container.ReadinessProbe.HTTPGet == nil {
 			container.ReadinessProbe.HTTPGet = &core.HTTPGetAction{}
 		}
-		container.ReadinessProbe.HTTPGet.Path = "/healthz"
+		container.ReadinessProbe.HTTPGet.Path = constants.HealthzPath
 		container.ReadinessProbe.HTTPGet.Port = intstr.FromInt32(actions.MetricsPort)
 		container.ReadinessProbe.InitialDelaySeconds = 0
 		container.ReadinessProbe.PeriodSeconds = 10
@@ -86,7 +87,7 @@ func ensureProbes(containerName string) func(*apps.Deployment) error {
 		if container.StartupProbe.HTTPGet == nil {
 			container.StartupProbe.HTTPGet = &core.HTTPGetAction{}
 		}
-		container.StartupProbe.HTTPGet.Path = "/healthz"
+		container.StartupProbe.HTTPGet.Path = constants.HealthzPath
 		container.StartupProbe.HTTPGet.Port = intstr.FromInt32(actions.MetricsPort)
 		container.StartupProbe.PeriodSeconds = 5
 		container.StartupProbe.TimeoutSeconds = 5

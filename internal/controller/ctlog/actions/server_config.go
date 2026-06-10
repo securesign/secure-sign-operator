@@ -194,7 +194,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog)
 		Type:               ConfigCondition,
 		Status:             metav1.ConditionTrue,
 		Reason:             state.Ready.String(),
-		Message:            "Server config created",
+		Message:            "Server config created", //nolint:goconst
 		ObservedGeneration: instance.Generation,
 	})
 	changed, err := i.PersistStatus(ctx, instance)
@@ -244,7 +244,7 @@ func (i serverConfig) handleCustomConfig(ctx context.Context, instance *rhtasv1a
 		Type:               ConfigCondition,
 		Status:             metav1.ConditionTrue,
 		Reason:             state.Ready.String(),
-		Message:            "Using custom server config",
+		Message:            "Using custom server config", //nolint:goconst
 		ObservedGeneration: instance.Generation,
 	})
 	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)

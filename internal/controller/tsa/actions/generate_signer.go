@@ -92,7 +92,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 					Type:               TSASignerCondition,
 					Status:             metav1.ConditionTrue,
-					Reason:             "Resolved",
+					Reason:             "Resolved", //nolint:goconst
 					ObservedGeneration: instance.Generation,
 				})
 				return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
@@ -185,7 +185,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 	}
 
 	componentLabels := labels.For(ComponentName, DeploymentName, instance.Name)
-	certLabels := map[string]string{TSACertCALabel: "certificateChain"}
+	certLabels := map[string]string{TSACertCALabel: tsaUtils.KeyCertificateChain}
 
 	certificateChain := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -379,7 +379,7 @@ func (g generateSigner) alignStatusFields(secretName string, instance *v1alpha1.
 
 	if instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
 		instance.Status.Signer.CertificateChain.CertificateChainRef = &v1alpha1.SecretKeySelector{
-			Key: "certificateChain",
+			Key: tsaUtils.KeyCertificateChain,
 			LocalObjectReference: v1alpha1.LocalObjectReference{
 				Name: secretName,
 			},
@@ -387,7 +387,7 @@ func (g generateSigner) alignStatusFields(secretName string, instance *v1alpha1.
 
 		if instance.Spec.Signer.File == nil || instance.Spec.Signer.File.PrivateKeyRef == nil {
 			instance.Status.Signer.File.PrivateKeyRef = &v1alpha1.SecretKeySelector{
-				Key: "leafPrivateKey",
+				Key: tsaUtils.KeyLeafPrivateKey,
 				LocalObjectReference: v1alpha1.LocalObjectReference{
 					Name: secretName,
 				},
@@ -396,7 +396,7 @@ func (g generateSigner) alignStatusFields(secretName string, instance *v1alpha1.
 
 		if instance.Spec.Signer.File == nil || instance.Spec.Signer.File.PasswordRef == nil {
 			instance.Status.Signer.File.PasswordRef = &v1alpha1.SecretKeySelector{
-				Key: "leafPrivateKeyPassword",
+				Key: tsaUtils.KeyLeafPrivateKeyPassword,
 				LocalObjectReference: v1alpha1.LocalObjectReference{
 					Name: secretName,
 				},

@@ -47,7 +47,7 @@ func ServiceMonitorEndpoint(port string) serviceMonitorEndpoint {
 	return map[string]interface{}{
 		"interval": "30s",
 		"port":     port,
-		"scheme":   "http",
+		"scheme":   "http", //nolint:goconst
 	}
 }
 

@@ -151,7 +151,7 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 
 		const privateKeyVolumeName = "rekor-private-key-volume"
 
-		if instance.Spec.Signer.KMS != "secret" && instance.Spec.Signer.KMS != "" {
+		if instance.Spec.Signer.KMS != "secret" && instance.Spec.Signer.KMS != "" { //nolint:goconst
 			signerArg := instance.Spec.Signer.KMS
 			args = append(args, "--rekor_server.signer", signerArg)
 
@@ -170,7 +170,7 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1alpha1.Rekor, sa s
 			privateVolume.Secret.Items = []v1.KeyToPath{
 				{
 					Key:  instance.Status.Signer.KeyRef.Key,
-					Path: "private",
+					Path: constants.KeyPrivate,
 				},
 			}
 

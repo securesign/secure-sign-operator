@@ -164,7 +164,7 @@ func (i deployAction) ensureDbDeployment(instance *rhtasv1alpha1.Trillian, sa st
 			container.ReadinessProbe.Exec = &v1.ExecAction{}
 		}
 
-		container.ReadinessProbe.Exec.Command = []string{"bash", "-c", readinessCommand}
+		container.ReadinessProbe.Exec.Command = []string{"bash", "-c", readinessCommand} //nolint:goconst
 		container.ReadinessProbe.InitialDelaySeconds = 0
 		container.ReadinessProbe.PeriodSeconds = 10
 		container.ReadinessProbe.TimeoutSeconds = 1

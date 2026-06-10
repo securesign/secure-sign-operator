@@ -43,6 +43,9 @@ linters:
       - linters:
           - staticcheck
         text: "SA1019: manager.GetEventRecorderFor is deprecated"
+      - linters:
+          - goconst
+        path: (_test\.go$|^test/|^internal/testing/)
 formatters:
   enable:
     - gofmt

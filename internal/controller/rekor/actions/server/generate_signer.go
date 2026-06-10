@@ -118,14 +118,14 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 		}
 		if partialSecret != nil {
 			newSigner.KeyRef = &v1alpha1.SecretKeySelector{
-				Key: "private",
+				Key: constants.KeyPrivate,
 				LocalObjectReference: v1alpha1.LocalObjectReference{
 					Name: partialSecret.Name,
 				},
 			}
 		} else {
 			componentLabels := labels.For(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
-			signerLabels := map[string]string{RekorSignerLabel: "private"}
+			signerLabels := map[string]string{RekorSignerLabel: constants.KeyPrivate}
 			privateKey, publicKey, err := g.createSignerKey()
 			if err != nil {
 				if !meta.IsStatusConditionFalse(instance.Status.Conditions, actions.SignerCondition) {
@@ -142,8 +142,8 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 			}
 
 			data := map[string][]byte{
-				"private": privateKey,
-				"public":  publicKey,
+				constants.KeyPrivate: privateKey,
+				constants.KeyPublic:  publicKey,
 			}
 
 			secret := &v1.Secret{
@@ -170,7 +170,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Rekor) *a
 
 			g.Recorder.Eventf(instance, secret, v1.EventTypeNormal, "SignerKeyCreated", "Created", "Signer private key created: %s", secret.Name)
 			newSigner.KeyRef = &v1alpha1.SecretKeySelector{
-				Key: "private",
+				Key: constants.KeyPrivate,
 				LocalObjectReference: v1alpha1.LocalObjectReference{
 					Name: secret.Name,
 				},

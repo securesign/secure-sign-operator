@@ -8,4 +8,7 @@ const (
 	TLSVolumeMount = "/var/run/secrets/tas"
 	TLSKeyPath     = TLSVolumeMount + "/tls.key"
 	TLSCertPath    = TLSVolumeMount + "/tls.crt"
+
+	KeyCert    = "tls.crt"
+	KeyPrivate = "tls.key"
 )

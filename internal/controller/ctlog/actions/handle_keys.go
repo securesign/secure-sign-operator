@@ -218,16 +218,16 @@ func (g handleKeys) generateAndUploadSecret(ctx context.Context, instance *v1alp
 		if newKeyStatus.PrivateKeyPasswordRef != nil {
 			annotations[passwordKeyRefAnnotation] = newKeyStatus.PrivateKeyPasswordRef.Name
 		}
-		data["private"] = keys.PrivateKey
-		keyRelatedLabels[CTLogPrivateLabel] = "private"
+		data[constants.KeyPrivate] = keys.PrivateKey
+		keyRelatedLabels[CTLogPrivateLabel] = constants.KeyPrivate
 	}
 
 	if newKeyStatus.PublicKeyRef == nil {
 		if newKeyStatus.PrivateKeyRef != nil {
 			annotations[privateKeyRefAnnotation] = newKeyStatus.PrivateKeyRef.Name
 		}
-		data["public"] = keys.PublicKey
-		keyRelatedLabels[CTLPubLabel] = "public"
+		data[constants.KeyPublic] = keys.PublicKey
+		keyRelatedLabels[CTLPubLabel] = constants.KeyPublic
 	}
 
 	secret := &v1.Secret{
@@ -252,7 +252,7 @@ func (g handleKeys) generateAndUploadSecret(ctx context.Context, instance *v1alp
 			LocalObjectReference: v1alpha1.LocalObjectReference{
 				Name: secret.Name,
 			},
-			Key: "public",
+			Key: constants.KeyPublic,
 		}
 	}
 
@@ -261,7 +261,7 @@ func (g handleKeys) generateAndUploadSecret(ctx context.Context, instance *v1alp
 			LocalObjectReference: v1alpha1.LocalObjectReference{
 				Name: secret.Name,
 			},
-			Key: "private",
+			Key: constants.KeyPrivate,
 		}
 	}
 

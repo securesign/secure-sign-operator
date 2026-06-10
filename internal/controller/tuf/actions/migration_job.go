@@ -111,7 +111,7 @@ func (i migrationJobAction) jobPresent(ctx context.Context, job *batchv1.Job, in
 			Type:    state.Ready.String(),
 			Status:  metav1.ConditionFalse,
 			Reason:  state.Initialize.String(),
-			Message: "waiting for migration job to complete",
+			Message: "waiting for migration job to complete", //nolint:goconst
 		})
 		if _, err := i.PersistStatus(ctx, instance); err != nil {
 			return i.Error(ctx, err, instance)
@@ -164,7 +164,7 @@ func (i migrationJobAction) ensureMigrationJob(ctx context.Context, labels map[s
 		Type:    state.Ready.String(),
 		Status:  metav1.ConditionFalse,
 		Reason:  state.Initialize.String(),
-		Message: "migration job created",
+		Message: "migration job created", //nolint:goconst
 	})
 	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 

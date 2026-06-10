@@ -124,10 +124,6 @@ type TrillianList struct {
 	Items           []Trillian `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&Trillian{}, &TrillianList{})
-}
-
 func (i *Trillian) GetConditions() []metav1.Condition {
 	return i.Status.Conditions
 }
