@@ -115,7 +115,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 					Type:   CertCondition,
 					Status: metav1.ConditionTrue,
-					Reason: "Resolved",
+					Reason: "Resolved", //nolint:goconst
 				})
 				return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 			}
@@ -158,7 +158,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 	}
 
 	componentLabels := labels.For(ComponentName, DeploymentName, instance.Name)
-	keyLabels := map[string]string{FulcioCALabel: "cert"}
+	keyLabels := map[string]string{FulcioCALabel: constants.KeyCert}
 	annotations := g.certMatchingAnnotations(instance)
 
 	newCert := &v1.Secret{
@@ -255,16 +255,16 @@ func (g handleCert) setupCert(instance *v1alpha1.Fulcio) (*utils.FulcioCertConfi
 func (g handleCert) alignStatusFields(secret *v1.Secret, instance *v1alpha1.Fulcio) {
 	if instance.Status.Certificate.PrivateKeyRef == nil {
 		instance.Status.Certificate.PrivateKeyRef = &v1alpha1.SecretKeySelector{
-			Key: "private",
+			Key: constants.KeyPrivate,
 			LocalObjectReference: v1alpha1.LocalObjectReference{
 				Name: secret.Name,
 			},
 		}
 	}
 
-	if val, ok := secret.Data["password"]; instance.Spec.Certificate.PrivateKeyPasswordRef == nil && ok && len(val) > 0 {
+	if val, ok := secret.Data[constants.KeyPassword]; instance.Spec.Certificate.PrivateKeyPasswordRef == nil && ok && len(val) > 0 {
 		instance.Status.Certificate.PrivateKeyPasswordRef = &v1alpha1.SecretKeySelector{
-			Key: "password",
+			Key: constants.KeyPassword,
 			LocalObjectReference: v1alpha1.LocalObjectReference{
 				Name: secret.Name,
 			},
@@ -273,7 +273,7 @@ func (g handleCert) alignStatusFields(secret *v1.Secret, instance *v1alpha1.Fulc
 
 	if instance.Spec.Certificate.CARef == nil {
 		instance.Status.Certificate.CARef = &v1alpha1.SecretKeySelector{
-			Key: "cert",
+			Key: constants.KeyCert,
 			LocalObjectReference: v1alpha1.LocalObjectReference{
 				Name: secret.Name,
 			},

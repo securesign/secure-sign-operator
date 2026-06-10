@@ -92,10 +92,6 @@ type SecuresignList struct {
 	Items           []Securesign `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&Securesign{}, &SecuresignList{})
-}
-
 func (i *Securesign) GetConditions() []metav1.Condition {
 	return i.Status.Conditions
 }

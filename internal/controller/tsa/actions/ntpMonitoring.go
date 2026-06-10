@@ -70,7 +70,7 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 			Type:               constants.ReadyCondition,
 			Status:             metav1.ConditionFalse,
 			Reason:             state.Creating.String(),
-			Message:            "NTP monitoring configured",
+			Message:            "NTP monitoring configured", //nolint:goconst
 			ObservedGeneration: instance.Generation,
 		})
 		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)

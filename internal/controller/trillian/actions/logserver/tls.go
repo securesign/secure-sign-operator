@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/internal/utils/tls"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,11 +51,11 @@ func (i tlsAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Trillian)
 		setStatusTLS(instance, rhtasv1alpha1.TLS{
 			CertRef: &rhtasv1alpha1.SecretKeySelector{
 				LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: fmt.Sprintf(actions.LogServerTLSSecret, instance.Name)},
-				Key:                  "tls.crt",
+				Key:                  tls.KeyCert,
 			},
 			PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
 				LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: fmt.Sprintf(actions.LogServerTLSSecret, instance.Name)},
-				Key:                  "tls.key",
+				Key:                  tls.KeyPrivate,
 			},
 		})
 	default:

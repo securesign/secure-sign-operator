@@ -210,10 +210,6 @@ type TimestampAuthorityList struct {
 	Items           []TimestampAuthority `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&TimestampAuthority{}, &TimestampAuthorityList{})
-}
-
 func (i *TimestampAuthority) GetTrustedCA() *LocalObjectReference {
 	if i.Spec.TrustedCA != nil {
 		return i.Spec.TrustedCA

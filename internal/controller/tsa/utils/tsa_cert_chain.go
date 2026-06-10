@@ -21,6 +21,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	KeyCertificateChain       = "certificateChain"
+	KeyLeafPrivateKey         = "leafPrivateKey"
+	KeyLeafPrivateKeyPassword = "leafPrivateKeyPassword"
+)
+
 type TsaCertChainConfig struct {
 	RootPrivateKey                  []byte
 	RootPrivateKeyPassword          []byte
@@ -56,13 +62,13 @@ func (c TsaCertChainConfig) ToMap() map[string][]byte {
 		}
 	}
 	if len(c.LeafPrivateKey) > 0 {
-		result["leafPrivateKey"] = c.LeafPrivateKey
+		result[KeyLeafPrivateKey] = c.LeafPrivateKey
 	}
 	if len(c.LeafPrivateKeyPassword) > 0 {
-		result["leafPrivateKeyPassword"] = c.LeafPrivateKeyPassword
+		result[KeyLeafPrivateKeyPassword] = c.LeafPrivateKeyPassword
 	}
 	if len(c.CertificateChain) > 0 {
-		result["certificateChain"] = c.CertificateChain
+		result[KeyCertificateChain] = c.CertificateChain
 	}
 
 	return result
@@ -111,7 +117,7 @@ func CreateTSACertChain(ctx context.Context, instance *rhtasv1alpha1.TimestampAu
 	}
 
 	rootPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "CERTIFICATE",
+		Type:  "CERTIFICATE", //nolint:goconst
 		Bytes: rootCert,
 	})
 

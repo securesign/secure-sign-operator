@@ -135,10 +135,6 @@ type TufList struct {
 	Items           []Tuf `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&Tuf{}, &TufList{})
-}
-
 func (i *Tuf) GetConditions() []metav1.Condition {
 	return i.Status.Conditions
 }

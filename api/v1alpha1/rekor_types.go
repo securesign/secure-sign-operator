@@ -234,10 +234,6 @@ type RekorList struct {
 	Items           []Rekor `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&Rekor{}, &RekorList{})
-}
-
 func (i *Rekor) GetConditions() []metav1.Condition {
 	return i.Status.Conditions
 }

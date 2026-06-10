@@ -14,7 +14,7 @@ func SetProxyEnvs(containers []v1.Container, noProxy ...string) {
 	for i := range containers {
 		for _, e := range proxyEnvs {
 			env := kubernetes.FindEnvByNameOrCreate(&containers[i], e.Name)
-			if strings.ToLower(e.Name) == "no_proxy" && len(noProxy) > 0 {
+			if strings.ToLower(e.Name) == "no_proxy" && len(noProxy) > 0 { //nolint:goconst
 				env.Value = strings.Join(noProxy, ",") + "," + e.Value
 			} else {
 				env.Value = e.Value

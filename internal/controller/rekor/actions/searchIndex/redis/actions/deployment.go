@@ -131,10 +131,10 @@ func (i deployAction) ensureRedisDeployment(instance *rhtasv1alpha1.Rekor, sa st
 		}
 
 		container.ReadinessProbe.Exec.Command = []string{
-			"/bin/sh",
+			"/bin/sh", //nolint:goconst
 			"-c",
 			"-i",
-			"test $(redis-cli -h 127.0.0.1 -a $REDIS_PASSWORD ping) = 'PONG'",
+			"test $(redis-cli -h 127.0.0.1 -a $REDIS_PASSWORD ping) = 'PONG'", //nolint:goconst
 		}
 		container.ReadinessProbe.InitialDelaySeconds = 0
 		container.ReadinessProbe.PeriodSeconds = 10

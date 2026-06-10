@@ -210,7 +210,7 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 	}
 
 	for _, ref := range configMap.GetOwnerReferences() {
-		if ref.Kind == "Job" {
+		if ref.Kind == "Job" { //nolint:goconst
 			return i.Continue()
 		}
 	}
