@@ -78,6 +78,14 @@ func IsOpenShift() bool {
 	return config.Openshift
 }
 
+// IsMonitoringAvailable reports whether the Prometheus Operator's
+// monitoring.coreos.com API (ServiceMonitor) is registered on the cluster.
+// The value is detected once at operator startup (see DetectMonitoringAvailable)
+// and may be overridden via the --monitoring flag / MONITORING env var.
+func IsMonitoringAvailable() bool {
+	return config.MonitoringAvailable
+}
+
 func CalculateHostname(ctx context.Context, client client.Client, svcName, ns string) (string, error) {
 	if IsOpenShift() {
 		ingress := &configv1.Ingress{}

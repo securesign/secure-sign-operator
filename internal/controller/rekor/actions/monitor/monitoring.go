@@ -31,7 +31,7 @@ func (i monitoringAction) Name() string {
 }
 
 func (i monitoringAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
-	return enabled(instance) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
+	return enabled(instance) && kubernetes.IsMonitoringAvailable() && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {

@@ -11,12 +11,12 @@ spec:
     externalAccess:
       enabled: true
     monitoring:
-      enabled: true
+      enabled: false
   trillian:
     database:
       create: true
     monitoring:
-      enabled: true
+      enabled: false
   fulcio:
     externalAccess:
       enabled: true
@@ -31,7 +31,7 @@ spec:
       organizationEmail: jdoe@redhat.com
       commonName: fulcio.hostname
     monitoring:
-      enabled: true
+      enabled: false
   tuf:
     externalAccess:
       enabled: true
@@ -50,12 +50,12 @@ spec:
       size: 100Mi
   ctlog:
     monitoring:
-      enabled: true
+      enabled: false
   tsa:
     externalAccess:
       enabled: true
     monitoring:
-      enabled: true
+      enabled: false
     ntpMonitoring:
       enabled: true
     signer:
