@@ -14,12 +14,17 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 const minAPIServiceTimeout = 15 * time.Second
+
+// monitoringGroupVersion is the API group/version exposed by the Prometheus
+// Operator. Its presence indicates that ServiceMonitor resources can be created.
+const monitoringGroupVersion = "monitoring.coreos.com/v1"
 
 //+kubebuilder:rbac:groups=apiregistration.k8s.io,resources=apiservices,verbs=get;list;watch
 
@@ -98,6 +103,41 @@ func detectOpenShiftWithRetry(ctx context.Context, log logr.Logger, cl client.Cl
 		return false, retryErr
 	}
 	return found, nil
+}
+
+// DetectMonitoringAvailable detects whether the Prometheus Operator's
+// monitoring.coreos.com/v1 API (and the ServiceMonitor kind in particular) is
+// available on the cluster. It is used to gate ServiceMonitor creation so the
+// operator degrades gracefully on clusters without the Prometheus Operator
+// installed (e.g. vanilla Kubernetes) instead of failing the reconcile with
+// "no matches for kind ServiceMonitor". The result is memoized in
+// config.MonitoringAvailable at startup; see IsMonitoringAvailable.
+func DetectMonitoringAvailable(log logr.Logger) (bool, error) {
+	cfg, err := config.GetConfig()
+	if err != nil {
+		return false, err
+	}
+	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
+	if err != nil {
+		return false, err
+	}
+
+	resources, err := dc.ServerResourcesForGroupVersion(monitoringGroupVersion)
+	if err != nil {
+		// The group/version is simply not served on this cluster.
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	for _, resource := range resources.APIResources {
+		if resource.Kind == "ServiceMonitor" {
+			log.Info("Discovered Prometheus Operator API", "groupVersion", monitoringGroupVersion)
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func isTransientError(err error) bool {
