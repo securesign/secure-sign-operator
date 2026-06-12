@@ -63,7 +63,7 @@ func (g handleCert) CanHandle(_ context.Context, instance *rhtasv1.Fulcio) bool 
 	case !meta.IsStatusConditionTrue(instance.GetConditions(), CertCondition):
 		return true
 	default:
-		return !equality.Semantic.DeepDerivative(instance.Spec.Certificate, *instance.Status.Certificate)
+		return !instance.Status.Certificate.EqualsSpec(instance.Spec.Certificate)
 	}
 
 }
@@ -94,7 +94,14 @@ func (g handleCert) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *actio
 		})
 	}
 
-	instance.Status.Certificate = instance.Spec.Certificate.DeepCopy()
+	instance.Status.Certificate = &rhtasv1.FulcioCertStatus{
+		PrivateKeyRef:         instance.Spec.Certificate.PrivateKeyRef.DeepCopy(),
+		PrivateKeyPasswordRef: instance.Spec.Certificate.PrivateKeyPasswordRef.DeepCopy(),
+		CARef:                 instance.Spec.Certificate.CARef.DeepCopy(),
+		CommonName:            instance.Spec.Certificate.CommonName,
+		OrganizationName:      instance.Spec.Certificate.OrganizationName,
+		OrganizationEmail:     instance.Spec.Certificate.OrganizationEmail,
+	}
 	if err := g.calculateHostname(ctx, instance); err != nil {
 		return g.Error(ctx, err, instance)
 	}

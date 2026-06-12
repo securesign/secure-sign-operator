@@ -55,17 +55,9 @@ func Test_NTPCanHandle(t *testing.T) {
 		{
 			name: "NTPMonitoring status is different to spec",
 			testCase: func(instance *rhtasv1.TimestampAuthority) {
-				instance.Status.NTPMonitoring = &rhtasv1.NTPMonitoring{
+				instance.Status.NTPMonitoring = &rhtasv1.NTPMonitoringStatus{
 					Enabled: true,
-					Config: &rhtasv1.NtpMonitoringConfig{
-						RequestAttempts: 1,
-						RequestTimeout:  5,
-						NumServers:      4,
-						ServerThreshold: 3,
-						MaxTimeDelta:    6,
-						Period:          60,
-						Servers:         []string{"time.apple.com", "time.google.com"},
-					},
+					Config:  &rhtasv1.NtpMonitoringConfigStatus{},
 				}
 			},
 			expected: true,
@@ -84,7 +76,7 @@ func Test_NTPCanHandle(t *testing.T) {
 				instance.Spec.NTPMonitoring.Enabled = false
 				instance.Spec.NTPMonitoring.Config = nil
 
-				instance.Status.NTPMonitoring = &rhtasv1.NTPMonitoring{
+				instance.Status.NTPMonitoring = &rhtasv1.NTPMonitoringStatus{
 					Enabled: false,
 					Config:  nil,
 				}
@@ -106,7 +98,7 @@ func Test_NTPCanHandle(t *testing.T) {
 				instance.Status.Conditions[0].Reason = state.Creating.String()
 				instance.Spec.NTPMonitoring.Enabled = true
 				instance.Spec.NTPMonitoring.Config = nil
-				instance.Status.NTPMonitoring = &rhtasv1.NTPMonitoring{
+				instance.Status.NTPMonitoring = &rhtasv1.NTPMonitoringStatus{
 					Enabled: true,
 					Config:  nil,
 				}

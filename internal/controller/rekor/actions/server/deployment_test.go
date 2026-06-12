@@ -46,7 +46,7 @@ func TestDeployAction_Handle_DefaultTrillianAddress(t *testing.T) {
 		Status: rhtasv1.RekorStatus{
 			TreeID:          ptr.To[int64](123456),
 			ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "test-config"},
-			Signer: rhtasv1.RekorSigner{
+			Signer: rhtasv1.RekorSignerStatus{
 				KeyRef: &rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "signer-secret"},
 					Key:                  testPrivateKey,

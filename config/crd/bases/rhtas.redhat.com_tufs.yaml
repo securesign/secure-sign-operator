@@ -1353,18 +1353,9 @@ spec:
                 items:
                   properties:
                     name:
-                      description: File name which will be used as TUF target.
-                      enum:
-                      - rekor.pub
-                      - ctfe.pub
-                      - fulcio_v1.crt.pem
-                      - tsa.certchain.pem
                       type: string
                     secretRef:
-                      description: |-
-                        Reference to secret object
-                        If it is unset, the operator will try to autoconfigure secret reference, by searching secrets in namespace which
-                        contain `rhtas.redhat.com/$name` label.
+                      description: SecretKeySelector selects a key of a Secret.
                       properties:
                         key:
                           description: The key of the secret to select from. Must

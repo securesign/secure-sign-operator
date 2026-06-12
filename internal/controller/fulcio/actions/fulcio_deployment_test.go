@@ -202,7 +202,7 @@ func createInstance() *rhtasv1.Fulcio {
 		},
 		Status: rhtasv1.FulcioStatus{
 			ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "config"},
-			Certificate: &rhtasv1.FulcioCert{
+			Certificate: &rhtasv1.FulcioCertStatus{
 				PrivateKeyRef: &rhtasv1.SecretKeySelector{
 					Key:                  "private",
 					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"},

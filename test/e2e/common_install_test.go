@@ -177,7 +177,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 							return volume.Secret.SecretName
 						}
 						return ""
-					}, Equal(tsa.Get(ctx, cli, namespace.Name, s.Name).Status.Signer.CertificateChain.CertificateChainRef.Name))),
+					}, Equal(tsa.Get(ctx, cli, namespace.Name, s.Name).Status.Signer.CertificateChainRef.Name))),
 			)
 			Expect(server.Spec.Volumes).To(
 				ContainElement(

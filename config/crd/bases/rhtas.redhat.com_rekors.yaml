@@ -2893,10 +2893,7 @@ spec:
               signer:
                 properties:
                   keyRef:
-                    description: |-
-                      Reference to the signer private key.
-
-                      Optional field. When KMS is set to "secret", this field can be left empty, in which case the operator will automatically generate a signer key.
+                    description: SecretKeySelector selects a key of a Secret.
                     properties:
                       key:
                         description: The key of the secret to select from. Must be
@@ -2914,31 +2911,9 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   kms:
-                    default: secret
-                    description: |-
-                      KMS Signer provider. Specifies the key management system (KMS) used for signing operations.
-
-                      Valid values:
-                      - "secret" (default): The signer key is stored in a Kubernetes Secret.
-                      - "memory": Ephemeral signer key stored in memory. Recommended for development use only.
-                      - KMS URI: A URI to a cloud-based KMS, following the Go Cloud Development Kit (Go Cloud) URI format. Supported URIs include:
-                        - awskms://keyname
-                        - azurekms://keyname
-                        - gcpkms://keyname
-                        - hashivault://keyname
                     type: string
-                    x-kubernetes-validations:
-                    - message: KMS must be '', 'secret', 'memory', or a valid URI
-                        with a key path (e.g., awskms:///key-id)
-                      rule: self == '' || self == 'secret' || self == 'memory' ||
-                        self.matches('^awskms://.+$') || self.matches('^gcpkms://.+$')
-                        || self.matches('^azurekms://.+$') || self.matches('^hashivault://.+$')
                   passwordRef:
-                    description: |-
-                      Password to decrypt the signer private key.
-
-                      Optional field. This should be set only if the private key referenced by `keyRef` is encrypted with a password.
-                      If KMS is set to a value other than "secret", this field is ignored.
+                    description: SecretKeySelector selects a key of a Secret.
                     properties:
                       key:
                         description: The key of the secret to select from. Must be

@@ -126,10 +126,10 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 		if chainVolume.Secret == nil {
 			chainVolume.Secret = &core.SecretVolumeSource{}
 		}
-		chainVolume.Secret.SecretName = instance.Status.Signer.CertificateChain.CertificateChainRef.Name
+		chainVolume.Secret.SecretName = instance.Status.Signer.CertificateChainRef.Name
 		chainVolume.Secret.Items = []core.KeyToPath{
 			{
-				Key:  instance.Status.Signer.CertificateChain.CertificateChainRef.Key,
+				Key:  instance.Status.Signer.CertificateChainRef.Key,
 				Path: "certificate-chain.pem",
 			},
 		}

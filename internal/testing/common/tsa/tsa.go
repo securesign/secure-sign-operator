@@ -27,8 +27,6 @@ func GenerateTSAInstance() *rhtasv1.TimestampAuthority {
 					Reason: state.Ready.String(),
 				},
 			},
-			NTPMonitoring: nil,
-			Signer:        nil,
 		},
 		Spec: rhtasv1.TimestampAuthoritySpec{
 			Signer: rhtasv1.TimestampAuthoritySigner{

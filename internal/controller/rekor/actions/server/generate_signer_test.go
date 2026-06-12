@@ -29,7 +29,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 		status       []metav1.Condition
 		canHandle    bool
 		signer       rhtasv1.RekorSigner
-		statusSigner rhtasv1.RekorSigner
+		statusSigner rhtasv1.RekorSignerStatus
 	}{
 		{
 			name: "spec.signer.keyRef is not nil and status.signer.keyRef is nil",
@@ -55,7 +55,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				},
 			},
 			canHandle: false,
-			statusSigner: rhtasv1.RekorSigner{
+			statusSigner: rhtasv1.RekorSignerStatus{
 				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 			},
 		},
@@ -83,7 +83,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 			signer: rhtasv1.RekorSigner{
 				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new_secret"}, Key: "private"},
 			},
-			statusSigner: rhtasv1.RekorSigner{
+			statusSigner: rhtasv1.RekorSignerStatus{
 				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old_secret"}, Key: "private"},
 			},
 		},
@@ -100,7 +100,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 			signer: rhtasv1.RekorSigner{
 				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 			},
-			statusSigner: rhtasv1.RekorSigner{
+			statusSigner: rhtasv1.RekorSignerStatus{
 				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 			},
 		},
@@ -118,7 +118,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				KeyRef:      &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 				PasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "password"},
 			},
-			statusSigner: rhtasv1.RekorSigner{
+			statusSigner: rhtasv1.RekorSignerStatus{
 				KeyRef:      &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 				PasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "password"},
 			},
@@ -136,7 +136,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 				KeyRef:      &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new_secret"}, Key: "private"},
 				PasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new_secret"}, Key: "password"},
 			},
-			statusSigner: rhtasv1.RekorSigner{
+			statusSigner: rhtasv1.RekorSignerStatus{
 				KeyRef:      &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old_secret"}, Key: "private"},
 				PasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old_secret"}, Key: "password"},
 			},
@@ -154,7 +154,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 			signer: rhtasv1.RekorSigner{
 				KMS: "azurekeyvault://mykeyvaultname.vault.azure.net/keys/mykeyname",
 			},
-			statusSigner: rhtasv1.RekorSigner{
+			statusSigner: rhtasv1.RekorSignerStatus{
 				KMS: "awskms://1234abcd-12ab-34cd-56ef-1234567890ab?region=us-east-1",
 			},
 		},
@@ -171,7 +171,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 			signer: rhtasv1.RekorSigner{
 				KMS: "awskms://1234abcd-12ab-34cd-56ef-1234567890ab?region=us-east-1",
 			},
-			statusSigner: rhtasv1.RekorSigner{
+			statusSigner: rhtasv1.RekorSignerStatus{
 				KMS: "awskms://1234abcd-12ab-34cd-56ef-1234567890ab?region=us-east-1",
 			},
 		},
@@ -204,7 +204,7 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 			signer: rhtasv1.RekorSigner{
 				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 			},
-			statusSigner: rhtasv1.RekorSigner{
+			statusSigner: rhtasv1.RekorSignerStatus{
 				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 			},
 		},
@@ -247,7 +247,7 @@ func TestGenerateSigner_Handle(t *testing.T) {
 	g := NewWithT(t)
 	type env struct {
 		spec    rhtasv1.RekorSigner
-		status  rhtasv1.RekorSigner
+		status  rhtasv1.RekorSignerStatus
 		objects []client.Object
 	}
 	type want struct {
@@ -265,7 +265,7 @@ func TestGenerateSigner_Handle(t *testing.T) {
 				spec: rhtasv1.RekorSigner{
 					KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 				},
-				status: rhtasv1.RekorSigner{},
+				status: rhtasv1.RekorSignerStatus{},
 			},
 			want: want{
 				result: testAction.Return(),
@@ -283,7 +283,7 @@ func TestGenerateSigner_Handle(t *testing.T) {
 			name: "generate signer key",
 			env: env{
 				spec:   rhtasv1.RekorSigner{},
-				status: rhtasv1.RekorSigner{},
+				status: rhtasv1.RekorSignerStatus{},
 			},
 			want: want{
 				result: testAction.Return(),
@@ -304,7 +304,7 @@ func TestGenerateSigner_Handle(t *testing.T) {
 				spec: rhtasv1.RekorSigner{
 					KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new_secret"}, Key: "private"},
 				},
-				status: rhtasv1.RekorSigner{},
+				status: rhtasv1.RekorSignerStatus{},
 			},
 			want: want{
 				result: testAction.Return(),
@@ -321,7 +321,7 @@ func TestGenerateSigner_Handle(t *testing.T) {
 			name: "use existing signer key",
 			env: env{
 				spec:   rhtasv1.RekorSigner{},
-				status: rhtasv1.RekorSigner{},
+				status: rhtasv1.RekorSignerStatus{},
 				objects: []client.Object{
 					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
@@ -350,7 +350,7 @@ func TestGenerateSigner_Handle(t *testing.T) {
 				spec: rhtasv1.RekorSigner{
 					KMS: "awskms://1234abcd-12ab-34cd-56ef-1234567890ab?region=us-east-1",
 				},
-				status: rhtasv1.RekorSigner{},
+				status: rhtasv1.RekorSignerStatus{},
 			},
 			want: want{
 				result: testAction.Return(),
@@ -372,7 +372,7 @@ func TestGenerateSigner_Handle(t *testing.T) {
 				spec: rhtasv1.RekorSigner{
 					KMS: "new-kms",
 				},
-				status: rhtasv1.RekorSigner{
+				status: rhtasv1.RekorSignerStatus{
 					KMS: "old-kms",
 				},
 			},
@@ -397,7 +397,7 @@ func TestGenerateSigner_Handle(t *testing.T) {
 					KeyRef:      &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 					PasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "password"},
 				},
-				status: rhtasv1.RekorSigner{},
+				status: rhtasv1.RekorSignerStatus{},
 			},
 			want: want{
 				result: testAction.Return(),
@@ -465,7 +465,7 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 	g := NewWithT(t)
 	rekorNN := types.NamespacedName{Name: "rekor", Namespace: "default"}
 	type env struct {
-		status  rhtasv1.RekorSigner
+		status  rhtasv1.RekorSignerStatus
 		objects []client.Object
 	}
 	type want struct {
@@ -480,7 +480,7 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 		{
 			name: "link unassigned signer secret by rekor.signer.pem label",
 			env: env{
-				status: rhtasv1.RekorSigner{},
+				status: rhtasv1.RekorSignerStatus{},
 				objects: []client.Object{
 					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
@@ -511,7 +511,7 @@ func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {
 		{
 			name: "create new signer secret",
 			env: env{
-				status: rhtasv1.RekorSigner{},
+				status: rhtasv1.RekorSignerStatus{},
 				objects: []client.Object{
 					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{

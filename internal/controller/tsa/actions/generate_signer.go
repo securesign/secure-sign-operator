@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 const (
@@ -50,8 +51,12 @@ func (g generateSigner) CanHandle(_ context.Context, instance *rhtasv1.Timestamp
 		return false
 	case !meta.IsStatusConditionTrue(instance.GetConditions(), TSASignerCondition):
 		return true
+	case instance.Status.Signer == nil:
+		return true
 	default:
-		return !equality.Semantic.DeepDerivative(instance.Spec.Signer, *instance.Status.Signer)
+		// TSASignerCondition is managed exclusively by this action.
+		c := meta.FindStatusCondition(instance.GetConditions(), TSASignerCondition)
+		return c != nil && instance.Generation != c.ObservedGeneration
 	}
 }
 
@@ -60,6 +65,51 @@ func (g generateSigner) Handle(ctx context.Context, instance *rhtasv1.TimestampA
 		err error
 	)
 
+	if instance.Spec.Signer.File != nil &&
+		instance.Spec.Signer.CertificateChain.CertificateChainRef != nil &&
+		(instance.Spec.Signer.File.PrivateKeyRef == nil) {
+		return g.Error(ctx, reconcile.TerminalError(
+			fmt.Errorf("file signer requires privateKeyRef when certificateChainRef is provided")),
+			instance,
+			metav1.Condition{
+				Type:               TSASignerCondition,
+				Status:             metav1.ConditionFalse,
+				Reason:             state.Failure.String(),
+				Message:            "file signer requires privateKeyRef when certificateChainRef is provided",
+				ObservedGeneration: instance.Generation,
+			},
+		)
+	}
+
+	anno, err := g.secretAnnotations(instance.Spec.Signer)
+	if err != nil {
+		return g.Error(ctx, err, instance)
+	}
+
+	// Check if the resolved secret still matches the current spec.
+	if instance.Status.Signer != nil && instance.Status.Signer.CertificateChainRef != nil {
+		secret, err := kubernetes.GetSecret(g.Client, instance.Namespace, instance.Status.Signer.CertificateChainRef.Name)
+		if err != nil {
+			return g.Error(ctx, fmt.Errorf("can't load CA secret %w", err), instance)
+		}
+
+		if equality.Semantic.DeepDerivative(anno, secret.GetAnnotations()) {
+			c := meta.FindStatusCondition(instance.GetConditions(), TSASignerCondition)
+			if c == nil || c.ObservedGeneration != instance.Generation {
+				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+					Type:               TSASignerCondition,
+					Status:             metav1.ConditionTrue,
+					Reason:             "Resolved", //nolint:goconst
+					ObservedGeneration: instance.Generation,
+				})
+				return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
+			}
+			return g.Continue()
+		}
+	}
+
+	// Spec changed or first run — invalidate and transition to Pending.
+	instance.Status.Signer = &rhtasv1.TSASignerStatus{}
 	if state.FromInstance(instance, constants.ReadyCondition) != state.Pending {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               constants.ReadyCondition,
@@ -76,33 +126,6 @@ func (g generateSigner) Handle(ctx context.Context, instance *rhtasv1.TimestampA
 		return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 	}
 
-	anno, err := g.secretAnnotations(instance.Spec.Signer)
-	if err != nil {
-		return g.Error(ctx, err, instance)
-	}
-
-	if instance.Status.Signer != nil {
-		secret, err := kubernetes.GetSecret(g.Client, instance.Namespace, instance.Status.Signer.CertificateChain.CertificateChainRef.Name)
-		if err != nil {
-			return g.Error(ctx, fmt.Errorf("can't load CA secret %w", err), instance)
-		}
-
-		if equality.Semantic.DeepDerivative(anno, secret.GetAnnotations()) {
-			if !meta.IsStatusConditionTrue(instance.GetConditions(), TSASignerCondition) {
-				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-					Type:               TSASignerCondition,
-					Status:             metav1.ConditionTrue,
-					Reason:             "Resolved", //nolint:goconst
-					ObservedGeneration: instance.Generation,
-				})
-				return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
-			}
-			return g.Continue()
-		}
-	}
-	// invalidate
-	instance.Status.Signer = instance.Spec.Signer.DeepCopy()
-
 	//Check if a secret for the TSA cert already exists and validate
 	partialSecrets, err := kubernetes.ListSecrets(ctx, g.Client, instance.Namespace, TSACertCALabel)
 	if err != nil {
@@ -110,7 +133,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *rhtasv1.TimestampA
 	}
 
 	for _, partialSecret := range partialSecrets.Items {
-		if equality.Semantic.DeepDerivative(anno, partialSecret.GetAnnotations()) && !meta.IsStatusConditionTrue(instance.GetConditions(), TSASignerCondition) {
+		if equality.Semantic.DeepDerivative(anno, partialSecret.GetAnnotations()) {
 			g.alignStatusFields(partialSecret.Name, instance)
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:               TSASignerCondition,
@@ -366,43 +389,46 @@ func (g generateSigner) handleCertificateChain(ctx context.Context, instance *rh
 }
 
 func (g generateSigner) alignStatusFields(secretName string, instance *rhtasv1.TimestampAuthority) {
-	if instance.Status.Signer == nil {
-		instance.Status.Signer = new(rhtasv1.TimestampAuthoritySigner)
-	}
-	instance.Spec.Signer.DeepCopyInto(instance.Status.Signer)
+	status := &rhtasv1.TSASignerStatus{}
 
-	// Default to File-based signer when no signer type (File/Tink/KMS) and no
-	// external cert chain are configured.
-	if instance.Spec.Signer.File == nil && instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
-		instance.Status.Signer.File = new(rhtasv1.File)
-	}
-
-	if instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
-		instance.Status.Signer.CertificateChain.CertificateChainRef = &rhtasv1.SecretKeySelector{
-			Key: tsaUtils.KeyCertificateChain,
-			LocalObjectReference: rhtasv1.LocalObjectReference{
-				Name: secretName,
-			},
+	if ref := instance.Spec.Signer.CertificateChain.CertificateChainRef; ref != nil {
+		status.CertificateChainRef = ref.DeepCopy()
+	} else {
+		status.CertificateChainRef = &rhtasv1.SecretKeySelector{
+			Key:                  tsaUtils.KeyCertificateChain,
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: secretName},
 		}
+	}
 
-		if instance.Spec.Signer.File == nil || instance.Spec.Signer.File.PrivateKeyRef == nil {
-			instance.Status.Signer.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{
-				Key: tsaUtils.KeyLeafPrivateKey,
-				LocalObjectReference: rhtasv1.LocalObjectReference{
-					Name: secretName,
-				},
+	isFileSigner := instance.Spec.Signer.File != nil ||
+		(instance.Spec.Signer.Kms == nil && instance.Spec.Signer.Tink == nil &&
+			instance.Spec.Signer.CertificateChain.CertificateChainRef == nil)
+
+	if isFileSigner {
+		file := &rhtasv1.FileStatus{}
+
+		if instance.Spec.Signer.File != nil && instance.Spec.Signer.File.PrivateKeyRef != nil {
+			file.PrivateKeyRef = instance.Spec.Signer.File.PrivateKeyRef.DeepCopy()
+		} else if instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
+			file.PrivateKeyRef = &rhtasv1.SecretKeySelector{
+				Key:                  tsaUtils.KeyLeafPrivateKey,
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: secretName},
 			}
 		}
 
-		if instance.Spec.Signer.File == nil || instance.Spec.Signer.File.PasswordRef == nil {
-			instance.Status.Signer.File.PasswordRef = &rhtasv1.SecretKeySelector{
-				Key: tsaUtils.KeyLeafPrivateKeyPassword,
-				LocalObjectReference: rhtasv1.LocalObjectReference{
-					Name: secretName,
-				},
+		if instance.Spec.Signer.File != nil && instance.Spec.Signer.File.PasswordRef != nil {
+			file.PasswordRef = instance.Spec.Signer.File.PasswordRef.DeepCopy()
+		} else if instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
+			file.PasswordRef = &rhtasv1.SecretKeySelector{
+				Key:                  tsaUtils.KeyLeafPrivateKeyPassword,
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: secretName},
 			}
 		}
+
+		status.File = file
 	}
+
+	instance.Status.Signer = status
 }
 
 func (g generateSigner) secretAnnotations(signerConfig rhtasv1.TimestampAuthoritySigner) (map[string]string, error) {
