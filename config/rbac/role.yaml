@@ -211,6 +211,7 @@ rules:
 - apiGroups:
   - rhtas.redhat.com
   resources:
+  - consoles
   - ctlogs
   - fulcios
   - rekors
@@ -229,6 +230,7 @@ rules:
 - apiGroups:
   - rhtas.redhat.com
   resources:
+  - consoles/finalizers
   - ctlogs/finalizers
   - fulcios/finalizers
   - rekors/finalizers
@@ -241,6 +243,7 @@ rules:
 - apiGroups:
   - rhtas.redhat.com
   resources:
+  - consoles/status
   - ctlogs/status
   - fulcios/status
   - rekors/status

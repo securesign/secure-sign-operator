@@ -35,6 +35,7 @@ type SecuresignSpec struct {
 	Tuf                TufSpec                 `json:"tuf,omitempty"`
 	Ctlog              CTlogSpec               `json:"ctlog,omitempty"`
 	TimestampAuthority *TimestampAuthoritySpec `json:"tsa,omitempty"`
+	Console            *ConsoleSpec            `json:"console,omitempty"`
 }
 
 // SecuresignStatus defines the observed state of Securesign
@@ -44,11 +45,12 @@ type SecuresignStatus struct {
 	// +patchStrategy=merge
 	// +patchMergeKey=type
 	// +optional
-	Conditions   []metav1.Condition     `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
-	RekorStatus  SecuresignRekorStatus  `json:"rekor,omitempty"`
-	FulcioStatus SecuresignFulcioStatus `json:"fulcio,omitempty"`
-	TufStatus    SecuresignTufStatus    `json:"tuf,omitempty"`
-	TSAStatus    SecuresignTSAStatus    `json:"tsa,omitempty"`
+	Conditions    []metav1.Condition      `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	RekorStatus   SecuresignRekorStatus   `json:"rekor,omitempty"`
+	FulcioStatus  SecuresignFulcioStatus  `json:"fulcio,omitempty"`
+	TufStatus     SecuresignTufStatus     `json:"tuf,omitempty"`
+	TSAStatus     SecuresignTSAStatus     `json:"tsa,omitempty"`
+	ConsoleStatus SecuresignConsoleStatus `json:"console,omitempty"`
 }
 
 type SecuresignRekorStatus struct {
@@ -64,6 +66,10 @@ type SecuresignTufStatus struct {
 }
 
 type SecuresignTSAStatus struct {
+	Url string `json:"url,omitempty"`
+}
+
+type SecuresignConsoleStatus struct {
 	Url string `json:"url,omitempty"`
 }
 

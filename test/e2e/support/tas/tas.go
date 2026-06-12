@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	. "github.com/onsi/gomega"
+	"github.com/securesign/operator/test/e2e/support/tas/console"
 	"github.com/securesign/operator/test/e2e/support/tas/cosign"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
@@ -30,6 +31,7 @@ var (
 		"CTlog",
 		"Tuf",
 		"TimestampAuthority",
+		"Console",
 	}
 	gv = rhtasv1.GroupVersion
 )
@@ -66,6 +68,9 @@ func VerifyAllComponents(ctx context.Context, cli runtimeCli.Client, s *rhtasv1.
 	rekor.Verify(ctx, cli, s.Namespace, s.Name, dbPresent)
 	ctlog.Verify(ctx, cli, s.Namespace, s.Name)
 	tuf.Verify(ctx, cli, s.Namespace, s.Name)
+	if s.Spec.Console != nil && s.Spec.Console.Enabled {
+		console.Verify(ctx, cli, s.Namespace, s.Name, dbPresent)
+	}
 	securesign.Verify(ctx, cli, s.Namespace, s.Name)
 }
 
@@ -101,6 +106,7 @@ func VerifyWebhook(ctx context.Context, cli runtimeCli.Client) {
 				return all
 			},
 			ContainElements(
+				withPathAndCABundle("/mutate-rhtas-redhat-com-v1-console"),
 				withPathAndCABundle("/mutate-rhtas-redhat-com-v1-ctlog"),
 				withPathAndCABundle("/mutate-rhtas-redhat-com-v1-fulcio"),
 				withPathAndCABundle("/mutate-rhtas-redhat-com-v1-rekor"),

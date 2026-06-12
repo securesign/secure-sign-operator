@@ -97,6 +97,21 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 					Provider: "mysql",
 					Url:      dsn,
 				}
+
+				v.Spec.Console = &rhtasv1.ConsoleSpec{
+					Enabled: true,
+					Db: rhtasv1.ConsoleDB{
+						Create: ptr.To(false),
+						DatabaseSecretRef: &rhtasv1.LocalObjectReference{
+							Name: dbAuth,
+						},
+					},
+					UI: rhtasv1.ConsoleUI{
+						ExternalAccess: rhtasv1.ExternalAccess{
+							Enabled: true,
+						},
+					},
+				}
 			},
 		)
 	})
@@ -123,6 +138,9 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 
 			Expect(cli.List(ctx, list, runtimeCli.InNamespace(namespace.Name), runtimeCli.MatchingLabels{labels.LabelAppName: actions.RedisDeploymentName})).To(Succeed())
 			Expect(list.Items).To(BeEmpty(), "Redis DB is not created")
+
+			Expect(cli.List(ctx, list, runtimeCli.InNamespace(namespace.Name), runtimeCli.MatchingLabels{labels.LabelAppName: "console-db"})).To(Succeed())
+			Expect(list.Items).To(BeEmpty(), "Console DB is not created")
 		})
 
 		It("Use cosign cli", func(ctx SpecContext) {
