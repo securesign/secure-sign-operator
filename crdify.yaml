@@ -1,3 +1,11 @@
+# Matches OLM v1 default configuration for CRD upgrade safety preflight checks.
+# Reference: https://github.com/operator-framework/operator-controller/blob/main/internal/operator-controller/rukpak/preflights/crdupgradesafety/crdupgradesafety.go
+conversion: Ignore
+unhandledEnforcement: Error
 validations:
   - name: description
     enforcement: Warn
+  - name: enum
+    enforcement: Error
+    configuration:
+      additionPolicy: Allow
