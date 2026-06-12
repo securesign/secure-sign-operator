@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
@@ -58,7 +58,7 @@ var _ = Describe("CTlog controller", func() {
 		}
 
 		typeNamespaceName := types.NamespacedName{Name: Name, Namespace: Namespace}
-		instance := &v1alpha1.CTlog{}
+		instance := &rhtasv1.CTlog{}
 
 		BeforeEach(func() {
 			By("Creating the Namespace to perform the tests")
@@ -68,7 +68,7 @@ var _ = Describe("CTlog controller", func() {
 
 		AfterEach(func() {
 			By("removing the custom resource for the Kind CTlog")
-			found := &v1alpha1.CTlog{}
+			found := &rhtasv1.CTlog{}
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
 
@@ -90,13 +90,13 @@ var _ = Describe("CTlog controller", func() {
 				// Let's mock our custom resource at the same way that we would
 				// apply on the cluster the manifest under config/samples
 				ptr := int64(1)
-				instance := &v1alpha1.CTlog{
+				instance := &rhtasv1.CTlog{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      Name,
 						Namespace: Namespace,
 					},
 
-					Spec: v1alpha1.CTlogSpec{
+					Spec: rhtasv1.CTlogSpec{
 						TreeID: &ptr,
 					},
 				}
@@ -107,13 +107,13 @@ var _ = Describe("CTlog controller", func() {
 
 			By("Checking if the custom resource was successfully created")
 			Eventually(func() error {
-				found := &v1alpha1.CTlog{}
+				found := &rhtasv1.CTlog{}
 				return suite.Client().Get(ctx, typeNamespaceName, found)
 			}).Should(Succeed())
 
 			By("Status conditions are initialized")
 			Eventually(func(g Gomega) bool {
-				found := &v1alpha1.CTlog{}
+				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
 			}).Should(BeTrue())
@@ -121,7 +121,7 @@ var _ = Describe("CTlog controller", func() {
 			By("Creating trillian service")
 			Expect(suite.Client().Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, trillian.ServerPort, labels.ForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
 			Eventually(func(g Gomega) string {
-				found := &v1alpha1.CTlog{}
+				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
 			}).Should(Equal(state.Creating.String()))
@@ -137,14 +137,14 @@ var _ = Describe("CTlog controller", func() {
 			})).To(Succeed())
 
 			Eventually(func(g Gomega) string {
-				found := &v1alpha1.CTlog{}
+				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
 			}).Should(Equal(state.Creating.String()))
 
 			By("Key Secret is created")
-			found := &v1alpha1.CTlog{}
-			Eventually(func(g Gomega) *v1alpha1.SecretKeySelector {
+			found := &rhtasv1.CTlog{}
+			Eventually(func(g Gomega) *rhtasv1.SecretKeySelector {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.PrivateKeyRef
 			}).Should(Not(BeNil()))
@@ -171,7 +171,7 @@ var _ = Describe("CTlog controller", func() {
 
 			By("Waiting until CTlog instance is Ready")
 			Eventually(func(g Gomega) bool {
-				found := &v1alpha1.CTlog{}
+				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())

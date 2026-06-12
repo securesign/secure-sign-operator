@@ -15,7 +15,7 @@ import (
 
 	"github.com/go-logr/logr"
 	consolev1 "github.com/openshift/api/console/v1"
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
@@ -118,7 +118,7 @@ func (c *Component) Start(ctx context.Context) error {
 
 	if e := CreateResource[*v1.Ingress](ctx, c.Client, c.Log,
 		ingress,
-		kubernetes.EnsureIngressSpec(ctx, c.Client, *svc, rhtasv1alpha1.ExternalAccess{Host: CliHostName}, cliServerPortName),
+		kubernetes.EnsureIngressSpec(ctx, c.Client, *svc, rhtasv1.ExternalAccess{Host: CliHostName}, cliServerPortName),
 		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
 		ensure.Labels[*v1.Ingress](slices.Collect(maps.Keys(labels)), labels),
 	); e != nil {

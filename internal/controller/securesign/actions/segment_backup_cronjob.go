@@ -11,10 +11,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 )
 
-func NewSegmentBackupCronJobAction() action.Action[*rhtasv1alpha1.Securesign] {
+func NewSegmentBackupCronJobAction() action.Action[*rhtasv1.Securesign] {
 	return &segmentBackupCronJob{}
 }
 
@@ -25,11 +25,11 @@ type segmentBackupCronJob struct {
 func (i segmentBackupCronJob) Name() string {
 	return "segment-backup-nightly-metrics"
 }
-func (i segmentBackupCronJob) CanHandle(_ context.Context, instance *rhtasv1alpha1.Securesign) bool {
+func (i segmentBackupCronJob) CanHandle(_ context.Context, instance *rhtasv1.Securesign) bool {
 	return true
 }
 
-func (i segmentBackupCronJob) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
+func (i segmentBackupCronJob) Handle(ctx context.Context, instance *rhtasv1.Securesign) *action.Result {
 	segmentBackupCronJob := &batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      SegmentBackupCronJobName,

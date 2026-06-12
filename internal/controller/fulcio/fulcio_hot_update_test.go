@@ -25,7 +25,7 @@ import (
 	"github.com/securesign/operator/internal/state"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -56,7 +56,7 @@ var _ = Describe("Fulcio hot update", func() {
 		}
 
 		typeNamespaceName := types.NamespacedName{Name: Name, Namespace: Namespace}
-		instance := &v1alpha1.Fulcio{}
+		instance := &rhtasv1.Fulcio{}
 
 		BeforeEach(func() {
 			By("Creating the Namespace to perform the tests")
@@ -66,7 +66,7 @@ var _ = Describe("Fulcio hot update", func() {
 
 		AfterEach(func() {
 			By("removing the custom resource for the Kind Fulcio")
-			found := &v1alpha1.Fulcio{}
+			found := &rhtasv1.Fulcio{}
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
 
@@ -87,18 +87,18 @@ var _ = Describe("Fulcio hot update", func() {
 			if err != nil && errors.IsNotFound(err) {
 				// Let's mock our custom resource at the same way that we would
 				// apply on the cluster the manifest under config/samples
-				instance := &v1alpha1.Fulcio{
+				instance := &rhtasv1.Fulcio{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      Name,
 						Namespace: Namespace,
 					},
-					Spec: v1alpha1.FulcioSpec{
-						ExternalAccess: v1alpha1.ExternalAccess{
+					Spec: rhtasv1.FulcioSpec{
+						ExternalAccess: rhtasv1.ExternalAccess{
 							Host:    "fulcio.localhost",
 							Enabled: true,
 						},
-						Config: v1alpha1.FulcioConfig{
-							OIDCIssuers: []v1alpha1.OIDCIssuer{
+						Config: rhtasv1.FulcioConfig{
+							OIDCIssuers: []rhtasv1.OIDCIssuer{
 								{
 									IssuerURL: "test",
 									Issuer:    "test",
@@ -107,12 +107,12 @@ var _ = Describe("Fulcio hot update", func() {
 								},
 							},
 						},
-						Certificate: v1alpha1.FulcioCert{
+						Certificate: rhtasv1.FulcioCert{
 							OrganizationName:  "MyOrg",
 							OrganizationEmail: "my@email.com",
 							CommonName:        "local",
 						},
-						Monitoring: v1alpha1.MonitoringConfig{Enabled: false},
+						Monitoring: rhtasv1.MonitoringConfig{Enabled: false},
 					},
 				}
 				err = suite.Client().Create(ctx, instance)
@@ -121,7 +121,7 @@ var _ = Describe("Fulcio hot update", func() {
 
 			By("Checking if the custom resource was successfully created")
 			Eventually(func() error {
-				found := &v1alpha1.Fulcio{}
+				found := &rhtasv1.Fulcio{}
 				return suite.Client().Get(ctx, typeNamespaceName, found)
 			}).Should(Succeed())
 
@@ -136,7 +136,7 @@ var _ = Describe("Fulcio hot update", func() {
 			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
 
 			By("Waiting until Fulcio instance is Ready")
-			found := &v1alpha1.Fulcio{}
+			found := &rhtasv1.Fulcio{}
 			Eventually(func(g Gomega) bool {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
@@ -145,8 +145,8 @@ var _ = Describe("Fulcio hot update", func() {
 			By("Key rotation")
 			Eventually(func(g Gomega) error {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				found.Spec.Certificate.PrivateKeyPasswordRef = &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
+				found.Spec.Certificate.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: "password-secret",
 					},
 					Key: "password",
@@ -156,7 +156,7 @@ var _ = Describe("Fulcio hot update", func() {
 
 			By("Pending phase until password key is resolved")
 			Eventually(func(g Gomega) string {
-				found := &v1alpha1.Fulcio{}
+				found := &rhtasv1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
 			}).Should(Equal(state.Pending.String()))
@@ -175,13 +175,13 @@ var _ = Describe("Fulcio hot update", func() {
 
 			By("Status field changed")
 			Eventually(func(g Gomega) string {
-				found := &v1alpha1.Fulcio{}
+				found := &rhtasv1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Certificate.PrivateKeyPasswordRef.Name
 			}).Should(Equal("password-secret"))
 
 			Eventually(func(g Gomega) bool {
-				found := &v1alpha1.Fulcio{}
+				found := &rhtasv1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, actions.CertCondition)
 			}).Should(BeTrue())
@@ -205,7 +205,7 @@ var _ = Describe("Fulcio hot update", func() {
 
 			By("Update OIDC")
 			Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-			found.Spec.Config.OIDCIssuers[0] = v1alpha1.OIDCIssuer{
+			found.Spec.Config.OIDCIssuers[0] = rhtasv1.OIDCIssuer{
 				IssuerURL: "fake",
 				Issuer:    "fake",
 				ClientID:  "fake",

@@ -4,7 +4,7 @@ import (
 	"context"
 	"sort"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
@@ -12,7 +12,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewUpdateStatusAction() action.Action[*rhtasv1alpha1.Securesign] {
+func NewUpdateStatusAction() action.Action[*rhtasv1.Securesign] {
 	return &updateStatusAction{}
 }
 
@@ -24,11 +24,11 @@ func (i updateStatusAction) Name() string {
 	return "update status"
 }
 
-func (i updateStatusAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Securesign) bool {
+func (i updateStatusAction) CanHandle(ctx context.Context, instance *rhtasv1.Securesign) bool {
 	return meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition) != nil
 }
 
-func (i updateStatusAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
+func (i updateStatusAction) Handle(ctx context.Context, instance *rhtasv1.Securesign) *action.Result {
 	sorted := sortByStatus(instance.Status.Conditions)
 
 	if !meta.IsStatusConditionTrue(instance.Status.Conditions, sorted[0]) {

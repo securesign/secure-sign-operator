@@ -62,6 +62,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller/ctlog"
 	"github.com/securesign/operator/internal/controller/fulcio"
@@ -81,6 +82,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(rhtasv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(rhtasv1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(v1.AddToScheme(scheme))
 	utilruntime.Must(configv1.AddToScheme(scheme))
@@ -266,16 +268,17 @@ func main() {
 	//+kubebuilder:scaffold:builder
 
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		setupWebhook("Securesign", rhtasv1alpha1.SetupSecuresignWebhookWithManager, mgr)
-		setupWebhook("Fulcio", rhtasv1alpha1.SetupFulcioWebhookWithManager, mgr)
-		setupWebhook("Trillian", rhtasv1alpha1.SetupTrillianWebhookWithManager, mgr)
-		setupWebhook("Rekor", rhtasv1alpha1.SetupRekorWebhookWithManager, mgr)
-		setupWebhook("Tuf", rhtasv1alpha1.SetupTufWebhookWithManager, mgr)
-		setupWebhook("CTlog", rhtasv1alpha1.SetupCTlogWebhookWithManager, mgr)
-		setupWebhook("TimestampAuthority", rhtasv1alpha1.SetupTimestampAuthorityWebhookWithManager, mgr)
-
-		// TODO(SECURESIGN-4575): register conversion webhook handler via
-		// conversion.NewWebhookHandler — required before adding a new API version.
+		// The /convert conversion webhook is auto-registered by controller-runtime's
+		// WebhookBuilder when it detects Hub/Spoke interfaces on the v1 types.
+		// See: https://book.kubebuilder.io/multiversion-tutorial/conversion
+		//      https://book.kubebuilder.io/multiversion-tutorial/webhooks
+		setupWebhook("Securesign", rhtasv1.SetupSecuresignWebhookWithManager, mgr)
+		setupWebhook("Fulcio", rhtasv1.SetupFulcioWebhookWithManager, mgr)
+		setupWebhook("Trillian", rhtasv1.SetupTrillianWebhookWithManager, mgr)
+		setupWebhook("Rekor", rhtasv1.SetupRekorWebhookWithManager, mgr)
+		setupWebhook("Tuf", rhtasv1.SetupTufWebhookWithManager, mgr)
+		setupWebhook("CTlog", rhtasv1.SetupCTlogWebhookWithManager, mgr)
+		setupWebhook("TimestampAuthority", rhtasv1.SetupTimestampAuthorityWebhookWithManager, mgr)
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
@@ -285,6 +288,12 @@ func main() {
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
+	}
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err := mgr.AddReadyzCheck("webhook", webhookServer.StartedChecker()); err != nil {
+			setupLog.Error(err, "unable to set up webhook ready check")
+			os.Exit(1)
+		}
 	}
 
 	if err := mgr.Add(&clidownload.Component{

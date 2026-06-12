@@ -7,7 +7,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/labels"
@@ -53,8 +53,8 @@ func TestPrivateKeyPassword(t *testing.T) {
 	g := NewWithT(t)
 
 	instance := createInstance()
-	instance.Status.Certificate.PrivateKeyPasswordRef = &v1alpha1.SecretKeySelector{
-		LocalObjectReference: v1alpha1.LocalObjectReference{
+	instance.Status.Certificate.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{
+		LocalObjectReference: rhtasv1.LocalObjectReference{
 			Name: "secret",
 		},
 		Key: "key",
@@ -76,7 +76,7 @@ func TestTrustedCA(t *testing.T) {
 	g := NewWithT(t)
 
 	instance := createInstance()
-	instance.Spec.TrustedCA = &v1alpha1.LocalObjectReference{Name: "trusted"}
+	instance.Spec.TrustedCA = &rhtasv1.LocalObjectReference{Name: "trusted"}
 	labels := labels.For(componentName, deploymentName, instance.Name)
 	deployment, err := createDeployment(instance, labels)
 	g.Expect(err).ShouldNot(HaveOccurred())
@@ -127,12 +127,12 @@ func TestMissingPrivateKey(t *testing.T) {
 func TestCtlogConfig(t *testing.T) {
 	tests := []struct {
 		name   string
-		args   v1alpha1.CtlogService
+		args   rhtasv1.CtlogService
 		verify func(Gomega, *v13.Deployment, error)
 	}{
 		{
 			name: "missing address",
-			args: v1alpha1.CtlogService{
+			args: rhtasv1.CtlogService{
 				Port:   ptr.To(int32(1234)),
 				Prefix: "prefix",
 			},
@@ -144,7 +144,7 @@ func TestCtlogConfig(t *testing.T) {
 		},
 		{
 			name: "missing prefix",
-			args: v1alpha1.CtlogService{
+			args: rhtasv1.CtlogService{
 				Address: "http://address",
 				Port:    ptr.To(int32(1234)),
 			},
@@ -155,7 +155,7 @@ func TestCtlogConfig(t *testing.T) {
 		},
 		{
 			name: "valid",
-			args: v1alpha1.CtlogService{
+			args: rhtasv1.CtlogService{
 				Address: "http://address",
 				Port:    ptr.To(int32(1234)),
 				Prefix:  "prefix",
@@ -186,37 +186,37 @@ func findVolume(name string, volumes []v12.Volume) *v12.Volume {
 	return nil
 }
 
-func createInstance() *v1alpha1.Fulcio {
+func createInstance() *rhtasv1.Fulcio {
 	port := int32(80)
-	return &v1alpha1.Fulcio{
+	return &rhtasv1.Fulcio{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "name",
 			Namespace: "default",
 		},
-		Spec: v1alpha1.FulcioSpec{
-			Ctlog: v1alpha1.CtlogService{
+		Spec: rhtasv1.FulcioSpec{
+			Ctlog: rhtasv1.CtlogService{
 				Address: "http://ctlog.default.svc",
 				Port:    &port,
 				Prefix:  "prefix",
 			},
 		},
-		Status: v1alpha1.FulcioStatus{
-			ServerConfigRef: &v1alpha1.LocalObjectReference{Name: "config"},
-			Certificate: &v1alpha1.FulcioCert{
-				PrivateKeyRef: &v1alpha1.SecretKeySelector{
+		Status: rhtasv1.FulcioStatus{
+			ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "config"},
+			Certificate: &rhtasv1.FulcioCert{
+				PrivateKeyRef: &rhtasv1.SecretKeySelector{
 					Key:                  "private",
-					LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
+					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"},
 				},
-				CARef: &v1alpha1.SecretKeySelector{
+				CARef: &rhtasv1.SecretKeySelector{
 					Key:                  "cert",
-					LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
+					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"},
 				},
 			},
 		},
 	}
 }
 
-func createDeployment(instance *v1alpha1.Fulcio, labels map[string]string) (*v13.Deployment, error) {
+func createDeployment(instance *rhtasv1.Fulcio, labels map[string]string) (*v13.Deployment, error) {
 	testAction := deployAction{}
 	d := &v13.Deployment{
 		ObjectMeta: v1.ObjectMeta{
@@ -246,13 +246,13 @@ func TestResolveCTLUrl(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		ctl    v1alpha1.CtlogService
+		ctl    rhtasv1.CtlogService
 		tls    bool
 		assert func(g Gomega, url string, err error)
 	}{
 		{
 			name: "empty preffix",
-			ctl:  v1alpha1.CtlogService{Prefix: ""},
+			ctl:  rhtasv1.CtlogService{Prefix: ""},
 			assert: func(g Gomega, url string, err error) {
 				g.Expect(err).Should(HaveOccurred())
 				g.Expect(err).Should(MatchError(utils.ErrCtlogPrefixNotSpecified))
@@ -260,7 +260,7 @@ func TestResolveCTLUrl(t *testing.T) {
 		},
 		{
 			name: "address no port",
-			ctl:  v1alpha1.CtlogService{Prefix: "test", Address: "http://ctlog.default.svc", Port: nil},
+			ctl:  rhtasv1.CtlogService{Prefix: "test", Address: "http://ctlog.default.svc", Port: nil},
 			assert: func(g Gomega, url string, err error) {
 				g.Expect(err).ShouldNot(HaveOccurred())
 				g.Expect(url).Should(Equal("http://ctlog.default.svc/test"))
@@ -268,7 +268,7 @@ func TestResolveCTLUrl(t *testing.T) {
 		},
 		{
 			name: "address with port",
-			ctl:  v1alpha1.CtlogService{Prefix: "test", Address: "http://ctlog.default.svc", Port: ptr.To(int32(8080))},
+			ctl:  rhtasv1.CtlogService{Prefix: "test", Address: "http://ctlog.default.svc", Port: ptr.To(int32(8080))},
 			assert: func(g Gomega, url string, err error) {
 				g.Expect(err).ShouldNot(HaveOccurred())
 				g.Expect(url).Should(Equal("http://ctlog.default.svc:8080/test"))
@@ -276,7 +276,7 @@ func TestResolveCTLUrl(t *testing.T) {
 		},
 		{
 			name: "address with port",
-			ctl:  v1alpha1.CtlogService{Prefix: "test", Address: "http://ctlog.default.svc", Port: ptr.To(int32(8080))},
+			ctl:  rhtasv1.CtlogService{Prefix: "test", Address: "http://ctlog.default.svc", Port: ptr.To(int32(8080))},
 			assert: func(g Gomega, url string, err error) {
 				g.Expect(err).ShouldNot(HaveOccurred())
 				g.Expect(url).Should(Equal("http://ctlog.default.svc:8080/test"))
@@ -284,7 +284,7 @@ func TestResolveCTLUrl(t *testing.T) {
 		},
 		{
 			name: "autoresolve address no TLS",
-			ctl:  v1alpha1.CtlogService{Prefix: "test"},
+			ctl:  rhtasv1.CtlogService{Prefix: "test"},
 			tls:  false,
 			assert: func(g Gomega, url string, err error) {
 				g.Expect(err).ShouldNot(HaveOccurred())
@@ -293,7 +293,7 @@ func TestResolveCTLUrl(t *testing.T) {
 		},
 		{
 			name: "autoresolve address TLS",
-			ctl:  v1alpha1.CtlogService{Prefix: "test"},
+			ctl:  rhtasv1.CtlogService{Prefix: "test"},
 			tls:  true,
 			assert: func(g Gomega, url string, err error) {
 				g.Expect(err).ShouldNot(HaveOccurred())
@@ -307,7 +307,7 @@ func TestResolveCTLUrl(t *testing.T) {
 			instance := createInstance()
 			instance.Spec.Ctlog = tt.ctl
 			if tt.tls {
-				instance.Spec.TrustedCA = &v1alpha1.LocalObjectReference{}
+				instance.Spec.TrustedCA = &rhtasv1.LocalObjectReference{}
 			}
 			url, err := action.resolveCTlogUrl(instance)
 			tt.assert(g, url, err)

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	actions2 "github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/state"
@@ -14,7 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewTlsAction() action.Action[*rhtasv1alpha1.Rekor] {
+func NewTlsAction() action.Action[*rhtasv1.Rekor] {
 	return &tlsAction{}
 }
 
@@ -26,7 +26,7 @@ func (i tlsAction) Name() string {
 	return "resolve TLS"
 }
 
-func (i tlsAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
+func (i tlsAction) CanHandle(_ context.Context, instance *rhtasv1.Rekor) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, actions2.RedisCondition)
 
 	switch {
@@ -44,18 +44,18 @@ func (i tlsAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) b
 	}
 }
 
-func (i tlsAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
+func (i tlsAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
 	switch {
 	case specTLS(instance).CertRef != nil:
 		setStatusTLS(instance, specTLS(instance))
 	case kubernetes.IsOpenShift():
-		setStatusTLS(instance, rhtasv1alpha1.TLS{
-			CertRef: &rhtasv1alpha1.SecretKeySelector{
-				LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: fmt.Sprintf(actions2.RedisTlsSecret, instance.Name)},
+		setStatusTLS(instance, rhtasv1.TLS{
+			CertRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: fmt.Sprintf(actions2.RedisTlsSecret, instance.Name)},
 				Key:                  "tls.crt",
 			},
-			PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
-				LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: fmt.Sprintf(actions2.RedisTlsSecret, instance.Name)},
+			PrivateKeyRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: fmt.Sprintf(actions2.RedisTlsSecret, instance.Name)},
 				Key:                  "tls.key",
 			},
 		})

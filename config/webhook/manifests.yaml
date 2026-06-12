@@ -10,14 +10,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-rhtas-redhat-com-v1alpha1-ctlog
+      path: /mutate-rhtas-redhat-com-v1-ctlog
   failurePolicy: Fail
   name: mctlog.kb.io
   rules:
   - apiGroups:
     - rhtas.redhat.com
     apiVersions:
-    - v1alpha1
+    - v1
     operations:
     - CREATE
     - UPDATE
@@ -30,14 +30,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-rhtas-redhat-com-v1alpha1-fulcio
+      path: /mutate-rhtas-redhat-com-v1-fulcio
   failurePolicy: Fail
   name: mfulcio.kb.io
   rules:
   - apiGroups:
     - rhtas.redhat.com
     apiVersions:
-    - v1alpha1
+    - v1
     operations:
     - CREATE
     - UPDATE
@@ -50,14 +50,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-rhtas-redhat-com-v1alpha1-rekor
+      path: /mutate-rhtas-redhat-com-v1-rekor
   failurePolicy: Fail
   name: mrekor.kb.io
   rules:
   - apiGroups:
     - rhtas.redhat.com
     apiVersions:
-    - v1alpha1
+    - v1
     operations:
     - CREATE
     - UPDATE
@@ -70,14 +70,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-rhtas-redhat-com-v1alpha1-securesign
+      path: /mutate-rhtas-redhat-com-v1-securesign
   failurePolicy: Fail
   name: msecuresign.kb.io
   rules:
   - apiGroups:
     - rhtas.redhat.com
     apiVersions:
-    - v1alpha1
+    - v1
     operations:
     - CREATE
     - UPDATE
@@ -90,14 +90,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-rhtas-redhat-com-v1alpha1-timestampauthority
+      path: /mutate-rhtas-redhat-com-v1-timestampauthority
   failurePolicy: Fail
   name: mtimestampauthority.kb.io
   rules:
   - apiGroups:
     - rhtas.redhat.com
     apiVersions:
-    - v1alpha1
+    - v1
     operations:
     - CREATE
     - UPDATE
@@ -110,14 +110,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-rhtas-redhat-com-v1alpha1-trillian
+      path: /mutate-rhtas-redhat-com-v1-trillian
   failurePolicy: Fail
   name: mtrillian.kb.io
   rules:
   - apiGroups:
     - rhtas.redhat.com
     apiVersions:
-    - v1alpha1
+    - v1
     operations:
     - CREATE
     - UPDATE
@@ -130,14 +130,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-rhtas-redhat-com-v1alpha1-tuf
+      path: /mutate-rhtas-redhat-com-v1-tuf
   failurePolicy: Fail
   name: mtuf.kb.io
   rules:
   - apiGroups:
     - rhtas.redhat.com
     apiVersions:
-    - v1alpha1
+    - v1
     operations:
     - CREATE
     - UPDATE

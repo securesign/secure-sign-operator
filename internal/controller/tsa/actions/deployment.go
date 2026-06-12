@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
@@ -42,7 +42,7 @@ type deployAction struct {
 	action.BaseAction
 }
 
-func NewDeployAction() action.Action[*rhtasv1alpha1.TimestampAuthority] {
+func NewDeployAction() action.Action[*rhtasv1.TimestampAuthority] {
 	return &deployAction{}
 }
 
@@ -50,11 +50,11 @@ func (i deployAction) Name() string {
 	return "deploy"
 }
 
-func (i deployAction) CanHandle(ctx context.Context, instance *rhtasv1alpha1.TimestampAuthority) bool {
+func (i deployAction) CanHandle(ctx context.Context, instance *rhtasv1.TimestampAuthority) bool {
 	return state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
-func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.TimestampAuthority) *action.Result {
+func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.TimestampAuthority) *action.Result {
 	var (
 		result controllerutil.OperationResult
 		err    error
@@ -94,7 +94,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Timest
 	}
 }
 
-func (i deployAction) ensureDeployment(instance *rhtasv1alpha1.TimestampAuthority, sa string, labels map[string]string) func(*apps.Deployment) error {
+func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa string, labels map[string]string) func(*apps.Deployment) error {
 	return func(dp *apps.Deployment) error {
 
 		appArgs := []string{

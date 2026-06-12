@@ -28,7 +28,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/tsa/actions"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -56,8 +56,8 @@ var _ = Describe("Timestamp Authority hot update", func() {
 		}
 
 		typeNamespaceName := types.NamespacedName{Name: Name, Namespace: Namespace}
-		timestampAuthority := &rhtasv1alpha1.TimestampAuthority{}
-		found := &rhtasv1alpha1.TimestampAuthority{}
+		timestampAuthority := &rhtasv1.TimestampAuthority{}
+		found := &rhtasv1.TimestampAuthority{}
 
 		BeforeEach(func() {
 			By("Creating the Namespace to perform the tests")
@@ -87,35 +87,35 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			if err != nil && errors.IsNotFound(err) {
 				// Let's mock our custom resource at the same way that we would
 				// apply on the cluster the manifest under config/samples
-				tsa := &rhtasv1alpha1.TimestampAuthority{
+				tsa := &rhtasv1.TimestampAuthority{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      Name,
 						Namespace: Namespace,
 					},
-					Spec: rhtasv1alpha1.TimestampAuthoritySpec{
-						ExternalAccess: rhtasv1alpha1.ExternalAccess{
+					Spec: rhtasv1.TimestampAuthoritySpec{
+						ExternalAccess: rhtasv1.ExternalAccess{
 							Host:    "tsa.localhost",
 							Enabled: true,
 						},
-						Monitoring: rhtasv1alpha1.MonitoringConfig{Enabled: false},
-						Signer: rhtasv1alpha1.TimestampAuthoritySigner{
-							CertificateChain: rhtasv1alpha1.CertificateChain{
-								RootCA: &rhtasv1alpha1.TsaCertificateAuthority{
+						Monitoring: rhtasv1.MonitoringConfig{Enabled: false},
+						Signer: rhtasv1.TimestampAuthoritySigner{
+							CertificateChain: rhtasv1.CertificateChain{
+								RootCA: &rhtasv1.TsaCertificateAuthority{
 									OrganizationName: "Red Hat",
 								},
-								IntermediateCA: []*rhtasv1alpha1.TsaCertificateAuthority{
+								IntermediateCA: []*rhtasv1.TsaCertificateAuthority{
 									{
 										OrganizationName: "Red Hat",
 									},
 								},
-								LeafCA: &rhtasv1alpha1.TsaCertificateAuthority{
+								LeafCA: &rhtasv1.TsaCertificateAuthority{
 									OrganizationName: "Red Hat",
 								},
 							},
 						},
-						NTPMonitoring: rhtasv1alpha1.NTPMonitoring{
+						NTPMonitoring: rhtasv1.NTPMonitoring{
 							Enabled: true,
-							Config: &rhtasv1alpha1.NtpMonitoringConfig{
+							Config: &rhtasv1.NtpMonitoringConfig{
 								RequestAttempts: 3,
 								RequestTimeout:  5,
 								NumServers:      4,
@@ -155,24 +155,24 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			By("Cert and Key rotation")
 			Eventually(func(g Gomega) error {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				found.Spec.Signer.CertificateChain = rhtasv1alpha1.CertificateChain{
-					CertificateChainRef: &rhtasv1alpha1.SecretKeySelector{
-						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+				found.Spec.Signer.CertificateChain = rhtasv1.CertificateChain{
+					CertificateChainRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: "tsa-test-secret",
 						},
 						Key: "certificateChain",
 					},
 				}
 
-				found.Spec.Signer.File = &rhtasv1alpha1.File{
-					PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{
-						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+				found.Spec.Signer.File = &rhtasv1.File{
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: "tsa-test-secret",
 						},
 						Key: "leafPrivateKey",
 					},
-					PasswordRef: &rhtasv1alpha1.SecretKeySelector{
-						LocalObjectReference: rhtasv1alpha1.LocalObjectReference{
+					PasswordRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: "tsa-test-secret",
 						},
 						Key: "leafPrivateKeyPassword",
@@ -224,7 +224,7 @@ var _ = Describe("Timestamp Authority hot update", func() {
 
 			By("NTP Monitoring update")
 			By("NTP monitoring config should be created")
-			Eventually(func(g Gomega) *rhtasv1alpha1.LocalObjectReference {
+			Eventually(func(g Gomega) *rhtasv1.LocalObjectReference {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.NTPMonitoring.Config.NtpConfigRef
 			}).Should(Not(BeNil()))

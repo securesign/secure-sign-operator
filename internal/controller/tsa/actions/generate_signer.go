@@ -11,7 +11,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
@@ -36,7 +36,7 @@ type generateSigner struct {
 	action.BaseAction
 }
 
-func NewGenerateSignerAction() action.Action[*v1alpha1.TimestampAuthority] {
+func NewGenerateSignerAction() action.Action[*rhtasv1.TimestampAuthority] {
 	return &generateSigner{}
 }
 
@@ -44,7 +44,7 @@ func (g generateSigner) Name() string {
 	return "handle certificate chain"
 }
 
-func (g generateSigner) CanHandle(_ context.Context, instance *v1alpha1.TimestampAuthority) bool {
+func (g generateSigner) CanHandle(_ context.Context, instance *rhtasv1.TimestampAuthority) bool {
 	switch {
 	case state.FromInstance(instance, constants.ReadyCondition) < state.Pending:
 		return false
@@ -55,7 +55,7 @@ func (g generateSigner) CanHandle(_ context.Context, instance *v1alpha1.Timestam
 	}
 }
 
-func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.TimestampAuthority) *action.Result {
+func (g generateSigner) Handle(ctx context.Context, instance *rhtasv1.TimestampAuthority) *action.Result {
 	var (
 		err error
 	)
@@ -222,7 +222,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 	return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 }
 
-func (g generateSigner) handleSignerKeys(instance *v1alpha1.TimestampAuthority, config *tsaUtils.TsaCertChainConfig) (*tsaUtils.TsaCertChainConfig, error) {
+func (g generateSigner) handleSignerKeys(instance *rhtasv1.TimestampAuthority, config *tsaUtils.TsaCertChainConfig) (*tsaUtils.TsaCertChainConfig, error) {
 	if instance.Spec.Signer.File != nil {
 		if instance.Spec.Signer.File.PrivateKeyRef != nil {
 			key, err := kubernetes.GetSecretData(g.Client, instance.Namespace, instance.Spec.Signer.File.PrivateKeyRef)
@@ -346,7 +346,7 @@ func (g generateSigner) handleSignerKeys(instance *v1alpha1.TimestampAuthority, 
 	return config, nil
 }
 
-func (g generateSigner) handleCertificateChain(ctx context.Context, instance *v1alpha1.TimestampAuthority, config *tsaUtils.TsaCertChainConfig) (*tsaUtils.TsaCertChainConfig, error) {
+func (g generateSigner) handleCertificateChain(ctx context.Context, instance *rhtasv1.TimestampAuthority, config *tsaUtils.TsaCertChainConfig) (*tsaUtils.TsaCertChainConfig, error) {
 	if ref := instance.Spec.Signer.CertificateChain.CertificateChainRef; ref != nil {
 		certificateChain, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
 		if err != nil {
@@ -365,39 +365,39 @@ func (g generateSigner) handleCertificateChain(ctx context.Context, instance *v1
 	return config, nil
 }
 
-func (g generateSigner) alignStatusFields(secretName string, instance *v1alpha1.TimestampAuthority) {
+func (g generateSigner) alignStatusFields(secretName string, instance *rhtasv1.TimestampAuthority) {
 	if instance.Status.Signer == nil {
-		instance.Status.Signer = new(v1alpha1.TimestampAuthoritySigner)
+		instance.Status.Signer = new(rhtasv1.TimestampAuthoritySigner)
 	}
 	instance.Spec.Signer.DeepCopyInto(instance.Status.Signer)
 
 	// Default to File-based signer when no signer type (File/Tink/KMS) and no
 	// external cert chain are configured.
 	if instance.Spec.Signer.File == nil && instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
-		instance.Status.Signer.File = new(v1alpha1.File)
+		instance.Status.Signer.File = new(rhtasv1.File)
 	}
 
 	if instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
-		instance.Status.Signer.CertificateChain.CertificateChainRef = &v1alpha1.SecretKeySelector{
+		instance.Status.Signer.CertificateChain.CertificateChainRef = &rhtasv1.SecretKeySelector{
 			Key: tsaUtils.KeyCertificateChain,
-			LocalObjectReference: v1alpha1.LocalObjectReference{
+			LocalObjectReference: rhtasv1.LocalObjectReference{
 				Name: secretName,
 			},
 		}
 
 		if instance.Spec.Signer.File == nil || instance.Spec.Signer.File.PrivateKeyRef == nil {
-			instance.Status.Signer.File.PrivateKeyRef = &v1alpha1.SecretKeySelector{
+			instance.Status.Signer.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{
 				Key: tsaUtils.KeyLeafPrivateKey,
-				LocalObjectReference: v1alpha1.LocalObjectReference{
+				LocalObjectReference: rhtasv1.LocalObjectReference{
 					Name: secretName,
 				},
 			}
 		}
 
 		if instance.Spec.Signer.File == nil || instance.Spec.Signer.File.PasswordRef == nil {
-			instance.Status.Signer.File.PasswordRef = &v1alpha1.SecretKeySelector{
+			instance.Status.Signer.File.PasswordRef = &rhtasv1.SecretKeySelector{
 				Key: tsaUtils.KeyLeafPrivateKeyPassword,
-				LocalObjectReference: v1alpha1.LocalObjectReference{
+				LocalObjectReference: rhtasv1.LocalObjectReference{
 					Name: secretName,
 				},
 			}
@@ -405,7 +405,7 @@ func (g generateSigner) alignStatusFields(secretName string, instance *v1alpha1.
 	}
 }
 
-func (g generateSigner) secretAnnotations(signerConfig v1alpha1.TimestampAuthoritySigner) (map[string]string, error) {
+func (g generateSigner) secretAnnotations(signerConfig rhtasv1.TimestampAuthoritySigner) (map[string]string, error) {
 	annotations := make(map[string]string)
 	bytes, err := json.Marshal(signerConfig)
 	if err != nil {

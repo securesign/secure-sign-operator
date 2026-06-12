@@ -7,7 +7,7 @@ import (
 	"slices"
 	"time"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func NewInitJobAction() action.Action[*rhtasv1alpha1.Tuf] {
+func NewInitJobAction() action.Action[*rhtasv1.Tuf] {
 	return &initJobAction{}
 }
 
@@ -38,12 +38,12 @@ func (i initJobAction) Name() string {
 	return "tuf-init job"
 }
 
-func (i initJobAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Tuf) bool {
+func (i initJobAction) CanHandle(_ context.Context, instance *rhtasv1.Tuf) bool {
 	return !meta.IsStatusConditionTrue(instance.GetConditions(), tufConstants.RepositoryCondition) &&
 		state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
-func (i initJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
+func (i initJobAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *action.Result {
 	jobLabels := labels.ForResource(tufConstants.ComponentName, tufConstants.InitJobName, instance.Name, instance.Status.PvcName)
 	initJobList := &v2.JobList{}
 	selector := apilabels.SelectorFromSet(jobLabels)
@@ -61,7 +61,7 @@ func (i initJobAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) 
 	}
 }
 
-func (i initJobAction) jobPresent(ctx context.Context, job *v2.Job, instance *rhtasv1alpha1.Tuf) *action.Result {
+func (i initJobAction) jobPresent(ctx context.Context, job *v2.Job, instance *rhtasv1.Tuf) *action.Result {
 	i.Logger.Info("Tuf tuf-repository-init is present.", "Succeeded", job.Status.Succeeded, "Failures", job.Status.Failed)
 	if jobUtils.IsCompleted(*job) {
 		if !jobUtils.IsFailed(*job) {
@@ -73,7 +73,7 @@ func (i initJobAction) jobPresent(ctx context.Context, job *v2.Job, instance *rh
 			})
 			if job.Annotations[tufConstants.RepositoryVersionAnnotation] == tufConstants.TufVersionV1 {
 				// annotate self to signal that the tuf repository is already v1
-				if _, err := kubernetes.CreateOrUpdate(ctx, i.Client, instance.DeepCopy(), ensure.Annotations[*rhtasv1alpha1.Tuf]([]string{tufConstants.RepositoryVersionAnnotation}, map[string]string{tufConstants.RepositoryVersionAnnotation: tufConstants.TufVersionV1})); err != nil {
+				if _, err := kubernetes.CreateOrUpdate(ctx, i.Client, instance.DeepCopy(), ensure.Annotations[*rhtasv1.Tuf]([]string{tufConstants.RepositoryVersionAnnotation}, map[string]string{tufConstants.RepositoryVersionAnnotation: tufConstants.TufVersionV1})); err != nil {
 					return i.Error(ctx, err, instance)
 				}
 			}
@@ -102,7 +102,7 @@ func (i initJobAction) jobPresent(ctx context.Context, job *v2.Job, instance *rh
 	}
 }
 
-func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]string, instance *rhtasv1alpha1.Tuf) *action.Result {
+func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]string, instance *rhtasv1.Tuf) *action.Result {
 	if err := utils.ResolveServiceAddress(ctx, i.Client, instance); err != nil {
 		err = fmt.Errorf("fail to resolve service url: %w", err)
 		return i.Error(ctx, err, instance,

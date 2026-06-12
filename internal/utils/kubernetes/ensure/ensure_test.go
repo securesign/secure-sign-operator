@@ -12,7 +12,7 @@ import (
 	"github.com/onsi/gomega/gstruct"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -217,20 +217,20 @@ func Test_Ensure(t *testing.T) {
 			name: "not update: status",
 			env: env{
 				objects: []client.Object{
-					&rhtasv1alpha1.Securesign{
+					&rhtasv1.Securesign{
 						ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
-						Status: rhtasv1alpha1.SecuresignStatus{
-							RekorStatus: rhtasv1alpha1.SecuresignRekorStatus{
+						Status: rhtasv1.SecuresignStatus{
+							RekorStatus: rhtasv1.SecuresignRekorStatus{
 								Url: "old status",
 							},
 						},
 					},
 				},
 			},
-			object: &rhtasv1alpha1.Securesign{
+			object: &rhtasv1.Securesign{
 				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
-				Status: rhtasv1alpha1.SecuresignStatus{
-					RekorStatus: rhtasv1alpha1.SecuresignRekorStatus{
+				Status: rhtasv1.SecuresignStatus{
+					RekorStatus: rhtasv1.SecuresignRekorStatus{
 						Url: "new status",
 					},
 				},
@@ -242,7 +242,7 @@ func Test_Ensure(t *testing.T) {
 					Namespace: "default",
 					Name:      "test",
 				}
-				obj := &rhtasv1alpha1.Securesign{}
+				obj := &rhtasv1.Securesign{}
 				g.Expect(cli.Get(context.TODO(), nn, obj)).To(Succeed())
 				g.Expect(obj.Status.RekorStatus.Url).To(Equal("old status"))
 			},
@@ -362,7 +362,7 @@ func Test_Ensure(t *testing.T) {
 func fakeClientBuilder() *fake.ClientBuilder {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(rhtasv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(rhtasv1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(v1.AddToScheme(scheme))
 	utilruntime.Must(consolev1.AddToScheme(scheme))

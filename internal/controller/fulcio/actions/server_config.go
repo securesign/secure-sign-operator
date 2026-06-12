@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"slices"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
@@ -30,7 +30,7 @@ const (
 	serverConfigName    = "config.yaml"
 )
 
-func NewServerConfigAction() action.Action[*rhtasv1alpha1.Fulcio] {
+func NewServerConfigAction() action.Action[*rhtasv1.Fulcio] {
 	return &serverConfig{}
 }
 
@@ -43,19 +43,19 @@ func (i serverConfig) Name() string {
 }
 
 type FulcioMapConfig struct {
-	OIDCIssuers      map[string]rhtasv1alpha1.OIDCIssuer       `yaml:"oidc-issuers"`
-	MetaIssuers      map[string]rhtasv1alpha1.OIDCIssuer       `yaml:"meta-issuers"`
-	CIIssuerMetadata map[string]rhtasv1alpha1.CIIssuerMetadata `yaml:"ci-issuer-metadata"`
+	OIDCIssuers      map[string]rhtasv1.OIDCIssuer       `yaml:"oidc-issuers"`
+	MetaIssuers      map[string]rhtasv1.OIDCIssuer       `yaml:"meta-issuers"`
+	CIIssuerMetadata map[string]rhtasv1.CIIssuerMetadata `yaml:"ci-issuer-metadata"`
 }
 
-func (i serverConfig) CanHandle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) bool {
+func (i serverConfig) CanHandle(ctx context.Context, instance *rhtasv1.Fulcio) bool {
 	return state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
-func ConvertToFulcioMapConfig(fulcioConfig rhtasv1alpha1.FulcioConfig) *FulcioMapConfig {
-	OIDCIssuers := make(map[string]rhtasv1alpha1.OIDCIssuer)
-	MetaIssuers := make(map[string]rhtasv1alpha1.OIDCIssuer)
-	CIIssuerMetadata := make(map[string]rhtasv1alpha1.CIIssuerMetadata)
+func ConvertToFulcioMapConfig(fulcioConfig rhtasv1.FulcioConfig) *FulcioMapConfig {
+	OIDCIssuers := make(map[string]rhtasv1.OIDCIssuer)
+	MetaIssuers := make(map[string]rhtasv1.OIDCIssuer)
+	CIIssuerMetadata := make(map[string]rhtasv1.CIIssuerMetadata)
 
 	for _, issuer := range fulcioConfig.OIDCIssuers {
 		OIDCIssuers[issuer.Issuer] = issuer
@@ -77,7 +77,7 @@ func ConvertToFulcioMapConfig(fulcioConfig rhtasv1alpha1.FulcioConfig) *FulcioMa
 	return fulcioMapConfig
 }
 
-func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio) *action.Result {
+func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *action.Result {
 	var (
 		err error
 	)
@@ -132,7 +132,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	}
 
 	i.Recorder.Eventf(instance, newConfig, v1.EventTypeNormal, "FulcioConfigUpdated", "Updated", "Fulcio config updated: %s", newConfig.Name)
-	instance.Status.ServerConfigRef = &rhtasv1alpha1.LocalObjectReference{Name: newConfig.Name}
+	instance.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: newConfig.Name}
 
 	meta.SetStatusCondition(&instance.Status.Conditions,
 		metav1.Condition{
@@ -154,7 +154,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1alpha1.Fulcio
 	return i.Continue()
 }
 
-func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1alpha1.Fulcio, configLabels map[string]string) {
+func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1.Fulcio, configLabels map[string]string) {
 	if instance.Status.ServerConfigRef == nil || instance.Status.ServerConfigRef.Name == "" {
 		i.Logger.Error(errors.New("new ConfigMap name is empty"), "unable to clean old objects", "namespace", instance.Namespace)
 		return

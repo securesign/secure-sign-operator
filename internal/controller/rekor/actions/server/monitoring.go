@@ -6,7 +6,7 @@ import (
 	"maps"
 	"slices"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
@@ -18,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func NewCreateMonitorAction() action.Action[*rhtasv1alpha1.Rekor] {
+func NewCreateMonitorAction() action.Action[*rhtasv1.Rekor] {
 	return &monitoringAction{}
 }
 
@@ -30,11 +30,11 @@ func (i monitoringAction) Name() string {
 	return "create monitoring"
 }
 
-func (i monitoringAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Rekor) bool {
+func (i monitoringAction) CanHandle(_ context.Context, instance *rhtasv1.Rekor) bool {
 	return instance.Spec.Monitoring.Enabled && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
-func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Rekor) *action.Result {
+func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
 	var (
 		err error
 	)

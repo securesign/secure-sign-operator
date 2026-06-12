@@ -1,5 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+
 resources:
 - ../bases
 - ../../overlays/openshift
@@ -8,6 +9,36 @@ resources:
 
 components:
 - ../patches
+
+# OLM manages webhook TLS certificates (CA generation, cert injection into CRDs
+# and webhook configs, volume mounts). The OpenShift overlay adds service-ca
+# annotations for non-OLM kustomize deploys; strip them here so OLM and
+# service-ca don't fight over the same caBundle fields.
+patches:
+# Remove service-ca inject-cabundle from CRDs — OLM injects its own CA.
+- target:
+    kind: CustomResourceDefinition
+  patch: |
+    - op: remove
+      path: /metadata/annotations/service.beta.openshift.io~1inject-cabundle
+# Remove service-ca inject-cabundle from MutatingWebhookConfiguration.
+- target:
+    kind: MutatingWebhookConfiguration
+  patch: |
+    - op: remove
+      path: /metadata/annotations/service.beta.openshift.io~1inject-cabundle
+# Remove service-ca serving-cert-secret-name from the webhook Service.
+- target:
+    kind: Service
+    name: rhtas-webhook-service
+  patch: |
+    - op: remove
+      path: /metadata/annotations/service.beta.openshift.io~1serving-cert-secret-name
+# Remove the pre-existing webhook cert volume/mount — OLM adds its own.
+- target:
+    kind: Deployment
+    name: operator-controller-manager
+  path: remove_webhook_cert_volume.yaml
 
 replacements:
   - source:

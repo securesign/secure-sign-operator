@@ -9,7 +9,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/constants"
 	ctlogActions "github.com/securesign/operator/internal/controller/ctlog/actions"
 	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
@@ -30,8 +30,8 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 	cli, _ := support.CreateClient()
 
 	var namespace *v1.Namespace
-	var trillianCR *v1alpha1.Trillian
-	var ctlogCR *v1alpha1.CTlog
+	var trillianCR *rhtasv1.Trillian
+	var ctlogCR *rhtasv1.CTlog
 	var originalSecretName string
 	var correctTrillianAddr string
 
@@ -40,13 +40,13 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 	}))
 
 	BeforeAll(func(ctx SpecContext) {
-		trillianCR = &v1alpha1.Trillian{
+		trillianCR = &rhtasv1.Trillian{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-trillian",
 				Namespace: namespace.Name,
 			},
-			Spec: v1alpha1.TrillianSpec{
-				Db: v1alpha1.TrillianDB{Create: ptr.To(true)},
+			Spec: rhtasv1.TrillianSpec{
+				Db: rhtasv1.TrillianDB{Create: ptr.To(true)},
 			},
 		}
 		Expect(cli.Create(ctx, trillianCR)).To(Succeed())
@@ -77,31 +77,31 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 		correctTrillianAddr = fmt.Sprintf("trillian-logserver.%s.svc.cluster.local:8091", namespace.Name)
 
 		By("Creating CTLog instance")
-		ctlogCR = &v1alpha1.CTlog{
+		ctlogCR = &rhtasv1.CTlog{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test",
 				Namespace: namespace.Name,
 			},
-			Spec: v1alpha1.CTlogSpec{
-				Trillian: v1alpha1.TrillianService{
+			Spec: rhtasv1.CTlogSpec{
+				Trillian: rhtasv1.TrillianService{
 					Address: fmt.Sprintf("trillian-logserver.%s.svc.cluster.local", namespace.Name),
 					Port:    ptr.To(int32(8091)),
 				},
-				PrivateKeyRef: &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
+				PrivateKeyRef: &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: "test-ctlog-keys",
 					},
 					Key: "private",
 				},
-				PublicKeyRef: &v1alpha1.SecretKeySelector{
-					LocalObjectReference: v1alpha1.LocalObjectReference{
+				PublicKeyRef: &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: "test-ctlog-keys",
 					},
 					Key: "public",
 				},
-				RootCertificates: []v1alpha1.SecretKeySelector{
+				RootCertificates: []rhtasv1.SecretKeySelector{
 					{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: "test-root-cert",
 						},
 						Key: "cert",

@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	testenvhelper "github.com/securesign/operator/internal/testing/envtest"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,7 +34,7 @@ func TestMain(m *testing.M) {
 		BinaryAssetsDirectory: testenvhelper.FindBinaryAssetsDir(),
 	}
 
-	if err := v1alpha1.AddToScheme(scheme.Scheme); err != nil {
+	if err := rhtasv1.AddToScheme(scheme.Scheme); err != nil {
 		panic(err)
 	}
 
@@ -64,8 +64,8 @@ func newBaseAction() *BaseAction {
 	}
 }
 
-func newTufInstance(name string) *v1alpha1.Tuf {
-	return &v1alpha1.Tuf{
+func newTufInstance(name string) *rhtasv1.Tuf {
+	return &rhtasv1.Tuf{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
@@ -94,7 +94,7 @@ func TestPersistStatus(t *testing.T) {
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 		g.Expect(changed).To(gomega.BeTrue())
 
-		updated := &v1alpha1.Tuf{}
+		updated := &rhtasv1.Tuf{}
 		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(instance), updated)).To(gomega.Succeed())
 		cond := meta.FindStatusCondition(updated.Status.Conditions, "Ready")
 		g.Expect(cond).ToNot(gomega.BeNil())
@@ -131,7 +131,7 @@ func TestPersistStatus(t *testing.T) {
 		g.Expect(changed).To(gomega.BeFalse())
 
 		// resourceVersion should NOT have changed — no API call was made
-		after := &v1alpha1.Tuf{}
+		after := &rhtasv1.Tuf{}
 		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(instance), after)).To(gomega.Succeed())
 		g.Expect(after.ResourceVersion).To(gomega.Equal(rvBefore))
 	})
@@ -177,7 +177,7 @@ func TestPersistStatus(t *testing.T) {
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 		g.Expect(changed).To(gomega.BeTrue())
 
-		updated := &v1alpha1.Tuf{}
+		updated := &rhtasv1.Tuf{}
 		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(instance), updated)).To(gomega.Succeed())
 		g.Expect(meta.IsStatusConditionTrue(updated.Status.Conditions, "Ready")).To(gomega.BeTrue())
 	})

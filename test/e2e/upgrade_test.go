@@ -9,7 +9,9 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/onsi/ginkgo/v2/dsl/core"
-	tasv1alpha "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/constants"
 	ctl "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcioAction "github.com/securesign/operator/internal/controller/fulcio/actions"
 	rekorAction "github.com/securesign/operator/internal/controller/rekor/actions"
@@ -25,6 +27,7 @@ import (
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	v13 "k8s.io/api/apps/v1"
 	rbacV1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -33,6 +36,7 @@ import (
 	cosignSupport "github.com/securesign/operator/test/e2e/support/tas/cosign"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	runtimeCli "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -44,7 +48,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		namespace                              *v1.Namespace
 		baseCatalogImage, targetedCatalogImage string
 		baseVersion                            string
-		securesignDeployment                   *tasv1alpha.Securesign
+		securesignDeployment                   *v1alpha1.Securesign
 		prevImageName, newImageName            string
 		err                                    error
 		extension                              olm.Extension
@@ -128,39 +132,112 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 
 	It("Verify CRD REST endpoints", func(ctx SpecContext) {
 		gomega.Eventually(func(g gomega.Gomega) {
-			tas.VerifyCRDRESTEndpoints(ctx, cli)
+			tas.VerifyCRDRESTEndpointsForVersion(ctx, cli, v1alpha1.GroupVersion)
 		}).Should(gomega.Succeed())
 	})
 
 	It("Install securesign", func(ctx SpecContext) {
-		securesignDeployment = securesign.Create(namespace.Name, "test",
-			securesign.WithDefaults(),
-			securesign.WithSearchUI(),
-			securesign.WithMonitoring(),
-			func(v *tasv1alpha.Securesign) {
-				v.Spec.Trillian.Db.Pvc.Retain = nil
+		metricsAnnotation := "false"
+		if testSupportKubernetes.IsRemoteClusterOpenshift() {
+			metricsAnnotation = "true"
+		}
+		securesignDeployment = &v1alpha1.Securesign{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: namespace.Name,
+				Annotations: map[string]string{
+					"rhtas.redhat.com/metrics": metricsAnnotation,
+				},
 			},
-			func(v *tasv1alpha.Securesign) {
-				if v.Annotations == nil {
-					v.Annotations = map[string]string{}
-				}
-
-				if testSupportKubernetes.IsRemoteClusterOpenshift() {
-					v.Annotations["rhtas.redhat.com/metrics"] = "true"
-				} else {
-					v.Annotations["rhtas.redhat.com/metrics"] = "false"
-				}
+			Spec: v1alpha1.SecuresignSpec{
+				Trillian: v1alpha1.TrillianSpec{
+					Db: v1alpha1.TrillianDB{
+						Create: ptr.To(true),
+					},
+				},
+				Fulcio: v1alpha1.FulcioSpec{
+					ExternalAccess: v1alpha1.ExternalAccess{Enabled: true},
+					Certificate: v1alpha1.FulcioCert{
+						OrganizationName:  "MyOrg",
+						OrganizationEmail: "my@email.org",
+						CommonName:        "fulcio",
+					},
+					Config: v1alpha1.FulcioConfig{
+						OIDCIssuers: []v1alpha1.OIDCIssuer{
+							{
+								ClientID:  support.OidcClientID(),
+								IssuerURL: support.OidcIssuerUrl(),
+								Issuer:    support.OidcIssuerUrl(),
+								Type:      "email",
+							},
+						},
+					},
+					Monitoring: v1alpha1.MonitoringConfig{Enabled: true},
+				},
+				Rekor: v1alpha1.RekorSpec{
+					ExternalAccess: v1alpha1.ExternalAccess{Enabled: true},
+					RekorSearchUI:  v1alpha1.RekorSearchUI{Enabled: ptr.To(true)},
+					Monitoring:     v1alpha1.MonitoringWithTLogConfig{MonitoringConfig: v1alpha1.MonitoringConfig{Enabled: true}},
+				},
+				Tuf: v1alpha1.TufSpec{
+					ExternalAccess: v1alpha1.ExternalAccess{Enabled: true},
+				},
+				Ctlog: v1alpha1.CTlogSpec{
+					Monitoring: v1alpha1.MonitoringWithTLogConfig{MonitoringConfig: v1alpha1.MonitoringConfig{Enabled: true}},
+				},
+				TimestampAuthority: &v1alpha1.TimestampAuthoritySpec{
+					ExternalAccess: v1alpha1.ExternalAccess{Enabled: true},
+					Signer: v1alpha1.TimestampAuthoritySigner{
+						CertificateChain: v1alpha1.CertificateChain{
+							RootCA: &v1alpha1.TsaCertificateAuthority{
+								OrganizationName:  "MyOrg",
+								OrganizationEmail: "my@email.org",
+								CommonName:        "tsa.hostname",
+							},
+							IntermediateCA: []*v1alpha1.TsaCertificateAuthority{
+								{
+									OrganizationName:  "MyOrg",
+									OrganizationEmail: "my@email.org",
+									CommonName:        "tsa.hostname",
+								},
+							},
+							LeafCA: &v1alpha1.TsaCertificateAuthority{
+								OrganizationName:  "MyOrg",
+								OrganizationEmail: "my@email.org",
+								CommonName:        "tsa.hostname",
+							},
+						},
+					},
+					NTPMonitoring: v1alpha1.NTPMonitoring{
+						Enabled: true,
+						Config: &v1alpha1.NtpMonitoringConfig{
+							RequestAttempts: 3,
+							RequestTimeout:  5,
+							NumServers:      4,
+							ServerThreshold: 3,
+							MaxTimeDelta:    6,
+							Period:          60,
+							Servers:         []string{"time.apple.com", "time.google.com", "time-a-b.nist.gov", "time-b-b.nist.gov", "gbg1.ntp.se"},
+						},
+					},
+					Monitoring: v1alpha1.MonitoringConfig{Enabled: true},
+				},
 			},
-		)
+		}
+		securesignDeployment.Spec.Trillian.Monitoring.Enabled = true
 		gomega.Expect(cli.Create(ctx, securesignDeployment)).To(gomega.Succeed())
 
-		tas.VerifyAllComponents(ctx, cli, securesignDeployment, true)
+		// Before upgrade, only v1alpha1 CRDs are available — verify using v1alpha1 types
+		gomega.Eventually(func(g gomega.Gomega) bool {
+			g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(securesignDeployment), securesignDeployment)).To(gomega.Succeed())
+			return meta.IsStatusConditionTrue(securesignDeployment.GetConditions(), constants.ReadyCondition)
+		}).Should(gomega.BeTrue())
 
 	})
 
 	It("Initialize cosign cli", func(ctx SpecContext) {
-		s := securesign.Get(ctx, cli, namespace.Name, securesignDeployment.Name)
-		cosign = cosignSupport.NewLocalCosign(s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
+		gomega.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(securesignDeployment), securesignDeployment)).To(gomega.Succeed())
+		cosign = cosignSupport.NewLocalCosign(securesignDeployment.Status.TufStatus.Url, securesignDeployment.Status.FulcioStatus.Url, securesignDeployment.Status.RekorStatus.Url, securesignDeployment.Status.TSAStatus.Url)
 	})
 
 	It("Sign image with cosign cli", func(ctx SpecContext) {
@@ -222,7 +299,14 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 			}).Should(gomega.Equal(v), fmt.Sprintf("Expected %s deployment image to be equal to %s", k, v))
 		}
 
-		tas.VerifyAllComponents(ctx, cli, securesignDeployment, true)
+		tas.VerifyCRDRESTEndpointsForVersion(ctx, cli, rhtasv1.GroupVersion)
+
+		var v1Securesign *rhtasv1.Securesign
+		gomega.Eventually(func() *rhtasv1.Securesign {
+			v1Securesign = securesign.Get(ctx, cli, namespace.Name, securesignDeployment.Name)
+			return v1Securesign
+		}).Should(gomega.Not(gomega.BeNil()))
+		tas.VerifyAllComponents(ctx, cli, v1Securesign, true)
 	})
 
 	It("Enforce PSA restricted:latest after upgrade", func(ctx SpecContext) {

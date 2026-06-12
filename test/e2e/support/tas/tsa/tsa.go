@@ -15,7 +15,7 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/test/e2e/support"
@@ -42,8 +42,8 @@ func Verify(ctx context.Context, cli client.Client, namespace string, name strin
 		Should(BeTrue())
 }
 
-func Get(ctx context.Context, cli client.Client, ns string, name string) *v1alpha1.TimestampAuthority {
-	instance := &v1alpha1.TimestampAuthority{}
+func Get(ctx context.Context, cli client.Client, ns string, name string) *rhtasv1.TimestampAuthority {
+	instance := &rhtasv1.TimestampAuthority{}
 	if e := cli.Get(ctx, types.NamespacedName{
 		Namespace: ns,
 		Name:      name,

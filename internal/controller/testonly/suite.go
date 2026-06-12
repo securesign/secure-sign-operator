@@ -22,7 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller"
 	testenvhelper "github.com/securesign/operator/internal/testing/envtest"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -72,7 +72,7 @@ func (t *controllerSuite) BeforeSuite() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.cfg).NotTo(BeNil())
 
-	err = rhtasv1alpha1.AddToScheme(scheme.Scheme)
+	err = rhtasv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme

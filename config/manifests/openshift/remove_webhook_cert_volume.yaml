@@ -1,0 +1,13 @@
+# Remove the webhook-server-cert volume and its mount from the Deployment.
+# OLM manages webhook certs and adds its own volume mount; leaving the
+# pre-existing mount causes conflicts (two CAs, two secrets, x509 errors).
+- op: test
+  path: /spec/template/spec/volumes/0/name
+  value: cert
+- op: remove
+  path: /spec/template/spec/volumes/0
+- op: test
+  path: /spec/template/spec/containers/0/volumeMounts/0/name
+  value: cert
+- op: remove
+  path: /spec/template/spec/containers/0/volumeMounts/0

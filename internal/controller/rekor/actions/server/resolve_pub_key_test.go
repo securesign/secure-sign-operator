@@ -21,7 +21,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -34,13 +34,13 @@ func TestResolvePubKey_CanHandle(t *testing.T) {
 		name      string
 		status    metav1.ConditionStatus
 		canHandle bool
-		ref       *v1alpha1.SecretKeySelector
+		ref       *rhtasv1.SecretKeySelector
 	}{
 		{
 			name:      "ref set",
 			status:    metav1.ConditionFalse,
 			canHandle: false,
-			ref:       &v1alpha1.SecretKeySelector{},
+			ref:       &rhtasv1.SecretKeySelector{},
 		},
 		{
 			name:      "no server condition",
@@ -65,8 +65,8 @@ func TestResolvePubKey_CanHandle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			a := NewResolvePubKeyAction()
-			instance := v1alpha1.Rekor{
-				Status: v1alpha1.RekorStatus{
+			instance := rhtasv1.Rekor{
+				Status: rhtasv1.RekorStatus{
 					PublicKeyRef: tt.ref,
 				},
 			}
@@ -212,12 +212,12 @@ func TestResolvePubKey_Handle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.TODO()
-			instance := &v1alpha1.Rekor{
+			instance := &rhtasv1.Rekor{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "rekor",
 					Namespace: "default",
 				},
-				Status: v1alpha1.RekorStatus{
+				Status: rhtasv1.RekorStatus{
 					TreeID:       ptr.To(int64(123456789)),
 					PublicKeyRef: nil,
 					Conditions: []metav1.Condition{

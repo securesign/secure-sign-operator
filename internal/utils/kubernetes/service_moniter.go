@@ -1,7 +1,7 @@
 package kubernetes
 
 import (
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -20,7 +20,7 @@ func (t serviceMonitorEndpoint) toMap() map[string]interface{} {
 	return t
 }
 
-func ServiceMonitorHttpsEndpoint(port, serverName string, ca *v1alpha1.SecretKeySelector) serviceMonitorEndpoint {
+func ServiceMonitorHttpsEndpoint(port, serverName string, ca *rhtasv1.SecretKeySelector) serviceMonitorEndpoint {
 	result := map[string]interface{}{
 		"interval": "30s",
 		"port":     port,

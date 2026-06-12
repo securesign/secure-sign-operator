@@ -3,7 +3,7 @@ package actions
 import (
 	"context"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
@@ -15,7 +15,7 @@ var conditions = []string{
 	constants.ReadyCondition, TrillianCondition, FulcioCondition, RekorCondition, CTlogCondition, TufCondition, TSACondition, MetricsCondition,
 }
 
-func NewInitializeStatusAction() action.Action[*rhtasv1alpha1.Securesign] {
+func NewInitializeStatusAction() action.Action[*rhtasv1.Securesign] {
 	return &initializeStatus{}
 }
 
@@ -27,7 +27,7 @@ func (i initializeStatus) Name() string {
 	return "initialize status"
 }
 
-func (i initializeStatus) CanHandle(_ context.Context, instance *rhtasv1alpha1.Securesign) bool {
+func (i initializeStatus) CanHandle(_ context.Context, instance *rhtasv1.Securesign) bool {
 	for _, condition := range conditions {
 		if c := meta.FindStatusCondition(instance.Status.Conditions, condition); c == nil {
 			return true
@@ -36,7 +36,7 @@ func (i initializeStatus) CanHandle(_ context.Context, instance *rhtasv1alpha1.S
 	return false
 }
 
-func (i initializeStatus) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
+func (i initializeStatus) Handle(ctx context.Context, instance *rhtasv1.Securesign) *action.Result {
 	for _, conditionType := range conditions {
 		if c := meta.FindStatusCondition(instance.Status.Conditions, conditionType); c == nil {
 			meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{

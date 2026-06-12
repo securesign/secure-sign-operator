@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/utils"
@@ -19,11 +19,11 @@ import (
 
 const initContainerName = "wait-for-trillian-db"
 
-func EnsureDB(instance *v1alpha1.Trillian, containerName, caPath string) []func(*apps.Deployment) error {
+func EnsureDB(instance *rhtasv1.Trillian, containerName, caPath string) []func(*apps.Deployment) error {
 	return append(ensureDbAuth(instance, containerName), ensureDbParams(instance, containerName, UseTLSDb(instance), caPath))
 }
 
-func ensureDbAuth(instance *v1alpha1.Trillian, containerName string) []func(dp *apps.Deployment) error {
+func ensureDbAuth(instance *rhtasv1.Trillian, containerName string) []func(dp *apps.Deployment) error {
 	return []func(dp *apps.Deployment) error{
 		// ensure user auth
 		func(deploy *apps.Deployment) error {
@@ -42,8 +42,8 @@ func ensureDbAuth(instance *v1alpha1.Trillian, containerName string) []func(dp *
 	}
 }
 
-func dbSecretToAuth(databaseSecretRef *v1alpha1.LocalObjectReference) *v1alpha1.Auth {
-	auth := v1alpha1.Auth{}
+func dbSecretToAuth(databaseSecretRef *rhtasv1.LocalObjectReference) *rhtasv1.Auth {
+	auth := rhtasv1.Auth{}
 	keys := []string{actions.SecretUser, actions.SecretPassword, actions.SecretHost, actions.SecretPort, actions.SecretDatabaseName}
 
 	for _, v := range keys {
@@ -65,7 +65,7 @@ func dbSecretToAuth(databaseSecretRef *v1alpha1.LocalObjectReference) *v1alpha1.
 	return &auth
 }
 
-func ensureDbParams(instance *v1alpha1.Trillian, containerName string, useTls bool, caPath string) func(dp *apps.Deployment) error {
+func ensureDbParams(instance *rhtasv1.Trillian, containerName string, useTls bool, caPath string) func(dp *apps.Deployment) error {
 	return func(dp *apps.Deployment) error {
 		container := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, containerName)
 		switch instance.Spec.Db.Provider {

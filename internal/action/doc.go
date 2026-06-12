@@ -72,13 +72,13 @@
 //
 //	func (a myAction) Name() string { return "my-action" }
 //
-//	func (a myAction) CanHandle(_ context.Context, instance *v1alpha1.MyResource) bool {
+//	func (a myAction) CanHandle(_ context.Context, instance *rhtasv1.MyResource) bool {
 //	    // Gate on the state this action should handle.
 //	    // This prevents re-entry when the status has already been set.
 //	    return meta.IsStatusConditionFalse(instance.Status.Conditions, "Ready")
 //	}
 //
-//	func (a myAction) Handle(ctx context.Context, instance *v1alpha1.MyResource) *action.Result {
+//	func (a myAction) Handle(ctx context.Context, instance *rhtasv1.MyResource) *action.Result {
 //	    // Do work ...
 //	    meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 //	        Type:   "Ready",
@@ -155,10 +155,10 @@
 //	// BAD: CanHandle always returns true, Handle always sets the same condition,
 //	// PersistStatus is a no-op, Return() stops the chain — but the watch event
 //	// from a previous write may re-enter, creating a tight loop.
-//	func (a myAction) CanHandle(_ context.Context, _ *v1alpha1.X) bool { return true }
+//	func (a myAction) CanHandle(_ context.Context, _ *rhtasv1.X) bool { return true }
 //
 //	// GOOD: gate on the state that this action transitions FROM
-//	func (a myAction) CanHandle(_ context.Context, i *v1alpha1.X) bool {
+//	func (a myAction) CanHandle(_ context.Context, i *rhtasv1.X) bool {
 //	    return meta.IsStatusConditionFalse(i.Status.Conditions, "Ready")
 //	}
 package action

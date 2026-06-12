@@ -6,7 +6,7 @@ import (
 	"maps"
 	"slices"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
@@ -20,7 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func NewFulcioAction() action.Action[*rhtasv1alpha1.Securesign] {
+func NewFulcioAction() action.Action[*rhtasv1.Securesign] {
 	return &fulcioAction{}
 }
 
@@ -32,16 +32,16 @@ func (i fulcioAction) Name() string {
 	return "create fulcio"
 }
 
-func (i fulcioAction) CanHandle(context.Context, *rhtasv1alpha1.Securesign) bool {
+func (i fulcioAction) CanHandle(context.Context, *rhtasv1.Securesign) bool {
 	return true
 }
 
-func (i fulcioAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
+func (i fulcioAction) Handle(ctx context.Context, instance *rhtasv1.Securesign) *action.Result {
 	var (
 		err    error
 		result controllerutil.OperationResult
 		l      = labels.For(actions.ComponentName, instance.Name, instance.Name)
-		fulcio = &rhtasv1alpha1.Fulcio{
+		fulcio = &rhtasv1.Fulcio{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      instance.Name,
 				Namespace: instance.Namespace,
@@ -51,10 +51,10 @@ func (i fulcioAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secure
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		fulcio,
-		ensure.ControllerReference[*rhtasv1alpha1.Fulcio](instance, i.Client),
-		ensure.Labels[*rhtasv1alpha1.Fulcio](slices.Collect(maps.Keys(l)), l),
-		ensure.Annotations[*rhtasv1alpha1.Fulcio](annotations.InheritableAnnotations, instance.Annotations),
-		func(object *rhtasv1alpha1.Fulcio) error {
+		ensure.ControllerReference[*rhtasv1.Fulcio](instance, i.Client),
+		ensure.Labels[*rhtasv1.Fulcio](slices.Collect(maps.Keys(l)), l),
+		ensure.Annotations[*rhtasv1.Fulcio](annotations.InheritableAnnotations, instance.Annotations),
+		func(object *rhtasv1.Fulcio) error {
 			object.Spec = instance.Spec.Fulcio
 			return nil
 		},
@@ -81,7 +81,7 @@ func (i fulcioAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Secure
 	return i.CopyStatus(ctx, fulcio, instance)
 }
 
-func (i fulcioAction) CopyStatus(ctx context.Context, object *rhtasv1alpha1.Fulcio, instance *rhtasv1alpha1.Securesign) *action.Result {
+func (i fulcioAction) CopyStatus(ctx context.Context, object *rhtasv1.Fulcio, instance *rhtasv1.Securesign) *action.Result {
 	objectStatus := meta.FindStatusCondition(object.Status.Conditions, constants.ReadyCondition)
 	if objectStatus == nil {
 		// not initialized yet, wait for update

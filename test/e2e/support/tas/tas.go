@@ -9,7 +9,7 @@ import (
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
 	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
 	"github.com/securesign/operator/test/e2e/support/tas/rekor"
@@ -31,7 +31,7 @@ var (
 		"Tuf",
 		"TimestampAuthority",
 	}
-	gv = rhtasv1alpha1.GroupVersion
+	gv = rhtasv1.GroupVersion
 )
 
 func waitForCRD(cli runtimeCli.Client, gv schema.GroupVersion, kind string) {
@@ -50,12 +50,16 @@ func waitForCRD(cli runtimeCli.Client, gv schema.GroupVersion, kind string) {
 }
 
 func VerifyCRDRESTEndpoints(ctx context.Context, cli runtimeCli.Client) {
+	VerifyCRDRESTEndpointsForVersion(ctx, cli, gv)
+}
+
+func VerifyCRDRESTEndpointsForVersion(ctx context.Context, cli runtimeCli.Client, version schema.GroupVersion) {
 	for _, kind := range kinds {
-		waitForCRD(cli, gv, kind)
+		waitForCRD(cli, version, kind)
 	}
 }
 
-func VerifyAllComponents(ctx context.Context, cli runtimeCli.Client, s *rhtasv1alpha1.Securesign, dbPresent bool) {
+func VerifyAllComponents(ctx context.Context, cli runtimeCli.Client, s *rhtasv1.Securesign, dbPresent bool) {
 	trillian.Verify(ctx, cli, s.Namespace, s.Name, dbPresent)
 	fulcio.Verify(ctx, cli, s.Namespace, s.Name)
 	tsa.Verify(ctx, cli, s.Namespace, s.Name)
@@ -97,13 +101,13 @@ func VerifyWebhook(ctx context.Context, cli runtimeCli.Client) {
 				return all
 			},
 			ContainElements(
-				withPathAndCABundle("/mutate-rhtas-redhat-com-v1alpha1-ctlog"),
-				withPathAndCABundle("/mutate-rhtas-redhat-com-v1alpha1-fulcio"),
-				withPathAndCABundle("/mutate-rhtas-redhat-com-v1alpha1-rekor"),
-				withPathAndCABundle("/mutate-rhtas-redhat-com-v1alpha1-securesign"),
-				withPathAndCABundle("/mutate-rhtas-redhat-com-v1alpha1-timestampauthority"),
-				withPathAndCABundle("/mutate-rhtas-redhat-com-v1alpha1-trillian"),
-				withPathAndCABundle("/mutate-rhtas-redhat-com-v1alpha1-tuf"),
+				withPathAndCABundle("/mutate-rhtas-redhat-com-v1-ctlog"),
+				withPathAndCABundle("/mutate-rhtas-redhat-com-v1-fulcio"),
+				withPathAndCABundle("/mutate-rhtas-redhat-com-v1-rekor"),
+				withPathAndCABundle("/mutate-rhtas-redhat-com-v1-securesign"),
+				withPathAndCABundle("/mutate-rhtas-redhat-com-v1-timestampauthority"),
+				withPathAndCABundle("/mutate-rhtas-redhat-com-v1-trillian"),
+				withPathAndCABundle("/mutate-rhtas-redhat-com-v1-tuf"),
 			),
 		))
 	}).Should(Succeed())

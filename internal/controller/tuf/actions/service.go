@@ -6,7 +6,7 @@ import (
 	"maps"
 	"slices"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
@@ -21,7 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func NewServiceAction() action.Action[*rhtasv1alpha1.Tuf] {
+func NewServiceAction() action.Action[*rhtasv1.Tuf] {
 	return &serviceAction{}
 }
 
@@ -33,11 +33,11 @@ func (i serviceAction) Name() string {
 	return "create service"
 }
 
-func (i serviceAction) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Tuf) bool {
+func (i serviceAction) CanHandle(_ context.Context, tuf *rhtasv1.Tuf) bool {
 	return state.FromInstance(tuf, constants.ReadyCondition) >= state.Creating
 }
 
-func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
+func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *action.Result {
 	var (
 		err    error
 		result controllerutil.OperationResult

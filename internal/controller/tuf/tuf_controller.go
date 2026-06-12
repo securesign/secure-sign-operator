@@ -20,7 +20,7 @@ import (
 	"context"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/annotations"
@@ -75,7 +75,7 @@ func (r *tufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	rlog := log.FromContext(ctx).WithName("controller").WithName("tuf")
 
 	// Fetch the Tuf instance
-	instance := &rhtasv1alpha1.Tuf{}
+	instance := &rhtasv1.Tuf{}
 
 	if err := r.Get(ctx, req.NamespacedName, instance); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
@@ -94,8 +94,8 @@ func (r *tufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	target := instance.DeepCopy()
-	acs := []action.Action[*rhtasv1alpha1.Tuf]{
-		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Tuf](func(tuf *rhtasv1alpha1.Tuf) []string {
+	acs := []action.Action[*rhtasv1.Tuf]{
+		transitions.NewToPendingPhaseAction[*rhtasv1.Tuf](func(tuf *rhtasv1.Tuf) []string {
 			conditions := make([]string, 0, len(tuf.Spec.Keys)+1)
 			for _, k := range tuf.Spec.Keys {
 				conditions = append(conditions, k.Name)
@@ -105,7 +105,7 @@ func (r *tufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		}),
 
 		actions.NewResolveKeysAction(),
-		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.Tuf](),
+		transitions.NewToCreatePhaseAction[*rhtasv1.Tuf](),
 		actions.NewRBACInitJobAction(),
 		actions.NewRBACAction(),
 		actions.NewCreatePvcAction(),
@@ -115,14 +115,14 @@ func (r *tufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		actions.NewIngressAction(),
 		actions.NewStatusUrlAction(),
 
-		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.Tuf](),
+		transitions.NewToInitializePhaseAction[*rhtasv1.Tuf](),
 
 		actions.NewInitializeAction(),
 
 		// run after the initialize action to ensure the repository is running also in case of the failed migration (do not fail to soon)
 		actions.NewMigrationJobAction(),
 
-		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.Tuf](),
+		transitions.NewToReadyPhaseAction[*rhtasv1.Tuf](),
 	}
 
 	for _, a := range acs {
@@ -155,7 +155,7 @@ func (r *tufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
-		For(&rhtasv1alpha1.Tuf{}, builder.WithPredicates(predicate.ConfigurationChangedOnFailurePredicate[*rhtasv1alpha1.Tuf]())).
+		For(&rhtasv1.Tuf{}, builder.WithPredicates(predicate.ConfigurationChangedOnFailurePredicate[*rhtasv1.Tuf]())).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		Owns(&v13.Ingress{}).

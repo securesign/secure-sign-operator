@@ -260,6 +260,7 @@ jobs:
         run: |
           kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
           kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
+          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=rhtas-operator -n openshift-rhtas-operator --timeout=60s
 
       - name: Add service hosts to /etc/hosts
         run: |
@@ -435,6 +436,7 @@ jobs:
         run: |
           kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
           kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
+          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=rhtas-operator -n openshift-rhtas-operator --timeout=60s
 
       - name: Add service hosts to /etc/hosts
         run: |
@@ -616,6 +618,7 @@ jobs:
         run: |
           kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
           kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
+          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=rhtas-operator -n openshift-rhtas-operator --timeout=60s
 
       - name: Install securesign
         run: |
@@ -759,6 +762,7 @@ jobs:
         run: |
           kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
           kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
+          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=rhtas-operator -n openshift-rhtas-operator --timeout=60s
 
       - name: Add service hosts to /etc/hosts
         run: |

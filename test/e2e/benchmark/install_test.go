@@ -10,7 +10,7 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/tas"
@@ -82,26 +82,26 @@ func createNamespace(ctx context.Context, cli client.Client, iteration int) (str
 }
 
 func installTAS(ctx context.Context, cli client.Client, namespace string) error {
-	instance := &v1alpha1.Securesign{
+	instance := &rhtasv1.Securesign{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      "test",
 		},
-		Spec: v1alpha1.SecuresignSpec{
-			Rekor: v1alpha1.RekorSpec{
-				ExternalAccess: v1alpha1.ExternalAccess{
+		Spec: rhtasv1.SecuresignSpec{
+			Rekor: rhtasv1.RekorSpec{
+				ExternalAccess: rhtasv1.ExternalAccess{
 					Enabled: true,
 				},
-				RekorSearchUI: v1alpha1.RekorSearchUI{
+				RekorSearchUI: rhtasv1.RekorSearchUI{
 					Enabled: utils.Pointer(true),
 				},
 			},
-			Fulcio: v1alpha1.FulcioSpec{
-				ExternalAccess: v1alpha1.ExternalAccess{
+			Fulcio: rhtasv1.FulcioSpec{
+				ExternalAccess: rhtasv1.ExternalAccess{
 					Enabled: true,
 				},
-				Config: v1alpha1.FulcioConfig{
-					OIDCIssuers: []v1alpha1.OIDCIssuer{
+				Config: rhtasv1.FulcioConfig{
+					OIDCIssuers: []rhtasv1.OIDCIssuer{
 						{
 							ClientID:  support.OidcClientID(),
 							IssuerURL: support.OidcIssuerUrl(),
@@ -109,40 +109,40 @@ func installTAS(ctx context.Context, cli client.Client, namespace string) error 
 							Type:      "email",
 						},
 					}},
-				Certificate: v1alpha1.FulcioCert{
+				Certificate: rhtasv1.FulcioCert{
 					OrganizationName:  "MyOrg",
 					OrganizationEmail: "my@email.org",
 					CommonName:        "fulcio",
 				},
 			},
-			Ctlog: v1alpha1.CTlogSpec{},
-			Tuf: v1alpha1.TufSpec{
-				ExternalAccess: v1alpha1.ExternalAccess{
+			Ctlog: rhtasv1.CTlogSpec{},
+			Tuf: rhtasv1.TufSpec{
+				ExternalAccess: rhtasv1.ExternalAccess{
 					Enabled: true,
 				},
 			},
-			Trillian: v1alpha1.TrillianSpec{Db: v1alpha1.TrillianDB{
+			Trillian: rhtasv1.TrillianSpec{Db: rhtasv1.TrillianDB{
 				Create: ptr.To(true),
 			}},
-			TimestampAuthority: &v1alpha1.TimestampAuthoritySpec{
-				ExternalAccess: v1alpha1.ExternalAccess{
+			TimestampAuthority: &rhtasv1.TimestampAuthoritySpec{
+				ExternalAccess: rhtasv1.ExternalAccess{
 					Enabled: true,
 				},
-				Signer: v1alpha1.TimestampAuthoritySigner{
-					CertificateChain: v1alpha1.CertificateChain{
-						RootCA: &v1alpha1.TsaCertificateAuthority{
+				Signer: rhtasv1.TimestampAuthoritySigner{
+					CertificateChain: rhtasv1.CertificateChain{
+						RootCA: &rhtasv1.TsaCertificateAuthority{
 							OrganizationName:  "MyOrg",
 							OrganizationEmail: "my@email.org",
 							CommonName:        "tsa.hostname",
 						},
-						IntermediateCA: []*v1alpha1.TsaCertificateAuthority{
+						IntermediateCA: []*rhtasv1.TsaCertificateAuthority{
 							{
 								OrganizationName:  "MyOrg",
 								OrganizationEmail: "my@email.org",
 								CommonName:        "tsa.hostname",
 							},
 						},
-						LeafCA: &v1alpha1.TsaCertificateAuthority{
+						LeafCA: &rhtasv1.TsaCertificateAuthority{
 							OrganizationName:  "MyOrg",
 							OrganizationEmail: "my@email.org",
 							CommonName:        "tsa.hostname",

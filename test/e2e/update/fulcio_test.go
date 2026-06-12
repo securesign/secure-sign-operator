@@ -20,7 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	ctlogAction "github.com/securesign/operator/internal/controller/ctlog/actions"
 	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/core/v1"
@@ -36,7 +36,7 @@ var _ = Describe("Fulcio update", Ordered, func() {
 
 	var targetImageName string
 	var namespace *v1.Namespace
-	var s *v1alpha1.Securesign
+	var s *rhtasv1.Securesign
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
@@ -81,21 +81,21 @@ var _ = Describe("Fulcio update", Ordered, func() {
 		It("modified fulcio.certificate", func(ctx SpecContext) {
 			Eventually(func(g Gomega) error {
 				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-				s.Spec.Fulcio.Certificate = v1alpha1.FulcioCert{
-					PrivateKeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+				s.Spec.Fulcio.Certificate = rhtasv1.FulcioCert{
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: "my-fulcio-secret",
 						},
 						Key: "private",
 					},
-					PrivateKeyPasswordRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+					PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: "my-fulcio-secret",
 						},
 						Key: "password",
 					},
-					CARef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+					CARef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: "my-fulcio-secret",
 						},
 						Key: "cert",
@@ -142,14 +142,14 @@ var _ = Describe("Fulcio update", Ordered, func() {
 		It("update TUF deployment", func(ctx SpecContext) {
 			Eventually(func(g Gomega) error {
 				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-				s.Spec.Tuf.Keys = []v1alpha1.TufKey{
+				s.Spec.Tuf.Keys = []rhtasv1.TufKey{
 					{
 						Name: "rekor.pub",
 					},
 					{
 						Name: "fulcio_v1.crt.pem",
-						SecretRef: &v1alpha1.SecretKeySelector{
-							LocalObjectReference: v1alpha1.LocalObjectReference{
+						SecretRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "my-fulcio-secret",
 							},
 							Key: "cert",
@@ -164,10 +164,10 @@ var _ = Describe("Fulcio update", Ordered, func() {
 				}
 				return cli.Update(ctx, s)
 			}).WithTimeout(1 * time.Second).Should(Succeed())
-			Eventually(func(g Gomega) []v1alpha1.TufKey {
+			Eventually(func(g Gomega) []rhtasv1.TufKey {
 				t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 				return t.Status.Keys
-			}).Should(And(HaveLen(4), WithTransform(func(keys []v1alpha1.TufKey) string {
+			}).Should(And(HaveLen(4), WithTransform(func(keys []rhtasv1.TufKey) string {
 				return keys[1].SecretRef.Name
 			}, Equal("my-fulcio-secret"))))
 			tuf.RefreshTufRepository(ctx, cli, namespace.Name, s.Name)
@@ -210,7 +210,7 @@ var _ = Describe("Fulcio update", Ordered, func() {
 		It("adds new OIDCIssuers", func(ctx SpecContext) {
 			Eventually(func(g Gomega) error {
 				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-				s.Spec.Fulcio.Config.OIDCIssuers = append(s.Spec.Fulcio.Config.OIDCIssuers, v1alpha1.OIDCIssuer{
+				s.Spec.Fulcio.Config.OIDCIssuers = append(s.Spec.Fulcio.Config.OIDCIssuers, rhtasv1.OIDCIssuer{
 					ClientID:  "fake",
 					IssuerURL: "fake",
 					Issuer:    "fake",
@@ -239,7 +239,7 @@ var _ = Describe("Fulcio update", Ordered, func() {
 		})
 
 		It("verify new configuration", func(ctx SpecContext) {
-			var f *v1alpha1.Fulcio
+			var f *rhtasv1.Fulcio
 			var fulcioPod *v1.Pod
 			Eventually(func(g Gomega) {
 				f = fulcio.Get(ctx, cli, namespace.Name, s.Name)

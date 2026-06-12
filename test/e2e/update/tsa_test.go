@@ -21,7 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -35,7 +35,7 @@ var _ = Describe("TSA update", Ordered, func() {
 
 	var targetImageName string
 	var namespace *v1.Namespace
-	var s *v1alpha1.Securesign
+	var s *rhtasv1.Securesign
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
@@ -77,24 +77,24 @@ var _ = Describe("TSA update", Ordered, func() {
 		It("modified signer and certificate chain", func(ctx SpecContext) {
 			Eventually(func(g Gomega) error {
 				Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-				s.Spec.TimestampAuthority.Signer = v1alpha1.TimestampAuthoritySigner{
-					CertificateChain: v1alpha1.CertificateChain{
-						CertificateChainRef: &v1alpha1.SecretKeySelector{
-							LocalObjectReference: v1alpha1.LocalObjectReference{
+				s.Spec.TimestampAuthority.Signer = rhtasv1.TimestampAuthoritySigner{
+					CertificateChain: rhtasv1.CertificateChain{
+						CertificateChainRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "my-tsa-secret",
 							},
 							Key: "certificateChain",
 						},
 					},
-					File: &v1alpha1.File{
-						PrivateKeyRef: &v1alpha1.SecretKeySelector{
-							LocalObjectReference: v1alpha1.LocalObjectReference{
+					File: &rhtasv1.File{
+						PrivateKeyRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "my-tsa-secret",
 							},
 							Key: "leafPrivateKey",
 						},
-						PasswordRef: &v1alpha1.SecretKeySelector{
-							LocalObjectReference: v1alpha1.LocalObjectReference{
+						PasswordRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "my-tsa-secret",
 							},
 							Key: "leafPrivateKeyPassword",
@@ -136,7 +136,7 @@ var _ = Describe("TSA update", Ordered, func() {
 		It("update TUF deployment", func(ctx SpecContext) {
 			Eventually(func(g Gomega) error {
 				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-				s.Spec.Tuf.Keys = []v1alpha1.TufKey{
+				s.Spec.Tuf.Keys = []rhtasv1.TufKey{
 					{
 						Name: "rekor.pub",
 					},
@@ -145,8 +145,8 @@ var _ = Describe("TSA update", Ordered, func() {
 					},
 					{
 						Name: "tsa.certchain.pem",
-						SecretRef: &v1alpha1.SecretKeySelector{
-							LocalObjectReference: v1alpha1.LocalObjectReference{
+						SecretRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "my-tsa-secret",
 							},
 							Key: "certificateChain",
@@ -158,10 +158,10 @@ var _ = Describe("TSA update", Ordered, func() {
 				}
 				return cli.Update(ctx, s)
 			}).WithTimeout(1 * time.Second).Should(Succeed())
-			Eventually(func(g Gomega) []v1alpha1.TufKey {
+			Eventually(func(g Gomega) []rhtasv1.TufKey {
 				t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 				return t.Status.Keys
-			}).Should(And(HaveLen(4), WithTransform(func(keys []v1alpha1.TufKey) string {
+			}).Should(And(HaveLen(4), WithTransform(func(keys []rhtasv1.TufKey) string {
 				return keys[2].SecretRef.Name
 			}, Equal("my-tsa-secret"))))
 			tuf.RefreshTufRepository(ctx, cli, namespace.Name, s.Name)
@@ -174,7 +174,7 @@ var _ = Describe("TSA update", Ordered, func() {
 
 		It("verify new configuration", func(ctx SpecContext) {
 			var pod *v1.Pod
-			var t *v1alpha1.TimestampAuthority
+			var t *rhtasv1.TimestampAuthority
 			Eventually(func(g Gomega) {
 				pod = tsa.GetServerPod(ctx, cli, namespace.Name)()
 				g.Expect(pod).ToNot(BeNil())
@@ -220,9 +220,9 @@ var _ = Describe("TSA update", Ordered, func() {
 		It("modified NTP config", func(ctx SpecContext) {
 			Eventually(func(g Gomega) error {
 				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-				s.Spec.TimestampAuthority.NTPMonitoring = v1alpha1.NTPMonitoring{
+				s.Spec.TimestampAuthority.NTPMonitoring = rhtasv1.NTPMonitoring{
 					Enabled: true,
-					Config: &v1alpha1.NtpMonitoringConfig{
+					Config: &rhtasv1.NtpMonitoringConfig{
 						RequestAttempts: 3,
 						RequestTimeout:  5,
 						NumServers:      4,
@@ -256,7 +256,7 @@ var _ = Describe("TSA update", Ordered, func() {
 
 		It("verify new configuration", func(ctx SpecContext) {
 			var pod *v1.Pod
-			var t *v1alpha1.TimestampAuthority
+			var t *rhtasv1.TimestampAuthority
 			Eventually(func(g Gomega) {
 				pod = tsa.GetServerPod(ctx, cli, namespace.Name)()
 				g.Expect(pod).ToNot(BeNil())

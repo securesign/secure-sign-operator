@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
@@ -26,7 +26,7 @@ import (
 func TestHandleSecret_CanHandle(t *testing.T) {
 	tests := []struct {
 		name      string
-		instance  rhtasv1alpha1.Trillian
+		instance  rhtasv1.Trillian
 		condition metav1.ConditionStatus
 		canHandle bool
 	}{
@@ -42,14 +42,14 @@ func TestHandleSecret_CanHandle(t *testing.T) {
 		{
 			name:      "ConditionTrue: status.db.databaseSecretRef == nil",
 			condition: metav1.ConditionTrue,
-			instance: rhtasv1alpha1.Trillian{
-				Spec: rhtasv1alpha1.TrillianSpec{
-					Db: rhtasv1alpha1.TrillianDB{
+			instance: rhtasv1.Trillian{
+				Spec: rhtasv1.TrillianSpec{
+					Db: rhtasv1.TrillianDB{
 						Create: ptr.To(true),
 					},
 				},
-				Status: rhtasv1alpha1.TrillianStatus{
-					Db: rhtasv1alpha1.TrillianDB{
+				Status: rhtasv1.TrillianStatus{
+					Db: rhtasv1.TrillianDB{
 						DatabaseSecretRef: nil,
 					},
 				},
@@ -59,14 +59,14 @@ func TestHandleSecret_CanHandle(t *testing.T) {
 		{
 			name:      "external: ConditionTrue: status.db.databaseSecretRef == nil",
 			condition: metav1.ConditionTrue,
-			instance: rhtasv1alpha1.Trillian{
-				Spec: rhtasv1alpha1.TrillianSpec{
-					Db: rhtasv1alpha1.TrillianDB{
+			instance: rhtasv1.Trillian{
+				Spec: rhtasv1.TrillianSpec{
+					Db: rhtasv1.TrillianDB{
 						Create: ptr.To(false),
 					},
 				},
-				Status: rhtasv1alpha1.TrillianStatus{
-					Db: rhtasv1alpha1.TrillianDB{
+				Status: rhtasv1.TrillianStatus{
+					Db: rhtasv1.TrillianDB{
 						DatabaseSecretRef: nil,
 					},
 				},
@@ -76,10 +76,10 @@ func TestHandleSecret_CanHandle(t *testing.T) {
 		{
 			name:      "ConditionTrue: status.db.databaseSecretRef != nil",
 			condition: metav1.ConditionTrue,
-			instance: rhtasv1alpha1.Trillian{
-				Status: rhtasv1alpha1.TrillianStatus{
-					Db: rhtasv1alpha1.TrillianDB{
-						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{
+			instance: rhtasv1.Trillian{
+				Status: rhtasv1.TrillianStatus{
+					Db: rhtasv1.TrillianDB{
+						DatabaseSecretRef: &rhtasv1.LocalObjectReference{
 							Name: "connection",
 						},
 					},
@@ -90,17 +90,17 @@ func TestHandleSecret_CanHandle(t *testing.T) {
 		{
 			name:      "ConditionTrue: status.db.databaseSecretRef != spec.db.databaseSecretRef",
 			condition: metav1.ConditionTrue,
-			instance: rhtasv1alpha1.Trillian{
-				Spec: rhtasv1alpha1.TrillianSpec{
-					Db: rhtasv1alpha1.TrillianDB{
-						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{
+			instance: rhtasv1.Trillian{
+				Spec: rhtasv1.TrillianSpec{
+					Db: rhtasv1.TrillianDB{
+						DatabaseSecretRef: &rhtasv1.LocalObjectReference{
 							Name: "new-connection",
 						},
 					},
 				},
-				Status: rhtasv1alpha1.TrillianStatus{
-					Db: rhtasv1alpha1.TrillianDB{
-						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{
+				Status: rhtasv1.TrillianStatus{
+					Db: rhtasv1.TrillianDB{
+						DatabaseSecretRef: &rhtasv1.LocalObjectReference{
 							Name: "connection",
 						},
 					},
@@ -111,17 +111,17 @@ func TestHandleSecret_CanHandle(t *testing.T) {
 		{
 			name:      "ConditionTrue: status.db.databaseSecretRef == spec.db.databaseSecretRef",
 			condition: metav1.ConditionTrue,
-			instance: rhtasv1alpha1.Trillian{
-				Spec: rhtasv1alpha1.TrillianSpec{
-					Db: rhtasv1alpha1.TrillianDB{
-						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{
+			instance: rhtasv1.Trillian{
+				Spec: rhtasv1.TrillianSpec{
+					Db: rhtasv1.TrillianDB{
+						DatabaseSecretRef: &rhtasv1.LocalObjectReference{
 							Name: "connection",
 						},
 					},
 				},
-				Status: rhtasv1alpha1.TrillianStatus{
-					Db: rhtasv1alpha1.TrillianDB{
-						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{
+				Status: rhtasv1.TrillianStatus{
+					Db: rhtasv1.TrillianDB{
+						DatabaseSecretRef: &rhtasv1.LocalObjectReference{
 							Name: "connection",
 						},
 					},
@@ -156,8 +156,8 @@ func TestHandleSecret_CanHandle(t *testing.T) {
 func TestHandleSecret_Handle(t *testing.T) {
 	namespacedName := types.NamespacedName{Namespace: "default", Name: "trillian"}
 	type env struct {
-		spec    rhtasv1alpha1.TrillianSpec
-		status  rhtasv1alpha1.TrillianStatus
+		spec    rhtasv1.TrillianSpec
+		status  rhtasv1.TrillianStatus
 		objects []client.Object
 	}
 	type want struct {
@@ -172,8 +172,8 @@ func TestHandleSecret_Handle(t *testing.T) {
 		{
 			name: "external: missing spec.db.databaseSecretRef - may use Auth or without login",
 			env: env{
-				spec: rhtasv1alpha1.TrillianSpec{
-					Db: rhtasv1alpha1.TrillianDB{
+				spec: rhtasv1.TrillianSpec{
+					Db: rhtasv1.TrillianDB{
 						Create:            ptr.To(false),
 						DatabaseSecretRef: nil,
 					},
@@ -182,7 +182,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 			want: want{
 				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
-					instance := &rhtasv1alpha1.Trillian{}
+					instance := &rhtasv1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
@@ -198,17 +198,17 @@ func TestHandleSecret_Handle(t *testing.T) {
 		{
 			name: "external: set spec.db.databaseSecretRef",
 			env: env{
-				spec: rhtasv1alpha1.TrillianSpec{
-					Db: rhtasv1alpha1.TrillianDB{
+				spec: rhtasv1.TrillianSpec{
+					Db: rhtasv1.TrillianDB{
 						Create:            ptr.To(false),
-						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "connection"},
+						DatabaseSecretRef: &rhtasv1.LocalObjectReference{Name: "connection"},
 					},
 				},
 			},
 			want: want{
 				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
-					instance := &rhtasv1alpha1.Trillian{}
+					instance := &rhtasv1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
@@ -225,23 +225,23 @@ func TestHandleSecret_Handle(t *testing.T) {
 		{
 			name: "external: modify spec.db.databaseSecretRef",
 			env: env{
-				spec: rhtasv1alpha1.TrillianSpec{
-					Db: rhtasv1alpha1.TrillianDB{
+				spec: rhtasv1.TrillianSpec{
+					Db: rhtasv1.TrillianDB{
 						Create:            ptr.To(false),
-						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "new-connection"},
+						DatabaseSecretRef: &rhtasv1.LocalObjectReference{Name: "new-connection"},
 					},
 				},
-				status: rhtasv1alpha1.TrillianStatus{
-					Db: rhtasv1alpha1.TrillianDB{
+				status: rhtasv1.TrillianStatus{
+					Db: rhtasv1.TrillianDB{
 						Create:            ptr.To(false),
-						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "old-connection"},
+						DatabaseSecretRef: &rhtasv1.LocalObjectReference{Name: "old-connection"},
 					},
 				},
 			},
 			want: want{
 				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
-					instance := &rhtasv1alpha1.Trillian{}
+					instance := &rhtasv1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
@@ -258,23 +258,23 @@ func TestHandleSecret_Handle(t *testing.T) {
 		{
 			name: "external: unmodified spec.db.databaseSecretRef",
 			env: env{
-				spec: rhtasv1alpha1.TrillianSpec{
-					Db: rhtasv1alpha1.TrillianDB{
+				spec: rhtasv1.TrillianSpec{
+					Db: rhtasv1.TrillianDB{
 						Create:            ptr.To(false),
-						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "connection"},
+						DatabaseSecretRef: &rhtasv1.LocalObjectReference{Name: "connection"},
 					},
 				},
-				status: rhtasv1alpha1.TrillianStatus{
-					Db: rhtasv1alpha1.TrillianDB{
+				status: rhtasv1.TrillianStatus{
+					Db: rhtasv1.TrillianDB{
 						Create:            ptr.To(false),
-						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "connection"},
+						DatabaseSecretRef: &rhtasv1.LocalObjectReference{Name: "connection"},
 					},
 				},
 			},
 			want: want{
 				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
-					instance := &rhtasv1alpha1.Trillian{}
+					instance := &rhtasv1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
 					g.Expect(instance.Status.Db.DatabaseSecretRef).ShouldNot(BeNil())
@@ -288,17 +288,17 @@ func TestHandleSecret_Handle(t *testing.T) {
 		{
 			name: "managed: set spec.db.databaseSecretRef",
 			env: env{
-				spec: rhtasv1alpha1.TrillianSpec{
-					Db: rhtasv1alpha1.TrillianDB{
+				spec: rhtasv1.TrillianSpec{
+					Db: rhtasv1.TrillianDB{
 						Create:            ptr.To(true),
-						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "connection"},
+						DatabaseSecretRef: &rhtasv1.LocalObjectReference{Name: "connection"},
 					},
 				},
 			},
 			want: want{
 				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
-					instance := &rhtasv1alpha1.Trillian{}
+					instance := &rhtasv1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
@@ -315,8 +315,8 @@ func TestHandleSecret_Handle(t *testing.T) {
 		{
 			name: "managed: empty spec.db.databaseSecretRef",
 			env: env{
-				spec: rhtasv1alpha1.TrillianSpec{
-					Db: rhtasv1alpha1.TrillianDB{
+				spec: rhtasv1.TrillianSpec{
+					Db: rhtasv1.TrillianDB{
 						Create:            ptr.To(true),
 						DatabaseSecretRef: nil,
 					},
@@ -325,7 +325,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 			want: want{
 				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
-					instance := &rhtasv1alpha1.Trillian{}
+					instance := &rhtasv1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
@@ -345,23 +345,23 @@ func TestHandleSecret_Handle(t *testing.T) {
 		{
 			name: "managed: update spec.db.databaseSecretRef",
 			env: env{
-				spec: rhtasv1alpha1.TrillianSpec{
-					Db: rhtasv1alpha1.TrillianDB{
+				spec: rhtasv1.TrillianSpec{
+					Db: rhtasv1.TrillianDB{
 						Create:            ptr.To(true),
-						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "new-connection"},
+						DatabaseSecretRef: &rhtasv1.LocalObjectReference{Name: "new-connection"},
 					},
 				},
-				status: rhtasv1alpha1.TrillianStatus{
-					Db: rhtasv1alpha1.TrillianDB{
+				status: rhtasv1.TrillianStatus{
+					Db: rhtasv1.TrillianDB{
 						Create:            ptr.To(true),
-						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "old-connection"},
+						DatabaseSecretRef: &rhtasv1.LocalObjectReference{Name: "old-connection"},
 					},
 				},
 			},
 			want: want{
 				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
-					instance := &rhtasv1alpha1.Trillian{}
+					instance := &rhtasv1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
@@ -378,23 +378,23 @@ func TestHandleSecret_Handle(t *testing.T) {
 		{
 			name: "managed: unmodified spec.db.databaseSecretRef",
 			env: env{
-				spec: rhtasv1alpha1.TrillianSpec{
-					Db: rhtasv1alpha1.TrillianDB{
+				spec: rhtasv1.TrillianSpec{
+					Db: rhtasv1.TrillianDB{
 						Create:            ptr.To(true),
-						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "connection"},
+						DatabaseSecretRef: &rhtasv1.LocalObjectReference{Name: "connection"},
 					},
 				},
-				status: rhtasv1alpha1.TrillianStatus{
-					Db: rhtasv1alpha1.TrillianDB{
+				status: rhtasv1.TrillianStatus{
+					Db: rhtasv1.TrillianDB{
 						Create:            ptr.To(true),
-						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "connection"},
+						DatabaseSecretRef: &rhtasv1.LocalObjectReference{Name: "connection"},
 					},
 				},
 			},
 			want: want{
 				result: testAction.Continue(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
-					instance := &rhtasv1alpha1.Trillian{}
+					instance := &rhtasv1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
@@ -411,22 +411,22 @@ func TestHandleSecret_Handle(t *testing.T) {
 		{
 			name: "managed: unmodified generated db connection",
 			env: env{
-				spec: rhtasv1alpha1.TrillianSpec{
-					Db: rhtasv1alpha1.TrillianDB{
+				spec: rhtasv1.TrillianSpec{
+					Db: rhtasv1.TrillianDB{
 						Create: ptr.To(true),
 					},
 				},
-				status: rhtasv1alpha1.TrillianStatus{
-					Db: rhtasv1alpha1.TrillianDB{
+				status: rhtasv1.TrillianStatus{
+					Db: rhtasv1.TrillianDB{
 						Create:            ptr.To(true),
-						DatabaseSecretRef: &rhtasv1alpha1.LocalObjectReference{Name: "connection"},
+						DatabaseSecretRef: &rhtasv1.LocalObjectReference{Name: "connection"},
 					},
 				},
 			},
 			want: want{
 				result: testAction.Continue(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
-					instance := &rhtasv1alpha1.Trillian{}
+					instance := &rhtasv1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
@@ -443,13 +443,13 @@ func TestHandleSecret_Handle(t *testing.T) {
 		{
 			name: "managed: SECURESIGN_1455: link unassigned db-connection secret",
 			env: env{
-				spec: rhtasv1alpha1.TrillianSpec{
-					Db: rhtasv1alpha1.TrillianDB{
+				spec: rhtasv1.TrillianSpec{
+					Db: rhtasv1.TrillianDB{
 						Create: ptr.To(true),
 					},
 				},
-				status: rhtasv1alpha1.TrillianStatus{
-					Db: rhtasv1alpha1.TrillianDB{
+				status: rhtasv1.TrillianStatus{
+					Db: rhtasv1.TrillianDB{
 						Create: ptr.To(true),
 					},
 				},
@@ -479,7 +479,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 			want: want{
 				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
-					instance := &rhtasv1alpha1.Trillian{}
+					instance := &rhtasv1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
@@ -496,13 +496,13 @@ func TestHandleSecret_Handle(t *testing.T) {
 		{
 			name: "managed: SECURESIGN_1455: delete old db-connection secret",
 			env: env{
-				spec: rhtasv1alpha1.TrillianSpec{
-					Db: rhtasv1alpha1.TrillianDB{
+				spec: rhtasv1.TrillianSpec{
+					Db: rhtasv1.TrillianDB{
 						Create: ptr.To(true),
 					},
 				},
-				status: rhtasv1alpha1.TrillianStatus{
-					Db: rhtasv1alpha1.TrillianDB{
+				status: rhtasv1.TrillianStatus{
+					Db: rhtasv1.TrillianDB{
 						Create: ptr.To(true),
 					},
 				},
@@ -546,7 +546,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 			want: want{
 				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
-					instance := &rhtasv1alpha1.Trillian{}
+					instance := &rhtasv1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
@@ -577,13 +577,13 @@ func TestHandleSecret_Handle(t *testing.T) {
 		{
 			name: "managed: SECURESIGN_1455: link valid and delete old db-connection secret",
 			env: env{
-				spec: rhtasv1alpha1.TrillianSpec{
-					Db: rhtasv1alpha1.TrillianDB{
+				spec: rhtasv1.TrillianSpec{
+					Db: rhtasv1.TrillianDB{
 						Create: ptr.To(true),
 					},
 				},
-				status: rhtasv1alpha1.TrillianStatus{
-					Db: rhtasv1alpha1.TrillianDB{
+				status: rhtasv1.TrillianStatus{
+					Db: rhtasv1.TrillianDB{
 						Create: ptr.To(true),
 					},
 				},
@@ -633,7 +633,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 			want: want{
 				result: testAction.Return(),
 				verify: func(g Gomega, cli client.WithWatch, events <-chan watch.Event) {
-					instance := &rhtasv1alpha1.Trillian{}
+					instance := &rhtasv1.Trillian{}
 					g.Expect(cli.Get(context.TODO(), namespacedName, instance)).To(Succeed())
 
 					condition := meta.FindStatusCondition(instance.GetConditions(), actions.DbCondition)
@@ -660,7 +660,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
 			ctx := context.TODO()
-			instance := &rhtasv1alpha1.Trillian{
+			instance := &rhtasv1.Trillian{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "trillian",
 					Namespace: "default",

@@ -1,7 +1,7 @@
 package pvc
 
 import (
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/apis"
 )
 
@@ -14,7 +14,7 @@ const (
 )
 
 func Wrapper[T apis.ConditionsAwareObject](
-	getPVCSpec func(T) v1alpha1.Pvc,
+	getPVCSpec func(T) rhtasv1.Pvc,
 	getStatusPVCName func(T) string,
 	setStatusPVCName func(T, string),
 	isEnabledPVC func(T) bool,
@@ -33,13 +33,13 @@ func Wrapper[T apis.ConditionsAwareObject](
 type wrapper[T apis.ConditionsAwareObject] struct {
 	object T
 
-	callPVCSpec    func(T) v1alpha1.Pvc
+	callPVCSpec    func(T) rhtasv1.Pvc
 	callGetPVCName func(T) string
 	callSetPVCName func(T, string)
 	callEnabledPVC func(T) bool
 }
 
-func (c *wrapper[T]) GetPVCSpec() v1alpha1.Pvc {
+func (c *wrapper[T]) GetPVCSpec() rhtasv1.Pvc {
 	return c.callPVCSpec(c.object)
 }
 

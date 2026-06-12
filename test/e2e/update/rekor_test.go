@@ -18,7 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -32,7 +32,7 @@ var _ = Describe("Rekor update", Ordered, func() {
 
 	var targetImageName string
 	var namespace *v1.Namespace
-	var s *v1alpha1.Securesign
+	var s *rhtasv1.Securesign
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
@@ -73,10 +73,10 @@ var _ = Describe("Rekor update", Ordered, func() {
 		It("modified signer.keyRef", func(ctx SpecContext) {
 			Eventually(func(g Gomega) error {
 				Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-				s.Spec.Rekor.Signer = v1alpha1.RekorSigner{
+				s.Spec.Rekor.Signer = rhtasv1.RekorSigner{
 					KMS: "secret",
-					KeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{
+					KeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: "my-rekor-secret",
 						},
 						Key: "private",
@@ -117,11 +117,11 @@ var _ = Describe("Rekor update", Ordered, func() {
 		It("update TUF deployment", func(ctx SpecContext) {
 			Eventually(func(g Gomega) error {
 				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-				s.Spec.Tuf.Keys = []v1alpha1.TufKey{
+				s.Spec.Tuf.Keys = []rhtasv1.TufKey{
 					{
 						Name: "rekor.pub",
-						SecretRef: &v1alpha1.SecretKeySelector{
-							LocalObjectReference: v1alpha1.LocalObjectReference{
+						SecretRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "my-rekor-secret",
 							},
 							Key: "public",
@@ -139,10 +139,10 @@ var _ = Describe("Rekor update", Ordered, func() {
 				}
 				return cli.Update(ctx, s)
 			}).WithTimeout(1 * time.Second).Should(Succeed())
-			Eventually(func(g Gomega) []v1alpha1.TufKey {
+			Eventually(func(g Gomega) []rhtasv1.TufKey {
 				t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 				return t.Status.Keys
-			}).Should(And(HaveLen(4), WithTransform(func(keys []v1alpha1.TufKey) string {
+			}).Should(And(HaveLen(4), WithTransform(func(keys []rhtasv1.TufKey) string {
 				return keys[0].SecretRef.Name
 			}, Equal("my-rekor-secret"))))
 			tuf.RefreshTufRepository(ctx, cli, namespace.Name, s.Name)

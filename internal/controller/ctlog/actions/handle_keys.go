@@ -6,7 +6,7 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
@@ -24,7 +24,7 @@ const (
 	KeySecretName = "ctlog-keys-"
 )
 
-func NewHandleKeysAction() action.Action[*v1alpha1.CTlog] {
+func NewHandleKeysAction() action.Action[*rhtasv1.CTlog] {
 	return &handleKeys{}
 }
 
@@ -36,7 +36,7 @@ func (g handleKeys) Name() string {
 	return "handle-keys"
 }
 
-func (g handleKeys) CanHandle(ctx context.Context, instance *v1alpha1.CTlog) bool {
+func (g handleKeys) CanHandle(ctx context.Context, instance *rhtasv1.CTlog) bool {
 	c := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
 
 	switch {
@@ -56,7 +56,7 @@ func (g handleKeys) CanHandle(ctx context.Context, instance *v1alpha1.CTlog) boo
 	return false
 }
 
-func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *action.Result {
+func (g handleKeys) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
 	if state.FromInstance(instance, constants.ReadyCondition) != state.Creating {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               constants.ReadyCondition,
@@ -104,7 +104,7 @@ func (g handleKeys) Handle(ctx context.Context, instance *v1alpha1.CTlog) *actio
 	return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 }
 
-func (g handleKeys) setupKeys(ns string, instanceStatus *v1alpha1.CTlogStatus) (*utils.KeyConfig, error) {
+func (g handleKeys) setupKeys(ns string, instanceStatus *rhtasv1.CTlogStatus) (*utils.KeyConfig, error) {
 	var (
 		err    error
 		config = &utils.KeyConfig{}
@@ -136,7 +136,7 @@ func (g handleKeys) setupKeys(ns string, instanceStatus *v1alpha1.CTlogStatus) (
 	}
 }
 
-func (g handleKeys) discoverPrivateKey(ctx context.Context, instance *v1alpha1.CTlog, newKeyStatus *v1alpha1.CTlogStatus) {
+func (g handleKeys) discoverPrivateKey(ctx context.Context, instance *rhtasv1.CTlog, newKeyStatus *rhtasv1.CTlogStatus) {
 	if instance.Spec.PrivateKeyRef != nil {
 		newKeyStatus.PrivateKeyRef = instance.Spec.PrivateKeyRef
 		return
@@ -171,7 +171,7 @@ func (g handleKeys) discoverPrivateKey(ctx context.Context, instance *v1alpha1.C
 	}
 }
 
-func (g handleKeys) discoverPubliceKey(ctx context.Context, instance *v1alpha1.CTlog, newKeyStatus *v1alpha1.CTlogStatus) {
+func (g handleKeys) discoverPubliceKey(ctx context.Context, instance *rhtasv1.CTlog, newKeyStatus *rhtasv1.CTlogStatus) {
 	switch {
 	case instance.Spec.PublicKeyRef != nil:
 		newKeyStatus.PublicKeyRef = instance.Spec.PublicKeyRef
@@ -202,7 +202,7 @@ func (g handleKeys) discoverPubliceKey(ctx context.Context, instance *v1alpha1.C
 	}
 }
 
-func (g handleKeys) generateAndUploadSecret(ctx context.Context, instance *v1alpha1.CTlog, newKeyStatus *v1alpha1.CTlogStatus, keys *utils.KeyConfig) (*v1.Secret, error) {
+func (g handleKeys) generateAndUploadSecret(ctx context.Context, instance *rhtasv1.CTlog, newKeyStatus *rhtasv1.CTlogStatus, keys *utils.KeyConfig) (*v1.Secret, error) {
 	if newKeyStatus.PublicKeyRef != nil && newKeyStatus.PrivateKeyRef != nil {
 		return nil, nil
 	}
@@ -248,8 +248,8 @@ func (g handleKeys) generateAndUploadSecret(ctx context.Context, instance *v1alp
 	}
 
 	if _, ok := secret.Labels[CTLPubLabel]; ok {
-		newKeyStatus.PublicKeyRef = &v1alpha1.SecretKeySelector{
-			LocalObjectReference: v1alpha1.LocalObjectReference{
+		newKeyStatus.PublicKeyRef = &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{
 				Name: secret.Name,
 			},
 			Key: constants.KeyPublic,
@@ -257,8 +257,8 @@ func (g handleKeys) generateAndUploadSecret(ctx context.Context, instance *v1alp
 	}
 
 	if _, ok := secret.Labels[CTLogPrivateLabel]; ok {
-		newKeyStatus.PrivateKeyRef = &v1alpha1.SecretKeySelector{
-			LocalObjectReference: v1alpha1.LocalObjectReference{
+		newKeyStatus.PrivateKeyRef = &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{
 				Name: secret.Name,
 			},
 			Key: constants.KeyPrivate,
@@ -280,10 +280,10 @@ func (g handleKeys) generateAndUploadSecret(ctx context.Context, instance *v1alp
 	return secret, nil
 }
 
-func (g handleKeys) sksByLabel(secret metav1.PartialObjectMetadata, label string) *v1alpha1.SecretKeySelector {
-	return &v1alpha1.SecretKeySelector{
+func (g handleKeys) sksByLabel(secret metav1.PartialObjectMetadata, label string) *rhtasv1.SecretKeySelector {
+	return &rhtasv1.SecretKeySelector{
 		Key: secret.Labels[label],
-		LocalObjectReference: v1alpha1.LocalObjectReference{
+		LocalObjectReference: rhtasv1.LocalObjectReference{
 			Name: secret.Name,
 		},
 	}

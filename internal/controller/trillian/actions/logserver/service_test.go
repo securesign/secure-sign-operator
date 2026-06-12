@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
@@ -94,7 +94,7 @@ func TestMigrateToHeadless(t *testing.T) {
 			a := testAction.PrepareAction(c, NewCreateServiceAction())
 			action := a.(*createServiceAction)
 
-			instance := &rhtasv1alpha1.Trillian{
+			instance := &rhtasv1.Trillian{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testTrillianName,
 					Namespace: testNamespace,
@@ -126,12 +126,12 @@ func TestCreateServiceAction_Handle_CreatesHeadless(t *testing.T) {
 	ctx := context.TODO()
 	g := NewWithT(t)
 
-	instance := &rhtasv1alpha1.Trillian{
+	instance := &rhtasv1.Trillian{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testTrillianName,
 			Namespace: testNamespace,
 		},
-		Status: rhtasv1alpha1.TrillianStatus{
+		Status: rhtasv1.TrillianStatus{
 			Conditions: []metav1.Condition{
 				{
 					Type:   actions.ServerCondition,
@@ -164,12 +164,12 @@ func TestCreateServiceAction_Handle_MigratesClusterIP(t *testing.T) {
 	ctx := context.TODO()
 	g := NewWithT(t)
 
-	instance := &rhtasv1alpha1.Trillian{
+	instance := &rhtasv1.Trillian{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testTrillianName,
 			Namespace: testNamespace,
 		},
-		Status: rhtasv1alpha1.TrillianStatus{
+		Status: rhtasv1.TrillianStatus{
 			Conditions: []metav1.Condition{
 				{
 					Type:   actions.ServerCondition,

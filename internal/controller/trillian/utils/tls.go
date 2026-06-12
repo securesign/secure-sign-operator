@@ -1,11 +1,11 @@
 package trillianUtils
 
 import (
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/utils"
 )
 
-func UseTLSDb(instance *rhtasv1alpha1.Trillian) bool {
+func UseTLSDb(instance *rhtasv1.Trillian) bool {
 
 	if instance == nil {
 		return false

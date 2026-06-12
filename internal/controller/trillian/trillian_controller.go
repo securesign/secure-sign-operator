@@ -41,7 +41,7 @@ import (
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	tasPredicate "github.com/securesign/operator/internal/controller/predicate"
 )
 
@@ -76,7 +76,7 @@ func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder events.Even
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *trillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// Fetch the Trillian instance
-	var instance rhtasv1alpha1.Trillian
+	var instance rhtasv1.Trillian
 	log := ctrllog.FromContext(ctx)
 
 	if err := r.Get(ctx, req.NamespacedName, &instance); err != nil {
@@ -96,8 +96,8 @@ func (r *trillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	target := instance.DeepCopy()
-	actions := []action.Action[*rhtasv1alpha1.Trillian]{
-		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Trillian](func(t *rhtasv1alpha1.Trillian) []string {
+	actions := []action.Action[*rhtasv1.Trillian]{
+		transitions.NewToPendingPhaseAction[*rhtasv1.Trillian](func(t *rhtasv1.Trillian) []string {
 			return []string{actions.ServerCondition, actions.SignerCondition, actions.DbCondition}
 		}),
 
@@ -105,7 +105,7 @@ func (r *trillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		logsigner.NewTlsAction(),
 		db.NewTlsAction(),
 
-		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.Trillian](),
+		transitions.NewToCreatePhaseAction[*rhtasv1.Trillian](),
 		logserver.NewRBACAction(),
 		logsigner.NewRBACAction(),
 		db.NewRBACAction(),
@@ -123,13 +123,13 @@ func (r *trillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		logsigner.NewCreateServiceAction(),
 		logsigner.NewCreateMonitorAction(),
 
-		transitions.NewToInitializePhaseAction[*rhtasv1alpha1.Trillian](),
+		transitions.NewToInitializePhaseAction[*rhtasv1.Trillian](),
 
 		db.NewInitializeAction(),
 		logserver.NewInitializeAction(),
 		logsigner.NewInitializeAction(),
 
-		transitions.NewToReadyPhaseAction[*rhtasv1alpha1.Trillian](),
+		transitions.NewToReadyPhaseAction[*rhtasv1.Trillian](),
 	}
 
 	for _, a := range actions {
@@ -158,7 +158,7 @@ func (r *trillianReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
-		For(&rhtasv1alpha1.Trillian{}, builder.WithPredicates(tasPredicate.ConfigurationChangedOnFailurePredicate[*rhtasv1alpha1.Trillian]())).
+		For(&rhtasv1.Trillian{}, builder.WithPredicates(tasPredicate.ConfigurationChangedOnFailurePredicate[*rhtasv1.Trillian]())).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		Complete(r)

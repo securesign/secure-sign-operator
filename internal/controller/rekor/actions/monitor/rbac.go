@@ -1,12 +1,12 @@
 package monitor
 
 import (
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/action/rbac"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 )
 
-func NewRBACAction() action.Action[*rhtasv1alpha1.Rekor] {
-	return rbac.NewAction[*rhtasv1alpha1.Rekor](actions.MonitorComponentName, actions.RBACMonitorName)
+func NewRBACAction() action.Action[*rhtasv1.Rekor] {
+	return rbac.NewAction[*rhtasv1.Rekor](actions.MonitorComponentName, actions.RBACMonitorName)
 }

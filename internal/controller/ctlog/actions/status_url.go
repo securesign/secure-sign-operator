@@ -8,10 +8,10 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 )
 
-func NewStatusUrlAction() action.Action[*rhtasv1alpha1.CTlog] {
+func NewStatusUrlAction() action.Action[*rhtasv1.CTlog] {
 	return &statusUrlAction{}
 }
 
@@ -23,11 +23,11 @@ func (i statusUrlAction) Name() string {
 	return "status-url"
 }
 
-func (i statusUrlAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.CTlog) bool {
+func (i statusUrlAction) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool {
 	return state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
-func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) *action.Result {
+func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
 	protocol := "http"
 	if instance.Status.TLS.CertRef != nil {
 		protocol = "https"

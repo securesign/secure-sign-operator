@@ -6,7 +6,7 @@ import (
 	"maps"
 	"slices"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func NewDeployAction() action.Action[*rhtasv1alpha1.Tuf] {
+func NewDeployAction() action.Action[*rhtasv1.Tuf] {
 	return &deployAction{}
 }
 
@@ -36,11 +36,11 @@ func (i deployAction) Name() string {
 	return "deploy"
 }
 
-func (i deployAction) CanHandle(_ context.Context, tuf *rhtasv1alpha1.Tuf) bool {
+func (i deployAction) CanHandle(_ context.Context, tuf *rhtasv1.Tuf) bool {
 	return state.FromInstance(tuf, constants.ReadyCondition) >= state.Creating
 }
 
-func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *action.Result {
+func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *action.Result {
 	labels := labels.For(tufConstants.ComponentName, tufConstants.DeploymentName, instance.Name)
 
 	var (
@@ -75,7 +75,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Tuf) *
 	}
 }
 
-func (i deployAction) createTufDeployment(instance *rhtasv1alpha1.Tuf, sa string, labels map[string]string) func(*v1.Deployment) error {
+func (i deployAction) createTufDeployment(instance *rhtasv1.Tuf, sa string, labels map[string]string) func(*v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
 
 		spec := &dp.Spec

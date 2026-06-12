@@ -10,7 +10,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/test/e2e/support"
 	v1 "k8s.io/api/core/v1"
 )
@@ -19,7 +19,7 @@ var _ = Describe("Securesign install with in-cluster services and internal TUF s
 	cli, _ := support.CreateClient()
 
 	var namespace *v1.Namespace
-	var s *v1alpha1.Securesign
+	var s *rhtasv1.Securesign
 	var targetImageName string
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {

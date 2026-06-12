@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/state"
 	v1 "k8s.io/api/core/v1"
@@ -19,7 +19,7 @@ const (
 	OpenshiftMonitoringNS  = "openshift-monitoring"
 )
 
-func NewSBJRBACAction() action.Action[*rhtasv1alpha1.Securesign] {
+func NewSBJRBACAction() action.Action[*rhtasv1.Securesign] {
 	return &rbacAction{}
 }
 
@@ -31,11 +31,11 @@ func (i rbacAction) Name() string {
 	return "ensure RBAC for segment job"
 }
 
-func (i rbacAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.Securesign) bool {
+func (i rbacAction) CanHandle(_ context.Context, instance *rhtasv1.Securesign) bool {
 	return true
 }
 
-func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesign) *action.Result {
+func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1.Securesign) *action.Result {
 	result := i.cleanupResource(ctx, instance, &v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      SegmentRBACName,
@@ -96,7 +96,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 	return i.Continue()
 }
 
-func (i rbacAction) cleanupResource(ctx context.Context, instance *rhtasv1alpha1.Securesign, object client.Object) *action.Result {
+func (i rbacAction) cleanupResource(ctx context.Context, instance *rhtasv1.Securesign, object client.Object) *action.Result {
 	if err := client.IgnoreNotFound(i.Client.Delete(ctx, object)); err != nil {
 		return i.Error(ctx, err, instance,
 			metav1.Condition{

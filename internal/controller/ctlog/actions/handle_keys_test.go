@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/gomega"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,9 +27,9 @@ func TestKeysCan_Handle(t *testing.T) {
 
 	type env struct {
 		phase   state.State
-		spec    v1alpha1.CTlogSpec
+		spec    rhtasv1.CTlogSpec
 		objects []client.Object
-		status  v1alpha1.CTlogStatus
+		status  rhtasv1.CTlogStatus
 	}
 	type want struct {
 		canHandle bool
@@ -43,8 +43,8 @@ func TestKeysCan_Handle(t *testing.T) {
 			name: "generate new",
 			env: env{
 				phase:  state.Creating,
-				spec:   v1alpha1.CTlogSpec{},
-				status: v1alpha1.CTlogStatus{},
+				spec:   rhtasv1.CTlogSpec{},
+				status: rhtasv1.CTlogStatus{},
 			},
 			want: want{
 				canHandle: true,
@@ -54,13 +54,13 @@ func TestKeysCan_Handle(t *testing.T) {
 			name: "new spec key",
 			env: env{
 				phase: state.Creating,
-				spec: v1alpha1.CTlogSpec{
-					PrivateKeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "obj"},
+				spec: rhtasv1.CTlogSpec{
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "obj"},
 						Key:                  "key",
 					},
 				},
-				status: v1alpha1.CTlogStatus{},
+				status: rhtasv1.CTlogStatus{},
 			},
 			want: want{
 				canHandle: true,
@@ -70,23 +70,23 @@ func TestKeysCan_Handle(t *testing.T) {
 			name: "spec change",
 			env: env{
 				phase: state.Creating,
-				spec: v1alpha1.CTlogSpec{
-					PrivateKeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "new"},
+				spec: rhtasv1.CTlogSpec{
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new"},
 						Key:                  "key",
 					},
 				},
-				status: v1alpha1.CTlogStatus{
-					PrivateKeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "old"},
+				status: rhtasv1.CTlogStatus{
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old"},
 						Key:                  "key",
 					},
-					PublicKeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "old"},
+					PublicKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old"},
 						Key:                  "pub",
 					},
-					PrivateKeyPasswordRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "old"},
+					PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old"},
 						Key:                  "password",
 					},
 				},
@@ -99,18 +99,18 @@ func TestKeysCan_Handle(t *testing.T) {
 			name: "generated keys-no change",
 			env: env{
 				phase: state.Ready,
-				spec:  v1alpha1.CTlogSpec{},
-				status: v1alpha1.CTlogStatus{
-					PrivateKeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "old"},
+				spec:  rhtasv1.CTlogSpec{},
+				status: rhtasv1.CTlogStatus{
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old"},
 						Key:                  "key",
 					},
-					PublicKeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "old"},
+					PublicKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old"},
 						Key:                  "pub",
 					},
-					PrivateKeyPasswordRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "old"},
+					PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old"},
 						Key:                  "password",
 					},
 				},
@@ -123,31 +123,31 @@ func TestKeysCan_Handle(t *testing.T) {
 			name: "spec keys-no change",
 			env: env{
 				phase: state.Creating,
-				spec: v1alpha1.CTlogSpec{
-					PrivateKeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "old"},
+				spec: rhtasv1.CTlogSpec{
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old"},
 						Key:                  "key",
 					},
-					PublicKeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "old"},
+					PublicKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old"},
 						Key:                  "pub",
 					},
-					PrivateKeyPasswordRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "old"},
+					PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old"},
 						Key:                  "password",
 					},
 				},
-				status: v1alpha1.CTlogStatus{
-					PrivateKeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "old"},
+				status: rhtasv1.CTlogStatus{
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old"},
 						Key:                  "key",
 					},
-					PublicKeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "old"},
+					PublicKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old"},
 						Key:                  "pub",
 					},
-					PrivateKeyPasswordRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "old"},
+					PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old"},
 						Key:                  "password",
 					},
 				},
@@ -174,7 +174,7 @@ func TestKeysCan_Handle(t *testing.T) {
 				Build()
 			a := testAction.PrepareAction(c, NewHandleKeysAction())
 
-			instance := v1alpha1.CTlog{
+			instance := rhtasv1.CTlog{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "instance",
 					Namespace: "default",
@@ -201,13 +201,13 @@ func TestKeys_Handle(t *testing.T) {
 	encryptedKeyConf, err := utils.CreatePrivateKey(utils2.GeneratePassword(8))
 	g.Expect(err).To(Not(HaveOccurred()))
 	type env struct {
-		spec    v1alpha1.CTlogSpec
+		spec    rhtasv1.CTlogSpec
 		objects []client.Object
-		status  v1alpha1.CTlogStatus
+		status  rhtasv1.CTlogStatus
 	}
 	type want struct {
 		result *action.Result
-		verify func(Gomega, v1alpha1.CTlogStatus, client.WithWatch, <-chan watch.Event)
+		verify func(Gomega, rhtasv1.CTlogStatus, client.WithWatch, <-chan watch.Event)
 	}
 	tests := []struct {
 		name string
@@ -217,8 +217,8 @@ func TestKeys_Handle(t *testing.T) {
 		{
 			name: "autodiscovery-find existing private key",
 			env: env{
-				spec:   v1alpha1.CTlogSpec{},
-				status: v1alpha1.CTlogStatus{},
+				spec:   rhtasv1.CTlogSpec{},
+				status: rhtasv1.CTlogStatus{},
 				objects: []client.Object{
 					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
@@ -232,7 +232,7 @@ func TestKeys_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
+				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
 					g.Expect(status.PrivateKeyRef).To(Not(BeNil()))
@@ -249,13 +249,13 @@ func TestKeys_Handle(t *testing.T) {
 		{
 			name: "autodiscovery - select key private based on passwordRef, unlabel others",
 			env: env{
-				spec: v1alpha1.CTlogSpec{
-					PrivateKeyPasswordRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "encrypted"},
+				spec: rhtasv1.CTlogSpec{
+					PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "encrypted"},
 						Key:                  "password",
 					},
 				},
-				status: v1alpha1.CTlogStatus{},
+				status: rhtasv1.CTlogStatus{},
 				objects: []client.Object{
 					// invalid private key
 					&v1.Secret{
@@ -293,7 +293,7 @@ func TestKeys_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
+				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
 					g.Expect(status.PrivateKeyRef).To(Not(BeNil()))
@@ -313,13 +313,13 @@ func TestKeys_Handle(t *testing.T) {
 		{
 			name: "autodiscovery - select key private based on privateKey, unlabel others",
 			env: env{
-				spec: v1alpha1.CTlogSpec{
-					PrivateKeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "valid"},
+				spec: rhtasv1.CTlogSpec{
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "valid"},
 						Key:                  "private",
 					},
 				},
-				status: v1alpha1.CTlogStatus{},
+				status: rhtasv1.CTlogStatus{},
 				objects: []client.Object{
 					// invalid private key
 					&v1.Secret{
@@ -358,7 +358,7 @@ func TestKeys_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
+				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
 					g.Expect(status.PrivateKeyPasswordRef).To(BeNil())
@@ -378,21 +378,21 @@ func TestKeys_Handle(t *testing.T) {
 		{
 			name: "spec keys",
 			env: env{
-				spec: v1alpha1.CTlogSpec{
-					PrivateKeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
+				spec: rhtasv1.CTlogSpec{
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"},
 						Key:                  "private",
 					},
-					PrivateKeyPasswordRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
+					PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"},
 						Key:                  "password",
 					},
-					PublicKeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
+					PublicKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"},
 						Key:                  "public",
 					},
 				},
-				status: v1alpha1.CTlogStatus{},
+				status: rhtasv1.CTlogStatus{},
 				objects: []client.Object{
 					// invalid private key
 					&v1.Secret{
@@ -425,7 +425,7 @@ func TestKeys_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
+				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
 					g.Expect(status.PrivateKeyPasswordRef).To(Not(BeNil()))
@@ -442,13 +442,13 @@ func TestKeys_Handle(t *testing.T) {
 		{
 			name: "generate password-encrypted key",
 			env: env{
-				spec: v1alpha1.CTlogSpec{
-					PrivateKeyPasswordRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
+				spec: rhtasv1.CTlogSpec{
+					PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"},
 						Key:                  "password",
 					},
 				},
-				status: v1alpha1.CTlogStatus{},
+				status: rhtasv1.CTlogStatus{},
 				objects: []client.Object{
 					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
@@ -463,7 +463,7 @@ func TestKeys_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
+				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
 					g.Expect(status.PrivateKeyPasswordRef).To(Not(BeNil()))
@@ -480,17 +480,17 @@ func TestKeys_Handle(t *testing.T) {
 		{
 			name: "generate public key for spec private",
 			env: env{
-				spec: v1alpha1.CTlogSpec{
-					PrivateKeyRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
+				spec: rhtasv1.CTlogSpec{
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"},
 						Key:                  "private",
 					},
-					PrivateKeyPasswordRef: &v1alpha1.SecretKeySelector{
-						LocalObjectReference: v1alpha1.LocalObjectReference{Name: "secret"},
+					PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"},
 						Key:                  "password",
 					},
 				},
-				status: v1alpha1.CTlogStatus{},
+				status: rhtasv1.CTlogStatus{},
 				objects: []client.Object{
 					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
@@ -506,7 +506,7 @@ func TestKeys_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, status v1alpha1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
+				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
 					g.Expect(status.PrivateKeyPasswordRef).To(Not(BeNil()))
@@ -530,7 +530,7 @@ func TestKeys_Handle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
 			ctx := context.TODO()
-			instance := &v1alpha1.CTlog{
+			instance := &rhtasv1.CTlog{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "instance",
 					Namespace: "default",
@@ -559,7 +559,7 @@ func TestKeys_Handle(t *testing.T) {
 			}
 			configSecretWatch.Stop()
 			if tt.want.verify != nil {
-				find := &v1alpha1.CTlog{}
+				find := &rhtasv1.CTlog{}
 				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(instance), find)).To(Succeed())
 				tt.want.verify(g, find.Status, c, configSecretWatch.ResultChan())
 			}

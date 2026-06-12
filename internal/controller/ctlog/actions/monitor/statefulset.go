@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	tlsensure "github.com/securesign/operator/internal/utils/tls/ensure"
 )
@@ -36,7 +36,7 @@ const (
 	ctlogLogPrefix    = "trusted-artifact-signer"
 )
 
-func NewStatefulSetAction() action.Action[*rhtasv1alpha1.CTlog] {
+func NewStatefulSetAction() action.Action[*rhtasv1.CTlog] {
 	return &statefulSetAction{}
 }
 
@@ -48,11 +48,11 @@ func (i statefulSetAction) Name() string {
 	return "statefulset"
 }
 
-func (i statefulSetAction) CanHandle(_ context.Context, instance *rhtasv1alpha1.CTlog) bool {
+func (i statefulSetAction) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool {
 	return enabled(instance) && instance.Spec.Monitoring.Enabled && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
-func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1alpha1.CTlog) *action.Result {
+func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
 	var (
 		err    error
 		result controllerutil.OperationResult
@@ -112,7 +112,7 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1alpha1.C
 	return i.Continue()
 }
 
-func (i statefulSetAction) ensureTLS(tlsConfig rhtasv1alpha1.TLS, name string) func(sts *v1.StatefulSet) error {
+func (i statefulSetAction) ensureTLS(tlsConfig rhtasv1.TLS, name string) func(sts *v1.StatefulSet) error {
 	return func(sts *v1.StatefulSet) error {
 		if err := tlsensure.TLS(tlsConfig, name)(&sts.Spec.Template); err != nil {
 			return err
@@ -121,7 +121,7 @@ func (i statefulSetAction) ensureTLS(tlsConfig rhtasv1alpha1.TLS, name string) f
 	}
 }
 
-func (i statefulSetAction) resolveTufUrl(instance *rhtasv1alpha1.CTlog) string {
+func (i statefulSetAction) resolveTufUrl(instance *rhtasv1.CTlog) string {
 	if instance.Spec.Monitoring.Tuf.Address != "" {
 		url := instance.Spec.Monitoring.Tuf.Address
 		if instance.Spec.Monitoring.Tuf.Port != nil {
@@ -132,7 +132,7 @@ func (i statefulSetAction) resolveTufUrl(instance *rhtasv1alpha1.CTlog) string {
 	return fmt.Sprintf("http://tuf.%s.svc", instance.Namespace)
 }
 
-func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1alpha1.CTlog, sa string, labels map[string]string, ctlogServerHost string, tufServerHost string) func(*v1.StatefulSet) error {
+func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1.CTlog, sa string, labels map[string]string, ctlogServerHost string, tufServerHost string) func(*v1.StatefulSet) error {
 	return func(ss *v1.StatefulSet) error {
 
 		spec := &ss.Spec
