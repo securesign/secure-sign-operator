@@ -35,29 +35,30 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
-      - name: Install crdifi
+      - name: Install tools
         run: |
           go install sigs.k8s.io/crdify@v0.5.0
-      - name: Compare CTlog CRD
+          go install sigs.k8s.io/kustomize/kustomize/v5@latest
+      - name: Build kustomized CRDs
         run: |
-          crdify --config=crdify.yaml "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_ctlogs.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_ctlogs.yaml"
-      - name: Compare Fulcio CRD
+          REPO="${{ github.event.pull_request.head.repo.full_name }}"
+          mkdir -p /tmp/crd-base /tmp/crd-head
+          kustomize build "https://github.com/${REPO}//config/crd?ref=${{ github.event.pull_request.base.sha }}" -o /tmp/crd-base/
+          kustomize build "https://github.com/${REPO}//config/crd?ref=${{ github.event.pull_request.head.sha }}" -o /tmp/crd-head/
+      - name: Compare CRDs
         run: |
-          crdify --config=crdify.yaml "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_fulcios.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_fulcios.yaml"
-      - name: Compare Rekor CRD
-        run: |
-          crdify --config=crdify.yaml "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_rekors.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_rekors.yaml"
-      - name: Compare TSA CRD
-        run: |
-          crdify --config=crdify.yaml "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_timestampauthorities.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_timestampauthorities.yaml"
-      - name: Compare Trillian CRD
-        run: |
-          crdify --config=crdify.yaml "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_trillians.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_trillians.yaml"
-      - name: Compare TUF CRD
-        run: |
-          crdify --config=crdify.yaml "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_tufs.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_tufs.yaml"
-      - name: Compare Securesign CRD
-        run: |
-          crdify --config=crdify.yaml "git://${{ github.event.pull_request.base.sha }}?path=config/crd/bases/rhtas.redhat.com_securesigns.yaml" "git://${{ github.event.pull_request.head.sha }}?path=config/crd/bases/rhtas.redhat.com_securesigns.yaml"
+          FAILED=0
+          for crd in /tmp/crd-head/*_customresourcedefinition_*.yaml; do
+            NAME=$(basename "$crd")
+            echo "--- Comparing ${NAME} ---"
+            if [ ! -f "/tmp/crd-base/${NAME}" ]; then
+              echo "Skipping: not present in base (new CRD)"
+              continue
+            fi
+            if ! crdify --config=crdify.yaml "file:///tmp/crd-base/${NAME}" "file://${crd}"; then
+              FAILED=1
+            fi
+          done
+          exit $FAILED
 
 

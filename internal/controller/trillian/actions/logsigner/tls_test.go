@@ -218,7 +218,7 @@ func TestTlsAction_CanHandle(t *testing.T) {
 					},
 				},
 				Status: rhtasv1.TrillianStatus{
-					LogSigner: rhtasv1.TrillianLogSigner{
+					LogSigner: rhtasv1.TrillianServiceStatus{
 						TLS: tt.env.statusTLS,
 					},
 					Conditions: tt.env.conditions,

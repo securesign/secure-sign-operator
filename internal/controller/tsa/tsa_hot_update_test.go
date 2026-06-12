@@ -192,16 +192,24 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			Expect(suite.Client().Create(context.TODO(), secret)).NotTo(HaveOccurred())
 
 			By("Status field changed for cert chain")
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega) *rhtasv1.SecretKeySelector {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Signer.CertificateChain.CertificateChainRef.Name
-			}).Should(Equal("tsa-test-secret"))
+				if found.Status.Signer == nil {
+					return nil
+				}
+				return found.Status.Signer.CertificateChainRef
+			}).Should(Not(BeNil()))
+			Expect(found.Status.Signer.CertificateChainRef.Name).To(Equal("tsa-test-secret"))
 
 			By("Status field changed for signer key")
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega) *rhtasv1.SecretKeySelector {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Signer.File.PasswordRef.Name
-			}).Should(Equal("tsa-test-secret"))
+				if found.Status.Signer == nil || found.Status.Signer.File == nil {
+					return nil
+				}
+				return found.Status.Signer.File.PasswordRef
+			}).Should(Not(BeNil()))
+			Expect(found.Status.Signer.File.PasswordRef.Name).To(Equal("tsa-test-secret"))
 
 			Eventually(func(g Gomega) bool {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())

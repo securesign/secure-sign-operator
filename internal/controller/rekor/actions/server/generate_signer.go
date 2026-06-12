@@ -22,7 +22,6 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,15 +52,19 @@ func (g generateSigner) CanHandle(_ context.Context, instance *rhtasv1.Rekor) bo
 
 	switch instance.Spec.Signer.KMS {
 	case signerKMSSecret, "":
-		return instance.Status.Signer.KeyRef == nil || !equality.Semantic.DeepDerivative(instance.Spec.Signer, instance.Status.Signer)
+		return instance.Status.Signer.KeyRef == nil || !instance.Status.Signer.EqualsSpec(instance.Spec.Signer)
 	default:
-		return !equality.Semantic.DeepDerivative(instance.Spec.Signer, instance.Status.Signer)
+		return !instance.Status.Signer.EqualsSpec(instance.Spec.Signer)
 	}
 }
 
 func (g generateSigner) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
 	if instance.Spec.Signer.KMS != signerKMSSecret && instance.Spec.Signer.KMS != "" {
-		instance.Status.Signer = instance.Spec.Signer
+		instance.Status.Signer = rhtasv1.RekorSignerStatus{
+			KMS:         instance.Spec.Signer.KMS,
+			PasswordRef: instance.Spec.Signer.PasswordRef,
+			KeyRef:      instance.Spec.Signer.KeyRef,
+		}
 		// force recreation of public key ref
 		instance.Status.PublicKeyRef = nil
 		// skip signer resolution and move to creating
@@ -177,7 +180,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *rhtasv1.Rekor) *ac
 			}
 		}
 	}
-	instance.Status.Signer = newSigner
+	instance.Status.Signer = rhtasv1.RekorSignerStatus(newSigner)
 	// force recreation of public key ref
 	instance.Status.PublicKeyRef = nil
 

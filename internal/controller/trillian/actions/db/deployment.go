@@ -100,7 +100,7 @@ func (i deployAction) ensureDbDeployment(instance *rhtasv1.Trillian, sa string, 
 			{
 				return errors.New("reference to database secret is not set")
 			}
-		case instance.Status.Db.Pvc.Name == "":
+		case instance.Status.Db.PvcName == "":
 			{
 				return errors.New("reference to database pvc is not set")
 			}
@@ -125,7 +125,7 @@ func (i deployAction) ensureDbDeployment(instance *rhtasv1.Trillian, sa string, 
 		if volume.PersistentVolumeClaim == nil {
 			volume.PersistentVolumeClaim = &v1.PersistentVolumeClaimVolumeSource{}
 		}
-		volume.PersistentVolumeClaim.ClaimName = instance.Status.Db.Pvc.Name
+		volume.PersistentVolumeClaim.ClaimName = instance.Status.Db.PvcName
 
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, actions.DbDeploymentName)
 		container.Image = images.Registry.Get(images.TrillianDb)
