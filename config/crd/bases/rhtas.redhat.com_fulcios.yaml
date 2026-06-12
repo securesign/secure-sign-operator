@@ -1417,10 +1417,9 @@ spec:
             description: FulcioStatus defines the observed state of Fulcio
             properties:
               certificate:
-                description: FulcioCert defines fields for system-generated certificate
                 properties:
                   caRef:
-                    description: Reference to CA certificate
+                    description: SecretKeySelector selects a key of a Secret.
                     properties:
                       key:
                         description: The key of the secret to select from. Must be
@@ -1438,16 +1437,13 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   commonName:
-                    description: |-
-                      CommonName specifies the common name for the Fulcio certificate.
-                      If not provided, the common name will default to the host name.
                     type: string
                   organizationEmail:
                     type: string
                   organizationName:
                     type: string
                   privateKeyPasswordRef:
-                    description: Reference to password to encrypt CA private key
+                    description: SecretKeySelector selects a key of a Secret.
                     properties:
                       key:
                         description: The key of the secret to select from. Must be
@@ -1465,7 +1461,7 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   privateKeyRef:
-                    description: Reference to CA private key
+                    description: SecretKeySelector selects a key of a Secret.
                     properties:
                       key:
                         description: The key of the secret to select from. Must be
@@ -1483,11 +1479,6 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                 type: object
-                x-kubernetes-validations:
-                - message: organizationName cannot be empty
-                  rule: (has(self.caRef) || self.organizationName != "")
-                - message: privateKeyRef cannot be empty
-                  rule: (!has(self.caRef) || has(self.privateKeyRef))
               conditions:
                 items:
                   description: Condition contains details for one aspect of the current

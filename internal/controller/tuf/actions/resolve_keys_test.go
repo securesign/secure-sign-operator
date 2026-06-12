@@ -82,7 +82,8 @@ func TestKeyProvided(t *testing.T) {
 	testAction.Handle(testContext, instance)
 
 	g.Expect(instance.Status.Keys).To(HaveLen(1))
-	g.Expect(instance.Status.Keys[0]).To(Equal(instance.Spec.Keys[0]))
+	g.Expect(instance.Status.Keys[0].Name).To(Equal(instance.Spec.Keys[0].Name))
+	g.Expect(instance.Status.Keys[0].SecretRef).To(Equal(instance.Spec.Keys[0].SecretRef))
 
 	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, "rekor.pub")).To(BeTrue())
 }
@@ -101,7 +102,7 @@ func TestKeyUpdate(t *testing.T) {
 				},
 			},
 		}},
-		Status: rhtasv1.TufStatus{Keys: []rhtasv1.TufKey{
+		Status: rhtasv1.TufStatus{Keys: []rhtasv1.TufKeyStatus{
 			{
 				Name: "rekor.pub",
 				SecretRef: &rhtasv1.SecretKeySelector{
@@ -123,7 +124,8 @@ func TestKeyUpdate(t *testing.T) {
 
 	g.Expect(instance.Status.Keys).To(HaveLen(1))
 	g.Expect(instance.Status.Keys[0].SecretRef.Name).To(Equal("new"))
-	g.Expect(instance.Status.Keys[0]).To(Equal(instance.Spec.Keys[0]))
+	g.Expect(instance.Status.Keys[0].Name).To(Equal(instance.Spec.Keys[0].Name))
+	g.Expect(instance.Status.Keys[0].SecretRef).To(Equal(instance.Spec.Keys[0].SecretRef))
 
 	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, "rekor.pub")).To(BeTrue())
 }
@@ -145,7 +147,7 @@ func TestKeyDelete(t *testing.T) {
 				SecretRef: nil,
 			},
 		}},
-		Status: rhtasv1.TufStatus{Keys: []rhtasv1.TufKey{
+		Status: rhtasv1.TufStatus{Keys: []rhtasv1.TufKeyStatus{
 			{
 				Name: "ctfe.pub",
 				SecretRef: &rhtasv1.SecretKeySelector{

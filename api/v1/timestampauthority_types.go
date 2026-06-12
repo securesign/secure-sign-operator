@@ -174,11 +174,30 @@ func (i *TimestampAuthority) SetCondition(newCondition metav1.Condition) {
 	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
 }
 
+type TSASignerStatus struct {
+	CertificateChainRef *SecretKeySelector `json:"certificateChainRef,omitempty"`
+	File                *FileStatus        `json:"file,omitempty"`
+}
+
+type FileStatus struct {
+	PasswordRef   *SecretKeySelector `json:"passwordRef,omitempty"`
+	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+}
+
+type NTPMonitoringStatus struct {
+	Enabled bool                       `json:"enabled"`
+	Config  *NtpMonitoringConfigStatus `json:"config,omitempty"`
+}
+
+type NtpMonitoringConfigStatus struct {
+	NtpConfigRef *LocalObjectReference `json:"ntpConfigRef,omitempty"`
+}
+
 // TimestampAuthorityStatus defines the observed state of TimestampAuthority
 type TimestampAuthorityStatus struct {
-	NTPMonitoring *NTPMonitoring            `json:"ntpMonitoring,omitempty"`
-	Signer        *TimestampAuthoritySigner `json:"signer,omitempty"`
-	Url           string                    `json:"url,omitempty"`
+	NTPMonitoring *NTPMonitoringStatus `json:"ntpMonitoring,omitempty"`
+	Signer        *TSASignerStatus     `json:"signer,omitempty"`
+	Url           string               `json:"url,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge

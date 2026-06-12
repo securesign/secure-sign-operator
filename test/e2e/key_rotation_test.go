@@ -379,7 +379,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 		It("Download tsa cert", func(ctx SpecContext) {
 			t := tsa.Get(ctx, cli, namespace.Name, s.Name)
 			Expect(t).ToNot(BeNil())
-			oldTsa, err = kubernetes.GetSecretData(cli, namespace.Name, t.Status.Signer.CertificateChain.CertificateChainRef)
+			oldTsa, err = kubernetes.GetSecretData(cli, namespace.Name, t.Status.Signer.CertificateChainRef)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(oldTsa).ToNot(BeEmpty())
 		})

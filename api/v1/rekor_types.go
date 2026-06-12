@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -200,13 +201,25 @@ type SearchIndexStatus struct {
 	DbPasswordRef *SecretKeySelector `json:"dbPasswordRef,omitempty"`
 }
 
+type RekorSignerStatus struct {
+	KMS         string             `json:"kms,omitempty"`
+	PasswordRef *SecretKeySelector `json:"passwordRef,omitempty"`
+	KeyRef      *SecretKeySelector `json:"keyRef,omitempty"`
+}
+
+func (s RekorSignerStatus) MatchesSpec(spec RekorSigner) bool {
+	return spec.KMS == s.KMS &&
+		equality.Semantic.DeepDerivative(spec.PasswordRef, s.PasswordRef) &&
+		equality.Semantic.DeepDerivative(spec.KeyRef, s.KeyRef)
+}
+
 // RekorStatus defines the observed state of Rekor
 type RekorStatus struct {
 	// Reference to secret with Rekor's signer public key.
 	// Public key is automatically generated from signer private key.
 	PublicKeyRef     *SecretKeySelector    `json:"publicKeyRef,omitempty"`
 	ServerConfigRef  *LocalObjectReference `json:"serverConfigRef,omitempty"`
-	Signer           RekorSigner           `json:"signer,omitempty"`
+	Signer           RekorSignerStatus     `json:"signer,omitempty"`
 	SearchIndex      SearchIndexStatus     `json:"searchIndex,omitempty"`
 	PvcName          string                `json:"pvcName,omitempty"`
 	MonitorPvcName   string                `json:"monitorpvcName,omitempty"`

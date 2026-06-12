@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -111,11 +112,21 @@ type TufKey struct {
 	SecretRef *SecretKeySelector `json:"secretRef,omitempty"`
 }
 
+type TufKeyStatus struct {
+	Name      string             `json:"name"`
+	SecretRef *SecretKeySelector `json:"secretRef,omitempty"`
+}
+
+func (s TufKeyStatus) MatchesSpec(spec TufKey) bool {
+	return spec.Name == s.Name &&
+		equality.Semantic.DeepDerivative(spec.SecretRef, s.SecretRef)
+}
+
 // TufStatus defines the observed state of Tuf
 type TufStatus struct {
-	Keys    []TufKey `json:"keys,omitempty"`
-	PvcName string   `json:"pvcName,omitempty"`
-	Url     string   `json:"url,omitempty"`
+	Keys    []TufKeyStatus `json:"keys,omitempty"`
+	PvcName string         `json:"pvcName,omitempty"`
+	Url     string         `json:"url,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge

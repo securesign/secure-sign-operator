@@ -16,7 +16,6 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels2 "k8s.io/apimachinery/pkg/labels"
@@ -54,18 +53,23 @@ func (i ntpMonitoringAction) CanHandle(ctx context.Context, instance *rhtasv1.Ti
 		return true
 	case instance.Generation != c.ObservedGeneration:
 		return true
+	case instance.Spec.NTPMonitoring.Enabled != instance.Status.NTPMonitoring.Enabled:
+		return true
+	case instance.Spec.NTPMonitoring.Config != nil &&
+		(instance.Status.NTPMonitoring.Config == nil || instance.Status.NTPMonitoring.Config.NtpConfigRef == nil):
+		return true
+	case instance.Spec.NTPMonitoring.Config != nil && instance.Spec.NTPMonitoring.Config.NtpConfigRef == nil:
+		// Inline config fields are not stored in status — always re-enter so Handle
+		// can compare the generated ConfigMap content against the current spec.
+		return true
 	default:
-		return !equality.Semantic.DeepDerivative(instance.Spec.NTPMonitoring, *instance.Status.NTPMonitoring)
+		return false
 	}
 }
 
 func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.TimestampAuthority) *action.Result {
-
-	var newStatus = instance.Spec.NTPMonitoring.DeepCopy()
-
 	if instance.Spec.NTPMonitoring.Config == nil {
-		i.alignStatusFields(&instance.Spec.NTPMonitoring, newStatus, "")
-		instance.Status.NTPMonitoring = newStatus
+		instance.Status.NTPMonitoring = i.buildNTPStatus(&instance.Spec.NTPMonitoring, "")
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               constants.ReadyCondition,
 			Status:             metav1.ConditionFalse,
@@ -77,8 +81,7 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.Times
 	}
 
 	if instance.Spec.NTPMonitoring.Config.NtpConfigRef != nil {
-		i.alignStatusFields(&instance.Spec.NTPMonitoring, newStatus, cmName)
-		instance.Status.NTPMonitoring = newStatus
+		instance.Status.NTPMonitoring = i.buildNTPStatus(&instance.Spec.NTPMonitoring, "")
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               constants.ReadyCondition,
 			Status:             metav1.ConditionFalse,
@@ -88,11 +91,6 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.Times
 		})
 		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	}
-
-	var (
-		err    error
-		cmName string
-	)
 
 	ntpConfig, err := i.marshalNTPMonitoringConfig(instance.Spec.NTPMonitoring.Config)
 	if err != nil {
@@ -108,8 +106,8 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.Times
 	l := labels.For(ComponentName, DeploymentName, instance.Name)
 	l[labels.LabelResource] = ntpConfigLabel
 
-	if newStatus.Config.NtpConfigRef != nil {
-		cfg, err := kubernetes.GetConfigMap(ctx, i.Client, instance.Namespace, newStatus.Config.NtpConfigRef.Name)
+	if instance.Status.NTPMonitoring != nil && instance.Status.NTPMonitoring.Config != nil && instance.Status.NTPMonitoring.Config.NtpConfigRef != nil {
+		cfg, err := kubernetes.GetConfigMap(ctx, i.Client, instance.Namespace, instance.Status.NTPMonitoring.Config.NtpConfigRef.Name)
 		if client.IgnoreNotFound(err) != nil {
 			return i.Error(ctx, fmt.Errorf("NTPConfig: %w", err), instance)
 		}
@@ -122,7 +120,8 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.Times
 			}
 		}
 	}
-	newStatus.Config.NtpConfigRef = nil
+
+	var resolvedCMName string
 
 	partialConfigs, err := kubernetes.ListConfigMaps(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(l).String())
 	if err != nil {
@@ -133,10 +132,10 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.Times
 		if err != nil {
 			return i.Error(ctx, fmt.Errorf("can't load configMap data %w", err), instance)
 		}
-		if reflect.DeepEqual(cm.Data[ntpConfigName], string(ntpConfig)) && newStatus.Config.NtpConfigRef == nil {
+		if reflect.DeepEqual(cm.Data[ntpConfigName], string(ntpConfig)) && resolvedCMName == "" {
 			i.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "NTPConfigDiscovered", "Discovered", "Existing ConfigMap with NTP configuration discovered: %s", cm.Name)
-			i.alignStatusFields(&instance.Spec.NTPMonitoring, newStatus, cm.Name)
-			instance.Status.NTPMonitoring = newStatus
+			resolvedCMName = cm.Name
+			instance.Status.NTPMonitoring = i.buildNTPStatus(&instance.Spec.NTPMonitoring, resolvedCMName)
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 				Type:               constants.ReadyCondition,
 				Status:             metav1.ConditionFalse,
@@ -149,7 +148,7 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.Times
 			_ = i.Client.Delete(ctx, cm)
 		}
 	}
-	if newStatus.Config.NtpConfigRef != nil {
+	if resolvedCMName != "" {
 		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	}
 
@@ -169,10 +168,7 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.Times
 		return i.Error(ctx, fmt.Errorf("could not create ntp config: %w", err), instance)
 	}
 
-	cmName = configMap.Name
-
-	i.alignStatusFields(&instance.Spec.NTPMonitoring, newStatus, cmName)
-	instance.Status.NTPMonitoring = newStatus
+	instance.Status.NTPMonitoring = i.buildNTPStatus(&instance.Spec.NTPMonitoring, configMap.Name)
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               constants.ReadyCondition,
 		Status:             metav1.ConditionFalse,
@@ -209,15 +205,18 @@ func (i ntpMonitoringAction) marshalNTPMonitoringConfig(instance *rhtasv1.NtpMon
 	return config, nil
 }
 
-func (i ntpMonitoringAction) alignStatusFields(spec *rhtasv1.NTPMonitoring, newStatus *rhtasv1.NTPMonitoring, cmName string) {
-	if spec.Config == nil || newStatus == nil {
-		return
+func (i ntpMonitoringAction) buildNTPStatus(spec *rhtasv1.NTPMonitoring, cmName string) *rhtasv1.NTPMonitoringStatus {
+	status := &rhtasv1.NTPMonitoringStatus{
+		Enabled: spec.Enabled,
 	}
-	spec.DeepCopyInto(newStatus)
-
+	if spec.Config == nil {
+		return status
+	}
+	status.Config = &rhtasv1.NtpMonitoringConfigStatus{}
 	if spec.Config.NtpConfigRef != nil {
-		newStatus.Config.NtpConfigRef = spec.Config.NtpConfigRef
+		status.Config.NtpConfigRef = spec.Config.NtpConfigRef
 	} else if cmName != "" {
-		newStatus.Config.NtpConfigRef = &rhtasv1.LocalObjectReference{Name: cmName}
+		status.Config.NtpConfigRef = &rhtasv1.LocalObjectReference{Name: cmName}
 	}
+	return status
 }

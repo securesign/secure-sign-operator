@@ -13,7 +13,6 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	k8sutils "github.com/securesign/operator/internal/utils/kubernetes"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -34,7 +33,19 @@ func (i resolveKeysAction) CanHandle(ctx context.Context, instance *rhtasv1.Tuf)
 	if state.FromInstance(instance, constants.ReadyCondition) < state.Pending {
 		return false
 	}
-	return !equality.Semantic.DeepDerivative(instance.Spec.Keys, instance.Status.Keys)
+	return !tufKeysMatchStatus(instance.Spec.Keys, instance.Status.Keys)
+}
+
+func tufKeysMatchStatus(specKeys []rhtasv1.TufKey, statusKeys []rhtasv1.TufKeyStatus) bool {
+	if len(specKeys) != len(statusKeys) {
+		return false
+	}
+	for i := range specKeys {
+		if !statusKeys[i].MatchesSpec(specKeys[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *action.Result {
@@ -44,8 +55,8 @@ func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *a
 			ObservedGeneration: instance.Generation})
 	}
 
-	if cap(instance.Status.Keys) < len(instance.Spec.Keys) {
-		instance.Status.Keys = make([]rhtasv1.TufKey, 0, len(instance.Spec.Keys))
+	if len(instance.Status.Keys) != len(instance.Spec.Keys) {
+		instance.Status.Keys = make([]rhtasv1.TufKeyStatus, 0, len(instance.Spec.Keys))
 	}
 	for index, key := range instance.Spec.Keys {
 		k, err := i.handleKey(ctx, instance, &key)
@@ -65,16 +76,17 @@ func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *a
 			}
 			return i.RequeueAfter(5 * time.Second)
 		}
+		ks := rhtasv1.TufKeyStatus{Name: k.Name, SecretRef: k.SecretRef}
 		if len(instance.Status.Keys) < index+1 {
-			instance.Status.Keys = append(instance.Status.Keys, *k)
+			instance.Status.Keys = append(instance.Status.Keys, ks)
 			meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 				Type:   key.Name,
 				Status: v1.ConditionTrue,
 				Reason: state.Ready.String(),
 			})
 		} else {
-			if !reflect.DeepEqual(*k, instance.Status.Keys[index]) {
-				instance.Status.Keys[index] = *k
+			if !reflect.DeepEqual(ks, instance.Status.Keys[index]) {
+				instance.Status.Keys[index] = ks
 				meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
 					Type:   key.Name,
 					Status: v1.ConditionTrue,

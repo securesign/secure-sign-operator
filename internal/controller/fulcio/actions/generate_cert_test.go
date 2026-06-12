@@ -153,7 +153,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 					OrganizationEmail: "jdoe1@redhat.com",
 				},
 				status: rhtasv1.FulcioStatus{
-					Certificate: &rhtasv1.FulcioCert{
+					Certificate: &rhtasv1.FulcioCertStatus{
 						OrganizationName:  "RH",
 						OrganizationEmail: "jdoe@redhat.com",
 						CARef: &rhtasv1.SecretKeySelector{
@@ -203,7 +203,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 					},
 				},
 				status: rhtasv1.FulcioStatus{
-					Certificate: &rhtasv1.FulcioCert{
+					Certificate: &rhtasv1.FulcioCertStatus{
 						OrganizationName:  "RH",
 						OrganizationEmail: "jdoe@redhat.com",
 						PrivateKeyRef: &rhtasv1.SecretKeySelector{
@@ -265,7 +265,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 					},
 				},
 				status: rhtasv1.FulcioStatus{
-					Certificate: &rhtasv1.FulcioCert{
+					Certificate: &rhtasv1.FulcioCertStatus{
 						OrganizationName:  "RH",
 						OrganizationEmail: "jdoe@redhat.com",
 						PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
@@ -377,7 +377,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 					},
 				},
 				status: rhtasv1.FulcioStatus{
-					Certificate: &rhtasv1.FulcioCert{
+					Certificate: &rhtasv1.FulcioCertStatus{
 						CommonName:        "fulcio.local",
 						OrganizationName:  "RH",
 						OrganizationEmail: "jdoe@redhat.com",

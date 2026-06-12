@@ -89,11 +89,21 @@ type TrillianDB struct {
 	Uri string `json:"uri,omitempty"`
 }
 
+type TrillianDBStatus struct {
+	PvcName           string                `json:"pvcName,omitempty"`
+	DatabaseSecretRef *LocalObjectReference `json:"databaseSecretRef,omitempty"`
+	TLS               TLS                   `json:"tls,omitempty"`
+}
+
+type TrillianServiceStatus struct {
+	TLS TLS `json:"tls,omitempty"`
+}
+
 // TrillianStatus defines the observed state of Trillian
 type TrillianStatus struct {
-	Db        TrillianDB        `json:"database,omitempty"`
-	LogServer TrillianLogServer `json:"server,omitempty"`
-	LogSigner TrillianLogSigner `json:"signer,omitempty"`
+	Db        TrillianDBStatus      `json:"database,omitempty"`
+	LogServer TrillianServiceStatus `json:"server,omitempty"`
+	LogSigner TrillianServiceStatus `json:"signer,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge

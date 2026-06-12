@@ -155,9 +155,9 @@ var _ = Describe("TimestampAuthority Controller", func() {
 			By("Certificate chain secret should be created")
 			Eventually(func(g Gomega) *rhtasv1.SecretKeySelector {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Signer.CertificateChain.CertificateChainRef
+				return found.Status.Signer.CertificateChainRef
 			}).Should(Not(BeNil()))
-			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Signer.CertificateChain.CertificateChainRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
+			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Signer.CertificateChainRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
 
 			By("File Signer secret should be created")
 			Eventually(func(g Gomega) *rhtasv1.SecretKeySelector {

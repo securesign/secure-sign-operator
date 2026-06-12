@@ -7,6 +7,7 @@
 package v1
 
 import (
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -173,10 +174,28 @@ type Extensions struct {
 	SourceRepositoryVisibilityAtSigning string `json:"SourceRepositoryVisibilityAtSigning,omitempty" yaml:"source-repository-visibility-at-signing,omitempty"` // 1.3.6.1.4.1.57264.1.22
 }
 
+type FulcioCertStatus struct {
+	PrivateKeyRef         *SecretKeySelector `json:"privateKeyRef,omitempty"`
+	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
+	CARef                 *SecretKeySelector `json:"caRef,omitempty"`
+	CommonName            string             `json:"commonName,omitempty"`
+	OrganizationName      string             `json:"organizationName,omitempty"`
+	OrganizationEmail     string             `json:"organizationEmail,omitempty"`
+}
+
+func (s FulcioCertStatus) MatchesSpec(spec FulcioCert) bool {
+	return (spec.CommonName == "" || spec.CommonName == s.CommonName) &&
+		spec.OrganizationName == s.OrganizationName &&
+		spec.OrganizationEmail == s.OrganizationEmail &&
+		equality.Semantic.DeepDerivative(spec.PrivateKeyRef, s.PrivateKeyRef) &&
+		equality.Semantic.DeepDerivative(spec.PrivateKeyPasswordRef, s.PrivateKeyPasswordRef) &&
+		equality.Semantic.DeepDerivative(spec.CARef, s.CARef)
+}
+
 // FulcioStatus defines the observed state of Fulcio
 type FulcioStatus struct {
 	ServerConfigRef *LocalObjectReference `json:"serverConfigRef,omitempty"`
-	Certificate     *FulcioCert           `json:"certificate,omitempty"`
+	Certificate     *FulcioCertStatus     `json:"certificate,omitempty"`
 	Url             string                `json:"url,omitempty"`
 	// +listType=map
 	// +listMapKey=type
