@@ -175,16 +175,6 @@ func (i deployAction) resolveTufUrl(ctx context.Context, instance *rhtasv1.Conso
 		}
 	}
 
-	// If the above didn't work and we haven't tried the owner name yet, try listing all Tuf instances
-	tufList := &rhtasv1.TufList{}
-	if err := i.Client.List(ctx, tufList, client.InNamespace(instance.Namespace)); err == nil {
-		for _, t := range tufList.Items {
-			if t.Status.Url != "" {
-				return t.Status.Url
-			}
-		}
-	}
-
 	// Fallback to internal service URL
 	return fmt.Sprintf("http://tuf.%s.svc", instance.Namespace)
 }

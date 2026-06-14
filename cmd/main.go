@@ -138,6 +138,9 @@ func main() {
 	utils.RelatedImageFlag("timestamp-authority-image", images.TimestampAuthority, "The image used for Timestamp Authority")
 	utils.RelatedImageFlag("rekor-monitor-image", images.RekorMonitor, "The image used for rekor monitor.")
 	utils.RelatedImageFlag("ctlog-monitor-image", images.CTLogMonitor, "The image used for ctlog monitor.")
+	utils.RelatedImageFlag("console-ui-image", images.ConsoleUI, "The image used for console UI.")
+	utils.RelatedImageFlag("console-api-image", images.ConsoleAPI, "The image used for console API.")
+	utils.RelatedImageFlag("console-db-image", images.ConsoleDB, "The image used for console database.")
 	flag.StringVar(&clidownload.CliHostName, "cli-server-hostname", "", "The hostname for the cli server")
 
 	klog.InitFlags(flag.CommandLine)
