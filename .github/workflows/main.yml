@@ -260,7 +260,14 @@ jobs:
         run: |
           kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
           kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
-          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=rhtas-operator -n openshift-rhtas-operator --timeout=60s
+
+      - name: Wait for conversion webhook readiness
+        run: |
+          for i in $(seq 1 60); do
+            kubectl create --dry-run=server -f config/samples/rhtas_v1alpha1_securesign.yaml 2>/dev/null && break
+            echo "Waiting for conversion webhook... ($i/60)"
+            sleep 2
+          done
 
       - name: Add service hosts to /etc/hosts
         run: |
@@ -436,7 +443,14 @@ jobs:
         run: |
           kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
           kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
-          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=rhtas-operator -n openshift-rhtas-operator --timeout=60s
+
+      - name: Wait for conversion webhook readiness
+        run: |
+          for i in $(seq 1 60); do
+            kubectl create --dry-run=server -f config/samples/rhtas_v1alpha1_securesign.yaml 2>/dev/null && break
+            echo "Waiting for conversion webhook... ($i/60)"
+            sleep 2
+          done
 
       - name: Add service hosts to /etc/hosts
         run: |
@@ -618,7 +632,14 @@ jobs:
         run: |
           kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
           kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
-          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=rhtas-operator -n openshift-rhtas-operator --timeout=60s
+
+      - name: Wait for conversion webhook readiness
+        run: |
+          for i in $(seq 1 60); do
+            kubectl create --dry-run=server -f config/samples/rhtas_v1alpha1_securesign.yaml 2>/dev/null && break
+            echo "Waiting for conversion webhook... ($i/60)"
+            sleep 2
+          done
 
       - name: Install securesign
         run: |
@@ -762,7 +783,14 @@ jobs:
         run: |
           kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
           kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
-          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=rhtas-operator -n openshift-rhtas-operator --timeout=60s
+
+      - name: Wait for conversion webhook readiness
+        run: |
+          for i in $(seq 1 60); do
+            kubectl create --dry-run=server -f config/samples/rhtas_v1alpha1_securesign.yaml 2>/dev/null && break
+            echo "Waiting for conversion webhook... ($i/60)"
+            sleep 2
+          done
 
       - name: Add service hosts to /etc/hosts
         run: |
