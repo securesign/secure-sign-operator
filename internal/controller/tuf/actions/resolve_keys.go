@@ -33,19 +33,7 @@ func (i resolveKeysAction) CanHandle(ctx context.Context, instance *rhtasv1.Tuf)
 	if state.FromInstance(instance, constants.ReadyCondition) < state.Pending {
 		return false
 	}
-	return !tufKeysMatchStatus(instance.Spec.Keys, instance.Status.Keys)
-}
-
-func tufKeysMatchStatus(specKeys []rhtasv1.TufKey, statusKeys []rhtasv1.TufKeyStatus) bool {
-	if len(specKeys) != len(statusKeys) {
-		return false
-	}
-	for i := range specKeys {
-		if !statusKeys[i].MatchesSpec(specKeys[i]) {
-			return false
-		}
-	}
-	return true
+	return !instance.Status.MatchesKeys(instance.Spec.Keys)
 }
 
 func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *action.Result {

@@ -144,7 +144,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 				if ntpConfigVolume.ConfigMap == nil {
 					ntpConfigVolume.ConfigMap = &core.ConfigMapVolumeSource{}
 				}
-				ntpConfigVolume.ConfigMap.Name = instance.Status.NTPMonitoring.Config.NtpConfigRef.Name
+				ntpConfigVolume.ConfigMap.Name = instance.Status.NTPMonitoring.NtpConfigRef.Name
 
 				ntpConfigVolumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, ntpConfigVolumeName)
 				ntpConfigVolumeMount.ReadOnly = true
@@ -164,10 +164,10 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 				if fileSignerVolume.Secret == nil {
 					fileSignerVolume.Secret = &core.SecretVolumeSource{}
 				}
-				fileSignerVolume.Secret.SecretName = instance.Status.Signer.File.PrivateKeyRef.Name
+				fileSignerVolume.Secret.SecretName = instance.Status.Signer.FileSigner.PrivateKeyRef.Name
 				fileSignerVolume.Secret.Items = []core.KeyToPath{
 					{
-						Key:  instance.Status.Signer.File.PrivateKeyRef.Key,
+						Key:  instance.Status.Signer.FileSigner.PrivateKeyRef.Key,
 						Path: "private_key.pem",
 					},
 				}
@@ -176,14 +176,14 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 				fileSignerVolumeMount.MountPath = fileSignerMountPath
 				fileSignerVolumeMount.ReadOnly = true
 
-				if instance.Status.Signer.File.PasswordRef != nil {
+				if instance.Status.Signer.FileSigner.PasswordRef != nil {
 					fileSignerPasswordEnv := kubernetes.FindEnvByNameOrCreate(container, "SIGNER_PASSWORD")
 					fileSignerPasswordEnv.ValueFrom = &core.EnvVarSource{
 						SecretKeyRef: &core.SecretKeySelector{
 							LocalObjectReference: core.LocalObjectReference{
-								Name: instance.Status.Signer.File.PasswordRef.Name,
+								Name: instance.Status.Signer.FileSigner.PasswordRef.Name,
 							},
-							Key: instance.Status.Signer.File.PasswordRef.Key,
+							Key: instance.Status.Signer.FileSigner.PasswordRef.Key,
 						},
 					}
 				}

@@ -37,53 +37,72 @@ func Test_SignerName(t *testing.T) {
 func Test_SignerCanHandle(t *testing.T) {
 	g := NewWithT(t)
 
+	const instanceGeneration int64 = 1
+
+	// All tests use stale ObservedGeneration (0) unless explicitly set.
+	// One test ("resolved - generation matches") verifies matching generation prevents re-entry.
 	tests := []struct {
 		name     string
 		testCase func(*rhtasv1.TimestampAuthority)
 		expected bool
 	}{
 		{
-			name:     "Default condition",
+			name:     "no signer condition",
 			testCase: func(instance *rhtasv1.TimestampAuthority) {},
 			expected: true,
 		},
 		{
-			name: "Pending condition",
+			name: "signer condition false",
 			testCase: func(instance *rhtasv1.TimestampAuthority) {
-				instance.Status.Conditions[0].Reason = state.Pending.String()
+				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+					Type:   TSASignerCondition,
+					Status: metav1.ConditionFalse,
+					Reason: state.Pending.String(),
+				})
 			},
 			expected: true,
 		},
 		{
-			name: "status is not nil",
+			name: "signer condition true with stale ObservedGeneration",
 			testCase: func(instance *rhtasv1.TimestampAuthority) {
-				instance.Status.Conditions = []metav1.Condition{
-					{
-						Type:   "TSASignerCondition",
-						Status: metav1.ConditionTrue,
-						Reason: state.Ready.String(),
-					},
-				}
 				instance.Status.Signer = &rhtasv1.TSASignerStatus{
 					CertificateChainRef: &rhtasv1.SecretKeySelector{
 						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "test-secret"},
 						Key:                  "certificateChain",
 					},
 				}
+				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+					Type:   TSASignerCondition,
+					Status: metav1.ConditionTrue,
+					Reason: state.Ready.String(),
+				})
 			},
-			expected: false,
+			expected: true,
 		},
 		{
-			name: "spec and status differ",
+			name: "signer is nil",
+			testCase: func(instance *rhtasv1.TimestampAuthority) {
+				instance.Status.Signer = nil
+			},
+			expected: true,
+		},
+		{
+			name: "resolved - generation matches",
 			testCase: func(instance *rhtasv1.TimestampAuthority) {
 				instance.Status.Signer = &rhtasv1.TSASignerStatus{
 					CertificateChainRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old-secret"},
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "test-secret"},
 						Key:                  "certificateChain",
 					},
 				}
+				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+					Type:               TSASignerCondition,
+					Status:             metav1.ConditionTrue,
+					Reason:             state.Ready.String(),
+					ObservedGeneration: instanceGeneration,
+				})
 			},
-			expected: true,
+			expected: false,
 		},
 	}
 
@@ -91,6 +110,7 @@ func Test_SignerCanHandle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			action := NewGenerateSignerAction()
 			instance := common.GenerateTSAInstance()
+			instance.Generation = instanceGeneration
 			tt.testCase(instance)
 			g.Expect(action.CanHandle(context.TODO(), instance)).To(Equal(tt.expected))
 		})
@@ -118,7 +138,7 @@ func Test_SignerHandle(t *testing.T) {
 				g.Expect(instance.Status.Signer).NotTo(BeNil(), "Status Signer should not be nil")
 
 				g.Expect(secret.Name).To(Equal(instance.Status.Signer.CertificateChainRef.Name), "Secret name mismatch for CertificateChainRef")
-				g.Expect(secret.Name).To(Equal(instance.Status.Signer.File.PrivateKeyRef.Name), "Secret name mismatch for PrivateKeyRef")
+				g.Expect(secret.Name).To(Equal(instance.Status.Signer.FileSigner.PrivateKeyRef.Name), "Secret name mismatch for PrivateKeyRef")
 				g.Expect(secret.Annotations).To(Equal(generateSecretAnnotations(instance.Spec.Signer)), "Secret annotation mismatch")
 
 				g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, TSASignerCondition)).To(BeTrue())
@@ -193,7 +213,7 @@ func Test_SignerHandle(t *testing.T) {
 				g.Expect(instance.Status.Signer).NotTo(BeNil(), "Status Signer should not be nil")
 
 				g.Expect(secret.Name).To(Equal(instance.Status.Signer.CertificateChainRef.Name), "Secret name mismatch for CertificateChainRef")
-				g.Expect(secret.Name).To(Equal(instance.Status.Signer.File.PrivateKeyRef.Name), "Secret name mismatch for PrivateKeyRef")
+				g.Expect(secret.Name).To(Equal(instance.Status.Signer.FileSigner.PrivateKeyRef.Name), "Secret name mismatch for PrivateKeyRef")
 
 				g.Expect(secret.Annotations).To(Equal(generateSecretAnnotations(instance.Spec.Signer)), "Secret annotation mismatch")
 
@@ -283,7 +303,7 @@ func Test_SignerHandle(t *testing.T) {
 						},
 						Key: "certificateChain",
 					},
-					File: &rhtasv1.FileStatus{
+					FileSigner: &rhtasv1.FileSignerStatus{
 						PrivateKeyRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "old",
@@ -336,7 +356,7 @@ func Test_SignerHandle(t *testing.T) {
 				g.Expect(instance.Status.Signer).NotTo(BeNil(), "Signer should not be nil")
 
 				g.Expect(instance.Status.Signer.CertificateChainRef.Name).To(Equal("tsa-test-secret"), "Secret name mismatch for CertificateChainRef")
-				g.Expect(instance.Status.Signer.File.PrivateKeyRef.Name).To(Equal("tsa-test-secret"), "Private key ref name mismatch for PrivateKeyRef")
+				g.Expect(instance.Status.Signer.FileSigner.PrivateKeyRef.Name).To(Equal("tsa-test-secret"), "Private key ref name mismatch for PrivateKeyRef")
 
 				g.Expect(secret.Annotations).To(Equal(generateSecretAnnotations(instance.Spec.Signer)), "Secret annotation mismatch")
 
@@ -375,7 +395,7 @@ func Test_SignerHandle(t *testing.T) {
 						},
 						Key: "certificateChain",
 					},
-					File: &rhtasv1.FileStatus{
+					FileSigner: &rhtasv1.FileSignerStatus{
 						PrivateKeyRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "old",
@@ -517,13 +537,13 @@ func Test_AlignStatusFields(t *testing.T) {
 			},
 			testCase: func(g Gomega, instance *rhtasv1.TimestampAuthority) {
 				g.Expect(instance.Status.Signer).NotTo(BeNil())
-				g.Expect(instance.Status.Signer.File).NotTo(BeNil(), "File should be defaulted on Status")
+				g.Expect(instance.Status.Signer.FileSigner).NotTo(BeNil(), "File should be defaulted on Status")
 				g.Expect(instance.Status.Signer.CertificateChainRef).NotTo(BeNil())
 				g.Expect(instance.Status.Signer.CertificateChainRef.Name).To(Equal("test-secret"))
-				g.Expect(instance.Status.Signer.File.PrivateKeyRef).NotTo(BeNil(), "PrivateKeyRef should be defaulted")
-				g.Expect(instance.Status.Signer.File.PrivateKeyRef.Key).To(Equal("leafPrivateKey"))
-				g.Expect(instance.Status.Signer.File.PasswordRef).NotTo(BeNil(), "PasswordRef should be defaulted")
-				g.Expect(instance.Status.Signer.File.PasswordRef.Key).To(Equal("leafPrivateKeyPassword"))
+				g.Expect(instance.Status.Signer.FileSigner.PrivateKeyRef).NotTo(BeNil(), "PrivateKeyRef should be defaulted")
+				g.Expect(instance.Status.Signer.FileSigner.PrivateKeyRef.Key).To(Equal("leafPrivateKey"))
+				g.Expect(instance.Status.Signer.FileSigner.PasswordRef).NotTo(BeNil(), "PasswordRef should be defaulted")
+				g.Expect(instance.Status.Signer.FileSigner.PasswordRef.Key).To(Equal("leafPrivateKeyPassword"))
 			},
 		},
 		{
@@ -546,11 +566,11 @@ func Test_AlignStatusFields(t *testing.T) {
 				},
 			},
 			testCase: func(g Gomega, instance *rhtasv1.TimestampAuthority) {
-				g.Expect(instance.Status.Signer.File).NotTo(BeNil())
-				g.Expect(instance.Status.Signer.File.PrivateKeyRef.Name).To(Equal(userSecret), "should preserve user-provided PrivateKeyRef")
-				g.Expect(instance.Status.Signer.File.PrivateKeyRef.Key).To(Equal("myKey"))
-				g.Expect(instance.Status.Signer.File.PasswordRef.Name).To(Equal(userSecret), "should preserve user-provided PasswordRef")
-				g.Expect(instance.Status.Signer.File.PasswordRef.Key).To(Equal("myPassword"))
+				g.Expect(instance.Status.Signer.FileSigner).NotTo(BeNil())
+				g.Expect(instance.Status.Signer.FileSigner.PrivateKeyRef.Name).To(Equal(userSecret), "should preserve user-provided PrivateKeyRef")
+				g.Expect(instance.Status.Signer.FileSigner.PrivateKeyRef.Key).To(Equal("myKey"))
+				g.Expect(instance.Status.Signer.FileSigner.PasswordRef.Name).To(Equal(userSecret), "should preserve user-provided PasswordRef")
+				g.Expect(instance.Status.Signer.FileSigner.PasswordRef.Key).To(Equal("myPassword"))
 				g.Expect(instance.Status.Signer.CertificateChainRef.Name).To(Equal("test-secret"))
 			},
 		},
@@ -571,10 +591,10 @@ func Test_AlignStatusFields(t *testing.T) {
 				},
 			},
 			testCase: func(g Gomega, instance *rhtasv1.TimestampAuthority) {
-				g.Expect(instance.Status.Signer.File.PrivateKeyRef.Name).To(Equal(userSecret), "should keep user-provided PrivateKeyRef")
-				g.Expect(instance.Status.Signer.File.PasswordRef).NotTo(BeNil(), "should default missing PasswordRef")
-				g.Expect(instance.Status.Signer.File.PasswordRef.Key).To(Equal("leafPrivateKeyPassword"))
-				g.Expect(instance.Status.Signer.File.PasswordRef.Name).To(Equal("test-secret"))
+				g.Expect(instance.Status.Signer.FileSigner.PrivateKeyRef.Name).To(Equal(userSecret), "should keep user-provided PrivateKeyRef")
+				g.Expect(instance.Status.Signer.FileSigner.PasswordRef).NotTo(BeNil(), "should default missing PasswordRef")
+				g.Expect(instance.Status.Signer.FileSigner.PasswordRef.Key).To(Equal("leafPrivateKeyPassword"))
+				g.Expect(instance.Status.Signer.FileSigner.PasswordRef.Name).To(Equal("test-secret"))
 			},
 		},
 		{
@@ -595,7 +615,7 @@ func Test_AlignStatusFields(t *testing.T) {
 			},
 			testCase: func(g Gomega, instance *rhtasv1.TimestampAuthority) {
 				g.Expect(instance.Status.Signer.CertificateChainRef.Name).To(Equal("external-secret"), "should preserve external ChainRef")
-				g.Expect(instance.Status.Signer.File.PrivateKeyRef.Name).To(Equal("external-secret"), "should preserve external PrivateKeyRef")
+				g.Expect(instance.Status.Signer.FileSigner.PrivateKeyRef.Name).To(Equal("external-secret"), "should preserve external PrivateKeyRef")
 			},
 		},
 	}
@@ -638,7 +658,7 @@ func Test_SignerHandle_KMS(t *testing.T) {
 	g.Expect(cli.Get(context.TODO(), client.ObjectKeyFromObject(instance), instance)).To(Succeed())
 
 	g.Expect(instance.Status.Signer).NotTo(BeNil())
-	g.Expect(instance.Status.Signer.File).To(BeNil(), "File should be nil for KMS signer")
+	g.Expect(instance.Status.Signer.FileSigner).To(BeNil(), "File should be nil for KMS signer")
 	g.Expect(instance.Status.Signer.CertificateChainRef.Name).To(Equal("kms-secret"))
 	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, TSASignerCondition)).To(BeTrue())
 }
@@ -669,7 +689,7 @@ func Test_SignerHandle_Tink(t *testing.T) {
 	g.Expect(cli.Get(context.TODO(), client.ObjectKeyFromObject(instance), instance)).To(Succeed())
 
 	g.Expect(instance.Status.Signer).NotTo(BeNil())
-	g.Expect(instance.Status.Signer.File).To(BeNil(), "File should be nil for Tink signer")
+	g.Expect(instance.Status.Signer.FileSigner).To(BeNil(), "File should be nil for Tink signer")
 	g.Expect(instance.Status.Signer.CertificateChainRef.Name).To(Equal("tink-secret"))
 	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, TSASignerCondition)).To(BeTrue())
 }

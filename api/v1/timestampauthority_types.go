@@ -176,21 +176,27 @@ func (i *TimestampAuthority) SetCondition(newCondition metav1.Condition) {
 
 type TSASignerStatus struct {
 	CertificateChainRef *SecretKeySelector `json:"certificateChainRef,omitempty"`
-	File                *FileStatus        `json:"file,omitempty"`
+	FileSigner          *FileSignerStatus  `json:"fileSigner,omitempty"`
 }
 
-type FileStatus struct {
+type FileSignerStatus struct {
 	PasswordRef   *SecretKeySelector `json:"passwordRef,omitempty"`
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
 }
 
 type NTPMonitoringStatus struct {
-	Enabled bool                       `json:"enabled"`
-	Config  *NtpMonitoringConfigStatus `json:"config,omitempty"`
+	NtpConfigRef *LocalObjectReference `json:"ntpConfigRef,omitempty"`
 }
 
-type NtpMonitoringConfigStatus struct {
-	NtpConfigRef *LocalObjectReference `json:"ntpConfigRef,omitempty"`
+func (s NTPMonitoringStatus) MatchesSpec(spec NTPMonitoring) bool {
+	if spec.Config == nil {
+		return s.NtpConfigRef == nil
+	}
+	// Inline config — Handle validates ConfigMap content
+	if spec.Config.NtpConfigRef == nil {
+		return false
+	}
+	return s.NtpConfigRef != nil && spec.Config.NtpConfigRef.Name == s.NtpConfigRef.Name
 }
 
 // TimestampAuthorityStatus defines the observed state of TimestampAuthority

@@ -17,7 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -205,12 +204,6 @@ type RekorSignerStatus struct {
 	KMS         string             `json:"kms,omitempty"`
 	PasswordRef *SecretKeySelector `json:"passwordRef,omitempty"`
 	KeyRef      *SecretKeySelector `json:"keyRef,omitempty"`
-}
-
-func (s RekorSignerStatus) MatchesSpec(spec RekorSigner) bool {
-	return spec.KMS == s.KMS &&
-		equality.Semantic.DeepDerivative(spec.PasswordRef, s.PasswordRef) &&
-		equality.Semantic.DeepDerivative(spec.KeyRef, s.KeyRef)
 }
 
 // RekorStatus defines the observed state of Rekor

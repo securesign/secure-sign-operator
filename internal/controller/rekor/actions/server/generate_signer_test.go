@@ -24,159 +24,18 @@ import (
 )
 
 func TestGenerateSigner_CanHandle(t *testing.T) {
+	const instanceGeneration int64 = 1
+
+	// All tests use a stale ObservedGeneration (0) to simulate a spec change
+	// that bumped the instance Generation. One explicit test ("resolved - generation
+	// matches") verifies that matching generation prevents re-entry.
 	tests := []struct {
-		name         string
-		status       []metav1.Condition
-		canHandle    bool
-		signer       rhtasv1.RekorSigner
-		statusSigner rhtasv1.RekorSignerStatus
+		name      string
+		status    []metav1.Condition
+		canHandle bool
 	}{
 		{
-			name: "spec.signer.keyRef is not nil and status.signer.keyRef is nil",
-			status: []metav1.Condition{
-				{
-					Type:   actions.SignerCondition,
-					Status: metav1.ConditionTrue,
-					Reason: state.Ready.String(),
-				},
-			},
-			canHandle: true,
-			signer: rhtasv1.RekorSigner{
-				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
-			},
-		},
-		{
-			name: "spec.signer.keyRef is nil and status.signer.keyRef is not nil",
-			status: []metav1.Condition{
-				{
-					Type:   actions.SignerCondition,
-					Status: metav1.ConditionTrue,
-					Reason: state.Ready.String(),
-				},
-			},
-			canHandle: false,
-			statusSigner: rhtasv1.RekorSignerStatus{
-				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
-			},
-		},
-		{
-			name: "spec.signer.keyRef is nil and status.signer.keyRef is nil",
-			status: []metav1.Condition{
-				{
-					Type:   actions.SignerCondition,
-					Status: metav1.ConditionTrue,
-					Reason: state.Ready.String(),
-				},
-			},
-			canHandle: true,
-		},
-		{
-			name: "spec.signer.keyRef != status.signer.keyRef",
-			status: []metav1.Condition{
-				{
-					Type:   actions.SignerCondition,
-					Status: metav1.ConditionTrue,
-					Reason: state.Ready.String(),
-				},
-			},
-			canHandle: true,
-			signer: rhtasv1.RekorSigner{
-				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new_secret"}, Key: "private"},
-			},
-			statusSigner: rhtasv1.RekorSignerStatus{
-				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old_secret"}, Key: "private"},
-			},
-		},
-		{
-			name: "spec.signer.keyRef == status.signer.keyRef",
-			status: []metav1.Condition{
-				{
-					Type:   actions.SignerCondition,
-					Status: metav1.ConditionTrue,
-					Reason: state.Ready.String(),
-				},
-			},
-			canHandle: false,
-			signer: rhtasv1.RekorSigner{
-				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
-			},
-			statusSigner: rhtasv1.RekorSignerStatus{
-				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
-			},
-		},
-		{
-			name: "spec.signer.passwordRef == status.signer.passwordRef",
-			status: []metav1.Condition{
-				{
-					Type:   actions.SignerCondition,
-					Status: metav1.ConditionTrue,
-					Reason: state.Ready.String(),
-				},
-			},
-			canHandle: false,
-			signer: rhtasv1.RekorSigner{
-				KeyRef:      &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
-				PasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "password"},
-			},
-			statusSigner: rhtasv1.RekorSignerStatus{
-				KeyRef:      &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
-				PasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "password"},
-			},
-		},
-		{
-			name: "spec.signer.passwordRef != status.signer.passwordRef",
-			status: []metav1.Condition{
-				{
-					Type:   actions.SignerCondition,
-					Status: metav1.ConditionTrue,
-					Reason: state.Ready.String(),
-				},
-			},
-			canHandle: true, signer: rhtasv1.RekorSigner{
-				KeyRef:      &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new_secret"}, Key: "private"},
-				PasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new_secret"}, Key: "password"},
-			},
-			statusSigner: rhtasv1.RekorSignerStatus{
-				KeyRef:      &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old_secret"}, Key: "private"},
-				PasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old_secret"}, Key: "password"},
-			},
-		},
-		{
-			name: "spec.signer.kms != status.signer.kms",
-			status: []metav1.Condition{
-				{
-					Type:   actions.SignerCondition,
-					Status: metav1.ConditionTrue,
-					Reason: state.Ready.String(),
-				},
-			},
-			canHandle: true,
-			signer: rhtasv1.RekorSigner{
-				KMS: "azurekeyvault://mykeyvaultname.vault.azure.net/keys/mykeyname",
-			},
-			statusSigner: rhtasv1.RekorSignerStatus{
-				KMS: "awskms://1234abcd-12ab-34cd-56ef-1234567890ab?region=us-east-1",
-			},
-		},
-		{
-			name: "spec.signer.kms == status.signer.kms",
-			status: []metav1.Condition{
-				{
-					Type:   actions.SignerCondition,
-					Status: metav1.ConditionTrue,
-					Reason: state.Ready.String(),
-				},
-			},
-			canHandle: false,
-			signer: rhtasv1.RekorSigner{
-				KMS: "awskms://1234abcd-12ab-34cd-56ef-1234567890ab?region=us-east-1",
-			},
-			statusSigner: rhtasv1.RekorSignerStatus{
-				KMS: "awskms://1234abcd-12ab-34cd-56ef-1234567890ab?region=us-east-1",
-			},
-		},
-		{
-			name:      "no phase condition",
+			name:      "no condition",
 			status:    []metav1.Condition{},
 			canHandle: true,
 		},
@@ -192,23 +51,6 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 			canHandle: true,
 		},
 		{
-			name: "ConditionTrue",
-			status: []metav1.Condition{
-				{
-					Type:   actions.SignerCondition,
-					Status: metav1.ConditionTrue,
-					Reason: state.Ready.String(),
-				},
-			},
-			canHandle: false,
-			signer: rhtasv1.RekorSigner{
-				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
-			},
-			statusSigner: rhtasv1.RekorSignerStatus{
-				KeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
-			},
-		},
-		{
 			name: "ConditionUnknown",
 			status: []metav1.Condition{
 				{
@@ -219,19 +61,36 @@ func TestGenerateSigner_CanHandle(t *testing.T) {
 			},
 			canHandle: true,
 		},
+		{
+			name: "ConditionTrue with stale ObservedGeneration",
+			status: []metav1.Condition{
+				{
+					Type:   actions.SignerCondition,
+					Status: metav1.ConditionTrue,
+					Reason: state.Ready.String(),
+				},
+			},
+			canHandle: true,
+		},
+		{
+			name: "resolved - generation matches",
+			status: []metav1.Condition{
+				{
+					Type:               actions.SignerCondition,
+					Status:             metav1.ConditionTrue,
+					Reason:             state.Ready.String(),
+					ObservedGeneration: instanceGeneration,
+				},
+			},
+			canHandle: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := testAction.FakeClientBuilder().Build()
 			a := testAction.PrepareAction(c, NewGenerateSignerAction())
-			instance := rhtasv1.Rekor{
-				Spec: rhtasv1.RekorSpec{
-					Signer: tt.signer,
-				},
-				Status: rhtasv1.RekorStatus{
-					Signer: tt.statusSigner,
-				},
-			}
+			instance := rhtasv1.Rekor{}
+			instance.Generation = instanceGeneration
 			for _, status := range tt.status {
 				meta.SetStatusCondition(&instance.Status.Conditions, status)
 			}
@@ -355,9 +214,6 @@ func TestGenerateSigner_Handle(t *testing.T) {
 			want: want{
 				result: testAction.Return(),
 				verify: func(g Gomega, instance *rhtasv1.Rekor) {
-					g.Expect(instance.Status.Signer.KMS).ShouldNot(BeNil())
-					g.Expect(instance.Status.Signer.KMS).Should(Equal("awskms://1234abcd-12ab-34cd-56ef-1234567890ab?region=us-east-1"))
-
 					g.Expect(instance.Status.Signer.KeyRef).Should(BeNil())
 					g.Expect(instance.Status.Signer.PasswordRef).Should(BeNil())
 
@@ -372,16 +228,11 @@ func TestGenerateSigner_Handle(t *testing.T) {
 				spec: rhtasv1.RekorSigner{
 					KMS: "new-kms",
 				},
-				status: rhtasv1.RekorSignerStatus{
-					KMS: "old-kms",
-				},
+				status: rhtasv1.RekorSignerStatus{},
 			},
 			want: want{
 				result: testAction.Return(),
 				verify: func(g Gomega, instance *rhtasv1.Rekor) {
-					g.Expect(instance.Status.Signer.KMS).ShouldNot(BeNil())
-					g.Expect(instance.Status.Signer.KMS).Should(Equal("new-kms"))
-
 					g.Expect(instance.Status.Signer.KeyRef).Should(BeNil())
 					g.Expect(instance.Status.Signer.PasswordRef).Should(BeNil())
 

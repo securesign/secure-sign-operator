@@ -38,6 +38,7 @@ var managedAnnotations = []string{
 	labels.LabelNamespace + "/organizationName",
 	labels.LabelNamespace + "/privateKeyRef",
 	labels.LabelNamespace + "/passwordKeyRef",
+	labels.LabelNamespace + "/caRef",
 }
 
 func NewHandleCertAction() action.Action[*rhtasv1.Fulcio] {
@@ -60,69 +61,51 @@ func (g handleCert) CanHandle(_ context.Context, instance *rhtasv1.Fulcio) bool 
 		return false
 	case state.FromCondition(c) < state.Pending:
 		return false
-	case !meta.IsStatusConditionTrue(instance.GetConditions(), CertCondition):
+	case instance.Status.Certificate == nil:
 		return true
 	default:
-		return !instance.Status.Certificate.MatchesSpec(instance.Spec.Certificate)
+		// CertCondition is managed exclusively by this action.
+		cc := meta.FindStatusCondition(instance.GetConditions(), CertCondition)
+		return cc == nil || cc.Status != metav1.ConditionTrue || instance.Generation != cc.ObservedGeneration
 	}
 
 }
 
 func (g handleCert) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *action.Result {
-	if state.FromInstance(instance, constants.ReadyCondition) != state.Pending {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               constants.ReadyCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             state.Pending.String(),
-			ObservedGeneration: instance.Generation,
-		})
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:   CertCondition,
-			Status: metav1.ConditionFalse,
-			Reason: state.Creating.String(),
-		})
-		return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
-	}
-
 	if instance.Spec.Certificate.PrivateKeyRef == nil && instance.Spec.Certificate.CARef != nil {
 		err := reconcile.TerminalError(fmt.Errorf("missing private key for CA certificate"))
 		return g.Error(ctx, err, instance, metav1.Condition{
-			Type:    CertCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  state.Failure.String(),
-			Message: err.Error(),
+			Type:               CertCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Failure.String(),
+			Message:            err.Error(),
+			ObservedGeneration: instance.Generation,
 		})
 	}
 
-	instance.Status.Certificate = &rhtasv1.FulcioCertStatus{
-		PrivateKeyRef:         instance.Spec.Certificate.PrivateKeyRef.DeepCopy(),
-		PrivateKeyPasswordRef: instance.Spec.Certificate.PrivateKeyPasswordRef.DeepCopy(),
-		CARef:                 instance.Spec.Certificate.CARef.DeepCopy(),
-		CommonName:            instance.Spec.Certificate.CommonName,
-		OrganizationName:      instance.Spec.Certificate.OrganizationName,
-		OrganizationEmail:     instance.Spec.Certificate.OrganizationEmail,
-	}
-	if err := g.calculateHostname(ctx, instance); err != nil {
+	commonName, err := g.resolveCommonName(ctx, instance)
+	if err != nil {
 		return g.Error(ctx, err, instance)
 	}
 
-	//Check if a secret for the  fulcio cert already exists and validate
+	// Check if the resolved secret still matches the current spec.
 	partialSecret, err := kubernetes.FindSecret(ctx, g.Client, instance.Namespace, FulcioCALabel)
 	if client.IgnoreNotFound(err) != nil {
 		g.Logger.Error(err, "problem with finding secret")
 	}
 
 	if partialSecret != nil {
-		if equality.Semantic.DeepDerivative(g.certMatchingAnnotations(instance), partialSecret.GetAnnotations()) {
+		if equality.Semantic.DeepDerivative(g.certMatchingAnnotations(commonName, instance), partialSecret.GetAnnotations()) {
 			// certificate is valid
 			if secret, err := kubernetes.GetSecret(g.Client, partialSecret.Namespace, partialSecret.Name); err != nil {
 				return g.Error(ctx, fmt.Errorf("can't load CA secret %w", err), instance)
 			} else {
 				g.alignStatusFields(secret, instance)
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-					Type:   CertCondition,
-					Status: metav1.ConditionTrue,
-					Reason: "Resolved", //nolint:goconst
+					Type:               CertCondition,
+					Status:             metav1.ConditionTrue,
+					Reason:             "Resolved", //nolint:goconst
+					ObservedGeneration: instance.Generation,
 				})
 				return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 			}
@@ -131,10 +114,11 @@ func (g handleCert) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *actio
 		// invalidate certificate
 		if err := labels.Remove(ctx, partialSecret, g.Client, FulcioCALabel); err != nil {
 			return g.Error(ctx, err, instance, metav1.Condition{
-				Type:    CertCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  state.Failure.String(),
-				Message: err.Error(),
+				Type:               CertCondition,
+				Status:             metav1.ConditionFalse,
+				Reason:             state.Failure.String(),
+				Message:            err.Error(),
+				ObservedGeneration: instance.Generation,
 			})
 		}
 		message := fmt.Sprintf("Removed '%s' label from %s secret", FulcioCALabel, partialSecret.Name)
@@ -142,20 +126,44 @@ func (g handleCert) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *actio
 		g.Logger.Info(message)
 	}
 
-	cert, err := g.setupCert(instance)
+	// Spec changed or first run — invalidate and transition to Pending.
+	instance.Status.Certificate = &rhtasv1.FulcioCertStatus{
+		PrivateKeyRef:         instance.Spec.Certificate.PrivateKeyRef.DeepCopy(),
+		PrivateKeyPasswordRef: instance.Spec.Certificate.PrivateKeyPasswordRef.DeepCopy(),
+		CARef:                 instance.Spec.Certificate.CARef.DeepCopy(),
+	}
+	if state.FromInstance(instance, constants.ReadyCondition) != state.Pending {
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:               constants.ReadyCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Pending.String(),
+			ObservedGeneration: instance.Generation,
+		})
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:               CertCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Creating.String(),
+			ObservedGeneration: instance.Generation,
+		})
+		return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
+	}
+
+	cert, err := g.setupCert(commonName, instance)
 	if err != nil {
 		g.Logger.Error(err, "error resolving certificate for fulcio")
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    CertCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  state.Failure.String(),
-			Message: err.Error(),
+			Type:               CertCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Failure.String(),
+			Message:            err.Error(),
+			ObservedGeneration: instance.Generation,
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    constants.ReadyCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  state.Pending.String(),
-			Message: "Resolving keys",
+			Type:               constants.ReadyCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Pending.String(),
+			Message:            "Resolving keys",
+			ObservedGeneration: instance.Generation,
 		})
 		if _, err := g.PersistStatus(ctx, instance); err != nil {
 			return g.Error(ctx, err, instance)
@@ -166,7 +174,7 @@ func (g handleCert) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *actio
 
 	componentLabels := labels.For(ComponentName, DeploymentName, instance.Name)
 	keyLabels := map[string]string{FulcioCALabel: constants.KeyCert}
-	annotations := g.certMatchingAnnotations(instance)
+	annotations := g.certMatchingAnnotations(commonName, instance)
 
 	newCert := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -183,10 +191,11 @@ func (g handleCert) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *actio
 	); err != nil {
 		return g.Error(ctx, fmt.Errorf("can't generate certificate secret: %w", err), instance,
 			metav1.Condition{
-				Type:    CertCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  state.Failure.String(),
-				Message: err.Error(),
+				Type:               CertCondition,
+				Status:             metav1.ConditionFalse,
+				Reason:             state.Failure.String(),
+				Message:            err.Error(),
+				ObservedGeneration: instance.Generation,
 			})
 	}
 
@@ -194,18 +203,19 @@ func (g handleCert) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *actio
 
 	g.alignStatusFields(newCert, instance)
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:   CertCondition,
-		Status: metav1.ConditionTrue,
-		Reason: "Resolved",
+		Type:               CertCondition,
+		Status:             metav1.ConditionTrue,
+		Reason:             "Resolved",
+		ObservedGeneration: instance.Generation,
 	})
 	return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 }
 
-func (g handleCert) setupCert(instance *rhtasv1.Fulcio) (*utils.FulcioCertConfig, error) {
+func (g handleCert) setupCert(commonName string, instance *rhtasv1.Fulcio) (*utils.FulcioCertConfig, error) {
 	config := &utils.FulcioCertConfig{
-		OrganizationEmail: instance.Status.Certificate.OrganizationEmail,
-		OrganizationName:  instance.Status.Certificate.OrganizationName,
-		CommonName:        instance.Status.Certificate.CommonName,
+		OrganizationEmail: instance.Spec.Certificate.OrganizationEmail,
+		OrganizationName:  instance.Spec.Certificate.OrganizationName,
+		CommonName:        commonName,
 	}
 
 	if ref := instance.Status.Certificate.PrivateKeyPasswordRef; ref != nil {
@@ -260,6 +270,13 @@ func (g handleCert) setupCert(instance *rhtasv1.Fulcio) (*utils.FulcioCertConfig
 }
 
 func (g handleCert) alignStatusFields(secret *v1.Secret, instance *rhtasv1.Fulcio) {
+	if instance.Status.Certificate == nil {
+		instance.Status.Certificate = &rhtasv1.FulcioCertStatus{
+			PrivateKeyRef:         instance.Spec.Certificate.PrivateKeyRef.DeepCopy(),
+			PrivateKeyPasswordRef: instance.Spec.Certificate.PrivateKeyPasswordRef.DeepCopy(),
+			CARef:                 instance.Spec.Certificate.CARef.DeepCopy(),
+		}
+	}
 	if instance.Status.Certificate.PrivateKeyRef == nil {
 		instance.Status.Certificate.PrivateKeyRef = &rhtasv1.SecretKeySelector{
 			Key: constants.KeyPrivate,
@@ -288,31 +305,24 @@ func (g handleCert) alignStatusFields(secret *v1.Secret, instance *rhtasv1.Fulci
 	}
 }
 
-func (g handleCert) calculateHostname(ctx context.Context, instance *rhtasv1.Fulcio) error {
-	var err error
-	if instance.Status.Certificate.CommonName != "" {
-		return nil
+func (g handleCert) resolveCommonName(ctx context.Context, instance *rhtasv1.Fulcio) (string, error) {
+	if instance.Spec.Certificate.CommonName != "" {
+		return instance.Spec.Certificate.CommonName, nil
 	}
-
 	if !instance.Spec.ExternalAccess.Enabled {
-		instance.Status.Certificate.CommonName = fmt.Sprintf("%s.%s.svc.local", DeploymentName, instance.Namespace)
-		return nil
+		return fmt.Sprintf("%s.%s.svc.local", DeploymentName, instance.Namespace), nil
 	}
-
 	if instance.Spec.ExternalAccess.Host != "" {
-		instance.Status.Certificate.CommonName = instance.Spec.ExternalAccess.Host
-		return nil
+		return instance.Spec.ExternalAccess.Host, nil
 	}
-
-	instance.Status.Certificate.CommonName, err = kubernetes.CalculateHostname(ctx, g.Client, DeploymentName, instance.Namespace)
-
-	return err
+	return kubernetes.CalculateHostname(ctx, g.Client, DeploymentName, instance.Namespace)
 }
-func (g handleCert) certMatchingAnnotations(instance *rhtasv1.Fulcio) map[string]string {
+
+func (g handleCert) certMatchingAnnotations(commonName string, instance *rhtasv1.Fulcio) map[string]string {
 	m := map[string]string{
-		labels.LabelNamespace + "/commonName":        instance.Status.Certificate.CommonName,
-		labels.LabelNamespace + "/organizationEmail": instance.Status.Certificate.OrganizationEmail,
-		labels.LabelNamespace + "/organizationName":  instance.Status.Certificate.OrganizationName,
+		labels.LabelNamespace + "/commonName":        commonName,
+		labels.LabelNamespace + "/organizationEmail": instance.Spec.Certificate.OrganizationEmail,
+		labels.LabelNamespace + "/organizationName":  instance.Spec.Certificate.OrganizationName,
 	}
 
 	if instance.Spec.Certificate.PrivateKeyRef != nil {
@@ -322,6 +332,9 @@ func (g handleCert) certMatchingAnnotations(instance *rhtasv1.Fulcio) map[string
 	if instance.Spec.Certificate.PrivateKeyPasswordRef != nil {
 		// private key is user specified - it does matter
 		m[labels.LabelNamespace+"/passwordKeyRef"] = instance.Spec.Certificate.PrivateKeyPasswordRef.Name
+	}
+	if instance.Spec.Certificate.CARef != nil {
+		m[labels.LabelNamespace+"/caRef"] = instance.Spec.Certificate.CARef.Name
 	}
 
 	return m

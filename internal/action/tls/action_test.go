@@ -210,7 +210,7 @@ func TestCanHandle(t *testing.T) {
 					},
 				},
 				Status: rhtasv1.TrillianStatus{
-					LogServer: rhtasv1.TrillianLogServer{
+					LogServer: rhtasv1.TrillianServiceStatus{
 						TLS: tt.env.statusTLS,
 					},
 					Conditions: tt.env.conditions,

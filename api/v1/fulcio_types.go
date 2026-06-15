@@ -7,7 +7,6 @@
 package v1
 
 import (
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -178,18 +177,6 @@ type FulcioCertStatus struct {
 	PrivateKeyRef         *SecretKeySelector `json:"privateKeyRef,omitempty"`
 	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
 	CARef                 *SecretKeySelector `json:"caRef,omitempty"`
-	CommonName            string             `json:"commonName,omitempty"`
-	OrganizationName      string             `json:"organizationName,omitempty"`
-	OrganizationEmail     string             `json:"organizationEmail,omitempty"`
-}
-
-func (s FulcioCertStatus) MatchesSpec(spec FulcioCert) bool {
-	return (spec.CommonName == "" || spec.CommonName == s.CommonName) &&
-		spec.OrganizationName == s.OrganizationName &&
-		spec.OrganizationEmail == s.OrganizationEmail &&
-		equality.Semantic.DeepDerivative(spec.PrivateKeyRef, s.PrivateKeyRef) &&
-		equality.Semantic.DeepDerivative(spec.PrivateKeyPasswordRef, s.PrivateKeyPasswordRef) &&
-		equality.Semantic.DeepDerivative(spec.CARef, s.CARef)
 }
 
 // FulcioStatus defines the observed state of Fulcio

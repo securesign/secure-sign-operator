@@ -63,9 +63,6 @@ func TestGenerateCert_Handle(t *testing.T) {
 				result:        testAction.Return(),
 				certCondition: metav1.ConditionTrue,
 				verify: func(g Gomega, fulcio rhtasv1.FulcioStatus, cli client.WithWatch) {
-					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
-					g.Expect(fulcio.Certificate.OrganizationEmail).To(Equal("jdoe@redhat.com"))
-					g.Expect(fulcio.Certificate.OrganizationName).To(Equal("RH"))
 					g.Expect(fulcio.Certificate.PrivateKeyPasswordRef.Name).ToNot(BeEmpty())
 					g.Expect(fulcio.Certificate.PrivateKeyRef.Name).ToNot(BeEmpty())
 					g.Expect(fulcio.Certificate.CARef.Name).ToNot(BeEmpty())
@@ -73,6 +70,13 @@ func TestGenerateCert_Handle(t *testing.T) {
 					scr, err := kubernetes.FindSecret(ctx, cli, "default", FulcioCALabel)
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(scr.Name).To(Equal(fulcio.Certificate.CARef.Name))
+
+					// Verify cert metadata is stored in secret annotations
+					secret, err := kubernetes.GetSecret(cli, "default", scr.Name)
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(secret.Annotations[labels.LabelNamespace+"/commonName"]).ToNot(BeEmpty())
+					g.Expect(secret.Annotations[labels.LabelNamespace+"/organizationEmail"]).To(Equal("jdoe@redhat.com"))
+					g.Expect(secret.Annotations[labels.LabelNamespace+"/organizationName"]).To(Equal("RH"))
 				},
 			},
 		},
@@ -96,9 +100,6 @@ func TestGenerateCert_Handle(t *testing.T) {
 				result:        testAction.RequeueAfter(5 * time.Second),
 				certCondition: metav1.ConditionFalse,
 				verify: func(g Gomega, fulcio rhtasv1.FulcioStatus, cli client.WithWatch) {
-					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
-					g.Expect(fulcio.Certificate.OrganizationEmail).To(Equal("jdoe@redhat.com"))
-					g.Expect(fulcio.Certificate.OrganizationName).To(Equal("RH"))
 					g.Expect(fulcio.Certificate.PrivateKeyRef.Name).ToNot(BeEmpty())
 					g.Expect(fulcio.Certificate.CARef).To(BeNil())
 
@@ -133,9 +134,6 @@ func TestGenerateCert_Handle(t *testing.T) {
 				result:        testAction.Return(),
 				certCondition: metav1.ConditionTrue,
 				verify: func(g Gomega, fulcio rhtasv1.FulcioStatus, cli client.WithWatch) {
-					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
-					g.Expect(fulcio.Certificate.OrganizationEmail).To(Equal("jdoe@redhat.com"))
-					g.Expect(fulcio.Certificate.OrganizationName).To(Equal("RH"))
 					g.Expect(fulcio.Certificate.PrivateKeyRef.Name).To(Equal("fulcio-private"))
 					g.Expect(fulcio.Certificate.CARef.Name).ToNot(BeEmpty())
 
@@ -154,8 +152,6 @@ func TestGenerateCert_Handle(t *testing.T) {
 				},
 				status: rhtasv1.FulcioStatus{
 					Certificate: &rhtasv1.FulcioCertStatus{
-						OrganizationName:  "RH",
-						OrganizationEmail: "jdoe@redhat.com",
 						CARef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "certificate-old",
@@ -175,9 +171,6 @@ func TestGenerateCert_Handle(t *testing.T) {
 				result:        testAction.Return(),
 				certCondition: metav1.ConditionTrue,
 				verify: func(g Gomega, fulcio rhtasv1.FulcioStatus, cli client.WithWatch) {
-					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
-					g.Expect(fulcio.Certificate.OrganizationEmail).To(Equal("jdoe1@redhat.com"))
-					g.Expect(fulcio.Certificate.OrganizationName).To(Equal("RH"))
 					g.Expect(fulcio.Certificate.CARef.Name).ToNot(Equal("certificate-old"))
 
 					scr, err := kubernetes.FindSecret(ctx, cli, "default", FulcioCALabel)
@@ -204,8 +197,6 @@ func TestGenerateCert_Handle(t *testing.T) {
 				},
 				status: rhtasv1.FulcioStatus{
 					Certificate: &rhtasv1.FulcioCertStatus{
-						OrganizationName:  "RH",
-						OrganizationEmail: "jdoe@redhat.com",
 						PrivateKeyRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "fulcio-private-old",
@@ -236,9 +227,6 @@ func TestGenerateCert_Handle(t *testing.T) {
 				result:        testAction.Return(),
 				certCondition: metav1.ConditionTrue,
 				verify: func(g Gomega, fulcio rhtasv1.FulcioStatus, cli client.WithWatch) {
-					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
-					g.Expect(fulcio.Certificate.OrganizationEmail).To(Equal("jdoe@redhat.com"))
-					g.Expect(fulcio.Certificate.OrganizationName).To(Equal("RH"))
 					g.Expect(fulcio.Certificate.PrivateKeyRef.Name).To(Equal("fulcio-private-new"))
 					g.Expect(fulcio.Certificate.CARef.Name).ToNot(Equal("certificate-old"))
 
@@ -266,8 +254,6 @@ func TestGenerateCert_Handle(t *testing.T) {
 				},
 				status: rhtasv1.FulcioStatus{
 					Certificate: &rhtasv1.FulcioCertStatus{
-						OrganizationName:  "RH",
-						OrganizationEmail: "jdoe@redhat.com",
 						PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "fulcio-password-old",
@@ -298,9 +284,6 @@ func TestGenerateCert_Handle(t *testing.T) {
 				result:        testAction.Return(),
 				certCondition: metav1.ConditionTrue,
 				verify: func(g Gomega, fulcio rhtasv1.FulcioStatus, cli client.WithWatch) {
-					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
-					g.Expect(fulcio.Certificate.OrganizationEmail).To(Equal("jdoe@redhat.com"))
-					g.Expect(fulcio.Certificate.OrganizationName).To(Equal("RH"))
 					g.Expect(fulcio.Certificate.PrivateKeyPasswordRef.Name).To(Equal("fulcio-password-new"))
 					g.Expect(fulcio.Certificate.CARef.Name).ToNot(Equal("certificate-old"))
 
@@ -353,7 +336,6 @@ func TestGenerateCert_Handle(t *testing.T) {
 				result:        testAction.Return(),
 				certCondition: metav1.ConditionTrue,
 				verify: func(g Gomega, fulcio rhtasv1.FulcioStatus, cli client.WithWatch) {
-					g.Expect(fulcio.Certificate.CommonName).To(Equal("fulcio.local"))
 					g.Expect(fulcio.Certificate.CARef.Name).To(Equal("fulcio-cert"))
 
 					scr, err := kubernetes.FindSecret(ctx, cli, "default", FulcioCALabel)
@@ -378,9 +360,6 @@ func TestGenerateCert_Handle(t *testing.T) {
 				},
 				status: rhtasv1.FulcioStatus{
 					Certificate: &rhtasv1.FulcioCertStatus{
-						CommonName:        "fulcio.local",
-						OrganizationName:  "RH",
-						OrganizationEmail: "jdoe@redhat.com",
 						PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "fulcio-password",

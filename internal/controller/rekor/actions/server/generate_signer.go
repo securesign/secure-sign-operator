@@ -46,16 +46,9 @@ func (g generateSigner) Name() string {
 }
 
 func (g generateSigner) CanHandle(_ context.Context, instance *rhtasv1.Rekor) bool {
-	if !meta.IsStatusConditionTrue(instance.Status.Conditions, actions.SignerCondition) {
-		return true
-	}
-
-	switch instance.Spec.Signer.KMS {
-	case signerKMSSecret, "":
-		return instance.Status.Signer.KeyRef == nil || !instance.Status.Signer.MatchesSpec(instance.Spec.Signer)
-	default:
-		return !instance.Status.Signer.MatchesSpec(instance.Spec.Signer)
-	}
+	// SignerCondition is managed exclusively by this action.
+	c := meta.FindStatusCondition(instance.Status.Conditions, actions.SignerCondition)
+	return c == nil || c.Status != metav1.ConditionTrue || instance.Generation != c.ObservedGeneration
 }
 
 func (g generateSigner) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
@@ -75,15 +68,17 @@ func (g generateSigner) Handle(ctx context.Context, instance *rhtasv1.Rekor) *ac
 			ObservedGeneration: instance.Generation,
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.SignerCondition,
-			Status:  metav1.ConditionTrue,
-			Reason:  state.Ready.String(),
-			Message: "Not using Secret resource",
+			Type:               actions.SignerCondition,
+			Status:             metav1.ConditionTrue,
+			Reason:             state.Ready.String(),
+			Message:            "Not using Secret resource",
+			ObservedGeneration: instance.Generation,
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:   actions.ServerCondition,
-			Status: metav1.ConditionFalse,
-			Reason: state.Creating.String(),
+			Type:               actions.ServerCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Creating.String(),
+			ObservedGeneration: instance.Generation,
 		})
 		return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 	}
@@ -97,16 +92,18 @@ func (g generateSigner) Handle(ctx context.Context, instance *rhtasv1.Rekor) *ac
 			ObservedGeneration: instance.Generation,
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.SignerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  state.Pending.String(),
-			Message: "resolving keys",
+			Type:               actions.SignerCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Pending.String(),
+			Message:            "resolving keys",
+			ObservedGeneration: instance.Generation,
 		})
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.ServerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  state.Pending.String(),
-			Message: "resolving keys",
+			Type:               actions.ServerCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Pending.String(),
+			Message:            "resolving keys",
+			ObservedGeneration: instance.Generation,
 		})
 		return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 	}
@@ -133,10 +130,11 @@ func (g generateSigner) Handle(ctx context.Context, instance *rhtasv1.Rekor) *ac
 			if err != nil {
 				if !meta.IsStatusConditionFalse(instance.Status.Conditions, actions.SignerCondition) {
 					meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-						Type:    actions.SignerCondition,
-						Status:  metav1.ConditionFalse,
-						Reason:  state.Failure.String(),
-						Message: err.Error(),
+						Type:               actions.SignerCondition,
+						Status:             metav1.ConditionFalse,
+						Reason:             state.Failure.String(),
+						Message:            err.Error(),
+						ObservedGeneration: instance.Generation,
 					})
 					return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 				}
@@ -164,10 +162,11 @@ func (g generateSigner) Handle(ctx context.Context, instance *rhtasv1.Rekor) *ac
 			); err != nil {
 				return g.Error(ctx, fmt.Errorf("could not create signer secret: %w", err), instance,
 					metav1.Condition{
-						Type:    actions.SignerCondition,
-						Status:  metav1.ConditionFalse,
-						Reason:  state.Failure.String(),
-						Message: err.Error(),
+						Type:               actions.SignerCondition,
+						Status:             metav1.ConditionFalse,
+						Reason:             state.Failure.String(),
+						Message:            err.Error(),
+						ObservedGeneration: instance.Generation,
 					})
 			}
 
@@ -185,14 +184,16 @@ func (g generateSigner) Handle(ctx context.Context, instance *rhtasv1.Rekor) *ac
 	instance.Status.PublicKeyRef = nil
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:   actions.ServerCondition,
-		Status: metav1.ConditionFalse,
-		Reason: state.Creating.String(),
+		Type:               actions.ServerCondition,
+		Status:             metav1.ConditionFalse,
+		Reason:             state.Creating.String(),
+		ObservedGeneration: instance.Generation,
 	})
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:   actions.SignerCondition,
-		Status: metav1.ConditionTrue,
-		Reason: state.Ready.String(),
+		Type:               actions.SignerCondition,
+		Status:             metav1.ConditionTrue,
+		Reason:             state.Ready.String(),
+		ObservedGeneration: instance.Generation,
 	})
 	return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 }

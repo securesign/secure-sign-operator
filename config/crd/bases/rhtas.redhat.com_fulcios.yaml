@@ -1436,12 +1436,6 @@ spec:
                     - name
                     type: object
                     x-kubernetes-map-type: atomic
-                  commonName:
-                    type: string
-                  organizationEmail:
-                    type: string
-                  organizationName:
-                    type: string
                   privateKeyPasswordRef:
                     description: SecretKeySelector selects a key of a Secret.
                     properties:

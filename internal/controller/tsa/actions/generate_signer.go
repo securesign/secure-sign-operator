@@ -49,14 +49,12 @@ func (g generateSigner) CanHandle(_ context.Context, instance *rhtasv1.Timestamp
 	switch {
 	case state.FromInstance(instance, constants.ReadyCondition) < state.Pending:
 		return false
-	case !meta.IsStatusConditionTrue(instance.GetConditions(), TSASignerCondition):
-		return true
 	case instance.Status.Signer == nil:
 		return true
 	default:
 		// TSASignerCondition is managed exclusively by this action.
 		c := meta.FindStatusCondition(instance.GetConditions(), TSASignerCondition)
-		return c != nil && instance.Generation != c.ObservedGeneration
+		return c == nil || c.Status != metav1.ConditionTrue || instance.Generation != c.ObservedGeneration
 	}
 }
 
@@ -65,9 +63,11 @@ func (g generateSigner) Handle(ctx context.Context, instance *rhtasv1.TimestampA
 		err error
 	)
 
-	if instance.Spec.Signer.File != nil &&
-		instance.Spec.Signer.CertificateChain.CertificateChainRef != nil &&
-		(instance.Spec.Signer.File.PrivateKeyRef == nil) {
+	// VALIDITY_CHECK: When using an external certificate chain with a file signer,
+	// the user must provide the private key — the controller won't generate one.
+	externalChain := instance.Spec.Signer.CertificateChain.CertificateChainRef != nil
+	fileSigner := instance.Spec.Signer.File != nil
+	if fileSigner && externalChain && instance.Spec.Signer.File.PrivateKeyRef == nil {
 		return g.Error(ctx, reconcile.TerminalError(
 			fmt.Errorf("file signer requires privateKeyRef when certificateChainRef is provided")),
 			instance,
@@ -400,32 +400,33 @@ func (g generateSigner) alignStatusFields(secretName string, instance *rhtasv1.T
 		}
 	}
 
-	isFileSigner := instance.Spec.Signer.File != nil ||
-		(instance.Spec.Signer.Kms == nil && instance.Spec.Signer.Tink == nil &&
-			instance.Spec.Signer.CertificateChain.CertificateChainRef == nil)
+	explicitFileSigner := instance.Spec.Signer.File != nil
+	noSignerConfigured := instance.Spec.Signer.Kms == nil && instance.Spec.Signer.Tink == nil &&
+		instance.Spec.Signer.CertificateChain.CertificateChainRef == nil
+	isFileSigner := explicitFileSigner || noSignerConfigured
 
 	if isFileSigner {
-		file := &rhtasv1.FileStatus{}
+		file := &rhtasv1.FileSignerStatus{}
 
-		if instance.Spec.Signer.File != nil && instance.Spec.Signer.File.PrivateKeyRef != nil {
+		if explicitFileSigner && instance.Spec.Signer.File.PrivateKeyRef != nil {
 			file.PrivateKeyRef = instance.Spec.Signer.File.PrivateKeyRef.DeepCopy()
-		} else if instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
+		} else if noSignerConfigured {
 			file.PrivateKeyRef = &rhtasv1.SecretKeySelector{
 				Key:                  tsaUtils.KeyLeafPrivateKey,
 				LocalObjectReference: rhtasv1.LocalObjectReference{Name: secretName},
 			}
 		}
 
-		if instance.Spec.Signer.File != nil && instance.Spec.Signer.File.PasswordRef != nil {
+		if explicitFileSigner && instance.Spec.Signer.File.PasswordRef != nil {
 			file.PasswordRef = instance.Spec.Signer.File.PasswordRef.DeepCopy()
-		} else if instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
+		} else if noSignerConfigured {
 			file.PasswordRef = &rhtasv1.SecretKeySelector{
 				Key:                  tsaUtils.KeyLeafPrivateKeyPassword,
 				LocalObjectReference: rhtasv1.LocalObjectReference{Name: secretName},
 			}
 		}
 
-		status.File = file
+		status.FileSigner = file
 	}
 
 	instance.Status.Signer = status

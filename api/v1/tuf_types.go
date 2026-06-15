@@ -135,6 +135,18 @@ type TufStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
+func (s TufStatus) MatchesKeys(specKeys []TufKey) bool {
+	if len(specKeys) != len(s.Keys) {
+		return false
+	}
+	for i := range specKeys {
+		if !s.Keys[i].MatchesSpec(specKeys[i]) {
+			return false
+		}
+	}
+	return true
+}
+
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:storageversion

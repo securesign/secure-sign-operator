@@ -49,26 +49,18 @@ func (i ntpMonitoringAction) CanHandle(ctx context.Context, instance *rhtasv1.Ti
 		return false
 	case state.FromCondition(c) < state.Creating:
 		return false
+	case !instance.Spec.NTPMonitoring.Enabled:
+		return false
 	case instance.Status.NTPMonitoring == nil:
 		return true
-	case instance.Generation != c.ObservedGeneration:
-		return true
-	case instance.Spec.NTPMonitoring.Enabled != instance.Status.NTPMonitoring.Enabled:
-		return true
-	case instance.Spec.NTPMonitoring.Config != nil &&
-		(instance.Status.NTPMonitoring.Config == nil || instance.Status.NTPMonitoring.Config.NtpConfigRef == nil):
-		return true
-	case instance.Spec.NTPMonitoring.Config != nil && instance.Spec.NTPMonitoring.Config.NtpConfigRef == nil:
-		// Inline config fields are not stored in status — always re-enter so Handle
-		// can compare the generated ConfigMap content against the current spec.
-		return true
 	default:
-		return false
+		return !instance.Status.NTPMonitoring.MatchesSpec(instance.Spec.NTPMonitoring)
 	}
 }
 
 func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.TimestampAuthority) *action.Result {
-	if instance.Spec.NTPMonitoring.Config == nil {
+	// No inline config to generate — either no config at all or user-provided ConfigMap ref.
+	if instance.Spec.NTPMonitoring.Config == nil || instance.Spec.NTPMonitoring.Config.NtpConfigRef != nil {
 		instance.Status.NTPMonitoring = i.buildNTPStatus(&instance.Spec.NTPMonitoring, "")
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               constants.ReadyCondition,
@@ -80,17 +72,7 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.Times
 		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	}
 
-	if instance.Spec.NTPMonitoring.Config.NtpConfigRef != nil {
-		instance.Status.NTPMonitoring = i.buildNTPStatus(&instance.Spec.NTPMonitoring, "")
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               constants.ReadyCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             state.Creating.String(),
-			Message:            "NTP monitoring configured",
-			ObservedGeneration: instance.Generation,
-		})
-		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
-	}
+	// From here: inline config fields need to be generated into a ConfigMap.
 
 	ntpConfig, err := i.marshalNTPMonitoringConfig(instance.Spec.NTPMonitoring.Config)
 	if err != nil {
@@ -106,8 +88,8 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.Times
 	l := labels.For(ComponentName, DeploymentName, instance.Name)
 	l[labels.LabelResource] = ntpConfigLabel
 
-	if instance.Status.NTPMonitoring != nil && instance.Status.NTPMonitoring.Config != nil && instance.Status.NTPMonitoring.Config.NtpConfigRef != nil {
-		cfg, err := kubernetes.GetConfigMap(ctx, i.Client, instance.Namespace, instance.Status.NTPMonitoring.Config.NtpConfigRef.Name)
+	if instance.Status.NTPMonitoring != nil && instance.Status.NTPMonitoring.NtpConfigRef != nil {
+		cfg, err := kubernetes.GetConfigMap(ctx, i.Client, instance.Namespace, instance.Status.NTPMonitoring.NtpConfigRef.Name)
 		if client.IgnoreNotFound(err) != nil {
 			return i.Error(ctx, fmt.Errorf("NTPConfig: %w", err), instance)
 		}
@@ -206,17 +188,14 @@ func (i ntpMonitoringAction) marshalNTPMonitoringConfig(instance *rhtasv1.NtpMon
 }
 
 func (i ntpMonitoringAction) buildNTPStatus(spec *rhtasv1.NTPMonitoring, cmName string) *rhtasv1.NTPMonitoringStatus {
-	status := &rhtasv1.NTPMonitoringStatus{
-		Enabled: spec.Enabled,
-	}
+	status := &rhtasv1.NTPMonitoringStatus{}
 	if spec.Config == nil {
 		return status
 	}
-	status.Config = &rhtasv1.NtpMonitoringConfigStatus{}
 	if spec.Config.NtpConfigRef != nil {
-		status.Config.NtpConfigRef = spec.Config.NtpConfigRef
+		status.NtpConfigRef = spec.Config.NtpConfigRef
 	} else if cmName != "" {
-		status.Config.NtpConfigRef = &rhtasv1.LocalObjectReference{Name: cmName}
+		status.NtpConfigRef = &rhtasv1.LocalObjectReference{Name: cmName}
 	}
 	return status
 }

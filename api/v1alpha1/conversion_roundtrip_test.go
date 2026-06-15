@@ -37,6 +37,27 @@ func TestFulcioConversion(t *testing.T) {
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
 		Hub:   &v1.Fulcio{},
 		Spoke: &Fulcio{},
+		// v1alpha1 status reuses FulcioCert (spec type) which carries CommonName,
+		// OrganizationName, OrganizationEmail. v1 status doesn't store these —
+		// they're computed inline by the controller. The fuzzer only fills fields
+		// that have a v1 counterpart.
+		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			func(_ runtimeserializer.CodecFactory) []interface{} {
+				return []interface{}{
+					func(s *FulcioStatus, c randfill.Continue) {
+						c.FillNoCustom(&s.Conditions)
+						c.FillNoCustom(&s.ServerConfigRef)
+						c.FillNoCustom(&s.Url)
+						if c.Bool() {
+							s.Certificate = &FulcioCert{}
+							c.FillNoCustom(&s.Certificate.PrivateKeyRef)
+							c.FillNoCustom(&s.Certificate.PrivateKeyPasswordRef)
+							c.FillNoCustom(&s.Certificate.CARef)
+						}
+					},
+				}
+			},
+		},
 	}))
 }
 
@@ -97,12 +118,12 @@ func TestTimestampAuthorityConversion(t *testing.T) {
 							}
 						}
 						if c.Bool() {
-							s.NTPMonitoring = &NTPMonitoring{
-								Enabled: c.Bool(),
-							}
+							s.NTPMonitoring = &NTPMonitoring{}
 							if c.Bool() {
-								s.NTPMonitoring.Config = &NtpMonitoringConfig{}
-								c.FillNoCustom(&s.NTPMonitoring.Config.NtpConfigRef)
+								s.NTPMonitoring.Config = &NtpMonitoringConfig{
+									NtpConfigRef: &LocalObjectReference{},
+								}
+								c.FillNoCustom(s.NTPMonitoring.Config.NtpConfigRef)
 							}
 						}
 					},
