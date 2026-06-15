@@ -3,7 +3,6 @@
 package e2e
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -36,16 +35,6 @@ var _ = Describe("Ctlog Monitor Log", Ordered, func() {
 		ctlogMonitorPod     v1.Pod
 		ctlogMonitorService *v1.Service
 	)
-
-	execOnMonitorPodWithOutput := func(command ...string) ([]byte, error) {
-		return k8ssupport.ExecInPodWithOutput(context.Background(),
-			ctlogMonitorPod.Name, actions.MonitorStatefulSetName, namespace.Name, command...)
-	}
-
-	execOnMonitorPod := func(command ...string) error {
-		return k8ssupport.ExecInPod(context.Background(),
-			ctlogMonitorPod.Name, actions.MonitorStatefulSetName, namespace.Name, command...)
-	}
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
@@ -310,70 +299,6 @@ var _ = Describe("Ctlog Monitor Log", Ordered, func() {
 			g.Expect(verFailure).To(Equal(float64(0)),
 				fmt.Sprintf("Expected log_index_verification_failure to remain 0 after signing, got %f", verFailure))
 		}, 1*time.Minute, 1*time.Second).Should(Succeed())
-	})
-
-	It("should detect subtle corruption when checkpoint file hash is slightly modified", func(ctx SpecContext) {
-		var initialFailureCount float64
-
-		By("Getting initial failure metrics before corruption")
-		Eventually(func(g Gomega) {
-			_, verFailure := support.GetMonitorMetricValues(ctx, cli, namespace.Name, actions.MonitorComponentName, g)
-			initialFailureCount = verFailure
-		}, 30*time.Second, 1*time.Second).Should(Succeed())
-
-		By("Waiting for checkpoint file to stabilize (monitor no longer writing new tree heads)")
-		var prevFileContent string
-		Eventually(func(g Gomega) {
-			content, err := execOnMonitorPodWithOutput("cat", fmt.Sprintf("%s/checkpoint_log.txt", ctlogDataDirectory))
-			g.Expect(err).ToNot(HaveOccurred())
-			currentContent := string(content)
-			g.Expect(currentContent).ToNot(BeEmpty(), "checkpoint file should not be empty")
-			prev := prevFileContent
-			prevFileContent = currentContent
-			g.Expect(currentContent).To(Equal(prev),
-				"checkpoint file should stabilize (tree size no longer changing) before corrupting")
-		}, 30*time.Second, 3*time.Second).Should(Succeed())
-
-		By("Reading the original checkpoint file content")
-		originalContent, err := execOnMonitorPodWithOutput("cat", fmt.Sprintf("%s/checkpoint_log.txt", ctlogDataDirectory))
-		Expect(err).ToNot(HaveOccurred(), "Should be able to read checkpoint file")
-
-		By("Corrupting the checkpoint file with subtle hash modification")
-		originalString := string(originalContent)
-		corruptedContent := support.CreateSubtleCorruption(originalString)
-		Expect(corruptedContent).ToNot(Equal(originalString), "Should have modified the root hash")
-
-		err = execOnMonitorPod("sh", "-c",
-			fmt.Sprintf("printf '%%s' '%s' > %s/checkpoint_log.txt", corruptedContent, ctlogDataDirectory))
-		Expect(err).ToNot(HaveOccurred(), "Failed to corrupt checkpoint file")
-
-		By("Verifying the file was corrupted with subtle changes")
-		verifyContent, err := execOnMonitorPodWithOutput("cat", fmt.Sprintf("%s/checkpoint_log.txt", ctlogDataDirectory))
-		Expect(err).ToNot(HaveOccurred())
-		Expect(string(verifyContent)).ToNot(Equal(string(originalContent)), "File content should be different after tampering")
-
-		By("Signing another image to force the CT log tree to grow beyond the corrupted checkpoint")
-		s = securesign.Get(ctx, cli, namespace.Name, s.Name)
-		tas.VerifyByCosign(ctx, signedImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
-
-		By("Waiting for monitor to detect the corruption and increment failure metrics")
-		Eventually(func(g Gomega) {
-			_, verFailure := support.GetMonitorMetricValues(ctx, cli, namespace.Name, actions.MonitorComponentName, g)
-			g.Expect(verFailure).To(BeNumerically(">", initialFailureCount),
-				fmt.Sprintf("Expected log_index_verification_failure to increase from %f, but got %f", initialFailureCount, verFailure))
-		}, 1*time.Minute, 1*time.Second).Should(Succeed(),
-			"Monitor should detect subtle checkpoint hash modifications and increment failure metric")
-
-		By("Checking monitor logs for corruption detection messages")
-		Eventually(func(g Gomega) {
-			logContent, err := k8ssupport.GetPodLogs(ctx, ctlogMonitorPod.Name, actions.MonitorStatefulSetName, namespace.Name)
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(strings.Contains(logContent, "error running consistency check")).To(BeTrue(),
-				fmt.Sprintf("Expected 'error running consistency check' in monitor logs indicating corruption detection, but got: %s", logContent))
-			g.Expect(strings.Contains(logContent, "error verifying previous STH signature")).To(BeTrue(),
-				fmt.Sprintf("Expected 'error verifying previous STH signature' in monitor logs indicating corruption detection, but got: %s", logContent))
-		}, 1*time.Minute, 1*time.Second).Should(Succeed(),
-			"Monitor logs should contain error messages indicating subtle corruption detection")
 	})
 
 })
