@@ -34,7 +34,8 @@ const (
 
 // TufSpec defines the desired state of Tuf
 type TufSpec struct {
-	PodRequirements `json:",inline"`
+	PodRequirements      `json:",inline"`
+	ServiceAccountConfig `json:",inline"`
 	// SigningConfigURLMode is deprecated. URL mode is now autoresolved from Component Custom Resources.
 	//+kubebuilder:default:=external
 	// +kubebuilder:validation:Deprecated=true

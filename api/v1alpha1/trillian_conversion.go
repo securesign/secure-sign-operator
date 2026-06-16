@@ -54,6 +54,7 @@ func (src *Trillian) ConvertTo(dstRaw conversion.Hub) error {
 	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
 		return err
 	}
+	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
 	return nil
 }
 

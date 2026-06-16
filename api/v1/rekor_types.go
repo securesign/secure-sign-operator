@@ -24,7 +24,8 @@ import (
 
 // RekorSpec defines the desired state of Rekor
 type RekorSpec struct {
-	PodRequirements `json:",inline"`
+	PodRequirements      `json:",inline"`
+	ServiceAccountConfig `json:",inline"`
 	// ID of Merkle tree in Trillian backend
 	// If it is unset, the operator will create new Merkle tree in the Trillian backend
 	//+optional

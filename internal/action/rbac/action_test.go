@@ -281,6 +281,118 @@ func testServiceAccount(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "create with imagePullSecrets",
+			pre: pre{
+				opts: []func(action2 *rbacAction[*rhtasv1.Rekor]){
+					WithImagePullSecrets(func(instance *rhtasv1.Rekor) []corev1.LocalObjectReference {
+						return instance.Spec.ImagePullSecrets
+					}),
+				},
+			},
+			want: want{
+				result: testAction.Continue(),
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch) {
+					sa := corev1.ServiceAccount{}
+					g.Expect(c.Get(ctx, nnObject, &sa)).To(Succeed())
+					g.Expect(sa.ImagePullSecrets).To(HaveLen(1))
+					g.Expect(sa.ImagePullSecrets[0].Name).To(Equal("my-registry-secret"))
+				},
+			},
+		},
+		{
+			desc: "update adds imagePullSecrets to existing SA",
+			pre: pre{
+				before: func(ctx context.Context, g Gomega, c client.WithWatch) {
+					g.Expect(c.Create(ctx, &corev1.ServiceAccount{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      nnObject.Name,
+							Namespace: nnObject.Namespace,
+						},
+					})).To(Succeed())
+				},
+				opts: []func(action2 *rbacAction[*rhtasv1.Rekor]){
+					WithImagePullSecrets(func(instance *rhtasv1.Rekor) []corev1.LocalObjectReference {
+						return instance.Spec.ImagePullSecrets
+					}),
+				},
+			},
+			want: want{
+				result: testAction.Continue(),
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch) {
+					sa := corev1.ServiceAccount{}
+					g.Expect(c.Get(ctx, nnObject, &sa)).To(Succeed())
+					g.Expect(sa.ImagePullSecrets).To(HaveLen(1))
+					g.Expect(sa.ImagePullSecrets[0].Name).To(Equal("my-registry-secret"))
+				},
+			},
+		},
+		{
+			desc: "update replaces existing imagePullSecrets",
+			pre: pre{
+				before: func(ctx context.Context, g Gomega, c client.WithWatch) {
+					g.Expect(c.Create(ctx, &corev1.ServiceAccount{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      nnObject.Name,
+							Namespace: nnObject.Namespace,
+						},
+						ImagePullSecrets: []corev1.LocalObjectReference{{Name: "old-secret"}},
+					})).To(Succeed())
+				},
+				opts: []func(action2 *rbacAction[*rhtasv1.Rekor]){
+					WithImagePullSecrets(func(instance *rhtasv1.Rekor) []corev1.LocalObjectReference {
+						return instance.Spec.ImagePullSecrets
+					}),
+				},
+			},
+			want: want{
+				result: testAction.Continue(),
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch) {
+					sa := corev1.ServiceAccount{}
+					g.Expect(c.Get(ctx, nnObject, &sa)).To(Succeed())
+					g.Expect(sa.ImagePullSecrets).To(HaveLen(1))
+					g.Expect(sa.ImagePullSecrets[0].Name).To(Equal("my-registry-secret"))
+				},
+			},
+		},
+		{
+			desc: "empty imagePullSecrets clears SA",
+			pre: pre{
+				before: func(ctx context.Context, g Gomega, c client.WithWatch) {
+					g.Expect(c.Create(ctx, &corev1.ServiceAccount{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      nnObject.Name,
+							Namespace: nnObject.Namespace,
+						},
+						ImagePullSecrets: []corev1.LocalObjectReference{{Name: "old-secret"}},
+					})).To(Succeed())
+				},
+				opts: []func(action2 *rbacAction[*rhtasv1.Rekor]){
+					WithImagePullSecrets(func(instance *rhtasv1.Rekor) []corev1.LocalObjectReference {
+						return nil
+					}),
+				},
+			},
+			want: want{
+				result: testAction.Continue(),
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch) {
+					sa := corev1.ServiceAccount{}
+					g.Expect(c.Get(ctx, nnObject, &sa)).To(Succeed())
+					g.Expect(sa.ImagePullSecrets).To(BeEmpty())
+				},
+			},
+		},
+		{
+			desc: "no imagePullSecrets when option not set",
+			want: want{
+				result: testAction.Continue(),
+				verify: func(ctx context.Context, g Gomega, c client.WithWatch) {
+					sa := corev1.ServiceAccount{}
+					g.Expect(c.Get(ctx, nnObject, &sa)).To(Succeed())
+					g.Expect(sa.ImagePullSecrets).To(BeEmpty())
+				},
+			},
+		},
 	} {
 		t.Run(tc.desc, testRunner(tc.pre, tc.want, func(r *rbacAction[*rhtasv1.Rekor], ctx context.Context, rekor *rhtasv1.Rekor) *action.Result {
 			return r.handleServiceAccount(ctx, rekor)
@@ -509,6 +621,9 @@ func testRunner(pre pre, want want, handleFn handleFn) func(t *testing.T) {
 				Namespace: nnObject.Namespace,
 			},
 			Spec: rhtasv1.RekorSpec{
+				ServiceAccountConfig: rhtasv1.ServiceAccountConfig{
+					ImagePullSecrets: []corev1.LocalObjectReference{{Name: "my-registry-secret"}},
+				},
 				Trillian: rhtasv1.TrillianService{
 					Address: "trillian-logserver",
 					Port:    ptr.To(int32(8091)),
