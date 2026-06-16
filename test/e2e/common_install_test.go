@@ -89,7 +89,6 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 						&matchers.HaveKeyMatcher{Key: "cert"},
 						&matchers.HaveKeyMatcher{Key: "private"},
 						&matchers.HaveKeyMatcher{Key: "public"},
-						&matchers.HaveKeyMatcher{Key: "password"},
 					)))
 		})
 
@@ -120,11 +119,8 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				WithTransform(func(secret *v1.Secret) map[string][]byte { return secret.Data },
 					And(
 						&matchers.HaveKeyMatcher{Key: "rootPrivateKey"},
-						&matchers.HaveKeyMatcher{Key: "rootPrivateKeyPassword"},
 						&matchers.HaveKeyMatcher{Key: "interPrivateKey-0"},
-						&matchers.HaveKeyMatcher{Key: "interPrivateKeyPassword-0"},
 						&matchers.HaveKeyMatcher{Key: "leafPrivateKey"},
-						&matchers.HaveKeyMatcher{Key: "leafPrivateKeyPassword"},
 						&matchers.HaveKeyMatcher{Key: "certificateChain"},
 					)))
 		})

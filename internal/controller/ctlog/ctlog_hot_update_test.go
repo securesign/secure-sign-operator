@@ -189,7 +189,7 @@ var _ = Describe("CTlog update test", func() {
 			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
 
 			By("Private key has changed")
-			key, err := utils.CreatePrivateKey(nil)
+			key, err := utils.CreatePrivateKey()
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(suite.Client().Create(ctx, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{

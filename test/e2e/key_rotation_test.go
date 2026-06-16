@@ -111,7 +111,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 
 		It("Update fulcio cert", func(ctx SpecContext) {
 			secretName := "new-fulcio-cert"
-			newFulcioCert = fulcio.CreateSecret(namespace.Name, secretName)
+			newFulcioCert = fulcio.CreateSecret(namespace.Name, secretName, true)
 			Expect(cli.Create(ctx, newFulcioCert)).To(Succeed())
 
 			Eventually(func() error {
@@ -213,7 +213,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			secretName := "new-rekor-signer"
-			newRekorSigner = rekor.CreateSecret(namespace.Name, secretName)
+			newRekorSigner = rekor.CreateSecret(namespace.Name, secretName, false)
 			Expect(cli.Create(ctx, newRekorSigner)).To(Succeed())
 
 			Eventually(func() error {
@@ -386,7 +386,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 
 		It("Update tsa cert", func(ctx SpecContext) {
 			secretName := "new-tsa-cert"
-			newTsaSecret = tsa.CreateSecrets(namespace.Name, secretName)
+			newTsaSecret = tsa.CreateSecrets(namespace.Name, secretName, true)
 			Expect(cli.Create(ctx, newTsaSecret)).To(Succeed())
 
 			Eventually(func() error {

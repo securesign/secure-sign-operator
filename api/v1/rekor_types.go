@@ -122,9 +122,11 @@ type RekorSigner struct {
 	// +kubebuilder:default:=secret
 	KMS string `json:"kms,omitempty"`
 
-	// Password to decrypt the signer private key.
-	//
-	// Optional field. This should be set only if the private key referenced by `keyRef` is encrypted with a password.
+	// Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
+	// and not FIPS-compliant. Auto-generated keys are no longer password-encrypted;
+	// this field is retained only for backward compatibility with existing user-provided
+	// encrypted keys. Kubernetes Secrets provide encryption-at-rest.
+	// This should be set only if the private key referenced by `keyRef` is encrypted with a password.
 	// If KMS is set to a value other than "secret", this field is ignored.
 	// +optional
 	PasswordRef *SecretKeySelector `json:"passwordRef,omitempty"`

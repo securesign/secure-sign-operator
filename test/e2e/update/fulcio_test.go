@@ -116,7 +116,7 @@ var _ = Describe("Fulcio update", Ordered, func() {
 		})
 
 		It("created my-fulcio-secret", func(ctx SpecContext) {
-			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret"))).Should(Succeed())
+			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret", true))).Should(Succeed())
 		})
 
 		It("has status ReadyCondition", func(ctx SpecContext) {

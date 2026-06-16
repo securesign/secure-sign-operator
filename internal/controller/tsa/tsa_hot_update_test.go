@@ -188,7 +188,7 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			}).Should(Equal(state.Pending.String()))
 
 			By("Creating new certificate chain and signer keys")
-			secret := tsa.CreateSecrets(Namespace, "tsa-test-secret")
+			secret := tsa.CreateSecrets(Namespace, "tsa-test-secret", true)
 			Expect(suite.Client().Create(context.TODO(), secret)).NotTo(HaveOccurred())
 
 			By("Status field changed for cert chain")

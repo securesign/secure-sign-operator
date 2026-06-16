@@ -116,7 +116,7 @@ var _ = Describe("TSA update", Ordered, func() {
 		})
 
 		It("created my-tsa-secret", func(ctx SpecContext) {
-			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "my-tsa-secret"))).Should(Succeed())
+			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "my-tsa-secret", true))).Should(Succeed())
 		})
 
 		It("has status ReadyCondition", func(ctx SpecContext) {
