@@ -42,3 +42,9 @@ spec:
               value: PLACEHOLDER
             - name: RELATED_IMAGE_CTLOG_MONITOR
               value: PLACEHOLDER
+            - name: RELATED_IMAGE_CONSOLE_UI
+              value: PLACEHOLDER
+            - name: RELATED_IMAGE_CONSOLE_API
+              value: PLACEHOLDER
+            - name: RELATED_IMAGE_CONSOLE_DB
+              value: PLACEHOLDER
