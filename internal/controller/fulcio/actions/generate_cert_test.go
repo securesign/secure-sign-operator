@@ -66,7 +66,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
 					g.Expect(fulcio.Certificate.OrganizationEmail).To(Equal("jdoe@redhat.com"))
 					g.Expect(fulcio.Certificate.OrganizationName).To(Equal("RH"))
-					g.Expect(fulcio.Certificate.PrivateKeyPasswordRef).To(BeNil())
+					g.Expect(fulcio.Certificate.PrivateKeyPasswordRef).To(BeNil()) //nolint:staticcheck
 					g.Expect(fulcio.Certificate.PrivateKeyRef.Name).ToNot(BeEmpty())
 					g.Expect(fulcio.Certificate.CARef.Name).ToNot(BeEmpty())
 

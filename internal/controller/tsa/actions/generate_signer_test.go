@@ -468,9 +468,10 @@ func Test_AlignStatusFields(t *testing.T) {
 	const userSecret = "user-signer-secret"
 
 	tests := []struct {
-		name     string
-		signer   rhtasv1.TimestampAuthoritySigner
-		testCase func(Gomega, *rhtasv1.TimestampAuthority)
+		name           string
+		signer         rhtasv1.TimestampAuthoritySigner
+		existingStatus *rhtasv1.TimestampAuthoritySigner
+		testCase       func(Gomega, *rhtasv1.TimestampAuthority)
 	}{
 		{
 			name: "default signer (no File, no ChainRef) — defaults to File-based",
@@ -488,7 +489,7 @@ func Test_AlignStatusFields(t *testing.T) {
 				g.Expect(instance.Status.Signer.CertificateChain.CertificateChainRef.Name).To(Equal("test-secret"))
 				g.Expect(instance.Status.Signer.File.PrivateKeyRef).NotTo(BeNil(), "PrivateKeyRef should be defaulted")
 				g.Expect(instance.Status.Signer.File.PrivateKeyRef.Key).To(Equal("leafPrivateKey"))
-				g.Expect(instance.Status.Signer.File.PasswordRef).To(BeNil())
+				g.Expect(instance.Status.Signer.File.PasswordRef).To(BeNil()) //nolint:staticcheck
 			},
 		},
 		{
@@ -537,7 +538,42 @@ func Test_AlignStatusFields(t *testing.T) {
 			},
 			testCase: func(g Gomega, instance *rhtasv1.TimestampAuthority) {
 				g.Expect(instance.Status.Signer.File.PrivateKeyRef.Name).To(Equal(userSecret), "should keep user-provided PrivateKeyRef")
-				g.Expect(instance.Status.Signer.File.PasswordRef).To(BeNil())
+				g.Expect(instance.Status.Signer.File.PasswordRef).To(BeNil()) //nolint:staticcheck
+			},
+		},
+		{
+			name: "upgrade from old operator — drops auto-generated PasswordRef",
+			signer: rhtasv1.TimestampAuthoritySigner{
+				CertificateChain: rhtasv1.CertificateChain{
+					RootCA:         &rhtasv1.TsaCertificateAuthority{OrganizationName: "Red Hat"},
+					IntermediateCA: []*rhtasv1.TsaCertificateAuthority{{OrganizationName: "Red Hat"}},
+					LeafCA:         &rhtasv1.TsaCertificateAuthority{OrganizationName: "Red Hat"},
+				},
+			},
+			existingStatus: &rhtasv1.TimestampAuthoritySigner{
+				CertificateChain: rhtasv1.CertificateChain{
+					CertificateChainRef: &rhtasv1.SecretKeySelector{
+						Key:                  "certificateChain",
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old-secret"},
+					},
+				},
+				File: &rhtasv1.File{
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						Key:                  "leafPrivateKey",
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old-secret"},
+					},
+					PasswordRef: &rhtasv1.SecretKeySelector{
+						Key:                  "leafPrivateKeyPassword",
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old-secret"},
+					},
+				},
+			},
+			testCase: func(g Gomega, instance *rhtasv1.TimestampAuthority) {
+				g.Expect(instance.Status.Signer).NotTo(BeNil())
+				g.Expect(instance.Status.Signer.File).NotTo(BeNil(), "File should be defaulted on Status")
+				g.Expect(instance.Status.Signer.File.PrivateKeyRef).NotTo(BeNil(), "PrivateKeyRef should be defaulted")
+				g.Expect(instance.Status.Signer.File.PasswordRef).To(BeNil(), "PasswordRef from old operator should be dropped") //nolint:staticcheck
+				g.Expect(instance.Status.Signer.CertificateChain.CertificateChainRef.Name).To(Equal("test-secret"))
 			},
 		},
 		{
@@ -570,6 +606,9 @@ func Test_AlignStatusFields(t *testing.T) {
 				Spec: rhtasv1.TimestampAuthoritySpec{
 					Signer: tt.signer,
 				},
+			}
+			if tt.existingStatus != nil {
+				instance.Status.Signer = tt.existingStatus.DeepCopy()
 			}
 			a := generateSigner{}
 			a.alignStatusFields("test-secret", instance)

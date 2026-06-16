@@ -95,8 +95,11 @@ type TsaCertificateAuthority struct {
 	//+optional
 	//Organization Email specifies the Organization Email for the TimeStampAuthorities cert chain.
 	OrganizationEmail string `json:"organizationEmail,omitempty"`
-	//Password to decrypt the signer's root private key
-	//+optional
+	// Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
+	// and not FIPS-compliant. Auto-generated keys are no longer password-encrypted;
+	// this field is retained only for backward compatibility with existing user-provided
+	// encrypted keys. Kubernetes Secrets provide encryption-at-rest.
+	// +optional
 	PasswordRef *SecretKeySelector `json:"passwordRef,omitempty"`
 	// Reference to the signer's root private key
 	//+optional
@@ -105,8 +108,11 @@ type TsaCertificateAuthority struct {
 
 // TSA File signer configuration
 type File struct {
-	//Password to decrypt the signer's root private key
-	//+optional
+	// Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
+	// and not FIPS-compliant. Auto-generated keys are no longer password-encrypted;
+	// this field is retained only for backward compatibility with existing user-provided
+	// encrypted keys. Kubernetes Secrets provide encryption-at-rest.
+	// +optional
 	PasswordRef *SecretKeySelector `json:"passwordRef,omitempty"`
 	//Reference to the signer's root private key
 	//+optional

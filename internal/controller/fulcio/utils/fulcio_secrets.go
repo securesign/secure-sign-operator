@@ -86,6 +86,9 @@ func CreateFulcioCA(config *FulcioCertConfig) ([]byte, error) {
 	}
 
 	block, _ := pem.Decode(config.PrivateKey)
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode PEM block from private key")
+	}
 	keyBytes := block.Bytes
 	// Deprecated: kept for backward compatibility with existing encrypted keys from pre-FIPS operator versions.
 	if x509.IsEncryptedPEMBlock(block) { //nolint:staticcheck
