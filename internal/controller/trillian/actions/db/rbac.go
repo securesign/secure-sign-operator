@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/state"
+	v1 "k8s.io/api/core/v1"
 )
 
 func NewRBACAction() action.Action[*rhtasv1.Trillian] {
@@ -16,5 +17,9 @@ func NewRBACAction() action.Action[*rhtasv1.Trillian] {
 		actions.DbComponentName, actions.RBACDbName,
 		rbac.WithCanHandle[*rhtasv1.Trillian](func(_ context.Context, instance *rhtasv1.Trillian) bool {
 			return enabled(instance) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
-		}))
+		}),
+		rbac.WithImagePullSecrets(func(instance *rhtasv1.Trillian) []v1.LocalObjectReference {
+			return instance.Spec.ImagePullSecrets
+		}),
+	)
 }

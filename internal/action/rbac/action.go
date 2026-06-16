@@ -31,6 +31,12 @@ func WithCanHandle[T apis.ConditionsAwareObject](fn func(context.Context, T) boo
 	}
 }
 
+func WithImagePullSecrets[T apis.ConditionsAwareObject](fn func(T) []v1.LocalObjectReference) func(action2 *rbacAction[T]) {
+	return func(obj *rbacAction[T]) {
+		obj.imagePullSecrets = fn
+	}
+}
+
 func NewAction[T apis.ConditionsAwareObject](componentName, rbacName string, opts ...func(action2 *rbacAction[T])) action.Action[T] {
 	a := &rbacAction[T]{
 		componentName: componentName,
@@ -47,10 +53,11 @@ func NewAction[T apis.ConditionsAwareObject](componentName, rbacName string, opt
 
 type rbacAction[T apis.ConditionsAwareObject] struct {
 	action.BaseAction
-	componentName string
-	rbacName      string
-	rules         []rbacv1.PolicyRule
-	canHandle     func(context.Context, T) bool
+	componentName    string
+	rbacName         string
+	rules            []rbacv1.PolicyRule
+	canHandle        func(context.Context, T) bool
+	imagePullSecrets func(T) []v1.LocalObjectReference
 }
 
 func (i rbacAction[T]) Name() string {
@@ -90,15 +97,25 @@ func (i rbacAction[T]) handleServiceAccount(ctx context.Context, instance T) *ac
 	var err error
 	l := labels.For(i.componentName, i.rbacName, instance.GetName())
 
+	ensureFns := []func(*v1.ServiceAccount) error{
+		ensure.ControllerReference[*v1.ServiceAccount](instance, i.Client),
+		ensure.Labels[*v1.ServiceAccount](slices.Collect(maps.Keys(l)), l),
+	}
+
+	if i.imagePullSecrets != nil {
+		secrets := i.imagePullSecrets(instance)
+		ensureFns = append(ensureFns, func(sa *v1.ServiceAccount) error {
+			sa.ImagePullSecrets = secrets
+			return nil
+		})
+	}
+
 	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, &v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      i.rbacName,
 			Namespace: instance.GetNamespace(),
 		},
-	},
-		ensure.ControllerReference[*v1.ServiceAccount](instance, i.Client),
-		ensure.Labels[*v1.ServiceAccount](slices.Collect(maps.Keys(l)), l),
-	); err != nil {
+	}, ensureFns...); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create SA: %w", err), instance)
 	}
 

@@ -200,6 +200,15 @@ type TLS struct {
 	CertRef *SecretKeySelector `json:"certificateRef,omitempty"`
 }
 
+// ServiceAccountConfig configures the component's ServiceAccount.
+type ServiceAccountConfig struct {
+	// ImagePullSecrets is an optional list of references to secrets in the same namespace
+	// to use for pulling container images used by this component.
+	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
+	// +optional
+	ImagePullSecrets []core.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+}
+
 type PodRequirements struct {
 	// Number of desired pods.
 	// +optional
