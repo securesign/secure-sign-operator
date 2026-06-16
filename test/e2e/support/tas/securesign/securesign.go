@@ -165,7 +165,96 @@ func WithGeneratedCerts() Opts {
 	}
 }
 
-func WithProvidedCerts() Opts {
+func WithProvidedEncryptedCerts() Opts {
+	return func(s *rhtasv1.Securesign) {
+		s.Spec.Rekor.Signer = rhtasv1.RekorSigner{
+			KMS: "secret",
+			KeyRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{
+					Name: "my-rekor-secret",
+				},
+				Key: "private",
+			},
+			PasswordRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{
+					Name: "my-rekor-secret",
+				},
+				Key: "password",
+			},
+		}
+
+		s.Spec.Fulcio.Certificate = rhtasv1.FulcioCert{
+			PrivateKeyRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{
+					Name: "my-fulcio-secret",
+				},
+				Key: "private",
+			},
+			PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{
+					Name: "my-fulcio-secret",
+				},
+				Key: "password",
+			},
+			CARef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{
+					Name: "my-fulcio-secret",
+				},
+				Key: "cert",
+			},
+		}
+
+		s.Spec.Ctlog.PrivateKeyRef = &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{
+				Name: "my-ctlog-secret",
+			},
+			Key: "private",
+		}
+		s.Spec.Ctlog.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{
+				Name: "my-ctlog-secret",
+			},
+			Key: "password",
+		}
+		s.Spec.Ctlog.RootCertificates = []rhtasv1.SecretKeySelector{
+			{
+				LocalObjectReference: rhtasv1.LocalObjectReference{
+					Name: "my-fulcio-secret",
+				},
+				Key: "cert",
+			},
+		}
+
+		if s.Spec.TimestampAuthority != nil {
+			s.Spec.TimestampAuthority.Signer = rhtasv1.TimestampAuthoritySigner{
+				CertificateChain: rhtasv1.CertificateChain{
+					CertificateChainRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{
+							Name: "test-tsa-secret",
+						},
+						Key: "certificateChain",
+					},
+				},
+				File: &rhtasv1.File{
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{
+							Name: "test-tsa-secret",
+						},
+						Key: "leafPrivateKey",
+					},
+					PasswordRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{
+							Name: "test-tsa-secret",
+						},
+						Key: "leafPrivateKeyPassword",
+					},
+				},
+			}
+		}
+	}
+}
+
+func WithProvidedUnencryptedCerts() Opts {
 	return func(s *rhtasv1.Securesign) {
 		s.Spec.Rekor.Signer = rhtasv1.RekorSigner{
 			KMS: "secret",
@@ -183,12 +272,6 @@ func WithProvidedCerts() Opts {
 					Name: "my-fulcio-secret",
 				},
 				Key: "private",
-			},
-			PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
-				LocalObjectReference: rhtasv1.LocalObjectReference{
-					Name: "my-fulcio-secret",
-				},
-				Key: "password",
 			},
 			CARef: &rhtasv1.SecretKeySelector{
 				LocalObjectReference: rhtasv1.LocalObjectReference{
@@ -229,12 +312,6 @@ func WithProvidedCerts() Opts {
 							Name: "test-tsa-secret",
 						},
 						Key: "leafPrivateKey",
-					},
-					PasswordRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "test-tsa-secret",
-						},
-						Key: "leafPrivateKeyPassword",
 					},
 				},
 			}

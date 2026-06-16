@@ -186,7 +186,7 @@ func Test_SignerHandle(t *testing.T) {
 					},
 				}
 
-				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret")
+				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret", true)
 				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret)
 			},
 			testCase: func(g Gomega, a action.Action[*rhtasv1.TimestampAuthority], client client.WithWatch, instance *rhtasv1.TimestampAuthority) bool {
@@ -238,7 +238,7 @@ func Test_SignerHandle(t *testing.T) {
 						},
 					},
 				}
-				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret")
+				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret", true)
 				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret)
 			},
 			testCase: func(g Gomega, a action.Action[*rhtasv1.TimestampAuthority], client client.WithWatch, instance *rhtasv1.TimestampAuthority) bool {
@@ -309,8 +309,8 @@ func Test_SignerHandle(t *testing.T) {
 					},
 				}
 
-				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret")
-				old := tsa.CreateSecrets(instance.Namespace, "old")
+				secret := tsa.CreateSecrets(instance.Namespace, "tsa-test-secret", true)
+				old := tsa.CreateSecrets(instance.Namespace, "old", true)
 				old.Annotations = generateSecretAnnotations(*instance.Status.Signer)
 				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret, old)
 			},
@@ -378,7 +378,7 @@ func Test_SignerHandle(t *testing.T) {
 					},
 				}
 
-				old := tsa.CreateSecrets(instance.Namespace, "old")
+				old := tsa.CreateSecrets(instance.Namespace, "old", true)
 				old.Annotations = generateSecretAnnotations(*instance.Status.Signer)
 				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), old)
 			},
@@ -422,7 +422,7 @@ func Test_SignerHandle(t *testing.T) {
 					},
 				}
 
-				secret := tsa.CreateSecrets(instance.Namespace, "secret")
+				secret := tsa.CreateSecrets(instance.Namespace, "secret", true)
 				secret.Annotations = generateSecretAnnotations(instance.Spec.Signer)
 				secret.Labels = map[string]string{TSACertCALabel: "fake"}
 				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret)
@@ -488,8 +488,7 @@ func Test_AlignStatusFields(t *testing.T) {
 				g.Expect(instance.Status.Signer.CertificateChain.CertificateChainRef.Name).To(Equal("test-secret"))
 				g.Expect(instance.Status.Signer.File.PrivateKeyRef).NotTo(BeNil(), "PrivateKeyRef should be defaulted")
 				g.Expect(instance.Status.Signer.File.PrivateKeyRef.Key).To(Equal("leafPrivateKey"))
-				g.Expect(instance.Status.Signer.File.PasswordRef).NotTo(BeNil(), "PasswordRef should be defaulted")
-				g.Expect(instance.Status.Signer.File.PasswordRef.Key).To(Equal("leafPrivateKeyPassword"))
+				g.Expect(instance.Status.Signer.File.PasswordRef).To(BeNil())
 			},
 		},
 		{
@@ -538,9 +537,7 @@ func Test_AlignStatusFields(t *testing.T) {
 			},
 			testCase: func(g Gomega, instance *rhtasv1.TimestampAuthority) {
 				g.Expect(instance.Status.Signer.File.PrivateKeyRef.Name).To(Equal(userSecret), "should keep user-provided PrivateKeyRef")
-				g.Expect(instance.Status.Signer.File.PasswordRef).NotTo(BeNil(), "should default missing PasswordRef")
-				g.Expect(instance.Status.Signer.File.PasswordRef.Key).To(Equal("leafPrivateKeyPassword"))
-				g.Expect(instance.Status.Signer.File.PasswordRef.Name).To(Equal("test-secret"))
+				g.Expect(instance.Status.Signer.File.PasswordRef).To(BeNil())
 			},
 		},
 		{
@@ -597,7 +594,7 @@ func Test_SignerHandle_KMS(t *testing.T) {
 		},
 	}
 
-	secret := tsa.CreateSecrets(instance.Namespace, "kms-secret")
+	secret := tsa.CreateSecrets(instance.Namespace, "kms-secret", true)
 	cli, act := common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret)
 	g.Expect(cli).NotTo(BeNil())
 	g.Expect(act).NotTo(BeNil())
@@ -629,7 +626,7 @@ func Test_SignerHandle_Tink(t *testing.T) {
 		},
 	}
 
-	secret := tsa.CreateSecrets(instance.Namespace, "tink-secret")
+	secret := tsa.CreateSecrets(instance.Namespace, "tink-secret", true)
 	cli, act := common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), secret)
 	g.Expect(cli).NotTo(BeNil())
 	g.Expect(act).NotTo(BeNil())

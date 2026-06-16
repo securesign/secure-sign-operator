@@ -117,7 +117,7 @@ func (g handleKeys) setupKeys(ns string, instanceStatus *rhtasv1.CTlogStatus) (*
 	}
 
 	if instanceStatus.PrivateKeyRef == nil {
-		return utils.CreatePrivateKey(config.PrivateKeyPass)
+		return utils.CreatePrivateKey()
 	} else {
 		config.PrivateKey, err = kubernetes.GetSecretData(g.Client, ns, instanceStatus.PrivateKeyRef)
 		if err != nil {

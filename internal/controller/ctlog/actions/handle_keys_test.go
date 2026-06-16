@@ -11,7 +11,6 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
-	utils2 "github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -195,10 +194,10 @@ func TestKeysCan_Handle(t *testing.T) {
 }
 func TestKeys_Handle(t *testing.T) {
 	g := NewWithT(t)
-	noPassKeyConf, err := utils.CreatePrivateKey(nil)
+	noPassKeyConf, err := utils.CreatePrivateKey()
 	g.Expect(err).To(Not(HaveOccurred()))
 
-	encryptedKeyConf, err := utils.CreatePrivateKey(utils2.GeneratePassword(8))
+	encryptedKeyConf, err := utils.CreatePrivateKey()
 	g.Expect(err).To(Not(HaveOccurred()))
 	type env struct {
 		spec    rhtasv1.CTlogSpec
@@ -287,7 +286,7 @@ func TestKeys_Handle(t *testing.T) {
 								privateKeyRefAnnotation:  "encrypted",
 							},
 						},
-						Data: map[string][]byte{"private": encryptedKeyConf.PrivateKey, "password": encryptedKeyConf.PrivateKeyPass, "public": encryptedKeyConf.PublicKey},
+						Data: map[string][]byte{"private": encryptedKeyConf.PrivateKey, "password": []byte("test-pass"), "public": encryptedKeyConf.PublicKey},
 					},
 				},
 			},

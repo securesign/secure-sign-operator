@@ -31,7 +31,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 	g := NewWithT(t)
 	key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 	g.Expect(err).ToNot(HaveOccurred())
-	pemKey, err := utils.CreateCAKey(key, nil)
+	pemKey, err := utils.CreateCAKey(key)
 	g.Expect(err).ToNot(HaveOccurred())
 	type env struct {
 		certSpec rhtasv1.FulcioCert
@@ -66,7 +66,7 @@ func TestGenerateCert_Handle(t *testing.T) {
 					g.Expect(fulcio.Certificate.CommonName).ToNot(BeEmpty())
 					g.Expect(fulcio.Certificate.OrganizationEmail).To(Equal("jdoe@redhat.com"))
 					g.Expect(fulcio.Certificate.OrganizationName).To(Equal("RH"))
-					g.Expect(fulcio.Certificate.PrivateKeyPasswordRef.Name).ToNot(BeEmpty())
+					g.Expect(fulcio.Certificate.PrivateKeyPasswordRef).To(BeNil())
 					g.Expect(fulcio.Certificate.PrivateKeyRef.Name).ToNot(BeEmpty())
 					g.Expect(fulcio.Certificate.CARef.Name).ToNot(BeEmpty())
 

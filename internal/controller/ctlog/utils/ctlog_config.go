@@ -3,14 +3,11 @@ package utils
 import (
 	"bytes"
 	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
-	"github.com/securesign/operator/internal/utils"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -140,30 +137,9 @@ func mustMarshalAny(pb proto.Message) *anypb.Any {
 
 func createConfigWithKeys(certConfig *KeyConfig) (*Config, error) {
 	config := &Config{
-		PubKey: certConfig.PublicKey,
-	}
-	if certConfig.PrivateKeyPass != nil {
-		config.PrivKeyPassword = certConfig.PrivateKeyPass
-		config.PrivKey = certConfig.PrivateKey
-	} else {
-		// private key MUST be encrypted by password
-		config.PrivKeyPassword = utils.GeneratePassword(8)
-		block, _ := pem.Decode(certConfig.PrivateKey)
-		if block == nil {
-			return nil, fmt.Errorf("failed to decode private key")
-		}
-		// Encrypt the pem
-		encryptedBlock, err := x509.EncryptPEMBlock(rand.Reader, block.Type, block.Bytes, config.PrivKeyPassword, x509.PEMCipherAES256) // nolint
-		if err != nil {
-			return nil, fmt.Errorf("failed to encrypt private key: %w", err)
-		}
-
-		privPEM := pem.EncodeToMemory(encryptedBlock)
-		if privPEM == nil {
-			return nil, fmt.Errorf("failed to encode encrypted private key")
-		}
-		config.PrivKey = privPEM
-
+		PubKey:          certConfig.PublicKey,
+		PrivKey:         certConfig.PrivateKey,
+		PrivKeyPassword: certConfig.PrivateKeyPass,
 	}
 	return config, nil
 }
@@ -192,7 +168,9 @@ func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertifi
 		ConfigKey:  config,
 		PrivateKey: ctlogConfig.PrivKey,
 		PublicKey:  ctlogConfig.PubKey,
-		Password:   ctlogConfig.PrivKeyPassword,
+	}
+	if len(ctlogConfig.PrivKeyPassword) > 0 {
+		data[Password] = ctlogConfig.PrivKeyPassword
 	}
 	for i, cert := range ctlogConfig.RootCerts {
 		fulcioKey := fmt.Sprintf("fulcio-%d", i)

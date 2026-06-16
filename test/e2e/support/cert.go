@@ -26,7 +26,9 @@ func CreateCertificates(passwordProtected bool) ([]byte, []byte, []byte, error) 
 	}
 	var block *pem.Block
 	if passwordProtected {
-		block, err = x509.EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", privateKeyBytes, []byte(CertPassword), x509.PEMCipher3DES) //nolint:staticcheck
+		// Simulate a user-provided encrypted key — exercises the backward-compat
+		// DecryptPEMBlock/IsEncryptedPEMBlock path in production code.
+		block, err = x509.EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", privateKeyBytes, []byte(CertPassword), x509.PEMCipherAES256) //nolint:staticcheck
 		if err != nil {
 			return nil, nil, nil, err
 		}

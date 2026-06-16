@@ -52,21 +52,24 @@ func Get(ctx context.Context, cli client.Client, ns string, name string) *rhtasv
 	return instance
 }
 
-func CreateSecret(ns string, name string) *v1.Secret {
-	public, private, root, err := support.CreateCertificates(true)
+func CreateSecret(ns string, name string, passwordProtected bool) *v1.Secret {
+	public, private, root, err := support.CreateCertificates(passwordProtected)
 	if err != nil {
 		return nil
 	}
-	return &v1.Secret{
+	s := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: ns,
 		},
 		Data: map[string][]byte{
-			"password": []byte(support.CertPassword),
-			"private":  private,
-			"public":   public,
-			"cert":     root,
+			"private": private,
+			"public":  public,
+			"cert":    root,
 		},
 	}
+	if passwordProtected {
+		s.Data["password"] = []byte(support.CertPassword)
+	}
+	return s
 }

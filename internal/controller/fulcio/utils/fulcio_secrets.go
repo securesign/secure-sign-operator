@@ -43,19 +43,17 @@ func (c FulcioCertConfig) ToData() map[string][]byte {
 	return result
 }
 
-func CreateCAKey(key *ecdsa.PrivateKey, password []byte) ([]byte, error) {
+func CreateCAKey(key *ecdsa.PrivateKey) ([]byte, error) {
 	mKey, err := x509.MarshalECPrivateKey(key)
 	if err != nil {
 		return nil, err
 	}
 
-	block, err := x509.EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", mKey, password, x509.PEMCipherAES256) //nolint:staticcheck
-	if err != nil {
-		return nil, err
-	}
-
 	var pemData bytes.Buffer
-	if err := pem.Encode(&pemData, block); err != nil {
+	if err := pem.Encode(&pemData, &pem.Block{
+		Type:  "EC PRIVATE KEY",
+		Bytes: mKey,
+	}); err != nil {
 		return nil, err
 	}
 
@@ -89,6 +87,7 @@ func CreateFulcioCA(config *FulcioCertConfig) ([]byte, error) {
 
 	block, _ := pem.Decode(config.PrivateKey)
 	keyBytes := block.Bytes
+	// Deprecated: kept for backward compatibility with existing encrypted keys from pre-FIPS operator versions.
 	if x509.IsEncryptedPEMBlock(block) { //nolint:staticcheck
 		keyBytes, err = x509.DecryptPEMBlock(block, config.PrivateKeyPassword) //nolint:staticcheck
 		if err != nil {

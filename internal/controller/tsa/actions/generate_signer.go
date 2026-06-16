@@ -17,7 +17,6 @@ import (
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
-	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
@@ -241,12 +240,11 @@ func (g generateSigner) handleSignerKeys(instance *rhtasv1.TimestampAuthority, c
 		}
 
 		if ref := instance.Spec.Signer.CertificateChain.CertificateChainRef; ref == nil {
-			config.RootPrivateKeyPassword = utils.GeneratePassword(8)
 			key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 			if err != nil {
 				return nil, err
 			}
-			rootCAPrivKey, err := tsaUtils.CreatePrivateKey(key, config.RootPrivateKeyPassword)
+			rootCAPrivKey, err := tsaUtils.CreatePrivateKey(key)
 			if err != nil {
 				return nil, err
 			}
@@ -270,12 +268,11 @@ func (g generateSigner) handleSignerKeys(instance *rhtasv1.TimestampAuthority, c
 					config.RootPrivateKeyPassword = password
 				}
 			} else {
-				config.RootPrivateKeyPassword = utils.GeneratePassword(8)
 				key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 				if err != nil {
 					return nil, err
 				}
-				rootCAPrivKey, err := tsaUtils.CreatePrivateKey(key, config.RootPrivateKeyPassword)
+				rootCAPrivKey, err := tsaUtils.CreatePrivateKey(key)
 				if err != nil {
 					return nil, err
 				}
@@ -283,7 +280,7 @@ func (g generateSigner) handleSignerKeys(instance *rhtasv1.TimestampAuthority, c
 			}
 		}
 
-		for index, intermediateCA := range instance.Spec.Signer.CertificateChain.IntermediateCA {
+		for _, intermediateCA := range instance.Spec.Signer.CertificateChain.IntermediateCA {
 			if ref := intermediateCA.PrivateKeyRef; ref != nil {
 				key, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
 				if err != nil {
@@ -301,12 +298,12 @@ func (g generateSigner) handleSignerKeys(instance *rhtasv1.TimestampAuthority, c
 					config.IntermediatePrivateKeyPasswords = append(config.IntermediatePrivateKeyPasswords, []byte(""))
 				}
 			} else {
-				config.IntermediatePrivateKeyPasswords = append(config.IntermediatePrivateKeyPasswords, utils.GeneratePassword(8))
+				config.IntermediatePrivateKeyPasswords = append(config.IntermediatePrivateKeyPasswords, nil)
 				key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 				if err != nil {
 					return nil, err
 				}
-				interCAPrivKey, err := tsaUtils.CreatePrivateKey(key, config.IntermediatePrivateKeyPasswords[index])
+				interCAPrivKey, err := tsaUtils.CreatePrivateKey(key)
 				if err != nil {
 					return nil, err
 				}
@@ -330,12 +327,11 @@ func (g generateSigner) handleSignerKeys(instance *rhtasv1.TimestampAuthority, c
 					config.LeafPrivateKeyPassword = password
 				}
 			} else {
-				config.LeafPrivateKeyPassword = utils.GeneratePassword(8)
 				key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 				if err != nil {
 					return nil, err
 				}
-				leafCAPrivKey, err := tsaUtils.CreatePrivateKey(key, config.LeafPrivateKeyPassword)
+				leafCAPrivKey, err := tsaUtils.CreatePrivateKey(key)
 				if err != nil {
 					return nil, err
 				}
@@ -388,15 +384,6 @@ func (g generateSigner) alignStatusFields(secretName string, instance *rhtasv1.T
 		if instance.Spec.Signer.File == nil || instance.Spec.Signer.File.PrivateKeyRef == nil {
 			instance.Status.Signer.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{
 				Key: tsaUtils.KeyLeafPrivateKey,
-				LocalObjectReference: rhtasv1.LocalObjectReference{
-					Name: secretName,
-				},
-			}
-		}
-
-		if instance.Spec.Signer.File == nil || instance.Spec.Signer.File.PasswordRef == nil {
-			instance.Status.Signer.File.PasswordRef = &rhtasv1.SecretKeySelector{
-				Key: tsaUtils.KeyLeafPrivateKeyPassword,
 				LocalObjectReference: rhtasv1.LocalObjectReference{
 					Name: secretName,
 				},
