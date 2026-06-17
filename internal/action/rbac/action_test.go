@@ -2,6 +2,8 @@ package rbac
 
 import (
 	"context"
+	stderrors "errors"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -11,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
+
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -19,6 +22,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type namedTest struct {
@@ -612,6 +617,99 @@ func TestRbac_Handle(t *testing.T) {
 	for _, nt := range tests {
 		t.Run(nt.name, func(t *testing.T) {
 			nt.run(t)
+		})
+	}
+}
+
+func TestRbac_CreationFailure_ReturnsRetryableError(t *testing.T) {
+	injectedErr := fmt.Errorf("connection refused")
+
+	for _, tc := range []struct {
+		name      string
+		intercept interceptor.Funcs
+		handleFn  func(*rbacAction[*rhtasv1.Rekor], context.Context, *rhtasv1.Rekor) *action.Result
+		errSubstr string
+	}{
+		{
+			name: "ServiceAccount creation failure is retryable",
+			intercept: interceptor.Funcs{
+				Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+					if _, ok := obj.(*corev1.ServiceAccount); ok {
+						return injectedErr
+					}
+					return c.Create(ctx, obj, opts...)
+				},
+			},
+			handleFn: func(r *rbacAction[*rhtasv1.Rekor], ctx context.Context, rekor *rhtasv1.Rekor) *action.Result {
+				return r.handleServiceAccount(ctx, rekor)
+			},
+			errSubstr: "could not create SA",
+		},
+		{
+			name: "Role creation failure is retryable",
+			intercept: interceptor.Funcs{
+				Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+					if _, ok := obj.(*rbacv1.Role); ok {
+						return injectedErr
+					}
+					return c.Create(ctx, obj, opts...)
+				},
+			},
+			handleFn: func(r *rbacAction[*rhtasv1.Rekor], ctx context.Context, rekor *rhtasv1.Rekor) *action.Result {
+				return r.handleRole(ctx, rekor)
+			},
+			errSubstr: "could not create Role",
+		},
+		{
+			name: "RoleBinding creation failure is retryable",
+			intercept: interceptor.Funcs{
+				Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+					if _, ok := obj.(*rbacv1.RoleBinding); ok {
+						return injectedErr
+					}
+					return c.Create(ctx, obj, opts...)
+				},
+			},
+			handleFn: func(r *rbacAction[*rhtasv1.Rekor], ctx context.Context, rekor *rhtasv1.Rekor) *action.Result {
+				return r.handleRoleBinding(ctx, rekor)
+			},
+			errSubstr: "could not create RoleBinding",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := NewWithT(t)
+			ctx := context.Background()
+
+			instance := &rhtasv1.Rekor{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      nnObject.Name,
+					Namespace: nnObject.Namespace,
+				},
+			}
+
+			c := testAction.FakeClientBuilder().
+				WithObjects(instance).
+				WithStatusSubresource(instance).
+				WithInterceptorFuncs(tc.intercept).
+				Build()
+
+			a := testAction.PrepareAction(c, NewAction[*rhtasv1.Rekor]("component", nnObject.Name,
+				WithRule[*rhtasv1.Rekor](rbacv1.PolicyRule{
+					APIGroups: []string{""},
+					Resources: []string{"configmaps"},
+					Verbs:     []string{"list"},
+				}),
+			))
+			ra := a.(*rbacAction[*rhtasv1.Rekor])
+
+			g.Expect(c.Get(ctx, nnObject, instance)).To(Succeed())
+
+			result := tc.handleFn(ra, ctx, instance)
+			g.Expect(result).ToNot(BeNil())
+			g.Expect(result.Err).To(HaveOccurred())
+			g.Expect(result.Err.Error()).To(ContainSubstring(tc.errSubstr))
+			g.Expect(stderrors.Is(result.Err, reconcile.TerminalError(nil))).To(BeFalse(),
+				"API server errors must be retryable, not terminal")
 		})
 	}
 }
