@@ -73,6 +73,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.TimestampAut
 		ensure.ControllerReference[*apps.Deployment](instance, i.Client),
 		ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
+		deployment.GODEBUG(instance.GetAnnotations()),
 		deployment.TrustedCA(instance.GetTrustedCA(), DeploymentName),
 		deployment.PodRequirements(instance.Spec.PodRequirements, DeploymentName),
 		deployment.PodSecurityContext(),

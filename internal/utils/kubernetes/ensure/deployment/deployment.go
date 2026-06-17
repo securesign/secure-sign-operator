@@ -16,6 +16,13 @@ func Proxy(noProxy ...string) func(*v1.Deployment) error {
 	}
 }
 
+func GODEBUG(componentAnnotations map[string]string) func(*v1.Deployment) error {
+	return func(dp *v1.Deployment) error {
+		ensure.SetGodebugEnv(dp.Spec.Template.Spec.Containers, componentAnnotations)
+		return nil
+	}
+}
+
 // TrustedCA mount config map with trusted CA bundle to all deployment's containers.
 func TrustedCA(lor *rhtasv1.LocalObjectReference, containerName string, moreNames ...string) func(dp *v1.Deployment) error {
 	return func(dp *v1.Deployment) error {

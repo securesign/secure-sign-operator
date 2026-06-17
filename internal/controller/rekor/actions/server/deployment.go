@@ -84,6 +84,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *acti
 			return err
 		},
 		deployment.Proxy(),
+		deployment.GODEBUG(instance.GetAnnotations()),
 		deployment.TrustedCA(instance.GetTrustedCA(), actions.ServerDeploymentName),
 		ensure.Optional(tls.UseTlsClient(instance), i.ensureTlsTrillian()),
 	); err != nil {
