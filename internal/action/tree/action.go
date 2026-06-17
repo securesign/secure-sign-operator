@@ -109,7 +109,7 @@ func (i resolveTree[T]) handleRbac(ctx context.Context, instance T) *action.Resu
 		ensure.ControllerReference[*corev1.ServiceAccount](instance, i.Client),
 		ensure.Labels[*corev1.ServiceAccount](slices.Collect(maps.Keys(labels)), labels),
 	); err != nil {
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create SA: %w", err)), instance)
+		return i.Error(ctx, fmt.Errorf("could not create SA: %w", err), instance)
 	}
 
 	// Role
@@ -128,7 +128,7 @@ func (i resolveTree[T]) handleRbac(ctx context.Context, instance T) *action.Resu
 				Verbs:     []string{"patch"},
 			}),
 	); err != nil {
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create Role: %w", err)), instance)
+		return i.Error(ctx, fmt.Errorf("could not create Role: %w", err), instance)
 	}
 
 	// RoleBinding
@@ -149,7 +149,7 @@ func (i resolveTree[T]) handleRbac(ctx context.Context, instance T) *action.Resu
 			rbacv1.Subject{Kind: "ServiceAccount", Name: rbacName, Namespace: instance.GetNamespace()},
 		),
 	); err != nil {
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create RoleBinding: %w", err)), instance)
+		return i.Error(ctx, fmt.Errorf("could not create RoleBinding: %w", err), instance)
 	}
 
 	return i.Continue()
@@ -205,7 +205,7 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 		if apierrors.IsNotFound(err) {
 			return i.Requeue()
 		}
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not get configmap: %w", err)), instance)
+		return i.Error(ctx, fmt.Errorf("could not get configmap: %w", err), instance)
 	}
 
 	for _, ref := range configMap.GetOwnerReferences() {
@@ -303,7 +303,7 @@ func (i resolveTree[T]) handleJobFinished(ctx context.Context, instance T) *acti
 		if apierrors.IsNotFound(err) {
 			return i.Requeue()
 		}
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not get configmap: %w", err)), instance)
+		return i.Error(ctx, fmt.Errorf("could not get configmap: %w", err), instance)
 	}
 
 	for _, ref := range configMap.GetOwnerReferences() {
@@ -352,7 +352,7 @@ func (i resolveTree[T]) handleExtractJobResult(ctx context.Context, instance T) 
 		if apierrors.IsNotFound(err) {
 			return i.Requeue()
 		}
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not get configmap: %w", err)), instance)
+		return i.Error(ctx, fmt.Errorf("could not get configmap: %w", err), instance)
 	}
 
 	if result, ok := configMap.Data[configMapResultField]; ok && result != "" {
