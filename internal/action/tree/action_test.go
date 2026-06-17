@@ -2,6 +2,7 @@ package tree
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -18,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/securesign/operator/api/v1alpha1"
@@ -685,4 +687,106 @@ func TestResolveTree_Handle(t *testing.T) {
 			nt.run(t)
 		})
 	}
+}
+
+func TestResolveTree_ConfigMapGetFailure_ReturnsRetryableError(t *testing.T) {
+	g := NewWithT(t)
+	ctx := context.Background()
+
+	instance := &rhtasv1.Rekor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nnObject.Name,
+			Namespace: nnObject.Namespace,
+		},
+		Spec: rhtasv1.RekorSpec{
+			Trillian: rhtasv1.TrillianService{
+				Address: "trillian-logserver",
+				Port:    ptr.To(int32(8091)),
+			},
+		},
+	}
+
+	injectedErr := fmt.Errorf("connection refused")
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance).
+		WithStatusSubresource(instance).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				if _, ok := obj.(*corev1.ConfigMap); ok {
+					return injectedErr
+				}
+				return c.Get(ctx, key, obj, opts...)
+			},
+		}).
+		Build()
+
+	a := testAction.PrepareAction(c, NewResolveTreeAction("test", defaultWrapper))
+	ra := a.(*resolveTree[*rhtasv1.Rekor])
+
+	g.Expect(c.Get(ctx, nnObject, instance)).To(Succeed())
+
+	for _, tc := range []struct {
+		name     string
+		handleFn func(context.Context, *rhtasv1.Rekor) *action.Result
+	}{
+		{name: "handleJob", handleFn: ra.handleJob},
+		{name: "handleJobFinished", handleFn: ra.handleJobFinished},
+		{name: "handleExtractJobResult", handleFn: ra.handleExtractJobResult},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := NewWithT(t)
+			result := tc.handleFn(ctx, instance)
+			g.Expect(result).ToNot(BeNil())
+			g.Expect(result.Err).To(HaveOccurred())
+			g.Expect(result.Err.Error()).To(ContainSubstring("could not get configmap"))
+			g.Expect(stderrors.Is(result.Err, reconcile.TerminalError(nil))).To(BeFalse(),
+				"ConfigMap Get errors must be retryable, not terminal")
+		})
+	}
+}
+
+func TestResolveTree_RbacCreationFailure_ReturnsRetryableError(t *testing.T) {
+	g := NewWithT(t)
+	ctx := context.Background()
+
+	instance := &rhtasv1.Rekor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nnObject.Name,
+			Namespace: nnObject.Namespace,
+		},
+		Spec: rhtasv1.RekorSpec{
+			Trillian: rhtasv1.TrillianService{
+				Address: "trillian-logserver",
+				Port:    ptr.To(int32(8091)),
+			},
+		},
+	}
+
+	injectedErr := fmt.Errorf("connection refused")
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance).
+		WithStatusSubresource(instance).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+				if _, ok := obj.(*corev1.ServiceAccount); ok {
+					return injectedErr
+				}
+				return c.Create(ctx, obj, opts...)
+			},
+		}).
+		Build()
+
+	a := testAction.PrepareAction(c, NewResolveTreeAction("test", defaultWrapper))
+	ra := a.(*resolveTree[*rhtasv1.Rekor])
+
+	g.Expect(c.Get(ctx, nnObject, instance)).To(Succeed())
+
+	result := ra.handleRbac(ctx, instance)
+	g.Expect(result).ToNot(BeNil())
+	g.Expect(result.Err).To(HaveOccurred())
+	g.Expect(result.Err.Error()).To(ContainSubstring("could not create SA"))
+	g.Expect(stderrors.Is(result.Err, reconcile.TerminalError(nil))).To(BeFalse(),
+		"API server errors must be retryable, not terminal")
 }
