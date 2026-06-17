@@ -16,60 +16,75 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1
+package v1alpha1
 
 import (
 	"testing"
 
-	"github.com/securesign/operator/api/v1alpha1"
-	utilconversion "github.com/securesign/operator/internal/testing/conversion"
+	rhtasv1 "github.com/securesign/operator/api/v1"
+	utilconversion "github.com/securesign/operator/internal/conversion"
+	"k8s.io/apimachinery/pkg/runtime"
 )
+
+func rhtasScheme() *runtime.Scheme {
+	s := runtime.NewScheme()
+	_ = rhtasv1.AddToScheme(s)
+	_ = AddToScheme(s)
+	return s
+}
 
 func TestSecuresignConversion(t *testing.T) {
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
-		Hub:   &Securesign{},
-		Spoke: &v1alpha1.Securesign{},
+		Scheme: rhtasScheme(),
+		Hub:    &rhtasv1.Securesign{},
+		Spoke:  &Securesign{},
 	}))
 }
 
 func TestCTlogConversion(t *testing.T) {
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
-		Hub:   &CTlog{},
-		Spoke: &v1alpha1.CTlog{},
+		Scheme: rhtasScheme(),
+		Hub:    &rhtasv1.CTlog{},
+		Spoke:  &CTlog{},
 	}))
 }
 
 func TestRekorConversion(t *testing.T) {
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
-		Hub:   &Rekor{},
-		Spoke: &v1alpha1.Rekor{},
+		Scheme: rhtasScheme(),
+		Hub:    &rhtasv1.Rekor{},
+		Spoke:  &Rekor{},
 	}))
 }
 
 func TestFulcioConversion(t *testing.T) {
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
-		Hub:   &Fulcio{},
-		Spoke: &v1alpha1.Fulcio{},
+		Scheme: rhtasScheme(),
+		Hub:    &rhtasv1.Fulcio{},
+		Spoke:  &Fulcio{},
 	}))
 }
 
 func TestTrillianConversion(t *testing.T) {
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
-		Hub:   &Trillian{},
-		Spoke: &v1alpha1.Trillian{},
+		Scheme: rhtasScheme(),
+		Hub:    &rhtasv1.Trillian{},
+		Spoke:  &Trillian{},
 	}))
 }
 
 func TestTufConversion(t *testing.T) {
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
-		Hub:   &Tuf{},
-		Spoke: &v1alpha1.Tuf{},
+		Scheme: rhtasScheme(),
+		Hub:    &rhtasv1.Tuf{},
+		Spoke:  &Tuf{},
 	}))
 }
 
 func TestTimestampAuthorityConversion(t *testing.T) {
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
-		Hub:   &TimestampAuthority{},
-		Spoke: &v1alpha1.TimestampAuthority{},
+		Scheme: rhtasScheme(),
+		Hub:    &rhtasv1.TimestampAuthority{},
+		Spoke:  &TimestampAuthority{},
 	}))
 }
