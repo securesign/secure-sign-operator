@@ -96,8 +96,10 @@ func TestMigrateJob_NoRootKeySecret(t *testing.T) {
 	g.Expect(result.Err).To(HaveOccurred())
 	g.Expect(result.Err).To(MatchError(ContainSubstring("cannot migrate TUF: root key secret test-secret not found")))
 
-	g.Expect(meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition).Reason).To(Equal(state.Failure.String()))
-	g.Expect(meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition).Message).To(ContainSubstring("cannot migrate TUF: root key secret test-secret not found"))
+	cond := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
+	g.Expect(cond).ToNot(BeNil())
+	g.Expect(cond.Reason).To(Equal(state.Failure.String()))
+	g.Expect(cond.Message).To(ContainSubstring("cannot migrate TUF: root key secret test-secret not found"))
 }
 
 func TestMigrateJob_Succeeded(t *testing.T) {
@@ -265,8 +267,10 @@ func TestMigrateJob_Failed(t *testing.T) {
 	g.Expect(result.Err).To(HaveOccurred())
 	g.Expect(result.Err).To(MatchError(ContainSubstring("tuf-repository-migration job failed")))
 
-	g.Expect(meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition).Reason).To(Equal(state.Failure.String()))
-	g.Expect(meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition).Message).To(ContainSubstring("tuf-repository-migration job failed"))
+	cond := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
+	g.Expect(cond).ToNot(BeNil())
+	g.Expect(cond.Reason).To(Equal(state.Failure.String()))
+	g.Expect(cond.Message).To(ContainSubstring("tuf-repository-migration job failed"))
 
 	found := &rhtasv1.Tuf{}
 	g.Expect(migrateJobTestAction.Client.Get(t.Context(), client.ObjectKeyFromObject(instance), found)).To(Succeed())

@@ -161,8 +161,10 @@ var _ = Describe("Rekor hot update test", func() {
 			Eventually(func(g Gomega) string {
 				found := &rhtasv1.Rekor{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				g.Expect(meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)).Should(BeTrue())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
+				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+				return cond.Reason
 			}).Should(Equal(state.Initialize.String()))
 
 			By("Move to Ready phase")
