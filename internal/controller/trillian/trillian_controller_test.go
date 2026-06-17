@@ -161,7 +161,9 @@ var _ = Describe("Trillian controller", func() {
 			Eventually(func(g Gomega) string {
 				found := &rhtasv1.Trillian{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
+				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				return cond.Reason
 			}).Should(Equal(state.Initialize.String()))
 
 			By("Move to Ready phase")

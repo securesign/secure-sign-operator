@@ -263,7 +263,9 @@ func deployAndVerify(ctx context.Context, instance *rhtasv1.Rekor) {
 	Eventually(func(g Gomega) string {
 		found := &rhtasv1.Rekor{}
 		g.Expect(suite.Client().Get(ctx, client.ObjectKeyFromObject(instance), found)).Should(Succeed())
-		return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
+		cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
+		g.Expect(cond).ToNot(BeNil())
+		return cond.Reason
 	}).Should(Equal(state.Initialize.String()))
 
 	By("Move to Ready phase")

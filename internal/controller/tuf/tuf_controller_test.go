@@ -153,7 +153,9 @@ var _ = Describe("TUF controller", func() {
 			Eventually(func(g Gomega) string {
 				found := &rhtasv1.Tuf{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
+				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				return cond.Reason
 			}).Should(Equal(state.Pending.String()))
 
 			By("Creating ctlog secret with public key")
@@ -287,7 +289,9 @@ var _ = Describe("TUF controller", func() {
 			Eventually(func(g Gomega) string {
 				found := &rhtasv1.Tuf{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
+				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				return cond.Reason
 			}).Should(Equal(state.Initialize.String()))
 
 			deployment := &appsv1.Deployment{}
