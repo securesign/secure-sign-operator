@@ -43,6 +43,14 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
           auth_file_path: /tmp/config.json
 
+      - name: Log in to registry.redhat.io
+        uses: redhat-actions/podman-login@v1
+        with:
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+          registry: registry.redhat.io
+          auth_file_path: /tmp/config.json
+
       - name: Replace images
         run: make dev-images && cat config/default/images.env
 
