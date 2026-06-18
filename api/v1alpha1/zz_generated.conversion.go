@@ -768,6 +768,36 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*v1.TrillianDBStatus)(nil), (*TrillianDB)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_TrillianDBStatus_To_v1alpha1_TrillianDB(a.(*v1.TrillianDBStatus), b.(*TrillianDB), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1.TrillianServiceStatus)(nil), (*TrillianLogServer)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_TrillianServiceStatus_To_v1alpha1_TrillianLogServer(a.(*v1.TrillianServiceStatus), b.(*TrillianLogServer), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1.TrillianServiceStatus)(nil), (*TrillianLogSigner)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_TrillianServiceStatus_To_v1alpha1_TrillianLogSigner(a.(*v1.TrillianServiceStatus), b.(*TrillianLogSigner), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*TrillianDB)(nil), (*v1.TrillianDBStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_TrillianDB_To_v1_TrillianDBStatus(a.(*TrillianDB), b.(*v1.TrillianDBStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*TrillianLogServer)(nil), (*v1.TrillianServiceStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_TrillianLogServer_To_v1_TrillianServiceStatus(a.(*TrillianLogServer), b.(*v1.TrillianServiceStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*TrillianLogSigner)(nil), (*v1.TrillianServiceStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_TrillianLogSigner_To_v1_TrillianServiceStatus(a.(*TrillianLogSigner), b.(*v1.TrillianServiceStatus), scope)
+	}); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -2517,7 +2547,17 @@ func Convert_v1_TrillianDB_To_v1alpha1_TrillianDB(in *v1.TrillianDB, out *Trilli
 
 func autoConvert_v1alpha1_TrillianList_To_v1_TrillianList(in *TrillianList, out *v1.TrillianList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]v1.Trillian)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]v1.Trillian, len(*in))
+		for i := range *in {
+			if err := Convert_v1alpha1_Trillian_To_v1_Trillian(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -2528,7 +2568,17 @@ func Convert_v1alpha1_TrillianList_To_v1_TrillianList(in *TrillianList, out *v1.
 
 func autoConvert_v1_TrillianList_To_v1alpha1_TrillianList(in *v1.TrillianList, out *TrillianList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]Trillian)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]Trillian, len(*in))
+		for i := range *in {
+			if err := Convert_v1_Trillian_To_v1alpha1_Trillian(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -2668,13 +2718,13 @@ func Convert_v1_TrillianSpec_To_v1alpha1_TrillianSpec(in *v1.TrillianSpec, out *
 }
 
 func autoConvert_v1alpha1_TrillianStatus_To_v1_TrillianStatus(in *TrillianStatus, out *v1.TrillianStatus, s conversion.Scope) error {
-	if err := Convert_v1alpha1_TrillianDB_To_v1_TrillianDB(&in.Db, &out.Db, s); err != nil {
+	if err := Convert_v1alpha1_TrillianDB_To_v1_TrillianDBStatus(&in.Db, &out.Db, s); err != nil {
 		return err
 	}
-	if err := Convert_v1alpha1_TrillianLogServer_To_v1_TrillianLogServer(&in.LogServer, &out.LogServer, s); err != nil {
+	if err := Convert_v1alpha1_TrillianLogServer_To_v1_TrillianServiceStatus(&in.LogServer, &out.LogServer, s); err != nil {
 		return err
 	}
-	if err := Convert_v1alpha1_TrillianLogSigner_To_v1_TrillianLogSigner(&in.LogSigner, &out.LogSigner, s); err != nil {
+	if err := Convert_v1alpha1_TrillianLogSigner_To_v1_TrillianServiceStatus(&in.LogSigner, &out.LogSigner, s); err != nil {
 		return err
 	}
 	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
@@ -2687,13 +2737,13 @@ func Convert_v1alpha1_TrillianStatus_To_v1_TrillianStatus(in *TrillianStatus, ou
 }
 
 func autoConvert_v1_TrillianStatus_To_v1alpha1_TrillianStatus(in *v1.TrillianStatus, out *TrillianStatus, s conversion.Scope) error {
-	if err := Convert_v1_TrillianDB_To_v1alpha1_TrillianDB(&in.Db, &out.Db, s); err != nil {
+	if err := Convert_v1_TrillianDBStatus_To_v1alpha1_TrillianDB(&in.Db, &out.Db, s); err != nil {
 		return err
 	}
-	if err := Convert_v1_TrillianLogServer_To_v1alpha1_TrillianLogServer(&in.LogServer, &out.LogServer, s); err != nil {
+	if err := Convert_v1_TrillianServiceStatus_To_v1alpha1_TrillianLogServer(&in.LogServer, &out.LogServer, s); err != nil {
 		return err
 	}
-	if err := Convert_v1_TrillianLogSigner_To_v1alpha1_TrillianLogSigner(&in.LogSigner, &out.LogSigner, s); err != nil {
+	if err := Convert_v1_TrillianServiceStatus_To_v1alpha1_TrillianLogSigner(&in.LogSigner, &out.LogSigner, s); err != nil {
 		return err
 	}
 	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))

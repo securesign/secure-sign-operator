@@ -49,7 +49,7 @@ func TestHandleSecret_CanHandle(t *testing.T) {
 					},
 				},
 				Status: rhtasv1.TrillianStatus{
-					Db: rhtasv1.TrillianDB{
+					Db: rhtasv1.TrillianDBStatus{
 						DatabaseSecretRef: nil,
 					},
 				},
@@ -66,7 +66,7 @@ func TestHandleSecret_CanHandle(t *testing.T) {
 					},
 				},
 				Status: rhtasv1.TrillianStatus{
-					Db: rhtasv1.TrillianDB{
+					Db: rhtasv1.TrillianDBStatus{
 						DatabaseSecretRef: nil,
 					},
 				},
@@ -78,7 +78,7 @@ func TestHandleSecret_CanHandle(t *testing.T) {
 			condition: metav1.ConditionTrue,
 			instance: rhtasv1.Trillian{
 				Status: rhtasv1.TrillianStatus{
-					Db: rhtasv1.TrillianDB{
+					Db: rhtasv1.TrillianDBStatus{
 						DatabaseSecretRef: &rhtasv1.LocalObjectReference{
 							Name: "connection",
 						},
@@ -99,7 +99,7 @@ func TestHandleSecret_CanHandle(t *testing.T) {
 					},
 				},
 				Status: rhtasv1.TrillianStatus{
-					Db: rhtasv1.TrillianDB{
+					Db: rhtasv1.TrillianDBStatus{
 						DatabaseSecretRef: &rhtasv1.LocalObjectReference{
 							Name: "connection",
 						},
@@ -120,7 +120,7 @@ func TestHandleSecret_CanHandle(t *testing.T) {
 					},
 				},
 				Status: rhtasv1.TrillianStatus{
-					Db: rhtasv1.TrillianDB{
+					Db: rhtasv1.TrillianDBStatus{
 						DatabaseSecretRef: &rhtasv1.LocalObjectReference{
 							Name: "connection",
 						},
@@ -232,8 +232,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 					},
 				},
 				status: rhtasv1.TrillianStatus{
-					Db: rhtasv1.TrillianDB{
-						Create:            ptr.To(false),
+					Db: rhtasv1.TrillianDBStatus{
 						DatabaseSecretRef: &rhtasv1.LocalObjectReference{Name: "old-connection"},
 					},
 				},
@@ -265,8 +264,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 					},
 				},
 				status: rhtasv1.TrillianStatus{
-					Db: rhtasv1.TrillianDB{
-						Create:            ptr.To(false),
+					Db: rhtasv1.TrillianDBStatus{
 						DatabaseSecretRef: &rhtasv1.LocalObjectReference{Name: "connection"},
 					},
 				},
@@ -352,8 +350,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 					},
 				},
 				status: rhtasv1.TrillianStatus{
-					Db: rhtasv1.TrillianDB{
-						Create:            ptr.To(true),
+					Db: rhtasv1.TrillianDBStatus{
 						DatabaseSecretRef: &rhtasv1.LocalObjectReference{Name: "old-connection"},
 					},
 				},
@@ -385,8 +382,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 					},
 				},
 				status: rhtasv1.TrillianStatus{
-					Db: rhtasv1.TrillianDB{
-						Create:            ptr.To(true),
+					Db: rhtasv1.TrillianDBStatus{
 						DatabaseSecretRef: &rhtasv1.LocalObjectReference{Name: "connection"},
 					},
 				},
@@ -417,8 +413,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 					},
 				},
 				status: rhtasv1.TrillianStatus{
-					Db: rhtasv1.TrillianDB{
-						Create:            ptr.To(true),
+					Db: rhtasv1.TrillianDBStatus{
 						DatabaseSecretRef: &rhtasv1.LocalObjectReference{Name: "connection"},
 					},
 				},
@@ -449,9 +444,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 					},
 				},
 				status: rhtasv1.TrillianStatus{
-					Db: rhtasv1.TrillianDB{
-						Create: ptr.To(true),
-					},
+					Db: rhtasv1.TrillianDBStatus{},
 				},
 				objects: []client.Object{
 					&core.Secret{
@@ -502,9 +495,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 					},
 				},
 				status: rhtasv1.TrillianStatus{
-					Db: rhtasv1.TrillianDB{
-						Create: ptr.To(true),
-					},
+					Db: rhtasv1.TrillianDBStatus{},
 				},
 				objects: []client.Object{
 					&core.Secret{
@@ -583,9 +574,7 @@ func TestHandleSecret_Handle(t *testing.T) {
 					},
 				},
 				status: rhtasv1.TrillianStatus{
-					Db: rhtasv1.TrillianDB{
-						Create: ptr.To(true),
-					},
+					Db: rhtasv1.TrillianDBStatus{},
 				},
 				objects: []client.Object{
 					&core.Secret{

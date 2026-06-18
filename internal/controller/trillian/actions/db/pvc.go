@@ -13,10 +13,10 @@ func NewCreatePvcAction() action.Action[*rhtasv1.Trillian] {
 			return t.Spec.Db.Pvc
 		},
 		func(t *rhtasv1.Trillian) string {
-			return t.Status.Db.Pvc.Name
+			return t.Status.Db.PvcName
 		},
 		func(t *rhtasv1.Trillian, s string) {
-			t.Status.Db.Pvc.Name = s
+			t.Status.Db.PvcName = s
 		},
 		func(t *rhtasv1.Trillian) bool {
 			return enabled(t)
