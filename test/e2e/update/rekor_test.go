@@ -139,10 +139,10 @@ var _ = Describe("Rekor update", Ordered, func() {
 				}
 				return cli.Update(ctx, s)
 			}).WithTimeout(1 * time.Second).Should(Succeed())
-			Eventually(func(g Gomega) []rhtasv1.TufKey {
+			Eventually(func(g Gomega) []rhtasv1.TufKeyStatus {
 				t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 				return t.Status.Keys
-			}).Should(And(HaveLen(4), WithTransform(func(keys []rhtasv1.TufKey) string {
+			}).Should(And(HaveLen(4), WithTransform(func(keys []rhtasv1.TufKeyStatus) string {
 				return keys[0].SecretRef.Name
 			}, Equal("my-rekor-secret"))))
 			tuf.RefreshTufRepository(ctx, cli, namespace.Name, s.Name)
