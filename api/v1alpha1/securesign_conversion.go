@@ -1,14 +1,27 @@
 package v1alpha1
 
 import (
-	"k8s.io/apimachinery/pkg/runtime"
+	rhtasv1 "github.com/securesign/operator/api/v1"
+	utilconversion "github.com/securesign/operator/internal/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
 func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
-	return marshalConvert(src, dstRaw.(runtime.Object))
+	dst := dstRaw.(*rhtasv1.Securesign)
+	if err := Convert_v1alpha1_Securesign_To_v1_Securesign(src, dst, nil); err != nil {
+		return err
+	}
+	restored := &rhtasv1.Securesign{}
+	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
+		return err
+	}
+	return nil
 }
 
 func (dst *Securesign) ConvertFrom(srcRaw conversion.Hub) error {
-	return marshalConvert(srcRaw.(runtime.Object), dst)
+	src := srcRaw.(*rhtasv1.Securesign)
+	if err := Convert_v1_Securesign_To_v1alpha1_Securesign(src, dst, nil); err != nil {
+		return err
+	}
+	return utilconversion.MarshalData(src, dst)
 }
