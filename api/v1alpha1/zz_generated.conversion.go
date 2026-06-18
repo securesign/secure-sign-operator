@@ -743,6 +743,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*v1.FulcioCertStatus)(nil), (*FulcioCert)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_FulcioCertStatus_To_v1alpha1_FulcioCert(a.(*v1.FulcioCertStatus), b.(*FulcioCert), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*v1.FulcioSpec)(nil), (*FulcioSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(a.(*v1.FulcioSpec), b.(*FulcioSpec), scope)
 	}); err != nil {
@@ -780,6 +785,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*v1.TufSpec)(nil), (*TufSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_TufSpec_To_v1alpha1_TufSpec(a.(*v1.TufSpec), b.(*TufSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*FulcioCert)(nil), (*v1.FulcioCertStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_FulcioCert_To_v1_FulcioCertStatus(a.(*FulcioCert), b.(*v1.FulcioCertStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -1387,7 +1397,15 @@ func autoConvert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(in *v1.FulcioSpec, out *Fu
 
 func autoConvert_v1alpha1_FulcioStatus_To_v1_FulcioStatus(in *FulcioStatus, out *v1.FulcioStatus, s conversion.Scope) error {
 	out.ServerConfigRef = (*v1.LocalObjectReference)(unsafe.Pointer(in.ServerConfigRef))
-	out.Certificate = (*v1.FulcioCert)(unsafe.Pointer(in.Certificate))
+	if in.Certificate != nil {
+		in, out := &in.Certificate, &out.Certificate
+		*out = new(v1.FulcioCertStatus)
+		if err := Convert_v1alpha1_FulcioCert_To_v1_FulcioCertStatus(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.Certificate = nil
+	}
 	out.Url = in.Url
 	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	return nil
@@ -1400,7 +1418,15 @@ func Convert_v1alpha1_FulcioStatus_To_v1_FulcioStatus(in *FulcioStatus, out *v1.
 
 func autoConvert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in *v1.FulcioStatus, out *FulcioStatus, s conversion.Scope) error {
 	out.ServerConfigRef = (*LocalObjectReference)(unsafe.Pointer(in.ServerConfigRef))
-	out.Certificate = (*FulcioCert)(unsafe.Pointer(in.Certificate))
+	if in.Certificate != nil {
+		in, out := &in.Certificate, &out.Certificate
+		*out = new(FulcioCert)
+		if err := Convert_v1_FulcioCertStatus_To_v1alpha1_FulcioCert(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.Certificate = nil
+	}
 	out.Url = in.Url
 	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	return nil

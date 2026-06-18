@@ -379,6 +379,41 @@ func TestFulcioConversionUnit(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "fully populated status",
+			hub: &rhtasv1.Fulcio{
+				ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: "ns"},
+				Status: rhtasv1.FulcioStatus{
+					ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "fulcio-config"},
+					Url:             "https://fulcio.rhtas.example.com",
+					Certificate: &rhtasv1.FulcioCertStatus{
+						PrivateKeyRef:         &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-keys"}, Key: "private"},
+						PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-keys"}, Key: "password"},
+						CARef:                 &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-keys"}, Key: "cert"},
+						CommonName:            "fulcio.apps.cluster.example.com",
+					},
+					Conditions: []metav1.Condition{
+						{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Deployed", Message: "all good"},
+					},
+				},
+			},
+			spoke: &Fulcio{
+				ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: "ns"},
+				Status: FulcioStatus{
+					ServerConfigRef: &LocalObjectReference{Name: "fulcio-config"},
+					Url:             "https://fulcio.rhtas.example.com",
+					Certificate: &FulcioCert{
+						PrivateKeyRef:         &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "fulcio-keys"}, Key: "private"},
+						PrivateKeyPasswordRef: &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "fulcio-keys"}, Key: "password"},
+						CARef:                 &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "fulcio-keys"}, Key: "cert"},
+						CommonName:            "fulcio.apps.cluster.example.com",
+					},
+					Conditions: []metav1.Condition{
+						{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Deployed", Message: "all good"},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
