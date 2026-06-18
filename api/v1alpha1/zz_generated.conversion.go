@@ -2950,7 +2950,7 @@ func Convert_v1_TufSpec_To_v1alpha1_TufSpec(in *v1.TufSpec, out *TufSpec, s conv
 }
 
 func autoConvert_v1alpha1_TufStatus_To_v1_TufStatus(in *TufStatus, out *v1.TufStatus, s conversion.Scope) error {
-	out.Keys = *(*[]v1.TufKey)(unsafe.Pointer(&in.Keys))
+	out.Keys = *(*[]v1.TufKeyStatus)(unsafe.Pointer(&in.Keys))
 	out.PvcName = in.PvcName
 	out.Url = in.Url
 	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))

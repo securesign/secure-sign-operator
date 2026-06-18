@@ -59,7 +59,7 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 		It("Verify TUF keys", func(ctx SpecContext) {
 			t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 			Expect(t).ToNot(BeNil())
-			Expect(t.Status.Keys).To(HaveEach(WithTransform(func(k rhtasv1.TufKey) string { return k.SecretRef.Name }, Not(BeEmpty()))))
+			Expect(t.Status.Keys).To(HaveEach(WithTransform(func(k rhtasv1.TufKeyStatus) string { return k.SecretRef.Name }, Not(BeEmpty()))))
 			var (
 				expected, actual []byte
 				err              error
