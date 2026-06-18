@@ -34,9 +34,17 @@ var _ = Describe("Rekor update", Ordered, func() {
 	var namespace *v1.Namespace
 	var s *rhtasv1.Securesign
 
+	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
+		fipsEnabled = enabled
+	}))
+
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
+
+	BeforeAll(func(ctx SpecContext) {
+		setupFIPSPostgresIfNeeded(ctx, cli, namespace)
+	})
 
 	BeforeAll(func(ctx SpecContext) {
 		s = securesignResource(namespace)
@@ -52,7 +60,7 @@ var _ = Describe("Rekor update", Ordered, func() {
 		})
 
 		It("All other components are running", func(ctx SpecContext) {
-			tas.VerifyAllComponents(ctx, cli, s, true)
+			tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 		})
 	})
 

@@ -10,6 +10,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/test/e2e/support"
+	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
@@ -22,20 +23,32 @@ var _ = Describe("Conversion webhook", Ordered, func() {
 	cli, _ := support.CreateClient()
 
 	var (
-		namespace *v1.Namespace
-		s         *rhtasv1.Securesign
+		namespace   *v1.Namespace
+		s           *rhtasv1.Securesign
+		fipsEnabled bool
 	)
+
+	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
+		fipsEnabled = enabled
+	}))
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
 
 	BeforeAll(func(ctx SpecContext) {
+		if fipsEnabled {
+			Expect(postgresql.CreateDB(ctx, cli, namespace.Name, postgresql.DefaultSecretName, "fips-password")).To(Succeed())
+			postgresql.WaitAndLoadSchema(ctx, cli, namespace.Name)
+		}
+	})
+
+	BeforeAll(func(ctx SpecContext) {
 		s = securesign.Create(namespace.Name, "conversion-test",
-			securesign.WithDefaults(),
+			securesign.ChooseDefaults(fipsEnabled, namespace.Name),
 		)
 		Expect(cli.Create(ctx, s)).To(Succeed())
-		tas.VerifyAllComponents(ctx, cli, s, true)
+		tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 	})
 
 	Context("Securesign", func() {

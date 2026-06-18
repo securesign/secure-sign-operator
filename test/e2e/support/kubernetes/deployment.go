@@ -11,46 +11,50 @@ import (
 )
 
 func PatchDeploymentEnv(ctx context.Context, cli ctrlclient.Client, namespace, deploymentName, containerName string, envs ...v1.EnvVar) {
-	dep := &appsv1.Deployment{}
-	Eventually(func(g Gomega) {
+	Eventually(func(g Gomega, ctx context.Context) {
+		dep := &appsv1.Deployment{}
 		g.Expect(cli.Get(ctx, types.NamespacedName{
 			Name:      deploymentName,
 			Namespace: namespace,
 		}, dep)).To(Succeed())
-	}).WithContext(ctx).Should(Succeed())
 
-	for i, c := range dep.Spec.Template.Spec.Containers {
-		if c.Name == containerName {
-			for _, env := range envs {
-				found := false
-				for j, existing := range dep.Spec.Template.Spec.Containers[i].Env {
-					if existing.Name == env.Name {
-						dep.Spec.Template.Spec.Containers[i].Env[j] = env
-						found = true
-						break
+		for i, c := range dep.Spec.Template.Spec.Containers {
+			if c.Name == containerName {
+				for _, env := range envs {
+					found := false
+					for j, existing := range dep.Spec.Template.Spec.Containers[i].Env {
+						if existing.Name == env.Name {
+							dep.Spec.Template.Spec.Containers[i].Env[j] = env
+							found = true
+							break
+						}
+					}
+					if !found {
+						dep.Spec.Template.Spec.Containers[i].Env = append(dep.Spec.Template.Spec.Containers[i].Env, env)
 					}
 				}
-				if !found {
-					dep.Spec.Template.Spec.Containers[i].Env = append(dep.Spec.Template.Spec.Containers[i].Env, env)
-				}
+				break
 			}
-			break
 		}
-	}
 
-	Expect(cli.Update(ctx, dep)).To(Succeed())
+		g.Expect(cli.Update(ctx, dep)).To(Succeed())
+	}).WithContext(ctx).Should(Succeed())
 
-	Eventually(func(g Gomega) {
-		updated := &appsv1.Deployment{}
+	WaitForDeploymentRollout(ctx, cli, namespace, deploymentName, containerName, envs...)
+}
+
+func WaitForDeploymentRollout(ctx context.Context, cli ctrlclient.Client, namespace, deploymentName, containerName string, envs ...v1.EnvVar) {
+	Eventually(func(g Gomega, ctx context.Context) {
+		dep := &appsv1.Deployment{}
 		g.Expect(cli.Get(ctx, types.NamespacedName{
 			Name:      deploymentName,
 			Namespace: namespace,
-		}, updated)).To(Succeed())
-		g.Expect(updated.Status.ObservedGeneration).To(Equal(updated.Generation))
-		g.Expect(updated.Status.UpdatedReplicas).To(Equal(*updated.Spec.Replicas))
-		g.Expect(updated.Status.AvailableReplicas).To(Equal(*updated.Spec.Replicas))
+		}, dep)).To(Succeed())
+		g.Expect(dep.Status.ObservedGeneration).To(Equal(dep.Generation))
+		g.Expect(dep.Status.UpdatedReplicas).To(Equal(*dep.Spec.Replicas))
+		g.Expect(dep.Status.AvailableReplicas).To(Equal(*dep.Spec.Replicas))
 
-		for _, c := range updated.Spec.Template.Spec.Containers {
+		for _, c := range dep.Spec.Template.Spec.Containers {
 			if c.Name == containerName {
 				for _, want := range envs {
 					found := false

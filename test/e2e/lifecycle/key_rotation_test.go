@@ -29,6 +29,7 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/test/e2e/support"
 	testKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
+	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	clients "github.com/securesign/operator/test/e2e/support/tas/cli"
@@ -60,6 +61,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 		tufRepoWorkdir                                            string
 		tufPod                                                    v1.Pod
 		runningTimestamp                                          time.Time
+		fipsEnabled                                               bool
 	)
 
 	BeforeAll(func() {
@@ -68,13 +70,24 @@ var _ = Describe("Key rotation test", Ordered, func() {
 		}
 	})
 
+	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
+		fipsEnabled = enabled
+	}))
+
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
 
 	BeforeAll(func(ctx SpecContext) {
+		if fipsEnabled {
+			Expect(postgresql.CreateDB(ctx, cli, namespace.Name, postgresql.DefaultSecretName, "fips-password")).To(Succeed())
+			postgresql.WaitAndLoadSchema(ctx, cli, namespace.Name)
+		}
+	})
+
+	BeforeAll(func(ctx SpecContext) {
 		s = securesign.Create(namespace.Name, "test",
-			securesign.WithDefaults(),
+			securesign.ChooseDefaults(fipsEnabled, namespace.Name),
 			securesign.WithSearchUI(),
 		)
 	})
@@ -89,7 +102,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 		})
 
 		It("All other components are running", func(ctx SpecContext) {
-			tas.VerifyAllComponents(ctx, cli, s, true)
+			tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 			runningTimestamp = time.Now()
 		})
 
@@ -111,7 +124,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 
 		It("Update fulcio cert", func(ctx SpecContext) {
 			secretName := "new-fulcio-cert"
-			newFulcioCert = fulcio.CreateSecret(namespace.Name, secretName, true)
+			newFulcioCert = fulcio.CreateSecret(namespace.Name, secretName, !fipsEnabled)
 			Expect(cli.Create(ctx, newFulcioCert)).To(Succeed())
 
 			Eventually(func() error {
@@ -124,11 +137,13 @@ var _ = Describe("Key rotation test", Ordered, func() {
 					Key: "private",
 				}
 
-				f.Spec.Fulcio.Certificate.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: secretName,
-					},
-					Key: "password",
+				if !fipsEnabled {
+					f.Spec.Fulcio.Certificate.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+						LocalObjectReference: rhtasv1.LocalObjectReference{
+							Name: secretName,
+						},
+						Key: "password",
+					}
 				}
 
 				f.Spec.Fulcio.Certificate.CARef = &rhtasv1.SecretKeySelector{
@@ -287,7 +302,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			secretName := "new-ctlog"
-			newCtlConfig = ctlog.CreateSecret(namespace.Name, secretName, true)
+			newCtlConfig = ctlog.CreateSecret(namespace.Name, secretName, !fipsEnabled)
 
 			cfg := &configpb.LogMultiConfig{}
 			now := time.Now()
@@ -345,11 +360,13 @@ var _ = Describe("Key rotation test", Ordered, func() {
 					Key: "private",
 				}
 
-				f.Spec.Ctlog.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: secretName,
-					},
-					Key: "password",
+				if !fipsEnabled {
+					f.Spec.Ctlog.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+						LocalObjectReference: rhtasv1.LocalObjectReference{
+							Name: secretName,
+						},
+						Key: "password",
+					}
 				}
 
 				f.Spec.Ctlog.PublicKeyRef = &rhtasv1.SecretKeySelector{
@@ -386,7 +403,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 
 		It("Update tsa cert", func(ctx SpecContext) {
 			secretName := "new-tsa-cert"
-			newTsaSecret = tsa.CreateSecrets(namespace.Name, secretName, true)
+			newTsaSecret = tsa.CreateSecrets(namespace.Name, secretName, !fipsEnabled)
 			Expect(cli.Create(ctx, newTsaSecret)).To(Succeed())
 
 			Eventually(func() error {
@@ -400,21 +417,23 @@ var _ = Describe("Key rotation test", Ordered, func() {
 						Key: "certificateChain",
 					}}
 
-				f.Spec.TimestampAuthority.Signer.File = &rhtasv1.File{
+				signer := &rhtasv1.File{
 					PrivateKeyRef: &rhtasv1.SecretKeySelector{
 						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: secretName,
 						},
 						Key: "leafPrivateKey",
 					},
-
-					PasswordRef: &rhtasv1.SecretKeySelector{
+				}
+				if !fipsEnabled {
+					signer.PasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
 						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: secretName,
 						},
 						Key: "leafPrivateKeyPassword",
-					},
+					}
 				}
+				f.Spec.TimestampAuthority.Signer.File = signer
 
 				return cli.Update(ctx, f)
 			}).Should(Succeed())
@@ -502,7 +521,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 	})
 
 	It("Validate all pods are running", func(ctx SpecContext) {
-		tas.VerifyAllComponents(ctx, cli, s, true)
+		tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 	})
 
 	It("Use cosign cli", func(ctx SpecContext) {

@@ -3,6 +3,7 @@
 package install
 
 import (
+	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
@@ -25,14 +26,26 @@ var _ = Describe("Securesign install with provided unencrypted certs", Ordered, 
 	var targetImageName string
 	var namespace *v1.Namespace
 	var s *rhtasv1.Securesign
+	var fipsEnabled bool
+
+	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
+		fipsEnabled = enabled
+	}))
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
 
 	BeforeAll(func(ctx SpecContext) {
+		if fipsEnabled {
+			Expect(postgresql.CreateDB(ctx, cli, namespace.Name, postgresql.DefaultSecretName, "fips-password")).To(Succeed())
+			postgresql.WaitAndLoadSchema(ctx, cli, namespace.Name)
+		}
+	})
+
+	BeforeAll(func(ctx SpecContext) {
 		s = securesign.Create(namespace.Name, "test",
-			securesign.WithDefaults(),
+			securesign.ChooseDefaults(fipsEnabled, namespace.Name),
 			securesign.WithProvidedUnencryptedCerts(),
 			func(v *rhtasv1.Securesign) {
 				v.Spec.Tuf.Keys = []rhtasv1.TufKey{
@@ -145,7 +158,7 @@ var _ = Describe("Securesign install with provided unencrypted certs", Ordered, 
 		})
 
 		It("All other components are running", func(ctx SpecContext) {
-			tas.VerifyAllComponents(ctx, cli, s, true)
+			tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 		})
 
 		It("Use cosign cli", func(ctx SpecContext) {

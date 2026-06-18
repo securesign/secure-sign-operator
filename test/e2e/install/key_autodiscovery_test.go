@@ -4,6 +4,7 @@ package install
 
 import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
+	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
@@ -27,15 +28,31 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 	var targetImageName string
 	var namespace *v1.Namespace
 	var s *rhtasv1.Securesign
+	var fipsEnabled bool
+
+	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
+		fipsEnabled = enabled
+	}))
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
 
 	BeforeAll(func(ctx SpecContext) {
+		if fipsEnabled {
+			Expect(postgresql.CreateDB(ctx, cli, namespace.Name, postgresql.DefaultSecretName, "fips-password")).To(Succeed())
+			postgresql.WaitAndLoadSchema(ctx, cli, namespace.Name)
+		}
+	})
+
+	BeforeAll(func(ctx SpecContext) {
+		providedCerts := securesign.WithProvidedEncryptedCerts()
+		if fipsEnabled {
+			providedCerts = securesign.WithProvidedUnencryptedCerts()
+		}
 		s = securesign.Create(namespace.Name, "test",
-			securesign.WithDefaults(),
-			securesign.WithProvidedEncryptedCerts(),
+			securesign.ChooseDefaults(fipsEnabled, namespace.Name),
+			providedCerts,
 		)
 	})
 
@@ -45,15 +62,15 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 
 	Describe("Install with provided certificates", func() {
 		BeforeAll(func(ctx SpecContext) {
-			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret", true))).To(Succeed())
-			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret", true))).To(Succeed())
-			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret", true))).To(Succeed())
-			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tsa-secret", true))).To(Succeed())
+			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret", !fipsEnabled))).To(Succeed())
+			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret", !fipsEnabled))).To(Succeed())
+			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret", !fipsEnabled))).To(Succeed())
+			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tsa-secret", !fipsEnabled))).To(Succeed())
 			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 
 		It("All components are running", func(ctx SpecContext) {
-			tas.VerifyAllComponents(ctx, cli, s, true)
+			tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 		})
 
 		It("Verify TUF keys", func(ctx SpecContext) {

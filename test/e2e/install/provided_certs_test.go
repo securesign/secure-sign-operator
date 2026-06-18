@@ -26,6 +26,12 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 	var namespace *v1.Namespace
 	var s *rhtasv1.Securesign
 
+	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
+		if enabled {
+			Skip("Encrypted PEM uses MD5 key derivation, incompatible with FIPS strict mode")
+		}
+	}))
+
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
@@ -145,7 +151,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 		})
 
 		It("All other components are running", func(ctx SpecContext) {
-			tas.VerifyAllComponents(ctx, cli, s, true)
+			tas.VerifyAllComponents(ctx, cli, s, true, true)
 		})
 
 		It("Use cosign cli", func(ctx SpecContext) {

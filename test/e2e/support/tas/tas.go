@@ -59,11 +59,11 @@ func VerifyCRDRESTEndpointsForVersion(ctx context.Context, cli runtimeCli.Client
 	}
 }
 
-func VerifyAllComponents(ctx context.Context, cli runtimeCli.Client, s *rhtasv1.Securesign, dbPresent bool) {
-	trillian.Verify(ctx, cli, s.Namespace, s.Name, dbPresent)
+func VerifyAllComponents(ctx context.Context, cli runtimeCli.Client, s *rhtasv1.Securesign, trillianDBPresent bool, rekorRedisPresent bool) {
+	trillian.Verify(ctx, cli, s.Namespace, s.Name, trillianDBPresent)
 	fulcio.Verify(ctx, cli, s.Namespace, s.Name)
 	tsa.Verify(ctx, cli, s.Namespace, s.Name)
-	rekor.Verify(ctx, cli, s.Namespace, s.Name, dbPresent)
+	rekor.Verify(ctx, cli, s.Namespace, s.Name, rekorRedisPresent)
 	ctlog.Verify(ctx, cli, s.Namespace, s.Name)
 	tuf.Verify(ctx, cli, s.Namespace, s.Name)
 	securesign.Verify(ctx, cli, s.Namespace, s.Name)
