@@ -627,7 +627,7 @@ func TestRbac_CreationFailure_ReturnsRetryableError(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
 		intercept interceptor.Funcs
-		handleFn  func(*rbacAction[*rhtasv1.Rekor], context.Context, *rhtasv1.Rekor) *action.Result
+		handleFn  func(*rbacAction[*v1alpha1.Rekor], context.Context, *v1alpha1.Rekor) *action.Result
 		errSubstr string
 	}{
 		{
@@ -640,7 +640,7 @@ func TestRbac_CreationFailure_ReturnsRetryableError(t *testing.T) {
 					return c.Create(ctx, obj, opts...)
 				},
 			},
-			handleFn: func(r *rbacAction[*rhtasv1.Rekor], ctx context.Context, rekor *rhtasv1.Rekor) *action.Result {
+			handleFn: func(r *rbacAction[*v1alpha1.Rekor], ctx context.Context, rekor *v1alpha1.Rekor) *action.Result {
 				return r.handleServiceAccount(ctx, rekor)
 			},
 			errSubstr: "could not create SA",
@@ -655,7 +655,7 @@ func TestRbac_CreationFailure_ReturnsRetryableError(t *testing.T) {
 					return c.Create(ctx, obj, opts...)
 				},
 			},
-			handleFn: func(r *rbacAction[*rhtasv1.Rekor], ctx context.Context, rekor *rhtasv1.Rekor) *action.Result {
+			handleFn: func(r *rbacAction[*v1alpha1.Rekor], ctx context.Context, rekor *v1alpha1.Rekor) *action.Result {
 				return r.handleRole(ctx, rekor)
 			},
 			errSubstr: "could not create Role",
@@ -670,7 +670,7 @@ func TestRbac_CreationFailure_ReturnsRetryableError(t *testing.T) {
 					return c.Create(ctx, obj, opts...)
 				},
 			},
-			handleFn: func(r *rbacAction[*rhtasv1.Rekor], ctx context.Context, rekor *rhtasv1.Rekor) *action.Result {
+			handleFn: func(r *rbacAction[*v1alpha1.Rekor], ctx context.Context, rekor *v1alpha1.Rekor) *action.Result {
 				return r.handleRoleBinding(ctx, rekor)
 			},
 			errSubstr: "could not create RoleBinding",
@@ -680,7 +680,7 @@ func TestRbac_CreationFailure_ReturnsRetryableError(t *testing.T) {
 			g := NewWithT(t)
 			ctx := context.Background()
 
-			instance := &rhtasv1.Rekor{
+			instance := &v1alpha1.Rekor{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      nnObject.Name,
 					Namespace: nnObject.Namespace,
@@ -693,14 +693,14 @@ func TestRbac_CreationFailure_ReturnsRetryableError(t *testing.T) {
 				WithInterceptorFuncs(tc.intercept).
 				Build()
 
-			a := testAction.PrepareAction(c, NewAction[*rhtasv1.Rekor]("component", nnObject.Name,
-				WithRule[*rhtasv1.Rekor](rbacv1.PolicyRule{
+			a := testAction.PrepareAction(c, NewAction[*v1alpha1.Rekor]("component", nnObject.Name,
+				WithRule[*v1alpha1.Rekor](rbacv1.PolicyRule{
 					APIGroups: []string{""},
 					Resources: []string{"configmaps"},
 					Verbs:     []string{"list"},
 				}),
 			))
-			ra := a.(*rbacAction[*rhtasv1.Rekor])
+			ra := a.(*rbacAction[*v1alpha1.Rekor])
 
 			g.Expect(c.Get(ctx, nnObject, instance)).To(Succeed())
 
