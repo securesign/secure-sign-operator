@@ -16,6 +16,7 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 		return err
 	}
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
+	dst.Spec.TrustedCA = restored.Spec.TrustedCA
 	return nil
 }
 

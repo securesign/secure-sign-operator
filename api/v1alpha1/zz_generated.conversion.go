@@ -1008,6 +1008,7 @@ func autoConvert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *v1.CTlogSpec, out *CTlog
 		return err
 	}
 	out.MaxCertChainSize = (*int64)(unsafe.Pointer(in.MaxCertChainSize))
+	// WARNING: in.TrustedCA requires manual conversion: does not exist in peer-type
 	return nil
 }
 

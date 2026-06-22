@@ -75,6 +75,10 @@ type CTlogSpec struct {
 	//+kubebuilder:default:=153600
 	//+optional
 	MaxCertChainSize *int64 `json:"maxCertChainSize,omitempty"`
+
+	// ConfigMap with additional bundle of trusted CA
+	// +optional
+	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
 }
 
 // CTlogStatus defines the observed state of CTlog component
@@ -131,6 +135,10 @@ func (i *CTlog) SetCondition(newCondition metav1.Condition) {
 }
 
 func (i *CTlog) GetTrustedCA() *LocalObjectReference {
+	if i.Spec.TrustedCA != nil {
+		return i.Spec.TrustedCA
+	}
+
 	if v, ok := i.GetAnnotations()["rhtas.redhat.com/trusted-ca"]; ok {
 		return &LocalObjectReference{
 			Name: v,
