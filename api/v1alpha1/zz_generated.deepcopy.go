@@ -968,6 +968,7 @@ func (in *RekorSpec) DeepCopyInto(out *RekorSpec) {
 	in.Signer.DeepCopyInto(&out.Signer)
 	in.Attestations.DeepCopyInto(&out.Attestations)
 	in.SearchIndex.DeepCopyInto(&out.SearchIndex)
+	in.Pvc.DeepCopyInto(&out.Pvc)
 	in.BackFillRedis.DeepCopyInto(&out.BackFillRedis)
 	if in.Sharding != nil {
 		in, out := &in.Sharding, &out.Sharding

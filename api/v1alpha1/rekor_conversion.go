@@ -17,21 +17,32 @@ func isV1PvcEmpty(pvc rhtasv1.Pvc) bool {
 	return pvc.Size == nil && pvc.Retain == nil && pvc.Name == "" && pvc.StorageClass == "" && len(pvc.AccessModes) == 0
 }
 
-func (src *Rekor) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*rhtasv1.Rekor)
-
-	// Standard auto-generated conversion
-	if err := Convert_v1alpha1_Rekor_To_v1_Rekor(src, dst, nil); err != nil {
+// Convert_v1alpha1_RekorSpec_To_v1_RekorSpec manually converts v1alpha1.RekorSpec to v1.RekorSpec
+// This is needed because the Pvc field was moved from spec.pvc to spec.attestations.pvc
+func Convert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *rhtasv1.RekorSpec, s apiconversion.Scope) error {
+	// First do auto-generated conversion for all fields except Pvc
+	if err := autoConvert_v1alpha1_RekorSpec_To_v1_RekorSpec(in, out, s); err != nil {
 		return err
 	}
 
 	// Migrate old spec.pvc to spec.attestations.pvc if:
 	// 1. Old spec.pvc is set (non-empty)
 	// 2. New spec.attestations.pvc is empty (to avoid overwriting user's new config)
-	if !isPvcEmpty(src.Spec.Pvc) && isV1PvcEmpty(dst.Spec.Attestations.Pvc) {
-		if err := Convert_v1alpha1_Pvc_To_v1_Pvc(&src.Spec.Pvc, &dst.Spec.Attestations.Pvc, nil); err != nil {
+	if !isPvcEmpty(in.Pvc) && isV1PvcEmpty(out.Attestations.Pvc) {
+		if err := Convert_v1alpha1_Pvc_To_v1_Pvc(&in.Pvc, &out.Attestations.Pvc, s); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (src *Rekor) ConvertTo(dstRaw conversion.Hub) error {
+	dst := dstRaw.(*rhtasv1.Rekor)
+
+	// Standard auto-generated conversion (includes our manual RekorSpec conversion)
+	if err := Convert_v1alpha1_Rekor_To_v1_Rekor(src, dst, nil); err != nil {
+		return err
 	}
 
 	// Restore fields that don't exist in v1alpha1 from annotation (e.g., ImagePullSecrets)
