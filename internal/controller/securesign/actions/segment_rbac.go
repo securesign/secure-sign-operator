@@ -13,7 +13,6 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
@@ -77,7 +76,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create SA: %w", err)), instance)
+		return i.Error(ctx, fmt.Errorf("could not create SA: %w", err), instance)
 	}
 
 	// Role
@@ -109,7 +108,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create openshift-monitoring role for SBJ: %w", err)), instance)
+		return i.Error(ctx, fmt.Errorf("could not create openshift-monitoring role for SBJ: %w", err), instance)
 	}
 
 	// RoleBinding
@@ -135,7 +134,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create openshift-monitoring role binding for SBJ: %w", err)), instance)
+		return i.Error(ctx, fmt.Errorf("could not create openshift-monitoring role binding for SBJ: %w", err), instance)
 	}
 
 	// ClusterRoleBinding
@@ -160,7 +159,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create monitoring ClusterRoleBinding for SBJ: %w", err)), instance)
+		return i.Error(ctx, fmt.Errorf("could not create monitoring ClusterRoleBinding for SBJ: %w", err), instance)
 	}
 
 	// ClusterRole
@@ -191,7 +190,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create openshift-console ClusterRole for SBJ: %w", err)), instance)
+		return i.Error(ctx, fmt.Errorf("could not create openshift-console ClusterRole for SBJ: %w", err), instance)
 	}
 
 	// ClusterRoleBinding
@@ -216,7 +215,7 @@ func (i rbacAction) Handle(ctx context.Context, instance *rhtasv1alpha1.Securesi
 			Reason:  constants.Failure,
 			Message: err.Error(),
 		})
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create openshift-console ClusterRoleBinding for SBJ: %w", err)), instance)
+		return i.Error(ctx, fmt.Errorf("could not create openshift-console ClusterRoleBinding for SBJ: %w", err), instance)
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
