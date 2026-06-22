@@ -23,7 +23,10 @@ import (
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
+	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 	"k8s.io/apimachinery/pkg/runtime"
+	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
+	"sigs.k8s.io/randfill"
 )
 
 func rhtasScheme() *runtime.Scheme {
@@ -70,6 +73,21 @@ func TestTrillianConversion(t *testing.T) {
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.Trillian{},
 		Spoke:  &Trillian{},
+		// Only fill fields that survive roundtrip — v1 status types omit spec-only fields.
+		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			func(_ runtimeserializer.CodecFactory) []interface{} {
+				return []interface{}{
+					func(s *TrillianStatus, c randfill.Continue) {
+						c.FillNoCustom(&s.Conditions)
+						c.FillNoCustom(&s.Db.Pvc.Name)
+						c.FillNoCustom(&s.Db.DatabaseSecretRef)
+						c.FillNoCustom(&s.Db.TLS)
+						c.FillNoCustom(&s.LogServer.TLS)
+						c.FillNoCustom(&s.LogSigner.TLS)
+					},
+				}
+			},
+		},
 	}))
 }
 

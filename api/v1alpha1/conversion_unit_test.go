@@ -449,6 +449,59 @@ func TestTrillianConversionUnit(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "fully populated status",
+			hub: &rhtasv1.Trillian{
+				ObjectMeta: metav1.ObjectMeta{Name: "trillian", Namespace: "default"},
+				Status: rhtasv1.TrillianStatus{
+					Db: rhtasv1.TrillianDBStatus{
+						PvcName:           "trillian-db",
+						DatabaseSecretRef: &rhtasv1.LocalObjectReference{Name: "db-credentials"},
+						TLS: rhtasv1.TLS{
+							CertRef:       &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "db-tls"}, Key: "tls.crt"},
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "db-tls"}, Key: "tls.key"},
+						},
+					},
+					LogServer: rhtasv1.TrillianServiceStatus{
+						TLS: rhtasv1.TLS{
+							CertRef:       &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "server-tls"}, Key: "tls.crt"},
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "server-tls"}, Key: "tls.key"},
+						},
+					},
+					LogSigner: rhtasv1.TrillianServiceStatus{
+						TLS: rhtasv1.TLS{
+							CertRef:       &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "signer-tls"}, Key: "tls.crt"},
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "signer-tls"}, Key: "tls.key"},
+						},
+					},
+				},
+			},
+			spoke: &Trillian{
+				ObjectMeta: metav1.ObjectMeta{Name: "trillian", Namespace: "default"},
+				Status: TrillianStatus{
+					Db: TrillianDB{
+						Pvc:               Pvc{Name: "trillian-db"},
+						DatabaseSecretRef: &LocalObjectReference{Name: "db-credentials"},
+						TLS: TLS{
+							CertRef:       &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "db-tls"}, Key: "tls.crt"},
+							PrivateKeyRef: &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "db-tls"}, Key: "tls.key"},
+						},
+					},
+					LogServer: TrillianLogServer{
+						TLS: TLS{
+							CertRef:       &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "server-tls"}, Key: "tls.crt"},
+							PrivateKeyRef: &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "server-tls"}, Key: "tls.key"},
+						},
+					},
+					LogSigner: TrillianLogSigner{
+						TLS: TLS{
+							CertRef:       &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "signer-tls"}, Key: "tls.crt"},
+							PrivateKeyRef: &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "signer-tls"}, Key: "tls.key"},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
