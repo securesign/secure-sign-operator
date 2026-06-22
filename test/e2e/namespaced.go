@@ -276,7 +276,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 		BeforeAll(func(ctx SpecContext) {
 			By("stores secrets into namespaces")
 			// Rekor
-			rekorSecret := rekor.CreateSecret(namespaces["rekor"].Name, "my-rekor-secret")
+			rekorSecret := rekor.CreateSecret(namespaces["rekor"].Name, "my-rekor-secret", false)
 
 			tufRekorSecret := rekorSecret.DeepCopy()
 			tufRekorSecret.Namespace = namespaces["tuf"].Name
@@ -285,7 +285,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			Expect(cli.Create(ctx, tufRekorSecret)).To(Succeed())
 
 			// Fulcio
-			fulcioSecret := fulcio.CreateSecret(namespaces["fulcio"].Name, "my-fulcio-secret")
+			fulcioSecret := fulcio.CreateSecret(namespaces["fulcio"].Name, "my-fulcio-secret", true)
 
 			tufFulcioSecret := fulcioSecret.DeepCopy()
 			tufFulcioSecret.Namespace = namespaces["tuf"].Name
@@ -307,7 +307,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			Expect(cli.Create(ctx, tufCtlogSecret)).To(Succeed())
 
 			// TSA
-			tsaSecret := tsa.CreateSecrets(namespaces["tsa"].Name, "test-tsa-secret")
+			tsaSecret := tsa.CreateSecrets(namespaces["tsa"].Name, "test-tsa-secret", true)
 
 			tufTSASecret := tsaSecret.DeepCopy()
 			tufTSASecret.Namespace = namespaces["tuf"].Name

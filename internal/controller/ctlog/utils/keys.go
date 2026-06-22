@@ -20,15 +20,7 @@ type KeyConfig struct {
 	PublicKey      []byte
 }
 
-func (k KeyConfig) ToMap() map[string][]byte {
-	return map[string][]byte{
-		"private":  k.PrivateKey,
-		"public":   k.PublicKey,
-		"password": k.PrivateKeyPass,
-	}
-}
-
-func CreatePrivateKey(password []byte) (*KeyConfig, error) {
+func CreatePrivateKey() (*KeyConfig, error) {
 
 	key, err := ecdsa.GenerateKey(supportedCurves[curveType], rand.Reader)
 	if err != nil {
@@ -40,20 +32,11 @@ func CreatePrivateKey(password []byte) (*KeyConfig, error) {
 		return nil, err
 	}
 
-	var block *pem.Block
-	if len(password) > 0 {
-		block, err = x509.EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", mKey, password, x509.PEMCipherAES256) //nolint:staticcheck
-	} else {
-		block = &pem.Block{
-			Type:  "EC PRIVATE KEY",
-			Bytes: mKey,
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
 	var pemKey bytes.Buffer
-	err = pem.Encode(&pemKey, block)
+	err = pem.Encode(&pemKey, &pem.Block{
+		Type:  "EC PRIVATE KEY",
+		Bytes: mKey,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -73,9 +56,8 @@ func CreatePrivateKey(password []byte) (*KeyConfig, error) {
 	}
 
 	return &KeyConfig{
-		PrivateKey:     pemKey.Bytes(),
-		PublicKey:      pemPubKey.Bytes(),
-		PrivateKeyPass: password,
+		PrivateKey: pemKey.Bytes(),
+		PublicKey:  pemPubKey.Bytes(),
 	}, nil
 }
 
@@ -90,6 +72,7 @@ func GeneratePublicKey(certConfig *KeyConfig) (*KeyConfig, error) {
 		return nil, fmt.Errorf("failed to decode private key")
 	}
 
+	// Deprecated: kept for backward compatibility with existing encrypted keys.
 	if x509.IsEncryptedPEMBlock(privatePEMBlock) { //nolint:staticcheck
 		if certConfig.PrivateKeyPass == nil {
 			return nil, fmt.Errorf("can't find private key password")

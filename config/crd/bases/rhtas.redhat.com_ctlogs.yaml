@@ -1006,7 +1006,11 @@ spec:
                 - enabled
                 type: object
               privateKeyPasswordRef:
-                description: Password to decrypt private key
+                description: |-
+                  Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
+                  and not FIPS-compliant. Auto-generated keys are no longer password-encrypted;
+                  this field is retained only for backward compatibility with existing user-provided
+                  encrypted keys. Kubernetes Secrets provide encryption-at-rest.
                 properties:
                   key:
                     description: The key of the secret to select from. Must be a valid

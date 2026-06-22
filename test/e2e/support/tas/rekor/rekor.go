@@ -60,12 +60,12 @@ func Get(ctx context.Context, cli client.Client, ns string, name string) *rhtasv
 	return instance
 }
 
-func CreateSecret(ns string, name string) *v1.Secret {
-	public, private, _, err := support.CreateCertificates(false)
+func CreateSecret(ns string, name string, passwordProtected bool) *v1.Secret {
+	public, private, _, err := support.CreateCertificates(passwordProtected)
 	if err != nil {
 		return nil
 	}
-	return &v1.Secret{
+	s := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: ns,
@@ -75,6 +75,10 @@ func CreateSecret(ns string, name string) *v1.Secret {
 			"public":  public,
 		},
 	}
+	if passwordProtected {
+		s.Data["password"] = []byte(support.CertPassword)
+	}
+	return s
 }
 
 func SetRekorReplicaCount(ctx context.Context, cli client.Client, namespace, securesignDeploymentName string, replicaCount int32) {

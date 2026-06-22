@@ -16,7 +16,6 @@ import (
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
-	utils2 "github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -207,8 +206,6 @@ func (g handleCert) setupCert(instance *rhtasv1.Fulcio) (*utils.FulcioCertConfig
 			return nil, err
 		}
 		config.PrivateKeyPassword = password
-	} else if instance.Status.Certificate.PrivateKeyRef == nil {
-		config.PrivateKeyPassword = utils2.GeneratePassword(8)
 	}
 	if ref := instance.Status.Certificate.PrivateKeyRef; ref != nil {
 		key, err := kubernetes.GetSecretData(g.Client, instance.Namespace, ref)
@@ -222,7 +219,7 @@ func (g handleCert) setupCert(instance *rhtasv1.Fulcio) (*utils.FulcioCertConfig
 			return nil, err
 		}
 
-		pemKey, err := utils.CreateCAKey(key, config.PrivateKeyPassword)
+		pemKey, err := utils.CreateCAKey(key)
 		if err != nil {
 			return nil, err
 		}
