@@ -7,24 +7,62 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
+// isPvcEmpty checks if a Pvc struct is empty (all fields are zero values)
+func isPvcEmpty(pvc Pvc) bool {
+	return pvc.Size == nil && pvc.Retain == nil && pvc.Name == "" && pvc.StorageClass == "" && len(pvc.AccessModes) == 0
+}
+
+// isV1PvcEmpty checks if a v1.Pvc struct is empty (all fields are zero values)
+func isV1PvcEmpty(pvc rhtasv1.Pvc) bool {
+	return pvc.Size == nil && pvc.Retain == nil && pvc.Name == "" && pvc.StorageClass == "" && len(pvc.AccessModes) == 0
+}
+
 func (src *Rekor) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*rhtasv1.Rekor)
+
+	// Standard auto-generated conversion
 	if err := Convert_v1alpha1_Rekor_To_v1_Rekor(src, dst, nil); err != nil {
 		return err
 	}
+
+	// Migrate old spec.pvc to spec.attestations.pvc if:
+	// 1. Old spec.pvc is set (non-empty)
+	// 2. New spec.attestations.pvc is empty (to avoid overwriting user's new config)
+	if !isPvcEmpty(src.Spec.Pvc) && isV1PvcEmpty(dst.Spec.Attestations.Pvc) {
+		if err := Convert_v1alpha1_Pvc_To_v1_Pvc(&src.Spec.Pvc, &dst.Spec.Attestations.Pvc, nil); err != nil {
+			return err
+		}
+	}
+
+	// Restore fields that don't exist in v1alpha1 from annotation (e.g., ImagePullSecrets)
 	restored := &rhtasv1.Rekor{}
 	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
 		return err
 	}
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
+
 	return nil
 }
 
 func (dst *Rekor) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*rhtasv1.Rekor)
+
+	// Standard auto-generated conversion
 	if err := Convert_v1_Rekor_To_v1alpha1_Rekor(src, dst, nil); err != nil {
 		return err
 	}
+
+	// Restore the full v1alpha1 object from annotations (for roundtrip fidelity)
+	// This will restore deprecated fields like spec.pvc that were preserved during ConvertTo
+	restoredSpoke := &Rekor{}
+	if hasAnnotation, err := utilconversion.UnmarshalData(src, restoredSpoke); err != nil {
+		return err
+	} else if hasAnnotation {
+		// Restore deprecated spec.pvc field from annotation
+		dst.Spec.Pvc = restoredSpoke.Spec.Pvc
+	}
+
+	// Marshal v1 (hub) data into annotations for fields that don't exist in v1alpha1 (spoke)
 	return utilconversion.MarshalData(src, dst)
 }
 

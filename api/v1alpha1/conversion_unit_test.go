@@ -281,6 +281,7 @@ func TestRekorConversionUnit(t *testing.T) {
 							Retain: ptr.To(true),
 						},
 					},
+					// Note: spec.pvc is deprecated and not populated when converting FROM v1
 					Signer:    RekorSigner{KMS: "secret"},
 					TrustedCA: &LocalObjectReference{Name: "trusted-ca"},
 				},
@@ -350,6 +351,50 @@ func TestRekorConversionUnit(t *testing.T) {
 				t.Errorf("mismatch (-want +got):\n%s", cmp.Diff(tt.hub, gotHub))
 			}
 		})
+	}
+}
+
+// TestRekorPvcMigration specifically tests the migration from old v1alpha1 spec.pvc to new v1 spec.attestations.pvc
+func TestRekorPvcMigration(t *testing.T) {
+	// Create a v1alpha1 Rekor with OLD spec.pvc (pre-migration format)
+	oldSpoke := &Rekor{
+		ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
+		Spec: RekorSpec{
+			TreeID: ptr.To[int64](333),
+			// OLD location: spec.pvc (this is what existing v1alpha1 users have)
+			Pvc: Pvc{
+				Size:   ptr.To(resource.MustParse("20Gi")),
+				Retain: ptr.To(true),
+				Name:   "legacy-pvc",
+			},
+			// Empty attestations.pvc (user hasn't migrated yet)
+			Attestations: RekorAttestations{
+				Enabled: ptr.To(true),
+				Url:     "file:///var/run/attestations?no_tmp_dir=true",
+				// Note: Pvc is empty/default
+			},
+		},
+	}
+
+	// Convert v1alpha1 → v1
+	hub := &rhtasv1.Rekor{}
+	if err := oldSpoke.ConvertTo(hub); err != nil {
+		t.Fatalf("ConvertTo failed: %v", err)
+	}
+
+	// Verify the PVC was migrated to attestations.pvc in v1
+	if hub.Spec.Attestations.Pvc.Size == nil {
+		t.Error("Expected attestations.pvc.size to be set after migration")
+	} else if hub.Spec.Attestations.Pvc.Size.String() != "20Gi" {
+		t.Errorf("Expected attestations.pvc.size = 20Gi, got %s", hub.Spec.Attestations.Pvc.Size.String())
+	}
+
+	if hub.Spec.Attestations.Pvc.Name != "legacy-pvc" {
+		t.Errorf("Expected attestations.pvc.name = legacy-pvc, got %s", hub.Spec.Attestations.Pvc.Name)
+	}
+
+	if hub.Spec.Attestations.Pvc.Retain == nil || !*hub.Spec.Attestations.Pvc.Retain {
+		t.Error("Expected attestations.pvc.retain = true after migration")
 	}
 }
 

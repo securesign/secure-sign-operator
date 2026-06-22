@@ -47,6 +47,12 @@ type RekorSpec struct {
 	// Define your search index database connection
 	//+kubebuilder:default:={create: true}
 	SearchIndex SearchIndex `json:"searchIndex,omitempty"`
+	// PVC configuration
+	// Deprecated: Use spec.attestations.pvc instead. This field is retained for backward compatibility.
+	// When upgrading from v1alpha1 to v1, data from spec.pvc will be migrated to spec.attestations.pvc.
+	//+kubebuilder:default:={size: "5Gi", retain: true, accessModes: {ReadWriteOnce}}
+	//+optional
+	Pvc Pvc `json:"pvc,omitempty"`
 	// BackFillRedis CronJob Configuration
 	//+kubebuilder:default:={enabled: true, schedule: "0 0 * * *"}
 	BackFillRedis BackFillRedis `json:"backFillRedis,omitempty"`
