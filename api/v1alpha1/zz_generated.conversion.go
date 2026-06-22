@@ -3134,6 +3134,7 @@ func autoConvert_v1_TufSpec_To_v1alpha1_TufSpec(in *v1.TufSpec, out *TufSpec, s 
 	if err := Convert_v1_TsaService_To_v1alpha1_TsaService(&in.Tsa, &out.Tsa, s); err != nil {
 		return err
 	}
+	// WARNING: in.TrustedCA requires manual conversion: does not exist in peer-type
 	return nil
 }
 

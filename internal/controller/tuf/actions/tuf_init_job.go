@@ -17,6 +17,7 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	jobUtils "github.com/securesign/operator/internal/utils/kubernetes/job"
+	tlsensure "github.com/securesign/operator/internal/utils/tls/ensure"
 	v2 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 
@@ -133,6 +134,9 @@ func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]stri
 		},
 		func(object *v2.Job) error {
 			return ensure.PodSecurityContext(&object.Spec.Template.Spec)
+		},
+		func(object *v2.Job) error {
+			return tlsensure.TrustedCA(instance.GetTrustedCA(), "tuf-init")(&object.Spec.Template)
 		},
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create TUF init job: %w", err), instance)

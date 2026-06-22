@@ -59,6 +59,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *action
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
+		deployment.TrustedCA(instance.GetTrustedCA(), tufConstants.ContainerName),
 		deployment.PodRequirements(instance.Spec.PodRequirements, tufConstants.ContainerName),
 		deployment.PodSecurityContext(),
 	); err != nil {
