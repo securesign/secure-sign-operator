@@ -65,6 +65,26 @@ func TestFulcioConversion(t *testing.T) {
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.Fulcio{},
 		Spoke:  &Fulcio{},
+		// Only fill fields that survive roundtrip — v1 status types omit spec-only fields.
+		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			func(_ runtimeserializer.CodecFactory) []interface{} {
+				return []interface{}{
+					func(s *FulcioStatus, c randfill.Continue) {
+						c.FillNoCustom(&s.Conditions)
+						c.FillNoCustom(&s.Url)
+						c.FillNoCustom(&s.ServerConfigRef)
+
+						if c.Bool() {
+							s.Certificate = &FulcioCert{}
+							c.FillNoCustom(&s.Certificate.PrivateKeyRef)
+							c.FillNoCustom(&s.Certificate.PrivateKeyPasswordRef)
+							c.FillNoCustom(&s.Certificate.CARef)
+							c.FillNoCustom(&s.Certificate.CommonName)
+						}
+					},
+				}
+			},
+		},
 	}))
 }
 

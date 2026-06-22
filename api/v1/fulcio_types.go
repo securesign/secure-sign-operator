@@ -177,10 +177,18 @@ type Extensions struct {
 	SourceRepositoryVisibilityAtSigning string `json:"SourceRepositoryVisibilityAtSigning,omitempty" yaml:"source-repository-visibility-at-signing,omitempty"` // 1.3.6.1.4.1.57264.1.22
 }
 
+type FulcioCertStatus struct {
+	PrivateKeyRef         *SecretKeySelector `json:"privateKeyRef,omitempty"`
+	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
+	CARef                 *SecretKeySelector `json:"caRef,omitempty"`
+	// CommonName is cached to survive cluster restore — re-resolving from route could yield a different hostname.
+	CommonName string `json:"commonName,omitempty"`
+}
+
 // FulcioStatus defines the observed state of Fulcio
 type FulcioStatus struct {
 	ServerConfigRef *LocalObjectReference `json:"serverConfigRef,omitempty"`
-	Certificate     *FulcioCert           `json:"certificate,omitempty"`
+	Certificate     *FulcioCertStatus     `json:"certificate,omitempty"`
 	Url             string                `json:"url,omitempty"`
 	// +listType=map
 	// +listMapKey=type
