@@ -1738,6 +1738,9 @@ func autoConvert_v1alpha1_RekorAttestations_To_v1_RekorAttestations(in *RekorAtt
 	out.Enabled = (*bool)(unsafe.Pointer(in.Enabled))
 	out.Url = in.Url
 	out.MaxSize = (*resource.Quantity)(unsafe.Pointer(in.MaxSize))
+	if err := Convert_v1alpha1_Pvc_To_v1_Pvc(&in.Pvc, &out.Pvc, s); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -1750,6 +1753,9 @@ func autoConvert_v1_RekorAttestations_To_v1alpha1_RekorAttestations(in *v1.Rekor
 	out.Enabled = (*bool)(unsafe.Pointer(in.Enabled))
 	out.Url = in.Url
 	out.MaxSize = (*resource.Quantity)(unsafe.Pointer(in.MaxSize))
+	if err := Convert_v1_Pvc_To_v1alpha1_Pvc(&in.Pvc, &out.Pvc, s); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -1926,9 +1932,6 @@ func autoConvert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *v1.Rekor
 	if err := Convert_v1alpha1_SearchIndex_To_v1_SearchIndex(&in.SearchIndex, &out.SearchIndex, s); err != nil {
 		return err
 	}
-	if err := Convert_v1alpha1_Pvc_To_v1_Pvc(&in.Pvc, &out.Pvc, s); err != nil {
-		return err
-	}
 	if err := Convert_v1alpha1_BackFillRedis_To_v1_BackFillRedis(&in.BackFillRedis, &out.BackFillRedis, s); err != nil {
 		return err
 	}
@@ -1969,9 +1972,6 @@ func autoConvert_v1_RekorSpec_To_v1alpha1_RekorSpec(in *v1.RekorSpec, out *Rekor
 		return err
 	}
 	if err := Convert_v1_SearchIndex_To_v1alpha1_SearchIndex(&in.SearchIndex, &out.SearchIndex, s); err != nil {
-		return err
-	}
-	if err := Convert_v1_Pvc_To_v1alpha1_Pvc(&in.Pvc, &out.Pvc, s); err != nil {
 		return err
 	}
 	if err := Convert_v1_BackFillRedis_To_v1alpha1_BackFillRedis(&in.BackFillRedis, &out.BackFillRedis, s); err != nil {

@@ -91,7 +91,7 @@ var _ = Describe("Rekor", func() {
 
 				invalidObject := &Rekor{}
 				Expect(k8sClient.Get(context.Background(), getKey(validObject), invalidObject)).To(Succeed())
-				invalidObject.Spec.Pvc.Retain = ptr.To(false)
+				invalidObject.Spec.Attestations.Pvc.Retain = ptr.To(false)
 
 				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Update(context.Background(), invalidObject)).
@@ -100,10 +100,10 @@ var _ = Describe("Rekor", func() {
 
 			It("checking pvc name", func() {
 				invalidObject := generateRekorObject("rekor3")
-				invalidObject.Spec.Pvc.Name = "-invalid-name!"
+				invalidObject.Spec.Attestations.Pvc.Name = "-invalid-name!"
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("spec.pvc.name in body should match")))
+					To(MatchError(ContainSubstring("spec.attestations.pvc.name in body should match")))
 			})
 		})
 
@@ -196,11 +196,13 @@ var _ = Describe("Rekor", func() {
 							Schedule: "* */2 * * 0-3",
 						},
 						TreeID: &tree,
-						Pvc: Pvc{
-							Name:         "name",
-							Size:         &storage,
-							StorageClass: "name",
-							Retain:       ptr.To(true),
+						Attestations: RekorAttestations{
+							Pvc: Pvc{
+								Name:         "name",
+								Size:         &storage,
+								StorageClass: "name",
+								Retain:       ptr.To(true),
+							},
 						},
 						Signer: RekorSigner{
 							KMS: "secret",
@@ -263,12 +265,12 @@ func generateRekorObject(name string) *Rekor {
 				Enabled: ptr.To(true),
 				Url:     "file:///var/run/attestations?no_tmp_dir=true",
 				MaxSize: &maxSize,
-			},
-			Pvc: Pvc{
-				Retain: ptr.To(true),
-				Size:   &storage,
-				AccessModes: []PersistentVolumeAccessMode{
-					"ReadWriteOnce",
+				Pvc: Pvc{
+					Retain: ptr.To(true),
+					Size:   &storage,
+					AccessModes: []PersistentVolumeAccessMode{
+						"ReadWriteOnce",
+					},
 				},
 			},
 			Trillian: TrillianService{
