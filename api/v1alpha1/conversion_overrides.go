@@ -32,3 +32,69 @@ func Convert_v1_TrillianSpec_To_v1alpha1_TrillianSpec(in *v1.TrillianSpec, out *
 func Convert_v1_TufSpec_To_v1alpha1_TufSpec(in *v1.TufSpec, out *TufSpec, s apiconversion.Scope) error {
 	return autoConvert_v1_TufSpec_To_v1alpha1_TufSpec(in, out, s)
 }
+
+// Manual conversion for Pvc to properly convert AccessModes slice
+func Convert_v1alpha1_Pvc_To_v1_Pvc(in *Pvc, out *v1.Pvc, s apiconversion.Scope) error {
+	out.Size = in.Size
+	out.Retain = in.Retain
+	out.Name = in.Name
+	out.StorageClass = in.StorageClass
+
+	// Convert AccessModes properly element by element
+	if in.AccessModes != nil {
+		out.AccessModes = make([]v1.PersistentVolumeAccessMode, len(in.AccessModes))
+		for i, mode := range in.AccessModes {
+			out.AccessModes[i] = v1.PersistentVolumeAccessMode(mode)
+		}
+	}
+	return nil
+}
+
+func Convert_v1_Pvc_To_v1alpha1_Pvc(in *v1.Pvc, out *Pvc, s apiconversion.Scope) error {
+	out.Size = in.Size
+	out.Retain = in.Retain
+	out.Name = in.Name
+	out.StorageClass = in.StorageClass
+
+	// Convert AccessModes properly element by element
+	if in.AccessModes != nil {
+		out.AccessModes = make([]PersistentVolumeAccessMode, len(in.AccessModes))
+		for i, mode := range in.AccessModes {
+			out.AccessModes[i] = PersistentVolumeAccessMode(mode)
+		}
+	}
+	return nil
+}
+
+// Manual conversion for TufPvc to properly convert AccessModes slice
+func Convert_v1alpha1_TufPvc_To_v1_TufPvc(in *TufPvc, out *v1.TufPvc, s apiconversion.Scope) error {
+	out.Size = in.Size
+	out.Retain = in.Retain
+	out.Name = in.Name
+	out.StorageClass = in.StorageClass
+
+	// Convert AccessModes properly element by element
+	if in.AccessModes != nil {
+		out.AccessModes = make([]v1.PersistentVolumeAccessMode, len(in.AccessModes))
+		for i, mode := range in.AccessModes {
+			out.AccessModes[i] = v1.PersistentVolumeAccessMode(mode)
+		}
+	}
+	return nil
+}
+
+func Convert_v1_TufPvc_To_v1alpha1_TufPvc(in *v1.TufPvc, out *TufPvc, s apiconversion.Scope) error {
+	out.Size = in.Size
+	out.Retain = in.Retain
+	out.Name = in.Name
+	out.StorageClass = in.StorageClass
+
+	// Convert AccessModes properly element by element
+	if in.AccessModes != nil {
+		out.AccessModes = make([]PersistentVolumeAccessMode, len(in.AccessModes))
+		for i, mode := range in.AccessModes {
+			out.AccessModes[i] = PersistentVolumeAccessMode(mode)
+		}
+	}
+	return nil
+}
