@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func WithRule[T apis.ConditionsAwareObject](rule rbacv1.PolicyRule) func(action2 *rbacAction[T]) {
@@ -104,7 +103,7 @@ func (i rbacAction[T]) handleServiceAccount(ctx context.Context, instance T) *ac
 		ensure.ControllerReference[*v1.ServiceAccount](instance, i.Client),
 		ensure.Labels[*v1.ServiceAccount](slices.Collect(maps.Keys(l)), l),
 	); err != nil {
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create SA: %w", err)), instance)
+		return i.Error(ctx, fmt.Errorf("could not create SA: %w", err), instance)
 	}
 
 	return i.Continue()
@@ -136,7 +135,7 @@ func (i rbacAction[T]) handleRole(ctx context.Context, instance T) *action.Resul
 		ensure.Labels[*rbacv1.Role](slices.Collect(maps.Keys(l)), l),
 		kubernetes.EnsureRoleRules(i.rules...),
 	); err != nil {
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create Role: %w", err)), instance)
+		return i.Error(ctx, fmt.Errorf("could not create Role: %w", err), instance)
 	}
 
 	return i.Continue()
@@ -175,7 +174,7 @@ func (i rbacAction[T]) handleRoleBinding(ctx context.Context, instance T) *actio
 			rbacv1.Subject{Kind: "ServiceAccount", Name: i.rbacName, Namespace: instance.GetNamespace()},
 		),
 	); err != nil {
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not create RoleBinding: %w", err)), instance)
+		return i.Error(ctx, fmt.Errorf("could not create RoleBinding: %w", err), instance)
 	}
 
 	return i.Continue()
