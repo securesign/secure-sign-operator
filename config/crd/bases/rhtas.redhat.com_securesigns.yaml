@@ -11197,7 +11197,7 @@ spec:
                 for replicas greater than 1.
               rule: (has(self.rekor.attestations.enabled) && !self.rekor.attestations.enabled)
                 || !self.rekor.attestations.url.startsWith('file://') || (!(self.rekor.replicas
-                > 1) || ('ReadWriteMany' in self.rekor.pvc.accessModes))
+                > 1) || ('ReadWriteMany' in self.rekor.attestations.pvc.accessModes))
             - message: For TUF deployments with more than 1 replica, tuf.pvc.accessModes
                 must include 'ReadWriteMany'.
               rule: '!(self.tuf.replicas > 1) || (''ReadWriteMany'' in self.tuf.pvc.accessModes)'
@@ -22294,7 +22294,7 @@ spec:
                 for replicas greater than 1.
               rule: (has(self.rekor.attestations.enabled) && !self.rekor.attestations.enabled)
                 || !self.rekor.attestations.url.startsWith('file://') || (!(self.rekor.replicas
-                > 1) || ('ReadWriteMany' in self.rekor.pvc.accessModes))
+                > 1) || ('ReadWriteMany' in self.rekor.attestations.pvc.accessModes))
             - message: For TUF deployments with more than 1 replica, tuf.pvc.accessModes
                 must include 'ReadWriteMany'.
               rule: '!(self.tuf.replicas > 1) || (''ReadWriteMany'' in self.tuf.pvc.accessModes)'

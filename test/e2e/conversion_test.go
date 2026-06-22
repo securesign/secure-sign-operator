@@ -99,6 +99,22 @@ var _ = Describe("Conversion webhook", Ordered, func() {
 
 			Expect(v1Obj.Status.Url).ToNot(BeEmpty())
 			Expect(v1Obj.Status.Url).To(Equal(v1alpha1Obj.Status.Url))
+
+			By("verifying attestations config is preserved")
+			Expect(v1Obj.Spec.Attestations.Enabled).To(Equal(v1alpha1Obj.Spec.Attestations.Enabled))
+			Expect(v1Obj.Spec.Attestations.Url).To(Equal(v1alpha1Obj.Spec.Attestations.Url))
+			Expect(v1Obj.Spec.Attestations.MaxSize).To(Equal(v1alpha1Obj.Spec.Attestations.MaxSize))
+
+			By("verifying attestations PVC config is preserved")
+			Expect(v1Obj.Spec.Attestations.Pvc.Size).To(Equal(v1alpha1Obj.Spec.Attestations.Pvc.Size))
+			Expect(v1Obj.Spec.Attestations.Pvc.Retain).To(Equal(v1alpha1Obj.Spec.Attestations.Pvc.Retain))
+			Expect(v1Obj.Spec.Attestations.Pvc.AccessModes).To(Equal(v1alpha1Obj.Spec.Attestations.Pvc.AccessModes))
+			if v1Obj.Spec.Attestations.Pvc.StorageClass != "" {
+				Expect(v1Obj.Spec.Attestations.Pvc.StorageClass).To(Equal(v1alpha1Obj.Spec.Attestations.Pvc.StorageClass))
+			}
+			if v1Obj.Spec.Attestations.Pvc.Name != "" {
+				Expect(v1Obj.Spec.Attestations.Pvc.Name).To(Equal(v1alpha1Obj.Spec.Attestations.Pvc.Name))
+			}
 		})
 	})
 

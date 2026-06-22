@@ -208,7 +208,7 @@ var _ = Describe("Rekor", func() {
 				invalidObject.Spec.Attestations.Pvc.Name = "-invalid-name!"
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("spec.pvc.name in body should match")))
+					To(MatchError(ContainSubstring("spec.attestations.pvc.name in body should match")))
 			})
 		})
 
