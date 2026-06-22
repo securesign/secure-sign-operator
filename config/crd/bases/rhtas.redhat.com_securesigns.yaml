@@ -978,6 +978,28 @@ spec:
                             x-kubernetes-list-type: atomic
                         type: object
                     type: object
+                  imagePullSecrets:
+                    description: |-
+                      ImagePullSecrets is an optional list of references to secrets in the same namespace
+                      to use for pulling container images used by this component.
+                      More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
+                    items:
+                      description: |-
+                        LocalObjectReference contains enough information to let you locate the
+                        referenced object inside the same namespace.
+                      properties:
+                        name:
+                          default: ""
+                          description: |-
+                            Name of the referent.
+                            This field is effectively required, but due to backwards compatibility is
+                            allowed to be empty. Instances of this type with an empty value here are
+                            almost certainly wrong.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    type: array
                   maxCertChainSize:
                     default: 153600
                     description: Max certificate chain size in bytes. Passed as --max_cert_chain_size.
@@ -2555,6 +2577,28 @@ spec:
                     required:
                     - enabled
                     type: object
+                  imagePullSecrets:
+                    description: |-
+                      ImagePullSecrets is an optional list of references to secrets in the same namespace
+                      to use for pulling container images used by this component.
+                      More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
+                    items:
+                      description: |-
+                        LocalObjectReference contains enough information to let you locate the
+                        referenced object inside the same namespace.
+                      properties:
+                        name:
+                          default: ""
+                          description: |-
+                            Name of the referent.
+                            This field is effectively required, but due to backwards compatibility is
+                            allowed to be empty. Instances of this type with an empty value here are
+                            almost certainly wrong.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    type: array
                   monitoring:
                     description: Enable Service monitors for fulcio
                     properties:
@@ -3900,6 +3944,28 @@ spec:
                     required:
                     - enabled
                     type: object
+                  imagePullSecrets:
+                    description: |-
+                      ImagePullSecrets is an optional list of references to secrets in the same namespace
+                      to use for pulling container images used by this component.
+                      More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
+                    items:
+                      description: |-
+                        LocalObjectReference contains enough information to let you locate the
+                        referenced object inside the same namespace.
+                      properties:
+                        name:
+                          default: ""
+                          description: |-
+                            Name of the referent.
+                            This field is effectively required, but due to backwards compatibility is
+                            allowed to be empty. Instances of this type with an empty value here are
+                            almost certainly wrong.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    type: array
                   maxRequestBodySize:
                     default: 10485760
                     description: MaxRequestBodySize sets the maximum size in bytes
@@ -5729,6 +5795,28 @@ spec:
                     required:
                     - create
                     type: object
+                  imagePullSecrets:
+                    description: |-
+                      ImagePullSecrets is an optional list of references to secrets in the same namespace
+                      to use for pulling container images used by this component.
+                      More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
+                    items:
+                      description: |-
+                        LocalObjectReference contains enough information to let you locate the
+                        referenced object inside the same namespace.
+                      properties:
+                        name:
+                          default: ""
+                          description: |-
+                            Name of the referent.
+                            This field is effectively required, but due to backwards compatibility is
+                            allowed to be empty. Instances of this type with an empty value here are
+                            almost certainly wrong.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    type: array
                   maxRecvMessageSize:
                     default: 153600
                     description: MaxRecvMessageSize sets the maximum size in bytes
@@ -8869,6 +8957,28 @@ spec:
                     required:
                     - enabled
                     type: object
+                  imagePullSecrets:
+                    description: |-
+                      ImagePullSecrets is an optional list of references to secrets in the same namespace
+                      to use for pulling container images used by this component.
+                      More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
+                    items:
+                      description: |-
+                        LocalObjectReference contains enough information to let you locate the
+                        referenced object inside the same namespace.
+                      properties:
+                        name:
+                          default: ""
+                          description: |-
+                            Name of the referent.
+                            This field is effectively required, but due to backwards compatibility is
+                            allowed to be empty. Instances of this type with an empty value here are
+                            almost certainly wrong.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    type: array
                   maxRequestBodySize:
                     default: 1048576
                     description: MaxRequestBodySize sets the maximum size in bytes
@@ -10765,6 +10875,28 @@ spec:
                         minimum: 1
                         type: integer
                     type: object
+                  imagePullSecrets:
+                    description: |-
+                      ImagePullSecrets is an optional list of references to secrets in the same namespace
+                      to use for pulling container images used by this component.
+                      More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
+                    items:
+                      description: |-
+                        LocalObjectReference contains enough information to let you locate the
+                        referenced object inside the same namespace.
+                      properties:
+                        name:
+                          default: ""
+                          description: |-
+                            Name of the referent.
+                            This field is effectively required, but due to backwards compatibility is
+                            allowed to be empty. Instances of this type with an empty value here are
+                            almost certainly wrong.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    type: array
                   keys:
                     default:
                     - name: rekor.pub

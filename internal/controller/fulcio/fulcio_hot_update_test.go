@@ -158,7 +158,9 @@ var _ = Describe("Fulcio hot update", func() {
 			Eventually(func(g Gomega) string {
 				found := &rhtasv1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
+				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				return cond.Reason
 			}).Should(Equal(state.Pending.String()))
 
 			By("Creating password secret with cert password")
@@ -177,7 +179,9 @@ var _ = Describe("Fulcio hot update", func() {
 			Eventually(func(g Gomega) string {
 				found := &rhtasv1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Certificate.PrivateKeyPasswordRef.Name
+				g.Expect(found.Status.Certificate).ToNot(BeNil())
+				g.Expect(found.Status.Certificate.PrivateKeyPasswordRef).ToNot(BeNil()) //nolint:staticcheck
+				return found.Status.Certificate.PrivateKeyPasswordRef.Name              //nolint:staticcheck
 			}).Should(Equal("password-secret"))
 
 			Eventually(func(g Gomega) bool {

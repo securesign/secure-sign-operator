@@ -14,44 +14,91 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1
+package v1alpha1
 
 import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/securesign/operator/api/v1alpha1"
+	rhtasv1 "github.com/securesign/operator/api/v1"
+	utilconversion "github.com/securesign/operator/internal/conversion"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
 
+// stripConversionData removes the conversion-data annotation that MarshalData
+// adds during hub->spoke conversion, so unit tests can compare spoke objects.
+func stripConversionData(obj metav1.Object) {
+	a := obj.GetAnnotations()
+	delete(a, utilconversion.DataAnnotation)
+	if len(a) == 0 {
+		a = nil
+	}
+	obj.SetAnnotations(a)
+}
+
 // conversionTestCase defines a single conversion test case.
 type conversionTestCase struct {
 	name  string
-	hub   func() *Securesign
-	spoke func() *v1alpha1.Securesign
+	hub   func() *rhtasv1.Securesign
+	spoke func() *Securesign
 }
 
 func TestSecuresignConversionUnit(t *testing.T) {
 	tests := []conversionTestCase{
 		{
 			name: "empty spec round-trips",
-			hub: func() *Securesign {
-				return &Securesign{
+			hub: func() *rhtasv1.Securesign {
+				return &rhtasv1.Securesign{
 					ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
 				}
 			},
-			spoke: func() *v1alpha1.Securesign {
-				return &v1alpha1.Securesign{
+			spoke: func() *Securesign {
+				return &Securesign{
 					ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
 				}
 			},
 		},
 		{
 			name: "full spec with all components",
-			hub: func() *Securesign {
+			hub: func() *rhtasv1.Securesign {
+				return &rhtasv1.Securesign{
+					ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+					Spec: rhtasv1.SecuresignSpec{
+						Rekor: rhtasv1.RekorSpec{
+							PodRequirements: rhtasv1.PodRequirements{Replicas: ptr.To[int32](2)},
+							TreeID:          ptr.To[int64](12345),
+							Signer:          rhtasv1.RekorSigner{KMS: "secret"},
+						},
+						Fulcio: rhtasv1.FulcioSpec{
+							Config: rhtasv1.FulcioConfig{
+								OIDCIssuers: []rhtasv1.OIDCIssuer{
+									{Issuer: "https://accounts.google.com", ClientID: "sigstore", Type: "email"},
+								},
+							},
+							Certificate: rhtasv1.FulcioCert{OrganizationName: "Red Hat"},
+						},
+						Trillian: rhtasv1.TrillianSpec{
+							Db: rhtasv1.TrillianDB{Create: ptr.To(true)},
+						},
+						Ctlog: rhtasv1.CTlogSpec{
+							TreeID: ptr.To[int64](67890),
+						},
+						TimestampAuthority: &rhtasv1.TimestampAuthoritySpec{
+							Signer: rhtasv1.TimestampAuthoritySigner{
+								CertificateChain: rhtasv1.CertificateChain{
+									RootCA: &rhtasv1.TsaCertificateAuthority{
+										OrganizationName: "Red Hat",
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			spoke: func() *Securesign {
 				return &Securesign{
 					ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
 					Spec: SecuresignSpec{
@@ -86,41 +133,6 @@ func TestSecuresignConversionUnit(t *testing.T) {
 					},
 				}
 			},
-			spoke: func() *v1alpha1.Securesign {
-				return &v1alpha1.Securesign{
-					ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
-					Spec: v1alpha1.SecuresignSpec{
-						Rekor: v1alpha1.RekorSpec{
-							PodRequirements: v1alpha1.PodRequirements{Replicas: ptr.To[int32](2)},
-							TreeID:          ptr.To[int64](12345),
-							Signer:          v1alpha1.RekorSigner{KMS: "secret"},
-						},
-						Fulcio: v1alpha1.FulcioSpec{
-							Config: v1alpha1.FulcioConfig{
-								OIDCIssuers: []v1alpha1.OIDCIssuer{
-									{Issuer: "https://accounts.google.com", ClientID: "sigstore", Type: "email"},
-								},
-							},
-							Certificate: v1alpha1.FulcioCert{OrganizationName: "Red Hat"},
-						},
-						Trillian: v1alpha1.TrillianSpec{
-							Db: v1alpha1.TrillianDB{Create: ptr.To(true)},
-						},
-						Ctlog: v1alpha1.CTlogSpec{
-							TreeID: ptr.To[int64](67890),
-						},
-						TimestampAuthority: &v1alpha1.TimestampAuthoritySpec{
-							Signer: v1alpha1.TimestampAuthoritySigner{
-								CertificateChain: v1alpha1.CertificateChain{
-									RootCA: &v1alpha1.TsaCertificateAuthority{
-										OrganizationName: "Red Hat",
-									},
-								},
-							},
-						},
-					},
-				}
-			},
 		},
 	}
 
@@ -129,13 +141,14 @@ func TestSecuresignConversionUnit(t *testing.T) {
 			hub := tt.hub()
 			expectedSpoke := tt.spoke()
 
-			gotSpoke := &v1alpha1.Securesign{}
+			gotSpoke := &Securesign{}
 			if err := gotSpoke.ConvertFrom(hub); err != nil {
 				t.Fatalf("ConvertFrom failed: %v", err)
 			}
 
+			stripConversionData(gotSpoke)
 			if !equality.Semantic.DeepEqual(expectedSpoke, gotSpoke) {
-				t.Errorf("v1 → v1alpha1 mismatch (-want +got):\n%s", cmp.Diff(expectedSpoke, gotSpoke))
+				t.Errorf("v1 -> v1alpha1 mismatch (-want +got):\n%s", cmp.Diff(expectedSpoke, gotSpoke))
 			}
 		})
 
@@ -143,13 +156,13 @@ func TestSecuresignConversionUnit(t *testing.T) {
 			spoke := tt.spoke()
 			expectedHub := tt.hub()
 
-			gotHub := &Securesign{}
+			gotHub := &rhtasv1.Securesign{}
 			if err := spoke.ConvertTo(gotHub); err != nil {
 				t.Fatalf("ConvertTo failed: %v", err)
 			}
 
 			if !equality.Semantic.DeepEqual(expectedHub, gotHub) {
-				t.Errorf("v1alpha1 → v1 mismatch (-want +got):\n%s", cmp.Diff(expectedHub, gotHub))
+				t.Errorf("v1alpha1 -> v1 mismatch (-want +got):\n%s", cmp.Diff(expectedHub, gotHub))
 			}
 		})
 	}
@@ -158,12 +171,20 @@ func TestSecuresignConversionUnit(t *testing.T) {
 func TestCTlogConversionUnit(t *testing.T) {
 	tests := []struct {
 		name  string
-		hub   *CTlog
-		spoke *v1alpha1.CTlog
+		hub   *rhtasv1.CTlog
+		spoke *CTlog
 	}{
 		{
 			name: "basic fields",
-			hub: &CTlog{
+			hub: &rhtasv1.CTlog{
+				ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"},
+				Spec: rhtasv1.CTlogSpec{
+					TreeID:           ptr.To[int64](999),
+					MaxCertChainSize: ptr.To[int64](153600),
+					Trillian:         rhtasv1.TrillianService{Address: "trillian:8091", Port: ptr.To[int32](8091)},
+				},
+			},
+			spoke: &CTlog{
 				ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"},
 				Spec: CTlogSpec{
 					TreeID:           ptr.To[int64](999),
@@ -171,18 +192,21 @@ func TestCTlogConversionUnit(t *testing.T) {
 					Trillian:         TrillianService{Address: "trillian:8091", Port: ptr.To[int32](8091)},
 				},
 			},
-			spoke: &v1alpha1.CTlog{
-				ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"},
-				Spec: v1alpha1.CTlogSpec{
-					TreeID:           ptr.To[int64](999),
-					MaxCertChainSize: ptr.To[int64](153600),
-					Trillian:         v1alpha1.TrillianService{Address: "trillian:8091", Port: ptr.To[int32](8091)},
-				},
-			},
 		},
 		{
 			name: "key refs and root certificates",
-			hub: &CTlog{
+			hub: &rhtasv1.CTlog{
+				ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"},
+				Spec: rhtasv1.CTlogSpec{
+					PrivateKeyRef:         &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-secret"}, Key: "private"},
+					PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-secret"}, Key: "password"},
+					PublicKeyRef:          &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-secret"}, Key: "public"},
+					RootCertificates: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "root-cert"}, Key: "ca.crt"},
+					},
+				},
+			},
+			spoke: &CTlog{
 				ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"},
 				Spec: CTlogSpec{
 					PrivateKeyRef:         &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "ctlog-secret"}, Key: "private"},
@@ -193,32 +217,22 @@ func TestCTlogConversionUnit(t *testing.T) {
 					},
 				},
 			},
-			spoke: &v1alpha1.CTlog{
-				ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"},
-				Spec: v1alpha1.CTlogSpec{
-					PrivateKeyRef:         &v1alpha1.SecretKeySelector{LocalObjectReference: v1alpha1.LocalObjectReference{Name: "ctlog-secret"}, Key: "private"},
-					PrivateKeyPasswordRef: &v1alpha1.SecretKeySelector{LocalObjectReference: v1alpha1.LocalObjectReference{Name: "ctlog-secret"}, Key: "password"},
-					PublicKeyRef:          &v1alpha1.SecretKeySelector{LocalObjectReference: v1alpha1.LocalObjectReference{Name: "ctlog-secret"}, Key: "public"},
-					RootCertificates: []v1alpha1.SecretKeySelector{
-						{LocalObjectReference: v1alpha1.LocalObjectReference{Name: "root-cert"}, Key: "ca.crt"},
-					},
-				},
-			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name+"/v1_to_v1alpha1", func(t *testing.T) {
-			gotSpoke := &v1alpha1.CTlog{}
+			gotSpoke := &CTlog{}
 			if err := gotSpoke.ConvertFrom(tt.hub); err != nil {
 				t.Fatalf("ConvertFrom failed: %v", err)
 			}
+			stripConversionData(gotSpoke)
 			if !equality.Semantic.DeepEqual(tt.spoke, gotSpoke) {
 				t.Errorf("mismatch (-want +got):\n%s", cmp.Diff(tt.spoke, gotSpoke))
 			}
 		})
 		t.Run(tt.name+"/v1alpha1_to_v1", func(t *testing.T) {
-			gotHub := &CTlog{}
+			gotHub := &rhtasv1.CTlog{}
 			if err := tt.spoke.ConvertTo(gotHub); err != nil {
 				t.Fatalf("ConvertTo failed: %v", err)
 			}
@@ -232,12 +246,29 @@ func TestCTlogConversionUnit(t *testing.T) {
 func TestRekorConversionUnit(t *testing.T) {
 	tests := []struct {
 		name  string
-		hub   *Rekor
-		spoke *v1alpha1.Rekor
+		hub   *rhtasv1.Rekor
+		spoke *Rekor
 	}{
 		{
 			name: "basic fields with PVC and attestations",
-			hub: &Rekor{
+			hub: &rhtasv1.Rekor{
+				ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
+				Spec: rhtasv1.RekorSpec{
+					TreeID:   ptr.To[int64](111),
+					Trillian: rhtasv1.TrillianService{Address: "trillian:8091", Port: ptr.To[int32](8091)},
+					Pvc: rhtasv1.Pvc{
+						Size:   ptr.To(resource.MustParse("5Gi")),
+						Retain: ptr.To(true),
+					},
+					Attestations: rhtasv1.RekorAttestations{
+						Enabled: ptr.To(true),
+						Url:     "file:///var/run/attestations?no_tmp_dir=true",
+					},
+					Signer:    rhtasv1.RekorSigner{KMS: "secret"},
+					TrustedCA: &rhtasv1.LocalObjectReference{Name: "trusted-ca"},
+				},
+			},
+			spoke: &Rekor{
 				ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
 				Spec: RekorSpec{
 					TreeID:   ptr.To[int64](111),
@@ -254,27 +285,19 @@ func TestRekorConversionUnit(t *testing.T) {
 					TrustedCA: &LocalObjectReference{Name: "trusted-ca"},
 				},
 			},
-			spoke: &v1alpha1.Rekor{
-				ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
-				Spec: v1alpha1.RekorSpec{
-					TreeID:   ptr.To[int64](111),
-					Trillian: v1alpha1.TrillianService{Address: "trillian:8091", Port: ptr.To[int32](8091)},
-					Pvc: v1alpha1.Pvc{
-						Size:   ptr.To(resource.MustParse("5Gi")),
-						Retain: ptr.To(true),
-					},
-					Attestations: v1alpha1.RekorAttestations{
-						Enabled: ptr.To(true),
-						Url:     "file:///var/run/attestations?no_tmp_dir=true",
-					},
-					Signer:    v1alpha1.RekorSigner{KMS: "secret"},
-					TrustedCA: &v1alpha1.LocalObjectReference{Name: "trusted-ca"},
-				},
-			},
 		},
 		{
 			name: "sharding and search index",
-			hub: &Rekor{
+			hub: &rhtasv1.Rekor{
+				ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
+				Spec: rhtasv1.RekorSpec{
+					Sharding: []rhtasv1.RekorLogRange{
+						{TreeID: 100, TreeLength: 50000, EncodedPublicKey: "dGVzdA=="},
+					},
+					SearchIndex: rhtasv1.SearchIndex{Create: ptr.To(true)},
+				},
+			},
+			spoke: &Rekor{
 				ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
 				Spec: RekorSpec{
 					Sharding: []RekorLogRange{
@@ -283,30 +306,22 @@ func TestRekorConversionUnit(t *testing.T) {
 					SearchIndex: SearchIndex{Create: ptr.To(true)},
 				},
 			},
-			spoke: &v1alpha1.Rekor{
-				ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
-				Spec: v1alpha1.RekorSpec{
-					Sharding: []v1alpha1.RekorLogRange{
-						{TreeID: 100, TreeLength: 50000, EncodedPublicKey: "dGVzdA=="},
-					},
-					SearchIndex: v1alpha1.SearchIndex{Create: ptr.To(true)},
-				},
-			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name+"/v1_to_v1alpha1", func(t *testing.T) {
-			gotSpoke := &v1alpha1.Rekor{}
+			gotSpoke := &Rekor{}
 			if err := gotSpoke.ConvertFrom(tt.hub); err != nil {
 				t.Fatalf("ConvertFrom failed: %v", err)
 			}
+			stripConversionData(gotSpoke)
 			if !equality.Semantic.DeepEqual(tt.spoke, gotSpoke) {
 				t.Errorf("mismatch (-want +got):\n%s", cmp.Diff(tt.spoke, gotSpoke))
 			}
 		})
 		t.Run(tt.name+"/v1alpha1_to_v1", func(t *testing.T) {
-			gotHub := &Rekor{}
+			gotHub := &rhtasv1.Rekor{}
 			if err := tt.spoke.ConvertTo(gotHub); err != nil {
 				t.Fatalf("ConvertTo failed: %v", err)
 			}
@@ -320,12 +335,31 @@ func TestRekorConversionUnit(t *testing.T) {
 func TestFulcioConversionUnit(t *testing.T) {
 	tests := []struct {
 		name  string
-		hub   *Fulcio
-		spoke *v1alpha1.Fulcio
+		hub   *rhtasv1.Fulcio
+		spoke *Fulcio
 	}{
 		{
 			name: "OIDC issuers and certificate",
-			hub: &Fulcio{
+			hub: &rhtasv1.Fulcio{
+				ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: "default"},
+				Spec: rhtasv1.FulcioSpec{
+					Config: rhtasv1.FulcioConfig{
+						OIDCIssuers: []rhtasv1.OIDCIssuer{
+							{Issuer: "https://accounts.google.com", ClientID: "sigstore", Type: "email"},
+							{Issuer: "https://token.actions.githubusercontent.com", ClientID: "sigstore", Type: "github-workflow", CIProvider: "github"},
+						},
+						MetaIssuers: []rhtasv1.OIDCIssuer{
+							{Issuer: "https://oidc.eks.*.amazonaws.com/id/*", ClientID: "sigstore", Type: "kubernetes"},
+						},
+					},
+					Certificate: rhtasv1.FulcioCert{
+						OrganizationName: "Red Hat",
+						CommonName:       "fulcio.example.com",
+					},
+					TrustedCA: &rhtasv1.LocalObjectReference{Name: "ca-bundle"},
+				},
+			},
+			spoke: &Fulcio{
 				ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: "default"},
 				Spec: FulcioSpec{
 					Config: FulcioConfig{
@@ -344,40 +378,22 @@ func TestFulcioConversionUnit(t *testing.T) {
 					TrustedCA: &LocalObjectReference{Name: "ca-bundle"},
 				},
 			},
-			spoke: &v1alpha1.Fulcio{
-				ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: "default"},
-				Spec: v1alpha1.FulcioSpec{
-					Config: v1alpha1.FulcioConfig{
-						OIDCIssuers: []v1alpha1.OIDCIssuer{
-							{Issuer: "https://accounts.google.com", ClientID: "sigstore", Type: "email"},
-							{Issuer: "https://token.actions.githubusercontent.com", ClientID: "sigstore", Type: "github-workflow", CIProvider: "github"},
-						},
-						MetaIssuers: []v1alpha1.OIDCIssuer{
-							{Issuer: "https://oidc.eks.*.amazonaws.com/id/*", ClientID: "sigstore", Type: "kubernetes"},
-						},
-					},
-					Certificate: v1alpha1.FulcioCert{
-						OrganizationName: "Red Hat",
-						CommonName:       "fulcio.example.com",
-					},
-					TrustedCA: &v1alpha1.LocalObjectReference{Name: "ca-bundle"},
-				},
-			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name+"/v1_to_v1alpha1", func(t *testing.T) {
-			gotSpoke := &v1alpha1.Fulcio{}
+			gotSpoke := &Fulcio{}
 			if err := gotSpoke.ConvertFrom(tt.hub); err != nil {
 				t.Fatalf("ConvertFrom failed: %v", err)
 			}
+			stripConversionData(gotSpoke)
 			if !equality.Semantic.DeepEqual(tt.spoke, gotSpoke) {
 				t.Errorf("mismatch (-want +got):\n%s", cmp.Diff(tt.spoke, gotSpoke))
 			}
 		})
 		t.Run(tt.name+"/v1alpha1_to_v1", func(t *testing.T) {
-			gotHub := &Fulcio{}
+			gotHub := &rhtasv1.Fulcio{}
 			if err := tt.spoke.ConvertTo(gotHub); err != nil {
 				t.Fatalf("ConvertTo failed: %v", err)
 			}
@@ -391,12 +407,30 @@ func TestFulcioConversionUnit(t *testing.T) {
 func TestTrillianConversionUnit(t *testing.T) {
 	tests := []struct {
 		name  string
-		hub   *Trillian
-		spoke *v1alpha1.Trillian
+		hub   *rhtasv1.Trillian
+		spoke *Trillian
 	}{
 		{
 			name: "database with TLS and auth",
-			hub: &Trillian{
+			hub: &rhtasv1.Trillian{
+				ObjectMeta: metav1.ObjectMeta{Name: "trillian", Namespace: "default"},
+				Spec: rhtasv1.TrillianSpec{
+					Db: rhtasv1.TrillianDB{
+						Create:   ptr.To(true),
+						Provider: "mysql",
+						Pvc: rhtasv1.Pvc{
+							Size:   ptr.To(resource.MustParse("5Gi")),
+							Retain: ptr.To(true),
+						},
+						TLS: rhtasv1.TLS{
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "db-tls"}, Key: "tls.key"},
+							CertRef:       &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "db-tls"}, Key: "tls.crt"},
+						},
+					},
+					MaxRecvMessageSize: ptr.To[int64](153600),
+				},
+			},
+			spoke: &Trillian{
 				ObjectMeta: metav1.ObjectMeta{Name: "trillian", Namespace: "default"},
 				Spec: TrillianSpec{
 					Db: TrillianDB{
@@ -414,22 +448,57 @@ func TestTrillianConversionUnit(t *testing.T) {
 					MaxRecvMessageSize: ptr.To[int64](153600),
 				},
 			},
-			spoke: &v1alpha1.Trillian{
+		},
+		{
+			name: "fully populated status",
+			hub: &rhtasv1.Trillian{
 				ObjectMeta: metav1.ObjectMeta{Name: "trillian", Namespace: "default"},
-				Spec: v1alpha1.TrillianSpec{
-					Db: v1alpha1.TrillianDB{
-						Create:   ptr.To(true),
-						Provider: "mysql",
-						Pvc: v1alpha1.Pvc{
-							Size:   ptr.To(resource.MustParse("5Gi")),
-							Retain: ptr.To(true),
-						},
-						TLS: v1alpha1.TLS{
-							PrivateKeyRef: &v1alpha1.SecretKeySelector{LocalObjectReference: v1alpha1.LocalObjectReference{Name: "db-tls"}, Key: "tls.key"},
-							CertRef:       &v1alpha1.SecretKeySelector{LocalObjectReference: v1alpha1.LocalObjectReference{Name: "db-tls"}, Key: "tls.crt"},
+				Status: rhtasv1.TrillianStatus{
+					Db: rhtasv1.TrillianDBStatus{
+						PvcName:           "trillian-db",
+						DatabaseSecretRef: &rhtasv1.LocalObjectReference{Name: "db-credentials"},
+						TLS: rhtasv1.TLS{
+							CertRef:       &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "db-tls"}, Key: "tls.crt"},
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "db-tls"}, Key: "tls.key"},
 						},
 					},
-					MaxRecvMessageSize: ptr.To[int64](153600),
+					LogServer: rhtasv1.TrillianServiceStatus{
+						TLS: rhtasv1.TLS{
+							CertRef:       &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "server-tls"}, Key: "tls.crt"},
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "server-tls"}, Key: "tls.key"},
+						},
+					},
+					LogSigner: rhtasv1.TrillianServiceStatus{
+						TLS: rhtasv1.TLS{
+							CertRef:       &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "signer-tls"}, Key: "tls.crt"},
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "signer-tls"}, Key: "tls.key"},
+						},
+					},
+				},
+			},
+			spoke: &Trillian{
+				ObjectMeta: metav1.ObjectMeta{Name: "trillian", Namespace: "default"},
+				Status: TrillianStatus{
+					Db: TrillianDB{
+						Pvc:               Pvc{Name: "trillian-db"},
+						DatabaseSecretRef: &LocalObjectReference{Name: "db-credentials"},
+						TLS: TLS{
+							CertRef:       &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "db-tls"}, Key: "tls.crt"},
+							PrivateKeyRef: &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "db-tls"}, Key: "tls.key"},
+						},
+					},
+					LogServer: TrillianLogServer{
+						TLS: TLS{
+							CertRef:       &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "server-tls"}, Key: "tls.crt"},
+							PrivateKeyRef: &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "server-tls"}, Key: "tls.key"},
+						},
+					},
+					LogSigner: TrillianLogSigner{
+						TLS: TLS{
+							CertRef:       &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "signer-tls"}, Key: "tls.crt"},
+							PrivateKeyRef: &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "signer-tls"}, Key: "tls.key"},
+						},
+					},
 				},
 			},
 		},
@@ -437,16 +506,17 @@ func TestTrillianConversionUnit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name+"/v1_to_v1alpha1", func(t *testing.T) {
-			gotSpoke := &v1alpha1.Trillian{}
+			gotSpoke := &Trillian{}
 			if err := gotSpoke.ConvertFrom(tt.hub); err != nil {
 				t.Fatalf("ConvertFrom failed: %v", err)
 			}
+			stripConversionData(gotSpoke)
 			if !equality.Semantic.DeepEqual(tt.spoke, gotSpoke) {
 				t.Errorf("mismatch (-want +got):\n%s", cmp.Diff(tt.spoke, gotSpoke))
 			}
 		})
 		t.Run(tt.name+"/v1alpha1_to_v1", func(t *testing.T) {
-			gotHub := &Trillian{}
+			gotHub := &rhtasv1.Trillian{}
 			if err := tt.spoke.ConvertTo(gotHub); err != nil {
 				t.Fatalf("ConvertTo failed: %v", err)
 			}
@@ -460,12 +530,26 @@ func TestTrillianConversionUnit(t *testing.T) {
 func TestTufConversionUnit(t *testing.T) {
 	tests := []struct {
 		name  string
-		hub   *Tuf
-		spoke *v1alpha1.Tuf
+		hub   *rhtasv1.Tuf
+		spoke *Tuf
 	}{
 		{
 			name: "keys and service references",
-			hub: &Tuf{
+			hub: &rhtasv1.Tuf{
+				ObjectMeta: metav1.ObjectMeta{Name: "tuf", Namespace: "default"},
+				Spec: rhtasv1.TufSpec{
+					Port: 80,
+					Keys: []rhtasv1.TufKey{
+						{Name: "rekor.pub"},
+						{Name: "ctfe.pub"},
+						{Name: "fulcio_v1.crt.pem"},
+					},
+					Ctlog:  rhtasv1.CtlogService{Address: "ctlog:6963", Prefix: "trusted-artifact-signer"},
+					Fulcio: rhtasv1.FulcioService{Address: "fulcio:5554"},
+					Rekor:  rhtasv1.RekorService{Address: "rekor:3000"},
+				},
+			},
+			spoke: &Tuf{
 				ObjectMeta: metav1.ObjectMeta{Name: "tuf", Namespace: "default"},
 				Spec: TufSpec{
 					Port: 80,
@@ -479,35 +563,22 @@ func TestTufConversionUnit(t *testing.T) {
 					Rekor:  RekorService{Address: "rekor:3000"},
 				},
 			},
-			spoke: &v1alpha1.Tuf{
-				ObjectMeta: metav1.ObjectMeta{Name: "tuf", Namespace: "default"},
-				Spec: v1alpha1.TufSpec{
-					Port: 80,
-					Keys: []v1alpha1.TufKey{
-						{Name: "rekor.pub"},
-						{Name: "ctfe.pub"},
-						{Name: "fulcio_v1.crt.pem"},
-					},
-					Ctlog:  v1alpha1.CtlogService{Address: "ctlog:6963", Prefix: "trusted-artifact-signer"},
-					Fulcio: v1alpha1.FulcioService{Address: "fulcio:5554"},
-					Rekor:  v1alpha1.RekorService{Address: "rekor:3000"},
-				},
-			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name+"/v1_to_v1alpha1", func(t *testing.T) {
-			gotSpoke := &v1alpha1.Tuf{}
+			gotSpoke := &Tuf{}
 			if err := gotSpoke.ConvertFrom(tt.hub); err != nil {
 				t.Fatalf("ConvertFrom failed: %v", err)
 			}
+			stripConversionData(gotSpoke)
 			if !equality.Semantic.DeepEqual(tt.spoke, gotSpoke) {
 				t.Errorf("mismatch (-want +got):\n%s", cmp.Diff(tt.spoke, gotSpoke))
 			}
 		})
 		t.Run(tt.name+"/v1alpha1_to_v1", func(t *testing.T) {
-			gotHub := &Tuf{}
+			gotHub := &rhtasv1.Tuf{}
 			if err := tt.spoke.ConvertTo(gotHub); err != nil {
 				t.Fatalf("ConvertTo failed: %v", err)
 			}
@@ -521,12 +592,36 @@ func TestTufConversionUnit(t *testing.T) {
 func TestTimestampAuthorityConversionUnit(t *testing.T) {
 	tests := []struct {
 		name  string
-		hub   *TimestampAuthority
-		spoke *v1alpha1.TimestampAuthority
+		hub   *rhtasv1.TimestampAuthority
+		spoke *TimestampAuthority
 	}{
 		{
 			name: "KMS signer with auth",
-			hub: &TimestampAuthority{
+			hub: &rhtasv1.TimestampAuthority{
+				ObjectMeta: metav1.ObjectMeta{Name: "tsa", Namespace: "default"},
+				Spec: rhtasv1.TimestampAuthoritySpec{
+					Signer: rhtasv1.TimestampAuthoritySigner{
+						CertificateChain: rhtasv1.CertificateChain{
+							CertificateChainRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tsa-chain"},
+								Key:                  "chain.pem",
+							},
+						},
+						Kms: &rhtasv1.KMS{
+							KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k/cryptoKeyVersions/1",
+							Auth: &rhtasv1.Auth{
+								SecretMount: []rhtasv1.SecretKeySelector{
+									{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "gcp-creds"}, Key: "credentials.json"},
+								},
+							},
+						},
+					},
+					NTPMonitoring: rhtasv1.NTPMonitoring{
+						Enabled: true,
+					},
+				},
+			},
+			spoke: &TimestampAuthority{
 				ObjectMeta: metav1.ObjectMeta{Name: "tsa", Namespace: "default"},
 				Spec: TimestampAuthoritySpec{
 					Signer: TimestampAuthoritySigner{
@@ -550,45 +645,22 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 					},
 				},
 			},
-			spoke: &v1alpha1.TimestampAuthority{
-				ObjectMeta: metav1.ObjectMeta{Name: "tsa", Namespace: "default"},
-				Spec: v1alpha1.TimestampAuthoritySpec{
-					Signer: v1alpha1.TimestampAuthoritySigner{
-						CertificateChain: v1alpha1.CertificateChain{
-							CertificateChainRef: &v1alpha1.SecretKeySelector{
-								LocalObjectReference: v1alpha1.LocalObjectReference{Name: "tsa-chain"},
-								Key:                  "chain.pem",
-							},
-						},
-						Kms: &v1alpha1.KMS{
-							KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k/cryptoKeyVersions/1",
-							Auth: &v1alpha1.Auth{
-								SecretMount: []v1alpha1.SecretKeySelector{
-									{LocalObjectReference: v1alpha1.LocalObjectReference{Name: "gcp-creds"}, Key: "credentials.json"},
-								},
-							},
-						},
-					},
-					NTPMonitoring: v1alpha1.NTPMonitoring{
-						Enabled: true,
-					},
-				},
-			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name+"/v1_to_v1alpha1", func(t *testing.T) {
-			gotSpoke := &v1alpha1.TimestampAuthority{}
+			gotSpoke := &TimestampAuthority{}
 			if err := gotSpoke.ConvertFrom(tt.hub); err != nil {
 				t.Fatalf("ConvertFrom failed: %v", err)
 			}
+			stripConversionData(gotSpoke)
 			if !equality.Semantic.DeepEqual(tt.spoke, gotSpoke) {
 				t.Errorf("mismatch (-want +got):\n%s", cmp.Diff(tt.spoke, gotSpoke))
 			}
 		})
 		t.Run(tt.name+"/v1alpha1_to_v1", func(t *testing.T) {
-			gotHub := &TimestampAuthority{}
+			gotHub := &rhtasv1.TimestampAuthority{}
 			if err := tt.spoke.ConvertTo(gotHub); err != nil {
 				t.Fatalf("ConvertTo failed: %v", err)
 			}

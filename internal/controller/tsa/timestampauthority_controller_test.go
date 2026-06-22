@@ -169,13 +169,17 @@ var _ = Describe("TimestampAuthority Controller", func() {
 			By("Should be in a creating phase")
 			Eventually(func(g Gomega) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
+				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				return cond.Reason
 			}).Should(Equal(state.Creating.String()))
 
 			By("NTP monitoring should be resolved")
 			Eventually(func(g Gomega) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Message
+				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				return cond.Message
 			}).Should(Equal("Waiting for deployment to be ready"))
 
 			By("NTP monitoring config should be created")

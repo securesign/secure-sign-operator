@@ -12,7 +12,7 @@ const (
 	tsaKey    = "tsa.certchain.pem"
 )
 
-func secretsVolumeProjection(keys []rhtasv1.TufKey) *core.ProjectedVolumeSource {
+func secretsVolumeProjection(keys []rhtasv1.TufKeyStatus) *core.ProjectedVolumeSource {
 
 	projections := make([]core.VolumeProjection, 0, len(keys))
 

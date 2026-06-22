@@ -127,10 +127,10 @@ var _ = Describe("Trillian controller", func() {
 			By("Database PVC created")
 			Eventually(func(g Gomega) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Db.Pvc.Name
+				return found.Status.Db.PvcName
 			}).Should(Not(BeEmpty()))
 
-			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Db.Pvc.Name, Namespace: Namespace}, &corev1.PersistentVolumeClaim{})).Should(Succeed())
+			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Db.PvcName, Namespace: Namespace}, &corev1.PersistentVolumeClaim{})).Should(Succeed())
 
 			By("Database SVC created")
 			Eventually(func() error {
@@ -161,7 +161,9 @@ var _ = Describe("Trillian controller", func() {
 			Eventually(func(g Gomega) string {
 				found := &rhtasv1.Trillian{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
+				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				return cond.Reason
 			}).Should(Equal(state.Initialize.String()))
 
 			By("Move to Ready phase")

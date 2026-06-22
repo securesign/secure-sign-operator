@@ -113,7 +113,7 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 .PHONY: generate
-generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+generate: controller-gen generate-conversion ## Generate code containing DeepCopy, DeepCopyInto, DeepCopyObject and conversion method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 	go generate ./...
 
@@ -246,12 +246,14 @@ CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
 ENVTEST ?= $(LOCALBIN)/setup-envtest-$(ENVTEST_VERSION)
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 CUSTOM_GOLANGCI_LINT = $(LOCALBIN)/custom-gcl
+CONVERSION_GEN ?= $(LOCALBIN)/conversion-gen-$(CONVERSION_GEN_VERSION)
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.6.0
 CONTROLLER_TOOLS_VERSION ?= v0.17.0
 ENVTEST_VERSION ?= release-0.20
 GOLANGCI_LINT_VERSION ?= v2.12.2
+CONVERSION_GEN_VERSION ?= v0.36.1
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -272,6 +274,18 @@ $(ENVTEST): $(LOCALBIN)
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
 	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/v2/cmd/golangci-lint,${GOLANGCI_LINT_VERSION})
+
+.PHONY: conversion-gen
+conversion-gen: $(CONVERSION_GEN) ## Download conversion-gen locally if necessary.
+$(CONVERSION_GEN): $(LOCALBIN)
+	$(call go-install-tool,$(CONVERSION_GEN),k8s.io/code-generator/cmd/conversion-gen,$(CONVERSION_GEN_VERSION))
+
+.PHONY: generate-conversion
+generate-conversion: conversion-gen ## Generate conversion functions for API version migration.
+	$(CONVERSION_GEN) \
+		--go-header-file=./hack/boilerplate.go.txt \
+		--output-file=zz_generated.conversion.go \
+		./api/v1alpha1 ./api/v1
 
 .PHONY: custom-golangci-lint
 custom-golangci-lint: golangci-lint ## Build golangci-lint with action framework linter plugin.

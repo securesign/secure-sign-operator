@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,7 +34,8 @@ const (
 
 // TufSpec defines the desired state of Tuf
 type TufSpec struct {
-	PodRequirements `json:",inline"`
+	PodRequirements      `json:",inline"`
+	ServiceAccountConfig `json:",inline"`
 	// SigningConfigURLMode is deprecated. URL mode is now autoresolved from Component Custom Resources.
 	//+kubebuilder:default:=external
 	// +kubebuilder:validation:Deprecated=true
@@ -111,17 +113,39 @@ type TufKey struct {
 	SecretRef *SecretKeySelector `json:"secretRef,omitempty"`
 }
 
+type TufKeyStatus struct {
+	Name      string             `json:"name"`
+	SecretRef *SecretKeySelector `json:"secretRef,omitempty"`
+}
+
+func (s TufKeyStatus) MatchesSpec(spec TufKey) bool {
+	return spec.Name == s.Name &&
+		equality.Semantic.DeepDerivative(spec.SecretRef, s.SecretRef)
+}
+
 // TufStatus defines the observed state of Tuf
 type TufStatus struct {
-	Keys    []TufKey `json:"keys,omitempty"`
-	PvcName string   `json:"pvcName,omitempty"`
-	Url     string   `json:"url,omitempty"`
+	Keys    []TufKeyStatus `json:"keys,omitempty"`
+	PvcName string         `json:"pvcName,omitempty"`
+	Url     string         `json:"url,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge
 	// +patchMergeKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+}
+
+func (s TufStatus) MatchesKeys(specKeys []TufKey) bool {
+	if len(specKeys) != len(s.Keys) {
+		return false
+	}
+	for i := range specKeys {
+		if !s.Keys[i].MatchesSpec(specKeys[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 //+kubebuilder:object:root=true

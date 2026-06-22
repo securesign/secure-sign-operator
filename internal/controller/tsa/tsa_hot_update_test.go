@@ -184,7 +184,9 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			By("Pending phase until new keys and certs are resolved")
 			Eventually(func(g Gomega) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Reason
+				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				return cond.Reason
 			}).Should(Equal(state.Pending.String()))
 
 			By("Creating new certificate chain and signer keys")
@@ -243,7 +245,9 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			By("NTP monitoring should be resolved")
 			Eventually(func(g Gomega) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition).Message
+				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				return cond.Message
 			}).Should(Equal("Waiting for deployment to be ready"))
 
 			By("Timestamp Authority deployment is updated")

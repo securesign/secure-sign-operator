@@ -147,7 +147,9 @@ func Test_NTPHandle(t *testing.T) {
 
 				g.Expect(instance.Status.NTPMonitoring.Config.NtpConfigRef.Name).To(Equal(cm.Name), "Config Map name mismatch")
 
-				g.Expect(meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition).Message).To(Equal("NTP monitoring configured"))
+				cond := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Message).To(Equal("NTP monitoring configured"))
 
 				return true
 			},
@@ -185,7 +187,9 @@ func Test_NTPHandle(t *testing.T) {
 				err := client.Get(context.TODO(), types.NamespacedName{Name: instance.Status.NTPMonitoring.Config.NtpConfigRef.Name, Namespace: instance.GetNamespace()}, cm)
 				g.Expect(err).NotTo(HaveOccurred(), "Unable to find config map")
 
-				g.Expect(meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition).Message).To(Equal("NTP monitoring configured"))
+				cond := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Message).To(Equal("NTP monitoring configured"))
 
 				return true
 			},
@@ -219,7 +223,9 @@ func Test_NTPHandle(t *testing.T) {
 
 				g.Expect(instance.Spec.NTPMonitoring.Config.NumServers).To(Equal(2), "NumServers mismatch")
 
-				g.Expect(meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition).Message).To(Equal("NTP monitoring configured"))
+				cond := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Message).To(Equal("NTP monitoring configured"))
 
 				return true
 			},
@@ -253,7 +259,9 @@ func Test_NTPHandle(t *testing.T) {
 				err = cli.Get(context.TODO(), types.NamespacedName{Name: oldConfigMapName, Namespace: instance.GetNamespace()}, &corev1.ConfigMap{})
 				g.Expect(errors.IsNotFound(err)).To(BeTrue(), "Old ConfigMap should be deleted")
 
-				g.Expect(meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition).Message).To(Equal("NTP monitoring configured"))
+				cond := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Message).To(Equal("NTP monitoring configured"))
 
 				return true
 			},
@@ -277,7 +285,9 @@ func Test_NTPHandle(t *testing.T) {
 				g.Expect(cli.List(context.TODO(), list, &client.ListOptions{LabelSelector: apilabels.SelectorFromSet(l)})).To(Succeed())
 				g.Expect(list.Items).To(BeEmpty(), "List should be empty")
 
-				g.Expect(meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition).Message).To(Equal("NTP monitoring configured"))
+				cond := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Message).To(Equal("NTP monitoring configured"))
 				return true
 			},
 		},
