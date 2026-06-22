@@ -788,6 +788,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*FulcioCert)(nil), (*v1.FulcioCertStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_FulcioCert_To_v1_FulcioCertStatus(a.(*FulcioCert), b.(*v1.FulcioCertStatus), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*RekorSpec)(nil), (*v1.RekorSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_RekorSpec_To_v1_RekorSpec(a.(*RekorSpec), b.(*v1.RekorSpec), scope)
 	}); err != nil {
