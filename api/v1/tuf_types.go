@@ -70,6 +70,10 @@ type TufSpec struct {
 	// TSA service configuration
 	//+optional
 	Tsa TsaService `json:"tsa,omitempty"`
+
+	// ConfigMap with additional bundle of trusted CA
+	// +optional
+	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
 }
 
 // TufPvc configuration of the persistent storage claim for deployment in the cluster.
@@ -182,6 +186,10 @@ func (i *Tuf) SetCondition(newCondition metav1.Condition) {
 }
 
 func (i *Tuf) GetTrustedCA() *LocalObjectReference {
+	if i.Spec.TrustedCA != nil {
+		return i.Spec.TrustedCA
+	}
+
 	if v, ok := i.GetAnnotations()["rhtas.redhat.com/trusted-ca"]; ok {
 		return &LocalObjectReference{
 			Name: v,

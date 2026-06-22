@@ -17,6 +17,7 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	jobUtils "github.com/securesign/operator/internal/utils/kubernetes/job"
+	tlsensure "github.com/securesign/operator/internal/utils/tls/ensure"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -153,6 +154,9 @@ func (i migrationJobAction) ensureMigrationJob(ctx context.Context, labels map[s
 		},
 		func(object *batchv1.Job) error {
 			return ensure.PodSecurityContext(&object.Spec.Template.Spec)
+		},
+		func(object *batchv1.Job) error {
+			return tlsensure.TrustedCA(instance.GetTrustedCA(), "tuf-migration")(&object.Spec.Template)
 		},
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create TUF migration job: %w", err),

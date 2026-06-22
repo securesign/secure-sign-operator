@@ -1295,6 +1295,18 @@ spec:
                       type: string
                   type: object
                 type: array
+              trustedCA:
+                description: ConfigMap with additional bundle of trusted CA
+                properties:
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               tsa:
                 description: TSA service configuration
                 properties:
