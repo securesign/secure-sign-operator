@@ -693,13 +693,13 @@ func TestResolveTree_ConfigMapGetFailure_ReturnsRetryableError(t *testing.T) {
 	g := NewWithT(t)
 	ctx := context.Background()
 
-	instance := &rhtasv1.Rekor{
+	instance := &v1alpha1.Rekor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nnObject.Name,
 			Namespace: nnObject.Namespace,
 		},
-		Spec: rhtasv1.RekorSpec{
-			Trillian: rhtasv1.TrillianService{
+		Spec: v1alpha1.RekorSpec{
+			Trillian: v1alpha1.TrillianService{
 				Address: "trillian-logserver",
 				Port:    ptr.To(int32(8091)),
 			},
@@ -722,13 +722,13 @@ func TestResolveTree_ConfigMapGetFailure_ReturnsRetryableError(t *testing.T) {
 		Build()
 
 	a := testAction.PrepareAction(c, NewResolveTreeAction("test", defaultWrapper))
-	ra := a.(*resolveTree[*rhtasv1.Rekor])
+	ra := a.(*resolveTree[*v1alpha1.Rekor])
 
 	g.Expect(c.Get(ctx, nnObject, instance)).To(Succeed())
 
 	for _, tc := range []struct {
 		name     string
-		handleFn func(context.Context, *rhtasv1.Rekor) *action.Result
+		handleFn func(context.Context, *v1alpha1.Rekor) *action.Result
 	}{
 		{name: "handleJob", handleFn: ra.handleJob},
 		{name: "handleJobFinished", handleFn: ra.handleJobFinished},
@@ -750,13 +750,13 @@ func TestResolveTree_RbacCreationFailure_ReturnsRetryableError(t *testing.T) {
 	g := NewWithT(t)
 	ctx := context.Background()
 
-	instance := &rhtasv1.Rekor{
+	instance := &v1alpha1.Rekor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nnObject.Name,
 			Namespace: nnObject.Namespace,
 		},
-		Spec: rhtasv1.RekorSpec{
-			Trillian: rhtasv1.TrillianService{
+		Spec: v1alpha1.RekorSpec{
+			Trillian: v1alpha1.TrillianService{
 				Address: "trillian-logserver",
 				Port:    ptr.To(int32(8091)),
 			},
@@ -779,7 +779,7 @@ func TestResolveTree_RbacCreationFailure_ReturnsRetryableError(t *testing.T) {
 		Build()
 
 	a := testAction.PrepareAction(c, NewResolveTreeAction("test", defaultWrapper))
-	ra := a.(*resolveTree[*rhtasv1.Rekor])
+	ra := a.(*resolveTree[*v1alpha1.Rekor])
 
 	g.Expect(c.Get(ctx, nnObject, instance)).To(Succeed())
 
