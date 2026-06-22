@@ -108,7 +108,11 @@ var _ = Describe("Conversion webhook", Ordered, func() {
 			By("verifying attestations PVC config is preserved")
 			Expect(v1Obj.Spec.Attestations.Pvc.Size).To(Equal(v1alpha1Obj.Spec.Attestations.Pvc.Size))
 			Expect(v1Obj.Spec.Attestations.Pvc.Retain).To(Equal(v1alpha1Obj.Spec.Attestations.Pvc.Retain))
-			Expect(v1Obj.Spec.Attestations.Pvc.AccessModes).To(Equal(v1alpha1Obj.Spec.Attestations.Pvc.AccessModes))
+			// Convert AccessModes to core v1 types for comparison
+			Expect(len(v1Obj.Spec.Attestations.Pvc.AccessModes)).To(Equal(len(v1alpha1Obj.Spec.Attestations.Pvc.AccessModes)))
+			for i := range v1Obj.Spec.Attestations.Pvc.AccessModes {
+				Expect(string(v1Obj.Spec.Attestations.Pvc.AccessModes[i])).To(Equal(string(v1alpha1Obj.Spec.Attestations.Pvc.AccessModes[i])))
+			}
 			if v1Obj.Spec.Attestations.Pvc.StorageClass != "" {
 				Expect(v1Obj.Spec.Attestations.Pvc.StorageClass).To(Equal(v1alpha1Obj.Spec.Attestations.Pvc.StorageClass))
 			}
