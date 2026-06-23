@@ -126,10 +126,10 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 		if chainVolume.Secret == nil {
 			chainVolume.Secret = &core.SecretVolumeSource{}
 		}
-		chainVolume.Secret.SecretName = instance.Status.Signer.CertificateChain.CertificateChainRef.Name
+		chainVolume.Secret.SecretName = instance.Status.Signer.CertificateChainRef.Name
 		chainVolume.Secret.Items = []core.KeyToPath{
 			{
-				Key:  instance.Status.Signer.CertificateChain.CertificateChainRef.Key,
+				Key:  instance.Status.Signer.CertificateChainRef.Key,
 				Path: "certificate-chain.pem",
 			},
 		}
@@ -139,12 +139,12 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 		chainVolumeMount.ReadOnly = true
 
 		if instance.Spec.NTPMonitoring.Enabled {
-			if instance.Spec.NTPMonitoring.Config != nil {
+			if instance.Status.NtpConfigRef != nil {
 				ntpConfigVolume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, ntpConfigVolumeName)
 				if ntpConfigVolume.ConfigMap == nil {
 					ntpConfigVolume.ConfigMap = &core.ConfigMapVolumeSource{}
 				}
-				ntpConfigVolume.ConfigMap.Name = instance.Status.NTPMonitoring.Config.NtpConfigRef.Name
+				ntpConfigVolume.ConfigMap.Name = instance.Status.NtpConfigRef.Name
 
 				ntpConfigVolumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, ntpConfigVolumeName)
 				ntpConfigVolumeMount.ReadOnly = true
@@ -164,10 +164,10 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 				if fileSignerVolume.Secret == nil {
 					fileSignerVolume.Secret = &core.SecretVolumeSource{}
 				}
-				fileSignerVolume.Secret.SecretName = instance.Status.Signer.File.PrivateKeyRef.Name
+				fileSignerVolume.Secret.SecretName = instance.Status.Signer.FileSigner.PrivateKeyRef.Name
 				fileSignerVolume.Secret.Items = []core.KeyToPath{
 					{
-						Key:  instance.Status.Signer.File.PrivateKeyRef.Key,
+						Key:  instance.Status.Signer.FileSigner.PrivateKeyRef.Key,
 						Path: "private_key.pem",
 					},
 				}
@@ -176,23 +176,23 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 				fileSignerVolumeMount.MountPath = fileSignerMountPath
 				fileSignerVolumeMount.ReadOnly = true
 
-				if instance.Status.Signer.File.PasswordRef != nil {
+				appArgs = append(appArgs,
+					"--timestamp-signer=file",
+					fmt.Sprintf("--file-signer-key-path=%s/private_key.pem", fileSignerMountPath),
+				)
+
+				if instance.Status.Signer.FileSigner.PasswordRef != nil {
 					fileSignerPasswordEnv := kubernetes.FindEnvByNameOrCreate(container, "SIGNER_PASSWORD")
 					fileSignerPasswordEnv.ValueFrom = &core.EnvVarSource{
 						SecretKeyRef: &core.SecretKeySelector{
 							LocalObjectReference: core.LocalObjectReference{
-								Name: instance.Status.Signer.File.PasswordRef.Name,
+								Name: instance.Status.Signer.FileSigner.PasswordRef.Name,
 							},
-							Key: instance.Status.Signer.File.PasswordRef.Key,
+							Key: instance.Status.Signer.FileSigner.PasswordRef.Key,
 						},
 					}
+					appArgs = append(appArgs, "--file-signer-passwd=$(SIGNER_PASSWORD)")
 				}
-
-				appArgs = append(appArgs,
-					"--timestamp-signer=file",
-					fmt.Sprintf("--file-signer-key-path=%s/private_key.pem", fileSignerMountPath),
-					"--file-signer-passwd=$(SIGNER_PASSWORD)",
-				)
 			}
 		case tsaUtils.KmsType:
 			{

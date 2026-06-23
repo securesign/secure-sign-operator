@@ -652,6 +652,67 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 		spoke *TimestampAuthority
 	}{
 		{
+			name: "fully populated status",
+			hub: &rhtasv1.TimestampAuthority{
+				ObjectMeta: metav1.ObjectMeta{Name: "tsa", Namespace: "ns"},
+				Status: rhtasv1.TimestampAuthorityStatus{
+					Url: "https://tsa.rhtas.example.com",
+					Signer: &rhtasv1.TimestampAuthoritySignerStatus{
+						CertificateChainRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tsa-chain-secret"},
+							Key:                  "chain.pem",
+						},
+						FileSigner: &rhtasv1.FileSignerStatus{
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tsa-signer-secret"},
+								Key:                  "private.key",
+							},
+							PasswordRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tsa-signer-secret"},
+								Key:                  "password",
+							},
+						},
+					},
+					NtpConfigRef: &rhtasv1.LocalObjectReference{Name: "ntp-config-map"},
+					Conditions: []metav1.Condition{
+						{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Deployed", Message: "all good"},
+					},
+				},
+			},
+			spoke: &TimestampAuthority{
+				ObjectMeta: metav1.ObjectMeta{Name: "tsa", Namespace: "ns"},
+				Status: TimestampAuthorityStatus{
+					Url: "https://tsa.rhtas.example.com",
+					Signer: &TimestampAuthoritySigner{
+						CertificateChain: CertificateChain{
+							CertificateChainRef: &SecretKeySelector{
+								LocalObjectReference: LocalObjectReference{Name: "tsa-chain-secret"},
+								Key:                  "chain.pem",
+							},
+						},
+						File: &File{
+							PrivateKeyRef: &SecretKeySelector{
+								LocalObjectReference: LocalObjectReference{Name: "tsa-signer-secret"},
+								Key:                  "private.key",
+							},
+							PasswordRef: &SecretKeySelector{
+								LocalObjectReference: LocalObjectReference{Name: "tsa-signer-secret"},
+								Key:                  "password",
+							},
+						},
+					},
+					NTPMonitoring: &NTPMonitoring{
+						Config: &NtpMonitoringConfig{
+							NtpConfigRef: &LocalObjectReference{Name: "ntp-config-map"},
+						},
+					},
+					Conditions: []metav1.Condition{
+						{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Deployed", Message: "all good"},
+					},
+				},
+			},
+		},
+		{
 			name: "KMS signer with auth",
 			hub: &rhtasv1.TimestampAuthority{
 				ObjectMeta: metav1.ObjectMeta{Name: "tsa", Namespace: "default"},

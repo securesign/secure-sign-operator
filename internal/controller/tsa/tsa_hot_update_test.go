@@ -196,13 +196,13 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			By("Status field changed for cert chain")
 			Eventually(func(g Gomega) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Signer.CertificateChain.CertificateChainRef.Name
+				return found.Status.Signer.CertificateChainRef.Name
 			}).Should(Equal("tsa-test-secret"))
 
 			By("Status field changed for signer key")
 			Eventually(func(g Gomega) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Signer.File.PasswordRef.Name
+				return found.Status.Signer.FileSigner.PasswordRef.Name
 			}).Should(Equal("tsa-test-secret"))
 
 			Eventually(func(g Gomega) bool {
@@ -228,9 +228,9 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			By("NTP monitoring config should be created")
 			Eventually(func(g Gomega) *rhtasv1.LocalObjectReference {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.NTPMonitoring.Config.NtpConfigRef
+				return found.Status.NtpConfigRef
 			}).Should(Not(BeNil()))
-			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.NTPMonitoring.Config.NtpConfigRef.Name, Namespace: Namespace}, &corev1.ConfigMap{})).Should(Succeed())
+			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.NtpConfigRef.Name, Namespace: Namespace}, &corev1.ConfigMap{})).Should(Succeed())
 
 			By("Update NTP Config")
 			Eventually(func(g Gomega) error {

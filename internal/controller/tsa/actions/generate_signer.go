@@ -106,7 +106,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *rhtasv1.TimestampA
 	}
 
 	// Spec changed or first run — initialize status from spec.
-	instance.Status.Signer = instance.Spec.Signer.DeepCopy()
+	instance.Status.Signer = signerStatusFromSpec(&instance.Spec.Signer)
 	if state.FromInstance(instance, constants.ReadyCondition) != state.Pending {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               constants.ReadyCondition,
@@ -353,18 +353,16 @@ func (g generateSigner) handleCertificateChain(ctx context.Context, instance *rh
 }
 
 func (g generateSigner) alignStatusFields(secretName string, instance *rhtasv1.TimestampAuthority) {
-	if instance.Status.Signer == nil {
-		instance.Status.Signer = instance.Spec.Signer.DeepCopy()
-	}
+	instance.Status.Signer = signerStatusFromSpec(&instance.Spec.Signer)
 
 	// Default to File-based signer when no signer type (File/Tink/KMS) and no
 	// external cert chain are configured.
 	if instance.Spec.Signer.File == nil && instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
-		instance.Status.Signer.File = new(rhtasv1.File)
+		instance.Status.Signer.FileSigner = new(rhtasv1.FileSignerStatus)
 	}
 
-	if instance.Status.Signer.CertificateChain.CertificateChainRef == nil {
-		instance.Status.Signer.CertificateChain.CertificateChainRef = &rhtasv1.SecretKeySelector{
+	if instance.Status.Signer.CertificateChainRef == nil {
+		instance.Status.Signer.CertificateChainRef = &rhtasv1.SecretKeySelector{
 			Key: tsaUtils.KeyCertificateChain,
 			LocalObjectReference: rhtasv1.LocalObjectReference{
 				Name: secretName,
@@ -372,14 +370,29 @@ func (g generateSigner) alignStatusFields(secretName string, instance *rhtasv1.T
 		}
 	}
 
-	if instance.Status.Signer.File != nil && instance.Status.Signer.File.PrivateKeyRef == nil {
-		instance.Status.Signer.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{
+	if instance.Status.Signer.FileSigner != nil && instance.Status.Signer.FileSigner.PrivateKeyRef == nil {
+		instance.Status.Signer.FileSigner.PrivateKeyRef = &rhtasv1.SecretKeySelector{
 			Key: tsaUtils.KeyLeafPrivateKey,
 			LocalObjectReference: rhtasv1.LocalObjectReference{
 				Name: secretName,
 			},
 		}
 	}
+}
+
+func signerStatusFromSpec(signer *rhtasv1.TimestampAuthoritySigner) *rhtasv1.TimestampAuthoritySignerStatus {
+	status := &rhtasv1.TimestampAuthoritySignerStatus{
+		CertificateChainRef: signer.CertificateChain.CertificateChainRef.DeepCopy(),
+	}
+	if signer.File != nil {
+		status.FileSigner = &rhtasv1.FileSignerStatus{
+			PrivateKeyRef: signer.File.PrivateKeyRef.DeepCopy(),
+		}
+		if signer.File.PasswordRef != nil { //nolint:staticcheck
+			status.FileSigner.PasswordRef = signer.File.PasswordRef.DeepCopy() //nolint:staticcheck
+		}
+	}
+	return status
 }
 
 func (g generateSigner) secretAnnotations(signerConfig rhtasv1.TimestampAuthoritySigner) (map[string]string, error) {

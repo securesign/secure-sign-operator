@@ -155,16 +155,16 @@ var _ = Describe("TimestampAuthority Controller", func() {
 			By("Certificate chain secret should be created")
 			Eventually(func(g Gomega) *rhtasv1.SecretKeySelector {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Signer.CertificateChain.CertificateChainRef
+				return found.Status.Signer.CertificateChainRef
 			}).Should(Not(BeNil()))
-			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Signer.CertificateChain.CertificateChainRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
+			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Signer.CertificateChainRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
 
 			By("File Signer secret should be created")
 			Eventually(func(g Gomega) *rhtasv1.SecretKeySelector {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Signer.File.PrivateKeyRef
+				return found.Status.Signer.FileSigner.PrivateKeyRef
 			}).Should(Not(BeNil()))
-			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Signer.File.PrivateKeyRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
+			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Signer.FileSigner.PrivateKeyRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
 
 			By("Should be in a creating phase")
 			Eventually(func(g Gomega) string {
@@ -185,9 +185,9 @@ var _ = Describe("TimestampAuthority Controller", func() {
 			By("NTP monitoring config should be created")
 			Eventually(func(g Gomega) *rhtasv1.LocalObjectReference {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.NTPMonitoring.Config.NtpConfigRef
+				return found.Status.NtpConfigRef
 			}).Should(Not(BeNil()))
-			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.NTPMonitoring.Config.NtpConfigRef.Name, Namespace: Namespace}, &corev1.ConfigMap{})).Should(Succeed())
+			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.NtpConfigRef.Name, Namespace: Namespace}, &corev1.ConfigMap{})).Should(Succeed())
 
 			By("Timestamp Authority service is created")
 			Eventually(func() error {

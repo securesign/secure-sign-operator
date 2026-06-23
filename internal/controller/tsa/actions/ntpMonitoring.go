@@ -48,11 +48,11 @@ func (i ntpMonitoringAction) CanHandle(_ context.Context, instance *rhtasv1.Time
 func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.TimestampAuthority) *action.Result {
 	// No operator-managed ConfigMap needed — just sync status.
 	if instance.Spec.NTPMonitoring.Config == nil || instance.Spec.NTPMonitoring.Config.NtpConfigRef != nil {
-		newStatus := instance.Spec.NTPMonitoring.DeepCopy()
-		if reflect.DeepEqual(newStatus, instance.Status.NTPMonitoring) {
+		newRef := ntpConfigRefFromSpec(instance)
+		if reflect.DeepEqual(newRef, instance.Status.NtpConfigRef) {
 			return i.Continue()
 		}
-		instance.Status.NTPMonitoring = newStatus
+		instance.Status.NtpConfigRef = newRef
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               constants.ReadyCondition,
 			Status:             metav1.ConditionFalse,
@@ -74,12 +74,9 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.Times
 		})
 	}
 
-	// Verify existing config from status ref.
-	if instance.Status.NTPMonitoring != nil &&
-		instance.Status.NTPMonitoring.Config != nil &&
-		instance.Status.NTPMonitoring.Config.NtpConfigRef != nil {
-		cfg, err := kubernetes.GetConfigMap(ctx, i.Client, instance.Namespace,
-			instance.Status.NTPMonitoring.Config.NtpConfigRef.Name)
+	// verify existing config
+	if instance.Status.NtpConfigRef != nil {
+		cfg, err := kubernetes.GetConfigMap(ctx, i.Client, instance.Namespace, instance.Status.NtpConfigRef.Name)
 		if client.IgnoreNotFound(err) != nil {
 			return i.Error(ctx, fmt.Errorf("NTPConfig: %w", err), instance)
 		}
@@ -87,14 +84,13 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.Times
 			if reflect.DeepEqual(cfg.Data[ntpConfigName], string(ntpConfig)) {
 				return i.Continue()
 			}
-			// Don't delete here — the ConfigMap may be user-owned (from a previous
-			// spec.ntpConfigRef). cleanup() safely removes only operator-labeled CMs.
 			i.Logger.Info("Config data changed, existing config will be replaced", "Name", cfg.Name)
 		}
 	}
 
 	configLabel := labels.ForResource(ComponentName, DeploymentName, instance.Name, ntpConfigLabel)
 
+	// create new config
 	configMap := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: NtpCMName,
@@ -111,9 +107,8 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.Times
 	}
 
 	i.Recorder.Eventf(instance, configMap, v1.EventTypeNormal, "NTPConfigUpdated", "Updated", "NTP config updated: %s", configMap.Name)
+	instance.Status.NtpConfigRef = &rhtasv1.LocalObjectReference{Name: configMap.Name}
 
-	instance.Status.NTPMonitoring = instance.Spec.NTPMonitoring.DeepCopy()
-	instance.Status.NTPMonitoring.Config.NtpConfigRef = &rhtasv1.LocalObjectReference{Name: configMap.Name}
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               constants.ReadyCondition,
 		Status:             metav1.ConditionFalse,
@@ -155,10 +150,7 @@ func (i ntpMonitoringAction) marshalNTPMonitoringConfig(instance *rhtasv1.NtpMon
 }
 
 func (i ntpMonitoringAction) cleanup(ctx context.Context, instance *rhtasv1.TimestampAuthority, configLabels map[string]string) {
-	if instance.Status.NTPMonitoring == nil ||
-		instance.Status.NTPMonitoring.Config == nil ||
-		instance.Status.NTPMonitoring.Config.NtpConfigRef == nil ||
-		instance.Status.NTPMonitoring.Config.NtpConfigRef.Name == "" {
+	if instance.Status.NtpConfigRef == nil || instance.Status.NtpConfigRef.Name == "" {
 		i.Logger.Error(errors.New("new ConfigMap name is empty"), "unable to clean old objects", "namespace", instance.Namespace)
 		return
 	}
@@ -169,7 +161,7 @@ func (i ntpMonitoringAction) cleanup(ctx context.Context, instance *rhtasv1.Time
 		return
 	}
 	for _, cm := range partialConfigs.Items {
-		if cm.Name == instance.Status.NTPMonitoring.Config.NtpConfigRef.Name {
+		if cm.Name == instance.Status.NtpConfigRef.Name {
 			continue
 		}
 		err = i.Client.Delete(ctx, &v1.ConfigMap{
@@ -186,4 +178,11 @@ func (i ntpMonitoringAction) cleanup(ctx context.Context, instance *rhtasv1.Time
 		i.Logger.Info("Remove old ConfigMap with NTP configuration", "name", cm.Name)
 		i.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "NTPConfigDeleted", "Deleted", "NTP config deleted: %s", cm.Name)
 	}
+}
+
+func ntpConfigRefFromSpec(instance *rhtasv1.TimestampAuthority) *rhtasv1.LocalObjectReference {
+	if instance.Spec.NTPMonitoring.Config != nil && instance.Spec.NTPMonitoring.Config.NtpConfigRef != nil {
+		return &rhtasv1.LocalObjectReference{Name: instance.Spec.NTPMonitoring.Config.NtpConfigRef.Name}
+	}
+	return nil
 }
