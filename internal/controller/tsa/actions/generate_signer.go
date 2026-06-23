@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -44,13 +45,19 @@ func (g generateSigner) Name() string {
 }
 
 func (g generateSigner) CanHandle(_ context.Context, instance *rhtasv1.TimestampAuthority) bool {
+	c := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
+
 	switch {
-	case state.FromInstance(instance, constants.ReadyCondition) < state.Pending:
+	case c == nil:
 		return false
-	case !meta.IsStatusConditionTrue(instance.GetConditions(), TSASignerCondition):
+	case state.FromCondition(c) < state.Pending:
+		return false
+	case instance.Status.Signer == nil:
 		return true
 	default:
-		return !equality.Semantic.DeepDerivative(instance.Spec.Signer, *instance.Status.Signer)
+		// TSASignerCondition is managed exclusively by this action.
+		cc := meta.FindStatusCondition(instance.GetConditions(), TSASignerCondition)
+		return cc == nil || cc.Status != metav1.ConditionTrue || instance.Generation != cc.ObservedGeneration
 	}
 }
 
@@ -59,6 +66,47 @@ func (g generateSigner) Handle(ctx context.Context, instance *rhtasv1.TimestampA
 		err error
 	)
 
+	anno, err := g.secretAnnotations(instance.Spec.Signer)
+	if err != nil {
+		return g.Error(ctx, err, instance)
+	}
+
+	// Check if an operator-managed secret with matching config already exists.
+	partialSecret, err := kubernetes.FindSecret(ctx, g.Client, instance.Namespace, TSACertCALabel)
+	if client.IgnoreNotFound(err) != nil {
+		g.Logger.Error(err, "problem with finding secret")
+	}
+
+	if partialSecret != nil {
+		if equality.Semantic.DeepDerivative(anno, partialSecret.GetAnnotations()) {
+			// signer is valid
+			g.alignStatusFields(partialSecret.Name, instance)
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:               TSASignerCondition,
+				Status:             metav1.ConditionTrue,
+				Reason:             "Resolved", //nolint:goconst
+				ObservedGeneration: instance.Generation,
+			})
+			return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
+		}
+
+		// invalidate certificate
+		if err := labels.Remove(ctx, partialSecret, g.Client, TSACertCALabel); err != nil {
+			return g.Error(ctx, err, instance, metav1.Condition{
+				Type:               TSASignerCondition,
+				Status:             metav1.ConditionFalse,
+				Reason:             state.Failure.String(),
+				Message:            err.Error(),
+				ObservedGeneration: instance.Generation,
+			})
+		}
+		message := fmt.Sprintf("Removed '%s' label from %s secret", TSACertCALabel, partialSecret.Name)
+		g.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "CertificateSecretLabelRemoved", "LabelRemoved", message)
+		g.Logger.Info(message)
+	}
+
+	// Spec changed or first run — initialize status from spec.
+	instance.Status.Signer = instance.Spec.Signer.DeepCopy()
 	if state.FromInstance(instance, constants.ReadyCondition) != state.Pending {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               constants.ReadyCondition,
@@ -72,63 +120,6 @@ func (g generateSigner) Handle(ctx context.Context, instance *rhtasv1.TimestampA
 			Reason:             state.Creating.String(),
 			ObservedGeneration: instance.Generation,
 		})
-		return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
-	}
-
-	anno, err := g.secretAnnotations(instance.Spec.Signer)
-	if err != nil {
-		return g.Error(ctx, err, instance)
-	}
-
-	if instance.Status.Signer != nil {
-		secret, err := kubernetes.GetSecret(g.Client, instance.Namespace, instance.Status.Signer.CertificateChain.CertificateChainRef.Name)
-		if err != nil {
-			return g.Error(ctx, fmt.Errorf("can't load CA secret %w", err), instance)
-		}
-
-		if equality.Semantic.DeepDerivative(anno, secret.GetAnnotations()) {
-			if !meta.IsStatusConditionTrue(instance.GetConditions(), TSASignerCondition) {
-				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-					Type:               TSASignerCondition,
-					Status:             metav1.ConditionTrue,
-					Reason:             "Resolved", //nolint:goconst
-					ObservedGeneration: instance.Generation,
-				})
-				return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
-			}
-			return g.Continue()
-		}
-	}
-	// invalidate
-	instance.Status.Signer = instance.Spec.Signer.DeepCopy()
-
-	//Check if a secret for the TSA cert already exists and validate
-	partialSecrets, err := kubernetes.ListSecrets(ctx, g.Client, instance.Namespace, TSACertCALabel)
-	if err != nil {
-		g.Logger.Error(err, "problem with listing secrets", "namespace", instance.Namespace)
-	}
-
-	for _, partialSecret := range partialSecrets.Items {
-		if equality.Semantic.DeepDerivative(anno, partialSecret.GetAnnotations()) && !meta.IsStatusConditionTrue(instance.GetConditions(), TSASignerCondition) {
-			g.alignStatusFields(partialSecret.Name, instance)
-			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:               TSASignerCondition,
-				Status:             metav1.ConditionTrue,
-				Reason:             "Resolved",
-				ObservedGeneration: instance.Generation,
-			})
-			continue
-		}
-
-		// invalidate certificate
-		if err := labels.Remove(ctx, &partialSecret, g.Client, TSACertCALabel); err != nil {
-			g.Logger.Error(err, "can't remove label from TSA signer secret", "Name", partialSecret.Name)
-		}
-		message := fmt.Sprintf("Removed '%s' label from %s secret", TSACertCALabel, partialSecret.Name)
-		g.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "CertificateSecretLabelRemoved", "LabelRemoved", message)
-		g.Logger.Info(message)
-	}
-	if meta.IsStatusConditionTrue(instance.GetConditions(), TSASignerCondition) {
 		return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 	}
 
@@ -185,7 +176,6 @@ func (g generateSigner) Handle(ctx context.Context, instance *rhtasv1.TimestampA
 
 	componentLabels := labels.For(ComponentName, DeploymentName, instance.Name)
 	certLabels := map[string]string{TSACertCALabel: tsaUtils.KeyCertificateChain}
-
 	certificateChain := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("tsa-signer-config-%s", instance.Name),
@@ -211,6 +201,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *rhtasv1.TimestampA
 	}
 
 	g.Recorder.Eventf(instance, certificateChain, v1.EventTypeNormal, "TSACertUpdated", "Updated", "TSA certificate secret updated")
+
 	g.alignStatusFields(certificateChain.Name, instance)
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               TSASignerCondition,
@@ -363,9 +354,8 @@ func (g generateSigner) handleCertificateChain(ctx context.Context, instance *rh
 
 func (g generateSigner) alignStatusFields(secretName string, instance *rhtasv1.TimestampAuthority) {
 	if instance.Status.Signer == nil {
-		instance.Status.Signer = new(rhtasv1.TimestampAuthoritySigner)
+		instance.Status.Signer = instance.Spec.Signer.DeepCopy()
 	}
-	instance.Spec.Signer.DeepCopyInto(instance.Status.Signer)
 
 	// Default to File-based signer when no signer type (File/Tink/KMS) and no
 	// external cert chain are configured.
@@ -373,21 +363,21 @@ func (g generateSigner) alignStatusFields(secretName string, instance *rhtasv1.T
 		instance.Status.Signer.File = new(rhtasv1.File)
 	}
 
-	if instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
+	if instance.Status.Signer.CertificateChain.CertificateChainRef == nil {
 		instance.Status.Signer.CertificateChain.CertificateChainRef = &rhtasv1.SecretKeySelector{
 			Key: tsaUtils.KeyCertificateChain,
 			LocalObjectReference: rhtasv1.LocalObjectReference{
 				Name: secretName,
 			},
 		}
+	}
 
-		if instance.Spec.Signer.File == nil || instance.Spec.Signer.File.PrivateKeyRef == nil {
-			instance.Status.Signer.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{
-				Key: tsaUtils.KeyLeafPrivateKey,
-				LocalObjectReference: rhtasv1.LocalObjectReference{
-					Name: secretName,
-				},
-			}
+	if instance.Status.Signer.File != nil && instance.Status.Signer.File.PrivateKeyRef == nil {
+		instance.Status.Signer.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{
+			Key: tsaUtils.KeyLeafPrivateKey,
+			LocalObjectReference: rhtasv1.LocalObjectReference{
+				Name: secretName,
+			},
 		}
 	}
 }

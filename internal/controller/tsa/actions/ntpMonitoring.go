@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"reflect"
@@ -16,7 +17,6 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels2 "k8s.io/apimachinery/pkg/labels"
@@ -25,7 +25,6 @@ import (
 )
 
 const (
-	cmName         = "ntp-monitoring-config-"
 	ntpConfigLabel = "ntp-monitoring-conf"
 	ntpConfigName  = "ntp-config.yaml"
 )
@@ -42,42 +41,17 @@ func (i ntpMonitoringAction) Name() string {
 	return "ntpMonitoring"
 }
 
-func (i ntpMonitoringAction) CanHandle(ctx context.Context, instance *rhtasv1.TimestampAuthority) bool {
-	c := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
-
-	switch {
-	case c == nil:
-		return false
-	case state.FromCondition(c) < state.Creating:
-		return false
-	case instance.Status.NTPMonitoring == nil:
-		return true
-	case instance.Generation != c.ObservedGeneration:
-		return true
-	default:
-		return !equality.Semantic.DeepDerivative(instance.Spec.NTPMonitoring, *instance.Status.NTPMonitoring)
-	}
+func (i ntpMonitoringAction) CanHandle(_ context.Context, instance *rhtasv1.TimestampAuthority) bool {
+	return state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.TimestampAuthority) *action.Result {
-
-	var newStatus = instance.Spec.NTPMonitoring.DeepCopy()
-
-	if instance.Spec.NTPMonitoring.Config == nil {
-		i.alignStatusFields(&instance.Spec.NTPMonitoring, newStatus, "")
-		instance.Status.NTPMonitoring = newStatus
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               constants.ReadyCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             state.Creating.String(),
-			Message:            "NTP monitoring configured", //nolint:goconst
-			ObservedGeneration: instance.Generation,
-		})
-		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
-	}
-
-	if instance.Spec.NTPMonitoring.Config.NtpConfigRef != nil {
-		i.alignStatusFields(&instance.Spec.NTPMonitoring, newStatus, cmName)
+	// No operator-managed ConfigMap needed — just sync status.
+	if instance.Spec.NTPMonitoring.Config == nil || instance.Spec.NTPMonitoring.Config.NtpConfigRef != nil {
+		newStatus := instance.Spec.NTPMonitoring.DeepCopy()
+		if reflect.DeepEqual(newStatus, instance.Status.NTPMonitoring) {
+			return i.Continue()
+		}
 		instance.Status.NTPMonitoring = newStatus
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:               constants.ReadyCondition,
@@ -88,11 +62,6 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.Times
 		})
 		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	}
-
-	var (
-		err    error
-		cmName string
-	)
 
 	ntpConfig, err := i.marshalNTPMonitoringConfig(instance.Spec.NTPMonitoring.Config)
 	if err != nil {
@@ -105,53 +74,26 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.Times
 		})
 	}
 
-	l := labels.For(ComponentName, DeploymentName, instance.Name)
-	l[labels.LabelResource] = ntpConfigLabel
-
-	if newStatus.Config.NtpConfigRef != nil {
-		cfg, err := kubernetes.GetConfigMap(ctx, i.Client, instance.Namespace, newStatus.Config.NtpConfigRef.Name)
+	// Verify existing config from status ref.
+	if instance.Status.NTPMonitoring != nil &&
+		instance.Status.NTPMonitoring.Config != nil &&
+		instance.Status.NTPMonitoring.Config.NtpConfigRef != nil {
+		cfg, err := kubernetes.GetConfigMap(ctx, i.Client, instance.Namespace,
+			instance.Status.NTPMonitoring.Config.NtpConfigRef.Name)
 		if client.IgnoreNotFound(err) != nil {
 			return i.Error(ctx, fmt.Errorf("NTPConfig: %w", err), instance)
 		}
 		if cfg != nil {
 			if reflect.DeepEqual(cfg.Data[ntpConfigName], string(ntpConfig)) {
 				return i.Continue()
-			} else {
-				i.Logger.Info("Remove invalid ConfigMap with NTP configuration", "Name", cfg.Name)
-				_ = i.Client.Delete(ctx, cfg)
 			}
+			// Don't delete here — the ConfigMap may be user-owned (from a previous
+			// spec.ntpConfigRef). cleanup() safely removes only operator-labeled CMs.
+			i.Logger.Info("Config data changed, existing config will be replaced", "Name", cfg.Name)
 		}
 	}
-	newStatus.Config.NtpConfigRef = nil
 
-	partialConfigs, err := kubernetes.ListConfigMaps(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(l).String())
-	if err != nil {
-		i.Logger.Error(err, "problem with finding configmap", "namespace", instance.Namespace)
-	}
-	for _, partialSecret := range partialConfigs.Items {
-		cm, err := kubernetes.GetConfigMap(ctx, i.Client, partialSecret.Namespace, partialSecret.Name)
-		if err != nil {
-			return i.Error(ctx, fmt.Errorf("can't load configMap data %w", err), instance)
-		}
-		if reflect.DeepEqual(cm.Data[ntpConfigName], string(ntpConfig)) && newStatus.Config.NtpConfigRef == nil {
-			i.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "NTPConfigDiscovered", "Discovered", "Existing ConfigMap with NTP configuration discovered: %s", cm.Name)
-			i.alignStatusFields(&instance.Spec.NTPMonitoring, newStatus, cm.Name)
-			instance.Status.NTPMonitoring = newStatus
-			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-				Type:               constants.ReadyCondition,
-				Status:             metav1.ConditionFalse,
-				Reason:             state.Creating.String(),
-				Message:            "NTP config discovered",
-				ObservedGeneration: instance.Generation,
-			})
-		} else {
-			i.Logger.Info("Remove invalid ConfigMap with NTP configuration", "Name", cm.Name)
-			_ = i.Client.Delete(ctx, cm)
-		}
-	}
-	if newStatus.Config.NtpConfigRef != nil {
-		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
-	}
+	configLabel := labels.ForResource(ComponentName, DeploymentName, instance.Name, ntpConfigLabel)
 
 	configMap := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -162,17 +104,16 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.Times
 	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		configMap,
 		ensure.ControllerReference[*v1.ConfigMap](instance, i.Client),
-		ensure.Labels[*v1.ConfigMap](slices.Collect(maps.Keys(l)), l),
-		kubernetes.EnsureConfigMapData(
-			true, map[string]string{ntpConfigName: string(ntpConfig)}),
+		ensure.Labels[*v1.ConfigMap](slices.Collect(maps.Keys(configLabel)), configLabel),
+		kubernetes.EnsureConfigMapData(true, map[string]string{ntpConfigName: string(ntpConfig)}),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create ntp config: %w", err), instance)
 	}
 
-	cmName = configMap.Name
+	i.Recorder.Eventf(instance, configMap, v1.EventTypeNormal, "NTPConfigUpdated", "Updated", "NTP config updated: %s", configMap.Name)
 
-	i.alignStatusFields(&instance.Spec.NTPMonitoring, newStatus, cmName)
-	instance.Status.NTPMonitoring = newStatus
+	instance.Status.NTPMonitoring = instance.Spec.NTPMonitoring.DeepCopy()
+	instance.Status.NTPMonitoring.Config.NtpConfigRef = &rhtasv1.LocalObjectReference{Name: configMap.Name}
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               constants.ReadyCondition,
 		Status:             metav1.ConditionFalse,
@@ -180,15 +121,19 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1.Times
 		Message:            "NTP monitoring configured",
 		ObservedGeneration: instance.Generation,
 	})
-	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
+
+	changed, err := i.PersistStatus(ctx, instance)
+	if err != nil {
+		return i.Error(ctx, err, instance)
+	}
+	i.cleanup(ctx, instance, configLabel)
+	if changed {
+		return i.Return()
+	}
+	return i.Continue()
 }
 
 func (i ntpMonitoringAction) marshalNTPMonitoringConfig(instance *rhtasv1.NtpMonitoringConfig) ([]byte, error) {
-	var (
-		err    error
-		config []byte
-	)
-
 	if instance == nil {
 		return make([]byte, 0), nil
 	}
@@ -202,22 +147,43 @@ func (i ntpMonitoringAction) marshalNTPMonitoringConfig(instance *rhtasv1.NtpMon
 		Period:          instance.Period,
 		Servers:         instance.Servers,
 	}
-	config, err = yaml.Marshal(&ntpConfig)
+	config, err := yaml.Marshal(&ntpConfig)
 	if err != nil {
 		return nil, err
 	}
 	return config, nil
 }
 
-func (i ntpMonitoringAction) alignStatusFields(spec *rhtasv1.NTPMonitoring, newStatus *rhtasv1.NTPMonitoring, cmName string) {
-	if spec.Config == nil || newStatus == nil {
+func (i ntpMonitoringAction) cleanup(ctx context.Context, instance *rhtasv1.TimestampAuthority, configLabels map[string]string) {
+	if instance.Status.NTPMonitoring == nil ||
+		instance.Status.NTPMonitoring.Config == nil ||
+		instance.Status.NTPMonitoring.Config.NtpConfigRef == nil ||
+		instance.Status.NTPMonitoring.Config.NtpConfigRef.Name == "" {
+		i.Logger.Error(errors.New("new ConfigMap name is empty"), "unable to clean old objects", "namespace", instance.Namespace)
 		return
 	}
-	spec.DeepCopyInto(newStatus)
 
-	if spec.Config.NtpConfigRef != nil {
-		newStatus.Config.NtpConfigRef = spec.Config.NtpConfigRef
-	} else if cmName != "" {
-		newStatus.Config.NtpConfigRef = &rhtasv1.LocalObjectReference{Name: cmName}
+	partialConfigs, err := kubernetes.ListConfigMaps(ctx, i.Client, instance.Namespace, labels2.SelectorFromSet(configLabels).String())
+	if err != nil {
+		i.Logger.Error(err, "problem with finding configmap")
+		return
+	}
+	for _, cm := range partialConfigs.Items {
+		if cm.Name == instance.Status.NTPMonitoring.Config.NtpConfigRef.Name {
+			continue
+		}
+		err = i.Client.Delete(ctx, &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cm.Name,
+				Namespace: cm.Namespace,
+			},
+		})
+		if err != nil {
+			i.Logger.Error(err, "problem with deleting configmap", "name", cm.Name)
+			i.Recorder.Eventf(instance, nil, v1.EventTypeWarning, "NTPConfigDeleted", "CleanupFailed", "Unable to delete configmap: %s", cm.Name)
+			continue
+		}
+		i.Logger.Info("Remove old ConfigMap with NTP configuration", "name", cm.Name)
+		i.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "NTPConfigDeleted", "Deleted", "NTP config deleted: %s", cm.Name)
 	}
 }

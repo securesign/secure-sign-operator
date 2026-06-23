@@ -89,7 +89,7 @@ func Test_NTPCanHandle(t *testing.T) {
 					Config:  nil,
 				}
 			},
-			expected: false,
+			expected: true,
 		},
 		{
 			name: "config is nil",
@@ -111,7 +111,7 @@ func Test_NTPCanHandle(t *testing.T) {
 					Config:  nil,
 				}
 			},
-			expected: false,
+			expected: true,
 		},
 	}
 

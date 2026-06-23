@@ -55,37 +55,29 @@ func Test_SignerCanHandle(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "status is not nil",
+			name: "stable — condition true and generation matches",
 			testCase: func(instance *rhtasv1.TimestampAuthority) {
-				instance.Status.Conditions = []metav1.Condition{
-					{
-						Type:   "TSASignerCondition",
-						Status: metav1.ConditionTrue,
-						Reason: state.Ready.String(),
-					},
-				}
 				instance.Status.Signer = &instance.Spec.Signer
+				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+					Type:               TSASignerCondition,
+					Status:             metav1.ConditionTrue,
+					Reason:             "Resolved",
+					ObservedGeneration: instance.Generation,
+				})
 			},
 			expected: false,
 		},
 		{
-			name: "spec and status differ",
+			name: "generation mismatch",
 			testCase: func(instance *rhtasv1.TimestampAuthority) {
-				instance.Status.Signer = &rhtasv1.TimestampAuthoritySigner{
-					CertificateChain: rhtasv1.CertificateChain{
-						RootCA: &rhtasv1.TsaCertificateAuthority{
-							OrganizationName: "new_org",
-						},
-						IntermediateCA: []*rhtasv1.TsaCertificateAuthority{
-							{
-								OrganizationName: "new_org",
-							},
-						},
-						LeafCA: &rhtasv1.TsaCertificateAuthority{
-							OrganizationName: "new_org",
-						},
-					},
-				}
+				instance.Generation = 2
+				instance.Status.Signer = &instance.Spec.Signer
+				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+					Type:               TSASignerCondition,
+					Status:             metav1.ConditionTrue,
+					Reason:             "Resolved",
+					ObservedGeneration: 1,
+				})
 			},
 			expected: true,
 		},
@@ -403,6 +395,53 @@ func Test_SignerHandle(t *testing.T) {
 			},
 		},
 		{
+			name: "user-provided refs are stable",
+			setup: func(instance *rhtasv1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1.TimestampAuthority]) {
+				instance.Status.Conditions[0].Reason = state.Pending.String()
+				instance.Spec.Signer = rhtasv1.TimestampAuthoritySigner{
+					CertificateChain: rhtasv1.CertificateChain{
+						CertificateChainRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
+								Name: "user-cert-secret",
+							},
+							Key: "certificateChain",
+						},
+					},
+					File: &rhtasv1.File{
+						PrivateKeyRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
+								Name: "user-key-secret",
+							},
+							Key: "leafPrivateKey",
+						},
+					},
+				}
+				instance.Status.Signer = instance.Spec.Signer.DeepCopy()
+
+				userCertSecret := tsa.CreateSecrets(instance.Namespace, "user-cert-secret", false)
+				userKeySecret := tsa.CreateSecrets(instance.Namespace, "user-key-secret", false)
+
+				operatorSecret := tsa.CreateSecrets(instance.Namespace, "operator-managed", false)
+				operatorSecret.Annotations = generateSecretAnnotations(instance.Spec.Signer)
+				operatorSecret.Labels = map[string]string{TSACertCALabel: "certificateChain"}
+
+				return common.TsaTestSetup(instance, t, nil, NewGenerateSignerAction(), userCertSecret, userKeySecret, operatorSecret)
+			},
+			testCase: func(g Gomega, _ action.Action[*rhtasv1.TimestampAuthority], cli client.WithWatch, instance *rhtasv1.TimestampAuthority) bool {
+				g.Expect(instance.Status.Signer).NotTo(BeNil(), "Status Signer should not be nil")
+
+				g.Expect(instance.Status.Signer.CertificateChain.CertificateChainRef.Name).To(Equal("user-cert-secret"),
+					"CertificateChainRef should preserve user-provided ref")
+				g.Expect(instance.Status.Signer.File.PrivateKeyRef.Name).To(Equal("user-key-secret"),
+					"PrivateKeyRef should preserve user-provided ref")
+
+				g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, TSASignerCondition)).To(BeTrue(),
+					"Should resolve without regeneration")
+
+				return true
+			},
+		},
+		{
 			name: "find existing secret",
 			setup: func(instance *rhtasv1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1.TimestampAuthority]) {
 				instance.Status.Conditions[0].Reason = state.Pending.String()
@@ -542,38 +581,41 @@ func Test_AlignStatusFields(t *testing.T) {
 			},
 		},
 		{
-			name: "upgrade from old operator — drops auto-generated PasswordRef",
+			name: "preserves existing status refs when non-nil",
 			signer: rhtasv1.TimestampAuthoritySigner{
 				CertificateChain: rhtasv1.CertificateChain{
-					RootCA:         &rhtasv1.TsaCertificateAuthority{OrganizationName: "Red Hat"},
-					IntermediateCA: []*rhtasv1.TsaCertificateAuthority{{OrganizationName: "Red Hat"}},
-					LeafCA:         &rhtasv1.TsaCertificateAuthority{OrganizationName: "Red Hat"},
+					CertificateChainRef: &rhtasv1.SecretKeySelector{
+						Key:                  "chain",
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
+					},
+				},
+				File: &rhtasv1.File{
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						Key:                  "key",
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
+					},
 				},
 			},
 			existingStatus: &rhtasv1.TimestampAuthoritySigner{
 				CertificateChain: rhtasv1.CertificateChain{
 					CertificateChainRef: &rhtasv1.SecretKeySelector{
-						Key:                  "certificateChain",
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old-secret"},
+						Key:                  "chain",
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "existing-secret"},
 					},
 				},
 				File: &rhtasv1.File{
 					PrivateKeyRef: &rhtasv1.SecretKeySelector{
-						Key:                  "leafPrivateKey",
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old-secret"},
-					},
-					PasswordRef: &rhtasv1.SecretKeySelector{
-						Key:                  "leafPrivateKeyPassword",
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old-secret"},
+						Key:                  "key",
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "existing-secret"},
 					},
 				},
 			},
 			testCase: func(g Gomega, instance *rhtasv1.TimestampAuthority) {
 				g.Expect(instance.Status.Signer).NotTo(BeNil())
-				g.Expect(instance.Status.Signer.File).NotTo(BeNil(), "File should be defaulted on Status")
-				g.Expect(instance.Status.Signer.File.PrivateKeyRef).NotTo(BeNil(), "PrivateKeyRef should be defaulted")
-				g.Expect(instance.Status.Signer.File.PasswordRef).To(BeNil(), "PasswordRef from old operator should be dropped") //nolint:staticcheck
-				g.Expect(instance.Status.Signer.CertificateChain.CertificateChainRef.Name).To(Equal("test-secret"))
+				g.Expect(instance.Status.Signer.CertificateChain.CertificateChainRef.Name).To(Equal("existing-secret"),
+					"should not overwrite existing CertificateChainRef")
+				g.Expect(instance.Status.Signer.File.PrivateKeyRef.Name).To(Equal("existing-secret"),
+					"should not overwrite existing PrivateKeyRef")
 			},
 		},
 		{
