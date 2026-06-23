@@ -109,7 +109,7 @@ var _ = Describe("Conversion webhook", Ordered, func() {
 			Expect(v1Obj.Spec.Attestations.Pvc.Size).To(Equal(v1alpha1Obj.Spec.Attestations.Pvc.Size))
 			Expect(v1Obj.Spec.Attestations.Pvc.Retain).To(Equal(v1alpha1Obj.Spec.Attestations.Pvc.Retain))
 			// Convert AccessModes to core v1 types for comparison
-			Expect(len(v1Obj.Spec.Attestations.Pvc.AccessModes)).To(Equal(len(v1alpha1Obj.Spec.Attestations.Pvc.AccessModes)))
+			Expect(v1Obj.Spec.Attestations.Pvc.AccessModes).To(HaveLen(len(v1alpha1Obj.Spec.Attestations.Pvc.AccessModes)))
 			for i := range v1Obj.Spec.Attestations.Pvc.AccessModes {
 				Expect(string(v1Obj.Spec.Attestations.Pvc.AccessModes[i])).To(Equal(string(v1alpha1Obj.Spec.Attestations.Pvc.AccessModes[i])))
 			}
