@@ -69,6 +69,13 @@ type RekorSpec struct {
 	//+kubebuilder:default:=10485760
 	//+optional
 	MaxRequestBodySize *int64 `json:"maxRequestBodySize,omitempty"`
+
+	// PVC configuration
+	// Deprecated: Use spec.attestations.pvc instead. This field is retained for backward compatibility.
+	// When upgrading from v1alpha1 to v1, data from spec.pvc will be migrated to spec.attestations.pvc.
+	//+kubebuilder:default:={size: "5Gi", retain: true, accessModes: {ReadWriteOnce}}
+	//+optional
+	Pvc Pvc `json:"pvc,omitempty"`
 }
 
 // RekorAttestations defines the configuration for storing attestations.

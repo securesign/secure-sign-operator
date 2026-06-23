@@ -20,7 +20,7 @@ func isV1PvcEmpty(pvc rhtasv1.Pvc) bool {
 // Convert_v1alpha1_RekorSpec_To_v1_RekorSpec manually converts v1alpha1.RekorSpec to v1.RekorSpec
 // This is needed because the Pvc field was moved from spec.pvc to spec.attestations.pvc
 func Convert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *rhtasv1.RekorSpec, s apiconversion.Scope) error {
-	// First do auto-generated conversion for all fields except Pvc
+	// First do auto-generated conversion for all fields
 	if err := autoConvert_v1alpha1_RekorSpec_To_v1_RekorSpec(in, out, s); err != nil {
 		return err
 	}
@@ -33,6 +33,9 @@ func Convert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *rhtasv1.Reko
 			return err
 		}
 	}
+
+	// Note: The deprecated out.Pvc field is already populated by autoConvert_v1alpha1_RekorSpec_To_v1_RekorSpec
+	// This maintains backward compatibility for the v1 API
 
 	return nil
 }

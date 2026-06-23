@@ -1922,7 +1922,9 @@ func autoConvert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *v1.Rekor
 	if err := Convert_v1alpha1_SearchIndex_To_v1_SearchIndex(&in.SearchIndex, &out.SearchIndex, s); err != nil {
 		return err
 	}
-	// WARNING: in.Pvc requires manual conversion: does not exist in peer-type
+	if err := Convert_v1alpha1_Pvc_To_v1_Pvc(&in.Pvc, &out.Pvc, s); err != nil {
+		return err
+	}
 	if err := Convert_v1alpha1_BackFillRedis_To_v1_BackFillRedis(&in.BackFillRedis, &out.BackFillRedis, s); err != nil {
 		return err
 	}
@@ -1967,6 +1969,9 @@ func autoConvert_v1_RekorSpec_To_v1alpha1_RekorSpec(in *v1.RekorSpec, out *Rekor
 	out.TrustedCA = (*LocalObjectReference)(unsafe.Pointer(in.TrustedCA))
 	out.Auth = (*Auth)(unsafe.Pointer(in.Auth))
 	out.MaxRequestBodySize = (*int64)(unsafe.Pointer(in.MaxRequestBodySize))
+	if err := Convert_v1_Pvc_To_v1alpha1_Pvc(&in.Pvc, &out.Pvc, s); err != nil {
+		return err
+	}
 	return nil
 }
 

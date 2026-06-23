@@ -17,10 +17,6 @@ func Convert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(in *v1.FulcioSpec, out *Fulcio
 	return autoConvert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(in, out, s)
 }
 
-func Convert_v1_RekorSpec_To_v1alpha1_RekorSpec(in *v1.RekorSpec, out *RekorSpec, s apiconversion.Scope) error {
-	return autoConvert_v1_RekorSpec_To_v1alpha1_RekorSpec(in, out, s)
-}
-
 func Convert_v1_TimestampAuthoritySpec_To_v1alpha1_TimestampAuthoritySpec(in *v1.TimestampAuthoritySpec, out *TimestampAuthoritySpec, s apiconversion.Scope) error {
 	return autoConvert_v1_TimestampAuthoritySpec_To_v1alpha1_TimestampAuthoritySpec(in, out, s)
 }
@@ -31,6 +27,10 @@ func Convert_v1_TrillianSpec_To_v1alpha1_TrillianSpec(in *v1.TrillianSpec, out *
 
 func Convert_v1_TufSpec_To_v1alpha1_TufSpec(in *v1.TufSpec, out *TufSpec, s apiconversion.Scope) error {
 	return autoConvert_v1_TufSpec_To_v1alpha1_TufSpec(in, out, s)
+}
+
+func Convert_v1_RekorSpec_To_v1alpha1_RekorSpec(in *v1.RekorSpec, out *RekorSpec, s apiconversion.Scope) error {
+	return autoConvert_v1_RekorSpec_To_v1alpha1_RekorSpec(in, out, s)
 }
 
 // Manual conversion for Pvc to properly convert AccessModes slice

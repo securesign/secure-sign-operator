@@ -1378,6 +1378,68 @@ spec:
                 required:
                 - enabled
                 type: object
+              pvc:
+                default:
+                  accessModes:
+                  - ReadWriteOnce
+                  retain: true
+                  size: 5Gi
+                description: |-
+                  PVC configuration
+                  Deprecated: Use spec.attestations.pvc instead. This field is retained for backward compatibility.
+                  When upgrading from v1alpha1 to v1, data from spec.pvc will be migrated to spec.attestations.pvc.
+                properties:
+                  accessModes:
+                    default:
+                    - ReadWriteOnce
+                    description: PVC AccessModes
+                    items:
+                      enum:
+                      - ReadWriteOnce
+                      - ReadOnlyMany
+                      - ReadWriteMany
+                      - ReadWriteOncePod
+                      type: string
+                    minItems: 1
+                    type: array
+                  name:
+                    description: Name of the PVC
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                  retain:
+                    default: true
+                    description: Retain policy for the PVC
+                    type: boolean
+                    x-kubernetes-validations:
+                    - message: Field is immutable
+                      rule: (self == oldSelf)
+                  size:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    default: 5Gi
+                    description: |-
+                      The requested size of the persistent volume attached to Pod.
+                      The format of this field matches that defined by kubernetes/apimachinery.
+                      See https://pkg.go.dev/k8s.io/apimachinery/pkg/api/resource#Quantity for more info on the format of this field.
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  storageClass:
+                    description: The name of the StorageClass to claim a PersistentVolume
+                      from.
+                    type: string
+                required:
+                - retain
+                type: object
+                x-kubernetes-validations:
+                - message: storageClass is immutable when a PVC name is not specified
+                  rule: oldSelf == null || has(self.name) || (!has(oldSelf.storageClass)
+                    || has(self.storageClass) && oldSelf.storageClass == self.storageClass)
+                - message: accessModes is immutable when a PVC name is not specified
+                  rule: oldSelf == null || has(self.name) || (!has(oldSelf.accessModes)
+                    || has(self.accessModes) && oldSelf.accessModes == self.accessModes)
               rekorSearchUI:
                 default:
                   enabled: true
