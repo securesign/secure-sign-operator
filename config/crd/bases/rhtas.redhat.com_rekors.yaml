@@ -2917,10 +2917,7 @@ spec:
               signer:
                 properties:
                   keyRef:
-                    description: |-
-                      Reference to the signer private key.
-
-                      Optional field. When KMS is set to "secret", this field can be left empty, in which case the operator will automatically generate a signer key.
+                    description: Reference to the resolved signer private key.
                     properties:
                       key:
                         description: The key of the secret to select from. Must be
@@ -2937,34 +2934,9 @@ spec:
                     - name
                     type: object
                     x-kubernetes-map-type: atomic
-                  kms:
-                    default: secret
-                    description: |-
-                      KMS Signer provider. Specifies the key management system (KMS) used for signing operations.
-
-                      Valid values:
-                      - "secret" (default): The signer key is stored in a Kubernetes Secret.
-                      - "memory": Ephemeral signer key stored in memory. Recommended for development use only.
-                      - KMS URI: A URI to a cloud-based KMS, following the Go Cloud Development Kit (Go Cloud) URI format. Supported URIs include:
-                        - awskms://keyname
-                        - azurekms://keyname
-                        - gcpkms://keyname
-                        - hashivault://keyname
-                    type: string
-                    x-kubernetes-validations:
-                    - message: KMS must be '', 'secret', 'memory', or a valid URI
-                        with a key path (e.g., awskms:///key-id)
-                      rule: self == '' || self == 'secret' || self == 'memory' ||
-                        self.matches('^awskms://.+$') || self.matches('^gcpkms://.+$')
-                        || self.matches('^azurekms://.+$') || self.matches('^hashivault://.+$')
                   passwordRef:
-                    description: |-
-                      Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
-                      and not FIPS-compliant. Auto-generated keys are no longer password-encrypted;
-                      this field is retained only for backward compatibility with existing user-provided
-                      encrypted keys. Kubernetes Secrets provide encryption-at-rest.
-                      This should be set only if the private key referenced by `keyRef` is encrypted with a password.
-                      If KMS is set to a value other than "secret", this field is ignored.
+                    description: Reference to the password used to decrypt the signer
+                      private key.
                     properties:
                       key:
                         description: The key of the secret to select from. Must be

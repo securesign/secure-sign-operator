@@ -203,13 +203,23 @@ type SearchIndexStatus struct {
 	DbPasswordRef *SecretKeySelector `json:"dbPasswordRef,omitempty"`
 }
 
+type RekorSignerStatus struct {
+	// Reference to the password used to decrypt the signer private key.
+	// +optional
+	PasswordRef *SecretKeySelector `json:"passwordRef,omitempty"`
+
+	// Reference to the resolved signer private key.
+	// +optional
+	KeyRef *SecretKeySelector `json:"keyRef,omitempty"`
+}
+
 // RekorStatus defines the observed state of Rekor
 type RekorStatus struct {
 	// Reference to secret with Rekor's signer public key.
 	// Public key is automatically generated from signer private key.
 	PublicKeyRef     *SecretKeySelector    `json:"publicKeyRef,omitempty"`
 	ServerConfigRef  *LocalObjectReference `json:"serverConfigRef,omitempty"`
-	Signer           RekorSigner           `json:"signer,omitempty"`
+	Signer           RekorSignerStatus     `json:"signer,omitempty"`
 	SearchIndex      SearchIndexStatus     `json:"searchIndex,omitempty"`
 	PvcName          string                `json:"pvcName,omitempty"`
 	MonitorPvcName   string                `json:"monitorpvcName,omitempty"`

@@ -57,6 +57,26 @@ func TestRekorConversion(t *testing.T) {
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.Rekor{},
 		Spoke:  &Rekor{},
+		// Only fill fields that survive roundtrip — v1 status type RekorSignerStatus omits KMS.
+		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			func(_ runtimeserializer.CodecFactory) []interface{} {
+				return []interface{}{
+					func(s *RekorStatus, c randfill.Continue) {
+						c.FillNoCustom(&s.PublicKeyRef)
+						c.FillNoCustom(&s.ServerConfigRef)
+						c.FillNoCustom(&s.Signer.PasswordRef)
+						c.FillNoCustom(&s.Signer.KeyRef)
+						c.FillNoCustom(&s.SearchIndex)
+						c.FillNoCustom(&s.PvcName)
+						c.FillNoCustom(&s.MonitorPvcName)
+						c.FillNoCustom(&s.Url)
+						c.FillNoCustom(&s.RekorSearchUIUrl)
+						c.FillNoCustom(&s.TreeID)
+						c.FillNoCustom(&s.Conditions)
+					},
+				}
+			},
+		},
 	}))
 }
 

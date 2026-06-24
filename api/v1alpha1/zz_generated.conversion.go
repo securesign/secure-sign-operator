@@ -753,6 +753,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*v1.RekorSignerStatus)(nil), (*RekorSigner)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_RekorSignerStatus_To_v1alpha1_RekorSigner(a.(*v1.RekorSignerStatus), b.(*RekorSigner), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*v1.RekorSpec)(nil), (*RekorSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_RekorSpec_To_v1alpha1_RekorSpec(a.(*v1.RekorSpec), b.(*RekorSpec), scope)
 	}); err != nil {
@@ -790,6 +795,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*FulcioCert)(nil), (*v1.FulcioCertStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_FulcioCert_To_v1_FulcioCertStatus(a.(*FulcioCert), b.(*v1.FulcioCertStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*RekorSigner)(nil), (*v1.RekorSignerStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_RekorSigner_To_v1_RekorSignerStatus(a.(*RekorSigner), b.(*v1.RekorSignerStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -1967,7 +1977,7 @@ func autoConvert_v1_RekorSpec_To_v1alpha1_RekorSpec(in *v1.RekorSpec, out *Rekor
 func autoConvert_v1alpha1_RekorStatus_To_v1_RekorStatus(in *RekorStatus, out *v1.RekorStatus, s conversion.Scope) error {
 	out.PublicKeyRef = (*v1.SecretKeySelector)(unsafe.Pointer(in.PublicKeyRef))
 	out.ServerConfigRef = (*v1.LocalObjectReference)(unsafe.Pointer(in.ServerConfigRef))
-	if err := Convert_v1alpha1_RekorSigner_To_v1_RekorSigner(&in.Signer, &out.Signer, s); err != nil {
+	if err := Convert_v1alpha1_RekorSigner_To_v1_RekorSignerStatus(&in.Signer, &out.Signer, s); err != nil {
 		return err
 	}
 	if err := Convert_v1alpha1_SearchIndexStatus_To_v1_SearchIndexStatus(&in.SearchIndex, &out.SearchIndex, s); err != nil {
@@ -1990,7 +2000,7 @@ func Convert_v1alpha1_RekorStatus_To_v1_RekorStatus(in *RekorStatus, out *v1.Rek
 func autoConvert_v1_RekorStatus_To_v1alpha1_RekorStatus(in *v1.RekorStatus, out *RekorStatus, s conversion.Scope) error {
 	out.PublicKeyRef = (*SecretKeySelector)(unsafe.Pointer(in.PublicKeyRef))
 	out.ServerConfigRef = (*LocalObjectReference)(unsafe.Pointer(in.ServerConfigRef))
-	if err := Convert_v1_RekorSigner_To_v1alpha1_RekorSigner(&in.Signer, &out.Signer, s); err != nil {
+	if err := Convert_v1_RekorSignerStatus_To_v1alpha1_RekorSigner(&in.Signer, &out.Signer, s); err != nil {
 		return err
 	}
 	if err := Convert_v1_SearchIndexStatus_To_v1alpha1_SearchIndexStatus(&in.SearchIndex, &out.SearchIndex, s); err != nil {

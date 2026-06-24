@@ -287,6 +287,27 @@ func TestRekorConversionUnit(t *testing.T) {
 			},
 		},
 		{
+			name: "status signer cross-type conversion",
+			hub: &rhtasv1.Rekor{
+				ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
+				Status: rhtasv1.RekorStatus{
+					Signer: rhtasv1.RekorSignerStatus{
+						KeyRef:      &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "signer-key"}, Key: "private"},
+						PasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "signer-key"}, Key: "password"},
+					},
+				},
+			},
+			spoke: &Rekor{
+				ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
+				Status: RekorStatus{
+					Signer: RekorSigner{
+						KeyRef:      &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "signer-key"}, Key: "private"},
+						PasswordRef: &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "signer-key"}, Key: "password"},
+					},
+				},
+			},
+		},
+		{
 			name: "sharding and search index",
 			hub: &rhtasv1.Rekor{
 				ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
