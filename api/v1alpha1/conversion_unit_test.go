@@ -281,7 +281,12 @@ func TestRekorConversionUnit(t *testing.T) {
 							Retain: ptr.To(true),
 						},
 					},
-					// Note: spec.pvc is deprecated and not populated when converting FROM v1
+					// For backward compatibility, spec.pvc is populated from v1 spec.attestations.pvc
+					// so that v1alpha1 clients using the deprecated field can still access the data
+					Pvc: Pvc{
+						Size:   ptr.To(resource.MustParse("5Gi")),
+						Retain: ptr.To(true),
+					},
 					Signer:    RekorSigner{KMS: "secret"},
 					TrustedCA: &LocalObjectReference{Name: "trusted-ca"},
 				},
