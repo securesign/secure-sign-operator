@@ -48,12 +48,6 @@ func Convert_v1_RekorSpec_To_v1alpha1_RekorSpec(in *v1.RekorSpec, out *RekorSpec
 
 // Manual conversion for RekorSpec to properly convert PVC AccessModes slice and handle PVC migration
 func Convert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *v1.RekorSpec, s apiconversion.Scope) error {
-	// Check if we need to migrate old spec.pvc to spec.attestations.pvc BEFORE autoConvert runs
-	// (autoConvert will apply defaults to in.Attestations.Pvc, making it appear non-empty)
-	isPvcEmpty := in.Pvc.Size == nil && in.Pvc.Retain == nil && in.Pvc.Name == "" && in.Pvc.StorageClass == "" && len(in.Pvc.AccessModes) == 0
-	isAttestationsPvcEmpty := in.Attestations.Pvc.Size == nil && in.Attestations.Pvc.Retain == nil && in.Attestations.Pvc.Name == "" && in.Attestations.Pvc.StorageClass == "" && len(in.Attestations.Pvc.AccessModes) == 0
-	shouldMigrate := !isPvcEmpty && isAttestationsPvcEmpty
-
 	// Call autoConvert to handle all standard fields
 	if err := autoConvert_v1alpha1_RekorSpec_To_v1_RekorSpec(in, out, s); err != nil {
 		return err
@@ -67,11 +61,30 @@ func Convert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *v1.RekorSpec
 		}
 	}
 
-	// Migrate old spec.pvc to spec.attestations.pvc if needed
-	// This overwrites any defaults that autoConvert applied
-	if shouldMigrate {
-		if err := Convert_v1alpha1_Pvc_To_v1_Pvc(&in.Pvc, &out.Attestations.Pvc, s); err != nil {
-			return err
+	// Migration strategy: Migrate from deprecated spec.pvc to spec.attestations.pvc
+	// by copying any non-empty fields. This handles both cases:
+	// 1. User only set spec.pvc (attestations.pvc is empty)
+	// 2. User set spec.pvc and kubebuilder applied defaults to attestations.pvc
+	//
+	// We migrate field-by-field, only overwriting if the source field is set.
+	// This preserves any intentional values in attestations.pvc while migrating
+	// values from the deprecated field.
+	if in.Pvc.Size != nil {
+		out.Attestations.Pvc.Size = in.Pvc.Size
+	}
+	if in.Pvc.Retain != nil {
+		out.Attestations.Pvc.Retain = in.Pvc.Retain
+	}
+	if in.Pvc.Name != "" {
+		out.Attestations.Pvc.Name = in.Pvc.Name
+	}
+	if in.Pvc.StorageClass != "" {
+		out.Attestations.Pvc.StorageClass = in.Pvc.StorageClass
+	}
+	if in.Pvc.AccessModes != nil {
+		out.Attestations.Pvc.AccessModes = make([]v1.PersistentVolumeAccessMode, len(in.Pvc.AccessModes))
+		for i, mode := range in.Pvc.AccessModes {
+			out.Attestations.Pvc.AccessModes[i] = v1.PersistentVolumeAccessMode(mode)
 		}
 	}
 

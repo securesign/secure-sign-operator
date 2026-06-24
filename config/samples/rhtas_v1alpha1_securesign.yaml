@@ -13,10 +13,10 @@ spec:
     monitoring:
       enabled: true
     pvc:
+      name: byodb
       accessModes:
         - ReadWriteOnce
       retain: true
-      size: 25Gi
   trillian:
     database:
       create: true

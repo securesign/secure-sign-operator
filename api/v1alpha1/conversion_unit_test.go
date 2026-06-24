@@ -361,46 +361,90 @@ func TestRekorConversionUnit(t *testing.T) {
 
 // TestRekorPvcMigration specifically tests the migration from old v1alpha1 spec.pvc to new v1 spec.attestations.pvc
 func TestRekorPvcMigration(t *testing.T) {
-	// Create a v1alpha1 Rekor with OLD spec.pvc (pre-migration format)
-	oldSpoke := &Rekor{
-		ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
-		Spec: RekorSpec{
-			TreeID: ptr.To[int64](333),
-			// OLD location: spec.pvc (this is what existing v1alpha1 users have)
-			Pvc: Pvc{
-				Size:   ptr.To(resource.MustParse("20Gi")),
-				Retain: ptr.To(true),
-				Name:   "legacy-pvc",
+	t.Run("Empty attestations.pvc", func(t *testing.T) {
+		// Create a v1alpha1 Rekor with OLD spec.pvc (pre-migration format)
+		oldSpoke := &Rekor{
+			ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
+			Spec: RekorSpec{
+				TreeID: ptr.To[int64](333),
+				// OLD location: spec.pvc (this is what existing v1alpha1 users have)
+				Pvc: Pvc{
+					Size:   ptr.To(resource.MustParse("20Gi")),
+					Retain: ptr.To(true),
+					Name:   "legacy-pvc",
+				},
+				// Empty attestations.pvc (user hasn't migrated yet)
+				Attestations: RekorAttestations{
+					Enabled: ptr.To(true),
+					Url:     "file:///var/run/attestations?no_tmp_dir=true",
+					// Note: Pvc is empty/default
+				},
 			},
-			// Empty attestations.pvc (user hasn't migrated yet)
-			Attestations: RekorAttestations{
-				Enabled: ptr.To(true),
-				Url:     "file:///var/run/attestations?no_tmp_dir=true",
-				// Note: Pvc is empty/default
+		}
+
+		// Convert v1alpha1 → v1
+		hub := &rhtasv1.Rekor{}
+		if err := oldSpoke.ConvertTo(hub); err != nil {
+			t.Fatalf("ConvertTo failed: %v", err)
+		}
+
+		// Verify the PVC was migrated to attestations.pvc in v1
+		if hub.Spec.Attestations.Pvc.Size == nil {
+			t.Error("Expected attestations.pvc.size to be set after migration")
+		} else if hub.Spec.Attestations.Pvc.Size.String() != "20Gi" {
+			t.Errorf("Expected attestations.pvc.size = 20Gi, got %s", hub.Spec.Attestations.Pvc.Size.String())
+		}
+
+		if hub.Spec.Attestations.Pvc.Name != "legacy-pvc" {
+			t.Errorf("Expected attestations.pvc.name = legacy-pvc, got %s", hub.Spec.Attestations.Pvc.Name)
+		}
+
+		if hub.Spec.Attestations.Pvc.Retain == nil || !*hub.Spec.Attestations.Pvc.Retain {
+			t.Error("Expected attestations.pvc.retain = true after migration")
+		}
+	})
+
+	t.Run("Both spec.pvc and attestations.pvc set (with defaults)", func(t *testing.T) {
+		// Simulate what happens when kubebuilder defaults are applied:
+		// User sets spec.pvc.size = 25Gi, but API server applies default attestations.pvc.size = 5Gi
+		oldSpoke := &Rekor{
+			ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
+			Spec: RekorSpec{
+				TreeID: ptr.To[int64](444),
+				// User explicitly set spec.pvc to 25Gi
+				Pvc: Pvc{
+					Size:   ptr.To(resource.MustParse("25Gi")),
+					Retain: ptr.To(true),
+				},
+				// API server applied kubebuilder defaults to attestations.pvc
+				Attestations: RekorAttestations{
+					Enabled: ptr.To(true),
+					Url:     "file:///var/run/attestations?no_tmp_dir=true",
+					Pvc: Pvc{
+						Size:   ptr.To(resource.MustParse("5Gi")), // default value from kubebuilder
+						Retain: ptr.To(true),
+					},
+				},
 			},
-		},
-	}
+		}
 
-	// Convert v1alpha1 → v1
-	hub := &rhtasv1.Rekor{}
-	if err := oldSpoke.ConvertTo(hub); err != nil {
-		t.Fatalf("ConvertTo failed: %v", err)
-	}
+		// Convert v1alpha1 → v1
+		hub := &rhtasv1.Rekor{}
+		if err := oldSpoke.ConvertTo(hub); err != nil {
+			t.Fatalf("ConvertTo failed: %v", err)
+		}
 
-	// Verify the PVC was migrated to attestations.pvc in v1
-	if hub.Spec.Attestations.Pvc.Size == nil {
-		t.Error("Expected attestations.pvc.size to be set after migration")
-	} else if hub.Spec.Attestations.Pvc.Size.String() != "20Gi" {
-		t.Errorf("Expected attestations.pvc.size = 20Gi, got %s", hub.Spec.Attestations.Pvc.Size.String())
-	}
+		// Verify that spec.pvc (25Gi) takes precedence over the default attestations.pvc (5Gi)
+		if hub.Spec.Attestations.Pvc.Size == nil {
+			t.Error("Expected attestations.pvc.size to be set after migration")
+		} else if hub.Spec.Attestations.Pvc.Size.String() != "25Gi" {
+			t.Errorf("Expected attestations.pvc.size = 25Gi (from spec.pvc), got %s", hub.Spec.Attestations.Pvc.Size.String())
+		}
 
-	if hub.Spec.Attestations.Pvc.Name != "legacy-pvc" {
-		t.Errorf("Expected attestations.pvc.name = legacy-pvc, got %s", hub.Spec.Attestations.Pvc.Name)
-	}
-
-	if hub.Spec.Attestations.Pvc.Retain == nil || !*hub.Spec.Attestations.Pvc.Retain {
-		t.Error("Expected attestations.pvc.retain = true after migration")
-	}
+		if hub.Spec.Attestations.Pvc.Retain == nil || !*hub.Spec.Attestations.Pvc.Retain {
+			t.Error("Expected attestations.pvc.retain = true after migration")
+		}
+	})
 }
 
 func TestFulcioConversionUnit(t *testing.T) {
