@@ -12,6 +12,11 @@ spec:
       enabled: true
     monitoring:
       enabled: true
+    pvc:
+      accessModes:
+        - ReadWriteOnce
+      retain: true
+      size: 25Gi
   trillian:
     database:
       create: true
@@ -23,8 +28,8 @@ spec:
     config:
       OIDCIssuers:
         - ClientID: "trusted-artifact-signer"
-          IssuerURL: "https://your-oidc-issuer-url"
-          Issuer: "https://your-oidc-issuer-url"
+          IssuerURL: "https://keycloak-keycloak-system.apps.rosa.n2kdh-hsycz-zkp.v4jb.p3.openshiftapps.com/realms/trusted-artifact-signer"
+          Issuer: "https://keycloak-keycloak-system.apps.rosa.n2kdh-hsycz-zkp.v4jb.p3.openshiftapps.com/realms/trusted-artifact-signer"
           Type: "email"
     certificate:
       organizationName: Red Hat

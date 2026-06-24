@@ -48,7 +48,13 @@ func Convert_v1_RekorSpec_To_v1alpha1_RekorSpec(in *v1.RekorSpec, out *RekorSpec
 
 // Manual conversion for RekorSpec to properly convert PVC AccessModes slice and handle PVC migration
 func Convert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *v1.RekorSpec, s apiconversion.Scope) error {
-	// First call autoConvert to handle all standard fields
+	// Check if we need to migrate old spec.pvc to spec.attestations.pvc BEFORE autoConvert runs
+	// (autoConvert will apply defaults to in.Attestations.Pvc, making it appear non-empty)
+	isPvcEmpty := in.Pvc.Size == nil && in.Pvc.Retain == nil && in.Pvc.Name == "" && in.Pvc.StorageClass == "" && len(in.Pvc.AccessModes) == 0
+	isAttestationsPvcEmpty := in.Attestations.Pvc.Size == nil && in.Attestations.Pvc.Retain == nil && in.Attestations.Pvc.Name == "" && in.Attestations.Pvc.StorageClass == "" && len(in.Attestations.Pvc.AccessModes) == 0
+	shouldMigrate := !isPvcEmpty && isAttestationsPvcEmpty
+
+	// Call autoConvert to handle all standard fields
 	if err := autoConvert_v1alpha1_RekorSpec_To_v1_RekorSpec(in, out, s); err != nil {
 		return err
 	}
@@ -61,13 +67,9 @@ func Convert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *v1.RekorSpec
 		}
 	}
 
-	// Migrate old spec.pvc to spec.attestations.pvc if:
-	// 1. Old spec.pvc is set (non-empty)
-	// 2. New spec.attestations.pvc is empty (to avoid overwriting user's new config)
-	isPvcEmpty := in.Pvc.Size == nil && in.Pvc.Retain == nil && in.Pvc.Name == "" && in.Pvc.StorageClass == "" && len(in.Pvc.AccessModes) == 0
-	isAttestationsPvcEmpty := out.Attestations.Pvc.Size == nil && out.Attestations.Pvc.Retain == nil && out.Attestations.Pvc.Name == "" && out.Attestations.Pvc.StorageClass == "" && len(out.Attestations.Pvc.AccessModes) == 0
-
-	if !isPvcEmpty && isAttestationsPvcEmpty {
+	// Migrate old spec.pvc to spec.attestations.pvc if needed
+	// This overwrites any defaults that autoConvert applied
+	if shouldMigrate {
 		if err := Convert_v1alpha1_Pvc_To_v1_Pvc(&in.Pvc, &out.Attestations.Pvc, s); err != nil {
 			return err
 		}
