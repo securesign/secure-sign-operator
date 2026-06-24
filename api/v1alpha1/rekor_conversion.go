@@ -3,42 +3,8 @@ package v1alpha1
 import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
-	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
-
-// isPvcEmpty checks if a Pvc struct is empty (all fields are zero values)
-func isPvcEmpty(pvc Pvc) bool {
-	return pvc.Size == nil && pvc.Retain == nil && pvc.Name == "" && pvc.StorageClass == "" && len(pvc.AccessModes) == 0
-}
-
-// isV1PvcEmpty checks if a v1.Pvc struct is empty (all fields are zero values)
-func isV1PvcEmpty(pvc rhtasv1.Pvc) bool {
-	return pvc.Size == nil && pvc.Retain == nil && pvc.Name == "" && pvc.StorageClass == "" && len(pvc.AccessModes) == 0
-}
-
-// Convert_v1alpha1_RekorSpec_To_v1_RekorSpec manually converts v1alpha1.RekorSpec to v1.RekorSpec
-// This is needed because the Pvc field was moved from spec.pvc to spec.attestations.pvc
-func Convert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *rhtasv1.RekorSpec, s apiconversion.Scope) error {
-	// First do auto-generated conversion for all fields
-	if err := autoConvert_v1alpha1_RekorSpec_To_v1_RekorSpec(in, out, s); err != nil {
-		return err
-	}
-
-	// Migrate old spec.pvc to spec.attestations.pvc if:
-	// 1. Old spec.pvc is set (non-empty)
-	// 2. New spec.attestations.pvc is empty (to avoid overwriting user's new config)
-	if !isPvcEmpty(in.Pvc) && isV1PvcEmpty(out.Attestations.Pvc) {
-		if err := Convert_v1alpha1_Pvc_To_v1_Pvc(&in.Pvc, &out.Attestations.Pvc, s); err != nil {
-			return err
-		}
-	}
-
-	// Note: The deprecated out.Pvc field is already populated by autoConvert_v1alpha1_RekorSpec_To_v1_RekorSpec
-	// This maintains backward compatibility for the v1 API
-
-	return nil
-}
 
 func (src *Rekor) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*rhtasv1.Rekor)

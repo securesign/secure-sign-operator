@@ -33,6 +33,36 @@ func Convert_v1_RekorSpec_To_v1alpha1_RekorSpec(in *v1.RekorSpec, out *RekorSpec
 	return autoConvert_v1_RekorSpec_To_v1alpha1_RekorSpec(in, out, s)
 }
 
+// Manual conversion for RekorSpec to properly convert PVC AccessModes slice and handle PVC migration
+func Convert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *v1.RekorSpec, s apiconversion.Scope) error {
+	// First call autoConvert to handle all standard fields
+	if err := autoConvert_v1alpha1_RekorSpec_To_v1_RekorSpec(in, out, s); err != nil {
+		return err
+	}
+
+	// Then do custom PVC AccessModes conversion for the deprecated Pvc field
+	if in.Pvc.AccessModes != nil {
+		out.Pvc.AccessModes = make([]v1.PersistentVolumeAccessMode, len(in.Pvc.AccessModes))
+		for i, mode := range in.Pvc.AccessModes {
+			out.Pvc.AccessModes[i] = v1.PersistentVolumeAccessMode(mode)
+		}
+	}
+
+	// Migrate old spec.pvc to spec.attestations.pvc if:
+	// 1. Old spec.pvc is set (non-empty)
+	// 2. New spec.attestations.pvc is empty (to avoid overwriting user's new config)
+	isPvcEmpty := in.Pvc.Size == nil && in.Pvc.Retain == nil && in.Pvc.Name == "" && in.Pvc.StorageClass == "" && len(in.Pvc.AccessModes) == 0
+	isAttestationsPvcEmpty := out.Attestations.Pvc.Size == nil && out.Attestations.Pvc.Retain == nil && out.Attestations.Pvc.Name == "" && out.Attestations.Pvc.StorageClass == "" && len(out.Attestations.Pvc.AccessModes) == 0
+
+	if !isPvcEmpty && isAttestationsPvcEmpty {
+		if err := Convert_v1alpha1_Pvc_To_v1_Pvc(&in.Pvc, &out.Attestations.Pvc, s); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Manual conversion for Pvc to properly convert AccessModes slice
 func Convert_v1alpha1_Pvc_To_v1_Pvc(in *Pvc, out *v1.Pvc, s apiconversion.Scope) error {
 	out.Size = in.Size
@@ -51,39 +81,6 @@ func Convert_v1alpha1_Pvc_To_v1_Pvc(in *Pvc, out *v1.Pvc, s apiconversion.Scope)
 }
 
 func Convert_v1_Pvc_To_v1alpha1_Pvc(in *v1.Pvc, out *Pvc, s apiconversion.Scope) error {
-	out.Size = in.Size
-	out.Retain = in.Retain
-	out.Name = in.Name
-	out.StorageClass = in.StorageClass
-
-	// Convert AccessModes properly element by element
-	if in.AccessModes != nil {
-		out.AccessModes = make([]PersistentVolumeAccessMode, len(in.AccessModes))
-		for i, mode := range in.AccessModes {
-			out.AccessModes[i] = PersistentVolumeAccessMode(mode)
-		}
-	}
-	return nil
-}
-
-// Manual conversion for TufPvc to properly convert AccessModes slice
-func Convert_v1alpha1_TufPvc_To_v1_TufPvc(in *TufPvc, out *v1.TufPvc, s apiconversion.Scope) error {
-	out.Size = in.Size
-	out.Retain = in.Retain
-	out.Name = in.Name
-	out.StorageClass = in.StorageClass
-
-	// Convert AccessModes properly element by element
-	if in.AccessModes != nil {
-		out.AccessModes = make([]v1.PersistentVolumeAccessMode, len(in.AccessModes))
-		for i, mode := range in.AccessModes {
-			out.AccessModes[i] = v1.PersistentVolumeAccessMode(mode)
-		}
-	}
-	return nil
-}
-
-func Convert_v1_TufPvc_To_v1alpha1_TufPvc(in *v1.TufPvc, out *TufPvc, s apiconversion.Scope) error {
 	out.Size = in.Size
 	out.Retain = in.Retain
 	out.Name = in.Name
