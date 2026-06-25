@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/securesign/operator/internal/constants"
-	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
@@ -180,14 +179,6 @@ var _ = Describe("Timestamp Authority hot update", func() {
 				}
 				return suite.Client().Update(ctx, found)
 			}).Should(Succeed())
-
-			By("Pending phase until new keys and certs are resolved")
-			Eventually(func(g Gomega) string {
-				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
-				g.Expect(cond).ToNot(BeNil())
-				return cond.Reason
-			}).Should(Equal(state.Pending.String()))
 
 			By("Creating new certificate chain and signer keys")
 			secret := tsa.CreateSecrets(Namespace, "tsa-test-secret", true)

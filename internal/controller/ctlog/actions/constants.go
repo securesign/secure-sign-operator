@@ -1,9 +1,5 @@
 package actions
 
-import (
-	"github.com/securesign/operator/internal/labels"
-)
-
 const (
 	DeploymentName         = "ctlog"
 	ComponentName          = "ctlog"
@@ -16,6 +12,7 @@ const (
 	CertCondition    = "FulcioCertAvailable"
 	TLSCondition     = "ServerTLS"
 	ConfigCondition  = "ServerConfigAvailable"
+	SignerCondition  = "SignerAvailable"
 	SignerKeyReason  = "SignerKey"
 	FulcioReason     = "FulcioCertificate"
 	MonitorCondition = "MonitorAvailable"
@@ -27,15 +24,4 @@ const (
 	TLSSecret              = "%s-ctlog-tls"
 	MonitorMetricsPortName = "monitor-metrics"
 	MonitorMetricsPort     = 9464
-
-	CTLPubLabel       = labels.LabelNamespace + "/ctfe.pub"
-	CTLogPrivateLabel = labels.LabelNamespace + "/ctfe.private"
-
-	privateKeyRefAnnotation  = labels.LabelNamespace + "/privateKeyRef"
-	passwordKeyRefAnnotation = labels.LabelNamespace + "/passwordKeyRef"
-)
-
-var (
-	ManagedLabels      = []string{CTLogPrivateLabel, CTLPubLabel}
-	ManagedAnnotations = []string{privateKeyRefAnnotation, passwordKeyRefAnnotation}
 )

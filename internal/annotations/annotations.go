@@ -87,6 +87,10 @@ const (
 	TreeId = "rhtas.redhat.com/treeId"
 
 	TLS = "service.beta.openshift.io/serving-cert-secret-name"
+
+	// DataHash stores a SHA256 hash of a resource's data content for integrity
+	// verification.
+	DataHash = "rhtas.redhat.com/data-hash"
 )
 
 var InheritableAnnotations = []string{
