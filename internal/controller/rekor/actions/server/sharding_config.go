@@ -10,6 +10,7 @@ import (
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
@@ -43,7 +44,7 @@ func (i shardingConfig) Name() string {
 }
 
 func (i shardingConfig) CanHandle(_ context.Context, instance *rhtasv1.Rekor) bool {
-	return state.FromInstance(instance, actions.ServerCondition) >= state.Creating
+	return state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {

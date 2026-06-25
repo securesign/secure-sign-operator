@@ -201,7 +201,7 @@ var _ = Describe("CTlog update test", func() {
 					Namespace: Namespace,
 					Labels:    labels.For(actions.ComponentName, Name, instance.Name),
 				},
-				Data: map[string][]byte{"private": key.PrivateKey, "password": key.PrivateKeyPass},
+				Data: map[string][]byte{"private": key.PrivateKey, "public": key.PublicKey},
 			})).To(Succeed())
 
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
@@ -214,12 +214,13 @@ var _ = Describe("CTlog update test", func() {
 					},
 					Key: "private",
 				}
-				found.Spec.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{
+				found.Spec.PublicKeyRef = &rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: "key-secret",
 					},
-					Key: "password",
+					Key: "public",
 				}
+				found.Spec.PrivateKeyPasswordRef = nil //nolint:staticcheck
 				return suite.Client().Update(ctx, found)
 			}).Should(Succeed())
 
