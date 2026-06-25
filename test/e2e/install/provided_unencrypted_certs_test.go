@@ -1,6 +1,6 @@
 //go:build integration
 
-package e2e
+package install
 
 import (
 	"github.com/securesign/operator/test/e2e/support/steps"
@@ -19,7 +19,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-var _ = Describe("Securesign install with provided certs", Ordered, func() {
+var _ = Describe("Securesign install with provided unencrypted certs", Ordered, func() {
 	cli, _ := support.CreateClient()
 
 	var targetImageName string
@@ -33,7 +33,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		s = securesign.Create(namespace.Name, "test",
 			securesign.WithDefaults(),
-			securesign.WithProvidedEncryptedCerts(),
+			securesign.WithProvidedUnencryptedCerts(),
 			func(v *rhtasv1.Securesign) {
 				v.Spec.Tuf.Keys = []rhtasv1.TufKey{
 					{
@@ -81,12 +81,12 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 		targetImageName = support.PrepareImage(ctx)
 	})
 
-	Describe("Install with provided certificates", func() {
+	Describe("Install with unencrypted certificates", func() {
 		BeforeAll(func(ctx SpecContext) {
-			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret", true))).To(Succeed())
-			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret", true))).To(Succeed())
-			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret", true))).To(Succeed())
-			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tsa-secret", true))).To(Succeed())
+			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret", false))).To(Succeed())
+			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret", false))).To(Succeed())
+			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret", false))).To(Succeed())
+			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tsa-secret", false))).To(Succeed())
 			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 

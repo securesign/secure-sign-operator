@@ -1,6 +1,6 @@
 //go:build integration
 
-package e2e
+package lifecycle
 
 import (
 	"encoding/base64"

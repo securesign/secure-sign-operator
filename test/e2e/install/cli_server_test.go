@@ -1,6 +1,6 @@
 //go:build integration
 
-package e2e
+package install
 
 import (
 	"crypto/tls"
