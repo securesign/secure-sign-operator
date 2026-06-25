@@ -106,18 +106,19 @@ var _ = Describe("Conversion webhook", Ordered, func() {
 			Expect(v1Obj.Spec.Attestations.MaxSize).To(Equal(v1alpha1Obj.Spec.Attestations.MaxSize))
 
 			By("verifying attestations PVC config is preserved")
-			Expect(v1Obj.Spec.Attestations.Pvc.Size).To(Equal(v1alpha1Obj.Spec.Attestations.Pvc.Size))
-			Expect(v1Obj.Spec.Attestations.Pvc.Retain).To(Equal(v1alpha1Obj.Spec.Attestations.Pvc.Retain))
+			// In v1, PVC is nested under Attestations. In v1alpha1, PVC is at spec level.
+			Expect(v1Obj.Spec.Attestations.Pvc.Size).To(Equal(v1alpha1Obj.Spec.Pvc.Size))
+			Expect(v1Obj.Spec.Attestations.Pvc.Retain).To(Equal(v1alpha1Obj.Spec.Pvc.Retain))
 			// Convert AccessModes to core v1 types for comparison
-			Expect(v1Obj.Spec.Attestations.Pvc.AccessModes).To(HaveLen(len(v1alpha1Obj.Spec.Attestations.Pvc.AccessModes)))
+			Expect(v1Obj.Spec.Attestations.Pvc.AccessModes).To(HaveLen(len(v1alpha1Obj.Spec.Pvc.AccessModes)))
 			for i := range v1Obj.Spec.Attestations.Pvc.AccessModes {
-				Expect(string(v1Obj.Spec.Attestations.Pvc.AccessModes[i])).To(Equal(string(v1alpha1Obj.Spec.Attestations.Pvc.AccessModes[i])))
+				Expect(string(v1Obj.Spec.Attestations.Pvc.AccessModes[i])).To(Equal(string(v1alpha1Obj.Spec.Pvc.AccessModes[i])))
 			}
 			if v1Obj.Spec.Attestations.Pvc.StorageClass != "" {
-				Expect(v1Obj.Spec.Attestations.Pvc.StorageClass).To(Equal(v1alpha1Obj.Spec.Attestations.Pvc.StorageClass))
+				Expect(v1Obj.Spec.Attestations.Pvc.StorageClass).To(Equal(v1alpha1Obj.Spec.Pvc.StorageClass))
 			}
 			if v1Obj.Spec.Attestations.Pvc.Name != "" {
-				Expect(v1Obj.Spec.Attestations.Pvc.Name).To(Equal(v1alpha1Obj.Spec.Attestations.Pvc.Name))
+				Expect(v1Obj.Spec.Attestations.Pvc.Name).To(Equal(v1alpha1Obj.Spec.Pvc.Name))
 			}
 		})
 	})
