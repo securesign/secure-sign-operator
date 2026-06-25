@@ -653,6 +653,10 @@ var _ = Describe("Rekor", func() {
 								Schedule: "* */2 * * 0-3",
 							},
 							TreeID: &tree,
+							Attestations: RekorAttestations{
+								Enabled: ptr.To(true),
+								Url:     "file:///var/run/attestations?no_tmp_dir=true",
+							},
 							Pvc: Pvc{
 								Name:         "name",
 								Size:         &storage,
@@ -707,6 +711,10 @@ var _ = Describe("Rekor", func() {
 							Namespace: "default",
 						},
 						Spec: RekorSpec{
+							Attestations: RekorAttestations{
+								Enabled: ptr.To(true),
+								Url:     "file:///var/run/attestations?no_tmp_dir=true",
+							},
 							Pvc: Pvc{
 								Name: "custom-name",
 							},

@@ -41,6 +41,23 @@ func TestSecuresignConversion(t *testing.T) {
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.Securesign{},
 		Spoke:  &Securesign{},
+		// Exclude deprecated rekor.pvc from fuzzing
+		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			func(_ runtimeserializer.CodecFactory) []interface{} {
+				return []interface{}{
+					func(obj *SecuresignSpec, c randfill.Continue) {
+						c.Fill(obj)
+						// Clear the deprecated rekor.pvc field
+						obj.Rekor.Pvc = Pvc{}
+					},
+					func(obj *rhtasv1.SecuresignSpec, c randfill.Continue) {
+						c.Fill(obj)
+						// In v1, PVC is under attestations, not at the top level
+						// No need to clear anything here
+					},
+				}
+			},
+		},
 	}))
 }
 
@@ -57,10 +74,23 @@ func TestRekorConversion(t *testing.T) {
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.Rekor{},
 		Spoke:  &Rekor{},
-		// Only fill fields that survive roundtrip — v1 status type RekorSignerStatus omits KMS.
+		// Exclude deprecated spec.pvc from fuzzing as it doesn't roundtrip
+		// (it's deprecated in both v1alpha1 and v1 - users should use spec.attestations.pvc)
+		// Only fill status fields that survive roundtrip — v1 status type RekorSignerStatus omits KMS.
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			func(_ runtimeserializer.CodecFactory) []interface{} {
 				return []interface{}{
+					func(obj *RekorSpec, c randfill.Continue) {
+						c.Fill(obj)
+						// Clear the deprecated spec.pvc field to prevent roundtrip failures
+						// Users should use spec.attestations.pvc instead
+						obj.Pvc = Pvc{}
+					},
+					func(obj *rhtasv1.RekorSpec, c randfill.Continue) {
+						c.Fill(obj)
+						// In v1, PVC is under attestations.pvc, not at spec.pvc
+						// No need to clear anything here
+					},
 					func(s *RekorStatus, c randfill.Continue) {
 						c.FillNoCustom(&s.PublicKeyRef)
 						c.FillNoCustom(&s.ServerConfigRef)

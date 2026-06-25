@@ -134,8 +134,10 @@ var _ = Describe("Rekor controller", func() {
 				},
 				Spec: rhtasv1.RekorSpec{
 					TreeID: ptr.To(int64(123)),
-					Pvc: rhtasv1.Pvc{
-						Name: "byo-pvc",
+					Attestations: rhtasv1.RekorAttestations{
+						Pvc: rhtasv1.Pvc{
+							Name: "byo-pvc",
+						},
 					},
 				},
 			}

@@ -91,7 +91,7 @@ var _ = Describe("Rekor", func() {
 
 				invalidObject := &Rekor{}
 				Expect(k8sClient.Get(context.Background(), getKey(validObject), invalidObject)).To(Succeed())
-				invalidObject.Spec.Pvc.Retain = ptr.To(false)
+				invalidObject.Spec.Attestations.Pvc.Retain = ptr.To(false)
 
 				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Update(context.Background(), invalidObject)).
@@ -100,10 +100,10 @@ var _ = Describe("Rekor", func() {
 
 			It("checking pvc name", func() {
 				invalidObject := generateRekorObject("rekor3")
-				invalidObject.Spec.Pvc.Name = "-invalid-name!"
+				invalidObject.Spec.Attestations.Pvc.Name = "-invalid-name!"
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("spec.pvc.name in body should match")))
+					To(MatchError(ContainSubstring("spec.attestations.pvc.name in body should match")))
 			})
 		})
 
@@ -164,6 +164,59 @@ var _ = Describe("Rekor", func() {
 			})
 		})
 
+		Context("PVC access mode validation with replicas", func() {
+			It("should reject replicas > 1 with file:// URL and ReadWriteOnce", func() {
+				invalidObject := generateRekorObject("rekor-ha-rwo-invalid")
+				invalidObject.Spec.Replicas = ptr.To(int32(2))
+				invalidObject.Spec.Attestations.Enabled = ptr.To(true)
+				invalidObject.Spec.Attestations.Url = "file:///var/run/attestations?no_tmp_dir=true"
+				invalidObject.Spec.Attestations.Pvc.AccessModes = []PersistentVolumeAccessMode{"ReadWriteOnce"}
+
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("PVC accessModes must contain 'ReadWriteMany' for replicas greater than 1")))
+			})
+
+			It("should allow replicas > 1 with file:// URL and ReadWriteMany", func() {
+				validObject := generateRekorObject("rekor-ha-rwx-valid")
+				validObject.Spec.Replicas = ptr.To(int32(2))
+				validObject.Spec.Attestations.Enabled = ptr.To(true)
+				validObject.Spec.Attestations.Url = "file:///var/run/attestations?no_tmp_dir=true"
+				validObject.Spec.Attestations.Pvc.AccessModes = []PersistentVolumeAccessMode{"ReadWriteMany"}
+
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("should allow replicas > 1 with non-file:// URL and ReadWriteOnce", func() {
+				validObject := generateRekorObject("rekor-ha-s3-rwo-valid")
+				validObject.Spec.Replicas = ptr.To(int32(2))
+				validObject.Spec.Attestations.Enabled = ptr.To(true)
+				validObject.Spec.Attestations.Url = "s3://my-bucket?region=us-west-1"
+				validObject.Spec.Attestations.Pvc.AccessModes = []PersistentVolumeAccessMode{"ReadWriteOnce"}
+
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("should allow single replica with file:// URL and ReadWriteOnce", func() {
+				validObject := generateRekorObject("rekor-single-rwo-valid")
+				validObject.Spec.Replicas = ptr.To(int32(1))
+				validObject.Spec.Attestations.Enabled = ptr.To(true)
+				validObject.Spec.Attestations.Url = "file:///var/run/attestations?no_tmp_dir=true"
+				validObject.Spec.Attestations.Pvc.AccessModes = []PersistentVolumeAccessMode{"ReadWriteOnce"}
+
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("should allow replicas > 1 when attestations are disabled", func() {
+				validObject := generateRekorObject("rekor-ha-attestations-disabled")
+				validObject.Spec.Replicas = ptr.To(int32(2))
+				validObject.Spec.Attestations.Enabled = ptr.To(false)
+				validObject.Spec.Attestations.Pvc.AccessModes = []PersistentVolumeAccessMode{"ReadWriteOnce"}
+
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+		})
+
 		Context("CR is fully populated", func() {
 			It("outputs the CR", func() {
 				storage := k8sresource.MustParse("987Gi")
@@ -196,11 +249,13 @@ var _ = Describe("Rekor", func() {
 							Schedule: "* */2 * * 0-3",
 						},
 						TreeID: &tree,
-						Pvc: Pvc{
-							Name:         "name",
-							Size:         &storage,
-							StorageClass: "name",
-							Retain:       ptr.To(true),
+						Attestations: RekorAttestations{
+							Pvc: Pvc{
+								Name:         "name",
+								Size:         &storage,
+								StorageClass: "name",
+								Retain:       ptr.To(true),
+							},
 						},
 						Signer: RekorSigner{
 							KMS: "secret",
@@ -263,12 +318,12 @@ func generateRekorObject(name string) *Rekor {
 				Enabled: ptr.To(true),
 				Url:     "file:///var/run/attestations?no_tmp_dir=true",
 				MaxSize: &maxSize,
-			},
-			Pvc: Pvc{
-				Retain: ptr.To(true),
-				Size:   &storage,
-				AccessModes: []PersistentVolumeAccessMode{
-					"ReadWriteOnce",
+				Pvc: Pvc{
+					Retain: ptr.To(true),
+					Size:   &storage,
+					AccessModes: []PersistentVolumeAccessMode{
+						"ReadWriteOnce",
+					},
 				},
 			},
 			Trillian: TrillianService{

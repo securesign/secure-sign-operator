@@ -17,10 +17,6 @@ func Convert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(in *v1.FulcioSpec, out *Fulcio
 	return autoConvert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(in, out, s)
 }
 
-func Convert_v1_RekorSpec_To_v1alpha1_RekorSpec(in *v1.RekorSpec, out *RekorSpec, s apiconversion.Scope) error {
-	return autoConvert_v1_RekorSpec_To_v1alpha1_RekorSpec(in, out, s)
-}
-
 func Convert_v1_TimestampAuthoritySpec_To_v1alpha1_TimestampAuthoritySpec(in *v1.TimestampAuthoritySpec, out *TimestampAuthoritySpec, s apiconversion.Scope) error {
 	return autoConvert_v1_TimestampAuthoritySpec_To_v1alpha1_TimestampAuthoritySpec(in, out, s)
 }
@@ -31,4 +27,91 @@ func Convert_v1_TrillianSpec_To_v1alpha1_TrillianSpec(in *v1.TrillianSpec, out *
 
 func Convert_v1_TufSpec_To_v1alpha1_TufSpec(in *v1.TufSpec, out *TufSpec, s apiconversion.Scope) error {
 	return autoConvert_v1_TufSpec_To_v1alpha1_TufSpec(in, out, s)
+}
+
+func Convert_v1_RekorSpec_To_v1alpha1_RekorSpec(in *v1.RekorSpec, out *RekorSpec, s apiconversion.Scope) error {
+	// First call autoConvert to handle all standard fields
+	if err := autoConvert_v1_RekorSpec_To_v1alpha1_RekorSpec(in, out, s); err != nil {
+		return err
+	}
+
+	// For backward compatibility with v1alpha1 clients that still use the deprecated spec.pvc field,
+	// populate it from v1's spec.attestations.pvc (the authoritative location in v1).
+	// The autoConvert copies in.Pvc (which is deprecated/empty in v1) to out.Pvc,
+	// but we want out.Pvc to mirror in.Attestations.Pvc for old v1alpha1 clients.
+	if err := Convert_v1_Pvc_To_v1alpha1_Pvc(&in.Attestations.Pvc, &out.Pvc, s); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Manual conversion for RekorSpec to properly convert PVC AccessModes slice and handle PVC migration
+func Convert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *v1.RekorSpec, s apiconversion.Scope) error {
+	// Call autoConvert to handle all standard fields
+	if err := autoConvert_v1alpha1_RekorSpec_To_v1_RekorSpec(in, out, s); err != nil {
+		return err
+	}
+
+	// Migration strategy: Migrate from deprecated spec.pvc (v1alpha1) to spec.attestations.pvc (v1)
+	// by copying any non-empty fields. This handles both cases:
+	// 1. User only set spec.pvc (attestations.pvc is empty)
+	// 2. User set spec.pvc and kubebuilder applied defaults to attestations.pvc
+	//
+	// We migrate field-by-field, only overwriting if the source field is set.
+	// This preserves any intentional values in attestations.pvc while migrating
+	// values from the deprecated field.
+	if in.Pvc.Size != nil {
+		out.Attestations.Pvc.Size = in.Pvc.Size
+	}
+	if in.Pvc.Retain != nil {
+		out.Attestations.Pvc.Retain = in.Pvc.Retain
+	}
+	if in.Pvc.Name != "" {
+		out.Attestations.Pvc.Name = in.Pvc.Name
+	}
+	if in.Pvc.StorageClass != "" {
+		out.Attestations.Pvc.StorageClass = in.Pvc.StorageClass
+	}
+	if in.Pvc.AccessModes != nil {
+		out.Attestations.Pvc.AccessModes = make([]v1.PersistentVolumeAccessMode, len(in.Pvc.AccessModes))
+		for i, mode := range in.Pvc.AccessModes {
+			out.Attestations.Pvc.AccessModes[i] = v1.PersistentVolumeAccessMode(mode)
+		}
+	}
+
+	return nil
+}
+
+// Manual conversion for Pvc to properly convert AccessModes slice
+func Convert_v1alpha1_Pvc_To_v1_Pvc(in *Pvc, out *v1.Pvc, s apiconversion.Scope) error {
+	out.Size = in.Size
+	out.Retain = in.Retain
+	out.Name = in.Name
+	out.StorageClass = in.StorageClass
+
+	// Convert AccessModes properly element by element
+	if in.AccessModes != nil {
+		out.AccessModes = make([]v1.PersistentVolumeAccessMode, len(in.AccessModes))
+		for i, mode := range in.AccessModes {
+			out.AccessModes[i] = v1.PersistentVolumeAccessMode(mode)
+		}
+	}
+	return nil
+}
+
+func Convert_v1_Pvc_To_v1alpha1_Pvc(in *v1.Pvc, out *Pvc, s apiconversion.Scope) error {
+	out.Size = in.Size
+	out.Retain = in.Retain
+	out.Name = in.Name
+	out.StorageClass = in.StorageClass
+
+	// Convert AccessModes properly element by element
+	if in.AccessModes != nil {
+		out.AccessModes = make([]PersistentVolumeAccessMode, len(in.AccessModes))
+		for i, mode := range in.AccessModes {
+			out.AccessModes[i] = PersistentVolumeAccessMode(mode)
+		}
+	}
+	return nil
 }

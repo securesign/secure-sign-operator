@@ -48,7 +48,10 @@ type RekorSpec struct {
 	//+kubebuilder:default:={create: true}
 	SearchIndex SearchIndex `json:"searchIndex,omitempty"`
 	// PVC configuration
+	// Deprecated: Use spec.attestations.pvc instead. This field is retained for backward compatibility.
+	// When upgrading from v1alpha1 to v1, data from spec.pvc will be migrated to spec.attestations.pvc.
 	//+kubebuilder:default:={size: "5Gi", retain: true, accessModes: {ReadWriteOnce}}
+	//+optional
 	Pvc Pvc `json:"pvc,omitempty"`
 	// BackFillRedis CronJob Configuration
 	//+kubebuilder:default:={enabled: true, schedule: "0 0 * * *"}
@@ -229,7 +232,7 @@ type RekorStatus struct {
 //+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
 
 // Rekor is the Schema for the rekors API
-// +kubebuilder:validation:XValidation:rule="(has(self.spec.attestations.enabled) && !self.spec.attestations.enabled) || !self.spec.attestations.url.startsWith('file://') || (!(self.spec.replicas > 1) || ('ReadWriteMany' in self.spec.pvc.accessModes))",message="When rich attestation storage is enabled, and it's URL starts with 'file://', then PVC accessModes must contain 'ReadWriteMany' for replicas greater than 1."
+// +kubebuilder:validation:XValidation:rule="(has(self.spec.attestations.enabled) && !self.spec.attestations.enabled) || !self.spec.attestations.url.startsWith('file://') || (self.spec.replicas <= 1 || ('ReadWriteMany' in self.spec.pvc.accessModes))",message="When rich attestation storage is enabled, and it's URL starts with 'file://', then PVC accessModes must contain 'ReadWriteMany' for replicas greater than 1."
 type Rekor struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
