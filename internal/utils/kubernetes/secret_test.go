@@ -2,6 +2,8 @@ package kubernetes
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -10,8 +12,58 @@ import (
 	v1 "k8s.io/api/core/v1"
 	v2 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
+
+func TestExistsSecret(t *testing.T) {
+	tests := []struct {
+		name      string
+		objects   []client.Object
+		intercept interceptor.Funcs
+		exists    bool
+		wantErr   bool
+	}{
+		{
+			name: "secret exists",
+			objects: []client.Object{
+				&v1.Secret{ObjectMeta: v2.ObjectMeta{Name: "my-secret", Namespace: "default"}},
+			},
+			exists: true,
+		},
+		{
+			name:   "secret not found",
+			exists: false,
+		},
+		{
+			name: "transient API error",
+			intercept: interceptor.Funcs{
+				Get: func(_ context.Context, _ client.WithWatch, _ client.ObjectKey, _ client.Object, _ ...client.GetOption) error {
+					return fmt.Errorf("api server unavailable")
+				},
+			},
+			exists:  false,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			c := testAction.FakeClientBuilder().
+				WithObjects(tt.objects...).
+				WithInterceptorFuncs(tt.intercept).
+				Build()
+
+			exists, err := ExistsSecret(context.TODO(), c, "default", "my-secret")
+			g.Expect(exists).To(gomega.Equal(tt.exists))
+			if tt.wantErr {
+				g.Expect(err).To(gomega.HaveOccurred())
+			} else {
+				g.Expect(err).ToNot(gomega.HaveOccurred())
+			}
+		})
+	}
+}
 
 func TestEnsureSecret(t *testing.T) {
 	data := map[string][]byte{"test": []byte("data")}
@@ -20,7 +72,7 @@ func TestEnsureSecret(t *testing.T) {
 		objects   []client.Object
 		immutable bool
 		result    controllerutil.OperationResult
-		errorMsg  string
+		wantErr   error
 	}{
 		{
 			name:      "create new mutable object",
@@ -67,7 +119,7 @@ func TestEnsureSecret(t *testing.T) {
 			},
 			immutable: true,
 			result:    controllerutil.OperationResultNone,
-			errorMsg:  "can't update immutable Secret data",
+			wantErr:   ErrImmutableSecretDataMismatch,
 		},
 		{
 			name: "update immutable object mutability",
@@ -80,7 +132,7 @@ func TestEnsureSecret(t *testing.T) {
 			},
 			immutable: false,
 			result:    controllerutil.OperationResultNone,
-			errorMsg:  "can't make update Secret mutability",
+			wantErr:   ErrImmutableSecretMutability,
 		},
 		{
 			name: "existing object with expected values",
@@ -110,10 +162,11 @@ func TestEnsureSecret(t *testing.T) {
 
 			g.Expect(result).To(gomega.Equal(tt.result))
 
-			if tt.errorMsg == "" {
+			if tt.wantErr == nil {
 				g.Expect(err).ToNot(gomega.HaveOccurred())
 			} else {
-				g.Expect(err.Error()).To(gomega.Equal(tt.errorMsg))
+				g.Expect(err).To(gomega.HaveOccurred())
+				g.Expect(errors.Is(err, tt.wantErr)).To(gomega.BeTrue(), "expected error wrapping %v, got %v", tt.wantErr, err)
 				return
 			}
 

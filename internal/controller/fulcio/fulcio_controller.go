@@ -97,7 +97,7 @@ func (r *fulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		transitions.NewToPendingPhaseAction[*rhtasv1.Fulcio](func(_ *rhtasv1.Fulcio) []string {
 			return []string{actions.CertCondition}
 		}),
-		actions.NewHandleCertAction(),
+		actions.NewGenerateSignerAction(),
 		transitions.NewToCreatePhaseAction[*rhtasv1.Fulcio](),
 		actions.NewRBACAction(),
 		actions.NewServerConfigAction(),

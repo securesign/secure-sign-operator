@@ -20,11 +20,12 @@ import (
 	"context"
 	"time"
 
+	"fmt"
+
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
@@ -166,13 +167,11 @@ var _ = Describe("Fulcio controller", func() {
 			})).To(Succeed())
 
 			By("Secrets are resolved")
-			var certSecretPartialObject *metav1.PartialObjectMetadata
+			certSecretName := fmt.Sprintf("fulcio-cert-config-%s", Name)
 			var certSecret *corev1.Secret
 			Eventually(func(g Gomega) *corev1.Secret {
-				certSecretPartialObject, err = kubernetes.FindSecret(ctx, suite.Client(), Namespace, actions.FulcioCALabel)
-				g.Expect(err).To(Not(HaveOccurred()))
-				certSecret, err = kubernetes.GetSecret(suite.Client(), certSecretPartialObject.Namespace, certSecretPartialObject.Name)
-				g.Expect(err).To(Not(HaveOccurred()))
+				certSecret = &corev1.Secret{}
+				g.Expect(suite.Client().Get(ctx, types.NamespacedName{Name: certSecretName, Namespace: Namespace}, certSecret)).To(Succeed())
 				return certSecret
 			}).Should(Not(BeNil()))
 

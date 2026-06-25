@@ -76,7 +76,7 @@ func TestShardingConfig_CanHandle(t *testing.T) {
 			}
 			if tt.phase != state.None {
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-					Type:   actions.ServerCondition,
+					Type:   constants.ReadyCondition,
 					Reason: tt.phase.String(),
 				})
 			}

@@ -1,6 +1,10 @@
 package actions
 
+import "github.com/securesign/operator/internal/labels"
+
 const (
+	FulcioCALabel = labels.LabelNamespace + "/fulcio_v1.crt.pem"
+
 	DeploymentName     = "fulcio-server"
 	ComponentName      = "fulcio"
 	MonitoringRoleName = "prometheus-k8s-fulcio"
