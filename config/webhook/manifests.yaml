@@ -10,6 +10,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /mutate-rhtas-redhat-com-v1-console
+  failurePolicy: Fail
+  name: mconsole.kb.io
+  rules:
+  - apiGroups:
+    - rhtas.redhat.com
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - consoles
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /mutate-rhtas-redhat-com-v1-ctlog
   failurePolicy: Fail
   name: mctlog.kb.io

@@ -1,0 +1,18 @@
+apiVersion: rhtas.redhat.com/v1
+kind: Console
+metadata:
+  labels:
+    app.kubernetes.io/name: securesign-sample
+    app.kubernetes.io/instance: securesign-sample
+    app.kubernetes.io/part-of: trusted-artifact-signer
+  name: console-sample
+spec:
+  enabled: true
+  database:
+    create: true
+    pvc:
+      size: 5Gi
+      retain: true
+  ui:
+    externalAccess:
+      enabled: true

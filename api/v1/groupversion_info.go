@@ -43,6 +43,7 @@ var _ = localSchemeBuilder
 func addKnownTypes(s *runtime.Scheme) error {
 	s.AddKnownTypes(GroupVersion,
 		&CTlog{}, &CTlogList{},
+		&Console{}, &ConsoleList{},
 		&Fulcio{}, &FulcioList{},
 		&Rekor{}, &RekorList{},
 		&Securesign{}, &SecuresignList{},

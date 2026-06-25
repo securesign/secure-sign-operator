@@ -104,6 +104,7 @@ func (r *securesignReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		actions.NewCtlogAction(),
 		actions.NewTufAction(),
 		actions.NewTsaAction(),
+		actions.NewConsoleAction(),
 		actions.NewUpdateStatusAction(),
 	}
 
