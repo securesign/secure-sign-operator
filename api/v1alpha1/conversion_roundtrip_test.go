@@ -41,6 +41,10 @@ func TestSecuresignConversion(t *testing.T) {
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.Securesign{},
 		Spoke:  &Securesign{},
+		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			tsaSignerFuzzerFuncs,
+			tsaStatusFuzzerFuncs,
+		},
 	}))
 }
 
@@ -145,34 +149,76 @@ func TestTimestampAuthorityConversion(t *testing.T) {
 		Hub:    &rhtasv1.TimestampAuthority{},
 		Spoke:  &TimestampAuthority{},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
-			func(_ runtimeserializer.CodecFactory) []interface{} {
-				return []interface{}{
-					func(s *TimestampAuthorityStatus, c randfill.Continue) {
-						c.FillNoCustom(&s.Conditions)
-						c.FillNoCustom(&s.Url)
-
-						if c.Bool() {
-							ref := &LocalObjectReference{}
-							c.FillNoCustom(ref)
-							s.NTPMonitoring = &NTPMonitoring{
-								Config: &NtpMonitoringConfig{
-									NtpConfigRef: ref,
-								},
-							}
-						}
-
-						if c.Bool() {
-							s.Signer = &TimestampAuthoritySigner{}
-							c.FillNoCustom(&s.Signer.CertificateChain.CertificateChainRef)
-							if c.Bool() {
-								s.Signer.File = &File{}
-								c.FillNoCustom(&s.Signer.File.PrivateKeyRef)
-								c.FillNoCustom(&s.Signer.File.PasswordRef)
-							}
-						}
-					},
-				}
-			},
+			tsaStatusFuzzerFuncs,
+			tsaSignerFuzzerFuncs,
 		},
 	}))
+}
+
+// tsaStatusFuzzerFuncs constrains the v1 TSA status to only fill fields that survive roundtrip.
+func tsaStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *TimestampAuthorityStatus, c randfill.Continue) {
+			c.FillNoCustom(&s.Conditions)
+			c.FillNoCustom(&s.Url)
+
+			if c.Bool() {
+				ref := &LocalObjectReference{}
+				c.FillNoCustom(ref)
+				s.NTPMonitoring = &NTPMonitoring{
+					Config: &NtpMonitoringConfig{
+						NtpConfigRef: ref,
+					},
+				}
+			}
+
+			if c.Bool() {
+				s.Signer = &TimestampAuthoritySigner{}
+				c.FillNoCustom(&s.Signer.CertificateChain.CertificateChainRef)
+				if c.Bool() {
+					s.Signer.File = &File{}
+					c.FillNoCustom(&s.Signer.File.PrivateKeyRef)
+					c.FillNoCustom(&s.Signer.File.PasswordRef)
+				}
+			}
+		},
+	}
+}
+
+// tsaSignerFuzzerFuncs ensures only one signer (File/Kms/Tink) is set at a time.
+func tsaSignerFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *TimestampAuthoritySigner, c randfill.Continue) {
+			c.FillNoCustom(&s.CertificateChain)
+			switch c.Intn(3) {
+			case 0:
+				s.File = &File{}
+				c.FillNoCustom(s.File)
+			case 1:
+				s.Kms = &KMS{}
+				c.FillNoCustom(s.Kms)
+			case 2:
+				s.Tink = &Tink{}
+				c.FillNoCustom(s.Tink)
+			}
+		},
+		func(s *rhtasv1.TimestampAuthoritySigner, c randfill.Continue) {
+			c.FillNoCustom(&s.CertificateChain)
+			switch c.Intn(3) {
+			case 0:
+				s.File = &rhtasv1.File{}
+				c.FillNoCustom(s.File)
+			case 1:
+				s.Kms = &rhtasv1.KMS{}
+				c.FillNoCustom(s.Kms)
+			case 2:
+				s.Tink = &rhtasv1.Tink{}
+				c.FillNoCustom(s.Tink)
+			}
+			if c.Bool() {
+				s.Auth = &rhtasv1.Auth{}
+				c.FillNoCustom(s.Auth)
+			}
+		},
+	}
 }
