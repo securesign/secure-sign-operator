@@ -144,5 +144,35 @@ func TestTimestampAuthorityConversion(t *testing.T) {
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.TimestampAuthority{},
 		Spoke:  &TimestampAuthority{},
+		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			func(_ runtimeserializer.CodecFactory) []interface{} {
+				return []interface{}{
+					func(s *TimestampAuthorityStatus, c randfill.Continue) {
+						c.FillNoCustom(&s.Conditions)
+						c.FillNoCustom(&s.Url)
+
+						if c.Bool() {
+							ref := &LocalObjectReference{}
+							c.FillNoCustom(ref)
+							s.NTPMonitoring = &NTPMonitoring{
+								Config: &NtpMonitoringConfig{
+									NtpConfigRef: ref,
+								},
+							}
+						}
+
+						if c.Bool() {
+							s.Signer = &TimestampAuthoritySigner{}
+							c.FillNoCustom(&s.Signer.CertificateChain.CertificateChainRef)
+							if c.Bool() {
+								s.Signer.File = &File{}
+								c.FillNoCustom(&s.Signer.File.PrivateKeyRef)
+								c.FillNoCustom(&s.Signer.File.PasswordRef)
+							}
+						}
+					},
+				}
+			},
+		},
 	}))
 }

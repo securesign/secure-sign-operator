@@ -113,7 +113,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			Eventually(func() *v1.Secret {
 				tsa := tsa.Get(ctx, cli, namespace.Name, s.Name)
 				scr := &v1.Secret{}
-				Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: tsa.Status.Signer.File.PrivateKeyRef.Name}, scr)).To(Succeed())
+				Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: tsa.Status.Signer.FileSigner.PrivateKeyRef.Name}, scr)).To(Succeed())
 				return scr
 			}).Should(
 				WithTransform(func(secret *v1.Secret) map[string][]byte { return secret.Data },
@@ -173,7 +173,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 							return volume.Secret.SecretName
 						}
 						return ""
-					}, Equal(tsa.Get(ctx, cli, namespace.Name, s.Name).Status.Signer.CertificateChain.CertificateChainRef.Name))),
+					}, Equal(tsa.Get(ctx, cli, namespace.Name, s.Name).Status.Signer.CertificateChainRef.Name))),
 			)
 			Expect(server.Spec.Volumes).To(
 				ContainElement(
@@ -182,7 +182,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 							return volume.Secret.SecretName
 						}
 						return ""
-					}, Equal(tsa.Get(ctx, cli, namespace.Name, s.Name).Status.Signer.File.PrivateKeyRef.Name))),
+					}, Equal(tsa.Get(ctx, cli, namespace.Name, s.Name).Status.Signer.FileSigner.PrivateKeyRef.Name))),
 			)
 		})
 
@@ -197,7 +197,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 							return volume.ConfigMap.Name
 						}
 						return ""
-					}, Equal(tsa.Get(ctx, cli, namespace.Name, s.Name).Status.NTPMonitoring.Config.NtpConfigRef.Name))),
+					}, Equal(tsa.Get(ctx, cli, namespace.Name, s.Name).Status.NtpConfigRef.Name))),
 			)
 		})
 

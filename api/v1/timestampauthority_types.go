@@ -181,11 +181,26 @@ func (i *TimestampAuthority) SetCondition(newCondition metav1.Condition) {
 	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
 }
 
+// TimestampAuthoritySignerStatus holds the resolved secret references for the signer.
+type TimestampAuthoritySignerStatus struct {
+	CertificateChainRef *SecretKeySelector `json:"certificateChainRef,omitempty"`
+	FileSigner          *FileSignerStatus  `json:"fileSigner,omitempty"`
+}
+
+// FileSignerStatus holds resolved secret references for a file-based signer.
+type FileSignerStatus struct {
+	// Retained for backward compatibility with the deprecated spec field File.PasswordRef.
+	// +optional
+	PasswordRef *SecretKeySelector `json:"passwordRef,omitempty"`
+	// +optional
+	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+}
+
 // TimestampAuthorityStatus defines the observed state of TimestampAuthority
 type TimestampAuthorityStatus struct {
-	NTPMonitoring *NTPMonitoring            `json:"ntpMonitoring,omitempty"`
-	Signer        *TimestampAuthoritySigner `json:"signer,omitempty"`
-	Url           string                    `json:"url,omitempty"`
+	NtpConfigRef *LocalObjectReference           `json:"ntpConfigRef,omitempty"`
+	Signer       *TimestampAuthoritySignerStatus `json:"signer,omitempty"`
+	Url          string                          `json:"url,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge
