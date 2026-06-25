@@ -1,8 +1,11 @@
 package v1alpha1
 
 import (
+	"slices"
+
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
+	core "k8s.io/api/core/v1"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
@@ -81,6 +84,84 @@ func Convert_v1_TimestampAuthorityStatus_To_v1alpha1_TimestampAuthorityStatus(in
 	return nil
 }
 
+func Convert_v1alpha1_KMS_To_v1_KMS(in *KMS, out *rhtasv1.KMS, s apiconversion.Scope) error {
+	return autoConvert_v1alpha1_KMS_To_v1_KMS(in, out, s)
+}
+
+func Convert_v1alpha1_Tink_To_v1_Tink(in *Tink, out *rhtasv1.Tink, s apiconversion.Scope) error {
+	return autoConvert_v1alpha1_Tink_To_v1_Tink(in, out, s)
+}
+
+func Convert_v1alpha1_TimestampAuthoritySigner_To_v1_TimestampAuthoritySigner(in *TimestampAuthoritySigner, out *rhtasv1.TimestampAuthoritySigner, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_TimestampAuthoritySigner_To_v1_TimestampAuthoritySigner(in, out, s); err != nil {
+		return err
+	}
+	var auths []*rhtasv1.Auth
+	if in.Kms != nil && in.Kms.Auth != nil {
+		auth := new(rhtasv1.Auth)
+		if err := autoConvert_v1alpha1_Auth_To_v1_Auth(in.Kms.Auth, auth, s); err != nil {
+			return err
+		}
+		auths = append(auths, auth)
+	}
+	if in.Tink != nil && in.Tink.Auth != nil {
+		auth := new(rhtasv1.Auth)
+		if err := autoConvert_v1alpha1_Auth_To_v1_Auth(in.Tink.Auth, auth, s); err != nil {
+			return err
+		}
+		auths = append(auths, auth)
+	}
+	if auth := mergeAuths(auths...); auth != nil {
+		out.Auth = auth
+	}
+	return nil
+}
+
+func Convert_v1_TimestampAuthoritySigner_To_v1alpha1_TimestampAuthoritySigner(in *rhtasv1.TimestampAuthoritySigner, out *TimestampAuthoritySigner, s apiconversion.Scope) error {
+	if err := autoConvert_v1_TimestampAuthoritySigner_To_v1alpha1_TimestampAuthoritySigner(in, out, s); err != nil {
+		return err
+	}
+	if in.Auth != nil {
+		if out.Kms != nil {
+			out.Kms.Auth = new(Auth)
+			if err := autoConvert_v1_Auth_To_v1alpha1_Auth(in.Auth, out.Kms.Auth, s); err != nil {
+				return err
+			}
+		}
+		if out.Tink != nil {
+			out.Tink.Auth = new(Auth)
+			if err := autoConvert_v1_Auth_To_v1alpha1_Auth(in.Auth, out.Tink.Auth, s); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// mergeAuths merges the given auth objects into a single auth object and keep only unique values.
+func mergeAuths(auth ...*rhtasv1.Auth) *rhtasv1.Auth {
+	var merged *rhtasv1.Auth
+	for _, a := range auth {
+		if a == nil {
+			continue
+		}
+		if merged == nil {
+			merged = &rhtasv1.Auth{}
+		}
+		for _, e := range a.Env {
+			if !slices.ContainsFunc(merged.Env, func(existing core.EnvVar) bool { return existing.Name == e.Name }) {
+				merged.Env = append(merged.Env, e)
+			}
+		}
+		for _, m := range a.SecretMount {
+			if !slices.Contains(merged.SecretMount, m) {
+				merged.SecretMount = append(merged.SecretMount, m)
+			}
+		}
+	}
+	return merged
+}
+
 func (src *TimestampAuthority) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*rhtasv1.TimestampAuthority)
 	if err := Convert_v1alpha1_TimestampAuthority_To_v1_TimestampAuthority(src, dst, nil); err != nil {
@@ -91,6 +172,8 @@ func (src *TimestampAuthority) ConvertTo(dstRaw conversion.Hub) error {
 		return err
 	}
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
+	// restore also the auth from annotation for case where no KMS or Tink is set
+	dst.Spec.Signer.Auth = mergeAuths(dst.Spec.Signer.Auth, restored.Spec.Signer.Auth)
 	return nil
 }
 

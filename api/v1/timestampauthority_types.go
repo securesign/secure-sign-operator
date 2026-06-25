@@ -62,6 +62,9 @@ type TimestampAuthoritySigner struct {
 	//Configuration for Tink based signer
 	//+optional
 	Tink *Tink `json:"tink,omitempty"`
+	//Configuration for authentication for key management services
+	//+optional
+	Auth *Auth `json:"auth,omitempty"`
 }
 
 // Certificate chain config
@@ -125,9 +128,6 @@ type KMS struct {
 	//KMS key for signing timestamp responses. Valid options include: [gcpkms://resource, azurekms://resource, hashivault://resource, awskms://resource]
 	//+required
 	KeyResource string `json:"keyResource,omitempty"`
-	//Configuration for authentication for key management services
-	//+optional
-	Auth *Auth `json:"auth,omitempty"`
 }
 
 // TSA Tink signer config
@@ -138,9 +138,6 @@ type Tink struct {
 	//+required
 	//Path to KMS-encrypted keyset for Tink, decrypted by TinkKeyResource
 	KeysetRef *SecretKeySelector `json:"keysetRef,omitempty"`
-	// Configuration for authentication for key management services
-	//+optional
-	Auth *Auth `json:"auth,omitempty"`
 }
 
 type NTPMonitoring struct {

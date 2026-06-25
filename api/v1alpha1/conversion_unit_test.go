@@ -22,6 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
+	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -726,10 +727,10 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 						},
 						Kms: &rhtasv1.KMS{
 							KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k/cryptoKeyVersions/1",
-							Auth: &rhtasv1.Auth{
-								SecretMount: []rhtasv1.SecretKeySelector{
-									{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "gcp-creds"}, Key: "credentials.json"},
-								},
+						},
+						Auth: &rhtasv1.Auth{
+							SecretMount: []rhtasv1.SecretKeySelector{
+								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "gcp-creds"}, Key: "credentials.json"},
 							},
 						},
 					},
@@ -763,6 +764,106 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Tink signer with auth",
+			hub: &rhtasv1.TimestampAuthority{
+				ObjectMeta: metav1.ObjectMeta{Name: "tsa-tink", Namespace: "default"},
+				Spec: rhtasv1.TimestampAuthoritySpec{
+					Signer: rhtasv1.TimestampAuthoritySigner{
+						CertificateChain: rhtasv1.CertificateChain{
+							CertificateChainRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tsa-chain"},
+								Key:                  "chain.pem",
+							},
+						},
+						Tink: &rhtasv1.Tink{
+							KeyResource: "gcp-kms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
+							KeysetRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tink-keyset"},
+								Key:                  "keyset.json",
+							},
+						},
+						Auth: &rhtasv1.Auth{
+							Env: []core.EnvVar{
+								{Name: "GOOGLE_APPLICATION_CREDENTIALS", Value: "/var/run/secrets/gcp/creds.json"},
+							},
+						},
+					},
+					NTPMonitoring: rhtasv1.NTPMonitoring{
+						Enabled: true,
+					},
+				},
+			},
+			spoke: &TimestampAuthority{
+				ObjectMeta: metav1.ObjectMeta{Name: "tsa-tink", Namespace: "default"},
+				Spec: TimestampAuthoritySpec{
+					Signer: TimestampAuthoritySigner{
+						CertificateChain: CertificateChain{
+							CertificateChainRef: &SecretKeySelector{
+								LocalObjectReference: LocalObjectReference{Name: "tsa-chain"},
+								Key:                  "chain.pem",
+							},
+						},
+						Tink: &Tink{
+							KeyResource: "gcp-kms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
+							KeysetRef: &SecretKeySelector{
+								LocalObjectReference: LocalObjectReference{Name: "tink-keyset"},
+								Key:                  "keyset.json",
+							},
+							Auth: &Auth{
+								Env: []core.EnvVar{
+									{Name: "GOOGLE_APPLICATION_CREDENTIALS", Value: "/var/run/secrets/gcp/creds.json"},
+								},
+							},
+						},
+					},
+					NTPMonitoring: NTPMonitoring{
+						Enabled: true,
+					},
+				},
+			},
+		},
+		{
+			name: "KMS signer without auth",
+			hub: &rhtasv1.TimestampAuthority{
+				ObjectMeta: metav1.ObjectMeta{Name: "tsa-no-auth", Namespace: "default"},
+				Spec: rhtasv1.TimestampAuthoritySpec{
+					Signer: rhtasv1.TimestampAuthoritySigner{
+						CertificateChain: rhtasv1.CertificateChain{
+							CertificateChainRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tsa-chain"},
+								Key:                  "chain.pem",
+							},
+						},
+						Kms: &rhtasv1.KMS{
+							KeyResource: "awskms://arn:aws:kms:us-east-1:123456789:key/abcd",
+						},
+					},
+					NTPMonitoring: rhtasv1.NTPMonitoring{
+						Enabled: true,
+					},
+				},
+			},
+			spoke: &TimestampAuthority{
+				ObjectMeta: metav1.ObjectMeta{Name: "tsa-no-auth", Namespace: "default"},
+				Spec: TimestampAuthoritySpec{
+					Signer: TimestampAuthoritySigner{
+						CertificateChain: CertificateChain{
+							CertificateChainRef: &SecretKeySelector{
+								LocalObjectReference: LocalObjectReference{Name: "tsa-chain"},
+								Key:                  "chain.pem",
+							},
+						},
+						Kms: &KMS{
+							KeyResource: "awskms://arn:aws:kms:us-east-1:123456789:key/abcd",
+						},
+					},
+					NTPMonitoring: NTPMonitoring{
+						Enabled: true,
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -786,4 +887,42 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("auth without signer round-trip (with restore from annotation)", func(t *testing.T) {
+		hub := &rhtasv1.TimestampAuthority{
+			ObjectMeta: metav1.ObjectMeta{Name: "tsa-auth-only", Namespace: "default"},
+			Spec: rhtasv1.TimestampAuthoritySpec{
+				Signer: rhtasv1.TimestampAuthoritySigner{
+					CertificateChain: rhtasv1.CertificateChain{
+						CertificateChainRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tsa-chain"},
+							Key:                  "chain.pem",
+						},
+					},
+					Auth: &rhtasv1.Auth{
+						Env: []core.EnvVar{
+							{Name: "NO_KMS_CREDS", Value: "/var/run/secrets/gcp/creds.json"},
+						},
+						SecretMount: []rhtasv1.SecretKeySelector{
+							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "gcp-creds"}, Key: "credentials.json"},
+						},
+					},
+				},
+			},
+		}
+
+		spoke := &TimestampAuthority{}
+		if err := spoke.ConvertFrom(hub); err != nil {
+			t.Fatalf("ConvertFrom failed: %v", err)
+		}
+
+		gotHub := &rhtasv1.TimestampAuthority{}
+		if err := spoke.ConvertTo(gotHub); err != nil {
+			t.Fatalf("ConvertTo failed: %v", err)
+		}
+
+		if !equality.Semantic.DeepEqual(hub, gotHub) {
+			t.Errorf("auth lost during round-trip (-want +got):\n%s", cmp.Diff(hub, gotHub))
+		}
+	})
 }

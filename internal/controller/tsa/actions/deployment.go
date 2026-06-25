@@ -156,6 +156,10 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 			}
 		}
 
+		if err := ensure.ContainerAuth(container, instance.Spec.Signer.Auth)(&template.Spec); err != nil {
+			return err
+		}
+
 		switch tsaUtils.GetSignerType(&instance.Spec.Signer) {
 		case tsaUtils.FileType:
 			{
@@ -196,11 +200,6 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 			}
 		case tsaUtils.KmsType:
 			{
-				err := ensure.ContainerAuth(container, instance.Spec.Signer.Kms.Auth)(&template.Spec)
-				if err != nil {
-					return err
-				}
-
 				appArgs = append(appArgs,
 					"--timestamp-signer=kms",
 					fmt.Sprintf("--kms-key-resource=%s", instance.Spec.Signer.Kms.KeyResource),
@@ -208,11 +207,6 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 			}
 		case tsaUtils.TinkType:
 			{
-				err := ensure.ContainerAuth(container, instance.Spec.Signer.Kms.Auth)(&template.Spec)
-				if err != nil {
-					return err
-				}
-
 				tinkSignerVolume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, tinkSignerVolumeName)
 				if tinkSignerVolume.Secret == nil {
 					tinkSignerVolume.Secret = &core.SecretVolumeSource{}
