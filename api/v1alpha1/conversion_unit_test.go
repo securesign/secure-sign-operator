@@ -276,10 +276,6 @@ func TestRekorConversionUnit(t *testing.T) {
 					Attestations: RekorAttestations{
 						Enabled: ptr.To(true),
 						Url:     "file:///var/run/attestations?no_tmp_dir=true",
-						Pvc: Pvc{
-							Size:   ptr.To(resource.MustParse("5Gi")),
-							Retain: ptr.To(true),
-						},
 					},
 					// For backward compatibility, spec.pvc is populated from v1 spec.attestations.pvc
 					// so that v1alpha1 clients using the deprecated field can still access the data
@@ -416,14 +412,10 @@ func TestRekorPvcMigration(t *testing.T) {
 					Size:   ptr.To(resource.MustParse("25Gi")),
 					Retain: ptr.To(true),
 				},
-				// API server applied kubebuilder defaults to attestations.pvc
+				// API server applied kubebuilder defaults to attestations (but pvc is at spec level in v1alpha1)
 				Attestations: RekorAttestations{
 					Enabled: ptr.To(true),
 					Url:     "file:///var/run/attestations?no_tmp_dir=true",
-					Pvc: Pvc{
-						Size:   ptr.To(resource.MustParse("5Gi")), // default value from kubebuilder
-						Retain: ptr.To(true),
-					},
 				},
 			},
 		}

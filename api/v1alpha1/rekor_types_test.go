@@ -196,7 +196,7 @@ var _ = Describe("Rekor", func() {
 
 				invalidObject := &Rekor{}
 				Expect(k8sClient.Get(context.Background(), getKey(validObject), invalidObject)).To(Succeed())
-				invalidObject.Spec.Attestations.Pvc.Retain = ptr.To(false)
+				invalidObject.Spec.Pvc.Retain = ptr.To(false)
 
 				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Update(context.Background(), invalidObject)).
@@ -205,10 +205,10 @@ var _ = Describe("Rekor", func() {
 
 			It("checking pvc name", func() {
 				invalidObject := generateRekorObject("rekor3")
-				invalidObject.Spec.Attestations.Pvc.Name = "-invalid-name!"
+				invalidObject.Spec.Pvc.Name = "-invalid-name!"
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("spec.attestations.pvc.name in body should match")))
+					To(MatchError(ContainSubstring("spec.pvc.name in body should match")))
 			})
 		})
 
@@ -512,7 +512,7 @@ var _ = Describe("Rekor", func() {
 				object.Spec.Replicas = replicas
 				object.Spec.Attestations.Enabled = attestationEnabled
 				object.Spec.Attestations.Url = attestationUrl
-				object.Spec.Attestations.Pvc.AccessModes = pvcAccessModes
+				object.Spec.Pvc.AccessModes = pvcAccessModes
 
 				if isValid {
 					Expect(k8sClient.Create(context.Background(), object)).To(Succeed())
@@ -556,9 +556,9 @@ var _ = Describe("Rekor", func() {
 		DescribeTable("pvc", func(ctx context.Context, origObj pvcArgs, updateObj *pvcArgs, isValid bool, errMessage string) {
 			object := generateRekorObject("")
 			object.GenerateName = "rekor-pvc-"
-			object.Spec.Attestations.Pvc.Name = origObj.name
-			object.Spec.Attestations.Pvc.StorageClass = origObj.storageClass
-			object.Spec.Attestations.Pvc.AccessModes = origObj.accessModes
+			object.Spec.Pvc.Name = origObj.name
+			object.Spec.Pvc.StorageClass = origObj.storageClass
+			object.Spec.Pvc.AccessModes = origObj.accessModes
 
 			err := k8sClient.Create(ctx, object)
 			if updateObj == nil && !isValid {
@@ -570,9 +570,9 @@ var _ = Describe("Rekor", func() {
 				return
 			}
 
-			object.Spec.Attestations.Pvc.Name = updateObj.name
-			object.Spec.Attestations.Pvc.StorageClass = updateObj.storageClass
-			object.Spec.Attestations.Pvc.AccessModes = updateObj.accessModes
+			object.Spec.Pvc.Name = updateObj.name
+			object.Spec.Pvc.StorageClass = updateObj.storageClass
+			object.Spec.Pvc.AccessModes = updateObj.accessModes
 
 			if isValid {
 				Expect(k8sClient.Update(ctx, object)).To(Succeed())
@@ -614,8 +614,8 @@ var _ = Describe("Rekor", func() {
 					Expect(k8sClient.Create(context.Background(), &rekorInstance)).To(Succeed())
 					fetched := &Rekor{}
 					Expect(k8sClient.Get(context.Background(), getKey(&rekorInstance), fetched)).To(Succeed())
-					Expect(fetched.Spec.Attestations.Pvc.Name).To(Equal(expectedRekorInstance.Spec.Attestations.Pvc.Name))
-					Expect(fetched.Spec.Attestations.Pvc.Size).To(Equal(expectedRekorInstance.Spec.Attestations.Pvc.Size))
+					Expect(fetched.Spec.Pvc.Name).To(Equal(expectedRekorInstance.Spec.Pvc.Name))
+					Expect(fetched.Spec.Pvc.Size).To(Equal(expectedRekorInstance.Spec.Pvc.Size))
 					Expect(*fetched.Spec.RekorSearchUI.Enabled).To(BeTrue())
 					Expect(*fetched.Spec.SearchIndex.Create).To(BeTrue())
 				})
@@ -654,12 +654,14 @@ var _ = Describe("Rekor", func() {
 							},
 							TreeID: &tree,
 							Attestations: RekorAttestations{
-								Pvc: Pvc{
-									Name:         "name",
-									Size:         &storage,
-									StorageClass: "name",
-									Retain:       ptr.To(true),
-								},
+								Enabled: ptr.To(true),
+								Url:     "file:///var/run/attestations?no_tmp_dir=true",
+							},
+							Pvc: Pvc{
+								Name:         "name",
+								Size:         &storage,
+								StorageClass: "name",
+								Retain:       ptr.To(true),
 							},
 							Signer: RekorSigner{
 								KMS: "secret",
@@ -710,20 +712,22 @@ var _ = Describe("Rekor", func() {
 						},
 						Spec: RekorSpec{
 							Attestations: RekorAttestations{
-								Pvc: Pvc{
-									Name: "custom-name",
-								},
+								Enabled: ptr.To(true),
+								Url:     "file:///var/run/attestations?no_tmp_dir=true",
+							},
+							Pvc: Pvc{
+								Name: "custom-name",
 							},
 						},
 					}
 
-					expectedRekorInstance.Spec.Attestations.Pvc.Name = "custom-name"
+					expectedRekorInstance.Spec.Pvc.Name = "custom-name"
 
 					Expect(k8sClient.Create(context.Background(), &rekorInstance)).To(Succeed())
 					fetchedRekor := &Rekor{}
 					Expect(k8sClient.Get(context.Background(), getKey(&rekorInstance), fetchedRekor)).To(Succeed())
-					Expect(fetchedRekor.Spec.Attestations.Pvc.Name).To(Equal(expectedRekorInstance.Spec.Attestations.Pvc.Name))
-					Expect(fetchedRekor.Spec.Attestations.Pvc.Size).To(Equal(expectedRekorInstance.Spec.Attestations.Pvc.Size))
+					Expect(fetchedRekor.Spec.Pvc.Name).To(Equal(expectedRekorInstance.Spec.Pvc.Name))
+					Expect(fetchedRekor.Spec.Pvc.Size).To(Equal(expectedRekorInstance.Spec.Pvc.Size))
 					Expect(*fetchedRekor.Spec.RekorSearchUI.Enabled).To(BeTrue())
 				})
 			})
@@ -751,12 +755,12 @@ func generateRekorObject(name string) *Rekor {
 				Enabled: ptr.To(true),
 				Url:     "file:///var/run/attestations?no_tmp_dir=true",
 				MaxSize: &maxSize,
-				Pvc: Pvc{
-					Retain: ptr.To(true),
-					Size:   &storage,
-					AccessModes: []PersistentVolumeAccessMode{
-						"ReadWriteOnce",
-					},
+			},
+			Pvc: Pvc{
+				Retain: ptr.To(true),
+				Size:   &storage,
+				AccessModes: []PersistentVolumeAccessMode{
+					"ReadWriteOnce",
 				},
 			},
 			Trillian: TrillianService{

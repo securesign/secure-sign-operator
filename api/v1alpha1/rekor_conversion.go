@@ -80,3 +80,11 @@ func Convert_v1_RekorSignerStatus_To_v1alpha1_RekorSigner(in *rhtasv1.RekorSigne
 	}
 	return nil
 }
+
+// Convert_v1_RekorAttestations_To_v1alpha1_RekorAttestations handles the conversion from v1 to v1alpha1.
+// Required by conversion generator due to Pvc field mismatch between v1 and v1alpha1.
+// v1.RekorAttestations has a Pvc field that doesn't exist in v1alpha1.RekorAttestations.
+// The Pvc migration is handled at RekorSpec level in conversion_overrides.go.
+func Convert_v1_RekorAttestations_To_v1alpha1_RekorAttestations(in *rhtasv1.RekorAttestations, out *RekorAttestations, s apiconversion.Scope) error {
+	return autoConvert_v1_RekorAttestations_To_v1alpha1_RekorAttestations(in, out, s)
+}

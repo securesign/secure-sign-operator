@@ -53,15 +53,7 @@ func Convert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *v1.RekorSpec
 		return err
 	}
 
-	// Then do custom PVC AccessModes conversion for the deprecated Pvc field
-	if in.Pvc.AccessModes != nil {
-		out.Pvc.AccessModes = make([]v1.PersistentVolumeAccessMode, len(in.Pvc.AccessModes))
-		for i, mode := range in.Pvc.AccessModes {
-			out.Pvc.AccessModes[i] = v1.PersistentVolumeAccessMode(mode)
-		}
-	}
-
-	// Migration strategy: Migrate from deprecated spec.pvc to spec.attestations.pvc
+	// Migration strategy: Migrate from deprecated spec.pvc (v1alpha1) to spec.attestations.pvc (v1)
 	// by copying any non-empty fields. This handles both cases:
 	// 1. User only set spec.pvc (attestations.pvc is empty)
 	// 2. User set spec.pvc and kubebuilder applied defaults to attestations.pvc
@@ -87,10 +79,6 @@ func Convert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *v1.RekorSpec
 			out.Attestations.Pvc.AccessModes[i] = v1.PersistentVolumeAccessMode(mode)
 		}
 	}
-
-	// Clear the deprecated out.Pvc field in v1 after migration
-	// The authoritative location in v1 is spec.attestations.pvc
-	out.Pvc = v1.Pvc{}
 
 	return nil
 }

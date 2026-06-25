@@ -52,8 +52,8 @@ func TestSecuresignConversion(t *testing.T) {
 					},
 					func(obj *rhtasv1.SecuresignSpec, c randfill.Continue) {
 						c.Fill(obj)
-						// Clear the deprecated rekor.pvc field in v1 as well
-						obj.Rekor.Pvc = rhtasv1.Pvc{}
+						// In v1, PVC is under attestations, not at the top level
+						// No need to clear anything here
 					},
 				}
 			},
@@ -88,8 +88,8 @@ func TestRekorConversion(t *testing.T) {
 					},
 					func(obj *rhtasv1.RekorSpec, c randfill.Continue) {
 						c.Fill(obj)
-						// Clear the deprecated spec.pvc field in v1 as well
-						obj.Pvc = rhtasv1.Pvc{}
+						// In v1, PVC is under attestations.pvc, not at spec.pvc
+						// No need to clear anything here
 					},
 					func(s *RekorStatus, c randfill.Continue) {
 						c.FillNoCustom(&s.PublicKeyRef)
