@@ -90,10 +90,10 @@ var _ = Describe("Rekor update", Ordered, func() {
 			Eventually(func(g Gomega) string {
 				ctl := rekor.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
-				c := meta.FindStatusCondition(ctl.Status.Conditions, rekorAction.ServerCondition)
+				c := meta.FindStatusCondition(ctl.Status.Conditions, rekorAction.SignerCondition)
 				g.Expect(c).ToNot(BeNil())
 				return c.Reason
-			}).Should(Equal(state.Initialize.String()))
+			}).Should(Equal(state.Failure.String()))
 		})
 
 		It("created my-rekor-secret", func(ctx SpecContext) {

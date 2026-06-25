@@ -46,44 +46,49 @@ func GetSecretData(client client.Client, namespace string, selector *rhtasv1.Sec
 	return nil, nil
 }
 
-func FindSecret(ctx context.Context, c client.Client, namespace string, label string) (*metav1.PartialObjectMetadata, error) {
-	gvk := schema.GroupVersionKind{
-		Group:   "",
-		Version: "v1",
-		Kind:    "Secret",
+var secretGVK = schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
+
+// ExistsSecret checks whether a Secret exists by name using a metadata-only GET
+// (no secret data is fetched).
+//
+// Returns:
+//   - (true, nil)  — secret exists
+//   - (false, nil) — secret confirmed not found
+//   - (false, err) — transient/permission error
+func ExistsSecret(ctx context.Context, c client.Client, namespace, name string) (bool, error) {
+	obj := &metav1.PartialObjectMetadata{}
+	obj.SetGroupVersionKind(secretGVK)
+	if err := c.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, obj); err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
 	}
+	return true, nil
+}
 
-	list := &metav1.PartialObjectMetadataList{}
-	list.SetGroupVersionKind(gvk)
-
-	err := FindByLabelSelector(ctx, c, list, namespace, label)
-
+func FindSecret(ctx context.Context, c client.Client, namespace string, label string) (*metav1.PartialObjectMetadata, error) {
+	list, err := ListSecrets(ctx, c, namespace, label)
 	if err != nil {
 		return nil, err
 	}
-	if len(list.Items) > 1 {
+
+	switch len(list.Items) {
+	case 1:
+		return &list.Items[0], nil
+	case 0:
+		return nil, apierrors.NewNotFound(schema.GroupResource{
+			Group:    secretGVK.Group,
+			Resource: secretGVK.Kind,
+		}, "")
+	default:
 		return nil, errors.New("duplicate resource")
 	}
-
-	if len(list.Items) == 1 {
-		return &list.Items[0], nil
-	}
-
-	return nil, apierrors.NewNotFound(schema.GroupResource{
-		Group:    gvk.Group,
-		Resource: gvk.Kind,
-	}, "")
 }
 
 func ListSecrets(ctx context.Context, c client.Client, namespace string, labelSelector string) (*metav1.PartialObjectMetadataList, error) {
-	gvk := schema.GroupVersionKind{
-		Group:   "",
-		Version: "v1",
-		Kind:    "Secret",
-	}
-
 	list := &metav1.PartialObjectMetadataList{}
-	list.SetGroupVersionKind(gvk)
+	list.SetGroupVersionKind(secretGVK)
 
 	err := FindByLabelSelector(ctx, c, list, namespace, labelSelector)
 
@@ -94,14 +99,24 @@ func ListSecrets(ctx context.Context, c client.Client, namespace string, labelSe
 
 }
 
+var (
+	// ErrImmutableSecretDataMismatch is returned when an attempt is made to update
+	// the data of a Kubernetes Secret that has Immutable: true.
+	ErrImmutableSecretDataMismatch = errors.New("can't update immutable Secret data")
+
+	// ErrImmutableSecretMutability is returned when an attempt is made to change
+	// a Secret's Immutable field from true to false.
+	ErrImmutableSecretMutability = errors.New("can't update Secret mutability")
+)
+
 func EnsureSecretData(immutable bool, data map[string][]byte) func(secret *corev1.Secret) error {
 	return func(instance *corev1.Secret) error {
 		switch {
 		case !utils.OptionalBool(instance.Immutable):
 		case !reflect.DeepEqual(instance.Data, data):
-			return fmt.Errorf("can't update immutable Secret data")
+			return fmt.Errorf("%w", ErrImmutableSecretDataMismatch)
 		case utils.OptionalBool(instance.Immutable) && !immutable:
-			return fmt.Errorf("can't make update Secret mutability")
+			return fmt.Errorf("%w", ErrImmutableSecretMutability)
 		}
 		instance.Immutable = utils.Pointer(immutable)
 		instance.Data = data

@@ -89,12 +89,12 @@ var _ = Describe("CTlog update", Ordered, func() {
 			}).WithTimeout(1 * time.Second).Should(Succeed())
 		})
 
-		It("has status Creating: waiting on my-ctlog-secret", func(ctx SpecContext) {
+		It("has status Pending: waiting on my-ctlog-secret", func(ctx SpecContext) {
 			Eventually(func(g Gomega) string {
 				ctl := ctlog.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
 				return meta.FindStatusCondition(ctl.Status.Conditions, constants.ReadyCondition).Reason
-			}).Should(Equal(state.Creating.String()))
+			}).Should(Equal(state.Pending.String()))
 		})
 
 		It("created my-ctlog-secret", func(ctx SpecContext) {
