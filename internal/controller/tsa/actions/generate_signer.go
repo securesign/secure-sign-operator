@@ -23,11 +23,7 @@ const (
 	signerSecretNameFormat = "tsa-signer-config-%s"
 )
 
-var (
-	ErrMissingPrivateKey   = errors.New("missing private key for certificate chain")
-	ErrCAPrivateKeyNotUsed = errors.New("providing private keys for individual CAs is not supported; " +
-		"use certificateChainRef with a pre-built chain or let the operator generate all keys")
-)
+var ErrMissingPrivateKey = errors.New("missing private key for certificate chain")
 
 func NewGenerateSignerAction() action.Action[*rhtasv1.TimestampAuthority] {
 	return generateSigner.NewAction(
@@ -70,11 +66,6 @@ func resolveRef(ctx context.Context, instance *rhtasv1.TimestampAuthority, c cli
 			return nil, err
 		}
 		return instance.Spec.Signer.CertificateChain.CertificateChainRef, nil
-	}
-	if instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
-		if hasCAPrivateKeyRefs(&instance.Spec.Signer.CertificateChain) {
-			return nil, reconcile.TerminalError(ErrCAPrivateKeyNotUsed)
-		}
 	}
 	var ref *rhtasv1.SecretKeySelector
 	if instance.Status.Signer != nil {
@@ -120,21 +111,6 @@ func alignStatus(instance *rhtasv1.TimestampAuthority, ref rhtasv1.SecretKeySele
 			LocalObjectReference: ref.LocalObjectReference,
 		}
 	}
-}
-
-func hasCAPrivateKeyRefs(chain *rhtasv1.CertificateChain) bool {
-	if chain.RootCA != nil && chain.RootCA.PrivateKeyRef != nil {
-		return true
-	}
-	if chain.LeafCA != nil && chain.LeafCA.PrivateKeyRef != nil {
-		return true
-	}
-	for _, ca := range chain.IntermediateCA {
-		if ca != nil && ca.PrivateKeyRef != nil {
-			return true
-		}
-	}
-	return false
 }
 
 func signerStatusFromSpec(signer *rhtasv1.TimestampAuthoritySigner) *rhtasv1.TimestampAuthoritySignerStatus {
