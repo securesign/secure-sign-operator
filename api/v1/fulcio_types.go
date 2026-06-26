@@ -181,8 +181,6 @@ type FulcioCertStatus struct {
 	PrivateKeyRef         *SecretKeySelector `json:"privateKeyRef,omitempty"`
 	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
 	CARef                 *SecretKeySelector `json:"caRef,omitempty"`
-	// CommonName is cached to survive cluster restore — re-resolving from route could yield a different hostname.
-	CommonName string `json:"commonName,omitempty"`
 }
 
 // FulcioStatus defines the observed state of Fulcio
