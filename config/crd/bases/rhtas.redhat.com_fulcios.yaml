@@ -1462,10 +1462,6 @@ spec:
                     - name
                     type: object
                     x-kubernetes-map-type: atomic
-                  commonName:
-                    description: CommonName is cached to survive cluster restore —
-                      re-resolving from route could yield a different hostname.
-                    type: string
                   privateKeyPasswordRef:
                     description: SecretKeySelector selects a key of a Secret.
                     properties:

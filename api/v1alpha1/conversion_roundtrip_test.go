@@ -141,7 +141,6 @@ func TestFulcioConversion(t *testing.T) {
 							c.FillNoCustom(&s.Certificate.PrivateKeyRef)
 							c.FillNoCustom(&s.Certificate.PrivateKeyPasswordRef)
 							c.FillNoCustom(&s.Certificate.CARef)
-							c.FillNoCustom(&s.Certificate.CommonName)
 						}
 					},
 				}
