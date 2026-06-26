@@ -32,9 +32,11 @@ var testdata embed.FS
 const managerPodName = "manager"
 
 func TestCustomInstall(t *testing.T) {
+	t.Setenv("TUF_ROOT", t.TempDir())
 	RegisterFailHandler(Fail)
 	log.SetLogger(GinkgoLogr)
 	SetDefaultEventuallyTimeout(time.Duration(3) * time.Minute)
+	SetDefaultEventuallyPollingInterval(1 * time.Second)
 	EnforceDefaultTimeoutsWhenUsingContexts()
 	RunSpecs(t, "With customized install")
 
