@@ -9366,47 +9366,6 @@ spec:
                                   description: OrganizationName specifies the Organization
                                     Name for the TimeStampAuthorities cert chain.
                                   type: string
-                                passwordRef:
-                                  description: |-
-                                    Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
-                                    and not FIPS-compliant. Auto-generated keys are no longer password-encrypted;
-                                    this field is retained only for backward compatibility with existing user-provided
-                                    encrypted keys. Kubernetes Secrets provide encryption-at-rest.
-                                  properties:
-                                    key:
-                                      description: The key of the secret to select
-                                        from. Must be a valid secret key.
-                                      pattern: ^[-._a-zA-Z0-9]+$
-                                      type: string
-                                    name:
-                                      description: |-
-                                        Name of the referent.
-                                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                      type: string
-                                  required:
-                                  - key
-                                  - name
-                                  type: object
-                                  x-kubernetes-map-type: atomic
-                                privateKeyRef:
-                                  description: Reference to the signer's root private
-                                    key
-                                  properties:
-                                    key:
-                                      description: The key of the secret to select
-                                        from. Must be a valid secret key.
-                                      pattern: ^[-._a-zA-Z0-9]+$
-                                      type: string
-                                    name:
-                                      description: |-
-                                        Name of the referent.
-                                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                      type: string
-                                  required:
-                                  - key
-                                  - name
-                                  type: object
-                                  x-kubernetes-map-type: atomic
                               type: object
                             type: array
                           leafCA:
@@ -9425,47 +9384,6 @@ spec:
                                 description: OrganizationName specifies the Organization
                                   Name for the TimeStampAuthorities cert chain.
                                 type: string
-                              passwordRef:
-                                description: |-
-                                  Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
-                                  and not FIPS-compliant. Auto-generated keys are no longer password-encrypted;
-                                  this field is retained only for backward compatibility with existing user-provided
-                                  encrypted keys. Kubernetes Secrets provide encryption-at-rest.
-                                properties:
-                                  key:
-                                    description: The key of the secret to select from.
-                                      Must be a valid secret key.
-                                    pattern: ^[-._a-zA-Z0-9]+$
-                                    type: string
-                                  name:
-                                    description: |-
-                                      Name of the referent.
-                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                    type: string
-                                required:
-                                - key
-                                - name
-                                type: object
-                                x-kubernetes-map-type: atomic
-                              privateKeyRef:
-                                description: Reference to the signer's root private
-                                  key
-                                properties:
-                                  key:
-                                    description: The key of the secret to select from.
-                                      Must be a valid secret key.
-                                    pattern: ^[-._a-zA-Z0-9]+$
-                                    type: string
-                                  name:
-                                    description: |-
-                                      Name of the referent.
-                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                    type: string
-                                required:
-                                - key
-                                - name
-                                type: object
-                                x-kubernetes-map-type: atomic
                             type: object
                           rootCA:
                             description: Root Certificate Authority Config
@@ -9483,54 +9401,9 @@ spec:
                                 description: OrganizationName specifies the Organization
                                   Name for the TimeStampAuthorities cert chain.
                                 type: string
-                              passwordRef:
-                                description: |-
-                                  Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
-                                  and not FIPS-compliant. Auto-generated keys are no longer password-encrypted;
-                                  this field is retained only for backward compatibility with existing user-provided
-                                  encrypted keys. Kubernetes Secrets provide encryption-at-rest.
-                                properties:
-                                  key:
-                                    description: The key of the secret to select from.
-                                      Must be a valid secret key.
-                                    pattern: ^[-._a-zA-Z0-9]+$
-                                    type: string
-                                  name:
-                                    description: |-
-                                      Name of the referent.
-                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                    type: string
-                                required:
-                                - key
-                                - name
-                                type: object
-                                x-kubernetes-map-type: atomic
-                              privateKeyRef:
-                                description: Reference to the signer's root private
-                                  key
-                                properties:
-                                  key:
-                                    description: The key of the secret to select from.
-                                      Must be a valid secret key.
-                                    pattern: ^[-._a-zA-Z0-9]+$
-                                    type: string
-                                  name:
-                                    description: |-
-                                      Name of the referent.
-                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                    type: string
-                                required:
-                                - key
-                                - name
-                                type: object
-                                x-kubernetes-map-type: atomic
                             type: object
                         type: object
                         x-kubernetes-validations:
-                        - message: must provide private keys for both root and leaf
-                            certificate authorities
-                          rule: (!has(self.rootCA) && !has(self.leafCA)) || (has(self.rootCA.privateKeyRef)
-                            == has(self.leafCA.privateKeyRef))
                         - message: organizationName cannot be empty for root certificate
                             authority
                           rule: (has(self.certificateChainRef) || self.rootCA.organizationName
