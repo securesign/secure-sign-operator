@@ -41,6 +41,17 @@ func TestSecuresignConversion(t *testing.T) {
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.Securesign{},
 		Spoke:  &Securesign{},
+		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			func(_ runtimeserializer.CodecFactory) []interface{} {
+				return []interface{}{
+					func(ca *TsaCertificateAuthority, c randfill.Continue) {
+						c.FillNoCustom(&ca.CommonName)
+						c.FillNoCustom(&ca.OrganizationName)
+						c.FillNoCustom(&ca.OrganizationEmail)
+					},
+				}
+			},
+		},
 	}))
 }
 
@@ -147,6 +158,11 @@ func TestTimestampAuthorityConversion(t *testing.T) {
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			func(_ runtimeserializer.CodecFactory) []interface{} {
 				return []interface{}{
+					func(ca *TsaCertificateAuthority, c randfill.Continue) {
+						c.FillNoCustom(&ca.CommonName)
+						c.FillNoCustom(&ca.OrganizationName)
+						c.FillNoCustom(&ca.OrganizationEmail)
+					},
 					func(s *TimestampAuthorityStatus, c randfill.Continue) {
 						c.FillNoCustom(&s.Conditions)
 						c.FillNoCustom(&s.Url)

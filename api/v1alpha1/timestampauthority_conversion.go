@@ -81,6 +81,20 @@ func Convert_v1_TimestampAuthorityStatus_To_v1alpha1_TimestampAuthorityStatus(in
 	return nil
 }
 
+func Convert_v1alpha1_TsaCertificateAuthority_To_v1_TsaCertificateAuthority(in *TsaCertificateAuthority, out *rhtasv1.TsaCertificateAuthority, _ apiconversion.Scope) error {
+	out.CommonName = in.CommonName
+	out.OrganizationName = in.OrganizationName
+	out.OrganizationEmail = in.OrganizationEmail
+	return nil
+}
+
+func Convert_v1_TsaCertificateAuthority_To_v1alpha1_TsaCertificateAuthority(in *rhtasv1.TsaCertificateAuthority, out *TsaCertificateAuthority, _ apiconversion.Scope) error {
+	out.CommonName = in.CommonName
+	out.OrganizationName = in.OrganizationName
+	out.OrganizationEmail = in.OrganizationEmail
+	return nil
+}
+
 func (src *TimestampAuthority) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*rhtasv1.TimestampAuthority)
 	if err := Convert_v1alpha1_TimestampAuthority_To_v1_TimestampAuthority(src, dst, nil); err != nil {
