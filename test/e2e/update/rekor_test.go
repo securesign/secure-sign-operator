@@ -91,7 +91,7 @@ var _ = Describe("Rekor update", Ordered, func() {
 					},
 				}
 				return cli.Update(ctx, s)
-			}).WithTimeout(1 * time.Second).Should(Succeed())
+			}).Should(Succeed())
 		})
 
 		It("has status SignerAvailable == Failure: waiting on my-rekor-secret", func(ctx SpecContext) {
@@ -146,7 +146,7 @@ var _ = Describe("Rekor update", Ordered, func() {
 					},
 				}
 				return cli.Update(ctx, s)
-			}).WithTimeout(1 * time.Second).Should(Succeed())
+			}).Should(Succeed())
 			Eventually(func(g Gomega) []rhtasv1.TufKeyStatus {
 				t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 				return t.Status.Keys

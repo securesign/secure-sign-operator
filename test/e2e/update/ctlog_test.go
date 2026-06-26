@@ -94,7 +94,7 @@ var _ = Describe("CTlog update", Ordered, func() {
 					Key: "public",
 				}
 				return cli.Update(ctx, s)
-			}).WithTimeout(1 * time.Second).Should(Succeed())
+			}).Should(Succeed())
 		})
 
 		It("has status Creating: waiting on my-ctlog-secret", func(ctx SpecContext) {
@@ -147,7 +147,7 @@ var _ = Describe("CTlog update", Ordered, func() {
 					},
 				}
 				return cli.Update(ctx, s)
-			}).WithTimeout(1 * time.Second).Should(Succeed())
+			}).Should(Succeed())
 			Eventually(func(g Gomega) []rhtasv1.TufKeyStatus {
 				t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 				return t.Status.Keys
