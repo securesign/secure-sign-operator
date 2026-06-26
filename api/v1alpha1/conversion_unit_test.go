@@ -489,7 +489,6 @@ func TestFulcioConversionUnit(t *testing.T) {
 						PrivateKeyRef:         &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-keys"}, Key: "private"},
 						PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-keys"}, Key: "password"},
 						CARef:                 &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-keys"}, Key: "cert"},
-						CommonName:            "fulcio.apps.cluster.example.com",
 					},
 					Conditions: []metav1.Condition{
 						{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Deployed", Message: "all good"},
@@ -505,7 +504,6 @@ func TestFulcioConversionUnit(t *testing.T) {
 						PrivateKeyRef:         &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "fulcio-keys"}, Key: "private"},
 						PrivateKeyPasswordRef: &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "fulcio-keys"}, Key: "password"},
 						CARef:                 &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "fulcio-keys"}, Key: "cert"},
-						CommonName:            "fulcio.apps.cluster.example.com",
 					},
 					Conditions: []metav1.Condition{
 						{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Deployed", Message: "all good"},

@@ -26,7 +26,6 @@ func Convert_v1alpha1_FulcioCert_To_v1_FulcioCertStatus(in *FulcioCert, out *rht
 			return err
 		}
 	}
-	out.CommonName = in.CommonName
 	return nil
 }
 
@@ -49,7 +48,6 @@ func Convert_v1_FulcioCertStatus_To_v1alpha1_FulcioCert(in *rhtasv1.FulcioCertSt
 			return err
 		}
 	}
-	out.CommonName = in.CommonName
 	return nil
 }
 
