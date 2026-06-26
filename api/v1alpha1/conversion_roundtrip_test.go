@@ -77,6 +77,7 @@ func TestSecuresignConversion(t *testing.T) {
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			tsaSignerFuzzerFuncs,
 			tsaStatusFuzzerFuncs,
+			tsaCertAuthorityFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
@@ -194,6 +195,7 @@ func TestTimestampAuthorityConversion(t *testing.T) {
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			tsaStatusFuzzerFuncs,
 			tsaSignerFuzzerFuncs,
+			tsaCertAuthorityFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
@@ -263,6 +265,16 @@ func tsaSignerFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 				s.Auth = &rhtasv1.Auth{}
 				c.FillNoCustom(s.Auth)
 			}
+		},
+	}
+}
+
+func tsaCertAuthorityFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(ca *TsaCertificateAuthority, c randfill.Continue) {
+			c.FillNoCustom(&ca.CommonName)
+			c.FillNoCustom(&ca.OrganizationName)
+			c.FillNoCustom(&ca.OrganizationEmail)
 		},
 	}
 }
