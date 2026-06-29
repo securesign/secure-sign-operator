@@ -45,6 +45,7 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -101,16 +102,19 @@ var _ = Describe("Rekor hot update test", func() {
 			if err != nil && errors.IsNotFound(err) {
 				// Let's mock our custom resource at the same way that we would
 				// apply on the cluster the manifest under config/samples
-				ptr := int64(123)
+				treeID := int64(123)
 				instance := &rhtasv1.Rekor{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      Name,
 						Namespace: Namespace,
 					},
 					Spec: rhtasv1.RekorSpec{
-						TreeID: &ptr,
+						TreeID: &treeID,
 						ExternalAccess: rhtasv1.ExternalAccess{
-							Enabled: false,
+							Enabled: ptr.To(false),
+						},
+						Monitoring: rhtasv1.MonitoringWithTLogConfig{
+							MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
 						},
 						RekorSearchUI: rhtasv1.RekorSearchUI{
 							Enabled: utils.Pointer(false),

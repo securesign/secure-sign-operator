@@ -10,6 +10,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
+	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v2 "k8s.io/api/networking/v1"
@@ -35,7 +36,7 @@ func (i ingressAction) Name() string {
 }
 
 func (i ingressAction) CanHandle(_ context.Context, instance *rhtasv1.TimestampAuthority) bool {
-	return instance.Spec.ExternalAccess.Enabled && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
+	return utils.IsEnabled(instance.Spec.ExternalAccess.Enabled) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.TimestampAuthority) *action.Result {

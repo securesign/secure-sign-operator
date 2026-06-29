@@ -1169,7 +1169,9 @@ func Convert_v1_Extensions_To_v1alpha1_Extensions(in *v1.Extensions, out *Extens
 }
 
 func autoConvert_v1alpha1_ExternalAccess_To_v1_ExternalAccess(in *ExternalAccess, out *v1.ExternalAccess, s conversion.Scope) error {
-	out.Enabled = in.Enabled
+	if err := metav1.Convert_bool_To_Pointer_bool(&in.Enabled, &out.Enabled, s); err != nil {
+		return err
+	}
 	out.Host = in.Host
 	out.RouteSelectorLabels = *(*map[string]string)(unsafe.Pointer(&in.RouteSelectorLabels))
 	return nil
@@ -1181,7 +1183,9 @@ func Convert_v1alpha1_ExternalAccess_To_v1_ExternalAccess(in *ExternalAccess, ou
 }
 
 func autoConvert_v1_ExternalAccess_To_v1alpha1_ExternalAccess(in *v1.ExternalAccess, out *ExternalAccess, s conversion.Scope) error {
-	out.Enabled = in.Enabled
+	if err := metav1.Convert_Pointer_bool_To_bool(&in.Enabled, &out.Enabled, s); err != nil {
+		return err
+	}
 	out.Host = in.Host
 	out.RouteSelectorLabels = *(*map[string]string)(unsafe.Pointer(&in.RouteSelectorLabels))
 	return nil
@@ -1495,7 +1499,9 @@ func Convert_v1_LocalObjectReference_To_v1alpha1_LocalObjectReference(in *v1.Loc
 }
 
 func autoConvert_v1alpha1_MonitoringConfig_To_v1_MonitoringConfig(in *MonitoringConfig, out *v1.MonitoringConfig, s conversion.Scope) error {
-	out.Enabled = in.Enabled
+	if err := metav1.Convert_bool_To_Pointer_bool(&in.Enabled, &out.Enabled, s); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -1505,7 +1511,9 @@ func Convert_v1alpha1_MonitoringConfig_To_v1_MonitoringConfig(in *MonitoringConf
 }
 
 func autoConvert_v1_MonitoringConfig_To_v1alpha1_MonitoringConfig(in *v1.MonitoringConfig, out *MonitoringConfig, s conversion.Scope) error {
-	out.Enabled = in.Enabled
+	if err := metav1.Convert_Pointer_bool_To_bool(&in.Enabled, &out.Enabled, s); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -1551,7 +1559,9 @@ func Convert_v1_MonitoringWithTLogConfig_To_v1alpha1_MonitoringWithTLogConfig(in
 }
 
 func autoConvert_v1alpha1_NTPMonitoring_To_v1_NTPMonitoring(in *NTPMonitoring, out *v1.NTPMonitoring, s conversion.Scope) error {
-	out.Enabled = in.Enabled
+	if err := metav1.Convert_bool_To_Pointer_bool(&in.Enabled, &out.Enabled, s); err != nil {
+		return err
+	}
 	out.Config = (*v1.NtpMonitoringConfig)(unsafe.Pointer(in.Config))
 	return nil
 }
@@ -1562,7 +1572,9 @@ func Convert_v1alpha1_NTPMonitoring_To_v1_NTPMonitoring(in *NTPMonitoring, out *
 }
 
 func autoConvert_v1_NTPMonitoring_To_v1alpha1_NTPMonitoring(in *v1.NTPMonitoring, out *NTPMonitoring, s conversion.Scope) error {
-	out.Enabled = in.Enabled
+	if err := metav1.Convert_Pointer_bool_To_bool(&in.Enabled, &out.Enabled, s); err != nil {
+		return err
+	}
 	out.Config = (*NtpMonitoringConfig)(unsafe.Pointer(in.Config))
 	return nil
 }
@@ -2618,7 +2630,9 @@ func Convert_v1_Tink_To_v1alpha1_Tink(in *v1.Tink, out *Tink, s conversion.Scope
 }
 
 func autoConvert_v1alpha1_TlogMonitoring_To_v1_TlogMonitoring(in *TlogMonitoring, out *v1.TlogMonitoring, s conversion.Scope) error {
-	out.Enabled = in.Enabled
+	if err := metav1.Convert_bool_To_Pointer_bool(&in.Enabled, &out.Enabled, s); err != nil {
+		return err
+	}
 	out.Interval = in.Interval
 	return nil
 }
@@ -2629,7 +2643,9 @@ func Convert_v1alpha1_TlogMonitoring_To_v1_TlogMonitoring(in *TlogMonitoring, ou
 }
 
 func autoConvert_v1_TlogMonitoring_To_v1alpha1_TlogMonitoring(in *v1.TlogMonitoring, out *TlogMonitoring, s conversion.Scope) error {
-	out.Enabled = in.Enabled
+	if err := metav1.Convert_Pointer_bool_To_bool(&in.Enabled, &out.Enabled, s); err != nil {
+		return err
+	}
 	out.Interval = in.Interval
 	return nil
 }

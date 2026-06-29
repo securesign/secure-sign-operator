@@ -93,6 +93,7 @@ var _ = Describe("rolling upgrade with replicas", Ordered, func() {
 			s = securesign.Create(namespace.Name, "test",
 				securesign.ChooseDefaults(fipsEnabled, namespace.Name),
 				securesign.WithNFSPVC(),
+				securesign.WithoutMonitoring(),
 				withReplicas(2),
 				func(v *rhtasv1.Securesign) {
 					v.Spec.Fulcio.Config = rhtasv1.FulcioConfig{

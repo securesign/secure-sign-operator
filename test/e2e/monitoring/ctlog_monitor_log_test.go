@@ -21,6 +21,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -56,9 +57,8 @@ var _ = Describe("Ctlog Monitor Log", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		s = securesign.Create(namespace.Name, "test",
 			securesign.ChooseDefaults(fipsEnabled, namespace.Name),
-			securesign.WithMonitoring(),
 			func(v *rhtasv1.Securesign) {
-				v.Spec.Ctlog.Monitoring.TLog.Enabled = true
+				v.Spec.Ctlog.Monitoring.TLog.Enabled = ptr.To(true)
 				v.Spec.Ctlog.Monitoring.TLog.Interval = metav1.Duration{Duration: time.Second * 2}
 			},
 		)

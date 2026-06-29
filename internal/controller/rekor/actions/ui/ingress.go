@@ -10,9 +10,11 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
+	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v2 "k8s.io/api/networking/v1"
+	"k8s.io/utils/ptr"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
@@ -37,7 +39,7 @@ func (i ingressAction) Name() string {
 
 func (i ingressAction) CanHandle(ctx context.Context, instance *rhtasv1.Rekor) bool {
 	return enabled(instance) &&
-		instance.Spec.ExternalAccess.Enabled &&
+		utils.IsEnabled(instance.Spec.ExternalAccess.Enabled) &&
 		state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
@@ -60,7 +62,7 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *act
 		},
 		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc,
 			rhtasv1.ExternalAccess{
-				Enabled:             true,
+				Enabled:             ptr.To(true),
 				Host:                instance.Spec.RekorSearchUI.Host,
 				RouteSelectorLabels: instance.Spec.RekorSearchUI.RouteSelectorLabels,
 			},

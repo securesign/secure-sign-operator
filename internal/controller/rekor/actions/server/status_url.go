@@ -11,6 +11,7 @@ import (
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
+	"github.com/securesign/operator/internal/utils"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -32,7 +33,7 @@ func (i statusUrlAction) CanHandle(_ context.Context, instance *rhtasv1.Rekor) b
 
 func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
 	var url string
-	if instance.Spec.ExternalAccess.Enabled {
+	if utils.IsEnabled(instance.Spec.ExternalAccess.Enabled) {
 		protocol := "http://"
 		ingress := &v12.Ingress{}
 		err := i.Client.Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: instance.Namespace}, ingress)

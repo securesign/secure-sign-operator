@@ -85,23 +85,23 @@ func ChooseDefaults(fipsEnabled bool, namespace string) Opts {
 
 func WithExternalAccess() Opts {
 	return func(s *rhtasv1.Securesign) {
-		s.Spec.Rekor.ExternalAccess.Enabled = true
-		s.Spec.Tuf.ExternalAccess.Enabled = true
-		s.Spec.Fulcio.ExternalAccess.Enabled = true
+		s.Spec.Rekor.ExternalAccess.Enabled = ptr.To(true)
+		s.Spec.Tuf.ExternalAccess.Enabled = ptr.To(true)
+		s.Spec.Fulcio.ExternalAccess.Enabled = ptr.To(true)
 		if s.Spec.TimestampAuthority != nil {
-			s.Spec.TimestampAuthority.ExternalAccess.Enabled = true
+			s.Spec.TimestampAuthority.ExternalAccess.Enabled = ptr.To(true)
 		}
 	}
 }
 
-func WithMonitoring() Opts {
+func WithoutMonitoring() Opts {
 	return func(s *rhtasv1.Securesign) {
-		s.Spec.Rekor.Monitoring.Enabled = true
-		s.Spec.Fulcio.Monitoring.Enabled = true
-		s.Spec.Trillian.Monitoring.Enabled = true
-		s.Spec.Ctlog.Monitoring.Enabled = true
+		s.Spec.Rekor.Monitoring.Enabled = ptr.To(false)
+		s.Spec.Fulcio.Monitoring.Enabled = ptr.To(false)
+		s.Spec.Trillian.Monitoring.Enabled = ptr.To(false)
+		s.Spec.Ctlog.Monitoring.Enabled = ptr.To(false)
 		if s.Spec.TimestampAuthority != nil {
-			s.Spec.TimestampAuthority.Monitoring.Enabled = true
+			s.Spec.TimestampAuthority.Monitoring.Enabled = ptr.To(false)
 		}
 	}
 }
@@ -359,7 +359,7 @@ func WithNTPMonitoring() Opts {
 	return func(s *rhtasv1.Securesign) {
 		if s.Spec.TimestampAuthority != nil {
 			s.Spec.TimestampAuthority.NTPMonitoring = rhtasv1.NTPMonitoring{
-				Enabled: true,
+				Enabled: ptr.To(true),
 				Config: &rhtasv1.NtpMonitoringConfig{
 					RequestAttempts: 3,
 					RequestTimeout:  5,

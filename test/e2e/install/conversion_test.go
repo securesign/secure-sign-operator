@@ -156,7 +156,7 @@ var _ = Describe("Conversion webhook", Ordered, func() {
 				To(Equal(v1alpha1Obj.Spec.Signer.CertificateChain.LeafCA.OrganizationName))
 
 			By("verifying NTP monitoring config")
-			Expect(v1Obj.Spec.NTPMonitoring.Enabled).To(Equal(v1alpha1Obj.Spec.NTPMonitoring.Enabled))
+			Expect(v1Obj.Spec.NTPMonitoring.Enabled).To(HaveValue(Equal(v1alpha1Obj.Spec.NTPMonitoring.Enabled)))
 			Expect(v1Obj.Spec.NTPMonitoring.Config).ToNot(BeNil())
 			Expect(v1Obj.Spec.NTPMonitoring.Config.Servers).To(Equal(v1alpha1Obj.Spec.NTPMonitoring.Config.Servers))
 			Expect(v1Obj.Spec.NTPMonitoring.Config.RequestAttempts).To(Equal(v1alpha1Obj.Spec.NTPMonitoring.Config.RequestAttempts))

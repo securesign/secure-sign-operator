@@ -103,7 +103,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			},
 			Spec: rhtasv1.RekorSpec{
 				ExternalAccess: rhtasv1.ExternalAccess{
-					Enabled: true,
+					Enabled: ptr.To(true),
 				},
 				Trillian: rhtasv1.TrillianService{
 					Address: fmt.Sprintf("trillian-logserver.%s.svc.cluster.local", namespaces["trillian"].Name),
@@ -162,7 +162,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 					Address: fmt.Sprintf("%s://ctlog.%s.svc.cluster.local", protocol, namespaces["ctlog"].Name),
 				},
 				ExternalAccess: rhtasv1.ExternalAccess{
-					Enabled: true,
+					Enabled: ptr.To(true),
 				},
 				Config: rhtasv1.FulcioConfig{
 					OIDCIssuers: []rhtasv1.OIDCIssuer{
@@ -208,7 +208,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			},
 			Spec: rhtasv1.TimestampAuthoritySpec{
 				ExternalAccess: rhtasv1.ExternalAccess{
-					Enabled: true,
+					Enabled: ptr.To(true),
 				},
 				Signer: func() rhtasv1.TimestampAuthoritySigner {
 					signer := rhtasv1.TimestampAuthoritySigner{
@@ -240,7 +240,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 					return signer
 				}(),
 				NTPMonitoring: rhtasv1.NTPMonitoring{
-					Enabled: true,
+					Enabled: ptr.To(true),
 					Config: &rhtasv1.NtpMonitoringConfig{
 						RequestAttempts: 3,
 						RequestTimeout:  5,
@@ -261,7 +261,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			},
 			Spec: rhtasv1.TufSpec{
 				ExternalAccess: rhtasv1.ExternalAccess{
-					Enabled: true,
+					Enabled: ptr.To(true),
 				},
 				Keys: []rhtasv1.TufKey{
 					{

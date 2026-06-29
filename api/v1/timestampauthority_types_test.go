@@ -49,31 +49,45 @@ var _ = Describe("TSA", func() {
 		When("changing external access setting", func() {
 			It("enabled false->true", func() {
 				created := generateTSAObject("tsa-access-1")
-				created.Spec.ExternalAccess.Enabled = false
+				created.Spec.ExternalAccess.Enabled = ptr.To(false)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &TimestampAuthority{}
 				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
-				fetched.Spec.ExternalAccess.Enabled = true
+				fetched.Spec.ExternalAccess.Enabled = ptr.To(true)
 				Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
 			})
 
 			It("enabled true->false", func() {
 				created := generateTSAObject("tsa-access-2")
-				created.Spec.ExternalAccess.Enabled = true
+				created.Spec.ExternalAccess.Enabled = ptr.To(true)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &TimestampAuthority{}
 				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
-				fetched.Spec.ExternalAccess.Enabled = false
+				fetched.Spec.ExternalAccess.Enabled = ptr.To(false)
 				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), fetched))).To(BeTrue())
 				Expect(k8sClient.Update(context.Background(), fetched)).
 					To(MatchError(ContainSubstring("Feature cannot be disabled")))
 			})
+		})
+
+		It("defaults Enabled fields when not set", func() {
+			obj := generateTSAObject("tsa-defaults")
+			obj.Spec.ExternalAccess.Enabled = nil
+			obj.Spec.Monitoring.Enabled = nil
+			obj.Spec.NTPMonitoring.Enabled = nil
+			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+
+			fetched := &TimestampAuthority{}
+			Expect(k8sClient.Get(context.Background(), getKey(obj), fetched)).To(Succeed())
+			Expect(fetched.Spec.ExternalAccess.Enabled).To(HaveValue(BeFalse()))
+			Expect(fetched.Spec.Monitoring.Enabled).To(HaveValue(BeTrue()))
+			Expect(fetched.Spec.NTPMonitoring.Enabled).To(HaveValue(BeTrue()))
 		})
 
 		Context("is Validated", func() {

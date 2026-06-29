@@ -65,6 +65,7 @@ var _ = Describe("Securesign install in proxy-env", Ordered, func() {
 		It("Install securesign", func(ctx SpecContext) {
 			s = securesign.Create(namespace.Name, "test",
 				securesign.ChooseDefaults(fipsEnabled, namespace.Name),
+				securesign.WithoutMonitoring(),
 				func(v *rhtasv1.Securesign) {
 					v.Spec.Fulcio.Config = rhtasv1.FulcioConfig{
 						OIDCIssuers: []rhtasv1.OIDCIssuer{

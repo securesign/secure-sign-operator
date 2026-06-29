@@ -11,6 +11,7 @@ import (
 	testAction "github.com/securesign/operator/internal/testing/action"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -47,7 +48,7 @@ func GenerateTSAInstance() *rhtasv1.TimestampAuthority {
 				},
 			},
 			NTPMonitoring: rhtasv1.NTPMonitoring{
-				Enabled: true,
+				Enabled: ptr.To(true),
 				Config: &rhtasv1.NtpMonitoringConfig{
 					RequestAttempts: 3,
 					RequestTimeout:  5,

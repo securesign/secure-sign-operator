@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 	"k8s.io/apimachinery/pkg/runtime"
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/randfill"
 )
 
@@ -36,6 +37,38 @@ func rhtasScheme() *runtime.Scheme {
 	return s
 }
 
+// enabledFieldsFuzzerFuncs ensures *bool Enabled fields are never nil in fuzzed v1 hub objects.
+// In production, nil is unreachable because the CRD schema defaulter always sets these fields.
+// The fuzzer bypasses the API server, so we replicate that invariant here.
+func enabledFieldsFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.ExternalAccess, c randfill.Continue) {
+			c.FillNoCustom(s)
+			if s.Enabled == nil {
+				s.Enabled = ptr.To(c.Bool())
+			}
+		},
+		func(s *rhtasv1.MonitoringConfig, c randfill.Continue) {
+			c.FillNoCustom(s)
+			if s.Enabled == nil {
+				s.Enabled = ptr.To(c.Bool())
+			}
+		},
+		func(s *rhtasv1.TlogMonitoring, c randfill.Continue) {
+			c.FillNoCustom(s)
+			if s.Enabled == nil {
+				s.Enabled = ptr.To(c.Bool())
+			}
+		},
+		func(s *rhtasv1.NTPMonitoring, c randfill.Continue) {
+			c.FillNoCustom(s)
+			if s.Enabled == nil {
+				s.Enabled = ptr.To(c.Bool())
+			}
+		},
+	}
+}
+
 func TestSecuresignConversion(t *testing.T) {
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
 		Scheme: rhtasScheme(),
@@ -44,6 +77,7 @@ func TestSecuresignConversion(t *testing.T) {
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			tsaSignerFuzzerFuncs,
 			tsaStatusFuzzerFuncs,
+			enabledFieldsFuzzerFuncs,
 		},
 	}))
 }
@@ -53,6 +87,9 @@ func TestCTlogConversion(t *testing.T) {
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.CTlog{},
 		Spoke:  &CTlog{},
+		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			enabledFieldsFuzzerFuncs,
+		},
 	}))
 }
 
@@ -80,6 +117,7 @@ func TestRekorConversion(t *testing.T) {
 					},
 				}
 			},
+			enabledFieldsFuzzerFuncs,
 		},
 	}))
 }
@@ -108,6 +146,7 @@ func TestFulcioConversion(t *testing.T) {
 					},
 				}
 			},
+			enabledFieldsFuzzerFuncs,
 		},
 	}))
 }
@@ -131,6 +170,7 @@ func TestTrillianConversion(t *testing.T) {
 					},
 				}
 			},
+			enabledFieldsFuzzerFuncs,
 		},
 	}))
 }
@@ -140,6 +180,9 @@ func TestTufConversion(t *testing.T) {
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.Tuf{},
 		Spoke:  &Tuf{},
+		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			enabledFieldsFuzzerFuncs,
+		},
 	}))
 }
 
@@ -151,6 +194,7 @@ func TestTimestampAuthorityConversion(t *testing.T) {
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			tsaStatusFuzzerFuncs,
 			tsaSignerFuzzerFuncs,
+			enabledFieldsFuzzerFuncs,
 		},
 	}))
 }

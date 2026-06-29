@@ -46,6 +46,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("TUF controller", func() {
@@ -104,7 +105,7 @@ var _ = Describe("TUF controller", func() {
 					Spec: rhtasv1.TufSpec{
 						ExternalAccess: rhtasv1.ExternalAccess{
 							Host:    "tuf.localhost",
-							Enabled: true,
+							Enabled: ptr.To(true),
 						},
 						Port: 8181,
 						Keys: []rhtasv1.TufKey{

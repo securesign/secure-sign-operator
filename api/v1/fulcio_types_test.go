@@ -50,27 +50,27 @@ var _ = Describe("Fulcio", func() {
 		When("changing external access setting", func() {
 			It("enabled false->true", func() {
 				created := generateFulcioObject("fulcio-access-1")
-				created.Spec.ExternalAccess.Enabled = false
+				created.Spec.ExternalAccess.Enabled = ptr.To(false)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Fulcio{}
 				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
-				fetched.Spec.ExternalAccess.Enabled = true
+				fetched.Spec.ExternalAccess.Enabled = ptr.To(true)
 				Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
 			})
 
 			It("enabled true->false", func() {
 				created := generateFulcioObject("fulcio-access-2")
-				created.Spec.ExternalAccess.Enabled = true
+				created.Spec.ExternalAccess.Enabled = ptr.To(true)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Fulcio{}
 				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
-				fetched.Spec.ExternalAccess.Enabled = false
+				fetched.Spec.ExternalAccess.Enabled = ptr.To(false)
 				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), fetched))).To(BeTrue())
 				Expect(k8sClient.Update(context.Background(), fetched)).
 					To(MatchError(ContainSubstring("Feature cannot be disabled")))
@@ -95,27 +95,27 @@ var _ = Describe("Fulcio", func() {
 		When("changing monitoring", func() {
 			It("enabled false->true", func() {
 				created := generateFulcioObject("fulcio-monitoring-1")
-				created.Spec.Monitoring.Enabled = false
+				created.Spec.Monitoring.Enabled = ptr.To(false)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Fulcio{}
 				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
-				fetched.Spec.Monitoring.Enabled = true
+				fetched.Spec.Monitoring.Enabled = ptr.To(true)
 				Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
 			})
 
 			It("enabled true->false", func() {
 				created := generateFulcioObject("fulcio-monitoring-2")
-				created.Spec.Monitoring.Enabled = true
+				created.Spec.Monitoring.Enabled = ptr.To(true)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Fulcio{}
 				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
-				fetched.Spec.Monitoring.Enabled = false
+				fetched.Spec.Monitoring.Enabled = ptr.To(false)
 				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), fetched))).To(BeTrue())
 				Expect(k8sClient.Update(context.Background(), fetched)).
 					To(MatchError(ContainSubstring("Feature cannot be disabled")))
@@ -222,6 +222,18 @@ var _ = Describe("Fulcio", func() {
 			})
 		})
 
+		It("defaults Enabled fields when not set", func() {
+			obj := generateFulcioObject("fulcio-defaults")
+			obj.Spec.ExternalAccess.Enabled = nil
+			obj.Spec.Monitoring.Enabled = nil
+			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+
+			fetched := &Fulcio{}
+			Expect(k8sClient.Get(context.Background(), getKey(obj), fetched)).To(Succeed())
+			Expect(fetched.Spec.ExternalAccess.Enabled).To(HaveValue(BeFalse()))
+			Expect(fetched.Spec.Monitoring.Enabled).To(HaveValue(BeTrue()))
+		})
+
 		Context("CR is fully populated", func() {
 			It("outputs the CR", func() {
 				fulcioInstance := Fulcio{
@@ -231,10 +243,10 @@ var _ = Describe("Fulcio", func() {
 					},
 					Spec: FulcioSpec{
 						Monitoring: MonitoringConfig{
-							Enabled: true,
+							Enabled: ptr.To(true),
 						},
 						ExternalAccess: ExternalAccess{
-							Enabled: true,
+							Enabled: ptr.To(true),
 							Host:    "hostname",
 						},
 						Config: FulcioConfig{

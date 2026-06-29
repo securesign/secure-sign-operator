@@ -97,6 +97,9 @@ var _ = Describe("Trillian controller", func() {
 						Db: rhtasv1.TrillianDB{
 							Create: utils.Pointer(true),
 						},
+						Monitoring: rhtasv1.MonitoringConfig{
+							Enabled: utils.Pointer(false),
+						},
 					},
 				}
 				err = suite.Client().Create(ctx, trillian)

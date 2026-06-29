@@ -105,7 +105,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 			"--port=3000",
 			fmt.Sprintf("--log-type=%s", utils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
 			fmt.Sprintf("--certificate-chain-path=%s/certificate-chain.pem", certChainMountPath),
-			fmt.Sprintf("--disable-ntp-monitoring=%v", !instance.Spec.NTPMonitoring.Enabled),
+			fmt.Sprintf("--disable-ntp-monitoring=%v", !utils.IsEnabled(instance.Spec.NTPMonitoring.Enabled)),
 		}
 		if instance.Spec.MaxRequestBodySize != nil {
 			appArgs = append(appArgs, "--max-request-body-size", fmt.Sprintf("%d", *instance.Spec.MaxRequestBodySize))
@@ -139,7 +139,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 		chainVolumeMount.MountPath = certChainMountPath
 		chainVolumeMount.ReadOnly = true
 
-		if instance.Spec.NTPMonitoring.Enabled {
+		if utils.IsEnabled(instance.Spec.NTPMonitoring.Enabled) {
 			if instance.Status.NtpConfigRef != nil {
 				ntpConfigVolume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, ntpConfigVolumeName)
 				if ntpConfigVolume.ConfigMap == nil {

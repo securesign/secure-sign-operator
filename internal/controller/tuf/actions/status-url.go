@@ -8,6 +8,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/state"
+	"github.com/securesign/operator/internal/utils"
 	v12 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -32,7 +33,7 @@ func (i statusUrlAction) CanHandle(_ context.Context, tuf *rhtasv1.Tuf) bool {
 
 func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *action.Result {
 	var url string
-	if instance.Spec.ExternalAccess.Enabled {
+	if utils.IsEnabled(instance.Spec.ExternalAccess.Enabled) {
 		protocol := "http://"
 		ingress := &v12.Ingress{}
 		err := i.Client.Get(ctx, types.NamespacedName{Name: tufConstants.ComponentName, Namespace: instance.Namespace}, ingress)
