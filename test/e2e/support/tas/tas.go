@@ -2,8 +2,11 @@ package tas
 
 import (
 	"context"
+	"fmt"
 	"strings"
+	"sync"
 
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/test/e2e/support/tas/cosign"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
@@ -60,13 +63,42 @@ func VerifyCRDRESTEndpointsForVersion(ctx context.Context, cli runtimeCli.Client
 }
 
 func VerifyAllComponents(ctx context.Context, cli runtimeCli.Client, s *rhtasv1.Securesign, dbPresent bool) {
-	trillian.Verify(ctx, cli, s.Namespace, s.Name, dbPresent)
-	fulcio.Verify(ctx, cli, s.Namespace, s.Name)
-	tsa.Verify(ctx, cli, s.Namespace, s.Name)
-	rekor.Verify(ctx, cli, s.Namespace, s.Name, dbPresent)
-	ctlog.Verify(ctx, cli, s.Namespace, s.Name)
-	tuf.Verify(ctx, cli, s.Namespace, s.Name)
-	securesign.Verify(ctx, cli, s.Namespace, s.Name)
+	checks := []func(){
+		func() { trillian.Verify(ctx, cli, s.Namespace, s.Name, dbPresent) },
+		func() { fulcio.Verify(ctx, cli, s.Namespace, s.Name) },
+		func() { tsa.Verify(ctx, cli, s.Namespace, s.Name) },
+		func() { rekor.Verify(ctx, cli, s.Namespace, s.Name, dbPresent) },
+		func() { ctlog.Verify(ctx, cli, s.Namespace, s.Name) },
+		func() { tuf.Verify(ctx, cli, s.Namespace, s.Name) },
+		func() { securesign.Verify(ctx, cli, s.Namespace, s.Name) },
+	}
+
+	// Ginkgo's Fail() panics — in a non-test goroutine that crashes the process. Recover per goroutine and re-fail on the main one.
+	var wg sync.WaitGroup
+	errs := make([]string, len(checks))
+	wg.Add(len(checks))
+	for i, check := range checks {
+		go func() {
+			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					errs[i] = fmt.Sprintf("%v", r)
+				}
+			}()
+			check()
+		}()
+	}
+	wg.Wait()
+
+	var failures []string
+	for _, e := range errs {
+		if e != "" {
+			failures = append(failures, e)
+		}
+	}
+	if len(failures) > 0 {
+		Fail(strings.Join(failures, "\n"))
+	}
 }
 
 func withPathAndCABundle(path string) OmegaMatcher {
