@@ -149,6 +149,15 @@ var _ = Describe("CTlog update test", func() {
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())
 
+			By("Public key has been resolved from operator-generated key")
+			var originalPublicKey string
+			Eventually(func(g Gomega) {
+				found := &rhtasv1.CTlog{}
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(found.Status.PublicKey).ShouldNot(BeEmpty())
+				originalPublicKey = found.Status.PublicKey
+			}).Should(Succeed())
+
 			By("Fulcio CA has changed")
 			// invalidate
 			maps.DeleteFunc(fulcioCa.Labels, func(key string, val string) bool {
@@ -237,6 +246,20 @@ var _ = Describe("CTlog update test", func() {
 				g.Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)).To(Succeed())
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
 			}).Should(BeFalse())
+
+			By("Simulate deployment controller: mark updated deployment as ready")
+			deployment = &appsv1.Deployment{}
+			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
+			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
+
+			By("Public key status updated after key change")
+			Eventually(func(g Gomega) {
+				found := &rhtasv1.CTlog{}
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(found.Status.PublicKey).ShouldNot(BeEmpty())
+				g.Expect(found.Status.PublicKey).ShouldNot(Equal(originalPublicKey))
+				g.Expect(found.Status.PublicKey).Should(Equal(string(key.PublicKey)))
+			}).Should(Succeed())
 		})
 	})
 })

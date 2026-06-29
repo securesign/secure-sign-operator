@@ -3,8 +3,13 @@ package v1alpha1
 import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
+	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
+
+func Convert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in *rhtasv1.CTlogStatus, out *CTlogStatus, s apiconversion.Scope) error {
+	return autoConvert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in, out, s)
+}
 
 func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*rhtasv1.CTlog)
@@ -17,6 +22,7 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
 	dst.Spec.TrustedCA = restored.Spec.TrustedCA
+	dst.Status.PublicKey = restored.Status.PublicKey
 	return nil
 }
 

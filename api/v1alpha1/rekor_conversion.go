@@ -7,6 +7,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
+func Convert_v1_RekorStatus_To_v1alpha1_RekorStatus(in *rhtasv1.RekorStatus, out *RekorStatus, s apiconversion.Scope) error {
+	return autoConvert_v1_RekorStatus_To_v1alpha1_RekorStatus(in, out, s)
+}
+
 func (src *Rekor) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*rhtasv1.Rekor)
 	if err := Convert_v1alpha1_Rekor_To_v1_Rekor(src, dst, nil); err != nil {
@@ -17,6 +21,7 @@ func (src *Rekor) ConvertTo(dstRaw conversion.Hub) error {
 		return err
 	}
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
+	dst.Status.PublicKey = restored.Status.PublicKey
 	return nil
 }
 

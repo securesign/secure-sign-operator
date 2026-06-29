@@ -125,6 +125,27 @@ func TestNonFIPSNoClientSigningAlgorithms(t *testing.T) {
 	g.Expect(container.Args).ToNot(ContainElement("--client-signing-algorithms"))
 }
 
+func TestDeployAction_Handle_PreservesCachedPublicKeyOnDeploymentChange(t *testing.T) {
+	ctx := t.Context()
+	g := NewWithT(t)
+
+	instance := createRekorInstance()
+	instance.Status.PublicKey = "-----BEGIN PUBLIC KEY-----\nOLDKEY\n-----END PUBLIC KEY-----\n"
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewDeployAction())
+	result := a.Handle(ctx, instance)
+	g.Expect(result).ToNot(BeNil())
+	g.Expect(result.Err).ToNot(HaveOccurred())
+
+	g.Expect(instance.Status.PublicKey).To(Equal("-----BEGIN PUBLIC KEY-----\nOLDKEY\n-----END PUBLIC KEY-----\n"),
+		"creating/updating the Deployment must not clobber the cached public key — resolvePubKey owns that field and needs the prior value to detect drift")
+}
+
 func TestDeployAction_Handle_DefaultTrillianAddress(t *testing.T) {
 	ctx := t.Context()
 	g := NewWithT(t)

@@ -18,10 +18,15 @@ package fulcio
 
 import (
 	"context"
+	"io"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/securesign/operator/internal/constants"
+	httpmock "github.com/securesign/operator/internal/testing/http"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
+	httputils "github.com/securesign/operator/internal/utils/http"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
@@ -61,6 +66,26 @@ var _ = Describe("Fulcio hot update", func() {
 			By("Creating the Namespace to perform the tests")
 			err := suite.Client().Create(ctx, namespace)
 			Expect(err).To(Not(HaveOccurred()))
+		})
+
+		BeforeEach(func() {
+			By("Setting up HTTP mock builder for trust bundle resolution")
+			mockClient := &http.Client{}
+			httputils.SetClientBuilder(func(_ ...[]byte) *http.Client {
+				return mockClient
+			})
+			httpmock.SetMockTransport(mockClient, map[string]httpmock.RoundTripFunc{
+				"http://fulcio.localhost/api/v2/trustBundle": func(_ *http.Request) *http.Response {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(testTrustBundleJSON)),
+						Header:     make(http.Header),
+					}
+				},
+			})
+			DeferCleanup(func() {
+				httputils.ResetClientBuilder()
+			})
 		})
 
 		AfterEach(func() {
@@ -144,6 +169,12 @@ var _ = Describe("Fulcio hot update", func() {
 				return meta.IsStatusConditionTrue(found.Status.Conditions, actions.CertCondition)
 			}).Should(BeTrue())
 
+			By("Root certificate has been resolved into status")
+			Eventually(func(g Gomega) {
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(found.Status.CertificateChain).Should(Equal(expectedRootCert))
+			}).Should(Succeed())
+
 			By("Config update")
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
 
@@ -163,6 +194,12 @@ var _ = Describe("Fulcio hot update", func() {
 				g.Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)).To(Succeed())
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
 			}).Should(BeFalse())
+
+			By("Root certificate still present after config update")
+			Eventually(func(g Gomega) {
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(found.Status.CertificateChain).Should(Equal(expectedRootCert))
+			}).Should(Succeed())
 		})
 	})
 })
