@@ -202,6 +202,10 @@ type FulcioStatus struct {
 	ServerConfigRef *LocalObjectReference `json:"serverConfigRef,omitempty"`
 	Certificate     *FulcioCertStatus     `json:"certificate,omitempty"`
 	Url             string                `json:"url,omitempty"`
+	// PEM-encoded certificate chain (trust bundle) resolved from the running Fulcio service API.
+	// Contains the signing certificate followed by any intermediate and root CA certificates.
+	// +optional
+	CertificateChain string `json:"certificateChain,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge

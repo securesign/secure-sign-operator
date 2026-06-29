@@ -184,6 +184,13 @@ var _ = Describe("CTlog controller", func() {
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())
 
+			By("Public key has been resolved into status")
+			Eventually(func(g Gomega) {
+				found := &rhtasv1.CTlog{}
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(found.Status.PublicKey).ShouldNot(BeEmpty())
+			}).Should(Succeed())
+
 			By("Checking if controller will return deployment to desired state")
 			deployment = &appsv1.Deployment{}
 			Eventually(func() error {

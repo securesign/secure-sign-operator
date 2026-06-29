@@ -7,6 +7,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
+func Convert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in *rhtasv1.FulcioStatus, out *FulcioStatus, s apiconversion.Scope) error {
+	return autoConvert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in, out, s)
+}
+
 func Convert_v1alpha1_FulcioCert_To_v1_FulcioCertStatus(in *FulcioCert, out *rhtasv1.FulcioCertStatus, s apiconversion.Scope) error {
 	if in.PrivateKeyRef != nil {
 		out.PrivateKeyRef = &rhtasv1.SecretKeySelector{}
@@ -61,6 +65,7 @@ func (src *Fulcio) ConvertTo(dstRaw conversion.Hub) error {
 		return err
 	}
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
+	dst.Status.CertificateChain = restored.Status.CertificateChain
 	return nil
 }
 

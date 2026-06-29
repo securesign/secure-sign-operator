@@ -111,6 +111,7 @@ func (r *timestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 		transitions.NewToInitializePhaseAction[*rhtasv1.TimestampAuthority](),
 
 		actions.NewRolloutCheckAction(),
+		actions.NewResolvePubKeyAction(),
 
 		transitions.NewToReadyPhaseAction[*rhtasv1.TimestampAuthority](),
 	}

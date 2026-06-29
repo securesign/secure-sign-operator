@@ -110,6 +110,7 @@ func (r *fulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		actions.NewStatusUrlAction(),
 		transitions.NewToInitializePhaseAction[*rhtasv1.Fulcio](),
 		actions.NewRolloutCheckAction(),
+		actions.NewResolvePubKeyAction(),
 		transitions.NewToReadyPhaseAction[*rhtasv1.Fulcio](),
 	}
 

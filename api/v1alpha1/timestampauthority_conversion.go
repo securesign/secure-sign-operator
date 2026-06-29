@@ -186,8 +186,8 @@ func (src *TimestampAuthority) ConvertTo(dstRaw conversion.Hub) error {
 		return err
 	}
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
-	// restore also the auth from annotation for case where no KMS or Tink is set
 	dst.Spec.Signer.Auth = mergeAuths(dst.Spec.Signer.Auth, restored.Spec.Signer.Auth)
+	dst.Status.CertificateChain = restored.Status.CertificateChain
 	return nil
 }
 

@@ -1587,6 +1587,10 @@ spec:
           status:
             description: TimestampAuthorityStatus defines the observed state of TimestampAuthority
             properties:
+              certificateChain:
+                description: PEM-encoded certificate chain resolved from the running
+                  TSA service API.
+                type: string
               conditions:
                 items:
                   description: Condition contains details for one aspect of the current

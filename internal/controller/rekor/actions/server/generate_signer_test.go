@@ -159,6 +159,33 @@ func TestRekorSigner_MigrationFromPreExistingSecret(t *testing.T) {
 	g.Expect(err).To(HaveOccurred())
 }
 
+func TestRekorSigner_KeyRefChangePreservesCachedPublicKey(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+	instance := rekorInstance()
+	instance.Status.PublicKey = "-----BEGIN PUBLIC KEY-----\nOLDKEY\n-----END PUBLIC KEY-----\n"
+	instance.Spec.Signer.KeyRef = &rhtasv1.SecretKeySelector{
+		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
+		Key:                  "private",
+	}
+
+	userSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "user-secret", Namespace: "default"},
+		Data:       map[string][]byte{"private": []byte("key")},
+	}
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance, userSecret).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	a.Handle(ctx, instance)
+
+	g.Expect(instance.Status.Signer.KeyRef.Name).To(Equal("user-secret"))
+	g.Expect(instance.Status.PublicKey).To(Equal("-----BEGIN PUBLIC KEY-----\nOLDKEY\n-----END PUBLIC KEY-----\n"),
+		"realigning the signer secret ref must not clobber the cached public key — resolvePubKey owns that field and needs the prior value to detect drift")
+}
+
 func TestRekorSigner_DeterministicName(t *testing.T) {
 	g := NewWithT(t)
 	g.Expect(fmt.Sprintf(signerSecretNameFormat, "my-rekor")).To(Equal("rekor-signer-config-my-rekor"))

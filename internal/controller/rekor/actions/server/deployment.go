@@ -92,9 +92,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *acti
 	}
 
 	if result != controllerutil.OperationResultNone {
-		// Regenerate secret with public key
-		instance.Status.PublicKeyRef = nil
-
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    actions.ServerCondition,
 			Status:  metav1.ConditionFalse,

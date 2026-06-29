@@ -6,6 +6,11 @@ import (
 
 type RoundTripFunc func(req *http.Request) *http.Response
 
+// RoundTrip implements http.RoundTripper, allowing RoundTripFunc to be used directly as a Transport.
+func (f RoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req), nil
+}
+
 // MockTransport is an implementation of http.RoundTripper to mock HTTP responses for specific URLs.
 type MockTransport struct {
 	defaultTransport http.RoundTripper

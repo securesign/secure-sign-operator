@@ -90,6 +90,9 @@ type CTlogStatus struct {
 	PublicKeyRef          *SecretKeySelector    `json:"publicKeyRef,omitempty"`
 	// +listType=atomic
 	RootCertificates []SecretKeySelector `json:"rootCertificates,omitempty"`
+	// PEM-encoded public key resolved from the CTlog signer secret.
+	// +optional
+	PublicKey string `json:"publicKey,omitempty"`
 	// The ID of a Trillian tree that stores the log data.
 	TreeID *int64 `json:"treeID,omitempty"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.

@@ -18,10 +18,15 @@ limitations under the License.
 
 import (
 	"context"
+	"io"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
+	httpmock "github.com/securesign/operator/internal/testing/http"
+	httputils "github.com/securesign/operator/internal/utils/http"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
@@ -64,6 +69,22 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			By("Creating the Namespace to perform the tests")
 			err := suite.Client().Create(ctx, namespace)
 			Expect(err).To(Not(HaveOccurred()))
+
+			By("Setting up HTTP mock builder for cert chain resolution")
+			mockClient := &http.Client{}
+			httputils.SetClientBuilder(func(_ ...[]byte) *http.Client { return mockClient })
+			httpmock.SetMockTransport(mockClient, map[string]httpmock.RoundTripFunc{
+				"http://tsa.localhost/api/v1/timestamp/certchain": func(_ *http.Request) *http.Response {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(testCertChainPEM)),
+						Header:     make(http.Header),
+					}
+				},
+			})
+			DeferCleanup(func() {
+				httputils.ResetClientBuilder()
+			})
 		})
 
 		AfterEach(func() {
@@ -152,6 +173,12 @@ var _ = Describe("Timestamp Authority hot update", func() {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())
+
+			By("Certificate chain has been resolved into status")
+			Eventually(func(g Gomega) {
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(found.Status.CertificateChain).Should(Equal(testCertChainPEM))
+			}).Should(Succeed())
 
 			By("Cert and Key rotation")
 			Eventually(func(g Gomega) error {
@@ -254,6 +281,12 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			deployment = &appsv1.Deployment{}
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
 			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
+
+			By("Certificate chain still present after rotation")
+			Eventually(func(g Gomega) {
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(found.Status.CertificateChain).Should(Equal(testCertChainPEM))
+			}).Should(Succeed())
 		})
 	})
 })
