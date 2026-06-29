@@ -17,6 +17,7 @@ func (src *Rekor) ConvertTo(dstRaw conversion.Hub) error {
 		return err
 	}
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
+	dst.Status.PublicKey = restored.Status.PublicKey
 	return nil
 }
 

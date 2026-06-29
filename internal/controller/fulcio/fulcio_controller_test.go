@@ -18,14 +18,18 @@ package fulcio
 
 import (
 	"context"
-	"time"
-
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"time"
 
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
+	httpmock "github.com/securesign/operator/internal/testing/http"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
+	httputils "github.com/securesign/operator/internal/utils/http"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
@@ -42,6 +46,10 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+const testTrustBundleJSON = `{"chains":[{"certificates":["-----BEGIN CERTIFICATE-----\nMIIBKzCB1KADAgECAgEBMAoGCCqGSM49BAMCMA8xDTALBgNVBAMTBHRlc3QwHhcN\nMjYwNjI5MTYxOTIwWhcNMjYwNjI5MTcxOTIwWjAPMQ0wCwYDVQQDEwR0ZXN0MFkw\nEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE85lB8dJ2gvU3WiSMnVW1HawG0AguTJtn\nJ0xsj1MVte14R8gbZ5JYa1JQApfaFPZASG5BDF+wtCSAxZsnv1p2nKMhMB8wHQYD\nVR0OBBYEFERbL9GJ1Bjo8NTCbJGFhPsOxZrWMAoGCCqGSM49BAMCA0YAMEMCHyCB\nX67EHWE0mk/oUaL8bXMKVVZb8nv9LVFp50xV27MCIAWXJKxRq+uzAV3KjeQHRGhV\nO6CWnSga3RNCz1GANhNf\n-----END CERTIFICATE-----"]}]}`
+
+const expectedRootCert = "-----BEGIN CERTIFICATE-----\nMIIBKzCB1KADAgECAgEBMAoGCCqGSM49BAMCMA8xDTALBgNVBAMTBHRlc3QwHhcN\nMjYwNjI5MTYxOTIwWhcNMjYwNjI5MTcxOTIwWjAPMQ0wCwYDVQQDEwR0ZXN0MFkw\nEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE85lB8dJ2gvU3WiSMnVW1HawG0AguTJtn\nJ0xsj1MVte14R8gbZ5JYa1JQApfaFPZASG5BDF+wtCSAxZsnv1p2nKMhMB8wHQYD\nVR0OBBYEFERbL9GJ1Bjo8NTCbJGFhPsOxZrWMAoGCCqGSM49BAMCA0YAMEMCHyCB\nX67EHWE0mk/oUaL8bXMKVVZb8nv9LVFp50xV27MCIAWXJKxRq+uzAV3KjeQHRGhV\nO6CWnSga3RNCz1GANhNf\n-----END CERTIFICATE-----"
+
 var _ = Describe("Fulcio controller", func() {
 	Context("Fulcio controller test", func() {
 
@@ -51,6 +59,7 @@ var _ = Describe("Fulcio controller", func() {
 		)
 
 		ctx := context.Background()
+		var mockClient *http.Client
 
 		namespace := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -66,6 +75,35 @@ var _ = Describe("Fulcio controller", func() {
 			By("Creating the Namespace to perform the tests")
 			err := suite.Client().Create(ctx, namespace)
 			Expect(err).To(Not(HaveOccurred()))
+		})
+
+		BeforeEach(func() {
+			By("Creating TrustedCA ConfigMap")
+			Expect(suite.Client().Create(ctx, &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "trusted-ca-bundle", Namespace: Namespace},
+				Data:       map[string]string{"ca-bundle.crt": "-----BEGIN CERTIFICATE-----\nfakeCA\n-----END CERTIFICATE-----"},
+			})).To(Succeed())
+		})
+
+		BeforeEach(func() {
+			By("Setting up HTTP mock builder for trust bundle resolution")
+
+			mockClient = &http.Client{}
+			httputils.SetClientBuilder(func(_ ...[]byte) *http.Client {
+				return mockClient
+			})
+			httpmock.SetMockTransport(mockClient, map[string]httpmock.RoundTripFunc{
+				"http://fulcio.localhost/api/v2/trustBundle": func(_ *http.Request) *http.Response {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(testTrustBundleJSON)),
+						Header:     make(http.Header),
+					}
+				},
+			})
+			DeferCleanup(func() {
+				httputils.ResetClientBuilder()
+			})
 		})
 
 		AfterEach(func() {
@@ -214,6 +252,13 @@ var _ = Describe("Fulcio controller", func() {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())
+
+			By("Root certificate has been resolved into status")
+			Eventually(func(g Gomega) {
+				found := &rhtasv1.Fulcio{}
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(found.Status.CertificateChain).Should(Equal(expectedRootCert))
+			}).Should(Succeed())
 
 			By("Checking if Service was successfully created in the reconciliation")
 			service := &corev1.Service{}

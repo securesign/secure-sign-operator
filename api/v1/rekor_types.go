@@ -225,6 +225,9 @@ type RekorStatus struct {
 	MonitorPvcName   string                `json:"monitorpvcName,omitempty"`
 	Url              string                `json:"url,omitempty"`
 	RekorSearchUIUrl string                `json:"rekorSearchUIUrl,omitempty"`
+	// PEM-encoded public key resolved from the running Rekor service API.
+	// +optional
+	PublicKey string `json:"publicKey,omitempty"`
 	// The ID of a Trillian tree that stores the log data.
 	// +kubebuilder:validation:Type=number
 	TreeID *int64 `json:"treeID,omitempty"`

@@ -199,6 +199,9 @@ type TimestampAuthorityStatus struct {
 	NtpConfigRef *LocalObjectReference           `json:"ntpConfigRef,omitempty"`
 	Signer       *TimestampAuthoritySignerStatus `json:"signer,omitempty"`
 	Url          string                          `json:"url,omitempty"`
+	// PEM-encoded certificate chain resolved from the running TSA service API.
+	// +optional
+	CertificateChain string `json:"certificateChain,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +patchStrategy=merge

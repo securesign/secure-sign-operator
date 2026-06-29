@@ -78,6 +78,7 @@ func alignStatus(instance *rhtasv1.Rekor, ref rhtasv1.SecretKeySelector) {
 		}
 	}
 	instance.Status.PublicKeyRef = nil
+	instance.Status.PublicKey = ""
 }
 
 func createSignerKey() ([]byte, []byte, error) {
