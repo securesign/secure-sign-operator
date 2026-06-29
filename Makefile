@@ -155,22 +155,22 @@ lint-fix: custom-golangci-lint ## Run golangci-lint linter and perform fixes
 
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
-	go build -o bin/manager cmd/main.go
+	go build -tags=no_openssl -o bin/manager cmd/main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./cmd/main.go
+	go run -tags=no_openssl ./cmd/main.go
 
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: test ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build -t ${IMG} .
+	$(CONTAINER_TOOL) build -f Dockerfile.rhtas-operator.rh -t ${IMG} .
 
 .PHONY: docker-build-skip-test
 docker-build-skip-test: ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build . -t ${IMG}
+	$(CONTAINER_TOOL) build -f Dockerfile.rhtas-operator.rh -t ${IMG} .
 
 .PHONY: docker-build-coverage
 docker-build-coverage: ## Build coverage-instrumented docker image for E2E coverage collection.
@@ -190,11 +190,11 @@ PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
 .PHONY: docker-buildx
 docker-buildx: ## Build and push docker image for the manager for cross-platform support
 ifeq ($(CONTAINER_TOOL),podman)
-	$(CONTAINER_TOOL) build --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile .
+	$(CONTAINER_TOOL) build --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.rhtas-operator.rh .
 	$(CONTAINER_TOOL) push ${IMG}
 else
 	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
-	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
+	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile.rhtas-operator.rh > Dockerfile.cross
 	- $(CONTAINER_TOOL) buildx create --name project-v3-builder
 	$(CONTAINER_TOOL) buildx use project-v3-builder
 	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.cross .

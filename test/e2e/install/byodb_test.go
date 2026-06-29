@@ -35,6 +35,12 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 	var namespace *v1.Namespace
 	var s *rhtasv1.Securesign
 
+	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
+		if enabled {
+			Skip("MySQL BYODB uses SHA1 auth, incompatible with FIPS strict mode")
+		}
+	}))
+
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
@@ -113,7 +119,7 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 		})
 
 		It("All components are running", func(ctx SpecContext) {
-			tas.VerifyAllComponents(ctx, cli, s, false)
+			tas.VerifyAllComponents(ctx, cli, s, false, false)
 		})
 
 		It("No other DB is created", func(ctx SpecContext) {

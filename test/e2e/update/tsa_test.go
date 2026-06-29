@@ -37,9 +37,17 @@ var _ = Describe("TSA update", Ordered, func() {
 	var namespace *v1.Namespace
 	var s *rhtasv1.Securesign
 
+	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
+		fipsEnabled = enabled
+	}))
+
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
+
+	BeforeAll(func(ctx SpecContext) {
+		setupFIPSPostgresIfNeeded(ctx, cli, namespace)
+	})
 
 	BeforeAll(func(ctx SpecContext) {
 		s = securesignResource(namespace)
@@ -55,7 +63,7 @@ var _ = Describe("TSA update", Ordered, func() {
 		})
 
 		It("All other components are running", func(ctx SpecContext) {
-			tas.VerifyAllComponents(ctx, cli, s, true)
+			tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 		})
 	})
 
@@ -77,7 +85,7 @@ var _ = Describe("TSA update", Ordered, func() {
 		It("modified signer and certificate chain", func(ctx SpecContext) {
 			Eventually(func(g Gomega) error {
 				Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-				s.Spec.TimestampAuthority.Signer = rhtasv1.TimestampAuthoritySigner{
+				signer := rhtasv1.TimestampAuthoritySigner{
 					CertificateChain: rhtasv1.CertificateChain{
 						CertificateChainRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
@@ -93,16 +101,19 @@ var _ = Describe("TSA update", Ordered, func() {
 							},
 							Key: "leafPrivateKey",
 						},
-						PasswordRef: &rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{
-								Name: "my-tsa-secret",
-							},
-							Key: "leafPrivateKeyPassword",
-						},
 					},
 				}
+				if !fipsEnabled {
+					signer.File.PasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+						LocalObjectReference: rhtasv1.LocalObjectReference{
+							Name: "my-tsa-secret",
+						},
+						Key: "leafPrivateKeyPassword",
+					}
+				}
+				s.Spec.TimestampAuthority.Signer = signer
 				return cli.Update(ctx, s)
-			}).WithTimeout(1 * time.Second).Should(Succeed())
+			}).Should(Succeed())
 		})
 
 		It("has status Pending: waiting on my-tsa-secret", func(ctx SpecContext) {
@@ -116,7 +127,7 @@ var _ = Describe("TSA update", Ordered, func() {
 		})
 
 		It("created my-tsa-secret", func(ctx SpecContext) {
-			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "my-tsa-secret", true))).Should(Succeed())
+			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "my-tsa-secret", !fipsEnabled))).Should(Succeed())
 		})
 
 		It("has status ReadyCondition", func(ctx SpecContext) {
@@ -157,7 +168,7 @@ var _ = Describe("TSA update", Ordered, func() {
 					},
 				}
 				return cli.Update(ctx, s)
-			}).WithTimeout(1 * time.Second).Should(Succeed())
+			}).Should(Succeed())
 			Eventually(func(g Gomega) []rhtasv1.TufKeyStatus {
 				t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 				return t.Status.Keys
@@ -233,7 +244,7 @@ var _ = Describe("TSA update", Ordered, func() {
 					},
 				}
 				return cli.Update(ctx, s)
-			}).WithTimeout(1 * time.Second).Should(Succeed())
+			}).Should(Succeed())
 		})
 
 		It("has status Ready", func(ctx SpecContext) {

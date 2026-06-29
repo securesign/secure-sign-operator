@@ -10,14 +10,13 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	rhtasv1 "github.com/securesign/operator/api/v1"
-	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/test/e2e/support"
+	"github.com/securesign/operator/test/e2e/support/postgresql"
+	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -34,6 +33,8 @@ func BenchmarkInstall(b *testing.B) {
 		b.Fatalf("could not create client: %v", err)
 	}
 
+	fipsEnabled := steps.IsFIPSCluster(context.Background(), cli)
+
 	loop := func(iteration int) {
 		var (
 			namespaceName   string
@@ -49,10 +50,17 @@ func BenchmarkInstall(b *testing.B) {
 		defer deleteNamespace(ctx, cli, namespaceName)
 		defer dumpNamespace(ctx, cli, b, namespaceName)
 
+		if fipsEnabled {
+			if err := postgresql.CreateDB(ctx, cli, namespaceName, postgresql.DefaultSecretName, "fips-password"); err != nil {
+				b.Fatalf("could not create postgresql: %v", err)
+			}
+			postgresql.WaitAndLoadSchema(ctx, cli, namespaceName)
+		}
+
 		targetImageName = support.PrepareImage(context.Background())
 
 		b.StartTimer()
-		err = installTAS(ctx, cli, namespaceName)
+		err = installTAS(ctx, cli, namespaceName, fipsEnabled)
 		b.StopTimer()
 
 		if err != nil {
@@ -81,83 +89,16 @@ func createNamespace(ctx context.Context, cli client.Client, iteration int) (str
 	return namespace.Name, nil
 }
 
-func installTAS(ctx context.Context, cli client.Client, namespace string) error {
-	instance := &rhtasv1.Securesign{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      "test",
-		},
-		Spec: rhtasv1.SecuresignSpec{
-			Rekor: rhtasv1.RekorSpec{
-				ExternalAccess: rhtasv1.ExternalAccess{
-					Enabled: true,
-				},
-				RekorSearchUI: rhtasv1.RekorSearchUI{
-					Enabled: utils.Pointer(true),
-				},
-			},
-			Fulcio: rhtasv1.FulcioSpec{
-				ExternalAccess: rhtasv1.ExternalAccess{
-					Enabled: true,
-				},
-				Config: rhtasv1.FulcioConfig{
-					OIDCIssuers: []rhtasv1.OIDCIssuer{
-						{
-							ClientID:  support.OidcClientID(),
-							IssuerURL: support.OidcIssuerUrl(),
-							Issuer:    support.OidcIssuerUrl(),
-							Type:      "email",
-						},
-					}},
-				Certificate: rhtasv1.FulcioCert{
-					OrganizationName:  "MyOrg",
-					OrganizationEmail: "my@email.org",
-					CommonName:        "fulcio",
-				},
-			},
-			Ctlog: rhtasv1.CTlogSpec{},
-			Tuf: rhtasv1.TufSpec{
-				ExternalAccess: rhtasv1.ExternalAccess{
-					Enabled: true,
-				},
-			},
-			Trillian: rhtasv1.TrillianSpec{Db: rhtasv1.TrillianDB{
-				Create: ptr.To(true),
-			}},
-			TimestampAuthority: &rhtasv1.TimestampAuthoritySpec{
-				ExternalAccess: rhtasv1.ExternalAccess{
-					Enabled: true,
-				},
-				Signer: rhtasv1.TimestampAuthoritySigner{
-					CertificateChain: rhtasv1.CertificateChain{
-						RootCA: &rhtasv1.TsaCertificateAuthority{
-							OrganizationName:  "MyOrg",
-							OrganizationEmail: "my@email.org",
-							CommonName:        "tsa.hostname",
-						},
-						IntermediateCA: []*rhtasv1.TsaCertificateAuthority{
-							{
-								OrganizationName:  "MyOrg",
-								OrganizationEmail: "my@email.org",
-								CommonName:        "tsa.hostname",
-							},
-						},
-						LeafCA: &rhtasv1.TsaCertificateAuthority{
-							OrganizationName:  "MyOrg",
-							OrganizationEmail: "my@email.org",
-							CommonName:        "tsa.hostname",
-						},
-					},
-				},
-			},
-		},
-	}
+func installTAS(ctx context.Context, cli client.Client, namespace string, fipsEnabled bool) error {
+	instance := securesign.Create(namespace, "test",
+		securesign.ChooseDefaults(fipsEnabled, namespace),
+	)
 
 	if err := cli.Create(ctx, instance); err != nil {
 		return fmt.Errorf("creating instance: %w", err)
 	}
 
-	tas.VerifyAllComponents(ctx, cli, instance, true)
+	tas.VerifyAllComponents(ctx, cli, instance, !fipsEnabled, true)
 
 	return nil
 }

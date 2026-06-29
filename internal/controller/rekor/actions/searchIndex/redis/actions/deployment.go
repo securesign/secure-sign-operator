@@ -73,6 +73,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *acti
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
+		deployment.GODEBUG(instance.GetAnnotations()),
 		deployment.PodSecurityContext(),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create %s deployment: %w", actions.RedisDeploymentName, err), instance,

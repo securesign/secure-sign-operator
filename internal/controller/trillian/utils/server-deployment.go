@@ -29,6 +29,7 @@ func EnsureServerDeployment(instance *rhtasv1.Trillian, labels map[string]string
 		ensureProbes(actions.LogserverDeploymentName),
 		deployment.PodRequirements(instance.Spec.LogServer.PodRequirements, actions.LogserverDeploymentName),
 		deployment.Proxy(),
+		deployment.GODEBUG(instance.GetAnnotations()),
 		deployment.TrustedCA(instance.GetTrustedCA(), actions.LogserverDeploymentName)},
 		EnsureDB(instance, actions.LogserverDeploymentName, caPath)...),
 		deployment.PodSecurityContext())
@@ -45,6 +46,7 @@ func EnsureSignerDeployment(instance *rhtasv1.Trillian, labels map[string]string
 		ensureProbes(actions.LogsignerDeploymentName),
 		deployment.PodRequirements(instance.Spec.LogSigner.PodRequirements, actions.LogsignerDeploymentName),
 		deployment.Proxy(),
+		deployment.GODEBUG(instance.GetAnnotations()),
 		deployment.TrustedCA(instance.GetTrustedCA(), actions.LogsignerDeploymentName),
 	},
 		EnsureDB(instance, actions.LogsignerDeploymentName, caPath)...),

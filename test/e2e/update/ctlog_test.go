@@ -34,9 +34,17 @@ var _ = Describe("CTlog update", Ordered, func() {
 	var namespace *v1.Namespace
 	var s *rhtasv1.Securesign
 
+	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
+		fipsEnabled = enabled
+	}))
+
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
+
+	BeforeAll(func(ctx SpecContext) {
+		setupFIPSPostgresIfNeeded(ctx, cli, namespace)
+	})
 
 	BeforeAll(func(ctx SpecContext) {
 		s = securesignResource(namespace)
@@ -52,7 +60,7 @@ var _ = Describe("CTlog update", Ordered, func() {
 		})
 
 		It("All other components are running", func(ctx SpecContext) {
-			tas.VerifyAllComponents(ctx, cli, s, true)
+			tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 		})
 	})
 
@@ -86,7 +94,7 @@ var _ = Describe("CTlog update", Ordered, func() {
 					Key: "public",
 				}
 				return cli.Update(ctx, s)
-			}).WithTimeout(1 * time.Second).Should(Succeed())
+			}).Should(Succeed())
 		})
 
 		It("has status Creating: waiting on my-ctlog-secret", func(ctx SpecContext) {
@@ -139,7 +147,7 @@ var _ = Describe("CTlog update", Ordered, func() {
 					},
 				}
 				return cli.Update(ctx, s)
-			}).WithTimeout(1 * time.Second).Should(Succeed())
+			}).Should(Succeed())
 			Eventually(func(g Gomega) []rhtasv1.TufKeyStatus {
 				t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 				return t.Status.Keys

@@ -38,9 +38,17 @@ var _ = Describe("Fulcio update", Ordered, func() {
 	var namespace *v1.Namespace
 	var s *rhtasv1.Securesign
 
+	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
+		fipsEnabled = enabled
+	}))
+
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
+
+	BeforeAll(func(ctx SpecContext) {
+		setupFIPSPostgresIfNeeded(ctx, cli, namespace)
+	})
 
 	BeforeAll(func(ctx SpecContext) {
 		s = securesignResource(namespace)
@@ -56,7 +64,7 @@ var _ = Describe("Fulcio update", Ordered, func() {
 		})
 
 		It("All other components are running", func(ctx SpecContext) {
-			tas.VerifyAllComponents(ctx, cli, s, true)
+			tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 		})
 	})
 
@@ -81,18 +89,12 @@ var _ = Describe("Fulcio update", Ordered, func() {
 		It("modified fulcio.certificate", func(ctx SpecContext) {
 			Eventually(func(g Gomega) error {
 				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-				s.Spec.Fulcio.Certificate = rhtasv1.FulcioCert{
+				cert := rhtasv1.FulcioCert{
 					PrivateKeyRef: &rhtasv1.SecretKeySelector{
 						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: "my-fulcio-secret",
 						},
 						Key: "private",
-					},
-					PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "my-fulcio-secret",
-						},
-						Key: "password",
 					},
 					CARef: &rhtasv1.SecretKeySelector{
 						LocalObjectReference: rhtasv1.LocalObjectReference{
@@ -101,8 +103,17 @@ var _ = Describe("Fulcio update", Ordered, func() {
 						Key: "cert",
 					},
 				}
+				if !fipsEnabled {
+					cert.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+						LocalObjectReference: rhtasv1.LocalObjectReference{
+							Name: "my-fulcio-secret",
+						},
+						Key: "password",
+					}
+				}
+				s.Spec.Fulcio.Certificate = cert
 				return cli.Update(ctx, s)
-			}).WithTimeout(1 * time.Second).Should(Succeed())
+			}).Should(Succeed())
 		})
 
 		It("has status FulcioCertAvailable == Failure: waiting on my-fulcio-secret", func(ctx SpecContext) {
@@ -116,7 +127,7 @@ var _ = Describe("Fulcio update", Ordered, func() {
 		})
 
 		It("created my-fulcio-secret", func(ctx SpecContext) {
-			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret", true))).Should(Succeed())
+			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret", !fipsEnabled))).Should(Succeed())
 		})
 
 		It("has status ReadyCondition", func(ctx SpecContext) {
@@ -163,7 +174,7 @@ var _ = Describe("Fulcio update", Ordered, func() {
 					},
 				}
 				return cli.Update(ctx, s)
-			}).WithTimeout(1 * time.Second).Should(Succeed())
+			}).Should(Succeed())
 			Eventually(func(g Gomega) []rhtasv1.TufKeyStatus {
 				t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 				return t.Status.Keys
@@ -217,7 +228,7 @@ var _ = Describe("Fulcio update", Ordered, func() {
 					Type:      "email",
 				})
 				return cli.Update(ctx, s)
-			}).WithTimeout(1 * time.Second).Should(Succeed())
+			}).Should(Succeed())
 		})
 
 		It("has status Ready", func(ctx SpecContext) {

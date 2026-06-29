@@ -7,6 +7,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/condition"
+	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,6 +63,24 @@ func WithDefaults() Opts {
 		WithDefaultOIDC()(s)
 		WithNTPMonitoring()(s)
 	}
+}
+
+func WithFipsDefaults(namespace string) Opts {
+	return func(s *rhtasv1.Securesign) {
+		WithTSA()(s)
+		WithGeneratedCerts()(s)
+		WithExternalPostgresDB(namespace, postgresql.DefaultSecretName)(s)
+		WithExternalAccess()(s)
+		WithDefaultOIDC()(s)
+		WithNTPMonitoring()(s)
+	}
+}
+
+func ChooseDefaults(fipsEnabled bool, namespace string) Opts {
+	if fipsEnabled {
+		return WithFipsDefaults(namespace)
+	}
+	return WithDefaults()
 }
 
 func WithExternalAccess() Opts {
@@ -127,6 +146,17 @@ func WithExternalDatabase(secretName string) Opts {
 		s.Spec.Trillian.Db.Create = ptr.To(false)
 		s.Spec.Trillian.Db.DatabaseSecretRef = &rhtasv1.LocalObjectReference{
 			Name: secretName,
+		}
+	}
+}
+
+func WithExternalPostgresDB(namespace, secretName string) Opts {
+	return func(s *rhtasv1.Securesign) {
+		s.Spec.Trillian.Db.Create = ptr.To(false)
+		s.Spec.Trillian.Db.Provider = postgresql.Provider
+		s.Spec.Trillian.Db.Uri = postgresql.ConnectionURI
+		s.Spec.Trillian.Auth = &rhtasv1.Auth{
+			Env: postgresql.AuthEnvVars(namespace, secretName),
 		}
 	}
 }
