@@ -3,6 +3,8 @@
 package install
 
 import (
+	"bytes"
+
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
@@ -105,7 +107,7 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 					expected, err = kubernetes.GetSecretData(cli, namespace.Name, expectedKeyRef)
 					Expect(err).To(Not(HaveOccurred()))
 				}
-				Expect(expected).To(Equal(actual))
+				Expect(bytes.TrimSpace(actual)).To(Equal(bytes.TrimSpace(expected)))
 			}
 		})
 

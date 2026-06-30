@@ -18,7 +18,6 @@ package tuf
 
 import (
 	"context"
-	"maps"
 	"reflect"
 	"strconv"
 	"time"
@@ -41,7 +40,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	ctlogActions "github.com/securesign/operator/internal/controller/ctlog/actions"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -159,21 +157,23 @@ var _ = Describe("TUF controller", func() {
 				return cond.Reason
 			}).Should(Equal(state.Pending.String()))
 
-			By("Creating ctlog secret with public key")
-			secretLabels := map[string]string{
-				labels.LabelNamespace + "/ctfe.pub": "public",
-			}
-			maps.Copy(secretLabels, labels.For(ctlogActions.ComponentName, ctlogActions.ComponentName, ctlogActions.ComponentName))
-			_ = suite.Client().Create(ctx, &corev1.Secret{
+			By("Creating component CRs for autodiscovery and service URL resolution")
+			ctlogCR := &rhtasv1.CTlog{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ctlog-test",
 					Namespace: typeNamespaceName.Namespace,
-					Labels:    secretLabels,
 				},
-				Data: map[string][]byte{
-					"public": []byte("secret"),
-				},
+			}
+			Expect(suite.Client().Create(ctx, ctlogCR)).To(Succeed())
+			ctlogCR.Status.PublicKey = "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEtest\n-----END PUBLIC KEY-----\n"
+			ctlogCR.Status.Url = "https://example.com/ctlog"
+			ctlogCR.SetCondition(metav1.Condition{
+				Type:    constants.ReadyCondition,
+				Status:  metav1.ConditionTrue,
+				Reason:  state.Ready.String(),
+				Message: "Component is ready",
 			})
+			Expect(suite.Client().Status().Update(ctx, ctlogCR)).To(Succeed())
 
 			By("Waiting until Tuf init job is created")
 			found := &rhtasv1.Tuf{}
@@ -196,12 +196,6 @@ var _ = Describe("TUF controller", func() {
 				))
 
 			componentObjects := []utils.AddressableConditionAware{
-				&rhtasv1.CTlog{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "ctlog-test",
-						Namespace: typeNamespaceName.Namespace,
-					},
-				},
 				&rhtasv1.Fulcio{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "fulcio-test",
