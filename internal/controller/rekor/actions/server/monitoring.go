@@ -40,6 +40,10 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *
 		err error
 	)
 
+	if !kubernetes.IsMonitoringAvailable() {
+		return i.Error(ctx, fmt.Errorf("monitoring.enabled is true but ServiceMonitor CRD is not installed; install Prometheus Operator or set monitoring.enabled=false"), instance)
+	}
+
 	monitoringLabels := labels.For(actions.ServerComponentName, actions.MonitoringRoleName, instance.Name)
 
 	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, kubernetes.CreateServiceMonitor(instance.Namespace, actions.ServerDeploymentName),
