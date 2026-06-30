@@ -24,19 +24,14 @@ import (
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller"
-	"github.com/securesign/operator/internal/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
 	v12 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	fulcioActions "github.com/securesign/operator/internal/controller/fulcio/actions"
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -157,53 +152,21 @@ func (r *ctlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	secretPredicate, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
-		{
-			Key:      fulcioActions.FulcioCALabel,
-			Operator: metav1.LabelSelectorOpExists,
-		},
-	}})
-	if err != nil {
-		return err
-	}
-
-	partialSecret := &metav1.PartialObjectMetadata{}
-	partialSecret.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "",
-		Version: "v1",
-		Kind:    "Secret",
-	})
-
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
 		For(&rhtasv1.CTlog{}, builder.WithPredicates(tasPredicate.ConfigurationChangedOnFailurePredicate[*rhtasv1.CTlog]())).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
-		WatchesMetadata(partialSecret, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
-			val, ok := object.GetLabels()[labels.LabelAppInstance]
-			if ok {
-				return []reconcile.Request{
-					{
-						NamespacedName: types.NamespacedName{
-							Namespace: object.GetNamespace(),
-							Name:      val,
-						},
-					},
-				}
-			}
-
+		Watches(&rhtasv1.Fulcio{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
 			list := &rhtasv1.CTlogList{}
-			err := mgr.GetClient().List(ctx, list, client.InNamespace(object.GetNamespace()))
-			if err != nil {
-				return make([]reconcile.Request, 0)
+			if err := mgr.GetClient().List(ctx, list, client.InNamespace(object.GetNamespace())); err != nil {
+				return nil
 			}
-
 			requests := make([]reconcile.Request, len(list.Items))
 			for i, k := range list.Items {
 				requests[i] = reconcile.Request{NamespacedName: types.NamespacedName{Namespace: object.GetNamespace(), Name: k.Name}}
 			}
 			return requests
-
-		}), builder.WithPredicates(secretPredicate)).
+		})).
 		Complete(r)
 }
