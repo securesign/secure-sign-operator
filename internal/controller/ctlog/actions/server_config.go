@@ -2,11 +2,12 @@ package actions
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"maps"
 	"slices"
-	"strings"
 	"time"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -37,7 +38,7 @@ var errSecretInvalid = errors.New("secret needs recreation")
 var serverConfigAnnotations = []string{
 	labels.LabelNamespace + "/treeID",
 	labels.LabelNamespace + "/trillianUrl",
-	labels.LabelNamespace + "/rootCertificates",
+	labels.LabelNamespace + "/rootCertificatesHash",
 	labels.LabelNamespace + "/privateKeyRef",
 }
 
@@ -342,12 +343,6 @@ func (i serverConfig) validateExistingSecret(instance *rhtasv1.CTlog, trillianUr
 // configMatchingAnnotations generates annotations that identify the data sources
 // used to generate the server config secret.
 func (i serverConfig) configMatchingAnnotations(instance *rhtasv1.CTlog, trillianUrl string) map[string]string {
-	// Build a string representation of root certificate references
-	rootCertRefs := make([]string, 0, len(instance.Status.RootCertificates))
-	for _, ref := range instance.Status.RootCertificates {
-		rootCertRefs = append(rootCertRefs, fmt.Sprintf("%s/%s", ref.Name, ref.Key))
-	}
-
 	annotations := map[string]string{
 		labels.LabelNamespace + "/trillianUrl": trillianUrl,
 	}
@@ -356,8 +351,14 @@ func (i serverConfig) configMatchingAnnotations(instance *rhtasv1.CTlog, trillia
 		annotations[labels.LabelNamespace+"/treeID"] = fmt.Sprintf("%d", *instance.Status.TreeID)
 	}
 
-	if len(rootCertRefs) > 0 {
-		annotations[labels.LabelNamespace+"/rootCertificates"] = strings.Join(rootCertRefs, ",")
+	if certs, err := i.handleRootCertificates(instance); err == nil {
+		h := sha256.New()
+		for _, cert := range certs {
+			h.Write(cert)
+		}
+		annotations[labels.LabelNamespace+"/rootCertificatesHash"] = hex.EncodeToString(h.Sum(nil))
+	} else {
+		annotations[labels.LabelNamespace+"/rootCertificatesHash"] = "unresolvable"
 	}
 
 	if instance.Status.PrivateKeyRef != nil {

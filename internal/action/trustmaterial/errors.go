@@ -14,4 +14,8 @@ var (
 
 	// ErrInvalidPEM is returned when the resolved data is not valid PEM.
 	ErrInvalidPEM = errors.New("resolved data is not valid PEM")
+
+	// ErrNoReadyInstance is returned by FindReadyInstance when no instance of
+	// the requested type in the namespace has Status Ready=True.
+	ErrNoReadyInstance = errors.New("no ready instance found")
 )

@@ -1,12 +1,18 @@
 package trustmaterial
 
 import (
+	"context"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"strings"
 
+	"github.com/securesign/operator/internal/apis"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/utils/kubernetes"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // ResolveBaseURL returns the base URL for in-cluster HTTP calls to a component's service.
@@ -25,6 +31,29 @@ func ResolveBaseURL(deploymentName, namespace, statusUrl string, port ...int) st
 		return fmt.Sprintf("http://%s.%s.svc:%d", deploymentName, namespace, port[0])
 	}
 	return fmt.Sprintf("http://%s.%s.svc", deploymentName, namespace)
+}
+
+// FindReadyInstance lists all objects of list's concrete type in namespace
+// and returns the first one whose Ready condition is True, or
+// [ErrNoReadyInstance] if none are.
+func FindReadyInstance(ctx context.Context, cli client.Client, namespace string, list client.ObjectList) (apis.ConditionsAwareObject, error) {
+	if err := cli.List(ctx, list, client.InNamespace(namespace)); err != nil {
+		return nil, fmt.Errorf("listing component instances: %w", err)
+	}
+	items, err := meta.ExtractList(list)
+	if err != nil {
+		return nil, reconcile.TerminalError(err)
+	}
+	for _, item := range items {
+		condAware, ok := item.(apis.ConditionsAwareObject)
+		if !ok {
+			continue
+		}
+		if meta.IsStatusConditionTrue(condAware.GetConditions(), constants.ReadyCondition) {
+			return condAware, nil
+		}
+	}
+	return nil, ErrNoReadyInstance
 }
 
 // ValidatePEM checks that data contains at least one valid PEM block.
