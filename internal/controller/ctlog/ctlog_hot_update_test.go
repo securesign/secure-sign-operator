@@ -18,7 +18,6 @@ package ctlog
 
 import (
 	"context"
-	"maps"
 	"time"
 
 	"github.com/securesign/operator/internal/constants"
@@ -30,7 +29,6 @@ import (
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
-	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -121,16 +119,31 @@ var _ = Describe("CTlog update test", func() {
 			By("Creating trillian service")
 			Expect(suite.Client().Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, trillian.ServerPort, labels.ForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
 
-			By("Creating fulcio root cert")
-			fulcioCa := &corev1.Secret{
+			By("Creating Fulcio CR with root certificate for autodiscovery")
+			fulcioCR := &rhtasv1.Fulcio{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test",
+					Name:      "fulcio-test",
 					Namespace: Namespace,
-					Labels:    map[string]string{fulcio.FulcioCALabel: "cert"},
 				},
-				Data: map[string][]byte{"cert": []byte("fakeCert")},
+				Spec: rhtasv1.FulcioSpec{
+					Config: rhtasv1.FulcioConfig{
+						OIDCIssuers: []rhtasv1.OIDCIssuer{{ClientID: "test", Issuer: "test", Type: "email"}},
+					},
+					Certificate: rhtasv1.FulcioCert{
+						CommonName:        "test",
+						OrganizationName:  "test",
+						OrganizationEmail: "test@test.com",
+					},
+				},
 			}
-			Expect(suite.Client().Create(ctx, fulcioCa)).To(Succeed())
+			Expect(suite.Client().Create(ctx, fulcioCR)).To(Succeed())
+			fulcioCR.Status.CertificateChain = "-----BEGIN CERTIFICATE-----\nfakeCert\n-----END CERTIFICATE-----\n"
+			fulcioCR.SetCondition(metav1.Condition{
+				Type:   constants.ReadyCondition,
+				Status: metav1.ConditionTrue,
+				Reason: "Ready",
+			})
+			Expect(suite.Client().Status().Update(ctx, fulcioCR)).To(Succeed())
 
 			deployment := &appsv1.Deployment{}
 			By("Checking if Deployment was successfully created in the reconciliation")
@@ -157,49 +170,6 @@ var _ = Describe("CTlog update test", func() {
 				g.Expect(found.Status.PublicKey).ShouldNot(BeEmpty())
 				originalPublicKey = found.Status.PublicKey
 			}).Should(Succeed())
-
-			By("Fulcio CA has changed")
-			// invalidate
-			maps.DeleteFunc(fulcioCa.Labels, func(key string, val string) bool {
-				return key == fulcio.FulcioCALabel
-			})
-			Expect(suite.Client().Update(ctx, fulcioCa)).To(Succeed())
-
-			fulcioCa = &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test2",
-					Namespace: Namespace,
-					Labels:    map[string]string{fulcio.FulcioCALabel: "cert"},
-				},
-				Data: map[string][]byte{"cert": []byte("fakeCert2")},
-			}
-			Expect(suite.Client().Create(ctx, fulcioCa)).To(Succeed())
-
-			By("CA has changed in status field")
-			Eventually(func(g Gomega) {
-				found := &rhtasv1.CTlog{}
-				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-
-				// both certs are present
-				g.Expect(found.Status.RootCertificates).
-					Should(And(
-						ContainElement(WithTransform(func(ks rhtasv1.SecretKeySelector) string { return ks.Name }, Equal("test"))),
-						ContainElement(WithTransform(func(ks rhtasv1.SecretKeySelector) string { return ks.Name }, Equal("test2"))),
-					),
-					)
-			}).Should(Succeed())
-
-			By("CTL deployment is updated")
-			Eventually(func() bool {
-				updated := &appsv1.Deployment{}
-				Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)).To(Succeed())
-				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
-			}).Should(BeFalse())
-
-			By("Move to Ready phase")
-			deployment = &appsv1.Deployment{}
-			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
-			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
 
 			By("Private key has changed")
 			key, err := utils.CreatePrivateKey()

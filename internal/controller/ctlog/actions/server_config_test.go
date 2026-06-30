@@ -2,7 +2,9 @@ package actions
 
 import (
 	"context"
+	"crypto/sha256"
 	_ "embed"
+	"encoding/hex"
 	"reflect"
 	"testing"
 	"time"
@@ -563,11 +565,12 @@ func TestServerConfig_Update(t *testing.T) {
 	}
 
 	defaultAnnotations := func() map[string]string {
+		h := sha256.Sum256(cert)
 		return map[string]string{
-			"rhtas.redhat.com/treeID":           "123456",
-			"rhtas.redhat.com/trillianUrl":      "trillian-logserver.default.svc:80",
-			"rhtas.redhat.com/rootCertificates": "secret/cert",
-			"rhtas.redhat.com/privateKeyRef":    "secret/private",
+			"rhtas.redhat.com/treeID":               "123456",
+			"rhtas.redhat.com/trillianUrl":          "trillian-logserver.default.svc:80",
+			"rhtas.redhat.com/rootCertificatesHash": hex.EncodeToString(h[:]),
+			"rhtas.redhat.com/privateKeyRef":        "secret/private",
 		}
 	}
 
@@ -779,9 +782,39 @@ func TestServerConfig_Update(t *testing.T) {
 					secret, err := kubernetes.GetSecret(cli, "default", current.Status.ServerConfigRef.Name)
 					g.Expect(err).ShouldNot(HaveOccurred())
 					g.Expect(secret.Data).To(HaveKey("config"))
-					g.Expect(secret.Annotations).To(HaveKeyWithValue(
-						"rhtas.redhat.com/rootCertificates", "secret/cert,new-fulcio/cert",
-					))
+					g.Expect(secret.Annotations).To(HaveKey("rhtas.redhat.com/rootCertificatesHash"))
+					singleHash := sha256.Sum256(cert)
+					g.Expect(secret.Annotations["rhtas.redhat.com/rootCertificatesHash"]).
+						ShouldNot(Equal(hex.EncodeToString(singleHash[:])), "hash should differ from single-cert hash")
+				},
+			},
+		},
+		{
+			name: "cert secret unreadable invalidates config via hash mismatch",
+			env: func() env {
+				inst := newBaseInstance()
+				inst.Generation = 2
+				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "old-config"}
+				// RootCertificates points to a secret that does NOT exist
+				inst.Status.RootCertificates = []rhtasv1.SecretKeySelector{
+					{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "deleted-secret"}, Key: "cert"},
+				}
+				return env{
+					instance: inst,
+					objects: []client.Object{
+						newKeySecret("default"),
+						// old-config has a valid hash annotation — but the cert secret is gone
+						newConfigSecret("old-config", "default", defaultAnnotations()),
+					},
+				}
+			}(),
+			want: want{
+				result: testAction.RequeueAfter(5 * time.Second),
+				verify: func(g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+					c := meta.FindStatusCondition(current.Status.Conditions, ConfigCondition)
+					g.Expect(c).ShouldNot(BeNil())
+					g.Expect(c.Status).Should(Equal(metav1.ConditionFalse))
+					g.Expect(c.Reason).Should(Equal(FulcioReason))
 				},
 			},
 		},
