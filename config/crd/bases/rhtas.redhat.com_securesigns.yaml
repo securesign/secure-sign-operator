@@ -10545,9 +10545,10 @@ spec:
                           type: string
                         secretRef:
                           description: |-
-                            Reference to secret object
-                            If it is unset, the operator will try to autoconfigure secret reference, by searching secrets in namespace which
-                            contain `rhtas.redhat.com/$name` label.
+                            Reference to secret object.
+                            If unset, the operator resolves the trust material from the corresponding component CR's
+                            status field (e.g. Rekor.Status.PublicKey, Fulcio.Status.CertificateChain) and stores it
+                            in a TUF-owned secret.
                           properties:
                             key:
                               description: The key of the secret to select from. Must
