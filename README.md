@@ -18,7 +18,8 @@ Red Hat Trusted Artifact Signer enhances software supply chain security by simpl
 >   `securesigns` CRD exceeds the 256 KB client-side annotation limit.
 > - **cert-manager is required** (operator webhooks); an **Ingress controller** is
 >   required only for external access; the **Prometheus Operator** is optional
->   (`ServiceMonitor` creation is skipped gracefully when absent).
+>   (if absent and `monitoring.enabled: true`, reconciliation fails with a clear
+>   error — install Prometheus Operator or set `monitoring.enabled: false`).
 > - **Public-registry images** are provided by the `kubernetes` overlay so no
 >   `registry.redhat.io` credentials are needed; overridable per image.
 > - The OpenShift **`ConsoleCLIDownload`** integration is OpenShift-only; set
