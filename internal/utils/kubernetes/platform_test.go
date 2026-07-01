@@ -20,6 +20,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+const testServiceName = "openshift-apiserver"
+
 // retriableClient embeds a fake client but injects failures for the first
 // failTimes List calls, simulating transient API server errors.
 type retriableClient struct {
@@ -58,25 +60,25 @@ func TestDetectOpenShiftWithRetry_ServiceDiscovery(t *testing.T) {
 	}{
 		{
 			name:        "no services",
-			searchName:  "openshift-apiserver",
+			searchName:  testServiceName,
 			expectFound: false,
 		},
 		{
 			name:        "match by namespace",
-			services:    []apiregistrationv1.APIService{apiService("openshift-apiserver", "api")},
-			searchName:  "openshift-apiserver",
+			services:    []apiregistrationv1.APIService{apiService(testServiceName, "api")},
+			searchName:  testServiceName,
 			expectFound: true,
 		},
 		{
 			name:        "match by name",
-			services:    []apiregistrationv1.APIService{apiService("default", "openshift-apiserver")},
-			searchName:  "openshift-apiserver",
+			services:    []apiregistrationv1.APIService{apiService("default", testServiceName)},
+			searchName:  testServiceName,
 			expectFound: true,
 		},
 		{
 			name:        "no match",
 			services:    []apiregistrationv1.APIService{apiService("some-namespace", "some-service")},
-			searchName:  "openshift-apiserver",
+			searchName:  testServiceName,
 			expectFound: false,
 		},
 	}
@@ -113,12 +115,12 @@ func TestDetectOpenShiftWithRetry_RetriesOnTransientErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			g := gomega.NewWithT(t)
 
-			inner := buildFakeClient(apiService("openshift-apiserver", "api"))
+			inner := buildFakeClient(apiService(testServiceName, "api"))
 			rc := &retriableClient{Client: inner, failTimes: 2, failErr: tc.err}
 
 			found, err := detectOpenShiftWithRetry(
 				context.Background(), logr.Discard(),
-				rc, "openshift-apiserver",
+				rc, testServiceName,
 				wait.Backoff{Duration: 1 * time.Millisecond, Factor: 1.0, Steps: 10},
 			)
 
@@ -141,7 +143,7 @@ func TestDetectOpenShiftWithRetry_NonTransientErrorPropagated(t *testing.T) {
 
 	_, err := detectOpenShiftWithRetry(
 		context.Background(), logr.Discard(),
-		rc, "openshift-apiserver", fastBackoff(),
+		rc, testServiceName, fastBackoff(),
 	)
 
 	g.Expect(err).To(gomega.MatchError(unexpectedErr))
@@ -161,7 +163,7 @@ func TestDetectOpenShiftWithRetry_ContextTimeout(t *testing.T) {
 
 	_, err := detectOpenShiftWithRetry(
 		ctx, logr.Discard(),
-		rc, "openshift-apiserver",
+		rc, testServiceName,
 		wait.Backoff{Duration: 5 * time.Millisecond, Factor: 1.0, Steps: 100},
 	)
 
