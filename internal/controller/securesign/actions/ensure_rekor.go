@@ -55,7 +55,9 @@ func (i rekorAction) Handle(ctx context.Context, instance *rhtasv1.Securesign) *
 		ensure.Labels[*rhtasv1.Rekor](slices.Collect(maps.Keys(l)), l),
 		ensure.Annotations[*rhtasv1.Rekor](annotations.InheritableAnnotations, instance.Annotations),
 		func(object *rhtasv1.Rekor) error {
-			object.Spec = instance.Spec.Rekor
+			defaulted := instance.Spec.Rekor.DeepCopy()
+			defaulted.SetDefaults()
+			object.Spec = *defaulted
 			return nil
 		},
 	); err != nil {

@@ -56,7 +56,9 @@ func (i ctlogAction) Handle(ctx context.Context, instance *rhtasv1.Securesign) *
 		ensure.Labels[*rhtasv1.CTlog](slices.Collect(maps.Keys(l)), l),
 		ensure.Annotations[*rhtasv1.CTlog](annotations.InheritableAnnotations, instance.Annotations),
 		func(object *rhtasv1.CTlog) error {
-			object.Spec = instance.Spec.Ctlog
+			defaulted := instance.Spec.Ctlog.DeepCopy()
+			defaulted.SetDefaults()
+			object.Spec = *defaulted
 			return nil
 		},
 	); err != nil {

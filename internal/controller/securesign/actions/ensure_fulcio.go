@@ -55,7 +55,9 @@ func (i fulcioAction) Handle(ctx context.Context, instance *rhtasv1.Securesign) 
 		ensure.Labels[*rhtasv1.Fulcio](slices.Collect(maps.Keys(l)), l),
 		ensure.Annotations[*rhtasv1.Fulcio](annotations.InheritableAnnotations, instance.Annotations),
 		func(object *rhtasv1.Fulcio) error {
-			object.Spec = instance.Spec.Fulcio
+			defaulted := instance.Spec.Fulcio.DeepCopy()
+			defaulted.SetDefaults()
+			object.Spec = *defaulted
 			return nil
 		},
 	); err != nil {

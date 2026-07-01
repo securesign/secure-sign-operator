@@ -69,7 +69,9 @@ func (i tsaAction) Handle(ctx context.Context, instance *rhtasv1.Securesign) *ac
 		ensure.Labels[*rhtasv1.TimestampAuthority](slices.Collect(maps.Keys(l)), l),
 		ensure.Annotations[*rhtasv1.TimestampAuthority](annotations.InheritableAnnotations, instance.Annotations),
 		func(object *rhtasv1.TimestampAuthority) error {
-			object.Spec = *instance.Spec.TimestampAuthority
+			defaulted := instance.Spec.TimestampAuthority.DeepCopy()
+			defaulted.SetDefaults()
+			object.Spec = *defaulted
 			return nil
 		},
 	); err != nil {

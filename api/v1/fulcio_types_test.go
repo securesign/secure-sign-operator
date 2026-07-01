@@ -10,26 +10,27 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Fulcio", func() {
 
 	Context("FulcioSpec", func() {
 		It("can be created", func() {
-			created := generateFulcioObject("fulcio-create")
+			created := generateMinimalFulcio("fulcio-create")
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 			fetched := &Fulcio{}
-			Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 			Expect(fetched).To(Equal(created))
 		})
 
 		It("can be updated", func() {
-			created := generateFulcioObject("fulcio-update")
+			created := generateMinimalFulcio("fulcio-update")
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 			fetched := &Fulcio{}
-			Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 			Expect(fetched).To(Equal(created))
 
 			fetched.Spec.Config.OIDCIssuers[0] = OIDCIssuer{
@@ -40,21 +41,21 @@ var _ = Describe("Fulcio", func() {
 		})
 
 		It("can be deleted", func() {
-			created := generateFulcioObject("fulcio-delete")
+			created := generateMinimalFulcio("fulcio-delete")
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 			Expect(k8sClient.Delete(context.Background(), created)).To(Succeed())
-			Expect(k8sClient.Get(context.Background(), getKey(created), created)).ToNot(Succeed())
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), created)).ToNot(Succeed())
 		})
 
 		When("changing external access setting", func() {
 			It("enabled false->true", func() {
-				created := generateFulcioObject("fulcio-access-1")
+				created := generateMinimalFulcio("fulcio-access-1")
 				created.Spec.ExternalAccess.Enabled = ptr.To(false)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Fulcio{}
-				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
 				fetched.Spec.ExternalAccess.Enabled = ptr.To(true)
@@ -62,12 +63,12 @@ var _ = Describe("Fulcio", func() {
 			})
 
 			It("enabled true->false", func() {
-				created := generateFulcioObject("fulcio-access-2")
+				created := generateMinimalFulcio("fulcio-access-2")
 				created.Spec.ExternalAccess.Enabled = ptr.To(true)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Fulcio{}
-				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
 				fetched.Spec.ExternalAccess.Enabled = ptr.To(false)
@@ -77,12 +78,12 @@ var _ = Describe("Fulcio", func() {
 			})
 
 			It("edit RouteSelectorLabel", func() {
-				created := generateFulcioObject("fulcio-access-3")
+				created := generateMinimalFulcio("fulcio-access-3")
 				created.Spec.ExternalAccess.RouteSelectorLabels = map[string]string{"test": "fake", "foo": "bar"}
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Fulcio{}
-				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
 				fetched.Spec.ExternalAccess.RouteSelectorLabels = map[string]string{"test": "test", "foo": "bar"}
@@ -94,12 +95,12 @@ var _ = Describe("Fulcio", func() {
 
 		When("changing monitoring", func() {
 			It("enabled false->true", func() {
-				created := generateFulcioObject("fulcio-monitoring-1")
+				created := generateMinimalFulcio("fulcio-monitoring-1")
 				created.Spec.Monitoring.Enabled = ptr.To(false)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Fulcio{}
-				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
 				fetched.Spec.Monitoring.Enabled = ptr.To(true)
@@ -107,12 +108,12 @@ var _ = Describe("Fulcio", func() {
 			})
 
 			It("enabled true->false", func() {
-				created := generateFulcioObject("fulcio-monitoring-2")
+				created := generateMinimalFulcio("fulcio-monitoring-2")
 				created.Spec.Monitoring.Enabled = ptr.To(true)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Fulcio{}
-				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
 				fetched.Spec.Monitoring.Enabled = ptr.To(false)
@@ -124,7 +125,7 @@ var _ = Describe("Fulcio", func() {
 
 		Context("is validated", func() {
 			It("private key", func() {
-				invalidObject := generateFulcioObject("private-key-invalid")
+				invalidObject := generateMinimalFulcio("private-key-invalid")
 				invalidObject.Spec.Certificate.CARef = &SecretKeySelector{
 					Key:                  "key",
 					LocalObjectReference: LocalObjectReference{Name: "name"},
@@ -136,7 +137,7 @@ var _ = Describe("Fulcio", func() {
 			})
 
 			It("config is not empty", func() {
-				invalidObject := generateFulcioObject("config-invalid")
+				invalidObject := generateMinimalFulcio("config-invalid")
 				invalidObject.Spec.Config.OIDCIssuers = []OIDCIssuer{}
 				invalidObject.Spec.Config.MetaIssuers = []OIDCIssuer{}
 
@@ -146,18 +147,18 @@ var _ = Describe("Fulcio", func() {
 			})
 
 			It("CIIssuerMetadata is set", func() {
-				validObject := generateFulcioObject("config-ci-issuer-metadata")
+				validObject := generateMinimalFulcio("config-ci-issuer-metadata")
 				addCIIssuerMetadata(validObject)
 
 				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 
 				fetched := &Fulcio{}
-				Expect(k8sClient.Get(context.Background(), getKey(validObject), fetched)).To(Succeed())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(validObject), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(validObject))
 			})
 
 			It("only MetaIssuer is set", func() {
-				validObject := generateFulcioObject("config-metaissuer")
+				validObject := generateMinimalFulcio("config-metaissuer")
 				validObject.Spec.Config.OIDCIssuers = []OIDCIssuer{}
 				validObject.Spec.Config.MetaIssuers = []OIDCIssuer{
 					{
@@ -169,23 +170,23 @@ var _ = Describe("Fulcio", func() {
 				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 
 				fetched := &Fulcio{}
-				Expect(k8sClient.Get(context.Background(), getKey(validObject), fetched)).To(Succeed())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(validObject), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(validObject))
 			})
 
 			It("prefix with /", func() {
-				validObject := generateFulcioObject("prefix-valid")
+				validObject := generateMinimalFulcio("prefix-valid")
 				validObject.Spec.Ctlog.Prefix = "logs/prefix"
 
 				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 
 				fetched := &Fulcio{}
-				Expect(k8sClient.Get(context.Background(), getKey(validObject), fetched)).To(Succeed())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(validObject), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(validObject))
 			})
 
 			It("prefix with invalid chars", func() {
-				invalidObject := generateFulcioObject("prefix-invalid")
+				invalidObject := generateMinimalFulcio("prefix-invalid")
 				invalidObject.Spec.Ctlog.Prefix = "prefix.log"
 
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
@@ -195,19 +196,19 @@ var _ = Describe("Fulcio", func() {
 
 			When("replicas", func() {
 				It("nil", func() {
-					validObject := generateFulcioObject("replicas-nil")
+					validObject := generateMinimalFulcio("replicas-nil")
 					validObject.Spec.Replicas = nil
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
 
 				It("positive", func() {
-					validObject := generateFulcioObject("replicas-positive")
+					validObject := generateMinimalFulcio("replicas-positive")
 					validObject.Spec.Replicas = ptr.To(int32(math.MaxInt32))
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
 
 				It("negative", func() {
-					invalidObject := generateFulcioObject("replicas-negative")
+					invalidObject := generateMinimalFulcio("replicas-negative")
 					invalidObject.Spec.Replicas = ptr.To(int32(-1))
 					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 					Expect(k8sClient.Create(context.Background(), invalidObject)).
@@ -215,23 +216,23 @@ var _ = Describe("Fulcio", func() {
 				})
 
 				It("zero", func() {
-					validObject := generateFulcioObject("replicas-zero")
+					validObject := generateMinimalFulcio("replicas-zero")
 					validObject.Spec.Replicas = ptr.To(int32(0))
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
 			})
 		})
 
-		It("defaults Enabled fields when not set", func() {
-			obj := generateFulcioObject("fulcio-defaults")
-			obj.Spec.ExternalAccess.Enabled = nil
-			obj.Spec.Monitoring.Enabled = nil
-			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+		It("default constants are correct", func() {
+			created := generateMinimalFulcio("fulcio-literals")
+			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 			fetched := &Fulcio{}
-			Expect(k8sClient.Get(context.Background(), getKey(obj), fetched)).To(Succeed())
-			Expect(fetched.Spec.ExternalAccess.Enabled).To(HaveValue(BeFalse()))
-			Expect(fetched.Spec.Monitoring.Enabled).To(HaveValue(BeTrue()))
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
+			Expect(fetched.Spec.Replicas).To(Equal(ptr.To(int32(1))))
+			Expect(fetched.Spec.Ctlog.Prefix).To(Equal("trusted-artifact-signer"))
+			Expect(fetched.Spec.Monitoring.Enabled).To(Equal(ptr.To(true)))
+			Expect(fetched.Spec.ExternalAccess.Enabled).To(Equal(ptr.To(false)))
 		})
 
 		Context("CR is fully populated", func() {
@@ -289,23 +290,20 @@ var _ = Describe("Fulcio", func() {
 
 				Expect(k8sClient.Create(context.Background(), &fulcioInstance)).To(Succeed())
 				fetchedFulcio := &Fulcio{}
-				Expect(k8sClient.Get(context.Background(), getKey(&fulcioInstance), fetchedFulcio)).To(Succeed())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(&fulcioInstance), fetchedFulcio)).To(Succeed())
 				Expect(fetchedFulcio.Spec).To(Equal(fulcioInstance.Spec))
 			})
 		})
 	})
 })
 
-func generateFulcioObject(name string) *Fulcio {
+func generateMinimalFulcio(name string) *Fulcio {
 	return &Fulcio{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
 		},
 		Spec: FulcioSpec{
-			PodRequirements: PodRequirements{
-				Replicas: ptr.To(int32(1)),
-			},
 			Config: FulcioConfig{
 				OIDCIssuers: []OIDCIssuer{
 					{
@@ -340,11 +338,6 @@ func generateFulcioObject(name string) *Fulcio {
 			Certificate: FulcioCert{
 				CommonName:       "hostname",
 				OrganizationName: "organization",
-			},
-			Ctlog: CtlogService{
-				Address: "",
-				Port:    ptr.To(int32(80)),
-				Prefix:  "trusted-artifact-signer",
 			},
 		},
 	}

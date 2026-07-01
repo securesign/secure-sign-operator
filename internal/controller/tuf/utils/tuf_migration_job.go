@@ -97,14 +97,14 @@ func EnsureTufMigrationJob(instance *rhtasv1.Tuf, sa string, jobLabels map[strin
 
 		for _, key := range instance.Spec.Keys {
 			switch key.Name {
-			case rekorKey:
+			case rhtasv1.TufKeyRekor:
 				rekorUrl := kubernetes.FindEnvByNameOrCreate(container, "REKOR_URL")
 				url, err := apis.ServiceAsUrl(&instance.Spec.Rekor)
 				if err != nil {
 					return err
 				}
 				rekorUrl.Value = url
-			case ctfeKey:
+			case rhtasv1.TufKeyCTFE:
 				if instance.Spec.Ctlog.Prefix == "" {
 					return futils.ErrCtlogPrefixNotSpecified
 				}
@@ -114,14 +114,14 @@ func EnsureTufMigrationJob(instance *rhtasv1.Tuf, sa string, jobLabels map[strin
 					return err
 				}
 				ctlogUrl.Value = fmt.Sprintf("%s/%s", url, instance.Spec.Ctlog.Prefix)
-			case fulcioKey:
+			case rhtasv1.TufKeyFulcio:
 				fulcioUrl := kubernetes.FindEnvByNameOrCreate(container, "FULCIO_URL")
 				url, err := apis.ServiceAsUrl(&instance.Spec.Fulcio)
 				if err != nil {
 					return err
 				}
 				fulcioUrl.Value = url
-			case tsaKey:
+			case rhtasv1.TufKeyTSA:
 				tsaUrl := kubernetes.FindEnvByNameOrCreate(container, "TSA_URL")
 				url, err := apis.ServiceAsUrl(&instance.Spec.Tsa)
 				if err != nil {

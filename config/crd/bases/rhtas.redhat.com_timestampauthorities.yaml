@@ -965,7 +965,6 @@ spec:
                 description: Define whether you want to export service or not
                 properties:
                   enabled:
-                    default: false
                     description: |-
                       If set to true, the Operator will create an Ingress or a Route resource.
                       For the plain Ingress there is no TLS configuration provided Route object uses "edge" termination by default.
@@ -984,8 +983,6 @@ spec:
                     x-kubernetes-validations:
                     - message: RouteSelectorLabels can't be modified
                       rule: (oldSelf.size() == 0 || self == oldSelf)
-                required:
-                - enabled
                 type: object
               imagePullSecrets:
                 description: |-
@@ -1010,7 +1007,6 @@ spec:
                   x-kubernetes-map-type: atomic
                 type: array
               maxRequestBodySize:
-                default: 1048576
                 description: MaxRequestBodySize sets the maximum size in bytes for
                   HTTP request body. Passed as --max-request-body-size.
                 format: int64
@@ -1019,14 +1015,11 @@ spec:
                 description: Enable Service monitors for Timestamp Authority
                 properties:
                   enabled:
-                    default: true
                     description: If true, the Operator will create monitoring resources
                     type: boolean
                     x-kubernetes-validations:
                     - message: Feature cannot be disabled
                       rule: (self || !oldSelf)
-                required:
-                - enabled
                 type: object
               ntpMonitoring:
                 description: Configuration for NTP monitoring
@@ -1079,15 +1072,11 @@ spec:
                         type: array
                     type: object
                   enabled:
-                    default: true
                     description: Enable or disable NTP(Network Time Protocol) Monitoring,
                       Enabled by default
                     type: boolean
-                required:
-                - enabled
                 type: object
               replicas:
-                default: 1
                 description: Number of desired pods.
                 format: int32
                 minimum: 0

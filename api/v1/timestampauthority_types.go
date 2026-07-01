@@ -40,7 +40,6 @@ type TimestampAuthoritySpec struct {
 	//+optional
 	NTPMonitoring NTPMonitoring `json:"ntpMonitoring,omitempty"`
 	// MaxRequestBodySize sets the maximum size in bytes for HTTP request body. Passed as --max-request-body-size.
-	//+kubebuilder:default:=1048576
 	//+optional
 	MaxRequestBodySize *int64 `json:"maxRequestBodySize,omitempty"`
 }
@@ -132,8 +131,6 @@ type Tink struct {
 
 type NTPMonitoring struct {
 	//Enable or disable NTP(Network Time Protocol) Monitoring, Enabled by default
-	//+kubebuilder:default:=true
-	//+required
 	Enabled *bool `json:"enabled,omitempty"`
 	//Configuration for Network time protocol monitoring
 	Config *NtpMonitoringConfig `json:"config,omitempty"`
