@@ -366,7 +366,7 @@ if [ "$NEEDS_UPDATE" = true ]; then
       
     echo "Migration successful! Syncing back to live volume..."
     # Safely overwrite the live volume with the newly generated files
-    cp -a "$SAFE_OUTDIR"/* "$TUF_REPO/"
+    cp -r "$SAFE_OUTDIR"/* "$TUF_REPO/"
     
     echo "Re-signing and upload complete."
     
