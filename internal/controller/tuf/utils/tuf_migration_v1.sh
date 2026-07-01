@@ -46,6 +46,92 @@ echo "Cosign binary ready."
 # MIGRATION FUNCTIONS
 # ==============================================================================
 
+fix_pem_encoding() {
+    local target_file="$1"
+    echo "Checking for PEM-encoded rawBytes (should be DER)..."
+
+    local update_status
+    update_status=$(python3 -c "
+import json, sys, base64, hashlib, os, re
+
+target_file = sys.argv[1]
+updated = False
+
+with open(target_file, 'r') as f:
+    data = json.load(f)
+
+def split_pem_to_der_list(raw_b64):
+    try:
+        decoded = base64.b64decode(raw_b64)
+        text = decoded.decode('ascii')
+        if not text.strip().startswith('-----BEGIN'):
+            return None
+        blocks = re.findall(
+            r'-----BEGIN [^-]+-----\s*(.*?)\s*-----END [^-]+-----',
+            text, re.DOTALL)
+        if not blocks:
+            return None
+        der_list = []
+        for b64_block in blocks:
+            der_bytes = base64.b64decode(b64_block.replace('\n', '').replace('\r', ''))
+            der_list.append(base64.b64encode(der_bytes).decode('ascii'))
+        return der_list
+    except Exception:
+        return None
+
+for key in ['certificateAuthorities', 'timestampAuthorities']:
+    for auth in data.get(key, []):
+        cert_chain = auth.get('certChain', {})
+        old_certs = cert_chain.get('certificates', [])
+        new_certs = []
+        chain_changed = False
+        for cert in old_certs:
+            if 'rawBytes' not in cert:
+                new_certs.append(cert)
+                continue
+            der_list = split_pem_to_der_list(cert['rawBytes'])
+            if der_list is None:
+                new_certs.append(cert)
+                continue
+            chain_changed = True
+            for der_b64 in der_list:
+                new_certs.append({'rawBytes': der_b64})
+        if chain_changed:
+            cert_chain['certificates'] = new_certs
+            updated = True
+
+for key in ['tlogs', 'ctlogs']:
+    for log in data.get(key, []):
+        pub_key = log.get('publicKey', {})
+        if 'rawBytes' not in pub_key:
+            continue
+        der_list = split_pem_to_der_list(pub_key['rawBytes'])
+        if der_list is None:
+            continue
+        pub_key['rawBytes'] = der_list[0]
+        der_bytes = base64.b64decode(der_list[0])
+        new_key_id = hashlib.sha256(der_bytes).digest()
+        log_id_key = 'logId' if 'logId' in log else 'checkpointKeyId'
+        log[log_id_key] = {'keyId': base64.b64encode(new_key_id).decode('ascii')}
+        updated = True
+
+if updated:
+    with open(target_file + '.tmp', 'w') as f:
+        json.dump(data, f, indent=2)
+    os.replace(target_file + '.tmp', target_file)
+    print('true')
+else:
+    print('false')
+" "$target_file")
+
+    if [ "$update_status" = "true" ]; then
+        echo " -> Converted PEM-encoded rawBytes to DER encoding."
+        NEEDS_UPDATE=true
+    else
+        echo " -> OK: All rawBytes are already DER-encoded."
+    fi
+}
+
 fix_checkpoint_key_id() {
     local target_file="$1"
     echo "Checking for checkpointKeyId..."
@@ -336,6 +422,7 @@ cp "$TR_FILE" "$WORK_TR"
 
 # --- Execute migration functions  ---
 echo "--- Running migration functions ---"
+fix_pem_encoding "$WORK_TR"
 fix_checkpoint_key_id "$WORK_TR"
 fix_valid_for_start "$WORK_TR"
 fix_service_urls "$WORK_TR"
