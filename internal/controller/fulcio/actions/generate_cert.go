@@ -13,9 +13,10 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
-	"github.com/securesign/operator/internal/controller/fulcio/utils"
+	fulcioutils "github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
+	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -210,8 +211,8 @@ func (g handleCert) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *actio
 	return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 }
 
-func (g handleCert) setupCert(commonName string, instance *rhtasv1.Fulcio) (*utils.FulcioCertConfig, error) {
-	config := &utils.FulcioCertConfig{
+func (g handleCert) setupCert(commonName string, instance *rhtasv1.Fulcio) (*fulcioutils.FulcioCertConfig, error) {
+	config := &fulcioutils.FulcioCertConfig{
 		OrganizationEmail: instance.Spec.Certificate.OrganizationEmail,
 		OrganizationName:  instance.Spec.Certificate.OrganizationName,
 		CommonName:        commonName,
@@ -236,13 +237,13 @@ func (g handleCert) setupCert(commonName string, instance *rhtasv1.Fulcio) (*uti
 			return nil, err
 		}
 
-		pemKey, err := utils.CreateCAKey(key)
+		pemKey, err := fulcioutils.CreateCAKey(key)
 		if err != nil {
 			return nil, err
 		}
 		config.PrivateKey = pemKey
 
-		pemPubKey, err := utils.CreateCAPub(key.Public())
+		pemPubKey, err := fulcioutils.CreateCAPub(key.Public())
 		if err != nil {
 			return nil, err
 		}
@@ -256,7 +257,7 @@ func (g handleCert) setupCert(commonName string, instance *rhtasv1.Fulcio) (*uti
 		}
 		config.RootCert = key
 	} else {
-		rootCert, err := utils.CreateFulcioCA(config)
+		rootCert, err := fulcioutils.CreateFulcioCA(config)
 		if err != nil {
 			return nil, err
 		}
@@ -314,7 +315,7 @@ func (g handleCert) resolveCommonName(ctx context.Context, instance *rhtasv1.Ful
 	if instance.Status.Certificate != nil && instance.Status.Certificate.CommonName != "" {
 		return instance.Status.Certificate.CommonName, nil
 	}
-	if !instance.Spec.ExternalAccess.Enabled {
+	if !utils.IsEnabled(instance.Spec.ExternalAccess.Enabled) {
 		return fmt.Sprintf("%s.%s.svc.local", DeploymentName, instance.Namespace), nil
 	}
 	if instance.Spec.ExternalAccess.Host != "" {

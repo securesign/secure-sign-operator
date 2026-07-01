@@ -91,6 +91,9 @@ var _ = Describe("Rekor controller", func() {
 				},
 				Spec: rhtasv1.RekorSpec{
 					TreeID: ptr.To(int64(123)),
+					Monitoring: rhtasv1.MonitoringWithTLogConfig{
+						MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+					},
 				},
 			}
 
@@ -134,6 +137,9 @@ var _ = Describe("Rekor controller", func() {
 				},
 				Spec: rhtasv1.RekorSpec{
 					TreeID: ptr.To(int64(123)),
+					Monitoring: rhtasv1.MonitoringWithTLogConfig{
+						MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+					},
 					Pvc: rhtasv1.Pvc{
 						Name: "byo-pvc",
 					},
@@ -180,6 +186,9 @@ var _ = Describe("Rekor controller", func() {
 				},
 				Spec: rhtasv1.RekorSpec{
 					TreeID: ptr.To(int64(123)),
+					Monitoring: rhtasv1.MonitoringWithTLogConfig{
+						MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+					},
 					Attestations: rhtasv1.RekorAttestations{
 						Enabled: ptr.To(true),
 						Url:     "mem://",

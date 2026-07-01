@@ -143,7 +143,8 @@ type Tink struct {
 type NTPMonitoring struct {
 	//Enable or disable NTP(Network Time Protocol) Monitoring, Enabled by default
 	//+kubebuilder:default:=true
-	Enabled bool `json:"enabled"`
+	//+required
+	Enabled *bool `json:"enabled,omitempty"`
 	//Configuration for Network time protocol monitoring
 	Config *NtpMonitoringConfig `json:"config,omitempty"`
 }

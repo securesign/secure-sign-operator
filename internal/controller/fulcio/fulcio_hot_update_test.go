@@ -37,6 +37,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("Fulcio hot update", func() {
@@ -95,7 +96,7 @@ var _ = Describe("Fulcio hot update", func() {
 					Spec: rhtasv1.FulcioSpec{
 						ExternalAccess: rhtasv1.ExternalAccess{
 							Host:    "fulcio.localhost",
-							Enabled: true,
+							Enabled: ptr.To(true),
 						},
 						Config: rhtasv1.FulcioConfig{
 							OIDCIssuers: []rhtasv1.OIDCIssuer{
@@ -112,7 +113,7 @@ var _ = Describe("Fulcio hot update", func() {
 							OrganizationEmail: "my@email.com",
 							CommonName:        "local",
 						},
-						Monitoring: rhtasv1.MonitoringConfig{Enabled: false},
+						Monitoring: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
 					},
 				}
 				err = suite.Client().Create(ctx, instance)

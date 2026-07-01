@@ -10,6 +10,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/constants"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 func TestIngress_CanHandle(t *testing.T) {
@@ -57,7 +58,7 @@ func TestIngress_CanHandle(t *testing.T) {
 			instance := rhtasv1.Rekor{
 				Spec: rhtasv1.RekorSpec{
 					ExternalAccess: rhtasv1.ExternalAccess{
-						Enabled: tt.externalAccess,
+						Enabled: ptr.To(tt.externalAccess),
 					},
 					RekorSearchUI: rhtasv1.RekorSearchUI{
 						Enabled: &tt.uiEnabled,

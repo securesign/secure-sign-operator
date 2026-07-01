@@ -26,6 +26,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	runtimeCli "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -232,7 +233,7 @@ var _ = Describe("TSA update", Ordered, func() {
 			Eventually(func(g Gomega) error {
 				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
 				s.Spec.TimestampAuthority.NTPMonitoring = rhtasv1.NTPMonitoring{
-					Enabled: true,
+					Enabled: ptr.To(true),
 					Config: &rhtasv1.NtpMonitoringConfig{
 						RequestAttempts: 3,
 						RequestTimeout:  5,

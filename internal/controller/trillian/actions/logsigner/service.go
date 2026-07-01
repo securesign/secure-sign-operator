@@ -12,6 +12,7 @@ import (
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
+	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
@@ -61,7 +62,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1.Trill
 			TargetPort: intstr.FromInt32(actions.ServerPort),
 		},
 	}
-	if instance.Spec.Monitoring.Enabled {
+	if utils.IsEnabled(instance.Spec.Monitoring.Enabled) {
 		ports = append(ports, v1.ServicePort{
 			Name:       actions.MetricsPortName,
 			Protocol:   v1.ProtocolTCP,

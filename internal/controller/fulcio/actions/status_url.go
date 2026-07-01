@@ -7,6 +7,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
+	"github.com/securesign/operator/internal/utils"
 	v12 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -31,7 +32,7 @@ func (i statusUrlAction) CanHandle(_ context.Context, instance *rhtasv1.Fulcio) 
 
 func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *action.Result {
 	var url string
-	if instance.Spec.ExternalAccess.Enabled {
+	if utils.IsEnabled(instance.Spec.ExternalAccess.Enabled) {
 		protocol := "http://"
 		ingress := &v12.Ingress{}
 		err := i.Client.Get(ctx, types.NamespacedName{Name: DeploymentName, Namespace: instance.Namespace}, ingress)

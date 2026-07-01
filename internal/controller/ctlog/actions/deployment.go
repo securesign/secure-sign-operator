@@ -12,7 +12,7 @@ import (
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
-	cutils "github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
-	"github.com/securesign/operator/internal/controller/ctlog/utils"
+	ctlogutils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	v1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,7 +73,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 		deployment.PodRequirements(instance.Spec.PodRequirements, containerName),
 		deployment.PodSecurityContext(),
 		ensure.Optional(
-			utils.TlsEnabled(instance),
+			ctlogutils.TlsEnabled(instance),
 			i.ensureTLS(instance.Status.TLS, containerName),
 		),
 		ensure.Optional(tls.UseTlsClient(instance), i.ensureTlsTrillian(ctx, instance)),
@@ -99,17 +99,17 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 	return func(dp *v1.Deployment) error {
 		switch {
 		case instance.Status.ServerConfigRef == nil:
-			return fmt.Errorf("CreateCTLogDeployment: %w", utils.ErrServerConfigNotSpecified)
+			return fmt.Errorf("CreateCTLogDeployment: %w", ctlogutils.ErrServerConfigNotSpecified)
 		case instance.Status.TreeID == nil:
-			return fmt.Errorf("CreateCTLogDeployment: %w", utils.ErrTreeNotSpecified)
+			return fmt.Errorf("CreateCTLogDeployment: %w", ctlogutils.ErrTreeNotSpecified)
 		case resolveTrillianAddress(instance) == "":
-			return fmt.Errorf("CreateCTLogDeployment: %w", utils.ErrTrillianAddressNotSpecified)
+			return fmt.Errorf("CreateCTLogDeployment: %w", ctlogutils.ErrTrillianAddressNotSpecified)
 		case instance.Spec.Trillian.Port == nil:
-			return fmt.Errorf("CreateCTLogDeployment: %w", utils.ErrTrillianPortNotSpecified)
+			return fmt.Errorf("CreateCTLogDeployment: %w", ctlogutils.ErrTrillianPortNotSpecified)
 		}
 
 		spec := &dp.Spec
-		spec.Replicas = cutils.Pointer[int32](1)
+		spec.Replicas = utils.Pointer[int32](1)
 		spec.Selector = &metav1.LabelSelector{
 			MatchLabels: labels,
 		}
@@ -137,7 +137,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 			"--alsologtostderr",
 		}
 
-		if instance.Spec.Monitoring.Enabled {
+		if utils.IsEnabled(instance.Spec.Monitoring.Enabled) {
 			appArgs = append(appArgs, "--metrics_endpoint=0.0.0.0:"+strconv.Itoa(MetricsPort))
 			metricsPort := kubernetes.FindPortByNameOrCreate(container, "metrics")
 			metricsPort.ContainerPort = MetricsPort

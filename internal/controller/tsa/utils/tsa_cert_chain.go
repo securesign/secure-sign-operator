@@ -17,6 +17,7 @@ import (
 	"time"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -245,7 +246,7 @@ func CreateCAIssuer(instance *rhtasv1.TimestampAuthority, tsaCA *rhtasv1.TsaCert
 	}
 
 	if tsaCA.CommonName == "" {
-		if instance.Spec.ExternalAccess.Enabled {
+		if utils.IsEnabled(instance.Spec.ExternalAccess.Enabled) {
 			if instance.Spec.ExternalAccess.Host != "" {
 				issuer.subject.CommonName = instance.Spec.ExternalAccess.Host
 			} else {

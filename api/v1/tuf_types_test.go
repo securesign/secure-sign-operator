@@ -49,31 +49,41 @@ var _ = Describe("TUF", func() {
 		When("changing external access setting", func() {
 			It("enabled false->true", func() {
 				created := generateTufObject("tuf-access-1")
-				created.Spec.ExternalAccess.Enabled = false
+				created.Spec.ExternalAccess.Enabled = ptr.To(false)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Tuf{}
 				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
-				fetched.Spec.ExternalAccess.Enabled = true
+				fetched.Spec.ExternalAccess.Enabled = ptr.To(true)
 				Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
 			})
 
 			It("enabled true->false", func() {
 				created := generateTufObject("tuf-access-2")
-				created.Spec.ExternalAccess.Enabled = true
+				created.Spec.ExternalAccess.Enabled = ptr.To(true)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Tuf{}
 				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
-				fetched.Spec.ExternalAccess.Enabled = false
+				fetched.Spec.ExternalAccess.Enabled = ptr.To(false)
 				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), fetched))).To(BeTrue())
 				Expect(k8sClient.Update(context.Background(), fetched)).
 					To(MatchError(ContainSubstring("Feature cannot be disabled")))
 			})
+		})
+
+		It("defaults Enabled fields when not set", func() {
+			obj := generateTufObject("tuf-defaults")
+			obj.Spec.ExternalAccess.Enabled = nil
+			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+
+			fetched := &Tuf{}
+			Expect(k8sClient.Get(context.Background(), getKey(obj), fetched)).To(Succeed())
+			Expect(fetched.Spec.ExternalAccess.Enabled).To(HaveValue(BeFalse()))
 		})
 
 		Context("is validated", func() {
@@ -168,7 +178,7 @@ var _ = Describe("TUF", func() {
 						Port:                 8181,
 						SigningConfigURLMode: SigningConfigURLExternal,
 						ExternalAccess: ExternalAccess{
-							Enabled: true,
+							Enabled: ptr.To(true),
 							Host:    "hostname",
 						},
 						Keys: []TufKey{
@@ -208,7 +218,7 @@ func generateTufObject(name string) *Tuf {
 			Port:                 80,
 			SigningConfigURLMode: SigningConfigURLExternal,
 			ExternalAccess: ExternalAccess{
-				Enabled: false,
+				Enabled: ptr.To(false),
 			},
 			Keys: []TufKey{
 				{

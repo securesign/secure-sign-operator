@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
+	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
@@ -35,7 +36,7 @@ func (i createServiceAction) Name() string {
 }
 
 func (i createServiceAction) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool {
-	return enabled(instance) && instance.Spec.Monitoring.Enabled && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
+	return enabled(instance) && utils.IsEnabled(instance.Spec.Monitoring.Enabled) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {

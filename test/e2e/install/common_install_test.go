@@ -59,7 +59,6 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 		s = securesign.Create(namespace.Name, "test",
 			securesign.ChooseDefaults(fipsEnabled, namespace.Name),
 			securesign.WithSearchUI(),
-			securesign.WithMonitoring(),
 			func(v *rhtasv1.Securesign) {
 				// cover SECURESIGN-2694
 				v.Spec.Rekor.Attestations.Enabled = ptr.To(false)

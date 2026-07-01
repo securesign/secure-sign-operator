@@ -52,8 +52,36 @@ func TestSecuresignConversionUnit(t *testing.T) {
 		{
 			name: "empty spec round-trips",
 			hub: func() *rhtasv1.Securesign {
+				// Enabled fields must be explicitly set: v1alpha1 uses bare bool, so
+				// nil *bool → false → &false after roundtrip. In production the CRD
+				// defaulter guarantees these are never nil.
 				return &rhtasv1.Securesign{
 					ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+					Spec: rhtasv1.SecuresignSpec{
+						Rekor: rhtasv1.RekorSpec{
+							ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
+							Monitoring: rhtasv1.MonitoringWithTLogConfig{
+								MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+								TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
+							},
+						},
+						Fulcio: rhtasv1.FulcioSpec{
+							ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
+							Monitoring:     rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+						},
+						Trillian: rhtasv1.TrillianSpec{
+							Monitoring: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+						},
+						Ctlog: rhtasv1.CTlogSpec{
+							Monitoring: rhtasv1.MonitoringWithTLogConfig{
+								MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+								TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
+							},
+						},
+						Tuf: rhtasv1.TufSpec{
+							ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
+						},
+					},
 				}
 			},
 			spoke: func() *Securesign {
@@ -72,6 +100,11 @@ func TestSecuresignConversionUnit(t *testing.T) {
 							PodRequirements: rhtasv1.PodRequirements{Replicas: ptr.To[int32](2)},
 							TreeID:          ptr.To[int64](12345),
 							Signer:          rhtasv1.RekorSigner{KMS: "secret"},
+							ExternalAccess:  rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
+							Monitoring: rhtasv1.MonitoringWithTLogConfig{
+								MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+								TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
+							},
 						},
 						Fulcio: rhtasv1.FulcioSpec{
 							Config: rhtasv1.FulcioConfig{
@@ -79,13 +112,23 @@ func TestSecuresignConversionUnit(t *testing.T) {
 									{Issuer: "https://accounts.google.com", ClientID: "sigstore", Type: "email"},
 								},
 							},
-							Certificate: rhtasv1.FulcioCert{OrganizationName: "Red Hat"},
+							Certificate:    rhtasv1.FulcioCert{OrganizationName: "Red Hat"},
+							ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
+							Monitoring:     rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
 						},
 						Trillian: rhtasv1.TrillianSpec{
-							Db: rhtasv1.TrillianDB{Create: ptr.To(true)},
+							Db:         rhtasv1.TrillianDB{Create: ptr.To(true)},
+							Monitoring: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
 						},
 						Ctlog: rhtasv1.CTlogSpec{
 							TreeID: ptr.To[int64](67890),
+							Monitoring: rhtasv1.MonitoringWithTLogConfig{
+								MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+								TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
+							},
+						},
+						Tuf: rhtasv1.TufSpec{
+							ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
 						},
 						TimestampAuthority: &rhtasv1.TimestampAuthoritySpec{
 							Signer: rhtasv1.TimestampAuthoritySigner{
@@ -95,6 +138,9 @@ func TestSecuresignConversionUnit(t *testing.T) {
 									},
 								},
 							},
+							ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
+							Monitoring:     rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+							NTPMonitoring:  rhtasv1.NTPMonitoring{Enabled: ptr.To(false)},
 						},
 					},
 				}
@@ -183,6 +229,10 @@ func TestCTlogConversionUnit(t *testing.T) {
 					TreeID:           ptr.To[int64](999),
 					MaxCertChainSize: ptr.To[int64](153600),
 					Trillian:         rhtasv1.TrillianService{Address: "trillian:8091", Port: ptr.To[int32](8091)},
+					Monitoring: rhtasv1.MonitoringWithTLogConfig{
+						MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+						TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
+					},
 				},
 			},
 			spoke: &CTlog{
@@ -204,6 +254,10 @@ func TestCTlogConversionUnit(t *testing.T) {
 					PublicKeyRef:          &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-secret"}, Key: "public"},
 					RootCertificates: []rhtasv1.SecretKeySelector{
 						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "root-cert"}, Key: "ca.crt"},
+					},
+					Monitoring: rhtasv1.MonitoringWithTLogConfig{
+						MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+						TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
 					},
 				},
 			},
@@ -265,8 +319,13 @@ func TestRekorConversionUnit(t *testing.T) {
 						Enabled: ptr.To(true),
 						Url:     "file:///var/run/attestations?no_tmp_dir=true",
 					},
-					Signer:    rhtasv1.RekorSigner{KMS: "secret"},
-					TrustedCA: &rhtasv1.LocalObjectReference{Name: "trusted-ca"},
+					Signer:         rhtasv1.RekorSigner{KMS: "secret"},
+					TrustedCA:      &rhtasv1.LocalObjectReference{Name: "trusted-ca"},
+					ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
+					Monitoring: rhtasv1.MonitoringWithTLogConfig{
+						MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+						TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
+					},
 				},
 			},
 			spoke: &Rekor{
@@ -291,6 +350,13 @@ func TestRekorConversionUnit(t *testing.T) {
 			name: "status signer cross-type conversion",
 			hub: &rhtasv1.Rekor{
 				ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
+				Spec: rhtasv1.RekorSpec{
+					ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
+					Monitoring: rhtasv1.MonitoringWithTLogConfig{
+						MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+						TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
+					},
+				},
 				Status: rhtasv1.RekorStatus{
 					Signer: rhtasv1.RekorSignerStatus{
 						KeyRef:      &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "signer-key"}, Key: "private"},
@@ -316,7 +382,12 @@ func TestRekorConversionUnit(t *testing.T) {
 					Sharding: []rhtasv1.RekorLogRange{
 						{TreeID: 100, TreeLength: 50000, EncodedPublicKey: "dGVzdA=="},
 					},
-					SearchIndex: rhtasv1.SearchIndex{Create: ptr.To(true)},
+					SearchIndex:    rhtasv1.SearchIndex{Create: ptr.To(true)},
+					ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
+					Monitoring: rhtasv1.MonitoringWithTLogConfig{
+						MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+						TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
+					},
 				},
 			},
 			spoke: &Rekor{
@@ -378,7 +449,9 @@ func TestFulcioConversionUnit(t *testing.T) {
 						OrganizationName: "Red Hat",
 						CommonName:       "fulcio.example.com",
 					},
-					TrustedCA: &rhtasv1.LocalObjectReference{Name: "ca-bundle"},
+					TrustedCA:      &rhtasv1.LocalObjectReference{Name: "ca-bundle"},
+					ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
+					Monitoring:     rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
 				},
 			},
 			spoke: &Fulcio{
@@ -405,6 +478,10 @@ func TestFulcioConversionUnit(t *testing.T) {
 			name: "fully populated status",
 			hub: &rhtasv1.Fulcio{
 				ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: "ns"},
+				Spec: rhtasv1.FulcioSpec{
+					ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
+					Monitoring:     rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+				},
 				Status: rhtasv1.FulcioStatus{
 					ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "fulcio-config"},
 					Url:             "https://fulcio.rhtas.example.com",
@@ -485,6 +562,7 @@ func TestTrillianConversionUnit(t *testing.T) {
 						},
 					},
 					MaxRecvMessageSize: ptr.To[int64](153600),
+					Monitoring:         rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
 				},
 			},
 			spoke: &Trillian{
@@ -510,6 +588,9 @@ func TestTrillianConversionUnit(t *testing.T) {
 			name: "fully populated status",
 			hub: &rhtasv1.Trillian{
 				ObjectMeta: metav1.ObjectMeta{Name: "trillian", Namespace: "default"},
+				Spec: rhtasv1.TrillianSpec{
+					Monitoring: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+				},
 				Status: rhtasv1.TrillianStatus{
 					Db: rhtasv1.TrillianDBStatus{
 						PvcName:           "trillian-db",
@@ -601,9 +682,10 @@ func TestTufConversionUnit(t *testing.T) {
 						{Name: "ctfe.pub"},
 						{Name: "fulcio_v1.crt.pem"},
 					},
-					Ctlog:  rhtasv1.CtlogService{Address: "ctlog:6963", Prefix: "trusted-artifact-signer"},
-					Fulcio: rhtasv1.FulcioService{Address: "fulcio:5554"},
-					Rekor:  rhtasv1.RekorService{Address: "rekor:3000"},
+					Ctlog:          rhtasv1.CtlogService{Address: "ctlog:6963", Prefix: "trusted-artifact-signer"},
+					Fulcio:         rhtasv1.FulcioService{Address: "fulcio:5554"},
+					Rekor:          rhtasv1.RekorService{Address: "rekor:3000"},
+					ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
 				},
 			},
 			spoke: &Tuf{
@@ -656,6 +738,11 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 			name: "fully populated status",
 			hub: &rhtasv1.TimestampAuthority{
 				ObjectMeta: metav1.ObjectMeta{Name: "tsa", Namespace: "ns"},
+				Spec: rhtasv1.TimestampAuthoritySpec{
+					ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
+					Monitoring:     rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+					NTPMonitoring:  rhtasv1.NTPMonitoring{Enabled: ptr.To(false)},
+				},
 				Status: rhtasv1.TimestampAuthorityStatus{
 					Url: "https://tsa.rhtas.example.com",
 					Signer: &rhtasv1.TimestampAuthoritySignerStatus{
@@ -734,8 +821,10 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 							},
 						},
 					},
+					ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
+					Monitoring:     rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
 					NTPMonitoring: rhtasv1.NTPMonitoring{
-						Enabled: true,
+						Enabled: ptr.To(true),
 					},
 				},
 			},
@@ -789,8 +878,10 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 							},
 						},
 					},
+					ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
+					Monitoring:     rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
 					NTPMonitoring: rhtasv1.NTPMonitoring{
-						Enabled: true,
+						Enabled: ptr.To(true),
 					},
 				},
 			},
@@ -839,8 +930,10 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 							KeyResource: "awskms://arn:aws:kms:us-east-1:123456789:key/abcd",
 						},
 					},
+					ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
+					Monitoring:     rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
 					NTPMonitoring: rhtasv1.NTPMonitoring{
-						Enabled: true,
+						Enabled: ptr.To(true),
 					},
 				},
 			},
@@ -908,6 +1001,9 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 						},
 					},
 				},
+				ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
+				Monitoring:     rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+				NTPMonitoring:  rhtasv1.NTPMonitoring{Enabled: ptr.To(false)},
 			},
 		}
 

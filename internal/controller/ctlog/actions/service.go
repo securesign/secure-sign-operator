@@ -10,9 +10,10 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
-	"github.com/securesign/operator/internal/controller/ctlog/utils"
+	ctlogutils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
+	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
@@ -50,7 +51,7 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *act
 		tlsAnnotations[annotations.TLS] = fmt.Sprintf(TLSSecret, instance.Name)
 	}
 	var serverPort int32
-	if utils.TlsEnabled(instance) {
+	if ctlogutils.TlsEnabled(instance) {
 		serverPort = 443
 	} else {
 		serverPort = 80
@@ -63,7 +64,7 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *act
 			TargetPort: intstr.FromInt32(ServerTargetPort),
 		},
 	}
-	if instance.Spec.Monitoring.Enabled {
+	if utils.IsEnabled(instance.Spec.Monitoring.Enabled) {
 		ports = append(ports, v1.ServicePort{
 			Name:       MetricsPortName,
 			Protocol:   v1.ProtocolTCP,

@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apilabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -72,7 +73,7 @@ func Test_NTPCanHandle(t *testing.T) {
 			name: "NTPMonitoring is disabled",
 			testCase: func(instance *rhtasv1.TimestampAuthority) {
 				instance.Status.Conditions[0].Reason = state.Creating.String()
-				instance.Spec.NTPMonitoring.Enabled = false
+				instance.Spec.NTPMonitoring.Enabled = ptr.To(false)
 				instance.Spec.NTPMonitoring.Config = nil
 			},
 			expected: true,
@@ -81,7 +82,7 @@ func Test_NTPCanHandle(t *testing.T) {
 			name: "config is nil",
 			testCase: func(instance *rhtasv1.TimestampAuthority) {
 				instance.Status.Conditions[0].Reason = state.Creating.String()
-				instance.Spec.NTPMonitoring.Enabled = true
+				instance.Spec.NTPMonitoring.Enabled = ptr.To(true)
 				instance.Spec.NTPMonitoring.Config = nil
 			},
 			expected: true,
@@ -90,7 +91,7 @@ func Test_NTPCanHandle(t *testing.T) {
 			name: "config is nil and status same",
 			testCase: func(instance *rhtasv1.TimestampAuthority) {
 				instance.Status.Conditions[0].Reason = state.Creating.String()
-				instance.Spec.NTPMonitoring.Enabled = true
+				instance.Spec.NTPMonitoring.Enabled = ptr.To(true)
 				instance.Spec.NTPMonitoring.Config = nil
 			},
 			expected: true,
@@ -141,7 +142,7 @@ func Test_NTPHandle(t *testing.T) {
 			setup: func(instance *rhtasv1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1.TimestampAuthority]) {
 				instance.Status.Conditions[0].Reason = state.Creating.String()
 				instance.Spec.NTPMonitoring = rhtasv1.NTPMonitoring{
-					Enabled: true,
+					Enabled: ptr.To(true),
 					Config: &rhtasv1.NtpMonitoringConfig{
 						NtpConfigRef: &rhtasv1.LocalObjectReference{
 							Name: "ntp-config",
