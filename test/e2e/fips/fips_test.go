@@ -61,9 +61,9 @@ var _ = Describe("Securesign FIPS Strict Mode (fips140=only)", Ordered, func() {
 			func(v *rhtasv1.Securesign) {
 				v.Spec.Rekor.Attestations.Enabled = ptr.To(false)
 				v.Spec.Ctlog.Monitoring.TLog.Enabled = ptr.To(true)
-				v.Spec.Ctlog.Monitoring.TLog.Interval = metav1.Duration{Duration: 10 * time.Second}
+				v.Spec.Ctlog.Monitoring.TLog.Interval = &metav1.Duration{Duration: 10 * time.Second}
 				v.Spec.Rekor.Monitoring.TLog.Enabled = ptr.To(true)
-				v.Spec.Rekor.Monitoring.TLog.Interval = metav1.Duration{Duration: 10 * time.Second}
+				v.Spec.Rekor.Monitoring.TLog.Interval = &metav1.Duration{Duration: 10 * time.Second}
 			},
 			securesign.WithExternalPostgresDB(namespace.Name, postgresql.DefaultSecretName),
 		)
