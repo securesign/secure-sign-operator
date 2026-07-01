@@ -58,7 +58,7 @@ var _ = Describe("Ctlog Monitor", Ordered, func() {
 			securesign.ChooseDefaults(fipsEnabled, namespace.Name),
 			func(v *rhtasv1.Securesign) {
 				v.Spec.Ctlog.Monitoring.TLog.Enabled = ptr.To(true)
-				v.Spec.Ctlog.Monitoring.TLog.Interval = metav1.Duration{Duration: time.Second * 10}
+				v.Spec.Ctlog.Monitoring.TLog.Interval = &metav1.Duration{Duration: time.Second * 10}
 			},
 		)
 	})
