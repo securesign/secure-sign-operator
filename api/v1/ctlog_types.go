@@ -58,7 +58,6 @@ type CTlogSpec struct {
 	Monitoring MonitoringWithTLogConfig `json:"monitoring,omitempty"`
 
 	// Trillian service configuration
-	//+kubebuilder:default:={port: 8091}
 	Trillian TrillianService `json:"trillian,omitempty"`
 
 	// Secret holding Certificate Transparency server config in text proto format
@@ -72,7 +71,6 @@ type CTlogSpec struct {
 	TLS TLS `json:"tls,omitempty"`
 
 	// Max certificate chain size in bytes. Passed as --max_cert_chain_size.
-	//+kubebuilder:default:=153600
 	//+optional
 	MaxCertChainSize *int64 `json:"maxCertChainSize,omitempty"`
 

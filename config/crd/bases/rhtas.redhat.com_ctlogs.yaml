@@ -979,7 +979,6 @@ spec:
                   x-kubernetes-map-type: atomic
                 type: array
               maxCertChainSize:
-                default: 153600
                 description: Max certificate chain size in bytes. Passed as --max_cert_chain_size.
                 format: int64
                 type: integer
@@ -987,7 +986,6 @@ spec:
                 description: Enable Service monitors for ctlog
                 properties:
                   enabled:
-                    default: true
                     description: If true, the Operator will create monitoring resources
                     type: boolean
                     x-kubernetes-validations:
@@ -997,7 +995,6 @@ spec:
                     description: Configuration for Rekor transparency log monitoring
                     properties:
                       enabled:
-                        default: false
                         description: If true, the Operator will create the Rekor log
                           monitor resources
                         type: boolean
@@ -1005,7 +1002,6 @@ spec:
                         - message: Feature cannot be disabled
                           rule: (self || !oldSelf)
                       interval:
-                        default: 10m
                         description: Interval between log monitoring checks
                         type: string
                     required:
@@ -1089,7 +1085,6 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               replicas:
-                default: 1
                 description: Number of desired pods.
                 format: int32
                 minimum: 0
@@ -1283,15 +1278,12 @@ spec:
                 format: int64
                 type: integer
               trillian:
-                default:
-                  port: 8091
                 description: Trillian service configuration
                 properties:
                   address:
                     description: Address to Trillian Log Server End point
                     type: string
                   port:
-                    default: 8091
                     description: Port of Trillian Log Server End point
                     format: int32
                     maximum: 65535

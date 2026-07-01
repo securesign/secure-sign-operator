@@ -37,28 +37,22 @@ type TufSpec struct {
 	PodRequirements      `json:",inline"`
 	ServiceAccountConfig `json:",inline"`
 	// SigningConfigURLMode is deprecated. URL mode is now autoresolved from Component Custom Resources.
-	//+kubebuilder:default:=external
 	// +kubebuilder:validation:Deprecated=true
 	SigningConfigURLMode TufSigningConfigURLMode `json:"signingConfigURLMode,omitempty"`
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
-	//+kubebuilder:default:=80
 	//+kubebuilder:validation:Minimum:=1
 	//+kubebuilder:validation:Maximum:=65535
 	Port int32 `json:"port,omitempty"`
 	// List of TUF targets which will be added to TUF root
-	//+kubebuilder:default:={{name: rekor.pub},{name: ctfe.pub},{name: fulcio_v1.crt.pem},{name: tsa.certchain.pem}}
 	//+kubebuilder:validation:MinItems:=1
 	Keys []TufKey `json:"keys,omitempty"`
 	// Secret object reference that will hold you repository root keys. This parameter will be used only with operator-managed repository.
-	//+kubebuilder:default:={name: tuf-root-keys}
 	RootKeySecretRef *LocalObjectReference `json:"rootKeySecretRef,omitempty"`
 	// Pvc configuration of the persistent storage claim for deployment in the cluster.
 	// You can use ReadWriteOnce accessMode if you don't have suitable storage provider but your deployment will not support HA mode
-	//+kubebuilder:default:={size: "100Mi",retain: true,accessModes: {ReadWriteOnce}}
 	Pvc TufPvc `json:"pvc,omitempty"`
 	// Ctlog service configuration
-	//+kubebuilder:default:={prefix: trusted-artifact-signer}
 	//+optional
 	Ctlog CtlogService `json:"ctlog,omitempty"`
 	// Fulcio service configuration
@@ -83,11 +77,9 @@ type TufPvc struct {
 	// The requested size of the persistent volume attached to Pod.
 	// The format of this field matches that defined by kubernetes/apimachinery.
 	// See https://pkg.go.dev/k8s.io/apimachinery/pkg/api/resource#Quantity for more info on the format of this field.
-	//+kubebuilder:default:="100Mi"
 	Size *k8sresource.Quantity `json:"size,omitempty"`
 
 	// Retain policy for the PVC
-	//+kubebuilder:default:=true
 	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
 	Retain *bool `json:"retain"`
 	// Name of the PVC
@@ -100,7 +92,6 @@ type TufPvc struct {
 	//+optional
 	StorageClass string `json:"storageClass,omitempty"`
 	// PersistentVolume AccessModes. Configure ReadWriteMany for HA deployment.
-	//+kubebuilder:default:={ReadWriteOnce}
 	//+kubebuilder:validation:MinItems:=1
 	AccessModes []PersistentVolumeAccessMode `json:"accessModes,omitempty"`
 }

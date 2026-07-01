@@ -9,10 +9,9 @@ import (
 
 var securesignlog = logf.Log.WithName("securesign-resource")
 
-// SecuresignDefaulter is a no-op scaffold; real defaulting logic will be added in SECURESIGN-4581.
 type SecuresignDefaulter struct{}
 
-//+kubebuilder:webhook:path=/mutate-rhtas-redhat-com-v1-securesign,mutating=true,failurePolicy=fail,sideEffects=None,groups=rhtas.redhat.com,resources=securesigns,verbs=create;update,versions=v1,name=msecuresign.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-rhtas-redhat-com-v1-securesign,mutating=true,failurePolicy=fail,sideEffects=None,groups=rhtas.redhat.com,resources=securesigns,verbs=create;update,versions=v1,name=msecuresign.kb.io,admissionReviewVersions=v1,matchPolicy=Exact
 
 func SetupSecuresignWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, &Securesign{}).
@@ -20,7 +19,8 @@ func SetupSecuresignWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-func (d *SecuresignDefaulter) Default(_ context.Context, obj *Securesign) error {
+func (d *SecuresignDefaulter) Default(ctx context.Context, obj *Securesign) error {
 	securesignlog.Info("default", "name", obj.Name)
+	obj.Spec.SetDefaults()
 	return nil
 }

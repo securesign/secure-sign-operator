@@ -31,35 +31,28 @@ type RekorSpec struct {
 	//+optional
 	TreeID *int64 `json:"treeID,omitempty"`
 	// Trillian service configuration
-	//+kubebuilder:default:={port: 8091}
 	Trillian TrillianService `json:"trillian,omitempty"`
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
 	//Enable Service monitors for rekor
 	Monitoring MonitoringWithTLogConfig `json:"monitoring,omitempty"`
 	// Rekor Search UI
-	//+kubebuilder:default:={enabled: true}
 	RekorSearchUI RekorSearchUI `json:"rekorSearchUI,omitempty"`
 	// Signer configuration
 	Signer RekorSigner `json:"signer,omitempty"`
 	// Attestations configuration
-	//+kubebuilder:default:={enabled: true, url: "file:///var/run/attestations?no_tmp_dir=true", maxSize: "100Ki"}
 	Attestations RekorAttestations `json:"attestations,omitempty"`
 	// Define your search index database connection
-	//+kubebuilder:default:={create: true}
 	SearchIndex SearchIndex `json:"searchIndex,omitempty"`
 	// PVC configuration
-	//+kubebuilder:default:={size: "5Gi", retain: true, accessModes: {ReadWriteOnce}}
 	Pvc Pvc `json:"pvc,omitempty"`
 	// BackFillRedis CronJob Configuration
-	//+kubebuilder:default:={enabled: true, schedule: "0 0 * * *"}
 	BackFillRedis BackFillRedis `json:"backFillRedis,omitempty"`
 	// Inactive shards
 	// +listType=map
 	// +listMapKey=treeID
 	// +patchStrategy=merge
 	// +patchMergeKey=treeID
-	// +kubebuilder:default:={}
 	Sharding []RekorLogRange `json:"sharding,omitempty"`
 	// ConfigMap with additional bundle of trusted CA
 	//+optional
@@ -69,7 +62,6 @@ type RekorSpec struct {
 	Auth *Auth `json:"auth,omitempty"`
 
 	// MaxRequestBodySize sets the maximum size in bytes for HTTP request body. Passed as --max_request_body_size.
-	//+kubebuilder:default:=10485760
 	//+optional
 	MaxRequestBodySize *int64 `json:"maxRequestBodySize,omitempty"`
 }
@@ -80,7 +72,6 @@ type RekorAttestations struct {
 	// When set to true, the system will store detailed attestations.
 	// This feature cannot be disabled once enabled to maintain data integrity.
 	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled once enabled.
-	//+kubebuilder:default:=true
 	Enabled *bool `json:"enabled"`
 
 	/// Url specifies the storage location for attestations, supporting go-cloud blob URLs.
@@ -98,12 +89,10 @@ type RekorAttestations struct {
 	//
 	// +kubebuilder:validation:XValidation:rule="(self.startsWith(\"file://\") || self.startsWith(\"s3://\") || self.startsWith(\"gs://\") || self.startsWith(\"azblob://\") || self.startsWith(\"mem://\"))",message="URL must use a supported protocol (file://, s3://, gs://, azblob://, mem://)."
 	// +kubebuilder:validation:XValidation:rule="(!self.startsWith(\"file://\") || self.startsWith(\"file:///var/run/attestations\"))",message="If using 'file://' protocol, the URL must start with 'file:///var/run/attestations'."
-	// +kubebuilder:default:="file:///var/run/attestations?no_tmp_dir=true"
 	Url string `json:"url,omitempty"`
 
 	// MaxSize defines the maximum allowed size for an individual attestation.
 	// This helps prevent excessively large attestations from being stored.
-	// +kubebuilder:default:="100Ki"
 	MaxSize *k8sresource.Quantity `json:"maxSize,omitempty"`
 }
 
@@ -119,8 +108,7 @@ type RekorSigner struct {
 	//   - azurekms://keyname
 	//   - gcpkms://keyname
 	//   - hashivault://keyname
-	// +kubebuilder:validation:XValidation:rule="self == '' || self == 'secret' || self == 'memory' || self.matches('^awskms://.+$') || self.matches('^gcpkms://.+$') || self.matches('^azurekms://.+$') || self.matches('^hashivault://.+$')",message="KMS must be '', 'secret', 'memory', or a valid URI with a key path (e.g., awskms:///key-id)"
-	// +kubebuilder:default:=secret
+	// +kubebuilder:validation:XValidation:rule="self == 'secret' || self == 'memory' || self.matches('^awskms://.+$') || self.matches('^gcpkms://.+$') || self.matches('^azurekms://.+$') || self.matches('^hashivault://.+$')",message="KMS must be 'secret', 'memory', or a valid URI with a key path (e.g., awskms:///key-id)"
 	KMS string `json:"kms,omitempty"`
 
 	// Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
@@ -143,7 +131,6 @@ type RekorSearchUI struct {
 	PodRequirements `json:",inline"`
 	// If set to true, the Operator will deploy a Rekor Search UI
 	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
-	//+kubebuilder:default:=true
 	Enabled *bool `json:"enabled"`
 	// Set hostname for your Ingress/Route.
 	Host string `json:"host,omitempty"`
@@ -157,7 +144,6 @@ type RekorSearchUI struct {
 // +kubebuilder:validation:XValidation:rule=(!(has(self.provider) && self.provider != "") || (self.url != "")),message=URL must be provided if provider is specified
 type SearchIndex struct {
 	// Create Database if a database. If create=true provider and url fields are not taken into account, otherwise url field must be specified.
-	//+kubebuilder:default:=true
 	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
 	Create *bool `json:"create"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged database.
@@ -173,10 +159,8 @@ type SearchIndex struct {
 type BackFillRedis struct {
 	//Enable the BackFillRedis CronJob
 	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
-	//+kubebuilder:default:=true
 	Enabled *bool `json:"enabled"`
 	//Schedule for the BackFillRedis CronJob
-	//+kubebuilder:default:="0 0 * * *"
 	//+kubebuilder:validation:Pattern:="^(@(?i)(yearly|annually|monthly|weekly|daily|hourly)|((\\*(\\/[1-9][0-9]*)?|[0-9,-]+)+\\s){4}(\\*(\\/[1-9][0-9]*)?|[0-9,-]+)+)$"
 	Schedule string `json:"schedule,omitempty"`
 }

@@ -9,29 +9,29 @@ import (
 	_ "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("TUF", func() {
 
 	Context("TufSpec", func() {
 		It("can be created", func() {
-			created := generateTufObject("tuf-create")
+			created := generateMinimalTuf("tuf-create")
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 			fetched := &Tuf{}
-			Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 			Expect(fetched).To(Equal(created))
 		})
 
 		It("can be updated", func() {
-			created := generateTufObject("tuf-update")
+			created := generateMinimalTuf("tuf-update")
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 			fetched := &Tuf{}
-			Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 			Expect(fetched).To(Equal(created))
 
 			fetched.Spec.Port = 8080
@@ -39,21 +39,21 @@ var _ = Describe("TUF", func() {
 		})
 
 		It("can be deleted", func() {
-			created := generateTufObject("tuf-delete")
+			created := generateMinimalTuf("tuf-delete")
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 			Expect(k8sClient.Delete(context.Background(), created)).To(Succeed())
-			Expect(k8sClient.Get(context.Background(), getKey(created), created)).ToNot(Succeed())
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), created)).ToNot(Succeed())
 		})
 
 		When("changing external access setting", func() {
 			It("enabled false->true", func() {
-				created := generateTufObject("tuf-access-1")
+				created := generateMinimalTuf("tuf-access-1")
 				created.Spec.ExternalAccess.Enabled = ptr.To(false)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Tuf{}
-				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
 				fetched.Spec.ExternalAccess.Enabled = ptr.To(true)
@@ -61,12 +61,12 @@ var _ = Describe("TUF", func() {
 			})
 
 			It("enabled true->false", func() {
-				created := generateTufObject("tuf-access-2")
+				created := generateMinimalTuf("tuf-access-2")
 				created.Spec.ExternalAccess.Enabled = ptr.To(true)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Tuf{}
-				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
 				fetched.Spec.ExternalAccess.Enabled = ptr.To(false)
@@ -76,19 +76,21 @@ var _ = Describe("TUF", func() {
 			})
 		})
 
-		It("defaults Enabled fields when not set", func() {
-			obj := generateTufObject("tuf-defaults")
-			obj.Spec.ExternalAccess.Enabled = nil
-			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+		It("webhook defaults match SetDefaults", func() {
+			created := generateMinimalTuf("tuf-defaults")
+			expected := generateMinimalTuf("tuf-defaults")
+			expected.Spec.SetDefaults()
+
+			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 			fetched := &Tuf{}
-			Expect(k8sClient.Get(context.Background(), getKey(obj), fetched)).To(Succeed())
-			Expect(fetched.Spec.ExternalAccess.Enabled).To(HaveValue(BeFalse()))
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
+			Expect(fetched.Spec).To(Equal(expected.Spec))
 		})
 
 		Context("is validated", func() {
 			It("port is negative", func() {
-				invalidObject := generateTufObject("port-negative")
+				invalidObject := generateMinimalTuf("port-negative")
 				invalidObject.Spec.Port = -20
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
@@ -96,7 +98,7 @@ var _ = Describe("TUF", func() {
 			})
 
 			It("port is bigger than 65535", func() {
-				invalidObject := generateTufObject("port-large")
+				invalidObject := generateMinimalTuf("port-large")
 				invalidObject.Spec.Port = 65536
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
@@ -104,7 +106,7 @@ var _ = Describe("TUF", func() {
 			})
 
 			It("tuf key with unsupported name", func() {
-				invalidObject := generateTufObject("unsupported-key")
+				invalidObject := generateMinimalTuf("unsupported-key")
 				invalidObject.Spec.Keys = []TufKey{
 					{
 						Name: "unsupported",
@@ -123,13 +125,13 @@ var _ = Describe("TUF", func() {
 
 			When("replicas", func() {
 				It("nil", func() {
-					validObject := generateTufObject("replicas-nil")
+					validObject := generateMinimalTuf("replicas-nil")
 					validObject.Spec.Replicas = nil
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
 
 				It("positive with ReadWriteOnce", func() {
-					invalidObject := generateTufObject("replicas-positive")
+					invalidObject := generateMinimalTuf("replicas-positive")
 					invalidObject.Spec.Replicas = ptr.To(int32(math.MaxInt32))
 					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 					Expect(k8sClient.Create(context.Background(), invalidObject)).
@@ -137,13 +139,13 @@ var _ = Describe("TUF", func() {
 				})
 
 				It("one with ReadWriteOnce", func() {
-					validObject := generateTufObject("replicas-single")
+					validObject := generateMinimalTuf("replicas-single")
 					validObject.Spec.Replicas = ptr.To(int32(1))
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
 
 				It("positive with ReadWriteMany", func() {
-					validObject := generateTufObject("replicas-positive-rwm")
+					validObject := generateMinimalTuf("replicas-positive-rwm")
 					validObject.Spec.Replicas = ptr.To(int32(235469))
 					validObject.Spec.Pvc.AccessModes = []PersistentVolumeAccessMode{
 						PersistentVolumeAccessMode(v1.ReadWriteMany),
@@ -152,7 +154,7 @@ var _ = Describe("TUF", func() {
 				})
 
 				It("negative", func() {
-					invalidObject := generateTufObject("replicas-negative")
+					invalidObject := generateMinimalTuf("replicas-negative")
 					invalidObject.Spec.Replicas = ptr.To(int32(-1))
 					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 					Expect(k8sClient.Create(context.Background(), invalidObject)).
@@ -160,7 +162,7 @@ var _ = Describe("TUF", func() {
 				})
 
 				It("zero", func() {
-					validObject := generateTufObject("replicas-zero")
+					validObject := generateMinimalTuf("replicas-zero")
 					validObject.Spec.Replicas = ptr.To(int32(0))
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
@@ -197,53 +199,18 @@ var _ = Describe("TUF", func() {
 
 				Expect(k8sClient.Create(context.Background(), &tufInstance)).To(Succeed())
 				fetchedtuf := &Tuf{}
-				Expect(k8sClient.Get(context.Background(), getKey(&tufInstance), fetchedtuf)).To(Succeed())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(&tufInstance), fetchedtuf)).To(Succeed())
 				Expect(fetchedtuf.Spec).To(Equal(tufInstance.Spec))
 			})
 		})
 	})
 })
 
-func generateTufObject(name string) *Tuf {
-	storage := resource.MustParse("100Mi")
+func generateMinimalTuf(name string) *Tuf {
 	return &Tuf{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
-		},
-		Spec: TufSpec{
-			PodRequirements: PodRequirements{
-				Replicas: ptr.To(int32(1)),
-			},
-			Port:                 80,
-			SigningConfigURLMode: SigningConfigURLExternal,
-			ExternalAccess: ExternalAccess{
-				Enabled: ptr.To(false),
-			},
-			Keys: []TufKey{
-				{
-					Name: "rekor.pub",
-				},
-				{
-					Name: "ctfe.pub",
-				},
-				{
-					Name: "fulcio_v1.crt.pem",
-				},
-				{
-					Name: "tsa.certchain.pem",
-				},
-			},
-			RootKeySecretRef: &LocalObjectReference{
-				Name: "tuf-root-keys",
-			},
-			Pvc: TufPvc{
-				Retain: ptr.To(true),
-				Size:   &storage,
-				AccessModes: []PersistentVolumeAccessMode{
-					"ReadWriteOnce",
-				},
-			},
 		},
 	}
 }

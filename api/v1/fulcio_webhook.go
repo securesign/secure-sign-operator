@@ -9,10 +9,9 @@ import (
 
 var fulciolog = logf.Log.WithName("fulcio-resource")
 
-// FulcioDefaulter is a no-op scaffold; real defaulting logic will be added in SECURESIGN-4581.
 type FulcioDefaulter struct{}
 
-//+kubebuilder:webhook:path=/mutate-rhtas-redhat-com-v1-fulcio,mutating=true,failurePolicy=fail,sideEffects=None,groups=rhtas.redhat.com,resources=fulcios,verbs=create;update,versions=v1,name=mfulcio.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-rhtas-redhat-com-v1-fulcio,mutating=true,failurePolicy=fail,sideEffects=None,groups=rhtas.redhat.com,resources=fulcios,verbs=create;update,versions=v1,name=mfulcio.kb.io,admissionReviewVersions=v1,matchPolicy=Exact
 
 func SetupFulcioWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, &Fulcio{}).
@@ -20,7 +19,8 @@ func SetupFulcioWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-func (d *FulcioDefaulter) Default(_ context.Context, obj *Fulcio) error {
+func (d *FulcioDefaulter) Default(ctx context.Context, obj *Fulcio) error {
 	fulciolog.Info("default", "name", obj.Name)
+	obj.Spec.SetDefaults()
 	return nil
 }

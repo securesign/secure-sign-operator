@@ -62,7 +62,9 @@ var _ = BeforeSuite(func() {
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
 		BinaryAssetsDirectory: testenvhelper.FindBinaryAssetsDir(),
 		Scheme:                scheme.Scheme,
-		WebhookInstallOptions: envtest.WebhookInstallOptions{},
+		WebhookInstallOptions: envtest.WebhookInstallOptions{
+			Paths: []string{filepath.Join("..", "..", "config", "webhook")},
+		},
 	}
 
 	var err error
@@ -85,6 +87,14 @@ var _ = BeforeSuite(func() {
 
 	conversionHandler := webhookconversion.NewWebhookHandler(mgr.GetScheme(), webhookconversion.NewRegistry())
 	mgr.GetWebhookServer().Register("/convert", conversionHandler)
+
+	Expect(rhtasv1.SetupCTlogWebhookWithManager(mgr)).To(Succeed())
+	Expect(rhtasv1.SetupFulcioWebhookWithManager(mgr)).To(Succeed())
+	Expect(rhtasv1.SetupRekorWebhookWithManager(mgr)).To(Succeed())
+	Expect(rhtasv1.SetupSecuresignWebhookWithManager(mgr)).To(Succeed())
+	Expect(rhtasv1.SetupTimestampAuthorityWebhookWithManager(mgr)).To(Succeed())
+	Expect(rhtasv1.SetupTrillianWebhookWithManager(mgr)).To(Succeed())
+	Expect(rhtasv1.SetupTufWebhookWithManager(mgr)).To(Succeed())
 
 	go func() {
 		defer GinkgoRecover()
