@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	"context"
 	"math"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -215,6 +216,15 @@ func generateCTlogObject(name string) *CTlog {
 				Port: ptr.To(int32(8091)),
 			},
 			MaxCertChainSize: ptr.To(int64(153600)),
+			Monitoring: MonitoringWithTLogConfig{
+				MonitoringConfig: MonitoringConfig{
+					// v1alpha1 bare bool without omitempty serializes zero value, so CRD default never applies
+					Enabled: false,
+				},
+				TLog: TlogMonitoring{
+					Interval: metav1.Duration{Duration: 10 * time.Minute},
+				},
+			},
 		},
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"time"
 
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/state"
@@ -152,7 +153,10 @@ func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1.CTlog, sa 
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, actions.MonitorStatefulSetName)
 		container.Image = images.Registry.Get(images.CTLogMonitor)
 
-		interval := instance.Spec.Monitoring.TLog.Interval.Duration
+		interval := 10 * time.Minute
+		if instance.Spec.Monitoring.TLog.Interval != nil && instance.Spec.Monitoring.TLog.Interval.Duration > 0 {
+			interval = instance.Spec.Monitoring.TLog.Interval.Duration
+		}
 		container.Command = []string{
 			"/bin/sh",
 			"-c",
