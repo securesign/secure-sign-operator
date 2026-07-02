@@ -96,10 +96,12 @@ func (r *trillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	target := instance.DeepCopy()
+	conditionSupplier := func(_ *rhtasv1alpha1.Trillian) []string {
+		return []string{actions.ServerCondition, actions.SignerCondition, actions.DbCondition}
+	}
 	actions := []action.Action[*rhtasv1alpha1.Trillian]{
-		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Trillian](func(t *rhtasv1alpha1.Trillian) []string {
-			return []string{actions.ServerCondition, actions.SignerCondition, actions.DbCondition}
-		}),
+		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Trillian](conditionSupplier),
+		transitions.NewEnsureConditionsAction[*rhtasv1alpha1.Trillian](conditionSupplier),
 
 		logserver.NewTlsAction(),
 		logsigner.NewTlsAction(),

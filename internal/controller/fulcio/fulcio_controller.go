@@ -93,10 +93,12 @@ func (r *fulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	target := instance.DeepCopy()
+	conditionSupplier := func(_ *rhtasv1alpha1.Fulcio) []string {
+		return []string{actions.CertCondition}
+	}
 	acs := []action.Action[*rhtasv1alpha1.Fulcio]{
-		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Fulcio](func(_ *rhtasv1alpha1.Fulcio) []string {
-			return []string{actions.CertCondition}
-		}),
+		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.Fulcio](conditionSupplier),
+		transitions.NewEnsureConditionsAction[*rhtasv1alpha1.Fulcio](conditionSupplier),
 		actions.NewHandleCertAction(),
 		transitions.NewToCreatePhaseAction[*rhtasv1alpha1.Fulcio](),
 		actions.NewRBACAction(),

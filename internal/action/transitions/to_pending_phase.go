@@ -36,9 +36,5 @@ func (i toPending[T]) Handle(ctx context.Context, instance T) *action.Result {
 		Status: metav1.ConditionFalse, Reason: state.Pending.String(),
 		ObservedGeneration: instance.GetGeneration()})
 
-	for _, c := range i.componentSupplier(instance) {
-		instance.SetCondition(metav1.Condition{Type: c,
-			Status: metav1.ConditionUnknown, Reason: state.Pending.String()})
-	}
 	return i.StatusUpdate(ctx, instance)
 }
