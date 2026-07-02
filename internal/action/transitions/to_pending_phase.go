@@ -13,13 +13,12 @@ import (
 
 type ComponentSupplier[T apis.ConditionsAwareObject] func(T) []string
 
-func NewToPendingPhaseAction[T apis.ConditionsAwareObject](componentSupplier ComponentSupplier[T]) action.Action[T] {
-	return &toPending[T]{componentSupplier: componentSupplier}
+func NewToPendingPhaseAction[T apis.ConditionsAwareObject]() action.Action[T] {
+	return &toPending[T]{}
 }
 
 type toPending[T apis.ConditionsAwareObject] struct {
 	action.BaseAction
-	componentSupplier func(T) []string
 }
 
 func (i toPending[T]) Name() string {
@@ -36,9 +35,5 @@ func (i toPending[T]) Handle(ctx context.Context, instance T) *action.Result {
 		Status: metav1.ConditionFalse, Reason: state.Pending.String(),
 		ObservedGeneration: instance.GetGeneration()})
 
-	for _, c := range i.componentSupplier(instance) {
-		instance.SetCondition(metav1.Condition{Type: c,
-			Status: metav1.ConditionUnknown, Reason: state.Pending.String()})
-	}
 	return i.StatusUpdate(ctx, instance)
 }
