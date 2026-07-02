@@ -5,7 +5,7 @@ ARG BUNDLE_GEN_FLAGS="-q --overwrite=false --version $VERSION --channels=$CHANNE
 ARG TARGET_PLATFORM="openshift"
 ARG IMG
 
-FROM registry.redhat.io/openshift4/ose-cli-rhel9@sha256:74c3ddcb7ec246143eaa29207bbb99be8cf83bec12bf8998a9f594cca0e33a78 AS oc-builder
+FROM registry.redhat.io/openshift4/ose-cli-rhel9@sha256:cb1fdfca911300ad447d51a030ca601ff40303ef58632dc8e702ac3a294a33ef AS oc-builder
 
 FROM registry.redhat.io/openshift4/ose-operator-sdk-rhel9@sha256:8ff0cb8587bbca8809490ff59a67496599b6c0cc8e4ca88451481a265f17e581 AS builder
 
