@@ -1,0 +1,22 @@
+apiVersion: console.openshift.io/v1
+kind: ConsoleCLIDownload
+metadata:
+  name: updatetree
+spec:
+  displayName: "updatetree - Command Line Interface (CLI)"
+  description: "update-tree is a CLI tool which is used for managing existing tress within trillian."
+  links:
+    - text: "Download updatetree for Linux x86_64"
+      href: "https://developers.redhat.com/content-gateway/file/cgw/RHTAS/__VERSION__/updatetree_linux_amd64.tar.gz"
+    - text: "Download updatetree for Linux arm64"
+      href: "https://developers.redhat.com/content-gateway/file/cgw/RHTAS/__VERSION__/updatetree_linux_arm64.tar.gz"
+    - text: "Download updatetree for Linux ppc64le"
+      href: "https://developers.redhat.com/content-gateway/file/cgw/RHTAS/__VERSION__/updatetree_linux_ppc64le.tar.gz"
+    - text: "Download updatetree for Linux s390x"
+      href: "https://developers.redhat.com/content-gateway/file/cgw/RHTAS/__VERSION__/updatetree_linux_s390x.tar.gz"
+    - text: "Download updatetree for Mac x86_64"
+      href: "https://developers.redhat.com/content-gateway/file/cgw/RHTAS/__VERSION__/updatetree_darwin_amd64.tar.gz"
+    - text: "Download updatetree for Mac arm64"
+      href: "https://developers.redhat.com/content-gateway/file/cgw/RHTAS/__VERSION__/updatetree_darwin_arm64.tar.gz"
+    - text: "Download updatetree for Windows x86_64"
+      href: "https://developers.redhat.com/content-gateway/file/cgw/RHTAS/__VERSION__/updatetree_windows_amd64.zip"
