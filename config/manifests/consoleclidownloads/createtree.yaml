@@ -1,0 +1,22 @@
+apiVersion: console.openshift.io/v1
+kind: ConsoleCLIDownload
+metadata:
+  name: createtree
+spec:
+  displayName: "createtree - Command Line Interface (CLI)"
+  description: "create-tree is a CLI tool which is used for creating new trees within trillian."
+  links:
+    - text: "Download createtree for Linux x86_64"
+      href: "https://developers.redhat.com/content-gateway/file/cgw/RHTAS/__VERSION__/createtree_linux_amd64.tar.gz"
+    - text: "Download createtree for Linux arm64"
+      href: "https://developers.redhat.com/content-gateway/file/cgw/RHTAS/__VERSION__/createtree_linux_arm64.tar.gz"
+    - text: "Download createtree for Linux ppc64le"
+      href: "https://developers.redhat.com/content-gateway/file/cgw/RHTAS/__VERSION__/createtree_linux_ppc64le.tar.gz"
+    - text: "Download createtree for Linux s390x"
+      href: "https://developers.redhat.com/content-gateway/file/cgw/RHTAS/__VERSION__/createtree_linux_s390x.tar.gz"
+    - text: "Download createtree for Mac x86_64"
+      href: "https://developers.redhat.com/content-gateway/file/cgw/RHTAS/__VERSION__/createtree_darwin_amd64.tar.gz"
+    - text: "Download createtree for Mac arm64"
+      href: "https://developers.redhat.com/content-gateway/file/cgw/RHTAS/__VERSION__/createtree_darwin_arm64.tar.gz"
+    - text: "Download createtree for Windows x86_64"
+      href: "https://developers.redhat.com/content-gateway/file/cgw/RHTAS/__VERSION__/createtree_windows_amd64.zip"
