@@ -99,10 +99,12 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	target := instance.DeepCopy()
+	conditionSupplier := func(_ *rhtasv1alpha1.CTlog) []string {
+		return []string{actions.CertCondition, actions.ConfigCondition, actions.TLSCondition}
+	}
 	acs := []action.Action[*rhtasv1alpha1.CTlog]{
-		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.CTlog](func(_ *rhtasv1alpha1.CTlog) []string {
-			return []string{actions.CertCondition, actions.ConfigCondition, actions.TLSCondition}
-		}),
+		transitions.NewToPendingPhaseAction[*rhtasv1alpha1.CTlog](),
+		transitions.NewEnsureConditionsAction[*rhtasv1alpha1.CTlog](conditionSupplier),
 
 		actions.NewTlsAction(),
 
