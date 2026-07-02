@@ -23,7 +23,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
-	fulcio "github.com/securesign/operator/internal/controller/fulcio/actions"
+
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
@@ -132,15 +132,31 @@ var _ = Describe("CTlog controller", func() {
 				return cond.Reason
 			}).Should(Equal(state.Creating.String()))
 
-			By("Creating fulcio root cert")
-			Expect(suite.Client().Create(ctx, &corev1.Secret{
+			By("Creating Fulcio CR with root certificate for autodiscovery")
+			fulcioCR := &rhtasv1.Fulcio{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test",
+					Name:      "fulcio-test",
 					Namespace: Namespace,
-					Labels:    map[string]string{fulcio.FulcioCALabel: "cert"},
 				},
-				Data: map[string][]byte{"cert": []byte("fakeCert")},
-			})).To(Succeed())
+				Spec: rhtasv1.FulcioSpec{
+					Config: rhtasv1.FulcioConfig{
+						OIDCIssuers: []rhtasv1.OIDCIssuer{{ClientID: "test", Issuer: "test"}},
+					},
+					Certificate: rhtasv1.FulcioCert{
+						CommonName:        "test",
+						OrganizationName:  "test",
+						OrganizationEmail: "test@test.com",
+					},
+				},
+			}
+			Expect(suite.Client().Create(ctx, fulcioCR)).To(Succeed())
+			fulcioCR.Status.CertificateChain = "-----BEGIN CERTIFICATE-----\nfakeCert\n-----END CERTIFICATE-----\n"
+			fulcioCR.SetCondition(metav1.Condition{
+				Type:   constants.ReadyCondition,
+				Status: metav1.ConditionTrue,
+				Reason: state.Ready.String(),
+			})
+			Expect(suite.Client().Status().Update(ctx, fulcioCR)).To(Succeed())
 
 			Eventually(func(g Gomega) string {
 				found := &rhtasv1.CTlog{}
@@ -183,6 +199,13 @@ var _ = Describe("CTlog controller", func() {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())
+
+			By("Public key has been resolved into status")
+			Eventually(func(g Gomega) {
+				found := &rhtasv1.CTlog{}
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(found.Status.PublicKey).ShouldNot(BeEmpty())
+			}).Should(Succeed())
 
 			By("Checking if controller will return deployment to desired state")
 			deployment = &appsv1.Deployment{}

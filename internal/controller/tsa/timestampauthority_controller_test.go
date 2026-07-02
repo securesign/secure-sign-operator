@@ -18,11 +18,16 @@ package tsa
 
 import (
 	"context"
+	"io"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
+	httpmock "github.com/securesign/operator/internal/testing/http"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
+	httputils "github.com/securesign/operator/internal/utils/http"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -39,6 +44,8 @@ import (
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/utils/ptr"
 )
+
+const testCertChainPEM = "-----BEGIN CERTIFICATE-----\nMIIBKzCB1KADAgECAgEBMAoGCCqGSM49BAMCMA8xDTALBgNVBAMTBHRlc3QwHhcN\nMjYwNjI5MTYxOTIwWhcNMjYwNjI5MTcxOTIwWjAPMQ0wCwYDVQQDEwR0ZXN0MFkw\nEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE85lB8dJ2gvU3WiSMnVW1HawG0AguTJtn\nJ0xsj1MVte14R8gbZ5JYa1JQApfaFPZASG5BDF+wtCSAxZsnv1p2nKMhMB8wHQYD\nVR0OBBYEFERbL9GJ1Bjo8NTCbJGFhPsOxZrWMAoGCCqGSM49BAMCA0YAMEMCHyCB\nX67EHWE0mk/oUaL8bXMKVVZb8nv9LVFp50xV27MCIAWXJKxRq+uzAV3KjeQHRGhV\nO6CWnSga3RNCz1GANhNf\n-----END CERTIFICATE-----"
 
 var _ = Describe("TimestampAuthority Controller", func() {
 	Context("When reconciling a resource", func() {
@@ -68,6 +75,22 @@ var _ = Describe("TimestampAuthority Controller", func() {
 			By("Creating the Namespace to perform the tests")
 			err := suite.Client().Create(ctx, namespace)
 			Expect(err).To(Not(HaveOccurred()))
+
+			By("Setting up HTTP mock builder for cert chain resolution")
+			mockClient := &http.Client{}
+			httputils.SetClientBuilder(func(_ ...[]byte) *http.Client { return mockClient })
+			httpmock.SetMockTransport(mockClient, map[string]httpmock.RoundTripFunc{
+				"http://tsa.localhost/api/v1/timestamp/certchain": func(_ *http.Request) *http.Response {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(testCertChainPEM)),
+						Header:     make(http.Header),
+					}
+				},
+			})
+			DeferCleanup(func() {
+				httputils.ResetClientBuilder()
+			})
 		})
 
 		AfterEach(func() {
@@ -218,6 +241,12 @@ var _ = Describe("TimestampAuthority Controller", func() {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())
+
+			By("Certificate chain has been resolved into status")
+			Eventually(func(g Gomega) {
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(found.Status.CertificateChain).Should(Equal(testCertChainPEM))
+			}).Should(Succeed())
 
 		})
 	})

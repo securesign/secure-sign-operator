@@ -88,6 +88,9 @@ type CTlogStatus struct {
 	PrivateKeyPasswordRef *SecretKeySelector    `json:"privateKeyPasswordRef,omitempty"`
 	PublicKeyRef          *SecretKeySelector    `json:"publicKeyRef,omitempty"`
 	RootCertificates      []SecretKeySelector   `json:"rootCertificates,omitempty"`
+	// PEM-encoded public key resolved from the CTlog signer secret.
+	// +optional
+	PublicKey string `json:"publicKey,omitempty"`
 	// The ID of a Trillian tree that stores the log data.
 	// +kubebuilder:validation:Type=number
 	TreeID *int64 `json:"treeID,omitempty"`

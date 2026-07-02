@@ -1,0 +1,49 @@
+package actions
+
+import (
+	"context"
+	"net/url"
+
+	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/resolvePubKey"
+	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/state"
+	httputils "github.com/securesign/operator/internal/utils/http"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+type tsaTrustMaterialResolver struct{}
+
+func (r tsaTrustMaterialResolver) ComponentName() string { return ComponentName }
+
+func (r tsaTrustMaterialResolver) ConditionType() string { return constants.ReadyCondition }
+
+func (r tsaTrustMaterialResolver) CanHandle(_ context.Context, instance *rhtasv1.TimestampAuthority) bool {
+	return state.FromInstance(instance, constants.ReadyCondition) >= state.Initialize
+}
+
+func (r tsaTrustMaterialResolver) GetTrustMaterial(instance *rhtasv1.TimestampAuthority) string {
+	return instance.Status.CertificateChain
+}
+
+func (r tsaTrustMaterialResolver) SetTrustMaterial(instance *rhtasv1.TimestampAuthority, pem string) {
+	instance.Status.CertificateChain = pem
+}
+
+func (r tsaTrustMaterialResolver) Resolve(ctx context.Context, cli client.Client, instance *rhtasv1.TimestampAuthority) ([]byte, error) {
+	baseURL := resolvePubKey.ResolveBaseURL(DeploymentName, instance.Namespace, instance.Status.Url, ServerPort)
+	u, err := url.JoinPath(baseURL, "/api/v1/timestamp/certchain")
+	if err != nil {
+		return nil, err
+	}
+	cas, err := httputils.LoadTrustedCAs(ctx, cli, instance.Namespace, instance.GetTrustedCA())
+	if err != nil {
+		return nil, err
+	}
+	return httputils.FetchFromAPI(httputils.GetClientBuilder()(cas...), u)
+}
+
+func NewResolvePubKeyAction() action.Action[*rhtasv1.TimestampAuthority] {
+	return resolvePubKey.NewAction[*rhtasv1.TimestampAuthority](tsaTrustMaterialResolver{})
+}

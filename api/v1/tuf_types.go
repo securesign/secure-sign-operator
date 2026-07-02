@@ -110,9 +110,10 @@ type TufKey struct {
 	//+required
 	// +kubebuilder:validation:Enum:=rekor.pub;ctfe.pub;fulcio_v1.crt.pem;tsa.certchain.pem
 	Name string `json:"name"`
-	// Reference to secret object
-	// If it is unset, the operator will try to autoconfigure secret reference, by searching secrets in namespace which
-	// contain `rhtas.redhat.com/$name` label.
+	// Reference to secret object.
+	// If unset, the operator resolves the trust material from the corresponding component CR's
+	// status field (e.g. Rekor.Status.PublicKey, Fulcio.Status.CertificateChain) and stores it
+	// in a TUF-owned secret.
 	//+optional
 	SecretRef *SecretKeySelector `json:"secretRef,omitempty"`
 }

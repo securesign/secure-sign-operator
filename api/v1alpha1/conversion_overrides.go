@@ -32,3 +32,19 @@ func Convert_v1_TrillianSpec_To_v1alpha1_TrillianSpec(in *v1.TrillianSpec, out *
 func Convert_v1_TufSpec_To_v1alpha1_TufSpec(in *v1.TufSpec, out *TufSpec, s apiconversion.Scope) error {
 	return autoConvert_v1_TufSpec_To_v1alpha1_TufSpec(in, out, s)
 }
+
+// Manual conversion functions for Status types where v1 has fields
+// that don't exist in v1alpha1 (e.g. PublicKey, CertificateChain).
+// These fields are preserved via MarshalData/UnmarshalData annotation.
+
+func Convert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in *v1.CTlogStatus, out *CTlogStatus, s apiconversion.Scope) error {
+	return autoConvert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in, out, s)
+}
+
+func Convert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in *v1.FulcioStatus, out *FulcioStatus, s apiconversion.Scope) error {
+	return autoConvert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in, out, s)
+}
+
+func Convert_v1_RekorStatus_To_v1alpha1_RekorStatus(in *v1.RekorStatus, out *RekorStatus, s apiconversion.Scope) error {
+	return autoConvert_v1_RekorStatus_To_v1alpha1_RekorStatus(in, out, s)
+}

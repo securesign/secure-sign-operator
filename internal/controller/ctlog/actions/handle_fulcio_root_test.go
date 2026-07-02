@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -16,11 +17,31 @@ import (
 
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
-	"github.com/securesign/operator/internal/controller/fulcio/actions"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+const testCert = "-----BEGIN CERTIFICATE-----\nMIIBtest\n-----END CERTIFICATE-----\n"
+
+func readyFulcio() *rhtasv1.Fulcio {
+	return &rhtasv1.Fulcio{
+		ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: "default"},
+		Spec: rhtasv1.FulcioSpec{
+			Certificate: rhtasv1.FulcioCert{
+				CommonName:        "test",
+				OrganizationName:  "test",
+				OrganizationEmail: "test@test.com",
+			},
+		},
+		Status: rhtasv1.FulcioStatus{
+			CertificateChain: testCert,
+			Conditions: []metav1.Condition{
+				{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: state.Ready.String()},
+			},
+		},
+	}
+}
 
 func TestCertCan_Handle(t *testing.T) {
 
@@ -84,14 +105,7 @@ func TestCertCan_Handle(t *testing.T) {
 				certificates: nil,
 				status:       rhtasv1.CTlogStatus{},
 				objects: []client.Object{
-					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "secret",
-							Namespace: "default",
-							Labels:    map[string]string{actions.FulcioCALabel: "key"},
-						},
-						Data: map[string][]byte{"key": nil},
-					},
+					readyFulcio(),
 				},
 			},
 			want: want{
@@ -112,14 +126,28 @@ func TestCertCan_Handle(t *testing.T) {
 					},
 				},
 				objects: []client.Object{
-					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "secret",
-							Namespace: "default",
-							Labels:    map[string]string{actions.FulcioCALabel: "key"},
+					readyFulcio(),
+				},
+			},
+			want: want{
+				canHandle: true,
+			},
+		},
+		{
+			name: "autodiscovery already resolved — still handles for cert rotation",
+			env: env{
+				phase:        state.Ready,
+				certificates: nil,
+				status: rhtasv1.CTlogStatus{
+					RootCertificates: []rhtasv1.SecretKeySelector{
+						{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-fulcio-root-instance"},
+							Key:                  "cert",
 						},
-						Data: map[string][]byte{"key": nil},
 					},
+				},
+				objects: []client.Object{
+					readyFulcio(),
 				},
 			},
 			want: want{
@@ -214,14 +242,7 @@ func TestCert_Handle(t *testing.T) {
 					},
 				},
 				objects: []client.Object{
-					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "secret",
-							Namespace: "default",
-							Labels:    map[string]string{actions.FulcioCALabel: "key"},
-						},
-						Data: map[string][]byte{"key": nil},
-					},
+					readyFulcio(),
 				},
 			},
 			want: want{
@@ -230,10 +251,12 @@ func TestCert_Handle(t *testing.T) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
 					g.Expect(status.RootCertificates).To(HaveLen(1))
-					g.Expect(status.RootCertificates).To(ContainElement(rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"},
-						Key:                  "key",
-					}))
+					g.Expect(status.RootCertificates[0].Name).To(Equal(fmt.Sprintf(fulcioRootSecretFormat, "instance")))
+					g.Expect(status.RootCertificates[0].Key).To(Equal(fulcioRootCertKey))
+
+					secret := &v1.Secret{}
+					g.Expect(cli.Get(context.TODO(), client.ObjectKey{Namespace: "default", Name: fmt.Sprintf(fulcioRootSecretFormat, "instance")}, secret)).To(Succeed())
+					g.Expect(secret.Data).To(HaveKeyWithValue(fulcioRootCertKey, []byte(testCert)))
 
 					g.Expect(meta.IsStatusConditionTrue(status.Conditions, CertCondition)).To(BeTrue())
 				},
@@ -328,14 +351,7 @@ func TestCert_Handle(t *testing.T) {
 						},
 						Data: map[string][]byte{"key": nil},
 					},
-					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "incorrect-secret",
-							Namespace: "default",
-							Labels:    map[string]string{actions.FulcioCALabel: "key"},
-						},
-						Data: map[string][]byte{"key": nil},
-					},
+					readyFulcio(),
 				},
 				status: rhtasv1.CTlogStatus{
 					Conditions: []metav1.Condition{
@@ -398,55 +414,78 @@ func TestCert_Handle(t *testing.T) {
 
 					g.Expect(meta.IsStatusConditionTrue(status.Conditions, CertCondition)).To(BeTrue())
 
-					// Config condition should be invalidated
 					g.Expect(meta.IsStatusConditionFalse(status.Conditions, ConfigCondition)).Should(BeTrue())
 				},
 			},
 		},
 		{
-			name: "autodiscovery - add new, keep old cert",
+			name: "autodiscovery cert rotation — content changed, updates secret and invalidates config",
 			env: env{
+				certificates: nil,
 				objects: []client.Object{
+					readyFulcio(),
 					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "old",
+							Name:      fmt.Sprintf(fulcioRootSecretFormat, "instance"),
 							Namespace: "default",
 						},
-						Data: map[string][]byte{"key": nil},
-					},
-					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "new",
-							Namespace: "default",
-							Labels:    map[string]string{actions.FulcioCALabel: "key"},
-						},
-						Data: map[string][]byte{"key": nil},
+						Data: map[string][]byte{fulcioRootCertKey: []byte("-----BEGIN CERTIFICATE-----\nOLDCERT\n-----END CERTIFICATE-----\n")},
 					},
 				},
 				status: rhtasv1.CTlogStatus{
 					RootCertificates: []rhtasv1.SecretKeySelector{
 						{
-							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old"},
-							Key:                  "key",
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: fmt.Sprintf(fulcioRootSecretFormat, "instance")},
+							Key:                  fulcioRootCertKey,
 						},
 					},
 					Conditions: []metav1.Condition{
-						{Type: constants.ReadyCondition, Reason: state.Creating.String()},
+						{Type: constants.ReadyCondition, Reason: state.Ready.String()},
 					},
 				},
 			},
 			want: want{
 				result: testAction.Return(),
 				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
-					g.Expect(status.ServerConfigRef).Should(BeNil())
+					secret := &v1.Secret{}
+					g.Expect(cli.Get(context.TODO(), client.ObjectKey{Namespace: "default", Name: fmt.Sprintf(fulcioRootSecretFormat, "instance")}, secret)).To(Succeed())
+					g.Expect(secret.Data[fulcioRootCertKey]).To(Equal([]byte(testCert)))
 
-					g.Expect(status.RootCertificates).Should(HaveLen(2))
-					g.Expect(status.RootCertificates).
-						Should(And(
-							ContainElement(WithTransform(func(ks rhtasv1.SecretKeySelector) string { return ks.Name }, Equal("old"))),
-							ContainElement(WithTransform(func(ks rhtasv1.SecretKeySelector) string { return ks.Name }, Equal("new"))),
-						))
 					g.Expect(meta.IsStatusConditionTrue(status.Conditions, CertCondition)).To(BeTrue())
+					g.Expect(meta.IsStatusConditionFalse(status.Conditions, ConfigCondition)).To(BeTrue())
+				},
+			},
+		},
+		{
+			name: "autodiscovery no rotation — content unchanged, continues without config invalidation",
+			env: env{
+				certificates: nil,
+				objects: []client.Object{
+					readyFulcio(),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      fmt.Sprintf(fulcioRootSecretFormat, "instance"),
+							Namespace: "default",
+						},
+						Data: map[string][]byte{fulcioRootCertKey: []byte(testCert)},
+					},
+				},
+				status: rhtasv1.CTlogStatus{
+					RootCertificates: []rhtasv1.SecretKeySelector{
+						{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: fmt.Sprintf(fulcioRootSecretFormat, "instance")},
+							Key:                  fulcioRootCertKey,
+						},
+					},
+					Conditions: []metav1.Condition{
+						{Type: constants.ReadyCondition, Reason: state.Ready.String()},
+					},
+				},
+			},
+			want: want{
+				result: testAction.Continue(),
+				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
+					g.Expect(meta.FindStatusCondition(status.Conditions, ConfigCondition)).To(BeNil())
 				},
 			},
 		},

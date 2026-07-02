@@ -17,20 +17,19 @@ limitations under the License.
 package rekor
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/onsi/gomega/gstruct"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
-	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes"
-	"k8s.io/utils/ptr"
-
 	httpmock "github.com/securesign/operator/internal/testing/http"
+	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
+	httputils "github.com/securesign/operator/internal/utils/http"
+	"k8s.io/utils/ptr"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
@@ -59,16 +58,27 @@ var _ = Describe("Rekor controller", func() {
 					GenerateName: "rekor-attestation-",
 				},
 			}
-
 			err := suite.Client().Create(ctx, &namespace)
 			Expect(err).To(Not(HaveOccurred()))
+
+			By("Setting up HTTP mock builder for public key resolution")
+			httputils.SetClientBuilder(func(_ ...[]byte) *http.Client {
+				return &http.Client{
+					Transport: httpmock.RoundTripFunc(func(_ *http.Request) *http.Response {
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(strings.NewReader(testPubKeyPEM)),
+							Header:     make(http.Header),
+						}
+					}),
+				}
+			})
+			DeferCleanup(func() {
+				httputils.ResetClientBuilder()
+			})
 		})
 
 		AfterEach(func(ctx SpecContext) {
-			DeferCleanup(func() {
-				// Ensure that we reset the DefaultClient's transport after the test
-				httpmock.RestoreDefaultTransport(http.DefaultClient)
-			})
 
 			By("removing the custom resource for the Kind Rekor")
 			found := &rhtasv1.Rekor{}
@@ -243,25 +253,6 @@ func deployAndVerify(ctx context.Context, instance *rhtasv1.Rekor) {
 		return found.Status.Signer.KeyRef
 	}).Should(Not(BeNil()))
 	Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Signer.KeyRef.Name, Namespace: instance.Namespace}, &corev1.Secret{})).Should(Succeed())
-
-	By("Mock http client to return public key on /api/v1/log/publicKey call")
-	pubKeyData, err := kubernetes.GetSecretData(suite.Client(), instance.Namespace, &rhtasv1.SecretKeySelector{
-		LocalObjectReference: rhtasv1.LocalObjectReference{
-			Name: found.Status.Signer.KeyRef.Name,
-		},
-		Key: "public",
-	})
-	Expect(err).To(Succeed())
-
-	httpmock.SetMockTransport(http.DefaultClient, map[string]httpmock.RoundTripFunc{
-		"http://rekor-server." + instance.Namespace + ".svc/api/v1/log/publicKey": func(req *http.Request) *http.Response {
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(bytes.NewReader(pubKeyData)),
-				Header:     make(http.Header),
-			}
-		},
-	})
 
 	By("Rekor server deployment created")
 	Eventually(func() error {
