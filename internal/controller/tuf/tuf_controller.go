@@ -94,15 +94,17 @@ func (r *tufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	target := instance.DeepCopy()
+	conditionSupplier := func(tuf *rhtasv1.Tuf) []string {
+		conditions := make([]string, 0, len(tuf.Spec.Keys)+1)
+		for _, k := range tuf.Spec.Keys {
+			conditions = append(conditions, k.Name)
+		}
+		conditions = append(conditions, constants.RepositoryCondition)
+		return conditions
+	}
 	acs := []action.Action[*rhtasv1.Tuf]{
-		transitions.NewToPendingPhaseAction[*rhtasv1.Tuf](func(tuf *rhtasv1.Tuf) []string {
-			conditions := make([]string, 0, len(tuf.Spec.Keys)+1)
-			for _, k := range tuf.Spec.Keys {
-				conditions = append(conditions, k.Name)
-			}
-			conditions = append(conditions, constants.RepositoryCondition)
-			return conditions
-		}),
+		transitions.NewToPendingPhaseAction[*rhtasv1.Tuf](conditionSupplier),
+		transitions.NewEnsureConditionsAction[*rhtasv1.Tuf](conditionSupplier),
 
 		actions.NewResolveKeysAction(),
 		transitions.NewToCreatePhaseAction[*rhtasv1.Tuf](),

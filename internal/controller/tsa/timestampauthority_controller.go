@@ -92,11 +92,12 @@ func (r *timestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	target := instance.DeepCopy()
+	conditionSupplier := func(_ *rhtasv1.TimestampAuthority) []string {
+		return []string{actions.TSASignerCondition}
+	}
 	actions := []action.Action[*rhtasv1.TimestampAuthority]{
-		transitions.NewToPendingPhaseAction[*rhtasv1.TimestampAuthority](func(ta *rhtasv1.TimestampAuthority) []string {
-			components := []string{actions.TSASignerCondition}
-			return components
-		}),
+		transitions.NewToPendingPhaseAction[*rhtasv1.TimestampAuthority](conditionSupplier),
+		transitions.NewEnsureConditionsAction[*rhtasv1.TimestampAuthority](conditionSupplier),
 		actions.NewGenerateSignerAction(),
 		transitions.NewToCreatePhaseAction[*rhtasv1.TimestampAuthority](),
 		actions.NewRBACAction(),

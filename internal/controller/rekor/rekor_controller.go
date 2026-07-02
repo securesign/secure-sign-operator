@@ -99,17 +99,19 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	target := instance.DeepCopy()
+	conditionSupplier := func(rekor *rhtasv1.Rekor) []string {
+		components := []string{actions2.ServerCondition, actions2.SignerCondition}
+		if utils.OptionalBool(rekor.Spec.RekorSearchUI.Enabled) {
+			components = append(components, actions2.UICondition)
+		}
+		if utils.OptionalBool(rekor.Spec.SearchIndex.Create) {
+			components = append(components, actions2.RedisCondition)
+		}
+		return components
+	}
 	actions := []action.Action[*rhtasv1.Rekor]{
-		transitions.NewToPendingPhaseAction[*rhtasv1.Rekor](func(rekor *rhtasv1.Rekor) []string {
-			components := []string{actions2.ServerCondition, actions2.SignerCondition}
-			if utils.OptionalBool(rekor.Spec.RekorSearchUI.Enabled) {
-				components = append(components, actions2.UICondition)
-			}
-			if utils.OptionalBool(rekor.Spec.SearchIndex.Create) {
-				components = append(components, actions2.RedisCondition)
-			}
-			return components
-		}),
+		transitions.NewToPendingPhaseAction[*rhtasv1.Rekor](conditionSupplier),
+		transitions.NewEnsureConditionsAction[*rhtasv1.Rekor](conditionSupplier),
 
 		redis.NewTlsAction(),
 		redis.NewGeneratePasswordAction(),
