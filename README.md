@@ -11,6 +11,22 @@ Red Hat Trusted Artifact Signer enhances software supply chain security by simpl
 - [OpenShift](docs/openshift.md) — Install from OperatorHub or via kustomize
 - [Kubernetes](docs/kubernetes.md) — Install via kustomize (EKS included)
 
+> **Vanilla Kubernetes at a glance:** the operator is OpenShift-first but runs on
+> generic Kubernetes (kind, EKS, GKE, ...). Note the prerequisites and differences,
+> all covered in the [Kubernetes guide](docs/kubernetes.md):
+> - **Server-side apply is required** (`kubectl apply --server-side -k ...`) — the
+>   `securesigns` CRD exceeds the 256 KB client-side annotation limit.
+> - **cert-manager is required** (operator webhooks); an **Ingress controller** is
+>   required only for external access; the **Prometheus Operator** is optional
+>   (if absent and `monitoring.enabled: true`, reconciliation fails with a clear
+>   error — install Prometheus Operator or set `monitoring.enabled: false`).
+> - **Public-registry images** are provided by the `kubernetes` overlay so no
+>   `registry.redhat.io` credentials are needed; overridable per image.
+> - The OpenShift **`ConsoleCLIDownload`** integration is OpenShift-only; set
+>   `externalAccess.host` (or `--ingress-host-template`) for routable hostnames.
+>
+> OpenShift behaviour is unchanged and auto-detected at startup.
+
 ## Getting Started
 
 Once the operator is installed, deploy the signing infrastructure by creating a Securesign CR. You will need an OIDC provider (e.g., Keycloak, Amazon Cognito).
