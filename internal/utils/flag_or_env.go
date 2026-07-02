@@ -4,9 +4,22 @@ import (
 	"flag"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/securesign/operator/internal/images"
 )
+
+// DurationFlagOrEnv defines a string flag which can be set by an environment variable.
+// Precedence: flag > env var > default value.
+func DurationFlagOrEnv(p *time.Duration, name string, envName string, defaultValue time.Duration, usage string) {
+	envValue := os.Getenv(envName)
+	if envValue != "" {
+		if value, err := time.ParseDuration(envValue); err == nil {
+			defaultValue = value
+		}
+	}
+	flag.DurationVar(p, name, defaultValue, usage)
+}
 
 // StringFlagOrEnv defines a string flag which can be set by an environment variable.
 // Precedence: flag > env var > default value.
