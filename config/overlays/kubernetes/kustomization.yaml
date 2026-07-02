@@ -1,6 +1,13 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+# Override the base namespace (config/default sets "openshift-rhtas-operator")
+# with a platform-neutral name for vanilla Kubernetes installs. This retargets
+# every namespaced resource, including the cert-manager Certificate whose
+# namespace is propagated into the webhook configs/CRDs via the replacements
+# below, so they stay consistent.
+namespace: rhtas-operator
+
 resources:
 - ../../default
 - ../../certmanager

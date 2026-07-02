@@ -115,6 +115,7 @@ func main() {
 		"Directory containing tls.crt and tls.key for metrics server TLS. If empty, a self-signed certificate is generated.")
 	flag.Int64Var(&appconfig.CreateTreeDeadline, "create-tree-deadline", appconfig.CreateTreeDeadline, "The time allowance (in seconds) for the create tree job to run before failing.")
 	utils.BoolFlagOrEnv(&appconfig.Openshift, "openshift", "OPENSHIFT", false, "Enable to ensures the operator applies OpenShift specific configurations.")
+	utils.BoolFlagOrEnv(&appconfig.MonitoringAvailable, "monitoring", "MONITORING", false, "Enable ServiceMonitor (monitoring.coreos.com) creation. When not set explicitly, the operator auto-detects the Prometheus Operator API.")
 	utils.StringFlagOrEnv(&appconfig.OpenshiftAPIServerName, "openshift-apiserver-name", "OPENSHIFT_APISERVER_NAME", "openshift-apiserver", "The OpenShift API Server name.")
 	utils.DurationFlagOrEnv(&appconfig.APIServerTimeout, "apiserver-timeout", "APISERVER_TIMEOUT", 30*time.Second, "The initial timeout for contacting the API Server, defaults to 30 seconds.")
 	utils.StringFlagOrEnv(&appconfig.IngressHostTemplate, "ingress-host-template", "INGRESS_HOST_TEMPLATE", appconfig.IngressHostTemplate,
@@ -154,6 +155,23 @@ func main() {
 		setupLog.Info("Platform auto-detected", "openshift", appconfig.Openshift)
 	} else {
 		setupLog.Info("Platform explicitly configured via flag/env", "openshift", appconfig.Openshift)
+	}
+
+	if !utils.IsFlagProvided("monitoring", "MONITORING") {
+		monitoringAvailable, err := kubernetes.DetectMonitoringAvailable(setupLog)
+		if err != nil {
+			setupLog.Error(err, "Prometheus Operator API auto-detection failed, disabling ServiceMonitor creation")
+			appconfig.MonitoringAvailable = false
+		} else {
+			appconfig.MonitoringAvailable = monitoringAvailable
+		}
+		if !appconfig.MonitoringAvailable {
+			setupLog.Info("Prometheus Operator API (monitoring.coreos.com) not found; ServiceMonitor creation is disabled. Install the Prometheus Operator or set --monitoring/MONITORING to enable it.")
+		} else {
+			setupLog.Info("ServiceMonitor creation enabled", "monitoring", appconfig.MonitoringAvailable)
+		}
+	} else {
+		setupLog.Info("ServiceMonitor creation explicitly configured via flag/env", "monitoring", appconfig.MonitoringAvailable)
 	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
