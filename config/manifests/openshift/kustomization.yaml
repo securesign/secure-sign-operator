@@ -6,14 +6,7 @@ resources:
 - ../../overlays/openshift
 - ../../samples
 - ../../scorecard
-- ../consoleclidownloads/cosign.yaml
-- ../consoleclidownloads/rekor-cli.yaml
-- ../consoleclidownloads/gitsign.yaml
-- ../consoleclidownloads/ec.yaml
-- ../consoleclidownloads/fetch-tsa-certs.yaml
-- ../consoleclidownloads/createtree.yaml
-- ../consoleclidownloads/updatetree.yaml
-- ../consoleclidownloads/tuftool.yaml
+- ../consoleclidownloads
 
 components:
 - ../patches

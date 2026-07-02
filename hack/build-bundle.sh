@@ -41,4 +41,13 @@ if [ -n "$IMG" ]; then
 fi
 
 # Generate and validate the Operator bundle
-oc kustomize config/manifests/${TARGET_PLATFORM} | operator-sdk generate bundle ${BUNDLE_GEN_FLAGS} && operator-sdk bundle validate ./bundle
+oc kustomize config/manifests/${TARGET_PLATFORM} | operator-sdk generate bundle ${BUNDLE_GEN_FLAGS}
+
+# Replace __VERSION__ placeholder in ConsoleCLIDownload manifests with the actual version.
+# VERSION is extracted from BUNDLE_GEN_FLAGS which is always available in the builder stage.
+BUNDLE_VERSION=$(echo "${BUNDLE_GEN_FLAGS}" | grep -oE '\-\-version [^ ]+' | awk '{print $2}')
+if [ -n "$BUNDLE_VERSION" ]; then
+  find bundle/manifests -name '*.yaml' -exec sed -i "s|__VERSION__|${BUNDLE_VERSION}|g" {} +
+fi
+
+operator-sdk bundle validate ./bundle
