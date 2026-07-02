@@ -13,13 +13,12 @@ import (
 
 type ComponentSupplier[T apis.ConditionsAwareObject] func(T) []string
 
-func NewToPendingPhaseAction[T apis.ConditionsAwareObject](componentSupplier ComponentSupplier[T]) action.Action[T] {
-	return &toPending[T]{componentSupplier: componentSupplier}
+func NewToPendingPhaseAction[T apis.ConditionsAwareObject]() action.Action[T] {
+	return &toPending[T]{}
 }
 
 type toPending[T apis.ConditionsAwareObject] struct {
 	action.BaseAction
-	componentSupplier func(T) []string
 }
 
 func (i toPending[T]) Name() string {

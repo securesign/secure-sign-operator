@@ -96,7 +96,7 @@ func (r *timestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return []string{actions.TSASignerCondition}
 	}
 	actions := []action.Action[*rhtasv1.TimestampAuthority]{
-		transitions.NewToPendingPhaseAction[*rhtasv1.TimestampAuthority](conditionSupplier),
+		transitions.NewToPendingPhaseAction[*rhtasv1.TimestampAuthority](),
 		transitions.NewEnsureConditionsAction[*rhtasv1.TimestampAuthority](conditionSupplier),
 		actions.NewGenerateSignerAction(),
 		transitions.NewToCreatePhaseAction[*rhtasv1.TimestampAuthority](),

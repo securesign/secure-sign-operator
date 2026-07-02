@@ -110,7 +110,7 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return components
 	}
 	actions := []action.Action[*rhtasv1.Rekor]{
-		transitions.NewToPendingPhaseAction[*rhtasv1.Rekor](conditionSupplier),
+		transitions.NewToPendingPhaseAction[*rhtasv1.Rekor](),
 		transitions.NewEnsureConditionsAction[*rhtasv1.Rekor](conditionSupplier),
 
 		redis.NewTlsAction(),
