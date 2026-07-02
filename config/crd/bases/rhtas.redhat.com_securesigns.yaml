@@ -1029,8 +1029,13 @@ spec:
                               rule: (self || !oldSelf)
                           interval:
                             default: 10m
-                            description: Interval between log monitoring checks
+                            description: |-
+                              Interval between log monitoring checks.
+                              Minimum interval is 10 seconds to avoid excessive load on the log server.
                             type: string
+                            x-kubernetes-validations:
+                            - message: Interval must be at least 10 seconds
+                              rule: duration(self) >= duration('10s')
                         required:
                         - enabled
                         type: object
@@ -4008,8 +4013,13 @@ spec:
                               rule: (self || !oldSelf)
                           interval:
                             default: 10m
-                            description: Interval between log monitoring checks
+                            description: |-
+                              Interval between log monitoring checks.
+                              Minimum interval is 10 seconds to avoid excessive load on the log server.
                             type: string
+                            x-kubernetes-validations:
+                            - message: Interval must be at least 10 seconds
+                              rule: duration(self) >= duration('10s')
                         required:
                         - enabled
                         type: object

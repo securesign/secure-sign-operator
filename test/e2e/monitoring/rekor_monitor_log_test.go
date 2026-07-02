@@ -70,7 +70,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 			securesign.ChooseDefaults(fipsEnabled, namespace.Name),
 			func(v *rhtasv1.Securesign) {
 				v.Spec.Rekor.Monitoring.TLog.Enabled = ptr.To(true)
-				v.Spec.Rekor.Monitoring.TLog.Interval = metav1.Duration{Duration: time.Second * 2}
+				v.Spec.Rekor.Monitoring.TLog.Interval = &metav1.Duration{Duration: time.Second * 10}
 			},
 		)
 	})
