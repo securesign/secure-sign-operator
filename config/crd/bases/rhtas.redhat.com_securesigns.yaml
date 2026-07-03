@@ -16702,6 +16702,7 @@ spec:
                     - enabled
                     type: object
                   server:
+                    default: {}
                     description: Configuration for Trillian log server service
                     properties:
                       affinity:
@@ -17781,6 +17782,7 @@ spec:
                         type: array
                     type: object
                   signer:
+                    default: {}
                     description: Configuration for Trillian log signer service
                     properties:
                       affinity:
