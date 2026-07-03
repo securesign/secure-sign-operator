@@ -45,9 +45,11 @@ oc kustomize config/manifests/${TARGET_PLATFORM} | operator-sdk generate bundle 
 
 # Replace __VERSION__ placeholder in ConsoleCLIDownload manifests with the actual version.
 # VERSION is extracted from BUNDLE_GEN_FLAGS which is always available in the builder stage.
-BUNDLE_VERSION=$(echo "${BUNDLE_GEN_FLAGS}" | grep -oE '\-\-version [^ ]+' | awk '{print $2}')
-if [ -n "$BUNDLE_VERSION" ]; then
-  find bundle/manifests -name '*.yaml' -exec sed -i "s|__VERSION__|${BUNDLE_VERSION}|g" {} +
+BUNDLE_VERSION=$(echo "${BUNDLE_GEN_FLAGS}" | grep -oE '\-\-version [^ ]+' | head -1 | awk '{print $2}')
+if [ -z "$BUNDLE_VERSION" ]; then
+  echo "ERROR: could not extract --version from BUNDLE_GEN_FLAGS" >&2
+  exit 1
 fi
+find bundle/manifests -name '*.yaml' -exec sed -i "s|__VERSION__|${BUNDLE_VERSION}|g" {} +
 
 operator-sdk bundle validate ./bundle
