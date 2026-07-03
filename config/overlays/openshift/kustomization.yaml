@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
 - ../../default
+- ../../prometheus
 - prometheus_role.yaml
 - prometheus_role_binding.yaml
 - metrics_reader_clusterrolebinding.yaml

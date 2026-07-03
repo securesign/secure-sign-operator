@@ -20,7 +20,6 @@ resources:
 - ../rbac
 - ../manager
 - ../webhook
-- ../prometheus
 
 patches:
 - path: manager_metrics_patch.yaml

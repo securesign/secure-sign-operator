@@ -17,6 +17,7 @@ env:
   OCP_VERSION: ${{ vars.OLM_INDEX_VERSION }}
   INGRESS_HOST_TEMPLATE: '%[1]s.%[2]s.127.0.0.1.nip.io'
   TARGET_PLATFORM: kubernetes
+  OPERATOR_NAMESPACE: rhtas-operator
 
 jobs:
   build-operator:
@@ -262,12 +263,12 @@ jobs:
 
       - name: Wait for operator to be ready
         run: |
-          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n openshift-rhtas-operator
+          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n ${{ env.OPERATOR_NAMESPACE }}
 
       - name: Configure Ingress hostname template
         run: |
-          kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
-          kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
+          kubectl set env deployment/rhtas-operator-controller-manager -n ${{ env.OPERATOR_NAMESPACE }} INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
+          kubectl rollout status deployment/rhtas-operator-controller-manager -n ${{ env.OPERATOR_NAMESPACE }} --timeout=120s
 
       - name: Wait for conversion webhook readiness
         run: |
@@ -295,7 +296,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: dump the logs of the operator
-        run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
+        run: kubectl logs -n ${{ env.OPERATOR_NAMESPACE }} deployment/rhtas-operator-controller-manager
         if: always()
 
   test-upgrade:
@@ -445,12 +446,12 @@ jobs:
 
       - name: Wait for operator to be ready
         run: |
-          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n openshift-rhtas-operator
+          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n ${{ env.OPERATOR_NAMESPACE }}
 
       - name: Configure Ingress hostname template
         run: |
-          kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
-          kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
+          kubectl set env deployment/rhtas-operator-controller-manager -n ${{ env.OPERATOR_NAMESPACE }} INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
+          kubectl rollout status deployment/rhtas-operator-controller-manager -n ${{ env.OPERATOR_NAMESPACE }} --timeout=120s
 
       - name: Wait for conversion webhook readiness
         run: |
@@ -480,7 +481,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: dump the logs of the operator
-        run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
+        run: kubectl logs -n ${{ env.OPERATOR_NAMESPACE }} deployment/rhtas-operator-controller-manager
         if: always()
 
       - name: Cleanup Cluster
@@ -634,12 +635,12 @@ jobs:
 
       - name: Wait for operator to be ready
         run: |
-          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n openshift-rhtas-operator
+          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n ${{ env.OPERATOR_NAMESPACE }}
 
       - name: Configure Ingress hostname template
         run: |
-          kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
-          kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
+          kubectl set env deployment/rhtas-operator-controller-manager -n ${{ env.OPERATOR_NAMESPACE }} INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
+          kubectl rollout status deployment/rhtas-operator-controller-manager -n ${{ env.OPERATOR_NAMESPACE }} --timeout=120s
 
       - name: Wait for conversion webhook readiness
         run: |
@@ -676,7 +677,7 @@ jobs:
 
       - name: dump the logs of the operator
         run: |
-          kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
+          kubectl logs -n ${{ env.OPERATOR_NAMESPACE }} deployment/rhtas-operator-controller-manager
         if: failure()
 
   build-operator-coverage:
@@ -785,12 +786,12 @@ jobs:
 
       - name: Wait for operator to be ready
         run: |
-          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n openshift-rhtas-operator
+          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n ${{ env.OPERATOR_NAMESPACE }}
 
       - name: Configure Ingress hostname template
         run: |
-          kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
-          kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
+          kubectl set env deployment/rhtas-operator-controller-manager -n ${{ env.OPERATOR_NAMESPACE }} INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
+          kubectl rollout status deployment/rhtas-operator-controller-manager -n ${{ env.OPERATOR_NAMESPACE }} --timeout=120s
 
       - name: Wait for conversion webhook readiness
         run: |
@@ -814,7 +815,7 @@ jobs:
         if: always()
         run: |
           coverport collect \
-            --namespace=openshift-rhtas-operator \
+            --namespace=${{ env.OPERATOR_NAMESPACE }} \
             --label-selector=control-plane=operator-controller-manager \
             --test-name=e2e \
             --output=./e2e-coverage-data \
@@ -840,5 +841,5 @@ jobs:
           if-no-files-found: ignore
 
       - name: dump the logs of the operator
-        run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
+        run: kubectl logs -n ${{ env.OPERATOR_NAMESPACE }} deployment/rhtas-operator-controller-manager
         if: always()
