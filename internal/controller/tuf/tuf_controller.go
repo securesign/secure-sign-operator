@@ -103,7 +103,7 @@ func (r *tufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return conditions
 	}
 	acs := []action.Action[*rhtasv1.Tuf]{
-		transitions.NewToPendingPhaseAction[*rhtasv1.Tuf](conditionSupplier),
+		transitions.NewToPendingPhaseAction[*rhtasv1.Tuf](),
 		transitions.NewEnsureConditionsAction[*rhtasv1.Tuf](conditionSupplier),
 
 		actions.NewResolveKeysAction(),

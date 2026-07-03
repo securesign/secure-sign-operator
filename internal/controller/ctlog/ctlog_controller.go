@@ -103,7 +103,7 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return []string{actions.CertCondition, actions.SignerCondition, actions.ConfigCondition, actions.TLSCondition}
 	}
 	acs := []action.Action[*rhtasv1.CTlog]{
-		transitions.NewToPendingPhaseAction[*rhtasv1.CTlog](conditionSupplier),
+		transitions.NewToPendingPhaseAction[*rhtasv1.CTlog](),
 		transitions.NewEnsureConditionsAction[*rhtasv1.CTlog](conditionSupplier),
 
 		actions.NewTlsAction(),

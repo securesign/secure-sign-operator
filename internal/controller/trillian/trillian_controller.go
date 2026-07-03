@@ -100,7 +100,7 @@ func (r *trillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return []string{actions.ServerCondition, actions.SignerCondition, actions.DbCondition}
 	}
 	actions := []action.Action[*rhtasv1.Trillian]{
-		transitions.NewToPendingPhaseAction[*rhtasv1.Trillian](conditionSupplier),
+		transitions.NewToPendingPhaseAction[*rhtasv1.Trillian](),
 		transitions.NewEnsureConditionsAction[*rhtasv1.Trillian](conditionSupplier),
 
 		logserver.NewTlsAction(),

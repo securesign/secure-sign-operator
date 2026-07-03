@@ -97,7 +97,7 @@ func (r *fulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return []string{actions.CertCondition}
 	}
 	acs := []action.Action[*rhtasv1.Fulcio]{
-		transitions.NewToPendingPhaseAction[*rhtasv1.Fulcio](conditionSupplier),
+		transitions.NewToPendingPhaseAction[*rhtasv1.Fulcio](),
 		transitions.NewEnsureConditionsAction[*rhtasv1.Fulcio](conditionSupplier),
 		actions.NewGenerateSignerAction(),
 		transitions.NewToCreatePhaseAction[*rhtasv1.Fulcio](),
