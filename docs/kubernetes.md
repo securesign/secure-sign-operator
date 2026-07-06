@@ -1,11 +1,40 @@
 # Installing on Kubernetes
 
+## Prerequisites
+
+### cert-manager
+
+The operator webhooks require [cert-manager](https://cert-manager.io) for TLS certificate management.
+Install it before applying the operator overlay:
+
+```sh
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
+
+# Wait for cert-manager to be ready
+kubectl wait --for=condition=Available deployment --all -n cert-manager --timeout=120s
+```
+
+### Prometheus Operator (optional)
+
+The `config/overlays/kubernetes` overlay does **not** include a `ServiceMonitor` resource.
+The operator's own metrics `ServiceMonitor` is included only in the OpenShift overlay
+(`config/overlays/openshift`), so the kubernetes overlay deploys cleanly without
+Prometheus Operator installed.
+
+If you want to scrape operator metrics, install the [Prometheus Operator](https://prometheus-operator.dev/docs/getting-started/installation/)
+separately. The operator will create `ServiceMonitor` resources for each TAS component
+when `monitoring.enabled: true` is set in the CR spec.
+
 ## Install via kustomize
+
+Server-side apply is required because the `securesigns` CRD exceeds the 256 KB
+client-side annotation limit.
 
 Apply directly from the repository:
 
 ```sh
-kubectl apply --kustomize https://github.com/securesign/secure-sign-operator/config/overlays/kubernetes?ref=<tag-or-branch>
+kubectl apply --server-side --kustomize \
+  https://github.com/securesign/secure-sign-operator/config/overlays/kubernetes?ref=<tag-or-branch>
 ```
 
 Or clone the repository and apply locally:
@@ -13,7 +42,7 @@ Or clone the repository and apply locally:
 ```sh
 git clone --branch <tag> https://github.com/securesign/secure-sign-operator.git
 cd secure-sign-operator
-kubectl apply --kustomize config/overlays/kubernetes
+kubectl apply --server-side -k config/overlays/kubernetes
 ```
 
 ## Verify
@@ -41,7 +70,7 @@ kubectl create clusterrolebinding prometheus-metrics-reader \
 ## Uninstall
 
 ```sh
-kubectl delete --kustomize config/overlays/kubernetes
+kubectl delete -k config/overlays/kubernetes
 ```
 
 ## EKS
