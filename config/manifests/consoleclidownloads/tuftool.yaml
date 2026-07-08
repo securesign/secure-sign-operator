@@ -9,4 +9,4 @@ spec:
   description: "tuftool is a Rust command-line utility for generating and signing TUF repositories."
   links:
     - text: "Download tuftool for Linux x86_64"
-      href: "https://developers.redhat.com/content-gateway/file/cgw/RHTAS/__VERSION__/tuftool_linux_amd64.tar.gz"
+      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/tuftool_linux_amd64.tar.gz"
