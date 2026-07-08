@@ -2,6 +2,8 @@ apiVersion: console.openshift.io/v1
 kind: ConsoleCLIDownload
 metadata:
   name: fetch-tsa-certs
+  labels:
+    app.kubernetes.io/part-of: trusted-artifact-signer
 spec:
   displayName: "fetch-tsa-certs - Command Line Interface (CLI)"
   description: "fetch-tsa-certs is a cli used to configure the kms and tink signer types for Timestamp Authority."

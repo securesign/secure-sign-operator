@@ -2,6 +2,8 @@ apiVersion: console.openshift.io/v1
 kind: ConsoleCLIDownload
 metadata:
   name: cosign
+  labels:
+    app.kubernetes.io/part-of: trusted-artifact-signer
 spec:
   displayName: "cosign - Command Line Interface (CLI)"
   description: "cosign is a CLI tool that allows you to manage sigstore artifacts."

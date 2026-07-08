@@ -2,6 +2,8 @@ apiVersion: console.openshift.io/v1
 kind: ConsoleCLIDownload
 metadata:
   name: gitsign
+  labels:
+    app.kubernetes.io/part-of: trusted-artifact-signer
 spec:
   displayName: "gitsign - Command Line Interface (CLI)"
   description: "gitsign is a CLI tool that allows you to digitally sign and verify git commits."

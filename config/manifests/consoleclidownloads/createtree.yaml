@@ -2,6 +2,8 @@ apiVersion: console.openshift.io/v1
 kind: ConsoleCLIDownload
 metadata:
   name: createtree
+  labels:
+    app.kubernetes.io/part-of: trusted-artifact-signer
 spec:
   displayName: "createtree - Command Line Interface (CLI)"
   description: "create-tree is a CLI tool which is used for creating new trees within trillian."

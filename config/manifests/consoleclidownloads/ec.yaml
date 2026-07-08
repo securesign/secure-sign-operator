@@ -2,6 +2,8 @@ apiVersion: console.openshift.io/v1
 kind: ConsoleCLIDownload
 metadata:
   name: ec
+  labels:
+    app.kubernetes.io/part-of: trusted-artifact-signer
 spec:
   displayName: "ec - Command Line Interface (CLI)"
   description: "Enterprise Contract CLI. Set of commands to help validate resources with the Enterprise Contract."

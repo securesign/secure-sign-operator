@@ -327,8 +327,11 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests/$(TARGET_PLATFORM) | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
-	$(if $(VERSION),,$(error VERSION must be set for bundle generation))
-	find bundle/manifests -name '*.yaml' -exec sed -i 's|__VERSION__|$(VERSION)|g' {} +
+	@if [ "$(shell uname)" = "Darwin" ]; then \
+		find bundle/manifests -name '*.yaml' -exec sed -i '' 's|__VERSION__|$(VERSION)|g' {} +; \
+	else \
+		find bundle/manifests -name '*.yaml' -exec sed -i 's|__VERSION__|$(VERSION)|g' {} +; \
+	fi
 	$(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: bundle-build

@@ -2,6 +2,8 @@ apiVersion: console.openshift.io/v1
 kind: ConsoleCLIDownload
 metadata:
   name: rekor-cli
+  labels:
+    app.kubernetes.io/part-of: trusted-artifact-signer
 spec:
   displayName: "rekor-cli - Command Line Interface (CLI)"
   description: "rekor-cli is a CLI tool that allows you to interact with rekor server."

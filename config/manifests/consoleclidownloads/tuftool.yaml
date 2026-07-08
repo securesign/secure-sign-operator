@@ -2,6 +2,8 @@ apiVersion: console.openshift.io/v1
 kind: ConsoleCLIDownload
 metadata:
   name: tuftool
+  labels:
+    app.kubernetes.io/part-of: trusted-artifact-signer
 spec:
   displayName: "tuftool - Command Line Interface (CLI)"
   description: "tuftool is a Rust command-line utility for generating and signing TUF repositories."

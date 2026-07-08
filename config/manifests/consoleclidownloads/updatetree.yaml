@@ -2,9 +2,11 @@ apiVersion: console.openshift.io/v1
 kind: ConsoleCLIDownload
 metadata:
   name: updatetree
+  labels:
+    app.kubernetes.io/part-of: trusted-artifact-signer
 spec:
   displayName: "updatetree - Command Line Interface (CLI)"
-  description: "update-tree is a CLI tool which is used for managing existing tress within trillian."
+  description: "update-tree is a CLI tool which is used for managing existing trees within trillian."
   links:
     - text: "Download updatetree for Linux x86_64"
       href: "https://developers.redhat.com/content-gateway/file/cgw/RHTAS/__VERSION__/updatetree_linux_amd64.tar.gz"

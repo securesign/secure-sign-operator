@@ -12,9 +12,12 @@ FROM registry.redhat.io/openshift4/ose-operator-sdk-rhel9@sha256:8ff0cb8587bbca8
 # Copy oc binary from oc-builder stage
 COPY --from=oc-builder /usr/bin/oc /usr/bin/oc
 
+ARG VERSION
 ARG BUNDLE_GEN_FLAGS
 ARG IMG
 ARG TARGET_PLATFORM
+
+ENV VERSION=${VERSION}
 
 WORKDIR /tmp
 
