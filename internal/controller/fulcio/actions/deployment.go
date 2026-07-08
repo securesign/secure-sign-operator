@@ -69,6 +69,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 		// need to add Fulcio's unix domain socket used for the legacy gRPC server other way it will be
 		// rest v1 api will be routed through proxy
 		deployment.Proxy("@fulcio-legacy-grpc-socket"),
+		deployment.GODEBUG(instance.GetAnnotations()),
 		deployment.TrustedCA(instance.GetTrustedCA(), containerName),
 		deployment.PodRequirements(instance.Spec.PodRequirements, containerName),
 		deployment.PodSecurityContext(),
@@ -181,7 +182,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.Fulcio, sa string, labe
 		grpc.ContainerPort = 5554
 		grpc.Protocol = core.ProtocolTCP
 
-		if instance.Spec.Monitoring.Enabled {
+		if utils.IsEnabled(instance.Spec.Monitoring.Enabled) {
 			monitoringPort := kubernetes.FindPortByNameOrCreate(container, "monitoring")
 			monitoringPort.ContainerPort = 2112
 			monitoringPort.Protocol = core.ProtocolTCP

@@ -218,11 +218,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*KMS)(nil), (*v1.KMS)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_KMS_To_v1_KMS(a.(*KMS), b.(*v1.KMS), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*v1.KMS)(nil), (*KMS)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_KMS_To_v1alpha1_KMS(a.(*v1.KMS), b.(*KMS), scope)
 	}); err != nil {
@@ -533,23 +528,8 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*TimestampAuthoritySigner)(nil), (*v1.TimestampAuthoritySigner)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_TimestampAuthoritySigner_To_v1_TimestampAuthoritySigner(a.(*TimestampAuthoritySigner), b.(*v1.TimestampAuthoritySigner), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1.TimestampAuthoritySigner)(nil), (*TimestampAuthoritySigner)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_TimestampAuthoritySigner_To_v1alpha1_TimestampAuthoritySigner(a.(*v1.TimestampAuthoritySigner), b.(*TimestampAuthoritySigner), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*TimestampAuthoritySpec)(nil), (*v1.TimestampAuthoritySpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_TimestampAuthoritySpec_To_v1_TimestampAuthoritySpec(a.(*TimestampAuthoritySpec), b.(*v1.TimestampAuthoritySpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*Tink)(nil), (*v1.Tink)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_Tink_To_v1_Tink(a.(*Tink), b.(*v1.Tink), scope)
 	}); err != nil {
 		return err
 	}
@@ -640,16 +620,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*v1.TrillianStatus)(nil), (*TrillianStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_TrillianStatus_To_v1alpha1_TrillianStatus(a.(*v1.TrillianStatus), b.(*TrillianStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*TsaCertificateAuthority)(nil), (*v1.TsaCertificateAuthority)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_TsaCertificateAuthority_To_v1_TsaCertificateAuthority(a.(*TsaCertificateAuthority), b.(*v1.TsaCertificateAuthority), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1.TsaCertificateAuthority)(nil), (*TsaCertificateAuthority)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_TsaCertificateAuthority_To_v1alpha1_TsaCertificateAuthority(a.(*v1.TsaCertificateAuthority), b.(*TsaCertificateAuthority), scope)
 	}); err != nil {
 		return err
 	}
@@ -758,6 +728,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*v1.TimestampAuthoritySigner)(nil), (*TimestampAuthoritySigner)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_TimestampAuthoritySigner_To_v1alpha1_TimestampAuthoritySigner(a.(*v1.TimestampAuthoritySigner), b.(*TimestampAuthoritySigner), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*v1.TimestampAuthoritySpec)(nil), (*TimestampAuthoritySpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_TimestampAuthoritySpec_To_v1alpha1_TimestampAuthoritySpec(a.(*v1.TimestampAuthoritySpec), b.(*TimestampAuthoritySpec), scope)
 	}); err != nil {
@@ -788,6 +763,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*v1.TsaCertificateAuthority)(nil), (*TsaCertificateAuthority)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_TsaCertificateAuthority_To_v1alpha1_TsaCertificateAuthority(a.(*v1.TsaCertificateAuthority), b.(*TsaCertificateAuthority), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*v1.TufSpec)(nil), (*TufSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_TufSpec_To_v1alpha1_TufSpec(a.(*v1.TufSpec), b.(*TufSpec), scope)
 	}); err != nil {
@@ -798,8 +778,18 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*KMS)(nil), (*v1.KMS)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_KMS_To_v1_KMS(a.(*KMS), b.(*v1.KMS), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*RekorSigner)(nil), (*v1.RekorSignerStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_RekorSigner_To_v1_RekorSignerStatus(a.(*RekorSigner), b.(*v1.RekorSignerStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*TimestampAuthoritySigner)(nil), (*v1.TimestampAuthoritySigner)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_TimestampAuthoritySigner_To_v1_TimestampAuthoritySigner(a.(*TimestampAuthoritySigner), b.(*v1.TimestampAuthoritySigner), scope)
 	}); err != nil {
 		return err
 	}
@@ -810,6 +800,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*TimestampAuthorityStatus)(nil), (*v1.TimestampAuthorityStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_TimestampAuthorityStatus_To_v1_TimestampAuthorityStatus(a.(*TimestampAuthorityStatus), b.(*v1.TimestampAuthorityStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*Tink)(nil), (*v1.Tink)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_Tink_To_v1_Tink(a.(*Tink), b.(*v1.Tink), scope)
 	}); err != nil {
 		return err
 	}
@@ -825,6 +820,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*TrillianLogSigner)(nil), (*v1.TrillianServiceStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_TrillianLogSigner_To_v1_TrillianServiceStatus(a.(*TrillianLogSigner), b.(*v1.TrillianServiceStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*TsaCertificateAuthority)(nil), (*v1.TsaCertificateAuthority)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_TsaCertificateAuthority_To_v1_TsaCertificateAuthority(a.(*TsaCertificateAuthority), b.(*v1.TsaCertificateAuthority), scope)
 	}); err != nil {
 		return err
 	}
@@ -1074,9 +1074,38 @@ func Convert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in *v1.CTlogStatus, out *CTl
 
 func autoConvert_v1alpha1_CertificateChain_To_v1_CertificateChain(in *CertificateChain, out *v1.CertificateChain, s conversion.Scope) error {
 	out.CertificateChainRef = (*v1.SecretKeySelector)(unsafe.Pointer(in.CertificateChainRef))
-	out.RootCA = (*v1.TsaCertificateAuthority)(unsafe.Pointer(in.RootCA))
-	out.IntermediateCA = *(*[]*v1.TsaCertificateAuthority)(unsafe.Pointer(&in.IntermediateCA))
-	out.LeafCA = (*v1.TsaCertificateAuthority)(unsafe.Pointer(in.LeafCA))
+	if in.RootCA != nil {
+		in, out := &in.RootCA, &out.RootCA
+		*out = new(v1.TsaCertificateAuthority)
+		if err := Convert_v1alpha1_TsaCertificateAuthority_To_v1_TsaCertificateAuthority(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.RootCA = nil
+	}
+	if in.IntermediateCA != nil {
+		in, out := &in.IntermediateCA, &out.IntermediateCA
+		*out = make([]*v1.TsaCertificateAuthority, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				(*out)[i] = new(v1.TsaCertificateAuthority)
+				if err := Convert_v1alpha1_TsaCertificateAuthority_To_v1_TsaCertificateAuthority((*in)[i], (*out)[i], s); err != nil {
+					return err
+				}
+			}
+		}
+	} else {
+		out.IntermediateCA = nil
+	}
+	if in.LeafCA != nil {
+		in, out := &in.LeafCA, &out.LeafCA
+		*out = new(v1.TsaCertificateAuthority)
+		if err := Convert_v1alpha1_TsaCertificateAuthority_To_v1_TsaCertificateAuthority(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.LeafCA = nil
+	}
 	return nil
 }
 
@@ -1087,9 +1116,38 @@ func Convert_v1alpha1_CertificateChain_To_v1_CertificateChain(in *CertificateCha
 
 func autoConvert_v1_CertificateChain_To_v1alpha1_CertificateChain(in *v1.CertificateChain, out *CertificateChain, s conversion.Scope) error {
 	out.CertificateChainRef = (*SecretKeySelector)(unsafe.Pointer(in.CertificateChainRef))
-	out.RootCA = (*TsaCertificateAuthority)(unsafe.Pointer(in.RootCA))
-	out.IntermediateCA = *(*[]*TsaCertificateAuthority)(unsafe.Pointer(&in.IntermediateCA))
-	out.LeafCA = (*TsaCertificateAuthority)(unsafe.Pointer(in.LeafCA))
+	if in.RootCA != nil {
+		in, out := &in.RootCA, &out.RootCA
+		*out = new(TsaCertificateAuthority)
+		if err := Convert_v1_TsaCertificateAuthority_To_v1alpha1_TsaCertificateAuthority(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.RootCA = nil
+	}
+	if in.IntermediateCA != nil {
+		in, out := &in.IntermediateCA, &out.IntermediateCA
+		*out = make([]*TsaCertificateAuthority, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				(*out)[i] = new(TsaCertificateAuthority)
+				if err := Convert_v1_TsaCertificateAuthority_To_v1alpha1_TsaCertificateAuthority((*in)[i], (*out)[i], s); err != nil {
+					return err
+				}
+			}
+		}
+	} else {
+		out.IntermediateCA = nil
+	}
+	if in.LeafCA != nil {
+		in, out := &in.LeafCA, &out.LeafCA
+		*out = new(TsaCertificateAuthority)
+		if err := Convert_v1_TsaCertificateAuthority_To_v1alpha1_TsaCertificateAuthority(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.LeafCA = nil
+	}
 	return nil
 }
 
@@ -1169,7 +1227,9 @@ func Convert_v1_Extensions_To_v1alpha1_Extensions(in *v1.Extensions, out *Extens
 }
 
 func autoConvert_v1alpha1_ExternalAccess_To_v1_ExternalAccess(in *ExternalAccess, out *v1.ExternalAccess, s conversion.Scope) error {
-	out.Enabled = in.Enabled
+	if err := metav1.Convert_bool_To_Pointer_bool(&in.Enabled, &out.Enabled, s); err != nil {
+		return err
+	}
 	out.Host = in.Host
 	out.RouteSelectorLabels = *(*map[string]string)(unsafe.Pointer(&in.RouteSelectorLabels))
 	return nil
@@ -1181,7 +1241,9 @@ func Convert_v1alpha1_ExternalAccess_To_v1_ExternalAccess(in *ExternalAccess, ou
 }
 
 func autoConvert_v1_ExternalAccess_To_v1alpha1_ExternalAccess(in *v1.ExternalAccess, out *ExternalAccess, s conversion.Scope) error {
-	out.Enabled = in.Enabled
+	if err := metav1.Convert_Pointer_bool_To_bool(&in.Enabled, &out.Enabled, s); err != nil {
+		return err
+	}
 	out.Host = in.Host
 	out.RouteSelectorLabels = *(*map[string]string)(unsafe.Pointer(&in.RouteSelectorLabels))
 	return nil
@@ -1460,18 +1522,12 @@ func Convert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in *v1.FulcioStatus, out *
 
 func autoConvert_v1alpha1_KMS_To_v1_KMS(in *KMS, out *v1.KMS, s conversion.Scope) error {
 	out.KeyResource = in.KeyResource
-	out.Auth = (*v1.Auth)(unsafe.Pointer(in.Auth))
+	// WARNING: in.Auth requires manual conversion: does not exist in peer-type
 	return nil
-}
-
-// Convert_v1alpha1_KMS_To_v1_KMS is an autogenerated conversion function.
-func Convert_v1alpha1_KMS_To_v1_KMS(in *KMS, out *v1.KMS, s conversion.Scope) error {
-	return autoConvert_v1alpha1_KMS_To_v1_KMS(in, out, s)
 }
 
 func autoConvert_v1_KMS_To_v1alpha1_KMS(in *v1.KMS, out *KMS, s conversion.Scope) error {
 	out.KeyResource = in.KeyResource
-	out.Auth = (*Auth)(unsafe.Pointer(in.Auth))
 	return nil
 }
 
@@ -1501,7 +1557,9 @@ func Convert_v1_LocalObjectReference_To_v1alpha1_LocalObjectReference(in *v1.Loc
 }
 
 func autoConvert_v1alpha1_MonitoringConfig_To_v1_MonitoringConfig(in *MonitoringConfig, out *v1.MonitoringConfig, s conversion.Scope) error {
-	out.Enabled = in.Enabled
+	if err := metav1.Convert_bool_To_Pointer_bool(&in.Enabled, &out.Enabled, s); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -1511,7 +1569,9 @@ func Convert_v1alpha1_MonitoringConfig_To_v1_MonitoringConfig(in *MonitoringConf
 }
 
 func autoConvert_v1_MonitoringConfig_To_v1alpha1_MonitoringConfig(in *v1.MonitoringConfig, out *MonitoringConfig, s conversion.Scope) error {
-	out.Enabled = in.Enabled
+	if err := metav1.Convert_Pointer_bool_To_bool(&in.Enabled, &out.Enabled, s); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -1557,7 +1617,9 @@ func Convert_v1_MonitoringWithTLogConfig_To_v1alpha1_MonitoringWithTLogConfig(in
 }
 
 func autoConvert_v1alpha1_NTPMonitoring_To_v1_NTPMonitoring(in *NTPMonitoring, out *v1.NTPMonitoring, s conversion.Scope) error {
-	out.Enabled = in.Enabled
+	if err := metav1.Convert_bool_To_Pointer_bool(&in.Enabled, &out.Enabled, s); err != nil {
+		return err
+	}
 	out.Config = (*v1.NtpMonitoringConfig)(unsafe.Pointer(in.Config))
 	return nil
 }
@@ -1568,7 +1630,9 @@ func Convert_v1alpha1_NTPMonitoring_To_v1_NTPMonitoring(in *NTPMonitoring, out *
 }
 
 func autoConvert_v1_NTPMonitoring_To_v1alpha1_NTPMonitoring(in *v1.NTPMonitoring, out *NTPMonitoring, s conversion.Scope) error {
-	out.Enabled = in.Enabled
+	if err := metav1.Convert_Pointer_bool_To_bool(&in.Enabled, &out.Enabled, s); err != nil {
+		return err
+	}
 	out.Config = (*NtpMonitoringConfig)(unsafe.Pointer(in.Config))
 	return nil
 }
@@ -2477,14 +2541,25 @@ func autoConvert_v1alpha1_TimestampAuthoritySigner_To_v1_TimestampAuthoritySigne
 		return err
 	}
 	out.File = (*v1.File)(unsafe.Pointer(in.File))
-	out.Kms = (*v1.KMS)(unsafe.Pointer(in.Kms))
-	out.Tink = (*v1.Tink)(unsafe.Pointer(in.Tink))
+	if in.Kms != nil {
+		in, out := &in.Kms, &out.Kms
+		*out = new(v1.KMS)
+		if err := Convert_v1alpha1_KMS_To_v1_KMS(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.Kms = nil
+	}
+	if in.Tink != nil {
+		in, out := &in.Tink, &out.Tink
+		*out = new(v1.Tink)
+		if err := Convert_v1alpha1_Tink_To_v1_Tink(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.Tink = nil
+	}
 	return nil
-}
-
-// Convert_v1alpha1_TimestampAuthoritySigner_To_v1_TimestampAuthoritySigner is an autogenerated conversion function.
-func Convert_v1alpha1_TimestampAuthoritySigner_To_v1_TimestampAuthoritySigner(in *TimestampAuthoritySigner, out *v1.TimestampAuthoritySigner, s conversion.Scope) error {
-	return autoConvert_v1alpha1_TimestampAuthoritySigner_To_v1_TimestampAuthoritySigner(in, out, s)
 }
 
 func autoConvert_v1_TimestampAuthoritySigner_To_v1alpha1_TimestampAuthoritySigner(in *v1.TimestampAuthoritySigner, out *TimestampAuthoritySigner, s conversion.Scope) error {
@@ -2492,14 +2567,26 @@ func autoConvert_v1_TimestampAuthoritySigner_To_v1alpha1_TimestampAuthoritySigne
 		return err
 	}
 	out.File = (*File)(unsafe.Pointer(in.File))
-	out.Kms = (*KMS)(unsafe.Pointer(in.Kms))
-	out.Tink = (*Tink)(unsafe.Pointer(in.Tink))
+	if in.Kms != nil {
+		in, out := &in.Kms, &out.Kms
+		*out = new(KMS)
+		if err := Convert_v1_KMS_To_v1alpha1_KMS(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.Kms = nil
+	}
+	if in.Tink != nil {
+		in, out := &in.Tink, &out.Tink
+		*out = new(Tink)
+		if err := Convert_v1_Tink_To_v1alpha1_Tink(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.Tink = nil
+	}
+	// WARNING: in.Auth requires manual conversion: does not exist in peer-type
 	return nil
-}
-
-// Convert_v1_TimestampAuthoritySigner_To_v1alpha1_TimestampAuthoritySigner is an autogenerated conversion function.
-func Convert_v1_TimestampAuthoritySigner_To_v1alpha1_TimestampAuthoritySigner(in *v1.TimestampAuthoritySigner, out *TimestampAuthoritySigner, s conversion.Scope) error {
-	return autoConvert_v1_TimestampAuthoritySigner_To_v1alpha1_TimestampAuthoritySigner(in, out, s)
 }
 
 func autoConvert_v1alpha1_TimestampAuthoritySpec_To_v1_TimestampAuthoritySpec(in *TimestampAuthoritySpec, out *v1.TimestampAuthoritySpec, s conversion.Scope) error {
@@ -2585,19 +2672,13 @@ func autoConvert_v1_TimestampAuthorityStatus_To_v1alpha1_TimestampAuthorityStatu
 func autoConvert_v1alpha1_Tink_To_v1_Tink(in *Tink, out *v1.Tink, s conversion.Scope) error {
 	out.KeyResource = in.KeyResource
 	out.KeysetRef = (*v1.SecretKeySelector)(unsafe.Pointer(in.KeysetRef))
-	out.Auth = (*v1.Auth)(unsafe.Pointer(in.Auth))
+	// WARNING: in.Auth requires manual conversion: does not exist in peer-type
 	return nil
-}
-
-// Convert_v1alpha1_Tink_To_v1_Tink is an autogenerated conversion function.
-func Convert_v1alpha1_Tink_To_v1_Tink(in *Tink, out *v1.Tink, s conversion.Scope) error {
-	return autoConvert_v1alpha1_Tink_To_v1_Tink(in, out, s)
 }
 
 func autoConvert_v1_Tink_To_v1alpha1_Tink(in *v1.Tink, out *Tink, s conversion.Scope) error {
 	out.KeyResource = in.KeyResource
 	out.KeysetRef = (*SecretKeySelector)(unsafe.Pointer(in.KeysetRef))
-	out.Auth = (*Auth)(unsafe.Pointer(in.Auth))
 	return nil
 }
 
@@ -2607,7 +2688,9 @@ func Convert_v1_Tink_To_v1alpha1_Tink(in *v1.Tink, out *Tink, s conversion.Scope
 }
 
 func autoConvert_v1alpha1_TlogMonitoring_To_v1_TlogMonitoring(in *TlogMonitoring, out *v1.TlogMonitoring, s conversion.Scope) error {
-	out.Enabled = in.Enabled
+	if err := metav1.Convert_bool_To_Pointer_bool(&in.Enabled, &out.Enabled, s); err != nil {
+		return err
+	}
 	out.Interval = in.Interval
 	return nil
 }
@@ -2618,7 +2701,9 @@ func Convert_v1alpha1_TlogMonitoring_To_v1_TlogMonitoring(in *TlogMonitoring, ou
 }
 
 func autoConvert_v1_TlogMonitoring_To_v1alpha1_TlogMonitoring(in *v1.TlogMonitoring, out *TlogMonitoring, s conversion.Scope) error {
-	out.Enabled = in.Enabled
+	if err := metav1.Convert_Pointer_bool_To_bool(&in.Enabled, &out.Enabled, s); err != nil {
+		return err
+	}
 	out.Interval = in.Interval
 	return nil
 }
@@ -2908,28 +2993,16 @@ func autoConvert_v1alpha1_TsaCertificateAuthority_To_v1_TsaCertificateAuthority(
 	out.CommonName = in.CommonName
 	out.OrganizationName = in.OrganizationName
 	out.OrganizationEmail = in.OrganizationEmail
-	out.PasswordRef = (*v1.SecretKeySelector)(unsafe.Pointer(in.PasswordRef))
-	out.PrivateKeyRef = (*v1.SecretKeySelector)(unsafe.Pointer(in.PrivateKeyRef))
+	// WARNING: in.PasswordRef requires manual conversion: does not exist in peer-type
+	// WARNING: in.PrivateKeyRef requires manual conversion: does not exist in peer-type
 	return nil
-}
-
-// Convert_v1alpha1_TsaCertificateAuthority_To_v1_TsaCertificateAuthority is an autogenerated conversion function.
-func Convert_v1alpha1_TsaCertificateAuthority_To_v1_TsaCertificateAuthority(in *TsaCertificateAuthority, out *v1.TsaCertificateAuthority, s conversion.Scope) error {
-	return autoConvert_v1alpha1_TsaCertificateAuthority_To_v1_TsaCertificateAuthority(in, out, s)
 }
 
 func autoConvert_v1_TsaCertificateAuthority_To_v1alpha1_TsaCertificateAuthority(in *v1.TsaCertificateAuthority, out *TsaCertificateAuthority, s conversion.Scope) error {
 	out.CommonName = in.CommonName
 	out.OrganizationName = in.OrganizationName
 	out.OrganizationEmail = in.OrganizationEmail
-	out.PasswordRef = (*SecretKeySelector)(unsafe.Pointer(in.PasswordRef))
-	out.PrivateKeyRef = (*SecretKeySelector)(unsafe.Pointer(in.PrivateKeyRef))
 	return nil
-}
-
-// Convert_v1_TsaCertificateAuthority_To_v1alpha1_TsaCertificateAuthority is an autogenerated conversion function.
-func Convert_v1_TsaCertificateAuthority_To_v1alpha1_TsaCertificateAuthority(in *v1.TsaCertificateAuthority, out *TsaCertificateAuthority, s conversion.Scope) error {
-	return autoConvert_v1_TsaCertificateAuthority_To_v1alpha1_TsaCertificateAuthority(in, out, s)
 }
 
 func autoConvert_v1alpha1_TsaService_To_v1_TsaService(in *TsaService, out *v1.TsaService, s conversion.Scope) error {

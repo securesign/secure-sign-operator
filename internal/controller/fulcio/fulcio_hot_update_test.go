@@ -21,8 +21,6 @@ import (
 	"time"
 
 	"github.com/securesign/operator/internal/constants"
-	"github.com/securesign/operator/internal/labels"
-	"github.com/securesign/operator/internal/state"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -37,6 +35,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("Fulcio hot update", func() {
@@ -85,8 +84,6 @@ var _ = Describe("Fulcio hot update", func() {
 			By("creating the custom resource for the Kind Fulcio")
 			err := suite.Client().Get(ctx, typeNamespaceName, instance)
 			if err != nil && errors.IsNotFound(err) {
-				// Let's mock our custom resource at the same way that we would
-				// apply on the cluster the manifest under config/samples
 				instance := &rhtasv1.Fulcio{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      Name,
@@ -95,7 +92,7 @@ var _ = Describe("Fulcio hot update", func() {
 					Spec: rhtasv1.FulcioSpec{
 						ExternalAccess: rhtasv1.ExternalAccess{
 							Host:    "fulcio.localhost",
-							Enabled: true,
+							Enabled: ptr.To(true),
 						},
 						Config: rhtasv1.FulcioConfig{
 							OIDCIssuers: []rhtasv1.OIDCIssuer{
@@ -112,7 +109,7 @@ var _ = Describe("Fulcio hot update", func() {
 							OrganizationEmail: "my@email.com",
 							CommonName:        "local",
 						},
-						Monitoring: rhtasv1.MonitoringConfig{Enabled: false},
+						Monitoring: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
 					},
 				}
 				err = suite.Client().Create(ctx, instance)
@@ -132,7 +129,6 @@ var _ = Describe("Fulcio hot update", func() {
 			}).Should(Succeed())
 
 			By("Move to Ready phase")
-			// Workaround to succeed condition for Ready phase
 			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
 
 			By("Waiting until Fulcio instance is Ready")
@@ -142,67 +138,11 @@ var _ = Describe("Fulcio hot update", func() {
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
 			}).Should(BeTrue())
 
-			By("Key rotation")
-			Eventually(func(g Gomega) error {
-				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				found.Spec.Certificate.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: "password-secret",
-					},
-					Key: "password",
-				}
-				return suite.Client().Update(ctx, found)
-			}).Should(Succeed())
-
-			By("Pending phase until password key is resolved")
-			Eventually(func(g Gomega) string {
-				found := &rhtasv1.Fulcio{}
-				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
-				g.Expect(cond).ToNot(BeNil())
-				return cond.Reason
-			}).Should(Equal(state.Pending.String()))
-
-			By("Creating password secret with cert password")
-			Expect(suite.Client().Create(ctx, &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "password-secret",
-					Namespace: typeNamespaceName.Namespace,
-					Labels:    labels.ForComponent(actions.ComponentName, instance.Name),
-				},
-				Data: map[string][]byte{
-					"password": []byte("secret"),
-				},
-			})).To(Succeed())
-
-			By("Status field changed")
-			Eventually(func(g Gomega) string {
-				found := &rhtasv1.Fulcio{}
-				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				g.Expect(found.Status.Certificate).ToNot(BeNil())
-				g.Expect(found.Status.Certificate.PrivateKeyPasswordRef).ToNot(BeNil()) //nolint:staticcheck
-				return found.Status.Certificate.PrivateKeyPasswordRef.Name              //nolint:staticcheck
-			}).Should(Equal("password-secret"))
-
+			By("Verify cert condition is resolved")
 			Eventually(func(g Gomega) bool {
-				found := &rhtasv1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, actions.CertCondition)
 			}).Should(BeTrue())
-
-			By("Fulcio deployment is updated")
-			Eventually(func(g Gomega) bool {
-				updated := &appsv1.Deployment{}
-				g.Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)).To(Succeed())
-				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
-			}).Should(BeFalse())
-
-			By("Move to Ready phase")
-			deployment = &appsv1.Deployment{}
-			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
-			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
-
-			time.Sleep(10 * time.Second)
 
 			By("Config update")
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())

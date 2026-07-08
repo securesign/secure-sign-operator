@@ -11,6 +11,7 @@ import (
 	tsaActions "github.com/securesign/operator/internal/controller/tsa/actions"
 	"github.com/securesign/operator/test/e2e/support"
 	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
+	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
@@ -28,6 +29,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 	cli, _ := support.CreateClient()
 
 	var targetImageName string
+	var fipsEnabled bool
 	namespaces := map[string]*v1.Namespace{
 		"rekor":    nil,
 		"fulcio":   nil,
@@ -44,6 +46,10 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 	var tsaObject *rhtasv1.TimestampAuthority
 	var tufObject *rhtasv1.Tuf
 
+	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
+		fipsEnabled = enabled
+	}))
+
 	BeforeAll(func(ctx SpecContext) {
 		DeferCleanup(func(ctx SpecContext) {
 			for _, n := range namespaces {
@@ -59,14 +65,35 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			AddReportEntry(steps.Namespace, namespaces[i].Name)
 		}
 
-		trillianObject = &rhtasv1.Trillian{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespaces["trillian"].Name,
-				Name:      "test",
-			},
-			Spec: rhtasv1.TrillianSpec{
-				Db: rhtasv1.TrillianDB{Create: ptr.To(true)},
-			},
+		if fipsEnabled {
+			Expect(postgresql.CreateDB(ctx, cli, namespaces["trillian"].Name, postgresql.DefaultSecretName, "fips-password")).To(Succeed())
+			postgresql.WaitAndLoadSchema(ctx, cli, namespaces["trillian"].Name)
+			trillianObject = &rhtasv1.Trillian{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespaces["trillian"].Name,
+					Name:      "test",
+				},
+				Spec: rhtasv1.TrillianSpec{
+					Auth: &rhtasv1.Auth{
+						Env: postgresql.AuthEnvVars(namespaces["trillian"].Name, postgresql.DefaultSecretName),
+					},
+					Db: rhtasv1.TrillianDB{
+						Create:   ptr.To(false),
+						Provider: postgresql.Provider,
+						Uri:      postgresql.ConnectionURI,
+					},
+				},
+			}
+		} else {
+			trillianObject = &rhtasv1.Trillian{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespaces["trillian"].Name,
+					Name:      "test",
+				},
+				Spec: rhtasv1.TrillianSpec{
+					Db: rhtasv1.TrillianDB{Create: ptr.To(true)},
+				},
+			}
 		}
 
 		rekorObject = &rhtasv1.Rekor{
@@ -76,7 +103,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			},
 			Spec: rhtasv1.RekorSpec{
 				ExternalAccess: rhtasv1.ExternalAccess{
-					Enabled: true,
+					Enabled: ptr.To(true),
 				},
 				Trillian: rhtasv1.TrillianService{
 					Address: fmt.Sprintf("trillian-logserver.%s.svc.cluster.local", namespaces["trillian"].Name),
@@ -135,7 +162,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 					Address: fmt.Sprintf("%s://ctlog.%s.svc.cluster.local", protocol, namespaces["ctlog"].Name),
 				},
 				ExternalAccess: rhtasv1.ExternalAccess{
-					Enabled: true,
+					Enabled: ptr.To(true),
 				},
 				Config: rhtasv1.FulcioConfig{
 					OIDCIssuers: []rhtasv1.OIDCIssuer{
@@ -146,26 +173,31 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 							Type:      "email",
 						},
 					}},
-				Certificate: rhtasv1.FulcioCert{
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "my-fulcio-secret",
+				Certificate: func() rhtasv1.FulcioCert {
+					cert := rhtasv1.FulcioCert{
+						PrivateKeyRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
+								Name: "my-fulcio-secret",
+							},
+							Key: "private",
 						},
-						Key: "private",
-					},
-					PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "my-fulcio-secret",
+						CARef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
+								Name: "my-fulcio-secret",
+							},
+							Key: "cert",
 						},
-						Key: "password",
-					},
-					CARef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "my-fulcio-secret",
-						},
-						Key: "cert",
-					},
-				},
+					}
+					if !fipsEnabled {
+						cert.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+							LocalObjectReference: rhtasv1.LocalObjectReference{
+								Name: "my-fulcio-secret",
+							},
+							Key: "password",
+						}
+					}
+					return cert
+				}(),
 			},
 		}
 
@@ -176,34 +208,39 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			},
 			Spec: rhtasv1.TimestampAuthoritySpec{
 				ExternalAccess: rhtasv1.ExternalAccess{
-					Enabled: true,
+					Enabled: ptr.To(true),
 				},
-				Signer: rhtasv1.TimestampAuthoritySigner{
-					CertificateChain: rhtasv1.CertificateChain{
-						CertificateChainRef: &rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{
-								Name: "test-tsa-secret",
+				Signer: func() rhtasv1.TimestampAuthoritySigner {
+					signer := rhtasv1.TimestampAuthoritySigner{
+						CertificateChain: rhtasv1.CertificateChain{
+							CertificateChainRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{
+									Name: "test-tsa-secret",
+								},
+								Key: "certificateChain",
 							},
-							Key: "certificateChain",
 						},
-					},
-					File: &rhtasv1.File{
-						PrivateKeyRef: &rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{
-								Name: "test-tsa-secret",
+						File: &rhtasv1.File{
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{
+									Name: "test-tsa-secret",
+								},
+								Key: "leafPrivateKey",
 							},
-							Key: "leafPrivateKey",
 						},
-						PasswordRef: &rhtasv1.SecretKeySelector{
+					}
+					if !fipsEnabled {
+						signer.File.PasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "test-tsa-secret",
 							},
 							Key: "leafPrivateKeyPassword",
-						},
-					},
-				},
+						}
+					}
+					return signer
+				}(),
 				NTPMonitoring: rhtasv1.NTPMonitoring{
-					Enabled: true,
+					Enabled: ptr.To(true),
 					Config: &rhtasv1.NtpMonitoringConfig{
 						RequestAttempts: 3,
 						RequestTimeout:  5,
@@ -224,7 +261,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			},
 			Spec: rhtasv1.TufSpec{
 				ExternalAccess: rhtasv1.ExternalAccess{
-					Enabled: true,
+					Enabled: ptr.To(true),
 				},
 				Keys: []rhtasv1.TufKey{
 					{
@@ -285,7 +322,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			Expect(cli.Create(ctx, tufRekorSecret)).To(Succeed())
 
 			// Fulcio
-			fulcioSecret := fulcio.CreateSecret(namespaces["fulcio"].Name, "my-fulcio-secret", true)
+			fulcioSecret := fulcio.CreateSecret(namespaces["fulcio"].Name, "my-fulcio-secret", !fipsEnabled)
 
 			tufFulcioSecret := fulcioSecret.DeepCopy()
 			tufFulcioSecret.Namespace = namespaces["tuf"].Name
@@ -307,7 +344,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			Expect(cli.Create(ctx, tufCtlogSecret)).To(Succeed())
 
 			// TSA
-			tsaSecret := tsa.CreateSecrets(namespaces["tsa"].Name, "test-tsa-secret", true)
+			tsaSecret := tsa.CreateSecrets(namespaces["tsa"].Name, "test-tsa-secret", !fipsEnabled)
 
 			tufTSASecret := tsaSecret.DeepCopy()
 			tufTSASecret.Namespace = namespaces["tuf"].Name
@@ -324,7 +361,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 		})
 
 		It("All other components are running", func(ctx SpecContext) {
-			trillian.Verify(ctx, cli, namespaces["trillian"].Name, trillianObject.Name, true)
+			trillian.Verify(ctx, cli, namespaces["trillian"].Name, trillianObject.Name, !fipsEnabled)
 			rekor.Verify(ctx, cli, namespaces["rekor"].Name, rekorObject.Name, true)
 			fulcio.Verify(ctx, cli, namespaces["fulcio"].Name, fulcioObject.Name)
 			ctlog.Verify(ctx, cli, namespaces["ctlog"].Name, ctlogObject.Name)

@@ -16,6 +16,7 @@ import (
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/condition"
+	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
 	"github.com/securesign/operator/test/e2e/support/tas/trillian"
@@ -30,29 +31,55 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 	cli, _ := support.CreateClient()
 
 	var namespace *v1.Namespace
+	var fipsEnabled bool
 	var trillianCR *rhtasv1.Trillian
 	var ctlogCR *rhtasv1.CTlog
 	var originalSecretName string
 	var correctTrillianAddr string
+
+	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
+		fipsEnabled = enabled
+	}))
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
 
 	BeforeAll(func(ctx SpecContext) {
-		trillianCR = &rhtasv1.Trillian{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-trillian",
-				Namespace: namespace.Name,
-			},
-			Spec: rhtasv1.TrillianSpec{
-				Db: rhtasv1.TrillianDB{Create: ptr.To(true)},
-			},
+		if fipsEnabled {
+			Expect(postgresql.CreateDB(ctx, cli, namespace.Name, postgresql.DefaultSecretName, "fips-password")).To(Succeed())
+			postgresql.WaitAndLoadSchema(ctx, cli, namespace.Name)
+			trillianCR = &rhtasv1.Trillian{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-trillian",
+					Namespace: namespace.Name,
+				},
+				Spec: rhtasv1.TrillianSpec{
+					Auth: &rhtasv1.Auth{
+						Env: postgresql.AuthEnvVars(namespace.Name, postgresql.DefaultSecretName),
+					},
+					Db: rhtasv1.TrillianDB{
+						Create:   ptr.To(false),
+						Provider: postgresql.Provider,
+						Uri:      postgresql.ConnectionURI,
+					},
+				},
+			}
+		} else {
+			trillianCR = &rhtasv1.Trillian{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-trillian",
+					Namespace: namespace.Name,
+				},
+				Spec: rhtasv1.TrillianSpec{
+					Db: rhtasv1.TrillianDB{Create: ptr.To(true)},
+				},
+			}
 		}
 		Expect(cli.Create(ctx, trillianCR)).To(Succeed())
 
 		By("Waiting for Trillian to be ready")
-		trillian.Verify(ctx, cli, namespace.Name, trillianCR.Name, true)
+		trillian.Verify(ctx, cli, namespace.Name, trillianCR.Name, !fipsEnabled)
 	})
 
 	BeforeAll(func(ctx SpecContext) {

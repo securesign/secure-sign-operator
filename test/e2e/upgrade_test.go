@@ -22,6 +22,7 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/kubernetes/olm"
+	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
@@ -54,7 +55,12 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		extension                              olm.Extension
 		catalog                                olm.ExtensionSource
 		cosign                                 cosignSupport.Cosign
+		fipsEnabled                            bool
 	)
+
+	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
+		fipsEnabled = enabled
+	}))
 
 	BeforeAll(steps.CreateNamespaceWithoutPSA(cli, func(new *v1.Namespace) {
 		namespace = new
@@ -134,6 +140,13 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 		gomega.Eventually(func(g gomega.Gomega) {
 			tas.VerifyCRDRESTEndpointsForVersion(ctx, cli, v1alpha1.GroupVersion)
 		}).Should(gomega.Succeed())
+	})
+
+	It("Setup database", func(ctx SpecContext) {
+		if fipsEnabled {
+			gomega.Expect(postgresql.CreateDB(ctx, cli, namespace.Name, postgresql.DefaultSecretName, "fips-password")).To(gomega.Succeed())
+			postgresql.WaitAndLoadSchema(ctx, cli, namespace.Name)
+		}
 	})
 
 	It("Install securesign", func(ctx SpecContext) {
@@ -225,6 +238,16 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 			},
 		}
 		securesignDeployment.Spec.Trillian.Monitoring.Enabled = true
+
+		if fipsEnabled {
+			securesignDeployment.Spec.Trillian.Db.Create = ptr.To(false)
+			securesignDeployment.Spec.Trillian.Db.Provider = postgresql.Provider
+			securesignDeployment.Spec.Trillian.Db.Uri = postgresql.ConnectionURI
+			securesignDeployment.Spec.Trillian.Auth = &v1alpha1.Auth{
+				Env: postgresql.AuthEnvVars(namespace.Name, postgresql.DefaultSecretName),
+			}
+		}
+
 		gomega.Expect(cli.Create(ctx, securesignDeployment)).To(gomega.Succeed())
 
 		// Before upgrade, only v1alpha1 CRDs are available — verify using v1alpha1 types
@@ -306,7 +329,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 			v1Securesign = securesign.Get(ctx, cli, namespace.Name, securesignDeployment.Name)
 			return v1Securesign
 		}).Should(gomega.Not(gomega.BeNil()))
-		tas.VerifyAllComponents(ctx, cli, v1Securesign, true)
+		tas.VerifyAllComponents(ctx, cli, v1Securesign, !fipsEnabled, true)
 	})
 
 	It("Enforce PSA restricted:latest after upgrade", func(ctx SpecContext) {

@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
+	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -29,7 +30,7 @@ func (i monitoringAction) Name() string {
 }
 
 func (i monitoringAction) CanHandle(_ context.Context, instance *rhtasv1.TimestampAuthority) bool {
-	return instance.Spec.Monitoring.Enabled && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
+	return utils.IsEnabled(instance.Spec.Monitoring.Enabled) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1.TimestampAuthority) *action.Result {

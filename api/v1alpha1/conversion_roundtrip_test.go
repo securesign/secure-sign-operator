@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 	"k8s.io/apimachinery/pkg/runtime"
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/randfill"
 )
 
@@ -36,11 +37,49 @@ func rhtasScheme() *runtime.Scheme {
 	return s
 }
 
+// enabledFieldsFuzzerFuncs ensures *bool Enabled fields are never nil in fuzzed v1 hub objects.
+// In production, nil is unreachable because the CRD schema defaulter always sets these fields.
+// The fuzzer bypasses the API server, so we replicate that invariant here.
+func enabledFieldsFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.ExternalAccess, c randfill.Continue) {
+			c.FillNoCustom(s)
+			if s.Enabled == nil {
+				s.Enabled = ptr.To(c.Bool())
+			}
+		},
+		func(s *rhtasv1.MonitoringConfig, c randfill.Continue) {
+			c.FillNoCustom(s)
+			if s.Enabled == nil {
+				s.Enabled = ptr.To(c.Bool())
+			}
+		},
+		func(s *rhtasv1.TlogMonitoring, c randfill.Continue) {
+			c.FillNoCustom(s)
+			if s.Enabled == nil {
+				s.Enabled = ptr.To(c.Bool())
+			}
+		},
+		func(s *rhtasv1.NTPMonitoring, c randfill.Continue) {
+			c.FillNoCustom(s)
+			if s.Enabled == nil {
+				s.Enabled = ptr.To(c.Bool())
+			}
+		},
+	}
+}
+
 func TestSecuresignConversion(t *testing.T) {
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.Securesign{},
 		Spoke:  &Securesign{},
+		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			tsaSignerFuzzerFuncs,
+			tsaStatusFuzzerFuncs,
+			tsaCertAuthorityFuzzerFuncs,
+			enabledFieldsFuzzerFuncs,
+		},
 	}))
 }
 
@@ -49,6 +88,9 @@ func TestCTlogConversion(t *testing.T) {
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.CTlog{},
 		Spoke:  &CTlog{},
+		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			enabledFieldsFuzzerFuncs,
+		},
 	}))
 }
 
@@ -76,6 +118,7 @@ func TestRekorConversion(t *testing.T) {
 					},
 				}
 			},
+			enabledFieldsFuzzerFuncs,
 		},
 	}))
 }
@@ -99,11 +142,11 @@ func TestFulcioConversion(t *testing.T) {
 							c.FillNoCustom(&s.Certificate.PrivateKeyRef)
 							c.FillNoCustom(&s.Certificate.PrivateKeyPasswordRef)
 							c.FillNoCustom(&s.Certificate.CARef)
-							c.FillNoCustom(&s.Certificate.CommonName)
 						}
 					},
 				}
 			},
+			enabledFieldsFuzzerFuncs,
 		},
 	}))
 }
@@ -127,6 +170,7 @@ func TestTrillianConversion(t *testing.T) {
 					},
 				}
 			},
+			enabledFieldsFuzzerFuncs,
 		},
 	}))
 }
@@ -136,6 +180,9 @@ func TestTufConversion(t *testing.T) {
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.Tuf{},
 		Spoke:  &Tuf{},
+		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			enabledFieldsFuzzerFuncs,
+		},
 	}))
 }
 
@@ -145,34 +192,88 @@ func TestTimestampAuthorityConversion(t *testing.T) {
 		Hub:    &rhtasv1.TimestampAuthority{},
 		Spoke:  &TimestampAuthority{},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
-			func(_ runtimeserializer.CodecFactory) []interface{} {
-				return []interface{}{
-					func(s *TimestampAuthorityStatus, c randfill.Continue) {
-						c.FillNoCustom(&s.Conditions)
-						c.FillNoCustom(&s.Url)
-
-						if c.Bool() {
-							ref := &LocalObjectReference{}
-							c.FillNoCustom(ref)
-							s.NTPMonitoring = &NTPMonitoring{
-								Config: &NtpMonitoringConfig{
-									NtpConfigRef: ref,
-								},
-							}
-						}
-
-						if c.Bool() {
-							s.Signer = &TimestampAuthoritySigner{}
-							c.FillNoCustom(&s.Signer.CertificateChain.CertificateChainRef)
-							if c.Bool() {
-								s.Signer.File = &File{}
-								c.FillNoCustom(&s.Signer.File.PrivateKeyRef)
-								c.FillNoCustom(&s.Signer.File.PasswordRef)
-							}
-						}
-					},
-				}
-			},
+			tsaStatusFuzzerFuncs,
+			tsaSignerFuzzerFuncs,
+			tsaCertAuthorityFuzzerFuncs,
+			enabledFieldsFuzzerFuncs,
 		},
 	}))
+}
+
+// tsaStatusFuzzerFuncs constrains the v1 TSA status to only fill fields that survive roundtrip.
+func tsaStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *TimestampAuthorityStatus, c randfill.Continue) {
+			c.FillNoCustom(&s.Conditions)
+			c.FillNoCustom(&s.Url)
+
+			if c.Bool() {
+				ref := &LocalObjectReference{}
+				c.FillNoCustom(ref)
+				s.NTPMonitoring = &NTPMonitoring{
+					Config: &NtpMonitoringConfig{
+						NtpConfigRef: ref,
+					},
+				}
+			}
+
+			if c.Bool() {
+				s.Signer = &TimestampAuthoritySigner{}
+				c.FillNoCustom(&s.Signer.CertificateChain.CertificateChainRef)
+				if c.Bool() {
+					s.Signer.File = &File{}
+					c.FillNoCustom(&s.Signer.File.PrivateKeyRef)
+					c.FillNoCustom(&s.Signer.File.PasswordRef)
+				}
+			}
+		},
+	}
+}
+
+// tsaSignerFuzzerFuncs ensures only one signer (File/Kms/Tink) is set at a time.
+func tsaSignerFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *TimestampAuthoritySigner, c randfill.Continue) {
+			c.FillNoCustom(&s.CertificateChain)
+			switch c.Intn(3) {
+			case 0:
+				s.File = &File{}
+				c.FillNoCustom(s.File)
+			case 1:
+				s.Kms = &KMS{}
+				c.FillNoCustom(s.Kms)
+			case 2:
+				s.Tink = &Tink{}
+				c.FillNoCustom(s.Tink)
+			}
+		},
+		func(s *rhtasv1.TimestampAuthoritySigner, c randfill.Continue) {
+			c.FillNoCustom(&s.CertificateChain)
+			switch c.Intn(3) {
+			case 0:
+				s.File = &rhtasv1.File{}
+				c.FillNoCustom(s.File)
+			case 1:
+				s.Kms = &rhtasv1.KMS{}
+				c.FillNoCustom(s.Kms)
+			case 2:
+				s.Tink = &rhtasv1.Tink{}
+				c.FillNoCustom(s.Tink)
+			}
+			if c.Bool() {
+				s.Auth = &rhtasv1.Auth{}
+				c.FillNoCustom(s.Auth)
+			}
+		},
+	}
+}
+
+func tsaCertAuthorityFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(ca *TsaCertificateAuthority, c randfill.Continue) {
+			c.FillNoCustom(&ca.CommonName)
+			c.FillNoCustom(&ca.OrganizationName)
+			c.FillNoCustom(&ca.OrganizationEmail)
+		},
+	}
 }

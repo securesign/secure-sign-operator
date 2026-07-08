@@ -204,7 +204,7 @@ var _ = Describe("Conversion webhook", func() {
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "tsa-signer-test", Namespace: testNs}, v1obj)).To(Succeed())
 			Expect(v1obj.Spec.Signer.CertificateChain.RootCA).ToNot(BeNil())
 			Expect(v1obj.Spec.Signer.CertificateChain.RootCA.OrganizationName).To(Equal("Test Org"))
-			Expect(v1obj.Spec.NTPMonitoring.Enabled).To(BeTrue())
+			Expect(v1obj.Spec.NTPMonitoring.Enabled).To(HaveValue(BeTrue()))
 		})
 	})
 

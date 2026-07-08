@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/test/e2e/support"
+	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
@@ -33,6 +34,7 @@ var _ = Describe("Securesign install in proxy-env", Ordered, func() {
 	var namespace *v1.Namespace
 	var s *rhtasv1.Securesign
 	var hostname string
+	var fipsEnabled bool
 
 	Describe("Successful installation with fake-proxy env", func() {
 		BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
@@ -52,11 +54,18 @@ var _ = Describe("Securesign install in proxy-env", Ordered, func() {
 			hostname = fmt.Sprintf("%s.%s.svc", "proxy", namespace.Name)
 			createProxyServer(ctx, cli, namespace.Name)
 			installOperator(ctx, cli, namespace.Name, withProxy(hostname))
+
+			fipsEnabled = steps.IsFIPSCluster(ctx, cli)
+			if fipsEnabled {
+				Expect(postgresql.CreateDB(ctx, cli, namespace.Name, postgresql.DefaultSecretName, "fips-password")).To(Succeed())
+				postgresql.WaitAndLoadSchema(ctx, cli, namespace.Name)
+			}
 		})
 
 		It("Install securesign", func(ctx SpecContext) {
 			s = securesign.Create(namespace.Name, "test",
-				securesign.WithDefaults(),
+				securesign.ChooseDefaults(fipsEnabled, namespace.Name),
+				securesign.WithoutMonitoring(),
 				func(v *rhtasv1.Securesign) {
 					v.Spec.Fulcio.Config = rhtasv1.FulcioConfig{
 						OIDCIssuers: []rhtasv1.OIDCIssuer{
@@ -74,7 +83,7 @@ var _ = Describe("Securesign install in proxy-env", Ordered, func() {
 		})
 
 		It("All components are running", func(ctx SpecContext) {
-			tas.VerifyAllComponents(ctx, cli, s, true)
+			tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 		})
 
 		It("OIDC connection run through proxy", func(ctx SpecContext) {

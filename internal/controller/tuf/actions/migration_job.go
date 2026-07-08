@@ -153,6 +153,10 @@ func (i migrationJobAction) ensureMigrationJob(ctx context.Context, labels map[s
 			return nil
 		},
 		func(object *batchv1.Job) error {
+			ensure.SetGodebugEnv(object.Spec.Template.Spec.Containers, instance.GetAnnotations())
+			return nil
+		},
+		func(object *batchv1.Job) error {
 			return ensure.PodSecurityContext(&object.Spec.Template.Spec)
 		},
 		func(object *batchv1.Job) error {

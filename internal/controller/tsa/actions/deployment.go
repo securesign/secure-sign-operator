@@ -73,6 +73,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.TimestampAut
 		ensure.ControllerReference[*apps.Deployment](instance, i.Client),
 		ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
+		deployment.GODEBUG(instance.GetAnnotations()),
 		deployment.TrustedCA(instance.GetTrustedCA(), DeploymentName),
 		deployment.PodRequirements(instance.Spec.PodRequirements, DeploymentName),
 		deployment.PodSecurityContext(),
@@ -104,7 +105,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 			"--port=3000",
 			fmt.Sprintf("--log-type=%s", utils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
 			fmt.Sprintf("--certificate-chain-path=%s/certificate-chain.pem", certChainMountPath),
-			fmt.Sprintf("--disable-ntp-monitoring=%v", !instance.Spec.NTPMonitoring.Enabled),
+			fmt.Sprintf("--disable-ntp-monitoring=%v", !utils.IsEnabled(instance.Spec.NTPMonitoring.Enabled)),
 		}
 		if instance.Spec.MaxRequestBodySize != nil {
 			appArgs = append(appArgs, "--max-request-body-size", fmt.Sprintf("%d", *instance.Spec.MaxRequestBodySize))
@@ -138,7 +139,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 		chainVolumeMount.MountPath = certChainMountPath
 		chainVolumeMount.ReadOnly = true
 
-		if instance.Spec.NTPMonitoring.Enabled {
+		if utils.IsEnabled(instance.Spec.NTPMonitoring.Enabled) {
 			if instance.Status.NtpConfigRef != nil {
 				ntpConfigVolume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, ntpConfigVolumeName)
 				if ntpConfigVolume.ConfigMap == nil {
@@ -154,6 +155,10 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 					fmt.Sprintf("--ntp-monitoring=%s/ntp-config.yaml", NtpMountPath),
 				)
 			}
+		}
+
+		if err := ensure.ContainerAuth(container, instance.Spec.Signer.Auth)(&template.Spec); err != nil {
+			return err
 		}
 
 		switch tsaUtils.GetSignerType(&instance.Spec.Signer) {
@@ -196,11 +201,6 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 			}
 		case tsaUtils.KmsType:
 			{
-				err := ensure.ContainerAuth(container, instance.Spec.Signer.Kms.Auth)(&template.Spec)
-				if err != nil {
-					return err
-				}
-
 				appArgs = append(appArgs,
 					"--timestamp-signer=kms",
 					fmt.Sprintf("--kms-key-resource=%s", instance.Spec.Signer.Kms.KeyResource),
@@ -208,11 +208,6 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 			}
 		case tsaUtils.TinkType:
 			{
-				err := ensure.ContainerAuth(container, instance.Spec.Signer.Kms.Auth)(&template.Spec)
-				if err != nil {
-					return err
-				}
-
 				tinkSignerVolume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, tinkSignerVolumeName)
 				if tinkSignerVolume.Secret == nil {
 					tinkSignerVolume.Secret = &core.SecretVolumeSource{}

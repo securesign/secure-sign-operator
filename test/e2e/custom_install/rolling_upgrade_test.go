@@ -17,6 +17,7 @@ import (
 	tufAction "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/test/e2e/support"
+	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
@@ -62,6 +63,7 @@ var _ = Describe("rolling upgrade with replicas", Ordered, func() {
 
 	var namespace *v1.Namespace
 	var s *rhtasv1.Securesign
+	var fipsEnabled bool
 
 	Describe("Successful installation of manager", func() {
 		BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
@@ -79,12 +81,19 @@ var _ = Describe("rolling upgrade with replicas", Ordered, func() {
 
 		BeforeAll(func(ctx SpecContext) {
 			installOperator(ctx, cli, namespace.Name)
+
+			fipsEnabled = steps.IsFIPSCluster(ctx, cli)
+			if fipsEnabled {
+				Expect(postgresql.CreateDB(ctx, cli, namespace.Name, postgresql.DefaultSecretName, "fips-password")).To(Succeed())
+				postgresql.WaitAndLoadSchema(ctx, cli, namespace.Name)
+			}
 		})
 
 		It("Install securesign", func(ctx SpecContext) {
 			s = securesign.Create(namespace.Name, "test",
-				securesign.WithDefaults(),
+				securesign.ChooseDefaults(fipsEnabled, namespace.Name),
 				securesign.WithNFSPVC(),
+				securesign.WithoutMonitoring(),
 				withReplicas(2),
 				func(v *rhtasv1.Securesign) {
 					v.Spec.Fulcio.Config = rhtasv1.FulcioConfig{
@@ -103,7 +112,7 @@ var _ = Describe("rolling upgrade with replicas", Ordered, func() {
 		})
 
 		It("All components are running", func(ctx SpecContext) {
-			tas.VerifyAllComponents(ctx, cli, s, true)
+			tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 		})
 
 		It("Change related images", func(ctx SpecContext) {
@@ -141,10 +150,12 @@ var _ = Describe("rolling upgrade with replicas", Ordered, func() {
 
 			verifyDeploymentHasNewImage(ctx, cli, s.Namespace, trillianAction.LogserverDeploymentName)
 			verifyDeploymentHasNewImage(ctx, cli, s.Namespace, trillianAction.LogsignerDeploymentName)
-			verifyDeploymentHasNewImage(ctx, cli, s.Namespace, trillianAction.DbDeploymentName)
+			if !fipsEnabled {
+				verifyDeploymentHasNewImage(ctx, cli, s.Namespace, trillianAction.DbDeploymentName)
+			}
 
 			By("verify that all components are running")
-			tas.VerifyAllComponents(ctx, cli, s, true)
+			tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 		})
 	})
 })

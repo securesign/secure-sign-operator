@@ -16,19 +16,18 @@ import (
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
-	utils2 "github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 	"github.com/securesign/operator/internal/utils/tls"
-	"k8s.io/utils/ptr"
 
 	v2 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/securesign/operator/internal/controller/rekor/actions"
-	"github.com/securesign/operator/internal/controller/rekor/utils"
+	rekorutils "github.com/securesign/operator/internal/controller/rekor/utils"
 	actions2 "github.com/securesign/operator/internal/controller/trillian/actions"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -84,6 +83,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *acti
 			return err
 		},
 		deployment.Proxy(),
+		deployment.GODEBUG(instance.GetAnnotations()),
 		deployment.TrustedCA(instance.GetTrustedCA(), actions.ServerDeploymentName),
 		ensure.Optional(tls.UseTlsClient(instance), i.ensureTlsTrillian()),
 	); err != nil {
@@ -111,13 +111,13 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1.Rekor, sa string,
 	return func(dp *v2.Deployment) error {
 		switch {
 		case instance.Status.ServerConfigRef == nil:
-			return fmt.Errorf("CreateRekorDeployment: %w", utils.ErrServerConfigNotSpecified)
+			return fmt.Errorf("CreateRekorDeployment: %w", rekorutils.ErrServerConfigNotSpecified)
 		case instance.Status.TreeID == nil:
-			return fmt.Errorf("CreateRekorDeployment: %w", utils.ErrTreeNotSpecified)
+			return fmt.Errorf("CreateRekorDeployment: %w", rekorutils.ErrTreeNotSpecified)
 		case instance.Spec.Trillian.Address == "":
-			return fmt.Errorf("CreateRekorDeployment: %w", utils.ErrTrillianAddressNotSpecified)
+			return fmt.Errorf("CreateRekorDeployment: %w", rekorutils.ErrTrillianAddressNotSpecified)
 		case instance.Spec.Trillian.Port == nil:
-			return fmt.Errorf("CreateRekorDeployment: %w", utils.ErrTrillianPortNotSpecified)
+			return fmt.Errorf("CreateRekorDeployment: %w", rekorutils.ErrTrillianPortNotSpecified)
 		}
 
 		spec := &dp.Spec
@@ -146,7 +146,7 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1.Rekor, sa string,
 			// boolean flag MUST be without parameter (default value) or use the equal sign (https://github.com/spf13/pflag?tab=readme-ov-file#command-line-flag-syntax)
 			"--enable_retrieve_api=true",
 			"--trillian_log_server.tlog_id", strconv.FormatInt(*instance.Status.TreeID, 10),
-			"--log_type", utils2.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod)),
+			"--log_type", utils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod)),
 		}
 
 		const privateKeyVolumeName = "rekor-private-key-volume"
@@ -160,7 +160,7 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1.Rekor, sa string,
 			kubernetes.RemoveEnvVarByName(container, "SIGNER_PASSWORD")
 		} else {
 			if instance.Status.Signer.KeyRef == nil {
-				return utils.ErrSignerKeyNotSpecified
+				return rekorutils.ErrSignerKeyNotSpecified
 			}
 			privateVolume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, privateKeyVolumeName)
 			if privateVolume.Secret == nil {
@@ -207,7 +207,7 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1.Rekor, sa string,
 		serverPort := kubernetes.FindPortByNameOrCreate(container, "rekor-server")
 		serverPort.ContainerPort = 3000
 
-		if instance.Spec.Monitoring.Enabled {
+		if utils.IsEnabled(instance.Spec.Monitoring.Enabled) {
 			monitoringPort := kubernetes.FindPortByNameOrCreate(container, "monitoring")
 			monitoringPort.ContainerPort = 2112
 			monitoringPort.Protocol = v1.ProtocolTCP
@@ -278,7 +278,7 @@ func (i deployAction) ensureAttestation(instance *rhtasv1.Rekor) func(*v2.Deploy
 	const storageVolumeName = "storage"
 	return func(dp *v2.Deployment) error {
 		container := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, actions.ServerDeploymentName)
-		enabled := ptr.Deref(instance.Spec.Attestations.Enabled, false)
+		enabled := utils.IsEnabled(instance.Spec.Attestations.Enabled)
 
 		// boolean flag MUST be without parameter (default value) or use the equal sign (https://github.com/spf13/pflag?tab=readme-ov-file#command-line-flag-syntax)
 		container.Args = append(container.Args, fmt.Sprintf("--enable_attestation_storage=%t", enabled))

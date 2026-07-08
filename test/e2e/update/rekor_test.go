@@ -34,9 +34,17 @@ var _ = Describe("Rekor update", Ordered, func() {
 	var namespace *v1.Namespace
 	var s *rhtasv1.Securesign
 
+	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
+		fipsEnabled = enabled
+	}))
+
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
+
+	BeforeAll(func(ctx SpecContext) {
+		setupFIPSPostgresIfNeeded(ctx, cli, namespace)
+	})
 
 	BeforeAll(func(ctx SpecContext) {
 		s = securesignResource(namespace)
@@ -52,7 +60,7 @@ var _ = Describe("Rekor update", Ordered, func() {
 		})
 
 		It("All other components are running", func(ctx SpecContext) {
-			tas.VerifyAllComponents(ctx, cli, s, true)
+			tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 		})
 	})
 
@@ -83,17 +91,17 @@ var _ = Describe("Rekor update", Ordered, func() {
 					},
 				}
 				return cli.Update(ctx, s)
-			}).WithTimeout(1 * time.Second).Should(Succeed())
+			}).Should(Succeed())
 		})
 
 		It("has status SignerAvailable == Failure: waiting on my-rekor-secret", func(ctx SpecContext) {
 			Eventually(func(g Gomega) string {
 				ctl := rekor.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
-				c := meta.FindStatusCondition(ctl.Status.Conditions, rekorAction.ServerCondition)
+				c := meta.FindStatusCondition(ctl.Status.Conditions, rekorAction.SignerCondition)
 				g.Expect(c).ToNot(BeNil())
 				return c.Reason
-			}).Should(Equal(state.Initialize.String()))
+			}).Should(Equal(state.Failure.String()))
 		})
 
 		It("created my-rekor-secret", func(ctx SpecContext) {
@@ -138,7 +146,7 @@ var _ = Describe("Rekor update", Ordered, func() {
 					},
 				}
 				return cli.Update(ctx, s)
-			}).WithTimeout(1 * time.Second).Should(Succeed())
+			}).Should(Succeed())
 			Eventually(func(g Gomega) []rhtasv1.TufKeyStatus {
 				t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 				return t.Status.Keys

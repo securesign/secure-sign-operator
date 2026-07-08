@@ -62,10 +62,12 @@ type TimestampAuthoritySigner struct {
 	//Configuration for Tink based signer
 	//+optional
 	Tink *Tink `json:"tink,omitempty"`
+	//Configuration for authentication for key management services
+	//+optional
+	Auth *Auth `json:"auth,omitempty"`
 }
 
 // Certificate chain config
-// +kubebuilder:validation:XValidation:rule="(!has(self.rootCA) && !has(self.leafCA)) || (has(self.rootCA.privateKeyRef) == has(self.leafCA.privateKeyRef))",message="must provide private keys for both root and leaf certificate authorities"
 // +kubebuilder:validation:XValidation:rule=(has(self.certificateChainRef) || self.rootCA.organizationName != ""),message=organizationName cannot be empty for root certificate authority
 // +kubebuilder:validation:XValidation:rule=(has(self.certificateChainRef) || self.leafCA.organizationName != ""),message=organizationName cannot be empty for leaf certificate authority
 // +kubebuilder:validation:XValidation:rule=(has(self.certificateChainRef) || self.intermediateCA[0].organizationName != ""),message="organizationName cannot be empty for intermediate certificate authority, please make sure all are in place"
@@ -96,15 +98,6 @@ type TsaCertificateAuthority struct {
 	//+optional
 	//Organization Email specifies the Organization Email for the TimeStampAuthorities cert chain.
 	OrganizationEmail string `json:"organizationEmail,omitempty"`
-	// Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
-	// and not FIPS-compliant. Auto-generated keys are no longer password-encrypted;
-	// this field is retained only for backward compatibility with existing user-provided
-	// encrypted keys. Kubernetes Secrets provide encryption-at-rest.
-	// +optional
-	PasswordRef *SecretKeySelector `json:"passwordRef,omitempty"`
-	// Reference to the signer's root private key
-	//+optional
-	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
 }
 
 // TSA File signer configuration
@@ -125,9 +118,6 @@ type KMS struct {
 	//KMS key for signing timestamp responses. Valid options include: [gcpkms://resource, azurekms://resource, hashivault://resource, awskms://resource]
 	//+required
 	KeyResource string `json:"keyResource,omitempty"`
-	//Configuration for authentication for key management services
-	//+optional
-	Auth *Auth `json:"auth,omitempty"`
 }
 
 // TSA Tink signer config
@@ -138,15 +128,13 @@ type Tink struct {
 	//+required
 	//Path to KMS-encrypted keyset for Tink, decrypted by TinkKeyResource
 	KeysetRef *SecretKeySelector `json:"keysetRef,omitempty"`
-	// Configuration for authentication for key management services
-	//+optional
-	Auth *Auth `json:"auth,omitempty"`
 }
 
 type NTPMonitoring struct {
 	//Enable or disable NTP(Network Time Protocol) Monitoring, Enabled by default
 	//+kubebuilder:default:=true
-	Enabled bool `json:"enabled"`
+	//+required
+	Enabled *bool `json:"enabled,omitempty"`
 	//Configuration for Network time protocol monitoring
 	Config *NtpMonitoringConfig `json:"config,omitempty"`
 }

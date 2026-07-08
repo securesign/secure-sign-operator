@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/utils/ptr"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -92,7 +93,7 @@ var _ = Describe("CTlog update test", func() {
 			if err != nil && errors.IsNotFound(err) {
 				// Let's mock our custom resource at the same way that we would
 				// apply on the cluster the manifest under config/samples
-				ptr := int64(1)
+				treeID := int64(1)
 				instance := &rhtasv1.CTlog{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      Name,
@@ -100,7 +101,10 @@ var _ = Describe("CTlog update test", func() {
 					},
 
 					Spec: rhtasv1.CTlogSpec{
-						TreeID: &ptr,
+						TreeID: &treeID,
+						Monitoring: rhtasv1.MonitoringWithTLogConfig{
+							MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+						},
 					},
 				}
 				err = suite.Client().Create(ctx, instance)
@@ -197,7 +201,7 @@ var _ = Describe("CTlog update test", func() {
 					Namespace: Namespace,
 					Labels:    labels.For(actions.ComponentName, Name, instance.Name),
 				},
-				Data: map[string][]byte{"private": key.PrivateKey, "password": key.PrivateKeyPass},
+				Data: map[string][]byte{"private": key.PrivateKey, "public": key.PublicKey},
 			})).To(Succeed())
 
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
@@ -210,12 +214,13 @@ var _ = Describe("CTlog update test", func() {
 					},
 					Key: "private",
 				}
-				found.Spec.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{
+				found.Spec.PublicKeyRef = &rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: "key-secret",
 					},
-					Key: "password",
+					Key: "public",
 				}
+				found.Spec.PrivateKeyPasswordRef = nil //nolint:staticcheck
 				return suite.Client().Update(ctx, found)
 			}).Should(Succeed())
 

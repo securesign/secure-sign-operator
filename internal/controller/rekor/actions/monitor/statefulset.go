@@ -71,6 +71,10 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) 
 		func(object *v1.StatefulSet) error {
 			return ensure.PodSecurityContext(&object.Spec.Template.Spec)
 		},
+		func(object *v1.StatefulSet) error {
+			ensure.SetGodebugEnv(object.Spec.Template.Spec.Containers, instance.GetAnnotations())
+			return nil
+		},
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create %s statefulset: %w", actions.MonitorStatefulSetName, err), instance,
 			metav1.Condition{
@@ -139,12 +143,8 @@ func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1.Rekor, sa 
 				Protocol:      core.ProtocolTCP,
 			},
 		}
-		container.Env = []core.EnvVar{
-			{
-				Name:  "HOME",
-				Value: mountPath,
-			},
-		}
+		homeEnv := kubernetes.FindEnvByNameOrCreate(container, "HOME")
+		homeEnv.Value = mountPath
 
 		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, storageVolumeName)
 		volumeMount.MountPath = mountPath

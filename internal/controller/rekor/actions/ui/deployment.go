@@ -58,6 +58,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *acti
 		i.ensureUIDeployment(instance, actions.RBACUIName, labels),
 		deployment.PodRequirements(instance.Spec.RekorSearchUI.PodRequirements, actions.SearchUiDeploymentName),
 		deployment.PodSecurityContext(),
+		deployment.GODEBUG(instance.GetAnnotations()),
 		ensure.ControllerReference[*v2.Deployment](instance, i.Client),
 		ensure.Labels[*v2.Deployment](slices.Collect(maps.Keys(labels)), labels),
 	); err != nil {

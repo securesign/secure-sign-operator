@@ -11,7 +11,8 @@ type ExternalAccess struct {
 	//For the plain Ingress there is no TLS configuration provided Route object uses "edge" termination by default.
 	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
 	//+kubebuilder:default:=false
-	Enabled bool `json:"enabled"`
+	//+required
+	Enabled *bool `json:"enabled,omitempty"`
 	// Set hostname for your Ingress/Route.
 	Host string `json:"host,omitempty"`
 	// Set Route Selector Labels for ingress sharding.
@@ -24,7 +25,8 @@ type TlogMonitoring struct {
 	// If true, the Operator will create the Rekor log monitor resources
 	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
 	//+kubebuilder:default:=false
-	Enabled bool `json:"enabled"`
+	//+required
+	Enabled *bool `json:"enabled,omitempty"`
 	// Interval between log monitoring checks
 	//+kubebuilder:default:="10m"
 	//+optional
@@ -34,7 +36,8 @@ type MonitoringConfig struct {
 	// If true, the Operator will create monitoring resources
 	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
 	//+kubebuilder:default:=true
-	Enabled bool `json:"enabled"`
+	//+required
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 type MonitoringWithTLogConfig struct {

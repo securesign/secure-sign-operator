@@ -45,6 +45,31 @@
 //	    rhtas.redhat.com/trusted-ca: "custom-ca-bundle"
 //	---
 //
+// # Annotation: rhtas.redhat.com/godebug
+//
+// [Godebug] overrides the GODEBUG environment variable propagated to managed containers.
+//
+// By default, the operator propagates its own GODEBUG value to all managed workloads.
+// This annotation allows control over GODEBUG propagation:
+//   - Not set: inherit the operator's GODEBUG value (default behavior).
+//   - Set to a value (e.g. "fips140=only"): use that value instead.
+//   - Set to empty string "": disable GODEBUG propagation and remove any existing GODEBUG env var.
+//
+// If set on the Securesign resource, this annotation is automatically propagated
+// to all child resources and overwrites any value set directly on them.
+// Per-component overrides via this annotation are only effective on standalone
+// child CRs that are not managed by a Securesign parent.
+// ([github.com/securesign/operator/api/rhtasv1.Securesign])
+//
+// Example usage:
+//
+//	apiVersion: rhtas.redhat.com/v1alpha1
+//	kind: Securesign
+//	metadata:
+//	  name: example
+//	  annotations:
+//	    rhtas.redhat.com/godebug: "fips140=only"
+//
 // # Annotation: rhtas.redhat.com/log-type
 //
 // [LogType] specifies the logging configuration for managed services.
@@ -80,6 +105,9 @@ const (
 	// TrustedCA defines the annotation key for specifying a custom CA bundle ConfigMap.
 	TrustedCA = "rhtas.redhat.com/trusted-ca"
 
+	// Godebug defines the annotation key for overriding the GODEBUG environment variable per component.
+	Godebug = "rhtas.redhat.com/godebug"
+
 	// LogType defines the annotation key used to configure the logging type for managed resources.
 	LogType = "rhtas.redhat.com/log-type"
 
@@ -90,5 +118,5 @@ const (
 )
 
 var InheritableAnnotations = []string{
-	TrustedCA, LogType,
+	TrustedCA, LogType, Godebug,
 }

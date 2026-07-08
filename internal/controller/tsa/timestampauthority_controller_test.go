@@ -37,6 +37,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("TimestampAuthority Controller", func() {
@@ -99,9 +100,9 @@ var _ = Describe("TimestampAuthority Controller", func() {
 					Spec: rhtasv1.TimestampAuthoritySpec{
 						ExternalAccess: rhtasv1.ExternalAccess{
 							Host:    "tsa.localhost",
-							Enabled: true,
+							Enabled: ptr.To(true),
 						},
-						Monitoring: rhtasv1.MonitoringConfig{Enabled: false},
+						Monitoring: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
 						Signer: rhtasv1.TimestampAuthoritySigner{
 							CertificateChain: rhtasv1.CertificateChain{
 								RootCA: &rhtasv1.TsaCertificateAuthority{
@@ -118,7 +119,7 @@ var _ = Describe("TimestampAuthority Controller", func() {
 							},
 						},
 						NTPMonitoring: rhtasv1.NTPMonitoring{
-							Enabled: true,
+							Enabled: ptr.To(true),
 							Config: &rhtasv1.NtpMonitoringConfig{
 								RequestAttempts: 3,
 								RequestTimeout:  5,

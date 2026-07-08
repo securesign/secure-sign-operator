@@ -31,6 +31,7 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/utils/ptr"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -89,7 +90,7 @@ var _ = Describe("CTlog controller", func() {
 			if err != nil && errors.IsNotFound(err) {
 				// Let's mock our custom resource at the same way that we would
 				// apply on the cluster the manifest under config/samples
-				ptr := int64(1)
+				treeID := int64(1)
 				instance := &rhtasv1.CTlog{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      Name,
@@ -97,7 +98,10 @@ var _ = Describe("CTlog controller", func() {
 					},
 
 					Spec: rhtasv1.CTlogSpec{
-						TreeID: &ptr,
+						TreeID: &treeID,
+						Monitoring: rhtasv1.MonitoringWithTLogConfig{
+							MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+						},
 					},
 				}
 				err = suite.Client().Create(ctx, instance)

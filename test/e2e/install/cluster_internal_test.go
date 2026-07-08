@@ -3,6 +3,7 @@
 package install
 
 import (
+	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	"github.com/securesign/operator/test/e2e/support/tas/cosign"
@@ -21,16 +22,34 @@ var _ = Describe("Securesign install with in-cluster services and internal TUF s
 	var namespace *v1.Namespace
 	var s *rhtasv1.Securesign
 	var targetImageName string
+	var fipsEnabled bool
+
+	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
+		fipsEnabled = enabled
+	}))
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
 
 	BeforeAll(func(ctx SpecContext) {
+		if fipsEnabled {
+			Expect(postgresql.CreateDB(ctx, cli, namespace.Name, postgresql.DefaultSecretName, "fips-password")).To(Succeed())
+			postgresql.WaitAndLoadSchema(ctx, cli, namespace.Name)
+		}
+	})
+
+	BeforeAll(func(ctx SpecContext) {
 		s = securesign.Create(namespace.Name, "test",
 			securesign.WithTSA(),
 			securesign.WithGeneratedCerts(),
-			securesign.WithManagedDatabase(),
+			func(ss *rhtasv1.Securesign) {
+				if fipsEnabled {
+					securesign.WithExternalPostgresDB(namespace.Name, postgresql.DefaultSecretName)(ss)
+				} else {
+					securesign.WithManagedDatabase()(ss)
+				}
+			},
 			securesign.WithDefaultOIDC(),
 			securesign.WithNTPMonitoring(),
 		)
@@ -46,7 +65,7 @@ var _ = Describe("Securesign install with in-cluster services and internal TUF s
 		})
 
 		It("All other components are running", func(ctx SpecContext) {
-			tas.VerifyAllComponents(ctx, cli, s, true)
+			tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 		})
 
 		It("Securesign status exposes in-cluster service URLs", func(ctx SpecContext) {

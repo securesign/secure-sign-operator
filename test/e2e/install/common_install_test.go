@@ -10,6 +10,7 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
+	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
@@ -37,16 +38,27 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 	var targetImageName string
 	var namespace *v1.Namespace
 	var s *rhtasv1.Securesign
+	var fipsEnabled bool
+
+	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
+		fipsEnabled = enabled
+	}))
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
 
 	BeforeAll(func(ctx SpecContext) {
+		if fipsEnabled {
+			Expect(postgresql.CreateDB(ctx, cli, namespace.Name, postgresql.DefaultSecretName, "fips-password")).To(Succeed())
+			postgresql.WaitAndLoadSchema(ctx, cli, namespace.Name)
+		}
+	})
+
+	BeforeAll(func(ctx SpecContext) {
 		s = securesign.Create(namespace.Name, "test",
-			securesign.WithDefaults(),
+			securesign.ChooseDefaults(fipsEnabled, namespace.Name),
 			securesign.WithSearchUI(),
-			securesign.WithMonitoring(),
 			func(v *rhtasv1.Securesign) {
 				// cover SECURESIGN-2694
 				v.Spec.Rekor.Attestations.Enabled = ptr.To(false)
@@ -71,7 +83,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 		})
 
 		It("All other components are running", func(ctx SpecContext) {
-			tas.VerifyAllComponents(ctx, cli, s, true)
+			tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 		})
 
 		It("operator should generate Fulcio's secret", func(ctx SpecContext) {
@@ -209,7 +221,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 		})
 
 		It("All other components are running", func(ctx SpecContext) {
-			tas.VerifyAllComponents(ctx, cli, s, true)
+			tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 		})
 
 		It("RouteSelectorLabels are passed to the ingress/route", func(ctx SpecContext) {

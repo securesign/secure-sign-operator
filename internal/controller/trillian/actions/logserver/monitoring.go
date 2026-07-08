@@ -12,6 +12,7 @@ import (
 	"github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
+	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,7 +32,7 @@ func (i monitoringAction) Name() string {
 }
 
 func (i monitoringAction) CanHandle(_ context.Context, instance *rhtasv1.Trillian) bool {
-	return instance.Spec.Monitoring.Enabled && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
+	return utils.IsEnabled(instance.Spec.Monitoring.Enabled) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1.Trillian) *action.Result {

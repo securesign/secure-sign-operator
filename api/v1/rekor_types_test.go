@@ -48,31 +48,45 @@ var _ = Describe("Rekor", func() {
 		When("changing external access setting", func() {
 			It("enabled false->true", func() {
 				created := generateRekorObject("rekor-access-1")
-				created.Spec.ExternalAccess.Enabled = false
+				created.Spec.ExternalAccess.Enabled = ptr.To(false)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Rekor{}
 				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
-				fetched.Spec.ExternalAccess.Enabled = true
+				fetched.Spec.ExternalAccess.Enabled = ptr.To(true)
 				Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
 			})
 
 			It("enabled true->false", func() {
 				created := generateRekorObject("rekor-access-2")
-				created.Spec.ExternalAccess.Enabled = true
+				created.Spec.ExternalAccess.Enabled = ptr.To(true)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Rekor{}
 				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
-				fetched.Spec.ExternalAccess.Enabled = false
+				fetched.Spec.ExternalAccess.Enabled = ptr.To(false)
 				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), fetched))).To(BeTrue())
 				Expect(k8sClient.Update(context.Background(), fetched)).
 					To(MatchError(ContainSubstring("Feature cannot be disabled")))
 			})
+		})
+
+		It("defaults Enabled fields when not set", func() {
+			obj := generateRekorObject("rekor-defaults")
+			obj.Spec.ExternalAccess.Enabled = nil
+			obj.Spec.Monitoring.Enabled = nil
+			obj.Spec.Monitoring.TLog.Enabled = nil
+			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+
+			fetched := &Rekor{}
+			Expect(k8sClient.Get(context.Background(), getKey(obj), fetched)).To(Succeed())
+			Expect(fetched.Spec.ExternalAccess.Enabled).To(HaveValue(BeFalse()))
+			Expect(fetched.Spec.Monitoring.Enabled).To(HaveValue(BeTrue()))
+			Expect(fetched.Spec.Monitoring.TLog.Enabled).To(HaveValue(BeFalse()))
 		})
 
 		Context("is validated", func() {
@@ -178,14 +192,14 @@ var _ = Describe("Rekor", func() {
 					Spec: RekorSpec{
 						Monitoring: MonitoringWithTLogConfig{
 							MonitoringConfig: MonitoringConfig{
-								Enabled: true,
+								Enabled: ptr.To(true),
 							},
 							TLog: TlogMonitoring{
-								Enabled: true,
+								Enabled: ptr.To(true),
 							},
 						},
 						ExternalAccess: ExternalAccess{
-							Enabled: true,
+							Enabled: ptr.To(true),
 							Host:    "hostname",
 						},
 						RekorSearchUI: RekorSearchUI{

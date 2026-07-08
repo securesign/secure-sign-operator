@@ -14,6 +14,7 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/test/e2e/support"
 	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
+	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
@@ -22,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -33,18 +35,29 @@ var _ = Describe("Ctlog Monitor", Ordered, func() {
 		ctlogMonitorPod       v1.Pod
 		ctlogMonitorContainer v1.Container
 		s                     *rhtasv1.Securesign
+		fipsEnabled           bool
 	)
+
+	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
+		fipsEnabled = enabled
+	}))
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
 
 	BeforeAll(func(ctx SpecContext) {
+		if fipsEnabled {
+			Expect(postgresql.CreateDB(ctx, cli, namespace.Name, postgresql.DefaultSecretName, "fips-password")).To(Succeed())
+			postgresql.WaitAndLoadSchema(ctx, cli, namespace.Name)
+		}
+	})
+
+	BeforeAll(func(ctx SpecContext) {
 		s = securesign.Create(namespace.Name, "test",
-			securesign.WithDefaults(),
-			securesign.WithMonitoring(),
+			securesign.ChooseDefaults(fipsEnabled, namespace.Name),
 			func(v *rhtasv1.Securesign) {
-				v.Spec.Ctlog.Monitoring.TLog.Enabled = true
+				v.Spec.Ctlog.Monitoring.TLog.Enabled = ptr.To(true)
 				v.Spec.Ctlog.Monitoring.TLog.Interval = metav1.Duration{Duration: time.Second * 10}
 			},
 		)
@@ -53,7 +66,7 @@ var _ = Describe("Ctlog Monitor", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		Expect(cli.Create(ctx, s)).To(Succeed())
 		By("Waiting for all TAS components to be ready")
-		tas.VerifyAllComponents(ctx, cli, s, true)
+		tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 	})
 
 	Describe("Monitor Pod Deployment", func() {

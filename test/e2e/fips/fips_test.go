@@ -3,7 +3,10 @@
 package fips
 
 import (
+	"context"
+	"fmt"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -18,6 +21,8 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/test/e2e/support"
 	k8ssupport "github.com/securesign/operator/test/e2e/support/kubernetes"
+	olmhelpers "github.com/securesign/operator/test/e2e/support/kubernetes/olm"
+	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
@@ -26,14 +31,13 @@ import (
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	tsahelpers "github.com/securesign/operator/test/e2e/support/tas/tsa"
 	tufhelpers "github.com/securesign/operator/test/e2e/support/tas/tuf"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("Securesign FIPS", Ordered, func() {
+var _ = Describe("Securesign FIPS Strict Mode (fips140=only)", Ordered, func() {
 	cli, _ := support.CreateClient()
 
 	var namespace *v1.Namespace
@@ -44,174 +48,142 @@ var _ = Describe("Securesign FIPS", Ordered, func() {
 	}))
 
 	BeforeAll(func(ctx SpecContext) {
+		Expect(postgresql.CreateDB(ctx, cli, namespace.Name, postgresql.DefaultSecretName, "fips-compliant-password")).To(Succeed())
+		postgresql.WaitAndLoadSchema(ctx, cli, namespace.Name)
+
 		s = securesign.Create(namespace.Name, "test",
-			securesign.WithDefaults(),
+			securesign.WithTSA(),
+			securesign.WithGeneratedCerts(),
+			securesign.WithExternalAccess(),
+			securesign.WithDefaultOIDC(),
+			securesign.WithNTPMonitoring(),
 			securesign.WithSearchUI(),
-			securesign.WithMonitoring(),
 			func(v *rhtasv1.Securesign) {
-				// cover SECURESIGN-2694
 				v.Spec.Rekor.Attestations.Enabled = ptr.To(false)
+				v.Spec.Ctlog.Monitoring.TLog.Enabled = ptr.To(true)
+				v.Spec.Ctlog.Monitoring.TLog.Interval = metav1.Duration{Duration: 10 * time.Second}
+				v.Spec.Rekor.Monitoring.TLog.Enabled = ptr.To(true)
+				v.Spec.Rekor.Monitoring.TLog.Interval = metav1.Duration{Duration: 10 * time.Second}
 			},
-			func(v *rhtasv1.Securesign) {
-				v.Spec.Tuf.ExternalAccess.RouteSelectorLabels = map[string]string{"foo": "bar"}
-			},
+			securesign.WithExternalPostgresDB(namespace.Name, postgresql.DefaultSecretName),
 		)
 	})
 
-	Describe("Install into FIPS Enabled cluster", func() {
+	Describe("Install into FIPS cluster", func() {
+		BeforeAll(func(ctx SpecContext) {
+			// Patch the operator with GODEBUG=fips140=only (via CSV if OLM-managed,
+			// otherwise directly) and wait for a ready pod with the env var.
+			operatorDep := steps.FindOperatorDeployment(ctx, cli)
+			godebug := v1.EnvVar{Name: "GODEBUG", Value: "fips140=only"}
+			olmhelpers.PatchCSVDeploymentEnv(ctx, cli, operatorDep.Namespace, operatorDep.Name, operatorDep.Spec.Template.Spec.Containers[0].Name, godebug)
+
+			mgr := steps.WaitForOperatorPodWithEnv(ctx, cli, godebug)
+			verifyFipsGoNative(ctx, mgr, mgr.Spec.Containers[0].Name, mgr.Namespace, "/manager")
+		})
+
 		BeforeAll(func(ctx SpecContext) {
 			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 
 		It("All other components are running", func(ctx SpecContext) {
-			tas.VerifyAllComponents(ctx, cli, s, true)
+			tas.VerifyAllComponents(ctx, cli, s, false, true)
 		})
+
+		getNamespace := func() string { return namespace.Name }
+		godebug := v1.EnvVar{Name: "GODEBUG", Value: "fips140=only"}
 
 		It("Verify ctlog is running in FIPS mode", func(ctx SpecContext) {
-			pod := ctlog.GetServerPod(ctx, cli, namespace.Name)
-			Expect(pod).ToNot(BeNil())
-			verifyFips(ctx, pod, ctlogactions.DeploymentName, namespace.Name, "/usr/local/bin/ct_server")
+			var pod *v1.Pod
+			Eventually(func() *v1.Pod {
+				pod = ctlog.GetServerPod(ctx, cli, getNamespace())
+				return pod
+			}).WithContext(ctx).ShouldNot(BeNil())
+			verifyFipsGoNative(ctx, pod, ctlogactions.DeploymentName, getNamespace(), "/usr/local/bin/ct_server")
 		})
 
-		It("Verify creatree job is running in FIPS mode", func(ctx SpecContext) {
-			p := &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "fips-createtree",
-					Namespace: namespace.Name,
-				},
-				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyNever,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot: ptr.To(true),
-						SeccompProfile: &corev1.SeccompProfile{
-							Type: corev1.SeccompProfileTypeRuntimeDefault,
-						},
-					},
-					Containers: []corev1.Container{
-						{
-							Name:  "test-createtree",
-							Image: images.Registry.Get(images.TrillianCreateTree),
-							Args: []string{
-								"--admin_server=0.0.0.0:1",
-								"--rpc_deadline=10m",
-							},
-
-							SecurityContext: &corev1.SecurityContext{
-								AllowPrivilegeEscalation: ptr.To(false),
-								RunAsNonRoot:             ptr.To(true),
-								Capabilities: &corev1.Capabilities{
-									Drop: []corev1.Capability{"ALL"},
-								},
-								SeccompProfile: &corev1.SeccompProfile{
-									Type: corev1.SeccompProfileTypeRuntimeDefault,
-								},
-							},
-						},
-					},
-				},
-			}
-
-			Expect(cli.Create(ctx, p)).To(Succeed())
-			DeferCleanup(func() { _ = cli.Delete(ctx, p) })
-			Eventually(func(g Gomega) {
-				got := &corev1.Pod{}
-				g.Expect(cli.Get(ctx, ctrlclient.ObjectKeyFromObject(p), got)).To(Succeed())
-				g.Expect(got.Status.Phase).ToNot(Equal(corev1.PodPending))
+		It("Verify ctlog-monitor is running in FIPS mode", func(ctx SpecContext) {
+			var pod *v1.Pod
+			Eventually(func(g Gomega, ctx context.Context) {
+				list := &v1.PodList{}
+				g.Expect(cli.List(ctx, list,
+					ctrlclient.InNamespace(getNamespace()),
+					ctrlclient.MatchingLabels{labels.LabelAppComponent: ctlogactions.MonitorComponentName},
+				)).To(Succeed())
+				g.Expect(list.Items).To(HaveLen(1))
+				g.Expect(list.Items[0].Status.Phase).To(Equal(v1.PodRunning))
+				pod = &list.Items[0]
 			}).WithContext(ctx).Should(Succeed())
-			verifyFips(ctx, p, "test-createtree", namespace.Name, "/createtree")
+			verifyFipsGoNative(ctx, pod, ctlogactions.MonitorStatefulSetName, getNamespace(), "/ctlog_monitor")
+		})
+
+		It("Verify rekor-monitor is running in FIPS mode", func(ctx SpecContext) {
+			var pod *v1.Pod
+			Eventually(func(g Gomega, ctx context.Context) {
+				list := &v1.PodList{}
+				g.Expect(cli.List(ctx, list,
+					ctrlclient.InNamespace(getNamespace()),
+					ctrlclient.MatchingLabels{labels.LabelAppComponent: rekoractions.MonitorComponentName},
+				)).To(Succeed())
+				g.Expect(list.Items).To(HaveLen(1))
+				g.Expect(list.Items[0].Status.Phase).To(Equal(v1.PodRunning))
+				pod = &list.Items[0]
+			}).WithContext(ctx).Should(Succeed())
+			verifyFipsGoNative(ctx, pod, rekoractions.MonitorStatefulSetName, getNamespace(), "/rekor_monitor")
 		})
 
 		It("Verify fulcio is running in FIPS mode", func(ctx SpecContext) {
-			server := fulciohelpers.GetServerPod(ctx, cli, namespace.Name)()
-			Expect(server).ToNot(BeNil())
-			verifyFips(ctx, server, fulcioactions.DeploymentName, namespace.Name, "/usr/local/bin/fulcio-server")
+			var server *v1.Pod
+			Eventually(func() *v1.Pod {
+				server = fulciohelpers.GetServerPod(ctx, cli, getNamespace())()
+				return server
+			}).WithContext(ctx).ShouldNot(BeNil())
+			verifyFipsGoNative(ctx, server, fulcioactions.DeploymentName, getNamespace(), "/usr/local/bin/fulcio-server")
 		})
 
 		It("Verify rekor-server is running in FIPS mode", func(ctx SpecContext) {
-			server := rekorhelpers.GetServerPod(ctx, cli, namespace.Name)
-			Expect(server).ToNot(BeNil())
-			verifyFips(ctx, server, rekoractions.ServerDeploymentName, namespace.Name, "/usr/local/bin/rekor-server")
-		})
-
-		It("Verify backfill-redis job is running in FIPS mode", func(ctx SpecContext) {
-			p := &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "fips-backfill-redis",
-					Namespace: namespace.Name,
-				},
-				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyNever,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot: ptr.To(true),
-						SeccompProfile: &corev1.SeccompProfile{
-							Type: corev1.SeccompProfileTypeRuntimeDefault,
-						},
-					},
-					Containers: []corev1.Container{
-						{
-							Name:  "backfill-redis",
-							Image: images.Registry.Get(images.BackfillRedis),
-							Args: []string{
-								"--rekor-address=https://0.0.0.0:1",
-								"--rekor-retry-count=20",
-								"--redis-hostname=0.0.0.0",
-								"--redis-port=1",
-								"--start=0",
-								"--end=0",
-								" --concurrency=1",
-							},
-
-							SecurityContext: &corev1.SecurityContext{
-								AllowPrivilegeEscalation: ptr.To(false),
-								RunAsNonRoot:             ptr.To(true),
-								Capabilities: &corev1.Capabilities{
-									Drop: []corev1.Capability{"ALL"},
-								},
-								SeccompProfile: &corev1.SeccompProfile{
-									Type: corev1.SeccompProfileTypeRuntimeDefault,
-								},
-							},
-						},
-					},
-				},
-			}
-			Expect(cli.Create(ctx, p)).To(Succeed())
-			DeferCleanup(func() { _ = cli.Delete(ctx, p) })
-			Eventually(func(g Gomega) {
-				got := &corev1.Pod{}
-				g.Expect(cli.Get(ctx, ctrlclient.ObjectKeyFromObject(p), got)).To(Succeed())
-				g.Expect(got.Status.Phase).ToNot(Equal(corev1.PodPending))
-			}).WithContext(ctx).Should(Succeed())
-			verifyFips(ctx, p, "backfill-redis", namespace.Name, "/usr/local/bin/backfill-redis")
+			var server *v1.Pod
+			Eventually(func() *v1.Pod {
+				server = rekorhelpers.GetServerPod(ctx, cli, getNamespace())
+				return server
+			}).WithContext(ctx).ShouldNot(BeNil())
+			verifyFipsGoNative(ctx, server, rekoractions.ServerDeploymentName, getNamespace(), "/usr/local/bin/rekor-server")
 		})
 
 		It("Verify rekor-redis is running in FIPS mode", func(ctx SpecContext) {
-			list := &v1.PodList{}
-			Expect(cli.List(ctx, list,
-				ctrlclient.InNamespace(namespace.Name),
-				ctrlclient.MatchingLabels{labels.LabelAppComponent: rekoractions.RedisDeploymentName},
-			)).To(Succeed())
-			Expect(list.Items).To(HaveLen(1))
-			redis := &list.Items[0]
-			verifyFips(ctx, redis, rekoractions.RedisDeploymentName, namespace.Name, "/usr/bin/redis-server")
+			var redis *v1.Pod
+			Eventually(func(g Gomega, ctx context.Context) {
+				list := &v1.PodList{}
+				g.Expect(cli.List(ctx, list,
+					ctrlclient.InNamespace(getNamespace()),
+					ctrlclient.MatchingLabels{labels.LabelAppComponent: rekoractions.RedisDeploymentName},
+				)).To(Succeed())
+				g.Expect(list.Items).To(HaveLen(1))
+				redis = &list.Items[0]
+			}).WithContext(ctx).Should(Succeed())
+			verifyFipsOpenSSL(ctx, redis, rekoractions.RedisDeploymentName, getNamespace(), "/usr/bin/redis-server")
 		})
 
 		It("Verify rekor-ui is running in FIPS mode", func(ctx SpecContext) {
-			list := &v1.PodList{}
-			Expect(cli.List(ctx, list,
-				ctrlclient.InNamespace(namespace.Name),
-				ctrlclient.MatchingLabels{labels.LabelAppComponent: rekoractions.UIComponentName},
-			)).To(Succeed())
-			Expect(list.Items).To(HaveLen(1))
-			ui := &list.Items[0]
+			var ui *v1.Pod
+			Eventually(func(g Gomega, ctx context.Context) {
+				list := &v1.PodList{}
+				g.Expect(cli.List(ctx, list,
+					ctrlclient.InNamespace(getNamespace()),
+					ctrlclient.MatchingLabels{labels.LabelAppComponent: rekoractions.UIComponentName},
+				)).To(Succeed())
+				g.Expect(list.Items).To(HaveLen(1))
+				ui = &list.Items[0]
+			}).WithContext(ctx).Should(Succeed())
 
-			host, err := k8ssupport.ExecInPodWithOutput(ctx, ui.Name, rekoractions.SearchUiDeploymentName, namespace.Name,
+			verifyGodebugOnly(ctx, ui, rekoractions.SearchUiDeploymentName, getNamespace())
+
+			host, err := k8ssupport.ExecInPodWithOutput(ctx, ui.Name, rekoractions.SearchUiDeploymentName, getNamespace(),
 				"cat", "/proc/sys/crypto/fips_enabled",
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.TrimSpace(string(host))).To(Equal("1"))
 
-			node, err := k8ssupport.ExecInPodWithOutput(ctx, ui.Name, rekoractions.SearchUiDeploymentName, namespace.Name,
+			node, err := k8ssupport.ExecInPodWithOutput(ctx, ui.Name, rekoractions.SearchUiDeploymentName, getNamespace(),
 				"node", "-p", "require('crypto').getFips()",
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -219,164 +191,188 @@ var _ = Describe("Securesign FIPS", Ordered, func() {
 		})
 
 		It("Verify TUF Server is running in FIPS mode", func(ctx SpecContext) {
-			server := tufhelpers.GetServerPod(ctx, cli, namespace.Name)
-			Expect(server).ToNot(BeNil())
-			verifyFips(ctx, server, tufconstants.ContainerName, namespace.Name, "/usr/sbin/httpd")
-		})
-
-		It("Verify tuf init job is running in FIPS mode", func(ctx SpecContext) {
-			p := &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "fips-tuf-init",
-					Namespace: namespace.Name,
-				},
-				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyNever,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot: ptr.To(true),
-						SeccompProfile: &corev1.SeccompProfile{
-							Type: corev1.SeccompProfileTypeRuntimeDefault,
-						},
-					},
-					Containers: []corev1.Container{
-						{
-							Name:    "fips-tuf-init",
-							Image:   images.Registry.Get(images.Tuf),
-							Command: []string{"sh", "-c", "sleep 300"},
-							SecurityContext: &corev1.SecurityContext{
-								AllowPrivilegeEscalation: ptr.To(false),
-								RunAsNonRoot:             ptr.To(true),
-								Capabilities: &corev1.Capabilities{
-									Drop: []corev1.Capability{"ALL"},
-								},
-								SeccompProfile: &corev1.SeccompProfile{
-									Type: corev1.SeccompProfileTypeRuntimeDefault,
-								},
-							},
-						},
-					},
-				},
-			}
-
-			Expect(cli.Create(ctx, p)).To(Succeed())
-			DeferCleanup(func() { _ = cli.Delete(ctx, p) })
-
-			Eventually(func(g Gomega) corev1.PodPhase {
-				got := &corev1.Pod{}
-				g.Expect(cli.Get(ctx, ctrlclient.ObjectKeyFromObject(p), got)).To(Succeed())
-				return got.Status.Phase
-			}).WithContext(ctx).Should(Equal(corev1.PodRunning))
-
-			out, err := k8ssupport.ExecInPodWithOutput(ctx, p.Name, "fips-tuf-init", p.Namespace,
-				"cat", "/proc/sys/crypto/fips_enabled",
-			)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(strings.TrimSpace(string(out))).To(Equal("1"))
-
-			prov, err := k8ssupport.ExecInPodWithOutput(ctx, p.Name, "fips-tuf-init", p.Namespace,
-				"openssl", "list", "-providers", "-verbose",
-			)
-			Expect(err).ToNot(HaveOccurred())
-			s := string(prov)
-			Expect(s).To(ContainSubstring("\n  fips\n"))
-			Expect(s).To(ContainSubstring("\n    status: active\n"))
-
-			lddOut, err := k8ssupport.ExecInPodWithOutput(ctx, p.Name, "fips-tuf-init", p.Namespace,
-				"ldd", "/usr/bin/tuftool",
-			)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(string(lddOut)).To(ContainSubstring("libcrypto.so.3"))
-			Expect(string(lddOut)).To(ContainSubstring("libssl.so.3"))
-
+			var server *v1.Pod
+			Eventually(func() *v1.Pod {
+				server = tufhelpers.GetServerPod(ctx, cli, getNamespace())
+				return server
+			}).WithContext(ctx).ShouldNot(BeNil())
+			verifyFipsOpenSSL(ctx, server, tufconstants.ContainerName, getNamespace(), "/usr/sbin/httpd")
 		})
 
 		It("Verify TSA is running in FIPS mode", func(ctx SpecContext) {
-			server := tsahelpers.GetServerPod(ctx, cli, namespace.Name)()
-			Expect(server).ToNot(BeNil())
-			verifyFips(ctx, server, tsaactions.DeploymentName, namespace.Name, "/usr/local/bin/timestamp-server")
+			var server *v1.Pod
+			Eventually(func() *v1.Pod {
+				server = tsahelpers.GetServerPod(ctx, cli, getNamespace())()
+				return server
+			}).WithContext(ctx).ShouldNot(BeNil())
+			verifyFipsGoNative(ctx, server, tsaactions.DeploymentName, getNamespace(), "/usr/local/bin/timestamp-server")
 		})
 
 		It("Verify trillian logserver is running in FIPS mode", func(ctx SpecContext) {
-			list := &v1.PodList{}
-			Expect(cli.List(ctx, list,
-				ctrlclient.InNamespace(namespace.Name),
-				ctrlclient.MatchingLabels{labels.LabelAppComponent: trillianactions.LogServerComponentName},
-			)).To(Succeed())
-			Expect(list.Items).To(HaveLen(1))
-			server := &list.Items[0]
-			verifyFips(ctx, server, trillianactions.LogServerComponentName, namespace.Name, "/trillian_log_server")
+			var server *v1.Pod
+			Eventually(func(g Gomega, ctx context.Context) {
+				list := &v1.PodList{}
+				g.Expect(cli.List(ctx, list,
+					ctrlclient.InNamespace(getNamespace()),
+					ctrlclient.MatchingLabels{labels.LabelAppComponent: trillianactions.LogServerComponentName},
+				)).To(Succeed())
+				g.Expect(list.Items).To(HaveLen(1))
+				server = &list.Items[0]
+			}).WithContext(ctx).Should(Succeed())
+			verifyFipsGoNative(ctx, server, trillianactions.LogServerComponentName, getNamespace(), "/trillian_log_server")
 		})
 
 		It("Verify trillian logsigner is running in FIPS mode", func(ctx SpecContext) {
-			list := &v1.PodList{}
-			Expect(cli.List(ctx, list,
-				ctrlclient.InNamespace(namespace.Name),
-				ctrlclient.MatchingLabels{labels.LabelAppComponent: trillianactions.LogSignerComponentName},
-			)).To(Succeed())
-			Expect(list.Items).To(HaveLen(1))
-			signer := &list.Items[0]
-			verifyFips(ctx, signer, trillianactions.LogSignerComponentName, namespace.Name, "/trillian_log_signer")
+			var signer *v1.Pod
+			Eventually(func(g Gomega, ctx context.Context) {
+				list := &v1.PodList{}
+				g.Expect(cli.List(ctx, list,
+					ctrlclient.InNamespace(getNamespace()),
+					ctrlclient.MatchingLabels{labels.LabelAppComponent: trillianactions.LogSignerComponentName},
+				)).To(Succeed())
+				g.Expect(list.Items).To(HaveLen(1))
+				signer = &list.Items[0]
+			}).WithContext(ctx).Should(Succeed())
+			verifyFipsGoNative(ctx, signer, trillianactions.LogSignerComponentName, getNamespace(), "/trillian_log_signer")
 		})
 
-		It("Verify trillian db is running in FIPS mode", func(ctx SpecContext) {
-			list := &v1.PodList{}
-			Expect(cli.List(ctx, list,
-				ctrlclient.InNamespace(namespace.Name),
-				ctrlclient.MatchingLabels{labels.LabelAppComponent: trillianactions.DbDeploymentName},
-			)).To(Succeed())
-			Expect(list.Items).To(HaveLen(1))
-			db := &list.Items[0]
-			verifyFips(ctx, db, trillianactions.DbDeploymentName, namespace.Name, "/usr/libexec/mariadbd")
+		It("Verify createtree job is running in FIPS mode", func(ctx SpecContext) {
+			p := createFipsTestPod(getNamespace(), "fips-createtree", "test-createtree", images.TrillianCreateTree,
+				[]string{"/createtree"}, []string{"--admin_server=0.0.0.0:1", "--rpc_deadline=10m"}, godebug)
+			Expect(cli.Create(ctx, p)).To(Succeed())
+			DeferCleanup(func() { _ = cli.Delete(ctx, p) })
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(cli.Get(ctx, ctrlclient.ObjectKeyFromObject(p), p)).To(Succeed())
+				g.Expect(p.Status.Phase).ToNot(Equal(v1.PodPending))
+			}).WithContext(ctx).Should(Succeed())
+			verifyFipsGoNative(ctx, p, "test-createtree", getNamespace(), "/createtree")
 		})
 
-		It("Verify Controller manager is running in FIPS mode", func(ctx SpecContext) {
-			list := &v1.PodList{}
-			Expect(cli.List(ctx, list,
-				ctrlclient.MatchingLabels{"control-plane": "operator-controller-manager"},
-			)).To(Succeed())
-			Expect(list.Items).ToNot(BeEmpty())
-
-			var mgr *v1.Pod
-			for i := range list.Items {
-				pod := &list.Items[i]
-				if strings.Contains(pod.Spec.ServiceAccountName, "rhtas-operator") {
-					mgr = pod
-					break
-				}
-			}
-			verifyFips(ctx, mgr, mgr.Spec.Containers[0].Name, mgr.Namespace, "/manager")
+		It("Verify backfill-redis job is running in FIPS mode", func(ctx SpecContext) {
+			p := createFipsTestPod(getNamespace(), "fips-backfill-redis", "backfill-redis", images.BackfillRedis,
+				nil, []string{
+					"--rekor-address=https://0.0.0.0:1",
+					"--rekor-retry-count=20",
+					"--redis-hostname=0.0.0.0",
+					"--redis-port=1",
+					"--start=0",
+					"--end=0",
+					"--concurrency=1",
+				}, godebug)
+			Expect(cli.Create(ctx, p)).To(Succeed())
+			DeferCleanup(func() { _ = cli.Delete(ctx, p) })
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(cli.Get(ctx, ctrlclient.ObjectKeyFromObject(p), p)).To(Succeed())
+				g.Expect(p.Status.Phase).ToNot(Equal(v1.PodPending))
+			}).WithContext(ctx).Should(Succeed())
+			verifyFipsGoNative(ctx, p, "backfill-redis", getNamespace(), "/usr/local/bin/backfill-redis")
 		})
+
+		// TODO: re-add tuf-init FIPS check when Go CLI replacement is available
 	})
 })
 
-func verifyFips(ctx SpecContext, pod *v1.Pod, containerName, namespace string, expectedExe string) {
-	out, err := k8ssupport.ExecInPodWithOutput(ctx,
-		pod.Name, containerName, namespace,
-		"cat", "/proc/sys/crypto/fips_enabled", //FIPS is enabled at the kernel level
-	)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(strings.TrimSpace(string(out))).To(Equal("1"))
+func createFipsTestPod(namespace, name, containerName string, image images.Image, command, args []string, envs ...v1.EnvVar) *v1.Pod {
+	return &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: v1.PodSpec{
+			RestartPolicy: v1.RestartPolicyNever,
+			SecurityContext: &v1.PodSecurityContext{
+				RunAsNonRoot: ptr.To(true),
+				SeccompProfile: &v1.SeccompProfile{
+					Type: v1.SeccompProfileTypeRuntimeDefault,
+				},
+			},
+			Containers: []v1.Container{
+				{
+					Name:    containerName,
+					Image:   images.Registry.Get(image),
+					Command: command,
+					Args:    args,
+					Env:     envs,
+					SecurityContext: &v1.SecurityContext{
+						AllowPrivilegeEscalation: ptr.To(false),
+						RunAsNonRoot:             ptr.To(true),
+						Capabilities: &v1.Capabilities{
+							Drop: []v1.Capability{"ALL"},
+						},
+						SeccompProfile: &v1.SeccompProfile{
+							Type: v1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func verifyFipsGoNative(ctx SpecContext, pod *v1.Pod, containerName, namespace, expectedExe string) {
+	verifyFipsKernel(ctx, pod, containerName, namespace)
+	verifyGodebugOnly(ctx, pod, containerName, namespace)
 
 	if expectedExe != "" {
-		exe, err := k8ssupport.ExecInPodWithOutput(ctx,
+		verifyFipsBinary(ctx, pod, containerName, namespace, expectedExe)
+
+		out, err := k8ssupport.ExecInPodWithOutput(ctx,
 			pod.Name, containerName, namespace,
-			"readlink", "-f", "/proc/1/exe", //confirm process 1 is expected binary
+			"grep", "-aom", "1", `GOFIPS140=`, expectedExe,
 		)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(strings.TrimSpace(string(exe))).To(Equal(expectedExe))
+		Expect(strings.TrimSpace(string(out))).To(ContainSubstring("GOFIPS140="),
+			fmt.Sprintf("binary %s should be built with GOFIPS140", expectedExe))
 	}
+}
+
+func verifyFipsOpenSSL(ctx SpecContext, pod *v1.Pod, containerName, namespace, expectedExe string) {
+	verifyFipsKernel(ctx, pod, containerName, namespace)
+	verifyGodebugOnly(ctx, pod, containerName, namespace)
+	verifyFipsBinary(ctx, pod, containerName, namespace, expectedExe)
 
 	libcryptoMap, err := k8ssupport.ExecInPodWithOutput(ctx,
 		pod.Name, containerName, namespace,
-		"sh", "-c", `grep -E 'libcrypto\.so(\.3)?' /proc/1/maps | head -n 1`, //confirm process 1 has loaded openssl
+		"sh", "-c", `grep -E 'libcrypto\.so(\.3)?' /proc/1/maps | head -n 1`,
 	)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(strings.TrimSpace(string(libcryptoMap))).To(ContainSubstring("libcrypto.so"))
 
 	fips, err := k8ssupport.ExecInPodWithOutput(ctx,
 		pod.Name, containerName, namespace,
-		"sh", "-c", `grep -F 'ossl-modules/fips.so' /proc/1/maps | head -n 1`, //confirm process 1 has loaded the openssl fips module
+		"sh", "-c", `grep -F 'ossl-modules/fips.so' /proc/1/maps | head -n 1`,
 	)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(strings.TrimSpace(string(fips))).To(ContainSubstring("ossl-modules/fips.so"))
+}
+
+func verifyGodebugOnly(ctx SpecContext, pod *v1.Pod, containerName, namespace string) {
+	out, err := k8ssupport.ExecInPodWithOutput(ctx,
+		pod.Name, containerName, namespace,
+		"printenv", "GODEBUG",
+	)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(strings.TrimSpace(string(out))).To(Equal("fips140=only"),
+		fmt.Sprintf("container %s should have GODEBUG=fips140=only", containerName))
+}
+
+func verifyFipsKernel(ctx SpecContext, pod *v1.Pod, containerName, namespace string) {
+	out, err := k8ssupport.ExecInPodWithOutput(ctx,
+		pod.Name, containerName, namespace,
+		"cat", "/proc/sys/crypto/fips_enabled",
+	)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(strings.TrimSpace(string(out))).To(Equal("1"))
+}
+
+func verifyFipsBinary(ctx SpecContext, pod *v1.Pod, containerName, namespace, expectedExe string) {
+	if expectedExe == "" {
+		return
+	}
+	exe, err := k8ssupport.ExecInPodWithOutput(ctx,
+		pod.Name, containerName, namespace,
+		"readlink", "-f", "/proc/1/exe",
+	)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(strings.TrimSpace(string(exe))).To(Equal(expectedExe))
 }

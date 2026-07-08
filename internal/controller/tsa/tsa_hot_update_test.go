@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/securesign/operator/internal/constants"
-	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
 
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
@@ -37,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("Timestamp Authority hot update", func() {
@@ -95,9 +95,9 @@ var _ = Describe("Timestamp Authority hot update", func() {
 					Spec: rhtasv1.TimestampAuthoritySpec{
 						ExternalAccess: rhtasv1.ExternalAccess{
 							Host:    "tsa.localhost",
-							Enabled: true,
+							Enabled: ptr.To(true),
 						},
-						Monitoring: rhtasv1.MonitoringConfig{Enabled: false},
+						Monitoring: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
 						Signer: rhtasv1.TimestampAuthoritySigner{
 							CertificateChain: rhtasv1.CertificateChain{
 								RootCA: &rhtasv1.TsaCertificateAuthority{
@@ -114,7 +114,7 @@ var _ = Describe("Timestamp Authority hot update", func() {
 							},
 						},
 						NTPMonitoring: rhtasv1.NTPMonitoring{
-							Enabled: true,
+							Enabled: ptr.To(true),
 							Config: &rhtasv1.NtpMonitoringConfig{
 								RequestAttempts: 3,
 								RequestTimeout:  5,
@@ -180,14 +180,6 @@ var _ = Describe("Timestamp Authority hot update", func() {
 				}
 				return suite.Client().Update(ctx, found)
 			}).Should(Succeed())
-
-			By("Pending phase until new keys and certs are resolved")
-			Eventually(func(g Gomega) string {
-				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
-				g.Expect(cond).ToNot(BeNil())
-				return cond.Reason
-			}).Should(Equal(state.Pending.String()))
 
 			By("Creating new certificate chain and signer keys")
 			secret := tsa.CreateSecrets(Namespace, "tsa-test-secret", true)

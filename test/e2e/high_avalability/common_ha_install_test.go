@@ -17,6 +17,7 @@ import (
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/kubernetes"
+	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
@@ -39,15 +40,27 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 	var namespace *v1.Namespace
 	var s *rhtasv1.Securesign
 	var replicas *int32
+	var fipsEnabled bool
+
+	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
+		fipsEnabled = enabled
+	}))
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
 
 	BeforeAll(func(ctx SpecContext) {
+		if fipsEnabled {
+			Expect(postgresql.CreateDB(ctx, cli, namespace.Name, postgresql.DefaultSecretName, "fips-password")).To(Succeed())
+			postgresql.WaitAndLoadSchema(ctx, cli, namespace.Name)
+		}
+	})
+
+	BeforeAll(func(ctx SpecContext) {
 		replicas = ptr.To(int32(2))
 		s = securesign.Create(namespace.Name, "test",
-			securesign.WithDefaults(),
+			securesign.ChooseDefaults(fipsEnabled, namespace.Name),
 			securesign.WithSearchUI(),
 			securesign.WithReplicas(replicas),
 			securesign.WithNFSPVC(),
@@ -64,7 +77,7 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 		})
 
 		It("All other components are running", func(ctx SpecContext) {
-			tas.VerifyAllComponents(ctx, cli, s, true)
+			tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 		})
 
 		It("fulcio should have the correct replica count", func(ctx SpecContext) {
@@ -134,7 +147,7 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 		})
 
 		It("log server should have the correct replica count", func(ctx SpecContext) {
-			trillian.Verify(ctx, cli, namespace.Name, s.Name, true)
+			trillian.Verify(ctx, cli, namespace.Name, s.Name, !fipsEnabled)
 			Eventually(func(ctx SpecContext) (int32, error) {
 				var dep appsv1.Deployment
 				if err := cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: trillianactions.LogserverDeploymentName}, &dep); err != nil {
@@ -145,7 +158,7 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 		})
 
 		It("log signer should have the correct replica count", func(ctx SpecContext) {
-			trillian.Verify(ctx, cli, namespace.Name, s.Name, true)
+			trillian.Verify(ctx, cli, namespace.Name, s.Name, !fipsEnabled)
 			Eventually(func(ctx SpecContext) (int32, error) {
 				var dep appsv1.Deployment
 				if err := cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: trillianactions.LogsignerDeploymentName}, &dep); err != nil {

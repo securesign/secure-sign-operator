@@ -13,7 +13,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
 	"github.com/securesign/operator/internal/labels"
-	cutils "github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/tls"
@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
-	"github.com/securesign/operator/internal/controller/ctlog/utils"
+	ctlogutils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	tlsensure "github.com/securesign/operator/internal/utils/tls/ensure"
 )
 
@@ -49,7 +49,7 @@ func (i statefulSetAction) Name() string {
 }
 
 func (i statefulSetAction) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool {
-	return enabled(instance) && instance.Spec.Monitoring.Enabled && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
+	return enabled(instance) && utils.IsEnabled(instance.Spec.Monitoring.Enabled) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
@@ -81,11 +81,15 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) 
 		ensure.ControllerReference[*v1.StatefulSet](instance, i.Client),
 		ensure.Labels[*v1.StatefulSet](slices.Collect(maps.Keys(labels)), labels),
 		ensure.Optional(
-			utils.TlsEnabled(instance),
+			ctlogutils.TlsEnabled(instance),
 			i.ensureTLS(instance.Status.TLS, actions.MonitorStatefulSetName),
 		),
 		func(object *v1.StatefulSet) error {
 			return ensure.PodSecurityContext(&object.Spec.Template.Spec)
+		},
+		func(object *v1.StatefulSet) error {
+			ensure.SetGodebugEnv(object.Spec.Template.Spec.Containers, instance.GetAnnotations())
+			return nil
 		},
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create %s statefulset: %w", actions.MonitorStatefulSetName, err), instance,
@@ -136,7 +140,7 @@ func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1.CTlog, sa 
 	return func(ss *v1.StatefulSet) error {
 
 		spec := &ss.Spec
-		spec.Replicas = cutils.Pointer[int32](1)
+		spec.Replicas = utils.Pointer[int32](1)
 		spec.Selector = &metav1.LabelSelector{
 			MatchLabels: labels,
 		}
@@ -165,18 +169,14 @@ func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1.CTlog, sa 
 			},
 		}
 
-		container.Env = []core.EnvVar{
-			{
-				Name:  "HOME",
-				Value: mountPath,
-			},
-		}
+		homeEnv := kubernetes.FindEnvByNameOrCreate(container, "HOME")
+		homeEnv.Value = mountPath
 
-		if utils.TlsEnabled(instance) {
-			container.Env = append(container.Env, core.EnvVar{
-				Name:  "SSL_CERT_DIR",
-				Value: constants.SecretMountPath,
-			})
+		if ctlogutils.TlsEnabled(instance) {
+			sslEnv := kubernetes.FindEnvByNameOrCreate(container, "SSL_CERT_DIR")
+			sslEnv.Value = constants.SecretMountPath
+		} else {
+			kubernetes.RemoveEnvVarByName(container, "SSL_CERT_DIR")
 		}
 
 		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, storageVolumeName)

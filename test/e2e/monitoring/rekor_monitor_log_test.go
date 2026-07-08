@@ -15,12 +15,14 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/test/e2e/support"
 	k8ssupport "github.com/securesign/operator/test/e2e/support/kubernetes"
+	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -35,6 +37,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 		signedImageName     string
 		rekorMonitorPod     v1.Pod
 		rekorMonitorService *v1.Service
+		fipsEnabled         bool
 	)
 
 	execOnMonitorPodWithOutput := func(command ...string) ([]byte, error) {
@@ -47,16 +50,26 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 			rekorMonitorPod.Name, actions.MonitorStatefulSetName, namespace.Name, command...)
 	}
 
+	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
+		fipsEnabled = enabled
+	}))
+
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
 	}))
 
 	BeforeAll(func(ctx SpecContext) {
+		if fipsEnabled {
+			Expect(postgresql.CreateDB(ctx, cli, namespace.Name, postgresql.DefaultSecretName, "fips-password")).To(Succeed())
+			postgresql.WaitAndLoadSchema(ctx, cli, namespace.Name)
+		}
+	})
+
+	BeforeAll(func(ctx SpecContext) {
 		s = securesign.Create(namespace.Name, "test",
-			securesign.WithDefaults(),
-			securesign.WithMonitoring(),
+			securesign.ChooseDefaults(fipsEnabled, namespace.Name),
 			func(v *rhtasv1.Securesign) {
-				v.Spec.Rekor.Monitoring.TLog.Enabled = true
+				v.Spec.Rekor.Monitoring.TLog.Enabled = ptr.To(true)
 				v.Spec.Rekor.Monitoring.TLog.Interval = metav1.Duration{Duration: time.Second * 2}
 			},
 		)
@@ -69,7 +82,7 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		Expect(cli.Create(ctx, s)).To(Succeed())
 		By("Waiting for all TAS components to be ready")
-		tas.VerifyAllComponents(ctx, cli, s, true)
+		tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 	})
 
 	Describe("Monitor Pod Deployment", func() {

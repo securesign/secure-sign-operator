@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
+	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v1 "k8s.io/api/core/v1"
@@ -57,7 +58,7 @@ func (i serviceAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *ac
 			TargetPort: intstr.FromInt32(GRPCPort),
 		},
 	}
-	if instance.Spec.Monitoring.Enabled {
+	if utils.IsEnabled(instance.Spec.Monitoring.Enabled) {
 		ports = append(ports, v1.ServicePort{
 			Name:       MetricsPortName,
 			Protocol:   v1.ProtocolTCP,

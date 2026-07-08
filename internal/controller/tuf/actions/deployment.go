@@ -60,6 +60,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *action
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
 		deployment.TrustedCA(instance.GetTrustedCA(), tufConstants.ContainerName),
+		deployment.GODEBUG(instance.GetAnnotations()),
 		deployment.PodRequirements(instance.Spec.PodRequirements, tufConstants.ContainerName),
 		deployment.PodSecurityContext(),
 	); err != nil {

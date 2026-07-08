@@ -8,6 +8,7 @@ import (
 	"time"
 
 	_ "github.com/securesign/operator/test/e2e/support/kubernetes"
+	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -34,11 +35,20 @@ func TestUpdateComponents(t *testing.T) {
 	format.MaxLength = 0
 }
 
+var fipsEnabled bool
+
 func securesignResource(namespace *v1.Namespace) *rhtasv1.Securesign {
 	return securesign.Create(namespace.Name, "test",
-		securesign.WithDefaults(),
+		securesign.ChooseDefaults(fipsEnabled, namespace.Name),
 		securesign.WithoutSearchUI(),
 	)
+}
+
+func setupFIPSPostgresIfNeeded(ctx context.Context, cli runtimeCli.Client, namespace *v1.Namespace) {
+	if fipsEnabled {
+		Expect(postgresql.CreateDB(ctx, cli, namespace.Name, postgresql.DefaultSecretName, "fips-password")).To(Succeed())
+		postgresql.WaitAndLoadSchema(ctx, cli, namespace.Name)
+	}
 }
 
 func getDeploymentGeneration(ctx context.Context, cli runtimeCli.Client, nn types.NamespacedName) int64 {
