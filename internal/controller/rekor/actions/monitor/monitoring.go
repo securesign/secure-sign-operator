@@ -14,6 +14,7 @@ import (
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -49,6 +50,9 @@ func (i monitoringAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *
 			kubernetes.ServiceMonitorEndpoint(actions.MonitorMetricsPortName),
 		),
 	); err != nil {
+		if meta.IsNoMatchError(err) {
+			return i.Error(ctx, fmt.Errorf("monitoring.enabled is true but ServiceMonitor CRD is not installed; install the Prometheus Operator or set monitoring.enabled=false"), instance)
+		}
 		return i.Error(ctx, fmt.Errorf("could not create serviceMonitor: %w", err), instance, metav1.Condition{
 			Type:    actions.MonitorCondition,
 			Status:  metav1.ConditionFalse,

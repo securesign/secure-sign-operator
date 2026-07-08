@@ -27,10 +27,12 @@ type TlogMonitoring struct {
 	//+kubebuilder:default:=false
 	//+required
 	Enabled *bool `json:"enabled,omitempty"`
-	// Interval between log monitoring checks
+	// Interval between log monitoring checks.
+	// Minimum interval is 10 seconds to avoid excessive load on the log server.
+	//+kubebuilder:validation:XValidation:rule="duration(self) >= duration('10s')",message=Interval must be at least 10 seconds
 	//+kubebuilder:default:="10m"
 	//+optional
-	Interval metav1.Duration `json:"interval"`
+	Interval *metav1.Duration `json:"interval,omitempty"`
 }
 type MonitoringConfig struct {
 	// If true, the Operator will create monitoring resources
