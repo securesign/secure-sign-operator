@@ -29,9 +29,37 @@ type TlogMonitoring struct {
 	//+optional
 	Interval *metav1.Duration `json:"interval,omitempty"`
 }
+
+// MonitoringConfig configures observability for the component.
+// +kubebuilder:validation:XValidation:rule="!has(self.serviceMonitor) || !has(self.serviceMonitor.enabled) || !self.serviceMonitor.enabled || (has(self.metrics) && has(self.metrics.enabled) && self.metrics.enabled)",message="ServiceMonitor requires metrics to be enabled"
 type MonitoringConfig struct {
-	// If true, the Operator will create monitoring resources
-	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
+	// Metrics endpoint configuration.
+	// Controls whether the operator exposes a metrics HTTP endpoint
+	// on the component's pods and services.
+	// +optional
+	Metrics MetricsConfig `json:"metrics,omitempty"`
+
+	// Prometheus ServiceMonitor configuration.
+	// Controls whether the operator creates ServiceMonitor resources
+	// for automated metrics discovery and scraping.
+	// Requires metrics to be enabled.
+	// +optional
+	ServiceMonitor ServiceMonitorConfig `json:"serviceMonitor,omitempty"`
+}
+
+// MetricsConfig configures the metrics endpoint exposed by component
+// pods and services.
+type MetricsConfig struct {
+	// Enable metrics endpoint on the component's pods and services.
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+// ServiceMonitorConfig configures the creation of Prometheus
+// ServiceMonitor resources for automated metrics discovery.
+type ServiceMonitorConfig struct {
+	// Enable creation of ServiceMonitor resources.
+	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
 }
 

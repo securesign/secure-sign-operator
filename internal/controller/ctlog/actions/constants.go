@@ -17,11 +17,10 @@ const (
 	FulcioReason     = "FulcioCertificate"
 	MonitorCondition = "MonitorAvailable"
 
-	ServerPortName         = "http"
-	ServerTargetPort       = 6962
-	MetricsPortName        = "metrics"
-	MetricsPort            = 6963
-	TLSSecret              = "%s-ctlog-tls"
-	MonitorMetricsPortName = "monitor-metrics"
-	MonitorMetricsPort     = 9464
+	ServerPortName     = "http"
+	ServerTargetPort   = 6962
+	MetricsPortName    = "metrics"
+	MetricsPort        = 6963
+	TLSSecret          = "%s-ctlog-tls"
+	MonitorMetricsPort = 9464
 )

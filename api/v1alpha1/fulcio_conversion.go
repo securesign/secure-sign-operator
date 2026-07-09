@@ -66,6 +66,7 @@ func (src *Fulcio) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
 	dst.Status.CertificateChain = restored.Status.CertificateChain
+	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
 	return nil
 }
 

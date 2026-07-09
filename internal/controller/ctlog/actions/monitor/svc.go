@@ -36,7 +36,7 @@ func (i createServiceAction) Name() string {
 }
 
 func (i createServiceAction) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool {
-	return enabled(instance) && utils.IsEnabled(instance.Spec.Monitoring.Enabled) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
+	return enabled(instance) && utils.IsEnabled(instance.Spec.Monitoring.Metrics.Enabled) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
@@ -50,7 +50,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1.CTlog
 
 	ports := []v1.ServicePort{
 		{
-			Name:       actions.MonitorMetricsPortName,
+			Name:       actions.MetricsPortName,
 			Protocol:   v1.ProtocolTCP,
 			Port:       actions.MonitorMetricsPort,
 			TargetPort: intstr.FromInt32(actions.MonitorMetricsPort),

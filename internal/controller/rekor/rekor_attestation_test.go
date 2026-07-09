@@ -102,7 +102,7 @@ var _ = Describe("Rekor controller", func() {
 				Spec: rhtasv1.RekorSpec{
 					TreeID: ptr.To(int64(123)),
 					Monitoring: rhtasv1.MonitoringWithTLogConfig{
-						MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+						MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 					},
 				},
 			}
@@ -148,7 +148,7 @@ var _ = Describe("Rekor controller", func() {
 				Spec: rhtasv1.RekorSpec{
 					TreeID: ptr.To(int64(123)),
 					Monitoring: rhtasv1.MonitoringWithTLogConfig{
-						MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+						MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 					},
 					Attestations: rhtasv1.RekorAttestations{
 						Pvc: rhtasv1.Pvc{
@@ -199,7 +199,7 @@ var _ = Describe("Rekor controller", func() {
 				Spec: rhtasv1.RekorSpec{
 					TreeID: ptr.To(int64(123)),
 					Monitoring: rhtasv1.MonitoringWithTLogConfig{
-						MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+						MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 					},
 					Attestations: rhtasv1.RekorAttestations{
 						Enabled: ptr.To(true),

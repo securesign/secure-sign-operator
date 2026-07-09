@@ -98,7 +98,8 @@ var _ = Describe("Trillian controller", func() {
 							Create: utils.Pointer(true),
 						},
 						Monitoring: rhtasv1.MonitoringConfig{
-							Enabled: utils.Pointer(false),
+							Metrics:        rhtasv1.MetricsConfig{Enabled: utils.Pointer(false)},
+							ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: utils.Pointer(false)},
 						},
 					},
 				}

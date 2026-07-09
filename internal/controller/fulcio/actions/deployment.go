@@ -187,7 +187,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.Fulcio, sa string, labe
 		grpc.ContainerPort = 5554
 		grpc.Protocol = core.ProtocolTCP
 
-		if utils.IsEnabled(instance.Spec.Monitoring.Enabled) {
+		if utils.IsEnabled(instance.Spec.Monitoring.Metrics.Enabled) {
 			monitoringPort := kubernetes.FindPortByNameOrCreate(container, "monitoring")
 			monitoringPort.ContainerPort = 2112
 			monitoringPort.Protocol = core.ProtocolTCP

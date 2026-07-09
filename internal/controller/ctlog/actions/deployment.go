@@ -137,7 +137,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 			"--alsologtostderr",
 		}
 
-		if utils.IsEnabled(instance.Spec.Monitoring.Enabled) {
+		if utils.IsEnabled(instance.Spec.Monitoring.Metrics.Enabled) {
 			appArgs = append(appArgs, "--metrics_endpoint=0.0.0.0:"+strconv.Itoa(MetricsPort))
 			metricsPort := kubernetes.FindPortByNameOrCreate(container, "metrics")
 			metricsPort.ContainerPort = MetricsPort

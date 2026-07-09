@@ -49,7 +49,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1.Rekor
 
 	ports := []v1.ServicePort{
 		{
-			Name:       actions.MonitorMetricsPortName,
+			Name:       actions.MetricsPortName,
 			Protocol:   v1.ProtocolTCP,
 			Port:       actions.MonitorMetricsPort,
 			TargetPort: intstr.FromInt32(actions.MonitorMetricsPort),

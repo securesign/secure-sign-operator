@@ -50,8 +50,11 @@ func enabledFieldsFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 		},
 		func(s *rhtasv1.MonitoringConfig, c randfill.Continue) {
 			c.FillNoCustom(s)
-			if s.Enabled == nil {
-				s.Enabled = ptr.To(c.Bool())
+			if s.Metrics.Enabled == nil {
+				s.Metrics.Enabled = ptr.To(c.Bool())
+			}
+			if s.ServiceMonitor.Enabled == nil {
+				s.ServiceMonitor.Enabled = ptr.To(c.Bool())
 			}
 		},
 		func(s *rhtasv1.TlogMonitoring, c randfill.Continue) {

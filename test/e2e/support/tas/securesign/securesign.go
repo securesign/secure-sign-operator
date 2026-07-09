@@ -96,12 +96,17 @@ func WithExternalAccess() Opts {
 
 func WithoutMonitoring() Opts {
 	return func(s *rhtasv1.Securesign) {
-		s.Spec.Rekor.Monitoring.Enabled = ptr.To(false)
-		s.Spec.Fulcio.Monitoring.Enabled = ptr.To(false)
-		s.Spec.Trillian.Monitoring.Enabled = ptr.To(false)
-		s.Spec.Ctlog.Monitoring.Enabled = ptr.To(false)
+		s.Spec.Rekor.Monitoring.Metrics.Enabled = ptr.To(false)
+		s.Spec.Rekor.Monitoring.ServiceMonitor.Enabled = ptr.To(false)
+		s.Spec.Fulcio.Monitoring.Metrics.Enabled = ptr.To(false)
+		s.Spec.Fulcio.Monitoring.ServiceMonitor.Enabled = ptr.To(false)
+		s.Spec.Trillian.Monitoring.Metrics.Enabled = ptr.To(false)
+		s.Spec.Trillian.Monitoring.ServiceMonitor.Enabled = ptr.To(false)
+		s.Spec.Ctlog.Monitoring.Metrics.Enabled = ptr.To(false)
+		s.Spec.Ctlog.Monitoring.ServiceMonitor.Enabled = ptr.To(false)
 		if s.Spec.TimestampAuthority != nil {
-			s.Spec.TimestampAuthority.Monitoring.Enabled = ptr.To(false)
+			s.Spec.TimestampAuthority.Monitoring.Metrics.Enabled = ptr.To(false)
+			s.Spec.TimestampAuthority.Monitoring.ServiceMonitor.Enabled = ptr.To(false)
 		}
 	}
 }

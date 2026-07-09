@@ -129,7 +129,7 @@ var _ = Describe("Rekor controller", func() {
 							Host:    "rekor.local",
 						},
 						Monitoring: rhtasv1.MonitoringWithTLogConfig{
-							MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+							MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						},
 						RekorSearchUI: rhtasv1.RekorSearchUI{
 							Enabled: utils.Pointer(true),

@@ -23,6 +23,7 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
 	dst.Spec.TrustedCA = restored.Spec.TrustedCA
 	dst.Status.PublicKey = restored.Status.PublicKey
+	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
 	return nil
 }
 

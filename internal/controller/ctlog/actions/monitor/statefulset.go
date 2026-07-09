@@ -50,7 +50,7 @@ func (i statefulSetAction) Name() string {
 }
 
 func (i statefulSetAction) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool {
-	return enabled(instance) && utils.IsEnabled(instance.Spec.Monitoring.Enabled) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
+	return enabled(instance) && utils.IsEnabled(instance.Spec.Monitoring.Metrics.Enabled) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
@@ -168,7 +168,7 @@ func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1.CTlog, sa 
 		container.Ports = []core.ContainerPort{
 			{
 				ContainerPort: actions.MonitorMetricsPort,
-				Name:          actions.MonitorMetricsPortName,
+				Name:          actions.MetricsPortName,
 				Protocol:      core.ProtocolTCP,
 			},
 		}
