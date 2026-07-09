@@ -209,7 +209,7 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1.Rekor, sa string,
 		serverPort := kubernetes.FindPortByNameOrCreate(container, "rekor-server")
 		serverPort.ContainerPort = 3000
 
-		if utils.IsEnabled(instance.Spec.Monitoring.Enabled) {
+		if utils.IsEnabled(instance.Spec.Monitoring.Metrics.Enabled) {
 			monitoringPort := kubernetes.FindPortByNameOrCreate(container, "monitoring")
 			monitoringPort.ContainerPort = 2112
 			monitoringPort.Protocol = v1.ProtocolTCP

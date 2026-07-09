@@ -143,7 +143,7 @@ var _ = Describe("Fulcio hot update", func() {
 							OrganizationEmail: "my@email.com",
 							CommonName:        "local",
 						},
-						Monitoring: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+						Monitoring: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 					},
 				}
 				err = suite.Client().Create(ctx, instance)

@@ -47,6 +47,44 @@ var _ = Describe("CTlog", func() {
 			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), created)).ToNot(Succeed())
 		})
 
+		When("changing monitoring", func() {
+			It("metrics enabled false->true", func() {
+				created := generateMinimalCTlog("ctlog-monitoring-1")
+				created.Spec.Monitoring.Metrics.Enabled = ptr.To(false)
+				created.Spec.Monitoring.ServiceMonitor.Enabled = ptr.To(false)
+				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
+
+				fetched := &CTlog{}
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
+				Expect(fetched).To(Equal(created))
+
+				fetched.Spec.Monitoring.Metrics.Enabled = ptr.To(true)
+				Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
+			})
+
+			It("metrics enabled true->false", func() {
+				created := generateMinimalCTlog("ctlog-monitoring-2")
+				created.Spec.Monitoring.Metrics.Enabled = ptr.To(true)
+				created.Spec.Monitoring.ServiceMonitor.Enabled = ptr.To(false)
+				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
+
+				fetched := &CTlog{}
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
+				Expect(fetched).To(Equal(created))
+
+				fetched.Spec.Monitoring.Metrics.Enabled = ptr.To(false)
+				Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
+			})
+
+			It("serviceMonitor requires metrics", func() {
+				created := generateMinimalCTlog("ctlog-monitoring-3")
+				created.Spec.Monitoring.Metrics.Enabled = ptr.To(false)
+				created.Spec.Monitoring.ServiceMonitor.Enabled = ptr.To(true)
+				Expect(k8sClient.Create(context.Background(), created)).
+					To(MatchError(ContainSubstring("ServiceMonitor requires metrics to be enabled")))
+			})
+		})
+
 		It("default constants are correct", func() {
 			created := generateMinimalCTlog("ctlog-literals")
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
@@ -56,7 +94,8 @@ var _ = Describe("CTlog", func() {
 			Expect(fetched.Spec.MaxCertChainSize).To(Equal(ptr.To(int64(153600))))
 			Expect(fetched.Spec.Trillian.Port).To(Equal(ptr.To(int32(8091))))
 			Expect(fetched.Spec.Replicas).To(Equal(ptr.To(int32(1))))
-			Expect(fetched.Spec.Monitoring.Enabled).To(Equal(ptr.To(true)))
+			Expect(fetched.Spec.Monitoring.Metrics.Enabled).To(Equal(ptr.To(true)))
+			Expect(fetched.Spec.Monitoring.ServiceMonitor.Enabled).To(Equal(ptr.To(false)))
 			Expect(fetched.Spec.Monitoring.TLog.Enabled).To(Equal(ptr.To(false)))
 			Expect(fetched.Spec.Monitoring.TLog.Interval).To(Equal(&metav1.Duration{Duration: 10 * time.Minute}))
 		})

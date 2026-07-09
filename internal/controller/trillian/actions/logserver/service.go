@@ -63,7 +63,7 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1.Trill
 			Port:       actions.ServerPort,
 			TargetPort: intstr.FromInt32(actions.ServerPort),
 		}}
-	if utils.IsEnabled(instance.Spec.Monitoring.Enabled) {
+	if utils.IsEnabled(instance.Spec.Monitoring.Metrics.Enabled) {
 		ports = append(ports, v1.ServicePort{
 			Name:       actions.MetricsPortName,
 			Protocol:   v1.ProtocolTCP,

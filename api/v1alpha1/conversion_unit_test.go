@@ -61,20 +61,20 @@ func TestSecuresignConversionUnit(t *testing.T) {
 						Rekor: rhtasv1.RekorSpec{
 							ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
 							Monitoring: rhtasv1.MonitoringWithTLogConfig{
-								MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+								MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 								TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
 							},
 						},
 						Fulcio: rhtasv1.FulcioSpec{
 							ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
-							Monitoring:     rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+							Monitoring:     rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						},
 						Trillian: rhtasv1.TrillianSpec{
-							Monitoring: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+							Monitoring: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						},
 						Ctlog: rhtasv1.CTlogSpec{
 							Monitoring: rhtasv1.MonitoringWithTLogConfig{
-								MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+								MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 								TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
 							},
 						},
@@ -102,7 +102,7 @@ func TestSecuresignConversionUnit(t *testing.T) {
 							Signer:          rhtasv1.RekorSigner{KMS: "secret"},
 							ExternalAccess:  rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
 							Monitoring: rhtasv1.MonitoringWithTLogConfig{
-								MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+								MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 								TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
 							},
 						},
@@ -114,16 +114,16 @@ func TestSecuresignConversionUnit(t *testing.T) {
 							},
 							Certificate:    rhtasv1.FulcioCert{OrganizationName: "Red Hat"},
 							ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
-							Monitoring:     rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+							Monitoring:     rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						},
 						Trillian: rhtasv1.TrillianSpec{
 							Db:         rhtasv1.TrillianDB{Create: ptr.To(true)},
-							Monitoring: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+							Monitoring: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						},
 						Ctlog: rhtasv1.CTlogSpec{
 							TreeID: ptr.To[int64](67890),
 							Monitoring: rhtasv1.MonitoringWithTLogConfig{
-								MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+								MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 								TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
 							},
 						},
@@ -139,7 +139,7 @@ func TestSecuresignConversionUnit(t *testing.T) {
 								},
 							},
 							ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
-							Monitoring:     rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+							Monitoring:     rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 							NTPMonitoring:  rhtasv1.NTPMonitoring{Enabled: ptr.To(false)},
 						},
 					},
@@ -230,7 +230,7 @@ func TestCTlogConversionUnit(t *testing.T) {
 					MaxCertChainSize: ptr.To[int64](153600),
 					Trillian:         rhtasv1.TrillianService{Address: "trillian:8091", Port: ptr.To[int32](8091)},
 					Monitoring: rhtasv1.MonitoringWithTLogConfig{
-						MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+						MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
 					},
 				},
@@ -256,7 +256,7 @@ func TestCTlogConversionUnit(t *testing.T) {
 						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "root-cert"}, Key: "ca.crt"},
 					},
 					Monitoring: rhtasv1.MonitoringWithTLogConfig{
-						MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+						MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
 					},
 				},
@@ -323,7 +323,7 @@ func TestRekorConversionUnit(t *testing.T) {
 					TrustedCA:      &rhtasv1.LocalObjectReference{Name: "trusted-ca"},
 					ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
 					Monitoring: rhtasv1.MonitoringWithTLogConfig{
-						MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+						MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
 					},
 				},
@@ -353,7 +353,7 @@ func TestRekorConversionUnit(t *testing.T) {
 				Spec: rhtasv1.RekorSpec{
 					ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
 					Monitoring: rhtasv1.MonitoringWithTLogConfig{
-						MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+						MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
 					},
 				},
@@ -385,7 +385,7 @@ func TestRekorConversionUnit(t *testing.T) {
 					SearchIndex:    rhtasv1.SearchIndex{Create: ptr.To(true)},
 					ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
 					Monitoring: rhtasv1.MonitoringWithTLogConfig{
-						MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+						MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
 					},
 				},
@@ -451,7 +451,7 @@ func TestFulcioConversionUnit(t *testing.T) {
 					},
 					TrustedCA:      &rhtasv1.LocalObjectReference{Name: "ca-bundle"},
 					ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
-					Monitoring:     rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+					Monitoring:     rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 				},
 			},
 			spoke: &Fulcio{
@@ -480,7 +480,7 @@ func TestFulcioConversionUnit(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: "ns"},
 				Spec: rhtasv1.FulcioSpec{
 					ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
-					Monitoring:     rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+					Monitoring:     rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 				},
 				Status: rhtasv1.FulcioStatus{
 					ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "fulcio-config"},
@@ -560,7 +560,7 @@ func TestTrillianConversionUnit(t *testing.T) {
 						},
 					},
 					MaxRecvMessageSize: ptr.To[int64](153600),
-					Monitoring:         rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+					Monitoring:         rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 				},
 			},
 			spoke: &Trillian{
@@ -587,7 +587,7 @@ func TestTrillianConversionUnit(t *testing.T) {
 			hub: &rhtasv1.Trillian{
 				ObjectMeta: metav1.ObjectMeta{Name: "trillian", Namespace: "default"},
 				Spec: rhtasv1.TrillianSpec{
-					Monitoring: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+					Monitoring: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 				},
 				Status: rhtasv1.TrillianStatus{
 					Db: rhtasv1.TrillianDBStatus{
@@ -738,7 +738,7 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "tsa", Namespace: "ns"},
 				Spec: rhtasv1.TimestampAuthoritySpec{
 					ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
-					Monitoring:     rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+					Monitoring:     rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 					NTPMonitoring:  rhtasv1.NTPMonitoring{Enabled: ptr.To(false)},
 				},
 				Status: rhtasv1.TimestampAuthorityStatus{
@@ -820,7 +820,7 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 						},
 					},
 					ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
-					Monitoring:     rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+					Monitoring:     rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 					NTPMonitoring: rhtasv1.NTPMonitoring{
 						Enabled: ptr.To(true),
 					},
@@ -877,7 +877,7 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 						},
 					},
 					ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
-					Monitoring:     rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+					Monitoring:     rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 					NTPMonitoring: rhtasv1.NTPMonitoring{
 						Enabled: ptr.To(true),
 					},
@@ -929,7 +929,7 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 						},
 					},
 					ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
-					Monitoring:     rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+					Monitoring:     rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 					NTPMonitoring: rhtasv1.NTPMonitoring{
 						Enabled: ptr.To(true),
 					},
@@ -1000,7 +1000,7 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 					},
 				},
 				ExternalAccess: rhtasv1.ExternalAccess{Enabled: ptr.To(false)},
-				Monitoring:     rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+				Monitoring:     rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 				NTPMonitoring:  rhtasv1.NTPMonitoring{Enabled: ptr.To(false)},
 			},
 		}

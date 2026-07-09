@@ -9,7 +9,8 @@ import (
 )
 
 func (s *MonitoringConfig) SetDefaults() {
-	setDefault(&s.Enabled, ptr.To(true))
+	setDefault(&s.Metrics.Enabled, ptr.To(true))
+	setDefault(&s.ServiceMonitor.Enabled, ptr.To(false))
 }
 
 func (s *MonitoringWithTLogConfig) SetDefaults() {

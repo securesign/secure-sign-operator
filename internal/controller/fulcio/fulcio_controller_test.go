@@ -160,7 +160,7 @@ var _ = Describe("Fulcio controller", func() {
 								Key: "password",
 							},
 						},
-						Monitoring: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+						Monitoring: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						TrustedCA: &rhtasv1.LocalObjectReference{
 							Name: "trusted-ca-bundle",
 						},

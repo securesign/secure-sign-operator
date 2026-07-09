@@ -125,7 +125,7 @@ var _ = Describe("TimestampAuthority Controller", func() {
 							Host:    "tsa.localhost",
 							Enabled: ptr.To(true),
 						},
-						Monitoring: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+						Monitoring: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						Signer: rhtasv1.TimestampAuthoritySigner{
 							CertificateChain: rhtasv1.CertificateChain{
 								RootCA: &rhtasv1.TsaCertificateAuthority{

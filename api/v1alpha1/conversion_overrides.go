@@ -10,6 +10,26 @@ import (
 // that don't exist in v1alpha1 (e.g. ServiceAccountConfig).
 // These fields are preserved via MarshalData/UnmarshalData annotation.
 
+// MonitoringConfig: v1 splits Enabled into Metrics.Enabled + ServiceMonitor.Enabled.
+// Lossless round-trip is guaranteed by MarshalData/UnmarshalData in ConvertTo/ConvertFrom.
+
+func Convert_v1alpha1_MonitoringConfig_To_v1_MonitoringConfig(in *MonitoringConfig, out *v1.MonitoringConfig, s apiconversion.Scope) error {
+	if err := metav1.Convert_bool_To_Pointer_bool(&in.Enabled, &out.Metrics.Enabled, s); err != nil {
+		return err
+	}
+	if err := metav1.Convert_bool_To_Pointer_bool(&in.Enabled, &out.ServiceMonitor.Enabled, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+func Convert_v1_MonitoringConfig_To_v1alpha1_MonitoringConfig(in *v1.MonitoringConfig, out *MonitoringConfig, s apiconversion.Scope) error {
+	if err := metav1.Convert_Pointer_bool_To_bool(&in.Metrics.Enabled, &out.Enabled, s); err != nil {
+		return err
+	}
+	return nil
+}
+
 func Convert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *v1.CTlogSpec, out *CTlogSpec, s apiconversion.Scope) error {
 	return autoConvert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in, out, s)
 }

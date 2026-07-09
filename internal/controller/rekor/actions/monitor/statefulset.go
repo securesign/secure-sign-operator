@@ -143,7 +143,7 @@ func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1.Rekor, sa 
 		container.Ports = []core.ContainerPort{
 			{
 				ContainerPort: actions.MonitorMetricsPort,
-				Name:          actions.MonitorMetricsPortName,
+				Name:          actions.MetricsPortName,
 				Protocol:      core.ProtocolTCP,
 			},
 		}

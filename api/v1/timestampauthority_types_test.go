@@ -77,6 +77,44 @@ var _ = Describe("TSA", func() {
 			})
 		})
 
+		When("changing monitoring", func() {
+			It("metrics enabled false->true", func() {
+				created := generateMinimalTSA("tsa-monitoring-1")
+				created.Spec.Monitoring.Metrics.Enabled = ptr.To(false)
+				created.Spec.Monitoring.ServiceMonitor.Enabled = ptr.To(false)
+				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
+
+				fetched := &TimestampAuthority{}
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
+				Expect(fetched).To(Equal(created))
+
+				fetched.Spec.Monitoring.Metrics.Enabled = ptr.To(true)
+				Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
+			})
+
+			It("metrics enabled true->false", func() {
+				created := generateMinimalTSA("tsa-monitoring-2")
+				created.Spec.Monitoring.Metrics.Enabled = ptr.To(true)
+				created.Spec.Monitoring.ServiceMonitor.Enabled = ptr.To(false)
+				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
+
+				fetched := &TimestampAuthority{}
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
+				Expect(fetched).To(Equal(created))
+
+				fetched.Spec.Monitoring.Metrics.Enabled = ptr.To(false)
+				Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
+			})
+
+			It("serviceMonitor requires metrics", func() {
+				created := generateMinimalTSA("tsa-monitoring-3")
+				created.Spec.Monitoring.Metrics.Enabled = ptr.To(false)
+				created.Spec.Monitoring.ServiceMonitor.Enabled = ptr.To(true)
+				Expect(k8sClient.Create(context.Background(), created)).
+					To(MatchError(ContainSubstring("ServiceMonitor requires metrics to be enabled")))
+			})
+		})
+
 		It("default constants are correct", func() {
 			created := generateMinimalTSA("tsa-literals")
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
@@ -86,7 +124,8 @@ var _ = Describe("TSA", func() {
 			Expect(fetched.Spec.MaxRequestBodySize).To(Equal(ptr.To(int64(1048576))))
 			Expect(fetched.Spec.Replicas).To(Equal(ptr.To(int32(1))))
 			Expect(fetched.Spec.NTPMonitoring.Enabled).To(Equal(ptr.To(true)))
-			Expect(fetched.Spec.Monitoring.Enabled).To(Equal(ptr.To(true)))
+			Expect(fetched.Spec.Monitoring.Metrics.Enabled).To(Equal(ptr.To(true)))
+			Expect(fetched.Spec.Monitoring.ServiceMonitor.Enabled).To(Equal(ptr.To(false)))
 			Expect(fetched.Spec.ExternalAccess.Enabled).To(Equal(ptr.To(false)))
 		})
 

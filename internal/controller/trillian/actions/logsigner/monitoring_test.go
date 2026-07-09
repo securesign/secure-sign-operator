@@ -1,64 +1,61 @@
 package logsigner
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
-	"github.com/securesign/operator/internal/constants"
-	"github.com/securesign/operator/internal/state"
-	testaction "github.com/securesign/operator/internal/testing/action"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
-func TestLogsignerMonitoringHandle_NoServiceMonitorCRD(t *testing.T) {
+func TestLogsignerMonitoringConfig_IsEnabled(t *testing.T) {
+	t.Parallel()
 	g := NewWithT(t)
+	cfg := logsignerMonitoringConfig{}
 
-	cl := testaction.FakeClientBuilder().
-		WithStatusSubresource(&rhtasv1.Trillian{}).
-		WithInterceptorFuncs(interceptor.Funcs{
-			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
-				if obj.GetObjectKind().GroupVersionKind().Kind == "ServiceMonitor" {
-					return &apimeta.NoKindMatchError{
-						GroupKind:        schema.GroupKind{Group: "monitoring.coreos.com", Kind: "ServiceMonitor"},
-						SearchedVersions: []string{"v1"},
-					}
-				}
-				return c.Get(ctx, key, obj, opts...)
-			},
-		}).
-		Build()
-
-	a := testaction.PrepareAction(cl, NewCreateMonitorAction())
-
-	instance := &rhtasv1.Trillian{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
-			Namespace: "default",
-		},
+	g.Expect(cfg.IsEnabled(&rhtasv1.Trillian{
 		Spec: rhtasv1.TrillianSpec{
 			Monitoring: rhtasv1.MonitoringConfig{
-				Enabled: ptr.To(true),
+				ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(true)},
 			},
 		},
+	})).To(BeTrue())
+
+	g.Expect(cfg.IsEnabled(&rhtasv1.Trillian{
+		Spec: rhtasv1.TrillianSpec{
+			Monitoring: rhtasv1.MonitoringConfig{
+				ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)},
+			},
+		},
+	})).To(BeFalse())
+}
+
+func TestLogsignerMonitoringConfig_TLS_WithCert(t *testing.T) {
+	t.Parallel()
+	g := NewWithT(t)
+	cfg := logsignerMonitoringConfig{}
+
+	instance := &rhtasv1.Trillian{
 		Status: rhtasv1.TrillianStatus{
-			Conditions: []metav1.Condition{
-				{
-					Type:   constants.ReadyCondition,
-					Reason: state.Creating.String(),
-					Status: metav1.ConditionFalse,
+			LogSigner: rhtasv1.TrillianServiceStatus{
+				TLS: rhtasv1.TLS{
+					CertRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "signer-tls"},
+						Key:                  "ca.crt",
+					},
 				},
 			},
 		},
 	}
 
-	result := a.Handle(context.Background(), instance)
+	tls := cfg.TLS(instance)
+	g.Expect(tls.CertRef).ToNot(BeNil())
+	g.Expect(tls.CertRef.Name).To(Equal("signer-tls"))
+}
 
-	g.Expect(result.Err).To(MatchError(ContainSubstring("ServiceMonitor CRD is not installed")))
+func TestLogsignerMonitoringConfig_TLS_WithoutCert(t *testing.T) {
+	t.Parallel()
+	g := NewWithT(t)
+	tls := logsignerMonitoringConfig{}.TLS(&rhtasv1.Trillian{})
+	g.Expect(tls.CertRef).To(BeNil())
 }

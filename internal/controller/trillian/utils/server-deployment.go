@@ -149,7 +149,7 @@ func ensureDeployment(instance *rhtasv1.Trillian, image string, name string, sa 
 		port.ContainerPort = actions.ServerPort
 		port.Protocol = core.ProtocolTCP
 
-		if utils.IsEnabled(instance.Spec.Monitoring.Enabled) {
+		if utils.IsEnabled(instance.Spec.Monitoring.Metrics.Enabled) {
 			monitoring := kubernetes.FindPortByNameOrCreate(container, "monitoring")
 			monitoring.ContainerPort = actions.MetricsPort
 			monitoring.Protocol = core.ProtocolTCP

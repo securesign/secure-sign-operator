@@ -100,7 +100,7 @@ var _ = Describe("CTlog controller", func() {
 					Spec: rhtasv1.CTlogSpec{
 						TreeID: &treeID,
 						Monitoring: rhtasv1.MonitoringWithTLogConfig{
-							MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
+							MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						},
 					},
 				}

@@ -1014,13 +1014,34 @@ spec:
               monitoring:
                 description: Enable Service monitors for Timestamp Authority
                 properties:
-                  enabled:
-                    description: If true, the Operator will create monitoring resources
-                    type: boolean
-                    x-kubernetes-validations:
-                    - message: Feature cannot be disabled
-                      rule: (self || !oldSelf)
+                  metrics:
+                    description: |-
+                      Metrics endpoint configuration.
+                      Controls whether the operator exposes a metrics HTTP endpoint
+                      on the component's pods and services.
+                    properties:
+                      enabled:
+                        description: Enable metrics endpoint on the component's pods
+                          and services.
+                        type: boolean
+                    type: object
+                  serviceMonitor:
+                    description: |-
+                      Prometheus ServiceMonitor configuration.
+                      Controls whether the operator creates ServiceMonitor resources
+                      for automated metrics discovery and scraping.
+                      Requires metrics to be enabled.
+                    properties:
+                      enabled:
+                        description: Enable creation of ServiceMonitor resources.
+                        type: boolean
+                    type: object
                 type: object
+                x-kubernetes-validations:
+                - message: ServiceMonitor requires metrics to be enabled
+                  rule: '!has(self.serviceMonitor) || !has(self.serviceMonitor.enabled)
+                    || !self.serviceMonitor.enabled || (has(self.metrics) && has(self.metrics.enabled)
+                    && self.metrics.enabled)'
               ntpMonitoring:
                 description: Configuration for NTP monitoring
                 properties:
