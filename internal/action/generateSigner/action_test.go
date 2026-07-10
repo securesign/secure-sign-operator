@@ -454,7 +454,7 @@ func TestHandle_FIPSPasswordRefGuard(t *testing.T) {
 
 	t.Run("rejects PasswordRef as terminal error", func(t *testing.T) {
 		g := NewWithT(t)
-		ctx := context.TODO()
+		ctx := t.Context()
 		instance := testInstance(pendingConditions()...)
 
 		cli := testAction.FakeClientBuilder().
@@ -496,7 +496,7 @@ func TestHandle_FIPSPasswordRefGuard(t *testing.T) {
 
 	t.Run("allows nil PasswordRef in FIPS mode", func(t *testing.T) {
 		g := NewWithT(t)
-		ctx := context.TODO()
+		ctx := t.Context()
 		instance := testInstance(pendingConditions()...)
 
 		cli := testAction.FakeClientBuilder().

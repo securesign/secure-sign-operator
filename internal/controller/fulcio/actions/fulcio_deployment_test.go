@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils/fips"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 	v13 "k8s.io/api/apps/v1"
@@ -122,6 +123,40 @@ func TestMissingPrivateKey(t *testing.T) {
 	deployment, err := createDeployment(instance, labels)
 	g.Expect(err).Should(HaveOccurred())
 	g.Expect(deployment).Should(BeNil())
+}
+
+func TestFIPSClientSigningAlgorithms(t *testing.T) {
+	g := NewWithT(t)
+
+	original := fips.Enabled
+	fips.Enabled = func() bool { return true }
+	t.Cleanup(func() { fips.Enabled = original })
+
+	instance := createInstance()
+	labels := labels.For(componentName, deploymentName, instance.Name)
+	dp, err := createDeployment(instance, labels)
+
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp.Spec.Template.Spec.Containers[0].Args).Should(
+		ContainElement(Equal("--client-signing-algorithms")))
+	g.Expect(dp.Spec.Template.Spec.Containers[0].Args).Should(
+		ContainElement(Equal(fips.ClientSigningAlgorithms)))
+}
+
+func TestNonFIPSNoClientSigningAlgorithms(t *testing.T) {
+	g := NewWithT(t)
+
+	original := fips.Enabled
+	fips.Enabled = func() bool { return false }
+	t.Cleanup(func() { fips.Enabled = original })
+
+	instance := createInstance()
+	labels := labels.For(componentName, deploymentName, instance.Name)
+	dp, err := createDeployment(instance, labels)
+
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp.Spec.Template.Spec.Containers[0].Args).ShouldNot(
+		ContainElement(Equal("--client-signing-algorithms")))
 }
 
 func TestCtlogConfig(t *testing.T) {

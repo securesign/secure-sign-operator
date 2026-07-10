@@ -13,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils/fips"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
@@ -170,6 +171,10 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.Fulcio, sa string, labe
 				},
 			}
 			args = append(args, "--fileca-key-passwd", "$(PASSWORD)")
+		}
+
+		if fips.Enabled() {
+			args = append(args, "--client-signing-algorithms", fips.ClientSigningAlgorithms)
 		}
 
 		container.Args = args

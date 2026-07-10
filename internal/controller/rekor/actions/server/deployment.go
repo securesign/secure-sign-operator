@@ -17,6 +17,7 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils/fips"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
@@ -193,6 +194,10 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1.Rekor, sa string,
 					},
 				}
 			}
+		}
+
+		if fips.Enabled() {
+			args = append(args, "--client-signing-algorithms", fips.ClientSigningAlgorithms)
 		}
 
 		//TODO mount additional ENV variables and secrets to enable cloud KMS service
