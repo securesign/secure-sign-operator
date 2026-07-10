@@ -135,26 +135,22 @@ func mustMarshalAny(pb proto.Message) *anypb.Any {
 	return ret
 }
 
-func createConfigWithKeys(certConfig *KeyConfig) (*Config, error) {
-	config := &Config{
+func createConfigWithKeys(certConfig *KeyConfig) *Config {
+	return &Config{
 		PubKey:          certConfig.PublicKey,
 		PrivKey:         certConfig.PrivateKey,
 		PrivKeyPassword: certConfig.PrivateKeyPass,
 	}
-	return config, nil
 }
 
 func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertificate, keyConfig *KeyConfig) (map[string][]byte, error) {
-	ctlogConfig, err := createConfigWithKeys(keyConfig)
-	if err != nil {
-		return nil, err
-	}
+	ctlogConfig := createConfigWithKeys(keyConfig)
 	ctlogConfig.LogID = treeID
 	ctlogConfig.LogPrefix = "trusted-artifact-signer"
 	ctlogConfig.TrillianServerAddr = trillianUrl
 
 	for _, cert := range rootCerts {
-		if err = ctlogConfig.AddRootCertificate(cert); err != nil {
+		if err := ctlogConfig.AddRootCertificate(cert); err != nil {
 			return nil, fmt.Errorf("failed to add fulcio root: %v", err)
 		}
 	}
