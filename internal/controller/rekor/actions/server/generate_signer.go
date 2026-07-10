@@ -34,6 +34,12 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.Rekor] {
 			GenerateData: generateData,
 			AlignStatus:  alignStatus,
 			IsEnabled:    isEnabled,
+			PasswordRef: func(i *rhtasv1.Rekor) *rhtasv1.SecretKeySelector {
+				if i.Spec.Signer.KeyRef != nil {
+					return i.Spec.Signer.PasswordRef //nolint:staticcheck
+				}
+				return nil
+			},
 		}),
 	)
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
+	"github.com/securesign/operator/internal/utils/fips"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	corev1 "k8s.io/api/core/v1"
@@ -75,6 +76,26 @@ func (i signerAction[T]) CanHandle(_ context.Context, instance T) bool {
 
 func (i signerAction[T]) Handle(ctx context.Context, instance T) *action.Result {
 	w := i.wrapper(instance)
+
+	if fips.Enabled() && w.PasswordRef() != nil {
+		err := reconcile.TerminalError(fips.ErrPasswordRefInFIPS)
+		return i.Error(ctx, err, instance,
+			metav1.Condition{
+				Type:               i.conditionType,
+				Status:             metav1.ConditionFalse,
+				Reason:             state.Failure.String(),
+				Message:            err.Error(),
+				ObservedGeneration: instance.GetGeneration(),
+			},
+			metav1.Condition{
+				Type:               constants.ReadyCondition,
+				Status:             metav1.ConditionFalse,
+				Reason:             state.Pending.String(),
+				Message:            err.Error(),
+				ObservedGeneration: instance.GetGeneration(),
+			},
+		)
+	}
 
 	resolvedRef, err := w.ResolveRef(ctx, i.Client)
 	if err != nil {

@@ -13,10 +13,12 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
+	"github.com/securesign/operator/internal/utils/fips"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func tsaInstance() *rhtasv1.TimestampAuthority {
@@ -264,6 +266,96 @@ func TestTSASigner_MigrationFromPreExistingSecret(t *testing.T) {
 func TestTSASigner_DeterministicName(t *testing.T) {
 	g := NewWithT(t)
 	g.Expect(fmt.Sprintf(signerSecretNameFormat, "my-tsa")).To(Equal("tsa-signer-config-my-tsa"))
+}
+
+func TestTSASigner_PasswordRefRejectedInFIPS(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+
+	original := fips.Enabled
+	fips.Enabled = func() bool { return true }
+	t.Cleanup(func() { fips.Enabled = original })
+
+	instance := tsaInstance()
+	instance.Spec.Signer = rhtasv1.TimestampAuthoritySigner{
+		CertificateChain: rhtasv1.CertificateChain{
+			CertificateChainRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-cert-secret"},
+				Key:                  "certificateChain",
+			},
+		},
+		File: &rhtasv1.File{
+			PrivateKeyRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-key-secret"},
+				Key:                  "leafPrivateKey",
+			},
+			PasswordRef: &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-password"},
+				Key:                  "password",
+			},
+		},
+	}
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	result := a.Handle(ctx, instance)
+
+	g.Expect(result.Err).To(HaveOccurred())
+	g.Expect(errors.Is(result.Err, reconcile.TerminalError(result.Err))).To(BeTrue())
+	g.Expect(result.Err.Error()).To(ContainSubstring("FIPS"))
+	cond := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
+	g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+}
+
+func TestTSASigner_UnencryptedKeyAllowedInFIPS(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+
+	original := fips.Enabled
+	fips.Enabled = func() bool { return true }
+	t.Cleanup(func() { fips.Enabled = original })
+
+	unencryptedKey, err := generatePrivateKey()
+	g.Expect(err).ToNot(HaveOccurred())
+
+	instance := tsaInstance()
+	instance.Spec.Signer = rhtasv1.TimestampAuthoritySigner{
+		CertificateChain: rhtasv1.CertificateChain{
+			CertificateChainRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-cert-secret"},
+				Key:                  "certificateChain",
+			},
+		},
+		File: &rhtasv1.File{
+			PrivateKeyRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-key-secret"},
+				Key:                  "leafPrivateKey",
+			},
+		},
+	}
+
+	keySecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "user-key-secret", Namespace: "default"},
+		Data:       map[string][]byte{"leafPrivateKey": unencryptedKey},
+	}
+	certSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "user-cert-secret", Namespace: "default"},
+		Data:       map[string][]byte{"certificateChain": []byte("cert-data")},
+	}
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance, keySecret, certSecret).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	result := a.Handle(ctx, instance)
+
+	g.Expect(result.Err).ToNot(HaveOccurred())
+	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, TSASignerCondition)).To(BeTrue())
 }
 
 func TestTSASigner_AlignStatusFields(t *testing.T) {
