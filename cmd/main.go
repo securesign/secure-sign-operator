@@ -28,6 +28,7 @@ import (
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/utils/fips"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -143,6 +144,8 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(klog.NewKlogr())
+
+	setupLog.Info("FIPS mode", "enabled", fips.Enabled())
 
 	if !utils.IsFlagProvided("openshift", "OPENSHIFT") {
 		openshift, err := kubernetes.DetectOpenShiftPlatform(setupLog, appconfig.OpenshiftAPIServerName, appconfig.APIServerTimeout)

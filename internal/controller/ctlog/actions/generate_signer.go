@@ -36,6 +36,12 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.CTlog] {
 				}
 				secret.Labels[labels.LabelNamespace+"/ctfe.pub"] = constants.KeyPublic
 			},
+			PasswordRef: func(i *rhtasv1.CTlog) *rhtasv1.SecretKeySelector {
+				if i.Spec.PrivateKeyRef != nil {
+					return i.Spec.PrivateKeyPasswordRef //nolint:staticcheck
+				}
+				return nil
+			},
 		}),
 	)
 }

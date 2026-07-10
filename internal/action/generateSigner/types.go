@@ -38,6 +38,12 @@ type Config[T apis.ConditionsAwareObject] struct {
 	// to add labels, annotations, or modify the secret in any way.
 	// Nil is a no-op.
 	MutateSecret func(T, *corev1.Secret)
+
+	// PasswordRef extracts the password-ref selector from the instance's spec.
+	// When non-nil and FIPS mode is active, Handle returns a TerminalError
+	// if the selector is non-nil (password-protected keys are forbidden in FIPS).
+	// Nil disables the FIPS password-ref guard.
+	PasswordRef func(T) *rhtasv1.SecretKeySelector
 }
 
 func Wrapper[T apis.ConditionsAwareObject](cfg Config[T]) func(T) *wrapper[T] {
@@ -56,6 +62,13 @@ type wrapper[T apis.ConditionsAwareObject] struct {
 
 func (w *wrapper[T]) ResolveRef(ctx context.Context, c client.Client) (*rhtasv1.SecretKeySelector, error) {
 	return w.cfg.ResolveRef(ctx, w.object, c)
+}
+
+func (w *wrapper[T]) PasswordRef() *rhtasv1.SecretKeySelector {
+	if w.cfg.PasswordRef == nil {
+		return nil
+	}
+	return w.cfg.PasswordRef(w.object)
 }
 
 func (w *wrapper[T]) GenerateData(ctx context.Context, c client.Client) (map[string][]byte, error) {

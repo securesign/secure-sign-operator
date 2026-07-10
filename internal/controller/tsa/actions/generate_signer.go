@@ -42,6 +42,12 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.TimestampAuthority] {
 				}
 				secret.Labels[labels.LabelNamespace+"/tsa.certchain.pem"] = tsaUtils.KeyCertificateChain
 			},
+			PasswordRef: func(i *rhtasv1.TimestampAuthority) *rhtasv1.SecretKeySelector {
+				if i.Spec.Signer.File != nil && i.Spec.Signer.File.PrivateKeyRef != nil {
+					return i.Spec.Signer.File.PasswordRef //nolint:staticcheck
+				}
+				return nil
+			},
 		}),
 	)
 }

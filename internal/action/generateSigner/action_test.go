@@ -12,6 +12,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
+	"github.com/securesign/operator/internal/utils/fips"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -444,4 +445,89 @@ func TestHandle(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHandle_FIPSPasswordRefGuard(t *testing.T) {
+	original := fips.Enabled
+	fips.Enabled = func() bool { return true }
+	t.Cleanup(func() { fips.Enabled = original })
+
+	t.Run("rejects PasswordRef as terminal error", func(t *testing.T) {
+		g := NewWithT(t)
+		ctx := context.TODO()
+		instance := testInstance(pendingConditions()...)
+
+		cli := testAction.FakeClientBuilder().
+			WithObjects(instance).
+			WithStatusSubresource(instance).
+			Build()
+
+		a := testAction.PrepareAction(cli, NewAction(
+			testCondition, testNameFormat, testComponent, testDeployment,
+			Wrapper(Config[*rhtasv1.Rekor]{
+				ResolveRef: func(_ context.Context, _ *rhtasv1.Rekor, _ client.Client) (*rhtasv1.SecretKeySelector, error) {
+					return nil, nil
+				},
+				GenerateData: func(_ context.Context, _ *rhtasv1.Rekor, _ client.Client) (map[string][]byte, error) {
+					return testData, nil
+				},
+				AlignStatus: func(r *rhtasv1.Rekor, ref rhtasv1.SecretKeySelector) {
+					r.Status.Signer.KeyRef = &rhtasv1.SecretKeySelector{
+						Key:                  "private",
+						LocalObjectReference: ref.LocalObjectReference,
+					}
+				},
+				IsEnabled: func(_ *rhtasv1.Rekor) bool { return true },
+				PasswordRef: func(_ *rhtasv1.Rekor) *rhtasv1.SecretKeySelector {
+					return &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "password-secret"},
+						Key:                  "password",
+					}
+				},
+			}),
+		))
+
+		result := a.Handle(ctx, instance)
+
+		g.Expect(result.Err).To(HaveOccurred())
+		g.Expect(errors.Is(result.Err, reconcile.TerminalError(result.Err))).To(BeTrue())
+		g.Expect(errors.Is(result.Err, fips.ErrPasswordRefInFIPS)).To(BeTrue())
+	})
+
+	t.Run("allows nil PasswordRef in FIPS mode", func(t *testing.T) {
+		g := NewWithT(t)
+		ctx := context.TODO()
+		instance := testInstance(pendingConditions()...)
+
+		cli := testAction.FakeClientBuilder().
+			WithObjects(instance).
+			WithStatusSubresource(instance).
+			Build()
+
+		a := testAction.PrepareAction(cli, NewAction(
+			testCondition, testNameFormat, testComponent, testDeployment,
+			Wrapper(Config[*rhtasv1.Rekor]{
+				ResolveRef: func(_ context.Context, _ *rhtasv1.Rekor, _ client.Client) (*rhtasv1.SecretKeySelector, error) {
+					return nil, nil
+				},
+				GenerateData: func(_ context.Context, _ *rhtasv1.Rekor, _ client.Client) (map[string][]byte, error) {
+					return testData, nil
+				},
+				AlignStatus: func(r *rhtasv1.Rekor, ref rhtasv1.SecretKeySelector) {
+					r.Status.Signer.KeyRef = &rhtasv1.SecretKeySelector{
+						Key:                  "private",
+						LocalObjectReference: ref.LocalObjectReference,
+					}
+				},
+				IsEnabled: func(_ *rhtasv1.Rekor) bool { return true },
+				PasswordRef: func(_ *rhtasv1.Rekor) *rhtasv1.SecretKeySelector {
+					return nil
+				},
+			}),
+		))
+
+		result := a.Handle(ctx, instance)
+
+		g.Expect(result).To(Equal(testAction.Return()))
+	})
 }

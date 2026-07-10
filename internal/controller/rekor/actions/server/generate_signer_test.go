@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -10,9 +11,11 @@ import (
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
+	"github.com/securesign/operator/internal/utils/fips"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -159,4 +162,70 @@ func TestRekorSigner_MigrationFromPreExistingSecret(t *testing.T) {
 func TestRekorSigner_DeterministicName(t *testing.T) {
 	g := NewWithT(t)
 	g.Expect(fmt.Sprintf(signerSecretNameFormat, "my-rekor")).To(Equal("rekor-signer-config-my-rekor"))
+}
+
+func TestRekorSigner_PasswordRefRejectedInFIPS(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+
+	original := fips.Enabled
+	fips.Enabled = func() bool { return true }
+	t.Cleanup(func() { fips.Enabled = original })
+
+	instance := rekorInstance()
+	instance.Spec.Signer.KeyRef = &rhtasv1.SecretKeySelector{
+		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
+		Key:                  "private",
+	}
+	instance.Spec.Signer.PasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-password"},
+		Key:                  "password",
+	}
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	result := a.Handle(ctx, instance)
+
+	g.Expect(result.Err).To(HaveOccurred())
+	g.Expect(errors.Is(result.Err, reconcile.TerminalError(result.Err))).To(BeTrue())
+	g.Expect(result.Err.Error()).To(ContainSubstring("FIPS"))
+	cond := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
+	g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+}
+
+func TestRekorSigner_UnencryptedKeyAllowedInFIPS(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+
+	original := fips.Enabled
+	fips.Enabled = func() bool { return true }
+	t.Cleanup(func() { fips.Enabled = original })
+
+	unencryptedKey, _, err := createSignerKey()
+	g.Expect(err).ToNot(HaveOccurred())
+
+	instance := rekorInstance()
+	instance.Spec.Signer.KeyRef = &rhtasv1.SecretKeySelector{
+		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
+		Key:                  "private",
+	}
+
+	userSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "user-secret", Namespace: "default"},
+		Data:       map[string][]byte{"private": unencryptedKey},
+	}
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance, userSecret).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	result := a.Handle(ctx, instance)
+
+	g.Expect(result.Err).ToNot(HaveOccurred())
+	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, actions.SignerCondition)).To(BeTrue())
 }

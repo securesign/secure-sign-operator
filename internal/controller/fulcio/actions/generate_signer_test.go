@@ -15,10 +15,12 @@ import (
 	"github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
+	"github.com/securesign/operator/internal/utils/fips"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func fulcioInstance() *rhtasv1.Fulcio {
@@ -371,4 +373,89 @@ func TestFulcioCert_CanHandle_GenerationBump(t *testing.T) {
 	c := testAction.FakeClientBuilder().Build()
 	a := testAction.PrepareAction(c, NewGenerateSignerAction())
 	g.Expect(a.CanHandle(t.Context(), instance)).To(BeTrue())
+}
+
+func TestFulcioCert_PasswordRefRejectedInFIPS(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+
+	original := fips.Enabled
+	fips.Enabled = func() bool { return true }
+	t.Cleanup(func() { fips.Enabled = original })
+
+	instance := fulcioInstance()
+	instance.Spec.Certificate = rhtasv1.FulcioCert{
+		PrivateKeyRef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-private"},
+			Key:                  "private",
+		},
+		CARef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-cert"},
+			Key:                  "cert",
+		},
+		PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-password"},
+			Key:                  "password",
+		},
+	}
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	result := a.Handle(ctx, instance)
+
+	g.Expect(result.Err).To(HaveOccurred())
+	g.Expect(errors.Is(result.Err, reconcile.TerminalError(result.Err))).To(BeTrue())
+	g.Expect(result.Err.Error()).To(ContainSubstring("FIPS"))
+	cond := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
+	g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+}
+
+func TestFulcioCert_UnencryptedKeyAllowedInFIPS(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+
+	original := fips.Enabled
+	fips.Enabled = func() bool { return true }
+	t.Cleanup(func() { fips.Enabled = original })
+
+	ecKey, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	g.Expect(err).ToNot(HaveOccurred())
+	unencryptedKey, err := utils.CreateCAKey(ecKey)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	instance := fulcioInstance()
+	instance.Spec.Certificate = rhtasv1.FulcioCert{
+		PrivateKeyRef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-private"},
+			Key:                  "private",
+		},
+		CARef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-cert"},
+			Key:                  "cert",
+		},
+	}
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance,
+			&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "user-private", Namespace: "default"},
+				Data:       map[string][]byte{"private": unencryptedKey},
+			},
+			&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "user-cert", Namespace: "default"},
+				Data:       map[string][]byte{"cert": []byte("fake-cert")},
+			},
+		).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	result := a.Handle(ctx, instance)
+
+	g.Expect(result.Err).ToNot(HaveOccurred())
+	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, CertCondition)).To(BeTrue())
 }
