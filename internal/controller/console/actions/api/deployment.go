@@ -60,7 +60,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Console) *ac
 		},
 		ensure.ControllerReference[*apps.Deployment](instance, i.Client),
 		ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(l)), l),
-		ensureApiDeployment(instance, l, tufURL),
+		ensureApiDeployment(l, tufURL),
 		ensureTUFWaitInitContainer(tufURL),
 		ensureApiProbes(),
 		deployment.PodRequirements(instance.Spec.Api.PodRequirements, actions.ApiDeploymentName),
@@ -104,7 +104,7 @@ func resolveTufUrl(instance *rhtasv1.Console) string {
 	return fmt.Sprintf("http://tuf.%s.svc", instance.Namespace)
 }
 
-func ensureApiDeployment(instance *rhtasv1.Console, labels map[string]string, tufURL string) func(*apps.Deployment) error {
+func ensureApiDeployment(labels map[string]string, tufURL string) func(*apps.Deployment) error {
 	return func(dp *apps.Deployment) error {
 		spec := &dp.Spec
 		spec.Selector = &metav1.LabelSelector{
