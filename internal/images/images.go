@@ -35,6 +35,9 @@ const (
 	HttpServer   Image = "RELATED_IMAGE_HTTP_SERVER"
 	ClientServer Image = "RELATED_IMAGE_CLIENT_SERVER"
 	CTLogMonitor Image = "RELATED_IMAGE_CTLOG_MONITOR"
+
+	ConsoleApi Image = "RELATED_IMAGE_CONSOLE_API"
+	ConsoleUI  Image = "RELATED_IMAGE_CONSOLE_UI"
 )
 
 var Images = []Image{
@@ -55,6 +58,8 @@ var Images = []Image{
 	HttpServer,
 	ClientServer,
 	CTLogMonitor,
+	ConsoleApi,
+	ConsoleUI,
 }
 
 //go:generate cp ../../config/default/images.env embed/images.env

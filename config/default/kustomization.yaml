@@ -231,6 +231,28 @@ replacements:
     select:
       kind: Deployment
       name: operator-controller-manager
+- source:
+    fieldPath: data.RELATED_IMAGE_CONSOLE_API
+    kind: ConfigMap
+    name: related-images
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=^manager$].env.[name=^RELATED_IMAGE_CONSOLE_API$].value
+    select:
+      kind: Deployment
+      name: operator-controller-manager
+- source:
+    fieldPath: data.RELATED_IMAGE_CONSOLE_UI
+    kind: ConfigMap
+    name: related-images
+    version: v1
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=^manager$].env.[name=^RELATED_IMAGE_CONSOLE_UI$].value
+    select:
+      kind: Deployment
+      name: operator-controller-manager
 
 # [CERTMANAGER] cert-manager CA injection replacements are applied by the
 # kubernetes overlay (config/overlays/kubernetes), not here. On OpenShift,
