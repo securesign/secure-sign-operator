@@ -19,6 +19,10 @@ spec:
       jsonPath: .status.conditions[?(@.type=="Ready")].reason
       name: Status
       type: string
+    - description: The component url
+      jsonPath: .status.ui.url
+      name: URL
+      type: string
     name: v1
     schema:
       openAPIV3Schema:

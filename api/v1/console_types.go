@@ -74,6 +74,7 @@ type ConsoleStatus struct {
 //+kubebuilder:subresource:status
 //+kubebuilder:storageversion
 //+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
+//+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.ui.url`,description="The component url"
 
 // Console is the Schema for the consoles API
 type Console struct {
