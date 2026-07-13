@@ -10,13 +10,7 @@ import (
 func NewCreatePvcAction() action.Action[*rhtasv1.Tuf] {
 	wrapper := pvc.Wrapper[*rhtasv1.Tuf](
 		func(t *rhtasv1.Tuf) rhtasv1.Pvc {
-			return rhtasv1.Pvc{
-				Name:         t.Spec.Pvc.Name,
-				Size:         t.Spec.Pvc.Size,
-				StorageClass: t.Spec.Pvc.StorageClass,
-				AccessModes:  t.Spec.Pvc.AccessModes,
-				Retain:       t.Spec.Pvc.Retain,
-			}
+			return t.Spec.Pvc
 		},
 		func(t *rhtasv1.Tuf) string {
 			return t.Status.PvcName

@@ -170,7 +170,7 @@ func createInstance(name, ns string) *rhtasv1.Tuf {
 					},
 				},
 			},
-			Pvc: rhtasv1.TufPvc{
+			Pvc: rhtasv1.Pvc{
 				Name: tufPvcName,
 			},
 		},

@@ -399,7 +399,7 @@ func WithNFSPVC() Opts {
 		}
 
 		s.Spec.Rekor.Attestations.Pvc = pvcConf
-		s.Spec.Tuf.Pvc = rhtasv1.TufPvc{
+		s.Spec.Tuf.Pvc = rhtasv1.Pvc{
 			Retain:       pvcConf.Retain,
 			Size:         pvcConf.Size,
 			AccessModes:  pvcConf.AccessModes,
