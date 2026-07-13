@@ -10520,8 +10520,7 @@ spec:
                       You can use ReadWriteOnce accessMode if you don't have suitable storage provider but your deployment will not support HA mode
                     properties:
                       accessModes:
-                        description: PersistentVolume AccessModes. Configure ReadWriteMany
-                          for HA deployment.
+                        description: PVC AccessModes
                         items:
                           enum:
                           - ReadWriteOnce
