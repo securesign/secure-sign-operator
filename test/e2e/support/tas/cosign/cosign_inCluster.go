@@ -6,11 +6,15 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/securesign/operator/internal/utils/kubernetes/job"
 	"github.com/securesign/operator/test/e2e/support"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -61,7 +65,32 @@ func (c *InClusterCosign) VerifyByCosign(ctx context.Context, targetImageName st
 	}).WithContext(ctx).WithPolling(2 * time.Second).Should(Succeed())
 }
 
+func (c *InClusterCosign) proxyEnvVars(ctx context.Context) ([]v1.EnvVar, error) {
+	p := &configv1.Proxy{}
+	if err := c.cli.Get(ctx, types.NamespacedName{Name: "cluster"}, p); err != nil {
+		if errors.IsNotFound(err) || meta.IsNoMatchError(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get Proxy/cluster: %w", err)
+	}
+	var envs []v1.EnvVar
+	if p.Status.HTTPProxy != "" {
+		envs = append(envs, v1.EnvVar{Name: "HTTP_PROXY", Value: p.Status.HTTPProxy})
+	}
+	if p.Status.HTTPSProxy != "" {
+		envs = append(envs, v1.EnvVar{Name: "HTTPS_PROXY", Value: p.Status.HTTPSProxy})
+	}
+	if p.Status.NoProxy != "" {
+		envs = append(envs, v1.EnvVar{Name: "NO_PROXY", Value: p.Status.NoProxy})
+	}
+	return envs, nil
+}
+
 func (c *InClusterCosign) executeInJob(ctx context.Context, script string) error {
+	proxyEnvs, err := c.proxyEnvVars(ctx)
+	if err != nil {
+		return err
+	}
 	j := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "cosign-",
@@ -81,13 +110,14 @@ func (c *InClusterCosign) executeInJob(ctx context.Context, script string) error
 							Image:   cosignImage,
 							Command: []string{"/bin/sh", "-c"},
 							Args:    []string{script},
+							Env:     proxyEnvs,
 						},
 					},
 				},
 			},
 		},
 	}
-	err := c.cli.Create(ctx, j)
+	err = c.cli.Create(ctx, j)
 	if err != nil {
 		return fmt.Errorf("failed to create job: %w", err)
 	}
