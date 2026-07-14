@@ -140,8 +140,10 @@ var _ = Describe("Rekor controller", func() {
 					Monitoring: rhtasv1.MonitoringWithTLogConfig{
 						MonitoringConfig: rhtasv1.MonitoringConfig{Enabled: ptr.To(false)},
 					},
-					Pvc: rhtasv1.Pvc{
-						Name: "byo-pvc",
+					Attestations: rhtasv1.RekorAttestations{
+						Pvc: rhtasv1.Pvc{
+							Name: "byo-pvc",
+						},
 					},
 				},
 			}

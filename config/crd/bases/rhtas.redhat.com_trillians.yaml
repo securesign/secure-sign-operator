@@ -230,17 +230,9 @@ spec:
                     type: array
                 type: object
               database:
-                default:
-                  create: true
-                  pvc:
-                    accessModes:
-                    - ReadWriteOnce
-                    retain: true
-                    size: 5Gi
                 description: Define your database connection
                 properties:
                   create:
-                    default: true
                     description: Create Database if a database is not created one
                       must be defined using the DatabaseSecret field
                     type: boolean
@@ -267,21 +259,15 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   provider:
-                    default: mysql
                     description: DB provider. Supported are mysql, postgresql.
                     enum:
                     - mysql
                     - postgresql
                     type: string
                   pvc:
-                    default:
-                      retain: true
-                      size: 5Gi
                     description: PVC configuration
                     properties:
                       accessModes:
-                        default:
-                        - ReadWriteOnce
                         description: PVC AccessModes
                         items:
                           enum:
@@ -299,7 +285,6 @@ spec:
                         pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                         type: string
                       retain:
-                        default: true
                         description: Retain policy for the PVC
                         type: boolean
                         x-kubernetes-validations:
@@ -309,7 +294,6 @@ spec:
                         anyOf:
                         - type: integer
                         - type: string
-                        default: 5Gi
                         description: |-
                           The requested size of the persistent volume attached to Pod.
                           The format of this field matches that defined by kubernetes/apimachinery.
@@ -320,8 +304,6 @@ spec:
                         description: The name of the StorageClass to claim a PersistentVolume
                           from.
                         type: string
-                    required:
-                    - retain
                     type: object
                     x-kubernetes-validations:
                     - message: storageClass is immutable when a PVC name is not specified
@@ -377,11 +359,8 @@ spec:
                     - message: privateKeyRef cannot be empty
                       rule: (!has(self.certificateRef) || has(self.privateKeyRef))
                   uri:
-                    default: $(MYSQL_USER):$(MYSQL_PASSWORD)@tcp($(MYSQL_HOST):$(MYSQL_PORT))/$(MYSQL_DATABASE)
                     description: DB connection URL.
                     type: string
-                required:
-                - create
                 type: object
               imagePullSecrets:
                 description: |-
@@ -406,7 +385,6 @@ spec:
                   x-kubernetes-map-type: atomic
                 type: array
               maxRecvMessageSize:
-                default: 153600
                 description: MaxRecvMessageSize sets the maximum size in bytes for
                   incoming gRPC messages handled by the Trillian logserver and logsigner
                 format: int64
@@ -415,14 +393,11 @@ spec:
                 description: Enable Monitoring for Logsigner and Logserver
                 properties:
                   enabled:
-                    default: true
                     description: If true, the Operator will create monitoring resources
                     type: boolean
                     x-kubernetes-validations:
                     - message: Feature cannot be disabled
                       rule: (self || !oldSelf)
-                required:
-                - enabled
                 type: object
               server:
                 description: Configuration for Trillian log server service
@@ -1347,7 +1322,6 @@ spec:
                         type: object
                     type: object
                   replicas:
-                    default: 1
                     description: Number of desired pods.
                     format: int32
                     minimum: 0
@@ -2421,7 +2395,6 @@ spec:
                         type: object
                     type: object
                   replicas:
-                    default: 1
                     description: Number of desired pods.
                     format: int32
                     minimum: 0

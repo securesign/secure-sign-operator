@@ -46,7 +46,7 @@ func TestHandle(t *testing.T) {
 			name: "bring your own PVC",
 			pre: pre{
 				mutateObj: func(obj *rhtasv1.Rekor) {
-					obj.Spec.Pvc.Name = "byo-pvc"
+					obj.Spec.Attestations.Pvc.Name = "byo-pvc"
 				},
 			},
 			want: want{
@@ -71,12 +71,12 @@ func TestHandle(t *testing.T) {
 			pre: pre{
 				mutateObj: func(obj *rhtasv1.Rekor) {
 					size := resource.MustParse("1Gi")
-					obj.Spec.Pvc.Size = &size
-					obj.Spec.Pvc.AccessModes = []rhtasv1.PersistentVolumeAccessMode{
+					obj.Spec.Attestations.Pvc.Size = &size
+					obj.Spec.Attestations.Pvc.AccessModes = []rhtasv1.PersistentVolumeAccessMode{
 						rhtasv1.PersistentVolumeAccessMode(v1.ReadWriteOnce),
 					}
-					obj.Spec.Pvc.StorageClass = storageClass
-					obj.Spec.Pvc.Retain = ptr.To(true)
+					obj.Spec.Attestations.Pvc.StorageClass = storageClass
+					obj.Spec.Attestations.Pvc.Retain = ptr.To(true)
 				},
 			},
 			want: want{
@@ -105,10 +105,10 @@ func TestHandle(t *testing.T) {
 			name: "failure missing PVC size",
 			pre: pre{
 				mutateObj: func(obj *rhtasv1.Rekor) {
-					obj.Spec.Pvc.AccessModes = []rhtasv1.PersistentVolumeAccessMode{
+					obj.Spec.Attestations.Pvc.AccessModes = []rhtasv1.PersistentVolumeAccessMode{
 						rhtasv1.PersistentVolumeAccessMode(v1.ReadWriteOnce),
 					}
-					obj.Spec.Pvc.StorageClass = storageClass
+					obj.Spec.Attestations.Pvc.StorageClass = storageClass
 				},
 			},
 			want: want{
@@ -154,12 +154,12 @@ func TestHandle(t *testing.T) {
 				},
 				mutateObj: func(obj *rhtasv1.Rekor) {
 					size := resource.MustParse("1Gi")
-					obj.Spec.Pvc.Size = &size
-					obj.Spec.Pvc.AccessModes = []rhtasv1.PersistentVolumeAccessMode{
+					obj.Spec.Attestations.Pvc.Size = &size
+					obj.Spec.Attestations.Pvc.AccessModes = []rhtasv1.PersistentVolumeAccessMode{
 						rhtasv1.PersistentVolumeAccessMode(v1.ReadWriteOnce),
 					}
-					obj.Spec.Pvc.StorageClass = storageClass
-					obj.Spec.Pvc.Retain = ptr.To(true)
+					obj.Spec.Attestations.Pvc.StorageClass = storageClass
+					obj.Spec.Attestations.Pvc.Retain = ptr.To(true)
 					obj.Status.PvcName = pvcNameFormat
 				},
 			},
@@ -258,12 +258,12 @@ func TestHandle(t *testing.T) {
 				},
 				mutateObj: func(obj *rhtasv1.Rekor) {
 					size := resource.MustParse("1Gi")
-					obj.Spec.Pvc.Size = &size
-					obj.Spec.Pvc.AccessModes = []rhtasv1.PersistentVolumeAccessMode{
+					obj.Spec.Attestations.Pvc.Size = &size
+					obj.Spec.Attestations.Pvc.AccessModes = []rhtasv1.PersistentVolumeAccessMode{
 						rhtasv1.PersistentVolumeAccessMode(v1.ReadWriteOnce),
 					}
-					obj.Spec.Pvc.StorageClass = storageClass
-					obj.Spec.Pvc.Retain = ptr.To(true)
+					obj.Spec.Attestations.Pvc.StorageClass = storageClass
+					obj.Spec.Attestations.Pvc.Retain = ptr.To(true)
 					obj.Status.PvcName = pvcNameFormat
 				},
 			},
@@ -309,7 +309,7 @@ func TestHandle(t *testing.T) {
 				Build()
 			w := Wrapper[*rhtasv1.Rekor](
 				func(r *rhtasv1.Rekor) rhtasv1.Pvc {
-					return r.Spec.Pvc
+					return r.Spec.Attestations.Pvc
 				},
 				func(r *rhtasv1.Rekor) string {
 					return r.Status.PvcName

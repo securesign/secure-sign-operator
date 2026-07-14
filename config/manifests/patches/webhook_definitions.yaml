@@ -30,7 +30,7 @@
     deploymentName: operator-controller-manager
     webhookPath: /convert
   - type: MutatingAdmissionWebhook
-    generateName: msecuresign.kb.io
+    generateName: msecuresign.rhtas.redhat.com
     rules:
     - apiGroups:
       - rhtas.redhat.com
@@ -49,7 +49,7 @@
     deploymentName: operator-controller-manager
     webhookPath: /mutate-rhtas-redhat-com-v1-securesign
   - type: MutatingAdmissionWebhook
-    generateName: mfulcio.kb.io
+    generateName: mfulcio.rhtas.redhat.com
     rules:
     - apiGroups:
       - rhtas.redhat.com
@@ -68,7 +68,7 @@
     deploymentName: operator-controller-manager
     webhookPath: /mutate-rhtas-redhat-com-v1-fulcio
   - type: MutatingAdmissionWebhook
-    generateName: mtrillian.kb.io
+    generateName: mtrillian.rhtas.redhat.com
     rules:
     - apiGroups:
       - rhtas.redhat.com
@@ -87,7 +87,7 @@
     deploymentName: operator-controller-manager
     webhookPath: /mutate-rhtas-redhat-com-v1-trillian
   - type: MutatingAdmissionWebhook
-    generateName: mrekor.kb.io
+    generateName: mrekor.rhtas.redhat.com
     rules:
     - apiGroups:
       - rhtas.redhat.com
@@ -106,7 +106,7 @@
     deploymentName: operator-controller-manager
     webhookPath: /mutate-rhtas-redhat-com-v1-rekor
   - type: MutatingAdmissionWebhook
-    generateName: mtuf.kb.io
+    generateName: mtuf.rhtas.redhat.com
     rules:
     - apiGroups:
       - rhtas.redhat.com
@@ -125,7 +125,7 @@
     deploymentName: operator-controller-manager
     webhookPath: /mutate-rhtas-redhat-com-v1-tuf
   - type: MutatingAdmissionWebhook
-    generateName: mctlog.kb.io
+    generateName: mctlog.rhtas.redhat.com
     rules:
     - apiGroups:
       - rhtas.redhat.com
@@ -144,7 +144,7 @@
     deploymentName: operator-controller-manager
     webhookPath: /mutate-rhtas-redhat-com-v1-ctlog
   - type: MutatingAdmissionWebhook
-    generateName: mtimestampauthority.kb.io
+    generateName: mtimestampauthority.rhtas.redhat.com
     rules:
     - apiGroups:
       - rhtas.redhat.com

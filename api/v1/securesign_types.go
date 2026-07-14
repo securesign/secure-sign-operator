@@ -22,13 +22,13 @@ import (
 )
 
 // SecuresignSpec defines the desired state of Securesign
-// +kubebuilder:validation:XValidation:rule="(has(self.rekor.attestations.enabled) && !self.rekor.attestations.enabled) || !self.rekor.attestations.url.startsWith('file://') || (!(self.rekor.replicas > 1) || ('ReadWriteMany' in self.rekor.pvc.accessModes))",message="When Rekor's rich attestation storage is enabled, and it's URL starts with 'file://', then PVC accessModes must contain 'ReadWriteMany' for replicas greater than 1."
-// +kubebuilder:validation:XValidation:rule="!(self.tuf.replicas > 1) || ('ReadWriteMany' in self.tuf.pvc.accessModes)",message="For TUF deployments with more than 1 replica, tuf.pvc.accessModes must include 'ReadWriteMany'."
+// +kubebuilder:validation:XValidation:rule="has(self.fulcio.config.OIDCIssuers) || has(self.fulcio.config.MetaIssuers)",message="At least one OIDC issuer or meta issuer must be configured in fulcio.config"
+// +kubebuilder:validation:XValidation:rule="!has(self.tuf.replicas) || !(self.tuf.replicas > 1) || (has(self.tuf.pvc.accessModes) && 'ReadWriteMany' in self.tuf.pvc.accessModes)",message="For tuf deployments with more than 1 replica, pvc.accessModes must include 'ReadWriteMany'."
+// +kubebuilder:validation:XValidation:rule="(has(self.rekor.attestations.enabled) && !self.rekor.attestations.enabled) || !self.rekor.attestations.url.startsWith('file://') || !has(self.rekor.replicas) || !(self.rekor.replicas > 1) || (has(self.rekor.attestations.pvc.accessModes) && 'ReadWriteMany' in self.rekor.attestations.pvc.accessModes)",message="When rich attestation storage is enabled, and it's URL starts with 'file://', then rekor pvc.accessModes must contain 'ReadWriteMany' for replicas greater than 1."
 type SecuresignSpec struct {
-	Rekor    RekorSpec    `json:"rekor,omitempty"`
-	Fulcio   FulcioSpec   `json:"fulcio,omitempty"`
-	Trillian TrillianSpec `json:"trillian,omitempty"`
-	//+kubebuilder:default:={keys:{{name: rekor.pub},{name: ctfe.pub},{name: fulcio_v1.crt.pem},{name: tsa.certchain.pem}}}
+	Rekor              RekorSpec               `json:"rekor,omitempty"`
+	Fulcio             FulcioSpec              `json:"fulcio"`
+	Trillian           TrillianSpec            `json:"trillian,omitempty"`
 	Tuf                TufSpec                 `json:"tuf,omitempty"`
 	Ctlog              CTlogSpec               `json:"ctlog,omitempty"`
 	TimestampAuthority *TimestampAuthoritySpec `json:"tsa,omitempty"`

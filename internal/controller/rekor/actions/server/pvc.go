@@ -12,7 +12,7 @@ const PvcNameFormat = "rekor-%s-pvc"
 func NewCreatePvcAction() action.Action[*rhtasv1.Rekor] {
 	wrapper := pvc.Wrapper[*rhtasv1.Rekor](
 		func(r *rhtasv1.Rekor) rhtasv1.Pvc {
-			return r.Spec.Pvc
+			return r.Spec.Attestations.Pvc
 		},
 		func(r *rhtasv1.Rekor) string {
 			return r.Status.PvcName

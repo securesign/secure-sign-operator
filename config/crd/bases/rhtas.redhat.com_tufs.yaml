@@ -961,8 +961,6 @@ spec:
                     type: object
                 type: object
               ctlog:
-                default:
-                  prefix: trusted-artifact-signer
                 description: Ctlog service configuration
                 properties:
                   address:
@@ -975,7 +973,6 @@ spec:
                     minimum: 1
                     type: integer
                   prefix:
-                    default: trusted-artifact-signer
                     description: |-
                       Prefix is the name of the log. The prefix cannot be empty and can
                       contain "/" path separator characters to define global override handler prefix.
@@ -986,7 +983,6 @@ spec:
                 description: Define whether you want to export service or not
                 properties:
                   enabled:
-                    default: false
                     description: |-
                       If set to true, the Operator will create an Ingress or a Route resource.
                       For the plain Ingress there is no TLS configuration provided Route object uses "edge" termination by default.
@@ -1005,8 +1001,6 @@ spec:
                     x-kubernetes-validations:
                     - message: RouteSelectorLabels can't be modified
                       rule: (oldSelf.size() == 0 || self == oldSelf)
-                required:
-                - enabled
                 type: object
               fulcio:
                 description: Fulcio service configuration
@@ -1044,11 +1038,6 @@ spec:
                   x-kubernetes-map-type: atomic
                 type: array
               keys:
-                default:
-                - name: rekor.pub
-                - name: ctfe.pub
-                - name: fulcio_v1.crt.pem
-                - name: tsa.certchain.pem
                 description: List of TUF targets which will be added to TUF root
                 items:
                   properties:
@@ -1087,24 +1076,16 @@ spec:
                 minItems: 1
                 type: array
               port:
-                default: 80
                 format: int32
                 maximum: 65535
                 minimum: 1
                 type: integer
               pvc:
-                default:
-                  accessModes:
-                  - ReadWriteOnce
-                  retain: true
-                  size: 100Mi
                 description: |-
                   Pvc configuration of the persistent storage claim for deployment in the cluster.
                   You can use ReadWriteOnce accessMode if you don't have suitable storage provider but your deployment will not support HA mode
                 properties:
                   accessModes:
-                    default:
-                    - ReadWriteOnce
                     description: PersistentVolume AccessModes. Configure ReadWriteMany
                       for HA deployment.
                     items:
@@ -1123,7 +1104,6 @@ spec:
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string
                   retain:
-                    default: true
                     description: Retain policy for the PVC
                     type: boolean
                     x-kubernetes-validations:
@@ -1133,7 +1113,6 @@ spec:
                     anyOf:
                     - type: integer
                     - type: string
-                    default: 100Mi
                     description: |-
                       The requested size of the persistent volume attached to Pod.
                       The format of this field matches that defined by kubernetes/apimachinery.
@@ -1144,8 +1123,6 @@ spec:
                     description: The name of the StorageClass to claim a PersistentVolume
                       from.
                     type: string
-                required:
-                - retain
                 type: object
                 x-kubernetes-validations:
                 - message: storageClass is immutable when a PVC name is not specified
@@ -1168,7 +1145,6 @@ spec:
                     type: integer
                 type: object
               replicas:
-                default: 1
                 description: Number of desired pods.
                 format: int32
                 minimum: 0
@@ -1233,8 +1209,6 @@ spec:
                     type: object
                 type: object
               rootKeySecretRef:
-                default:
-                  name: tuf-root-keys
                 description: Secret object reference that will hold you repository
                   root keys. This parameter will be used only with operator-managed
                   repository.
@@ -1249,7 +1223,6 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               signingConfigURLMode:
-                default: external
                 description: SigningConfigURLMode is deprecated. URL mode is now autoresolved
                   from Component Custom Resources.
                 enum:
@@ -1419,7 +1392,8 @@ spec:
         x-kubernetes-validations:
         - message: For deployments with more than 1 replica, pvc.accessModes must
             include 'ReadWriteMany'.
-          rule: '!(self.spec.replicas > 1) || (''ReadWriteMany'' in self.spec.pvc.accessModes)'
+          rule: '!has(self.spec.replicas) || !(self.spec.replicas > 1) || (has(self.spec.pvc.accessModes)
+            && ''ReadWriteMany'' in self.spec.pvc.accessModes)'
     served: true
     storage: true
     subresources:

@@ -3,34 +3,35 @@ package v1
 import (
 	"context"
 	"math"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	_ "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("CTlog", func() {
 
 	Context("CTlogSpec", func() {
 		It("can be created", func() {
-			created := generateCTlogObject("ctlog-create")
+			created := generateMinimalCTlog("ctlog-create")
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 			fetched := &CTlog{}
-			Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 			Expect(fetched).To(Equal(created))
 		})
 
 		It("can be updated", func() {
-			created := generateCTlogObject("ctlog-update")
+			created := generateMinimalCTlog("ctlog-update")
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 			fetched := &CTlog{}
-			Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 			Expect(fetched).To(Equal(created))
 
 			var id int64 = 1234567890123456789
@@ -39,16 +40,30 @@ var _ = Describe("CTlog", func() {
 		})
 
 		It("can be deleted", func() {
-			created := generateCTlogObject("ctlog-delete")
+			created := generateMinimalCTlog("ctlog-delete")
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 			Expect(k8sClient.Delete(context.Background(), created)).To(Succeed())
-			Expect(k8sClient.Get(context.Background(), getKey(created), created)).ToNot(Succeed())
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), created)).ToNot(Succeed())
+		})
+
+		It("default constants are correct", func() {
+			created := generateMinimalCTlog("ctlog-literals")
+			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
+
+			fetched := &CTlog{}
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
+			Expect(fetched.Spec.MaxCertChainSize).To(Equal(ptr.To(int64(153600))))
+			Expect(fetched.Spec.Trillian.Port).To(Equal(ptr.To(int32(8091))))
+			Expect(fetched.Spec.Replicas).To(Equal(ptr.To(int32(1))))
+			Expect(fetched.Spec.Monitoring.Enabled).To(Equal(ptr.To(true)))
+			Expect(fetched.Spec.Monitoring.TLog.Enabled).To(Equal(ptr.To(false)))
+			Expect(fetched.Spec.Monitoring.TLog.Interval).To(Equal(&metav1.Duration{Duration: 10 * time.Minute}))
 		})
 
 		Context("is validated", func() {
 			It("public key", func() {
-				invalidObject := generateCTlogObject("public-key-invalid")
+				invalidObject := generateMinimalCTlog("public-key-invalid")
 				invalidObject.Spec.PublicKeyRef = &SecretKeySelector{
 					Key:                  "key",
 					LocalObjectReference: LocalObjectReference{Name: "name"},
@@ -60,7 +75,7 @@ var _ = Describe("CTlog", func() {
 			})
 
 			It("private key password", func() {
-				invalidObject := generateCTlogObject("private-key-password-invalid")
+				invalidObject := generateMinimalCTlog("private-key-password-invalid")
 				invalidObject.Spec.PublicKeyRef = &SecretKeySelector{
 					Key:                  "key",
 					LocalObjectReference: LocalObjectReference{Name: "name"},
@@ -73,19 +88,19 @@ var _ = Describe("CTlog", func() {
 
 			When("replicas", func() {
 				It("nil", func() {
-					validObject := generateCTlogObject("replicas-nil")
+					validObject := generateMinimalCTlog("replicas-nil")
 					validObject.Spec.Replicas = nil
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
 
 				It("positive", func() {
-					validObject := generateCTlogObject("replicas-positive")
+					validObject := generateMinimalCTlog("replicas-positive")
 					validObject.Spec.Replicas = ptr.To(int32(math.MaxInt32))
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
 
 				It("negative", func() {
-					invalidObject := generateCTlogObject("replicas-negative")
+					invalidObject := generateMinimalCTlog("replicas-negative")
 					invalidObject.Spec.Replicas = ptr.To(int32(-1))
 					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 					Expect(k8sClient.Create(context.Background(), invalidObject)).
@@ -93,7 +108,7 @@ var _ = Describe("CTlog", func() {
 				})
 
 				It("zero", func() {
-					validObject := generateCTlogObject("replicas-zero")
+					validObject := generateMinimalCTlog("replicas-zero")
 					validObject.Spec.Replicas = ptr.To(int32(0))
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
@@ -146,34 +161,18 @@ var _ = Describe("CTlog", func() {
 
 				Expect(k8sClient.Create(context.Background(), &ctlogInstance)).To(Succeed())
 				fetchedCTlog := &CTlog{}
-				Expect(k8sClient.Get(context.Background(), getKey(&ctlogInstance), fetchedCTlog)).To(Succeed())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(&ctlogInstance), fetchedCTlog)).To(Succeed())
 				Expect(fetchedCTlog.Spec).To(Equal(ctlogInstance.Spec))
 			})
 		})
 	})
 })
 
-func generateCTlogObject(name string) *CTlog {
+func generateMinimalCTlog(name string) *CTlog {
 	return &CTlog{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
 		},
-		Spec: CTlogSpec{
-			PodRequirements: PodRequirements{
-				Replicas: ptr.To(int32(1)),
-			},
-			Trillian: TrillianService{
-				Port: ptr.To(int32(8091)),
-			},
-			MaxCertChainSize: ptr.To(int64(153600)),
-		},
-	}
-}
-
-func getKey(instance metav1.Object) types.NamespacedName {
-	return types.NamespacedName{
-		Name:      instance.GetName(),
-		Namespace: instance.GetNamespace(),
 	}
 }

@@ -18,7 +18,11 @@ package testonly
 
 import (
 	"context"
+	"crypto/tls"
+	"fmt"
+	"net"
 	"path/filepath"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -64,6 +69,10 @@ func (t *controllerSuite) BeforeSuite() {
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
 		BinaryAssetsDirectory: testenvhelper.FindBinaryAssetsDir(),
+		Scheme:                scheme.Scheme,
+		WebhookInstallOptions: envtest.WebhookInstallOptions{
+			Paths: []string{filepath.Join("..", "..", "..", "config", "webhook")},
+		},
 	}
 
 	var err error
@@ -84,6 +93,11 @@ func (t *controllerSuite) BeforeSuite() {
 	// start controller
 	k8sManager, err := ctrl.NewManager(t.cfg, ctrl.Options{
 		Scheme: scheme.Scheme,
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Host:    t.testEnv.WebhookInstallOptions.LocalServingHost,
+			Port:    t.testEnv.WebhookInstallOptions.LocalServingPort,
+			CertDir: t.testEnv.WebhookInstallOptions.LocalServingCertDir,
+		}),
 		Metrics: metricsserver.Options{
 			// turnoff metrics server
 			BindAddress: "0",
@@ -94,6 +108,14 @@ func (t *controllerSuite) BeforeSuite() {
 
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.k8sClient).NotTo(BeNil())
+
+	Expect(rhtasv1.SetupCTlogWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(rhtasv1.SetupFulcioWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(rhtasv1.SetupRekorWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(rhtasv1.SetupSecuresignWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(rhtasv1.SetupTimestampAuthorityWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(rhtasv1.SetupTrillianWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(rhtasv1.SetupTufWebhookWithManager(k8sManager)).To(Succeed())
 
 	recorder := events.NewFakeRecorder(1000)
 
@@ -116,6 +138,19 @@ func (t *controllerSuite) BeforeSuite() {
 		err = k8sManager.Start(t.ctx)
 		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
 	}()
+
+	By("waiting for webhook server to be ready")
+	dialer := &net.Dialer{Timeout: time.Second}
+	addrPort := fmt.Sprintf("%s:%d",
+		t.testEnv.WebhookInstallOptions.LocalServingHost,
+		t.testEnv.WebhookInstallOptions.LocalServingPort)
+	Eventually(func() error {
+		conn, err := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true}) //nolint:gosec
+		if err != nil {
+			return err
+		}
+		return conn.Close()
+	}).Should(Succeed())
 }
 
 func (t *controllerSuite) AfterSuite() {

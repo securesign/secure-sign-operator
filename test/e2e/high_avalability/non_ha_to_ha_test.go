@@ -149,11 +149,11 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				s := securesign.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(s).ToNot(BeNil())
 
-				s.Spec.Rekor.Pvc.Name = newRekorPVCName
-				s.Spec.Rekor.Pvc.Retain = ptr.To(true)
-				s.Spec.Rekor.Pvc.Size = ptr.To(resource.MustParse("100Mi"))
-				s.Spec.Rekor.Pvc.AccessModes = []rhtasv1.PersistentVolumeAccessMode{"ReadWriteMany"}
-				s.Spec.Rekor.Pvc.StorageClass = "nfs-csi"
+				s.Spec.Rekor.Attestations.Pvc.Name = newRekorPVCName
+				s.Spec.Rekor.Attestations.Pvc.Retain = ptr.To(true)
+				s.Spec.Rekor.Attestations.Pvc.Size = ptr.To(resource.MustParse("100Mi"))
+				s.Spec.Rekor.Attestations.Pvc.AccessModes = []rhtasv1.PersistentVolumeAccessMode{"ReadWriteMany"}
+				s.Spec.Rekor.Attestations.Pvc.StorageClass = "nfs-csi"
 
 				err := cli.Update(ctx, s)
 				g.Expect(err).ToNot(HaveOccurred())

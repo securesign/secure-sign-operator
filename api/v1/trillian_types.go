@@ -25,7 +25,6 @@ import (
 type TrillianSpec struct {
 	ServiceAccountConfig `json:",inline"`
 	// Define your database connection
-	//+kubebuilder:default:={create: true, pvc: {size: "5Gi", retain: true, accessModes: {ReadWriteOnce}}}
 	Db TrillianDB `json:"database,omitempty"`
 	// Enable Monitoring for Logsigner and Logserver
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
@@ -39,7 +38,6 @@ type TrillianSpec struct {
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
 
 	// MaxRecvMessageSize sets the maximum size in bytes for incoming gRPC messages handled by the Trillian logserver and logsigner
-	//+kubebuilder:default:=153600
 	//+optional
 	MaxRecvMessageSize *int64 `json:"maxRecvMessageSize,omitempty"`
 	//Configuration for authentication for key management services
@@ -62,9 +60,8 @@ type TrillianLogSigner trillianService
 
 type TrillianDB struct {
 	// Create Database if a database is not created one must be defined using the DatabaseSecret field
-	//+kubebuilder:default:=true
 	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
-	Create *bool `json:"create"`
+	Create *bool `json:"create,omitempty"`
 	// DatabaseSecretRef is deprecated. Use Auth instead.
 	// Secret with values to be used to connect to an existing DB or to be used with the creation of a new DB
 	// mysql-host: The host of the MySQL server
@@ -76,18 +73,15 @@ type TrillianDB struct {
 	// +kubebuilder:validation:Deprecated=true
 	DatabaseSecretRef *LocalObjectReference `json:"databaseSecretRef,omitempty"`
 	// PVC configuration
-	//+kubebuilder:default:={size: "5Gi", retain: true}
 	Pvc Pvc `json:"pvc,omitempty"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged database.
 	//+optional
 	TLS TLS `json:"tls,omitempty"`
 	// DB provider. Supported are mysql, postgresql.
 	//+kubebuilder:validation:Enum={mysql, postgresql}
-	//+kubebuilder:default:=mysql
 	//+optional
 	Provider string `json:"provider,omitempty"`
 	// DB connection URL.
-	//+kubebuilder:default:="$(MYSQL_USER):$(MYSQL_PASSWORD)@tcp($(MYSQL_HOST):$(MYSQL_PORT))/$(MYSQL_DATABASE)"
 	//+optional
 	Uri string `json:"uri,omitempty"`
 }
