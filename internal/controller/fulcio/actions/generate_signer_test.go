@@ -404,7 +404,7 @@ func TestFulcioCert_PasswordRefRejectedInFIPS(t *testing.T) {
 		WithStatusSubresource(instance).
 		Build()
 
-	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	a := testAction.PrepareAction(c, NewFIPSValidationAction())
 	result := a.Handle(ctx, instance)
 
 	g.Expect(result.Err).To(HaveOccurred())
@@ -427,6 +427,14 @@ func TestFulcioCert_UnencryptedKeyAllowedInFIPS(t *testing.T) {
 	unencryptedKey, err := utils.CreateCAKey(ecKey)
 	g.Expect(err).ToNot(HaveOccurred())
 
+	certConfig := &utils.FulcioCertConfig{
+		OrganizationName: "Test",
+		CommonName:       "test-ca",
+		PrivateKey:       unencryptedKey,
+	}
+	certPEM, err := utils.CreateFulcioCA(certConfig)
+	g.Expect(err).ToNot(HaveOccurred())
+
 	instance := fulcioInstance()
 	instance.Spec.Certificate = rhtasv1.FulcioCert{
 		PrivateKeyRef: &rhtasv1.SecretKeySelector{
@@ -447,15 +455,14 @@ func TestFulcioCert_UnencryptedKeyAllowedInFIPS(t *testing.T) {
 			},
 			&corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Name: "user-cert", Namespace: "default"},
-				Data:       map[string][]byte{"cert": []byte("fake-cert")},
+				Data:       map[string][]byte{"cert": certPEM},
 			},
 		).
 		WithStatusSubresource(instance).
 		Build()
 
-	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	a := testAction.PrepareAction(c, NewFIPSValidationAction())
 	result := a.Handle(ctx, instance)
 
-	g.Expect(result.Err).ToNot(HaveOccurred())
-	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, CertCondition)).To(BeTrue())
+	g.Expect(result).To(Equal(testAction.Return()))
 }

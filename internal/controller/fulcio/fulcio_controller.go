@@ -24,6 +24,7 @@ import (
 	"github.com/securesign/operator/internal/action/trustmaterial"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller"
+	fipsutil "github.com/securesign/operator/internal/utils/fips"
 	"k8s.io/apimachinery/pkg/types"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
@@ -95,11 +96,13 @@ func (r *fulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	target := instance.DeepCopy()
 	conditionSupplier := func(_ *rhtasv1.Fulcio) []string {
-		return []string{actions.CertCondition, trustmaterial.TrustMaterialCondition}
+		conditions := []string{actions.CertCondition, trustmaterial.TrustMaterialCondition}
+		return fipsutil.AppendFIPSCondition(conditions)
 	}
 	acs := []action.Action[*rhtasv1.Fulcio]{
 		transitions.NewToPendingPhaseAction[*rhtasv1.Fulcio](),
 		transitions.NewEnsureConditionsAction[*rhtasv1.Fulcio](conditionSupplier),
+		actions.NewFIPSValidationAction(),
 		actions.NewGenerateSignerAction(),
 		transitions.NewToCreatePhaseAction[*rhtasv1.Fulcio](),
 		actions.NewRBACAction(),

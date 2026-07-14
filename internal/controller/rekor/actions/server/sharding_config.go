@@ -73,6 +73,7 @@ func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1.Rekor) *ac
 			}
 		}
 	}
+
 	// invalidate
 	instance.Status.ServerConfigRef = nil
 

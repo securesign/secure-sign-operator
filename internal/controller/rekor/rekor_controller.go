@@ -26,6 +26,7 @@ import (
 	"github.com/securesign/operator/internal/controller"
 	redis "github.com/securesign/operator/internal/controller/rekor/actions/searchIndex/redis/actions"
 	"github.com/securesign/operator/internal/utils"
+	fipsutil "github.com/securesign/operator/internal/utils/fips"
 	"k8s.io/apimachinery/pkg/types"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
@@ -101,7 +102,7 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	target := instance.DeepCopy()
 	conditionSupplier := func(rekor *rhtasv1.Rekor) []string {
-		components := []string{actions2.ServerCondition, actions2.SignerCondition, trustmaterial.TrustMaterialCondition}
+		components := fipsutil.AppendFIPSCondition([]string{actions2.ServerCondition, actions2.SignerCondition, trustmaterial.TrustMaterialCondition})
 		if utils.OptionalBool(rekor.Spec.RekorSearchUI.Enabled) {
 			components = append(components, actions2.UICondition)
 		}
@@ -116,6 +117,7 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		redis.NewTlsAction(),
 		redis.NewGeneratePasswordAction(),
+		server.NewFIPSValidationAction(),
 		server.NewGenerateSignerAction(),
 
 		transitions.NewToCreatePhaseAction[*rhtasv1.Rekor](),

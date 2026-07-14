@@ -244,7 +244,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 					{
 						TreeID:           *oldTreeId,
 						TreeLength:       logLength,
-						EncodedPublicKey: base64.StdEncoding.EncodeToString(oldRekorSigner),
+						EncodedPublicKey: base64.StdEncoding.EncodeToString(oldRekorPub),
 					},
 				}
 

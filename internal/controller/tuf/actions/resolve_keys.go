@@ -78,7 +78,17 @@ func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *a
 		trustMaterial, err := discoverFromStatus(ctx, i.Client, instance.Namespace, key.Name)
 		if err != nil {
 			if errors.Is(err, reconcile.TerminalError(nil)) {
-				return i.Error(ctx, err, instance)
+				msg := err.Error()
+				if inner := errors.Unwrap(err); inner != nil {
+					msg = inner.Error()
+				}
+				return i.Error(ctx, err, instance,
+					v1.Condition{
+						Type:    key.Name,
+						Status:  v1.ConditionFalse,
+						Reason:  state.Failure.String(),
+						Message: msg,
+					})
 			}
 			meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{Type: constants.ReadyCondition,
 				Status: v1.ConditionFalse, Reason: state.Pending.String(), Message: "Resolving keys",

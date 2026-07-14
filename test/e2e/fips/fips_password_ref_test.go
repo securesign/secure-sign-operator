@@ -9,10 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
-	ctlogactions "github.com/securesign/operator/internal/controller/ctlog/actions"
-	fulcioactions "github.com/securesign/operator/internal/controller/fulcio/actions"
-	rekoractions "github.com/securesign/operator/internal/controller/rekor/actions"
-	tsaactions "github.com/securesign/operator/internal/controller/tsa/actions"
+	fipsutil "github.com/securesign/operator/internal/utils/fips"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
@@ -82,7 +79,7 @@ var _ = Describe("FIPS password-ref rejection", Ordered, func() {
 	}
 
 	Describe("CTlog", func() {
-		assertRejectsPasswordRef(ctlogactions.SignerCondition, func(ctx context.Context) []metav1.Condition {
+		assertRejectsPasswordRef(fipsutil.FIPSCondition, func(ctx context.Context) []metav1.Condition {
 			cr := ctlog.Get(ctx, cli, namespace.Name, s.Name)
 			if cr == nil {
 				return nil
@@ -92,7 +89,7 @@ var _ = Describe("FIPS password-ref rejection", Ordered, func() {
 	})
 
 	Describe("Fulcio", func() {
-		assertRejectsPasswordRef(fulcioactions.CertCondition, func(ctx context.Context) []metav1.Condition {
+		assertRejectsPasswordRef(fipsutil.FIPSCondition, func(ctx context.Context) []metav1.Condition {
 			cr := fulciohelpers.Get(ctx, cli, namespace.Name, s.Name)
 			if cr == nil {
 				return nil
@@ -102,7 +99,7 @@ var _ = Describe("FIPS password-ref rejection", Ordered, func() {
 	})
 
 	Describe("Rekor", func() {
-		assertRejectsPasswordRef(rekoractions.SignerCondition, func(ctx context.Context) []metav1.Condition {
+		assertRejectsPasswordRef(fipsutil.FIPSCondition, func(ctx context.Context) []metav1.Condition {
 			cr := rekorhelpers.Get(ctx, cli, namespace.Name, s.Name)
 			if cr == nil {
 				return nil
@@ -112,7 +109,7 @@ var _ = Describe("FIPS password-ref rejection", Ordered, func() {
 	})
 
 	Describe("TSA", func() {
-		assertRejectsPasswordRef(tsaactions.TSASignerCondition, func(ctx context.Context) []metav1.Condition {
+		assertRejectsPasswordRef(fipsutil.FIPSCondition, func(ctx context.Context) []metav1.Condition {
 			cr := tsahelpers.Get(ctx, cli, namespace.Name, s.Name)
 			if cr == nil {
 				return nil
