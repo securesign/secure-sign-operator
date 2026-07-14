@@ -44,8 +44,6 @@ type RekorSpec struct {
 	Attestations RekorAttestations `json:"attestations,omitempty"`
 	// Define your search index database connection
 	SearchIndex SearchIndex `json:"searchIndex,omitempty"`
-	// PVC configuration
-	Pvc Pvc `json:"pvc,omitempty"`
 	// BackFillRedis CronJob Configuration
 	BackFillRedis BackFillRedis `json:"backFillRedis,omitempty"`
 	// Inactive shards
@@ -94,6 +92,9 @@ type RekorAttestations struct {
 	// MaxSize defines the maximum allowed size for an individual attestation.
 	// This helps prevent excessively large attestations from being stored.
 	MaxSize *k8sresource.Quantity `json:"maxSize,omitempty"`
+
+	// PVC configuration
+	Pvc Pvc `json:"pvc,omitempty"`
 }
 
 type RekorSigner struct {
@@ -227,7 +228,7 @@ type RekorStatus struct {
 //+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.url`,description="The component url"
 
 // Rekor is the Schema for the rekors API
-// +kubebuilder:validation:XValidation:rule="(has(self.spec.attestations.enabled) && !self.spec.attestations.enabled) || !self.spec.attestations.url.startsWith('file://') || !has(self.spec.replicas) || !(self.spec.replicas > 1) || (has(self.spec.pvc.accessModes) && 'ReadWriteMany' in self.spec.pvc.accessModes)",message="When rich attestation storage is enabled, and it's URL starts with 'file://', then PVC accessModes must contain 'ReadWriteMany' for replicas greater than 1."
+// +kubebuilder:validation:XValidation:rule="(has(self.spec.attestations.enabled) && !self.spec.attestations.enabled) || !self.spec.attestations.url.startsWith('file://') || !has(self.spec.replicas) || !(self.spec.replicas > 1) || (has(self.spec.attestations.pvc.accessModes) && 'ReadWriteMany' in self.spec.attestations.pvc.accessModes)",message="When rich attestation storage is enabled, and it's URL starts with 'file://', then PVC accessModes must contain 'ReadWriteMany' for replicas greater than 1."
 type Rekor struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

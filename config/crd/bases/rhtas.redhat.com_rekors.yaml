@@ -981,6 +981,54 @@ spec:
                       This helps prevent excessively large attestations from being stored.
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
+                  pvc:
+                    description: PVC configuration
+                    properties:
+                      accessModes:
+                        description: PVC AccessModes
+                        items:
+                          enum:
+                          - ReadWriteOnce
+                          - ReadOnlyMany
+                          - ReadWriteMany
+                          - ReadWriteOncePod
+                          type: string
+                        minItems: 1
+                        type: array
+                      name:
+                        description: Name of the PVC
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                      retain:
+                        description: Retain policy for the PVC
+                        type: boolean
+                        x-kubernetes-validations:
+                        - message: Field is immutable
+                          rule: (self == oldSelf)
+                      size:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: |-
+                          The requested size of the persistent volume attached to Pod.
+                          The format of this field matches that defined by kubernetes/apimachinery.
+                          See https://pkg.go.dev/k8s.io/apimachinery/pkg/api/resource#Quantity for more info on the format of this field.
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      storageClass:
+                        description: The name of the StorageClass to claim a PersistentVolume
+                          from.
+                        type: string
+                    type: object
+                    x-kubernetes-validations:
+                    - message: storageClass is immutable when a PVC name is not specified
+                      rule: oldSelf == null || has(self.name) || (!has(oldSelf.storageClass)
+                        || has(self.storageClass) && oldSelf.storageClass == self.storageClass)
+                    - message: accessModes is immutable when a PVC name is not specified
+                      rule: oldSelf == null || has(self.name) || (!has(oldSelf.accessModes)
+                        || has(self.accessModes) && oldSelf.accessModes == self.accessModes)
                   url:
                     description: |-
                       / Url specifies the storage location for attestations, supporting go-cloud blob URLs.
@@ -1297,54 +1345,6 @@ spec:
                         type: integer
                     type: object
                 type: object
-              pvc:
-                description: PVC configuration
-                properties:
-                  accessModes:
-                    description: PVC AccessModes
-                    items:
-                      enum:
-                      - ReadWriteOnce
-                      - ReadOnlyMany
-                      - ReadWriteMany
-                      - ReadWriteOncePod
-                      type: string
-                    minItems: 1
-                    type: array
-                  name:
-                    description: Name of the PVC
-                    maxLength: 253
-                    minLength: 1
-                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                    type: string
-                  retain:
-                    description: Retain policy for the PVC
-                    type: boolean
-                    x-kubernetes-validations:
-                    - message: Field is immutable
-                      rule: (self == oldSelf)
-                  size:
-                    anyOf:
-                    - type: integer
-                    - type: string
-                    description: |-
-                      The requested size of the persistent volume attached to Pod.
-                      The format of this field matches that defined by kubernetes/apimachinery.
-                      See https://pkg.go.dev/k8s.io/apimachinery/pkg/api/resource#Quantity for more info on the format of this field.
-                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                    x-kubernetes-int-or-string: true
-                  storageClass:
-                    description: The name of the StorageClass to claim a PersistentVolume
-                      from.
-                    type: string
-                type: object
-                x-kubernetes-validations:
-                - message: storageClass is immutable when a PVC name is not specified
-                  rule: oldSelf == null || has(self.name) || (!has(oldSelf.storageClass)
-                    || has(self.storageClass) && oldSelf.storageClass == self.storageClass)
-                - message: accessModes is immutable when a PVC name is not specified
-                  rule: oldSelf == null || has(self.name) || (!has(oldSelf.accessModes)
-                    || has(self.accessModes) && oldSelf.accessModes == self.accessModes)
               rekorSearchUI:
                 description: Rekor Search UI
                 properties:
@@ -2919,8 +2919,8 @@ spec:
             greater than 1.
           rule: (has(self.spec.attestations.enabled) && !self.spec.attestations.enabled)
             || !self.spec.attestations.url.startsWith('file://') || !has(self.spec.replicas)
-            || !(self.spec.replicas > 1) || (has(self.spec.pvc.accessModes) && 'ReadWriteMany'
-            in self.spec.pvc.accessModes)
+            || !(self.spec.replicas > 1) || (has(self.spec.attestations.pvc.accessModes)
+            && 'ReadWriteMany' in self.spec.attestations.pvc.accessModes)
     served: true
     storage: true
     subresources:

@@ -28,7 +28,7 @@ Usage:
 	// First, define a wrapper that provides access to the custom resource's PVC fields.
 	pvcWrapper := pvc.Wrapper[*rhtasv1.Rekor](
 	    func(r *rhtasv1.Rekor) rhtasv1.Pvc {
-	        return r.Spec.Pvc
+	        return r.Spec.Attestations.Pvc
 	    },
 	    func(r *rhtasv1.Rekor) string {
 	        return r.Status.PvcName
