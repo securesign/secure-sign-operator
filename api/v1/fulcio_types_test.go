@@ -34,6 +34,7 @@ var _ = Describe("Fulcio", func() {
 			Expect(fetched).To(Equal(created))
 
 			fetched.Spec.Config.OIDCIssuers[0] = OIDCIssuer{
+				Issuer:   "https://updated.example.com",
 				Type:     "email",
 				ClientID: "client",
 			}
@@ -162,6 +163,7 @@ var _ = Describe("Fulcio", func() {
 				validObject.Spec.Config.OIDCIssuers = []OIDCIssuer{}
 				validObject.Spec.Config.MetaIssuers = []OIDCIssuer{
 					{
+						Issuer:   "https://meta.example.com",
 						ClientID: "client",
 						Type:     "email",
 					},
@@ -253,20 +255,22 @@ var _ = Describe("Fulcio", func() {
 						Config: FulcioConfig{
 							OIDCIssuers: []OIDCIssuer{
 								{
+									Issuer:            "https://issuer1.example.com",
 									ClientID:          "client",
 									Type:              "email",
-									IssuerURL:         "url",
+									IssuerURL:         "https://issuer1.example.com",
 									IssuerClaim:       "claim",
 									ChallengeClaim:    "challenge",
 									SPIFFETrustDomain: "SPIFFE",
 									SubjectDomain:     "domain",
 								},
 								{
-									ClientID:          "clien2",
-									Type:              "email2",
-									IssuerURL:         "url2",
+									Issuer:            "https://issuer2.example.com",
+									ClientID:          "client2",
+									Type:              "username",
+									IssuerURL:         "https://issuer2.example.com",
 									IssuerClaim:       "claim2",
-									ChallengeClaim:    "challang2e",
+									ChallengeClaim:    "challenge2",
 									SPIFFETrustDomain: "SPIFFE2",
 									SubjectDomain:     "domain2",
 								},
@@ -309,29 +313,29 @@ func generateMinimalFulcio(name string) *Fulcio {
 					{
 						ClientID:   "client",
 						Type:       "email",
-						IssuerURL:  "url",
-						Issuer:     "url",
+						IssuerURL:  "https://issuer1.example.com",
+						Issuer:     "https://issuer1.example.com",
 						CIProvider: "foo",
 					},
 					{
 						ClientID:   "ci-client",
 						Type:       "ci-provider",
 						CIProvider: "foo",
-						IssuerURL:  "url",
-						Issuer:     "url",
+						IssuerURL:  "https://issuer2.example.com",
+						Issuer:     "https://issuer2.example.com",
 					},
 				},
 				MetaIssuers: []OIDCIssuer{
 					{
 						ClientID:  "client",
 						Type:      "email",
-						IssuerURL: "url",
-						Issuer:    "url",
+						IssuerURL: "https://meta1.example.com",
+						Issuer:    "https://meta1.example.com",
 					},
 					{
 						ClientID: "client",
 						Type:     "email",
-						Issuer:   "url",
+						Issuer:   "https://meta2.example.com",
 					},
 				},
 			},

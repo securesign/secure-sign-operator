@@ -13,9 +13,12 @@ import (
 
 // FulcioSpec defines the desired state of Fulcio
 type FulcioSpec struct {
-	PodRequirements      `json:",inline"`
+	// Pod resource requirements and scheduling constraints
+	PodRequirements `json:",inline"`
+	// Service account configuration for the Fulcio deployment
 	ServiceAccountConfig `json:",inline"`
 	// Define whether you want to export service or not
+	//+optional
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
 	// Ctlog service configuration
 	//+optional
@@ -24,16 +27,18 @@ type FulcioSpec struct {
 	//+required
 	Config FulcioConfig `json:"config"`
 	// Certificate configuration
+	//+required
 	Certificate FulcioCert `json:"certificate"`
 	//Enable Service monitors for fulcio
+	//+optional
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
 	// ConfigMap with additional bundle of trusted CA
 	//+optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
 }
 
-// FulcioCert defines fields for system-generated certificate
-// +kubebuilder:validation:XValidation:rule=(has(self.caRef) || self.organizationName != ""),message=organizationName cannot be empty
+// FulcioCert defines certificate configuration for Fulcio CA
+// +kubebuilder:validation:XValidation:rule=(has(self.caRef) || has(self.organizationName) && self.organizationName != ""),message=organizationName cannot be empty
 // +kubebuilder:validation:XValidation:rule=(!has(self.caRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
 type FulcioCert struct {
 	// Reference to CA private key
@@ -69,6 +74,8 @@ type FulcioCert struct {
 type FulcioConfig struct {
 	// OIDC Configuration
 	// +optional
+	// +listType=map
+	// +listMapKey=Issuer
 	OIDCIssuers []OIDCIssuer `json:"OIDCIssuers,omitempty" yaml:"oidc-issuers,omitempty"`
 
 	// A meta issuer has a templated URL of the form:
@@ -79,9 +86,13 @@ type FulcioConfig struct {
 	// * https://oidc.eks.us-west-2.amazonaws.com/id/B02C93B6A2D30341AD01E1B6D48164CB
 	// * https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster
 	// +optional
+	// +listType=map
+	// +listMapKey=Issuer
 	MetaIssuers []OIDCIssuer `json:"MetaIssuers,omitempty" yaml:"meta-issuers,omitempty"`
 
 	// Metadata used for the CIProvider identity provider principal
+	// +listType=map
+	// +listMapKey=IssuerName
 	CIIssuerMetadata []CIIssuerMetadata `json:"CIIssuerMetadata,omitempty" yaml:"ci-issuer-metadata,omitempty"`
 }
 
@@ -90,12 +101,15 @@ type OIDCIssuer struct {
 	IssuerURL string `json:"IssuerURL,omitempty" yaml:"issuer-url,omitempty"`
 	// The expected issuer of an OIDC token
 	//+required
+	//+kubebuilder:validation:MinLength=1
 	Issuer string `json:"Issuer" yaml:"issuer"`
 	//+required
+	//+kubebuilder:validation:MinLength=1
 	ClientID string `json:"ClientID" yaml:"client-id"`
 	// Used to determine the subject of the certificate and if additional
 	// certificate values are needed
 	//+required
+	//+kubebuilder:validation:Enum=buildkite-job;email;github-workflow;codefresh-workflow;gitlab-pipeline;chainguard-identity;kubernetes;spiffe;uri;username;ci-provider
 	Type string `json:"Type" yaml:"type"`
 	// CIProvider is an optional configuration to map token claims to extensions for CI workflows
 	CIProvider string `json:"CIProvider,omitempty" yaml:"ci-provider,omitempty"`
@@ -116,6 +130,7 @@ type OIDCIssuer struct {
 type CIIssuerMetadata struct {
 	// Name of the issuer
 	//+required
+	//+kubebuilder:validation:MinLength=1
 	IssuerName string `json:"IssuerName" yaml:"issuer-name"`
 	// Defaults contains key-value pairs that can be used for filling the templates from ExtensionTemplates
 	// If a key cannot be found on the token claims, the template will use the defaults

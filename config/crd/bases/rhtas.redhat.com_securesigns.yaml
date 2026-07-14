@@ -2328,7 +2328,8 @@ spec:
                     type: object
                     x-kubernetes-validations:
                     - message: organizationName cannot be empty
-                      rule: (has(self.caRef) || self.organizationName != "")
+                      rule: (has(self.caRef) || has(self.organizationName) && self.organizationName
+                        != "")
                     - message: privateKeyRef cannot be empty
                       rule: (!has(self.caRef) || has(self.privateKeyRef))
                   config:
@@ -2417,6 +2418,7 @@ spec:
                               type: object
                             IssuerName:
                               description: Name of the issuer
+                              minLength: 1
                               type: string
                             SubjectAlternativeNameTemplate:
                               description: |-
@@ -2427,6 +2429,9 @@ spec:
                           - IssuerName
                           type: object
                         type: array
+                        x-kubernetes-list-map-keys:
+                        - IssuerName
+                        x-kubernetes-list-type: map
                       MetaIssuers:
                         description: |-
                           A meta issuer has a templated URL of the form:
@@ -2448,9 +2453,11 @@ spec:
                                 Set if using a custom issuer
                               type: string
                             ClientID:
+                              minLength: 1
                               type: string
                             Issuer:
                               description: The expected issuer of an OIDC token
+                              minLength: 1
                               type: string
                             IssuerClaim:
                               description: Optional, if the issuer is in a different
@@ -2474,6 +2481,18 @@ spec:
                               description: |-
                                 Used to determine the subject of the certificate and if additional
                                 certificate values are needed
+                              enum:
+                              - buildkite-job
+                              - email
+                              - github-workflow
+                              - codefresh-workflow
+                              - gitlab-pipeline
+                              - chainguard-identity
+                              - kubernetes
+                              - spiffe
+                              - uri
+                              - username
+                              - ci-provider
                               type: string
                           required:
                           - ClientID
@@ -2481,6 +2500,9 @@ spec:
                           - Type
                           type: object
                         type: array
+                        x-kubernetes-list-map-keys:
+                        - Issuer
+                        x-kubernetes-list-type: map
                       OIDCIssuers:
                         description: OIDC Configuration
                         items:
@@ -2495,9 +2517,11 @@ spec:
                                 Set if using a custom issuer
                               type: string
                             ClientID:
+                              minLength: 1
                               type: string
                             Issuer:
                               description: The expected issuer of an OIDC token
+                              minLength: 1
                               type: string
                             IssuerClaim:
                               description: Optional, if the issuer is in a different
@@ -2521,6 +2545,18 @@ spec:
                               description: |-
                                 Used to determine the subject of the certificate and if additional
                                 certificate values are needed
+                              enum:
+                              - buildkite-job
+                              - email
+                              - github-workflow
+                              - codefresh-workflow
+                              - gitlab-pipeline
+                              - chainguard-identity
+                              - kubernetes
+                              - spiffe
+                              - uri
+                              - username
+                              - ci-provider
                               type: string
                           required:
                           - ClientID
@@ -2528,6 +2564,9 @@ spec:
                           - Type
                           type: object
                         type: array
+                        x-kubernetes-list-map-keys:
+                        - Issuer
+                        x-kubernetes-list-type: map
                     type: object
                     x-kubernetes-validations:
                     - message: At least one of OIDCIssuers or MetaIssuers must be
