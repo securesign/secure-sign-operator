@@ -13,6 +13,10 @@ const (
 
 	CertCondition   = "FulcioCertAvailable"
 	PKCS11Condition = "FulcioPKCS11ConfigAvailable"
+	ReasonResolved  = "Resolved"
+
+	CertPEMKey = "cert.pem"
+	CACrtKey   = "ca.crt"
 
 	ServerPortName   = "http"
 	ServerPort       = 80

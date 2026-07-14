@@ -93,7 +93,7 @@ func (i ensurePKCS11Config) Handle(ctx context.Context, instance *rhtasv1.Fulcio
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               PKCS11Condition,
 		Status:             metav1.ConditionTrue,
-		Reason:             "Resolved",
+		Reason:             ReasonResolved,
 		Message:            "PKCS#11 configuration secrets validated",
 		ObservedGeneration: instance.Generation,
 	})

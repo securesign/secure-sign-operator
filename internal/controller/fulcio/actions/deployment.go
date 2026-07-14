@@ -243,7 +243,7 @@ func (i deployAction) ensureFileCADeployment(instance *rhtasv1.Fulcio, sa string
 				Items: []core.KeyToPath{
 					{
 						Key:  instance.Status.Certificate.CARef.Key,
-						Path: "cert.pem",
+						Path: CertPEMKey,
 					},
 				},
 			},
@@ -262,8 +262,8 @@ func (i deployAction) ensureFileCADeployment(instance *rhtasv1.Fulcio, sa string
 				},
 				Items: []core.KeyToPath{
 					{
-						Key:  "ca.crt",
-						Path: "ca.crt",
+						Key:  CACrtKey,
+						Path: CACrtKey,
 						Mode: ptr.To(int32(0666)),
 					},
 				},
@@ -420,8 +420,8 @@ func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.Fulcio, sa string
 				},
 				Items: []core.KeyToPath{
 					{
-						Key:  "ca.crt",
-						Path: "ca.crt",
+						Key:  CACrtKey,
+						Path: CACrtKey,
 						Mode: ptr.To(int32(0666)),
 					},
 				},
