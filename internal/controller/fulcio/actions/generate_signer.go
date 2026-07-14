@@ -171,6 +171,9 @@ func alignStatus(instance *rhtasv1.Fulcio, ref rhtasv1.SecretKeySelector) {
 		return
 	}
 
+	// File-CA mode: clear stale PKCS#11 status from a previous mode switch
+	instance.Status.PKCS11 = nil
+
 	// File-CA mode: existing behavior
 	if instance.Spec.Certificate.PrivateKeyRef != nil {
 		instance.Status.Certificate.PrivateKeyRef = instance.Spec.Certificate.PrivateKeyRef.DeepCopy()

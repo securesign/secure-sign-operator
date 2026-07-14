@@ -39,6 +39,10 @@ func (i ensurePKCS11Config) CanHandle(_ context.Context, instance *rhtasv1.Fulci
 	if cond == nil {
 		return true
 	}
+	// Fire if CR generation changed (e.g., keyConfig.id updated)
+	if cond.ObservedGeneration != instance.GetGeneration() {
+		return true
+	}
 	// Fire if drift detected between spec and status
 	return i.driftDetected(instance)
 }
@@ -55,12 +59,20 @@ func (i ensurePKCS11Config) Handle(ctx context.Context, instance *rhtasv1.Fulcio
 		return i.Error(ctx, fmt.Errorf("could not check credentialsRef Secret: %w", err), instance)
 	}
 	if !exists {
-		return i.Error(ctx, fmt.Errorf("credentialsRef Secret %q not found", pkcs11Config.CredentialsRef.Name), instance,
+		msg := fmt.Sprintf("credentialsRef Secret %q not found", pkcs11Config.CredentialsRef.Name)
+		return i.Error(ctx, fmt.Errorf("%s", msg), instance,
 			metav1.Condition{
 				Type:               PKCS11Condition,
 				Status:             metav1.ConditionFalse,
 				Reason:             "SecretNotFound",
-				Message:            fmt.Sprintf("credentialsRef Secret %q not found", pkcs11Config.CredentialsRef.Name),
+				Message:            msg,
+				ObservedGeneration: instance.Generation,
+			},
+			metav1.Condition{
+				Type:               constants.ReadyCondition,
+				Status:             metav1.ConditionFalse,
+				Reason:             state.Pending.String(),
+				Message:            msg,
 				ObservedGeneration: instance.Generation,
 			},
 		)
@@ -72,12 +84,20 @@ func (i ensurePKCS11Config) Handle(ctx context.Context, instance *rhtasv1.Fulcio
 		return i.Error(ctx, fmt.Errorf("could not check pkcs11ConfigRef Secret: %w", err), instance)
 	}
 	if !exists {
-		return i.Error(ctx, fmt.Errorf("pkcs11ConfigRef Secret %q not found", pkcs11Config.PKCS11ConfigRef.Name), instance,
+		msg := fmt.Sprintf("pkcs11ConfigRef Secret %q not found", pkcs11Config.PKCS11ConfigRef.Name)
+		return i.Error(ctx, fmt.Errorf("%s", msg), instance,
 			metav1.Condition{
 				Type:               PKCS11Condition,
 				Status:             metav1.ConditionFalse,
 				Reason:             "SecretNotFound",
-				Message:            fmt.Sprintf("pkcs11ConfigRef Secret %q not found", pkcs11Config.PKCS11ConfigRef.Name),
+				Message:            msg,
+				ObservedGeneration: instance.Generation,
+			},
+			metav1.Condition{
+				Type:               constants.ReadyCondition,
+				Status:             metav1.ConditionFalse,
+				Reason:             state.Pending.String(),
+				Message:            msg,
 				ObservedGeneration: instance.Generation,
 			},
 		)

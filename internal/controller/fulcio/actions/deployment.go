@@ -165,7 +165,20 @@ func (i deployAction) ensureFileCADeployment(instance *rhtasv1.Fulcio, sa string
 	template.Spec.ServiceAccountName = sa
 	template.Spec.AutomountServiceAccountToken = &[]bool{true}[0]
 
+	// Clean up PKCS#11 resources that may remain from a previous pkcs11→file mode switch
+	template.Spec.InitContainers = nil
+	kubernetes.RemoveVolumeByName(&template.Spec, HSMTokensVolumeName)
+	kubernetes.RemoveVolumeByName(&template.Spec, HSMLibVolumeName)
+	kubernetes.RemoveVolumeByName(&template.Spec, PKCS11ConfigVolumeName)
+	kubernetes.RemoveVolumeByName(&template.Spec, PKCS11CertVolumeName)
+
 	container := kubernetes.FindContainerByNameOrCreate(&template.Spec, containerName)
+
+	// Remove stale PKCS#11 volume mounts from the main container
+	kubernetes.RemoveVolumeMountByName(container, HSMTokensVolumeName)
+	kubernetes.RemoveVolumeMountByName(container, HSMLibVolumeName)
+	kubernetes.RemoveVolumeMountByName(container, PKCS11ConfigVolumeName)
+	kubernetes.RemoveVolumeMountByName(container, PKCS11CertVolumeName)
 	container.Image = images.Registry.Get(images.FulcioServer)
 
 	if instance.Status.Certificate.PrivateKeyPasswordRef != nil {
@@ -379,57 +392,8 @@ func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.Fulcio, sa string
 		m.ReadOnly = vm.ReadOnly
 	}
 
-	// Volumes
-	hsmTokensVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, HSMTokensVolumeName)
-	if hsmTokensVol.EmptyDir == nil {
-		hsmTokensVol.EmptyDir = &core.EmptyDirVolumeSource{}
-	}
-
-	hsmLibVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, HSMLibVolumeName)
-	if hsmLibVol.EmptyDir == nil {
-		hsmLibVol.EmptyDir = &core.EmptyDirVolumeSource{}
-	}
-
-	pkcs11ConfigVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, PKCS11ConfigVolumeName)
-	if pkcs11ConfigVol.Secret == nil {
-		pkcs11ConfigVol.Secret = &core.SecretVolumeSource{}
-	}
-	pkcs11ConfigVol.Secret.SecretName = instance.Status.PKCS11.PKCS11ConfigRef.Name
-
-	pkcs11CertVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, PKCS11CertVolumeName)
-	if pkcs11CertVol.Secret == nil {
-		pkcs11CertVol.Secret = &core.SecretVolumeSource{}
-	}
-	pkcs11CertVol.Secret.SecretName = instance.Status.Certificate.CARef.Name
-
-	fulcioConfig := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-config")
-	if fulcioConfig.ConfigMap == nil {
-		fulcioConfig.ConfigMap = &core.ConfigMapVolumeSource{}
-	}
-	fulcioConfig.ConfigMap.Name = instance.Status.ServerConfigRef.Name
-
-	oidcInfo := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "oidc-info")
-	if oidcInfo.Projected == nil {
-		oidcInfo.Projected = &core.ProjectedVolumeSource{}
-	}
-	oidcInfo.Projected.Sources = []core.VolumeProjection{
-		{
-			ConfigMap: &core.ConfigMapProjection{
-				LocalObjectReference: core.LocalObjectReference{
-					Name: "kube-root-ca.crt",
-				},
-				Items: []core.KeyToPath{
-					{
-						Key:  CACrtKey,
-						Path: CACrtKey,
-						Mode: ptr.To(int32(0666)),
-					},
-				},
-			},
-		},
-	}
-
-	// Add user-defined volumes
+	// Process user-defined volumes first so operator-managed volumes take
+	// precedence for reserved names (pkcs11-config, fulcio-pkcs11-cert, etc.)
 	for _, vol := range pkcs11Config.Volumes {
 		v := kubernetes.FindVolumeByNameOrCreate(&template.Spec, vol.Name)
 		v.VolumeSource = vol.VolumeSource
@@ -440,6 +404,65 @@ func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.Fulcio, sa string
 		// to update the deployment, resetting the status to "Creating" and
 		// preventing the transition to "Ready".
 		ensureVolumeDefaultMode(v)
+	}
+
+	// Operator-managed volumes: hsm-tokens and hsm-lib default to EmptyDir but
+	// can be overridden by user-defined volumes (e.g., PVC for token persistence,
+	// or omitted entirely if the custom Fulcio image bundles the vendor SDK).
+	if !hasVolume(&template.Spec, HSMTokensVolumeName) {
+		hsmTokensVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, HSMTokensVolumeName)
+		hsmTokensVol.EmptyDir = &core.EmptyDirVolumeSource{}
+	}
+
+	if !hasVolume(&template.Spec, HSMLibVolumeName) {
+		hsmLibVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, HSMLibVolumeName)
+		hsmLibVol.EmptyDir = &core.EmptyDirVolumeSource{}
+	}
+
+	// Operator-managed volumes that always override user definitions
+	pkcs11ConfigVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, PKCS11ConfigVolumeName)
+	pkcs11ConfigVol.VolumeSource = core.VolumeSource{
+		Secret: &core.SecretVolumeSource{
+			SecretName: instance.Status.PKCS11.PKCS11ConfigRef.Name,
+		},
+	}
+
+	pkcs11CertVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, PKCS11CertVolumeName)
+	pkcs11CertVol.VolumeSource = core.VolumeSource{
+		Secret: &core.SecretVolumeSource{
+			SecretName: instance.Status.Certificate.CARef.Name,
+		},
+	}
+
+	fulcioConfig := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-config")
+	fulcioConfig.VolumeSource = core.VolumeSource{
+		ConfigMap: &core.ConfigMapVolumeSource{
+			LocalObjectReference: core.LocalObjectReference{
+				Name: instance.Status.ServerConfigRef.Name,
+			},
+		},
+	}
+
+	oidcInfo := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "oidc-info")
+	oidcInfo.VolumeSource = core.VolumeSource{
+		Projected: &core.ProjectedVolumeSource{
+			Sources: []core.VolumeProjection{
+				{
+					ConfigMap: &core.ConfigMapProjection{
+						LocalObjectReference: core.LocalObjectReference{
+							Name: "kube-root-ca.crt",
+						},
+						Items: []core.KeyToPath{
+							{
+								Key:  CACrtKey,
+								Path: CACrtKey,
+								Mode: ptr.To(int32(0666)),
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	i.setProbes(container)
@@ -488,18 +511,20 @@ func reconcileInitContainers(podSpec *core.PodSpec, specs []rhtasv1.PKCS11InitCo
 		}
 		c.Env = env
 
-		// Build volume mounts: user-specified + operator-managed
+		// Build volume mounts: user-specified + operator-managed (skip duplicates by path)
 		mounts := append([]core.VolumeMount{}, spec.VolumeMounts...)
-		mounts = append(mounts,
-			core.VolumeMount{
+		if !hasMountPath(mounts, HSMTokensMountPath) {
+			mounts = append(mounts, core.VolumeMount{
 				Name:      HSMTokensVolumeName,
 				MountPath: HSMTokensMountPath,
-			},
-			core.VolumeMount{
+			})
+		}
+		if !hasMountPath(mounts, HSMLibMountPath) {
+			mounts = append(mounts, core.VolumeMount{
 				Name:      HSMLibVolumeName,
 				MountPath: HSMLibMountPath,
-			},
-		)
+			})
+		}
 		c.VolumeMounts = mounts
 	}
 
@@ -515,6 +540,26 @@ func reconcileInitContainers(podSpec *core.PodSpec, specs []rhtasv1.PKCS11InitCo
 		}
 	}
 	podSpec.InitContainers = filtered
+}
+
+// hasVolume returns true if the pod spec already contains a volume with the given name.
+func hasVolume(podSpec *core.PodSpec, name string) bool {
+	for _, v := range podSpec.Volumes {
+		if v.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// hasMountPath returns true if any mount in the slice uses the given path.
+func hasMountPath(mounts []core.VolumeMount, path string) bool {
+	for _, m := range mounts {
+		if m.MountPath == path {
+			return true
+		}
+	}
+	return false
 }
 
 // ensureVolumeDefaultMode applies the same DefaultMode that the Kubernetes API
