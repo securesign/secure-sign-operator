@@ -110,7 +110,7 @@ func (r *timestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 		transitions.NewToInitializePhaseAction[*rhtasv1.TimestampAuthority](),
 
-		actions.NewInitializeAction(),
+		actions.NewRolloutCheckAction(),
 
 		transitions.NewToReadyPhaseAction[*rhtasv1.TimestampAuthority](),
 	}

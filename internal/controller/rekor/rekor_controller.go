@@ -150,10 +150,10 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		transitions.NewToInitializePhaseAction[*rhtasv1.Rekor](),
 
-		server.NewInitializeAction(),
+		server.NewRolloutCheckAction(),
 		server.NewResolvePubKeyAction(),
-		ui.NewInitializeAction(),
-		redis.NewInitializeAction(),
+		ui.NewRolloutCheckAction(),
+		redis.NewRolloutCheckAction(),
 
 		transitions.NewToReadyPhaseAction[*rhtasv1.Rekor](),
 	}
