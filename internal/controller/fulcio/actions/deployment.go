@@ -280,8 +280,8 @@ func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.Fulcio, sa string
 	if pkcs11Config == nil {
 		return errors.New("pkcs11 config is not specified")
 	}
-	if instance.Status.PKCS11 == nil {
-		return errors.New("pkcs11 status is not populated")
+	if instance.Status.PKCS11 == nil || instance.Status.PKCS11.PKCS11ConfigRef == nil || instance.Status.PKCS11.CredentialsRef == nil {
+		return errors.New("pkcs11 status is not fully populated")
 	}
 
 	ctlogUrl, err := i.resolveCTlogUrl(instance)

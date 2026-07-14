@@ -1591,6 +1591,7 @@ spec:
                             description: |-
                               The PKCS#11 key ID used to identify the HSM key slot.
                               This value is passed to Fulcio via --hsm-caroot-id.
+                            minimum: 0
                             type: integer
                           label:
                             description: Optional human-readable label for the key.
@@ -5347,7 +5348,7 @@ spec:
                 description: Certificate configuration
                 properties:
                   caRef:
-                    description: SecretKeySelector selects a key of a Secret.
+                    description: Reference to CA certificate
                     properties:
                       key:
                         description: The key of the secret to select from. Must be
@@ -5392,7 +5393,7 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   privateKeyRef:
-                    description: SecretKeySelector selects a key of a Secret.
+                    description: Reference to CA private key
                     properties:
                       key:
                         description: The key of the secret to select from. Must be
@@ -5800,10 +5801,10 @@ spec:
             description: FulcioStatus defines the observed state of Fulcio
             properties:
               certificate:
-                description: FulcioCert defines fields for certificate configuration.
+                description: FulcioCert defines fields for system-generated certificate
                 properties:
                   caRef:
-                    description: SecretKeySelector selects a key of a Secret.
+                    description: Reference to CA certificate
                     properties:
                       key:
                         description: The key of the secret to select from. Must be
@@ -5848,7 +5849,7 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   privateKeyRef:
-                    description: SecretKeySelector selects a key of a Secret.
+                    description: Reference to CA private key
                     properties:
                       key:
                         description: The key of the secret to select from. Must be

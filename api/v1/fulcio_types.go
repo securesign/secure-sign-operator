@@ -64,6 +64,7 @@ type PKCS11KeyConfig struct {
 	// The PKCS#11 key ID used to identify the HSM key slot.
 	// This value is passed to Fulcio via --hsm-caroot-id.
 	//+required
+	//+kubebuilder:validation:Minimum=0
 	ID int `json:"id"`
 	// Optional human-readable label for the key.
 	//+optional

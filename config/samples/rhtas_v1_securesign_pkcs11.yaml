@@ -5,33 +5,50 @@
 # vendor-specific HSM configuration.
 #
 # Prerequisites:
-#   1. Create the namespace (if not already):
-#        kubectl create namespace trusted-artifact-signer
-#
-#   2. Initialize SoftHSM2 token and generate the root CA key+cert, then
-#      create the required Secrets. For example:
-#
-#        # Create the HSM PIN secret
+#   1. Create the HSM PIN secret:
 #        kubectl create secret generic hsm-credentials \
-#          --from-literal=pin=<your-hsm-pin> \
-#          -n trusted-artifact-signer
+#          --from-literal=pin=<your-hsm-pin>
 #
-#        # Create the PKCS#11 configuration secret (crypto11.conf)
-#        kubectl create secret generic pkcs11-config \
-#          --from-file=crypto11.conf=<path-to-crypto11.conf> \
-#          -n trusted-artifact-signer
-#
-#        # Create the root CA certificate secret (pre-provisioned on the HSM)
-#        kubectl create secret generic fulcio-pkcs11-root-cert \
-#          --from-file=ca.crt=<path-to-root-ca-cert.pem> \
-#          -n trusted-artifact-signer
-#
-#   3. Example crypto11.conf for SoftHSM2:
+#   2. Create the PKCS#11 configuration secret (crypto11.conf):
+#        cat <<EOF > /tmp/crypto11.conf
 #        {
-#          "Path": "/usr/lib64/softhsm/libsofthsm.so",
-#          "TokenLabel": "fulcio-token",
-#          "Pin": "env:HSM_PIN"
+#          "Path": "/var/lib/hsm/lib/libsofthsm2.so",
+#          "TokenLabel": "PKCS11CA",
+#          "Pin": "<your-hsm-pin>"
 #        }
+#        EOF
+#        kubectl create secret generic fulcio-pkcs11-config \
+#          --from-file=crypto11.conf=/tmp/crypto11.conf
+#
+#   3. Create a PVC for SoftHSM token persistence:
+#        kubectl apply -f - <<EOF
+#        apiVersion: v1
+#        kind: PersistentVolumeClaim
+#        metadata:
+#          name: hsm-tokens-pvc
+#        spec:
+#          accessModes: [ReadWriteOnce]
+#          resources:
+#            requests:
+#              storage: 100Mi
+#        EOF
+#
+#   4. Run the key ceremony (initialize token, generate key, create root CA):
+#        kubectl create job softhsm-key-ceremony --image=quay.io/rh-ee-sacm/softhsm-init:latest -- ...
+#        (See docs/pkcs11-hsm-support.md for the full Job spec)
+#
+#   5. Extract root CA and create the secret:
+#        kubectl create secret generic fulcio-root-ca \
+#          --from-file=cert.pem=<path-to-root-ca.pem>
+#
+#   6. Create the SoftHSM2 config ConfigMap:
+#        cat <<EOF > /tmp/softhsm2.conf
+#        directories.tokendir = /var/lib/hsm/tokens
+#        objectstore.backend = file
+#        log.level = INFO
+#        EOF
+#        kubectl create configmap softhsm-config \
+#          --from-file=softhsm2.conf=/tmp/softhsm2.conf
 #
 apiVersion: rhtas.redhat.com/v1
 kind: Securesign
@@ -62,70 +79,65 @@ spec:
           Issuer: "https://your-oidc-issuer-url"
           Type: "email"
     certificate:
-      # Use PKCS#11 HSM-backed CA instead of file-based
       caType: pkcs11
-      # Reference to the pre-provisioned root CA certificate on the HSM
       caRef:
-        name: fulcio-pkcs11-root-cert
-        key: ca.crt
-      # PKCS#11 HSM configuration
+        name: fulcio-root-ca
+        key: cert.pem
       pkcs11:
-        # HSM PIN credential reference
         credentialsRef:
           name: hsm-credentials
           key: pin
-        # PKCS#11 configuration file reference (e.g., crypto11.conf)
         pkcs11ConfigRef:
-          name: pkcs11-config
+          name: fulcio-pkcs11-config
           key: crypto11.conf
-        # Key configuration for identifying the CA root key in the HSM
         keyConfig:
           id: 99
           label: PKCS11CA
-        # Init containers for HSM setup (vendor-specific)
-        # This SoftHSM2 example initializes a token from a pre-existing db
+        # Vendor-specific init containers for HSM setup.
+        # The operator automatically injects HSM_PIN env var and
+        # mounts hsm-tokens + hsm-lib volumes into each init container.
         initContainers:
           - name: softhsm-init
-            image: registry.access.redhat.com/ubi9/ubi-minimal:latest
-            command: ["/bin/sh", "-c"]
-            args:
-              - |
-                echo "Initializing SoftHSM2 token store..."
-                cp -r /var/lib/hsm-seed/* /var/lib/hsm/tokens/ || true
-                echo "SoftHSM2 token store ready."
+            image: quay.io/rh-ee-sacm/softhsm-init:latest
+            env:
+              - name: SOFTHSM2_CONF
+                value: /etc/softhsm/softhsm2.conf
             volumeMounts:
-              - name: hsm-tokens
-                mountPath: /var/lib/hsm/tokens
-              # Mount your pre-seeded token database here
-              # - name: hsm-seed
-              #   mountPath: /var/lib/hsm-seed
-              #   readOnly: true
-        # Additional environment variables for the Fulcio server container
+              - name: softhsm-config
+                mountPath: /etc/softhsm
+                readOnly: true
+        # Additional environment variables for the Fulcio server container.
         serverEnv:
           - name: SOFTHSM2_CONF
-            value: /etc/fulcio-pkcs11/crypto11.conf
-        # Additional volume mounts for the Fulcio server container
-        serverVolumeMounts: []
-        # Additional pod-level volumes
-        volumes: []
+            value: /etc/softhsm/softhsm2.conf
+        # Additional volume mounts for the Fulcio server container.
+        serverVolumeMounts:
+          - name: softhsm-config
+            mountPath: /etc/softhsm
+            readOnly: true
+        # Pod-level volumes for vendor-specific configuration.
+        # The operator manages hsm-tokens and hsm-lib volumes automatically.
+        volumes:
+          - name: softhsm-config
+            configMap:
+              name: softhsm-config
+          # For SoftHSM, use a PVC to persist the token data across pod restarts.
+          # The key ceremony Job must use the same PVC.
+          - name: hsm-tokens
+            persistentVolumeClaim:
+              claimName: hsm-tokens-pvc
     monitoring:
       enabled: true
   tuf:
     externalAccess:
       enabled: true
-    signingConfigURLMode: external
     keys:
       - name: rekor.pub
       - name: ctfe.pub
       - name: fulcio_v1.crt.pem
       - name: tsa.certchain.pem
-    rootKeySecretRef:
-      name: tuf-root-keys
-    pvc:
-      accessModes:
-        - ReadWriteOnce
-      retain: true
-      size: 100Mi
+    monitoring:
+      enabled: true
   ctlog:
     monitoring:
       enabled: true
