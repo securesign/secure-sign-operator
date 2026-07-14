@@ -27,14 +27,14 @@ func EnsureTufInitJob(instance *rhtasv1.Tuf, sa string, labels map[string]string
 		args := []string{"--operator", constants.OperatorName, "--export-keys", instance.Spec.RootKeySecretRef.Name}
 		for _, key := range instance.Spec.Keys {
 			switch key.Name {
-			case rekorKey:
+			case rhtasv1.TufKeyRekor:
 				args = append(args, "--rekor-key", filepath.Join(secretsMonthPath, key.Name))
 				url, err := apis.ServiceAsUrl(&instance.Spec.Rekor)
 				if err != nil {
 					return err
 				}
 				args = append(args, "--rekor-uri", url)
-			case ctfeKey:
+			case rhtasv1.TufKeyCTFE:
 				if instance.Spec.Ctlog.Prefix == "" {
 					return futils.ErrCtlogPrefixNotSpecified
 				}
@@ -44,14 +44,14 @@ func EnsureTufInitJob(instance *rhtasv1.Tuf, sa string, labels map[string]string
 					return err
 				}
 				args = append(args, "--ctlog-uri", fmt.Sprintf("%s/%s", url, instance.Spec.Ctlog.Prefix))
-			case fulcioKey:
+			case rhtasv1.TufKeyFulcio:
 				args = append(args, "--fulcio-cert", filepath.Join(secretsMonthPath, key.Name))
 				url, err := apis.ServiceAsUrl(&instance.Spec.Fulcio)
 				if err != nil {
 					return err
 				}
 				args = append(args, "--fulcio-uri", url)
-			case tsaKey:
+			case rhtasv1.TufKeyTSA:
 				args = append(args, "--tsa-cert", filepath.Join(secretsMonthPath, key.Name))
 				url, err := apis.ServiceAsUrl(&instance.Spec.Tsa)
 				if err != nil {

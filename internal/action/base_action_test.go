@@ -65,12 +65,14 @@ func newBaseAction() *BaseAction {
 }
 
 func newTufInstance(name string) *rhtasv1.Tuf {
-	return &rhtasv1.Tuf{
+	t := &rhtasv1.Tuf{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
 		},
 	}
+	t.Spec.SetDefaults()
+	return t
 }
 
 func TestPersistStatus(t *testing.T) {

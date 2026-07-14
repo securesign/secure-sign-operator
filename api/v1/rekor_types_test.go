@@ -10,26 +10,27 @@ import (
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Rekor", func() {
 
 	Context("RekorSpec", func() {
 		It("can be created", func() {
-			created := generateRekorObject("rekor-create")
+			created := generateMinimalRekor("rekor-create")
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 			fetched := &Rekor{}
-			Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 			Expect(fetched).To(Equal(created))
 		})
 
 		It("can be updated", func() {
-			created := generateRekorObject("rekor-update")
+			created := generateMinimalRekor("rekor-update")
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 			fetched := &Rekor{}
-			Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 			Expect(fetched).To(Equal(created))
 
 			var id int64 = 1234567890123456789
@@ -38,21 +39,21 @@ var _ = Describe("Rekor", func() {
 		})
 
 		It("can be deleted", func() {
-			created := generateRekorObject("rekor-delete")
+			created := generateMinimalRekor("rekor-delete")
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 			Expect(k8sClient.Delete(context.Background(), created)).To(Succeed())
-			Expect(k8sClient.Get(context.Background(), getKey(created), created)).ToNot(Succeed())
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), created)).ToNot(Succeed())
 		})
 
 		When("changing external access setting", func() {
 			It("enabled false->true", func() {
-				created := generateRekorObject("rekor-access-1")
+				created := generateMinimalRekor("rekor-access-1")
 				created.Spec.ExternalAccess.Enabled = ptr.To(false)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Rekor{}
-				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
 				fetched.Spec.ExternalAccess.Enabled = ptr.To(true)
@@ -60,12 +61,12 @@ var _ = Describe("Rekor", func() {
 			})
 
 			It("enabled true->false", func() {
-				created := generateRekorObject("rekor-access-2")
+				created := generateMinimalRekor("rekor-access-2")
 				created.Spec.ExternalAccess.Enabled = ptr.To(true)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Rekor{}
-				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
 				fetched.Spec.ExternalAccess.Enabled = ptr.To(false)
@@ -75,23 +76,26 @@ var _ = Describe("Rekor", func() {
 			})
 		})
 
-		It("defaults Enabled fields when not set", func() {
-			obj := generateRekorObject("rekor-defaults")
-			obj.Spec.ExternalAccess.Enabled = nil
-			obj.Spec.Monitoring.Enabled = nil
-			obj.Spec.Monitoring.TLog.Enabled = nil
-			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+		It("default constants are correct", func() {
+			created := generateMinimalRekor("rekor-literals")
+			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 			fetched := &Rekor{}
-			Expect(k8sClient.Get(context.Background(), getKey(obj), fetched)).To(Succeed())
-			Expect(fetched.Spec.ExternalAccess.Enabled).To(HaveValue(BeFalse()))
-			Expect(fetched.Spec.Monitoring.Enabled).To(HaveValue(BeTrue()))
-			Expect(fetched.Spec.Monitoring.TLog.Enabled).To(HaveValue(BeFalse()))
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
+			Expect(fetched.Spec.MaxRequestBodySize).To(Equal(ptr.To(int64(10485760))))
+			Expect(fetched.Spec.Trillian.Port).To(Equal(ptr.To(int32(8091))))
+			Expect(fetched.Spec.Signer.KMS).To(Equal("secret"))
+			Expect(fetched.Spec.BackFillRedis.Schedule).To(Equal("0 0 * * *"))
+			Expect(fetched.Spec.BackFillRedis.Enabled).To(Equal(ptr.To(true)))
+			Expect(fetched.Spec.Pvc.Size).To(Equal(ptr.To(k8sresource.MustParse("5Gi"))))
+			Expect(fetched.Spec.Pvc.Retain).To(Equal(ptr.To(true)))
+			Expect(fetched.Spec.Replicas).To(Equal(ptr.To(int32(1))))
+			Expect(fetched.Spec.Attestations.Url).To(Equal("file:///var/run/attestations?no_tmp_dir=true"))
 		})
 
 		Context("is validated", func() {
 			It("cron syntax", func() {
-				invalidObject := generateRekorObject("backfill-schedule")
+				invalidObject := generateMinimalRekor("backfill-schedule")
 				invalidObject.Spec.BackFillRedis.Schedule = "@invalid"
 
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
@@ -100,11 +104,11 @@ var _ = Describe("Rekor", func() {
 			})
 
 			It("immutable pvc retain", func() {
-				validObject := generateRekorObject("immutable-retain")
+				validObject := generateMinimalRekor("immutable-retain")
 				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 
 				invalidObject := &Rekor{}
-				Expect(k8sClient.Get(context.Background(), getKey(validObject), invalidObject)).To(Succeed())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(validObject), invalidObject)).To(Succeed())
 				invalidObject.Spec.Pvc.Retain = ptr.To(false)
 
 				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), invalidObject))).To(BeTrue())
@@ -113,7 +117,7 @@ var _ = Describe("Rekor", func() {
 			})
 
 			It("checking pvc name", func() {
-				invalidObject := generateRekorObject("rekor3")
+				invalidObject := generateMinimalRekor("rekor3")
 				invalidObject.Spec.Pvc.Name = "-invalid-name!"
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
@@ -123,7 +127,7 @@ var _ = Describe("Rekor", func() {
 
 		Context("sharding", func() {
 			It("require treeId", func() {
-				invalidObject := generateRekorObject("sharding-treeid")
+				invalidObject := generateMinimalRekor("sharding-treeid")
 				invalidObject.Spec.Sharding = []RekorLogRange{
 					{},
 				}
@@ -134,7 +138,7 @@ var _ = Describe("Rekor", func() {
 			})
 
 			It("duplicate trees", func() {
-				invalidObject := generateRekorObject("sharding-duplicate")
+				invalidObject := generateMinimalRekor("sharding-duplicate")
 				invalidObject.Spec.Sharding = []RekorLogRange{
 					{
 						TreeID: 123,
@@ -154,13 +158,13 @@ var _ = Describe("Rekor", func() {
 		Context("signer validation", func() {
 			When("using valid KMS values", func() {
 				It("should allow 'secret'", func() {
-					validObject := generateRekorObject("rekor-kms-valid-secret")
+					validObject := generateMinimalRekor("rekor-kms-valid-secret")
 					validObject.Spec.Signer.KMS = "secret"
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
 
 				It("should allow 'awskms://' URI", func() {
-					validObject := generateRekorObject("rekor-kms-valid-aws")
+					validObject := generateMinimalRekor("rekor-kms-valid-aws")
 					validObject.Spec.Signer.KMS = "awskms://key/arn"
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
@@ -168,12 +172,12 @@ var _ = Describe("Rekor", func() {
 
 			When("using invalid KMS values", func() {
 				It("should reject a random string", func() {
-					invalidObject := generateRekorObject("rekor-kms-invalid-random")
+					invalidObject := generateMinimalRekor("rekor-kms-invalid-random")
 					invalidObject.Spec.Signer.KMS = "unsupported"
 
 					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 					Expect(k8sClient.Create(context.Background(), invalidObject)).
-						To(MatchError(ContainSubstring("KMS must be '', 'secret', 'memory', or a valid URI")))
+						To(MatchError(ContainSubstring("KMS must be 'secret', 'memory', or a valid URI")))
 				})
 			})
 		})
@@ -250,45 +254,18 @@ var _ = Describe("Rekor", func() {
 
 				Expect(k8sClient.Create(context.Background(), &rekorInstance)).To(Succeed())
 				fetchedRekor := &Rekor{}
-				Expect(k8sClient.Get(context.Background(), getKey(&rekorInstance), fetchedRekor)).To(Succeed())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(&rekorInstance), fetchedRekor)).To(Succeed())
 				Expect(fetchedRekor.Spec).To(Equal(rekorInstance.Spec))
 			})
 		})
 	})
 })
 
-func generateRekorObject(name string) *Rekor {
-	storage := k8sresource.MustParse("5Gi")
-	maxSize := k8sresource.MustParse("100Ki")
+func generateMinimalRekor(name string) *Rekor {
 	return &Rekor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
-		},
-		Spec: RekorSpec{
-			BackFillRedis: BackFillRedis{
-				Enabled:  ptr.To(true),
-				Schedule: "0 0 * * *",
-			},
-			Signer: RekorSigner{
-				KMS: "secret",
-			},
-			Attestations: RekorAttestations{
-				Enabled: ptr.To(true),
-				Url:     "file:///var/run/attestations?no_tmp_dir=true",
-				MaxSize: &maxSize,
-			},
-			Pvc: Pvc{
-				Retain: ptr.To(true),
-				Size:   &storage,
-				AccessModes: []PersistentVolumeAccessMode{
-					"ReadWriteOnce",
-				},
-			},
-			Trillian: TrillianService{
-				Port: ptr.To(int32(8091)),
-			},
-			MaxRequestBodySize: ptr.To(int64(10485760)),
 		},
 	}
 }

@@ -7,12 +7,9 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var tuflog = logf.Log.WithName("tuf-resource")
-
-// TufDefaulter is a no-op scaffold; real defaulting logic will be added in SECURESIGN-4581.
 type TufDefaulter struct{}
 
-//+kubebuilder:webhook:path=/mutate-rhtas-redhat-com-v1-tuf,mutating=true,failurePolicy=fail,sideEffects=None,groups=rhtas.redhat.com,resources=tufs,verbs=create;update,versions=v1,name=mtuf.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-rhtas-redhat-com-v1-tuf,mutating=true,failurePolicy=fail,sideEffects=None,groups=rhtas.redhat.com,resources=tufs,verbs=create;update,versions=v1,name=mtuf.rhtas.redhat.com,admissionReviewVersions=v1,matchPolicy=Equivalent
 
 func SetupTufWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, &Tuf{}).
@@ -20,7 +17,8 @@ func SetupTufWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-func (d *TufDefaulter) Default(_ context.Context, obj *Tuf) error {
-	tuflog.Info("default", "name", obj.Name)
+func (d *TufDefaulter) Default(ctx context.Context, obj *Tuf) error {
+	logf.FromContext(ctx).WithName("Tuf").Info("setting defaults", "name", obj.Name)
+	obj.Spec.SetDefaults()
 	return nil
 }

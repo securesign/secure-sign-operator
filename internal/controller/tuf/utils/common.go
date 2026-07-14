@@ -5,13 +5,6 @@ import (
 	core "k8s.io/api/core/v1"
 )
 
-const (
-	rekorKey  = "rekor.pub"
-	ctfeKey   = "ctfe.pub"
-	fulcioKey = "fulcio_v1.crt.pem"
-	tsaKey    = "tsa.certchain.pem"
-)
-
 func secretsVolumeProjection(keys []rhtasv1.TufKeyStatus) *core.ProjectedVolumeSource {
 
 	projections := make([]core.VolumeProjection, 0, len(keys))

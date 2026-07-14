@@ -15,6 +15,7 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	v12 "k8s.io/api/apps/v1"
 	v13 "k8s.io/api/batch/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -52,6 +53,7 @@ func CreateClient() (client.Client, error) {
 	utilruntime.Must(rhtasv1.AddToScheme(scheme))
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
+	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 
 	cfg, err := config.GetConfig()
 	if err != nil {

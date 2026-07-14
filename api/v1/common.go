@@ -10,8 +10,6 @@ type ExternalAccess struct {
 	// If set to true, the Operator will create an Ingress or a Route resource.
 	//For the plain Ingress there is no TLS configuration provided Route object uses "edge" termination by default.
 	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
-	//+kubebuilder:default:=false
-	//+required
 	Enabled *bool `json:"enabled,omitempty"`
 	// Set hostname for your Ingress/Route.
 	Host string `json:"host,omitempty"`
@@ -24,21 +22,16 @@ type ExternalAccess struct {
 type TlogMonitoring struct {
 	// If true, the Operator will create the Rekor log monitor resources
 	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
-	//+kubebuilder:default:=false
-	//+required
 	Enabled *bool `json:"enabled,omitempty"`
 	// Interval between log monitoring checks.
 	// Minimum interval is 10 seconds to avoid excessive load on the log server.
 	//+kubebuilder:validation:XValidation:rule="duration(self) >= duration('10s')",message=Interval must be at least 10 seconds
-	//+kubebuilder:default:="10m"
 	//+optional
 	Interval *metav1.Duration `json:"interval,omitempty"`
 }
 type MonitoringConfig struct {
 	// If true, the Operator will create monitoring resources
 	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
-	//+kubebuilder:default:=true
-	//+required
 	Enabled *bool `json:"enabled,omitempty"`
 }
 
@@ -47,7 +40,7 @@ type MonitoringWithTLogConfig struct {
 	MonitoringConfig `json:",inline"`
 	// Configuration for Rekor transparency log monitoring
 	//+optional
-	TLog TlogMonitoring `json:"tlog"`
+	TLog TlogMonitoring `json:"tlog,omitempty"`
 	// TUF service configuration
 	//+optional
 	Tuf TufService `json:"tuf,omitempty"`
@@ -61,7 +54,6 @@ type TrillianService struct {
 	// Port of Trillian Log Server End point
 	//+kubebuilder:validation:Minimum:=1
 	//+kubebuilder:validation:Maximum:=65535
-	//+kubebuilder:default:=8091
 	//+optional
 	Port *int32 `json:"port,omitempty"`
 }
@@ -91,7 +83,6 @@ type CtlogService struct {
 	// Prefix is the name of the log. The prefix cannot be empty and can
 	// contain "/" path separator characters to define global override handler prefix.
 	//+kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$"
-	//+kubebuilder:default:=trusted-artifact-signer
 	//+optional
 	Prefix string `json:"prefix,omitempty"`
 }
@@ -163,13 +154,11 @@ type Pvc struct {
 	// The requested size of the persistent volume attached to Pod.
 	// The format of this field matches that defined by kubernetes/apimachinery.
 	// See https://pkg.go.dev/k8s.io/apimachinery/pkg/api/resource#Quantity for more info on the format of this field.
-	//+kubebuilder:default:="5Gi"
 	Size *k8sresource.Quantity `json:"size,omitempty"`
 
 	// Retain policy for the PVC
-	//+kubebuilder:default:=true
 	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
-	Retain *bool `json:"retain"`
+	Retain *bool `json:"retain,omitempty"`
 	// Name of the PVC
 	//+optional
 	//+kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
@@ -180,7 +169,6 @@ type Pvc struct {
 	//+optional
 	StorageClass string `json:"storageClass,omitempty"`
 	// PVC AccessModes
-	//+kubebuilder:default:={ReadWriteOnce}
 	//+kubebuilder:validation:MinItems:=1
 	AccessModes []PersistentVolumeAccessMode `json:"accessModes,omitempty"`
 }
@@ -218,7 +206,6 @@ type PodRequirements struct {
 	// Number of desired pods.
 	// +optional
 	// +kubebuilder:validation:Minimum:=0
-	// +kubebuilder:default:=1
 	Replicas    *int32                     `json:"replicas,omitempty"`
 	Affinity    *core.Affinity             `json:"affinity,omitempty"`
 	Resources   *core.ResourceRequirements `json:"resources,omitempty"`

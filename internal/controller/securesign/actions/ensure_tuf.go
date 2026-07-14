@@ -56,7 +56,9 @@ func (i tufAction) Handle(ctx context.Context, instance *rhtasv1.Securesign) *ac
 		ensure.Labels[*rhtasv1.Tuf](slices.Collect(maps.Keys(l)), l),
 		ensure.Annotations[*rhtasv1.Tuf](annotations.InheritableAnnotations, instance.Annotations),
 		func(object *rhtasv1.Tuf) error {
-			object.Spec = instance.Spec.Tuf
+			defaulted := instance.Spec.Tuf.DeepCopy()
+			defaulted.SetDefaults()
+			object.Spec = *defaulted
 			return nil
 		},
 	); err != nil {

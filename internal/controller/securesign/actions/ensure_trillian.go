@@ -55,7 +55,9 @@ func (i trillianAction) Handle(ctx context.Context, instance *rhtasv1.Securesign
 		ensure.Labels[*rhtasv1.Trillian](slices.Collect(maps.Keys(l)), l),
 		ensure.Annotations[*rhtasv1.Trillian](annotations.InheritableAnnotations, instance.Annotations),
 		func(object *rhtasv1.Trillian) error {
-			object.Spec = instance.Spec.Trillian
+			defaulted := instance.Spec.Trillian.DeepCopy()
+			defaulted.SetDefaults()
+			object.Spec = *defaulted
 			return nil
 		},
 	); err != nil {

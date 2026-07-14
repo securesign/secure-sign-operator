@@ -9,25 +9,26 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("TSA", func() {
 	Context("TsaSpec", func() {
 		It("can be created", func() {
-			created := generateTSAObject("tsa-create")
+			created := generateMinimalTSA("tsa-create")
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 			fetched := &TimestampAuthority{}
-			Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 			Expect(fetched).To(Equal(created))
 		})
 
 		It("can be updated", func() {
-			created := generateTSAObject("tsa-updated")
+			created := generateMinimalTSA("tsa-updated")
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 			fetched := &TimestampAuthority{}
-			Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 			Expect(fetched).To(Equal(created))
 
 			fetched.Spec.Signer.CertificateChain.RootCA = &TsaCertificateAuthority{
@@ -39,21 +40,21 @@ var _ = Describe("TSA", func() {
 		})
 
 		It("can be deleted", func() {
-			created := generateTSAObject("tsa-delete")
+			created := generateMinimalTSA("tsa-delete")
 			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 			Expect(k8sClient.Delete(context.Background(), created)).To(Succeed())
-			Expect(k8sClient.Get(context.Background(), getKey(created), created)).ToNot(Succeed())
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), created)).ToNot(Succeed())
 		})
 
 		When("changing external access setting", func() {
 			It("enabled false->true", func() {
-				created := generateTSAObject("tsa-access-1")
+				created := generateMinimalTSA("tsa-access-1")
 				created.Spec.ExternalAccess.Enabled = ptr.To(false)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &TimestampAuthority{}
-				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
 				fetched.Spec.ExternalAccess.Enabled = ptr.To(true)
@@ -61,12 +62,12 @@ var _ = Describe("TSA", func() {
 			})
 
 			It("enabled true->false", func() {
-				created := generateTSAObject("tsa-access-2")
+				created := generateMinimalTSA("tsa-access-2")
 				created.Spec.ExternalAccess.Enabled = ptr.To(true)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &TimestampAuthority{}
-				Expect(k8sClient.Get(context.Background(), getKey(created), fetched)).To(Succeed())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
 				fetched.Spec.ExternalAccess.Enabled = ptr.To(false)
@@ -76,23 +77,22 @@ var _ = Describe("TSA", func() {
 			})
 		})
 
-		It("defaults Enabled fields when not set", func() {
-			obj := generateTSAObject("tsa-defaults")
-			obj.Spec.ExternalAccess.Enabled = nil
-			obj.Spec.Monitoring.Enabled = nil
-			obj.Spec.NTPMonitoring.Enabled = nil
-			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+		It("default constants are correct", func() {
+			created := generateMinimalTSA("tsa-literals")
+			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 			fetched := &TimestampAuthority{}
-			Expect(k8sClient.Get(context.Background(), getKey(obj), fetched)).To(Succeed())
-			Expect(fetched.Spec.ExternalAccess.Enabled).To(HaveValue(BeFalse()))
-			Expect(fetched.Spec.Monitoring.Enabled).To(HaveValue(BeTrue()))
-			Expect(fetched.Spec.NTPMonitoring.Enabled).To(HaveValue(BeTrue()))
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
+			Expect(fetched.Spec.MaxRequestBodySize).To(Equal(ptr.To(int64(1048576))))
+			Expect(fetched.Spec.Replicas).To(Equal(ptr.To(int32(1))))
+			Expect(fetched.Spec.NTPMonitoring.Enabled).To(Equal(ptr.To(true)))
+			Expect(fetched.Spec.Monitoring.Enabled).To(Equal(ptr.To(true)))
+			Expect(fetched.Spec.ExternalAccess.Enabled).To(Equal(ptr.To(false)))
 		})
 
 		Context("is Validated", func() {
 			It("missing org name for root CA", func() {
-				invalidObject := generateTSAObject("missing-org-name")
+				invalidObject := generateMinimalTSA("missing-org-name")
 				invalidObject.Spec.Signer.CertificateChain.RootCA.OrganizationName = ""
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
@@ -100,7 +100,7 @@ var _ = Describe("TSA", func() {
 			})
 
 			It("missing org name for intermediate CA", func() {
-				invalidObject := generateTSAObject("missing-org-name")
+				invalidObject := generateMinimalTSA("missing-org-name")
 				invalidObject.Spec.Signer.CertificateChain.IntermediateCA[0].OrganizationName = ""
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
@@ -108,7 +108,7 @@ var _ = Describe("TSA", func() {
 			})
 
 			It("missing org name for leaf CA", func() {
-				invalidObject := generateTSAObject("missing-org-name")
+				invalidObject := generateMinimalTSA("missing-org-name")
 				invalidObject.Spec.Signer.CertificateChain.LeafCA.OrganizationName = ""
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
@@ -116,7 +116,7 @@ var _ = Describe("TSA", func() {
 			})
 
 			It("only one signer is configured at any time", func() {
-				invalidObject := generateTSAObject("more-than-one-signer")
+				invalidObject := generateMinimalTSA("more-than-one-signer")
 				invalidObject.Spec.Signer.Tink = &Tink{
 					KeyResource: "tink-resource",
 					KeysetRef: &SecretKeySelector{
@@ -137,19 +137,19 @@ var _ = Describe("TSA", func() {
 
 			When("replicas", func() {
 				It("nil", func() {
-					validObject := generateTSAObject("replicas-nil")
+					validObject := generateMinimalTSA("replicas-nil")
 					validObject.Spec.Replicas = nil
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
 
 				It("positive", func() {
-					validObject := generateTSAObject("replicas-positive")
+					validObject := generateMinimalTSA("replicas-positive")
 					validObject.Spec.Replicas = ptr.To(int32(math.MaxInt32))
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
 
 				It("negative", func() {
-					invalidObject := generateTSAObject("replicas-negative")
+					invalidObject := generateMinimalTSA("replicas-negative")
 					invalidObject.Spec.Replicas = ptr.To(int32(-1))
 					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 					Expect(k8sClient.Create(context.Background(), invalidObject)).
@@ -157,7 +157,7 @@ var _ = Describe("TSA", func() {
 				})
 
 				It("zero", func() {
-					validObject := generateTSAObject("replicas-zero")
+					validObject := generateMinimalTSA("replicas-zero")
 					validObject.Spec.Replicas = ptr.To(int32(0))
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
@@ -166,7 +166,7 @@ var _ = Describe("TSA", func() {
 	})
 })
 
-func generateTSAObject(name string) *TimestampAuthority {
+func generateMinimalTSA(name string) *TimestampAuthority {
 	return &TimestampAuthority{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -194,7 +194,6 @@ func generateTSAObject(name string) *TimestampAuthority {
 					},
 				},
 			},
-			MaxRequestBodySize: ptr.To(int64(1048576)),
 		},
 	}
 }

@@ -12,7 +12,8 @@ webhooks:
       namespace: system
       path: /mutate-rhtas-redhat-com-v1-ctlog
   failurePolicy: Fail
-  name: mctlog.kb.io
+  matchPolicy: Equivalent
+  name: mctlog.rhtas.redhat.com
   rules:
   - apiGroups:
     - rhtas.redhat.com
@@ -32,7 +33,8 @@ webhooks:
       namespace: system
       path: /mutate-rhtas-redhat-com-v1-fulcio
   failurePolicy: Fail
-  name: mfulcio.kb.io
+  matchPolicy: Equivalent
+  name: mfulcio.rhtas.redhat.com
   rules:
   - apiGroups:
     - rhtas.redhat.com
@@ -52,7 +54,8 @@ webhooks:
       namespace: system
       path: /mutate-rhtas-redhat-com-v1-rekor
   failurePolicy: Fail
-  name: mrekor.kb.io
+  matchPolicy: Equivalent
+  name: mrekor.rhtas.redhat.com
   rules:
   - apiGroups:
     - rhtas.redhat.com
@@ -72,7 +75,8 @@ webhooks:
       namespace: system
       path: /mutate-rhtas-redhat-com-v1-securesign
   failurePolicy: Fail
-  name: msecuresign.kb.io
+  matchPolicy: Equivalent
+  name: msecuresign.rhtas.redhat.com
   rules:
   - apiGroups:
     - rhtas.redhat.com
@@ -92,7 +96,8 @@ webhooks:
       namespace: system
       path: /mutate-rhtas-redhat-com-v1-timestampauthority
   failurePolicy: Fail
-  name: mtimestampauthority.kb.io
+  matchPolicy: Equivalent
+  name: mtimestampauthority.rhtas.redhat.com
   rules:
   - apiGroups:
     - rhtas.redhat.com
@@ -112,7 +117,8 @@ webhooks:
       namespace: system
       path: /mutate-rhtas-redhat-com-v1-trillian
   failurePolicy: Fail
-  name: mtrillian.kb.io
+  matchPolicy: Equivalent
+  name: mtrillian.rhtas.redhat.com
   rules:
   - apiGroups:
     - rhtas.redhat.com
@@ -132,7 +138,8 @@ webhooks:
       namespace: system
       path: /mutate-rhtas-redhat-com-v1-tuf
   failurePolicy: Fail
-  name: mtuf.kb.io
+  matchPolicy: Equivalent
+  name: mtuf.rhtas.redhat.com
   rules:
   - apiGroups:
     - rhtas.redhat.com

@@ -27,10 +27,10 @@ type serviceEndpoint struct {
 
 func ResolveServiceAddress(ctx context.Context, c client.Client, instance *rhtasv1.Tuf) error {
 	var keyToService = map[string]serviceEndpoint{
-		rekorKey:  {Service: &instance.Spec.Rekor, ComponentList: &rhtasv1.RekorList{}, Suffix: ""},
-		ctfeKey:   {Service: &instance.Spec.Ctlog, ComponentList: &rhtasv1.CTlogList{}, Suffix: ""},
-		fulcioKey: {Service: &instance.Spec.Fulcio, ComponentList: &rhtasv1.FulcioList{}, Suffix: ""},
-		tsaKey:    {Service: &instance.Spec.Tsa, ComponentList: &rhtasv1.TimestampAuthorityList{}, Suffix: tsa.TimestampPath},
+		rhtasv1.TufKeyRekor:  {Service: &instance.Spec.Rekor, ComponentList: &rhtasv1.RekorList{}, Suffix: ""},
+		rhtasv1.TufKeyCTFE:   {Service: &instance.Spec.Ctlog, ComponentList: &rhtasv1.CTlogList{}, Suffix: ""},
+		rhtasv1.TufKeyFulcio: {Service: &instance.Spec.Fulcio, ComponentList: &rhtasv1.FulcioList{}, Suffix: ""},
+		rhtasv1.TufKeyTSA:    {Service: &instance.Spec.Tsa, ComponentList: &rhtasv1.TimestampAuthorityList{}, Suffix: tsa.TimestampPath},
 	}
 
 	for _, key := range instance.Spec.Keys {
