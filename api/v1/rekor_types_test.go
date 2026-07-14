@@ -87,8 +87,8 @@ var _ = Describe("Rekor", func() {
 			Expect(fetched.Spec.Signer.KMS).To(Equal("secret"))
 			Expect(fetched.Spec.BackFillRedis.Schedule).To(Equal("0 0 * * *"))
 			Expect(fetched.Spec.BackFillRedis.Enabled).To(Equal(ptr.To(true)))
-			Expect(fetched.Spec.Pvc.Size).To(Equal(ptr.To(k8sresource.MustParse("5Gi"))))
-			Expect(fetched.Spec.Pvc.Retain).To(Equal(ptr.To(true)))
+			Expect(fetched.Spec.Attestations.Pvc.Size).To(Equal(ptr.To(k8sresource.MustParse("5Gi"))))
+			Expect(fetched.Spec.Attestations.Pvc.Retain).To(Equal(ptr.To(true)))
 			Expect(fetched.Spec.Replicas).To(Equal(ptr.To(int32(1))))
 			Expect(fetched.Spec.Attestations.Url).To(Equal("file:///var/run/attestations?no_tmp_dir=true"))
 		})
@@ -109,7 +109,7 @@ var _ = Describe("Rekor", func() {
 
 				invalidObject := &Rekor{}
 				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(validObject), invalidObject)).To(Succeed())
-				invalidObject.Spec.Pvc.Retain = ptr.To(false)
+				invalidObject.Spec.Attestations.Pvc.Retain = ptr.To(false)
 
 				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Update(context.Background(), invalidObject)).
@@ -118,10 +118,10 @@ var _ = Describe("Rekor", func() {
 
 			It("checking pvc name", func() {
 				invalidObject := generateMinimalRekor("rekor3")
-				invalidObject.Spec.Pvc.Name = "-invalid-name!"
+				invalidObject.Spec.Attestations.Pvc.Name = "-invalid-name!"
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("spec.pvc.name in body should match")))
+					To(MatchError(ContainSubstring("spec.attestations.pvc.name in body should match")))
 			})
 		})
 
@@ -214,11 +214,13 @@ var _ = Describe("Rekor", func() {
 							Schedule: "* */2 * * 0-3",
 						},
 						TreeID: &tree,
-						Pvc: Pvc{
-							Name:         "name",
-							Size:         &storage,
-							StorageClass: "name",
-							Retain:       ptr.To(true),
+						Attestations: RekorAttestations{
+							Pvc: Pvc{
+								Name:         "name",
+								Size:         &storage,
+								StorageClass: "name",
+								Retain:       ptr.To(true),
+							},
 						},
 						Signer: RekorSigner{
 							KMS: "secret",

@@ -311,13 +311,13 @@ func TestRekorConversionUnit(t *testing.T) {
 				Spec: rhtasv1.RekorSpec{
 					TreeID:   ptr.To[int64](111),
 					Trillian: rhtasv1.TrillianService{Address: "trillian:8091", Port: ptr.To[int32](8091)},
-					Pvc: rhtasv1.Pvc{
-						Size:   ptr.To(resource.MustParse("5Gi")),
-						Retain: ptr.To(true),
-					},
 					Attestations: rhtasv1.RekorAttestations{
 						Enabled: ptr.To(true),
 						Url:     "file:///var/run/attestations?no_tmp_dir=true",
+						Pvc: rhtasv1.Pvc{
+							Size:   ptr.To(resource.MustParse("5Gi")),
+							Retain: ptr.To(true),
+						},
 					},
 					Signer:         rhtasv1.RekorSigner{KMS: "secret"},
 					TrustedCA:      &rhtasv1.LocalObjectReference{Name: "trusted-ca"},

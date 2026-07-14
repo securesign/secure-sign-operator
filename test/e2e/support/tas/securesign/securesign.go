@@ -398,7 +398,7 @@ func WithNFSPVC() Opts {
 			StorageClass: "nfs-csi",
 		}
 
-		s.Spec.Rekor.Pvc = pvcConf
+		s.Spec.Rekor.Attestations.Pvc = pvcConf
 		s.Spec.Tuf.Pvc = rhtasv1.TufPvc{
 			Retain:       pvcConf.Retain,
 			Size:         pvcConf.Size,

@@ -92,7 +92,7 @@ var _ = Describe("Securesign", func() {
 		It("accepts rekor with replicas>1 and ReadWriteMany", func() {
 			obj := generateMinimalSecuresign("ss-rekor-rwm")
 			obj.Spec.Rekor.Replicas = ptr.To(int32(2))
-			obj.Spec.Rekor.Pvc.AccessModes = []PersistentVolumeAccessMode{"ReadWriteMany"}
+			obj.Spec.Rekor.Attestations.Pvc.AccessModes = []PersistentVolumeAccessMode{"ReadWriteMany"}
 			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
 		})
 	})
@@ -134,7 +134,7 @@ var _ = Describe("Securesign", func() {
 		It("rekor with custom replicas", func() {
 			obj := generateMinimalSecuresign("ss-rekor-replicas")
 			obj.Spec.Rekor.Replicas = ptr.To(int32(3))
-			obj.Spec.Rekor.Pvc.AccessModes = []PersistentVolumeAccessMode{"ReadWriteMany"}
+			obj.Spec.Rekor.Attestations.Pvc.AccessModes = []PersistentVolumeAccessMode{"ReadWriteMany"}
 			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
 
 			fetched := &Securesign{}

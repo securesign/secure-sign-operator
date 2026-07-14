@@ -14,7 +14,6 @@ func (s *RekorSpec) SetDefaults() {
 	s.Signer.SetDefaults()
 	s.Attestations.SetDefaults()
 	s.SearchIndex.SetDefaults()
-	s.Pvc.SetDefaults()
 	s.BackFillRedis.SetDefaults()
 	setDefault(&s.MaxRequestBodySize, ptr.To(int64(10485760)))
 }
@@ -30,6 +29,7 @@ func (s *RekorAttestations) SetDefaults() {
 	if s.MaxSize == nil {
 		s.MaxSize = ptr.To(k8sresource.MustParse("100Ki"))
 	}
+	s.Pvc.SetDefaults()
 }
 
 func (s *RekorSigner) SetDefaults() {

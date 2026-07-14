@@ -18,8 +18,18 @@ func Convert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(in *v1.FulcioSpec, out *Fulcio
 	return autoConvert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(in, out, s)
 }
 
+func Convert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *v1.RekorSpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_RekorSpec_To_v1_RekorSpec(in, out, s); err != nil {
+		return err
+	}
+	return Convert_v1alpha1_Pvc_To_v1_Pvc(&in.Pvc, &out.Attestations.Pvc, s)
+}
+
 func Convert_v1_RekorSpec_To_v1alpha1_RekorSpec(in *v1.RekorSpec, out *RekorSpec, s apiconversion.Scope) error {
-	return autoConvert_v1_RekorSpec_To_v1alpha1_RekorSpec(in, out, s)
+	if err := autoConvert_v1_RekorSpec_To_v1alpha1_RekorSpec(in, out, s); err != nil {
+		return err
+	}
+	return Convert_v1_Pvc_To_v1alpha1_Pvc(&in.Attestations.Pvc, &out.Pvc, s)
 }
 
 func Convert_v1_TimestampAuthoritySpec_To_v1alpha1_TimestampAuthoritySpec(in *v1.TimestampAuthoritySpec, out *TimestampAuthoritySpec, s apiconversion.Scope) error {
@@ -32,6 +42,11 @@ func Convert_v1_TrillianSpec_To_v1alpha1_TrillianSpec(in *v1.TrillianSpec, out *
 
 func Convert_v1_TufSpec_To_v1alpha1_TufSpec(in *v1.TufSpec, out *TufSpec, s apiconversion.Scope) error {
 	return autoConvert_v1_TufSpec_To_v1alpha1_TufSpec(in, out, s)
+}
+
+func Convert_v1_RekorAttestations_To_v1alpha1_RekorAttestations(in *v1.RekorAttestations, out *RekorAttestations, s apiconversion.Scope) error {
+	// Pvc is handled at the RekorSpec level conversion, not here.
+	return autoConvert_v1_RekorAttestations_To_v1alpha1_RekorAttestations(in, out, s)
 }
 
 func Convert_v1alpha1_TlogMonitoring_To_v1_TlogMonitoring(in *TlogMonitoring, out *v1.TlogMonitoring, s apiconversion.Scope) error {
