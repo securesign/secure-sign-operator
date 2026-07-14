@@ -119,7 +119,7 @@ func (r *tufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 		transitions.NewToInitializePhaseAction[*rhtasv1.Tuf](),
 
-		actions.NewInitializeAction(),
+		actions.NewRolloutCheckAction(),
 
 		// run after the initialize action to ensure the repository is running also in case of the failed migration (do not fail to soon)
 		actions.NewMigrationJobAction(),

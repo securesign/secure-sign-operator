@@ -180,8 +180,8 @@ var _ = Describe("TimestampAuthority Controller", func() {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
 				g.Expect(cond).ToNot(BeNil())
-				return cond.Message
-			}).Should(Equal("Waiting for deployment to be ready"))
+				return cond.Reason
+			}).Should(Equal(state.Initialize.String()))
 
 			By("NTP monitoring config should be created")
 			Eventually(func(g Gomega) *rhtasv1.LocalObjectReference {

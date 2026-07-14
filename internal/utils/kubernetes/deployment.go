@@ -8,18 +8,20 @@ import (
 
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
-	ErrDeploymentNotReady          = errors.New("deployment not ready")
-	ErrDeploymentNotObserved       = errors.New("not observed")
-	ErrDeploymentNotAvailable      = errors.New("not available")
-	ErrDeploymentNotFound          = errors.New("not found")
-	ErrNewReplicaSetNotAvailable   = errors.New("new ReplicaSet not available")
-	ErrReplicaSetRevisionNotExists = errors.New("ReplicaSet revision not exists")
+	ErrDeploymentNotReady                 = errors.New("deployment not ready")
+	ErrDeploymentNotObserved              = errors.New("not observed")
+	ErrDeploymentNotAvailable             = errors.New("not available")
+	ErrDeploymentNotFound                 = errors.New("not found")
+	ErrNewReplicaSetNotAvailable          = errors.New("new ReplicaSet not available")
+	ErrReplicaSetRevisionNotExists        = errors.New("ReplicaSet revision not exists")
+	ErrDeploymentProgressDeadlineExceeded = errors.New("progress deadline exceeded")
 )
 
 var (
@@ -27,9 +29,22 @@ var (
 )
 
 const (
-	revisionAnnotation = "deployment.kubernetes.io/revision"
-	podTemplateHash    = "pod-template-hash"
+	revisionAnnotation       = "deployment.kubernetes.io/revision"
+	podTemplateHash          = "pod-template-hash"
+	progressDeadlineExceeded = "ProgressDeadlineExceeded"
 )
+
+// DeploymentIsRunningByName reports whether the named Deployment has fully rolled out.
+func DeploymentIsRunningByName(ctx context.Context, cli client.Client, namespace, name string) (bool, error) {
+	d := &v1.Deployment{}
+	if err := cli.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, d); err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, fmt.Errorf("%w: %w: name %s", ErrDeploymentNotReady, ErrDeploymentNotFound, name)
+		}
+		return false, err
+	}
+	return deploymentRolledOut(ctx, cli, d)
+}
 
 func DeploymentIsRunning(ctx context.Context, cli client.Client, namespace string, labels map[string]string) (bool, error) {
 	var err error
@@ -43,51 +58,62 @@ func DeploymentIsRunning(ctx context.Context, cli client.Client, namespace strin
 		return false, fmt.Errorf("%w: %w: with labels %v", ErrDeploymentNotReady, ErrDeploymentNotFound, labels)
 	}
 
-	for _, d := range list.Items {
-		revision := d.Annotations[revisionAnnotation]
+	for i := range list.Items {
+		ok, err := deploymentRolledOut(ctx, cli, &list.Items[i])
+		if !ok || err != nil {
+			return ok, err
+		}
+	}
+	return true, nil
+}
 
-		log.V(2).WithValues(
-			"namespace", d.Namespace, "name",
-			d.Name, "generation", d.Generation,
-			"observed", d.Status.ObservedGeneration,
-			"conditions", d.Status.Conditions,
-			"revision", revision,
-		).Info("state")
+func deploymentRolledOut(ctx context.Context, cli client.Client, d *v1.Deployment) (bool, error) {
+	revision := d.Annotations[revisionAnnotation]
 
-		if d.Generation != d.Status.ObservedGeneration {
-			return false, fmt.Errorf("%w(%s): %w: generation %d", ErrDeploymentNotReady, d.Name, ErrDeploymentNotObserved, d.Generation)
+	log.V(2).WithValues(
+		"namespace", d.Namespace, "name",
+		d.Name, "generation", d.Generation,
+		"observed", d.Status.ObservedGeneration,
+		"conditions", d.Status.Conditions,
+		"revision", revision,
+	).Info("state")
+
+	if d.Generation != d.Status.ObservedGeneration {
+		return false, fmt.Errorf("%w(%s): %w: generation %d", ErrDeploymentNotReady, d.Name, ErrDeploymentNotObserved, d.Generation)
+	}
+
+	c := getDeploymentCondition(d.Status, v1.DeploymentAvailable)
+	if c == nil || c.Status != corev1.ConditionTrue {
+		return false, fmt.Errorf("%w(%s): %w", ErrDeploymentNotReady, d.Name, ErrDeploymentNotAvailable)
+	}
+
+	progressing := getDeploymentCondition(d.Status, v1.DeploymentProgressing)
+	if progressing != nil && progressing.Reason == progressDeadlineExceeded {
+		return false, fmt.Errorf("%w(%s): %w: %s", ErrDeploymentNotReady, d.Name, ErrDeploymentProgressDeadlineExceeded, progressing.Message)
+	}
+
+	replicaSets, err := getReplicaSets(ctx, cli, d)
+	if err != nil {
+		return false, err
+	}
+
+	if revision != "" {
+		var templateHash string
+		for _, rs := range replicaSets {
+			if rs.Annotations[revisionAnnotation] == revision {
+				templateHash = rs.Labels[podTemplateHash]
+			}
+		}
+		if templateHash == "" {
+			return false, fmt.Errorf("%w(%s): %w: revision %d", ErrDeploymentNotReady, d.Name, ErrReplicaSetRevisionNotExists, d.Generation)
 		}
 
-		c := getDeploymentCondition(d.Status, v1.DeploymentAvailable)
-		if c == nil || c.Status != corev1.ConditionTrue {
-			return false, fmt.Errorf("%w(%s): %w", ErrDeploymentNotReady, d.Name, ErrDeploymentNotAvailable)
+		if progressing == nil || progressing.Status != corev1.ConditionTrue || progressing.Reason != "NewReplicaSetAvailable" || !strings.Contains(progressing.Message, templateHash) {
+			return false, fmt.Errorf("%w(%s): %w", ErrDeploymentNotReady, d.Name, ErrNewReplicaSetNotAvailable)
 		}
-
-		replicaSets, err := getReplicaSets(ctx, cli, &d)
-		if err != nil {
-			return false, err
-		}
-
-		if revision != "" {
-			var templateHash string
-			for _, rs := range replicaSets {
-				if rs.Annotations[revisionAnnotation] == revision {
-					templateHash = rs.Labels[podTemplateHash]
-				}
-			}
-			if templateHash == "" {
-				return false, fmt.Errorf("%w(%s): %w: revision %d", ErrDeploymentNotReady, d.Name, ErrReplicaSetRevisionNotExists, d.Generation)
-			}
-
-			c = getDeploymentCondition(d.Status, v1.DeploymentProgressing)
-			if c == nil || c.Status != corev1.ConditionTrue || c.Reason != "NewReplicaSetAvailable" || !strings.Contains(c.Message, templateHash) {
-				return false, fmt.Errorf("%w(%s): %w", ErrDeploymentNotReady, d.Name, ErrNewReplicaSetNotAvailable)
-			}
-		} else {
-			c = getDeploymentCondition(d.Status, v1.DeploymentProgressing)
-			if c == nil || c.Status != corev1.ConditionTrue || c.Reason != "NewReplicaSetAvailable" {
-				return false, fmt.Errorf("%w(%s): %w", ErrDeploymentNotReady, d.Name, ErrNewReplicaSetNotAvailable)
-			}
+	} else {
+		if progressing == nil || progressing.Status != corev1.ConditionTrue || progressing.Reason != "NewReplicaSetAvailable" {
+			return false, fmt.Errorf("%w(%s): %w", ErrDeploymentNotReady, d.Name, ErrNewReplicaSetNotAvailable)
 		}
 	}
 	return true, nil
