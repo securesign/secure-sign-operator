@@ -419,13 +419,16 @@ func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.Fulcio, sa string
 		hsmLibVol.EmptyDir = &core.EmptyDirVolumeSource{}
 	}
 
-	// Operator-managed volumes that always override user definitions
+	// Operator-managed volumes that always override user definitions.
+	// Use ensureVolumeDefaultMode after setting VolumeSource to prevent
+	// the infinite reconciliation loop caused by nil DefaultMode vs API server default (420).
 	pkcs11ConfigVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, PKCS11ConfigVolumeName)
 	pkcs11ConfigVol.VolumeSource = core.VolumeSource{
 		Secret: &core.SecretVolumeSource{
 			SecretName: instance.Status.PKCS11.PKCS11ConfigRef.Name,
 		},
 	}
+	ensureVolumeDefaultMode(pkcs11ConfigVol)
 
 	pkcs11CertVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, PKCS11CertVolumeName)
 	pkcs11CertVol.VolumeSource = core.VolumeSource{
@@ -433,6 +436,7 @@ func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.Fulcio, sa string
 			SecretName: instance.Status.Certificate.CARef.Name,
 		},
 	}
+	ensureVolumeDefaultMode(pkcs11CertVol)
 
 	fulcioConfig := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-config")
 	fulcioConfig.VolumeSource = core.VolumeSource{
@@ -442,6 +446,7 @@ func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.Fulcio, sa string
 			},
 		},
 	}
+	ensureVolumeDefaultMode(fulcioConfig)
 
 	oidcInfo := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "oidc-info")
 	oidcInfo.VolumeSource = core.VolumeSource{
@@ -464,6 +469,7 @@ func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.Fulcio, sa string
 			},
 		},
 	}
+	ensureVolumeDefaultMode(oidcInfo)
 
 	i.setProbes(container)
 	return nil
