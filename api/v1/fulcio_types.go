@@ -7,9 +7,103 @@
 package v1
 
 import (
+	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// CAType specifies the certificate authority backend for Fulcio.
+// +kubebuilder:validation:Enum:=file;pkcs11
+type CAType string
+
+const (
+	// CATypeFile uses file-based certificate authority (default).
+	CATypeFile CAType = "file"
+	// CATypePKCS11 uses a PKCS#11 hardware security module.
+	CATypePKCS11 CAType = "pkcs11"
+)
+
+// PKCS11InitContainerSpec defines a curated subset of corev1.Container for PKCS#11 init containers.
+// These containers run before the main Fulcio server to perform vendor-specific HSM initialization.
+type PKCS11InitContainerSpec struct {
+	// Name of the init container. Must be unique within the pod.
+	//+required
+	//+kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+	Name string `json:"name"`
+	// Container image name.
+	//+required
+	Image string `json:"image"`
+	// Entrypoint array. Not executed within a shell.
+	//+optional
+	Command []string `json:"command,omitempty"`
+	// Arguments to the entrypoint.
+	//+optional
+	Args []string `json:"args,omitempty"`
+	// List of environment variables to set in the container.
+	//+optional
+	Env []core.EnvVar `json:"env,omitempty"`
+	// List of sources to populate environment variables in the container.
+	//+optional
+	EnvFrom []core.EnvFromSource `json:"envFrom,omitempty"`
+	// Pod volumes to mount into the container's filesystem.
+	//+optional
+	VolumeMounts []core.VolumeMount `json:"volumeMounts,omitempty"`
+	// Compute Resources required by this container.
+	//+optional
+	Resources *core.ResourceRequirements `json:"resources,omitempty"`
+	// SecurityContext defines the security options the container should be run with.
+	//+optional
+	SecurityContext *core.SecurityContext `json:"securityContext,omitempty"`
+	// Image pull policy.
+	//+optional
+	ImagePullPolicy core.PullPolicy `json:"imagePullPolicy,omitempty"`
+}
+
+// PKCS11KeyConfig defines the key configuration for PKCS#11 CA operations.
+type PKCS11KeyConfig struct {
+	// The PKCS#11 key ID used to identify the HSM key slot.
+	// This value is passed to Fulcio via --hsm-caroot-id.
+	//+required
+	ID int `json:"id"`
+	// Optional human-readable label for the key.
+	//+optional
+	Label string `json:"label,omitempty"`
+}
+
+// FulcioPKCS11Config defines the PKCS#11 HSM configuration for Fulcio.
+type FulcioPKCS11Config struct {
+	// Init containers that run before the Fulcio server for vendor-specific HSM initialization.
+	//+optional
+	InitContainers []PKCS11InitContainerSpec `json:"initContainers,omitempty"`
+	// Additional pod-level volumes needed for HSM connectivity.
+	//+optional
+	Volumes []core.Volume `json:"volumes,omitempty"`
+	// Reference to a Secret containing the HSM PIN credential.
+	//+required
+	CredentialsRef SecretKeySelector `json:"credentialsRef"`
+	// Reference to a Secret containing the crypto11.conf PKCS#11 configuration file.
+	//+required
+	PKCS11ConfigRef SecretKeySelector `json:"pkcs11ConfigRef"`
+	// Additional environment variables for the Fulcio server container.
+	//+optional
+	ServerEnv []core.EnvVar `json:"serverEnv,omitempty"`
+	// Additional volume mounts for the Fulcio server container.
+	//+optional
+	ServerVolumeMounts []core.VolumeMount `json:"serverVolumeMounts,omitempty"`
+	// Key configuration for the PKCS#11 CA.
+	//+required
+	KeyConfig PKCS11KeyConfig `json:"keyConfig"`
+}
+
+// FulcioPKCS11Status records the observed PKCS#11 configuration references.
+type FulcioPKCS11Status struct {
+	// Last observed credentialsRef.
+	//+optional
+	CredentialsRef *SecretKeySelector `json:"credentialsRef,omitempty"`
+	// Last observed pkcs11ConfigRef.
+	//+optional
+	PKCS11ConfigRef *SecretKeySelector `json:"pkcs11ConfigRef,omitempty"`
+}
 
 // FulcioSpec defines the desired state of Fulcio
 type FulcioSpec struct {
@@ -34,9 +128,19 @@ type FulcioSpec struct {
 }
 
 // FulcioCert defines fields for system-generated certificate
-// +kubebuilder:validation:XValidation:rule=(has(self.caRef) || self.organizationName != ""),message=organizationName cannot be empty
-// +kubebuilder:validation:XValidation:rule=(!has(self.caRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
+// +kubebuilder:validation:XValidation:rule=(has(self.caRef) || self.organizationName != "" || (has(self.caType) && self.caType == "pkcs11")),message=organizationName cannot be empty
+// +kubebuilder:validation:XValidation:rule=(!has(self.caRef) || has(self.privateKeyRef) || (has(self.caType) && self.caType == "pkcs11")),message=privateKeyRef cannot be empty
+// +kubebuilder:validation:XValidation:rule=(!has(self.caType) || self.caType != "pkcs11" || has(self.pkcs11)),message=pkcs11 config is required when caType is pkcs11
+// +kubebuilder:validation:XValidation:rule=(!has(self.caType) || self.caType != "pkcs11" || has(self.caRef)),message=caRef is required when caType is pkcs11
+// +kubebuilder:validation:XValidation:rule=(!has(self.caType) || self.caType != "pkcs11" || !has(self.privateKeyRef)),message=privateKeyRef must not be set when caType is pkcs11
+// +kubebuilder:validation:XValidation:rule=(!has(self.caType) || self.caType != "pkcs11" || !has(self.privateKeyPasswordRef)),message=privateKeyPasswordRef must not be set when caType is pkcs11
+// +kubebuilder:validation:XValidation:rule=(!has(self.caType) || self.caType != "file" || !has(self.pkcs11)),message=pkcs11 config must not be set when caType is file
 type FulcioCert struct {
+	// CA backend type. Defaults to "file" if not specified.
+	//+optional
+	//+kubebuilder:default:=file
+	CAType CAType `json:"caType,omitempty"`
+
 	// Reference to CA private key
 	//+optional
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
@@ -59,6 +163,10 @@ type FulcioCert struct {
 	OrganizationName string `json:"organizationName,omitempty"`
 	//+optional
 	OrganizationEmail string `json:"organizationEmail,omitempty"`
+
+	// PKCS#11 HSM configuration. Required when caType is "pkcs11".
+	//+optional
+	PKCS11 *FulcioPKCS11Config `json:"pkcs11,omitempty"`
 }
 
 // FulcioConfig configuration of OIDC issuers
@@ -187,6 +295,7 @@ type FulcioCertStatus struct {
 type FulcioStatus struct {
 	ServerConfigRef *LocalObjectReference `json:"serverConfigRef,omitempty"`
 	Certificate     *FulcioCertStatus     `json:"certificate,omitempty"`
+	PKCS11          *FulcioPKCS11Status   `json:"pkcs11,omitempty"`
 	Url             string                `json:"url,omitempty"`
 	// +listType=map
 	// +listMapKey=type

@@ -1,0 +1,152 @@
+# SecureSign CR with PKCS#11 HSM-backed Fulcio CA
+#
+# This sample uses SoftHSM2 as a reference implementation. For production,
+# replace init containers, volumes, and environment variables with your
+# vendor-specific HSM configuration.
+#
+# Prerequisites:
+#   1. Create the namespace (if not already):
+#        kubectl create namespace trusted-artifact-signer
+#
+#   2. Initialize SoftHSM2 token and generate the root CA key+cert, then
+#      create the required Secrets. For example:
+#
+#        # Create the HSM PIN secret
+#        kubectl create secret generic hsm-credentials \
+#          --from-literal=pin=<your-hsm-pin> \
+#          -n trusted-artifact-signer
+#
+#        # Create the PKCS#11 configuration secret (crypto11.conf)
+#        kubectl create secret generic pkcs11-config \
+#          --from-file=crypto11.conf=<path-to-crypto11.conf> \
+#          -n trusted-artifact-signer
+#
+#        # Create the root CA certificate secret (pre-provisioned on the HSM)
+#        kubectl create secret generic fulcio-pkcs11-root-cert \
+#          --from-file=ca.crt=<path-to-root-ca-cert.pem> \
+#          -n trusted-artifact-signer
+#
+#   3. Example crypto11.conf for SoftHSM2:
+#        {
+#          "Path": "/usr/lib64/softhsm/libsofthsm.so",
+#          "TokenLabel": "fulcio-token",
+#          "Pin": "env:HSM_PIN"
+#        }
+#
+apiVersion: rhtas.redhat.com/v1
+kind: Securesign
+metadata:
+  labels:
+    app.kubernetes.io/name: securesign-pkcs11-sample
+    app.kubernetes.io/instance: securesign-pkcs11-sample
+    app.kubernetes.io/part-of: trusted-artifact-signer
+  name: securesign-pkcs11-sample
+spec:
+  rekor:
+    externalAccess:
+      enabled: true
+    monitoring:
+      enabled: true
+  trillian:
+    database:
+      create: true
+    monitoring:
+      enabled: true
+  fulcio:
+    externalAccess:
+      enabled: true
+    config:
+      OIDCIssuers:
+        - ClientID: "trusted-artifact-signer"
+          IssuerURL: "https://your-oidc-issuer-url"
+          Issuer: "https://your-oidc-issuer-url"
+          Type: "email"
+    certificate:
+      # Use PKCS#11 HSM-backed CA instead of file-based
+      caType: pkcs11
+      # Reference to the pre-provisioned root CA certificate on the HSM
+      caRef:
+        name: fulcio-pkcs11-root-cert
+        key: ca.crt
+      # PKCS#11 HSM configuration
+      pkcs11:
+        # HSM PIN credential reference
+        credentialsRef:
+          name: hsm-credentials
+          key: pin
+        # PKCS#11 configuration file reference (e.g., crypto11.conf)
+        pkcs11ConfigRef:
+          name: pkcs11-config
+          key: crypto11.conf
+        # Key configuration for identifying the CA root key in the HSM
+        keyConfig:
+          id: 99
+          label: PKCS11CA
+        # Init containers for HSM setup (vendor-specific)
+        # This SoftHSM2 example initializes a token from a pre-existing db
+        initContainers:
+          - name: softhsm-init
+            image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+            command: ["/bin/sh", "-c"]
+            args:
+              - |
+                echo "Initializing SoftHSM2 token store..."
+                cp -r /var/lib/hsm-seed/* /var/lib/hsm/tokens/ || true
+                echo "SoftHSM2 token store ready."
+            volumeMounts:
+              - name: hsm-tokens
+                mountPath: /var/lib/hsm/tokens
+              # Mount your pre-seeded token database here
+              # - name: hsm-seed
+              #   mountPath: /var/lib/hsm-seed
+              #   readOnly: true
+        # Additional environment variables for the Fulcio server container
+        serverEnv:
+          - name: SOFTHSM2_CONF
+            value: /etc/fulcio-pkcs11/crypto11.conf
+        # Additional volume mounts for the Fulcio server container
+        serverVolumeMounts: []
+        # Additional pod-level volumes
+        volumes: []
+    monitoring:
+      enabled: true
+  tuf:
+    externalAccess:
+      enabled: true
+    signingConfigURLMode: external
+    keys:
+      - name: rekor.pub
+      - name: ctfe.pub
+      - name: fulcio_v1.crt.pem
+      - name: tsa.certchain.pem
+    rootKeySecretRef:
+      name: tuf-root-keys
+    pvc:
+      accessModes:
+        - ReadWriteOnce
+      retain: true
+      size: 100Mi
+  ctlog:
+    monitoring:
+      enabled: true
+  tsa:
+    externalAccess:
+      enabled: true
+    monitoring:
+      enabled: true
+    ntpMonitoring:
+      enabled: true
+    signer:
+      certificateChain:
+        rootCA:
+          organizationName: Red Hat
+          organizationEmail: jdoe@redhat.com
+          commonName: tsa.hostname-root
+        intermediateCA:
+          - organizationName: Red Hat
+            organizationEmail: jdoe@redhat.com
+            commonName: tsa.hostname-intermediate
+        leafCA:
+          organizationName: Red Hat
+          organizationEmail: jdoe@redhat.com
+          commonName: tsa.hostname-leaf

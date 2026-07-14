@@ -16,6 +16,8 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 		return err
 	}
 	dst.Spec.Fulcio.ImagePullSecrets = restored.Spec.Fulcio.ImagePullSecrets
+	dst.Spec.Fulcio.Certificate.CAType = restored.Spec.Fulcio.Certificate.CAType
+	dst.Spec.Fulcio.Certificate.PKCS11 = restored.Spec.Fulcio.Certificate.PKCS11
 	dst.Spec.Ctlog.ImagePullSecrets = restored.Spec.Ctlog.ImagePullSecrets
 	dst.Spec.Ctlog.TrustedCA = restored.Spec.Ctlog.TrustedCA
 	dst.Spec.Rekor.ImagePullSecrets = restored.Spec.Rekor.ImagePullSecrets

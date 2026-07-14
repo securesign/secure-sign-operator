@@ -35,18 +35,16 @@ type FulcioSpec struct {
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
 }
 
-// FulcioCert defines fields for system-generated certificate
+// FulcioCert defines fields for certificate configuration.
 // +kubebuilder:validation:XValidation:rule=(has(self.caRef) || self.organizationName != ""),message=organizationName cannot be empty
 // +kubebuilder:validation:XValidation:rule=(!has(self.caRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
 type FulcioCert struct {
-	// Reference to CA private key
 	//+optional
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
 	// Reference to password to encrypt CA private key
 	//+optional
 	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
 
-	// Reference to CA certificate
 	//+optional
 	CARef *SecretKeySelector `json:"caRef,omitempty"`
 

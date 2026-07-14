@@ -39,11 +39,15 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.Fulcio] {
 			ResolveRef:   resolveRef,
 			GenerateData: generateData,
 			AlignStatus:  alignStatus,
-			MutateSecret: func(_ *rhtasv1.Fulcio, secret *corev1.Secret) {
+			MutateSecret: func(instance *rhtasv1.Fulcio, secret *corev1.Secret) {
 				if secret.Labels == nil {
 					secret.Labels = make(map[string]string)
 				}
-				secret.Labels[FulcioCALabel] = constants.KeyCert
+				labelValue := constants.KeyCert
+				if instance.Spec.Certificate.CAType == rhtasv1.CATypePKCS11 && instance.Spec.Certificate.CARef != nil {
+					labelValue = instance.Spec.Certificate.CARef.Key
+				}
+				secret.Labels[FulcioCALabel] = labelValue
 			},
 			PasswordRef: func(i *rhtasv1.Fulcio) *rhtasv1.SecretKeySelector {
 				if i.Spec.Certificate.PrivateKeyRef != nil {
@@ -56,6 +60,19 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.Fulcio] {
 }
 
 func resolveRef(ctx context.Context, instance *rhtasv1.Fulcio, c client.Client) (*rhtasv1.SecretKeySelector, error) {
+	// PKCS#11 mode: caRef is required, privateKeyRef must NOT be set.
+	// The root CA cert is pre-provisioned by the user and referenced via caRef.
+	if instance.Spec.Certificate.CAType == rhtasv1.CATypePKCS11 {
+		if instance.Spec.Certificate.CARef == nil {
+			return nil, reconcile.TerminalError(fmt.Errorf("caRef is required when caType is pkcs11"))
+		}
+		if err := generateSigner.RequireSecret(ctx, c, instance.Namespace, instance.Spec.Certificate.CARef); err != nil {
+			return nil, err
+		}
+		return instance.Spec.Certificate.CARef, nil
+	}
+
+	// File-CA mode: existing behavior
 	if instance.Spec.Certificate.PrivateKeyRef == nil && instance.Spec.Certificate.CARef != nil {
 		return nil, reconcile.TerminalError(ErrMissingPrivateKey)
 	}
@@ -143,6 +160,18 @@ func alignStatus(instance *rhtasv1.Fulcio, ref rhtasv1.SecretKeySelector) {
 	if instance.Status.Certificate == nil {
 		instance.Status.Certificate = &rhtasv1.FulcioCertStatus{}
 	}
+
+	// PKCS#11 mode: no privateKeyRef, only caRef.
+	if instance.Spec.Certificate.CAType == rhtasv1.CATypePKCS11 {
+		instance.Status.Certificate.PrivateKeyRef = nil
+		instance.Status.Certificate.PrivateKeyPasswordRef = nil
+		if instance.Spec.Certificate.CARef != nil {
+			instance.Status.Certificate.CARef = instance.Spec.Certificate.CARef.DeepCopy()
+		}
+		return
+	}
+
+	// File-CA mode: existing behavior
 	if instance.Spec.Certificate.PrivateKeyRef != nil {
 		instance.Status.Certificate.PrivateKeyRef = instance.Spec.Certificate.PrivateKeyRef.DeepCopy()
 	} else {
