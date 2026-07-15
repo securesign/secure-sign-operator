@@ -37,8 +37,9 @@ type TrillianSpec struct {
 	//+optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
 
-	// MaxRecvMessageSize sets the maximum size in bytes for incoming gRPC messages handled by the Trillian logserver and logsigner
+	// MaxRecvMessageSize sets the maximum size in bytes for incoming gRPC messages handled by the Trillian logserver and logsigner.
 	//+optional
+	//+kubebuilder:validation:Minimum=0
 	MaxRecvMessageSize *int64 `json:"maxRecvMessageSize,omitempty"`
 	//Configuration for authentication for key management services
 	//+optional
@@ -58,6 +59,7 @@ type TrillianLogServer trillianService
 
 type TrillianLogSigner trillianService
 
+// +kubebuilder:validation:XValidation:rule="!has(self.create) || self.create != true || !has(self.provider) || self.provider == 'mysql'",message="When database is managed by the operator (create=true) provider must be mysql"
 type TrillianDB struct {
 	// Create Database if a database is not created one must be defined using the DatabaseSecret field
 	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
@@ -80,6 +82,7 @@ type TrillianDB struct {
 	// DB provider. Supported are mysql, postgresql.
 	//+kubebuilder:validation:Enum={mysql, postgresql}
 	//+optional
+	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
 	Provider string `json:"provider,omitempty"`
 	// DB connection URL.
 	//+optional

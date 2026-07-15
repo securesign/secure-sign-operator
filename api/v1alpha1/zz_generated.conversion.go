@@ -683,6 +683,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*v1.Pvc)(nil), (*TufPvc)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_Pvc_To_v1alpha1_TufPvc(a.(*v1.Pvc), b.(*TufPvc), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*v1.RekorAttestations)(nil), (*RekorAttestations)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_RekorAttestations_To_v1alpha1_RekorAttestations(a.(*v1.RekorAttestations), b.(*RekorAttestations), scope)
 	}); err != nil {
@@ -815,6 +820,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*TsaCertificateAuthority)(nil), (*v1.TsaCertificateAuthority)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_TsaCertificateAuthority_To_v1_TsaCertificateAuthority(a.(*TsaCertificateAuthority), b.(*v1.TsaCertificateAuthority), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*TufPvc)(nil), (*v1.Pvc)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_TufPvc_To_v1_Pvc(a.(*TufPvc), b.(*v1.Pvc), scope)
 	}); err != nil {
 		return err
 	}
