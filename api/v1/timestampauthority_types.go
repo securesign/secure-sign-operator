@@ -22,7 +22,6 @@ import (
 )
 
 // TimestampAuthoritySpec defines the desired state of TimestampAuthority
-// +kubebuilder:validation:XValidation:rule=!(has(self.signer.certificateChain.certificateChainRef) && (has(self.signer.certificateChain.intermediateCA) || has(self.signer.certificateChain.leafCA) || has(self.signer.certificateChain.rootCA))),message="when certificateChainRef is set, intermediateCA, leafCA, and rootCA must not be set"
 type TimestampAuthoritySpec struct {
 	PodRequirements      `json:",inline"`
 	ServiceAccountConfig `json:",inline"`
@@ -45,9 +44,8 @@ type TimestampAuthoritySpec struct {
 }
 
 // TimestampAuthoritySigner defines the desired state of the Timestamp Authority Signer
-// +kubebuilder:validation:XValidation:rule=(!(has(self.file) || has(self.kms) || has(self.tink)) || has(self.certificateChain.certificateChainRef)),message="signer config needs a matching cert chain in certificateChain.certificateChainRef"
-// +kubebuilder:validation:XValidation:rule=(has(self.file) || has(self.kms) || has(self.tink) || !has(self.certificateChain.certificateChainRef)),message="certificateChainRef should not be present if no signers are configured"
-// +kubebuilder:validation:XValidation:rule=(!(has(self.file) && has(self.kms)) && !(has(self.file) && has(self.tink)) && !(has(self.kms) && has(self.tink))),message="only one signer should be configured at any time"
+// +kubebuilder:validation:XValidation:rule="(has(self.file) || has(self.kms) || has(self.tink)) == has(self.certificateChain.certificateChainRef)",message="external signer (file/kms/tink) and certificateChainRef must be configured together"
+// +kubebuilder:validation:XValidation:rule="[has(self.file), has(self.kms), has(self.tink)].filter(x, x).size() <= 1",message="only one signer should be configured at any time"
 type TimestampAuthoritySigner struct {
 	//Configuration for the Certificate Chain
 	//+required
@@ -67,9 +65,8 @@ type TimestampAuthoritySigner struct {
 }
 
 // Certificate chain config
-// +kubebuilder:validation:XValidation:rule=(has(self.certificateChainRef) || self.rootCA.organizationName != ""),message=organizationName cannot be empty for root certificate authority
-// +kubebuilder:validation:XValidation:rule=(has(self.certificateChainRef) || self.leafCA.organizationName != ""),message=organizationName cannot be empty for leaf certificate authority
-// +kubebuilder:validation:XValidation:rule=(has(self.certificateChainRef) || self.intermediateCA[0].organizationName != ""),message="organizationName cannot be empty for intermediate certificate authority, please make sure all are in place"
+// +kubebuilder:validation:XValidation:rule="has(self.certificateChainRef) || (has(self.rootCA) && has(self.leafCA) && has(self.intermediateCA) && self.intermediateCA.size() > 0)",message="rootCA/leafCA/intermediateCA are all required when certificateChainRef is not provided"
+// +kubebuilder:validation:XValidation:rule="!has(self.certificateChainRef) || (!has(self.rootCA) && !has(self.leafCA) && !has(self.intermediateCA))",message="rootCA/leafCA/intermediateCA must not be set when certificateChainRef is provided"
 type CertificateChain struct {
 	//Reference to the certificate chain
 	//+optional
@@ -91,9 +88,10 @@ type TsaCertificateAuthority struct {
 	//If not provided, the common name will default to the host name.
 	//+optional
 	CommonName string `json:"commonName,omitempty"`
-	//+optional
 	//OrganizationName specifies the Organization Name for the TimeStampAuthorities cert chain.
-	OrganizationName string `json:"organizationName,omitempty"`
+	//+required
+	//+kubebuilder:validation:MinLength=1
+	OrganizationName string `json:"organizationName"`
 	//+optional
 	//Organization Email specifies the Organization Email for the TimeStampAuthorities cert chain.
 	OrganizationEmail string `json:"organizationEmail,omitempty"`
@@ -108,25 +106,27 @@ type File struct {
 	// +optional
 	PasswordRef *SecretKeySelector `json:"passwordRef,omitempty"`
 	//Reference to the signer's root private key
-	//+optional
-	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+	//+required
+	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef"`
 }
 
 // TSA KMS signer config
+// +kubebuilder:validation:XValidation:rule="self.keyResource.matches('^(gcpkms|azurekms|hashivault|awskms)://.+$')",message="keyResource must be a valid KMS URI (gcpkms://, azurekms://, hashivault://, or awskms://)"
 type KMS struct {
 	//KMS key for signing timestamp responses. Valid options include: [gcpkms://resource, azurekms://resource, hashivault://resource, awskms://resource]
 	//+required
-	KeyResource string `json:"keyResource,omitempty"`
+	KeyResource string `json:"keyResource"`
 }
 
 // TSA Tink signer config
+// +kubebuilder:validation:XValidation:rule="self.keyResource.matches('^(gcp-kms|aws-kms|hcvault)://.+$')",message="keyResource must be a valid Tink KMS URI (gcp-kms://, aws-kms://, or hcvault://)"
 type Tink struct {
 	//KMS key for signing timestamp responses for Tink keysets. Valid options include: [gcp-kms://resource, aws-kms://resource, hcvault://]"
 	//+required
-	KeyResource string `json:"keyResource,omitempty"`
+	KeyResource string `json:"keyResource"`
 	//+required
 	//Path to KMS-encrypted keyset for Tink, decrypted by TinkKeyResource
-	KeysetRef *SecretKeySelector `json:"keysetRef,omitempty"`
+	KeysetRef *SecretKeySelector `json:"keysetRef"`
 }
 
 type NTPMonitoring struct {

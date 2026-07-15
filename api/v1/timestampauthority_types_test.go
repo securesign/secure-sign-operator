@@ -96,7 +96,7 @@ var _ = Describe("TSA", func() {
 				invalidObject.Spec.Signer.CertificateChain.RootCA.OrganizationName = ""
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("organizationName cannot be empty for root certificate authority")))
+					To(MatchError(ContainSubstring("organizationName in body should be at least 1 chars long")))
 			})
 
 			It("missing org name for intermediate CA", func() {
@@ -104,7 +104,7 @@ var _ = Describe("TSA", func() {
 				invalidObject.Spec.Signer.CertificateChain.IntermediateCA[0].OrganizationName = ""
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("organizationName cannot be empty for intermediate certificate authority, please make sure all are in place")))
+					To(MatchError(ContainSubstring("organizationName in body should be at least 1 chars long")))
 			})
 
 			It("missing org name for leaf CA", func() {
@@ -112,13 +112,19 @@ var _ = Describe("TSA", func() {
 				invalidObject.Spec.Signer.CertificateChain.LeafCA.OrganizationName = ""
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("organizationName cannot be empty for leaf certificate authority")))
+					To(MatchError(ContainSubstring("organizationName in body should be at least 1 chars long")))
 			})
 
 			It("only one signer is configured at any time", func() {
 				invalidObject := generateMinimalTSA("more-than-one-signer")
+				invalidObject.Spec.Signer.CertificateChain = CertificateChain{
+					CertificateChainRef: &SecretKeySelector{
+						Key:                  "chain",
+						LocalObjectReference: LocalObjectReference{Name: "chain-secret"},
+					},
+				}
 				invalidObject.Spec.Signer.Tink = &Tink{
-					KeyResource: "tink-resource",
+					KeyResource: "gcp-kms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
 					KeysetRef: &SecretKeySelector{
 						Key:                  "tink-resource",
 						LocalObjectReference: LocalObjectReference{Name: "tink-resource"},
@@ -133,6 +139,174 @@ var _ = Describe("TSA", func() {
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
 					To(MatchError(ContainSubstring("only one signer should be configured at any time")))
+			})
+
+			It("signer requires certificateChainRef", func() {
+				invalidObject := generateMinimalTSA("signer-no-chainref")
+				invalidObject.Spec.Signer.File = &File{
+					PrivateKeyRef: &SecretKeySelector{
+						Key:                  "private",
+						LocalObjectReference: LocalObjectReference{Name: "private-key-signer"},
+					},
+				}
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("external signer (file/kms/tink) and certificateChainRef must be configured together")))
+			})
+
+			It("certificateChainRef requires signer", func() {
+				invalidObject := generateMinimalTSA("chainref-no-signer")
+				invalidObject.Spec.Signer.CertificateChain = CertificateChain{
+					CertificateChainRef: &SecretKeySelector{
+						Key:                  "chain",
+						LocalObjectReference: LocalObjectReference{Name: "chain-secret"},
+					},
+				}
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("external signer (file/kms/tink) and certificateChainRef must be configured together")))
+			})
+
+			It("certificateChainRef excludes CA fields", func() {
+				invalidObject := generateMinimalTSA("chainref-with-ca")
+				invalidObject.Spec.Signer.CertificateChain.CertificateChainRef = &SecretKeySelector{
+					Key:                  "chain",
+					LocalObjectReference: LocalObjectReference{Name: "chain-secret"},
+				}
+				invalidObject.Spec.Signer.File = &File{
+					PrivateKeyRef: &SecretKeySelector{
+						Key:                  "private",
+						LocalObjectReference: LocalObjectReference{Name: "private-key-signer"},
+					},
+				}
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("rootCA/leafCA/intermediateCA must not be set when certificateChainRef is provided")))
+			})
+
+			It("file signer requires privateKeyRef", func() {
+				invalidObject := generateMinimalTSA("file-no-key")
+				invalidObject.Spec.Signer.CertificateChain = CertificateChain{
+					CertificateChainRef: &SecretKeySelector{
+						Key:                  "chain",
+						LocalObjectReference: LocalObjectReference{Name: "chain-secret"},
+					},
+				}
+				invalidObject.Spec.Signer.File = &File{}
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("privateKeyRef")))
+			})
+
+			It("valid file signer with certificateChainRef", func() {
+				validObject := generateMinimalTSA("valid-file-signer")
+				validObject.Spec.Signer = TimestampAuthoritySigner{
+					CertificateChain: CertificateChain{
+						CertificateChainRef: &SecretKeySelector{
+							Key:                  "chain",
+							LocalObjectReference: LocalObjectReference{Name: "chain-secret"},
+						},
+					},
+					File: &File{
+						PrivateKeyRef: &SecretKeySelector{
+							Key:                  "private",
+							LocalObjectReference: LocalObjectReference{Name: "private-key-signer"},
+						},
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("missing intermediateCA", func() {
+				invalidObject := generateMinimalTSA("missing-intermediate")
+				invalidObject.Spec.Signer.CertificateChain.IntermediateCA = nil
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("rootCA/leafCA/intermediateCA are all required when certificateChainRef is not provided")))
+			})
+
+			It("empty intermediateCA array", func() {
+				invalidObject := generateMinimalTSA("empty-intermediate")
+				invalidObject.Spec.Signer.CertificateChain.IntermediateCA = []*TsaCertificateAuthority{}
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("rootCA/leafCA/intermediateCA are all required when certificateChainRef is not provided")))
+			})
+
+			It("valid KMS signer with certificateChainRef", func() {
+				validObject := generateMinimalTSA("valid-kms-signer")
+				validObject.Spec.Signer = TimestampAuthoritySigner{
+					CertificateChain: CertificateChain{
+						CertificateChainRef: &SecretKeySelector{
+							Key:                  "chain",
+							LocalObjectReference: LocalObjectReference{Name: "chain-secret"},
+						},
+					},
+					Kms: &KMS{
+						KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("valid Tink signer with certificateChainRef", func() {
+				validObject := generateMinimalTSA("valid-tink-signer")
+				validObject.Spec.Signer = TimestampAuthoritySigner{
+					CertificateChain: CertificateChain{
+						CertificateChainRef: &SecretKeySelector{
+							Key:                  "chain",
+							LocalObjectReference: LocalObjectReference{Name: "chain-secret"},
+						},
+					},
+					Tink: &Tink{
+						KeyResource: "gcp-kms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
+						KeysetRef: &SecretKeySelector{
+							Key:                  "keyset",
+							LocalObjectReference: LocalObjectReference{Name: "tink-keyset"},
+						},
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("invalid KMS URI", func() {
+				invalidObject := generateMinimalTSA("invalid-kms-uri")
+				invalidObject.Spec.Signer = TimestampAuthoritySigner{
+					CertificateChain: CertificateChain{
+						CertificateChainRef: &SecretKeySelector{
+							Key:                  "chain",
+							LocalObjectReference: LocalObjectReference{Name: "chain-secret"},
+						},
+					},
+					Kms: &KMS{
+						KeyResource: "invalid://key",
+					},
+				}
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("keyResource must be a valid KMS URI")))
+			})
+
+			It("invalid Tink URI", func() {
+				invalidObject := generateMinimalTSA("invalid-tink-uri")
+				invalidObject.Spec.Signer = TimestampAuthoritySigner{
+					CertificateChain: CertificateChain{
+						CertificateChainRef: &SecretKeySelector{
+							Key:                  "chain",
+							LocalObjectReference: LocalObjectReference{Name: "chain-secret"},
+						},
+					},
+					Tink: &Tink{
+						KeyResource: "invalid://key",
+						KeysetRef: &SecretKeySelector{
+							Key:                  "keyset",
+							LocalObjectReference: LocalObjectReference{Name: "tink-keyset"},
+						},
+					},
+				}
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("keyResource must be a valid Tink KMS URI")))
 			})
 
 			When("replicas", func() {
