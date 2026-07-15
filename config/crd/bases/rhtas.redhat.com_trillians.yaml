@@ -264,6 +264,9 @@ spec:
                     - mysql
                     - postgresql
                     type: string
+                    x-kubernetes-validations:
+                    - message: Field is immutable
+                      rule: (self == oldSelf)
                   pvc:
                     description: PVC configuration
                     properties:
@@ -362,6 +365,11 @@ spec:
                     description: DB connection URL.
                     type: string
                 type: object
+                x-kubernetes-validations:
+                - message: When database is managed by the operator (create=true)
+                    provider must be mysql
+                  rule: '!has(self.create) || self.create != true || !has(self.provider)
+                    || self.provider == ''mysql'''
               imagePullSecrets:
                 description: |-
                   ImagePullSecrets is an optional list of references to secrets in the same namespace
@@ -388,6 +396,7 @@ spec:
                 description: MaxRecvMessageSize sets the maximum size in bytes for
                   incoming gRPC messages handled by the Trillian logserver and logsigner
                 format: int64
+                minimum: 1
                 type: integer
               monitoring:
                 description: Enable Monitoring for Logsigner and Logserver

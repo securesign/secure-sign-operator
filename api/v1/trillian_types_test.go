@@ -97,6 +97,30 @@ var _ = Describe("Trillian", func() {
 					To(MatchError(ContainSubstring("Field is immutable")))
 			})
 
+			It("create=true with postgresql provider is rejected", func() {
+				invalidObject := generateMinimalTrillian("create-postgresql")
+				invalidObject.Spec.Db.Create = ptr.To(true)
+				invalidObject.Spec.Db.Provider = "postgresql"
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("provider must be mysql")))
+			})
+
+			It("immutable database provider", func() {
+				validObject := generateMinimalTrillian("immutable-provider")
+				validObject.Spec.Db.Create = ptr.To(false)
+				validObject.Spec.Db.Provider = "postgresql"
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+
+				invalidObject := &Trillian{}
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(validObject), invalidObject)).To(Succeed())
+				invalidObject.Spec.Db.Provider = "mysql"
+
+				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Update(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("Field is immutable")))
+			})
+
 			It("checking pvc name", func() {
 				invalidObject := generateMinimalTrillian("trillian3")
 				invalidObject.Spec.Db.Pvc.Name = "-invalid-name!"
