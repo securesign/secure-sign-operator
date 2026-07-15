@@ -213,6 +213,7 @@ var _ = Describe("TUF controller", func() {
 								{
 									ClientID: "test",
 									Issuer:   "test",
+									Type:     "email",
 								},
 							},
 						},
