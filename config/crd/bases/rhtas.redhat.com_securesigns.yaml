@@ -9302,7 +9302,10 @@ spec:
                                 organizationName:
                                   description: OrganizationName specifies the Organization
                                     Name for the TimeStampAuthorities cert chain.
+                                  minLength: 1
                                   type: string
+                              required:
+                              - organizationName
                               type: object
                             type: array
                           leafCA:
@@ -9320,7 +9323,10 @@ spec:
                               organizationName:
                                 description: OrganizationName specifies the Organization
                                   Name for the TimeStampAuthorities cert chain.
+                                minLength: 1
                                 type: string
+                            required:
+                            - organizationName
                             type: object
                           rootCA:
                             description: Root Certificate Authority Config
@@ -9337,22 +9343,22 @@ spec:
                               organizationName:
                                 description: OrganizationName specifies the Organization
                                   Name for the TimeStampAuthorities cert chain.
+                                minLength: 1
                                 type: string
+                            required:
+                            - organizationName
                             type: object
                         type: object
                         x-kubernetes-validations:
-                        - message: organizationName cannot be empty for root certificate
-                            authority
-                          rule: (has(self.certificateChainRef) || self.rootCA.organizationName
-                            != "")
-                        - message: organizationName cannot be empty for leaf certificate
-                            authority
-                          rule: (has(self.certificateChainRef) || self.leafCA.organizationName
-                            != "")
-                        - message: organizationName cannot be empty for intermediate
-                            certificate authority, please make sure all are in place
-                          rule: (has(self.certificateChainRef) || self.intermediateCA[0].organizationName
-                            != "")
+                        - message: rootCA/leafCA/intermediateCA are all required when
+                            certificateChainRef is not provided
+                          rule: has(self.certificateChainRef) || (has(self.rootCA)
+                            && has(self.leafCA) && has(self.intermediateCA) && self.intermediateCA.size()
+                            > 0)
+                        - message: rootCA/leafCA/intermediateCA must not be set when
+                            certificateChainRef is provided
+                          rule: '!has(self.certificateChainRef) || (!has(self.rootCA)
+                            && !has(self.leafCA) && !has(self.intermediateCA))'
                       file:
                         description: Configuration for file-based signer
                         properties:
@@ -9396,6 +9402,8 @@ spec:
                             - name
                             type: object
                             x-kubernetes-map-type: atomic
+                        required:
+                        - privateKeyRef
                         type: object
                       kms:
                         description: Configuration for KMS based signer
@@ -9408,6 +9416,10 @@ spec:
                         required:
                         - keyResource
                         type: object
+                        x-kubernetes-validations:
+                        - message: keyResource must be a valid KMS URI (gcpkms://,
+                            azurekms://, hashivault://, or awskms://)
+                          rule: self.keyResource.matches('^(gcpkms|azurekms|hashivault|awskms)://.+$')
                       tink:
                         description: Configuration for Tink based signer
                         properties:
@@ -9439,20 +9451,21 @@ spec:
                         - keyResource
                         - keysetRef
                         type: object
+                        x-kubernetes-validations:
+                        - message: keyResource must be a valid Tink KMS URI (gcp-kms://,
+                            aws-kms://, or hcvault://)
+                          rule: self.keyResource.matches('^(gcp-kms|aws-kms|hcvault)://.+$')
                     required:
                     - certificateChain
                     type: object
                     x-kubernetes-validations:
-                    - message: signer config needs a matching cert chain in certificateChain.certificateChainRef
-                      rule: (!(has(self.file) || has(self.kms) || has(self.tink))
-                        || has(self.certificateChain.certificateChainRef))
-                    - message: certificateChainRef should not be present if no signers
-                        are configured
-                      rule: (has(self.file) || has(self.kms) || has(self.tink) ||
-                        !has(self.certificateChain.certificateChainRef))
+                    - message: external signer (file/kms/tink) and certificateChainRef
+                        must be configured together
+                      rule: (has(self.file) || has(self.kms) || has(self.tink)) ==
+                        has(self.certificateChain.certificateChainRef)
                     - message: only one signer should be configured at any time
-                      rule: (!(has(self.file) && has(self.kms)) && !(has(self.file)
-                        && has(self.tink)) && !(has(self.kms) && has(self.tink)))
+                      rule: '[has(self.file), has(self.kms), has(self.tink)].filter(x,
+                        x).size() <= 1'
                   tolerations:
                     items:
                       description: |-
@@ -9507,12 +9520,6 @@ spec:
                 required:
                 - signer
                 type: object
-                x-kubernetes-validations:
-                - message: when certificateChainRef is set, intermediateCA, leafCA,
-                    and rootCA must not be set
-                  rule: '!(has(self.signer.certificateChain.certificateChainRef) &&
-                    (has(self.signer.certificateChain.intermediateCA) || has(self.signer.certificateChain.leafCA)
-                    || has(self.signer.certificateChain.rootCA)))'
               tuf:
                 description: TufSpec defines the desired state of Tuf
                 properties:
