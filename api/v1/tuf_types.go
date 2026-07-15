@@ -22,14 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// TufSigningConfigURLMode controls which URLs are used in the TUF signing config.
-// +kubebuilder:validation:Enum:=external;internal
-type TufSigningConfigURLMode string
-
 const (
-	SigningConfigURLExternal TufSigningConfigURLMode = "external"
-	SigningConfigURLInternal TufSigningConfigURLMode = "internal"
-
 	TufKeyRekor  = "rekor.pub"
 	TufKeyCTFE   = "ctfe.pub"
 	TufKeyFulcio = "fulcio_v1.crt.pem"
@@ -40,9 +33,6 @@ const (
 type TufSpec struct {
 	PodRequirements      `json:",inline"`
 	ServiceAccountConfig `json:",inline"`
-	// SigningConfigURLMode is deprecated. URL mode is now autoresolved from Component Custom Resources.
-	// +kubebuilder:validation:Deprecated=true
-	SigningConfigURLMode TufSigningConfigURLMode `json:"signingConfigURLMode,omitempty"`
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
 	//+kubebuilder:validation:Minimum:=1
@@ -50,6 +40,8 @@ type TufSpec struct {
 	Port int32 `json:"port,omitempty"`
 	// List of TUF targets which will be added to TUF root
 	//+kubebuilder:validation:MinItems:=1
+	// +listType=map
+	// +listMapKey=name
 	Keys []TufKey `json:"keys,omitempty"`
 	// Secret object reference that will hold you repository root keys. This parameter will be used only with operator-managed repository.
 	RootKeySecretRef *LocalObjectReference `json:"rootKeySecretRef,omitempty"`
@@ -98,6 +90,8 @@ func (s TufKeyStatus) MatchesSpec(spec TufKey) bool {
 
 // TufStatus defines the observed state of Tuf
 type TufStatus struct {
+	// +listType=map
+	// +listMapKey=name
 	Keys    []TufKeyStatus `json:"keys,omitempty"`
 	PvcName string         `json:"pvcName,omitempty"`
 	Url     string         `json:"url,omitempty"`

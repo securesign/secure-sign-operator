@@ -3129,7 +3129,6 @@ func autoConvert_v1alpha1_TufSpec_To_v1_TufSpec(in *TufSpec, out *v1.TufSpec, s 
 	if err := Convert_v1alpha1_PodRequirements_To_v1_PodRequirements(&in.PodRequirements, &out.PodRequirements, s); err != nil {
 		return err
 	}
-	out.SigningConfigURLMode = v1.TufSigningConfigURLMode(in.SigningConfigURLMode)
 	if err := Convert_v1alpha1_ExternalAccess_To_v1_ExternalAccess(&in.ExternalAccess, &out.ExternalAccess, s); err != nil {
 		return err
 	}
@@ -3164,7 +3163,6 @@ func autoConvert_v1_TufSpec_To_v1alpha1_TufSpec(in *v1.TufSpec, out *TufSpec, s 
 		return err
 	}
 	// WARNING: in.ServiceAccountConfig requires manual conversion: does not exist in peer-type
-	out.SigningConfigURLMode = TufSigningConfigURLMode(in.SigningConfigURLMode)
 	if err := Convert_v1_ExternalAccess_To_v1alpha1_ExternalAccess(&in.ExternalAccess, &out.ExternalAccess, s); err != nil {
 		return err
 	}

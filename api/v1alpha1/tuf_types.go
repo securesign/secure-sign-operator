@@ -22,22 +22,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// TufSigningConfigURLMode controls which URLs are used in the TUF signing config.
-// +kubebuilder:validation:Enum:=external;internal
-type TufSigningConfigURLMode string
-
-const (
-	SigningConfigURLExternal TufSigningConfigURLMode = "external"
-	SigningConfigURLInternal TufSigningConfigURLMode = "internal"
-)
-
 // TufSpec defines the desired state of Tuf
 type TufSpec struct {
 	PodRequirements `json:",inline"`
-	// SigningConfigURLMode is deprecated. URL mode is now autoresolved from Component Custom Resources.
-	//+kubebuilder:default:=external
-	// +kubebuilder:validation:Deprecated=true
-	SigningConfigURLMode TufSigningConfigURLMode `json:"signingConfigURLMode,omitempty"`
 	// Define whether you want to export service or not
 	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
 	//+kubebuilder:default:=80
@@ -47,6 +34,8 @@ type TufSpec struct {
 	// List of TUF targets which will be added to TUF root
 	//+kubebuilder:default:={{name: rekor.pub},{name: ctfe.pub},{name: fulcio_v1.crt.pem},{name: tsa.certchain.pem}}
 	//+kubebuilder:validation:MinItems:=1
+	// +listType=map
+	// +listMapKey=name
 	Keys []TufKey `json:"keys,omitempty"`
 	// Secret object reference that will hold you repository root keys. This parameter will be used only with operator-managed repository.
 	//+kubebuilder:default:={name: tuf-root-keys}
@@ -113,6 +102,8 @@ type TufKey struct {
 
 // TufStatus defines the observed state of Tuf
 type TufStatus struct {
+	// +listType=map
+	// +listMapKey=name
 	Keys    []TufKey `json:"keys,omitempty"`
 	PvcName string   `json:"pvcName,omitempty"`
 	Url     string   `json:"url,omitempty"`
