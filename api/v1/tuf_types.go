@@ -19,7 +19,6 @@ package v1
 import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
-	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -56,7 +55,7 @@ type TufSpec struct {
 	RootKeySecretRef *LocalObjectReference `json:"rootKeySecretRef,omitempty"`
 	// Pvc configuration of the persistent storage claim for deployment in the cluster.
 	// You can use ReadWriteOnce accessMode if you don't have suitable storage provider but your deployment will not support HA mode
-	Pvc TufPvc `json:"pvc,omitempty"`
+	Pvc Pvc `json:"pvc,omitempty"`
 	// Ctlog service configuration
 	//+optional
 	Ctlog CtlogService `json:"ctlog,omitempty"`
@@ -73,32 +72,6 @@ type TufSpec struct {
 	// ConfigMap with additional bundle of trusted CA
 	// +optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
-}
-
-// TufPvc configuration of the persistent storage claim for deployment in the cluster.
-// +kubebuilder:validation:XValidation:rule="oldSelf == null || has(self.name) || (!has(oldSelf.storageClass) || has(self.storageClass) && oldSelf.storageClass == self.storageClass)",message="storageClass is immutable when a PVC name is not specified"
-// +kubebuilder:validation:XValidation:rule="oldSelf == null || has(self.name) || (!has(oldSelf.accessModes) || has(self.accessModes) && oldSelf.accessModes == self.accessModes)",message="accessModes is immutable when a PVC name is not specified"
-type TufPvc struct {
-	// The requested size of the persistent volume attached to Pod.
-	// The format of this field matches that defined by kubernetes/apimachinery.
-	// See https://pkg.go.dev/k8s.io/apimachinery/pkg/api/resource#Quantity for more info on the format of this field.
-	Size *k8sresource.Quantity `json:"size,omitempty"`
-
-	// Retain policy for the PVC
-	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
-	Retain *bool `json:"retain,omitempty"`
-	// Name of the PVC
-	//+optional
-	//+kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
-	//+kubebuilder:validation:MinLength=1
-	//+kubebuilder:validation:MaxLength=253
-	Name string `json:"name,omitempty"`
-	// The name of the StorageClass to claim a PersistentVolume from.
-	//+optional
-	StorageClass string `json:"storageClass,omitempty"`
-	// PersistentVolume AccessModes. Configure ReadWriteMany for HA deployment.
-	//+kubebuilder:validation:MinItems:=1
-	AccessModes []PersistentVolumeAccessMode `json:"accessModes,omitempty"`
 }
 
 type TufKey struct {

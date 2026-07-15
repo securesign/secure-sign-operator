@@ -21,14 +21,9 @@ func (s *TufSpec) SetDefaults() {
 	if s.RootKeySecretRef == nil {
 		s.RootKeySecretRef = &LocalObjectReference{Name: "tuf-root-keys"}
 	}
+	if s.Pvc.Size == nil {
+		s.Pvc.Size = ptr.To(k8sresource.MustParse("100Mi"))
+	}
 	s.Pvc.SetDefaults()
 	s.Ctlog.SetDefaults()
-}
-
-func (s *TufPvc) SetDefaults() {
-	if s.Size == nil {
-		s.Size = ptr.To(k8sresource.MustParse("100Mi"))
-	}
-	setDefault(&s.Retain, ptr.To(true))
-	setDefaultSlice(&s.AccessModes, []PersistentVolumeAccessMode{"ReadWriteOnce"})
 }

@@ -69,3 +69,17 @@ func Convert_v1_TlogMonitoring_To_v1alpha1_TlogMonitoring(in *v1.TlogMonitoring,
 	}
 	return nil
 }
+
+func Convert_v1alpha1_TufPvc_To_v1_Pvc(in *TufPvc, out *v1.Pvc, s apiconversion.Scope) error {
+	pvc := Pvc(*in)
+	return Convert_v1alpha1_Pvc_To_v1_Pvc(&pvc, out, s)
+}
+
+func Convert_v1_Pvc_To_v1alpha1_TufPvc(in *v1.Pvc, out *TufPvc, s apiconversion.Scope) error {
+	var pvc Pvc
+	if err := Convert_v1_Pvc_To_v1alpha1_Pvc(in, &pvc, s); err != nil {
+		return err
+	}
+	*out = TufPvc(pvc)
+	return nil
+}
