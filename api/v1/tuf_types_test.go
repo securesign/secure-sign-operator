@@ -83,7 +83,6 @@ var _ = Describe("TUF", func() {
 			fetched := &Tuf{}
 			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 			Expect(fetched.Spec.Port).To(Equal(int32(80)))
-			Expect(fetched.Spec.SigningConfigURLMode).To(Equal(SigningConfigURLExternal))
 			Expect(fetched.Spec.Replicas).To(Equal(ptr.To(int32(1))))
 			Expect(fetched.Spec.RootKeySecretRef).To(Equal(&LocalObjectReference{Name: "tuf-root-keys"}))
 			Expect(fetched.Spec.Keys).To(ConsistOf(
@@ -128,6 +127,17 @@ var _ = Describe("TUF", func() {
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
 					To(MatchError(And(ContainSubstring("Unsupported value:"), ContainSubstring("supported values: \"rekor.pub\", \"ctfe.pub\", \"fulcio_v1.crt.pem\", \"tsa.certchain.pem\""))))
+			})
+
+			It("duplicate key names are rejected", func() {
+				invalidObject := generateMinimalTuf("duplicate-key")
+				invalidObject.Spec.Keys = []TufKey{
+					{Name: "rekor.pub"},
+					{Name: "rekor.pub"},
+				}
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("Duplicate value")))
 			})
 
 			When("replicas", func() {
@@ -184,8 +194,7 @@ var _ = Describe("TUF", func() {
 						Namespace: "default",
 					},
 					Spec: TufSpec{
-						Port:                 8181,
-						SigningConfigURLMode: SigningConfigURLExternal,
+						Port: 8181,
 						ExternalAccess: ExternalAccess{
 							Enabled: ptr.To(true),
 							Host:    "hostname",

@@ -251,8 +251,7 @@ var _ = Describe("TUF", func() {
 							Namespace: "default",
 						},
 						Spec: TufSpec{
-							Port:                 8181,
-							SigningConfigURLMode: SigningConfigURLExternal,
+							Port: 8181,
 							ExternalAccess: ExternalAccess{
 								Enabled: true,
 								Host:    "hostname",
@@ -318,8 +317,7 @@ func generateTufObject(name string) *Tuf {
 			PodRequirements: PodRequirements{
 				Replicas: ptr.To(int32(1)),
 			},
-			Port:                 80,
-			SigningConfigURLMode: SigningConfigURLExternal,
+			Port: 80,
 			ExternalAccess: ExternalAccess{
 				Enabled: false,
 			},

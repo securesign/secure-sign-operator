@@ -1075,6 +1075,9 @@ spec:
                   type: object
                 minItems: 1
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               port:
                 format: int32
                 maximum: 65535
@@ -1222,13 +1225,6 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
-              signingConfigURLMode:
-                description: SigningConfigURLMode is deprecated. URL mode is now autoresolved
-                  from Component Custom Resources.
-                enum:
-                - external
-                - internal
-                type: string
               tolerations:
                 items:
                   description: |-
@@ -1383,6 +1379,9 @@ spec:
                   - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               pvcName:
                 type: string
               url:
@@ -2448,6 +2447,9 @@ spec:
                   type: object
                 minItems: 1
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               port:
                 default: 80
                 format: int32
@@ -2610,14 +2612,6 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
-              signingConfigURLMode:
-                default: external
-                description: SigningConfigURLMode is deprecated. URL mode is now autoresolved
-                  from Component Custom Resources.
-                enum:
-                - external
-                - internal
-                type: string
               tolerations:
                 items:
                   description: |-
@@ -2769,6 +2763,9 @@ spec:
                   - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               pvcName:
                 type: string
               url:
