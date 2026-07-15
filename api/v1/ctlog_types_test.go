@@ -62,7 +62,7 @@ var _ = Describe("CTlog", func() {
 		})
 
 		Context("is validated", func() {
-			It("public key", func() {
+			It("publicKeyRef requires privateKeyRef", func() {
 				invalidObject := generateMinimalCTlog("public-key-invalid")
 				invalidObject.Spec.PublicKeyRef = &SecretKeySelector{
 					Key:                  "key",
@@ -74,9 +74,9 @@ var _ = Describe("CTlog", func() {
 					To(MatchError(ContainSubstring("privateKeyRef cannot be empty")))
 			})
 
-			It("private key password", func() {
+			It("privateKeyPasswordRef requires privateKeyRef", func() {
 				invalidObject := generateMinimalCTlog("private-key-password-invalid")
-				invalidObject.Spec.PublicKeyRef = &SecretKeySelector{
+				invalidObject.Spec.PrivateKeyPasswordRef = &SecretKeySelector{
 					Key:                  "key",
 					LocalObjectReference: LocalObjectReference{Name: "name"},
 				}

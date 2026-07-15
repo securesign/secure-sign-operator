@@ -30,6 +30,7 @@ type CTlogSpec struct {
 	// The ID of a Trillian tree that stores the log data.
 	// If it is unset, the operator will create new Merkle tree in the Trillian backend
 	//+optional
+	//+kubebuilder:validation:Minimum=1
 	TreeID *int64 `json:"treeID,omitempty"`
 
 	// The private key used for signing STHs etc.
@@ -52,6 +53,7 @@ type CTlogSpec struct {
 	// List of secrets containing root certificates that are acceptable to the log.
 	// The certs are served through get-roots endpoint. Optional in mirrors.
 	//+optional
+	// +listType=atomic
 	RootCertificates []SecretKeySelector `json:"rootCertificates,omitempty"`
 
 	//Enable Service monitors for ctlog
@@ -72,6 +74,7 @@ type CTlogSpec struct {
 
 	// Max certificate chain size in bytes. Passed as --max_cert_chain_size.
 	//+optional
+	//+kubebuilder:validation:Minimum=1
 	MaxCertChainSize *int64 `json:"maxCertChainSize,omitempty"`
 
 	// ConfigMap with additional bundle of trusted CA
@@ -85,9 +88,9 @@ type CTlogStatus struct {
 	PrivateKeyRef         *SecretKeySelector    `json:"privateKeyRef,omitempty"`
 	PrivateKeyPasswordRef *SecretKeySelector    `json:"privateKeyPasswordRef,omitempty"`
 	PublicKeyRef          *SecretKeySelector    `json:"publicKeyRef,omitempty"`
-	RootCertificates      []SecretKeySelector   `json:"rootCertificates,omitempty"`
+	// +listType=atomic
+	RootCertificates []SecretKeySelector `json:"rootCertificates,omitempty"`
 	// The ID of a Trillian tree that stores the log data.
-	// +kubebuilder:validation:Type=number
 	TreeID *int64 `json:"treeID,omitempty"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
 	//+optional

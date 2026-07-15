@@ -981,6 +981,7 @@ spec:
               maxCertChainSize:
                 description: Max certificate chain size in bytes. Passed as --max_cert_chain_size.
                 format: int64
+                minimum: 1
                 type: integer
               monitoring:
                 description: Enable Service monitors for ctlog
@@ -1172,6 +1173,7 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 type: array
+                x-kubernetes-list-type: atomic
               serverConfigRef:
                 description: |-
                   Secret holding Certificate Transparency server config in text proto format
@@ -1277,6 +1279,7 @@ spec:
                   The ID of a Trillian tree that stores the log data.
                   If it is unset, the operator will create new Merkle tree in the Trillian backend
                 format: int64
+                minimum: 1
                 type: integer
               trillian:
                 description: Trillian service configuration
@@ -1445,6 +1448,7 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 type: array
+                x-kubernetes-list-type: atomic
               serverConfigRef:
                 description: |-
                   LocalObjectReference contains enough information to let you locate the
@@ -1508,7 +1512,7 @@ spec:
               treeID:
                 description: The ID of a Trillian tree that stores the log data.
                 format: int64
-                type: number
+                type: integer
               url:
                 type: string
             type: object
