@@ -144,7 +144,7 @@ var _ = Describe("Fulcio", func() {
 
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("At least one of OIDCIssuers or MetaIssuers must be defined")))
+					To(MatchError(ContainSubstring("At least one of oidcIssuers or metaIssuers must be defined")))
 			})
 
 			It("CIIssuerMetadata is set", func() {

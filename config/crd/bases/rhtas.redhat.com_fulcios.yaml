@@ -1040,19 +1040,19 @@ spec:
               config:
                 description: Fulcio Configuration
                 properties:
-                  CIIssuerMetadata:
+                  ciIssuerMetadata:
                     description: Metadata used for the CIProvider identity provider
                       principal
                     items:
                       properties:
-                        DefaultTemplateValues:
+                        defaultTemplateValues:
                           additionalProperties:
                             type: string
                           description: |-
                             Defaults contains key-value pairs that can be used for filling the templates from ExtensionTemplates
                             If a key cannot be found on the token claims, the template will use the defaults
                           type: object
-                        ExtensionTemplates:
+                        extensionTemplates:
                           description: |-
                             ExtensionTemplates contains a mapping between certificate extension and token claim
                             Provide either strings following https://pkg.go.dev/text/template syntax,
@@ -1060,82 +1060,82 @@ spec:
                             or non-templated strings with token claim keys to be replaced,
                             e.g "job_workflow_sha"
                           properties:
-                            BuildConfigDigest:
+                            buildConfigDigest:
                               description: Immutable reference to the specific version
                                 of the top-level/initiating build instructions.
                               type: string
-                            BuildConfigURI:
+                            buildConfigURI:
                               description: Build Config URL to the top-level/initiating
                                 build instructions.
                               type: string
-                            BuildSignerDigest:
+                            buildSignerDigest:
                               description: Immutable reference to the specific version
                                 of the build instructions that is responsible for
                                 signing.
                               type: string
-                            BuildSignerURI:
+                            buildSignerURI:
                               description: Reference to specific build instructions
                                 that are responsible for signing.
                               type: string
-                            BuildTrigger:
+                            buildTrigger:
                               description: Event or action that initiated the build.
                               type: string
-                            RunInvocationURI:
+                            runInvocationURI:
                               description: Run Invocation URL to uniquely identify
                                 the build execution.
                               type: string
-                            RunnerEnvironment:
+                            runnerEnvironment:
                               description: Specifies whether the build took place
                                 in platform-hosted cloud infrastructure or customer/self-hosted
                                 infrastructure.
                               type: string
-                            SourceRepositoryDigest:
+                            sourceRepositoryDigest:
                               description: Immutable reference to a specific version
                                 of the source code that the build was based upon.
                               type: string
-                            SourceRepositoryIdentifier:
+                            sourceRepositoryIdentifier:
                               description: Immutable identifier for the source repository
                                 the workflow was based upon.
                               type: string
-                            SourceRepositoryOwnerIdentifier:
+                            sourceRepositoryOwnerIdentifier:
                               description: Immutable identifier for the owner of the
                                 source repository that the workflow was based upon.
                               type: string
-                            SourceRepositoryOwnerURI:
+                            sourceRepositoryOwnerURI:
                               description: Source repository owner URL of the owner
                                 of the source repository that the build was based
                                 on.
                               type: string
-                            SourceRepositoryRef:
+                            sourceRepositoryRef:
                               description: Source Repository Ref that the build run
                                 was based upon.
                               type: string
-                            SourceRepositoryURI:
+                            sourceRepositoryURI:
                               description: Source repository URL that the build was
                                 based on.
                               type: string
-                            SourceRepositoryVisibilityAtSigning:
+                            sourceRepositoryVisibilityAtSigning:
                               description: Source repository visibility at the time
                                 of signing the certificate.
                               type: string
                           type: object
-                        IssuerName:
+                        issuerName:
                           description: Name of the issuer
                           minLength: 1
                           type: string
-                        SubjectAlternativeNameTemplate:
+                        subjectAlternativeNameTemplate:
                           description: |-
                             Template for the Subject Alternative Name extension
                             It's typically the same value as Build Signer URI
                           type: string
                       required:
-                      - IssuerName
+                      - issuerName
                       type: object
                     type: array
                     x-kubernetes-list-map-keys:
-                    - IssuerName
+                    - issuerName
                     x-kubernetes-list-type: map
-                  MetaIssuers:
+                  metaIssuers:
                     description: |-
                       A meta issuer has a templated URL of the form:
                         https://oidc.eks.*.amazonaws.com/id/*
@@ -1146,41 +1146,41 @@ spec:
                       * https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster
                     items:
                       properties:
-                        CIProvider:
-                          description: CIProvider is an optional configuration to
-                            map token claims to extensions for CI workflows
-                          type: string
-                        ChallengeClaim:
+                        challengeClaim:
                           description: |-
                             Optional, the challenge claim expected for the issuer
                             Set if using a custom issuer
                           type: string
-                        ClientID:
+                        ciProvider:
+                          description: CIProvider is an optional configuration to
+                            map token claims to extensions for CI workflows
+                          type: string
+                        clientID:
                           minLength: 1
                           type: string
-                        Issuer:
+                        issuer:
                           description: The expected issuer of an OIDC token
                           minLength: 1
                           type: string
-                        IssuerClaim:
+                        issuerClaim:
                           description: Optional, if the issuer is in a different claim
                             in the OIDC token
                           type: string
-                        IssuerURL:
+                        issuerURL:
                           description: The expected issuer of an OIDC token
                           type: string
-                        SPIFFETrustDomain:
+                        spiffeTrustDomain:
                           description: |-
                             SPIFFETrustDomain specifies the trust domain that 'spiffe' issuer types
                             issue ID tokens for. Tokens with a different trust domain will be
                             rejected.
                           type: string
-                        SubjectDomain:
+                        subjectDomain:
                           description: |-
                             The domain that must be present in the subject for 'uri' issuer types
                             Also used to create an email for 'username' issuer types
                           type: string
-                        Type:
+                        type:
                           description: |-
                             Used to determine the subject of the certificate and if additional
                             certificate values are needed
@@ -1198,53 +1198,53 @@ spec:
                           - ci-provider
                           type: string
                       required:
-                      - ClientID
-                      - Issuer
-                      - Type
+                      - clientID
+                      - issuer
+                      - type
                       type: object
                     type: array
                     x-kubernetes-list-map-keys:
-                    - Issuer
+                    - issuer
                     x-kubernetes-list-type: map
-                  OIDCIssuers:
+                  oidcIssuers:
                     description: OIDC Configuration
                     items:
                       properties:
-                        CIProvider:
-                          description: CIProvider is an optional configuration to
-                            map token claims to extensions for CI workflows
-                          type: string
-                        ChallengeClaim:
+                        challengeClaim:
                           description: |-
                             Optional, the challenge claim expected for the issuer
                             Set if using a custom issuer
                           type: string
-                        ClientID:
+                        ciProvider:
+                          description: CIProvider is an optional configuration to
+                            map token claims to extensions for CI workflows
+                          type: string
+                        clientID:
                           minLength: 1
                           type: string
-                        Issuer:
+                        issuer:
                           description: The expected issuer of an OIDC token
                           minLength: 1
                           type: string
-                        IssuerClaim:
+                        issuerClaim:
                           description: Optional, if the issuer is in a different claim
                             in the OIDC token
                           type: string
-                        IssuerURL:
+                        issuerURL:
                           description: The expected issuer of an OIDC token
                           type: string
-                        SPIFFETrustDomain:
+                        spiffeTrustDomain:
                           description: |-
                             SPIFFETrustDomain specifies the trust domain that 'spiffe' issuer types
                             issue ID tokens for. Tokens with a different trust domain will be
                             rejected.
                           type: string
-                        SubjectDomain:
+                        subjectDomain:
                           description: |-
                             The domain that must be present in the subject for 'uri' issuer types
                             Also used to create an email for 'username' issuer types
                           type: string
-                        Type:
+                        type:
                           description: |-
                             Used to determine the subject of the certificate and if additional
                             certificate values are needed
@@ -1262,19 +1262,19 @@ spec:
                           - ci-provider
                           type: string
                       required:
-                      - ClientID
-                      - Issuer
-                      - Type
+                      - clientID
+                      - issuer
+                      - type
                       type: object
                     type: array
                     x-kubernetes-list-map-keys:
-                    - Issuer
+                    - issuer
                     x-kubernetes-list-type: map
                 type: object
                 x-kubernetes-validations:
-                - message: At least one of OIDCIssuers or MetaIssuers must be defined
-                  rule: (has(self.OIDCIssuers) && (size(self.OIDCIssuers) > 0)) ||
-                    (has(self.MetaIssuers) && (size(self.MetaIssuers) > 0))
+                - message: At least one of oidcIssuers or metaIssuers must be defined
+                  rule: (has(self.oidcIssuers) && (size(self.oidcIssuers) > 0)) ||
+                    (has(self.metaIssuers) && (size(self.metaIssuers) > 0))
               ctlog:
                 description: Ctlog service configuration
                 properties:
