@@ -11,6 +11,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
@@ -42,39 +43,8 @@ func (i serverConfig) Name() string {
 	return "create server config"
 }
 
-type FulcioMapConfig struct {
-	OIDCIssuers      map[string]rhtasv1.OIDCIssuer       `yaml:"oidc-issuers"`
-	MetaIssuers      map[string]rhtasv1.OIDCIssuer       `yaml:"meta-issuers"`
-	CIIssuerMetadata map[string]rhtasv1.CIIssuerMetadata `yaml:"ci-issuer-metadata"`
-}
-
 func (i serverConfig) CanHandle(ctx context.Context, instance *rhtasv1.Fulcio) bool {
 	return state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
-}
-
-func ConvertToFulcioMapConfig(fulcioConfig rhtasv1.FulcioConfig) *FulcioMapConfig {
-	OIDCIssuers := make(map[string]rhtasv1.OIDCIssuer)
-	MetaIssuers := make(map[string]rhtasv1.OIDCIssuer)
-	CIIssuerMetadata := make(map[string]rhtasv1.CIIssuerMetadata)
-
-	for _, issuer := range fulcioConfig.OIDCIssuers {
-		OIDCIssuers[issuer.Issuer] = issuer
-	}
-
-	for _, issuer := range fulcioConfig.MetaIssuers {
-		MetaIssuers[issuer.Issuer] = issuer
-	}
-
-	for _, metadata := range fulcioConfig.CIIssuerMetadata {
-		CIIssuerMetadata[metadata.IssuerName] = metadata
-	}
-
-	fulcioMapConfig := &FulcioMapConfig{
-		OIDCIssuers:      OIDCIssuers,
-		MetaIssuers:      MetaIssuers,
-		CIIssuerMetadata: CIIssuerMetadata,
-	}
-	return fulcioMapConfig
 }
 
 func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *action.Result {
@@ -83,7 +53,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 	)
 	configLabel := labels.ForResource(ComponentName, DeploymentName, instance.Name, configResourceLabel)
 
-	config, err := yaml.Marshal(ConvertToFulcioMapConfig(instance.Spec.Config))
+	config, err := yaml.Marshal(utils.NewFulcioServerConfig(instance.Spec.Config))
 	if err != nil {
 		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not marshal fulcio config: %w", err)), instance)
 	}

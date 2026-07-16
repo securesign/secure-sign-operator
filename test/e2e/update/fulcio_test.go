@@ -15,6 +15,7 @@ import (
 	"github.com/securesign/operator/test/e2e/support/tas"
 
 	fulcioAction "github.com/securesign/operator/internal/controller/fulcio/actions"
+	fulcioUtils "github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
 	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
@@ -285,7 +286,7 @@ var _ = Describe("Fulcio update", Ordered, func() {
 
 			cm := &v1.ConfigMap{}
 			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: f.Status.ServerConfigRef.Name}, cm)).To(Succeed())
-			config := &fulcioAction.FulcioMapConfig{}
+			config := &fulcioUtils.FulcioServerConfig{}
 			Expect(yaml.Unmarshal([]byte(cm.Data["config.yaml"]), config)).To(Succeed())
 			Expect(config.OIDCIssuers).To(HaveKey("fake"))
 		})

@@ -66,17 +66,17 @@ type FulcioCert struct {
 }
 
 // FulcioConfig configuration of OIDC issuers
-// +kubebuilder:validation:XValidation:rule=(has(self.OIDCIssuers) && (size(self.OIDCIssuers) > 0)) || (has(self.MetaIssuers) && (size(self.MetaIssuers) > 0)),message=At least one of OIDCIssuers or MetaIssuers must be defined
+// +kubebuilder:validation:XValidation:rule=(has(self.oidcIssuers) && (size(self.oidcIssuers) > 0)) || (has(self.metaIssuers) && (size(self.metaIssuers) > 0)),message=At least one of oidcIssuers or metaIssuers must be defined
 // NOTE: the below validation (and a similar one for MetaIssuers) would be great to have, but unfortunately it can't be used because compiling it yields:
 // "Forbidden: estimated rule cost exceeds budget by factor of more than 100x". It is turned off for now, maybe this can be fixed in the future.
 // Note that the error message also suggests to use MaxItems/MaxLength on the involved arrays/strings, but that doesn't seem to work either.
-// kubebuilder:validation:XValidation:rule="!has(self.OIDCIssuers) || has(self.OIDCIssuers) && self.OIDCIssuers.all(i, (!has(i.CIProvider) || (has(i.CIProvider) && i.CIProvider in self.CIIssuerMetadata.map(n, n.IssuerName))))",message=All CIProvider values of OIDCIssuers must be present in CIIssuerMetadata
+// kubebuilder:validation:XValidation:rule="!has(self.oidcIssuers) || has(self.oidcIssuers) && self.oidcIssuers.all(i, (!has(i.ciProvider) || (has(i.ciProvider) && i.ciProvider in self.ciIssuerMetadata.map(n, n.issuerName))))",message=All CIProvider values of OIDCIssuers must be present in CIIssuerMetadata
 type FulcioConfig struct {
 	// OIDC Configuration
 	// +optional
 	// +listType=map
-	// +listMapKey=Issuer
-	OIDCIssuers []OIDCIssuer `json:"OIDCIssuers,omitempty" yaml:"oidc-issuers,omitempty"`
+	// +listMapKey=issuer
+	OIDCIssuers []OIDCIssuer `json:"oidcIssuers,omitempty"`
 
 	// A meta issuer has a templated URL of the form:
 	//   https://oidc.eks.*.amazonaws.com/id/*
@@ -87,108 +87,108 @@ type FulcioConfig struct {
 	// * https://container.googleapis.com/v1/projects/mattmoor-credit/locations/us-west1-b/clusters/tenant-cluster
 	// +optional
 	// +listType=map
-	// +listMapKey=Issuer
-	MetaIssuers []OIDCIssuer `json:"MetaIssuers,omitempty" yaml:"meta-issuers,omitempty"`
+	// +listMapKey=issuer
+	MetaIssuers []OIDCIssuer `json:"metaIssuers,omitempty"`
 
 	// Metadata used for the CIProvider identity provider principal
 	// +listType=map
-	// +listMapKey=IssuerName
-	CIIssuerMetadata []CIIssuerMetadata `json:"CIIssuerMetadata,omitempty" yaml:"ci-issuer-metadata,omitempty"`
+	// +listMapKey=issuerName
+	CIIssuerMetadata []CIIssuerMetadata `json:"ciIssuerMetadata,omitempty"`
 }
 
 type OIDCIssuer struct {
 	// The expected issuer of an OIDC token
-	IssuerURL string `json:"IssuerURL,omitempty" yaml:"issuer-url,omitempty"`
+	IssuerURL string `json:"issuerURL,omitempty"`
 	// The expected issuer of an OIDC token
 	//+required
 	//+kubebuilder:validation:MinLength=1
-	Issuer string `json:"Issuer" yaml:"issuer"`
+	Issuer string `json:"issuer"`
 	//+required
 	//+kubebuilder:validation:MinLength=1
-	ClientID string `json:"ClientID" yaml:"client-id"`
+	ClientID string `json:"clientID"`
 	// Used to determine the subject of the certificate and if additional
 	// certificate values are needed
 	//+required
 	//+kubebuilder:validation:Enum=buildkite-job;email;github-workflow;codefresh-workflow;gitlab-pipeline;chainguard-identity;kubernetes;spiffe;uri;username;ci-provider
-	Type string `json:"Type" yaml:"type"`
+	Type string `json:"type"`
 	// CIProvider is an optional configuration to map token claims to extensions for CI workflows
-	CIProvider string `json:"CIProvider,omitempty" yaml:"ci-provider,omitempty"`
+	CIProvider string `json:"ciProvider,omitempty"`
 	// Optional, if the issuer is in a different claim in the OIDC token
-	IssuerClaim string `json:"IssuerClaim,omitempty" yaml:"issuer-claim,omitempty"`
+	IssuerClaim string `json:"issuerClaim,omitempty"`
 	// The domain that must be present in the subject for 'uri' issuer types
 	// Also used to create an email for 'username' issuer types
-	SubjectDomain string `json:"SubjectDomain,omitempty" yaml:"subject-domain,omitempty"`
+	SubjectDomain string `json:"subjectDomain,omitempty"`
 	// SPIFFETrustDomain specifies the trust domain that 'spiffe' issuer types
 	// issue ID tokens for. Tokens with a different trust domain will be
 	// rejected.
-	SPIFFETrustDomain string `json:"SPIFFETrustDomain,omitempty" yaml:"spiffe-trust-domain,omitempty"`
+	SPIFFETrustDomain string `json:"spiffeTrustDomain,omitempty"`
 	// Optional, the challenge claim expected for the issuer
 	// Set if using a custom issuer
-	ChallengeClaim string `json:"ChallengeClaim,omitempty" yaml:"challenge-claim,omitempty"`
+	ChallengeClaim string `json:"challengeClaim,omitempty"`
 }
 
 type CIIssuerMetadata struct {
 	// Name of the issuer
 	//+required
 	//+kubebuilder:validation:MinLength=1
-	IssuerName string `json:"IssuerName" yaml:"issuer-name"`
+	IssuerName string `json:"issuerName"`
 	// Defaults contains key-value pairs that can be used for filling the templates from ExtensionTemplates
 	// If a key cannot be found on the token claims, the template will use the defaults
-	DefaultTemplateValues map[string]string `json:"DefaultTemplateValues,omitempty" yaml:"default-template-values,omitempty"`
+	DefaultTemplateValues map[string]string `json:"defaultTemplateValues,omitempty"`
 	// ExtensionTemplates contains a mapping between certificate extension and token claim
 	// Provide either strings following https://pkg.go.dev/text/template syntax,
 	// e.g "{{ .url }}/{{ .repository }}"
 	// or non-templated strings with token claim keys to be replaced,
 	// e.g "job_workflow_sha"
-	ExtensionTemplates Extensions `json:"ExtensionTemplates,omitempty" yaml:"extension-templates,omitempty"`
+	ExtensionTemplates Extensions `json:"extensionTemplates,omitempty"`
 	// Template for the Subject Alternative Name extension
 	// It's typically the same value as Build Signer URI
-	SubjectAlternativeNameTemplate string `json:"SubjectAlternativeNameTemplate,omitempty" yaml:"subject-alternative-name-template,omitempty"`
+	SubjectAlternativeNameTemplate string `json:"subjectAlternativeNameTemplate,omitempty"`
 }
 
 // Extensions contains all custom x509 extensions defined by Fulcio
 type Extensions struct {
 	// Reference to specific build instructions that are responsible for signing.
-	BuildSignerURI string `json:"BuildSignerURI,omitempty" yaml:"build-signer-uri,omitempty"` // 1.3.6.1.4.1.57264.1.9
+	BuildSignerURI string `json:"buildSignerURI,omitempty"` // 1.3.6.1.4.1.57264.1.9
 
 	// Immutable reference to the specific version of the build instructions that is responsible for signing.
-	BuildSignerDigest string `json:"BuildSignerDigest,omitempty" yaml:"build-signer-digest,omitempty"` // 1.3.6.1.4.1.57264.1.10
+	BuildSignerDigest string `json:"buildSignerDigest,omitempty"` // 1.3.6.1.4.1.57264.1.10
 
 	// Specifies whether the build took place in platform-hosted cloud infrastructure or customer/self-hosted infrastructure.
-	RunnerEnvironment string `json:"RunnerEnvironment,omitempty" yaml:"runner-environment,omitempty"` // 1.3.6.1.4.1.57264.1.11
+	RunnerEnvironment string `json:"runnerEnvironment,omitempty"` // 1.3.6.1.4.1.57264.1.11
 
 	// Source repository URL that the build was based on.
-	SourceRepositoryURI string `json:"SourceRepositoryURI,omitempty" yaml:"source-repository-uri,omitempty"` // 1.3.6.1.4.1.57264.1.12
+	SourceRepositoryURI string `json:"sourceRepositoryURI,omitempty"` // 1.3.6.1.4.1.57264.1.12
 
 	// Immutable reference to a specific version of the source code that the build was based upon.
-	SourceRepositoryDigest string `json:"SourceRepositoryDigest,omitempty" yaml:"source-repository-digest,omitempty"` // 1.3.6.1.4.1.57264.1.13
+	SourceRepositoryDigest string `json:"sourceRepositoryDigest,omitempty"` // 1.3.6.1.4.1.57264.1.13
 
 	// Source Repository Ref that the build run was based upon.
-	SourceRepositoryRef string `json:"SourceRepositoryRef,omitempty" yaml:"source-repository-ref,omitempty"` // 1.3.6.1.4.1.57264.1.14
+	SourceRepositoryRef string `json:"sourceRepositoryRef,omitempty"` // 1.3.6.1.4.1.57264.1.14
 
 	// Immutable identifier for the source repository the workflow was based upon.
-	SourceRepositoryIdentifier string `json:"SourceRepositoryIdentifier,omitempty" yaml:"source-repository-identifier,omitempty"` // 1.3.6.1.4.1.57264.1.15
+	SourceRepositoryIdentifier string `json:"sourceRepositoryIdentifier,omitempty"` // 1.3.6.1.4.1.57264.1.15
 
 	// Source repository owner URL of the owner of the source repository that the build was based on.
-	SourceRepositoryOwnerURI string `json:"SourceRepositoryOwnerURI,omitempty" yaml:"source-repository-owner-uri,omitempty"` // 1.3.6.1.4.1.57264.1.16
+	SourceRepositoryOwnerURI string `json:"sourceRepositoryOwnerURI,omitempty"` // 1.3.6.1.4.1.57264.1.16
 
 	// Immutable identifier for the owner of the source repository that the workflow was based upon.
-	SourceRepositoryOwnerIdentifier string `json:"SourceRepositoryOwnerIdentifier,omitempty" yaml:"source-repository-owner-identifier,omitempty"` // 1.3.6.1.4.1.57264.1.17
+	SourceRepositoryOwnerIdentifier string `json:"sourceRepositoryOwnerIdentifier,omitempty"` // 1.3.6.1.4.1.57264.1.17
 
 	// Build Config URL to the top-level/initiating build instructions.
-	BuildConfigURI string `json:"BuildConfigURI,omitempty" yaml:"build-config-uri,omitempty"` // 1.3.6.1.4.1.57264.1.18
+	BuildConfigURI string `json:"buildConfigURI,omitempty"` // 1.3.6.1.4.1.57264.1.18
 
 	// Immutable reference to the specific version of the top-level/initiating build instructions.
-	BuildConfigDigest string `json:"BuildConfigDigest,omitempty" yaml:"build-config-digest,omitempty"` // 1.3.6.1.4.1.57264.1.19
+	BuildConfigDigest string `json:"buildConfigDigest,omitempty"` // 1.3.6.1.4.1.57264.1.19
 
 	// Event or action that initiated the build.
-	BuildTrigger string `json:"BuildTrigger,omitempty" yaml:"build-trigger,omitempty"` // 1.3.6.1.4.1.57264.1.20
+	BuildTrigger string `json:"buildTrigger,omitempty"` // 1.3.6.1.4.1.57264.1.20
 
 	// Run Invocation URL to uniquely identify the build execution.
-	RunInvocationURI string `json:"RunInvocationURI,omitempty" yaml:"run-invocation-uri,omitempty"` // 1.3.6.1.4.1.57264.1.21
+	RunInvocationURI string `json:"runInvocationURI,omitempty"` // 1.3.6.1.4.1.57264.1.21
 
 	// Source repository visibility at the time of signing the certificate.
-	SourceRepositoryVisibilityAtSigning string `json:"SourceRepositoryVisibilityAtSigning,omitempty" yaml:"source-repository-visibility-at-signing,omitempty"` // 1.3.6.1.4.1.57264.1.22
+	SourceRepositoryVisibilityAtSigning string `json:"sourceRepositoryVisibilityAtSigning,omitempty"` // 1.3.6.1.4.1.57264.1.22
 }
 
 type FulcioCertStatus struct {
