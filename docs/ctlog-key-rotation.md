@@ -198,6 +198,21 @@ Monitor the Kubernetes deployment to ensure the CT log server is redeployed with
 kubectl get pods -w -l app.kubernetes.io/name=ctlog
 ```
 
-### 13. Update TUF Service
+### 13. Confirm the New Public Key
+
+The operator requires confirmation before switching to a new public key it sees running on CT log:
+
+```bash
+kubectl annotate ctlog <name> rhtas.redhat.com/refresh-trust-material=true --overwrite -n <namespace>
+```
+
+The operator picks up the new key shortly after and removes the annotation on its own. To confirm it went
+through, check that this comes back `True`:
+
+```bash
+kubectl get ctlog <name> -o jsonpath='{.status.conditions[?(@.type=="TrustMaterialAvailable")].status}' -n <namespace>
+```
+
+### 14. Update TUF Service
 
 Follow the [TUF key rotation documentation](TODO) to add the new public key into TUF service.

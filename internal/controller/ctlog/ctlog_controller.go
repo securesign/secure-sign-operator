@@ -22,6 +22,7 @@ import (
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/action/transitions"
+	"github.com/securesign/operator/internal/action/trustmaterial"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller"
 
@@ -95,7 +96,7 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	target := instance.DeepCopy()
 	conditionSupplier := func(_ *rhtasv1.CTlog) []string {
-		return []string{actions.CertCondition, actions.SignerCondition, actions.ConfigCondition, actions.TLSCondition}
+		return []string{actions.CertCondition, actions.SignerCondition, actions.ConfigCondition, actions.TLSCondition, trustmaterial.TrustMaterialCondition}
 	}
 	acs := []action.Action[*rhtasv1.CTlog]{
 		transitions.NewToPendingPhaseAction[*rhtasv1.CTlog](),

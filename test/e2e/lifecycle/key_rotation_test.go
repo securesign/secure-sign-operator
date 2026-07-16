@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/annotations"
 	ctlogActions "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcioActions "github.com/securesign/operator/internal/controller/fulcio/actions"
 	rekorActions "github.com/securesign/operator/internal/controller/rekor/actions"
@@ -518,6 +519,48 @@ var _ = Describe("Key rotation test", Ordered, func() {
 
 	It("Upload the TUF repository back", func(ctx SpecContext) {
 		Expect(testKubernetes.CopyToPod(ctx, config.GetConfigOrDie(), tufPod, filepath.Join(tufRepoWorkdir, "tuf-repo"), "/var/www/html")).To(Succeed())
+	})
+
+	It("Acknowledge trust material drift on rotated components", func(ctx SpecContext) {
+		Eventually(func(g Gomega) error {
+			c := rekor.Get(ctx, cli, namespace.Name, s.Name)
+			g.Expect(c).ToNot(BeNil())
+			if c.Annotations == nil {
+				c.Annotations = map[string]string{}
+			}
+			c.Annotations[annotations.RefreshTrustMaterial] = "true"
+			return cli.Update(ctx, c)
+		}).Should(Succeed())
+
+		Eventually(func(g Gomega) error {
+			c := fulcio.Get(ctx, cli, namespace.Name, s.Name)
+			g.Expect(c).ToNot(BeNil())
+			if c.Annotations == nil {
+				c.Annotations = map[string]string{}
+			}
+			c.Annotations[annotations.RefreshTrustMaterial] = "true"
+			return cli.Update(ctx, c)
+		}).Should(Succeed())
+
+		Eventually(func(g Gomega) error {
+			c := ctlog.Get(ctx, cli, namespace.Name, s.Name)
+			g.Expect(c).ToNot(BeNil())
+			if c.Annotations == nil {
+				c.Annotations = map[string]string{}
+			}
+			c.Annotations[annotations.RefreshTrustMaterial] = "true"
+			return cli.Update(ctx, c)
+		}).Should(Succeed())
+
+		Eventually(func(g Gomega) error {
+			c := tsa.Get(ctx, cli, namespace.Name, s.Name)
+			g.Expect(c).ToNot(BeNil())
+			if c.Annotations == nil {
+				c.Annotations = map[string]string{}
+			}
+			c.Annotations[annotations.RefreshTrustMaterial] = "true"
+			return cli.Update(ctx, c)
+		}).Should(Succeed())
 	})
 
 	It("Validate all pods are running", func(ctx SpecContext) {

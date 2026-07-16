@@ -5,6 +5,8 @@ package update
 import (
 	"time"
 
+	"github.com/securesign/operator/internal/action/trustmaterial"
+	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
 	tufAction "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/state"
@@ -106,6 +108,26 @@ var _ = Describe("Rekor update", Ordered, func() {
 
 		It("created my-rekor-secret", func(ctx SpecContext) {
 			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret", false))).Should(Succeed())
+		})
+
+		It("acknowledges the trust material drift", func(ctx SpecContext) {
+			Eventually(func(g Gomega) string {
+				ctl := rekor.Get(ctx, cli, namespace.Name, s.Name)
+				g.Expect(ctl).NotTo(BeNil())
+				c := meta.FindStatusCondition(ctl.Status.Conditions, trustmaterial.TrustMaterialCondition)
+				g.Expect(c).ToNot(BeNil())
+				return c.Reason
+			}).Should(Equal(trustmaterial.ReasonDrifted))
+
+			Eventually(func(g Gomega) error {
+				ctl := rekor.Get(ctx, cli, namespace.Name, s.Name)
+				g.Expect(ctl).NotTo(BeNil())
+				if ctl.Annotations == nil {
+					ctl.Annotations = map[string]string{}
+				}
+				ctl.Annotations[annotations.RefreshTrustMaterial] = "true"
+				return cli.Update(ctx, ctl)
+			}).Should(Succeed())
 		})
 
 		It("has status Ready", func(ctx SpecContext) {

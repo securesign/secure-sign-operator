@@ -3,7 +3,7 @@
 This document provides detailed instructions on how to rotate the certificate chain and signer keys for the Timestamp Authority Service. The steps will vary depending on the type of signer in use: File-based, KMS, or Tink. The following points apply to all types:
 
 1. To verify images signed before the rotation, you can find the previous certificate chain in secrets with a prefix of tsa-signer-config-*.
-2. The certificate chain currently used by the Timestamp Authority Service will have the label rhtas.redhat.com/tsa.certchain.pem: certificateChain.
+2. The certificate chain currently used by the Timestamp Authority Service is available at `.status.certificateChain` on the TimestampAuthority resource.
 
 ## Prerequisites
 Before you begin, ensure that:
@@ -164,3 +164,23 @@ If you have deployed the Timestamp Authority Service using the Tink signer, foll
           key: rotated-key-set
     ```
 6. After patching the securesign resource, you should see the Timestamp Authority Service and the TUF service redeployed with the new certificate chain and private keys.
+
+# Confirm the New Certificate Chain
+
+For all of the signer types above, the operator requires confirmation before switching to a new certificate chain
+it sees running on the Timestamp Authority:
+
+```bash
+kubectl annotate timestampauthority <name> rhtas.redhat.com/refresh-trust-material=true --overwrite -n <namespace>
+```
+
+The operator picks up the new certificate chain shortly after and removes the annotation on its own. To confirm
+it went through, check that this comes back `True`:
+
+```bash
+kubectl get timestampauthority <name> -o jsonpath='{.status.conditions[?(@.type=="TrustMaterialAvailable")].status}' -n <namespace>
+```
+
+# Update TUF Service
+
+Follow the [TUF key rotation documentation](TODO) to add the new certificate chain into the TUF service.

@@ -111,13 +111,13 @@ func TestResolvePubKey_Handle(t *testing.T) {
 			},
 		},
 		{
-			name:       "key rotation detected — update status",
+			name:       "key rotation detected — flagged immediately, does not update status without acknowledgement",
 			publicKey:  "-----BEGIN PUBLIC KEY-----\nold\n-----END PUBLIC KEY-----",
 			httpStatus: http.StatusOK,
 			httpBody:   testPublicKey,
 			want: want{
-				result:    testAction.Continue(),
-				publicKey: testPublicKey,
+				result:    &action.Result{Result: reconcile.Result{}},
+				publicKey: "-----BEGIN PUBLIC KEY-----\nold\n-----END PUBLIC KEY-----",
 			},
 		},
 		{
@@ -134,19 +134,7 @@ func TestResolvePubKey_Handle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := t.Context()
 
-			mockClient := &http.Client{}
-			httpmock.SetMockTransport(mockClient, map[string]httpmock.RoundTripFunc{
-				"http://rekor-server.default.svc/api/v1/log/publicKey": func(_ *http.Request) *http.Response {
-					return &http.Response{
-						StatusCode: tt.httpStatus,
-						Body:       io.NopCloser(bytes.NewReader([]byte(tt.httpBody))),
-						Header:     make(http.Header),
-					}
-				},
-			})
-			origBuilder := httputils.GetClientBuilder()
-			httputils.SetClientBuilder(func(_ ...[]byte) *http.Client { return mockClient })
-			defer func() { httputils.SetClientBuilder(origBuilder) }()
+			httpmock.StubClientBuilder(t, "http://rekor-server.default.svc/api/v1/log/publicKey", tt.httpStatus, tt.httpBody)
 
 			instance := &rhtasv1.Rekor{
 				ObjectMeta: metav1.ObjectMeta{

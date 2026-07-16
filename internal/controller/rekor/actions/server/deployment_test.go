@@ -143,7 +143,7 @@ func TestDeployAction_Handle_PreservesCachedPublicKeyOnDeploymentChange(t *testi
 	g.Expect(result.Err).ToNot(HaveOccurred())
 
 	g.Expect(instance.Status.PublicKey).To(Equal("-----BEGIN PUBLIC KEY-----\nOLDKEY\n-----END PUBLIC KEY-----\n"),
-		"creating/updating the Deployment must not clobber the cached public key — resolvePubKey owns that field and needs the prior value to detect drift")
+		"creating/updating the Deployment must not clobber the cached public key — trustmaterial owns that field and needs the prior value to detect drift")
 }
 
 func TestDeployAction_Handle_DefaultTrillianAddress(t *testing.T) {

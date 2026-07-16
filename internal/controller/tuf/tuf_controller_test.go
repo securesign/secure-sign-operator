@@ -18,6 +18,7 @@ package tuf
 
 import (
 	"context"
+	_ "embed"
 	"reflect"
 	"strconv"
 	"time"
@@ -46,6 +47,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 )
+
+//go:embed testdata/public_key.pem
+var tufTestPublicKeyPEM string
 
 var _ = Describe("TUF controller", func() {
 	Context("TUF controller test", func() {
@@ -165,7 +169,7 @@ var _ = Describe("TUF controller", func() {
 				},
 			}
 			Expect(suite.Client().Create(ctx, ctlogCR)).To(Succeed())
-			ctlogCR.Status.PublicKey = "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEtest\n-----END PUBLIC KEY-----\n"
+			ctlogCR.Status.PublicKey = tufTestPublicKeyPEM
 			ctlogCR.Status.Url = "https://example.com/ctlog"
 			ctlogCR.SetCondition(metav1.Condition{
 				Type:    constants.ReadyCondition,

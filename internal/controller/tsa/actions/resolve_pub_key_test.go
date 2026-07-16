@@ -1,10 +1,10 @@
 package actions
 
 import (
-	"bytes"
 	"context"
-	"io"
+	_ "embed"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,13 +15,17 @@ import (
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	httpmock "github.com/securesign/operator/internal/testing/http"
-	httputils "github.com/securesign/operator/internal/utils/http"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const testCertChainPEM = "-----BEGIN CERTIFICATE-----\nMIIBleaf\n-----END CERTIFICATE-----\n-----BEGIN CERTIFICATE-----\nMIIBroot\n-----END CERTIFICATE-----"
+//go:embed testdata/cert_chain.pem
+var testCertChainPEMRaw string
+
+// testCertChainPEM has no trailing newline, matching the shape of a manually
+// concatenated PEM chain as served by a real TSA endpoint.
+var testCertChainPEM = strings.TrimSpace(testCertChainPEMRaw)
 
 func TestTSAResolvePubKey_CanHandle(t *testing.T) {
 	a := NewResolvePubKeyAction()
@@ -89,19 +93,7 @@ func TestTSAResolvePubKey_Handle(t *testing.T) {
 			ctx := t.Context()
 			const baseURL = "http://tsa-server.default.svc"
 
-			mockClient := &http.Client{}
-			httpmock.SetMockTransport(mockClient, map[string]httpmock.RoundTripFunc{
-				baseURL + "/api/v1/timestamp/certchain": func(_ *http.Request) *http.Response {
-					return &http.Response{
-						StatusCode: tt.httpStatus,
-						Body:       io.NopCloser(bytes.NewReader([]byte(tt.httpBody))),
-						Header:     make(http.Header),
-					}
-				},
-			})
-			orig := httputils.GetClientBuilder()
-			httputils.SetClientBuilder(func(_ ...[]byte) *http.Client { return mockClient })
-			defer func() { httputils.SetClientBuilder(orig) }()
+			httpmock.StubClientBuilder(t, baseURL+"/api/v1/timestamp/certchain", tt.httpStatus, tt.httpBody)
 
 			instance := &rhtasv1.TimestampAuthority{
 				ObjectMeta: metav1.ObjectMeta{Name: "tsa", Namespace: "default"},

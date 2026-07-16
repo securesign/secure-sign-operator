@@ -90,6 +90,21 @@ These variables are necessary for the subsequent steps to successfully rotate th
    NEW_SHARD_PUBLIC_KEY=$(curl $(oc get rekor -o jsonpath='{.items[0].status.url}')/api/v1/log/publicKey | base64 | tr -d '\n')
    ```
 
-5. **Update TUF Service:**
+5. **Confirm the New Public Key:**
+
+   The operator requires confirmation before switching to a new public key it sees running on Rekor:
+
+   ```bash
+   kubectl annotate rekor <name> rhtas.redhat.com/refresh-trust-material=true --overwrite -n <namespace>
+   ```
+
+   The operator picks up the new key shortly after and removes the annotation on its own. To confirm it went
+   through, check that this comes back `True`:
+
+   ```bash
+   kubectl get rekor <name> -o jsonpath='{.status.conditions[?(@.type=="TrustMaterialAvailable")].status}' -n <namespace>
+   ```
+
+6. **Update TUF Service:**
 
    Follow the [TUF key rotation documentation](TODO) to add the new public key into TUF service.

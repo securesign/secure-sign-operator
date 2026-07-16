@@ -9,15 +9,12 @@ import (
 	"github.com/securesign/operator/internal/action/trustmaterial"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
-	httputils "github.com/securesign/operator/internal/utils/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type fulcioTrustMaterialResolver struct{}
 
 func (r fulcioTrustMaterialResolver) ComponentName() string { return ComponentName }
-
-func (r fulcioTrustMaterialResolver) ConditionType() string { return constants.ReadyCondition }
 
 func (r fulcioTrustMaterialResolver) CanHandle(_ context.Context, instance *rhtasv1.Fulcio) bool {
 	return state.FromInstance(instance, constants.ReadyCondition) >= state.Initialize
@@ -37,12 +34,7 @@ func (r fulcioTrustMaterialResolver) Resolve(ctx context.Context, cli client.Cli
 	if err != nil {
 		return nil, err
 	}
-	cas, err := httputils.LoadTrustedCAs(ctx, cli, instance.Namespace, instance.GetTrustedCA())
-	if err != nil {
-		return nil, err
-	}
-	httpClient := httputils.GetClientBuilder()(cas...)
-	body, err := httputils.FetchFromAPI(httpClient, u)
+	body, err := trustmaterial.FetchPEMOverHTTP(ctx, cli, instance, u)
 	if err != nil {
 		return nil, err
 	}

@@ -1,7 +1,12 @@
 package http
 
 import (
+	"bytes"
+	"io"
 	"net/http"
+	"testing"
+
+	httputils "github.com/securesign/operator/internal/utils/http"
 )
 
 type RoundTripFunc func(req *http.Request) *http.Response
@@ -37,4 +42,23 @@ func SetMockTransport(client *http.Client, mock map[string]RoundTripFunc) {
 // RestoreDefaultTransport restores the default transport for http.DefaultClient.
 func RestoreDefaultTransport(client *http.Client) {
 	client.Transport = http.DefaultTransport
+}
+
+// StubClientBuilder points httputils' shared HTTP client builder at a client
+// that returns status/body for every request to url, restoring the previous
+// builder via t.Cleanup.
+func StubClientBuilder(t testing.TB, url string, status int, body string) {
+	mockClient := &http.Client{}
+	SetMockTransport(mockClient, map[string]RoundTripFunc{
+		url: func(_ *http.Request) *http.Response {
+			return &http.Response{
+				StatusCode: status,
+				Body:       io.NopCloser(bytes.NewReader([]byte(body))),
+				Header:     make(http.Header),
+			}
+		},
+	})
+	orig := httputils.GetClientBuilder()
+	httputils.SetClientBuilder(func(_ ...[]byte) *http.Client { return mockClient })
+	t.Cleanup(func() { httputils.SetClientBuilder(orig) })
 }

@@ -21,6 +21,7 @@ import (
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/action/transitions"
+	"github.com/securesign/operator/internal/action/trustmaterial"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller"
 	"k8s.io/apimachinery/pkg/types"
@@ -94,7 +95,7 @@ func (r *fulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	target := instance.DeepCopy()
 	conditionSupplier := func(_ *rhtasv1.Fulcio) []string {
-		return []string{actions.CertCondition}
+		return []string{actions.CertCondition, trustmaterial.TrustMaterialCondition}
 	}
 	acs := []action.Action[*rhtasv1.Fulcio]{
 		transitions.NewToPendingPhaseAction[*rhtasv1.Fulcio](),

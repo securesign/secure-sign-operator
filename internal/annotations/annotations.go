@@ -70,6 +70,35 @@
 //	  annotations:
 //	    rhtas.redhat.com/godebug: "fips140=only"
 //
+// # Annotation: rhtas.redhat.com/refresh-trust-material
+//
+// [RefreshTrustMaterial] acknowledges a detected change in a component's trust
+// material (public key or certificate) and instructs the operator to accept the
+// newly observed value.
+//
+// Components may use an external KMS/HSM/Tink signer, so the operator can only
+// observe the current public key/certificate by asking the running service —
+// it fetches this on every reconcile and caches it in the component's status for
+// autodiscovery by TUF and other components. If the fetched value ever differs
+// from the cached one (for example, after rotating a key in an external KMS),
+// the operator does not update the status automatically: blindly accepting the
+// new value could break verification of artifacts signed with the old key,
+// since the transparency-log tree and TUF trust metadata also need to be
+// rotated through the documented key-rotation procedure (see docs/*-key-rotation.md).
+//
+// Once the required manual rotation steps have been completed, set this
+// annotation to "true" to have the operator accept the newly observed trust
+// material. The operator removes the annotation after processing it.
+//
+// Example usage:
+//
+//	apiVersion: rhtas.redhat.com/v1alpha1
+//	kind: Rekor
+//	metadata:
+//	  name: example
+//	  annotations:
+//	    rhtas.redhat.com/refresh-trust-material: "true"
+//
 // # Annotation: rhtas.redhat.com/log-type
 //
 // [LogType] specifies the logging configuration for managed services.
@@ -113,6 +142,10 @@ const (
 
 	// TreeId define the annotation key to document association of resource with specific Merkle Tree
 	TreeId = "rhtas.redhat.com/treeId"
+
+	// RefreshTrustMaterial defines the annotation key used to acknowledge a detected
+	// trust material change and accept the newly observed value.
+	RefreshTrustMaterial = "rhtas.redhat.com/refresh-trust-material"
 
 	TLS = "service.beta.openshift.io/serving-cert-secret-name"
 )

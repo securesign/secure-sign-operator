@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/apis"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -76,8 +76,13 @@ func DefaultClientBuilder(additionalCAs ...[]byte) *http.Client {
 }
 
 // FetchFromAPI performs an HTTP GET request to the given URL and returns the response body.
-func FetchFromAPI(client *http.Client, url string) ([]byte, error) {
-	resp, err := client.Get(url) //nolint:gosec // URL is constructed by the caller from operator-controlled sources
+// The request is bound to ctx so it is cancelled if the caller's context is cancelled (e.g. on shutdown).
+func FetchFromAPI(ctx context.Context, client *http.Client, url string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil) //nolint:gosec // URL is constructed by the caller from operator-controlled sources
+	if err != nil {
+		return nil, fmt.Errorf("fetch API: building request for %s: %w", url, err)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch API: GET %s: %w", url, err)
 	}
@@ -95,14 +100,18 @@ func FetchFromAPI(client *http.Client, url string) ([]byte, error) {
 	return body, nil
 }
 
-// LoadTrustedCAs reads the TrustedCA ConfigMap from the component's spec
-// and returns the CA bundles as byte slices for use with the HTTP client builder.
-func LoadTrustedCAs(ctx context.Context, cli client.Client, namespace string, trustedCA *rhtasv1.LocalObjectReference) ([][]byte, error) {
+// LoadTrustedCAs reads instance's TrustedCA ConfigMap and returns the CA
+// bundles as byte slices for use with the HTTP client builder.
+func LoadTrustedCAs(ctx context.Context, cli client.Client, instance interface {
+	client.Object
+	apis.TlsClient
+}) ([][]byte, error) {
+	trustedCA := instance.GetTrustedCA()
 	if trustedCA == nil {
 		return nil, nil
 	}
 	cm := &corev1.ConfigMap{}
-	if err := cli.Get(ctx, client.ObjectKey{Name: trustedCA.Name, Namespace: namespace}, cm); err != nil {
+	if err := cli.Get(ctx, client.ObjectKey{Name: trustedCA.Name, Namespace: instance.GetNamespace()}, cm); err != nil {
 		return nil, fmt.Errorf("reading TrustedCA ConfigMap %s: %w", trustedCA.Name, err)
 	}
 	var cas [][]byte

@@ -21,6 +21,7 @@ import (
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/action/transitions"
+	"github.com/securesign/operator/internal/action/trustmaterial"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller"
 	"github.com/securesign/operator/internal/controller/predicate"
@@ -93,7 +94,7 @@ func (r *timestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	target := instance.DeepCopy()
 	conditionSupplier := func(_ *rhtasv1.TimestampAuthority) []string {
-		return []string{actions.TSASignerCondition}
+		return []string{actions.TSASignerCondition, trustmaterial.TrustMaterialCondition}
 	}
 	actions := []action.Action[*rhtasv1.TimestampAuthority]{
 		transitions.NewToPendingPhaseAction[*rhtasv1.TimestampAuthority](),

@@ -18,11 +18,14 @@ package fulcio
 
 import (
 	"context"
+	_ "embed"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/securesign/operator/internal/action/trustmaterial"
+	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
 	httpmock "github.com/securesign/operator/internal/testing/http"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
@@ -42,6 +45,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 )
+
+//go:embed testdata/rotated_root_cert.pem
+var rotatedRootCertRaw string
+
+// rotatedRootCert has no trailing newline, matching the format ParseTrustBundle produces.
+var rotatedRootCert = strings.TrimSpace(rotatedRootCertRaw)
 
 var _ = Describe("Fulcio hot update", func() {
 	Context("Fulcio hot update test", func() {
@@ -199,6 +208,77 @@ var _ = Describe("Fulcio hot update", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				g.Expect(found.Status.CertificateChain).Should(Equal(expectedRootCert))
+			}).Should(Succeed())
+
+			By("Snapshot deployment state before rotating the trust bundle")
+			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
+
+			rotatedTrustBundleJSON := `{"chains":[{"certificates":["` + strings.ReplaceAll(rotatedRootCert, "\n", "\\n") + `"]}]}`
+			rotatedMockClient := &http.Client{}
+			httputils.SetClientBuilder(func(_ ...[]byte) *http.Client {
+				return rotatedMockClient
+			})
+			httpmock.SetMockTransport(rotatedMockClient, map[string]httpmock.RoundTripFunc{
+				"http://fulcio.localhost/api/v2/trustBundle": func(_ *http.Request) *http.Response {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(rotatedTrustBundleJSON)),
+						Header:     make(http.Header),
+					}
+				},
+			})
+
+			By("Triggering another spec change to force re-resolution")
+			Eventually(func(g Gomega) error {
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				found.Spec.Config.OIDCIssuers[0] = rhtasv1.OIDCIssuer{
+					IssuerURL: "fake2",
+					Issuer:    "fake2",
+					ClientID:  "fake2",
+					Type:      "email",
+				}
+				return suite.Client().Update(ctx, found)
+			}).Should(Succeed())
+
+			By("Fulcio deployment is updated again")
+			Eventually(func(g Gomega) bool {
+				updated := &appsv1.Deployment{}
+				g.Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)).To(Succeed())
+				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
+			}).Should(BeFalse())
+
+			By("Move to Ready phase")
+			deployment = &appsv1.Deployment{}
+			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
+			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
+
+			By("Rotated root certificate is flagged as drifted, not silently accepted")
+			Eventually(func(g Gomega) string {
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				cond := meta.FindStatusCondition(found.Status.Conditions, trustmaterial.TrustMaterialCondition)
+				g.Expect(cond).ToNot(BeNil())
+				return cond.Reason
+			}).Should(Equal(trustmaterial.ReasonDrifted))
+
+			Eventually(func(g Gomega) string {
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return found.Status.CertificateChain
+			}).ShouldNot(Equal(rotatedRootCert))
+
+			By("Acknowledging the drift")
+			Eventually(func(g Gomega) error {
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				if found.Annotations == nil {
+					found.Annotations = map[string]string{}
+				}
+				found.Annotations[annotations.RefreshTrustMaterial] = "true"
+				return suite.Client().Update(ctx, found)
+			}).Should(Succeed())
+
+			By("Root certificate updated after acknowledgement")
+			Eventually(func(g Gomega) {
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(found.Status.CertificateChain).Should(Equal(rotatedRootCert))
 			}).Should(Succeed())
 		})
 	})
