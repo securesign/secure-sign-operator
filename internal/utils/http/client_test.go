@@ -19,7 +19,7 @@ func TestFetchFromAPI(t *testing.T) {
 		}))
 		defer server.Close()
 
-		body, err := FetchFromAPI(http.DefaultClient, server.URL)
+		body, err := FetchFromAPI(t.Context(), http.DefaultClient, server.URL)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -36,7 +36,7 @@ func TestFetchFromAPI(t *testing.T) {
 		}))
 		defer server.Close()
 
-		_, err := FetchFromAPI(http.DefaultClient, server.URL)
+		_, err := FetchFromAPI(t.Context(), http.DefaultClient, server.URL)
 		if err == nil {
 			t.Error("expected error for non-200 status")
 		}
@@ -47,7 +47,7 @@ func TestFetchFromAPI(t *testing.T) {
 
 	t.Run("connection error", func(t *testing.T) {
 		t.Parallel()
-		_, err := FetchFromAPI(http.DefaultClient, "http://localhost:1")
+		_, err := FetchFromAPI(t.Context(), http.DefaultClient, "http://localhost:1")
 		if err == nil {
 			t.Error("expected error for connection failure")
 		}
@@ -61,7 +61,7 @@ func TestFetchFromAPI(t *testing.T) {
 		}))
 		defer server.Close()
 
-		body, err := FetchFromAPI(http.DefaultClient, server.URL)
+		body, err := FetchFromAPI(t.Context(), http.DefaultClient, server.URL)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"reflect"
 	"testing"
@@ -22,7 +23,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const testCert = "-----BEGIN CERTIFICATE-----\nMIIBtest\n-----END CERTIFICATE-----\n"
+//go:embed testdata/fulcio_root_cert.pem
+var testCert string
 
 func readyFulcio() *rhtasv1.Fulcio {
 	return &rhtasv1.Fulcio{

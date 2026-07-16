@@ -18,8 +18,11 @@ package ctlog
 
 import (
 	"context"
+	_ "embed"
 	"time"
 
+	"github.com/securesign/operator/internal/action/trustmaterial"
+	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
@@ -42,6 +45,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
+
+//go:embed testdata/fulcio_root_cert.pem
+var ctlogUpdateTestFulcioRootCertPEM string
 
 var _ = Describe("CTlog update test", func() {
 	Context("CTlog update test", func() {
@@ -137,7 +143,7 @@ var _ = Describe("CTlog update test", func() {
 				},
 			}
 			Expect(suite.Client().Create(ctx, fulcioCR)).To(Succeed())
-			fulcioCR.Status.CertificateChain = "-----BEGIN CERTIFICATE-----\nfakeCert\n-----END CERTIFICATE-----\n"
+			fulcioCR.Status.CertificateChain = ctlogUpdateTestFulcioRootCertPEM
 			fulcioCR.SetCondition(metav1.Condition{
 				Type:   constants.ReadyCondition,
 				Status: metav1.ConditionTrue,
@@ -221,6 +227,32 @@ var _ = Describe("CTlog update test", func() {
 			deployment = &appsv1.Deployment{}
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
 			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
+
+			By("Rotated public key is flagged as drifted, not silently accepted")
+			Eventually(func(g Gomega) string {
+				found := &rhtasv1.CTlog{}
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				cond := meta.FindStatusCondition(found.Status.Conditions, trustmaterial.TrustMaterialCondition)
+				g.Expect(cond).ToNot(BeNil())
+				return cond.Reason
+			}).Should(Equal(trustmaterial.ReasonDrifted))
+
+			Eventually(func(g Gomega) string {
+				found := &rhtasv1.CTlog{}
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return found.Status.PublicKey
+			}).Should(Equal(originalPublicKey))
+
+			By("Acknowledging the drift")
+			Eventually(func(g Gomega) error {
+				found := &rhtasv1.CTlog{}
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				if found.Annotations == nil {
+					found.Annotations = map[string]string{}
+				}
+				found.Annotations[annotations.RefreshTrustMaterial] = "true"
+				return suite.Client().Update(ctx, found)
+			}).Should(Succeed())
 
 			By("Public key status updated after key change")
 			Eventually(func(g Gomega) {

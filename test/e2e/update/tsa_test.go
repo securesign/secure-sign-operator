@@ -5,6 +5,8 @@ package update
 import (
 	"time"
 
+	"github.com/securesign/operator/internal/action/trustmaterial"
+	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
 	tsaAction "github.com/securesign/operator/internal/controller/tsa/actions"
 	tsaUtils "github.com/securesign/operator/internal/controller/tsa/utils"
@@ -131,9 +133,29 @@ var _ = Describe("TSA update", Ordered, func() {
 			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "my-tsa-secret", !fipsEnabled))).Should(Succeed())
 		})
 
+		It("acknowledges the trust material drift", func(ctx SpecContext) {
+			Eventually(func(g Gomega) string {
+				ctl := tsa.Get(ctx, cli, namespace.Name, s.Name)
+				g.Expect(ctl).NotTo(BeNil())
+				c := meta.FindStatusCondition(ctl.Status.Conditions, trustmaterial.TrustMaterialCondition)
+				g.Expect(c).ToNot(BeNil())
+				return c.Reason
+			}).Should(Equal(trustmaterial.ReasonDrifted))
+
+			Eventually(func(g Gomega) error {
+				ctl := tsa.Get(ctx, cli, namespace.Name, s.Name)
+				g.Expect(ctl).NotTo(BeNil())
+				if ctl.Annotations == nil {
+					ctl.Annotations = map[string]string{}
+				}
+				ctl.Annotations[annotations.RefreshTrustMaterial] = "true"
+				return cli.Update(ctx, ctl)
+			}).Should(Succeed())
+		})
+
 		It("has status ReadyCondition", func(ctx SpecContext) {
 			Eventually(func(g Gomega) string {
-				ctl := rekor.Get(ctx, cli, namespace.Name, s.Name)
+				ctl := tsa.Get(ctx, cli, namespace.Name, s.Name)
 				g.Expect(ctl).NotTo(BeNil())
 				return meta.FindStatusCondition(ctl.Status.Conditions, constants.ReadyCondition).Reason
 			}).Should(Equal(state.Ready.String()))

@@ -18,11 +18,14 @@ limitations under the License.
 
 import (
 	"context"
+	_ "embed"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/securesign/operator/internal/action/trustmaterial"
+	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
 	httpmock "github.com/securesign/operator/internal/testing/http"
@@ -44,6 +47,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 )
+
+//go:embed testdata/rotated_cert_chain.pem
+var rotatedCertChainPEMRaw string
+
+// rotatedCertChainPEM has no trailing newline, matching the format the TSA resolver produces.
+var rotatedCertChainPEM = strings.TrimSpace(rotatedCertChainPEMRaw)
 
 var _ = Describe("Timestamp Authority hot update", func() {
 	Context("Timestamp Authority hot update test", func() {
@@ -286,6 +295,67 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				g.Expect(found.Status.CertificateChain).Should(Equal(testCertChainPEM))
+			}).Should(Succeed())
+
+			By("Trust material rotated on the live service")
+			rotatedMockClient := &http.Client{}
+			httputils.SetClientBuilder(func(_ ...[]byte) *http.Client { return rotatedMockClient })
+			httpmock.SetMockTransport(rotatedMockClient, map[string]httpmock.RoundTripFunc{
+				"http://tsa.localhost/api/v1/timestamp/certchain": func(_ *http.Request) *http.Response {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(rotatedCertChainPEM)),
+						Header:     make(http.Header),
+					}
+				},
+			})
+
+			By("Triggering another spec change to force re-resolution")
+			Eventually(func(g Gomega) error {
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				found.Spec.NTPMonitoring.Config.NumServers = 3
+				return suite.Client().Update(ctx, found)
+			}).Should(Succeed())
+
+			By("Timestamp Authority deployment is updated again")
+			Eventually(func(g Gomega) bool {
+				updated := &appsv1.Deployment{}
+				g.Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)).To(Succeed())
+				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
+			}).Should(BeFalse())
+
+			By("Move to Ready phase")
+			deployment = &appsv1.Deployment{}
+			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
+			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
+
+			By("Rotated certificate chain is flagged as drifted, not silently accepted")
+			Eventually(func(g Gomega) string {
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				cond := meta.FindStatusCondition(found.Status.Conditions, trustmaterial.TrustMaterialCondition)
+				g.Expect(cond).ToNot(BeNil())
+				return cond.Reason
+			}).Should(Equal(trustmaterial.ReasonDrifted))
+
+			Eventually(func(g Gomega) string {
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return found.Status.CertificateChain
+			}).ShouldNot(Equal(rotatedCertChainPEM))
+
+			By("Acknowledging the drift")
+			Eventually(func(g Gomega) error {
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				if found.Annotations == nil {
+					found.Annotations = map[string]string{}
+				}
+				found.Annotations[annotations.RefreshTrustMaterial] = "true"
+				return suite.Client().Update(ctx, found)
+			}).Should(Succeed())
+
+			By("Certificate chain updated after acknowledgement")
+			Eventually(func(g Gomega) {
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(found.Status.CertificateChain).Should(Equal(rotatedCertChainPEM))
 			}).Should(Succeed())
 		})
 	})

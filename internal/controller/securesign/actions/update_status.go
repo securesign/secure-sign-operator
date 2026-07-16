@@ -58,6 +58,21 @@ func sortByStatus(conditions []v1.Condition) []string {
 		iCondition := meta.FindStatusCondition(conditions, sorted[i])
 		jCondition := meta.FindStatusCondition(conditions, sorted[j])
 
+		// A condition whose Status isn't True always outranks (sorts before) one
+		// that is, regardless of Reason. Without this, a component stuck at
+		// Reason=Ready but Status=False (e.g. a trust material drift requiring
+		// manual acknowledgement) ties with genuinely healthy components on the
+		// Reason-based ordering below and may never be picked as the "worst"
+		// condition, so it silently fails to propagate to the umbrella Ready status.
+		iNotReady := iCondition == nil || iCondition.Status != v1.ConditionTrue
+		jNotReady := jCondition == nil || jCondition.Status != v1.ConditionTrue
+		if iNotReady != jNotReady {
+			return iNotReady
+		}
+		if iCondition == nil || jCondition == nil {
+			return false
+		}
+
 		order := map[string]int{
 			state.Pending.String():    0,
 			state.Initialize.String(): 1,

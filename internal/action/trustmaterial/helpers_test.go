@@ -85,7 +85,7 @@ func TestValidatePEM(t *testing.T) {
 
 	t.Run("valid public key", func(t *testing.T) {
 		t.Parallel()
-		pemData := []byte("-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEtest\n-----END PUBLIC KEY-----\n")
+		pemData := []byte(generatePublicKeyPEM(t))
 		if err := ValidatePEM(pemData); err != nil {
 			t.Errorf("expected no error, got: %v", err)
 		}
@@ -93,9 +93,17 @@ func TestValidatePEM(t *testing.T) {
 
 	t.Run("valid certificate", func(t *testing.T) {
 		t.Parallel()
-		pemData := []byte("-----BEGIN CERTIFICATE-----\nMIIBtest\n-----END CERTIFICATE-----\n")
+		pemData := []byte(generateSelfSignedCert(t, "test"))
 		if err := ValidatePEM(pemData); err != nil {
 			t.Errorf("expected no error, got: %v", err)
+		}
+	})
+
+	t.Run("PEM-wrapped garbage is rejected", func(t *testing.T) {
+		t.Parallel()
+		pemData := []byte("-----BEGIN PUBLIC KEY-----\nbm90IGEgcmVhbCBrZXk=\n-----END PUBLIC KEY-----\n")
+		if err := ValidatePEM(pemData); !errors.Is(err, ErrInvalidPEM) {
+			t.Errorf("expected ErrInvalidPEM, got: %v", err)
 		}
 	})
 
@@ -114,12 +122,45 @@ func TestValidatePEM(t *testing.T) {
 			t.Errorf("expected ErrInvalidPEM, got: %v", err)
 		}
 	})
+
+	t.Run("valid multi-certificate chain", func(t *testing.T) {
+		t.Parallel()
+		rootKey, rootPEM := generateSelfSignedCertWithKey(t, "root-ca")
+		leafPEM := generateLeafCert(t, "leaf", rootKey, rootPEM)
+		chain := []byte(leafPEM + rootPEM)
+		if err := ValidatePEM(chain); err != nil {
+			t.Errorf("expected no error, got: %v", err)
+		}
+	})
+
+	t.Run("corrupted block after a valid leading block is rejected", func(t *testing.T) {
+		t.Parallel()
+		validPEM := []byte(generateSelfSignedCert(t, "test"))
+		corrupted := []byte("-----BEGIN CERTIFICATE-----\nbm90IGEgcmVhbCBjZXJ0\n-----END CERTIFICATE-----\n")
+		chain := append(append([]byte{}, validPEM...), corrupted...)
+		if err := ValidatePEM(chain); !errors.Is(err, ErrInvalidPEM) {
+			t.Errorf("expected ErrInvalidPEM for a chain with a corrupted trailing block, got: %v", err)
+		}
+	})
 }
 
 func generateSelfSignedCert(t *testing.T, cn string) string {
 	t.Helper()
 	_, pemStr := generateSelfSignedCertWithKey(t, cn)
 	return pemStr
+}
+
+func generatePublicKeyPEM(t *testing.T) string {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	der, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
+	if err != nil {
+		t.Fatalf("marshaling public key: %v", err)
+	}
+	return string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: der}))
 }
 
 func generateSelfSignedCertWithKey(t *testing.T, cn string) (*ecdsa.PrivateKey, string) {

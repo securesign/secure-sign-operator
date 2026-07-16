@@ -150,7 +150,7 @@ var _ = Describe("CTlog controller", func() {
 				},
 			}
 			Expect(suite.Client().Create(ctx, fulcioCR)).To(Succeed())
-			fulcioCR.Status.CertificateChain = "-----BEGIN CERTIFICATE-----\nfakeCert\n-----END CERTIFICATE-----\n"
+			fulcioCR.Status.CertificateChain = ctlogUpdateTestFulcioRootCertPEM
 			fulcioCR.SetCondition(metav1.Condition{
 				Type:   constants.ReadyCondition,
 				Status: metav1.ConditionTrue,

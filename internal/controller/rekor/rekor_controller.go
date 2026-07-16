@@ -21,6 +21,7 @@ import (
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/action/transitions"
+	"github.com/securesign/operator/internal/action/trustmaterial"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller"
 	redis "github.com/securesign/operator/internal/controller/rekor/actions/searchIndex/redis/actions"
@@ -100,7 +101,7 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	target := instance.DeepCopy()
 	conditionSupplier := func(rekor *rhtasv1.Rekor) []string {
-		components := []string{actions2.ServerCondition, actions2.SignerCondition}
+		components := []string{actions2.ServerCondition, actions2.SignerCondition, trustmaterial.TrustMaterialCondition}
 		if utils.OptionalBool(rekor.Spec.RekorSearchUI.Enabled) {
 			components = append(components, actions2.UICondition)
 		}

@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/securesign/operator/internal/action/trustmaterial"
+	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
@@ -252,12 +254,38 @@ var _ = Describe("Rekor hot update test", func() {
 				return found.Status.Signer.KeyRef.Name
 			}).Should(Equal("key-secret"))
 
-			By("Rotated public key is resolved")
+			By("Rotated public key is flagged as drifted, not silently accepted")
+			Eventually(func(g Gomega) string {
+				found := &rhtasv1.Rekor{}
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				cond := meta.FindStatusCondition(found.Status.Conditions, trustmaterial.TrustMaterialCondition)
+				g.Expect(cond).ToNot(BeNil())
+				return cond.Reason
+			}).Should(Equal(trustmaterial.ReasonDrifted))
+
 			Eventually(func(g Gomega) string {
 				found := &rhtasv1.Rekor{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.PublicKey
-			}).Should(Equal(rotatedPubKeyPEM))
+			}).ShouldNot(Equal(rotatedPubKeyPEM))
+
+			By("Acknowledging the drift")
+			Eventually(func(g Gomega) error {
+				found := &rhtasv1.Rekor{}
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				if found.Annotations == nil {
+					found.Annotations = map[string]string{}
+				}
+				found.Annotations[annotations.RefreshTrustMaterial] = "true"
+				return suite.Client().Update(ctx, found)
+			}).Should(Succeed())
+
+			By("Public key status updated after acknowledgement")
+			Eventually(func(g Gomega) {
+				found := &rhtasv1.Rekor{}
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				g.Expect(found.Status.PublicKey).Should(Equal(rotatedPubKeyPEM))
+			}).Should(Succeed())
 
 		})
 	})

@@ -1,6 +1,7 @@
 package actions
 
 import (
+	_ "embed"
 	"errors"
 	"fmt"
 	"testing"
@@ -19,7 +20,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const testPEM = "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEtest\n-----END PUBLIC KEY-----\n"
+//go:embed testdata/public_key.pem
+var testPEM string
 
 func tufInstance(name, ns string, keys []rhtasv1.TufKey) *rhtasv1.Tuf {
 	return &rhtasv1.Tuf{

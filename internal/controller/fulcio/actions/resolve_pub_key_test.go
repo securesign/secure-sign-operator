@@ -1,10 +1,10 @@
 package actions
 
 import (
-	"bytes"
 	"context"
-	"io"
+	_ "embed"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,22 +15,32 @@ import (
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	httpmock "github.com/securesign/operator/internal/testing/http"
-	httputils "github.com/securesign/operator/internal/utils/http"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const testTrustBundleJSON = `{
+//go:embed testdata/signing_cert.pem
+var testSigningCertPEM string
+
+//go:embed testdata/root_cert.pem
+var testRootCertPEM string
+
+// testSigningCert and testRootCert hold the certs with literal "\n" escapes,
+// as they'd appear inside a JSON string body.
+var testSigningCert = strings.ReplaceAll(strings.TrimSpace(testSigningCertPEM), "\n", "\\n")
+var testRootCert = strings.ReplaceAll(strings.TrimSpace(testRootCertPEM), "\n", "\\n")
+
+var testTrustBundleJSON = `{
 	"chains": [{
 		"certificates": [
-			"-----BEGIN CERTIFICATE-----\nMIIBsigningCertAA\n-----END CERTIFICATE-----",
-			"-----BEGIN CERTIFICATE-----\nMIIBrootCertData\n-----END CERTIFICATE-----"
+			"` + testSigningCert + `",
+			"` + testRootCert + `"
 		]
 	}]
 }`
 
-const expectedRootCert = "-----BEGIN CERTIFICATE-----\nMIIBsigningCertAA\n-----END CERTIFICATE-----\n-----BEGIN CERTIFICATE-----\nMIIBrootCertData\n-----END CERTIFICATE-----"
+var expectedRootCert = strings.TrimSpace(testSigningCertPEM) + "\n" + strings.TrimSpace(testRootCertPEM)
 
 func TestFulcioResolvePubKey_CanHandle(t *testing.T) {
 	a := NewResolvePubKeyAction()
@@ -98,19 +108,7 @@ func TestFulcioResolvePubKey_Handle(t *testing.T) {
 			ctx := t.Context()
 			const baseURL = "http://fulcio-server.default.svc"
 
-			mockClient := &http.Client{}
-			httpmock.SetMockTransport(mockClient, map[string]httpmock.RoundTripFunc{
-				baseURL + "/api/v2/trustBundle": func(_ *http.Request) *http.Response {
-					return &http.Response{
-						StatusCode: tt.httpStatus,
-						Body:       io.NopCloser(bytes.NewReader([]byte(tt.httpBody))),
-						Header:     make(http.Header),
-					}
-				},
-			})
-			orig := httputils.GetClientBuilder()
-			httputils.SetClientBuilder(func(_ ...[]byte) *http.Client { return mockClient })
-			defer func() { httputils.SetClientBuilder(orig) }()
+			httpmock.StubClientBuilder(t, baseURL+"/api/v2/trustBundle", tt.httpStatus, tt.httpBody)
 
 			instance := &rhtasv1.Fulcio{
 				ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: "default"},

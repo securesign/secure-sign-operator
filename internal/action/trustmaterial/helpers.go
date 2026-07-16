@@ -2,18 +2,33 @@ package trustmaterial
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"strconv"
 	"strings"
 
+	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/constants"
+	httputils "github.com/securesign/operator/internal/utils/http"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
+
+// hasRefreshAcknowledgement reports whether the user has annotated instance to
+// accept a detected trust material change.
+func hasRefreshAcknowledgement(instance client.Object) bool {
+	v, ok := instance.GetAnnotations()[annotations.RefreshTrustMaterial]
+	if !ok {
+		return false
+	}
+	b, _ := strconv.ParseBool(v)
+	return b
+}
 
 // ResolveBaseURL returns the base URL for in-cluster HTTP calls to a component's service.
 // When the operator runs inside a pod (ContainerMode), it uses the internal Kubernetes DNS name
@@ -31,6 +46,19 @@ func ResolveBaseURL(deploymentName, namespace, statusUrl string, port ...int) st
 		return fmt.Sprintf("http://%s.%s.svc:%d", deploymentName, namespace, port[0])
 	}
 	return fmt.Sprintf("http://%s.%s.svc", deploymentName, namespace)
+}
+
+// FetchPEMOverHTTP fetches raw bytes from fullURL, loading instance's
+// configured TrustedCA bundle first.
+func FetchPEMOverHTTP(ctx context.Context, cli client.Client, instance interface {
+	client.Object
+	apis.TlsClient
+}, fullURL string) ([]byte, error) {
+	cas, err := httputils.LoadTrustedCAs(ctx, cli, instance)
+	if err != nil {
+		return nil, err
+	}
+	return httputils.FetchFromAPI(ctx, httputils.GetClientBuilder()(cas...), fullURL)
 }
 
 // FindReadyInstance lists all objects of list's concrete type in namespace
@@ -56,10 +84,27 @@ func FindReadyInstance(ctx context.Context, cli client.Client, namespace string,
 	return nil, ErrNoReadyInstance
 }
 
-// ValidatePEM checks that data contains at least one valid PEM block.
+// ValidatePEM checks that data contains at least one PEM block and that every
+// block parses as either a certificate or a public key.
 func ValidatePEM(data []byte) error {
-	block, _ := pem.Decode(data)
-	if block == nil {
+	rest := data
+	blocks := 0
+	for {
+		var block *pem.Block
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			break
+		}
+		blocks++
+		if _, err := x509.ParseCertificate(block.Bytes); err == nil {
+			continue
+		}
+		if _, err := x509.ParsePKIXPublicKey(block.Bytes); err == nil {
+			continue
+		}
+		return fmt.Errorf("%w: PEM block is neither a valid certificate nor a public key", ErrInvalidPEM)
+	}
+	if blocks == 0 {
 		return fmt.Errorf("%w: no PEM block found", ErrInvalidPEM)
 	}
 	return nil
@@ -113,6 +158,9 @@ func ExtractSigningCert(pemData []byte) ([]byte, error) {
 	block, _ := pem.Decode(pemData)
 	if block == nil {
 		return nil, fmt.Errorf("%w: no PEM block found in trust material", ErrInvalidPEM)
+	}
+	if _, err := x509.ParseCertificate(block.Bytes); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidPEM, err)
 	}
 	return pem.EncodeToMemory(block), nil
 }

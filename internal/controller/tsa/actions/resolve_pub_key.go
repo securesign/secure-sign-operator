@@ -9,15 +9,12 @@ import (
 	"github.com/securesign/operator/internal/action/trustmaterial"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
-	httputils "github.com/securesign/operator/internal/utils/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type tsaTrustMaterialResolver struct{}
 
 func (r tsaTrustMaterialResolver) ComponentName() string { return ComponentName }
-
-func (r tsaTrustMaterialResolver) ConditionType() string { return constants.ReadyCondition }
 
 func (r tsaTrustMaterialResolver) CanHandle(_ context.Context, instance *rhtasv1.TimestampAuthority) bool {
 	return state.FromInstance(instance, constants.ReadyCondition) >= state.Initialize
@@ -37,11 +34,7 @@ func (r tsaTrustMaterialResolver) Resolve(ctx context.Context, cli client.Client
 	if err != nil {
 		return nil, err
 	}
-	cas, err := httputils.LoadTrustedCAs(ctx, cli, instance.Namespace, instance.GetTrustedCA())
-	if err != nil {
-		return nil, err
-	}
-	return httputils.FetchFromAPI(httputils.GetClientBuilder()(cas...), u)
+	return trustmaterial.FetchPEMOverHTTP(ctx, cli, instance, u)
 }
 
 func NewResolvePubKeyAction() action.Action[*rhtasv1.TimestampAuthority] {

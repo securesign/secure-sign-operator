@@ -14,11 +14,6 @@ type Resolver[T apis.ConditionsAwareObject] interface {
 	// ComponentName returns the name used for logging and event recording.
 	ComponentName() string
 
-	// ConditionType returns the status condition type that this resolver's
-	// readiness is gated on (e.g. constants.ReadyCondition or a sub-condition).
-	// Used by the action to set a descriptive message when resolution fails.
-	ConditionType() string
-
 	// CanHandle returns true when the action should execute.
 	// Typically gates on the component's readiness state (>= Initialize).
 	CanHandle(ctx context.Context, instance T) bool

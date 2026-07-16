@@ -183,7 +183,7 @@ func TestRekorSigner_KeyRefChangePreservesCachedPublicKey(t *testing.T) {
 
 	g.Expect(instance.Status.Signer.KeyRef.Name).To(Equal("user-secret"))
 	g.Expect(instance.Status.PublicKey).To(Equal("-----BEGIN PUBLIC KEY-----\nOLDKEY\n-----END PUBLIC KEY-----\n"),
-		"realigning the signer secret ref must not clobber the cached public key — resolvePubKey owns that field and needs the prior value to detect drift")
+		"realigning the signer secret ref must not clobber the cached public key — trustmaterial owns that field and needs the prior value to detect drift")
 }
 
 func TestRekorSigner_DeterministicName(t *testing.T) {

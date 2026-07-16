@@ -23,8 +23,6 @@ type ctlogTrustMaterialResolver struct{}
 
 func (r ctlogTrustMaterialResolver) ComponentName() string { return ComponentName }
 
-func (r ctlogTrustMaterialResolver) ConditionType() string { return constants.ReadyCondition }
-
 func (r ctlogTrustMaterialResolver) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool {
 	return state.FromInstance(instance, constants.ReadyCondition) >= state.Initialize
 }
