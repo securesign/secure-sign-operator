@@ -116,6 +116,7 @@ func (t *controllerSuite) BeforeSuite() {
 	Expect(rhtasv1.SetupTimestampAuthorityWebhookWithManager(k8sManager)).To(Succeed())
 	Expect(rhtasv1.SetupTrillianWebhookWithManager(k8sManager)).To(Succeed())
 	Expect(rhtasv1.SetupTufWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(rhtasv1.SetupConsoleWebhookWithManager(k8sManager)).To(Succeed())
 
 	recorder := events.NewFakeRecorder(1000)
 
