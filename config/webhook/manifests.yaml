@@ -12,7 +12,8 @@ webhooks:
       namespace: system
       path: /mutate-rhtas-redhat-com-v1-console
   failurePolicy: Fail
-  name: mconsole.kb.io
+  matchPolicy: Equivalent
+  name: mconsole.rhtas.redhat.com
   rules:
   - apiGroups:
     - rhtas.redhat.com

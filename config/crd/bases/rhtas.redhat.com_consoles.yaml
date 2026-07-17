@@ -971,7 +971,6 @@ spec:
                         type: object
                     type: object
                   replicas:
-                    default: 1
                     description: Number of desired pods.
                     format: int32
                     minimum: 0
@@ -2095,7 +2094,6 @@ spec:
                     description: Define whether you want to export service or not
                     properties:
                       enabled:
-                        default: false
                         description: |-
                           If set to true, the Operator will create an Ingress or a Route resource.
                           For the plain Ingress there is no TLS configuration provided Route object uses "edge" termination by default.
@@ -2114,11 +2112,8 @@ spec:
                         x-kubernetes-validations:
                         - message: RouteSelectorLabels can't be modified
                           rule: (oldSelf.size() == 0 || self == oldSelf)
-                    required:
-                    - enabled
                     type: object
                   replicas:
-                    default: 1
                     description: Number of desired pods.
                     format: int32
                     minimum: 0

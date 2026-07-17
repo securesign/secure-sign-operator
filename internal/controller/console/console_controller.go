@@ -89,8 +89,8 @@ func (r *consoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 		transitions.NewToInitializePhaseAction[*rhtasv1.Console](),
 
-		consoleapi.NewInitializeAction(),
-		ui.NewInitializeAction(),
+		consoleapi.NewRolloutCheckAction(),
+		ui.NewRolloutCheckAction(),
 
 		transitions.NewToReadyPhaseAction[*rhtasv1.Console](),
 	}

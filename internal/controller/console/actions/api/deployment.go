@@ -110,9 +110,6 @@ func ensureApiDeployment(labels map[string]string, tufURL string) func(*apps.Dep
 		spec.Selector = &metav1.LabelSelector{
 			MatchLabels: labels,
 		}
-		spec.Strategy = apps.DeploymentStrategy{
-			Type: apps.RecreateDeploymentStrategyType,
-		}
 
 		replicas := int32(1)
 		spec.Replicas = &replicas
