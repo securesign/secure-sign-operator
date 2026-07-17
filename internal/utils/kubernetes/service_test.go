@@ -1,7 +1,6 @@
 package kubernetes
 
 import (
-	"context"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -13,6 +12,7 @@ import (
 )
 
 func TestService(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		objects []client.Object
@@ -58,7 +58,8 @@ func TestService(t *testing.T) {
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.TODO()
+			t.Parallel()
+			ctx := t.Context()
 			g := gomega.NewWithT(t)
 			c := testAction.FakeClientBuilder().
 				WithObjects(tt.objects...).
@@ -83,6 +84,7 @@ func TestService(t *testing.T) {
 }
 
 func TestHeadlessService(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		objects []client.Object
@@ -112,7 +114,8 @@ func TestHeadlessService(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.TODO()
+			t.Parallel()
+			ctx := t.Context()
 			g := gomega.NewWithT(t)
 			c := testAction.FakeClientBuilder().
 				WithObjects(tt.objects...).

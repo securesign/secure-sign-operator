@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -14,7 +13,8 @@ import (
 )
 
 func TestIngress_CanHandle(t *testing.T) {
-	ctx := context.TODO()
+	t.Parallel()
+	ctx := t.Context()
 	tests := []struct {
 		name           string
 		conditions     []metav1.Condition
@@ -43,6 +43,7 @@ func TestIngress_CanHandle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			g := NewWithT(t)
 			instance := rhtasv1.Tuf{
 				Spec: rhtasv1.TufSpec{

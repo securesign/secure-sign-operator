@@ -1,7 +1,6 @@
 package logserver
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -23,7 +22,8 @@ const (
 )
 
 func TestMigrateToHeadless(t *testing.T) {
-	ctx := context.TODO()
+	t.Parallel()
+	ctx := t.Context()
 
 	tests := []struct {
 		name           string
@@ -85,6 +85,7 @@ func TestMigrateToHeadless(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			g := NewWithT(t)
 
 			c := testAction.FakeClientBuilder().
@@ -123,7 +124,8 @@ func TestMigrateToHeadless(t *testing.T) {
 }
 
 func TestCreateServiceAction_Handle_CreatesHeadless(t *testing.T) {
-	ctx := context.TODO()
+	t.Parallel()
+	ctx := t.Context()
 	g := NewWithT(t)
 
 	instance := &rhtasv1.Trillian{
@@ -161,7 +163,8 @@ func TestCreateServiceAction_Handle_CreatesHeadless(t *testing.T) {
 }
 
 func TestCreateServiceAction_Handle_MigratesClusterIP(t *testing.T) {
-	ctx := context.TODO()
+	t.Parallel()
+	ctx := t.Context()
 	g := NewWithT(t)
 
 	instance := &rhtasv1.Trillian{

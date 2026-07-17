@@ -42,6 +42,7 @@ var (
 )
 
 func TestServerConfig_CanHandle(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name                  string
 		status                metav1.ConditionStatus
@@ -131,6 +132,7 @@ func TestServerConfig_CanHandle(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			c := testAction.FakeClientBuilder().Build()
 			a := testAction.PrepareAction(c, NewServerConfigAction())
 			instance := rhtasv1.CTlog{
@@ -154,7 +156,7 @@ func TestServerConfig_CanHandle(t *testing.T) {
 				})
 			}
 
-			if got := a.CanHandle(context.TODO(), &instance); !reflect.DeepEqual(got, tt.canHandle) {
+			if got := a.CanHandle(t.Context(), &instance); !reflect.DeepEqual(got, tt.canHandle) {
 				t.Errorf("CanHandle() = %v, want %v", got, tt.canHandle)
 			}
 		})
@@ -162,6 +164,7 @@ func TestServerConfig_CanHandle(t *testing.T) {
 }
 
 func TestServerConfig_Handle(t *testing.T) {
+	t.Parallel()
 	g := NewWithT(t)
 	labels := labels.ForResource(ComponentName, DeploymentName, "ctlog", serverConfigResourceName)
 
@@ -172,7 +175,7 @@ func TestServerConfig_Handle(t *testing.T) {
 	}
 	type want struct {
 		result *action.Result
-		verify func(Gomega, *rhtasv1.CTlog, client.WithWatch)
+		verify func(context.Context, Gomega, *rhtasv1.CTlog, client.WithWatch)
 	}
 	tests := []struct {
 		name string
@@ -202,7 +205,7 @@ func TestServerConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
+				verify: func(_ context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
 					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.ServerConfigRef.Name).Should(Equal("config"))
 				},
@@ -240,7 +243,7 @@ func TestServerConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
+				verify: func(_ context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
 					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
 				},
@@ -269,7 +272,7 @@ func TestServerConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
+				verify: func(_ context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
 					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.ServerConfigRef.Name).Should(Equal("new_config"))
 				},
@@ -308,7 +311,7 @@ func TestServerConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.RequeueAfter(5 * time.Second),
-				verify: func(g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
+				verify: func(_ context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
 					g.Expect(instance.Status.ServerConfigRef).Should(BeNil())
 					g.Expect(instance.Status.Conditions).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"Message": ContainSubstring("Waiting for Fulcio root certificate: not-existing/cert"),
@@ -350,7 +353,7 @@ func TestServerConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.RequeueAfter(5 * time.Second),
-				verify: func(g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
+				verify: func(_ context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
 					g.Expect(instance.Status.ServerConfigRef).Should(BeNil())
 					g.Expect(instance.Status.Conditions).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"Message": ContainSubstring("Waiting for Ctlog private key secret"),
@@ -401,10 +404,10 @@ func TestServerConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
+				verify: func(ctx context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
 					g.Expect(instance.Status.ServerConfigRef).Should(Not(BeNil()))
 
-					g.Expect(k8sErrors.IsNotFound(cli.Get(context.TODO(), client.ObjectKey{Name: "config", Namespace: "default"}, &v1.Secret{}))).To(BeTrue())
+					g.Expect(k8sErrors.IsNotFound(cli.Get(ctx, client.ObjectKey{Name: "config", Namespace: "default"}, &v1.Secret{}))).To(BeTrue())
 
 					secret, err := kubernetes.GetSecret(cli, "default", instance.Status.ServerConfigRef.Name)
 					g.Expect(err).ShouldNot(HaveOccurred())
@@ -463,7 +466,7 @@ func TestServerConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
+				verify: func(_ context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
 					g.Expect(instance.Status.ServerConfigRef).Should(Not(BeNil()))
 					g.Expect(instance.Status.ServerConfigRef.Name).Should(Not(Equal("config")))
 
@@ -479,7 +482,7 @@ func TestServerConfig_Handle(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.TODO()
+			ctx := t.Context()
 			instance := &rhtasv1.CTlog{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "ctlog",
@@ -507,13 +510,14 @@ func TestServerConfig_Handle(t *testing.T) {
 				t.Errorf("CanHandle() = %v, want %v", got, tt.want.result)
 			}
 			if tt.want.verify != nil {
-				tt.want.verify(g, instance, c)
+				tt.want.verify(ctx, g, instance, c)
 			}
 		})
 	}
 }
 
 func TestServerConfig_Update(t *testing.T) {
+	t.Parallel()
 	g := NewWithT(t)
 
 	// -- local helpers scoped to this test function --
@@ -977,7 +981,7 @@ func TestServerConfig_Update(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.TODO()
+			ctx := t.Context()
 			c := testAction.FakeClientBuilder().
 				WithObjects(&tt.env.instance).
 				WithStatusSubresource(&tt.env.instance).
@@ -997,6 +1001,7 @@ func TestServerConfig_Update(t *testing.T) {
 }
 
 func TestServerConfig_Prerequisites(t *testing.T) {
+	t.Parallel()
 	newBaseInstance := func() rhtasv1.CTlog {
 		return rhtasv1.CTlog{
 			ObjectMeta: metav1.ObjectMeta{
@@ -1131,8 +1136,9 @@ func TestServerConfig_Prerequisites(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			g := NewWithT(t)
-			ctx := context.TODO()
+			ctx := t.Context()
 			instance := tt.setup()
 
 			// Ensure ConfigCondition exists (required by CanHandle)

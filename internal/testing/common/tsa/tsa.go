@@ -1,7 +1,6 @@
 package common
 
 import (
-	"context"
 	"testing"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -67,23 +66,23 @@ func TsaTestSetup(instance *rhtasv1.TimestampAuthority, t *testing.T, client cli
 	if client == nil {
 		client = testAction.FakeClientBuilder().WithObjects(instance).WithStatusSubresource(instance).Build()
 	}
-	if err := client.Get(context.TODO(), types.NamespacedName{Name: instance.GetName(), Namespace: instance.GetNamespace()}, instance); err != nil {
+	if err := client.Get(t.Context(), types.NamespacedName{Name: instance.GetName(), Namespace: instance.GetNamespace()}, instance); err != nil {
 		t.Error(err)
 		return nil, nil
 	}
 
 	for _, obj := range initObjs {
-		if err := client.Create(context.TODO(), obj); err != nil {
+		if err := client.Create(t.Context(), obj); err != nil {
 			t.Error(err)
 			return nil, nil
 		}
 	}
 
 	a := testAction.PrepareAction(client, action)
-	if !a.CanHandle(context.TODO(), instance) {
+	if !a.CanHandle(t.Context(), instance) {
 		return nil, nil
 	}
 
-	_ = a.Handle(context.TODO(), instance)
+	_ = a.Handle(t.Context(), instance)
 	return client, a
 }

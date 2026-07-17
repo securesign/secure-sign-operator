@@ -17,6 +17,7 @@ import (
 )
 
 func TestExistsSecret(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		objects   []client.Object
@@ -48,13 +49,14 @@ func TestExistsSecret(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			g := gomega.NewWithT(t)
 			c := testAction.FakeClientBuilder().
 				WithObjects(tt.objects...).
 				WithInterceptorFuncs(tt.intercept).
 				Build()
 
-			exists, err := ExistsSecret(context.TODO(), c, "default", "my-secret")
+			exists, err := ExistsSecret(t.Context(), c, "default", "my-secret")
 			g.Expect(exists).To(gomega.Equal(tt.exists))
 			if tt.wantErr {
 				g.Expect(err).To(gomega.HaveOccurred())
@@ -66,6 +68,7 @@ func TestExistsSecret(t *testing.T) {
 }
 
 func TestEnsureSecret(t *testing.T) {
+	t.Parallel()
 	data := map[string][]byte{"test": []byte("data")}
 	tests := []struct {
 		name      string
@@ -150,7 +153,8 @@ func TestEnsureSecret(t *testing.T) {
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.TODO()
+			t.Parallel()
+			ctx := t.Context()
 			g := gomega.NewWithT(t)
 			c := testAction.FakeClientBuilder().
 				WithObjects(tt.objects...).

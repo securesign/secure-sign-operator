@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"net/http"
 	"reflect"
@@ -26,6 +25,7 @@ import (
 var testPublicKey = "-----BEGIN PUBLIC KEY-----\nMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEy5wMSNagtqLsSF+zf8gBVHm2VThGP69D\ngWyhhIm/BkemPBoD/BNq+/yvD2IjsV4unLp5Lcpv4UAGAPJHL/wm+tHD1nS4QKo/\nsXJ8Ezy1K+bM5DUEilcu4hGgQ7+RCG/H\n-----END PUBLIC KEY-----"
 
 func TestResolvePubKey_CanHandle(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		reason    string
@@ -60,6 +60,7 @@ func TestResolvePubKey_CanHandle(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			a := NewResolvePubKeyAction()
 			instance := rhtasv1.Rekor{
 				Status: rhtasv1.RekorStatus{PublicKey: tt.publicKey},
@@ -71,7 +72,7 @@ func TestResolvePubKey_CanHandle(t *testing.T) {
 					Reason: tt.reason,
 				})
 			}
-			if got := a.CanHandle(context.TODO(), &instance); got != tt.canHandle {
+			if got := a.CanHandle(t.Context(), &instance); got != tt.canHandle {
 				t.Errorf("CanHandle() = %v, want %v", got, tt.canHandle)
 			}
 		})

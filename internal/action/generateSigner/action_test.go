@@ -190,7 +190,7 @@ func TestCanHandle(t *testing.T) {
 				testCondition, testNameFormat, testComponent, testDeployment,
 				testWrapper("", tt.isEnabled, nil),
 			))
-			g.Expect(a.CanHandle(context.TODO(), tt.instance)).To(Equal(tt.canHandle))
+			g.Expect(a.CanHandle(t.Context(), tt.instance)).To(Equal(tt.canHandle))
 		})
 	}
 }
@@ -208,7 +208,7 @@ func TestHandle(t *testing.T) {
 		errSubstr  string
 		wantErr    error
 		requeues   bool
-		verify     func(Gomega, *rhtasv1.Rekor, client.Client)
+		verify     func(context.Context, Gomega, *rhtasv1.Rekor, client.Client)
 	}
 	tests := []struct {
 		name string
@@ -222,13 +222,13 @@ func TestHandle(t *testing.T) {
 				action:   testActionSetup{},
 			},
 			want: want{
-				verify: func(g Gomega, instance *rhtasv1.Rekor, cli client.Client) {
+				verify: func(ctx context.Context, g Gomega, instance *rhtasv1.Rekor, cli client.Client) {
 					g.Expect(instance.Status.Signer.KeyRef).ToNot(BeNil())
 					g.Expect(instance.Status.Signer.KeyRef.Name).To(Equal(secretName()))
 					g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, testCondition)).To(BeTrue())
 
 					secret := &corev1.Secret{}
-					g.Expect(cli.Get(context.TODO(), client.ObjectKeyFromObject(&corev1.Secret{
+					g.Expect(cli.Get(ctx, client.ObjectKeyFromObject(&corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{Name: secretName(), Namespace: testNamespace},
 					}), secret)).To(Succeed())
 					g.Expect(secret.Immutable).ToNot(BeNil())
@@ -245,12 +245,12 @@ func TestHandle(t *testing.T) {
 				action:   testActionSetup{resolvedName: "user-secret"},
 			},
 			want: want{
-				verify: func(g Gomega, instance *rhtasv1.Rekor, cli client.Client) {
+				verify: func(ctx context.Context, g Gomega, instance *rhtasv1.Rekor, cli client.Client) {
 					g.Expect(instance.Status.Signer.KeyRef.Name).To(Equal("user-secret"))
 					g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, testCondition)).To(BeTrue())
 
 					secret := &corev1.Secret{}
-					err := cli.Get(context.TODO(), client.ObjectKeyFromObject(&corev1.Secret{
+					err := cli.Get(ctx, client.ObjectKeyFromObject(&corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{Name: secretName(), Namespace: testNamespace},
 					}), secret)
 					g.Expect(err).To(HaveOccurred())
@@ -267,7 +267,7 @@ func TestHandle(t *testing.T) {
 			want: want{
 				isError: true,
 				wantErr: ErrSecretNotFound,
-				verify: func(g Gomega, instance *rhtasv1.Rekor, _ client.Client) {
+				verify: func(_ context.Context, g Gomega, instance *rhtasv1.Rekor, _ client.Client) {
 					cc := meta.FindStatusCondition(instance.Status.Conditions, testCondition)
 					g.Expect(cc).ToNot(BeNil())
 					g.Expect(cc.Status).To(Equal(metav1.ConditionFalse))
@@ -287,7 +287,7 @@ func TestHandle(t *testing.T) {
 				action:   testActionSetup{},
 			},
 			want: want{
-				verify: func(g Gomega, instance *rhtasv1.Rekor, _ client.Client) {
+				verify: func(_ context.Context, g Gomega, instance *rhtasv1.Rekor, _ client.Client) {
 					g.Expect(instance.Status.Signer.KeyRef.Name).To(Equal(secretName()))
 					g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, testCondition)).To(BeTrue())
 				},
@@ -301,7 +301,7 @@ func TestHandle(t *testing.T) {
 				action:   testActionSetup{},
 			},
 			want: want{
-				verify: func(g Gomega, instance *rhtasv1.Rekor, _ client.Client) {
+				verify: func(_ context.Context, g Gomega, instance *rhtasv1.Rekor, _ client.Client) {
 					g.Expect(instance.Status.Signer.KeyRef.Name).To(Equal(secretName()))
 				},
 			},
@@ -361,7 +361,7 @@ func TestHandle(t *testing.T) {
 				intercept: cacheLagInterceptor(),
 			},
 			want: want{
-				verify: func(g Gomega, instance *rhtasv1.Rekor, _ client.Client) {
+				verify: func(_ context.Context, g Gomega, instance *rhtasv1.Rekor, _ client.Client) {
 					g.Expect(instance.Status.Signer.KeyRef.Name).To(Equal(secretName()))
 					g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, testCondition)).To(BeTrue())
 				},
@@ -381,7 +381,7 @@ func TestHandle(t *testing.T) {
 				action: testActionSetup{},
 			},
 			want: want{
-				verify: func(g Gomega, instance *rhtasv1.Rekor, _ client.Client) {
+				verify: func(_ context.Context, g Gomega, instance *rhtasv1.Rekor, _ client.Client) {
 					g.Expect(instance.Status.Signer.KeyRef.Name).To(Equal(secretName()))
 				},
 			},
@@ -391,7 +391,7 @@ func TestHandle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
-			ctx := context.TODO()
+			ctx := t.Context()
 			instance := tt.env.instance()
 
 			builder := testAction.FakeClientBuilder().
@@ -441,7 +441,7 @@ func TestHandle(t *testing.T) {
 			}
 
 			if tt.want.verify != nil {
-				tt.want.verify(g, instance, cli)
+				tt.want.verify(ctx, g, instance, cli)
 			}
 		})
 	}

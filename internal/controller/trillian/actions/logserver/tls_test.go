@@ -1,7 +1,6 @@
 package logserver
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -14,7 +13,7 @@ import (
 )
 
 func TestTlsAction_CanHandle(t *testing.T) {
-	ctx := context.TODO()
+	ctx := t.Context()
 	g := NewWithT(t)
 
 	type env struct {

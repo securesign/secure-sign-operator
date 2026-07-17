@@ -612,6 +612,7 @@ func testRunner(pre pre, want want, handleFn handleFn) func(t *testing.T) {
 }
 
 func TestResolveTree_CanHandle(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name         string
 		condition    metav1.ConditionStatus
@@ -658,6 +659,7 @@ func TestResolveTree_CanHandle(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			c := testAction.FakeClientBuilder().Build()
 			a := testAction.PrepareAction(c, NewResolveTreeAction("test", defaultWrapper))
 			instance := rhtasv1.Rekor{
@@ -675,7 +677,7 @@ func TestResolveTree_CanHandle(t *testing.T) {
 				})
 			}
 
-			if got := a.CanHandle(context.TODO(), &instance); !reflect.DeepEqual(got, tt.canHandle) {
+			if got := a.CanHandle(t.Context(), &instance); !reflect.DeepEqual(got, tt.canHandle) {
 				t.Errorf("CanHandle() = %v, want %v", got, tt.canHandle)
 			}
 		})

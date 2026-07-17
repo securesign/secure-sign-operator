@@ -1,7 +1,6 @@
 package tls
 
 import (
-	"context"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -27,6 +26,7 @@ func (f fakeTlsClient) GetTrustedCA() *rhtasv1.LocalObjectReference {
 }
 
 func TestCAPath(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		objects  []client.Object
@@ -107,7 +107,8 @@ func TestCAPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.TODO()
+			t.Parallel()
+			ctx := t.Context()
 			g := gomega.NewWithT(t)
 			c := testAction.FakeClientBuilder().
 				WithObjects(tt.objects...).

@@ -81,7 +81,7 @@ var _ = Describe("CTlog update test", func() {
 			Expect(err).To(Not(HaveOccurred()))
 
 			Eventually(func() error {
-				return suite.Client().Delete(context.TODO(), found)
+				return suite.Client().Delete(ctx, found)
 			}, 3*time.Minute, time.Second).Should(Succeed())
 
 			// TODO(user): Attention if you improve this code by adding other context test you MUST
