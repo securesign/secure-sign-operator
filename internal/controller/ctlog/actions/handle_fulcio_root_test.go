@@ -46,6 +46,7 @@ func readyFulcio() *rhtasv1.Fulcio {
 }
 
 func TestCertCan_Handle(t *testing.T) {
+	t.Parallel()
 
 	type env struct {
 		phase        state.State
@@ -191,6 +192,7 @@ func TestCertCan_Handle(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
 			c := testAction.FakeClientBuilder().
 				WithObjects(tt.env.objects...).
@@ -212,13 +214,14 @@ func TestCertCan_Handle(t *testing.T) {
 				Reason: tt.env.phase.String(),
 			})
 
-			if got := a.CanHandle(context.TODO(), &instance); !reflect.DeepEqual(got, tt.want.canHandle) {
+			if got := a.CanHandle(t.Context(), &instance); !reflect.DeepEqual(got, tt.want.canHandle) {
 				t.Errorf("CanHandle() = %v, want %v", got, tt.want.canHandle)
 			}
 		})
 	}
 }
 func TestCert_Handle(t *testing.T) {
+	t.Parallel()
 
 	type env struct {
 		certificates []rhtasv1.SecretKeySelector
@@ -227,7 +230,7 @@ func TestCert_Handle(t *testing.T) {
 	}
 	type want struct {
 		result *action.Result
-		verify func(Gomega, rhtasv1.CTlogStatus, client.WithWatch, <-chan watch.Event)
+		verify func(context.Context, Gomega, rhtasv1.CTlogStatus, client.WithWatch, <-chan watch.Event)
 	}
 	tests := []struct {
 		name string
@@ -249,7 +252,7 @@ func TestCert_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
 					g.Expect(status.RootCertificates).To(HaveLen(1))
@@ -257,7 +260,7 @@ func TestCert_Handle(t *testing.T) {
 					g.Expect(status.RootCertificates[0].Key).To(Equal(fulcioRootCertKey))
 
 					secret := &v1.Secret{}
-					g.Expect(cli.Get(context.TODO(), client.ObjectKey{Namespace: "default", Name: fmt.Sprintf(fulcioRootSecretFormat, "instance")}, secret)).To(Succeed())
+					g.Expect(cli.Get(ctx, client.ObjectKey{Namespace: "default", Name: fmt.Sprintf(fulcioRootSecretFormat, "instance")}, secret)).To(Succeed())
 					g.Expect(secret.Data).To(HaveKeyWithValue(fulcioRootCertKey, []byte(testCert)))
 
 					g.Expect(meta.IsStatusConditionTrue(status.Conditions, CertCondition)).To(BeTrue())
@@ -276,7 +279,7 @@ func TestCert_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.RequeueAfter(5 * time.Second),
-				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
+				verify: func(_ context.Context, g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
 					g.Expect(status.RootCertificates).To(BeEmpty())
@@ -323,7 +326,7 @@ func TestCert_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
+				verify: func(_ context.Context, g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
 					g.Expect(status.RootCertificates).Should(HaveLen(2))
@@ -363,7 +366,7 @@ func TestCert_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
+				verify: func(_ context.Context, g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.ServerConfigRef).Should(BeNil())
 
 					g.Expect(status.RootCertificates).Should(HaveLen(1))
@@ -409,7 +412,7 @@ func TestCert_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
+				verify: func(_ context.Context, g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(status.RootCertificates).Should(HaveLen(1))
 					g.Expect(status.RootCertificates[0].Key).Should(Equal("key"))
 					g.Expect(status.RootCertificates[0].Name).Should(Equal("my-secret"))
@@ -448,9 +451,9 @@ func TestCert_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
+				verify: func(ctx context.Context, g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					secret := &v1.Secret{}
-					g.Expect(cli.Get(context.TODO(), client.ObjectKey{Namespace: "default", Name: fmt.Sprintf(fulcioRootSecretFormat, "instance")}, secret)).To(Succeed())
+					g.Expect(cli.Get(ctx, client.ObjectKey{Namespace: "default", Name: fmt.Sprintf(fulcioRootSecretFormat, "instance")}, secret)).To(Succeed())
 					g.Expect(secret.Data[fulcioRootCertKey]).To(Equal([]byte(testCert)))
 
 					g.Expect(meta.IsStatusConditionTrue(status.Conditions, CertCondition)).To(BeTrue())
@@ -486,7 +489,7 @@ func TestCert_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Continue(),
-				verify: func(g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
+				verify: func(_ context.Context, g Gomega, status rhtasv1.CTlogStatus, cli client.WithWatch, configWatch <-chan watch.Event) {
 					g.Expect(meta.FindStatusCondition(status.Conditions, ConfigCondition)).To(BeNil())
 				},
 			},
@@ -494,8 +497,9 @@ func TestCert_Handle(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			g := NewWithT(t)
-			ctx := context.TODO()
+			ctx := t.Context()
 			instance := &rhtasv1.CTlog{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "instance",
@@ -529,7 +533,7 @@ func TestCert_Handle(t *testing.T) {
 			if tt.want.verify != nil {
 				find := &rhtasv1.CTlog{}
 				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(instance), find)).To(Succeed())
-				tt.want.verify(g, find.Status, c, configSecretWatch.ResultChan())
+				tt.want.verify(ctx, g, find.Status, c, configSecretWatch.ResultChan())
 			}
 		})
 	}

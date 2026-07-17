@@ -1,7 +1,6 @@
 package kubernetes
 
 import (
-	"context"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -14,6 +13,7 @@ import (
 )
 
 func TestEnsureImmutableConfigMap(t *testing.T) {
+	t.Parallel()
 	data := map[string]string{"test": "data"}
 	tests := []struct {
 		name      string
@@ -98,7 +98,8 @@ func TestEnsureImmutableConfigMap(t *testing.T) {
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.TODO()
+			t.Parallel()
+			ctx := t.Context()
 			g := gomega.NewWithT(t)
 			c := testAction.FakeClientBuilder().
 				WithObjects(tt.objects...).

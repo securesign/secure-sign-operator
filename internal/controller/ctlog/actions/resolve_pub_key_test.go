@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -20,26 +19,29 @@ import (
 const testCTlogPublicKey = "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZFt6NEqMxaeU76lnlYzFUNjFQGHq\nNF46BPCTlP/FgfMZjN608cDXf3LM5hTbvNyCEabE+4MbOcEMXhDQUlYFvA==\n-----END PUBLIC KEY-----"
 
 func TestCTlogResolvePubKey_CanHandle(t *testing.T) {
+	t.Parallel()
 	a := NewResolvePubKeyAction()
 	t.Run("not ready", func(t *testing.T) {
+		t.Parallel()
 		instance := &rhtasv1.CTlog{}
-		if a.CanHandle(context.TODO(), instance) {
+		if a.CanHandle(t.Context(), instance) {
 			t.Error("expected false when no condition set")
 		}
 	})
 	t.Run("initialize phase", func(t *testing.T) {
+		t.Parallel()
 		instance := &rhtasv1.CTlog{}
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Initialize.String(),
 		})
-		if !a.CanHandle(context.TODO(), instance) {
+		if !a.CanHandle(t.Context(), instance) {
 			t.Error("expected true in Initialize phase")
 		}
 	})
 }
 
 func TestCTlogResolvePubKey_Handle(t *testing.T) {
-	g := NewWithT(t)
+	t.Parallel()
 	type want struct {
 		result    *action.Result
 		publicKey string
@@ -86,6 +88,8 @@ func TestCTlogResolvePubKey_Handle(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			g := NewWithT(t)
 			ctx := t.Context()
 
 			instance := &rhtasv1.CTlog{
@@ -121,6 +125,7 @@ func TestCTlogResolvePubKey_Handle(t *testing.T) {
 }
 
 func TestCTlogResolvePubKey_Handle_SecretReadError(t *testing.T) {
+	t.Parallel()
 	g := NewWithT(t)
 	ctx := t.Context()
 

@@ -25,6 +25,7 @@ import (
 )
 
 func Test_Ensure(t *testing.T) {
+	t.Parallel()
 	addAnnotations := func(object client.Object, annotations map[string]string) client.Object {
 		object.SetAnnotations(annotations)
 		return object
@@ -51,7 +52,7 @@ func Test_Ensure(t *testing.T) {
 					Name:      "service",
 				}
 				obj := &v1.Service{}
-				g.Expect(cli.Get(context.TODO(), nn, obj)).To(Succeed())
+				g.Expect(cli.Get(ctx, nn, obj)).To(Succeed())
 				g.Expect(obj.Spec.Ports).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Port":       Equal(int32(80)),
 					"TargetPort": Equal(intstr.FromInt32(80)),
@@ -78,7 +79,7 @@ func Test_Ensure(t *testing.T) {
 					Name:      "service",
 				}
 				obj := &v1.Service{}
-				g.Expect(cli.Get(context.TODO(), nn, obj)).To(Succeed())
+				g.Expect(cli.Get(ctx, nn, obj)).To(Succeed())
 				g.Expect(obj.Labels).Should(HaveKeyWithValue("new", "label"))
 				g.Expect(obj.Labels).ShouldNot(HaveKey("old"))
 
@@ -109,7 +110,7 @@ func Test_Ensure(t *testing.T) {
 					Name:      "service",
 				}
 				obj := &v1.Service{}
-				g.Expect(cli.Get(context.TODO(), nn, obj)).To(Succeed())
+				g.Expect(cli.Get(ctx, nn, obj)).To(Succeed())
 				g.Expect(obj.Labels).Should(HaveKeyWithValue("unmanaged", "value"))
 				g.Expect(obj.Labels).ShouldNot(HaveKeyWithValue("managed", "value"))
 				g.Expect(obj.Spec.Ports).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
@@ -143,7 +144,7 @@ func Test_Ensure(t *testing.T) {
 					Name:      "service",
 				}
 				obj := &v1.Service{}
-				g.Expect(cli.Get(context.TODO(), nn, obj)).To(Succeed())
+				g.Expect(cli.Get(ctx, nn, obj)).To(Succeed())
 				g.Expect(obj.Annotations).Should(HaveKeyWithValue("new", "annotation"))
 				g.Expect(obj.Annotations).ShouldNot(HaveKey("old"))
 
@@ -175,7 +176,7 @@ func Test_Ensure(t *testing.T) {
 					Name:      "service",
 				}
 				obj := &v1.Service{}
-				g.Expect(cli.Get(context.TODO(), nn, obj)).To(Succeed())
+				g.Expect(cli.Get(ctx, nn, obj)).To(Succeed())
 				g.Expect(obj.Annotations).Should(HaveKeyWithValue("unmanaged", "value"))
 				g.Expect(obj.Annotations).ShouldNot(HaveKeyWithValue("managed", "value"))
 
@@ -201,7 +202,7 @@ func Test_Ensure(t *testing.T) {
 					Name:      "service",
 				}
 				obj := &v1.Service{}
-				g.Expect(cli.Get(context.TODO(), nn, obj)).To(Succeed())
+				g.Expect(cli.Get(ctx, nn, obj)).To(Succeed())
 
 				g.Expect(obj.Spec.Ports).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Port":       Equal(int32(443)),
@@ -243,7 +244,7 @@ func Test_Ensure(t *testing.T) {
 					Name:      "test",
 				}
 				obj := &rhtasv1.Securesign{}
-				g.Expect(cli.Get(context.TODO(), nn, obj)).To(Succeed())
+				g.Expect(cli.Get(ctx, nn, obj)).To(Succeed())
 				g.Expect(obj.Status.RekorStatus.Url).To(Equal("old status"))
 			},
 		},
@@ -263,7 +264,7 @@ func Test_Ensure(t *testing.T) {
 					Name:      "service",
 				}
 				obj := &v1.Service{}
-				g.Expect(cli.Get(context.TODO(), nn, obj)).To(Succeed())
+				g.Expect(cli.Get(ctx, nn, obj)).To(Succeed())
 
 				g.Expect(obj.Spec.Ports).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Port":       Equal(int32(80)),
@@ -291,7 +292,7 @@ func Test_Ensure(t *testing.T) {
 					Name:      "service",
 				}
 				obj := &v1.Service{}
-				g.Expect(cli.Get(context.TODO(), nn, obj)).To(Succeed())
+				g.Expect(cli.Get(ctx, nn, obj)).To(Succeed())
 
 				g.Expect(obj.Spec.Ports).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Port":       Equal(int32(80)),
@@ -319,7 +320,7 @@ func Test_Ensure(t *testing.T) {
 					Name:      "service",
 				}
 				obj := &v1.Service{}
-				g.Expect(cli.Get(context.TODO(), nn, obj)).To(Succeed())
+				g.Expect(cli.Get(ctx, nn, obj)).To(Succeed())
 
 				g.Expect(obj.Spec.Ports).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Port":       Equal(int32(443)),
@@ -330,6 +331,7 @@ func Test_Ensure(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			g := NewWithT(t)
 			c := fakeClientBuilder().
 				WithObjects(tt.env.objects...).

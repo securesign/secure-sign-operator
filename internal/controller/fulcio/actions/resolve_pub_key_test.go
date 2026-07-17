@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"context"
 	_ "embed"
 	"net/http"
 	"strings"
@@ -43,19 +42,22 @@ var testTrustBundleJSON = `{
 var expectedRootCert = strings.TrimSpace(testSigningCertPEM) + "\n" + strings.TrimSpace(testRootCertPEM)
 
 func TestFulcioResolvePubKey_CanHandle(t *testing.T) {
+	t.Parallel()
 	a := NewResolvePubKeyAction()
 	t.Run("not ready", func(t *testing.T) {
+		t.Parallel()
 		instance := &rhtasv1.Fulcio{}
-		if a.CanHandle(context.TODO(), instance) {
+		if a.CanHandle(t.Context(), instance) {
 			t.Error("expected false when no condition set")
 		}
 	})
 	t.Run("initialize phase", func(t *testing.T) {
+		t.Parallel()
 		instance := &rhtasv1.Fulcio{}
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Initialize.String(),
 		})
-		if !a.CanHandle(context.TODO(), instance) {
+		if !a.CanHandle(t.Context(), instance) {
 			t.Error("expected true in Initialize phase")
 		}
 	})

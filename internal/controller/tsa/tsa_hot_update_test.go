@@ -102,7 +102,7 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			Expect(err).To(Not(HaveOccurred()))
 
 			Eventually(func() error {
-				return suite.Client().Delete(context.TODO(), found)
+				return suite.Client().Delete(ctx, found)
 			}, 2*time.Minute, time.Second).Should(Succeed())
 
 			// TODO(user): Attention if you improve this code by adding other context test you MUST
@@ -220,7 +220,7 @@ var _ = Describe("Timestamp Authority hot update", func() {
 
 			By("Creating new certificate chain and signer keys")
 			secret := tsa.CreateSecrets(Namespace, "tsa-test-secret", true)
-			Expect(suite.Client().Create(context.TODO(), secret)).NotTo(HaveOccurred())
+			Expect(suite.Client().Create(ctx, secret)).NotTo(HaveOccurred())
 
 			By("Status field changed for cert chain")
 			Eventually(func(g Gomega) string {

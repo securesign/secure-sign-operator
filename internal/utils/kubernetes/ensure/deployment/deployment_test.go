@@ -1,7 +1,6 @@
 package deployment
 
 import (
-	"context"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -21,8 +20,10 @@ import (
 const name = "dp"
 
 func TestEnsureTrustedCA(t *testing.T) {
+	t.Parallel()
 	t.Run("update existing object", func(t *testing.T) {
-		ctx := context.TODO()
+		t.Parallel()
+		ctx := t.Context()
 		g := gomega.NewWithT(t)
 		c := testAction.FakeClientBuilder().
 			WithObjects(&v1.Deployment{
@@ -88,8 +89,10 @@ func TestEnsureTrustedCA(t *testing.T) {
 }
 
 func TestEnsureTLS(t *testing.T) {
+	t.Parallel()
 	t.Run("update existing object", func(t *testing.T) {
-		ctx := context.TODO()
+		t.Parallel()
+		ctx := t.Context()
 		g := gomega.NewWithT(t)
 		c := testAction.FakeClientBuilder().
 			WithObjects(&v1.Deployment{
@@ -163,6 +166,7 @@ func TestEnsureTLS(t *testing.T) {
 }
 
 func TestPodRequirements(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		requirements  rhtasv1.PodRequirements
 		containerName string
@@ -251,6 +255,7 @@ func TestPodRequirements(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			g := gomega.NewWithT(t)
 			dp := &v1.Deployment{}
 			fn := PodRequirements(tt.args.requirements, tt.args.containerName)
