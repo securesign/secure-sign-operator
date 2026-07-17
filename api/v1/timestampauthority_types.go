@@ -76,6 +76,7 @@ type CertificateChain struct {
 	RootCA *TsaCertificateAuthority `json:"rootCA,omitempty"`
 	//Intermediate Certificate Authority Config
 	//+optional
+	// +listType=atomic
 	IntermediateCA []*TsaCertificateAuthority `json:"intermediateCA,omitempty"`
 	//Leaf Certificate Authority Config
 	//+optional
@@ -155,6 +156,7 @@ type NtpMonitoringConfig struct {
 	//Period (in seconds) for polling ntp servers
 	Period int `json:"period,omitempty"`
 	//List of servers to contact. Many DNS names resolves to multiple A records.
+	// +listType=set
 	Servers []string `json:"servers,omitempty"`
 }
 

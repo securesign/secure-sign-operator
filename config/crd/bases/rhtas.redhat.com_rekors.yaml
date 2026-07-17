@@ -995,6 +995,7 @@ spec:
                           type: string
                         minItems: 1
                         type: array
+                        x-kubernetes-list-type: set
                       name:
                         description: Name of the PVC
                         maxLength: 253
@@ -1216,6 +1217,9 @@ spec:
                       - name
                       type: object
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                   secretMount:
                     description: Secret ref to be mounted inside a pod, Mount path
                       defaults to /var/run/secrets/tas/auth
@@ -1238,6 +1242,10 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    - key
+                    x-kubernetes-list-type: map
                 type: object
               backFillRedis:
                 description: BackFillRedis CronJob Configuration

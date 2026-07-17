@@ -170,15 +170,21 @@ type Pvc struct {
 	StorageClass string `json:"storageClass,omitempty"`
 	// PVC AccessModes
 	//+kubebuilder:validation:MinItems:=1
+	// +listType=set
 	AccessModes []PersistentVolumeAccessMode `json:"accessModes,omitempty"`
 }
 
 type Auth struct {
 	// Environmental variables used to define authentication parameters
 	//+optional
+	// +listType=map
+	// +listMapKey=name
 	Env []core.EnvVar `json:"env,omitempty"`
 	// Secret ref to be mounted inside a pod, Mount path defaults to /var/run/secrets/tas/auth
 	//+optional
+	// +listType=map
+	// +listMapKey=name
+	// +listMapKey=key
 	SecretMount []SecretKeySelector `json:"secretMount,omitempty"`
 }
 
