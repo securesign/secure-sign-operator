@@ -1024,6 +1024,7 @@ func autoConvert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *v1.CTlogSpec, out *CTlog
 		return err
 	}
 	out.ServerConfigRef = (*LocalObjectReference)(unsafe.Pointer(in.ServerConfigRef))
+	// WARNING: in.Prefix requires manual conversion: does not exist in peer-type
 	if err := Convert_v1_TLS_To_v1alpha1_TLS(&in.TLS, &out.TLS, s); err != nil {
 		return err
 	}

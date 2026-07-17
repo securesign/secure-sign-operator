@@ -143,10 +143,10 @@ func createConfigWithKeys(certConfig *KeyConfig) *Config {
 	}
 }
 
-func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertificate, keyConfig *KeyConfig) (map[string][]byte, error) {
+func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertificate, keyConfig *KeyConfig, logPrefix string) (map[string][]byte, error) {
 	ctlogConfig := createConfigWithKeys(keyConfig)
 	ctlogConfig.LogID = treeID
-	ctlogConfig.LogPrefix = "trusted-artifact-signer"
+	ctlogConfig.LogPrefix = logPrefix
 	ctlogConfig.TrillianServerAddr = trillianUrl
 
 	for _, cert := range rootCerts {
