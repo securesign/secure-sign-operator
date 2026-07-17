@@ -1046,6 +1046,12 @@ spec:
                   rule: '!has(self.serviceMonitor) || !has(self.serviceMonitor.enabled)
                     || !self.serviceMonitor.enabled || (has(self.metrics) && has(self.metrics.enabled)
                     && self.metrics.enabled)'
+              prefix:
+                description: |-
+                  Prefix is the name of the log. The prefix cannot be empty and can
+                  contain "/" path separator characters to define global override handler prefix.
+                pattern: ^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$
+                type: string
               privateKeyPasswordRef:
                 description: |-
                   Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design

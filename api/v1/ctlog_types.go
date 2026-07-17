@@ -68,6 +68,12 @@ type CTlogSpec struct {
 	//+optional
 	ServerConfigRef *LocalObjectReference `json:"serverConfigRef,omitempty"`
 
+	// Prefix is the name of the log. The prefix cannot be empty and can
+	// contain "/" path separator characters to define global override handler prefix.
+	//+kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$"
+	//+optional
+	Prefix string `json:"prefix,omitempty"`
+
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
 	//+optional
 	TLS TLS `json:"tls,omitempty"`

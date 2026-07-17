@@ -40,6 +40,7 @@ var serverConfigAnnotations = []string{
 	labels.LabelNamespace + "/trillianUrl",
 	labels.LabelNamespace + "/rootCertificatesHash",
 	labels.LabelNamespace + "/privateKeyRef",
+	labels.LabelNamespace + "/logPrefix",
 }
 
 func NewServerConfigAction() action.Action[*rhtasv1.CTlog] {
@@ -151,7 +152,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 	}
 
 	var cfg map[string][]byte
-	if cfg, err = ctlogUtils.CreateCtlogConfig(trillianUrl, *instance.Status.TreeID, rootCerts, certConfig); err != nil {
+	if cfg, err = ctlogUtils.CreateCtlogConfig(trillianUrl, *instance.Status.TreeID, rootCerts, certConfig, instance.Spec.Prefix); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create CTLog configuration: %w", err), instance, metav1.Condition{
 			Type:               ConfigCondition,
 			Status:             metav1.ConditionFalse,
@@ -363,6 +364,10 @@ func (i serverConfig) configMatchingAnnotations(instance *rhtasv1.CTlog, trillia
 
 	if instance.Status.PrivateKeyRef != nil {
 		annotations[labels.LabelNamespace+"/privateKeyRef"] = fmt.Sprintf("%s/%s", instance.Status.PrivateKeyRef.Name, instance.Status.PrivateKeyRef.Key)
+	}
+
+	if instance.Spec.Prefix != "" {
+		annotations[labels.LabelNamespace+"/logPrefix"] = instance.Spec.Prefix
 	}
 
 	return annotations

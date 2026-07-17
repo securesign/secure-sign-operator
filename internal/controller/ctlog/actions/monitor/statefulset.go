@@ -34,7 +34,6 @@ const (
 	storageVolumeName = "monitor-storage"
 	tufRepoVolumeName = "tuf-repository"
 	mountPath         = "/data"
-	ctlogLogPrefix    = "trusted-artifact-signer"
 )
 
 func NewStatefulSetAction() action.Action[*rhtasv1.CTlog] {
@@ -162,7 +161,7 @@ func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1.CTlog, sa 
 			"-c",
 			fmt.Sprintf(
 				`/ctlog_monitor --file=%s/checkpoint_log.txt --once=false --interval=%s --url=%s/%s --tuf-repository=%s --tuf-root-path="%s/root.json"`,
-				mountPath, interval.String(), ctlogServerHost, ctlogLogPrefix, tufServerHost, mountPath),
+				mountPath, interval.String(), ctlogServerHost, instance.Spec.Prefix, tufServerHost, mountPath),
 		}
 
 		container.Ports = []core.ContainerPort{

@@ -531,6 +531,7 @@ func TestServerConfig_Update(t *testing.T) {
 			},
 			Spec: rhtasv1.CTlogSpec{
 				Trillian: rhtasv1.TrillianService{Port: ptr.To(int32(80))},
+				Prefix:   "trusted-artifact-signer",
 			},
 			Status: rhtasv1.CTlogStatus{
 				ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "existing-config"},
@@ -575,6 +576,7 @@ func TestServerConfig_Update(t *testing.T) {
 			"rhtas.redhat.com/trillianUrl":          "trillian-logserver.default.svc:80",
 			"rhtas.redhat.com/rootCertificatesHash": hex.EncodeToString(h[:]),
 			"rhtas.redhat.com/privateKeyRef":        "secret/private",
+			"rhtas.redhat.com/logPrefix":            "trusted-artifact-signer",
 		}
 	}
 
@@ -585,6 +587,7 @@ func TestServerConfig_Update(t *testing.T) {
 				"trillian-logserver.default.svc:80", 123456,
 				[]ctlogUtils.RootCertificate{cert},
 				&ctlogUtils.KeyConfig{PrivateKey: privateKey, PublicKey: publicKey, PrivateKeyPass: []byte("secure")},
+				"trusted-artifact-signer",
 			)),
 		}
 	}
@@ -627,6 +630,7 @@ func TestServerConfig_Update(t *testing.T) {
 								"trillian-logserver.default.svc:80", 654321,
 								[]ctlogUtils.RootCertificate{cert},
 								&ctlogUtils.KeyConfig{PrivateKey: privateKey, PublicKey: publicKey, PrivateKeyPass: []byte("secure")},
+								"trusted-artifact-signer",
 							)),
 						},
 					},
@@ -876,6 +880,7 @@ func TestServerConfig_Update(t *testing.T) {
 								"trillian-logserver.custom.svc:80", 9999999,
 								[]ctlogUtils.RootCertificate{cert},
 								&ctlogUtils.KeyConfig{PrivateKey: privateKey, PublicKey: publicKey, PrivateKeyPass: []byte("secure")},
+								"trusted-artifact-signer",
 							)),
 						},
 					},
@@ -917,6 +922,7 @@ func TestServerConfig_Update(t *testing.T) {
 								"trillian-logserver.custom.svc:80", 9999999,
 								[]ctlogUtils.RootCertificate{cert},
 								&ctlogUtils.KeyConfig{PrivateKey: privateKey, PublicKey: publicKey, PrivateKeyPass: []byte("secure")},
+								"trusted-artifact-signer",
 							)),
 						},
 					},
@@ -960,6 +966,7 @@ func TestServerConfig_Update(t *testing.T) {
 								"trillian-logserver.custom.svc:80", 9999999,
 								[]ctlogUtils.RootCertificate{cert},
 								&ctlogUtils.KeyConfig{PrivateKey: privateKey, PublicKey: publicKey, PrivateKeyPass: []byte("secure")},
+								"trusted-artifact-signer",
 							)),
 						},
 					},
@@ -1011,6 +1018,7 @@ func TestServerConfig_Prerequisites(t *testing.T) {
 			},
 			Spec: rhtasv1.CTlogSpec{
 				Trillian: rhtasv1.TrillianService{Port: ptr.To(int32(80))},
+				Prefix:   "trusted-artifact-signer",
 			},
 			Status: rhtasv1.CTlogStatus{
 				ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "existing-config"},

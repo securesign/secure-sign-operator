@@ -6,5 +6,6 @@ func (s *CTlogSpec) SetDefaults() {
 	s.PodRequirements.SetDefaults()
 	s.Monitoring.SetDefaults()
 	s.Trillian.SetDefaults()
+	setDefault(&s.Prefix, "trusted-artifact-signer")
 	setDefault(&s.MaxCertChainSize, ptr.To(int64(153600)))
 }
