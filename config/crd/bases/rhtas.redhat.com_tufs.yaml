@@ -1099,6 +1099,7 @@ spec:
                       type: string
                     minItems: 1
                     type: array
+                    x-kubernetes-list-type: set
                   name:
                     description: Name of the PVC
                     maxLength: 253

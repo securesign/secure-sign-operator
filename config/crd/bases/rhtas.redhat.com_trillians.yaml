@@ -206,6 +206,9 @@ spec:
                       - name
                       type: object
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                   secretMount:
                     description: Secret ref to be mounted inside a pod, Mount path
                       defaults to /var/run/secrets/tas/auth
@@ -228,6 +231,10 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    - key
+                    x-kubernetes-list-type: map
                 type: object
               database:
                 description: Define your database connection
@@ -281,6 +288,7 @@ spec:
                           type: string
                         minItems: 1
                         type: array
+                        x-kubernetes-list-type: set
                       name:
                         description: Name of the PVC
                         maxLength: 253
@@ -394,9 +402,9 @@ spec:
                 type: array
               maxRecvMessageSize:
                 description: MaxRecvMessageSize sets the maximum size in bytes for
-                  incoming gRPC messages handled by the Trillian logserver and logsigner
+                  incoming gRPC messages handled by the Trillian logserver and logsigner.
                 format: int64
-                minimum: 1
+                minimum: 0
                 type: integer
               monitoring:
                 description: Enable Monitoring for Logsigner and Logserver

@@ -1070,6 +1070,7 @@ spec:
                         items:
                           type: string
                         type: array
+                        x-kubernetes-list-type: set
                     type: object
                   enabled:
                     description: Enable or disable NTP(Network Time Protocol) Monitoring,
@@ -1306,6 +1307,9 @@ spec:
                           - name
                           type: object
                         type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
                       secretMount:
                         description: Secret ref to be mounted inside a pod, Mount
                           path defaults to /var/run/secrets/tas/auth
@@ -1328,6 +1332,10 @@ spec:
                           type: object
                           x-kubernetes-map-type: atomic
                         type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        - key
+                        x-kubernetes-list-type: map
                     type: object
                   certificateChain:
                     description: Configuration for the Certificate Chain
@@ -1373,6 +1381,7 @@ spec:
                           - organizationName
                           type: object
                         type: array
+                        x-kubernetes-list-type: atomic
                       leafCA:
                         description: Leaf Certificate Authority Config
                         properties:
