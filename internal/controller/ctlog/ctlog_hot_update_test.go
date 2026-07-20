@@ -17,6 +17,7 @@ limitations under the License.
 package ctlog
 
 import (
+	"context"
 	_ "embed"
 	"time"
 
@@ -77,9 +78,9 @@ var _ = Describe("CTlog update test", func() {
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
 
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Delete(ctx, found)
-			}, 3*time.Minute, time.Second).Should(Succeed())
+			}, 3*time.Minute, time.Second).WithContext(ctx).Should(Succeed())
 
 			// TODO(user): Attention if you improve this code by adding other context test you MUST
 			// be aware of the current delete namespace limitations.
@@ -114,10 +115,10 @@ var _ = Describe("CTlog update test", func() {
 			}
 
 			By("Checking if the custom resource was successfully created")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				found := &rhtasv1.CTlog{}
 				return suite.Client().Get(ctx, typeNamespaceName, found)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Creating trillian service")
 			Expect(suite.Client().Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, trillian.ServerPort, labels.ForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
@@ -150,29 +151,29 @@ var _ = Describe("CTlog update test", func() {
 
 			deployment := &appsv1.Deployment{}
 			By("Checking if Deployment was successfully created in the reconciliation")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase
 			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
 
 			By("Waiting until CTlog instance is ReadyCondition")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
-			}).Should(BeTrue())
+			}).WithContext(ctx).Should(BeTrue())
 
 			By("Public key has been resolved from operator-generated key")
 			var originalPublicKey string
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				g.Expect(found.Status.PublicKey).ShouldNot(BeEmpty())
 				originalPublicKey = found.Status.PublicKey
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Private key has changed")
 			key, err := utils.CreatePrivateKey()
@@ -188,7 +189,7 @@ var _ = Describe("CTlog update test", func() {
 
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
 			found := &rhtasv1.CTlog{}
-			Eventually(func(g Gomega) error {
+			Eventually(func(g Gomega, ctx context.Context) error {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				found.Spec.PrivateKeyRef = &rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{
@@ -204,21 +205,21 @@ var _ = Describe("CTlog update test", func() {
 				}
 				found.Spec.PrivateKeyPasswordRef = nil //nolint:staticcheck
 				return suite.Client().Update(ctx, found)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("CTLog status field changed")
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.PrivateKeyRef.Name
-			}).Should(Equal("key-secret"))
+			}).WithContext(ctx).Should(Equal("key-secret"))
 
 			By("CTL deployment is updated")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				updated := &appsv1.Deployment{}
 				g.Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)).To(Succeed())
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
-			}).Should(BeFalse())
+			}).WithContext(ctx).Should(BeFalse())
 
 			By("Simulate deployment controller: mark updated deployment as ready")
 			deployment = &appsv1.Deployment{}
@@ -226,22 +227,22 @@ var _ = Describe("CTlog update test", func() {
 			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
 
 			By("Rotated public key is flagged as drifted, not silently accepted")
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				cond := meta.FindStatusCondition(found.Status.Conditions, trustmaterial.TrustMaterialCondition)
 				g.Expect(cond).ToNot(BeNil())
 				return cond.Reason
-			}).Should(Equal(trustmaterial.ReasonDrifted))
+			}).WithContext(ctx).Should(Equal(trustmaterial.ReasonDrifted))
 
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.PublicKey
-			}).Should(Equal(originalPublicKey))
+			}).WithContext(ctx).Should(Equal(originalPublicKey))
 
 			By("Acknowledging the drift")
-			Eventually(func(g Gomega) error {
+			Eventually(func(g Gomega, ctx context.Context) error {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				if found.Annotations == nil {
@@ -249,16 +250,16 @@ var _ = Describe("CTlog update test", func() {
 				}
 				found.Annotations[annotations.RefreshTrustMaterial] = "true"
 				return suite.Client().Update(ctx, found)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Public key status updated after key change")
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				g.Expect(found.Status.PublicKey).ShouldNot(BeEmpty())
 				g.Expect(found.Status.PublicKey).ShouldNot(Equal(originalPublicKey))
 				g.Expect(found.Status.PublicKey).Should(Equal(string(key.PublicKey)))
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 		})
 	})
 })

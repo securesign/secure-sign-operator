@@ -17,6 +17,7 @@ limitations under the License.
 package ctlog
 
 import (
+	"context"
 	"time"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -70,9 +71,9 @@ var _ = Describe("CTlog controller", func() {
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
 
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Delete(ctx, found)
-			}, 2*time.Minute, time.Second).Should(Succeed())
+			}, 2*time.Minute, time.Second).WithContext(ctx).Should(Succeed())
 
 			// TODO(user): Attention if you improve this code by adding other context test you MUST
 			// be aware of the current delete namespace limitations.
@@ -107,27 +108,27 @@ var _ = Describe("CTlog controller", func() {
 			}
 
 			By("Checking if the custom resource was successfully created")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				found := &rhtasv1.CTlog{}
 				return suite.Client().Get(ctx, typeNamespaceName, found)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Status conditions are initialized")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
-			}).Should(BeTrue())
+			}).WithContext(ctx).Should(BeTrue())
 
 			By("Creating trillian service")
 			Expect(suite.Client().Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, trillian.ServerPort, labels.ForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
 				g.Expect(cond).ToNot(BeNil())
 				return cond.Reason
-			}).Should(Equal(state.Creating.String()))
+			}).WithContext(ctx).Should(Equal(state.Creating.String()))
 
 			By("Creating Fulcio CR with root certificate for autodiscovery")
 			fulcioCR := &rhtasv1.Fulcio{
@@ -155,35 +156,35 @@ var _ = Describe("CTlog controller", func() {
 			})
 			Expect(suite.Client().Status().Update(ctx, fulcioCR)).To(Succeed())
 
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
 				g.Expect(cond).ToNot(BeNil())
 				return cond.Reason
-			}).Should(Equal(state.Creating.String()))
+			}).WithContext(ctx).Should(Equal(state.Creating.String()))
 
 			By("Key Secret is created")
 			found := &rhtasv1.CTlog{}
-			Eventually(func(g Gomega) *rhtasv1.SecretKeySelector {
+			Eventually(func(g Gomega, ctx context.Context) *rhtasv1.SecretKeySelector {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.PrivateKeyRef
-			}).Should(Not(BeNil()))
-			Eventually(func() error {
+			}).WithContext(ctx).Should(Not(BeNil()))
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.PrivateKeyRef.Name, Namespace: Namespace}, &corev1.Secret{})
-			}).Should(Not(HaveOccurred()))
+			}).WithContext(ctx).Should(Not(HaveOccurred()))
 
 			deployment := &appsv1.Deployment{}
 			By("Checking if Deployment was successfully created in the reconciliation")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Checking if Service was successfully created in the reconciliation")
 			service := &corev1.Service{}
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.ComponentName, Namespace: Namespace}, service)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 			Expect(service.Spec.Ports[0].Port).Should(Equal(int32(80)))
 
 			By("Move to Ready phase")
@@ -191,32 +192,32 @@ var _ = Describe("CTlog controller", func() {
 			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
 
 			By("Waiting until CTlog instance is Ready")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
-			}).Should(BeTrue())
+			}).WithContext(ctx).Should(BeTrue())
 
 			By("Public key has been resolved into status")
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				g.Expect(found.Status.PublicKey).ShouldNot(BeEmpty())
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Checking if controller will return deployment to desired state")
 			deployment = &appsv1.Deployment{}
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 			replicas := int32(99)
 			deployment.Spec.Replicas = &replicas
 			Expect(suite.Client().Status().Update(ctx, deployment)).Should(Succeed())
-			Eventually(func(g Gomega) int32 {
+			Eventually(func(g Gomega, ctx context.Context) int32 {
 				deployment = &appsv1.Deployment{}
 				g.Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
 				return *deployment.Spec.Replicas
-			}).Should(Equal(int32(1)))
+			}).WithContext(ctx).Should(Equal(int32(1)))
 		})
 	})
 })

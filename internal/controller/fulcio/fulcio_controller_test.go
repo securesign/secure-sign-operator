@@ -17,6 +17,7 @@ limitations under the License.
 package fulcio
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -110,9 +111,9 @@ var _ = Describe("Fulcio controller", func() {
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
 
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Delete(ctx, found)
-			}, 2*time.Minute, time.Second).Should(Succeed())
+			}, 2*time.Minute, time.Second).WithContext(ctx).Should(Succeed())
 
 			// TODO(user): Attention if you improve this code by adding other context test you MUST
 			// be aware of the current delete namespace limitations.
@@ -169,26 +170,26 @@ var _ = Describe("Fulcio controller", func() {
 			}
 
 			By("Checking if the custom resource was successfully created")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				found := &rhtasv1.Fulcio{}
 				return suite.Client().Get(ctx, typeNamespaceName, found)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Status conditions are initialized")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				found := &rhtasv1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
-			}).Should(BeTrue())
+			}).WithContext(ctx).Should(BeTrue())
 
 			By("Pending phase until password key is resolved")
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				found := &rhtasv1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
 				g.Expect(cond).ToNot(BeNil())
 				return cond.Reason
-			}).Should(Equal(state.Pending.String()))
+			}).WithContext(ctx).Should(Equal(state.Pending.String()))
 
 			By("Creating password secret with cert password")
 			Expect(suite.Client().Create(ctx, &corev1.Secret{
@@ -205,89 +206,89 @@ var _ = Describe("Fulcio controller", func() {
 			By("Secrets are resolved")
 			certSecretName := fmt.Sprintf("fulcio-cert-config-%s", Name)
 			var certSecret *corev1.Secret
-			Eventually(func(g Gomega) *corev1.Secret {
+			Eventually(func(g Gomega, ctx context.Context) *corev1.Secret {
 				certSecret = &corev1.Secret{}
 				g.Expect(suite.Client().Get(ctx, types.NamespacedName{Name: certSecretName, Namespace: Namespace}, certSecret)).To(Succeed())
 				return certSecret
-			}).Should(Not(BeNil()))
+			}).WithContext(ctx).Should(Not(BeNil()))
 
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				found := &rhtasv1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, actions.CertCondition)
-			}).Should(BeTrue())
-			Eventually(func(g Gomega) string {
+			}).WithContext(ctx).Should(BeTrue())
+			Eventually(func(g Gomega, ctx context.Context) string {
 				found := &rhtasv1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Certificate.CARef.Name
-			}).Should(Equal(certSecret.Name))
-			Eventually(func(g Gomega) string {
+			}).WithContext(ctx).Should(Equal(certSecret.Name))
+			Eventually(func(g Gomega, ctx context.Context) string {
 				found := &rhtasv1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Certificate.PrivateKeyRef.Name
-			}).Should(Equal(certSecret.Name))
-			Eventually(func(g Gomega) string {
+			}).WithContext(ctx).Should(Equal(certSecret.Name))
+			Eventually(func(g Gomega, ctx context.Context) string {
 				found := &rhtasv1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Certificate.PrivateKeyPasswordRef.Name
-			}).Should(Equal("password-secret"))
+			}).WithContext(ctx).Should(Equal("password-secret"))
 
 			Expect(certSecret.Data).To(And(HaveKey("private"), HaveKey("cert")))
 
 			deployment := &appsv1.Deployment{}
 			By("Checking if Deployment was successfully created in the reconciliation")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase
 			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
 
 			By("Waiting until Fulcio instance is Ready")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				found := &rhtasv1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
-			}).Should(BeTrue())
+			}).WithContext(ctx).Should(BeTrue())
 
 			By("Root certificate has been resolved into status")
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				found := &rhtasv1.Fulcio{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				g.Expect(found.Status.CertificateChain).Should(Equal(expectedRootCert))
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Checking if Service was successfully created in the reconciliation")
 			service := &corev1.Service{}
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, service)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 			Expect(service.Spec.Ports[0].Port).Should(Equal(int32(80)))
 			Expect(service.Spec.Ports[1].Port).Should(Equal(int32(5554)))
 
 			By("Checking if Ingress was successfully created in the reconciliation")
 			ingress := &v1.Ingress{}
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, ingress)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 			Expect(ingress.Spec.Rules[0].Host).Should(Equal("fulcio.localhost"))
 			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Name).Should(Equal(service.Name))
 			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Port.Name).Should(Equal(actions.ServerPortName))
 
 			By("Checking if controller will return deployment to desired state")
 			deployment = &appsv1.Deployment{}
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 			replicas := int32(99)
 			deployment.Spec.Replicas = &replicas
 			Expect(suite.Client().Status().Update(ctx, deployment)).Should(Succeed())
-			Eventually(func(g Gomega) int32 {
+			Eventually(func(g Gomega, ctx context.Context) int32 {
 				deployment = &appsv1.Deployment{}
 				g.Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
 				return *deployment.Spec.Replicas
-			}).Should(Equal(int32(1)))
+			}).WithContext(ctx).Should(Equal(int32(1)))
 		})
 	})
 })

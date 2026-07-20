@@ -85,9 +85,9 @@ var _ = Describe("Rekor controller", func() {
 			err := suite.Client().Get(ctx, types.NamespacedName{Name: Name, Namespace: namespace.Name}, found)
 			Expect(err).To(Not(HaveOccurred()))
 
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Delete(ctx, found)
-			}, 2*time.Minute, time.Second).Should(Succeed())
+			}, 2*time.Minute, time.Second).WithContext(ctx).Should(Succeed())
 
 			By("Deleting the Namespace to perform the tests")
 			_ = suite.Client().Delete(ctx, &namespace)
@@ -111,10 +111,10 @@ var _ = Describe("Rekor controller", func() {
 
 			By("Rekor server PVC created")
 			found := &rhtasv1.Rekor{}
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				g.Expect(suite.Client().Get(ctx, client.ObjectKeyFromObject(instance), found)).Should(Succeed())
 				return found.Status.PvcName
-			}).Should(Not(BeEmpty()))
+			}).WithContext(ctx).Should(Not(BeEmpty()))
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.PvcName, Namespace: namespace.Name}, &corev1.PersistentVolumeClaim{})).Should(Succeed())
 
 			deployment := &appsv1.Deployment{}
@@ -162,10 +162,10 @@ var _ = Describe("Rekor controller", func() {
 
 			By("Rekor server PVC not created")
 			found := &rhtasv1.Rekor{}
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				g.Expect(suite.Client().Get(ctx, client.ObjectKeyFromObject(instance), found)).Should(Succeed())
 				return found.Status.PvcName
-			}).Should(Not(BeEmpty()))
+			}).WithContext(ctx).Should(Not(BeEmpty()))
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.PvcName, Namespace: namespace.Name}, &corev1.PersistentVolumeClaim{})).Should(HaveOccurred())
 
 			deployment := &appsv1.Deployment{}
@@ -237,38 +237,38 @@ func deployAndVerify(ctx context.Context, instance *rhtasv1.Rekor) {
 	Expect(suite.Client().Create(ctx, instance)).To(Not(HaveOccurred()))
 
 	By("Checking if the custom resource was successfully created")
-	Eventually(func() error {
+	Eventually(func(ctx context.Context) error {
 		return suite.Client().Get(ctx, client.ObjectKeyFromObject(instance), &rhtasv1.Rekor{})
-	}).Should(Succeed())
+	}).WithContext(ctx).Should(Succeed())
 
 	By("Status conditions are initialized")
-	Eventually(func(g Gomega) bool {
+	Eventually(func(g Gomega, ctx context.Context) bool {
 		found := &rhtasv1.Rekor{}
 		g.Expect(suite.Client().Get(ctx, client.ObjectKeyFromObject(instance), found)).Should(Succeed())
 		return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
-	}).Should(BeTrue())
+	}).WithContext(ctx).Should(BeTrue())
 
 	By("Rekor signer created")
 	found := &rhtasv1.Rekor{}
-	Eventually(func(g Gomega) *rhtasv1.SecretKeySelector {
+	Eventually(func(g Gomega, ctx context.Context) *rhtasv1.SecretKeySelector {
 		g.Expect(suite.Client().Get(ctx, client.ObjectKeyFromObject(instance), found)).To(Succeed())
 		return found.Status.Signer.KeyRef
-	}).Should(Not(BeNil()))
+	}).WithContext(ctx).Should(Not(BeNil()))
 	Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Signer.KeyRef.Name, Namespace: instance.Namespace}, &corev1.Secret{})).Should(Succeed())
 
 	By("Rekor server deployment created")
-	Eventually(func() error {
+	Eventually(func(ctx context.Context) error {
 		return suite.Client().Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: instance.Namespace}, &appsv1.Deployment{})
-	}).Should(Succeed())
+	}).WithContext(ctx).Should(Succeed())
 
 	By("Waiting until Rekor instance is Initialization")
-	Eventually(func(g Gomega) string {
+	Eventually(func(g Gomega, ctx context.Context) string {
 		found := &rhtasv1.Rekor{}
 		g.Expect(suite.Client().Get(ctx, client.ObjectKeyFromObject(instance), found)).Should(Succeed())
 		cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
 		g.Expect(cond).ToNot(BeNil())
 		return cond.Reason
-	}).Should(Equal(state.Initialize.String()))
+	}).WithContext(ctx).Should(Equal(state.Initialize.String()))
 
 	By("Move to Ready phase")
 	// Workaround to succeed condition for Ready phase
@@ -279,11 +279,11 @@ func deployAndVerify(ctx context.Context, instance *rhtasv1.Rekor) {
 	}
 
 	By("Waiting until Rekor instance is Ready")
-	Eventually(func(g Gomega) bool {
+	Eventually(func(g Gomega, ctx context.Context) bool {
 		found := &rhtasv1.Rekor{}
 		g.Expect(suite.Client().Get(ctx, client.ObjectKeyFromObject(instance), found)).Should(Succeed())
 		return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
-	}).Should(BeTrue())
+	}).WithContext(ctx).Should(BeTrue())
 }
 
 func findVolumeByName(volumes []corev1.Volume, name string) *corev1.Volume {
