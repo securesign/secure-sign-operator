@@ -239,12 +239,16 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Install Cluster
+        id: kind
         uses: ./.github/actions/kind-cluster
         with:
           config: ./ci/config.yaml
           prometheus: 'true'
           keycloak: 'true'
           olm: 'true'
+
+      - name: Set INGRESS_HOST_TEMPLATE from node IP
+        run: echo "INGRESS_HOST_TEMPLATE=%[1]s.%[2]s.${{ steps.kind.outputs.node_ip }}.nip.io" >> $GITHUB_ENV
 
       - name: Pull Container image from GHCR
         run: podman pull ${{ env.IMG }}
@@ -335,12 +339,16 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Install Cluster
+        id: kind
         uses: ./.github/actions/kind-cluster
         with:
           config: ./ci/config.yaml
           prometheus: 'true'
           keycloak: 'true'
           olm: 'true'
+
+      - name: Set INGRESS_HOST_TEMPLATE from node IP
+        run: echo "INGRESS_HOST_TEMPLATE=%[1]s.%[2]s.${{ steps.kind.outputs.node_ip }}.nip.io" >> $GITHUB_ENV
 
       - name: Pull Container image from GHCR
         run: |
@@ -421,6 +429,7 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Install Cluster
+        id: kind
         uses: ./.github/actions/kind-cluster
         with:
           config: ./ci/config.yaml
@@ -428,6 +437,9 @@ jobs:
           keycloak: 'true'
           olm: 'true'
           nfs-csi: 'true'
+
+      - name: Set INGRESS_HOST_TEMPLATE from node IP
+        run: echo "INGRESS_HOST_TEMPLATE=%[1]s.%[2]s.${{ steps.kind.outputs.node_ip }}.nip.io" >> $GITHUB_ENV
 
       - name: Pull Container image from GHCR
         run: podman pull ${{ env.IMG }}
@@ -523,11 +535,15 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Install Cluster
+        id: kind
         uses: ./.github/actions/kind-cluster
         with:
           config: ./ci/config.yaml
           nfs-csi: true
           keycloak: 'false' # keycloak use a lot of resources and is not needed for custom_intall tests
+
+      - name: Set INGRESS_HOST_TEMPLATE from node IP
+        run: echo "INGRESS_HOST_TEMPLATE=%[1]s.%[2]s.${{ steps.kind.outputs.node_ip }}.nip.io" >> $GITHUB_ENV
 
       - name: Pull Container image from GHCR
         run: |
@@ -613,6 +629,9 @@ jobs:
           olm: 'true'
           prometheus: 'true'
 
+      - name: Set INGRESS_HOST_TEMPLATE from node IP
+        run: echo "INGRESS_HOST_TEMPLATE=%[1]s.%[2]s.${{ steps.kind.outputs.node_ip }}.nip.io" >> $GITHUB_ENV
+
       - name: Pull Container image from GHCR
         run: |
           podman pull ${{ env.IMG }}
@@ -666,7 +685,8 @@ jobs:
           export FULCIO_URL=$(kubectl get fulcio -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})
           
           export CLI_STRATEGY=cli_server
-          export CLI_SERVER_URL="http://cli-server.trusted-artifact-signer.127.0.0.1.nip.io"
+          NODE_IP=$(kubectl get nodes kind-control-plane -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
+          export CLI_SERVER_URL="http://cli-server.trusted-artifact-signer.${NODE_IP}.nip.io"
           
           cd e2e
           source ./tas-env-variables.sh
@@ -760,12 +780,16 @@ jobs:
           auth_file_path: /tmp/config.json
 
       - name: Install Cluster
+        id: kind
         uses: ./.github/actions/kind-cluster
         with:
           config: ./ci/config.yaml
           prometheus: 'true'
           keycloak: 'true'
           olm: 'true'
+
+      - name: Set INGRESS_HOST_TEMPLATE from node IP
+        run: echo "INGRESS_HOST_TEMPLATE=%[1]s.%[2]s.${{ steps.kind.outputs.node_ip }}.nip.io" >> $GITHUB_ENV
 
       - name: Pull coverage image from GHCR
         run: podman pull ${{ env.IMG }}-coverage

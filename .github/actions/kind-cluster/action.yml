@@ -26,6 +26,9 @@ outputs:
   oidc_host:
     value: ${{ steps.install-keycloak.outputs.oidc_host }}
     description: 'Keycloak OIDC host'
+  node_ip:
+    value: ${{ steps.node-ip.outputs.node_ip }}
+    description: 'Kind node internal IP reachable from both host and pods'
 
 runs:
   using: 'composite'
@@ -39,6 +42,14 @@ runs:
         cluster_name: kind
         config: ${{ inputs.config }}
         ignore_failed_clean: true
+
+    - name: Get Kind node IP
+      id: node-ip
+      shell: bash
+      run: |
+        NODE_IP=$(kubectl get nodes kind-control-plane -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
+        echo "node_ip=${NODE_IP}" >> $GITHUB_OUTPUT
+        echo "Kind node IP: ${NODE_IP}"
 
     - name: Configure ingress
       shell: bash

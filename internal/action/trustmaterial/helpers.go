@@ -13,7 +13,6 @@ import (
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/constants"
 	httputils "github.com/securesign/operator/internal/utils/http"
-	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -38,14 +37,7 @@ func hasRefreshAcknowledgement(instance client.Object) bool {
 // implemented (planned for OCP), the protocol must be resolved dynamically from the
 // component's TLS configuration (e.g. service-serving-cert annotation or TLS status).
 func ResolveBaseURL(deploymentName, namespace, statusUrl string, port ...int) string {
-	inContainer, _ := kubernetes.ContainerMode()
-	if !inContainer && statusUrl != "" {
-		return statusUrl
-	}
-	if len(port) > 0 {
-		return fmt.Sprintf("http://%s.%s.svc:%d", deploymentName, namespace, port[0])
-	}
-	return fmt.Sprintf("http://%s.%s.svc", deploymentName, namespace)
+	return statusUrl
 }
 
 // FetchPEMOverHTTP fetches raw bytes from fullURL, loading instance's

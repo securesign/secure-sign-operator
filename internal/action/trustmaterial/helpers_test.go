@@ -9,7 +9,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"math/big"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -256,43 +255,17 @@ func TestExtractSigningCert(t *testing.T) {
 }
 
 func TestResolveBaseURL(t *testing.T) {
-	t.Run("in-container uses internal service URL", func(t *testing.T) {
-		// Simulate in-container: unset KUBECONFIG, ensure namespace file exists
-		t.Setenv("KUBECONFIG", "")
-		t.Setenv("HOME", t.TempDir())
-		nsFile := "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
-		if _, err := os.Stat(nsFile); err == nil {
-			// Running in a real container or the file exists — internal URL expected
-			got := ResolveBaseURL("fulcio-server", "test-ns", "https://fulcio.external.example.com")
-			if got != "http://fulcio-server.test-ns.svc" {
-				t.Errorf("expected internal URL, got %s", got)
-			}
-		} else {
-			t.Skip("namespace file not present — cannot simulate in-container mode")
-		}
-	})
-
-	t.Run("outside container uses statusUrl", func(t *testing.T) {
-		t.Setenv("KUBECONFIG", "/some/config")
+	t.Run("returns statusUrl", func(t *testing.T) {
 		got := ResolveBaseURL("fulcio-server", "test-ns", "https://fulcio.external.example.com")
 		if got != "https://fulcio.external.example.com" {
 			t.Errorf("expected statusUrl, got %s", got)
 		}
 	})
 
-	t.Run("outside container with empty statusUrl falls back to internal", func(t *testing.T) {
-		t.Setenv("KUBECONFIG", "/some/config")
+	t.Run("empty statusUrl returns empty", func(t *testing.T) {
 		got := ResolveBaseURL("fulcio-server", "test-ns", "")
-		if got != "http://fulcio-server.test-ns.svc" {
-			t.Errorf("expected internal URL, got %s", got)
-		}
-	})
-
-	t.Run("with port", func(t *testing.T) {
-		t.Setenv("KUBECONFIG", "/some/config")
-		got := ResolveBaseURL("tsa-server", "test-ns", "", 3000)
-		if got != "http://tsa-server.test-ns.svc:3000" {
-			t.Errorf("expected internal URL with port, got %s", got)
+		if got != "" {
+			t.Errorf("expected empty string, got %s", got)
 		}
 	})
 }
