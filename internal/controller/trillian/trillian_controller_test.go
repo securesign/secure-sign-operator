@@ -17,7 +17,6 @@ limitations under the License.
 package trillian
 
 import (
-	"context"
 	"time"
 
 	"github.com/securesign/operator/internal/constants"
@@ -47,8 +46,6 @@ var _ = Describe("Trillian controller", func() {
 			Namespace = "default"
 		)
 
-		ctx := context.Background()
-
 		namespace := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      Name,
@@ -59,13 +56,13 @@ var _ = Describe("Trillian controller", func() {
 		typeNamespaceName := types.NamespacedName{Name: Name, Namespace: Namespace}
 		trillian := &rhtasv1.Trillian{}
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			By("Creating the Namespace to perform the tests")
 			err := suite.Client().Create(ctx, namespace)
 			Expect(err).To(Not(HaveOccurred()))
 		})
 
-		AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			By("removing the custom resource for the Kind Trillian")
 			found := &rhtasv1.Trillian{}
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
@@ -82,7 +79,7 @@ var _ = Describe("Trillian controller", func() {
 			_ = suite.Client().Delete(ctx, namespace)
 		})
 
-		It("should successfully reconcile a custom resource for Trillian", func() {
+		It("should successfully reconcile a custom resource for Trillian", func(ctx SpecContext) {
 			By("creating the custom resource for the Kind Trillian")
 			err := suite.Client().Get(ctx, typeNamespaceName, trillian)
 			if err != nil && errors.IsNotFound(err) {

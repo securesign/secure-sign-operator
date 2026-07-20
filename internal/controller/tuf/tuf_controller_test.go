@@ -17,7 +17,6 @@ limitations under the License.
 package tuf
 
 import (
-	"context"
 	_ "embed"
 	"reflect"
 	"strconv"
@@ -59,8 +58,6 @@ var _ = Describe("TUF controller", func() {
 			TufNamespace = "controller"
 		)
 
-		ctx := context.Background()
-
 		namespace := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: TufNamespace,
@@ -70,13 +67,13 @@ var _ = Describe("TUF controller", func() {
 		typeNamespaceName := types.NamespacedName{Name: TufName, Namespace: TufNamespace}
 		tuf := &rhtasv1.Tuf{}
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			By("Creating the Namespace to perform the tests")
 			err := suite.Client().Create(ctx, namespace)
 			Expect(err).To(Not(HaveOccurred()))
 		})
 
-		AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			By("removing the custom resource for the Kind Tuf")
 			found := &rhtasv1.Tuf{}
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
@@ -93,7 +90,7 @@ var _ = Describe("TUF controller", func() {
 			_ = suite.Client().Delete(ctx, namespace)
 		})
 
-		It("should successfully reconcile a custom resource for Tuf", func() {
+		It("should successfully reconcile a custom resource for Tuf", func(ctx SpecContext) {
 			By("creating the custom resource for the Kind Tuf")
 			err := suite.Client().Get(ctx, typeNamespaceName, tuf)
 			if err != nil && errors.IsNotFound(err) {

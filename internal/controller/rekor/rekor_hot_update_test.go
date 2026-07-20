@@ -18,7 +18,6 @@ package rekor
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"net/http"
 	"time"
@@ -58,8 +57,6 @@ var _ = Describe("Rekor hot update test", func() {
 			Namespace = "update"
 		)
 
-		ctx := context.Background()
-
 		namespace := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: Namespace,
@@ -69,7 +66,7 @@ var _ = Describe("Rekor hot update test", func() {
 		typeNamespaceName := types.NamespacedName{Name: Name, Namespace: Namespace}
 		instance := &rhtasv1.Rekor{}
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			By("Creating the Namespace to perform the tests")
 			err := suite.Client().Create(ctx, namespace)
 			Expect(err).To(Not(HaveOccurred()))
@@ -93,7 +90,7 @@ var _ = Describe("Rekor hot update test", func() {
 			})
 		})
 
-		AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			By("removing the custom resource for the Kind Rekor")
 			found := &rhtasv1.Rekor{}
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
@@ -110,7 +107,7 @@ var _ = Describe("Rekor hot update test", func() {
 			_ = suite.Client().Delete(ctx, namespace)
 		})
 
-		It("should successfully reconcile a custom resource for Rekor", func() {
+		It("should successfully reconcile a custom resource for Rekor", func(ctx SpecContext) {
 			By("creating the custom resource for the Kind Rekor")
 			err := suite.Client().Get(ctx, typeNamespaceName, instance)
 			if err != nil && errors.IsNotFound(err) {

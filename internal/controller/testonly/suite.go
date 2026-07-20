@@ -62,7 +62,7 @@ func ControllerSuite(supplier controller.Constructor) controllerSuite {
 }
 
 func (t *controllerSuite) BeforeSuite() {
-	t.ctx, t.cancel = context.WithCancel(context.TODO())
+	t.ctx, t.cancel = context.WithCancel(context.Background())
 
 	By("bootstrapping test environment")
 	t.testEnv = &envtest.Environment{
@@ -127,7 +127,7 @@ func (t *controllerSuite) BeforeSuite() {
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
-		elog := logf.FromContext(context.TODO()).WithName("Event")
+		elog := logf.FromContext(context.Background()).WithName("Event")
 		for msg := range recorder.Events {
 			elog.Info(msg)
 		}

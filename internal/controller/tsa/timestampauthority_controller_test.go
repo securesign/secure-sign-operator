@@ -17,7 +17,6 @@ limitations under the License.
 package tsa
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -55,8 +54,6 @@ var _ = Describe("TimestampAuthority Controller", func() {
 			Namespace = "default"
 		)
 
-		ctx := context.Background()
-
 		namespace := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      Name,
@@ -71,7 +68,7 @@ var _ = Describe("TimestampAuthority Controller", func() {
 		service := &corev1.Service{}
 		ingress := &v1.Ingress{}
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			By("Creating the Namespace to perform the tests")
 			err := suite.Client().Create(ctx, namespace)
 			Expect(err).To(Not(HaveOccurred()))
@@ -93,7 +90,7 @@ var _ = Describe("TimestampAuthority Controller", func() {
 			})
 		})
 
-		AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			By("removing the custom resource for the Kind Timestamp Authority")
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
@@ -109,7 +106,7 @@ var _ = Describe("TimestampAuthority Controller", func() {
 			_ = suite.Client().Delete(ctx, namespace)
 		})
 
-		It("should successfully reconcile a custom resource for the Timestamp Authority", func() {
+		It("should successfully reconcile a custom resource for the Timestamp Authority", func(ctx SpecContext) {
 			By("creating the custom resource for the Timestamp Authority")
 			err := suite.Client().Get(ctx, typeNamespaceName, timestampAuthority)
 			if err != nil && errors.IsNotFound(err) {

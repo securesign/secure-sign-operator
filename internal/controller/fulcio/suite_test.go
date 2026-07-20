@@ -42,5 +42,6 @@ func TestController(t *testing.T) {
 
 	RegisterFailHandler(Fail)
 	SetDefaultEventuallyTimeout(2 * time.Minute)
+	EnforceDefaultTimeoutsWhenUsingContexts()
 	RunSpecs(t, "Controller Suite")
 }
