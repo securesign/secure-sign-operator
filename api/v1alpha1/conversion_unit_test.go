@@ -742,7 +742,7 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 					NTPMonitoring:  rhtasv1.NTPMonitoring{Enabled: ptr.To(false)},
 				},
 				Status: rhtasv1.TimestampAuthorityStatus{
-					Url: "https://tsa.rhtas.example.com",
+					Url: "https://tsa.rhtas.example.com/api/v1/timestamp",
 					Signer: &rhtasv1.TimestampAuthoritySignerStatus{
 						CertificateChainRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tsa-chain-secret"},

@@ -3,8 +3,35 @@ package v1alpha1
 import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
+	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
+
+func Convert_v1alpha1_SecuresignTSAStatus_To_v1_SecuresignTSAStatus(in *SecuresignTSAStatus, out *rhtasv1.SecuresignTSAStatus, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_SecuresignTSAStatus_To_v1_SecuresignTSAStatus(in, out, s); err != nil {
+		return err
+	}
+	if out.Url != "" {
+		var err error
+		if out.Url, err = urlWithPath(out.Url, rhtasv1.TimestampPath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func Convert_v1_SecuresignTSAStatus_To_v1alpha1_SecuresignTSAStatus(in *rhtasv1.SecuresignTSAStatus, out *SecuresignTSAStatus, s apiconversion.Scope) error {
+	if err := autoConvert_v1_SecuresignTSAStatus_To_v1alpha1_SecuresignTSAStatus(in, out, s); err != nil {
+		return err
+	}
+	if out.Url != "" {
+		var err error
+		if out.Url, err = urlWithoutPath(out.Url); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*rhtasv1.Securesign)

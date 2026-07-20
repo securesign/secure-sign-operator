@@ -11,5 +11,4 @@ const (
 	MetricsPortName    = "metrics"
 	MetricsPort        = 2112
 	NtpCMName          = "ntp-config-"
-	TimestampPath      = "/api/v1/timestamp"
 )

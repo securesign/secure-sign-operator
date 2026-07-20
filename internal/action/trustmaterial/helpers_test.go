@@ -272,11 +272,19 @@ func TestResolveBaseURL(t *testing.T) {
 		}
 	})
 
-	t.Run("outside container uses statusUrl", func(t *testing.T) {
+	t.Run("outside container uses statusUrl host", func(t *testing.T) {
 		t.Setenv("KUBECONFIG", "/some/config")
 		got := ResolveBaseURL("fulcio-server", "test-ns", "https://fulcio.external.example.com")
 		if got != "https://fulcio.external.example.com" {
-			t.Errorf("expected statusUrl, got %s", got)
+			t.Errorf("expected statusUrl host, got %s", got)
+		}
+	})
+
+	t.Run("outside container strips path from statusUrl", func(t *testing.T) {
+		t.Setenv("KUBECONFIG", "/some/config")
+		got := ResolveBaseURL("tsa-server", "test-ns", "http://tsa.test:8090/api/v1/timestamp")
+		if got != "http://tsa.test:8090" {
+			t.Errorf("expected base URL without path, got %s", got)
 		}
 	})
 

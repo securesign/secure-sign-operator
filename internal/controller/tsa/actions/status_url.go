@@ -41,9 +41,9 @@ func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1.Timestamp
 		if len(ingress.Spec.TLS) > 0 {
 			protocol = "https://"
 		}
-		url = protocol + ingress.Spec.Rules[0].Host
+		url = protocol + ingress.Spec.Rules[0].Host + rhtasv1.TimestampPath
 	} else {
-		url = fmt.Sprintf("http://%s.%s.svc:%d", DeploymentName, instance.Namespace, ServerPort)
+		url = fmt.Sprintf("http://%s.%s.svc:%d%s", DeploymentName, instance.Namespace, ServerPort, rhtasv1.TimestampPath)
 	}
 
 	if url == instance.Status.Url {

@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/annotations"
-	tsaActions "github.com/securesign/operator/internal/controller/tsa/actions"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	utils2 "github.com/securesign/operator/internal/controller/tuf/utils"
 	"github.com/securesign/operator/internal/labels"
@@ -91,7 +90,7 @@ func RefreshTufRepository(ctx context.Context, cli client.Client, ns string, nam
 
 	t.Spec.Fulcio.Address = fulcio.Get(ctx, cli, ns, name).Status.Url
 	t.Spec.Rekor.Address = rekor.Get(ctx, cli, ns, name).Status.Url
-	t.Spec.Tsa.Address = tsa.Get(ctx, cli, ns, name).Status.Url + tsaActions.TimestampPath
+	t.Spec.Tsa.Address = tsa.Get(ctx, cli, ns, name).Status.Url
 	refreshJob := refreshTufJob(t)
 	Expect(cli.Create(ctx, refreshJob)).To(Succeed())
 

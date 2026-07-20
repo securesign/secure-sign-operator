@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -30,7 +31,7 @@ func hasRefreshAcknowledgement(instance client.Object) bool {
 	return b
 }
 
-// ResolveBaseURL returns the base URL for in-cluster HTTP calls to a component's service.
+// ResolveBaseURL returns the base URL (removes the path suffix) for in-cluster HTTP calls to a component's service.
 // When the operator runs inside a pod (ContainerMode), it uses the internal Kubernetes DNS name
 // which is always reachable. When running outside (local dev), it falls back to statusUrl.
 //
@@ -40,6 +41,9 @@ func hasRefreshAcknowledgement(instance client.Object) bool {
 func ResolveBaseURL(deploymentName, namespace, statusUrl string, port ...int) string {
 	inContainer, _ := kubernetes.ContainerMode()
 	if !inContainer && statusUrl != "" {
+		if u, err := url.Parse(statusUrl); err == nil {
+			return u.Scheme + "://" + u.Host
+		}
 		return statusUrl
 	}
 	if len(port) > 0 {

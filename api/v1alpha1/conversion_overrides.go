@@ -1,10 +1,29 @@
 package v1alpha1
 
 import (
+	"net/url"
+
 	v1 "github.com/securesign/operator/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
 )
+
+func urlWithPath(rawUrl, path string) (string, error) {
+	u, err := url.Parse(rawUrl)
+	if err != nil {
+		return "", err
+	}
+	u.Path = path
+	return u.String(), nil
+}
+
+func urlWithoutPath(rawUrl string) (string, error) {
+	u, err := url.Parse(rawUrl)
+	if err != nil {
+		return "", err
+	}
+	return u.Scheme + "://" + u.Host, nil
+}
 
 // Manual conversion functions for Spec types where v1 has fields
 // that don't exist in v1alpha1 (e.g. ServiceAccountConfig).

@@ -141,7 +141,8 @@ type RekorService struct {
 
 // TsaService configuration to connect TSA server
 type TsaService struct {
-	// Address to TSA End point
+	// Address is the full TSA endpoint URL including the API suffix path
+	// (e.g. http://tsa.example.com/api/v1/timestamp).
 	//+optional
 	Address string `json:"address,omitempty"`
 	// Port of TSA End point

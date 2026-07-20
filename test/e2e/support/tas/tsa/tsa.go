@@ -67,7 +67,7 @@ func GetServerPod(ctx context.Context, cli client.Client, ns string) func() *v1.
 func GetCertificateChain(ctx context.Context, url string) error {
 	var resp *http.Response
 	var err error
-	req, err := http.NewRequestWithContext(ctx, "GET", url+"/api/v1/timestamp/certchain", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url+"/certchain", nil)
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request: %w", err)
 	}

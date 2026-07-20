@@ -10907,7 +10907,9 @@ spec:
                     description: TSA service configuration
                     properties:
                       address:
-                        description: Address to TSA End point
+                        description: |-
+                          Address is the full TSA endpoint URL including the API suffix path
+                          (e.g. http://tsa.example.com/api/v1/timestamp).
                         type: string
                       port:
                         description: Port of TSA End point

@@ -10,7 +10,6 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/constants"
-	tsa "github.com/securesign/operator/internal/controller/tsa/actions"
 	"k8s.io/apimachinery/pkg/api/meta"
 )
 
@@ -21,16 +20,15 @@ type AddressableConditionAware interface {
 
 type serviceEndpoint struct {
 	Service       apis.TasService
-	Suffix        string
 	ComponentList client.ObjectList
 }
 
 func ResolveServiceAddress(ctx context.Context, c client.Client, instance *rhtasv1.Tuf) error {
 	var keyToService = map[string]serviceEndpoint{
-		rhtasv1.TufKeyRekor:  {Service: &instance.Spec.Rekor, ComponentList: &rhtasv1.RekorList{}, Suffix: ""},
-		rhtasv1.TufKeyCTFE:   {Service: &instance.Spec.Ctlog, ComponentList: &rhtasv1.CTlogList{}, Suffix: ""},
-		rhtasv1.TufKeyFulcio: {Service: &instance.Spec.Fulcio, ComponentList: &rhtasv1.FulcioList{}, Suffix: ""},
-		rhtasv1.TufKeyTSA:    {Service: &instance.Spec.Tsa, ComponentList: &rhtasv1.TimestampAuthorityList{}, Suffix: tsa.TimestampPath},
+		rhtasv1.TufKeyRekor:  {Service: &instance.Spec.Rekor, ComponentList: &rhtasv1.RekorList{}},
+		rhtasv1.TufKeyCTFE:   {Service: &instance.Spec.Ctlog, ComponentList: &rhtasv1.CTlogList{}},
+		rhtasv1.TufKeyFulcio: {Service: &instance.Spec.Fulcio, ComponentList: &rhtasv1.FulcioList{}},
+		rhtasv1.TufKeyTSA:    {Service: &instance.Spec.Tsa, ComponentList: &rhtasv1.TimestampAuthorityList{}},
 	}
 
 	for _, key := range instance.Spec.Keys {
@@ -47,9 +45,6 @@ func ResolveServiceAddress(ctx context.Context, c client.Client, instance *rhtas
 				return err
 			} else {
 				serviceEndpoint.Service.SetAddress(url)
-			}
-			if serviceEndpoint.Suffix != "" {
-				serviceEndpoint.Service.SetAddress(serviceEndpoint.Service.GetAddress() + serviceEndpoint.Suffix)
 			}
 		}
 	}
