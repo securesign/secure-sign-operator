@@ -17,6 +17,7 @@ limitations under the License.
 package tuf
 
 import (
+	"context"
 	_ "embed"
 	"reflect"
 	"strconv"
@@ -79,9 +80,9 @@ var _ = Describe("TUF controller", func() {
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
 
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Delete(ctx, found)
-			}, 2*time.Minute, time.Second).Should(Succeed())
+			}, 2*time.Minute, time.Second).WithContext(ctx).Should(Succeed())
 
 			// TODO(user): Attention if you improve this code by adding other context test you MUST
 			// be aware of the current delete namespace limitations.
@@ -137,26 +138,26 @@ var _ = Describe("TUF controller", func() {
 			}
 
 			By("Checking if the custom resource was successfully created")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				found := &rhtasv1.Tuf{}
 				return suite.Client().Get(ctx, typeNamespaceName, found)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Status conditions are initialized")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				found := &rhtasv1.Tuf{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
-			}).Should(BeTrue())
+			}).WithContext(ctx).Should(BeTrue())
 
 			By("Pending phase until ctlog public key is resolved")
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				found := &rhtasv1.Tuf{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
 				g.Expect(cond).ToNot(BeNil())
 				return cond.Reason
-			}).Should(Equal(state.Pending.String()))
+			}).WithContext(ctx).Should(Equal(state.Pending.String()))
 
 			By("Creating component CRs for autodiscovery and service URL resolution")
 			ctlogCR := &rhtasv1.CTlog{
@@ -178,15 +179,15 @@ var _ = Describe("TUF controller", func() {
 
 			By("Waiting until Tuf init job is created")
 			found := &rhtasv1.Tuf{}
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.PvcName
-			}).ShouldNot(BeEmpty())
+			}).WithContext(ctx).ShouldNot(BeEmpty())
 
-			Eventually(func(g Gomega) *metav1.Condition {
+			Eventually(func(g Gomega, ctx context.Context) *metav1.Condition {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, tufConstants.RepositoryCondition)
-			}).Should(
+			}).WithContext(ctx).Should(
 				And(
 					WithTransform(func(condition *metav1.Condition) string {
 						return condition.Reason
@@ -230,10 +231,10 @@ var _ = Describe("TUF controller", func() {
 				Expect(suite.Client().Create(ctx, component)).To(Succeed())
 			}
 
-			Eventually(func(g Gomega) *metav1.Condition {
+			Eventually(func(g Gomega, ctx context.Context) *metav1.Condition {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.FindStatusCondition(found.Status.Conditions, tufConstants.RepositoryCondition)
-			}).Should(
+			}).WithContext(ctx).Should(
 				And(
 					WithTransform(func(condition *metav1.Condition) string {
 						return condition.Reason
@@ -255,12 +256,12 @@ var _ = Describe("TUF controller", func() {
 			}
 
 			initJobList := &batchv1.JobList{}
-			Eventually(func() []batchv1.Job {
+			Eventually(func(ctx context.Context) []batchv1.Job {
 				jobLabels := labels.ForResource(tufConstants.ComponentName, tufConstants.InitJobName, TufName, found.Status.PvcName)
 				selector := apilabels.SelectorFromSet(jobLabels)
 				Expect(kubernetes.FindByLabelSelector(ctx, suite.Client(), initJobList, TufNamespace, selector.String())).To(Succeed())
 				return initJobList.Items
-			}).Should(HaveLen(1))
+			}).WithContext(ctx).Should(HaveLen(1))
 
 			By("Move to Job to completed")
 			// Workaround to succeed condition for Ready phase
@@ -276,56 +277,56 @@ var _ = Describe("TUF controller", func() {
 			Expect(suite.Client().Status().Update(ctx, initJob)).Should(Succeed())
 
 			By("Repository condition gets ready")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				found := &rhtasv1.Tuf{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, tufConstants.RepositoryCondition)
-			}).Should(BeTrue())
+			}).WithContext(ctx).Should(BeTrue())
 
 			By("Waiting until Tuf instance is Initialization")
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				found := &rhtasv1.Tuf{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
 				g.Expect(cond).ToNot(BeNil())
 				return cond.Reason
-			}).Should(Equal(state.Initialize.String()))
+			}).WithContext(ctx).Should(Equal(state.Initialize.String()))
 
 			deployment := &appsv1.Deployment{}
 			By("Checking if Deployment was successfully created in the reconciliation")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: tufConstants.DeploymentName, Namespace: TufNamespace}, deployment)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase
 			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
 
 			By("Waiting until Tuf instance is Ready")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				found := &rhtasv1.Tuf{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
-			}).Should(BeTrue())
+			}).WithContext(ctx).Should(BeTrue())
 
 			By("Checking if Service was successfully created in the reconciliation")
 			service := &corev1.Service{}
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: tufConstants.DeploymentName, Namespace: TufNamespace}, service)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 			Expect(service.Spec.Ports[0].Port).Should(Equal(int32(8181)))
 
 			By("Checking if Ingress was successfully created in the reconciliation")
 			ingress := &v1.Ingress{}
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: tufConstants.DeploymentName, Namespace: TufNamespace}, ingress)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 			Expect(ingress.Spec.Rules[0].Host).Should(Equal("tuf.localhost"))
 			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Name).Should(Equal(service.Name))
 			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Port.Name).Should(Equal(tufConstants.PortName))
 
 			By("Checking the latest Status Condition added to the Tuf instance")
-			Eventually(func(g Gomega) error {
+			Eventually(func(g Gomega, ctx context.Context) error {
 				found := &rhtasv1.Tuf{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				rekorCondition := meta.FindStatusCondition(found.Status.Conditions, "rekor.pub")
@@ -337,21 +338,21 @@ var _ = Describe("TUF controller", func() {
 				g.Expect(ctlogCondition.Status).Should(Equal(metav1.ConditionTrue))
 				g.Expect(ctlogCondition.Reason).Should(Equal(state.Ready.String()))
 				return nil
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Checking if controller will return deployment to desired state")
 			deployment = &appsv1.Deployment{}
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: tufConstants.DeploymentName, Namespace: TufNamespace}, deployment)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 			replicas := int32(99)
 			deployment.Spec.Replicas = &replicas
 			Expect(suite.Client().Status().Update(ctx, deployment)).Should(Succeed())
-			Eventually(func(g Gomega) int32 {
+			Eventually(func(g Gomega, ctx context.Context) int32 {
 				deployment = &appsv1.Deployment{}
 				g.Expect(suite.Client().Get(ctx, types.NamespacedName{Name: tufConstants.DeploymentName, Namespace: TufNamespace}, deployment)).Should(Succeed())
 				return *deployment.Spec.Replicas
-			}).Should(Equal(int32(1)))
+			}).WithContext(ctx).Should(Equal(int32(1)))
 		})
 	})
 })

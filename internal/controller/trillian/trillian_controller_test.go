@@ -17,6 +17,7 @@ limitations under the License.
 package trillian
 
 import (
+	"context"
 	"time"
 
 	"github.com/securesign/operator/internal/constants"
@@ -68,9 +69,9 @@ var _ = Describe("Trillian controller", func() {
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
 
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Delete(ctx, found)
-			}, 2*time.Minute, time.Second).Should(Succeed())
+			}, 2*time.Minute, time.Second).WithContext(ctx).Should(Succeed())
 
 			// TODO(user): Attention if you improve this code by adding other context test you MUST
 			// be aware of the current delete namespace limitations.
@@ -105,67 +106,67 @@ var _ = Describe("Trillian controller", func() {
 			}
 
 			By("Checking if the custom resource was successfully created")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				found := &rhtasv1.Trillian{}
 				return suite.Client().Get(ctx, typeNamespaceName, found)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Status conditions are initialized")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				found := &rhtasv1.Trillian{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
-			}).Should(BeTrue())
+			}).WithContext(ctx).Should(BeTrue())
 			found := &rhtasv1.Trillian{}
 
 			By("Database secret created")
-			Eventually(func(g Gomega) *rhtasv1.LocalObjectReference {
+			Eventually(func(g Gomega, ctx context.Context) *rhtasv1.LocalObjectReference {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Db.DatabaseSecretRef
-			}).Should(Not(BeNil()))
+			}).WithContext(ctx).Should(Not(BeNil()))
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Db.DatabaseSecretRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
 
 			By("Database PVC created")
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Db.PvcName
-			}).Should(Not(BeEmpty()))
+			}).WithContext(ctx).Should(Not(BeEmpty()))
 
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Db.PvcName, Namespace: Namespace}, &corev1.PersistentVolumeClaim{})).Should(Succeed())
 
 			By("Database SVC created")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: "trillian-mysql", Namespace: Namespace}, &corev1.Service{})
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Database Deployment created")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.DbDeploymentName, Namespace: Namespace}, &appsv1.Deployment{})
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("LogServer Deployment created")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.LogserverDeploymentName, Namespace: Namespace}, &appsv1.Deployment{})
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("LogServerSvc Deployment created")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.LogserverDeploymentName, Namespace: Namespace}, &corev1.Service{})
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("LogSigner Deployment created")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.LogsignerDeploymentName, Namespace: Namespace}, &appsv1.Deployment{})
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Waiting until Trillian instance is Initialization")
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				found := &rhtasv1.Trillian{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
 				g.Expect(cond).ToNot(BeNil())
 				return cond.Reason
-			}).Should(Equal(state.Initialize.String()))
+			}).WithContext(ctx).Should(Equal(state.Initialize.String()))
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase
@@ -176,25 +177,25 @@ var _ = Describe("Trillian controller", func() {
 			}
 
 			By("Waiting until Trillian instance is Ready")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				found := &rhtasv1.Trillian{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
-			}).Should(BeTrue())
+			}).WithContext(ctx).Should(BeTrue())
 
 			By("Checking if controller will return deployment to desired state")
 			deployment := &appsv1.Deployment{}
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.LogserverDeploymentName, Namespace: Namespace}, deployment)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 			replicas := int32(99)
 			deployment.Spec.Replicas = &replicas
 			Expect(suite.Client().Status().Update(ctx, deployment)).Should(Succeed())
-			Eventually(func(g Gomega) int32 {
+			Eventually(func(g Gomega, ctx context.Context) int32 {
 				deployment = &appsv1.Deployment{}
 				g.Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.LogserverDeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
 				return *deployment.Spec.Replicas
-			}).Should(Equal(int32(1)))
+			}).WithContext(ctx).Should(Equal(int32(1)))
 		})
 	})
 })

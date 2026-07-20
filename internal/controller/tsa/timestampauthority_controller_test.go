@@ -17,6 +17,7 @@ limitations under the License.
 package tsa
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -95,9 +96,9 @@ var _ = Describe("TimestampAuthority Controller", func() {
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
 
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Delete(ctx, found)
-			}, 2*time.Minute, time.Second).Should(Succeed())
+			}, 2*time.Minute, time.Second).WithContext(ctx).Should(Succeed())
 
 			// TODO(user): Attention if you improve this code by adding other context test you MUST
 			// be aware of the current delete namespace limitations.
@@ -157,93 +158,93 @@ var _ = Describe("TimestampAuthority Controller", func() {
 			}
 
 			By("Checking if the custom resource was successfully created")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, typeNamespaceName, found)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Status conditions are initialized")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
-			}).Should(BeTrue())
+			}).WithContext(ctx).Should(BeTrue())
 
 			By("Tsa signer should be resolved")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, actions.TSASignerCondition, metav1.ConditionTrue)
-			}).Should(BeTrue())
+			}).WithContext(ctx).Should(BeTrue())
 
 			By("Certificate chain secret should be created")
-			Eventually(func(g Gomega) *rhtasv1.SecretKeySelector {
+			Eventually(func(g Gomega, ctx context.Context) *rhtasv1.SecretKeySelector {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Signer.CertificateChainRef
-			}).Should(Not(BeNil()))
+			}).WithContext(ctx).Should(Not(BeNil()))
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Signer.CertificateChainRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
 
 			By("File Signer secret should be created")
-			Eventually(func(g Gomega) *rhtasv1.SecretKeySelector {
+			Eventually(func(g Gomega, ctx context.Context) *rhtasv1.SecretKeySelector {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Signer.FileSigner.PrivateKeyRef
-			}).Should(Not(BeNil()))
+			}).WithContext(ctx).Should(Not(BeNil()))
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Signer.FileSigner.PrivateKeyRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
 
 			By("Should be in a creating phase")
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
 				g.Expect(cond).ToNot(BeNil())
 				return cond.Reason
-			}).Should(Equal(state.Creating.String()))
+			}).WithContext(ctx).Should(Equal(state.Creating.String()))
 
 			By("NTP monitoring should be resolved")
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
 				g.Expect(cond).ToNot(BeNil())
 				return cond.Reason
-			}).Should(Equal(state.Initialize.String()))
+			}).WithContext(ctx).Should(Equal(state.Initialize.String()))
 
 			By("NTP monitoring config should be created")
-			Eventually(func(g Gomega) *rhtasv1.LocalObjectReference {
+			Eventually(func(g Gomega, ctx context.Context) *rhtasv1.LocalObjectReference {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.NtpConfigRef
-			}).Should(Not(BeNil()))
+			}).WithContext(ctx).Should(Not(BeNil()))
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.NtpConfigRef.Name, Namespace: Namespace}, &corev1.ConfigMap{})).Should(Succeed())
 
 			By("Timestamp Authority service is created")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, service)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 			Expect(service.Spec.Ports[0].Port).Should(Equal(int32(3000)))
 
 			By("Checking if Ingress was successfully created in the reconciliation")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, ingress)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 			Expect(ingress.Spec.Rules[0].Host).Should(Equal("tsa.localhost"))
 			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Name).Should(Equal(service.Name))
 			Expect(ingress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Port.Name).Should(Equal(actions.ServerPortName))
 
 			By("Timestamp Authority deployment is created")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase
 			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
 
 			By("Waiting until Timestamp Authority instance is Ready")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
-			}).Should(BeTrue())
+			}).WithContext(ctx).Should(BeTrue())
 
 			By("Certificate chain has been resolved into status")
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				g.Expect(found.Status.CertificateChain).Should(Equal(testCertChainPEM))
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 		})
 	})

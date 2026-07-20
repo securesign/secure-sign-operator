@@ -17,6 +17,7 @@ limitations under the License.
 package fulcio
 
 import (
+	"context"
 	_ "embed"
 	"io"
 	"net/http"
@@ -100,9 +101,9 @@ var _ = Describe("Fulcio hot update", func() {
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
 
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Delete(ctx, found)
-			}, 2*time.Minute, time.Second).Should(Succeed())
+			}, 2*time.Minute, time.Second).WithContext(ctx).Should(Succeed())
 
 			// TODO(user): Attention if you improve this code by adding other context test you MUST
 			// be aware of the current delete namespace limitations.
@@ -148,64 +149,66 @@ var _ = Describe("Fulcio hot update", func() {
 			}
 
 			By("Checking if the custom resource was successfully created")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				found := &rhtasv1.Fulcio{}
 				return suite.Client().Get(ctx, typeNamespaceName, found)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			deployment := &appsv1.Deployment{}
 			By("Checking if Deployment was successfully created in the reconciliation")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Move to Ready phase")
 			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
 
 			By("Waiting until Fulcio instance is Ready")
 			found := &rhtasv1.Fulcio{}
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
-			}).Should(BeTrue())
+			}).WithContext(ctx).Should(BeTrue())
 
 			By("Verify cert condition is resolved")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, actions.CertCondition)
-			}).Should(BeTrue())
+			}).WithContext(ctx).Should(BeTrue())
 
 			By("Root certificate has been resolved into status")
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				g.Expect(found.Status.CertificateChain).Should(Equal(expectedRootCert))
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Config update")
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
 
 			By("Update OIDC")
-			Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-			found.Spec.Config.OIDCIssuers[0] = rhtasv1.OIDCIssuer{
-				IssuerURL: "fake",
-				Issuer:    "fake",
-				ClientID:  "fake",
-				Type:      "email",
-			}
-			Expect(suite.Client().Update(ctx, found)).To(Succeed())
+			Eventually(func(g Gomega, ctx context.Context) error {
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				found.Spec.Config.OIDCIssuers[0] = rhtasv1.OIDCIssuer{
+					IssuerURL: "fake",
+					Issuer:    "fake",
+					ClientID:  "fake",
+					Type:      "email",
+				}
+				return suite.Client().Update(ctx, found)
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Fulcio deployment is updated")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				updated := &appsv1.Deployment{}
 				g.Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)).To(Succeed())
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
-			}).Should(BeFalse())
+			}).WithContext(ctx).Should(BeFalse())
 
 			By("Root certificate still present after config update")
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				g.Expect(found.Status.CertificateChain).Should(Equal(expectedRootCert))
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Snapshot deployment state before rotating the trust bundle")
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)).To(Succeed())
@@ -226,7 +229,7 @@ var _ = Describe("Fulcio hot update", func() {
 			})
 
 			By("Triggering another spec change to force re-resolution")
-			Eventually(func(g Gomega) error {
+			Eventually(func(g Gomega, ctx context.Context) error {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				found.Spec.Config.OIDCIssuers[0] = rhtasv1.OIDCIssuer{
 					IssuerURL: "fake2",
@@ -235,14 +238,14 @@ var _ = Describe("Fulcio hot update", func() {
 					Type:      "email",
 				}
 				return suite.Client().Update(ctx, found)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Fulcio deployment is updated again")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				updated := &appsv1.Deployment{}
 				g.Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)).To(Succeed())
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
-			}).Should(BeFalse())
+			}).WithContext(ctx).Should(BeFalse())
 
 			By("Move to Ready phase")
 			deployment = &appsv1.Deployment{}
@@ -250,33 +253,33 @@ var _ = Describe("Fulcio hot update", func() {
 			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
 
 			By("Rotated root certificate is flagged as drifted, not silently accepted")
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				cond := meta.FindStatusCondition(found.Status.Conditions, trustmaterial.TrustMaterialCondition)
 				g.Expect(cond).ToNot(BeNil())
 				return cond.Reason
-			}).Should(Equal(trustmaterial.ReasonDrifted))
+			}).WithContext(ctx).Should(Equal(trustmaterial.ReasonDrifted))
 
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.CertificateChain
-			}).ShouldNot(Equal(rotatedRootCert))
+			}).WithContext(ctx).ShouldNot(Equal(rotatedRootCert))
 
 			By("Acknowledging the drift")
-			Eventually(func(g Gomega) error {
+			Eventually(func(g Gomega, ctx context.Context) error {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				if found.Annotations == nil {
 					found.Annotations = map[string]string{}
 				}
 				found.Annotations[annotations.RefreshTrustMaterial] = "true"
 				return suite.Client().Update(ctx, found)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Root certificate updated after acknowledgement")
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				g.Expect(found.Status.CertificateChain).Should(Equal(rotatedRootCert))
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 		})
 	})
 })

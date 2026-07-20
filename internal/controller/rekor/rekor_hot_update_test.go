@@ -18,6 +18,7 @@ package rekor
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"time"
@@ -96,9 +97,9 @@ var _ = Describe("Rekor hot update test", func() {
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
 
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Delete(ctx, found)
-			}, 2*time.Minute, time.Second).Should(Succeed())
+			}, 2*time.Minute, time.Second).WithContext(ctx).Should(Succeed())
 
 			// TODO(user): Attention if you improve this code by adding other context test you MUST
 			// be aware of the current delete namespace limitations.
@@ -140,28 +141,28 @@ var _ = Describe("Rekor hot update test", func() {
 			}
 
 			By("Checking if the custom resource was successfully created")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				found := &rhtasv1.Rekor{}
 				return suite.Client().Get(ctx, typeNamespaceName, found)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Rekor signer created")
 			found := &rhtasv1.Rekor{}
-			Eventually(func(g Gomega) *rhtasv1.SecretKeySelector {
+			Eventually(func(g Gomega, ctx context.Context) *rhtasv1.SecretKeySelector {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).To(Succeed())
 				return found.Status.Signer.KeyRef
-			}).Should(Not(BeNil()))
+			}).WithContext(ctx).Should(Not(BeNil()))
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Signer.KeyRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
 
 			By("Waiting until Rekor instance is Initialization")
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				found := &rhtasv1.Rekor{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
 				g.Expect(cond).ToNot(BeNil())
 				g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 				return cond.Reason
-			}).Should(Equal(state.Initialize.String()))
+			}).WithContext(ctx).Should(Equal(state.Initialize.String()))
 
 			By("Move to Ready phase")
 			deployments := &appsv1.DeploymentList{}
@@ -172,25 +173,25 @@ var _ = Describe("Rekor hot update test", func() {
 			// Workaround to succeed condition for Ready phase
 
 			By("Public key status resolved")
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				found := &rhtasv1.Rekor{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				g.Expect(found.Status.PublicKey).Should(Equal(testPubKeyPEM))
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Waiting until Rekor instance is Ready")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				found := &rhtasv1.Rekor{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
-			}).Should(BeTrue())
+			}).WithContext(ctx).Should(BeTrue())
 
 			By("Save the Deployment configuration")
 			deployment := &appsv1.Deployment{}
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, deployment)).Should(Succeed())
 
 			By("Patch the signer key")
-			Eventually(func(g Gomega) error {
+			Eventually(func(g Gomega, ctx context.Context) error {
 				found := &rhtasv1.Rekor{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				found.Spec.Signer.KeyRef = &rhtasv1.SecretKeySelector{
@@ -200,7 +201,7 @@ var _ = Describe("Rekor hot update test", func() {
 					Key: "private",
 				}
 				return suite.Client().Update(ctx, found)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Move to CreatingPhase by creating trillian service")
 			Expect(suite.Client().Create(ctx, &corev1.Secret{
@@ -228,11 +229,11 @@ var _ = Describe("Rekor hot update test", func() {
 			})
 
 			By("Rekor deployment is updated")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				updated := &appsv1.Deployment{}
 				g.Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: Namespace}, updated)).To(Succeed())
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
-			}).Should(BeFalse())
+			}).WithContext(ctx).Should(BeFalse())
 
 			By("Move to Ready phase")
 			deployments = &appsv1.DeploymentList{}
@@ -242,32 +243,32 @@ var _ = Describe("Rekor hot update test", func() {
 			}
 
 			By("Secret key is resolved")
-			Eventually(func(g Gomega) *rhtasv1.SecretKeySelector {
+			Eventually(func(g Gomega, ctx context.Context) *rhtasv1.SecretKeySelector {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Signer.KeyRef
-			}).Should(Not(BeNil()))
-			Eventually(func(g Gomega) string {
+			}).WithContext(ctx).Should(Not(BeNil()))
+			Eventually(func(g Gomega, ctx context.Context) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Signer.KeyRef.Name
-			}).Should(Equal("key-secret"))
+			}).WithContext(ctx).Should(Equal("key-secret"))
 
 			By("Rotated public key is flagged as drifted, not silently accepted")
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				found := &rhtasv1.Rekor{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				cond := meta.FindStatusCondition(found.Status.Conditions, trustmaterial.TrustMaterialCondition)
 				g.Expect(cond).ToNot(BeNil())
 				return cond.Reason
-			}).Should(Equal(trustmaterial.ReasonDrifted))
+			}).WithContext(ctx).Should(Equal(trustmaterial.ReasonDrifted))
 
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				found := &rhtasv1.Rekor{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.PublicKey
-			}).ShouldNot(Equal(rotatedPubKeyPEM))
+			}).WithContext(ctx).ShouldNot(Equal(rotatedPubKeyPEM))
 
 			By("Acknowledging the drift")
-			Eventually(func(g Gomega) error {
+			Eventually(func(g Gomega, ctx context.Context) error {
 				found := &rhtasv1.Rekor{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				if found.Annotations == nil {
@@ -275,14 +276,14 @@ var _ = Describe("Rekor hot update test", func() {
 				}
 				found.Annotations[annotations.RefreshTrustMaterial] = "true"
 				return suite.Client().Update(ctx, found)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Public key status updated after acknowledgement")
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				found := &rhtasv1.Rekor{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				g.Expect(found.Status.PublicKey).Should(Equal(rotatedPubKeyPEM))
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 		})
 	})

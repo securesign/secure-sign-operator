@@ -17,6 +17,7 @@ limitations under the License.
 */
 
 import (
+	"context"
 	_ "embed"
 	"io"
 	"net/http"
@@ -98,9 +99,9 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
 
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Delete(ctx, found)
-			}, 2*time.Minute, time.Second).Should(Succeed())
+			}, 2*time.Minute, time.Second).WithContext(ctx).Should(Succeed())
 
 			// TODO(user): Attention if you improve this code by adding other context test you MUST
 			// be aware of the current delete namespace limitations.
@@ -161,33 +162,33 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			deployment := &appsv1.Deployment{}
 
 			By("Checking if the custom resource was successfully created")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, typeNamespaceName, found)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Checking if Deployment was successfully created in the reconciliation")
-			Eventually(func() error {
+			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, deployment)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Move to Ready phase")
 			// Workaround to succeed condition for Ready phase
 			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
 
 			By("Waiting until Timestamp Authority is Ready")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, constants.ReadyCondition)
-			}).Should(BeTrue())
+			}).WithContext(ctx).Should(BeTrue())
 
 			By("Certificate chain has been resolved into status")
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				g.Expect(found.Status.CertificateChain).Should(Equal(testCertChainPEM))
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Cert and Key rotation")
-			Eventually(func(g Gomega) error {
+			Eventually(func(g Gomega, ctx context.Context) error {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				found.Spec.Signer.CertificateChain = rhtasv1.CertificateChain{
 					CertificateChainRef: &rhtasv1.SecretKeySelector{
@@ -213,35 +214,35 @@ var _ = Describe("Timestamp Authority hot update", func() {
 					},
 				}
 				return suite.Client().Update(ctx, found)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Creating new certificate chain and signer keys")
 			secret := tsa.CreateSecrets(Namespace, "tsa-test-secret", true)
 			Expect(suite.Client().Create(ctx, secret)).NotTo(HaveOccurred())
 
 			By("Status field changed for cert chain")
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Signer.CertificateChainRef.Name
-			}).Should(Equal("tsa-test-secret"))
+			}).WithContext(ctx).Should(Equal("tsa-test-secret"))
 
 			By("Status field changed for signer key")
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Signer.FileSigner.PasswordRef.Name
-			}).Should(Equal("tsa-test-secret"))
+			}).WithContext(ctx).Should(Equal("tsa-test-secret"))
 
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionTrue(found.Status.Conditions, actions.TSASignerCondition)
-			}).Should(BeTrue())
+			}).WithContext(ctx).Should(BeTrue())
 
 			By("Timestamp Authority deployment is updated")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				updated := &appsv1.Deployment{}
 				g.Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)).To(Succeed())
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
-			}).Should(BeFalse())
+			}).WithContext(ctx).Should(BeFalse())
 
 			By("Move to Ready phase")
 			deployment = &appsv1.Deployment{}
@@ -252,36 +253,36 @@ var _ = Describe("Timestamp Authority hot update", func() {
 
 			By("NTP Monitoring update")
 			By("NTP monitoring config should be created")
-			Eventually(func(g Gomega) *rhtasv1.LocalObjectReference {
+			Eventually(func(g Gomega, ctx context.Context) *rhtasv1.LocalObjectReference {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.NtpConfigRef
-			}).Should(Not(BeNil()))
+			}).WithContext(ctx).Should(Not(BeNil()))
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.NtpConfigRef.Name, Namespace: Namespace}, &corev1.ConfigMap{})).Should(Succeed())
 
 			By("Update NTP Config")
-			Eventually(func(g Gomega) error {
+			Eventually(func(g Gomega, ctx context.Context) error {
 				err := suite.Client().Get(ctx, typeNamespaceName, found)
 				if err != nil {
 					return err
 				}
 				found.Spec.NTPMonitoring.Config.NumServers = 2
 				return suite.Client().Update(ctx, found)
-			}).WithTimeout(1 * time.Second).Should(Succeed())
+			}).WithContext(ctx).WithTimeout(1 * time.Second).Should(Succeed())
 
 			By("NTP monitoring should be resolved")
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
 				g.Expect(cond).ToNot(BeNil())
 				return cond.Reason
-			}).Should(Equal(state.Initialize.String()))
+			}).WithContext(ctx).Should(Equal(state.Initialize.String()))
 
 			By("Timestamp Authority deployment is updated")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				updated := &appsv1.Deployment{}
 				g.Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)).To(Succeed())
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
-			}).Should(BeFalse())
+			}).WithContext(ctx).Should(BeFalse())
 
 			By("Move to Ready phase")
 			deployment = &appsv1.Deployment{}
@@ -289,10 +290,10 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
 
 			By("Certificate chain still present after rotation")
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				g.Expect(found.Status.CertificateChain).Should(Equal(testCertChainPEM))
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Trust material rotated on the live service")
 			rotatedMockClient := &http.Client{}
@@ -308,18 +309,18 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			})
 
 			By("Triggering another spec change to force re-resolution")
-			Eventually(func(g Gomega) error {
+			Eventually(func(g Gomega, ctx context.Context) error {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				found.Spec.NTPMonitoring.Config.NumServers = 3
 				return suite.Client().Update(ctx, found)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Timestamp Authority deployment is updated again")
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega, ctx context.Context) bool {
 				updated := &appsv1.Deployment{}
 				g.Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.DeploymentName, Namespace: Namespace}, updated)).To(Succeed())
 				return equality.Semantic.DeepDerivative(deployment.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes)
-			}).Should(BeFalse())
+			}).WithContext(ctx).Should(BeFalse())
 
 			By("Move to Ready phase")
 			deployment = &appsv1.Deployment{}
@@ -327,33 +328,33 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			Expect(k8sTest.SetDeploymentToReady(ctx, suite.Client(), deployment)).To(Succeed())
 
 			By("Rotated certificate chain is flagged as drifted, not silently accepted")
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				cond := meta.FindStatusCondition(found.Status.Conditions, trustmaterial.TrustMaterialCondition)
 				g.Expect(cond).ToNot(BeNil())
 				return cond.Reason
-			}).Should(Equal(trustmaterial.ReasonDrifted))
+			}).WithContext(ctx).Should(Equal(trustmaterial.ReasonDrifted))
 
-			Eventually(func(g Gomega) string {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.CertificateChain
-			}).ShouldNot(Equal(rotatedCertChainPEM))
+			}).WithContext(ctx).ShouldNot(Equal(rotatedCertChainPEM))
 
 			By("Acknowledging the drift")
-			Eventually(func(g Gomega) error {
+			Eventually(func(g Gomega, ctx context.Context) error {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				if found.Annotations == nil {
 					found.Annotations = map[string]string{}
 				}
 				found.Annotations[annotations.RefreshTrustMaterial] = "true"
 				return suite.Client().Update(ctx, found)
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			By("Certificate chain updated after acknowledgement")
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				g.Expect(found.Status.CertificateChain).Should(Equal(rotatedCertChainPEM))
-			}).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 		})
 	})
 })
