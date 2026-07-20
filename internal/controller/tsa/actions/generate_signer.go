@@ -173,7 +173,7 @@ func handleSignerKeys(instance *rhtasv1.TimestampAuthority, config *tsaUtils.Tsa
 
 func handleCertificateChain(ctx context.Context, instance *rhtasv1.TimestampAuthority, config *tsaUtils.TsaCertChainConfig, c client.Client) (*tsaUtils.TsaCertChainConfig, error) {
 	if ref := instance.Spec.Signer.CertificateChain.CertificateChainRef; ref != nil {
-		certificateChain, err := kubernetes.GetSecretData(c, instance.Namespace, ref)
+		certificateChain, err := kubernetes.GetSecretData(ctx, c, instance.Namespace, ref)
 		if err != nil {
 			return nil, err
 		}

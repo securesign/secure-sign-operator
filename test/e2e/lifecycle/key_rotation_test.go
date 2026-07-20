@@ -118,7 +118,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 		It("Download fulcio cert", func(ctx SpecContext) {
 			f := fulcio.Get(ctx, cli, namespace.Name, s.Name)
 			Expect(f).ToNot(BeNil())
-			oldFulcioCert, err = kubernetes.GetSecretData(cli, namespace.Name, f.Status.Certificate.CARef)
+			oldFulcioCert, err = kubernetes.GetSecretData(ctx, cli, namespace.Name, f.Status.Certificate.CARef)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(oldFulcioCert).ToNot(BeEmpty())
 		})
@@ -184,7 +184,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 		It("Download rekor signer", func(ctx SpecContext) {
 			r := rekor.Get(ctx, cli, namespace.Name, s.Name)
 			Expect(r).ToNot(BeNil())
-			signerSecret, err := kubernetes.GetSecret(cli, namespace.Name, r.Status.Signer.KeyRef.Name)
+			signerSecret, err := kubernetes.GetSecret(ctx, cli, namespace.Name, r.Status.Signer.KeyRef.Name)
 			Expect(err).ToNot(HaveOccurred())
 
 			oldRekorSigner = signerSecret.Data[r.Status.Signer.KeyRef.Key]
@@ -397,7 +397,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 		It("Download tsa cert", func(ctx SpecContext) {
 			t := tsa.Get(ctx, cli, namespace.Name, s.Name)
 			Expect(t).ToNot(BeNil())
-			oldTsa, err = kubernetes.GetSecretData(cli, namespace.Name, t.Status.Signer.CertificateChainRef)
+			oldTsa, err = kubernetes.GetSecretData(ctx, cli, namespace.Name, t.Status.Signer.CertificateChainRef)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(oldTsa).ToNot(BeEmpty())
 		})

@@ -50,7 +50,7 @@ func (i migrationJobAction) CanHandle(_ context.Context, tuf *rhtasv1.Tuf) bool 
 
 func (i migrationJobAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *action.Result {
 	if instance.Spec.RootKeySecretRef != nil && instance.Spec.RootKeySecretRef.Name != "" {
-		if _, err := kubernetes.GetSecret(i.Client, instance.Namespace, instance.Spec.RootKeySecretRef.Name); err != nil {
+		if _, err := kubernetes.GetSecret(ctx, i.Client, instance.Namespace, instance.Spec.RootKeySecretRef.Name); err != nil {
 			if errors.IsNotFound(err) {
 				i.Logger.Info("Root key secret not found", "secret", instance.Spec.RootKeySecretRef.Name)
 				return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("cannot migrate TUF: root key secret %s not found: %w", instance.Spec.RootKeySecretRef.Name, err)), instance)
