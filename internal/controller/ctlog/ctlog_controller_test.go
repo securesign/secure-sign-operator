@@ -17,7 +17,6 @@ limitations under the License.
 package ctlog
 
 import (
-	"context"
 	"time"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -49,8 +48,6 @@ var _ = Describe("CTlog controller", func() {
 			Namespace = "default"
 		)
 
-		ctx := context.Background()
-
 		namespace := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      Name,
@@ -61,13 +58,13 @@ var _ = Describe("CTlog controller", func() {
 		typeNamespaceName := types.NamespacedName{Name: Name, Namespace: Namespace}
 		instance := &rhtasv1.CTlog{}
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			By("Creating the Namespace to perform the tests")
 			err := suite.Client().Create(ctx, namespace)
 			Expect(err).To(Not(HaveOccurred()))
 		})
 
-		AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			By("removing the custom resource for the Kind CTlog")
 			found := &rhtasv1.CTlog{}
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
@@ -84,7 +81,7 @@ var _ = Describe("CTlog controller", func() {
 			_ = suite.Client().Delete(ctx, namespace)
 		})
 
-		It("should successfully reconcile a custom resource for CTlog", func() {
+		It("should successfully reconcile a custom resource for CTlog", func(ctx SpecContext) {
 			By("creating the custom resource for the Kind CTlog")
 			err := suite.Client().Get(ctx, typeNamespaceName, instance)
 			if err != nil && errors.IsNotFound(err) {

@@ -17,7 +17,6 @@ limitations under the License.
 package fulcio
 
 import (
-	"context"
 	_ "embed"
 	"io"
 	"net/http"
@@ -60,8 +59,6 @@ var _ = Describe("Fulcio hot update", func() {
 			Namespace = "update"
 		)
 
-		ctx := context.Background()
-
 		namespace := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: Namespace,
@@ -71,7 +68,7 @@ var _ = Describe("Fulcio hot update", func() {
 		typeNamespaceName := types.NamespacedName{Name: Name, Namespace: Namespace}
 		instance := &rhtasv1.Fulcio{}
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			By("Creating the Namespace to perform the tests")
 			err := suite.Client().Create(ctx, namespace)
 			Expect(err).To(Not(HaveOccurred()))
@@ -97,7 +94,7 @@ var _ = Describe("Fulcio hot update", func() {
 			})
 		})
 
-		AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			By("removing the custom resource for the Kind Fulcio")
 			found := &rhtasv1.Fulcio{}
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
@@ -114,7 +111,7 @@ var _ = Describe("Fulcio hot update", func() {
 			_ = suite.Client().Delete(ctx, namespace)
 		})
 
-		It("should successfully reconcile a custom resource for Fulcio", func() {
+		It("should successfully reconcile a custom resource for Fulcio", func(ctx SpecContext) {
 			By("creating the custom resource for the Kind Fulcio")
 			err := suite.Client().Get(ctx, typeNamespaceName, instance)
 			if err != nil && errors.IsNotFound(err) {

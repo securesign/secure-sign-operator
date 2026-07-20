@@ -17,7 +17,6 @@ limitations under the License.
 package fulcio
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -58,7 +57,6 @@ var _ = Describe("Fulcio controller", func() {
 			Namespace = "default"
 		)
 
-		ctx := context.Background()
 		var mockClient *http.Client
 
 		namespace := &corev1.Namespace{
@@ -71,13 +69,13 @@ var _ = Describe("Fulcio controller", func() {
 		typeNamespaceName := types.NamespacedName{Name: Name, Namespace: Namespace}
 		instance := &rhtasv1.Fulcio{}
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			By("Creating the Namespace to perform the tests")
 			err := suite.Client().Create(ctx, namespace)
 			Expect(err).To(Not(HaveOccurred()))
 		})
 
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			By("Creating TrustedCA ConfigMap")
 			Expect(suite.Client().Create(ctx, &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "trusted-ca-bundle", Namespace: Namespace},
@@ -106,7 +104,7 @@ var _ = Describe("Fulcio controller", func() {
 			})
 		})
 
-		AfterEach(func() {
+		AfterEach(func(ctx SpecContext) {
 			By("removing the custom resource for the Kind Fulcio")
 			found := &rhtasv1.Fulcio{}
 			err := suite.Client().Get(ctx, typeNamespaceName, found)
@@ -123,7 +121,7 @@ var _ = Describe("Fulcio controller", func() {
 			_ = suite.Client().Delete(ctx, namespace)
 		})
 
-		It("should successfully reconcile a custom resource for Fulcio", func() {
+		It("should successfully reconcile a custom resource for Fulcio", func(ctx SpecContext) {
 			By("creating the custom resource for the Kind Fulcio")
 			err := suite.Client().Get(ctx, typeNamespaceName, instance)
 			if err != nil && errors.IsNotFound(err) {
