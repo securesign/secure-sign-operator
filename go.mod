@@ -10,7 +10,7 @@ require (
 	github.com/google/go-containerregistry v0.21.7
 	github.com/google/trillian v1.7.3
 	github.com/google/uuid v1.6.0
-	github.com/onsi/ginkgo/v2 v2.29.0
+	github.com/onsi/ginkgo/v2 v2.32.0
 	github.com/onsi/gomega v1.42.1
 	github.com/openshift/api v0.0.0-20260521125114-09730f85d883
 	github.com/operator-framework/api v0.44.0
