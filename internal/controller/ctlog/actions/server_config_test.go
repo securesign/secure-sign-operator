@@ -409,7 +409,7 @@ func TestServerConfig_Handle(t *testing.T) {
 
 					g.Expect(k8sErrors.IsNotFound(cli.Get(ctx, client.ObjectKey{Name: "config", Namespace: "default"}, &v1.Secret{}))).To(BeTrue())
 
-					secret, err := kubernetes.GetSecret(cli, "default", instance.Status.ServerConfigRef.Name)
+					secret, err := kubernetes.GetSecret(ctx, cli, "default", instance.Status.ServerConfigRef.Name)
 					g.Expect(err).ShouldNot(HaveOccurred())
 					g.Expect(secret.Data).To(HaveKey("config"))
 				},
@@ -466,14 +466,14 @@ func TestServerConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.Return(),
-				verify: func(_ context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
+				verify: func(ctx context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
 					g.Expect(instance.Status.ServerConfigRef).Should(Not(BeNil()))
 					g.Expect(instance.Status.ServerConfigRef.Name).Should(Not(Equal("config")))
 
-					_, err := kubernetes.GetSecret(cli, "default", "config")
+					_, err := kubernetes.GetSecret(ctx, cli, "default", "config")
 					g.Expect(k8sErrors.IsNotFound(err)).To(BeTrue())
 
-					secret, err := kubernetes.GetSecret(cli, "default", instance.Status.ServerConfigRef.Name)
+					secret, err := kubernetes.GetSecret(ctx, cli, "default", instance.Status.ServerConfigRef.Name)
 					g.Expect(err).ShouldNot(HaveOccurred())
 					g.Expect(secret.Data).To(HaveKey("config"))
 				},
@@ -595,7 +595,7 @@ func TestServerConfig_Update(t *testing.T) {
 	}
 	type want struct {
 		result *action.Result
-		verify func(Gomega, client.Client, *rhtasv1.CTlog)
+		verify func(context.Context, Gomega, client.Client, *rhtasv1.CTlog)
 	}
 	tests := []struct {
 		name string
@@ -634,15 +634,15 @@ func TestServerConfig_Update(t *testing.T) {
 			}(),
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
 					g.Expect(current.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(current.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
 
-					data, err := kubernetes.GetSecretData(cli, "default", &rhtasv1.SecretKeySelector{LocalObjectReference: *current.Status.ServerConfigRef, Key: "config"})
+					data, err := kubernetes.GetSecretData(ctx, cli, "default", &rhtasv1.SecretKeySelector{LocalObjectReference: *current.Status.ServerConfigRef, Key: "config"})
 					g.Expect(err).ShouldNot(HaveOccurred())
 					g.Expect(data).To(And(ContainSubstring("trillian-logserver.default.svc:443"), ContainSubstring("123456")))
 
-					_, err = kubernetes.GetSecret(cli, "default", "old_config")
+					_, err = kubernetes.GetSecret(ctx, cli, "default", "old_config")
 					g.Expect(err).To(WithTransform(k8sErrors.IsNotFound, BeTrue()), "old_config should be deleted")
 				},
 			},
@@ -662,7 +662,7 @@ func TestServerConfig_Update(t *testing.T) {
 			}(),
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
 					g.Expect(current.Status.ServerConfigRef.Name).Should(Equal("existing-config"))
 
 					c := meta.FindStatusCondition(current.Status.Conditions, ConfigCondition)
@@ -686,7 +686,7 @@ func TestServerConfig_Update(t *testing.T) {
 			}(),
 			want: want{
 				result: testAction.Continue(),
-				verify: func(g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
 					g.Expect(current.Status.ServerConfigRef.Name).Should(Equal("existing-config"))
 
 					c := meta.FindStatusCondition(current.Status.Conditions, ConfigCondition)
@@ -709,12 +709,12 @@ func TestServerConfig_Update(t *testing.T) {
 			}(),
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
 					g.Expect(current.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(current.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
 					g.Expect(current.Status.ServerConfigRef.Name).ShouldNot(Equal("deleted-config"))
 
-					secret, err := kubernetes.GetSecret(cli, "default", current.Status.ServerConfigRef.Name)
+					secret, err := kubernetes.GetSecret(ctx, cli, "default", current.Status.ServerConfigRef.Name)
 					g.Expect(err).ShouldNot(HaveOccurred())
 					g.Expect(secret.Data).To(HaveKey("config"))
 				},
@@ -738,11 +738,11 @@ func TestServerConfig_Update(t *testing.T) {
 			}(),
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
 					g.Expect(current.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
 					g.Expect(current.Status.ServerConfigRef.Name).ShouldNot(Equal("old-config"))
 
-					data, err := kubernetes.GetSecretData(cli, "default", &rhtasv1.SecretKeySelector{
+					data, err := kubernetes.GetSecretData(ctx, cli, "default", &rhtasv1.SecretKeySelector{
 						LocalObjectReference: *current.Status.ServerConfigRef, Key: "config",
 					})
 					g.Expect(err).ShouldNot(HaveOccurred())
@@ -780,10 +780,10 @@ func TestServerConfig_Update(t *testing.T) {
 			}(),
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
 					g.Expect(current.Status.ServerConfigRef.Name).ShouldNot(Equal("old-config"))
 
-					secret, err := kubernetes.GetSecret(cli, "default", current.Status.ServerConfigRef.Name)
+					secret, err := kubernetes.GetSecret(ctx, cli, "default", current.Status.ServerConfigRef.Name)
 					g.Expect(err).ShouldNot(HaveOccurred())
 					g.Expect(secret.Data).To(HaveKey("config"))
 					g.Expect(secret.Annotations).To(HaveKey("rhtas.redhat.com/rootCertificatesHash"))
@@ -814,7 +814,7 @@ func TestServerConfig_Update(t *testing.T) {
 			}(),
 			want: want{
 				result: testAction.RequeueAfter(5 * time.Second),
-				verify: func(g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
 					c := meta.FindStatusCondition(current.Status.Conditions, ConfigCondition)
 					g.Expect(c).ShouldNot(BeNil())
 					g.Expect(c.Status).Should(Equal(metav1.ConditionFalse))
@@ -837,16 +837,16 @@ func TestServerConfig_Update(t *testing.T) {
 			}(),
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
 					g.Expect(current.Status.ServerConfigRef).ShouldNot(BeNil())
 
-					data, err := kubernetes.GetSecretData(cli, "mynamespace", &rhtasv1.SecretKeySelector{
+					data, err := kubernetes.GetSecretData(ctx, cli, "mynamespace", &rhtasv1.SecretKeySelector{
 						LocalObjectReference: *current.Status.ServerConfigRef, Key: "config",
 					})
 					g.Expect(err).ShouldNot(HaveOccurred())
 					g.Expect(data).To(ContainSubstring("trillian-logserver.mynamespace.svc:8091"))
 
-					secret, err := kubernetes.GetSecret(cli, "mynamespace", current.Status.ServerConfigRef.Name)
+					secret, err := kubernetes.GetSecret(ctx, cli, "mynamespace", current.Status.ServerConfigRef.Name)
 					g.Expect(err).ShouldNot(HaveOccurred())
 					g.Expect(secret.Annotations).To(HaveKeyWithValue(
 						"rhtas.redhat.com/trillianUrl", "trillian-logserver.mynamespace.svc:8091",
@@ -883,10 +883,10 @@ func TestServerConfig_Update(t *testing.T) {
 			}(),
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
 					g.Expect(current.Status.ServerConfigRef.Name).Should(Equal("custom_config"))
 
-					data, err := kubernetes.GetSecretData(cli, "default", &rhtasv1.SecretKeySelector{LocalObjectReference: *current.Status.ServerConfigRef, Key: "config"})
+					data, err := kubernetes.GetSecretData(ctx, cli, "default", &rhtasv1.SecretKeySelector{LocalObjectReference: *current.Status.ServerConfigRef, Key: "config"})
 					g.Expect(err).ShouldNot(HaveOccurred())
 					g.Expect(data).To(And(ContainSubstring("trillian-logserver.custom.svc:80"), ContainSubstring("9999999")))
 				},
@@ -924,7 +924,7 @@ func TestServerConfig_Update(t *testing.T) {
 			}(),
 			want: want{
 				result: testAction.Continue(),
-				verify: func(g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
 					g.Expect(current.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(current.Status.ServerConfigRef.Name).Should(Equal("custom_config"))
 
@@ -967,7 +967,7 @@ func TestServerConfig_Update(t *testing.T) {
 			}(),
 			want: want{
 				result: testAction.Return(),
-				verify: func(g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
 					g.Expect(current.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(current.Status.ServerConfigRef.Name).Should(Equal("custom_config"))
 
@@ -994,7 +994,7 @@ func TestServerConfig_Update(t *testing.T) {
 				t.Errorf("CanHandle() = %v, want %v", got, tt.want.result)
 			}
 			if tt.want.verify != nil {
-				tt.want.verify(g, c, &tt.env.instance)
+				tt.want.verify(ctx, g, c, &tt.env.instance)
 			}
 		})
 	}

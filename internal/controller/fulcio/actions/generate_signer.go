@@ -91,14 +91,14 @@ func generateData(ctx context.Context, instance *rhtasv1.Fulcio, c client.Client
 	}
 
 	if ref := instance.Spec.Certificate.PrivateKeyPasswordRef; ref != nil { //nolint:staticcheck
-		password, err := kubernetes.GetSecretData(c, instance.Namespace, ref)
+		password, err := kubernetes.GetSecretData(ctx, c, instance.Namespace, ref)
 		if err != nil {
 			return nil, err
 		}
 		config.PrivateKeyPassword = password
 	}
 	if ref := instance.Spec.Certificate.PrivateKeyRef; ref != nil {
-		key, err := kubernetes.GetSecretData(c, instance.Namespace, ref)
+		key, err := kubernetes.GetSecretData(ctx, c, instance.Namespace, ref)
 		if err != nil {
 			return nil, err
 		}
@@ -123,7 +123,7 @@ func generateData(ctx context.Context, instance *rhtasv1.Fulcio, c client.Client
 	}
 
 	if ref := instance.Spec.Certificate.CARef; ref != nil {
-		cert, err := kubernetes.GetSecretData(c, instance.Namespace, ref)
+		cert, err := kubernetes.GetSecretData(ctx, c, instance.Namespace, ref)
 		if err != nil {
 			return nil, err
 		}

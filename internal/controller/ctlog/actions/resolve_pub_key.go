@@ -35,11 +35,11 @@ func (r ctlogTrustMaterialResolver) SetTrustMaterial(instance *rhtasv1.CTlog, pe
 	instance.Status.PublicKey = pem
 }
 
-func (r ctlogTrustMaterialResolver) Resolve(_ context.Context, cli client.Client, instance *rhtasv1.CTlog) ([]byte, error) {
+func (r ctlogTrustMaterialResolver) Resolve(ctx context.Context, cli client.Client, instance *rhtasv1.CTlog) ([]byte, error) {
 	if instance.Status.PublicKeyRef == nil {
 		return nil, fmt.Errorf("%w: ctlog", ErrPublicKeyRefNotSet)
 	}
-	data, err := k8sutils.GetSecretData(cli, instance.Namespace, instance.Status.PublicKeyRef)
+	data, err := k8sutils.GetSecretData(ctx, cli, instance.Namespace, instance.Status.PublicKeyRef)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s: %w", ErrSecretRead, instance.Status.PublicKeyRef.Name, err)
 	}

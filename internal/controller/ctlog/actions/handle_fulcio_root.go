@@ -99,7 +99,7 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *
 		}
 
 		if previouslyResolved {
-			existing, readErr := k8sutils.GetSecretData(g.Client, instance.Namespace, &instance.Status.RootCertificates[0])
+			existing, readErr := k8sutils.GetSecretData(ctx, g.Client, instance.Namespace, &instance.Status.RootCertificates[0])
 			if readErr == nil && bytes.Equal(existing, signingCert) {
 				return g.Continue()
 			}

@@ -84,27 +84,27 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 				err              error
 			)
 			for _, k := range t.Status.Keys {
-				actual, err = kubernetes.GetSecretData(cli, namespace.Name, k.SecretRef)
+				actual, err = kubernetes.GetSecretData(ctx, cli, namespace.Name, k.SecretRef)
 				Expect(err).To(Not(HaveOccurred()))
 
 				switch k.Name {
 				case "fulcio_v1.crt.pem":
-					expected, err = kubernetes.GetSecretData(cli, namespace.Name, s.Spec.Fulcio.Certificate.CARef)
+					expected, err = kubernetes.GetSecretData(ctx, cli, namespace.Name, s.Spec.Fulcio.Certificate.CARef)
 					Expect(err).To(Not(HaveOccurred()))
 				case "rekor.pub":
 					expectedKeyRef := s.Spec.Rekor.Signer.KeyRef.DeepCopy()
 					expectedKeyRef.Key = "public"
-					expected, err = kubernetes.GetSecretData(cli, namespace.Name, expectedKeyRef)
+					expected, err = kubernetes.GetSecretData(ctx, cli, namespace.Name, expectedKeyRef)
 					Expect(err).To(Not(HaveOccurred()))
 				case "ctfe.pub":
 					expectedKeyRef := s.Spec.Ctlog.PrivateKeyRef.DeepCopy()
 					expectedKeyRef.Key = "public"
-					expected, err = kubernetes.GetSecretData(cli, namespace.Name, expectedKeyRef)
+					expected, err = kubernetes.GetSecretData(ctx, cli, namespace.Name, expectedKeyRef)
 					Expect(err).To(Not(HaveOccurred()))
 				case "tsa.certchain.pem":
 					expectedKeyRef := s.Spec.TimestampAuthority.Signer.CertificateChain.CertificateChainRef.DeepCopy()
 					expectedKeyRef.Key = "certificateChain"
-					expected, err = kubernetes.GetSecretData(cli, namespace.Name, expectedKeyRef)
+					expected, err = kubernetes.GetSecretData(ctx, cli, namespace.Name, expectedKeyRef)
 					Expect(err).To(Not(HaveOccurred()))
 				}
 				Expect(bytes.TrimSpace(actual)).To(Equal(bytes.TrimSpace(expected)))

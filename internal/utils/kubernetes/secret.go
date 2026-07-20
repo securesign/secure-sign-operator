@@ -17,10 +17,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func GetSecret(client client.Client, namespace, secretName string) (*corev1.Secret, error) {
+func GetSecret(ctx context.Context, client client.Client, namespace, secretName string) (*corev1.Secret, error) {
 	var secret corev1.Secret
 
-	err := client.Get(context.TODO(), types.NamespacedName{
+	err := client.Get(ctx, types.NamespacedName{
 		Name:      secretName,
 		Namespace: namespace,
 	}, &secret)
@@ -31,9 +31,9 @@ func GetSecret(client client.Client, namespace, secretName string) (*corev1.Secr
 	return &secret, nil
 }
 
-func GetSecretData(client client.Client, namespace string, selector *rhtasv1.SecretKeySelector) ([]byte, error) {
+func GetSecretData(ctx context.Context, client client.Client, namespace string, selector *rhtasv1.SecretKeySelector) ([]byte, error) {
 	if selector != nil && selector.Name != "" && selector.Key != "" {
-		secret, err := GetSecret(client, namespace, selector.Name)
+		secret, err := GetSecret(ctx, client, namespace, selector.Name)
 		if err != nil {
 			return nil, fmt.Errorf("could not retrieve secret %s: %w", selector.Name, err)
 		}
