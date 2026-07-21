@@ -65,6 +65,7 @@ import (
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	"github.com/securesign/operator/internal/controller/console"
 	"github.com/securesign/operator/internal/controller/ctlog"
 	"github.com/securesign/operator/internal/controller/fulcio"
 	"github.com/securesign/operator/internal/controller/rekor"
@@ -138,6 +139,8 @@ func main() {
 	utils.RelatedImageFlag("timestamp-authority-image", images.TimestampAuthority, "The image used for Timestamp Authority")
 	utils.RelatedImageFlag("rekor-monitor-image", images.RekorMonitor, "The image used for rekor monitor.")
 	utils.RelatedImageFlag("ctlog-monitor-image", images.CTLogMonitor, "The image used for ctlog monitor.")
+	utils.RelatedImageFlag("console-api-image", images.ConsoleApi, "The image used for the console backend (API).")
+	utils.RelatedImageFlag("console-ui-image", images.ConsoleUI, "The image used for the console UI.")
 	flag.StringVar(&clidownload.CliHostName, "cli-server-hostname", "", "The hostname for the cli server")
 
 	klog.InitFlags(flag.CommandLine)
@@ -268,6 +271,7 @@ func main() {
 	setupController("tuf", tuf.NewReconciler, mgr)
 	setupController("ctlog", ctlog.NewReconciler, mgr)
 	setupController("tsa", tsa.NewReconciler, mgr)
+	setupController("console", console.NewReconciler, mgr)
 	//+kubebuilder:scaffold:builder
 
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
@@ -282,6 +286,7 @@ func main() {
 		setupWebhook("Tuf", rhtasv1.SetupTufWebhookWithManager, mgr)
 		setupWebhook("CTlog", rhtasv1.SetupCTlogWebhookWithManager, mgr)
 		setupWebhook("TimestampAuthority", rhtasv1.SetupTimestampAuthorityWebhookWithManager, mgr)
+		setupWebhook("Console", rhtasv1.SetupConsoleWebhookWithManager, mgr)
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
