@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"fmt"
+	"net/url"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
@@ -32,12 +33,16 @@ func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *a
 	if instance.Status.TLS.CertRef != nil {
 		protocol = "https"
 	}
-	url := fmt.Sprintf("%s://%s.%s.svc", protocol, DeploymentName, instance.Namespace)
+	u := url.URL{
+		Scheme: protocol,
+		Host:   fmt.Sprintf("%s.%s.svc", DeploymentName, instance.Namespace),
+		Path:   instance.Spec.Prefix,
+	}
 
-	if url == instance.Status.Url {
+	if u.String() == instance.Status.Url {
 		return i.Continue()
 	}
 
-	instance.Status.Url = url
+	instance.Status.Url = u.String()
 	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }

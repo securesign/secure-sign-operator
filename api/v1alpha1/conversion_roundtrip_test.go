@@ -102,12 +102,33 @@ func securesignTSAStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interfac
 	}
 }
 
+// ctlogStatusFuzzerFuncs constrains the CTlog spec and status for proper roundtrip.
+// The Url field must be a well-formed URL because conversion adds/removes the log prefix path.
+// The Prefix must be fixed so the URL path matches across the roundtrip.
+func ctlogStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.CTlog, c randfill.Continue) {
+			c.FillNoCustom(s)
+			// Fix prefix to a known value so URL roundtrips correctly
+			s.Spec.Prefix = "trusted-artifact-signer"
+			// v1 Url includes the log prefix path
+			s.Status.Url = "http://ctlog.ns.svc/" + s.Spec.Prefix
+		},
+		func(s *CTlog, c randfill.Continue) {
+			c.FillNoCustom(s)
+			// v1alpha1 Url is the base host without the log prefix path
+			s.Status.Url = "http://ctlog.ns.svc"
+		},
+	}
+}
+
 func TestCTlogConversion(t *testing.T) {
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.CTlog{},
 		Spoke:  &CTlog{},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			ctlogStatusFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))

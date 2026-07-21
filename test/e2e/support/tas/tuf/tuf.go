@@ -17,6 +17,7 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes/job"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/condition"
+	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
 	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
 	"github.com/securesign/operator/test/e2e/support/tas/rekor"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
@@ -88,6 +89,7 @@ func RefreshTufRepository(ctx context.Context, cli client.Client, ns string, nam
 	t := Get(ctx, cli, ns, name)
 	Expect(t).ToNot(BeNil())
 
+	t.Spec.Ctlog.Address = ctlog.Get(ctx, cli, ns, name).Status.Url
 	t.Spec.Fulcio.Address = fulcio.Get(ctx, cli, ns, name).Status.Url
 	t.Spec.Rekor.Address = rekor.Get(ctx, cli, ns, name).Status.Url
 	t.Spec.Tsa.Address = tsa.Get(ctx, cli, ns, name).Status.Url

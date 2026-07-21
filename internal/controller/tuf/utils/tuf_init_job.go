@@ -7,7 +7,6 @@ import (
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/apis"
-	futils "github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/utils/kubernetes"
@@ -35,15 +34,12 @@ func EnsureTufInitJob(instance *rhtasv1.Tuf, sa string, labels map[string]string
 				}
 				args = append(args, "--rekor-uri", url)
 			case rhtasv1.TufKeyCTFE:
-				if instance.Spec.Ctlog.Prefix == "" {
-					return futils.ErrCtlogPrefixNotSpecified
-				}
 				args = append(args, "--ctlog-key", filepath.Join(secretsMonthPath, key.Name))
 				url, err := apis.ServiceAsUrl(&instance.Spec.Ctlog)
 				if err != nil {
 					return err
 				}
-				args = append(args, "--ctlog-uri", fmt.Sprintf("%s/%s", url, instance.Spec.Ctlog.Prefix))
+				args = append(args, "--ctlog-uri", url)
 			case rhtasv1.TufKeyFulcio:
 				args = append(args, "--fulcio-cert", filepath.Join(secretsMonthPath, key.Name))
 				url, err := apis.ServiceAsUrl(&instance.Spec.Fulcio)

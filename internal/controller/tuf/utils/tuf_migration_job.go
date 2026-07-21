@@ -2,12 +2,10 @@ package utils
 
 import (
 	_ "embed"
-	"fmt"
 	"strings"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/apis"
-	futils "github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
@@ -105,15 +103,12 @@ func EnsureTufMigrationJob(instance *rhtasv1.Tuf, sa string, jobLabels map[strin
 				}
 				rekorUrl.Value = url
 			case rhtasv1.TufKeyCTFE:
-				if instance.Spec.Ctlog.Prefix == "" {
-					return futils.ErrCtlogPrefixNotSpecified
-				}
 				ctlogUrl := kubernetes.FindEnvByNameOrCreate(container, "CTLOG_URL")
 				url, err := apis.ServiceAsUrl(&instance.Spec.Ctlog)
 				if err != nil {
 					return err
 				}
-				ctlogUrl.Value = fmt.Sprintf("%s/%s", url, instance.Spec.Ctlog.Prefix)
+				ctlogUrl.Value = url
 			case rhtasv1.TufKeyFulcio:
 				fulcioUrl := kubernetes.FindEnvByNameOrCreate(container, "FULCIO_URL")
 				url, err := apis.ServiceAsUrl(&instance.Spec.Fulcio)
