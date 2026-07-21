@@ -1760,6 +1760,9 @@ spec:
                     type: object
                 type: object
               url:
+                description: |-
+                  Url is the timestamp endpoint URL including the /api/v1/timestamp suffix path,
+                  e.g. http://tsa-server.namespace.svc:3000/api/v1/timestamp.
                 type: string
             type: object
         type: object

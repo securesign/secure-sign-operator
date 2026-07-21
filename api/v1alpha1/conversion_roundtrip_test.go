@@ -80,10 +80,26 @@ func TestSecuresignConversion(t *testing.T) {
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			tsaSignerFuzzerFuncs,
 			tsaStatusFuzzerFuncs,
+			securesignTSAStatusFuzzerFuncs,
 			tsaCertAuthorityFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
+}
+
+// securesignTSAStatusFuzzerFuncs constrains SecuresignTSAStatus.Url to a well-formed URL
+// because conversion adds/removes the API suffix path.
+func securesignTSAStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.SecuresignTSAStatus, _ randfill.Continue) {
+			// v1 Url includes the API suffix path
+			s.Url = "http://tsa-server.ns.svc:3000" + rhtasv1.TimestampPath
+		},
+		func(s *SecuresignTSAStatus, _ randfill.Continue) {
+			// v1alpha1 Url is the base host without the API suffix path
+			s.Url = "http://tsa-server.ns.svc:3000"
+		},
+	}
 }
 
 func TestCTlogConversion(t *testing.T) {
@@ -203,12 +219,35 @@ func TestTimestampAuthorityConversion(t *testing.T) {
 	}))
 }
 
-// tsaStatusFuzzerFuncs constrains the v1 TSA status to only fill fields that survive roundtrip.
+// tsaStatusFuzzerFuncs constrains the TSA status to only fill fields that survive roundtrip.
+// The Url field must be a well-formed URL because conversion adds/removes the API suffix path.
 func tsaStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
+		func(s *rhtasv1.TimestampAuthorityStatus, c randfill.Continue) {
+			c.FillNoCustom(&s.Conditions)
+			c.FillNoCustom(&s.CertificateChain)
+			// v1 Url includes the API suffix path; must be a valid URL so url.Parse roundtrips correctly
+			s.Url = "http://tsa-server.ns.svc:3000" + rhtasv1.TimestampPath
+
+			if c.Bool() {
+				s.NtpConfigRef = &rhtasv1.LocalObjectReference{}
+				c.FillNoCustom(s.NtpConfigRef)
+			}
+
+			if c.Bool() {
+				s.Signer = &rhtasv1.TimestampAuthoritySignerStatus{}
+				c.FillNoCustom(&s.Signer.CertificateChainRef)
+				if c.Bool() {
+					s.Signer.FileSigner = &rhtasv1.FileSignerStatus{}
+					c.FillNoCustom(&s.Signer.FileSigner.PrivateKeyRef)
+					c.FillNoCustom(&s.Signer.FileSigner.PasswordRef)
+				}
+			}
+		},
 		func(s *TimestampAuthorityStatus, c randfill.Continue) {
 			c.FillNoCustom(&s.Conditions)
-			c.FillNoCustom(&s.Url)
+			// v1alpha1 Url is the base host without the API suffix path
+			s.Url = "http://tsa-server.ns.svc:3000"
 
 			if c.Bool() {
 				ref := &LocalObjectReference{}

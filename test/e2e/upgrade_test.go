@@ -260,7 +260,7 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 
 	It("Initialize cosign cli", func(ctx SpecContext) {
 		gomega.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(securesignDeployment), securesignDeployment)).To(gomega.Succeed())
-		cosign = cosignSupport.NewLocalCosign(securesignDeployment.Status.TufStatus.Url, securesignDeployment.Status.FulcioStatus.Url, securesignDeployment.Status.RekorStatus.Url, securesignDeployment.Status.TSAStatus.Url)
+		cosign = cosignSupport.NewLocalCosign(securesignDeployment.Status.TufStatus.Url, securesignDeployment.Status.FulcioStatus.Url, securesignDeployment.Status.RekorStatus.Url, securesignDeployment.Status.TSAStatus.Url+"/api/v1/timestamp")
 	})
 
 	It("Sign image with cosign cli", func(ctx SpecContext) {

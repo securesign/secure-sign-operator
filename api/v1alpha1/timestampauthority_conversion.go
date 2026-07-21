@@ -67,6 +67,12 @@ func Convert_v1alpha1_TimestampAuthorityStatus_To_v1_TimestampAuthorityStatus(in
 	if in.NTPMonitoring != nil && in.NTPMonitoring.Config != nil && in.NTPMonitoring.Config.NtpConfigRef != nil {
 		out.NtpConfigRef = &rhtasv1.LocalObjectReference{Name: in.NTPMonitoring.Config.NtpConfigRef.Name}
 	}
+	if out.Url != "" {
+		var err error
+		if out.Url, err = urlWithPath(out.Url, rhtasv1.TimestampPath); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -79,6 +85,12 @@ func Convert_v1_TimestampAuthorityStatus_To_v1alpha1_TimestampAuthorityStatus(in
 			Config: &NtpMonitoringConfig{
 				NtpConfigRef: &LocalObjectReference{Name: in.NtpConfigRef.Name},
 			},
+		}
+	}
+	if out.Url != "" {
+		var err error
+		if out.Url, err = urlWithoutPath(out.Url); err != nil {
+			return err
 		}
 	}
 	return nil

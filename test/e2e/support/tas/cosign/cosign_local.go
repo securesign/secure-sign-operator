@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 
-	tsaActions "github.com/securesign/operator/internal/controller/tsa/actions"
-
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/test/e2e/support"
 	clients "github.com/securesign/operator/test/e2e/support/tas/cli"
@@ -50,7 +48,7 @@ func (c *LocalCosign) Sign(ctx context.Context, targetImageName string) error {
 	if !useSigningConfig {
 		signArgs = append(signArgs, "--fulcio-url="+c.fulcioUrl,
 			"--rekor-url="+c.rekorUrl,
-			"--timestamp-server-url="+c.tsaUrl+tsaActions.TimestampPath,
+			"--timestamp-server-url="+c.tsaUrl,
 			"--oidc-issuer="+support.OidcIssuerUrl(),
 			"--oidc-client-id="+support.OidcClientID())
 	}
