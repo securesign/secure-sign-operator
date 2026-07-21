@@ -6,6 +6,7 @@ resources:
 - ../../overlays/openshift
 - ../../samples
 - ../../scorecard
+- ../consoleclidownloads
 
 components:
 - ../patches

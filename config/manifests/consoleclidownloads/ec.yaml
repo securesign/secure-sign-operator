@@ -1,0 +1,24 @@
+apiVersion: console.openshift.io/v1
+kind: ConsoleCLIDownload
+metadata:
+  name: ec
+  labels:
+    app.kubernetes.io/part-of: trusted-artifact-signer
+spec:
+  displayName: "ec - Command Line Interface (CLI)"
+  description: "Enterprise Contract CLI. Set of commands to help validate resources with the Enterprise Contract."
+  links:
+    - text: "Download ec for Linux x86_64"
+      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/ec_linux_amd64.tar.gz"
+    - text: "Download ec for Linux arm64"
+      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/ec_linux_arm64.tar.gz"
+    - text: "Download ec for Linux ppc64le"
+      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/ec_linux_ppc64le.tar.gz"
+    - text: "Download ec for Linux s390x"
+      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/ec_linux_s390x.tar.gz"
+    - text: "Download ec for Mac x86_64"
+      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/ec_darwin_amd64.tar.gz"
+    - text: "Download ec for Mac arm64"
+      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/ec_darwin_arm64.tar.gz"
+    - text: "Download ec for Windows x86_64"
+      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/ec_windows_amd64.zip"

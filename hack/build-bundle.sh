@@ -41,4 +41,13 @@ if [ -n "$IMG" ]; then
 fi
 
 # Generate and validate the Operator bundle
-oc kustomize config/manifests/${TARGET_PLATFORM} | operator-sdk generate bundle ${BUNDLE_GEN_FLAGS} && operator-sdk bundle validate ./bundle
+oc kustomize config/manifests/${TARGET_PLATFORM} | operator-sdk generate bundle ${BUNDLE_GEN_FLAGS}
+
+# Replace __VERSION__ placeholder in ConsoleCLIDownload manifests with the actual version.
+if [ -z "$VERSION" ]; then
+  echo "ERROR: VERSION not set" >&2
+  exit 1
+fi
+find bundle/manifests -name '*.yaml' -exec sed -i "s|__VERSION__|${VERSION}|g" {} +
+
+operator-sdk bundle validate ./bundle
