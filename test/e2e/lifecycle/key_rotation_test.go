@@ -65,8 +65,8 @@ var _ = Describe("Key rotation test", Ordered, func() {
 	)
 
 	BeforeAll(func() {
-		if _, err := exec.LookPath("tuftool"); err != nil {
-			Skip("tuftool command not found")
+		if _, err := exec.LookPath("tufcli"); err != nil {
+			Skip("tufcli command not found")
 		}
 	})
 
@@ -487,32 +487,32 @@ var _ = Describe("Key rotation test", Ordered, func() {
 		It("Rotate fulcio certs", func(ctx SpecContext) {
 			Expect(os.WriteFile(certs+"/new-fulcio.cert.pem", newFulcioCert.Data["cert"], 0644)).To(Succeed())
 			Expect(os.WriteFile(certs+"/fulcio_v1.crt.pem", oldFulcioCert, 0644)).To(Succeed())
-			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("fulcio", "fulcio_v1.crt.pem", s.Status.FulcioStatus.Url, tufRepoWorkdir, true)...)).To(Succeed())
-			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("fulcio", "new-fulcio.cert.pem", s.Status.FulcioStatus.Url, tufRepoWorkdir, false)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tufcli", tufToolParams("fulcio", "fulcio_v1.crt.pem", s.Status.FulcioStatus.Url, tufRepoWorkdir, true)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tufcli", tufToolParams("fulcio", "new-fulcio.cert.pem", s.Status.FulcioStatus.Url, tufRepoWorkdir, false)...)).To(Succeed())
 		})
 
 		It("Rotate rekor signer ", func(ctx SpecContext) {
 			Expect(os.WriteFile(certs+"/new-rekor.pub", newRekorSigner.Data["public"], 0644)).To(Succeed())
 			Expect(os.WriteFile(certs+"/rekor.pub", oldRekorPub, 0644)).To(Succeed())
 
-			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("rekor", "rekor.pub", s.Status.RekorStatus.Url, tufRepoWorkdir, true)...)).To(Succeed())
-			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("rekor", "new-rekor.pub", s.Status.RekorStatus.Url, tufRepoWorkdir, false)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tufcli", tufToolParams("rekor", "rekor.pub", s.Status.RekorStatus.Url, tufRepoWorkdir, true)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tufcli", tufToolParams("rekor", "new-rekor.pub", s.Status.RekorStatus.Url, tufRepoWorkdir, false)...)).To(Succeed())
 		})
 
 		It("Rotate transparency log ", func(ctx SpecContext) {
 			Expect(os.WriteFile(certs+"/new-ctlog-public.pem", newCtlConfig.Data["public"], 0644)).To(Succeed())
 			Expect(os.WriteFile(certs+"/ctfe.pub", newCtlConfig.Data["public-0"], 0644)).To(Succeed())
 
-			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("ctlog", "ctfe.pub", fmt.Sprintf("https://%s.%s.svc", ctlogActions.DeploymentName, namespace.Name), tufRepoWorkdir, true)...)).To(Succeed())
-			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("ctlog", "new-ctlog-public.pem", fmt.Sprintf("https://%s.%s.svc", ctlogActions.DeploymentName, namespace.Name), tufRepoWorkdir, false)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tufcli", tufToolParams("ctlog", "ctfe.pub", fmt.Sprintf("https://%s.%s.svc", ctlogActions.DeploymentName, namespace.Name), tufRepoWorkdir, true)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tufcli", tufToolParams("ctlog", "new-ctlog-public.pem", fmt.Sprintf("https://%s.%s.svc", ctlogActions.DeploymentName, namespace.Name), tufRepoWorkdir, false)...)).To(Succeed())
 		})
 
 		It("Rotate tsa ", func(ctx SpecContext) {
 			Expect(os.WriteFile(certs+"/new-tsa.certchain.pem", newTsaSecret.Data["certificateChain"], 0644)).To(Succeed())
 			Expect(os.WriteFile(certs+"/tsa.certchain.pem", oldTsa, 0644)).To(Succeed())
 
-			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("tsa", "tsa.certchain.pem", s.Status.TSAStatus.Url, tufRepoWorkdir, true)...)).To(Succeed())
-			Expect(clients.ExecuteInDir(certs, "tuftool", tufToolParams("tsa", "new-tsa.certchain.pem", s.Status.TSAStatus.Url, tufRepoWorkdir, false)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tufcli", tufToolParams("tsa", "tsa.certchain.pem", s.Status.TSAStatus.Url, tufRepoWorkdir, true)...)).To(Succeed())
+			Expect(clients.ExecuteInDir(certs, "tufcli", tufToolParams("tsa", "new-tsa.certchain.pem", s.Status.TSAStatus.Url, tufRepoWorkdir, false)...)).To(Succeed())
 		})
 	})
 
