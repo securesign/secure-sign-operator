@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	consoleactions "github.com/securesign/operator/internal/controller/console/actions"
 	ctlogactions "github.com/securesign/operator/internal/controller/ctlog/actions"
 	fulcioactions "github.com/securesign/operator/internal/controller/fulcio/actions"
 	rekoractions "github.com/securesign/operator/internal/controller/rekor/actions"
@@ -20,6 +21,7 @@ import (
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/test/e2e/support"
+	"github.com/securesign/operator/test/e2e/support/condition"
 	k8ssupport "github.com/securesign/operator/test/e2e/support/kubernetes"
 	olmhelpers "github.com/securesign/operator/test/e2e/support/kubernetes/olm"
 	"github.com/securesign/operator/test/e2e/support/postgresql"
@@ -32,7 +34,9 @@ import (
 	tsahelpers "github.com/securesign/operator/test/e2e/support/tas/tsa"
 	tufhelpers "github.com/securesign/operator/test/e2e/support/tas/tuf"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -42,6 +46,7 @@ var _ = Describe("Securesign FIPS Strict Mode (fips140=only)", Ordered, func() {
 
 	var namespace *v1.Namespace
 	var s *rhtasv1.Securesign
+	var console *rhtasv1.Console
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
 		namespace = new
@@ -83,6 +88,16 @@ var _ = Describe("Securesign FIPS Strict Mode (fips140=only)", Ordered, func() {
 
 		BeforeAll(func(ctx SpecContext) {
 			Expect(cli.Create(ctx, s)).To(Succeed())
+		})
+
+		BeforeAll(func(ctx SpecContext) {
+			console = &rhtasv1.Console{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: namespace.Name,
+				},
+			}
+			Expect(cli.Create(ctx, console)).To(Succeed())
 		})
 
 		It("All other components are running", func(ctx SpecContext) {
@@ -266,6 +281,62 @@ var _ = Describe("Securesign FIPS Strict Mode (fips140=only)", Ordered, func() {
 				g.Expect(p.Status.Phase).ToNot(Equal(v1.PodPending))
 			}).WithContext(ctx).Should(Succeed())
 			verifyFipsGoNative(ctx, p, "backfill-redis", getNamespace(), "/usr/local/bin/backfill-redis")
+		})
+
+		It("Console is running", func(ctx SpecContext) {
+			Eventually(func() bool {
+				instance := &rhtasv1.Console{}
+				if err := cli.Get(ctx, types.NamespacedName{
+					Namespace: namespace.Name,
+					Name:      console.Name,
+				}, instance); errors.IsNotFound(err) {
+					return false
+				}
+				return condition.IsReady(instance)
+			}).WithContext(ctx).Should(BeTrue())
+		})
+
+		It("Verify console-api is running in FIPS mode", func(ctx SpecContext) {
+			var pod *v1.Pod
+			Eventually(func(g Gomega, ctx context.Context) {
+				list := &v1.PodList{}
+				g.Expect(cli.List(ctx, list,
+					ctrlclient.InNamespace(getNamespace()),
+					ctrlclient.MatchingLabels{labels.LabelAppComponent: consoleactions.ApiComponentName},
+				)).To(Succeed())
+				g.Expect(list.Items).To(HaveLen(1))
+				g.Expect(list.Items[0].Status.Phase).To(Equal(v1.PodRunning))
+				pod = &list.Items[0]
+			}).WithContext(ctx).Should(Succeed())
+			verifyFipsGoNative(ctx, pod, consoleactions.ApiDeploymentName, getNamespace(), "/tmp/rhtas_console")
+		})
+
+		It("Verify console-ui is running in FIPS mode", func(ctx SpecContext) {
+			var pod *v1.Pod
+			Eventually(func(g Gomega, ctx context.Context) {
+				list := &v1.PodList{}
+				g.Expect(cli.List(ctx, list,
+					ctrlclient.InNamespace(getNamespace()),
+					ctrlclient.MatchingLabels{labels.LabelAppComponent: consoleactions.UIComponentName},
+				)).To(Succeed())
+				g.Expect(list.Items).To(HaveLen(1))
+				g.Expect(list.Items[0].Status.Phase).To(Equal(v1.PodRunning))
+				pod = &list.Items[0]
+			}).WithContext(ctx).Should(Succeed())
+
+			verifyGodebugOnly(ctx, pod, consoleactions.UIDeploymentName, getNamespace())
+
+			host, err := k8ssupport.ExecInPodWithOutput(ctx, pod.Name, consoleactions.UIDeploymentName, getNamespace(),
+				"cat", "/proc/sys/crypto/fips_enabled",
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(strings.TrimSpace(string(host))).To(Equal("1"))
+
+			node, err := k8ssupport.ExecInPodWithOutput(ctx, pod.Name, consoleactions.UIDeploymentName, getNamespace(),
+				"node", "-p", "require('crypto').getFips()",
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(strings.TrimSpace(string(node))).To(Equal("1"))
 		})
 
 		// TODO: re-add tuf-init FIPS check when Go CLI replacement is available
