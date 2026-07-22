@@ -9,3 +9,4 @@ resources:
 - createtree.yaml
 - updatetree.yaml
 - tuftool.yaml
+- tufcli.yaml
