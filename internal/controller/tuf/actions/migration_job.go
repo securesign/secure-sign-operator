@@ -20,7 +20,6 @@ import (
 	tlsensure "github.com/securesign/operator/internal/utils/tls/ensure"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apilabels "k8s.io/apimachinery/pkg/labels"
@@ -50,12 +49,13 @@ func (i migrationJobAction) CanHandle(_ context.Context, tuf *rhtasv1.Tuf) bool 
 
 func (i migrationJobAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *action.Result {
 	if instance.Spec.RootKeySecretRef != nil && instance.Spec.RootKeySecretRef.Name != "" {
-		if _, err := kubernetes.GetSecret(ctx, i.Client, instance.Namespace, instance.Spec.RootKeySecretRef.Name); err != nil {
-			if errors.IsNotFound(err) {
-				i.Logger.Info("Root key secret not found", "secret", instance.Spec.RootKeySecretRef.Name)
-				return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("cannot migrate TUF: root key secret %s not found: %w", instance.Spec.RootKeySecretRef.Name, err)), instance)
-			}
+		found, err := kubernetes.ExistsSecret(ctx, i.Client, instance.Namespace, instance.Spec.RootKeySecretRef.Name)
+		if err != nil {
 			return i.Error(ctx, err, instance)
+		}
+		if !found {
+			i.Logger.Info("Root key secret not found", "secret", instance.Spec.RootKeySecretRef.Name)
+			return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("cannot migrate TUF: root key secret %s not found", instance.Spec.RootKeySecretRef.Name)), instance)
 		}
 	} else {
 		i.Logger.Info("root key secret not specified")
