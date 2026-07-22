@@ -128,6 +128,16 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*ExternalAccess)(nil), (*v1.ExternalAccess)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_ExternalAccess_To_v1_ExternalAccess(a.(*ExternalAccess), b.(*v1.ExternalAccess), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*v1.ExternalAccess)(nil), (*ExternalAccess)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_ExternalAccess_To_v1alpha1_ExternalAccess(a.(*v1.ExternalAccess), b.(*ExternalAccess), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*File)(nil), (*v1.File)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_File_To_v1_File(a.(*File), b.(*v1.File), scope)
 	}); err != nil {
@@ -185,6 +195,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*v1.FulcioService)(nil), (*FulcioService)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_FulcioService_To_v1alpha1_FulcioService(a.(*v1.FulcioService), b.(*FulcioService), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*FulcioSpec)(nil), (*v1.FulcioSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_FulcioSpec_To_v1_FulcioSpec(a.(*FulcioSpec), b.(*v1.FulcioSpec), scope)
 	}); err != nil {
 		return err
 	}
@@ -300,6 +315,16 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*v1.RekorLogRange)(nil), (*RekorLogRange)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_RekorLogRange_To_v1alpha1_RekorLogRange(a.(*v1.RekorLogRange), b.(*RekorLogRange), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*RekorSearchUI)(nil), (*v1.RekorSearchUI)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_RekorSearchUI_To_v1_RekorSearchUI(a.(*RekorSearchUI), b.(*v1.RekorSearchUI), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*v1.RekorSearchUI)(nil), (*RekorSearchUI)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_RekorSearchUI_To_v1alpha1_RekorSearchUI(a.(*v1.RekorSearchUI), b.(*RekorSearchUI), scope)
 	}); err != nil {
 		return err
 	}
@@ -458,6 +483,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*TimestampAuthoritySpec)(nil), (*v1.TimestampAuthoritySpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_TimestampAuthoritySpec_To_v1_TimestampAuthoritySpec(a.(*TimestampAuthoritySpec), b.(*v1.TimestampAuthoritySpec), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*v1.Tink)(nil), (*Tink)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_Tink_To_v1alpha1_Tink(a.(*v1.Tink), b.(*Tink), scope)
 	}); err != nil {
@@ -588,6 +618,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*TufSpec)(nil), (*v1.TufSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_TufSpec_To_v1_TufSpec(a.(*TufSpec), b.(*v1.TufSpec), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*TufStatus)(nil), (*v1.TufStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_TufStatus_To_v1_TufStatus(a.(*TufStatus), b.(*v1.TufStatus), scope)
 	}); err != nil {
@@ -623,11 +658,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddConversionFunc((*v1.Ingress)(nil), (*ExternalAccess)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_Ingress_To_v1alpha1_ExternalAccess(a.(*v1.Ingress), b.(*ExternalAccess), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddConversionFunc((*v1.MonitoringConfig)(nil), (*MonitoringConfig)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_MonitoringConfig_To_v1alpha1_MonitoringConfig(a.(*v1.MonitoringConfig), b.(*MonitoringConfig), scope)
 	}); err != nil {
@@ -640,11 +670,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*v1.RekorAttestations)(nil), (*RekorAttestations)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_RekorAttestations_To_v1alpha1_RekorAttestations(a.(*v1.RekorAttestations), b.(*RekorAttestations), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddConversionFunc((*v1.RekorSearchUI)(nil), (*RekorSearchUI)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_RekorSearchUI_To_v1alpha1_RekorSearchUI(a.(*v1.RekorSearchUI), b.(*RekorSearchUI), scope)
 	}); err != nil {
 		return err
 	}
@@ -728,18 +753,8 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddConversionFunc((*ExternalAccess)(nil), (*v1.Ingress)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_ExternalAccess_To_v1_Ingress(a.(*ExternalAccess), b.(*v1.Ingress), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddConversionFunc((*FulcioCert)(nil), (*v1.FulcioCertStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_FulcioCert_To_v1_FulcioCertStatus(a.(*FulcioCert), b.(*v1.FulcioCertStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddConversionFunc((*FulcioSpec)(nil), (*v1.FulcioSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_FulcioSpec_To_v1_FulcioSpec(a.(*FulcioSpec), b.(*v1.FulcioSpec), scope)
 	}); err != nil {
 		return err
 	}
@@ -750,11 +765,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*MonitoringConfig)(nil), (*v1.MonitoringConfig)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_MonitoringConfig_To_v1_MonitoringConfig(a.(*MonitoringConfig), b.(*v1.MonitoringConfig), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddConversionFunc((*RekorSearchUI)(nil), (*v1.RekorSearchUI)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_RekorSearchUI_To_v1_RekorSearchUI(a.(*RekorSearchUI), b.(*v1.RekorSearchUI), scope)
 	}); err != nil {
 		return err
 	}
@@ -780,11 +790,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*TimestampAuthoritySigner)(nil), (*v1.TimestampAuthoritySignerStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_TimestampAuthoritySigner_To_v1_TimestampAuthoritySignerStatus(a.(*TimestampAuthoritySigner), b.(*v1.TimestampAuthoritySignerStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddConversionFunc((*TimestampAuthoritySpec)(nil), (*v1.TimestampAuthoritySpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_TimestampAuthoritySpec_To_v1_TimestampAuthoritySpec(a.(*TimestampAuthoritySpec), b.(*v1.TimestampAuthoritySpec), scope)
 	}); err != nil {
 		return err
 	}
@@ -830,11 +835,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*TufPvc)(nil), (*v1.Pvc)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_TufPvc_To_v1_Pvc(a.(*TufPvc), b.(*v1.Pvc), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddConversionFunc((*TufSpec)(nil), (*v1.TufSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_TufSpec_To_v1_TufSpec(a.(*TufSpec), b.(*v1.TufSpec), scope)
 	}); err != nil {
 		return err
 	}
@@ -1233,6 +1233,34 @@ func Convert_v1_Extensions_To_v1alpha1_Extensions(in *v1.Extensions, out *Extens
 	return autoConvert_v1_Extensions_To_v1alpha1_Extensions(in, out, s)
 }
 
+func autoConvert_v1alpha1_ExternalAccess_To_v1_ExternalAccess(in *ExternalAccess, out *v1.ExternalAccess, s conversion.Scope) error {
+	if err := metav1.Convert_bool_To_Pointer_bool(&in.Enabled, &out.Enabled, s); err != nil {
+		return err
+	}
+	out.Host = in.Host
+	out.RouteSelectorLabels = *(*map[string]string)(unsafe.Pointer(&in.RouteSelectorLabels))
+	return nil
+}
+
+// Convert_v1alpha1_ExternalAccess_To_v1_ExternalAccess is an autogenerated conversion function.
+func Convert_v1alpha1_ExternalAccess_To_v1_ExternalAccess(in *ExternalAccess, out *v1.ExternalAccess, s conversion.Scope) error {
+	return autoConvert_v1alpha1_ExternalAccess_To_v1_ExternalAccess(in, out, s)
+}
+
+func autoConvert_v1_ExternalAccess_To_v1alpha1_ExternalAccess(in *v1.ExternalAccess, out *ExternalAccess, s conversion.Scope) error {
+	if err := metav1.Convert_Pointer_bool_To_bool(&in.Enabled, &out.Enabled, s); err != nil {
+		return err
+	}
+	out.Host = in.Host
+	out.RouteSelectorLabels = *(*map[string]string)(unsafe.Pointer(&in.RouteSelectorLabels))
+	return nil
+}
+
+// Convert_v1_ExternalAccess_To_v1alpha1_ExternalAccess is an autogenerated conversion function.
+func Convert_v1_ExternalAccess_To_v1alpha1_ExternalAccess(in *v1.ExternalAccess, out *ExternalAccess, s conversion.Scope) error {
+	return autoConvert_v1_ExternalAccess_To_v1alpha1_ExternalAccess(in, out, s)
+}
+
 func autoConvert_v1alpha1_File_To_v1_File(in *File, out *v1.File, s conversion.Scope) error {
 	out.PasswordRef = (*v1.SecretKeySelector)(unsafe.Pointer(in.PasswordRef))
 	out.PrivateKeyRef = (*v1.SecretKeySelector)(unsafe.Pointer(in.PrivateKeyRef))
@@ -1409,7 +1437,9 @@ func autoConvert_v1alpha1_FulcioSpec_To_v1_FulcioSpec(in *FulcioSpec, out *v1.Fu
 	if err := Convert_v1alpha1_PodRequirements_To_v1_PodRequirements(&in.PodRequirements, &out.PodRequirements, s); err != nil {
 		return err
 	}
-	// WARNING: in.ExternalAccess requires manual conversion: does not exist in peer-type
+	if err := Convert_v1alpha1_ExternalAccess_To_v1_ExternalAccess(&in.ExternalAccess, &out.ExternalAccess, s); err != nil {
+		return err
+	}
 	if err := Convert_v1alpha1_CtlogService_To_v1_CtlogService(&in.Ctlog, &out.Ctlog, s); err != nil {
 		return err
 	}
@@ -1426,12 +1456,19 @@ func autoConvert_v1alpha1_FulcioSpec_To_v1_FulcioSpec(in *FulcioSpec, out *v1.Fu
 	return nil
 }
 
+// Convert_v1alpha1_FulcioSpec_To_v1_FulcioSpec is an autogenerated conversion function.
+func Convert_v1alpha1_FulcioSpec_To_v1_FulcioSpec(in *FulcioSpec, out *v1.FulcioSpec, s conversion.Scope) error {
+	return autoConvert_v1alpha1_FulcioSpec_To_v1_FulcioSpec(in, out, s)
+}
+
 func autoConvert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(in *v1.FulcioSpec, out *FulcioSpec, s conversion.Scope) error {
 	if err := Convert_v1_PodRequirements_To_v1alpha1_PodRequirements(&in.PodRequirements, &out.PodRequirements, s); err != nil {
 		return err
 	}
 	// WARNING: in.ServiceAccountConfig requires manual conversion: does not exist in peer-type
-	// WARNING: in.Ingress requires manual conversion: does not exist in peer-type
+	if err := Convert_v1_ExternalAccess_To_v1alpha1_ExternalAccess(&in.ExternalAccess, &out.ExternalAccess, s); err != nil {
+		return err
+	}
 	if err := Convert_v1_CtlogService_To_v1alpha1_CtlogService(&in.Ctlog, &out.Ctlog, s); err != nil {
 		return err
 	}
@@ -1843,8 +1880,13 @@ func autoConvert_v1alpha1_RekorSearchUI_To_v1_RekorSearchUI(in *RekorSearchUI, o
 	}
 	out.Enabled = (*bool)(unsafe.Pointer(in.Enabled))
 	out.Host = in.Host
-	// WARNING: in.RouteSelectorLabels requires manual conversion: does not exist in peer-type
+	out.RouteSelectorLabels = *(*map[string]string)(unsafe.Pointer(&in.RouteSelectorLabels))
 	return nil
+}
+
+// Convert_v1alpha1_RekorSearchUI_To_v1_RekorSearchUI is an autogenerated conversion function.
+func Convert_v1alpha1_RekorSearchUI_To_v1_RekorSearchUI(in *RekorSearchUI, out *v1.RekorSearchUI, s conversion.Scope) error {
+	return autoConvert_v1alpha1_RekorSearchUI_To_v1_RekorSearchUI(in, out, s)
 }
 
 func autoConvert_v1_RekorSearchUI_To_v1alpha1_RekorSearchUI(in *v1.RekorSearchUI, out *RekorSearchUI, s conversion.Scope) error {
@@ -1853,8 +1895,13 @@ func autoConvert_v1_RekorSearchUI_To_v1alpha1_RekorSearchUI(in *v1.RekorSearchUI
 	}
 	out.Enabled = (*bool)(unsafe.Pointer(in.Enabled))
 	out.Host = in.Host
-	// WARNING: in.Labels requires manual conversion: does not exist in peer-type
+	out.RouteSelectorLabels = *(*map[string]string)(unsafe.Pointer(&in.RouteSelectorLabels))
 	return nil
+}
+
+// Convert_v1_RekorSearchUI_To_v1alpha1_RekorSearchUI is an autogenerated conversion function.
+func Convert_v1_RekorSearchUI_To_v1alpha1_RekorSearchUI(in *v1.RekorSearchUI, out *RekorSearchUI, s conversion.Scope) error {
+	return autoConvert_v1_RekorSearchUI_To_v1alpha1_RekorSearchUI(in, out, s)
 }
 
 func autoConvert_v1alpha1_RekorService_To_v1_RekorService(in *RekorService, out *v1.RekorService, s conversion.Scope) error {
@@ -1911,7 +1958,9 @@ func autoConvert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *v1.Rekor
 	if err := Convert_v1alpha1_TrillianService_To_v1_ServiceReference(&in.Trillian, &out.Trillian, s); err != nil {
 		return err
 	}
-	// WARNING: in.ExternalAccess requires manual conversion: does not exist in peer-type
+	if err := Convert_v1alpha1_ExternalAccess_To_v1_ExternalAccess(&in.ExternalAccess, &out.ExternalAccess, s); err != nil {
+		return err
+	}
 	if err := Convert_v1alpha1_MonitoringWithTLogConfig_To_v1_MonitoringWithTLogConfig(&in.Monitoring, &out.Monitoring, s); err != nil {
 		return err
 	}
@@ -1947,7 +1996,9 @@ func autoConvert_v1_RekorSpec_To_v1alpha1_RekorSpec(in *v1.RekorSpec, out *Rekor
 	if err := Convert_v1_ServiceReference_To_v1alpha1_TrillianService(&in.Trillian, &out.Trillian, s); err != nil {
 		return err
 	}
-	// WARNING: in.Ingress requires manual conversion: does not exist in peer-type
+	if err := Convert_v1_ExternalAccess_To_v1alpha1_ExternalAccess(&in.ExternalAccess, &out.ExternalAccess, s); err != nil {
+		return err
+	}
 	if err := Convert_v1_MonitoringWithTLogConfig_To_v1alpha1_MonitoringWithTLogConfig(&in.Monitoring, &out.Monitoring, s); err != nil {
 		return err
 	}
@@ -2504,7 +2555,9 @@ func autoConvert_v1alpha1_TimestampAuthoritySpec_To_v1_TimestampAuthoritySpec(in
 	if err := Convert_v1alpha1_PodRequirements_To_v1_PodRequirements(&in.PodRequirements, &out.PodRequirements, s); err != nil {
 		return err
 	}
-	// WARNING: in.ExternalAccess requires manual conversion: does not exist in peer-type
+	if err := Convert_v1alpha1_ExternalAccess_To_v1_ExternalAccess(&in.ExternalAccess, &out.ExternalAccess, s); err != nil {
+		return err
+	}
 	if err := Convert_v1alpha1_TimestampAuthoritySigner_To_v1_TimestampAuthoritySigner(&in.Signer, &out.Signer, s); err != nil {
 		return err
 	}
@@ -2519,12 +2572,19 @@ func autoConvert_v1alpha1_TimestampAuthoritySpec_To_v1_TimestampAuthoritySpec(in
 	return nil
 }
 
+// Convert_v1alpha1_TimestampAuthoritySpec_To_v1_TimestampAuthoritySpec is an autogenerated conversion function.
+func Convert_v1alpha1_TimestampAuthoritySpec_To_v1_TimestampAuthoritySpec(in *TimestampAuthoritySpec, out *v1.TimestampAuthoritySpec, s conversion.Scope) error {
+	return autoConvert_v1alpha1_TimestampAuthoritySpec_To_v1_TimestampAuthoritySpec(in, out, s)
+}
+
 func autoConvert_v1_TimestampAuthoritySpec_To_v1alpha1_TimestampAuthoritySpec(in *v1.TimestampAuthoritySpec, out *TimestampAuthoritySpec, s conversion.Scope) error {
 	if err := Convert_v1_PodRequirements_To_v1alpha1_PodRequirements(&in.PodRequirements, &out.PodRequirements, s); err != nil {
 		return err
 	}
 	// WARNING: in.ServiceAccountConfig requires manual conversion: does not exist in peer-type
-	// WARNING: in.Ingress requires manual conversion: does not exist in peer-type
+	if err := Convert_v1_ExternalAccess_To_v1alpha1_ExternalAccess(&in.ExternalAccess, &out.ExternalAccess, s); err != nil {
+		return err
+	}
 	if err := Convert_v1_TimestampAuthoritySigner_To_v1alpha1_TimestampAuthoritySigner(&in.Signer, &out.Signer, s); err != nil {
 		return err
 	}
@@ -3046,7 +3106,9 @@ func autoConvert_v1alpha1_TufSpec_To_v1_TufSpec(in *TufSpec, out *v1.TufSpec, s 
 	if err := Convert_v1alpha1_PodRequirements_To_v1_PodRequirements(&in.PodRequirements, &out.PodRequirements, s); err != nil {
 		return err
 	}
-	// WARNING: in.ExternalAccess requires manual conversion: does not exist in peer-type
+	if err := Convert_v1alpha1_ExternalAccess_To_v1_ExternalAccess(&in.ExternalAccess, &out.ExternalAccess, s); err != nil {
+		return err
+	}
 	out.Port = in.Port
 	out.Keys = *(*[]v1.TufKey)(unsafe.Pointer(&in.Keys))
 	out.RootKeySecretRef = (*v1.LocalObjectReference)(unsafe.Pointer(in.RootKeySecretRef))
@@ -3068,12 +3130,19 @@ func autoConvert_v1alpha1_TufSpec_To_v1_TufSpec(in *TufSpec, out *v1.TufSpec, s 
 	return nil
 }
 
+// Convert_v1alpha1_TufSpec_To_v1_TufSpec is an autogenerated conversion function.
+func Convert_v1alpha1_TufSpec_To_v1_TufSpec(in *TufSpec, out *v1.TufSpec, s conversion.Scope) error {
+	return autoConvert_v1alpha1_TufSpec_To_v1_TufSpec(in, out, s)
+}
+
 func autoConvert_v1_TufSpec_To_v1alpha1_TufSpec(in *v1.TufSpec, out *TufSpec, s conversion.Scope) error {
 	if err := Convert_v1_PodRequirements_To_v1alpha1_PodRequirements(&in.PodRequirements, &out.PodRequirements, s); err != nil {
 		return err
 	}
 	// WARNING: in.ServiceAccountConfig requires manual conversion: does not exist in peer-type
-	// WARNING: in.Ingress requires manual conversion: does not exist in peer-type
+	if err := Convert_v1_ExternalAccess_To_v1alpha1_ExternalAccess(&in.ExternalAccess, &out.ExternalAccess, s); err != nil {
+		return err
+	}
 	out.Port = in.Port
 	out.Keys = *(*[]TufKey)(unsafe.Pointer(&in.Keys))
 	out.RootKeySecretRef = (*LocalObjectReference)(unsafe.Pointer(in.RootKeySecretRef))
