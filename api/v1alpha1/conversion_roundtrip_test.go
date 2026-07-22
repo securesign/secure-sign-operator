@@ -19,6 +19,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -72,6 +74,35 @@ func enabledFieldsFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	}
 }
 
+// trillianServiceFuzzerFuncs constrains both sides of the TrillianService ↔ ServiceReference
+// conversion to values that survive the roundtrip:
+//   - v1 ServiceReference: URL and Ref are mutually exclusive; URL must be valid "host:port"
+//   - v1alpha1 TrillianService.Address must not contain colons (ambiguous with port separator)
+func trillianServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.ServiceReference, c randfill.Continue) {
+			switch c.Intn(3) {
+			case 0:
+				s.URL = fmt.Sprintf("host-%d.ns.svc:%d", c.Intn(1000), c.Intn(65534)+1)
+			case 1:
+				s.Ref = &rhtasv1.ServiceReferenceRef{}
+				c.FillNoCustom(s.Ref)
+			default:
+				// empty — autodiscovery
+			}
+		},
+		func(s *TrillianService, c randfill.Continue) {
+			c.FillNoCustom(s)
+			s.Address = strings.ReplaceAll(s.Address, ":", "")
+			if s.Address != "" {
+				s.Port = ptr.To(int32(c.Intn(65534) + 1))
+			} else {
+				s.Port = nil
+			}
+		},
+	}
+}
+
 func TestSecuresignConversion(t *testing.T) {
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
 		Scheme: rhtasScheme(),
@@ -82,6 +113,7 @@ func TestSecuresignConversion(t *testing.T) {
 			tsaStatusFuzzerFuncs,
 			securesignTSAStatusFuzzerFuncs,
 			tsaCertAuthorityFuzzerFuncs,
+			trillianServiceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
@@ -129,6 +161,7 @@ func TestCTlogConversion(t *testing.T) {
 		Spoke:  &CTlog{},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			ctlogStatusFuzzerFuncs,
+			trillianServiceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
@@ -158,6 +191,7 @@ func TestRekorConversion(t *testing.T) {
 					},
 				}
 			},
+			trillianServiceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))

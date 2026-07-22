@@ -26,7 +26,6 @@ import (
 	"github.com/securesign/operator/internal/action/trustmaterial"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
-	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
 	"github.com/securesign/operator/internal/utils"
@@ -134,6 +133,7 @@ var _ = Describe("Rekor hot update test", func() {
 						BackFillRedis: rhtasv1.BackFillRedis{
 							Enabled: utils.Pointer(false),
 						},
+						Trillian: rhtasv1.ServiceReference{Ref: &rhtasv1.ServiceReferenceRef{Namespace: Namespace, Name: "test-trillian"}},
 					},
 				}
 				err = suite.Client().Create(ctx, instance)
@@ -153,6 +153,14 @@ var _ = Describe("Rekor hot update test", func() {
 				return found.Status.Signer.KeyRef
 			}).WithContext(ctx).Should(Not(BeNil()))
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: found.Status.Signer.KeyRef.Name, Namespace: Namespace}, &corev1.Secret{})).Should(Succeed())
+
+			By("Creating trillian object (needed before Rekor CR so Ref can resolve)")
+			Expect(suite.Client().Create(ctx, &rhtasv1.Trillian{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-trillian",
+					Namespace: Namespace,
+				},
+			})).To(Succeed())
 
 			By("Waiting until Rekor instance is Initialization")
 			Eventually(func(g Gomega, ctx context.Context) string {
@@ -203,12 +211,11 @@ var _ = Describe("Rekor hot update test", func() {
 				return suite.Client().Update(ctx, found)
 			}).WithContext(ctx).Should(Succeed())
 
-			By("Move to CreatingPhase by creating trillian service")
+			By("Creating the referenced signer secret")
 			Expect(suite.Client().Create(ctx, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "key-secret",
 					Namespace: Namespace,
-					Labels:    labels.For(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name),
 				},
 				Data: map[string][]byte{"private": []byte("fake")},
 			})).To(Succeed())
