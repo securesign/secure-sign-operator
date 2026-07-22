@@ -116,6 +116,7 @@ rules:
   resourceNames:
   - cluster
   resources:
+  - apiservers
   - ingresses
   verbs:
   - get

@@ -31,6 +31,7 @@ import (
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;list;watch;create;update;patch;delete;deletecollection
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;update;patch;delete;deletecollection
 
+//+kubebuilder:rbac:groups="config.openshift.io",resources=apiservers,resourceNames=cluster,verbs=get;list;watch
 //+kubebuilder:rbac:groups="config.openshift.io",resources=ingresses,resourceNames=cluster,verbs=get;list;watch
 
 //+kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;get;list;watch;update;patch

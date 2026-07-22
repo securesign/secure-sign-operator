@@ -17,11 +17,15 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"os"
 	"time"
 
+	"github.com/go-logr/logr"
+	ostls "github.com/openshift/controller-runtime-common/pkg/tls"
 	appconfig "github.com/securesign/operator/internal/config"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller"
@@ -34,6 +38,8 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	apiErrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/klog/v2"
@@ -93,6 +99,11 @@ func init() {
 }
 
 func main() {
+	// Create a cancellable context from the signal handler. The TLS profile watcher
+	// uses cancel() to trigger a graceful restart when the cluster policy changes.
+	ctx, cancel := context.WithCancel(ctrl.SetupSignalHandler())
+	defer cancel()
+
 	var (
 		metricsAddr          string
 		enableLeaderElection bool
@@ -119,6 +130,10 @@ func main() {
 	utils.BoolFlagOrEnv(&appconfig.Openshift, "openshift", "OPENSHIFT", false, "Enable to ensures the operator applies OpenShift specific configurations.")
 	utils.StringFlagOrEnv(&appconfig.OpenshiftAPIServerName, "openshift-apiserver-name", "OPENSHIFT_APISERVER_NAME", "openshift-apiserver", "The OpenShift API Server name.")
 	utils.DurationFlagOrEnv(&appconfig.APIServerTimeout, "apiserver-timeout", "APISERVER_TIMEOUT", 30*time.Second, "The initial timeout for contacting the API Server, defaults to 30 seconds.")
+	utils.BoolFlagOrEnv(&appconfig.DisableClusterTLSProfile, "disable-cluster-tls-profile", "DISABLE_CLUSTER_TLS_PROFILE", false,
+		"Disable reading the cluster-wide TLS security profile from configv1.APIServer. "+
+			"When set, the operator uses Intermediate TLS profile defaults (TLS 1.2 minimum). "+
+			"Use this as an escape hatch if the cluster profile causes compatibility issues.")
 	utils.StringFlagOrEnv(&appconfig.IngressHostTemplate, "ingress-host-template", "INGRESS_HOST_TEMPLATE", appconfig.IngressHostTemplate,
 		"Default hostname template for non-OpenShift Ingress resources when ExternalAccess.Host is not set. "+
 			"Uses Go fmt.Sprintf with %[1]s=service name, %[2]s=namespace. Ignored on OpenShift.")
@@ -162,6 +177,38 @@ func main() {
 		setupLog.Info("Platform explicitly configured via flag/env", "openshift", appconfig.Openshift)
 	}
 
+	// Resolve the cluster TLS security profile once at startup, before the webhook and metrics
+	// servers are configured. A dedicated bootstrap client is used because the manager has not
+	// started yet. On vanilla Kubernetes (no configv1.APIServer) or when the flag is set,
+	// this falls back to the Intermediate profile.
+	var bootstrapClient client.Client
+	if appconfig.Openshift && !appconfig.DisableClusterTLSProfile {
+		var bootErr error
+		bootstrapClient, bootErr = client.New(ctrl.GetConfigOrDie(), client.Options{Scheme: scheme})
+		if bootErr != nil {
+			setupLog.Error(bootErr, "unable to create bootstrap client for TLS profile resolution")
+			os.Exit(1)
+		}
+	}
+
+	// Bound the profile resolution by the same timeout used for OpenShift auto-detection and
+	// derive it from the cancellable startup context, so a SIGTERM or a network partition during
+	// a slow bootstrap API call aborts startup instead of hanging indefinitely.
+	resolveCtx, resolveCancel := context.WithTimeout(ctx, appconfig.APIServerTimeout)
+	tlsProfileSpec, tlsAdherence, resolveErr := resolveClusterTLSProfile(
+		resolveCtx, bootstrapClient, appconfig.Openshift, appconfig.DisableClusterTLSProfile, setupLog)
+	resolveCancel()
+	if resolveErr != nil {
+		setupLog.Error(resolveErr, "unable to resolve cluster TLS security profile")
+		os.Exit(1)
+	}
+
+	tlsConfigFn, unsupportedCiphers := ostls.NewTLSConfigFromProfile(tlsProfileSpec)
+	if len(unsupportedCiphers) > 0 {
+		setupLog.Info("cluster TLS profile contains ciphers unsupported by Go TLS",
+			"ciphers", unsupportedCiphers)
+	}
+
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
 	// prevent from being vulnerable to the HTTP/2 Stream Cancelation and
@@ -177,7 +224,7 @@ func main() {
 	if !enableHTTP2 {
 		tlsOpts = append(tlsOpts, disableHTTP2)
 	}
-
+	tlsOpts = append(tlsOpts, tlsConfigFn)
 	webhookServer := webhook.NewServer(webhook.Options{
 		TLSOpts: tlsOpts,
 	})
@@ -221,6 +268,16 @@ func main() {
 				"metadata.name": "cluster",
 			}),
 		}
+		if !appconfig.DisableClusterTLSProfile {
+			// Restrict the APIServer cache to the single "cluster" object.
+			// The ClusterRole only grants access to this named resource, so a
+			// full cluster-wide list would be forbidden.
+			cacheOpts.ByObject[&configv1.APIServer{}] = cache.ByObject{
+				Field: fields.SelectorFromSet(fields.Set{
+					"metadata.name": "cluster",
+				}),
+			}
+		}
 	}
 
 	metricsOpts := metricsserver.Options{
@@ -262,6 +319,30 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
+	}
+
+	// Watch the cluster TLS security profile for changes. When the profile or adherence
+	// policy changes, cancel() triggers a graceful shutdown so the operator restarts
+	// and picks up the new configuration.
+	if appconfig.Openshift && !appconfig.DisableClusterTLSProfile {
+		if err := (&ostls.SecurityProfileWatcher{
+			Client:                    mgr.GetClient(),
+			InitialTLSProfileSpec:     tlsProfileSpec,
+			InitialTLSAdherencePolicy: tlsAdherence,
+			OnProfileChange: func(_ context.Context, old, new configv1.TLSProfileSpec) {
+				setupLog.Info("cluster TLS profile changed; restarting to apply new configuration",
+					"old", old, "new", new)
+				cancel()
+			},
+			OnAdherencePolicyChange: func(_ context.Context, old, new configv1.TLSAdherencePolicy) {
+				setupLog.Info("cluster TLS adherence policy changed; restarting to apply new configuration",
+					"old", old, "new", new)
+				cancel()
+			},
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to set up TLS security profile watcher")
+			os.Exit(1)
+		}
 	}
 
 	setupController("securesign", securesign.NewReconciler, mgr)
@@ -314,10 +395,54 @@ func main() {
 	}
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// resolveClusterTLSProfile determines the cluster TLS security profile and adherence policy to
+// apply to the operator's webhook and metrics servers.
+//
+// On vanilla Kubernetes or when disabled is set, it returns the Intermediate profile defaults
+// (TLS 1.2 minimum) without contacting the API server. On OpenShift it fetches the cluster-wide
+// profile from the config.openshift.io APIServer, falling back to Intermediate defaults when the
+// resource or API is unavailable. A non-nil error is returned only for unexpected failures that
+// should abort startup.
+func resolveClusterTLSProfile(ctx context.Context, cli client.Client, openshift, disabled bool, log logr.Logger) (configv1.TLSProfileSpec, configv1.TLSAdherencePolicy, error) {
+	intermediateSpec := *configv1.TLSProfiles[configv1.TLSProfileIntermediateType]
+
+	if !openshift || disabled {
+		if !openshift {
+			log.Info("not running on OpenShift; using Intermediate TLS defaults")
+		} else {
+			log.Info("cluster TLS profile resolution disabled via flag; using Intermediate defaults")
+		}
+		return intermediateSpec, configv1.TLSAdherencePolicyNoOpinion, nil
+	}
+
+	tlsProfileSpec, err := ostls.FetchAPIServerTLSProfile(ctx, cli)
+	if err != nil {
+		if apiErrors.IsNotFound(err) || apimeta.IsNoMatchError(err) {
+			log.Info("config.openshift.io APIServer not available; using Intermediate TLS defaults")
+			tlsProfileSpec = intermediateSpec
+		} else {
+			return configv1.TLSProfileSpec{}, "", fmt.Errorf("unable to fetch cluster TLS security profile: %w", err)
+		}
+	}
+
+	tlsAdherence, err := ostls.FetchAPIServerTLSAdherencePolicy(ctx, cli)
+	if err != nil {
+		if apiErrors.IsNotFound(err) || apimeta.IsNoMatchError(err) {
+			log.Info("TLSAdherencePolicy API not available; defaulting to NoOpinion")
+		} else {
+			log.Error(err, "unable to fetch cluster TLS adherence policy; defaulting to NoOpinion")
+		}
+		tlsAdherence = configv1.TLSAdherencePolicyNoOpinion
+	}
+
+	log.Info("cluster TLS security profile resolved")
+	return tlsProfileSpec, tlsAdherence, nil
 }
 
 func setupController(name string, constructor controller.Constructor, manager ctrl.Manager) {
