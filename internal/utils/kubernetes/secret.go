@@ -67,6 +67,18 @@ func ExistsSecret(ctx context.Context, c client.Client, namespace, name string) 
 	return true, nil
 }
 
+// GetSecretMetadata fetches a Secret's ObjectMeta only (no secret data), using
+// a metadata-only GET. Use this instead of GetSecret when only metadata
+// (e.g. annotations, labels) is needed.
+func GetSecretMetadata(ctx context.Context, c client.Client, namespace, name string) (*metav1.PartialObjectMetadata, error) {
+	obj := &metav1.PartialObjectMetadata{}
+	obj.SetGroupVersionKind(secretGVK)
+	if err := c.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, obj); err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 func FindSecret(ctx context.Context, c client.Client, namespace string, label string) (*metav1.PartialObjectMetadata, error) {
 	list, err := ListSecrets(ctx, c, namespace, label)
 	if err != nil {
