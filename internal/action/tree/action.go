@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
@@ -217,14 +218,7 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 
 	trillianService := wrapped.GetTrillianService()
 
-	switch {
-	case trillianService.Port == nil:
-		err = fmt.Errorf("%s: %v", i.Name(), ErrTrillianPortNotSpecified)
-	case trillianService.Address == "":
-		trillUrl = fmt.Sprintf("%s.%s.svc:%d", logserverDeploymentName, instance.GetNamespace(), *trillianService.Port)
-	default:
-		trillUrl = fmt.Sprintf("%s:%d", trillianService.Address, *trillianService.Port)
-	}
+	trillUrl, err = utils.ResolveInternalServiceUrl(ctx, i.Client, *trillianService, instance.GetNamespace(), &rhtasv1.Trillian{})
 	if err != nil {
 		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("could not resolve trillian service: %w", err)), instance)
 	}

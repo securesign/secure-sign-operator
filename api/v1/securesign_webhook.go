@@ -19,6 +19,6 @@ func SetupSecuresignWebhookWithManager(mgr ctrl.Manager) error {
 
 func (d *SecuresignDefaulter) Default(ctx context.Context, obj *Securesign) error {
 	logf.FromContext(ctx).WithName("Securesign").Info("setting defaults", "name", obj.Name)
-	obj.Spec.SetDefaults()
+	obj.SetDefaults()
 	return nil
 }

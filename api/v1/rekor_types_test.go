@@ -121,7 +121,7 @@ var _ = Describe("Rekor", func() {
 			fetched := &Rekor{}
 			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 			Expect(fetched.Spec.MaxRequestBodySize).To(Equal(ptr.To(int64(10485760))))
-			Expect(fetched.Spec.Trillian.Port).To(Equal(ptr.To(int32(8091))))
+			Expect(fetched.Spec.Trillian).To(Equal(ServiceReference{}))
 			Expect(fetched.Spec.Signer.KMS).To(Equal("secret"))
 			Expect(fetched.Spec.BackFillRedis.Schedule).To(Equal("0 0 * * *"))
 			Expect(fetched.Spec.BackFillRedis.Enabled).To(Equal(ptr.To(true)))
@@ -227,7 +227,6 @@ var _ = Describe("Rekor", func() {
 			It("outputs the CR", func() {
 				storage := k8sresource.MustParse("987Gi")
 				tree := int64(1269875)
-				port := int32(8091)
 
 				rekorInstance := Rekor{
 					ObjectMeta: metav1.ObjectMeta{
@@ -279,9 +278,8 @@ var _ = Describe("Rekor", func() {
 								Key: "key",
 							},
 						},
-						Trillian: TrillianService{
-							Address: "trillian-system.default.svc",
-							Port:    &port,
+						Trillian: ServiceReference{
+							URL: "trillian-system.default.svc:8091",
 						},
 						Sharding: []RekorLogRange{
 							{

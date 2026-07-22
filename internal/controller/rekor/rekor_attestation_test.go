@@ -61,6 +61,14 @@ var _ = Describe("Rekor controller", func() {
 			err := suite.Client().Create(ctx, &namespace)
 			Expect(err).To(Not(HaveOccurred()))
 
+			By("Creating Trillian object for autodiscovery")
+			Expect(suite.Client().Create(ctx, &rhtasv1.Trillian{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "trillian",
+					Namespace: namespace.Name,
+				},
+			})).To(Succeed())
+
 			By("Setting up HTTP mock builder for public key resolution")
 			httputils.SetClientBuilder(func(_ ...[]byte) *http.Client {
 				return &http.Client{

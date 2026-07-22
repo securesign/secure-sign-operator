@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -624,10 +624,7 @@ func testRunner(pre pre, want want, handleFn handleFn) func(t *testing.T) {
 				ServiceAccountConfig: rhtasv1.ServiceAccountConfig{
 					ImagePullSecrets: []corev1.LocalObjectReference{{Name: "my-registry-secret"}},
 				},
-				Trillian: rhtasv1.TrillianService{
-					Address: "trillian-logserver",
-					Port:    ptr.To(int32(8091)),
-				},
+				Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 			},
 		}
 
