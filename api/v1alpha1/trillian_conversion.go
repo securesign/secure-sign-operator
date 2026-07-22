@@ -7,6 +7,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
+func Convert_v1_TrillianSpec_To_v1alpha1_TrillianSpec(in *rhtasv1.TrillianSpec, out *TrillianSpec, s apiconversion.Scope) error {
+	return autoConvert_v1_TrillianSpec_To_v1alpha1_TrillianSpec(in, out, s)
+}
+
 func Convert_v1alpha1_TrillianDB_To_v1_TrillianDBStatus(in *TrillianDB, out *rhtasv1.TrillianDBStatus, s apiconversion.Scope) error {
 	out.PvcName = in.Pvc.Name
 	if in.DatabaseSecretRef != nil {

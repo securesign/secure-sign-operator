@@ -36,7 +36,7 @@ func (i ingressAction) Name() string {
 }
 
 func (i ingressAction) CanHandle(_ context.Context, instance *rhtasv1.TimestampAuthority) bool {
-	return utils.IsEnabled(instance.Spec.ExternalAccess.Enabled) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
+	return utils.IsEnabled(instance.Spec.Ingress.Enabled) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.TimestampAuthority) *action.Result {
@@ -56,10 +56,10 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.TimestampAu
 		&v2.Ingress{
 			ObjectMeta: metav1.ObjectMeta{Name: svc.Name, Namespace: svc.Namespace},
 		},
-		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.ExternalAccess, DeploymentName),
+		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.Ingress, DeploymentName),
 		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
-		// add route selector labels
-		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.ExternalAccess.RouteSelectorLabels)), instance.Spec.ExternalAccess.RouteSelectorLabels),
+		// add ingress labels
+		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.Ingress.Labels)), instance.Spec.Ingress.Labels),
 		// add common labels
 		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(labels)), labels),
 		ensure.ControllerReference[*v2.Ingress](instance, i.Client),

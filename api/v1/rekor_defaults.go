@@ -9,7 +9,7 @@ func (s *RekorSpec) SetDefaults() {
 	s.PodRequirements.SetDefaults()
 	s.Trillian.SetDefaults()
 	s.Monitoring.SetDefaults()
-	s.ExternalAccess.SetDefaults()
+	s.Ingress.SetDefaults()
 	s.RekorSearchUI.SetDefaults()
 	s.Signer.SetDefaults()
 	s.Attestations.SetDefaults()

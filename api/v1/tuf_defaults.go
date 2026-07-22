@@ -7,7 +7,7 @@ import (
 
 func (s *TufSpec) SetDefaults() {
 	s.PodRequirements.SetDefaults()
-	s.ExternalAccess.SetDefaults()
+	s.Ingress.SetDefaults()
 	setDefault(&s.Port, int32(80))
 	setDefaultSlice(&s.Keys, []TufKey{
 		{Name: TufKeyRekor},

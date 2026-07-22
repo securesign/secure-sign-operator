@@ -7,7 +7,7 @@ func (s *ConsoleSpec) SetDefaults() {
 
 func (s *ConsoleUI) SetDefaults() {
 	s.PodRequirements.SetDefaults()
-	s.ExternalAccess.SetDefaults()
+	s.Ingress.SetDefaults()
 }
 
 func (s *ConsoleAPI) SetDefaults() {

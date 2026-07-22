@@ -168,11 +168,11 @@ func resolveCommonName(ctx context.Context, instance *rhtasv1.Fulcio, c client.C
 	if instance.Spec.Certificate.CommonName != "" {
 		return instance.Spec.Certificate.CommonName, nil
 	}
-	if !utils.IsEnabled(instance.Spec.ExternalAccess.Enabled) {
+	if !utils.IsEnabled(instance.Spec.Ingress.Enabled) {
 		return fmt.Sprintf("%s.%s.svc.local", DeploymentName, instance.Namespace), nil
 	}
-	if instance.Spec.ExternalAccess.Host != "" {
-		return instance.Spec.ExternalAccess.Host, nil
+	if instance.Spec.Ingress.Host != "" {
+		return instance.Spec.Ingress.Host, nil
 	}
 	return kubernetes.CalculateHostname(ctx, c, DeploymentName, instance.Namespace)
 }

@@ -18,7 +18,7 @@ func (s *MonitoringWithTLogConfig) SetDefaults() {
 	s.TLog.SetDefaults()
 }
 
-func (s *ExternalAccess) SetDefaults() {
+func (s *Ingress) SetDefaults() {
 	setDefault(&s.Enabled, ptr.To(false))
 }
 

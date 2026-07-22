@@ -37,7 +37,7 @@ type ConsoleSpec struct {
 type ConsoleUI struct {
 	PodRequirements `json:",inline"`
 	// Define whether you want to export service or not
-	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
+	Ingress Ingress `json:"ingress,omitempty"`
 }
 
 type ConsoleAPI struct {

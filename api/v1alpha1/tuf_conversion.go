@@ -3,8 +3,37 @@ package v1alpha1
 import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
+	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
+
+func Convert_v1alpha1_TufSpec_To_v1_TufSpec(in *TufSpec, out *rhtasv1.TufSpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_TufSpec_To_v1_TufSpec(in, out, s); err != nil {
+		return err
+	}
+	return Convert_v1alpha1_ExternalAccess_To_v1_Ingress(&in.ExternalAccess, &out.Ingress, s)
+}
+
+func Convert_v1_TufSpec_To_v1alpha1_TufSpec(in *rhtasv1.TufSpec, out *TufSpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1_TufSpec_To_v1alpha1_TufSpec(in, out, s); err != nil {
+		return err
+	}
+	return Convert_v1_Ingress_To_v1alpha1_ExternalAccess(&in.Ingress, &out.ExternalAccess, s)
+}
+
+func Convert_v1alpha1_TufPvc_To_v1_Pvc(in *TufPvc, out *rhtasv1.Pvc, s apiconversion.Scope) error {
+	pvc := Pvc(*in)
+	return Convert_v1alpha1_Pvc_To_v1_Pvc(&pvc, out, s)
+}
+
+func Convert_v1_Pvc_To_v1alpha1_TufPvc(in *rhtasv1.Pvc, out *TufPvc, s apiconversion.Scope) error {
+	var pvc Pvc
+	if err := Convert_v1_Pvc_To_v1alpha1_Pvc(in, &pvc, s); err != nil {
+		return err
+	}
+	*out = TufPvc(pvc)
+	return nil
+}
 
 func (src *Tuf) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*rhtasv1.Tuf)

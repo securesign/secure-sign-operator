@@ -101,7 +101,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 				Name:      "test",
 			},
 			Spec: rhtasv1.RekorSpec{
-				ExternalAccess: rhtasv1.ExternalAccess{
+				Ingress: rhtasv1.Ingress{
 					Enabled: ptr.To(true),
 				},
 				Trillian: rhtasv1.TrillianService{
@@ -160,7 +160,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 				Ctlog: rhtasv1.CtlogService{
 					Address: fmt.Sprintf("%s://ctlog.%s.svc.cluster.local", protocol, namespaces["ctlog"].Name),
 				},
-				ExternalAccess: rhtasv1.ExternalAccess{
+				Ingress: rhtasv1.Ingress{
 					Enabled: ptr.To(true),
 				},
 				Config: rhtasv1.FulcioConfig{
@@ -206,7 +206,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 				Name:      "test",
 			},
 			Spec: rhtasv1.TimestampAuthoritySpec{
-				ExternalAccess: rhtasv1.ExternalAccess{
+				Ingress: rhtasv1.Ingress{
 					Enabled: ptr.To(true),
 				},
 				Signer: func() rhtasv1.TimestampAuthoritySigner {
@@ -259,7 +259,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 				Name:      "test",
 			},
 			Spec: rhtasv1.TufSpec{
-				ExternalAccess: rhtasv1.ExternalAccess{
+				Ingress: rhtasv1.Ingress{
 					Enabled: ptr.To(true),
 				},
 				Keys: []rhtasv1.TufKey{

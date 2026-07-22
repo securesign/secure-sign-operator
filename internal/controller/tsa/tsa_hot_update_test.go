@@ -122,7 +122,7 @@ var _ = Describe("Timestamp Authority hot update", func() {
 						Namespace: Namespace,
 					},
 					Spec: rhtasv1.TimestampAuthoritySpec{
-						ExternalAccess: rhtasv1.ExternalAccess{
+						Ingress: rhtasv1.Ingress{
 							Host:    "tsa.localhost",
 							Enabled: ptr.To(true),
 						},

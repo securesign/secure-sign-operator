@@ -39,7 +39,7 @@ func (i ingressAction) Name() string {
 
 func (i ingressAction) CanHandle(ctx context.Context, instance *rhtasv1.Rekor) bool {
 	return enabled(instance) &&
-		utils.IsEnabled(instance.Spec.ExternalAccess.Enabled) &&
+		utils.IsEnabled(instance.Spec.Ingress.Enabled) &&
 		state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
@@ -61,15 +61,15 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *act
 			ObjectMeta: metav1.ObjectMeta{Name: svc.Name, Namespace: svc.Namespace},
 		},
 		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc,
-			rhtasv1.ExternalAccess{
-				Enabled:             ptr.To(true),
-				Host:                instance.Spec.RekorSearchUI.Host,
-				RouteSelectorLabels: instance.Spec.RekorSearchUI.RouteSelectorLabels,
+			rhtasv1.Ingress{
+				Enabled: ptr.To(true),
+				Host:    instance.Spec.RekorSearchUI.Host,
+				Labels:  instance.Spec.RekorSearchUI.Labels,
 			},
 			actions.SearchUiDeploymentPortName),
 		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
-		// add route selector labels
-		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.ExternalAccess.RouteSelectorLabels)), instance.Spec.ExternalAccess.RouteSelectorLabels),
+		// add ingress labels
+		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.RekorSearchUI.Labels)), instance.Spec.RekorSearchUI.Labels),
 		// add common labels
 		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(labels)), labels),
 		ensure.ControllerReference[*v2.Ingress](instance, i.Client),

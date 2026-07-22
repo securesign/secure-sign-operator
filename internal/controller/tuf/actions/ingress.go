@@ -36,7 +36,7 @@ func (i ingressAction) Name() string {
 }
 
 func (i ingressAction) CanHandle(_ context.Context, tuf *rhtasv1.Tuf) bool {
-	return utils.IsEnabled(tuf.Spec.ExternalAccess.Enabled) && state.FromInstance(tuf, constants.ReadyCondition) >= state.Creating
+	return utils.IsEnabled(tuf.Spec.Ingress.Enabled) && state.FromInstance(tuf, constants.ReadyCondition) >= state.Creating
 }
 
 func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *action.Result {
@@ -56,10 +56,10 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *actio
 		&v2.Ingress{
 			ObjectMeta: metav1.ObjectMeta{Name: svc.Name, Namespace: svc.Namespace},
 		},
-		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.ExternalAccess, tufConstants.PortName),
+		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.Ingress, tufConstants.PortName),
 		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
-		// add route selector labels
-		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.ExternalAccess.RouteSelectorLabels)), instance.Spec.ExternalAccess.RouteSelectorLabels),
+		// add ingress labels
+		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.Ingress.Labels)), instance.Spec.Ingress.Labels),
 		// add common labels
 		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(labels)), labels),
 		ensure.ControllerReference[*v2.Ingress](instance, i.Client),

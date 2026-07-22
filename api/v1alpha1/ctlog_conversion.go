@@ -20,6 +20,10 @@ func Convert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in *rhtasv1.CTlogStatus, out
 	return nil
 }
 
+func Convert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *rhtasv1.CTlogSpec, out *CTlogSpec, s apiconversion.Scope) error {
+	return autoConvert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in, out, s)
+}
+
 func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*rhtasv1.CTlog)
 	if err := Convert_v1alpha1_CTlog_To_v1_CTlog(src, dst, nil); err != nil {

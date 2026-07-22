@@ -33,7 +33,7 @@ type RekorSpec struct {
 	// Trillian service configuration
 	Trillian TrillianService `json:"trillian,omitempty"`
 	// Define whether you want to export service or not
-	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
+	Ingress Ingress `json:"ingress,omitempty"`
 	//Enable Service monitors for rekor
 	Monitoring MonitoringWithTLogConfig `json:"monitoring,omitempty"`
 	// Rekor Search UI
@@ -133,10 +133,10 @@ type RekorSearchUI struct {
 	// If set to true, the Operator will deploy a Rekor Search UI
 	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
 	Enabled *bool `json:"enabled,omitempty"`
-	// Set hostname for your Ingress/Route.
+	// Set hostname for your Ingress.
 	Host string `json:"host,omitempty"`
-	// Set Route Selector Labels labels for ingress sharding.
-	RouteSelectorLabels map[string]string `json:"routeSelectorLabels,omitempty"`
+	// Set labels applied to the created Ingress, e.g. for ingress-controller/route selection when sharding ingress traffic.
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // SearchIndex define search index connection

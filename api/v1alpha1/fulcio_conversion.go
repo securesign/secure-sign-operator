@@ -11,6 +11,20 @@ func Convert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in *rhtasv1.FulcioStatus, 
 	return autoConvert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in, out, s)
 }
 
+func Convert_v1alpha1_FulcioSpec_To_v1_FulcioSpec(in *FulcioSpec, out *rhtasv1.FulcioSpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_FulcioSpec_To_v1_FulcioSpec(in, out, s); err != nil {
+		return err
+	}
+	return Convert_v1alpha1_ExternalAccess_To_v1_Ingress(&in.ExternalAccess, &out.Ingress, s)
+}
+
+func Convert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(in *rhtasv1.FulcioSpec, out *FulcioSpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(in, out, s); err != nil {
+		return err
+	}
+	return Convert_v1_Ingress_To_v1alpha1_ExternalAccess(&in.Ingress, &out.ExternalAccess, s)
+}
+
 func Convert_v1alpha1_FulcioCert_To_v1_FulcioCertStatus(in *FulcioCert, out *rhtasv1.FulcioCertStatus, s apiconversion.Scope) error {
 	if in.PrivateKeyRef != nil {
 		out.PrivateKeyRef = &rhtasv1.SecretKeySelector{}

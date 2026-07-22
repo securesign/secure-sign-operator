@@ -42,7 +42,7 @@ func rhtasScheme() *runtime.Scheme {
 // The fuzzer bypasses the API server, so we replicate that invariant here.
 func enabledFieldsFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
-		func(s *rhtasv1.ExternalAccess, c randfill.Continue) {
+		func(s *rhtasv1.Ingress, c randfill.Continue) {
 			c.FillNoCustom(s)
 			if s.Enabled == nil {
 				s.Enabled = ptr.To(c.Bool())
