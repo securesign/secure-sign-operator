@@ -47,7 +47,7 @@ func TestIngress_CanHandle(t *testing.T) {
 			instance := rhtasv1.Console{
 				Spec: rhtasv1.ConsoleSpec{
 					UI: rhtasv1.ConsoleUI{
-						ExternalAccess: rhtasv1.ExternalAccess{
+						Ingress: rhtasv1.Ingress{
 							Enabled: ptr.To(tt.externalAccess),
 						},
 					},

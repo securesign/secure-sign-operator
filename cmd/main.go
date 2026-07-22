@@ -135,7 +135,7 @@ func main() {
 			"When set, the operator uses Intermediate TLS profile defaults (TLS 1.2 minimum). "+
 			"Use this as an escape hatch if the cluster profile causes compatibility issues.")
 	utils.StringFlagOrEnv(&appconfig.IngressHostTemplate, "ingress-host-template", "INGRESS_HOST_TEMPLATE", appconfig.IngressHostTemplate,
-		"Default hostname template for non-OpenShift Ingress resources when ExternalAccess.Host is not set. "+
+		"Default hostname template for non-OpenShift Ingress resources when Ingress.Host is not set. "+
 			"Uses Go fmt.Sprintf with %[1]s=service name, %[2]s=namespace. Ignored on OpenShift.")
 	utils.RelatedImageFlag("trillian-log-signer-image", images.TrillianLogSigner, "The image used for trillian log signer.")
 	utils.RelatedImageFlag("trillian-log-server-image", images.TrillianServer, "The image used for trillian log server.")

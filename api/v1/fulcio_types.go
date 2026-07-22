@@ -19,7 +19,7 @@ type FulcioSpec struct {
 	ServiceAccountConfig `json:",inline"`
 	// Define whether you want to export service or not
 	//+optional
-	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
+	Ingress Ingress `json:"ingress,omitempty"`
 	// Ctlog service configuration
 	//+optional
 	Ctlog CtlogService `json:"ctlog,omitempty"`

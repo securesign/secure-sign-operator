@@ -59,7 +59,7 @@ var _ = Describe("Securesign FIPS Strict Mode (fips140=only)", Ordered, func() {
 		s = securesign.Create(namespace.Name, "test",
 			securesign.WithTSA(),
 			securesign.WithGeneratedCerts(),
-			securesign.WithExternalAccess(),
+			securesign.WithIngress(),
 			securesign.WithDefaultOIDC(),
 			securesign.WithNTPMonitoring(),
 			securesign.WithSearchUI(),

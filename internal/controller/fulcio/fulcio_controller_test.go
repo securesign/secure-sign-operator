@@ -134,7 +134,7 @@ var _ = Describe("Fulcio controller", func() {
 						Namespace: Namespace,
 					},
 					Spec: rhtasv1.FulcioSpec{
-						ExternalAccess: rhtasv1.ExternalAccess{
+						Ingress: rhtasv1.Ingress{
 							Host:    "fulcio.localhost",
 							Enabled: ptr.To(true),
 						},

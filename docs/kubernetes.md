@@ -21,7 +21,7 @@ kubectl wait --for=condition=Available deployment --all -n cert-manager --timeou
 
 ### Ingress controller
 
-Required only if you set `externalAccess.enabled: true` on a component. Any
+Required only if you set `ingress.enabled: true` on a component. Any
 controller works (ingress-nginx, Traefik, etc.). See
 [External access and hostnames](#external-access-and-hostnames) for hostname
 configuration.
@@ -112,12 +112,12 @@ including database and signer pods.
 ## External access and hostnames
 
 `Route` objects are OpenShift-only. On vanilla Kubernetes, components with
-`externalAccess.enabled: true` are exposed via an `Ingress`. You therefore need
+`ingress.enabled: true` are exposed via an `Ingress`. You therefore need
 an Ingress controller and must configure hostnames.
 
 Two ways to set hostnames:
 
-- **Per component** — set `externalAccess.host` on each component in the
+- **Per component** — set `ingress.host` on each component in the
   `Securesign` CR.
 - **Operator-wide template** — set the `--ingress-host-template` flag or the
   `INGRESS_HOST_TEMPLATE` env var on the operator Deployment. The template uses

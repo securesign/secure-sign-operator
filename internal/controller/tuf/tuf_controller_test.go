@@ -103,7 +103,7 @@ var _ = Describe("TUF controller", func() {
 						Namespace: TufNamespace,
 					},
 					Spec: rhtasv1.TufSpec{
-						ExternalAccess: rhtasv1.ExternalAccess{
+						Ingress: rhtasv1.Ingress{
 							Host:    "tuf.localhost",
 							Enabled: ptr.To(true),
 						},

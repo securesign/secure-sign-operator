@@ -47,7 +47,7 @@ func TestIngress_CanHandle(t *testing.T) {
 			g := NewWithT(t)
 			instance := rhtasv1.Rekor{
 				Spec: rhtasv1.RekorSpec{
-					ExternalAccess: rhtasv1.ExternalAccess{
+					Ingress: rhtasv1.Ingress{
 						Enabled: ptr.To(tt.externalAccess),
 					},
 				},

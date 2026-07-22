@@ -1294,29 +1294,6 @@ spec:
                     pattern: ^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$
                     type: string
                 type: object
-              externalAccess:
-                description: Define whether you want to export service or not
-                properties:
-                  enabled:
-                    description: |-
-                      If set to true, the Operator will create an Ingress or a Route resource.
-                      For the plain Ingress there is no TLS configuration provided Route object uses "edge" termination by default.
-                    type: boolean
-                    x-kubernetes-validations:
-                    - message: Feature cannot be disabled
-                      rule: (self || !oldSelf)
-                  host:
-                    description: Set hostname for your Ingress/Route.
-                    type: string
-                  routeSelectorLabels:
-                    additionalProperties:
-                      type: string
-                    description: Set Route Selector Labels for ingress sharding.
-                    type: object
-                    x-kubernetes-validations:
-                    - message: RouteSelectorLabels can't be modified
-                      rule: (oldSelf.size() == 0 || self == oldSelf)
-                type: object
               imagePullSecrets:
                 description: |-
                   ImagePullSecrets is an optional list of references to secrets in the same namespace
@@ -1339,6 +1316,30 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 type: array
+              ingress:
+                description: Define whether you want to export service or not
+                properties:
+                  enabled:
+                    description: |-
+                      If set to true, the Operator will create a Kubernetes Ingress resource.
+                      On OpenShift, the platform automatically derives a Route from this Ingress, using "edge" TLS termination by default.
+                    type: boolean
+                    x-kubernetes-validations:
+                    - message: Feature cannot be disabled
+                      rule: (self || !oldSelf)
+                  host:
+                    description: Set hostname for your Ingress.
+                    type: string
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Set labels applied to the created Ingress, e.g. for
+                      ingress-controller/route selection when sharding ingress traffic.
+                    type: object
+                    x-kubernetes-validations:
+                    - message: Labels can't be modified
+                      rule: (oldSelf.size() == 0 || self == oldSelf)
+                type: object
               monitoring:
                 description: Enable Service monitors for fulcio
                 properties:

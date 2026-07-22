@@ -49,27 +49,27 @@ var _ = Describe("TUF", func() {
 		When("changing external access setting", func() {
 			It("enabled false->true", func() {
 				created := generateMinimalTuf("tuf-access-1")
-				created.Spec.ExternalAccess.Enabled = ptr.To(false)
+				created.Spec.Ingress.Enabled = ptr.To(false)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Tuf{}
 				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
-				fetched.Spec.ExternalAccess.Enabled = ptr.To(true)
+				fetched.Spec.Ingress.Enabled = ptr.To(true)
 				Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
 			})
 
 			It("enabled true->false", func() {
 				created := generateMinimalTuf("tuf-access-2")
-				created.Spec.ExternalAccess.Enabled = ptr.To(true)
+				created.Spec.Ingress.Enabled = ptr.To(true)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &Tuf{}
 				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
-				fetched.Spec.ExternalAccess.Enabled = ptr.To(false)
+				fetched.Spec.Ingress.Enabled = ptr.To(false)
 				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), fetched))).To(BeTrue())
 				Expect(k8sClient.Update(context.Background(), fetched)).
 					To(MatchError(ContainSubstring("Feature cannot be disabled")))
@@ -91,7 +91,7 @@ var _ = Describe("TUF", func() {
 				TufKey{Name: "fulcio_v1.crt.pem"},
 				TufKey{Name: "tsa.certchain.pem"},
 			))
-			Expect(fetched.Spec.ExternalAccess.Enabled).To(Equal(ptr.To(false)))
+			Expect(fetched.Spec.Ingress.Enabled).To(Equal(ptr.To(false)))
 		})
 
 		Context("is validated", func() {
@@ -195,7 +195,7 @@ var _ = Describe("TUF", func() {
 					},
 					Spec: TufSpec{
 						Port: 8181,
-						ExternalAccess: ExternalAccess{
+						Ingress: Ingress{
 							Enabled: ptr.To(true),
 							Host:    "hostname",
 						},

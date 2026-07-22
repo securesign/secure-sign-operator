@@ -64,7 +64,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				v.Spec.Rekor.Attestations.Enabled = ptr.To(false)
 			},
 			func(v *rhtasv1.Securesign) {
-				v.Spec.Tuf.ExternalAccess.RouteSelectorLabels = map[string]string{"foo": "bar"}
+				v.Spec.Tuf.Ingress.Labels = map[string]string{"foo": "bar"}
 			},
 		)
 	})
@@ -224,7 +224,7 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 		})
 
-		It("RouteSelectorLabels are passed to the ingress/route", func(ctx SpecContext) {
+		It("Labels are passed to the ingress/route", func(ctx SpecContext) {
 			ingress := &v2.Ingress{}
 			Expect(cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: constants.DeploymentName}, ingress)).To(Succeed())
 			Expect(ingress.Labels).To(HaveKeyWithValue("foo", "bar"))

@@ -10,6 +10,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
+func Convert_v1alpha1_TimestampAuthoritySpec_To_v1_TimestampAuthoritySpec(in *TimestampAuthoritySpec, out *rhtasv1.TimestampAuthoritySpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_TimestampAuthoritySpec_To_v1_TimestampAuthoritySpec(in, out, s); err != nil {
+		return err
+	}
+	return Convert_v1alpha1_ExternalAccess_To_v1_Ingress(&in.ExternalAccess, &out.Ingress, s)
+}
+
+func Convert_v1_TimestampAuthoritySpec_To_v1alpha1_TimestampAuthoritySpec(in *rhtasv1.TimestampAuthoritySpec, out *TimestampAuthoritySpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1_TimestampAuthoritySpec_To_v1alpha1_TimestampAuthoritySpec(in, out, s); err != nil {
+		return err
+	}
+	return Convert_v1_Ingress_To_v1alpha1_ExternalAccess(&in.Ingress, &out.ExternalAccess, s)
+}
+
 func Convert_v1alpha1_TimestampAuthoritySigner_To_v1_TimestampAuthoritySignerStatus(in *TimestampAuthoritySigner, out *rhtasv1.TimestampAuthoritySignerStatus, s apiconversion.Scope) error {
 	if in.CertificateChain.CertificateChainRef != nil {
 		out.CertificateChainRef = &rhtasv1.SecretKeySelector{}

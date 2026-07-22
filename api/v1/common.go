@@ -6,16 +6,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type ExternalAccess struct {
-	// If set to true, the Operator will create an Ingress or a Route resource.
-	//For the plain Ingress there is no TLS configuration provided Route object uses "edge" termination by default.
+type Ingress struct {
+	// If set to true, the Operator will create a Kubernetes Ingress resource.
+	// On OpenShift, the platform automatically derives a Route from this Ingress, using "edge" TLS termination by default.
 	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
 	Enabled *bool `json:"enabled,omitempty"`
-	// Set hostname for your Ingress/Route.
+	// Set hostname for your Ingress.
 	Host string `json:"host,omitempty"`
-	// Set Route Selector Labels for ingress sharding.
-	//+kubebuilder:validation:XValidation:rule="(oldSelf.size() == 0 || self == oldSelf)",message=RouteSelectorLabels can't be modified
-	RouteSelectorLabels map[string]string `json:"routeSelectorLabels,omitempty"`
+	// Set labels applied to the created Ingress, e.g. for ingress-controller/route selection when sharding ingress traffic.
+	//+kubebuilder:validation:XValidation:rule="(oldSelf.size() == 0 || self == oldSelf)",message=Labels can't be modified
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // TlogMonitoring configures monitoring for the Rekor transparency log.

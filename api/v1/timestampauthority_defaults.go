@@ -5,7 +5,7 @@ import "k8s.io/utils/ptr"
 func (s *TimestampAuthoritySpec) SetDefaults() {
 	s.PodRequirements.SetDefaults()
 	s.Monitoring.SetDefaults()
-	s.ExternalAccess.SetDefaults()
+	s.Ingress.SetDefaults()
 	s.NTPMonitoring.SetDefaults()
 	setDefault(&s.MaxRequestBodySize, ptr.To(int64(1048576)))
 }

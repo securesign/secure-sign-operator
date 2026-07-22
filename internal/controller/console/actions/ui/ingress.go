@@ -36,7 +36,7 @@ func (i ingressAction) Name() string {
 }
 
 func (i ingressAction) CanHandle(_ context.Context, instance *rhtasv1.Console) bool {
-	return utils.IsEnabled(instance.Spec.UI.ExternalAccess.Enabled) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
+	return utils.IsEnabled(instance.Spec.UI.Ingress.Enabled) && state.FromInstance(instance, constants.ReadyCondition) >= state.Creating
 }
 
 func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Console) *action.Result {
@@ -56,9 +56,9 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Console) *a
 		&v2.Ingress{
 			ObjectMeta: metav1.ObjectMeta{Name: svc.Name, Namespace: svc.Namespace},
 		},
-		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.UI.ExternalAccess, actions.UIPortName),
+		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.UI.Ingress, actions.UIPortName),
 		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
-		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.UI.ExternalAccess.RouteSelectorLabels)), instance.Spec.UI.ExternalAccess.RouteSelectorLabels),
+		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.UI.Ingress.Labels)), instance.Spec.UI.Ingress.Labels),
 		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(l)), l),
 		ensure.ControllerReference[*v2.Ingress](instance, i.Client),
 	); err != nil {

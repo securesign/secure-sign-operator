@@ -122,7 +122,7 @@ var _ = Describe("Rekor hot update test", func() {
 					},
 					Spec: rhtasv1.RekorSpec{
 						TreeID: &treeID,
-						ExternalAccess: rhtasv1.ExternalAccess{
+						Ingress: rhtasv1.Ingress{
 							Enabled: ptr.To(false),
 						},
 						Monitoring: rhtasv1.MonitoringWithTLogConfig{

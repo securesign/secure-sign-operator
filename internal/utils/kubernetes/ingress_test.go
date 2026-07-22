@@ -109,7 +109,7 @@ func TestEnsureIngressSpec(t *testing.T) {
 				&networkingv1.Ingress{ObjectMeta: v2.ObjectMeta{Name: name, Namespace: "default"}},
 				EnsureIngressSpec(ctx, c,
 					v1.Service{ObjectMeta: v2.ObjectMeta{Name: name, Namespace: "default"}},
-					rhtasv1.ExternalAccess{
+					rhtasv1.Ingress{
 						Host: "host",
 					},
 					name),

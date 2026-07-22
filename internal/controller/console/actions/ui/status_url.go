@@ -32,7 +32,7 @@ func (i statusUrlAction) CanHandle(_ context.Context, instance *rhtasv1.Console)
 
 func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1.Console) *action.Result {
 	var url string
-	if utils.IsEnabled(instance.Spec.UI.ExternalAccess.Enabled) {
+	if utils.IsEnabled(instance.Spec.UI.Ingress.Enabled) {
 		protocol := "http://"
 		ingress := &v12.Ingress{}
 		err := i.Client.Get(ctx, types.NamespacedName{Name: actions.UIDeploymentName, Namespace: instance.Namespace}, ingress)

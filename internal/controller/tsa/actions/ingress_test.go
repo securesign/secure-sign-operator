@@ -47,7 +47,7 @@ func TestIngress_CanHandle(t *testing.T) {
 			g := NewWithT(t)
 			instance := rhtasv1.TimestampAuthority{
 				Spec: rhtasv1.TimestampAuthoritySpec{
-					ExternalAccess: rhtasv1.ExternalAccess{
+					Ingress: rhtasv1.Ingress{
 						Enabled: ptr.To(tt.externalAccess),
 					},
 				},

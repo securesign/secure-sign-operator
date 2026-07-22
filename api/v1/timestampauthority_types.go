@@ -28,7 +28,7 @@ type TimestampAuthoritySpec struct {
 	PodRequirements      `json:",inline"`
 	ServiceAccountConfig `json:",inline"`
 	//Define whether you want to export service or not
-	ExternalAccess ExternalAccess `json:"externalAccess,omitempty"`
+	Ingress Ingress `json:"ingress,omitempty"`
 	//Signer configuration
 	//+required
 	Signer TimestampAuthoritySigner `json:"signer"`

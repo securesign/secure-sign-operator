@@ -59,7 +59,7 @@ func WithDefaults() Opts {
 		WithTSA()(s)
 		WithGeneratedCerts()(s)
 		WithManagedDatabase()(s)
-		WithExternalAccess()(s)
+		WithIngress()(s)
 		WithDefaultOIDC()(s)
 		WithNTPMonitoring()(s)
 	}
@@ -70,7 +70,7 @@ func WithFipsDefaults(namespace string) Opts {
 		WithTSA()(s)
 		WithGeneratedCerts()(s)
 		WithExternalPostgresDB(namespace, postgresql.DefaultSecretName)(s)
-		WithExternalAccess()(s)
+		WithIngress()(s)
 		WithDefaultOIDC()(s)
 		WithNTPMonitoring()(s)
 	}
@@ -83,13 +83,13 @@ func ChooseDefaults(fipsEnabled bool, namespace string) Opts {
 	return WithDefaults()
 }
 
-func WithExternalAccess() Opts {
+func WithIngress() Opts {
 	return func(s *rhtasv1.Securesign) {
-		s.Spec.Rekor.ExternalAccess.Enabled = ptr.To(true)
-		s.Spec.Tuf.ExternalAccess.Enabled = ptr.To(true)
-		s.Spec.Fulcio.ExternalAccess.Enabled = ptr.To(true)
+		s.Spec.Rekor.Ingress.Enabled = ptr.To(true)
+		s.Spec.Tuf.Ingress.Enabled = ptr.To(true)
+		s.Spec.Fulcio.Ingress.Enabled = ptr.To(true)
 		if s.Spec.TimestampAuthority != nil {
-			s.Spec.TimestampAuthority.ExternalAccess.Enabled = ptr.To(true)
+			s.Spec.TimestampAuthority.Ingress.Enabled = ptr.To(true)
 		}
 	}
 }

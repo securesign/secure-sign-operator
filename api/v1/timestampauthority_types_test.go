@@ -50,27 +50,27 @@ var _ = Describe("TSA", func() {
 		When("changing external access setting", func() {
 			It("enabled false->true", func() {
 				created := generateMinimalTSA("tsa-access-1")
-				created.Spec.ExternalAccess.Enabled = ptr.To(false)
+				created.Spec.Ingress.Enabled = ptr.To(false)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &TimestampAuthority{}
 				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
-				fetched.Spec.ExternalAccess.Enabled = ptr.To(true)
+				fetched.Spec.Ingress.Enabled = ptr.To(true)
 				Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
 			})
 
 			It("enabled true->false", func() {
 				created := generateMinimalTSA("tsa-access-2")
-				created.Spec.ExternalAccess.Enabled = ptr.To(true)
+				created.Spec.Ingress.Enabled = ptr.To(true)
 				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
 
 				fetched := &TimestampAuthority{}
 				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 				Expect(fetched).To(Equal(created))
 
-				fetched.Spec.ExternalAccess.Enabled = ptr.To(false)
+				fetched.Spec.Ingress.Enabled = ptr.To(false)
 				Expect(apierrors.IsInvalid(k8sClient.Update(context.Background(), fetched))).To(BeTrue())
 				Expect(k8sClient.Update(context.Background(), fetched)).
 					To(MatchError(ContainSubstring("Feature cannot be disabled")))
@@ -126,7 +126,7 @@ var _ = Describe("TSA", func() {
 			Expect(fetched.Spec.NTPMonitoring.Enabled).To(Equal(ptr.To(true)))
 			Expect(fetched.Spec.Monitoring.Metrics.Enabled).To(Equal(ptr.To(true)))
 			Expect(fetched.Spec.Monitoring.ServiceMonitor.Enabled).To(Equal(ptr.To(false)))
-			Expect(fetched.Spec.ExternalAccess.Enabled).To(Equal(ptr.To(false)))
+			Expect(fetched.Spec.Ingress.Enabled).To(Equal(ptr.To(false)))
 		})
 
 		Context("is Validated", func() {

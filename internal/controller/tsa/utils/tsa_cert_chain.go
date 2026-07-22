@@ -246,9 +246,9 @@ func CreateCAIssuer(instance *rhtasv1.TimestampAuthority, tsaCA *rhtasv1.TsaCert
 	}
 
 	if tsaCA.CommonName == "" {
-		if utils.IsEnabled(instance.Spec.ExternalAccess.Enabled) {
-			if instance.Spec.ExternalAccess.Host != "" {
-				issuer.subject.CommonName = instance.Spec.ExternalAccess.Host
+		if utils.IsEnabled(instance.Spec.Ingress.Enabled) {
+			if instance.Spec.Ingress.Host != "" {
+				issuer.subject.CommonName = instance.Spec.Ingress.Host
 			} else {
 				if issuer.subject.CommonName, err = kubernetes.CalculateHostname(ctx, client, deploymentName, instance.Namespace); err != nil {
 					return nil, err

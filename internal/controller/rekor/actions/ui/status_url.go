@@ -31,7 +31,7 @@ func (i statusUrlAction) CanHandle(ctx context.Context, instance *rhtasv1.Rekor)
 
 func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
 	var url string
-	if utils.IsEnabled(instance.Spec.ExternalAccess.Enabled) {
+	if utils.IsEnabled(instance.Spec.Ingress.Enabled) {
 		protocol := "http://"
 		ingress := &v1.Ingress{}
 		err := i.Client.Get(ctx, types.NamespacedName{Name: actions.SearchUiDeploymentName, Namespace: instance.Namespace}, ingress)
