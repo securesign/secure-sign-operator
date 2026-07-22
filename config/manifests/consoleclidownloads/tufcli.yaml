@@ -1,0 +1,24 @@
+apiVersion: console.openshift.io/v1
+kind: ConsoleCLIDownload
+metadata:
+  name: tufcli
+  labels:
+    app.kubernetes.io/part-of: trusted-artifact-signer
+spec:
+  displayName: "tufcli - Command Line Interface (CLI)"
+  description: "tufcli is a Go command-line utility for generating and signing TUF repositories."
+  links:
+    - text: "Download tufcli for Linux x86_64"
+      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/tufcli_linux_amd64.tar.gz"
+    - text: "Download tufcli for Linux arm64"
+      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/tufcli_linux_arm64.tar.gz"
+    - text: "Download tufcli for Linux ppc64le"
+      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/tufcli_linux_ppc64le.tar.gz"
+    - text: "Download tufcli for Linux s390x"
+      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/tufcli_linux_s390x.tar.gz"
+    - text: "Download tufcli for Mac x86_64"
+      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/tufcli_darwin_amd64.tar.gz"
+    - text: "Download tufcli for Mac arm64"
+      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/tufcli_darwin_arm64.tar.gz"
+    - text: "Download tufcli for Windows x86_64"
+      href: "https://developers.redhat.com/content-gateway/file/RHTAS/__VERSION__/tufcli_windows_amd64.tar.gz"
