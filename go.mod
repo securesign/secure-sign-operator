@@ -15,6 +15,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.32.0
 	github.com/onsi/gomega v1.42.1
 	github.com/openshift/api v0.0.0-20260528061300-9f553042f9ae
+	github.com/openshift/controller-runtime-common v0.0.0-20260428152732-64ee174f5e2e
 	github.com/operator-framework/api v0.44.0
 	github.com/operator-framework/operator-lib v0.19.0
 	github.com/robfig/cron/v3 v3.0.1
@@ -40,6 +41,11 @@ require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	// Pinned to v3.1.1 (enforced via the replace directive at the bottom of this file): the
+	// version selected transitively via library-go (v3.0.0) is vulnerable, so we force the
+	// patched release.
+	github.com/distribution/distribution/v3 v3.1.1 // indirect
+	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/cli v29.6.2+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.9.8 // indirect
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
@@ -77,6 +83,10 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
+	// Snyk flags CVE-2026-32952 (go-ntlmssp) reached transitively through library-go's Azure
+	// authentication path. The package is not reachable from our binary and has no upstream fix,
+	// so it is handled via a Snyk ignore rather than a version bump.
+	github.com/openshift/library-go v0.0.0-20260213153706-03f1709971c5 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
@@ -122,3 +132,10 @@ require (
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.2 // indirect
 )
+
+// Why we pinned to v3.1.1: library-go still requires the vulnerable distribution v3.0.0. A replace
+// directive is used instead of a plain require bump because `go mod tidy` recomputes indirect
+// requires via MVS (which would downgrade back to v3.0.0) but does not touch replace directives.
+// Remove this once library-go is upgraded to a version requiring distribution >= v3.1.1.
+replace github.com/distribution/distribution/v3 => github.com/distribution/distribution/v3 v3.1.1
+
