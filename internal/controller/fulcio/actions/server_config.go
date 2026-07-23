@@ -87,7 +87,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 		},
 	}
 
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+	if err = kubernetes.Create(ctx, i.Client,
 		newConfig,
 		ensure.ControllerReference[*v1.ConfigMap](instance, i.Client),
 		ensure.Labels[*v1.ConfigMap](slices.Collect(maps.Keys(configLabel)), configLabel),

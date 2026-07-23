@@ -52,7 +52,7 @@ func (i generatePasswordAction) Handle(ctx context.Context, instance *rhtasv1.Re
 			GenerateName: fmt.Sprintf("redis-password-%s", instance.Name),
 		},
 	}
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client, obj,
+	if err = kubernetes.Create(ctx, i.Client, obj,
 		ensure.ControllerReference[*core.Secret](instance, i.Client),
 		ensure.Labels[*core.Secret](slices.Collect(maps.Keys(labels)), labels),
 		kubernetes.EnsureSecretData(true, map[string][]byte{"password": utils.GeneratePassword(8)}),

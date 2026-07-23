@@ -171,7 +171,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 
 	configAnnotations := i.configMatchingAnnotations(ctx, instance, trillianUrl)
 
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+	if err = kubernetes.Create(ctx, i.Client,
 		newConfig,
 		ensure.ControllerReference[*corev1.Secret](instance, i.Client),
 		ensure.Labels[*corev1.Secret](slices.Collect(maps.Keys(configLabels)), configLabels),
