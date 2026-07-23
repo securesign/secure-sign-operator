@@ -1,34 +1,14 @@
 package v1alpha1
 
 import (
-	"fmt"
-	"net/url"
-	"regexp"
-	"strconv"
-
 	v1 "github.com/securesign/operator/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
 )
 
-var portRe = regexp.MustCompile(`:(\d+)(?:/|$)`)
-
-func urlWithPath(rawUrl, path string) (string, error) {
-	u, err := url.Parse(rawUrl)
-	if err != nil {
-		return "", err
-	}
-	u.Path = path
-	return u.String(), nil
-}
-
-func urlWithoutPath(rawUrl string) (string, error) {
-	u, err := url.Parse(rawUrl)
-	if err != nil {
-		return "", err
-	}
-	return u.Scheme + "://" + u.Host, nil
-}
+// Manual conversion functions for Spec types where v1 has fields
+// that don't exist in v1alpha1 (e.g. ServiceAccountConfig).
+// These fields are preserved via MarshalData/UnmarshalData annotation.
 
 // MonitoringConfig: v1 splits Enabled into Metrics.Enabled + ServiceMonitor.Enabled.
 // Lossless round-trip is guaranteed by MarshalData/UnmarshalData in ConvertTo/ConvertFrom.
@@ -48,6 +28,79 @@ func Convert_v1_MonitoringConfig_To_v1alpha1_MonitoringConfig(in *v1.MonitoringC
 		return err
 	}
 	return nil
+}
+
+func Convert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *v1.CTlogSpec, out *CTlogSpec, s apiconversion.Scope) error {
+	return autoConvert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in, out, s)
+}
+
+func Convert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(in *v1.FulcioSpec, out *FulcioSpec, s apiconversion.Scope) error {
+	return autoConvert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(in, out, s)
+}
+
+func Convert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *v1.RekorSpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_RekorSpec_To_v1_RekorSpec(in, out, s); err != nil {
+		return err
+	}
+	return Convert_v1alpha1_Pvc_To_v1_Pvc(&in.Pvc, &out.Attestations.Pvc, s)
+}
+
+func Convert_v1_RekorSpec_To_v1alpha1_RekorSpec(in *v1.RekorSpec, out *RekorSpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1_RekorSpec_To_v1alpha1_RekorSpec(in, out, s); err != nil {
+		return err
+	}
+	return Convert_v1_Pvc_To_v1alpha1_Pvc(&in.Attestations.Pvc, &out.Pvc, s)
+}
+
+func Convert_v1_TimestampAuthoritySpec_To_v1alpha1_TimestampAuthoritySpec(in *v1.TimestampAuthoritySpec, out *TimestampAuthoritySpec, s apiconversion.Scope) error {
+	return autoConvert_v1_TimestampAuthoritySpec_To_v1alpha1_TimestampAuthoritySpec(in, out, s)
+}
+
+func Convert_v1_TrillianSpec_To_v1alpha1_TrillianSpec(in *v1.TrillianSpec, out *TrillianSpec, s apiconversion.Scope) error {
+	return autoConvert_v1_TrillianSpec_To_v1alpha1_TrillianSpec(in, out, s)
+}
+
+func Convert_v1alpha1_TufSpec_To_v1_TufSpec(in *TufSpec, out *v1.TufSpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1alpha1_TufSpec_To_v1_TufSpec(in, out, s); err != nil {
+		return err
+	}
+	if err := Convert_v1alpha1_CtlogService_To_v1_ServiceReference(&in.Ctlog, &out.Ctlog, s); err != nil {
+		return err
+	}
+	if err := Convert_v1alpha1_FulcioService_To_v1_ServiceRefWithOIDC(&in.Fulcio, &out.Fulcio, s); err != nil {
+		return err
+	}
+	if err := Convert_v1alpha1_RekorService_To_v1_ServiceReference(&in.Rekor, &out.Rekor, s); err != nil {
+		return err
+	}
+	if err := Convert_v1alpha1_TsaService_To_v1_ServiceReference(&in.Tsa, &out.Tsa, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+func Convert_v1_TufSpec_To_v1alpha1_TufSpec(in *v1.TufSpec, out *TufSpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1_TufSpec_To_v1alpha1_TufSpec(in, out, s); err != nil {
+		return err
+	}
+	if err := Convert_v1_ServiceReference_To_v1alpha1_CtlogService(&in.Ctlog, &out.Ctlog, s); err != nil {
+		return err
+	}
+	if err := Convert_v1_ServiceRefWithOIDC_To_v1alpha1_FulcioService(&in.Fulcio, &out.Fulcio, s); err != nil {
+		return err
+	}
+	if err := Convert_v1_ServiceReference_To_v1alpha1_RekorService(&in.Rekor, &out.Rekor, s); err != nil {
+		return err
+	}
+	if err := Convert_v1_ServiceReference_To_v1alpha1_TsaService(&in.Tsa, &out.Tsa, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+func Convert_v1_RekorAttestations_To_v1alpha1_RekorAttestations(in *v1.RekorAttestations, out *RekorAttestations, s apiconversion.Scope) error {
+	// Pvc is handled at the RekorSpec level conversion, not here.
+	return autoConvert_v1_RekorAttestations_To_v1alpha1_RekorAttestations(in, out, s)
 }
 
 func Convert_v1alpha1_TlogMonitoring_To_v1_TlogMonitoring(in *TlogMonitoring, out *v1.TlogMonitoring, s apiconversion.Scope) error {
@@ -92,60 +145,83 @@ func Convert_v1_Ingress_To_v1alpha1_ExternalAccess(in *v1.Ingress, out *External
 	return nil
 }
 
-func Convert_v1alpha1_TrillianService_To_v1_ServiceReference(in *TrillianService, out *v1.ServiceReference, _ apiconversion.Scope) error {
-	if in.Address != "" && in.Port != nil {
-		out.URL = fmt.Sprintf("%s:%d", in.Address, *in.Port)
-	} else if in.Address != "" {
-		out.URL = in.Address
-	}
-	return nil
+func Convert_v1alpha1_TufPvc_To_v1_Pvc(in *TufPvc, out *v1.Pvc, s apiconversion.Scope) error {
+	pvc := Pvc(*in)
+	return Convert_v1alpha1_Pvc_To_v1_Pvc(&pvc, out, s)
 }
 
-func Convert_v1_ServiceReference_To_v1alpha1_TrillianService(in *v1.ServiceReference, out *TrillianService, _ apiconversion.Scope) error {
-	if in.URL == "" {
-		return nil
+func Convert_v1_Pvc_To_v1alpha1_TufPvc(in *v1.Pvc, out *TufPvc, s apiconversion.Scope) error {
+	var pvc Pvc
+	if err := Convert_v1_Pvc_To_v1alpha1_Pvc(in, &pvc, s); err != nil {
+		return err
 	}
-	m := portRe.FindStringSubmatchIndex(in.URL)
-	if m == nil {
-		out.Address = in.URL
-		return nil
-	}
-	out.Address = in.URL[:m[0]]
-	port, err := strconv.ParseInt(in.URL[m[2]:m[3]], 10, 32)
-	if err != nil {
-		out.Address = in.URL
-		return nil
-	}
-	p := int32(port)
-	out.Port = &p
+	*out = TufPvc(pvc)
 	return nil
 }
 
 func Convert_v1alpha1_TrillianService_To_v1_ServiceReference(in *TrillianService, out *v1.ServiceReference, _ apiconversion.Scope) error {
-	if in.Address != "" && in.Port != nil {
-		out.URL = fmt.Sprintf("%s:%d", in.Address, *in.Port)
-	} else if in.Address != "" {
-		out.URL = in.Address
-	}
+	addressPortToServiceReference(in.Address, in.Port, out)
 	return nil
 }
 
 func Convert_v1_ServiceReference_To_v1alpha1_TrillianService(in *v1.ServiceReference, out *TrillianService, _ apiconversion.Scope) error {
+	serviceReferenceToAddressPort(in, &out.Address, &out.Port)
+	return nil
+}
+
+func Convert_v1alpha1_CtlogService_To_v1_ServiceReference(in *CtlogService, out *v1.ServiceReference, _ apiconversion.Scope) error {
+	addressPortToServiceReference(in.Address, in.Port, out)
+	if out.URL != "" && in.Prefix != "" {
+		var err error
+		if out.URL, err = urlWithPath(out.URL, in.Prefix); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func Convert_v1_ServiceReference_To_v1alpha1_CtlogService(in *v1.ServiceReference, out *CtlogService, _ apiconversion.Scope) error {
 	if in.URL == "" {
 		return nil
 	}
-	m := portRe.FindStringSubmatchIndex(in.URL)
-	if m == nil {
-		out.Address = in.URL
-		return nil
-	}
-	out.Address = in.URL[:m[0]]
-	port, err := strconv.ParseInt(in.URL[m[2]:m[3]], 10, 32)
+	base, prefix, err := splitURLPath(in.URL)
 	if err != nil {
-		out.Address = in.URL
-		return nil
+		return err
 	}
-	p := int32(port)
-	out.Port = &p
+	if prefix != "" {
+		out.Prefix = prefix
+	}
+	ref := &v1.ServiceReference{URL: base}
+	serviceReferenceToAddressPort(ref, &out.Address, &out.Port)
+	return nil
+}
+
+func Convert_v1alpha1_FulcioService_To_v1_ServiceRefWithOIDC(in *FulcioService, out *v1.ServiceRefWithOIDC, _ apiconversion.Scope) error {
+	addressPortToServiceReference(in.Address, in.Port, &out.ServiceReference)
+	return nil
+}
+
+func Convert_v1_ServiceRefWithOIDC_To_v1alpha1_FulcioService(in *v1.ServiceRefWithOIDC, out *FulcioService, _ apiconversion.Scope) error {
+	serviceReferenceToAddressPort(&in.ServiceReference, &out.Address, &out.Port)
+	return nil
+}
+
+func Convert_v1alpha1_RekorService_To_v1_ServiceReference(in *RekorService, out *v1.ServiceReference, _ apiconversion.Scope) error {
+	addressPortToServiceReference(in.Address, in.Port, out)
+	return nil
+}
+
+func Convert_v1_ServiceReference_To_v1alpha1_RekorService(in *v1.ServiceReference, out *RekorService, _ apiconversion.Scope) error {
+	serviceReferenceToAddressPort(in, &out.Address, &out.Port)
+	return nil
+}
+
+func Convert_v1alpha1_TsaService_To_v1_ServiceReference(in *TsaService, out *v1.ServiceReference, _ apiconversion.Scope) error {
+	addressPortToServiceReference(in.Address, in.Port, out)
+	return nil
+}
+
+func Convert_v1_ServiceReference_To_v1alpha1_TsaService(in *v1.ServiceReference, out *TsaService, _ apiconversion.Scope) error {
+	serviceReferenceToAddressPort(in, &out.Address, &out.Port)
 	return nil
 }

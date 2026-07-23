@@ -161,6 +161,7 @@ type ServiceReference struct {
 	Ref *ServiceReferenceRef `json:"ref,omitempty"`
 	// Direct URL for an external or cross-namespace service.
 	//+optional
+	//+kubebuilder:validation:Format=uri
 	URL string `json:"url,omitempty"`
 }
 

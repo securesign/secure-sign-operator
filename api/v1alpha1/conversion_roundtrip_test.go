@@ -114,6 +114,7 @@ func TestSecuresignConversion(t *testing.T) {
 			securesignTSAStatusFuzzerFuncs,
 			tsaCertAuthorityFuzzerFuncs,
 			trillianServiceFuzzerFuncs,
+			tufServiceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
@@ -249,12 +250,40 @@ func TestTrillianConversion(t *testing.T) {
 	}))
 }
 
+func tufServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	fuzzAddr := func(c randfill.Continue) (string, *int32) {
+		if c.Intn(3) == 0 {
+			return "", nil
+		}
+		return fmt.Sprintf("svc-%d.ns.svc", c.Intn(1000)), ptr.To(int32(c.Intn(65534) + 1))
+	}
+	return []interface{}{
+		func(s *CtlogService, c randfill.Continue) {
+			s.Address, s.Port = fuzzAddr(c)
+			if s.Address != "" && c.Intn(2) == 0 {
+				s.Prefix = fmt.Sprintf("prefix-%d", c.Intn(100))
+			}
+		},
+		func(s *FulcioService, c randfill.Continue) {
+			s.Address, s.Port = fuzzAddr(c)
+		},
+		func(s *RekorService, c randfill.Continue) {
+			s.Address, s.Port = fuzzAddr(c)
+		},
+		func(s *TsaService, c randfill.Continue) {
+			s.Address, s.Port = fuzzAddr(c)
+		},
+	}
+}
+
 func TestTufConversion(t *testing.T) {
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.Tuf{},
 		Spoke:  &Tuf{},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			tufServiceFuzzerFuncs,
+			trillianServiceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))

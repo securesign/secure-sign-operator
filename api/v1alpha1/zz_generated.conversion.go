@@ -618,11 +618,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*TufSpec)(nil), (*v1.TufSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_TufSpec_To_v1_TufSpec(a.(*TufSpec), b.(*v1.TufSpec), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*TufStatus)(nil), (*v1.TufStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_TufStatus_To_v1_TufStatus(a.(*TufStatus), b.(*v1.TufStatus), scope)
 	}); err != nil {
@@ -693,8 +688,28 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*v1.ServiceReference)(nil), (*CtlogService)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_ServiceReference_To_v1alpha1_CtlogService(a.(*v1.ServiceReference), b.(*CtlogService), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1.ServiceReference)(nil), (*FulcioService)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_ServiceReference_To_v1alpha1_FulcioService(a.(*v1.ServiceReference), b.(*FulcioService), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1.ServiceReference)(nil), (*RekorService)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_ServiceReference_To_v1alpha1_RekorService(a.(*v1.ServiceReference), b.(*RekorService), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*v1.ServiceReference)(nil), (*TrillianService)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_ServiceReference_To_v1alpha1_TrillianService(a.(*v1.ServiceReference), b.(*TrillianService), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1.ServiceReference)(nil), (*TsaService)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_ServiceReference_To_v1alpha1_TsaService(a.(*v1.ServiceReference), b.(*TsaService), scope)
 	}); err != nil {
 		return err
 	}
@@ -753,8 +768,18 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*CtlogService)(nil), (*v1.ServiceReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_CtlogService_To_v1_ServiceReference(a.(*CtlogService), b.(*v1.ServiceReference), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*FulcioCert)(nil), (*v1.FulcioCertStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_FulcioCert_To_v1_FulcioCertStatus(a.(*FulcioCert), b.(*v1.FulcioCertStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*FulcioService)(nil), (*v1.ServiceReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_FulcioService_To_v1_ServiceReference(a.(*FulcioService), b.(*v1.ServiceReference), scope)
 	}); err != nil {
 		return err
 	}
@@ -765,6 +790,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*MonitoringConfig)(nil), (*v1.MonitoringConfig)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_MonitoringConfig_To_v1_MonitoringConfig(a.(*MonitoringConfig), b.(*v1.MonitoringConfig), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*RekorService)(nil), (*v1.ServiceReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_RekorService_To_v1_ServiceReference(a.(*RekorService), b.(*v1.ServiceReference), scope)
 	}); err != nil {
 		return err
 	}
@@ -833,8 +863,18 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*TsaService)(nil), (*v1.ServiceReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_TsaService_To_v1_ServiceReference(a.(*TsaService), b.(*v1.ServiceReference), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*TufPvc)(nil), (*v1.Pvc)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_TufPvc_To_v1_Pvc(a.(*TufPvc), b.(*v1.Pvc), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*TufSpec)(nil), (*v1.TufSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_TufSpec_To_v1_TufSpec(a.(*TufSpec), b.(*v1.TufSpec), scope)
 	}); err != nil {
 		return err
 	}
@@ -3115,24 +3155,19 @@ func autoConvert_v1alpha1_TufSpec_To_v1_TufSpec(in *TufSpec, out *v1.TufSpec, s 
 	if err := Convert_v1alpha1_TufPvc_To_v1_Pvc(&in.Pvc, &out.Pvc, s); err != nil {
 		return err
 	}
-	if err := Convert_v1alpha1_CtlogService_To_v1_CtlogService(&in.Ctlog, &out.Ctlog, s); err != nil {
+	if err := Convert_v1alpha1_CtlogService_To_v1_ServiceReference(&in.Ctlog, &out.Ctlog, s); err != nil {
 		return err
 	}
-	if err := Convert_v1alpha1_FulcioService_To_v1_FulcioService(&in.Fulcio, &out.Fulcio, s); err != nil {
+	if err := Convert_v1alpha1_FulcioService_To_v1_ServiceReference(&in.Fulcio, &out.Fulcio, s); err != nil {
 		return err
 	}
-	if err := Convert_v1alpha1_RekorService_To_v1_RekorService(&in.Rekor, &out.Rekor, s); err != nil {
+	if err := Convert_v1alpha1_RekorService_To_v1_ServiceReference(&in.Rekor, &out.Rekor, s); err != nil {
 		return err
 	}
-	if err := Convert_v1alpha1_TsaService_To_v1_TsaService(&in.Tsa, &out.Tsa, s); err != nil {
+	if err := Convert_v1alpha1_TsaService_To_v1_ServiceReference(&in.Tsa, &out.Tsa, s); err != nil {
 		return err
 	}
 	return nil
-}
-
-// Convert_v1alpha1_TufSpec_To_v1_TufSpec is an autogenerated conversion function.
-func Convert_v1alpha1_TufSpec_To_v1_TufSpec(in *TufSpec, out *v1.TufSpec, s conversion.Scope) error {
-	return autoConvert_v1alpha1_TufSpec_To_v1_TufSpec(in, out, s)
 }
 
 func autoConvert_v1_TufSpec_To_v1alpha1_TufSpec(in *v1.TufSpec, out *TufSpec, s conversion.Scope) error {
@@ -3149,16 +3184,16 @@ func autoConvert_v1_TufSpec_To_v1alpha1_TufSpec(in *v1.TufSpec, out *TufSpec, s 
 	if err := Convert_v1_Pvc_To_v1alpha1_TufPvc(&in.Pvc, &out.Pvc, s); err != nil {
 		return err
 	}
-	if err := Convert_v1_CtlogService_To_v1alpha1_CtlogService(&in.Ctlog, &out.Ctlog, s); err != nil {
+	if err := Convert_v1_ServiceReference_To_v1alpha1_CtlogService(&in.Ctlog, &out.Ctlog, s); err != nil {
 		return err
 	}
-	if err := Convert_v1_FulcioService_To_v1alpha1_FulcioService(&in.Fulcio, &out.Fulcio, s); err != nil {
+	if err := Convert_v1_ServiceReference_To_v1alpha1_FulcioService(&in.Fulcio, &out.Fulcio, s); err != nil {
 		return err
 	}
-	if err := Convert_v1_RekorService_To_v1alpha1_RekorService(&in.Rekor, &out.Rekor, s); err != nil {
+	if err := Convert_v1_ServiceReference_To_v1alpha1_RekorService(&in.Rekor, &out.Rekor, s); err != nil {
 		return err
 	}
-	if err := Convert_v1_TsaService_To_v1alpha1_TsaService(&in.Tsa, &out.Tsa, s); err != nil {
+	if err := Convert_v1_ServiceReference_To_v1alpha1_TsaService(&in.Tsa, &out.Tsa, s); err != nil {
 		return err
 	}
 	// WARNING: in.TrustedCA requires manual conversion: does not exist in peer-type

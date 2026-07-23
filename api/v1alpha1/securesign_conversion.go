@@ -60,6 +60,18 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Trillian.Monitoring.ServiceMonitor = restored.Spec.Trillian.Monitoring.ServiceMonitor
 	dst.Spec.Tuf.ImagePullSecrets = restored.Spec.Tuf.ImagePullSecrets
 	dst.Spec.Tuf.TrustedCA = restored.Spec.Tuf.TrustedCA
+	if dst.Spec.Tuf.Rekor.URL == "" {
+		dst.Spec.Tuf.Rekor.Ref = restored.Spec.Tuf.Rekor.Ref
+	}
+	if dst.Spec.Tuf.Fulcio.URL == "" {
+		dst.Spec.Tuf.Fulcio.Ref = restored.Spec.Tuf.Fulcio.Ref
+	}
+	if dst.Spec.Tuf.Ctlog.URL == "" {
+		dst.Spec.Tuf.Ctlog.Ref = restored.Spec.Tuf.Ctlog.Ref
+	}
+	if dst.Spec.Tuf.Tsa.URL == "" {
+		dst.Spec.Tuf.Tsa.Ref = restored.Spec.Tuf.Tsa.Ref
+	}
 	if dst.Spec.TimestampAuthority != nil && restored.Spec.TimestampAuthority != nil {
 		dst.Spec.TimestampAuthority.ImagePullSecrets = restored.Spec.TimestampAuthority.ImagePullSecrets
 		dst.Spec.TimestampAuthority.Monitoring.ServiceMonitor = restored.Spec.TimestampAuthority.Monitoring.ServiceMonitor

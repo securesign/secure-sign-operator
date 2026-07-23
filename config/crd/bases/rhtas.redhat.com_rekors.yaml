@@ -2720,6 +2720,7 @@ spec:
                     type: object
                   url:
                     description: Direct URL for an external or cross-namespace service.
+                    format: uri
                     type: string
                 type: object
                 x-kubernetes-validations:

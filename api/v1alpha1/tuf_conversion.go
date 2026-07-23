@@ -46,6 +46,18 @@ func (src *Tuf) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
 	dst.Spec.TrustedCA = restored.Spec.TrustedCA
+	if dst.Spec.Rekor.URL == "" {
+		dst.Spec.Rekor.Ref = restored.Spec.Rekor.Ref
+	}
+	if dst.Spec.Fulcio.URL == "" {
+		dst.Spec.Fulcio.Ref = restored.Spec.Fulcio.Ref
+	}
+	if dst.Spec.Ctlog.URL == "" {
+		dst.Spec.Ctlog.Ref = restored.Spec.Ctlog.Ref
+	}
+	if dst.Spec.Tsa.URL == "" {
+		dst.Spec.Tsa.Ref = restored.Spec.Tsa.Ref
+	}
 	return nil
 }
 

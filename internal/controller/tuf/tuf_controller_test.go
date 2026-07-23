@@ -26,7 +26,6 @@ import (
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/constants"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
-	"github.com/securesign/operator/internal/controller/tuf/utils"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
@@ -50,6 +49,11 @@ import (
 
 //go:embed testdata/public_key.pem
 var tufTestPublicKeyPEM string
+
+type AddressableConditionAware interface {
+	apis.AddressableObject
+	apis.ConditionsAwareObject
+}
 
 var _ = Describe("TUF controller", func() {
 	Context("TUF controller test", func() {
@@ -194,10 +198,10 @@ var _ = Describe("TUF controller", func() {
 					}, Equal(state.Pending.String())),
 					WithTransform(func(condition *metav1.Condition) string {
 						return condition.Message
-					}, ContainSubstring("no items found")),
+					}, ContainSubstring("failed to resolve service url")),
 				))
 
-			componentObjects := []utils.AddressableConditionAware{
+			componentObjects := []AddressableConditionAware{
 				&rhtasv1.Fulcio{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "fulcio-test",
@@ -231,18 +235,12 @@ var _ = Describe("TUF controller", func() {
 				Expect(suite.Client().Create(ctx, component)).To(Succeed())
 			}
 
-			Eventually(func(g Gomega, ctx context.Context) *metav1.Condition {
+			Eventually(func(g Gomega, ctx context.Context) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, tufConstants.RepositoryCondition)
-			}).WithContext(ctx).Should(
-				And(
-					WithTransform(func(condition *metav1.Condition) string {
-						return condition.Reason
-					}, Equal(state.Pending.String())),
-					WithTransform(func(condition *metav1.Condition) string {
-						return condition.Message
-					}, ContainSubstring("service is not ready")),
-				))
+				cond := meta.FindStatusCondition(found.Status.Conditions, tufConstants.RepositoryCondition)
+				g.Expect(cond).ToNot(BeNil())
+				return cond.Message
+			}).WithContext(ctx).Should(ContainSubstring("service url is empty"))
 
 			for i, component := range componentObjects {
 				Expect(setStatusURL(component, "https://example.com/"+strconv.Itoa(i))).To(BeTrue())
@@ -357,7 +355,7 @@ var _ = Describe("TUF controller", func() {
 	})
 })
 
-func setStatusURL(obj apis.Addressable, url string) bool {
+func setStatusURL(obj apis.AddressableObject, url string) bool {
 	v := reflect.ValueOf(obj)
 	if v.Kind() != reflect.Pointer || v.IsNil() {
 		return false

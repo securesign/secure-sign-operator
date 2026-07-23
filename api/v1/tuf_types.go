@@ -50,16 +50,16 @@ type TufSpec struct {
 	Pvc Pvc `json:"pvc,omitempty"`
 	// Ctlog service configuration
 	//+optional
-	Ctlog CtlogService `json:"ctlog,omitempty"`
+	Ctlog ServiceReference `json:"ctlog,omitempty"`
 	// Fulcio service configuration
 	//+optional
-	Fulcio FulcioService `json:"fulcio,omitempty"`
+	Fulcio ServiceReference `json:"fulcio,omitempty"`
 	// Rekor service configuration
 	//+optional
-	Rekor RekorService `json:"rekor,omitempty"`
+	Rekor ServiceReference `json:"rekor,omitempty"`
 	// TSA service configuration
 	//+optional
-	Tsa TsaService `json:"tsa,omitempty"`
+	Tsa ServiceReference `json:"tsa,omitempty"`
 
 	// ConfigMap with additional bundle of trusted CA
 	// +optional

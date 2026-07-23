@@ -21,7 +21,7 @@ var scheme = func() *runtime.Scheme {
 	return scheme
 }()
 
-func TestResolveServiceAddress_UserSpecifiedAddress(t *testing.T) {
+func TestResolveServiceAddress_UserSpecifiedURL(t *testing.T) {
 	g := NewWithT(t)
 	c := fake.NewClientBuilder().WithScheme(scheme).Build()
 	instance := &rhtasv1.Tuf{
@@ -30,44 +30,35 @@ func TestResolveServiceAddress_UserSpecifiedAddress(t *testing.T) {
 			Namespace: t.Name(),
 		},
 		Spec: rhtasv1.TufSpec{
-			Rekor: rhtasv1.RekorService{
-				Address: "http://rekor.fakeserver.com",
-			},
-			Ctlog: rhtasv1.CtlogService{
-				Address: "http://ctlog.fakeserver.com",
-			},
-			Fulcio: rhtasv1.FulcioService{
-				Address: "http://fulcio.fakeserver.com",
-			},
-			Tsa: rhtasv1.TsaService{
-				Address: "http://tsa.fakeserver.com",
-			},
+			Rekor:  rhtasv1.ServiceReference{URL: "http://rekor.fakeserver.com"},
+			Ctlog:  rhtasv1.ServiceReference{URL: "http://ctlog.fakeserver.com"},
+			Fulcio: rhtasv1.ServiceReference{URL: "http://fulcio.fakeserver.com"},
+			Tsa:    rhtasv1.ServiceReference{URL: "http://tsa.fakeserver.com"},
 			Keys: []rhtasv1.TufKey{
-				{
-					Name: "rekor.pub",
-				},
-				{
-					Name: "ctfe.pub",
-				},
-				{
-					Name: "fulcio_v1.crt.pem",
-				},
-				{
-					Name: "tsa.certchain.pem",
-				},
+				{Name: rhtasv1.TufKeyRekor},
+				{Name: rhtasv1.TufKeyCTFE},
+				{Name: rhtasv1.TufKeyFulcio},
+				{Name: rhtasv1.TufKeyTSA},
 			},
 		},
 	}
-	err := ResolveServiceAddress(t.Context(), c, instance)
+
+	for _, key := range instance.Spec.Keys {
+		result, err := resolveServiceAddress(t.Context(), c, instance, key.Name)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(result.Address).ToNot(BeEmpty())
+	}
+
+	result, err := resolveServiceAddress(t.Context(), c, instance, rhtasv1.TufKeyRekor)
 	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(instance.Spec.Rekor.Address).To(Equal("http://rekor.fakeserver.com"))
-	g.Expect(instance.Spec.Ctlog.Address).To(Equal("http://ctlog.fakeserver.com"))
-	g.Expect(instance.Spec.Fulcio.Address).To(Equal("http://fulcio.fakeserver.com"))
-	// do not append the timestamp path to the user-provided address
-	g.Expect(instance.Spec.Tsa.Address).To(Equal("http://tsa.fakeserver.com"))
+	g.Expect(result.Address).To(Equal("http://rekor.fakeserver.com"))
+
+	result, err = resolveServiceAddress(t.Context(), c, instance, rhtasv1.TufKeyTSA)
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(result.Address).To(Equal("http://tsa.fakeserver.com"))
 }
 
-func TestResolveServiceAddress_InternalServiceLoading(t *testing.T) {
+func TestResolveServiceAddress_Autoload(t *testing.T) {
 	g := NewWithT(t)
 	c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&rhtasv1.Rekor{}).Build()
 
@@ -78,15 +69,13 @@ func TestResolveServiceAddress_InternalServiceLoading(t *testing.T) {
 		},
 		Spec: rhtasv1.TufSpec{
 			Keys: []rhtasv1.TufKey{
-				{
-					Name: "rekor.pub",
-				},
+				{Name: rhtasv1.TufKeyRekor},
 			},
 		},
 	}
-	err := ResolveServiceAddress(t.Context(), c, instance)
+
+	_, err := resolveServiceAddress(t.Context(), c, instance, rhtasv1.TufKeyRekor)
 	g.Expect(err).To(HaveOccurred())
-	g.Expect(err).To(MatchError(And(ContainSubstring("no items found in"), ContainSubstring("Rekor"))))
 
 	rekor := &rhtasv1.Rekor{
 		ObjectMeta: metav1.ObjectMeta{
@@ -96,20 +85,14 @@ func TestResolveServiceAddress_InternalServiceLoading(t *testing.T) {
 	}
 	g.Expect(c.Create(t.Context(), rekor)).To(Succeed())
 
-	err = ResolveServiceAddress(t.Context(), c, instance)
+	_, err = resolveServiceAddress(t.Context(), c, instance, rhtasv1.TufKeyRekor)
 	g.Expect(err).To(HaveOccurred())
-	g.Expect(err).To(MatchError(And(ContainSubstring("service is not ready"), ContainSubstring("test"))))
+	g.Expect(err).To(MatchError(ContainSubstring("service url is empty")))
 
-	rekor.Status.Conditions = []metav1.Condition{
-		{
-			Type:   "Ready",
-			Status: metav1.ConditionTrue,
-			Reason: "Ready",
-		},
-	}
-	rekor.Status.Url = "http://rekor.fakeserver.com"
+	rekor.Status.Url = "http://rekor.internal.svc"
 	g.Expect(c.Status().Update(t.Context(), rekor)).To(Succeed())
-	err = ResolveServiceAddress(t.Context(), c, instance)
+
+	result, err := resolveServiceAddress(t.Context(), c, instance, rhtasv1.TufKeyRekor)
 	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(instance.Spec.Rekor.Address).To(Equal("http://rekor.fakeserver.com"))
+	g.Expect(result.Address).To(Equal("http://rekor.internal.svc"))
 }

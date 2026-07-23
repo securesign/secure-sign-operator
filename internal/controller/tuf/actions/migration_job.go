@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -20,7 +21,7 @@ import (
 	tlsensure "github.com/securesign/operator/internal/utils/tls/ensure"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apilabels "k8s.io/apimachinery/pkg/labels"
@@ -51,7 +52,7 @@ func (i migrationJobAction) CanHandle(_ context.Context, tuf *rhtasv1.Tuf) bool 
 func (i migrationJobAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *action.Result {
 	if instance.Spec.RootKeySecretRef != nil && instance.Spec.RootKeySecretRef.Name != "" {
 		if _, err := kubernetes.GetSecret(ctx, i.Client, instance.Namespace, instance.Spec.RootKeySecretRef.Name); err != nil {
-			if errors.IsNotFound(err) {
+			if apiErrors.IsNotFound(err) {
 				i.Logger.Info("Root key secret not found", "secret", instance.Spec.RootKeySecretRef.Name)
 				return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("cannot migrate TUF: root key secret %s not found: %w", instance.Spec.RootKeySecretRef.Name, err)), instance)
 			}
@@ -125,18 +126,6 @@ func (i migrationJobAction) jobPresent(ctx context.Context, job *batchv1.Job, in
 func (i migrationJobAction) ensureMigrationJob(ctx context.Context, labels map[string]string, instance *rhtasv1.Tuf) *action.Result {
 	i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "TUFMigrationJob", "Started", "Starting TUF migration")
 
-	if err := utils.ResolveServiceAddress(ctx, i.Client, instance); err != nil {
-		return i.Error(ctx, err, instance,
-			metav1.Condition{
-				Type:    constants.ReadyCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  state.Initialize.String(),
-				Message: fmt.Sprintf("migration job: created but fail to resolve service url: %v", err),
-			},
-		)
-	}
-	oidcIssuers := utils.ResolveOIDCIssuers(ctx, i.Client, instance.Namespace)
-
 	if _, err := kubernetes.CreateOrUpdate(ctx, i.Client,
 		&batchv1.Job{
 			ObjectMeta: metav1.ObjectMeta{
@@ -145,7 +134,7 @@ func (i migrationJobAction) ensureMigrationJob(ctx context.Context, labels map[s
 			},
 		},
 		// use init job RBAC and do not introduce new RBAC for the migration job
-		utils.EnsureTufMigrationJob(instance, tufConstants.RBACInitJobName, labels, oidcIssuers),
+		utils.EnsureTufMigrationJob(ctx, i.Client, instance, tufConstants.RBACInitJobName, labels),
 		ensure.ControllerReference[*batchv1.Job](instance, i.Client),
 		ensure.Labels[*batchv1.Job](slices.Collect(maps.Keys(labels)), labels),
 		func(object *batchv1.Job) error {
@@ -163,6 +152,16 @@ func (i migrationJobAction) ensureMigrationJob(ctx context.Context, labels map[s
 			return tlsensure.TrustedCA(instance.GetTrustedCA(), "tuf-migration")(&object.Spec.Template)
 		},
 	); err != nil {
+		if errors.Is(err, utils.ErrorResolveServiceUrl) {
+			return i.Error(ctx, err, instance,
+				metav1.Condition{
+					Type:    constants.ReadyCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  state.Initialize.String(),
+					Message: fmt.Sprintf("migration job: created but fail to resolve service url: %v", err),
+				},
+			)
+		}
 		return i.Error(ctx, fmt.Errorf("could not create TUF migration job: %w", err),
 			instance, metav1.Condition{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Initialize.String(), Message: "TUF migration job creation failed"})
 	}

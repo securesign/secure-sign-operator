@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -104,19 +105,6 @@ func (i initJobAction) jobPresent(ctx context.Context, job *v2.Job, instance *rh
 }
 
 func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]string, instance *rhtasv1.Tuf) *action.Result {
-	if err := utils.ResolveServiceAddress(ctx, i.Client, instance); err != nil {
-		err = fmt.Errorf("fail to resolve service url: %w", err)
-		return i.Error(ctx, err, instance,
-			metav1.Condition{
-				Type:    tufConstants.RepositoryCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  state.Pending.String(),
-				Message: err.Error(),
-			},
-		)
-	}
-	oidcIssuers := utils.ResolveOIDCIssuers(ctx, i.Client, instance.Namespace)
-
 	if _, err := kubernetes.CreateOrUpdate(ctx, i.Client,
 		&v2.Job{
 			ObjectMeta: metav1.ObjectMeta{
@@ -124,7 +112,7 @@ func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]stri
 				Namespace:    instance.Namespace,
 			},
 		},
-		utils.EnsureTufInitJob(instance, tufConstants.RBACInitJobName, labels, oidcIssuers),
+		utils.EnsureTufInitJob(ctx, i.Client, instance, tufConstants.RBACInitJobName, labels),
 		ensure.Annotations[*v2.Job]([]string{tufConstants.RepositoryVersionAnnotation}, map[string]string{tufConstants.RepositoryVersionAnnotation: tufConstants.TufVersionV1}),
 		ensure.ControllerReference[*v2.Job](instance, i.Client),
 		ensure.Labels[*v2.Job](slices.Collect(maps.Keys(labels)), labels),
@@ -143,16 +131,28 @@ func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]stri
 			return tlsensure.TrustedCA(instance.GetTrustedCA(), "tuf-init")(&object.Spec.Template)
 		},
 	); err != nil {
+		if errors.Is(err, utils.ErrorResolveServiceUrl) {
+			return i.Error(ctx, err, instance,
+				metav1.Condition{
+					Type:               tufConstants.RepositoryCondition,
+					Status:             metav1.ConditionFalse,
+					Reason:             state.Pending.String(),
+					Message:            err.Error(),
+					ObservedGeneration: instance.GetGeneration(),
+				},
+			)
+		}
 		return i.Error(ctx, fmt.Errorf("could not create TUF init job: %w", err), instance)
 	}
 
 	msg := "Tuf init-repository job created."
 	i.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "JobCreated", "Created", msg)
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-		Type:    tufConstants.RepositoryCondition,
-		Status:  metav1.ConditionFalse,
-		Reason:  state.Initialize.String(),
-		Message: msg,
+		Type:               tufConstants.RepositoryCondition,
+		Status:             metav1.ConditionFalse,
+		Reason:             state.Initialize.String(),
+		Message:            msg,
+		ObservedGeneration: instance.GetGeneration(),
 	})
 	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }

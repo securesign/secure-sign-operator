@@ -1351,6 +1351,7 @@ spec:
                       url:
                         description: Direct URL for an external or cross-namespace
                           service.
+                        format: uri
                         type: string
                     type: object
                     x-kubernetes-validations:
@@ -2634,6 +2635,29 @@ spec:
                         pattern: ^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$
                         type: string
                     type: object
+                  externalAccess:
+                    description: Define whether you want to export service or not
+                    properties:
+                      enabled:
+                        description: |-
+                          If set to true, the Operator will create an Ingress or a Route resource.
+                          For the plain Ingress there is no TLS configuration provided Route object uses "edge" termination by default.
+                        type: boolean
+                        x-kubernetes-validations:
+                        - message: Feature cannot be disabled
+                          rule: (self || !oldSelf)
+                      host:
+                        description: Set hostname for your Ingress/Route.
+                        type: string
+                      routeSelectorLabels:
+                        additionalProperties:
+                          type: string
+                        description: Set Route Selector Labels for ingress sharding.
+                        type: object
+                        x-kubernetes-validations:
+                        - message: RouteSelectorLabels can't be modified
+                          rule: (oldSelf.size() == 0 || self == oldSelf)
+                    type: object
                   imagePullSecrets:
                     description: |-
                       ImagePullSecrets is an optional list of references to secrets in the same namespace
@@ -2656,31 +2680,6 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     type: array
-                  ingress:
-                    description: Define whether you want to export service or not
-                    properties:
-                      enabled:
-                        description: |-
-                          If set to true, the Operator will create a Kubernetes Ingress resource.
-                          On OpenShift, the platform automatically derives a Route from this Ingress, using "edge" TLS termination by default.
-                        type: boolean
-                        x-kubernetes-validations:
-                        - message: Feature cannot be disabled
-                          rule: (self || !oldSelf)
-                      host:
-                        description: Set hostname for your Ingress.
-                        type: string
-                      labels:
-                        additionalProperties:
-                          type: string
-                        description: Set labels applied to the created Ingress, e.g.
-                          for ingress-controller/route selection when sharding ingress
-                          traffic.
-                        type: object
-                        x-kubernetes-validations:
-                        - message: Labels can't be modified
-                          rule: (oldSelf.size() == 0 || self == oldSelf)
-                    type: object
                   monitoring:
                     description: Enable Service monitors for fulcio
                     properties:
@@ -4058,6 +4057,29 @@ spec:
                         pattern: ^(@(?i)(yearly|annually|monthly|weekly|daily|hourly)|((\*(\/[1-9][0-9]*)?|[0-9,-]+)+\s){4}(\*(\/[1-9][0-9]*)?|[0-9,-]+)+)$
                         type: string
                     type: object
+                  externalAccess:
+                    description: Define whether you want to export service or not
+                    properties:
+                      enabled:
+                        description: |-
+                          If set to true, the Operator will create an Ingress or a Route resource.
+                          For the plain Ingress there is no TLS configuration provided Route object uses "edge" termination by default.
+                        type: boolean
+                        x-kubernetes-validations:
+                        - message: Feature cannot be disabled
+                          rule: (self || !oldSelf)
+                      host:
+                        description: Set hostname for your Ingress/Route.
+                        type: string
+                      routeSelectorLabels:
+                        additionalProperties:
+                          type: string
+                        description: Set Route Selector Labels for ingress sharding.
+                        type: object
+                        x-kubernetes-validations:
+                        - message: RouteSelectorLabels can't be modified
+                          rule: (oldSelf.size() == 0 || self == oldSelf)
+                    type: object
                   imagePullSecrets:
                     description: |-
                       ImagePullSecrets is an optional list of references to secrets in the same namespace
@@ -4080,31 +4102,6 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     type: array
-                  ingress:
-                    description: Define whether you want to export service or not
-                    properties:
-                      enabled:
-                        description: |-
-                          If set to true, the Operator will create a Kubernetes Ingress resource.
-                          On OpenShift, the platform automatically derives a Route from this Ingress, using "edge" TLS termination by default.
-                        type: boolean
-                        x-kubernetes-validations:
-                        - message: Feature cannot be disabled
-                          rule: (self || !oldSelf)
-                      host:
-                        description: Set hostname for your Ingress.
-                        type: string
-                      labels:
-                        additionalProperties:
-                          type: string
-                        description: Set labels applied to the created Ingress, e.g.
-                          for ingress-controller/route selection when sharding ingress
-                          traffic.
-                        type: object
-                        x-kubernetes-validations:
-                        - message: Labels can't be modified
-                          rule: (oldSelf.size() == 0 || self == oldSelf)
-                    type: object
                   maxRequestBodySize:
                     description: MaxRequestBodySize sets the maximum size in bytes
                       for HTTP request body. Passed as --max_request_body_size.
@@ -5108,15 +5105,8 @@ spec:
                         - message: Feature cannot be disabled
                           rule: (self || !oldSelf)
                       host:
-                        description: Set hostname for your Ingress.
+                        description: Set hostname for your Ingress/Route.
                         type: string
-                      labels:
-                        additionalProperties:
-                          type: string
-                        description: Set labels applied to the created Ingress, e.g.
-                          for ingress-controller/route selection when sharding ingress
-                          traffic.
-                        type: object
                       replicas:
                         description: Number of desired pods.
                         format: int32
@@ -5181,6 +5171,12 @@ spec:
                               otherwise to an implementation-defined value. Requests cannot exceed Limits.
                               More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                             type: object
+                        type: object
+                      routeSelectorLabels:
+                        additionalProperties:
+                          type: string
+                        description: Set Route Selector Labels labels for ingress
+                          sharding.
                         type: object
                       tolerations:
                         items:
@@ -5526,6 +5522,7 @@ spec:
                       url:
                         description: Direct URL for an external or cross-namespace
                           service.
+                        format: uri
                         type: string
                     type: object
                     x-kubernetes-validations:
@@ -9036,6 +9033,29 @@ spec:
                             x-kubernetes-list-type: atomic
                         type: object
                     type: object
+                  externalAccess:
+                    description: Define whether you want to export service or not
+                    properties:
+                      enabled:
+                        description: |-
+                          If set to true, the Operator will create an Ingress or a Route resource.
+                          For the plain Ingress there is no TLS configuration provided Route object uses "edge" termination by default.
+                        type: boolean
+                        x-kubernetes-validations:
+                        - message: Feature cannot be disabled
+                          rule: (self || !oldSelf)
+                      host:
+                        description: Set hostname for your Ingress/Route.
+                        type: string
+                      routeSelectorLabels:
+                        additionalProperties:
+                          type: string
+                        description: Set Route Selector Labels for ingress sharding.
+                        type: object
+                        x-kubernetes-validations:
+                        - message: RouteSelectorLabels can't be modified
+                          rule: (oldSelf.size() == 0 || self == oldSelf)
+                    type: object
                   imagePullSecrets:
                     description: |-
                       ImagePullSecrets is an optional list of references to secrets in the same namespace
@@ -9058,31 +9078,6 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     type: array
-                  ingress:
-                    description: Define whether you want to export service or not
-                    properties:
-                      enabled:
-                        description: |-
-                          If set to true, the Operator will create a Kubernetes Ingress resource.
-                          On OpenShift, the platform automatically derives a Route from this Ingress, using "edge" TLS termination by default.
-                        type: boolean
-                        x-kubernetes-validations:
-                        - message: Feature cannot be disabled
-                          rule: (self || !oldSelf)
-                      host:
-                        description: Set hostname for your Ingress.
-                        type: string
-                      labels:
-                        additionalProperties:
-                          type: string
-                        description: Set labels applied to the created Ingress, e.g.
-                          for ingress-controller/route selection when sharding ingress
-                          traffic.
-                        type: object
-                        x-kubernetes-validations:
-                        - message: Labels can't be modified
-                          rule: (oldSelf.size() == 0 || self == oldSelf)
-                    type: object
                   maxRequestBodySize:
                     description: MaxRequestBodySize sets the maximum size in bytes
                       for HTTP request body. Passed as --max-request-body-size.
@@ -10621,35 +10616,80 @@ spec:
                   ctlog:
                     description: Ctlog service configuration
                     properties:
-                      address:
-                        description: Address to Ctlog Log Server End point
+                      ref:
+                        description: In-cluster reference to a component CR.
+                        properties:
+                          name:
+                            description: Name of the referenced CR.
+                            minLength: 1
+                            type: string
+                          namespace:
+                            description: Namespace of the referenced CR. Defaults
+                              to the namespace of the referencing resource.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      url:
+                        description: Direct URL for an external or cross-namespace
+                          service.
+                        format: uri
                         type: string
-                      port:
-                        description: Port of Ctlog Log Server End point
-                        format: int32
-                        maximum: 65535
-                        minimum: 1
-                        type: integer
-                      prefix:
+                    type: object
+                    x-kubernetes-validations:
+                    - message: ref and url are mutually exclusive
+                      rule: '!(has(self.ref) && has(self.url) && size(self.url) >
+                        0)'
+                  externalAccess:
+                    description: Define whether you want to export service or not
+                    properties:
+                      enabled:
                         description: |-
-                          Prefix is the name of the log. The prefix cannot be empty and can
-                          contain "/" path separator characters to define global override handler prefix.
-                        pattern: ^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$
+                          If set to true, the Operator will create an Ingress or a Route resource.
+                          For the plain Ingress there is no TLS configuration provided Route object uses "edge" termination by default.
+                        type: boolean
+                        x-kubernetes-validations:
+                        - message: Feature cannot be disabled
+                          rule: (self || !oldSelf)
+                      host:
+                        description: Set hostname for your Ingress/Route.
                         type: string
+                      routeSelectorLabels:
+                        additionalProperties:
+                          type: string
+                        description: Set Route Selector Labels for ingress sharding.
+                        type: object
+                        x-kubernetes-validations:
+                        - message: RouteSelectorLabels can't be modified
+                          rule: (oldSelf.size() == 0 || self == oldSelf)
                     type: object
                   fulcio:
                     description: Fulcio service configuration
                     properties:
-                      address:
-                        description: Address to Fulcio End point
+                      ref:
+                        description: In-cluster reference to a component CR.
+                        properties:
+                          name:
+                            description: Name of the referenced CR.
+                            minLength: 1
+                            type: string
+                          namespace:
+                            description: Namespace of the referenced CR. Defaults
+                              to the namespace of the referencing resource.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      url:
+                        description: Direct URL for an external or cross-namespace
+                          service.
+                        format: uri
                         type: string
-                      port:
-                        description: Port of Fulcio End point
-                        format: int32
-                        maximum: 65535
-                        minimum: 1
-                        type: integer
                     type: object
+                    x-kubernetes-validations:
+                    - message: ref and url are mutually exclusive
+                      rule: '!(has(self.ref) && has(self.url) && size(self.url) >
+                        0)'
                   imagePullSecrets:
                     description: |-
                       ImagePullSecrets is an optional list of references to secrets in the same namespace
@@ -10672,31 +10712,6 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     type: array
-                  ingress:
-                    description: Define whether you want to export service or not
-                    properties:
-                      enabled:
-                        description: |-
-                          If set to true, the Operator will create a Kubernetes Ingress resource.
-                          On OpenShift, the platform automatically derives a Route from this Ingress, using "edge" TLS termination by default.
-                        type: boolean
-                        x-kubernetes-validations:
-                        - message: Feature cannot be disabled
-                          rule: (self || !oldSelf)
-                      host:
-                        description: Set hostname for your Ingress.
-                        type: string
-                      labels:
-                        additionalProperties:
-                          type: string
-                        description: Set labels applied to the created Ingress, e.g.
-                          for ingress-controller/route selection when sharding ingress
-                          traffic.
-                        type: object
-                        x-kubernetes-validations:
-                        - message: Labels can't be modified
-                          rule: (oldSelf.size() == 0 || self == oldSelf)
-                    type: object
                   keys:
                     description: List of TUF targets which will be added to TUF root
                     items:
@@ -10798,16 +10813,30 @@ spec:
                   rekor:
                     description: Rekor service configuration
                     properties:
-                      address:
-                        description: Address to Rekor End point
+                      ref:
+                        description: In-cluster reference to a component CR.
+                        properties:
+                          name:
+                            description: Name of the referenced CR.
+                            minLength: 1
+                            type: string
+                          namespace:
+                            description: Namespace of the referenced CR. Defaults
+                              to the namespace of the referencing resource.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      url:
+                        description: Direct URL for an external or cross-namespace
+                          service.
+                        format: uri
                         type: string
-                      port:
-                        description: Port of Rekor End point
-                        format: int32
-                        maximum: 65535
-                        minimum: 1
-                        type: integer
                     type: object
+                    x-kubernetes-validations:
+                    - message: ref and url are mutually exclusive
+                      rule: '!(has(self.ref) && has(self.url) && size(self.url) >
+                        0)'
                   replicas:
                     description: Number of desired pods.
                     format: int32
@@ -10941,18 +10970,30 @@ spec:
                   tsa:
                     description: TSA service configuration
                     properties:
-                      address:
-                        description: |-
-                          Address is the full TSA endpoint URL including the API suffix path
-                          (e.g. http://tsa.example.com/api/v1/timestamp).
+                      ref:
+                        description: In-cluster reference to a component CR.
+                        properties:
+                          name:
+                            description: Name of the referenced CR.
+                            minLength: 1
+                            type: string
+                          namespace:
+                            description: Namespace of the referenced CR. Defaults
+                              to the namespace of the referencing resource.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      url:
+                        description: Direct URL for an external or cross-namespace
+                          service.
+                        format: uri
                         type: string
-                      port:
-                        description: Port of TSA End point
-                        format: int32
-                        maximum: 65535
-                        minimum: 1
-                        type: integer
                     type: object
+                    x-kubernetes-validations:
+                    - message: ref and url are mutually exclusive
+                      rule: '!(has(self.ref) && has(self.url) && size(self.url) >
+                        0)'
                 type: object
             required:
             - fulcio

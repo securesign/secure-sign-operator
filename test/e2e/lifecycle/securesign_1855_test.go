@@ -120,17 +120,17 @@ func createInstance(name, ns string) *rhtasv1.Tuf {
 			Name:      name,
 		},
 		Spec: rhtasv1.TufSpec{
-			Ctlog: rhtasv1.CtlogService{
-				Address: "http://ctlog.fakeserver.com",
+			Ctlog: rhtasv1.ServiceReference{
+				URL: "http://ctlog.fakeserver.com",
 			},
-			Fulcio: rhtasv1.FulcioService{
-				Address: "http://fulcio.fakeserver.com",
+			Fulcio: rhtasv1.ServiceReference{
+				URL: "http://fulcio.fakeserver.com",
 			},
-			Rekor: rhtasv1.RekorService{
-				Address: "http://rekor.fakeserver.com",
+			Rekor: rhtasv1.ServiceReference{
+				URL: "http://rekor.fakeserver.com",
 			},
-			Tsa: rhtasv1.TsaService{
-				Address: "http://tsa.fakeserver.com",
+			Tsa: rhtasv1.ServiceReference{
+				URL: "http://tsa.fakeserver.com",
 			},
 			Keys: []rhtasv1.TufKey{
 				{
