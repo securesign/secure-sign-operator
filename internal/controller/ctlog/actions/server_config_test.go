@@ -19,6 +19,7 @@ import (
 
 	"github.com/onsi/gomega/gstruct"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"k8s.io/utils/ptr"
 
@@ -163,9 +164,10 @@ func TestServerConfig_Handle(t *testing.T) {
 	labels := labels.ForResource(ComponentName, DeploymentName, "ctlog", serverConfigResourceName)
 
 	type env struct {
-		spec    rhtasv1alpha1.CTlogSpec
-		status  rhtasv1alpha1.CTlogStatus
-		objects []client.Object
+		spec      rhtasv1alpha1.CTlogSpec
+		status    rhtasv1alpha1.CTlogStatus
+		objects   []client.Object
+		intercept interceptor.Funcs
 	}
 	type want struct {
 		result *action.Result
@@ -237,6 +239,52 @@ func TestServerConfig_Handle(t *testing.T) {
 			},
 			want: want{
 				result: testAction.StatusUpdate(),
+				verify: func(g Gomega, instance *rhtasv1alpha1.CTlog, cli client.WithWatch) {
+					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
+					g.Expect(instance.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
+				},
+			},
+		},
+		{
+			name: "create a new config with an uncached client rejecting empty-name Get",
+			env: env{
+				spec: rhtasv1alpha1.CTlogSpec{
+					ServerConfigRef: nil,
+					Trillian:        rhtasv1alpha1.TrillianService{Port: ptr.To(int32(80))},
+				},
+				status: rhtasv1alpha1.CTlogStatus{
+					ServerConfigRef: nil,
+					TreeID:          ptr.To(int64(123456)),
+					RootCertificates: []rhtasv1alpha1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+					},
+					PrivateKeyRef: &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "private"},
+					PublicKeyRef:  &rhtasv1alpha1.SecretKeySelector{LocalObjectReference: rhtasv1alpha1.LocalObjectReference{Name: "secret"}, Key: "public"},
+				},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"cert":    cert,
+							"private": privateKey,
+							"public":  publicKey,
+						},
+					},
+				},
+				intercept: interceptor.Funcs{
+					Get: func(ctx context.Context, wrapped client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+						if _, ok := obj.(*v1.Secret); ok && key.Name == "" {
+							return k8sErrors.NewBadRequest("resource name may not be empty")
+						}
+						return wrapped.Get(ctx, key, obj, opts...)
+					},
+				},
+			},
+			want: want{
+				result: testAction.Return(),
 				verify: func(g Gomega, instance *rhtasv1alpha1.CTlog, cli client.WithWatch) {
 					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
 					g.Expect(instance.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
@@ -496,6 +544,7 @@ func TestServerConfig_Handle(t *testing.T) {
 				WithObjects(instance).
 				WithStatusSubresource(instance).
 				WithObjects(tt.env.objects...).
+				WithInterceptorFuncs(tt.env.intercept).
 				Build()
 
 			a := testAction.PrepareAction(c, NewServerConfigAction())

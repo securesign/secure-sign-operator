@@ -101,6 +101,17 @@ func FindByLabelSelector(ctx context.Context, c client.Client, list client.Objec
 	return c.List(ctx, list, client.InNamespace(namespace), listOptions)
 }
 
+func Create[T client.Object](ctx context.Context, cli client.Client, obj T, fn ...func(object T) error) error {
+	var err error
+	for _, f := range fn {
+		err = errors.Join(err, f(obj))
+	}
+	if err != nil {
+		return err
+	}
+	return cli.Create(ctx, obj)
+}
+
 func CreateOrUpdate[T client.Object](ctx context.Context, cli client.Client, obj T, fn ...func(object T) error) (result controllerutil.OperationResult, err error) {
 	err = retry.OnError(retry.DefaultRetry, func(err error) bool {
 		return apiErrors.IsConflict(err) || apiErrors.IsAlreadyExists(err)

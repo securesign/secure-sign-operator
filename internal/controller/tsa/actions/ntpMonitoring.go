@@ -159,7 +159,7 @@ func (i ntpMonitoringAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 			Namespace:    instance.Namespace,
 		},
 	}
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+	if err = kubernetes.Create(ctx, i.Client,
 		configMap,
 		ensure.ControllerReference[*v1.ConfigMap](instance, i.Client),
 		ensure.Labels[*v1.ConfigMap](slices.Collect(maps.Keys(l)), l),
