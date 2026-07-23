@@ -29,6 +29,14 @@ const (
 	TufKeyTSA    = "tsa.certchain.pem"
 )
 
+type ServiceRefWithOIDC struct {
+	ServiceReference `json:",inline"`
+	// OIDC Configuration
+	// +optional
+	// +listType=set
+	OIDCIssuers []string `json:"oidcIssuers,omitempty"`
+}
+
 // TufSpec defines the desired state of Tuf
 type TufSpec struct {
 	PodRequirements      `json:",inline"`
@@ -53,7 +61,7 @@ type TufSpec struct {
 	Ctlog ServiceReference `json:"ctlog,omitempty"`
 	// Fulcio service configuration
 	//+optional
-	Fulcio ServiceReference `json:"fulcio,omitempty"`
+	Fulcio ServiceRefWithOIDC `json:"fulcio,omitempty"`
 	// Rekor service configuration
 	//+optional
 	Rekor ServiceReference `json:"rekor,omitempty"`

@@ -123,9 +123,9 @@ func createInstance(name, ns string) *rhtasv1.Tuf {
 			Ctlog: rhtasv1.ServiceReference{
 				URL: "http://ctlog.fakeserver.com",
 			},
-			Fulcio: rhtasv1.ServiceReference{
+			Fulcio: rhtasv1.ServiceRefWithOIDC{ServiceReference: rhtasv1.ServiceReference{
 				URL: "http://fulcio.fakeserver.com",
-			},
+			}},
 			Rekor: rhtasv1.ServiceReference{
 				URL: "http://rekor.fakeserver.com",
 			},

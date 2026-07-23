@@ -17,23 +17,25 @@ var (
 	ErrAutodiscoveryFailed = fmt.Errorf("failed to autodiscovery service")
 )
 
-func ResolveInternalServiceUrl(ctx context.Context, cl client.Client, serviceRef v1.ServiceReference, instanceNamespace string, instance client.Object) (string, error) {
-	if serviceRef.URL != "" {
-		return serviceRef.URL, nil
+func ResolveInternalServiceUrl(ctx context.Context, cl client.Client, serviceRef apis.ServiceReferencer, instanceNamespace string, instance client.Object) (string, error) {
+	ref := serviceRef.GetServiceRef()
+	if ref.URL != "" {
+		return ref.URL, nil
 	}
 
-	if err := serviceRefOrAutoload(ctx, cl, serviceRef, instanceNamespace, instance); err != nil {
+	if err := serviceRefOrAutoload(ctx, cl, ref, instanceNamespace, instance); err != nil {
 		return "", err
 	}
 	return serviceresolver.Resolve(instance)
 }
 
-func ResolveExternalServiceUrl(ctx context.Context, cl client.Client, serviceRef v1.ServiceReference, instanceNamespace string, instance apis.AddressableObject) (string, error) {
-	if serviceRef.URL != "" {
-		return serviceRef.URL, nil
+func ResolveExternalServiceUrl(ctx context.Context, cl client.Client, serviceRef apis.ServiceReferencer, instanceNamespace string, instance apis.AddressableObject) (string, error) {
+	ref := serviceRef.GetServiceRef()
+	if ref.URL != "" {
+		return ref.URL, nil
 	}
 
-	if err := serviceRefOrAutoload(ctx, cl, serviceRef, instanceNamespace, instance); err != nil {
+	if err := serviceRefOrAutoload(ctx, cl, ref, instanceNamespace, instance); err != nil {
 		return "", err
 	}
 	url := instance.GetServiceURL()

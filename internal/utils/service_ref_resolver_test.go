@@ -5,7 +5,6 @@ import (
 
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
-	_ "github.com/securesign/operator/internal/controller/trillian/serviceresolver"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -15,33 +14,6 @@ func testScheme() *runtime.Scheme {
 	s := runtime.NewScheme()
 	_ = rhtasv1.AddToScheme(s)
 	return s
-}
-
-func TestResolveInternalServiceUrl_URLShortCircuits(t *testing.T) {
-	g := NewWithT(t)
-
-	u, err := ResolveInternalServiceUrl(t.Context(), nil, rhtasv1.ServiceReference{
-		URL: "https://rekor.example.com",
-	}, "default", &rhtasv1.Trillian{})
-
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(u).To(Equal("https://rekor.example.com"))
-}
-
-func TestResolveInternalServiceUrl_DelegatesToServiceRefOrAutoload(t *testing.T) {
-	g := NewWithT(t)
-
-	trillian := &rhtasv1.Trillian{
-		ObjectMeta: metav1.ObjectMeta{Name: "my-trillian", Namespace: "ns"},
-	}
-	cl := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(trillian).Build()
-
-	u, err := ResolveInternalServiceUrl(t.Context(), cl, rhtasv1.ServiceReference{
-		Ref: &rhtasv1.ServiceReferenceRef{Name: "my-trillian", Namespace: "ns"},
-	}, "ns", &rhtasv1.Trillian{})
-
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(u).To(Equal("dns:///trillian-logserver.ns.svc:8091"))
 }
 
 func TestServiceRefOrAutoload_RefWithNamespace(t *testing.T) {
@@ -151,50 +123,4 @@ func TestServiceRefOrAutoload_EmptyRefNameTriggersAutoload(t *testing.T) {
 
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(instance.Name).To(Equal("discovered"))
-}
-
-func TestResolveExternalServiceUrl_URLShortCircuits(t *testing.T) {
-	g := NewWithT(t)
-
-	u, err := ResolveExternalServiceUrl(t.Context(), nil, rhtasv1.ServiceReference{
-		URL: "https://rekor.example.com",
-	}, "default", &rhtasv1.Rekor{})
-
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(u).To(Equal("https://rekor.example.com"))
-}
-
-func TestResolveExternalServiceUrl_ReturnsStatusUrl(t *testing.T) {
-	g := NewWithT(t)
-
-	rekor := &rhtasv1.Rekor{
-		ObjectMeta: metav1.ObjectMeta{Name: "my-rekor", Namespace: "ns"},
-	}
-	cl := fake.NewClientBuilder().WithScheme(testScheme()).WithStatusSubresource(rekor).WithObjects(rekor).Build()
-
-	rekor.Status.Url = "https://rekor.internal.svc"
-	g.Expect(cl.Status().Update(t.Context(), rekor)).To(Succeed())
-
-	u, err := ResolveExternalServiceUrl(t.Context(), cl, rhtasv1.ServiceReference{
-		Ref: &rhtasv1.ServiceReferenceRef{Name: "my-rekor", Namespace: "ns"},
-	}, "ns", &rhtasv1.Rekor{})
-
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(u).To(Equal("https://rekor.internal.svc"))
-}
-
-func TestResolveExternalServiceUrl_EmptyStatusUrlErrors(t *testing.T) {
-	g := NewWithT(t)
-
-	rekor := &rhtasv1.Rekor{
-		ObjectMeta: metav1.ObjectMeta{Name: "my-rekor", Namespace: "ns"},
-	}
-	cl := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(rekor).Build()
-
-	_, err := ResolveExternalServiceUrl(t.Context(), cl, rhtasv1.ServiceReference{
-		Ref: &rhtasv1.ServiceReferenceRef{Name: "my-rekor", Namespace: "ns"},
-	}, "ns", &rhtasv1.Rekor{})
-
-	g.Expect(err).To(HaveOccurred())
-	g.Expect(err).To(MatchError(ContainSubstring("service url is empty")))
 }

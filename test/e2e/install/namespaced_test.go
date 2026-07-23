@@ -372,10 +372,10 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 		})
 
 		It("Create TUF instance", func(ctx SpecContext) {
-			tufObject.Spec.Fulcio.Address = fulcio.Get(ctx, cli, namespaces["fulcio"].Name, fulcioObject.Name).Status.Url
-			tufObject.Spec.Rekor.Address = rekor.Get(ctx, cli, namespaces["rekor"].Name, rekorObject.Name).Status.Url
-			tufObject.Spec.Tsa.Address = tsa.Get(ctx, cli, namespaces["tsa"].Name, tsaObject.Name).Status.Url
-			tufObject.Spec.Ctlog.Address = ctlog.Get(ctx, cli, namespaces["ctlog"].Name, ctlogObject.Name).Status.Url
+			tufObject.Spec.Fulcio.URL = fulcio.Get(ctx, cli, namespaces["fulcio"].Name, fulcioObject.Name).Status.Url
+			tufObject.Spec.Rekor.URL = rekor.Get(ctx, cli, namespaces["rekor"].Name, rekorObject.Name).Status.Url
+			tufObject.Spec.Tsa.URL = tsa.Get(ctx, cli, namespaces["tsa"].Name, tsaObject.Name).Status.Url
+			tufObject.Spec.Ctlog.URL = ctlog.Get(ctx, cli, namespaces["ctlog"].Name, ctlogObject.Name).Status.Url
 			Expect(cli.Create(ctx, tufObject)).To(Succeed())
 			tuf.Verify(ctx, cli, namespaces["tuf"].Name, tufObject.Name)
 		})

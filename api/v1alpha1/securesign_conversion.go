@@ -66,6 +66,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	if dst.Spec.Tuf.Fulcio.URL == "" {
 		dst.Spec.Tuf.Fulcio.Ref = restored.Spec.Tuf.Fulcio.Ref
 	}
+	dst.Spec.Tuf.Fulcio.OIDCIssuers = restored.Spec.Tuf.Fulcio.OIDCIssuers
 	if dst.Spec.Tuf.Ctlog.URL == "" {
 		dst.Spec.Tuf.Ctlog.Ref = restored.Spec.Tuf.Ctlog.Ref
 	}
