@@ -140,6 +140,84 @@ var _ = Describe("TUF", func() {
 					To(MatchError(ContainSubstring("Duplicate value")))
 			})
 
+			When("service URL validation", func() {
+				It("rejects ctlog without scheme", func() {
+					obj := generateMinimalTuf("ctlog-no-scheme")
+					obj.Spec.Ctlog.URL = "ctlog:6963/path"
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), obj))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), obj)).
+						To(MatchError(ContainSubstring("url must follow the pattern scheme://host[:port]/path")))
+				})
+
+				It("rejects ctlog without path", func() {
+					obj := generateMinimalTuf("ctlog-no-path")
+					obj.Spec.Ctlog.URL = "http://ctlog:6963"
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), obj))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), obj)).
+						To(MatchError(ContainSubstring("url must follow the pattern scheme://host[:port]/path")))
+				})
+
+				It("accepts ctlog with scheme and path", func() {
+					obj := generateMinimalTuf("ctlog-valid")
+					obj.Spec.Ctlog.URL = "http://ctlog:6963/trusted-artifact-signer"
+					Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+				})
+
+				It("rejects fulcio without scheme", func() {
+					obj := generateMinimalTuf("fulcio-no-scheme")
+					obj.Spec.Fulcio.URL = "fulcio:5554"
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), obj))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), obj)).
+						To(MatchError(ContainSubstring("url must follow the pattern scheme://host[:port]")))
+				})
+
+				It("accepts fulcio with scheme", func() {
+					obj := generateMinimalTuf("fulcio-valid")
+					obj.Spec.Fulcio.URL = "http://fulcio:5554"
+					Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+				})
+
+				It("rejects rekor without scheme", func() {
+					obj := generateMinimalTuf("rekor-no-scheme")
+					obj.Spec.Rekor.URL = "rekor:3000"
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), obj))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), obj)).
+						To(MatchError(ContainSubstring("url must follow the pattern scheme://host[:port]")))
+				})
+
+				It("accepts rekor with scheme", func() {
+					obj := generateMinimalTuf("rekor-valid")
+					obj.Spec.Rekor.URL = "http://rekor:3000"
+					Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+				})
+
+				It("rejects tsa without scheme", func() {
+					obj := generateMinimalTuf("tsa-no-scheme")
+					obj.Spec.Tsa.URL = "tsa:3000"
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), obj))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), obj)).
+						To(MatchError(ContainSubstring("url must follow the pattern scheme://host[:port]")))
+				})
+
+				It("accepts tsa with scheme", func() {
+					obj := generateMinimalTuf("tsa-valid")
+					obj.Spec.Tsa.URL = "http://tsa:3000"
+					Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+				})
+
+				It("rejects fulcio oidc issuer without scheme", func() {
+					obj := generateMinimalTuf("oidc-no-scheme")
+					obj.Spec.Fulcio.OIDCIssuers = []string{"accounts.google.com"}
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), obj))).To(BeTrue())
+				})
+
+				It("accepts fulcio oidc issuer with scheme", func() {
+					obj := generateMinimalTuf("oidc-valid")
+					obj.Spec.Fulcio.OIDCIssuers = []string{"https://accounts.google.com"}
+					Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+				})
+			})
+
 			When("replicas", func() {
 				It("nil", func() {
 					validObject := generateMinimalTuf("replicas-nil")

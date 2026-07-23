@@ -20,7 +20,6 @@ package v1alpha1
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -76,14 +75,14 @@ func enabledFieldsFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 
 // trillianServiceFuzzerFuncs constrains both sides of the TrillianService ↔ ServiceReference
 // conversion to values that survive the roundtrip:
-//   - v1 ServiceReference: URL and Ref are mutually exclusive; URL must be valid "host:port"
-//   - v1alpha1 TrillianService.Address must not contain colons (ambiguous with port separator)
+//   - v1 ServiceReference: URL must be valid gRPC URI (dns:///host:port) or Ref
+//   - v1alpha1 TrillianService.Address uses dns:/// scheme
 func trillianServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *rhtasv1.ServiceReference, c randfill.Continue) {
 			switch c.Intn(3) {
 			case 0:
-				s.URL = fmt.Sprintf("host-%d.ns.svc:%d", c.Intn(1000), c.Intn(65534)+1)
+				s.URL = fmt.Sprintf("dns:///host-%d.ns.svc:%d", c.Intn(1000), c.Intn(65534)+1)
 			case 1:
 				s.Ref = &rhtasv1.ServiceReferenceRef{}
 				c.FillNoCustom(s.Ref)
@@ -92,12 +91,59 @@ func trillianServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} 
 			}
 		},
 		func(s *TrillianService, c randfill.Continue) {
-			c.FillNoCustom(s)
-			s.Address = strings.ReplaceAll(s.Address, ":", "")
-			if s.Address != "" {
-				s.Port = ptr.To(int32(c.Intn(65534) + 1))
-			} else {
+			if c.Intn(3) == 0 {
+				s.Address = ""
 				s.Port = nil
+			} else {
+				s.Address = fmt.Sprintf("dns:///host-%d.ns.svc", c.Intn(1000))
+				s.Port = ptr.To(int32(c.Intn(65534) + 1))
+			}
+		},
+	}
+}
+
+// securesignTrillianFuzzerFuncs fuzzes Trillian ServiceReference fields at spec level
+// so they get gRPC dns:/// URLs, while tufServiceFuzzerFuncs controls the type-level
+// ServiceReference fuzzer for HTTP URLs. Without this, the HTTP fuzzer would apply to
+// Trillian fields too.
+func securesignTrillianFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.CTlogSpec, c randfill.Continue) {
+			c.FillNoCustom(s)
+			s.Prefix = "trusted-artifact-signer"
+			switch c.Intn(3) {
+			case 0:
+				s.Trillian = rhtasv1.ServiceReference{
+					URL: fmt.Sprintf("dns:///host-%d.ns.svc:%d", c.Intn(1000), c.Intn(65534)+1),
+				}
+			case 1:
+				s.Trillian = rhtasv1.ServiceReference{Ref: &rhtasv1.ServiceReferenceRef{}}
+				c.FillNoCustom(s.Trillian.Ref)
+			default:
+				s.Trillian = rhtasv1.ServiceReference{}
+			}
+		},
+		func(s *rhtasv1.RekorSpec, c randfill.Continue) {
+			c.FillNoCustom(s)
+			switch c.Intn(3) {
+			case 0:
+				s.Trillian = rhtasv1.ServiceReference{
+					URL: fmt.Sprintf("dns:///host-%d.ns.svc:%d", c.Intn(1000), c.Intn(65534)+1),
+				}
+			case 1:
+				s.Trillian = rhtasv1.ServiceReference{Ref: &rhtasv1.ServiceReferenceRef{}}
+				c.FillNoCustom(s.Trillian.Ref)
+			default:
+				s.Trillian = rhtasv1.ServiceReference{}
+			}
+		},
+		func(s *TrillianService, c randfill.Continue) {
+			if c.Intn(3) == 0 {
+				s.Address = ""
+				s.Port = nil
+			} else {
+				s.Address = fmt.Sprintf("dns:///host-%d.ns.svc", c.Intn(1000))
+				s.Port = ptr.To(int32(c.Intn(65534) + 1))
 			}
 		},
 	}
@@ -113,7 +159,8 @@ func TestSecuresignConversion(t *testing.T) {
 			tsaStatusFuzzerFuncs,
 			securesignTSAStatusFuzzerFuncs,
 			tsaCertAuthorityFuzzerFuncs,
-			trillianServiceFuzzerFuncs,
+			securesignTrillianFuzzerFuncs,
+			tufServiceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
@@ -272,12 +319,52 @@ func TestTrillianConversion(t *testing.T) {
 	}))
 }
 
+func tufServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	fuzzAddr := func(c randfill.Continue) (string, *int32) {
+		if c.Intn(3) == 0 {
+			return "", nil
+		}
+		return fmt.Sprintf("http://svc-%d.ns.svc", c.Intn(1000)), ptr.To(int32(c.Intn(65534) + 1))
+	}
+	return []interface{}{
+		// Override the gRPC ServiceReference fuzzer from trillianServiceFuzzerFuncs
+		// with an HTTP one for TUF service references (CTlog, Fulcio, Rekor, TSA).
+		func(s *rhtasv1.ServiceReference, c randfill.Continue) {
+			switch c.Intn(3) {
+			case 0:
+				s.URL = fmt.Sprintf("http://svc-%d.ns.svc:%d", c.Intn(1000), c.Intn(65534)+1)
+			case 1:
+				s.Ref = &rhtasv1.ServiceReferenceRef{}
+				c.FillNoCustom(s.Ref)
+			default:
+				// empty — autodiscovery
+			}
+		},
+		func(s *CtlogService, c randfill.Continue) {
+			s.Address, s.Port = fuzzAddr(c)
+			if s.Address != "" && c.Intn(2) == 0 {
+				s.Prefix = fmt.Sprintf("prefix-%d", c.Intn(100))
+			}
+		},
+		func(s *FulcioService, c randfill.Continue) {
+			s.Address, s.Port = fuzzAddr(c)
+		},
+		func(s *RekorService, c randfill.Continue) {
+			s.Address, s.Port = fuzzAddr(c)
+		},
+		func(s *TsaService, c randfill.Continue) {
+			s.Address, s.Port = fuzzAddr(c)
+		},
+	}
+}
+
 func TestTufConversion(t *testing.T) {
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.Tuf{},
 		Spoke:  &Tuf{},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			tufServiceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))

@@ -26,7 +26,6 @@ import (
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/constants"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
-	"github.com/securesign/operator/internal/controller/tuf/utils"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
@@ -194,10 +193,10 @@ var _ = Describe("TUF controller", func() {
 					}, Equal(state.Pending.String())),
 					WithTransform(func(condition *metav1.Condition) string {
 						return condition.Message
-					}, ContainSubstring("no items found")),
+					}, ContainSubstring("failed to resolve service url")),
 				))
 
-			componentObjects := []utils.AddressableConditionAware{
+			componentObjects := []apis.AddressableConditionAware{
 				&rhtasv1.Fulcio{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "fulcio-test",
@@ -360,7 +359,7 @@ var _ = Describe("TUF controller", func() {
 	})
 })
 
-func setStatusURL(obj apis.Addressable, url string) bool {
+func setStatusURL(obj apis.AddressableObject, url string) bool {
 	v := reflect.ValueOf(obj)
 	if v.Kind() != reflect.Pointer || v.IsNil() {
 		return false

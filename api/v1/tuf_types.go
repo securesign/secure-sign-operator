@@ -29,6 +29,16 @@ const (
 	TufKeyTSA    = "tsa.certchain.pem"
 )
 
+type ServiceRefWithOIDC struct {
+	ServiceReference `json:",inline"`
+	// OIDCIssuers is a list of OIDC issuer URLs to include in the Fulcio signing configuration.
+	// Use for manual configuration; when specified, these values take precedence over auto-loaded OIDC configuration from the Fulcio service reference.
+	// +optional
+	// +listType=set
+	//+kubebuilder:validation:items:Pattern=`^[a-zA-Z][a-zA-Z0-9+.-]*://.+$`
+	OIDCIssuers []string `json:"oidcIssuers,omitempty"`
+}
+
 // TufSpec defines the desired state of Tuf
 type TufSpec struct {
 	PodRequirements      `json:",inline"`
@@ -50,16 +60,20 @@ type TufSpec struct {
 	Pvc Pvc `json:"pvc,omitempty"`
 	// Ctlog service configuration
 	//+optional
-	Ctlog CtlogService `json:"ctlog,omitempty"`
+	//+kubebuilder:validation:XValidation:rule="!has(self.url) || size(self.url) == 0 || self.url.matches('^[a-zA-Z][a-zA-Z0-9+.-]*://[^/]+/.+$')",message="url must follow the pattern scheme://host[:port]/path"
+	Ctlog ServiceReference `json:"ctlog,omitempty"`
 	// Fulcio service configuration
 	//+optional
-	Fulcio FulcioService `json:"fulcio,omitempty"`
+	//+kubebuilder:validation:XValidation:rule="!has(self.url) || size(self.url) == 0 || self.url.matches('^[a-zA-Z][a-zA-Z0-9+.-]*://[^/].*$')",message="url must follow the pattern scheme://host[:port][/path]"
+	Fulcio ServiceRefWithOIDC `json:"fulcio,omitempty"`
 	// Rekor service configuration
 	//+optional
-	Rekor RekorService `json:"rekor,omitempty"`
+	//+kubebuilder:validation:XValidation:rule="!has(self.url) || size(self.url) == 0 || self.url.matches('^[a-zA-Z][a-zA-Z0-9+.-]*://[^/].*$')",message="url must follow the pattern scheme://host[:port][/path]"
+	Rekor ServiceReference `json:"rekor,omitempty"`
 	// TSA service configuration
 	//+optional
-	Tsa TsaService `json:"tsa,omitempty"`
+	//+kubebuilder:validation:XValidation:rule="!has(self.url) || size(self.url) == 0 || self.url.matches('^[a-zA-Z][a-zA-Z0-9+.-]*://[^/].*$')",message="url must follow the pattern scheme://host[:port][/path]"
+	Tsa ServiceReference `json:"tsa,omitempty"`
 
 	// ConfigMap with additional bundle of trusted CA
 	// +optional

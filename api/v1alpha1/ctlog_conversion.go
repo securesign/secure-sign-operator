@@ -14,7 +14,7 @@ func Convert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(in *rhtasv1.CTlogStatus, out
 	}
 	if out.Url != "" {
 		var err error
-		if out.Url, err = urlWithoutPath(out.Url); err != nil {
+		if out.Url, _, err = splitURLPath(out.Url); err != nil {
 			return err
 		}
 	}
@@ -102,7 +102,7 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Prefix = restored.Spec.Prefix
 	if dst.Status.Url != "" && restored.Spec.Prefix != "" {
 		var err error
-		if dst.Status.Url, err = urlWithPath(dst.Status.Url, "/"+restored.Spec.Prefix); err != nil {
+		if dst.Status.Url, err = buildURL(dst.Status.Url, nil, restored.Spec.Prefix); err != nil {
 			return err
 		}
 	}
