@@ -136,7 +136,7 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1.Trilli
 			Namespace:    instance.Namespace,
 		},
 	}
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+	if err = kubernetes.Create(ctx, i.Client,
 		dbSecret,
 		ensure.Labels[*corev1.Secret](slices.Collect(maps.Keys(dbLabels)), dbLabels),
 		ensure.Annotations[*corev1.Secret](managedAnnotations, i.secretAnnotations()),

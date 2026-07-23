@@ -84,7 +84,7 @@ func (i shardingConfig) Handle(ctx context.Context, instance *rhtasv1.Rekor) *ac
 		},
 	}
 
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+	if err = kubernetes.Create(ctx, i.Client,
 		newConfig,
 		ensure.ControllerReference[*v1.ConfigMap](instance, i.Client),
 		ensure.Labels[*v1.ConfigMap](slices.Collect(maps.Keys(labels)), labels),
