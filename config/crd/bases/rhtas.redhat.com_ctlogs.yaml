@@ -1545,6 +1545,9 @@ spec:
                 format: int64
                 type: integer
               url:
+                description: |-
+                  Url is the CTlog endpoint URL including the log prefix path,
+                  e.g. http://ctlog.namespace.svc/trusted-artifact-signer.
                 type: string
             type: object
         type: object

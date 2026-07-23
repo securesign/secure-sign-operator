@@ -103,7 +103,9 @@ type CTlogStatus struct {
 	TreeID *int64 `json:"treeID,omitempty"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
 	//+optional
-	TLS TLS    `json:"tls,omitempty"`
+	TLS TLS `json:"tls,omitempty"`
+	// Url is the CTlog endpoint URL including the log prefix path,
+	// e.g. http://ctlog.namespace.svc/trusted-artifact-signer.
 	Url string `json:"url,omitempty"`
 	// +listType=map
 	// +listMapKey=type

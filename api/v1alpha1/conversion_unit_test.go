@@ -222,17 +222,21 @@ func TestCTlogConversionUnit(t *testing.T) {
 		spoke *CTlog
 	}{
 		{
-			name: "basic fields",
+			name: "basic fields with status url",
 			hub: &rhtasv1.CTlog{
 				ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"},
 				Spec: rhtasv1.CTlogSpec{
 					TreeID:           ptr.To[int64](999),
 					MaxCertChainSize: ptr.To[int64](153600),
 					Trillian:         rhtasv1.TrillianService{Address: "trillian:8091", Port: ptr.To[int32](8091)},
+					Prefix:           "trusted-artifact-signer",
 					Monitoring: rhtasv1.MonitoringWithTLogConfig{
 						MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
 					},
+				},
+				Status: rhtasv1.CTlogStatus{
+					Url: "https://ctlog.rhtas.example.com/trusted-artifact-signer",
 				},
 			},
 			spoke: &CTlog{
@@ -241,6 +245,9 @@ func TestCTlogConversionUnit(t *testing.T) {
 					TreeID:           ptr.To[int64](999),
 					MaxCertChainSize: ptr.To[int64](153600),
 					Trillian:         TrillianService{Address: "trillian:8091", Port: ptr.To[int32](8091)},
+				},
+				Status: CTlogStatus{
+					Url: "https://ctlog.rhtas.example.com",
 				},
 			},
 		},
@@ -255,10 +262,14 @@ func TestCTlogConversionUnit(t *testing.T) {
 					RootCertificates: []rhtasv1.SecretKeySelector{
 						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "root-cert"}, Key: "ca.crt"},
 					},
+					Prefix: "trusted-artifact-signer",
 					Monitoring: rhtasv1.MonitoringWithTLogConfig{
 						MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
 					},
+				},
+				Status: rhtasv1.CTlogStatus{
+					Url: "http://ctlog.default.svc/trusted-artifact-signer",
 				},
 			},
 			spoke: &CTlog{
@@ -270,6 +281,9 @@ func TestCTlogConversionUnit(t *testing.T) {
 					RootCertificates: []SecretKeySelector{
 						{LocalObjectReference: LocalObjectReference{Name: "root-cert"}, Key: "ca.crt"},
 					},
+				},
+				Status: CTlogStatus{
+					Url: "http://ctlog.default.svc",
 				},
 			},
 		},
@@ -287,8 +301,12 @@ func TestCTlogConversionUnit(t *testing.T) {
 			}
 		})
 		t.Run(tt.name+"/v1alpha1_to_v1", func(t *testing.T) {
+			spoke := tt.spoke.DeepCopy()
+			if err := utilconversion.MarshalData(tt.hub, spoke); err != nil {
+				t.Fatalf("MarshalData failed: %v", err)
+			}
 			gotHub := &rhtasv1.CTlog{}
-			if err := tt.spoke.ConvertTo(gotHub); err != nil {
+			if err := spoke.ConvertTo(gotHub); err != nil {
 				t.Fatalf("ConvertTo failed: %v", err)
 			}
 			if !equality.Semantic.DeepEqual(tt.hub, gotHub) {
