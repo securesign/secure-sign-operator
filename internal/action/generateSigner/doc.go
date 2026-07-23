@@ -6,10 +6,9 @@
 // The action follows a create-once, verify-always pattern. Signer keys are
 // generated ONLY on fresh installation. After creation the secret is immutable
 // (Kubernetes enforces data immutability). Most errors are retriable —
-// terminal errors come from the FIPS password-ref guard in [signerAction.Handle],
-// from component-level [Config.ResolveRef] callbacks (e.g., invalid spec combinations
-// such as a missing private key or CA certificate), and from [Config.GenerateData]
-// callbacks.
+// terminal errors come from component-level [Config.ResolveRef] callbacks
+// (e.g., invalid spec combinations such as a missing private key or CA
+// certificate) and from [Config.GenerateData] callbacks.
 //
 // Handle executes the following decision tree on every reconcile:
 //
@@ -44,9 +43,6 @@
 //     adds TUF autodiscovery labels (e.g., fulcio_v1.crt.pem, tsa.certchain.pem).
 //     Also applied to user-provided secrets in the resolved path as a temporary
 //     workaround until dedicated resolve_pub_key actions are implemented.
-//   - PasswordRef: (optional) extract the password-ref selector from the instance.
-//     When set and FIPS mode is active, [signerAction.Handle] returns a terminal
-//     error if the selector is non-nil — password-protected keys are forbidden in FIPS.
 //
 // # Upgrade Path
 //
@@ -68,12 +64,6 @@
 //	            GenerateData: generateData,
 //	            AlignStatus:  alignStatus,
 //	            IsEnabled:    isEnabled,
-//	            PasswordRef: func(i *rhtasv1.Rekor) *rhtasv1.SecretKeySelector {
-//	                if i.Spec.Signer.KeyRef != nil {
-//	                    return i.Spec.Signer.PasswordRef
-//	                }
-//	                return nil
-//	            },
 //	        }),
 //	    )
 //	}

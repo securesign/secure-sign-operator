@@ -45,12 +45,6 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.Fulcio] {
 				}
 				secret.Labels[FulcioCALabel] = constants.KeyCert
 			},
-			PasswordRef: func(i *rhtasv1.Fulcio) *rhtasv1.SecretKeySelector {
-				if i.Spec.Certificate.PrivateKeyRef != nil {
-					return i.Spec.Certificate.PrivateKeyPasswordRef //nolint:staticcheck
-				}
-				return nil
-			},
 		}),
 	)
 }

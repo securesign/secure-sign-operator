@@ -1,9 +1,18 @@
 package actions
 
 import (
+	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
 	"fmt"
+	"math/big"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -301,7 +310,7 @@ func TestTSASigner_PasswordRefRejectedInFIPS(t *testing.T) {
 		WithStatusSubresource(instance).
 		Build()
 
-	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	a := testAction.PrepareAction(c, NewFIPSValidationAction())
 	result := a.Handle(ctx, instance)
 
 	g.Expect(result.Err).To(HaveOccurred())
@@ -338,24 +347,25 @@ func TestTSASigner_UnencryptedKeyAllowedInFIPS(t *testing.T) {
 		},
 	}
 
+	certChainPEM := generateTestCertChainPEM(t)
+
 	keySecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: "user-key-secret", Namespace: "default"},
 		Data:       map[string][]byte{"leafPrivateKey": unencryptedKey},
 	}
 	certSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: "user-cert-secret", Namespace: "default"},
-		Data:       map[string][]byte{"certificateChain": []byte("cert-data")},
+		Data:       map[string][]byte{"certificateChain": certChainPEM},
 	}
 	c := testAction.FakeClientBuilder().
 		WithObjects(instance, keySecret, certSecret).
 		WithStatusSubresource(instance).
 		Build()
 
-	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	a := testAction.PrepareAction(c, NewFIPSValidationAction())
 	result := a.Handle(ctx, instance)
 
-	g.Expect(result.Err).ToNot(HaveOccurred())
-	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, TSASignerCondition)).To(BeTrue())
+	g.Expect(result).To(Equal(testAction.Return()))
 }
 
 func TestTSASigner_AlignStatusFields(t *testing.T) {
@@ -509,4 +519,30 @@ func TestTSASigner_AlignStatusFields(t *testing.T) {
 			tt.testCase(g, instance)
 		})
 	}
+}
+
+func generateTestCertChainPEM(t *testing.T) []byte {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber:       big.NewInt(1),
+		Subject:            pkix.Name{CommonName: "test-tsa-ca"},
+		NotBefore:          time.Now(),
+		NotAfter:           time.Now().Add(time.Hour),
+		IsCA:               true,
+		KeyUsage:           x509.KeyUsageCertSign,
+		SignatureAlgorithm: x509.ECDSAWithSHA384,
+	}
+	certDER, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if err := pem.Encode(&buf, &pem.Block{Type: "CERTIFICATE", Bytes: certDER}); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller"
 	"github.com/securesign/operator/internal/controller/predicate"
+	fipsutil "github.com/securesign/operator/internal/utils/fips"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 
@@ -94,11 +95,13 @@ func (r *timestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	target := instance.DeepCopy()
 	conditionSupplier := func(_ *rhtasv1.TimestampAuthority) []string {
-		return []string{actions.TSASignerCondition, trustmaterial.TrustMaterialCondition}
+		conditions := []string{actions.TSASignerCondition, trustmaterial.TrustMaterialCondition}
+		return fipsutil.AppendFIPSCondition(conditions)
 	}
 	actions := []action.Action[*rhtasv1.TimestampAuthority]{
 		transitions.NewToPendingPhaseAction[*rhtasv1.TimestampAuthority](),
 		transitions.NewEnsureConditionsAction[*rhtasv1.TimestampAuthority](conditionSupplier),
+		actions.NewFIPSValidationAction(),
 		actions.NewGenerateSignerAction(),
 		transitions.NewToCreatePhaseAction[*rhtasv1.TimestampAuthority](),
 		actions.NewRBACAction(),

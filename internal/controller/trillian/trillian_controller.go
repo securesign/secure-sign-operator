@@ -30,6 +30,7 @@ import (
 	"github.com/securesign/operator/internal/controller/trillian/actions/db"
 	"github.com/securesign/operator/internal/controller/trillian/actions/logserver"
 	"github.com/securesign/operator/internal/controller/trillian/actions/logsigner"
+	fipsutil "github.com/securesign/operator/internal/utils/fips"
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/events"
 
@@ -97,7 +98,8 @@ func (r *trillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	target := instance.DeepCopy()
 	conditionSupplier := func(_ *rhtasv1.Trillian) []string {
-		return []string{actions.ServerCondition, actions.SignerCondition, actions.DbCondition}
+		conditions := []string{actions.ServerCondition, actions.SignerCondition, actions.DbCondition}
+		return fipsutil.AppendFIPSCondition(conditions)
 	}
 	actions := []action.Action[*rhtasv1.Trillian]{
 		transitions.NewToPendingPhaseAction[*rhtasv1.Trillian](),
@@ -106,6 +108,8 @@ func (r *trillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		logserver.NewTlsAction(),
 		logsigner.NewTlsAction(),
 		db.NewTlsAction(),
+
+		actions.NewFIPSValidationAction(),
 
 		transitions.NewToCreatePhaseAction[*rhtasv1.Trillian](),
 		logserver.NewRBACAction(),

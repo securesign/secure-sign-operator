@@ -228,7 +228,7 @@ func TestCTlogKeys_PasswordRefRejectedInFIPS(t *testing.T) {
 		WithStatusSubresource(instance).
 		Build()
 
-	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	a := testAction.PrepareAction(c, NewFIPSValidationAction())
 	result := a.Handle(ctx, instance)
 
 	g.Expect(result.Err).To(HaveOccurred())
@@ -267,9 +267,8 @@ func TestCTlogKeys_UnencryptedKeyAllowedInFIPS(t *testing.T) {
 		WithStatusSubresource(instance).
 		Build()
 
-	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	a := testAction.PrepareAction(c, NewFIPSValidationAction())
 	result := a.Handle(ctx, instance)
 
-	g.Expect(result.Err).ToNot(HaveOccurred())
-	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, SignerCondition)).To(BeTrue())
+	g.Expect(result).To(Equal(testAction.Return()))
 }

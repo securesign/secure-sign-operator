@@ -28,6 +28,7 @@ import (
 	"github.com/securesign/operator/internal/controller/predicate"
 	"github.com/securesign/operator/internal/controller/tuf/actions"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
+	fipsutil "github.com/securesign/operator/internal/utils/fips"
 	v1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
 	v13 "k8s.io/api/networking/v1"
@@ -100,13 +101,14 @@ func (r *tufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			conditions = append(conditions, k.Name)
 		}
 		conditions = append(conditions, constants.RepositoryCondition)
-		return conditions
+		return fipsutil.AppendFIPSCondition(conditions)
 	}
 	acs := []action.Action[*rhtasv1.Tuf]{
 		transitions.NewToPendingPhaseAction[*rhtasv1.Tuf](),
 		transitions.NewEnsureConditionsAction[*rhtasv1.Tuf](conditionSupplier),
 
 		actions.NewResolveKeysAction(),
+		actions.NewFIPSValidationAction(),
 		transitions.NewToCreatePhaseAction[*rhtasv1.Tuf](),
 		actions.NewRBACInitJobAction(),
 		actions.NewRBACAction(),

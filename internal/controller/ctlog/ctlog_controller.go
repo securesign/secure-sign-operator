@@ -27,6 +27,7 @@ import (
 	"github.com/securesign/operator/internal/controller"
 
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
+	fipsutil "github.com/securesign/operator/internal/utils/fips"
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
@@ -96,7 +97,8 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	target := instance.DeepCopy()
 	conditionSupplier := func(_ *rhtasv1.CTlog) []string {
-		return []string{actions.CertCondition, actions.SignerCondition, actions.ConfigCondition, actions.TLSCondition, trustmaterial.TrustMaterialCondition}
+		conditions := []string{actions.CertCondition, actions.SignerCondition, actions.ConfigCondition, actions.TLSCondition, trustmaterial.TrustMaterialCondition}
+		return fipsutil.AppendFIPSCondition(conditions)
 	}
 	acs := []action.Action[*rhtasv1.CTlog]{
 		transitions.NewToPendingPhaseAction[*rhtasv1.CTlog](),
@@ -107,6 +109,7 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		transitions.NewToCreatePhaseAction[*rhtasv1.CTlog](),
 
 		actions.NewHandleFulcioCertAction(),
+		actions.NewFIPSValidationAction(),
 		actions.NewGenerateSignerAction(),
 		actions.NewResolveTreeAction(),
 		actions.NewServerConfigAction(),
