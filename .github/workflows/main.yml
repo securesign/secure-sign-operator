@@ -166,34 +166,29 @@ jobs:
           podman build ${{ env.OCP_VERSION }}/rhtas-operator -f catalog.Dockerfile -t $CATALOG_IMG
           podman push $CATALOG_IMG
 
-  build-tuftool:
-    name: Build-tuftool
+  build-tufcli:
+    name: Build-tufcli
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout tough source
+      - name: Checkout tufcli source
         uses: actions/checkout@v4
         with:
-          repository: "securesign/tough"
-          path: tough
+          repository: "securesign/tufcli"
+          path: tufcli
 
-      - uses: actions/cache@v4
+      - name: Install Go
+        uses: actions/setup-go@v5
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            /tmp/tuftool
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Build
-        run: cd tough && cargo build --release --target-dir /tmp/tuftool
+        run: cd tufcli && CGO_ENABLED=0 go build -o /tmp/tufcli .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tuftool
-          path: /tmp/tuftool/release/tuftool
+          name: tufcli
+          path: /tmp/tufcli
           retention-days: 1
           if-no-files-found: error
 
@@ -205,7 +200,7 @@ jobs:
       packages: read
     needs:
     - build-operator
-    - build-tuftool
+    - build-tufcli
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -215,12 +210,12 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Download tuftool
+      - name: Download tufcli
         uses: actions/download-artifact@v4
         with:
-          name: tuftool
-          path: /tmp/tuftool
-      - run: echo "/tmp/tuftool" >> $GITHUB_PATH
+          name: tufcli
+          path: /tmp/tufcli
+      - run: echo "/tmp/tufcli" >> $GITHUB_PATH
 
       - name: Log in to GitHub Container Registry
         uses: redhat-actions/podman-login@v1
@@ -721,7 +716,7 @@ jobs:
       id-token: write
     needs:
       - build-operator-coverage
-      - build-tuftool
+      - build-tufcli
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -736,12 +731,12 @@ jobs:
           go install github.com/konflux-ci/coverport/cli@latest
           mv "$(go env GOPATH)/bin/cli" "$(go env GOPATH)/bin/coverport"
 
-      - name: Download tuftool
+      - name: Download tufcli
         uses: actions/download-artifact@v4
         with:
-          name: tuftool
-          path: /tmp/tuftool
-      - run: echo "/tmp/tuftool" >> $GITHUB_PATH
+          name: tufcli
+          path: /tmp/tufcli
+      - run: echo "/tmp/tufcli" >> $GITHUB_PATH
 
       - name: Log in to GitHub Container Registry
         uses: redhat-actions/podman-login@v1

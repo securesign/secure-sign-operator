@@ -439,7 +439,7 @@ if [ "$NEEDS_UPDATE" = true ]; then
     SAFE_OUTDIR="$WORKDIR/tuf-output"
     mkdir -p "$SAFE_OUTDIR"
 
-    tuftool update \
+    tufcli update \
       --root "$ROOT" \
       --key "$KEYDIR/snapshot.pem" \
       --key "$KEYDIR/targets.pem" \

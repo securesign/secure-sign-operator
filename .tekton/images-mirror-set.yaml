@@ -54,8 +54,8 @@ spec:
         - quay.io/securesign/rekor-monitor
       source: registry.redhat.io/rhtas/rekor-monitor-rhel9
     - mirrors:
-        - quay.io/securesign/tuffer
-      source: registry.redhat.io/rhtas/tuffer-rhel9
+        - quay.io/securesign/tufcli-init
+      source: registry.redhat.io/rhtas/tufcli-init-rhel9
     - mirrors:
         - quay.io/securesign/ctlog-monitor
       source: registry.redhat.io/rhtas/ctlog-monitor-rhel9
