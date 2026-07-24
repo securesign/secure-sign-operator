@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -43,6 +44,29 @@ func ListConfigMaps(ctx context.Context, c client.Client, namespace string, labe
 		return nil, err
 	}
 	return list, nil
+}
+
+func FindConfigMap(ctx context.Context, c client.Client, namespace string, label string) (*metav1.PartialObjectMetadata, error) {
+	gvk := schema.GroupVersionKind{
+		Group:   "",
+		Version: "v1",
+		Kind:    "ConfigMap",
+	}
+
+	list := &metav1.PartialObjectMetadataList{}
+	list.SetGroupVersionKind(gvk)
+
+	err := FindByLabelSelector(ctx, c, list, namespace, label)
+	if err != nil {
+		return nil, err
+	}
+	if len(list.Items) > 1 {
+		return nil, errors.New("duplicate resource")
+	}
+	if len(list.Items) == 1 {
+		return &list.Items[0], nil
+	}
+	return nil, fmt.Errorf("configmap not found with label %s", label)
 }
 
 func EnsureConfigMapData(immutable bool, data map[string]string) func(*corev1.ConfigMap) error {

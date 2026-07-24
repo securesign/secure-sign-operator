@@ -7,11 +7,73 @@
 package v1
 
 import (
+	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const FulcioSignerTypeFile = "file"
+const (
+	FulcioSignerTypeFile   = "file"
+	FulcioSignerTypePKCS11 = "pkcs11"
+)
+
+// PKCS11InitContainerSpec defines a curated subset of corev1.Container for PKCS#11 init containers.
+// These containers run before the main Fulcio server to perform vendor-specific HSM initialization.
+type PKCS11InitContainerSpec struct {
+	// Name of the init container. Must be unique within the pod.
+	//+required
+	//+kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+	Name string `json:"name"`
+	// Container image name.
+	//+required
+	Image string `json:"image"`
+	// Entrypoint array. Not executed within a shell.
+	//+optional
+	Command []string `json:"command,omitempty"`
+	// Arguments to the entrypoint.
+	//+optional
+	Args []string `json:"args,omitempty"`
+	// List of environment variables to set in the container.
+	//+optional
+	Env []core.EnvVar `json:"env,omitempty"`
+	// List of sources to populate environment variables in the container.
+	//+optional
+	EnvFrom []core.EnvFromSource `json:"envFrom,omitempty"`
+	// Pod volumes to mount into the container's filesystem.
+	//+optional
+	VolumeMounts []core.VolumeMount `json:"volumeMounts,omitempty"`
+	// Compute Resources required by this container.
+	//+optional
+	Resources *core.ResourceRequirements `json:"resources,omitempty"`
+	// SecurityContext defines the security options the container should be run with.
+	//+optional
+	SecurityContext *core.SecurityContext `json:"securityContext,omitempty"`
+	// Image pull policy.
+	//+optional
+	ImagePullPolicy core.PullPolicy `json:"imagePullPolicy,omitempty"`
+}
+
+// PKCS11KeyConfig defines the key configuration for PKCS#11 CA operations.
+type PKCS11KeyConfig struct {
+	// The PKCS#11 key ID used to identify the HSM key slot.
+	// This value is passed to Fulcio via --hsm-caroot-id.
+	//+required
+	//+kubebuilder:validation:Minimum=0
+	ID int `json:"id"`
+	// Optional human-readable label for the key.
+	//+optional
+	Label string `json:"label,omitempty"`
+}
+
+// FulcioPKCS11Config defines the PKCS#11 HSM configuration for Fulcio.
+type FulcioPKCS11Config struct {
+	// Reference to a Secret containing the crypto11.conf PKCS#11 configuration file.
+	//+required
+	ConfigRef SecretKeySelector `json:"configRef"`
+	// Key configuration for the PKCS#11 CA.
+	//+required
+	KeyConfig PKCS11KeyConfig `json:"keyConfig"`
+}
 
 // FulcioSpec defines the desired state of Fulcio
 type FulcioSpec struct {
@@ -37,13 +99,26 @@ type FulcioSpec struct {
 	// ConfigMap with additional bundle of trusted CA
 	//+optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
+	// Init containers for vendor-specific setup (e.g. HSM client connectivity).
+	//+optional
+	InitContainers []PKCS11InitContainerSpec `json:"initContainers,omitempty"`
+	// Additional pod-level volumes for vendor configuration.
+	//+optional
+	Volumes []core.Volume `json:"volumes,omitempty"`
+	// Additional volume mounts for the main server container.
+	//+optional
+	VolumeMounts []core.VolumeMount `json:"volumeMounts,omitempty"`
 }
 
 // FulcioSigner defines the desired state of the Fulcio Signer
 // +kubebuilder:validation:XValidation:rule="self.type != 'file' || !has(self.certificateChain.certificateChainRef) || (has(self.file) && has(self.file.privateKeyRef))",message="file.privateKeyRef cannot be empty when certificateChain.certificateChainRef is provided"
+// +kubebuilder:validation:XValidation:rule="self.type != 'pkcs11' || has(self.pkcs11)",message="pkcs11 config is required when type is pkcs11"
+// +kubebuilder:validation:XValidation:rule="self.type != 'pkcs11' || has(self.certificateChain.certificateChainRef)",message="certificateChain.certificateChainRef is required when type is pkcs11"
+// +kubebuilder:validation:XValidation:rule="self.type != 'pkcs11' || !has(self.file)",message="file must not be set when type is pkcs11"
+// +kubebuilder:validation:XValidation:rule="self.type != 'file' || !has(self.pkcs11)",message="pkcs11 must not be set when type is file"
 type FulcioSigner struct {
 	// Type of the signer backend
-	//+kubebuilder:validation:Enum=file
+	//+kubebuilder:validation:Enum=file;pkcs11
 	//+optional
 	Type string `json:"type,omitempty"`
 	// Configuration for the Certificate Chain
@@ -52,6 +127,12 @@ type FulcioSigner struct {
 	// Configuration for file-based signer
 	//+optional
 	File *FulcioFile `json:"file,omitempty"`
+	// PKCS#11 HSM configuration. Required when type is "pkcs11".
+	//+optional
+	PKCS11 *FulcioPKCS11Config `json:"pkcs11,omitempty"`
+	// Auth configures authentication for the Fulcio server container (env vars and secret mounts).
+	//+optional
+	Auth *Auth `json:"auth,omitempty"`
 }
 
 // FulcioFile defines the desired state of the Fulcio file-based signer

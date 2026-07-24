@@ -17,8 +17,14 @@ limitations under the License.
 package v1
 
 import (
+	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	CTlogSignerTypeFile   = "file"
+	CTlogSignerTypePKCS11 = "pkcs11"
 )
 
 // CTlogSpec defines the desired state of CTlog component
@@ -71,19 +77,36 @@ type CTlogSpec struct {
 	// ConfigMap with additional bundle of trusted CA
 	// +optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
+
+	// Init containers for vendor-specific setup.
+	//+optional
+	InitContainers []PKCS11InitContainerSpec `json:"initContainers,omitempty"`
+	// Additional pod-level volumes for vendor configuration.
+	//+optional
+	Volumes []core.Volume `json:"volumes,omitempty"`
+	// Additional volume mounts for the main server container.
+	//+optional
+	VolumeMounts []core.VolumeMount `json:"volumeMounts,omitempty"`
 }
 
-const CTlogSignerTypeFile = "file"
-
 // CTlogSigner defines the desired state of the CTlog Signer
+// +kubebuilder:validation:XValidation:rule="self.type != 'pkcs11' || has(self.pkcs11)",message="pkcs11 config is required when type is pkcs11"
+// +kubebuilder:validation:XValidation:rule="self.type != 'pkcs11' || !has(self.file)",message="file must not be set when type is pkcs11"
+// +kubebuilder:validation:XValidation:rule="self.type != 'file' || !has(self.pkcs11)",message="pkcs11 must not be set when type is file"
 type CTlogSigner struct {
 	// Type of the signer backend
-	//+kubebuilder:validation:Enum=file
+	//+kubebuilder:validation:Enum=file;pkcs11
 	//+optional
 	Type string `json:"type,omitempty"`
 	// Configuration for file-based signer
 	//+optional
 	File *CTlogFile `json:"file,omitempty"`
+	// PKCS#11 HSM configuration. Required when type is "pkcs11".
+	//+optional
+	PKCS11 *CTlogPKCS11Config `json:"pkcs11,omitempty"`
+	// Auth configures authentication for the CTlog server container (env vars and secret mounts).
+	//+optional
+	Auth *Auth `json:"auth,omitempty"`
 }
 
 // CTlogFile defines the desired state of the CTlog file-based signer
@@ -106,6 +129,37 @@ type CTlogFile struct {
 	// be specified for regular logs as well for the convenience of test tools.
 	//+optional
 	PublicKeyRef *SecretKeySelector `json:"publicKeyRef,omitempty"`
+}
+
+// CTlogPKCS11Config configures CTlog to use a PKCS#11 backend for signing.
+// The operator is vendor-agnostic: the init containers provision the token
+// and make the .so library available.
+//
+// +kubebuilder:validation:XValidation:rule="has(self.pinSecretRef) && has(self.publicKeyRef)",message="pinSecretRef and publicKeyRef are required"
+type CTlogPKCS11Config struct {
+	// Reference to a Secret containing the HSM PIN.
+	//+required
+	PinSecretRef *SecretKeySelector `json:"pinSecretRef,omitempty"`
+
+	// Reference to a Secret containing the PEM-encoded public key
+	// corresponding to the private key on the HSM.
+	//+required
+	PublicKeyRef *SecretKeySelector `json:"publicKeyRef,omitempty"`
+
+	// PKCS#11 token label (e.g. "ctlog").
+	//+required
+	TokenLabel string `json:"tokenLabel"`
+
+	// Full path to the PKCS#11 .so module inside the init container image.
+	// The operator copies this library to a shared volume and passes
+	// --pkcs11_module_path to ct_server.
+	//+required
+	ModulePath string `json:"modulePath"`
+
+	// Persistent storage for HSM tokens (key survives pod restarts).
+	// When nil, an emptyDir is used (key is regenerated on pod restart).
+	//+optional
+	Persistence *Pvc `json:"persistence,omitempty"`
 }
 
 // CTlogStatus defines the observed state of CTlog component

@@ -39,17 +39,34 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.Fulcio] {
 			ResolveRef:   resolveRef,
 			GenerateData: generateData,
 			AlignStatus:  alignStatus,
-			MutateSecret: func(_ *rhtasv1.Fulcio, secret *corev1.Secret) {
+			MutateSecret: func(instance *rhtasv1.Fulcio, secret *corev1.Secret) {
 				if secret.Labels == nil {
 					secret.Labels = make(map[string]string)
 				}
-				secret.Labels[FulcioCALabel] = constants.KeyCert
+				labelValue := constants.KeyCert
+				if instance.Spec.Signer.Type == rhtasv1.FulcioSignerTypePKCS11 && instance.Spec.Signer.CertificateChain.CertificateChainRef != nil {
+					labelValue = instance.Spec.Signer.CertificateChain.CertificateChainRef.Key
+				}
+				secret.Labels[FulcioCALabel] = labelValue
 			},
 		}),
 	)
 }
 
 func resolveRef(ctx context.Context, instance *rhtasv1.Fulcio, c client.Client) (*rhtasv1.SecretKeySelector, error) {
+	// PKCS#11 mode: certificateChainRef is required, privateKeyRef must NOT be set.
+	// The root CA cert is pre-provisioned by the user and referenced via certificateChainRef.
+	if instance.Spec.Signer.Type == rhtasv1.FulcioSignerTypePKCS11 {
+		if instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
+			return nil, reconcile.TerminalError(fmt.Errorf("certificateChain.certificateChainRef is required when type is pkcs11"))
+		}
+		if err := generateSigner.RequireSecret(ctx, c, instance.Namespace, instance.Spec.Signer.CertificateChain.CertificateChainRef); err != nil {
+			return nil, err
+		}
+		return instance.Spec.Signer.CertificateChain.CertificateChainRef, nil
+	}
+
+	// File-CA mode: existing behavior
 	var privateKeyRef *rhtasv1.SecretKeySelector
 	if instance.Spec.Signer.File != nil {
 		privateKeyRef = instance.Spec.Signer.File.PrivateKeyRef
@@ -143,6 +160,18 @@ func alignStatus(instance *rhtasv1.Fulcio, ref rhtasv1.SecretKeySelector) {
 	if instance.Status.Certificate == nil {
 		instance.Status.Certificate = &rhtasv1.FulcioCertStatus{}
 	}
+
+	// PKCS#11 mode: no privateKeyRef, only caRef.
+	if instance.Spec.Signer.Type == rhtasv1.FulcioSignerTypePKCS11 {
+		instance.Status.Certificate.PrivateKeyRef = nil
+		instance.Status.Certificate.PrivateKeyPasswordRef = nil
+		if instance.Spec.Signer.CertificateChain.CertificateChainRef != nil {
+			instance.Status.Certificate.CARef = instance.Spec.Signer.CertificateChain.CertificateChainRef.DeepCopy()
+		}
+		return
+	}
+
+	// File-CA mode: existing behavior
 	file := instance.Spec.Signer.File
 	if file != nil && file.PrivateKeyRef != nil {
 		instance.Status.Certificate.PrivateKeyRef = file.PrivateKeyRef.DeepCopy()

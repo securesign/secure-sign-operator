@@ -8,10 +8,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
-func Convert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in *rhtasv1.FulcioStatus, out *FulcioStatus, s apiconversion.Scope) error {
-	return autoConvert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in, out, s)
-}
-
 func Convert_v1alpha1_FulcioSpec_To_v1_FulcioSpec(in *FulcioSpec, out *rhtasv1.FulcioSpec, s apiconversion.Scope) error {
 	if err := autoConvert_v1alpha1_FulcioSpec_To_v1_FulcioSpec(in, out, s); err != nil {
 		return err
@@ -152,6 +148,12 @@ func (src *Fulcio) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Status.CertificateChain = restored.Status.CertificateChain
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
+	// Restore PKCS#11 config for Fulcio signer
+	dst.Spec.Signer.PKCS11 = restored.Spec.Signer.PKCS11
+	dst.Spec.Signer.Auth = restored.Spec.Signer.Auth
+	dst.Spec.InitContainers = restored.Spec.InitContainers
+	dst.Spec.Volumes = restored.Spec.Volumes
+	dst.Spec.VolumeMounts = restored.Spec.VolumeMounts
 	return nil
 }
 

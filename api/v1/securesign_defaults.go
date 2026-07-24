@@ -1,7 +1,9 @@
 package v1
 
 func (s *Securesign) SetDefaults() {
-	// keep securesign minimal - defaulted on sub-resource level
+	s.Spec.Fulcio.Signer.SetDefaults()
+	s.Spec.Ctlog.Signer.SetDefaults()
+
 	if s.Spec.Ctlog.Trillian.URL == "" && s.Spec.Ctlog.Trillian.Ref == nil {
 		s.Spec.Ctlog.Trillian.Ref = &ServiceReferenceRef{
 			Name:      s.Name,
