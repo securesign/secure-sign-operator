@@ -23,20 +23,9 @@ rules:
   resources:
   - namespaces
   verbs:
-  - create
   - get
   - list
   - watch
-- apiGroups:
-  - ""
-  resourceNames:
-  - trusted-artifact-signer
-  resources:
-  - namespaces
-  verbs:
-  - delete
-  - patch
-  - update
 - apiGroups:
   - ""
   resources:

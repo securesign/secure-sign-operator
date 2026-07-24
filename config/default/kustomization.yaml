@@ -221,17 +221,6 @@ replacements:
       kind: Deployment
       name: operator-controller-manager
 - source:
-    fieldPath: data.RELATED_IMAGE_CLIENT_SERVER
-    kind: ConfigMap
-    name: related-images
-    version: v1
-  targets:
-  - fieldPaths:
-    - spec.template.spec.containers.[name=^manager$].env.[name=^RELATED_IMAGE_CLIENT_SERVER$].value
-    select:
-      kind: Deployment
-      name: operator-controller-manager
-- source:
     fieldPath: data.RELATED_IMAGE_CONSOLE_API
     kind: ConfigMap
     name: related-images

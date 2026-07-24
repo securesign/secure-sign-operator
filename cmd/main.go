@@ -54,8 +54,6 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	v1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
-	"github.com/securesign/operator/internal/clidownload"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -150,13 +148,11 @@ func main() {
 	utils.RelatedImageFlag("tuf-image", images.Tuf, "The image used for TUF.")
 	utils.RelatedImageFlag("ctlog-image", images.CTLog, "The image used for ctlog.")
 	utils.RelatedImageFlag("http-server-image", images.HttpServer, "The image used to serve our cli binary's.")
-	utils.RelatedImageFlag("client-server-image", images.ClientServer, "The image used to serve cosign and gitsign.")
 	utils.RelatedImageFlag("timestamp-authority-image", images.TimestampAuthority, "The image used for Timestamp Authority")
 	utils.RelatedImageFlag("rekor-monitor-image", images.RekorMonitor, "The image used for rekor monitor.")
 	utils.RelatedImageFlag("ctlog-monitor-image", images.CTLogMonitor, "The image used for ctlog monitor.")
 	utils.RelatedImageFlag("console-api-image", images.ConsoleApi, "The image used for the console backend (API).")
 	utils.RelatedImageFlag("console-ui-image", images.ConsoleUI, "The image used for the console UI.")
-	flag.StringVar(&clidownload.CliHostName, "cli-server-hostname", "", "The hostname for the cli server")
 
 	klog.InitFlags(flag.CommandLine)
 	flag.Parse()
@@ -383,15 +379,6 @@ func main() {
 			setupLog.Error(err, "unable to set up webhook ready check")
 			os.Exit(1)
 		}
-	}
-
-	if err := mgr.Add(&clidownload.Component{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Log:    setupLog.WithName("clidownload"),
-	}); err != nil {
-		setupLog.Error(err, "unable to set up CLIDownload component")
-		os.Exit(1)
 	}
 
 	setupLog.Info("starting manager")

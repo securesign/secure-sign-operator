@@ -225,37 +225,7 @@ See `config/samples/` for example CR configurations with OIDC providers and exte
 
 ### Client Binaries
 
-The OpenShift `ConsoleCLIDownload` integration is **OpenShift-only**; on vanilla
-Kubernetes there is no console download link. The CLI binaries are served by the
-`cli-server` Service and are reachable on both platforms.
-
-For quick local access without an Ingress, port-forward the Service:
-
-```sh
-kubectl -n securesign port-forward svc/cli-server 8080:8080
-# then e.g. download cosign for linux/amd64:
-curl -sSL http://localhost:8080/clients/linux/cosign-amd64.gz | gunzip > cosign
-```
-
-To expose the CLI server externally, create an Ingress:
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: cli-external
-  namespace: securesign
-spec:
-  ingressClassName: nginx
-  rules:
-  - host: cli-server.example.com
-    http:
-      paths:
-      - backend:
-          service:
-            name: cli-server
-            port:
-              name: cli-server
-        path: /clients(/|$)(.*)
-        pathType: ImplementationSpecific
-```
+CLI binaries (cosign, gitsign, rekor-cli, etc.) are available for download from the
+[Red Hat Developer Portal](https://developers.redhat.com/content-gateway/rest/browse/RHTAS/).
+On OpenShift, the `ConsoleCLIDownload` resources provide download links directly in the
+OpenShift web console's CLI Downloads page.
