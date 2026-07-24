@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"regexp"
 	"slices"
 	"strconv"
 
@@ -29,13 +30,14 @@ import (
 
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	rekorutils "github.com/securesign/operator/internal/controller/rekor/utils"
-	actions2 "github.com/securesign/operator/internal/controller/trillian/actions"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 )
+
+var portRe = regexp.MustCompile(`:(\d+)(?:/|$)`)
 
 func NewDeployAction() action.Action[*rhtasv1.Rekor] {
 	return &deployAction{}
@@ -60,11 +62,11 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *acti
 	)
 	labels := labels.For(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
 
-	insCopy := instance.DeepCopy()
-	if insCopy.Spec.Trillian.Address == "" {
-		insCopy.Spec.Trillian.Address = fmt.Sprintf("dns:///%s.%s.svc", actions2.LogserverDeploymentName, instance.Namespace)
+	internalTrillianUrl, err := utils.ResolveInternalServiceUrl(ctx, i.Client, instance.Spec.Trillian, instance.Namespace, &rhtasv1.Trillian{})
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("error resolving Trillian URL: %w", err), instance)
 	}
-	i.Logger.V(1).Info("trillian logserver", "address", insCopy.Spec.Trillian.Address)
+	i.Logger.V(1).Info("trillian logserver", "address", internalTrillianUrl)
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		&v2.Deployment{
@@ -73,10 +75,10 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *acti
 				Namespace: instance.Namespace,
 			},
 		},
-		i.ensureServerDeployment(insCopy, actions.RBACName, labels),
-		deployment.PodRequirements(insCopy.Spec.PodRequirements, actions.ServerDeploymentName),
+		i.ensureServerDeployment(instance, actions.RBACName, labels, internalTrillianUrl),
+		deployment.PodRequirements(instance.Spec.PodRequirements, actions.ServerDeploymentName),
 		deployment.PodSecurityContext(),
-		i.ensureAttestation(insCopy),
+		i.ensureAttestation(instance),
 		ensure.ControllerReference[*v2.Deployment](instance, i.Client),
 		ensure.Labels[*v2.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		func(object *v2.Deployment) error {
@@ -105,16 +107,22 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *acti
 	}
 }
 
-func (i deployAction) ensureServerDeployment(instance *rhtasv1.Rekor, sa string, labels map[string]string) func(*v2.Deployment) error {
+func (i deployAction) ensureServerDeployment(instance *rhtasv1.Rekor, sa string, labels map[string]string, internalTrillianUrl string) func(*v2.Deployment) error {
 	return func(dp *v2.Deployment) error {
+		m := portRe.FindStringSubmatchIndex(internalTrillianUrl)
+		if m == nil {
+			return fmt.Errorf("error parsing Trillian URL %q: no port found", internalTrillianUrl)
+		}
+		trillianHost := internalTrillianUrl[:m[0]]
+		trillianPort := internalTrillianUrl[m[2]:m[3]]
 		switch {
 		case instance.Status.ServerConfigRef == nil:
 			return fmt.Errorf("CreateRekorDeployment: %w", rekorutils.ErrServerConfigNotSpecified)
 		case instance.Status.TreeID == nil:
 			return fmt.Errorf("CreateRekorDeployment: %w", rekorutils.ErrTreeNotSpecified)
-		case instance.Spec.Trillian.Address == "":
+		case trillianHost == "":
 			return fmt.Errorf("CreateRekorDeployment: %w", rekorutils.ErrTrillianAddressNotSpecified)
-		case instance.Spec.Trillian.Port == nil:
+		case trillianPort == "":
 			return fmt.Errorf("CreateRekorDeployment: %w", rekorutils.ErrTrillianPortNotSpecified)
 		}
 
@@ -135,8 +143,8 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1.Rekor, sa string,
 
 		args := []string{
 			"serve",
-			"--trillian_log_server.address", instance.Spec.Trillian.Address,
-			"--trillian_log_server.port", strconv.Itoa(int(*instance.Spec.Trillian.Port)),
+			"--trillian_log_server.address", trillianHost,
+			"--trillian_log_server.port", trillianPort,
 			"--trillian_log_server.sharding_config", "/sharding/sharding-config.yaml",
 			"--trillian_log_server.grpc_default_service_config", `{"loadBalancingConfig":[{"round_robin":{}}]}`,
 

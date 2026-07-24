@@ -174,5 +174,16 @@ func (r *ctlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			}
 			return requests
 		})).
+		Watches(&rhtasv1.Trillian{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+			list := &rhtasv1.CTlogList{}
+			if err := mgr.GetClient().List(ctx, list, client.InNamespace(object.GetNamespace())); err != nil {
+				return nil
+			}
+			requests := make([]reconcile.Request, len(list.Items))
+			for i, k := range list.Items {
+				requests[i] = reconcile.Request{NamespacedName: types.NamespacedName{Namespace: object.GetNamespace(), Name: k.Name}}
+			}
+			return requests
+		})).
 		Complete(r)
 }

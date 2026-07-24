@@ -104,8 +104,8 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 				Ingress: rhtasv1.Ingress{
 					Enabled: ptr.To(true),
 				},
-				Trillian: rhtasv1.TrillianService{
-					Address: fmt.Sprintf("trillian-logserver.%s.svc.cluster.local", namespaces["trillian"].Name),
+				Trillian: rhtasv1.ServiceReference{
+					URL: fmt.Sprintf("trillian-logserver.%s.svc.cluster.local:8091", namespaces["trillian"].Name),
 				},
 				Signer: rhtasv1.RekorSigner{
 					KMS: "secret",
@@ -125,8 +125,11 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 				Name:      "test",
 			},
 			Spec: rhtasv1.CTlogSpec{
-				Trillian: rhtasv1.TrillianService{
-					Address: fmt.Sprintf("trillian-logserver.%s.svc.cluster.local", namespaces["trillian"].Name),
+				Trillian: rhtasv1.ServiceReference{
+					Ref: &rhtasv1.ServiceReferenceRef{
+						Name:      "test",
+						Namespace: namespaces["trillian"].Name,
+					},
 				},
 				PrivateKeyRef: &rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{
