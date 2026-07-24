@@ -38,6 +38,9 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Status.PublicKey = restored.Status.PublicKey
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
 	dst.Spec.Prefix = restored.Spec.Prefix
+	dst.Spec.SignerType = restored.Spec.SignerType
+	dst.Spec.PKCS11 = restored.Spec.PKCS11
+	dst.Status.PKCS11 = restored.Status.PKCS11
 	if dst.Status.Url != "" && restored.Spec.Prefix != "" {
 		var err error
 		if dst.Status.Url, err = urlWithPath(dst.Status.Url, "/"+restored.Spec.Prefix); err != nil {

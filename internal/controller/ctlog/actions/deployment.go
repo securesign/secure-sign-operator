@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"path"
 	"slices"
 	"strconv"
 
@@ -25,6 +26,7 @@ import (
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -124,6 +126,8 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 		}
 		volume.Secret.SecretName = instance.Status.ServerConfigRef.Name
 
+		isPKCS11 := instance.Spec.SignerType == rhtasv1.CTlogSignerTypePKCS11
+
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, containerName)
 		container.Image = images.Registry.Get(images.CTLog)
 
@@ -144,6 +148,16 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 			metricsPort.Protocol = core.ProtocolTCP
 		}
 
+		if isPKCS11 {
+			p := instance.Spec.PKCS11
+			if p == nil || instance.Status.PKCS11 == nil {
+				return fmt.Errorf("PKCS#11 config not yet resolved — waiting for ensure-pkcs11-config")
+			}
+			// Add --pkcs11_module_path flag pointing to the copied .so in the shared volume
+			modulePath := fmt.Sprintf("%s/%s", HSMLibMountPath, path.Base(p.PKCS11ModulePath))
+			appArgs = append(appArgs, fmt.Sprintf("--pkcs11_module_path=%s", modulePath))
+		}
+
 		container.Args = appArgs
 		if instance.Spec.MaxCertChainSize != nil {
 			container.Args = append(container.Args, "--max_cert_chain_size", fmt.Sprintf("%d", *instance.Spec.MaxCertChainSize))
@@ -152,6 +166,17 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, volumeName)
 		volumeMount.MountPath = "/ctfe-keys"
 		volumeMount.ReadOnly = true
+
+		if isPKCS11 {
+			i.ensurePKCS11Deployment(instance, template, container)
+		} else {
+			// Clean up PKCS#11 resources that may remain from a previous pkcs11→file mode switch
+			template.Spec.InitContainers = nil
+			kubernetes.RemoveVolumeByName(&template.Spec, HSMTokensVolumeName)
+			kubernetes.RemoveVolumeByName(&template.Spec, HSMLibVolumeName)
+			kubernetes.RemoveVolumeMountByName(container, HSMTokensVolumeName)
+			kubernetes.RemoveVolumeMountByName(container, HSMLibVolumeName)
+		}
 
 		if container.LivenessProbe == nil {
 			container.LivenessProbe = &core.Probe{}
@@ -192,6 +217,189 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 		container.StartupProbe.FailureThreshold = 12
 
 		return nil
+	}
+}
+
+func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.CTlog, template *core.PodTemplateSpec, container *core.Container) {
+	pkcs11Config := instance.Spec.PKCS11
+
+	// Reconcile init containers in-place to preserve Kubernetes-defaulted fields
+	// (TerminationMessagePath, TerminationMessagePolicy, ImagePullPolicy).
+	reconcileInitContainers(&template.Spec, pkcs11Config.InitContainers, instance.Status.PKCS11.PinSecretRef, pkcs11Config.PKCS11ModulePath) //nolint:actionlint // template.Spec is the pod template, not the CR spec
+
+	// Add serverEnv from PKCS#11 config
+	for _, env := range pkcs11Config.ServerEnv {
+		e := kubernetes.FindEnvByNameOrCreate(container, env.Name)
+		e.Value = env.Value
+		e.ValueFrom = env.ValueFrom
+	}
+
+	// Main container: HSM volume mounts
+	hsmTokensMount := kubernetes.FindVolumeMountByNameOrCreate(container, HSMTokensVolumeName)
+	hsmTokensMount.MountPath = HSMTokenMountPath
+
+	hsmLibMount := kubernetes.FindVolumeMountByNameOrCreate(container, HSMLibVolumeName)
+	hsmLibMount.MountPath = HSMLibMountPath
+	hsmLibMount.ReadOnly = true
+
+	// Add user-defined serverVolumeMounts
+	for _, vm := range pkcs11Config.ServerVolumeMounts {
+		m := kubernetes.FindVolumeMountByNameOrCreate(container, vm.Name)
+		m.MountPath = vm.MountPath
+		m.SubPath = vm.SubPath
+		m.ReadOnly = vm.ReadOnly
+	}
+
+	// Process user-defined volumes first so operator-managed volumes take
+	// precedence for reserved names (hsm-tokens, hsm-lib, etc.)
+	for _, vol := range pkcs11Config.Volumes {
+		v := kubernetes.FindVolumeByNameOrCreate(&template.Spec, vol.Name) //nolint:actionlint // template.Spec is the pod template, not the CR spec
+		v.VolumeSource = vol.VolumeSource
+		ensureVolumeDefaultMode(v)
+	}
+
+	// Operator-managed volumes: hsm-tokens defaults to EmptyDir but can be
+	// overridden by user-defined volumes or PVC for token persistence.
+	if !hasVolume(&template.Spec, HSMTokensVolumeName) {
+		tokensVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, HSMTokensVolumeName) //nolint:actionlint // template.Spec is the pod template, not the CR spec
+		// Clear previous VolumeSource before setting new one to prevent collision
+		tokensVol.VolumeSource = core.VolumeSource{}
+		if pkcs11Config.Persistence != nil && pkcs11Config.Persistence.Name != "" {
+			tokensVol.PersistentVolumeClaim = &core.PersistentVolumeClaimVolumeSource{
+				ClaimName: pkcs11Config.Persistence.Name,
+			}
+		} else {
+			tokensVol.EmptyDir = &core.EmptyDirVolumeSource{}
+		}
+	}
+
+	if !hasVolume(&template.Spec, HSMLibVolumeName) {
+		hsmLibVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, HSMLibVolumeName) //nolint:actionlint // template.Spec is the pod template, not the CR spec
+		hsmLibVol.EmptyDir = &core.EmptyDirVolumeSource{}
+	}
+}
+
+// reconcileInitContainers reconciles PKCS#11 init containers in-place on the
+// pod spec. It uses FindInitContainerByNameOrCreate to modify existing containers
+// rather than replacing the entire slice, which preserves Kubernetes API
+// server-defaulted fields and avoids spurious diffs that would cause infinite
+// reconciliation loops. It also manages the operator-owned hsm-lib-export
+// container that copies the PKCS#11 .so to a shared volume.
+func reconcileInitContainers(podSpec *core.PodSpec, specs []rhtasv1.PKCS11InitContainerSpec, pinSecretRef *rhtasv1.SecretKeySelector, pkcs11ModulePath string) {
+	desiredNames := make(map[string]struct{}, len(specs)+1)
+	for _, spec := range specs {
+		desiredNames[spec.Name] = struct{}{}
+		c := kubernetes.FindInitContainerByNameOrCreate(podSpec, spec.Name)
+		c.Image = spec.Image
+		c.Command = spec.Command
+		c.Args = spec.Args
+		c.EnvFrom = spec.EnvFrom
+		if spec.Resources != nil {
+			c.Resources = *spec.Resources
+		}
+		c.SecurityContext = spec.SecurityContext
+		// Only set ImagePullPolicy if explicitly specified; otherwise preserve
+		// the Kubernetes default applied by the API server.
+		if spec.ImagePullPolicy != "" {
+			c.ImagePullPolicy = spec.ImagePullPolicy
+		}
+
+		// Build env list: user-specified + injected HSM_PIN
+		env := append([]core.EnvVar{}, spec.Env...)
+		if pinSecretRef != nil {
+			env = append(env, core.EnvVar{
+				Name: HSMPinEnvVar,
+				ValueFrom: &core.EnvVarSource{
+					SecretKeyRef: &core.SecretKeySelector{
+						Key:                  pinSecretRef.Key,
+						LocalObjectReference: core.LocalObjectReference{Name: pinSecretRef.Name},
+					},
+				},
+			})
+		}
+		c.Env = env
+
+		// Build volume mounts: user-specified + operator-managed (skip duplicates by path)
+		mounts := append([]core.VolumeMount{}, spec.VolumeMounts...)
+		if !hasMountPath(mounts, HSMTokenMountPath) {
+			mounts = append(mounts, core.VolumeMount{
+				Name:      HSMTokensVolumeName,
+				MountPath: HSMTokenMountPath,
+			})
+		}
+		if !hasMountPath(mounts, HSMLibMountPath) {
+			mounts = append(mounts, core.VolumeMount{
+				Name:      HSMLibVolumeName,
+				MountPath: HSMLibMountPath,
+			})
+		}
+		c.VolumeMounts = mounts
+	}
+
+	// Operator-managed hsm-lib-export container: copies the PKCS#11 .so
+	// from the vendor image to the shared lib volume.
+	if pkcs11ModulePath != "" && len(specs) > 0 {
+		desiredNames[HSMLibExportContainerName] = struct{}{}
+		libExport := kubernetes.FindInitContainerByNameOrCreate(podSpec, HSMLibExportContainerName)
+		libExport.Image = specs[0].Image
+		libExport.Command = []string{"cp", pkcs11ModulePath, fmt.Sprintf("%s/", HSMLibMountPath)}
+		libExport.VolumeMounts = []core.VolumeMount{
+			{Name: HSMLibVolumeName, MountPath: HSMLibMountPath},
+		}
+	}
+
+	// Remove init containers that are no longer in the spec
+	if len(desiredNames) == 0 {
+		podSpec.InitContainers = nil
+		return
+	}
+	filtered := make([]core.Container, 0, len(podSpec.InitContainers))
+	for _, c := range podSpec.InitContainers {
+		if _, ok := desiredNames[c.Name]; ok {
+			filtered = append(filtered, c)
+		}
+	}
+	podSpec.InitContainers = filtered
+}
+
+// hasVolume returns true if the pod spec already contains a volume with the given name.
+func hasVolume(podSpec *core.PodSpec, name string) bool {
+	for _, v := range podSpec.Volumes {
+		if v.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// hasMountPath returns true if any mount in the slice uses the given path.
+func hasMountPath(mounts []core.VolumeMount, path string) bool {
+	for _, m := range mounts {
+		if m.MountPath == path {
+			return true
+		}
+	}
+	return false
+}
+
+// ensureVolumeDefaultMode applies the same DefaultMode that the Kubernetes API
+// server would apply (0644 / octal 0644 = 420 decimal) to volume sources that
+// support it. Without this, a user-specified volume that omits DefaultMode
+// would differ from the API server's response on every reconcile (nil vs *420),
+// causing an infinite update loop.
+func ensureVolumeDefaultMode(v *core.Volume) {
+	defaultMode := ptr.To(int32(0644))
+	if v.ConfigMap != nil && v.ConfigMap.DefaultMode == nil {
+		v.ConfigMap.DefaultMode = defaultMode
+	}
+	if v.Secret != nil && v.Secret.DefaultMode == nil {
+		v.Secret.DefaultMode = defaultMode
+	}
+	if v.Projected != nil && v.Projected.DefaultMode == nil {
+		v.Projected.DefaultMode = defaultMode
+	}
+	if v.DownwardAPI != nil && v.DownwardAPI.DefaultMode == nil {
+		v.DownwardAPI.DefaultMode = defaultMode
 	}
 }
 

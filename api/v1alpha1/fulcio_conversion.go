@@ -7,10 +7,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
-func Convert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in *rhtasv1.FulcioStatus, out *FulcioStatus, s apiconversion.Scope) error {
-	return autoConvert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in, out, s)
-}
-
 func Convert_v1alpha1_FulcioSpec_To_v1_FulcioSpec(in *FulcioSpec, out *rhtasv1.FulcioSpec, s apiconversion.Scope) error {
 	if err := autoConvert_v1alpha1_FulcioSpec_To_v1_FulcioSpec(in, out, s); err != nil {
 		return err
@@ -81,6 +77,9 @@ func (src *Fulcio) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
 	dst.Status.CertificateChain = restored.Status.CertificateChain
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
+	dst.Spec.Certificate.CAType = restored.Spec.Certificate.CAType
+	dst.Spec.Certificate.PKCS11 = restored.Spec.Certificate.PKCS11
+	dst.Status.PKCS11 = restored.Status.PKCS11
 	return nil
 }
 

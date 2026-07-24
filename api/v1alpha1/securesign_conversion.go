@@ -44,10 +44,14 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Spec.Fulcio.ImagePullSecrets = restored.Spec.Fulcio.ImagePullSecrets
 	dst.Spec.Fulcio.Monitoring.ServiceMonitor = restored.Spec.Fulcio.Monitoring.ServiceMonitor
+	dst.Spec.Fulcio.Certificate.CAType = restored.Spec.Fulcio.Certificate.CAType
+	dst.Spec.Fulcio.Certificate.PKCS11 = restored.Spec.Fulcio.Certificate.PKCS11
 	dst.Spec.Ctlog.ImagePullSecrets = restored.Spec.Ctlog.ImagePullSecrets
 	dst.Spec.Ctlog.TrustedCA = restored.Spec.Ctlog.TrustedCA
 	dst.Spec.Ctlog.Monitoring.ServiceMonitor = restored.Spec.Ctlog.Monitoring.ServiceMonitor
 	dst.Spec.Ctlog.Prefix = restored.Spec.Ctlog.Prefix
+	dst.Spec.Ctlog.SignerType = restored.Spec.Ctlog.SignerType
+	dst.Spec.Ctlog.PKCS11 = restored.Spec.Ctlog.PKCS11
 	dst.Spec.Rekor.ImagePullSecrets = restored.Spec.Rekor.ImagePullSecrets
 	dst.Spec.Rekor.Monitoring.ServiceMonitor = restored.Spec.Rekor.Monitoring.ServiceMonitor
 	dst.Spec.Trillian.ImagePullSecrets = restored.Spec.Trillian.ImagePullSecrets

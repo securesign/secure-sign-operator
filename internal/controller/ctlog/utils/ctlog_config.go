@@ -175,6 +175,67 @@ func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertifi
 	return data, nil
 }
 
+// CreateCtlogPKCS11Config creates a CTLog config using a PKCS#11 key instead of a PEM file key.
+// The config uses keyspb.PKCS11Config{TokenLabel, Pin, PublicKey} for the PrivateKey field
+// in the protobuf configuration.
+func CreateCtlogPKCS11Config(trillianUrl string, treeID int64, rootCerts []RootCertificate, tokenLabel, pin string, publicKeyPEM []byte, logPrefix string) (map[string][]byte, error) {
+	// Parse PEM public key to get DER for LogConfig.PublicKey
+	block, _ := pem.Decode(publicKeyPEM)
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode public key PEM")
+	}
+
+	// Build PKCS#11 config instead of PEMKeyFile
+	pkcs11Key := &keyspb.PKCS11Config{
+		TokenLabel: tokenLabel,
+		Pin:        pin,
+		PublicKey:  string(publicKeyPEM),
+	}
+
+	// Build root certificate file paths
+	rootPems := make([]string, 0, len(rootCerts))
+	for i := range rootCerts {
+		rootPems = append(rootPems, fmt.Sprintf("%sfulcio-%d", rootsPemFileDir, i))
+	}
+
+	logConfig := configpb.LogConfig{
+		LogId:          treeID,
+		Prefix:         logPrefix,
+		RootsPemFile:   rootPems,
+		PrivateKey:     mustMarshalAny(pkcs11Key),
+		PublicKey:      &keyspb.PublicKey{Der: block.Bytes},
+		LogBackendName: "trillian",
+		ExtKeyUsages:   []string{"CodeSigning"},
+	}
+
+	multiConfig := configpb.LogMultiConfig{
+		LogConfigs: &configpb.LogConfigSet{
+			Config: []*configpb.LogConfig{&logConfig},
+		},
+		Backends: &configpb.LogBackendSet{
+			Backend: []*configpb.LogBackend{{
+				Name:        "trillian",
+				BackendSpec: trillianUrl,
+			}},
+		},
+	}
+
+	marshalledConfig, err := prototext.Marshal(&multiConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal ctlog PKCS#11 config: %w", err)
+	}
+
+	// PKCS#11 config only needs config + fulcio root certs (no private/public/password keys)
+	data := map[string][]byte{
+		ConfigKey: marshalledConfig,
+	}
+	for i, cert := range rootCerts {
+		fulcioKey := fmt.Sprintf("fulcio-%d", i)
+		data[fulcioKey] = cert
+	}
+	return data, nil
+}
+
 func IsSecretDataValid(secretData map[string][]byte, expectedTrillianAddr string) bool {
 	if secretData == nil {
 		return false

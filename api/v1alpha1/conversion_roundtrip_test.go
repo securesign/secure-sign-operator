@@ -82,6 +82,8 @@ func TestSecuresignConversion(t *testing.T) {
 			tsaStatusFuzzerFuncs,
 			securesignTSAStatusFuzzerFuncs,
 			tsaCertAuthorityFuzzerFuncs,
+			fulcioPKCS11FuzzerFuncs,
+			ctlogPKCS11FuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
@@ -129,6 +131,7 @@ func TestCTlogConversion(t *testing.T) {
 		Spoke:  &CTlog{},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			ctlogStatusFuzzerFuncs,
+			ctlogPKCS11FuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
@@ -186,9 +189,56 @@ func TestFulcioConversion(t *testing.T) {
 					},
 				}
 			},
+			fulcioPKCS11FuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
+}
+
+// ctlogPKCS11FuzzerFuncs constrains PKCS#11 fields for the CTLog roundtrip test.
+// CTlogPKCS11Config contains deeply nested corev1 types (Volume, EnvVar, VolumeMount, etc.)
+// that do not survive the JSON annotation round-trip cleanly (nil vs empty slice).
+// We constrain these to use only simple scalar fields that round-trip reliably.
+func ctlogPKCS11FuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.CTlogPKCS11Config, c randfill.Continue) {
+			// Only fuzz the scalar/ref fields that survive JSON round-trip.
+			// Omit InitContainers, Volumes, ServerEnv, ServerVolumeMounts
+			// because deeply nested corev1 types have nil-vs-empty issues.
+			c.FillNoCustom(&s.PinSecretRef)
+			c.FillNoCustom(&s.PublicKeyRef)
+			c.FillNoCustom(&s.TokenLabel)
+			c.FillNoCustom(&s.PKCS11ModulePath)
+			c.FillNoCustom(&s.Persistence)
+		},
+		func(s *rhtasv1.CTlogPKCS11Status, c randfill.Continue) {
+			c.FillNoCustom(&s.PinSecretRef)
+			c.FillNoCustom(&s.PublicKeyRef)
+			c.FillNoCustom(&s.TokenLabel)
+			c.FillNoCustom(&s.PKCS11ModulePath)
+		},
+	}
+}
+
+// fulcioPKCS11FuzzerFuncs constrains PKCS#11 fields for the roundtrip test.
+// FulcioPKCS11Config contains deeply nested corev1 types (Volume, EnvVar, etc.)
+// that do not survive the JSON annotation round-trip cleanly (nil vs empty slice).
+// We constrain these to use only simple scalar fields that round-trip reliably.
+func fulcioPKCS11FuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.FulcioPKCS11Config, c randfill.Continue) {
+			// Only fuzz the scalar/ref fields that survive JSON round-trip.
+			// Omit InitContainers, Volumes, ServerEnv, ServerVolumeMounts
+			// because deeply nested corev1 types have nil-vs-empty issues.
+			c.FillNoCustom(&s.CredentialsRef)
+			c.FillNoCustom(&s.PKCS11ConfigRef)
+			c.FillNoCustom(&s.KeyConfig)
+		},
+		func(s *rhtasv1.FulcioPKCS11Status, c randfill.Continue) {
+			c.FillNoCustom(&s.CredentialsRef)
+			c.FillNoCustom(&s.PKCS11ConfigRef)
+		},
+	}
 }
 
 func TestTrillianConversion(t *testing.T) {
