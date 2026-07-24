@@ -9,9 +9,6 @@ spec:
         - quay.io/securesign/certificate-transparency-go
       source: registry.redhat.io/rhtas/certificate-transparency-rhel9
     - mirrors:
-        - quay.io/securesign/client-server
-      source: registry.redhat.io/rhtas/client-server-rhel9
-    - mirrors:
         - quay.io/securesign/rhtas-operator-bundle
       source: registry.redhat.io/rhtas/rhtas-operator-bundle
     - mirrors:

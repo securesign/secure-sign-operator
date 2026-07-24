@@ -362,7 +362,7 @@ jobs:
       # so it produces static .local hostnames that require /etc/hosts entries.
       - name: Add service hosts to /etc/hosts
         run: |
-          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local cli-server.local tsa-server.local" | sudo tee -a /etc/hosts
+          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local tsa-server.local" | sudo tee -a /etc/hosts
       - name: Install cosign
         #keep upgrade scenario on cosign v2 (latest released version does not support cosign v3)
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.4.0
@@ -664,9 +664,6 @@ jobs:
           export TUF_URL=$(kubectl get tuf -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})
           export REKOR_URL=$(kubectl get rekor -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})
           export FULCIO_URL=$(kubectl get fulcio -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})
-          
-          export CLI_STRATEGY=cli_server
-          export CLI_SERVER_URL="http://cli-server.trusted-artifact-signer.127.0.0.1.nip.io"
           
           cd e2e
           source ./tas-env-variables.sh

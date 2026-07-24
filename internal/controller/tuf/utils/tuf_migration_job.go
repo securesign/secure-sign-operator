@@ -67,20 +67,6 @@ func EnsureTufMigrationJob(instance *rhtasv1.Tuf, sa string, jobLabels map[strin
 			EmptyDir: &v1.EmptyDirVolumeSource{},
 		}
 
-		// extract cosign binary from client-server image
-		cosignContainer := kubernetes.FindInitContainerByNameOrCreate(templateSpec, "extract-cosign")
-		cosignContainer.Image = images.Registry.Get(images.ClientServer)
-		cosignContainer.Command = []string{"/bin/sh", "-c"}
-		cosignContainer.Args = []string{
-			"cp /var/www/html/clients/linux/cosign-amd64.gz /workdir/cosign.gz",
-		}
-		cosignContainer.VolumeMounts = []v1.VolumeMount{
-			{
-				Name:      "workdir",
-				MountPath: workdirVolumePath,
-			},
-		}
-
 		container := kubernetes.FindContainerByNameOrCreate(templateSpec, "tuf-migration")
 		// tuf image is ubi-based so it has tooling installed
 		container.Image = images.Registry.Get(images.Tuf)
