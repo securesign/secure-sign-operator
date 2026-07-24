@@ -26,21 +26,7 @@ export NEEDS_UPDATE=false
 # --- TAS START TIME - set to the beginning of time to ensure all existing logs are considered valid ---
 export TAS_START="1970-01-01T00:00:00Z"
 
-echo "--- Extracting Cosign binary ---"
-mkdir -p "$WORKDIR/bin"
-
-if [ -f "$WORKDIR/cosign.gz" ]; then
-    echo "Extracting cosign to $WORKDIR/bin/cosign..."
-    gunzip -c "$WORKDIR/cosign.gz" > "$WORKDIR/bin/cosign"
-    chmod +x "$WORKDIR/bin/cosign"
-elif [ ! -f "$WORKDIR/bin/cosign" ] && [ ! -f "$WORKDIR/cosign" ]; then
-    echo "Error: cosign binary not found in $WORKDIR."
-    exit 1
-fi
-export PATH="$WORKDIR/bin:$WORKDIR:$PATH"
-
-cosign version >/dev/null || (echo "Error: Cosign not executable or missing."; exit 1)
-echo "Cosign binary ready."
+echo "--- Migration script ready ---"
 
 # ==============================================================================
 # MIGRATION FUNCTIONS
@@ -350,35 +336,40 @@ add_signing_config() {
         return
     fi
 
-    echo " -> signing_config.v0.2.json is missing. Generating it via Cosign..."
+    echo " -> signing_config.v0.2.json is missing. Generating it..."
 
-    local cmd=("cosign" "signing-config" "create")
+    python3 -c "
+import json, os, sys
 
-    # Using the new TAS_START constant everywhere
-    if [ -n "$FULCIO_URL" ]; then
-        cmd+=("--fulcio=url=$FULCIO_URL,api-version=1,start-time=$TAS_START,operator=$OPERATOR_NAME")
-    fi
+config = {'mediaType': 'application/vnd.dev.sigstore.signingconfig.v0.2+json'}
+start = os.environ.get('TAS_START', '1970-01-01T00:00:00Z')
+operator = os.environ.get('OPERATOR_NAME', '')
+entry = lambda url: {'url': url, 'majorApiVersion': 1, 'validFor': {'start': start}, 'operator': operator}
 
-    if [ -n "$REKOR_URL" ]; then
-        cmd+=("--rekor=url=$REKOR_URL,api-version=1,start-time=$TAS_START,operator=$OPERATOR_NAME")
-        cmd+=("--rekor-config=ANY")
-    fi
+fulcio = os.environ.get('FULCIO_URL', '')
+if fulcio:
+    config['caUrls'] = [entry(fulcio)]
 
-    if [ -n "${TSA_URL:-}" ]; then
-        cmd+=("--tsa=url=$TSA_URL,api-version=1,start-time=$TAS_START,operator=$OPERATOR_NAME")
-        cmd+=("--tsa-config=ANY")
-    fi
+rekor = os.environ.get('REKOR_URL', '')
+if rekor:
+    config['rekorTlogUrls'] = [entry(rekor)]
+    config['rekorTlogConfig'] = {'selector': 'ANY'}
 
-    if [ -n "${OIDC_ISSUERS:-}" ]; then
-        IFS=',' read -ra ISSUERS <<< "$OIDC_ISSUERS"
-        for issuer in "${ISSUERS[@]}"; do
-            cmd+=("--oidc-provider=url=$issuer,api-version=1,start-time=$TAS_START,operator=$OPERATOR_NAME")
-        done
-    fi
+tsa = os.environ.get('TSA_URL', '')
+if tsa:
+    config['tsaUrls'] = [entry(tsa)]
+    config['tsaConfig'] = {'selector': 'ANY'}
 
-    cmd+=("--out" "$WORKDIR/targets/signing_config.v0.2.json")
+oidc_raw = os.environ.get('OIDC_ISSUERS', '')
+if oidc_raw:
+    config['oidcUrls'] = [entry(u) for u in oidc_raw.split(',') if u]
 
-    "${cmd[@]}"
+import tempfile
+tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(sys.argv[1]))
+with os.fdopen(tmp_fd, 'w') as f:
+    json.dump(config, f, indent=2)
+os.replace(tmp_path, sys.argv[1])
+" "$WORKDIR/targets/signing_config.v0.2.json"
     
     echo " -> signing_config.v0.2.json generated successfully."
     NEEDS_UPDATE=true
