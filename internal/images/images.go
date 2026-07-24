@@ -33,7 +33,6 @@ const (
 	TimestampAuthority Image = "RELATED_IMAGE_TIMESTAMP_AUTHORITY"
 
 	HttpServer   Image = "RELATED_IMAGE_HTTP_SERVER"
-	ClientServer Image = "RELATED_IMAGE_CLIENT_SERVER"
 	CTLogMonitor Image = "RELATED_IMAGE_CTLOG_MONITOR"
 
 	ConsoleApi Image = "RELATED_IMAGE_CONSOLE_API"
@@ -56,7 +55,6 @@ var Images = []Image{
 	CTLog,
 	TimestampAuthority,
 	HttpServer,
-	ClientServer,
 	CTLogMonitor,
 	ConsoleApi,
 	ConsoleUI,
