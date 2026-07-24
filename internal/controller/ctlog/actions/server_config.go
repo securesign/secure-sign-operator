@@ -171,7 +171,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 
 	configAnnotations := i.configMatchingAnnotations(ctx, instance, trillianUrl)
 
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+	if err = kubernetes.Create(ctx, i.Client,
 		newConfig,
 		ensure.ControllerReference[*corev1.Secret](instance, i.Client),
 		ensure.Labels[*corev1.Secret](slices.Collect(maps.Keys(configLabels)), configLabels),
@@ -324,7 +324,7 @@ func (i serverConfig) handleRootCertificates(ctx context.Context, instance *rhta
 //   - errSecretInvalid if the secret needs recreation (not a failure)
 //   - other error for API errors - reconciliation should fail
 func (i serverConfig) validateExistingSecret(ctx context.Context, instance *rhtasv1.CTlog, trillianUrl string) error {
-	secret, err := kubernetes.GetSecret(ctx, i.Client, instance.Namespace, instance.Status.ServerConfigRef.Name)
+	secretMeta, err := kubernetes.GetSecretMetadata(ctx, i.Client, instance.Namespace, instance.Status.ServerConfigRef.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return errSecretInvalid
@@ -334,7 +334,7 @@ func (i serverConfig) validateExistingSecret(ctx context.Context, instance *rhta
 
 	// Check if the secret was generated from the same data sources using annotations
 	expectedAnnotations := i.configMatchingAnnotations(ctx, instance, trillianUrl)
-	if !equality.Semantic.DeepDerivative(expectedAnnotations, secret.GetAnnotations()) {
+	if !equality.Semantic.DeepDerivative(expectedAnnotations, secretMeta.GetAnnotations()) {
 		return errSecretInvalid
 	}
 

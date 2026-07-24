@@ -315,6 +315,18 @@ func main() {
 			RecoverPanic: ptr.To(true),
 		},
 		Cache: cacheOpts,
+		// Secret/ConfigMap are excluded from cacheOpts.ByObject: a label/field selector on
+		// these types would return a permanent NotFound for any object outside the selector
+		// (no live fallback), breaking user-provided (BYO) secret/configmap refs. DisableFor
+		// keeps reads live instead, avoiding an unfiltered, cluster-wide cache.
+		Client: client.Options{
+			Cache: &client.CacheOptions{
+				DisableFor: []client.Object{
+					&corev1.Secret{},
+					&corev1.ConfigMap{},
+				},
+			},
+		},
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
