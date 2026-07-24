@@ -1,29 +1,14 @@
 package v1alpha1
 
 import (
-	"net/url"
-
 	v1 "github.com/securesign/operator/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
 )
 
-func urlWithPath(rawUrl, path string) (string, error) {
-	u, err := url.Parse(rawUrl)
-	if err != nil {
-		return "", err
-	}
-	u.Path = path
-	return u.String(), nil
-}
-
-func urlWithoutPath(rawUrl string) (string, error) {
-	u, err := url.Parse(rawUrl)
-	if err != nil {
-		return "", err
-	}
-	return u.Scheme + "://" + u.Host, nil
-}
+// Manual conversion functions for Spec types where v1 has fields
+// that don't exist in v1alpha1 (e.g. ServiceAccountConfig).
+// These fields are preserved via MarshalData/UnmarshalData annotation.
 
 // MonitoringConfig: v1 splits Enabled into Metrics.Enabled + ServiceMonitor.Enabled.
 // Lossless round-trip is guaranteed by MarshalData/UnmarshalData in ConvertTo/ConvertFrom.
@@ -84,5 +69,72 @@ func Convert_v1_Ingress_To_v1alpha1_ExternalAccess(in *v1.Ingress, out *External
 	}
 	out.Host = in.Host
 	out.RouteSelectorLabels = in.Labels
+	return nil
+}
+
+func Convert_v1alpha1_TrillianService_To_v1_ServiceReference(in *TrillianService, out *v1.ServiceReference, _ apiconversion.Scope) error {
+	addressPortToServiceReference(in.Address, in.Port, out)
+	return nil
+}
+
+func Convert_v1_ServiceReference_To_v1alpha1_TrillianService(in *v1.ServiceReference, out *TrillianService, _ apiconversion.Scope) error {
+	serviceReferenceToAddressPort(in, &out.Address, &out.Port)
+	return nil
+}
+
+func Convert_v1alpha1_CtlogService_To_v1_ServiceReference(in *CtlogService, out *v1.ServiceReference, _ apiconversion.Scope) error {
+	addressPortToServiceReference(in.Address, in.Port, out)
+	if out.URL != "" && in.Prefix != "" {
+		var err error
+		if out.URL, err = urlWithPath(out.URL, in.Prefix); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func Convert_v1_ServiceReference_To_v1alpha1_CtlogService(in *v1.ServiceReference, out *CtlogService, _ apiconversion.Scope) error {
+	if in.URL == "" {
+		return nil
+	}
+	base, prefix, err := splitURLPath(in.URL)
+	if err != nil {
+		return err
+	}
+	if prefix != "" {
+		out.Prefix = prefix
+	}
+	ref := &v1.ServiceReference{URL: base}
+	serviceReferenceToAddressPort(ref, &out.Address, &out.Port)
+	return nil
+}
+
+func Convert_v1alpha1_FulcioService_To_v1_ServiceRefWithOIDC(in *FulcioService, out *v1.ServiceRefWithOIDC, _ apiconversion.Scope) error {
+	addressPortToServiceReference(in.Address, in.Port, &out.ServiceReference)
+	return nil
+}
+
+func Convert_v1_ServiceRefWithOIDC_To_v1alpha1_FulcioService(in *v1.ServiceRefWithOIDC, out *FulcioService, _ apiconversion.Scope) error {
+	serviceReferenceToAddressPort(&in.ServiceReference, &out.Address, &out.Port)
+	return nil
+}
+
+func Convert_v1alpha1_RekorService_To_v1_ServiceReference(in *RekorService, out *v1.ServiceReference, _ apiconversion.Scope) error {
+	addressPortToServiceReference(in.Address, in.Port, out)
+	return nil
+}
+
+func Convert_v1_ServiceReference_To_v1alpha1_RekorService(in *v1.ServiceReference, out *RekorService, _ apiconversion.Scope) error {
+	serviceReferenceToAddressPort(in, &out.Address, &out.Port)
+	return nil
+}
+
+func Convert_v1alpha1_TsaService_To_v1_ServiceReference(in *TsaService, out *v1.ServiceReference, _ apiconversion.Scope) error {
+	addressPortToServiceReference(in.Address, in.Port, out)
+	return nil
+}
+
+func Convert_v1_ServiceReference_To_v1alpha1_TsaService(in *v1.ServiceReference, out *TsaService, _ apiconversion.Scope) error {
+	serviceReferenceToAddressPort(in, &out.Address, &out.Port)
 	return nil
 }

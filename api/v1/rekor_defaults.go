@@ -7,7 +7,6 @@ import (
 
 func (s *RekorSpec) SetDefaults() {
 	s.PodRequirements.SetDefaults()
-	s.Trillian.SetDefaults()
 	s.Monitoring.SetDefaults()
 	s.Ingress.SetDefaults()
 	s.RekorSearchUI.SetDefaults()

@@ -92,7 +92,6 @@ var _ = Describe("CTlog", func() {
 			fetched := &CTlog{}
 			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 			Expect(fetched.Spec.MaxCertChainSize).To(Equal(ptr.To(int64(153600))))
-			Expect(fetched.Spec.Trillian.Port).To(Equal(ptr.To(int32(8091))))
 			Expect(fetched.Spec.Replicas).To(Equal(ptr.To(int32(1))))
 			Expect(fetched.Spec.Monitoring.Metrics.Enabled).To(Equal(ptr.To(true)))
 			Expect(fetched.Spec.Monitoring.ServiceMonitor.Enabled).To(Equal(ptr.To(false)))
@@ -157,7 +156,6 @@ var _ = Describe("CTlog", func() {
 		Context("CR is fully populated", func() {
 			It("outputs the CR", func() {
 				tree := int64(1269875)
-				port := int32(8091)
 				ctlogInstance := CTlog{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "ctlog-full-manifest",
@@ -191,10 +189,7 @@ var _ = Describe("CTlog", func() {
 								},
 							},
 						},
-						Trillian: TrillianService{
-							Address: "trillian-system.default.svc",
-							Port:    &port,
-						},
+						Trillian: ServiceReference{},
 					},
 				}
 

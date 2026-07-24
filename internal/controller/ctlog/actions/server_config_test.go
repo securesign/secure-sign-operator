@@ -27,6 +27,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	_ "github.com/securesign/operator/internal/controller/trillian/serviceresolver"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -216,7 +217,7 @@ func TestServerConfig_Handle(t *testing.T) {
 			env: env{
 				spec: rhtasv1.CTlogSpec{
 					ServerConfigRef: nil,
-					Trillian:        rhtasv1.TrillianService{Port: ptr.To(int32(80))},
+					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 				},
 				status: rhtasv1.CTlogStatus{
 					ServerConfigRef: nil,
@@ -283,7 +284,7 @@ func TestServerConfig_Handle(t *testing.T) {
 			env: env{
 				spec: rhtasv1.CTlogSpec{
 					ServerConfigRef: nil,
-					Trillian:        rhtasv1.TrillianService{Port: ptr.To(int32(80))},
+					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 				},
 				status: rhtasv1.CTlogStatus{
 					ServerConfigRef: nil,
@@ -326,7 +327,7 @@ func TestServerConfig_Handle(t *testing.T) {
 			env: env{
 				spec: rhtasv1.CTlogSpec{
 					ServerConfigRef: nil,
-					Trillian:        rhtasv1.TrillianService{Port: ptr.To(int32(80))},
+					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 				},
 				status: rhtasv1.CTlogStatus{
 					ServerConfigRef: nil,
@@ -368,7 +369,7 @@ func TestServerConfig_Handle(t *testing.T) {
 			env: env{
 				spec: rhtasv1.CTlogSpec{
 					ServerConfigRef: nil,
-					Trillian:        rhtasv1.TrillianService{Port: ptr.To(int32(80))},
+					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 				},
 				status: rhtasv1.CTlogStatus{
 					ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "config"},
@@ -420,7 +421,7 @@ func TestServerConfig_Handle(t *testing.T) {
 			env: env{
 				spec: rhtasv1.CTlogSpec{
 					ServerConfigRef: nil,
-					Trillian:        rhtasv1.TrillianService{Port: ptr.To(int32(80))},
+					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 				},
 				status: rhtasv1.CTlogStatus{
 					ServerConfigRef: nil,
@@ -530,7 +531,7 @@ func TestServerConfig_Update(t *testing.T) {
 				Generation: 1,
 			},
 			Spec: rhtasv1.CTlogSpec{
-				Trillian: rhtasv1.TrillianService{Port: ptr.To(int32(80))},
+				Trillian: rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:80"},
 				Prefix:   "trusted-artifact-signer",
 			},
 			Status: rhtasv1.CTlogStatus{
@@ -610,7 +611,7 @@ func TestServerConfig_Update(t *testing.T) {
 			env: func() env {
 				inst := newBaseInstance()
 				inst.Generation = 2
-				inst.Spec.Trillian.Port = ptr.To(int32(443))
+				inst.Spec.Trillian = rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:443"}
 				inst.Spec.TreeID = ptr.To(int64(123456))
 				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "old_secret"}
 				// Only ReadyCondition, no ConfigCondition
@@ -827,16 +828,20 @@ func TestServerConfig_Update(t *testing.T) {
 			},
 		},
 		{
-			name: "trillian address defaults when empty",
+			name: "trillian autodiscovery resolves dns:/// URL",
 			env: func() env {
 				inst := newBaseInstance()
 				inst.Namespace = "mynamespace"
-				inst.Spec.Trillian.Port = ptr.To(int32(8091))
-				inst.Spec.Trillian.Address = "" // Should default to trillian-logserver.mynamespace.svc
+				inst.Spec.Trillian = rhtasv1.ServiceReference{}
 				inst.Status.ServerConfigRef = nil
 				return env{
 					instance: inst,
-					objects:  []client.Object{newKeySecret("mynamespace")},
+					objects: []client.Object{
+						newKeySecret("mynamespace"),
+						&rhtasv1.Trillian{
+							ObjectMeta: metav1.ObjectMeta{Name: "trillian", Namespace: "mynamespace"},
+						},
+					},
 				}
 			}(),
 			want: want{
@@ -848,12 +853,12 @@ func TestServerConfig_Update(t *testing.T) {
 						LocalObjectReference: *current.Status.ServerConfigRef, Key: "config",
 					})
 					g.Expect(err).ShouldNot(HaveOccurred())
-					g.Expect(data).To(ContainSubstring("trillian-logserver.mynamespace.svc:8091"))
+					g.Expect(data).To(ContainSubstring("dns:///trillian-logserver.mynamespace.svc:8091"))
 
 					secret, err := kubernetes.GetSecret(ctx, cli, "mynamespace", current.Status.ServerConfigRef.Name)
 					g.Expect(err).ShouldNot(HaveOccurred())
 					g.Expect(secret.Annotations).To(HaveKeyWithValue(
-						"rhtas.redhat.com/trillianUrl", "trillian-logserver.mynamespace.svc:8091",
+						"rhtas.redhat.com/trillianUrl", "dns:///trillian-logserver.mynamespace.svc:8091",
 					))
 				},
 			},
@@ -1017,7 +1022,7 @@ func TestServerConfig_Prerequisites(t *testing.T) {
 				Generation: 1,
 			},
 			Spec: rhtasv1.CTlogSpec{
-				Trillian: rhtasv1.TrillianService{Port: ptr.To(int32(80))},
+				Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 				Prefix:   "trusted-artifact-signer",
 			},
 			Status: rhtasv1.CTlogStatus{
@@ -1120,24 +1125,6 @@ func TestServerConfig_Prerequisites(t *testing.T) {
 			verify: func(g Gomega, result *action.Result, _ *rhtasv1.CTlog) {
 				g.Expect(action.IsError(result)).To(BeTrue(), "expected error result")
 				g.Expect(result.Err.Error()).To(ContainSubstring("private key not specified"))
-			},
-		},
-		{
-			name: "terminal error when Trillian.Port is nil",
-			setup: func() *rhtasv1.CTlog {
-				inst := newBaseInstance()
-				inst.Spec.Trillian.Port = nil
-				return &inst
-			},
-			verify: func(g Gomega, result *action.Result, instance *rhtasv1.CTlog) {
-				g.Expect(action.IsError(result)).To(BeTrue(), "expected error result")
-				g.Expect(result.Err.Error()).To(ContainSubstring("trillian port not specified"))
-
-				// TerminalError should set ReadyCondition to False
-				c := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
-				g.Expect(c).ShouldNot(BeNil())
-				g.Expect(c.Status).Should(Equal(metav1.ConditionFalse))
-				g.Expect(c.Reason).Should(Equal(state.Failure.String()))
 			},
 		},
 	}

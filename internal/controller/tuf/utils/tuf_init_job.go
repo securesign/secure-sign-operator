@@ -1,18 +1,19 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
-	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -20,44 +21,45 @@ const (
 	targetMonthPath  = "/var/run/target"
 )
 
-func EnsureTufInitJob(instance *rhtasv1.Tuf, sa string, labels map[string]string, oidcIssuers []string) func(*batchv1.Job) error {
+func EnsureTufInitJob(ctx context.Context, c client.Client, instance *rhtasv1.Tuf, sa string, labels map[string]string) func(*batchv1.Job) error {
 	return func(job *batchv1.Job) error {
 		// prepare args
 		args := []string{"--operator", constants.OperatorName, "--export-keys", instance.Spec.RootKeySecretRef.Name}
 		for _, key := range instance.Spec.Keys {
 			switch key.Name {
 			case rhtasv1.TufKeyRekor:
+				result, err := resolveServiceAddress(ctx, c, instance, key.Name)
+				if err != nil {
+					return err
+				}
+				args = append(args, "--rekor-uri", result.Address)
 				args = append(args, "--rekor-key", filepath.Join(secretsMonthPath, key.Name))
-				url, err := apis.ServiceAsUrl(&instance.Spec.Rekor)
-				if err != nil {
-					return err
-				}
-				args = append(args, "--rekor-uri", url)
 			case rhtasv1.TufKeyCTFE:
+				result, err := resolveServiceAddress(ctx, c, instance, key.Name)
+				if err != nil {
+					return err
+				}
+				args = append(args, "--ctlog-uri", result.Address)
 				args = append(args, "--ctlog-key", filepath.Join(secretsMonthPath, key.Name))
-				url, err := apis.ServiceAsUrl(&instance.Spec.Ctlog)
-				if err != nil {
-					return err
-				}
-				args = append(args, "--ctlog-uri", url)
 			case rhtasv1.TufKeyFulcio:
+				result, err := resolveServiceAddress(ctx, c, instance, key.Name)
+				if err != nil {
+					return err
+				}
+				args = append(args, "--fulcio-uri", result.Address)
+				for _, issuer := range result.OIDCIssuers {
+					args = append(args, "--oidc-uri", issuer)
+				}
 				args = append(args, "--fulcio-cert", filepath.Join(secretsMonthPath, key.Name))
-				url, err := apis.ServiceAsUrl(&instance.Spec.Fulcio)
-				if err != nil {
-					return err
-				}
-				args = append(args, "--fulcio-uri", url)
+
 			case rhtasv1.TufKeyTSA:
-				args = append(args, "--tsa-cert", filepath.Join(secretsMonthPath, key.Name))
-				url, err := apis.ServiceAsUrl(&instance.Spec.Tsa)
+				result, err := resolveServiceAddress(ctx, c, instance, key.Name)
 				if err != nil {
 					return err
 				}
-				args = append(args, "--tsa-uri", url)
+				args = append(args, "--tsa-uri", result.Address)
+				args = append(args, "--tsa-cert", filepath.Join(secretsMonthPath, key.Name))
 			}
-		}
-		for _, issuer := range oidcIssuers {
-			args = append(args, "--oidc-uri", issuer)
 		}
 		args = append(args, targetMonthPath)
 

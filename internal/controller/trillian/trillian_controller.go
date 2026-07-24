@@ -44,6 +44,9 @@ import (
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	tasPredicate "github.com/securesign/operator/internal/controller/predicate"
+
+	// Register the service resolver for the trillian controller
+	_ "github.com/securesign/operator/internal/controller/trillian/serviceresolver"
 )
 
 // trillianReconciler reconciles a Trillian object

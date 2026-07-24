@@ -228,7 +228,7 @@ func TestCTlogConversionUnit(t *testing.T) {
 				Spec: rhtasv1.CTlogSpec{
 					TreeID:           ptr.To[int64](999),
 					MaxCertChainSize: ptr.To[int64](153600),
-					Trillian:         rhtasv1.TrillianService{Address: "trillian:8091", Port: ptr.To[int32](8091)},
+					Trillian:         rhtasv1.ServiceReference{URL: "ctlog.rhtas.example.com:8090"},
 					Prefix:           "trusted-artifact-signer",
 					Monitoring: rhtasv1.MonitoringWithTLogConfig{
 						MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
@@ -244,7 +244,7 @@ func TestCTlogConversionUnit(t *testing.T) {
 				Spec: CTlogSpec{
 					TreeID:           ptr.To[int64](999),
 					MaxCertChainSize: ptr.To[int64](153600),
-					Trillian:         TrillianService{Address: "trillian:8091", Port: ptr.To[int32](8091)},
+					Trillian:         TrillianService{Address: "ctlog.rhtas.example.com", Port: ptr.To[int32](8090)},
 				},
 				Status: CTlogStatus{
 					Url: "https://ctlog.rhtas.example.com",
@@ -328,7 +328,7 @@ func TestRekorConversionUnit(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
 				Spec: rhtasv1.RekorSpec{
 					TreeID:   ptr.To[int64](111),
-					Trillian: rhtasv1.TrillianService{Address: "trillian:8091", Port: ptr.To[int32](8091)},
+					Trillian: rhtasv1.ServiceReference{URL: "trillian:8091"},
 					Attestations: rhtasv1.RekorAttestations{
 						Enabled: ptr.To(true),
 						Url:     "file:///var/run/attestations?no_tmp_dir=true",
@@ -350,7 +350,7 @@ func TestRekorConversionUnit(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
 				Spec: RekorSpec{
 					TreeID:   ptr.To[int64](111),
-					Trillian: TrillianService{Address: "trillian:8091", Port: ptr.To[int32](8091)},
+					Trillian: TrillianService{Address: "trillian", Port: ptr.To[int32](8091)},
 					Pvc: Pvc{
 						Size:   ptr.To(resource.MustParse("5Gi")),
 						Retain: ptr.To(true),
@@ -698,9 +698,9 @@ func TestTufConversionUnit(t *testing.T) {
 						{Name: "ctfe.pub"},
 						{Name: "fulcio_v1.crt.pem"},
 					},
-					Ctlog:   rhtasv1.CtlogService{Address: "ctlog:6963", Prefix: "trusted-artifact-signer"},
-					Fulcio:  rhtasv1.FulcioService{Address: "fulcio:5554"},
-					Rekor:   rhtasv1.RekorService{Address: "rekor:3000"},
+					Ctlog:   rhtasv1.ServiceReference{URL: "ctlog:6963/trusted-artifact-signer"},
+					Fulcio:  rhtasv1.ServiceRefWithOIDC{ServiceReference: rhtasv1.ServiceReference{URL: "fulcio:5554"}},
+					Rekor:   rhtasv1.ServiceReference{URL: "rekor:3000"},
 					Ingress: rhtasv1.Ingress{Enabled: ptr.To(false)},
 				},
 			},
@@ -713,9 +713,9 @@ func TestTufConversionUnit(t *testing.T) {
 						{Name: "ctfe.pub"},
 						{Name: "fulcio_v1.crt.pem"},
 					},
-					Ctlog:  CtlogService{Address: "ctlog:6963", Prefix: "trusted-artifact-signer"},
-					Fulcio: FulcioService{Address: "fulcio:5554"},
-					Rekor:  RekorService{Address: "rekor:3000"},
+					Ctlog:  CtlogService{Address: "ctlog", Port: ptr.To(int32(6963)), Prefix: "trusted-artifact-signer"},
+					Fulcio: FulcioService{Address: "fulcio", Port: ptr.To(int32(5554))},
+					Rekor:  RekorService{Address: "rekor", Port: ptr.To(int32(3000))},
 				},
 			},
 		},

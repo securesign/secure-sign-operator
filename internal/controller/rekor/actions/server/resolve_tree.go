@@ -17,7 +17,7 @@ func NewResolveTreeAction() action.Action[*rhtasv1.Rekor] {
 		func(rekor *rhtasv1.Rekor, i *int64) {
 			rekor.Status.TreeID = i
 		},
-		func(rekor *rhtasv1.Rekor) *rhtasv1.TrillianService {
+		func(rekor *rhtasv1.Rekor) *rhtasv1.ServiceReference {
 			return &rekor.Spec.Trillian
 		})
 	return tree.NewResolveTreeAction[*rhtasv1.Rekor]("rekor", wrapper)

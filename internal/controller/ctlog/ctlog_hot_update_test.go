@@ -26,13 +26,11 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes"
 
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
-	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -103,6 +101,12 @@ var _ = Describe("CTlog update test", func() {
 					},
 
 					Spec: rhtasv1.CTlogSpec{
+						Trillian: rhtasv1.ServiceReference{
+							Ref: &rhtasv1.ServiceReferenceRef{
+								Namespace: Namespace,
+								Name:      "test-trillian",
+							},
+						},
 						TreeID: &treeID,
 						Monitoring: rhtasv1.MonitoringWithTLogConfig{
 							MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
@@ -121,7 +125,13 @@ var _ = Describe("CTlog update test", func() {
 			}).WithContext(ctx).Should(Succeed())
 
 			By("Creating trillian service")
-			Expect(suite.Client().Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, trillian.ServerPort, labels.ForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
+			By("Creating trillian object (ref to existing service)")
+			Expect(suite.Client().Create(ctx, &rhtasv1.Trillian{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-trillian",
+					Namespace: Namespace,
+				},
+			})).To(Succeed())
 
 			By("Creating Fulcio CR with root certificate for autodiscovery")
 			fulcioCR := &rhtasv1.Fulcio{

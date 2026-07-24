@@ -31,7 +31,7 @@ type RekorSpec struct {
 	//+optional
 	TreeID *int64 `json:"treeID,omitempty"`
 	// Trillian service configuration
-	Trillian TrillianService `json:"trillian,omitempty"`
+	Trillian ServiceReference `json:"trillian,omitempty"`
 	// Define whether you want to export service or not
 	Ingress Ingress `json:"ingress,omitempty"`
 	//Enable Service monitors for rekor

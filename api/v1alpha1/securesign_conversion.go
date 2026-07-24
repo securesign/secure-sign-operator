@@ -48,12 +48,31 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Ctlog.TrustedCA = restored.Spec.Ctlog.TrustedCA
 	dst.Spec.Ctlog.Monitoring.ServiceMonitor = restored.Spec.Ctlog.Monitoring.ServiceMonitor
 	dst.Spec.Ctlog.Prefix = restored.Spec.Ctlog.Prefix
+	if dst.Spec.Ctlog.Trillian.URL == "" {
+		dst.Spec.Ctlog.Trillian.Ref = restored.Spec.Ctlog.Trillian.Ref
+	}
 	dst.Spec.Rekor.ImagePullSecrets = restored.Spec.Rekor.ImagePullSecrets
 	dst.Spec.Rekor.Monitoring.ServiceMonitor = restored.Spec.Rekor.Monitoring.ServiceMonitor
+	if dst.Spec.Rekor.Trillian.URL == "" {
+		dst.Spec.Rekor.Trillian.Ref = restored.Spec.Rekor.Trillian.Ref
+	}
 	dst.Spec.Trillian.ImagePullSecrets = restored.Spec.Trillian.ImagePullSecrets
 	dst.Spec.Trillian.Monitoring.ServiceMonitor = restored.Spec.Trillian.Monitoring.ServiceMonitor
 	dst.Spec.Tuf.ImagePullSecrets = restored.Spec.Tuf.ImagePullSecrets
 	dst.Spec.Tuf.TrustedCA = restored.Spec.Tuf.TrustedCA
+	if dst.Spec.Tuf.Rekor.URL == "" {
+		dst.Spec.Tuf.Rekor.Ref = restored.Spec.Tuf.Rekor.Ref
+	}
+	if dst.Spec.Tuf.Fulcio.URL == "" {
+		dst.Spec.Tuf.Fulcio.Ref = restored.Spec.Tuf.Fulcio.Ref
+	}
+	dst.Spec.Tuf.Fulcio.OIDCIssuers = restored.Spec.Tuf.Fulcio.OIDCIssuers
+	if dst.Spec.Tuf.Ctlog.URL == "" {
+		dst.Spec.Tuf.Ctlog.Ref = restored.Spec.Tuf.Ctlog.Ref
+	}
+	if dst.Spec.Tuf.Tsa.URL == "" {
+		dst.Spec.Tuf.Tsa.Ref = restored.Spec.Tuf.Tsa.Ref
+	}
 	if dst.Spec.TimestampAuthority != nil && restored.Spec.TimestampAuthority != nil {
 		dst.Spec.TimestampAuthority.ImagePullSecrets = restored.Spec.TimestampAuthority.ImagePullSecrets
 		dst.Spec.TimestampAuthority.Monitoring.ServiceMonitor = restored.Spec.TimestampAuthority.Monitoring.ServiceMonitor

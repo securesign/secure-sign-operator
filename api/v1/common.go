@@ -152,6 +152,32 @@ type TsaService struct {
 	Port *int32 `json:"port,omitempty"`
 }
 
+// ServiceReference identifies a component service either by in-cluster CR
+// reference or by an external URL.
+// +kubebuilder:validation:XValidation:rule="!(has(self.ref) && has(self.url) && size(self.url) > 0)",message="ref and url are mutually exclusive"
+type ServiceReference struct {
+	// In-cluster reference to a component CR.
+	//+optional
+	Ref *ServiceReferenceRef `json:"ref,omitempty"`
+	// Direct URL for an external or cross-namespace service.
+	//+optional
+	//+kubebuilder:validation:Format=uri
+	URL string `json:"url,omitempty"`
+}
+
+func (s ServiceReference) GetServiceRef() ServiceReference { return s }
+
+// ServiceReferenceRef identifies a component CR by name and optional namespace.
+type ServiceReferenceRef struct {
+	// Name of the referenced CR.
+	//+required
+	//+kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+	// Namespace of the referenced CR. Defaults to the namespace of the referencing resource.
+	//+optional
+	Namespace string `json:"namespace,omitempty"`
+}
+
 // LocalObjectReference contains enough information to let you locate the
 // referenced object inside the same namespace.
 // +structType=atomic

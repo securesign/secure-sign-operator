@@ -1,11 +1,11 @@
 package utils
 
 import (
+	"context"
 	_ "embed"
 	"strings"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
-	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
@@ -14,6 +14,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -25,7 +26,7 @@ const (
 //go:embed tuf_migration_v1.sh
 var script string
 
-func EnsureTufMigrationJob(instance *rhtasv1.Tuf, sa string, jobLabels map[string]string, oidcIssuers []string) func(*batchv1.Job) error {
+func EnsureTufMigrationJob(ctx context.Context, c client.Client, instance *rhtasv1.Tuf, sa string, jobLabels map[string]string) func(*batchv1.Job) error {
 	return func(job *batchv1.Job) error {
 
 		jobSpec := &job.Spec
@@ -80,40 +81,22 @@ func EnsureTufMigrationJob(instance *rhtasv1.Tuf, sa string, jobLabels map[strin
 		workdir.Value = workdirVolumePath
 
 		for _, key := range instance.Spec.Keys {
+			result, err := resolveServiceAddress(ctx, c, instance, key.Name)
+			if err != nil {
+				return err
+			}
 			switch key.Name {
 			case rhtasv1.TufKeyRekor:
-				rekorUrl := kubernetes.FindEnvByNameOrCreate(container, "REKOR_URL")
-				url, err := apis.ServiceAsUrl(&instance.Spec.Rekor)
-				if err != nil {
-					return err
-				}
-				rekorUrl.Value = url
+				kubernetes.FindEnvByNameOrCreate(container, "REKOR_URL").Value = result.Address
 			case rhtasv1.TufKeyCTFE:
-				ctlogUrl := kubernetes.FindEnvByNameOrCreate(container, "CTLOG_URL")
-				url, err := apis.ServiceAsUrl(&instance.Spec.Ctlog)
-				if err != nil {
-					return err
-				}
-				ctlogUrl.Value = url
+				kubernetes.FindEnvByNameOrCreate(container, "CTLOG_URL").Value = result.Address
 			case rhtasv1.TufKeyFulcio:
-				fulcioUrl := kubernetes.FindEnvByNameOrCreate(container, "FULCIO_URL")
-				url, err := apis.ServiceAsUrl(&instance.Spec.Fulcio)
-				if err != nil {
-					return err
-				}
-				fulcioUrl.Value = url
+				kubernetes.FindEnvByNameOrCreate(container, "FULCIO_URL").Value = result.Address
+				kubernetes.FindEnvByNameOrCreate(container, "OIDC_ISSUERS").Value = strings.Join(result.OIDCIssuers, ",")
 			case rhtasv1.TufKeyTSA:
-				tsaUrl := kubernetes.FindEnvByNameOrCreate(container, "TSA_URL")
-				url, err := apis.ServiceAsUrl(&instance.Spec.Tsa)
-				if err != nil {
-					return err
-				}
-				tsaUrl.Value = url
+				kubernetes.FindEnvByNameOrCreate(container, "TSA_URL").Value = result.Address
 			}
 		}
-
-		oidcIssuersEnv := kubernetes.FindEnvByNameOrCreate(container, "OIDC_ISSUERS")
-		oidcIssuersEnv.Value = strings.Join(oidcIssuers, ",")
 
 		container.Command = []string{"/bin/bash", "-c"}
 		container.Args = []string{script}

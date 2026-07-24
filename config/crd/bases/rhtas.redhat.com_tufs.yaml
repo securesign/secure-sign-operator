@@ -963,35 +963,59 @@ spec:
               ctlog:
                 description: Ctlog service configuration
                 properties:
-                  address:
-                    description: Address to Ctlog Log Server End point
-                    type: string
-                  port:
-                    description: Port of Ctlog Log Server End point
-                    format: int32
-                    maximum: 65535
-                    minimum: 1
-                    type: integer
-                  prefix:
-                    description: |-
-                      Prefix is the name of the log. The prefix cannot be empty and can
-                      contain "/" path separator characters to define global override handler prefix.
-                    pattern: ^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$
+                  ref:
+                    description: In-cluster reference to a component CR.
+                    properties:
+                      name:
+                        description: Name of the referenced CR.
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: Namespace of the referenced CR. Defaults to the
+                          namespace of the referencing resource.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  url:
+                    description: Direct URL for an external or cross-namespace service.
+                    format: uri
                     type: string
                 type: object
+                x-kubernetes-validations:
+                - message: ref and url are mutually exclusive
+                  rule: '!(has(self.ref) && has(self.url) && size(self.url) > 0)'
               fulcio:
                 description: Fulcio service configuration
                 properties:
-                  address:
-                    description: Address to Fulcio End point
+                  oidcIssuers:
+                    description: OIDC Configuration
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: set
+                  ref:
+                    description: In-cluster reference to a component CR.
+                    properties:
+                      name:
+                        description: Name of the referenced CR.
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: Namespace of the referenced CR. Defaults to the
+                          namespace of the referencing resource.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  url:
+                    description: Direct URL for an external or cross-namespace service.
+                    format: uri
                     type: string
-                  port:
-                    description: Port of Fulcio End point
-                    format: int32
-                    maximum: 65535
-                    minimum: 1
-                    type: integer
                 type: object
+                x-kubernetes-validations:
+                - message: ref and url are mutually exclusive
+                  rule: '!(has(self.ref) && has(self.url) && size(self.url) > 0)'
               imagePullSecrets:
                 description: |-
                   ImagePullSecrets is an optional list of references to secrets in the same namespace
@@ -1139,16 +1163,28 @@ spec:
               rekor:
                 description: Rekor service configuration
                 properties:
-                  address:
-                    description: Address to Rekor End point
+                  ref:
+                    description: In-cluster reference to a component CR.
+                    properties:
+                      name:
+                        description: Name of the referenced CR.
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: Namespace of the referenced CR. Defaults to the
+                          namespace of the referencing resource.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  url:
+                    description: Direct URL for an external or cross-namespace service.
+                    format: uri
                     type: string
-                  port:
-                    description: Port of Rekor End point
-                    format: int32
-                    maximum: 65535
-                    minimum: 1
-                    type: integer
                 type: object
+                x-kubernetes-validations:
+                - message: ref and url are mutually exclusive
+                  rule: '!(has(self.ref) && has(self.url) && size(self.url) > 0)'
               replicas:
                 description: Number of desired pods.
                 format: int32
@@ -1281,18 +1317,28 @@ spec:
               tsa:
                 description: TSA service configuration
                 properties:
-                  address:
-                    description: |-
-                      Address is the full TSA endpoint URL including the API suffix path
-                      (e.g. http://tsa.example.com/api/v1/timestamp).
+                  ref:
+                    description: In-cluster reference to a component CR.
+                    properties:
+                      name:
+                        description: Name of the referenced CR.
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: Namespace of the referenced CR. Defaults to the
+                          namespace of the referencing resource.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  url:
+                    description: Direct URL for an external or cross-namespace service.
+                    format: uri
                     type: string
-                  port:
-                    description: Port of TSA End point
-                    format: int32
-                    maximum: 65535
-                    minimum: 1
-                    type: integer
                 type: object
+                x-kubernetes-validations:
+                - message: ref and url are mutually exclusive
+                  rule: '!(has(self.ref) && has(self.url) && size(self.url) > 0)'
             type: object
           status:
             description: TufStatus defines the observed state of Tuf
