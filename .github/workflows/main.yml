@@ -17,6 +17,7 @@ env:
   OCP_VERSION: ${{ vars.OLM_INDEX_VERSION }}
   INGRESS_HOST_TEMPLATE: '%[1]s.%[2]s.127.0.0.1.nip.io'
   TARGET_PLATFORM: kubernetes
+  CLI_CGW_VERSION: "1.4.2"
 
 jobs:
   build-operator:
@@ -362,7 +363,7 @@ jobs:
       # so it produces static .local hostnames that require /etc/hosts entries.
       - name: Add service hosts to /etc/hosts
         run: |
-          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local cli-server.local tsa-server.local" | sudo tee -a /etc/hosts
+          sudo echo "127.0.0.1 fulcio-server.local tuf.local rekor-server.local keycloak-internal.keycloak-system.svc rekor-search-ui.local tsa-server.local" | sudo tee -a /etc/hosts
       - name: Install cosign
         #keep upgrade scenario on cosign v2 (latest released version does not support cosign v3)
         run: go install github.com/sigstore/cosign/v2/cmd/cosign@v2.4.0
@@ -664,10 +665,10 @@ jobs:
           export TUF_URL=$(kubectl get tuf -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})
           export REKOR_URL=$(kubectl get rekor -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})
           export FULCIO_URL=$(kubectl get fulcio -o jsonpath='{.items[0].status.url}' -n ${{ env.TEST_NAMESPACE }})
-          
-          export CLI_STRATEGY=cli_server
-          export CLI_SERVER_URL="http://cli-server.trusted-artifact-signer.127.0.0.1.nip.io"
-          
+
+          export CLI_STRATEGY=cgw
+          export CGW_URL="https://developers.redhat.com/content-gateway/file/RHTAS/${{ env.CLI_CGW_VERSION }}"
+
           cd e2e
           source ./tas-env-variables.sh
           # Install Playwright with dependencies for UI tests
