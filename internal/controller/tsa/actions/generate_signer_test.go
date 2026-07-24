@@ -62,7 +62,7 @@ func tsaInstance() *rhtasv1.TimestampAuthority {
 	}
 }
 
-func TestTSASigner_KMSDisabled(t *testing.T) {
+func TestTSASigner_KMSWithCertChainRef(t *testing.T) {
 	g := NewWithT(t)
 	instance := tsaInstance()
 	instance.Spec.Signer = rhtasv1.TimestampAuthoritySigner{
@@ -79,10 +79,10 @@ func TestTSASigner_KMSDisabled(t *testing.T) {
 
 	c := testAction.FakeClientBuilder().Build()
 	a := testAction.PrepareAction(c, NewGenerateSignerAction())
-	g.Expect(a.CanHandle(t.Context(), instance)).To(BeFalse())
+	g.Expect(a.CanHandle(t.Context(), instance)).To(BeTrue())
 }
 
-func TestTSASigner_TinkDisabled(t *testing.T) {
+func TestTSASigner_TinkWithCertChainRef(t *testing.T) {
 	g := NewWithT(t)
 	instance := tsaInstance()
 	instance.Spec.Signer = rhtasv1.TimestampAuthoritySigner{
@@ -102,7 +102,39 @@ func TestTSASigner_TinkDisabled(t *testing.T) {
 
 	c := testAction.FakeClientBuilder().Build()
 	a := testAction.PrepareAction(c, NewGenerateSignerAction())
-	g.Expect(a.CanHandle(t.Context(), instance)).To(BeFalse())
+	g.Expect(a.CanHandle(t.Context(), instance)).To(BeTrue())
+}
+
+func TestTSASigner_TinkWithoutKeysetRef(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+	instance := tsaInstance()
+	instance.Spec.Signer = rhtasv1.TimestampAuthoritySigner{
+		CertificateChain: rhtasv1.CertificateChain{
+			CertificateChainRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "tink-secret"},
+				Key:                  "certificateChain",
+			},
+		},
+		Tink: &rhtasv1.Tink{},
+	}
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	g.Expect(a.CanHandle(ctx, instance)).To(BeTrue())
+
+	result := a.Handle(ctx, instance)
+	g.Expect(result.Err).To(HaveOccurred())
+	g.Expect(errors.Is(result.Err, reconcile.TerminalError(result.Err))).To(BeTrue())
+	g.Expect(result.Err.Error()).To(ContainSubstring("missing keyset reference"))
+
+	cond := meta.FindStatusCondition(instance.Status.Conditions, TSASignerCondition)
+	g.Expect(cond).NotTo(BeNil())
+	g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 }
 
 func TestTSASigner_FileEnabled(t *testing.T) {

@@ -24,6 +24,7 @@ const (
 )
 
 var ErrMissingPrivateKey = errors.New("missing private key for certificate chain")
+var ErrMissingKeysetRef = errors.New("missing keyset reference for Tink signer")
 
 func NewGenerateSignerAction() action.Action[*rhtasv1.TimestampAuthority] {
 	return generateSigner.NewAction(
@@ -47,7 +48,10 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.TimestampAuthority] {
 }
 
 func isEnabled(instance *rhtasv1.TimestampAuthority) bool {
-	return tsaUtils.IsFileType(instance)
+	if tsaUtils.IsFileType(instance) {
+		return true
+	}
+	return instance.Spec.Signer.CertificateChain.CertificateChainRef != nil
 }
 
 func resolveRef(ctx context.Context, instance *rhtasv1.TimestampAuthority, c client.Client) (*rhtasv1.SecretKeySelector, error) {
@@ -61,6 +65,21 @@ func resolveRef(ctx context.Context, instance *rhtasv1.TimestampAuthority, c cli
 		instance.Spec.Signer.File.PrivateKeyRef != nil {
 		if err := generateSigner.RequireSecret(ctx, c, instance.Namespace, instance.Spec.Signer.File.PrivateKeyRef); err != nil {
 			return nil, err
+		}
+		if err := generateSigner.RequireSecret(ctx, c, instance.Namespace, instance.Spec.Signer.CertificateChain.CertificateChainRef); err != nil {
+			return nil, err
+		}
+		return instance.Spec.Signer.CertificateChain.CertificateChainRef, nil
+	}
+	if instance.Spec.Signer.CertificateChain.CertificateChainRef != nil &&
+		(instance.Spec.Signer.Kms != nil || instance.Spec.Signer.Tink != nil) {
+		if instance.Spec.Signer.Tink != nil {
+			if instance.Spec.Signer.Tink.KeysetRef == nil {
+				return nil, reconcile.TerminalError(ErrMissingKeysetRef)
+			}
+			if err := generateSigner.RequireSecret(ctx, c, instance.Namespace, instance.Spec.Signer.Tink.KeysetRef); err != nil {
+				return nil, err
+			}
 		}
 		if err := generateSigner.RequireSecret(ctx, c, instance.Namespace, instance.Spec.Signer.CertificateChain.CertificateChainRef); err != nil {
 			return nil, err
