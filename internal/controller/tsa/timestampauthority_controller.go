@@ -103,6 +103,7 @@ func (r *timestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 		transitions.NewEnsureConditionsAction[*rhtasv1.TimestampAuthority](conditionSupplier),
 		actions.NewFIPSValidationAction(),
 		actions.NewGenerateSignerAction(),
+		actions.NewResolveKMSTinkSignerAction(),
 		transitions.NewToCreatePhaseAction[*rhtasv1.TimestampAuthority](),
 		actions.NewRBACAction(),
 		actions.NewNtpMonitoringAction(),
