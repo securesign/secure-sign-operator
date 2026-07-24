@@ -30,6 +30,10 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.CTlog] {
 			ResolveRef:   resolveRef,
 			GenerateData: generateData,
 			AlignStatus:  alignStatus,
+			IsEnabled: func(i *rhtasv1.CTlog) bool {
+				// PKCS#11 mode manages keys on the HSM — no file-based signer secret needed.
+				return i.Spec.SignerType != rhtasv1.CTlogSignerTypePKCS11
+			},
 			MutateSecret: func(_ *rhtasv1.CTlog, secret *corev1.Secret) {
 				if secret.Labels == nil {
 					secret.Labels = make(map[string]string)

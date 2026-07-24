@@ -98,6 +98,9 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	target := instance.DeepCopy()
 	conditionSupplier := func(_ *rhtasv1.CTlog) []string {
 		conditions := []string{actions.CertCondition, actions.SignerCondition, actions.ConfigCondition, actions.TLSCondition, trustmaterial.TrustMaterialCondition}
+		if target.Spec.SignerType == rhtasv1.CTlogSignerTypePKCS11 {
+			conditions = append(conditions, actions.PKCS11Condition)
+		}
 		return fipsutil.AppendFIPSCondition(conditions)
 	}
 	acs := []action.Action[*rhtasv1.CTlog]{
@@ -108,6 +111,7 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		transitions.NewToCreatePhaseAction[*rhtasv1.CTlog](),
 
+		actions.NewEnsurePKCS11ConfigAction(),
 		actions.NewHandleFulcioCertAction(),
 		actions.NewFIPSValidationAction(),
 		actions.NewGenerateSignerAction(),

@@ -275,6 +275,178 @@ func createDeployment(instance *rhtasv1.Fulcio, labels map[string]string) (*v13.
 	return d, nil
 }
 
+func TestEnsureVolumeDefaultMode(t *testing.T) {
+	g := NewWithT(t)
+
+	defaultMode := ptr.To(int32(0644))
+
+	tests := []struct {
+		name   string
+		volume v12.Volume
+		verify func(g Gomega, v *v12.Volume)
+	}{
+		{
+			name: "ConfigMap without DefaultMode gets default",
+			volume: v12.Volume{
+				Name: "config",
+				VolumeSource: v12.VolumeSource{
+					ConfigMap: &v12.ConfigMapVolumeSource{
+						LocalObjectReference: v12.LocalObjectReference{Name: "my-config"},
+					},
+				},
+			},
+			verify: func(g Gomega, v *v12.Volume) {
+				g.Expect(v.ConfigMap.DefaultMode).Should(Equal(defaultMode))
+			},
+		},
+		{
+			name: "ConfigMap with explicit DefaultMode is preserved",
+			volume: v12.Volume{
+				Name: "config",
+				VolumeSource: v12.VolumeSource{
+					ConfigMap: &v12.ConfigMapVolumeSource{
+						LocalObjectReference: v12.LocalObjectReference{Name: "my-config"},
+						DefaultMode:          ptr.To(int32(0600)),
+					},
+				},
+			},
+			verify: func(g Gomega, v *v12.Volume) {
+				g.Expect(v.ConfigMap.DefaultMode).Should(Equal(ptr.To(int32(0600))))
+			},
+		},
+		{
+			name: "Secret without DefaultMode gets default",
+			volume: v12.Volume{
+				Name: "secret",
+				VolumeSource: v12.VolumeSource{
+					Secret: &v12.SecretVolumeSource{SecretName: "my-secret"},
+				},
+			},
+			verify: func(g Gomega, v *v12.Volume) {
+				g.Expect(v.Secret.DefaultMode).Should(Equal(defaultMode))
+			},
+		},
+		{
+			name: "Projected without DefaultMode gets default",
+			volume: v12.Volume{
+				Name: "projected",
+				VolumeSource: v12.VolumeSource{
+					Projected: &v12.ProjectedVolumeSource{},
+				},
+			},
+			verify: func(g Gomega, v *v12.Volume) {
+				g.Expect(v.Projected.DefaultMode).Should(Equal(defaultMode))
+			},
+		},
+		{
+			name: "EmptyDir is not modified",
+			volume: v12.Volume{
+				Name: "empty",
+				VolumeSource: v12.VolumeSource{
+					EmptyDir: &v12.EmptyDirVolumeSource{},
+				},
+			},
+			verify: func(g Gomega, v *v12.Volume) {
+				g.Expect(v.EmptyDir).ShouldNot(BeNil())
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := tt.volume
+			ensureVolumeDefaultMode(&v)
+			tt.verify(g, &v)
+		})
+	}
+}
+
+func TestPKCS11UserDefinedVolumesGetDefaultMode(t *testing.T) {
+	g := NewWithT(t)
+
+	instance := createPKCS11Instance()
+	instance.Spec.Certificate.PKCS11.Volumes = []v12.Volume{
+		{
+			Name: "softhsm-config",
+			VolumeSource: v12.VolumeSource{
+				ConfigMap: &v12.ConfigMapVolumeSource{
+					LocalObjectReference: v12.LocalObjectReference{Name: "softhsm-config"},
+				},
+			},
+		},
+	}
+	labels := labels.For(componentName, deploymentName, instance.Name)
+	dp, err := createDeployment(instance, labels)
+	g.Expect(err).ShouldNot(HaveOccurred())
+
+	softhsmVol := findVolume("softhsm-config", dp.Spec.Template.Spec.Volumes)
+	g.Expect(softhsmVol).ShouldNot(BeNil())
+	g.Expect(softhsmVol.ConfigMap.DefaultMode).Should(Equal(ptr.To(int32(0644))),
+		"User-defined ConfigMap volume should get Kubernetes default DefaultMode to avoid reconcile loops")
+}
+
+func createPKCS11Instance() *rhtasv1.Fulcio {
+	port := int32(80)
+	return &rhtasv1.Fulcio{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "name",
+			Namespace: "default",
+		},
+		Spec: rhtasv1.FulcioSpec{
+			Ctlog: rhtasv1.CtlogService{
+				Address: "http://ctlog.default.svc",
+				Port:    &port,
+				Prefix:  "prefix",
+			},
+			Certificate: rhtasv1.FulcioCert{
+				CAType: rhtasv1.CATypePKCS11,
+				CARef: &rhtasv1.SecretKeySelector{
+					Key:                  "cert.pem",
+					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-root-ca"},
+				},
+				PKCS11: &rhtasv1.FulcioPKCS11Config{
+					CredentialsRef: rhtasv1.SecretKeySelector{
+						Key:                  "pin",
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "hsm-credentials"},
+					},
+					PKCS11ConfigRef: rhtasv1.SecretKeySelector{
+						Key:                  "crypto11.conf",
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pkcs11-config"},
+					},
+					KeyConfig: rhtasv1.PKCS11KeyConfig{
+						ID:    99,
+						Label: "PKCS11CA",
+					},
+					InitContainers: []rhtasv1.PKCS11InitContainerSpec{
+						{
+							Name:  "hsm-init",
+							Image: "quay.io/example/hsm-init:latest",
+						},
+					},
+				},
+			},
+		},
+		Status: rhtasv1.FulcioStatus{
+			ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "config"},
+			Certificate: &rhtasv1.FulcioCertStatus{
+				CARef: &rhtasv1.SecretKeySelector{
+					Key:                  "cert.pem",
+					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-root-ca"},
+				},
+			},
+			PKCS11: &rhtasv1.FulcioPKCS11Status{
+				PKCS11ConfigRef: &rhtasv1.SecretKeySelector{
+					Key:                  "crypto11.conf",
+					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-pkcs11-config"},
+				},
+				CredentialsRef: &rhtasv1.SecretKeySelector{
+					Key:                  "pin",
+					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "hsm-credentials"},
+				},
+			},
+		},
+	}
+}
+
 func TestResolveCTLUrl(t *testing.T) {
 	g := NewWithT(t)
 	action := deployAction{}

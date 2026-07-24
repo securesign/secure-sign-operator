@@ -1,0 +1,165 @@
+# SecureSign CR with dual PKCS#11 HSM-backed signing (Fulcio + CTLog)
+#
+# Replace all <placeholder> values with your environment-specific configuration.
+# This sample is vendor-agnostic. For SoftHSM dev/test or production HSM examples,
+# see docs/pkcs11-hsm-support.md.
+#
+# Prerequisites (create these before applying this CR):
+#
+#   1. HSM PIN secret:
+#        kubectl create secret generic <your-hsm-pin-secret> \
+#          --from-literal=pin=<your-hsm-pin>
+#
+#   2. Fulcio PKCS#11 config secret (crypto11.conf):
+#        kubectl create secret generic <your-pkcs11-config-secret> \
+#          --from-file=crypto11.conf=<path-to-crypto11.conf>
+#
+#   3. Fulcio root CA certificate secret (from key ceremony):
+#        kubectl create secret generic <your-root-ca-secret> \
+#          --from-file=cert.pem=<path-to-root-ca.pem>
+#
+#   4. CTLog public key secret (from key ceremony):
+#        kubectl create secret generic <your-ctlog-pubkey-secret> \
+#          --from-file=public.pem=<path-to-ctlog-pubkey.pem>
+#        kubectl label secret <your-ctlog-pubkey-secret> \
+#          "rhtas.redhat.com/ctfe.pub=public.pem"
+#
+apiVersion: rhtas.redhat.com/v1
+kind: Securesign
+metadata:
+  labels:
+    app.kubernetes.io/name: securesign-pkcs11-sample
+    app.kubernetes.io/instance: securesign-pkcs11-sample
+    app.kubernetes.io/part-of: trusted-artifact-signer
+  name: securesign-pkcs11-sample
+spec:
+  fulcio:
+    ingress:
+      enabled: true
+    config:
+      oidcIssuers:
+        - clientID: "trusted-artifact-signer"
+          issuerURL: "https://your-oidc-issuer-url"
+          issuer: "https://your-oidc-issuer-url"
+          type: "email"
+    certificate:
+      caType: pkcs11
+      caRef:
+        name: "<your-root-ca-secret>"
+        key: cert.pem
+      pkcs11:
+        credentialsRef:
+          name: "<your-hsm-pin-secret>"
+          key: pin
+        pkcs11ConfigRef:
+          name: "<your-pkcs11-config-secret>"
+          key: crypto11.conf
+        keyConfig:
+          id: 1
+          label: "<your-hsm-key-label>"
+        initContainers:
+          - name: hsm-init
+            image: "<your-hsm-init-image>"
+            env:
+              - name: "<VENDOR_CONFIG_ENV>"
+                value: "<vendor-config-path>"
+            volumeMounts:
+              - name: hsm-vendor-config
+                mountPath: "<vendor-config-mount-path>"
+                readOnly: true
+        serverEnv:
+          - name: "<VENDOR_CONFIG_ENV>"
+            value: "<vendor-config-path>"
+        serverVolumeMounts:
+          - name: hsm-vendor-config
+            mountPath: "<vendor-config-mount-path>"
+            readOnly: true
+        volumes:
+          - name: hsm-vendor-config
+            secret:
+              secretName: "<your-vendor-config-secret>"
+    monitoring:
+      enabled: true
+  ctlog:
+    signerType: pkcs11
+    pkcs11:
+      pkcs11ModulePath: "<path-to-pkcs11-library.so>"
+      tokenLabel: "<your-hsm-token-label>"
+      pinSecretRef:
+        name: "<your-hsm-pin-secret>"
+        key: pin
+      publicKeyRef:
+        name: "<your-ctlog-pubkey-secret>"
+        key: public.pem
+      initContainers:
+        - name: hsm-init
+          image: "<your-hsm-init-image>"
+          env:
+            - name: "<VENDOR_CONFIG_ENV>"
+              value: "<vendor-config-path>"
+          volumeMounts:
+            - name: hsm-vendor-config
+              mountPath: "<vendor-config-mount-path>"
+              readOnly: true
+      volumes:
+        - name: hsm-vendor-config
+          secret:
+            secretName: "<your-vendor-config-secret>"
+      serverEnv:
+        - name: "<VENDOR_CONFIG_ENV>"
+          value: "<vendor-config-path>"
+      serverVolumeMounts:
+        - name: hsm-vendor-config
+          mountPath: "<vendor-config-mount-path>"
+          readOnly: true
+    monitoring:
+      enabled: true
+  rekor:
+    ingress:
+      enabled: true
+    monitoring:
+      enabled: true
+    attestations:
+      enabled: true
+      url: 'file:///var/run/attestations?no_tmp_dir=true'
+      pvc:
+        retain: true
+        size: 5Gi
+    signer:
+      kms: secret
+  trillian:
+    database:
+      create: true
+    monitoring:
+      enabled: true
+  tuf:
+    ingress:
+      enabled: true
+    keys:
+      - name: rekor.pub
+      - name: ctfe.pub
+      - name: fulcio_v1.crt.pem
+      - name: tsa.certchain.pem
+    monitoring:
+      enabled: true
+  tsa:
+    ingress:
+      enabled: true
+    monitoring:
+      enabled: true
+    ntpMonitoring:
+      enabled: true
+    signer:
+      certificateChain:
+        rootCA:
+          organizationName: Red Hat
+          organizationEmail: jdoe@redhat.com
+          commonName: tsa.hostname-root
+        intermediateCA:
+          - organizationName: Red Hat
+            organizationEmail: jdoe@redhat.com
+            commonName: tsa.hostname-intermediate
+        leafCA:
+          organizationName: Red Hat
+          organizationEmail: jdoe@redhat.com
+          commonName: tsa.hostname-leaf

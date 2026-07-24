@@ -95,8 +95,11 @@ func (r *fulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	target := instance.DeepCopy()
-	conditionSupplier := func(_ *rhtasv1.Fulcio) []string {
+	conditionSupplier := func(i *rhtasv1.Fulcio) []string {
 		conditions := []string{actions.CertCondition, trustmaterial.TrustMaterialCondition}
+		if i.Spec.Certificate.CAType == rhtasv1.CATypePKCS11 {
+			conditions = append(conditions, actions.PKCS11Condition)
+		}
 		return fipsutil.AppendFIPSCondition(conditions)
 	}
 	acs := []action.Action[*rhtasv1.Fulcio]{
@@ -105,6 +108,7 @@ func (r *fulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		actions.NewFIPSValidationAction(),
 		actions.NewGenerateSignerAction(),
 		transitions.NewToCreatePhaseAction[*rhtasv1.Fulcio](),
+		actions.NewEnsurePKCS11ConfigAction(),
 		actions.NewRBACAction(),
 		actions.NewServerConfigAction(),
 		actions.NewDeployAction(),

@@ -86,3 +86,30 @@ func Convert_v1_Ingress_To_v1alpha1_ExternalAccess(in *v1.Ingress, out *External
 	out.RouteSelectorLabels = in.Labels
 	return nil
 }
+
+// Convert_v1alpha1_FulcioCert_To_v1_FulcioCert manually converts FulcioCert.
+// v1alpha1 does not have CAType or PKCS11 fields — they are restored from
+// MarshalData annotations in ConvertTo.
+func Convert_v1alpha1_FulcioCert_To_v1_FulcioCert(in *FulcioCert, out *v1.FulcioCert, s apiconversion.Scope) error {
+	return autoConvert_v1alpha1_FulcioCert_To_v1_FulcioCert(in, out, s)
+}
+
+// Convert_v1_FulcioCert_To_v1alpha1_FulcioCert manually converts FulcioCert from v1 to v1alpha1.
+// CAType and PKCS11 fields are v1-only and intentionally dropped here.
+// They are preserved via MarshalData annotation in ConvertFrom.
+func Convert_v1_FulcioCert_To_v1alpha1_FulcioCert(in *v1.FulcioCert, out *FulcioCert, s apiconversion.Scope) error {
+	return autoConvert_v1_FulcioCert_To_v1alpha1_FulcioCert(in, out, s)
+}
+
+// Convert_v1alpha1_FulcioStatus_To_v1_FulcioStatus manually converts FulcioStatus.
+// v1alpha1 does not have PKCS11 status — it is restored from MarshalData annotations in ConvertTo.
+func Convert_v1alpha1_FulcioStatus_To_v1_FulcioStatus(in *FulcioStatus, out *v1.FulcioStatus, s apiconversion.Scope) error {
+	return autoConvert_v1alpha1_FulcioStatus_To_v1_FulcioStatus(in, out, s)
+}
+
+// Convert_v1_FulcioStatus_To_v1alpha1_FulcioStatus manually converts FulcioStatus from v1 to v1alpha1.
+// PKCS11 status is v1-only and intentionally dropped here.
+// It is preserved via MarshalData annotation in ConvertFrom.
+func Convert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in *v1.FulcioStatus, out *FulcioStatus, s apiconversion.Scope) error {
+	return autoConvert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in, out, s)
+}
