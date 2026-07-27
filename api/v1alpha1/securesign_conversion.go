@@ -57,6 +57,14 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Ctlog.TrustedCA = restored.Spec.Ctlog.TrustedCA
 	dst.Spec.Ctlog.Monitoring.ServiceMonitor = restored.Spec.Ctlog.Monitoring.ServiceMonitor
 	dst.Spec.Ctlog.Prefix = restored.Spec.Ctlog.Prefix
+	dst.Spec.Ctlog.Signer.Type = restored.Spec.Ctlog.Signer.Type
+	// If original v1 had File=&{} (empty struct), preserve it
+	if dst.Spec.Ctlog.Signer.File == nil && restored.Spec.Ctlog.Signer.File != nil {
+		emptyFile := &rhtasv1.CTlogFile{}
+		if equality.Semantic.DeepEqual(restored.Spec.Ctlog.Signer.File, emptyFile) {
+			dst.Spec.Ctlog.Signer.File = &rhtasv1.CTlogFile{}
+		}
+	}
 	if dst.Spec.Ctlog.Trillian.URL == "" {
 		dst.Spec.Ctlog.Trillian.Ref = restored.Spec.Ctlog.Trillian.Ref
 	}

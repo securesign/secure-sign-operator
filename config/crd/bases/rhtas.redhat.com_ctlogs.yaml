@@ -1052,67 +1052,6 @@ spec:
                   contain "/" path separator characters to define global override handler prefix.
                 pattern: ^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$
                 type: string
-              privateKeyPasswordRef:
-                description: |-
-                  Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
-                  and not FIPS-compliant. Auto-generated keys are no longer password-encrypted;
-                  this field is retained only for backward compatibility with existing user-provided
-                  encrypted keys. Kubernetes Secrets provide encryption-at-rest.
-                properties:
-                  key:
-                    description: The key of the secret to select from. Must be a valid
-                      secret key.
-                    pattern: ^[-._a-zA-Z0-9]+$
-                    type: string
-                  name:
-                    description: |-
-                      Name of the referent.
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                    type: string
-                required:
-                - key
-                - name
-                type: object
-                x-kubernetes-map-type: atomic
-              privateKeyRef:
-                description: The private key used for signing STHs etc.
-                properties:
-                  key:
-                    description: The key of the secret to select from. Must be a valid
-                      secret key.
-                    pattern: ^[-._a-zA-Z0-9]+$
-                    type: string
-                  name:
-                    description: |-
-                      Name of the referent.
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                    type: string
-                required:
-                - key
-                - name
-                type: object
-                x-kubernetes-map-type: atomic
-              publicKeyRef:
-                description: |-
-                  The public key matching the private key (if both are present). It is
-                  used only by mirror logs for verifying the source log's signatures, but can
-                  be specified for regular logs as well for the convenience of test tools.
-                properties:
-                  key:
-                    description: The key of the secret to select from. Must be a valid
-                      secret key.
-                    pattern: ^[-._a-zA-Z0-9]+$
-                    type: string
-                  name:
-                    description: |-
-                      Name of the referent.
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                    type: string
-                required:
-                - key
-                - name
-                type: object
-                x-kubernetes-map-type: atomic
               replicas:
                 description: Number of desired pods.
                 format: int32
@@ -1204,8 +1143,8 @@ spec:
               serverConfigRef:
                 description: |-
                   Secret holding Certificate Transparency server config in text proto format
-                  If it is set then any setting of treeID, privateKeyRef, privateKeyPasswordRef,
-                  publicKeyRef, rootCertificates and trillian will be overridden.
+                  If it is set then any setting of treeID, signer, rootCertificates and
+                  trillian will be overridden.
                 properties:
                   name:
                     description: |-
@@ -1216,6 +1155,85 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
+              signer:
+                description: Signer configuration
+                properties:
+                  file:
+                    description: Configuration for file-based signer
+                    properties:
+                      privateKeyPasswordRef:
+                        description: |-
+                          Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
+                          and not FIPS-compliant. Auto-generated keys are no longer password-encrypted;
+                          this field is retained only for backward compatibility with existing user-provided
+                          encrypted keys. Kubernetes Secrets provide encryption-at-rest.
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      privateKeyRef:
+                        description: The private key used for signing STHs etc.
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      publicKeyRef:
+                        description: |-
+                          The public key matching the private key (if both are present). It is
+                          used only by mirror logs for verifying the source log's signatures, but can
+                          be specified for regular logs as well for the convenience of test tools.
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
+                    x-kubernetes-validations:
+                    - message: privateKeyRef cannot be empty
+                      rule: (!has(self.publicKeyRef) || has(self.privateKeyRef))
+                    - message: privateKeyRef cannot be empty
+                      rule: (!has(self.privateKeyPasswordRef) || has(self.privateKeyRef))
+                  type:
+                    description: Type of the signer backend
+                    enum:
+                    - file
+                    type: string
+                type: object
               tls:
                 description: Configuration for enabling TLS (Transport Layer Security)
                   encryption for manged service.
@@ -1349,12 +1367,9 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
+            required:
+            - signer
             type: object
-            x-kubernetes-validations:
-            - message: privateKeyRef cannot be empty
-              rule: (!has(self.publicKeyRef) || has(self.privateKeyRef))
-            - message: privateKeyRef cannot be empty
-              rule: (!has(self.privateKeyPasswordRef) || has(self.privateKeyRef))
           status:
             description: CTlogStatus defines the observed state of CTlog component
             properties:

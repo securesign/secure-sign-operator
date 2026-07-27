@@ -74,6 +74,7 @@ func TestSecuresignConversionUnit(t *testing.T) {
 							Monitoring: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						},
 						Ctlog: rhtasv1.CTlogSpec{
+							Signer: rhtasv1.CTlogSigner{Type: "file"},
 							Monitoring: rhtasv1.MonitoringWithTLogConfig{
 								MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 								TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
@@ -123,6 +124,7 @@ func TestSecuresignConversionUnit(t *testing.T) {
 						},
 						Ctlog: rhtasv1.CTlogSpec{
 							TreeID: ptr.To[int64](67890),
+							Signer: rhtasv1.CTlogSigner{Type: "file"},
 							Monitoring: rhtasv1.MonitoringWithTLogConfig{
 								MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 								TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
@@ -228,6 +230,7 @@ func TestCTlogConversionUnit(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"},
 				Spec: rhtasv1.CTlogSpec{
 					TreeID:           ptr.To[int64](999),
+					Signer:           rhtasv1.CTlogSigner{Type: "file"},
 					MaxCertChainSize: ptr.To[int64](153600),
 					Trillian:         rhtasv1.ServiceReference{URL: "ctlog.rhtas.example.com:8090"},
 					Prefix:           "trusted-artifact-signer",
@@ -257,9 +260,14 @@ func TestCTlogConversionUnit(t *testing.T) {
 			hub: &rhtasv1.CTlog{
 				ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"},
 				Spec: rhtasv1.CTlogSpec{
-					PrivateKeyRef:         &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-secret"}, Key: "private"},
-					PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-secret"}, Key: "password"},
-					PublicKeyRef:          &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-secret"}, Key: "public"},
+					Signer: rhtasv1.CTlogSigner{
+						Type: "file",
+						File: &rhtasv1.CTlogFile{
+							PrivateKeyRef:         &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-secret"}, Key: "private"},
+							PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-secret"}, Key: "password"},
+							PublicKeyRef:          &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-secret"}, Key: "public"},
+						},
+					},
 					RootCertificates: []rhtasv1.SecretKeySelector{
 						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "root-cert"}, Key: "ca.crt"},
 					},

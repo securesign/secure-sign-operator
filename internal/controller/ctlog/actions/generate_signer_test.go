@@ -52,17 +52,19 @@ func TestCTlogKeys_UserProvidedKeyRef(t *testing.T) {
 	g := NewWithT(t)
 	ctx := t.Context()
 	instance := ctlogInstance()
-	instance.Spec.PrivateKeyRef = &rhtasv1.SecretKeySelector{
-		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
-		Key:                  "private",
-	}
-	instance.Spec.PublicKeyRef = &rhtasv1.SecretKeySelector{
-		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
-		Key:                  "public",
-	}
-	instance.Spec.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
-		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
-		Key:                  "password",
+	instance.Spec.Signer.File = &rhtasv1.CTlogFile{
+		PrivateKeyRef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
+			Key:                  "private",
+		},
+		PublicKeyRef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
+			Key:                  "public",
+		},
+		PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
+			Key:                  "password",
+		},
 	}
 
 	userSecret := &corev1.Secret{
@@ -94,9 +96,11 @@ func TestCTlogKeys_UserProvidedPrivateKeyOnly_DerivesPublicKey(t *testing.T) {
 	g := NewWithT(t)
 	ctx := t.Context()
 	instance := ctlogInstance()
-	instance.Spec.PrivateKeyRef = &rhtasv1.SecretKeySelector{
-		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
-		Key:                  "private",
+	instance.Spec.Signer.File = &rhtasv1.CTlogFile{
+		PrivateKeyRef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
+			Key:                  "private",
+		},
 	}
 
 	userSecret := &corev1.Secret{
@@ -214,13 +218,15 @@ func TestCTlogKeys_PasswordRefRejectedInFIPS(t *testing.T) {
 	t.Cleanup(func() { fips.Enabled = original })
 
 	instance := ctlogInstance()
-	instance.Spec.PrivateKeyRef = &rhtasv1.SecretKeySelector{
-		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
-		Key:                  "private",
-	}
-	instance.Spec.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
-		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-password"},
-		Key:                  "password",
+	instance.Spec.Signer.File = &rhtasv1.CTlogFile{
+		PrivateKeyRef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
+			Key:                  "private",
+		},
+		PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-password"},
+			Key:                  "password",
+		},
 	}
 
 	c := testAction.FakeClientBuilder().
@@ -253,9 +259,11 @@ func TestCTlogKeys_UnencryptedKeyAllowedInFIPS(t *testing.T) {
 	unencryptedKey := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes})
 
 	instance := ctlogInstance()
-	instance.Spec.PrivateKeyRef = &rhtasv1.SecretKeySelector{
-		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
-		Key:                  "private",
+	instance.Spec.Signer.File = &rhtasv1.CTlogFile{
+		PrivateKeyRef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
+			Key:                  "private",
+		},
 	}
 
 	userSecret := &corev1.Secret{

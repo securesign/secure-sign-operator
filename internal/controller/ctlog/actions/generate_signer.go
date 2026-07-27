@@ -41,11 +41,12 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.CTlog] {
 }
 
 func resolveRef(ctx context.Context, instance *rhtasv1.CTlog, c client.Client) (*rhtasv1.SecretKeySelector, error) {
-	if instance.Spec.PrivateKeyRef != nil {
-		if err := generateSigner.RequireSecret(ctx, c, instance.Namespace, instance.Spec.PrivateKeyRef); err != nil {
+	if instance.Spec.Signer.File != nil && instance.Spec.Signer.File.PrivateKeyRef != nil {
+		ref := instance.Spec.Signer.File.PrivateKeyRef
+		if err := generateSigner.RequireSecret(ctx, c, instance.Namespace, ref); err != nil {
 			return nil, err
 		}
-		return instance.Spec.PrivateKeyRef, nil
+		return ref, nil
 	}
 	return generateSigner.ResolveStatusSecret(ctx, c, instance.Status.PrivateKeyRef, instance.Namespace, fmt.Sprintf(signerSecretNameFormat, instance.Name))
 }
@@ -62,16 +63,17 @@ func generateData(_ context.Context, _ *rhtasv1.CTlog, _ client.Client) (map[str
 }
 
 func alignStatus(instance *rhtasv1.CTlog, ref rhtasv1.SecretKeySelector) {
-	if instance.Spec.PrivateKeyRef != nil {
-		instance.Status.PrivateKeyRef = instance.Spec.PrivateKeyRef
-		instance.Status.PrivateKeyPasswordRef = instance.Spec.PrivateKeyPasswordRef //nolint:staticcheck
+	file := instance.Spec.Signer.File
+	if file != nil && file.PrivateKeyRef != nil {
+		instance.Status.PrivateKeyRef = file.PrivateKeyRef
+		instance.Status.PrivateKeyPasswordRef = file.PrivateKeyPasswordRef //nolint:staticcheck
 
 		//TODO: Status.PublicKey resolver will be extracted to separate action.
-		if instance.Spec.PublicKeyRef != nil {
-			instance.Status.PublicKeyRef = instance.Spec.PublicKeyRef
+		if file.PublicKeyRef != nil {
+			instance.Status.PublicKeyRef = file.PublicKeyRef
 		} else {
 			instance.Status.PublicKeyRef = &rhtasv1.SecretKeySelector{
-				LocalObjectReference: instance.Spec.PrivateKeyRef.LocalObjectReference,
+				LocalObjectReference: file.PrivateKeyRef.LocalObjectReference,
 				Key:                  constants.KeyPublic,
 			}
 		}

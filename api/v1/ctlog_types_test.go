@@ -102,9 +102,11 @@ var _ = Describe("CTlog", func() {
 		Context("is validated", func() {
 			It("publicKeyRef requires privateKeyRef", func() {
 				invalidObject := generateMinimalCTlog("public-key-invalid")
-				invalidObject.Spec.PublicKeyRef = &SecretKeySelector{
-					Key:                  "key",
-					LocalObjectReference: LocalObjectReference{Name: "name"},
+				invalidObject.Spec.Signer.File = &CTlogFile{
+					PublicKeyRef: &SecretKeySelector{
+						Key:                  "key",
+						LocalObjectReference: LocalObjectReference{Name: "name"},
+					},
 				}
 
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
@@ -114,9 +116,11 @@ var _ = Describe("CTlog", func() {
 
 			It("privateKeyPasswordRef requires privateKeyRef", func() {
 				invalidObject := generateMinimalCTlog("private-key-password-invalid")
-				invalidObject.Spec.PrivateKeyPasswordRef = &SecretKeySelector{
-					Key:                  "key",
-					LocalObjectReference: LocalObjectReference{Name: "name"},
+				invalidObject.Spec.Signer.File = &CTlogFile{
+					PrivateKeyPasswordRef: &SecretKeySelector{
+						Key:                  "key",
+						LocalObjectReference: LocalObjectReference{Name: "name"},
+					},
 				}
 
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
@@ -163,22 +167,27 @@ var _ = Describe("CTlog", func() {
 					},
 					Spec: CTlogSpec{
 						TreeID: &tree,
-						PublicKeyRef: &SecretKeySelector{
-							Key: "key",
-							LocalObjectReference: LocalObjectReference{
-								Name: "name",
-							},
-						},
-						PrivateKeyRef: &SecretKeySelector{
-							Key: "key",
-							LocalObjectReference: LocalObjectReference{
-								Name: "name",
-							},
-						},
-						PrivateKeyPasswordRef: &SecretKeySelector{
-							Key: "key",
-							LocalObjectReference: LocalObjectReference{
-								Name: "name",
+						Signer: CTlogSigner{
+							Type: "file",
+							File: &CTlogFile{
+								PublicKeyRef: &SecretKeySelector{
+									Key: "key",
+									LocalObjectReference: LocalObjectReference{
+										Name: "name",
+									},
+								},
+								PrivateKeyRef: &SecretKeySelector{
+									Key: "key",
+									LocalObjectReference: LocalObjectReference{
+										Name: "name",
+									},
+								},
+								PrivateKeyPasswordRef: &SecretKeySelector{
+									Key: "key",
+									LocalObjectReference: LocalObjectReference{
+										Name: "name",
+									},
+								},
 							},
 						},
 						RootCertificates: []SecretKeySelector{
@@ -207,6 +216,9 @@ func generateMinimalCTlog(name string) *CTlog {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
+		},
+		Spec: CTlogSpec{
+			Signer: CTlogSigner{Type: "file"},
 		},
 	}
 }

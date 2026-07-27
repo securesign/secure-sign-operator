@@ -245,17 +245,22 @@ func WithProvidedEncryptedCerts() Opts {
 			},
 		}
 
-		s.Spec.Ctlog.PrivateKeyRef = &rhtasv1.SecretKeySelector{
-			LocalObjectReference: rhtasv1.LocalObjectReference{
-				Name: "my-ctlog-secret",
+		s.Spec.Ctlog.Signer = rhtasv1.CTlogSigner{
+			Type: "file",
+			File: &rhtasv1.CTlogFile{
+				PrivateKeyRef: &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
+						Name: "my-ctlog-secret",
+					},
+					Key: "private",
+				},
+				PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+					LocalObjectReference: rhtasv1.LocalObjectReference{
+						Name: "my-ctlog-secret",
+					},
+					Key: "password",
+				},
 			},
-			Key: "private",
-		}
-		s.Spec.Ctlog.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
-			LocalObjectReference: rhtasv1.LocalObjectReference{
-				Name: "my-ctlog-secret",
-			},
-			Key: "password",
 		}
 		s.Spec.Ctlog.RootCertificates = []rhtasv1.SecretKeySelector{
 			{
@@ -326,11 +331,16 @@ func WithProvidedUnencryptedCerts() Opts {
 			},
 		}
 
-		s.Spec.Ctlog.PrivateKeyRef = &rhtasv1.SecretKeySelector{
-			LocalObjectReference: rhtasv1.LocalObjectReference{
-				Name: "my-ctlog-secret",
+		s.Spec.Ctlog.Signer = rhtasv1.CTlogSigner{
+			Type: "file",
+			File: &rhtasv1.CTlogFile{
+				PrivateKeyRef: &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
+						Name: "my-ctlog-secret",
+					},
+					Key: "private",
+				},
 			},
-			Key: "private",
 		}
 		s.Spec.Ctlog.RootCertificates = []rhtasv1.SecretKeySelector{
 			{

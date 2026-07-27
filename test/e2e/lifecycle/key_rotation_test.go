@@ -356,7 +356,10 @@ var _ = Describe("Key rotation test", Ordered, func() {
 
 				f.Spec.Ctlog.TreeID = &newTreeId
 
-				f.Spec.Ctlog.PrivateKeyRef = &rhtasv1.SecretKeySelector{
+				if f.Spec.Ctlog.Signer.File == nil {
+					f.Spec.Ctlog.Signer.File = &rhtasv1.CTlogFile{}
+				}
+				f.Spec.Ctlog.Signer.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: secretName,
 					},
@@ -364,7 +367,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 				}
 
 				if !fipsEnabled {
-					f.Spec.Ctlog.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+					f.Spec.Ctlog.Signer.File.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
 						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: secretName,
 						},
@@ -372,7 +375,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 					}
 				}
 
-				f.Spec.Ctlog.PublicKeyRef = &rhtasv1.SecretKeySelector{
+				f.Spec.Ctlog.Signer.File.PublicKeyRef = &rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: secretName,
 					},
