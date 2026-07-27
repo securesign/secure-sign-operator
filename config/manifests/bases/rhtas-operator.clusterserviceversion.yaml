@@ -93,18 +93,14 @@ spec:
   - name: RHTAS Operator
     url: https://github.com/securesign/secure-sign-operator
   maintainers:
-  - email: rcook@redhat.com
-    name: Ryan Cook
   - email: tturek@redhat.com
     name: Tomas Turek
   - email: jbouska@redhat.com
     name: Jan Bouska
-  - email: gpereira@redhat.com
-    name: Gregory Pereira
   - email: japower@redhat.com
     name: Jason Power
-  - email: somalley@redhat.com
-    name: Sally O'Malley
+  - email: fghanmi@redhat.com
+    name: Firas Ghanmi
   - email: tdalton@redhat.com
     name: Tommy Dalton
   - email: lball@redhat.com
