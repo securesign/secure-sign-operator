@@ -2789,7 +2789,7 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              monitorpvcName:
+              monitorPvcName:
                 type: string
               publicKey:
                 description: PEM-encoded public key resolved from the running Rekor
