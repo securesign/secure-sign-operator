@@ -134,14 +134,19 @@ var _ = Describe("FIPS crypto material validation", Ordered, func() {
 			s := securesign.Create(namespace.Name, "test-ed25519",
 				securesign.WithFipsDefaults(namespace.Name),
 				func(s *rhtasv1.Securesign) {
-					s.Spec.Fulcio.Certificate = rhtasv1.FulcioCert{
-						PrivateKeyRef: &rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "my-fulcio-secret"},
-							Key:                  "private",
+					s.Spec.Fulcio.Signer = rhtasv1.FulcioSigner{
+						Type: "file",
+						File: &rhtasv1.FulcioFile{
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "my-fulcio-secret"},
+								Key:                  "private",
+							},
 						},
-						CARef: &rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "my-fulcio-secret"},
-							Key:                  "cert",
+						CertificateChain: rhtasv1.FulcioCertificateChain{
+							CertificateChainRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "my-fulcio-secret"},
+								Key:                  "cert",
+							},
 						},
 					}
 				},
@@ -194,14 +199,19 @@ var _ = Describe("FIPS crypto material validation", Ordered, func() {
 			s := securesign.Create(namespace.Name, "test-ecdsa",
 				securesign.WithFipsDefaults(namespace.Name),
 				func(s *rhtasv1.Securesign) {
-					s.Spec.Fulcio.Certificate = rhtasv1.FulcioCert{
-						PrivateKeyRef: &rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "my-fulcio-secret"},
-							Key:                  "private",
+					s.Spec.Fulcio.Signer = rhtasv1.FulcioSigner{
+						Type: "file",
+						File: &rhtasv1.FulcioFile{
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "my-fulcio-secret"},
+								Key:                  "private",
+							},
 						},
-						CARef: &rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "my-fulcio-secret"},
-							Key:                  "cert",
+						CertificateChain: rhtasv1.FulcioCertificateChain{
+							CertificateChainRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "my-fulcio-secret"},
+								Key:                  "cert",
+							},
 						},
 					}
 				},

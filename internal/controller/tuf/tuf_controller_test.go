@@ -213,10 +213,13 @@ var _ = Describe("TUF controller", func() {
 								},
 							},
 						},
-						Certificate: rhtasv1.FulcioCert{
-							CommonName:        "test",
-							OrganizationName:  "test",
-							OrganizationEmail: "test@test.com",
+						Signer: rhtasv1.FulcioSigner{
+							Type: "file",
+							CertificateChain: rhtasv1.FulcioCertificateChain{
+								CommonName:        "test",
+								OrganizationName:  "test",
+								OrganizationEmail: "test@test.com",
+							},
 						},
 					},
 				},

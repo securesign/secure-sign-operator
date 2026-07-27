@@ -130,7 +130,10 @@ var _ = Describe("Key rotation test", Ordered, func() {
 			Eventually(func() error {
 				f := securesign.Get(ctx, cli, s.Namespace, s.Name)
 
-				f.Spec.Fulcio.Certificate.PrivateKeyRef = &rhtasv1.SecretKeySelector{
+				if f.Spec.Fulcio.Signer.File == nil {
+					f.Spec.Fulcio.Signer.File = &rhtasv1.FulcioFile{}
+				}
+				f.Spec.Fulcio.Signer.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: secretName,
 					},
@@ -138,7 +141,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 				}
 
 				if !fipsEnabled {
-					f.Spec.Fulcio.Certificate.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+					f.Spec.Fulcio.Signer.File.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
 						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: secretName,
 						},
@@ -146,7 +149,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 					}
 				}
 
-				f.Spec.Fulcio.Certificate.CARef = &rhtasv1.SecretKeySelector{
+				f.Spec.Fulcio.Signer.CertificateChain.CertificateChainRef = &rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: secretName,
 					},

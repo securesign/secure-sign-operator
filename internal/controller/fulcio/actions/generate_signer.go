@@ -50,20 +50,25 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.Fulcio] {
 }
 
 func resolveRef(ctx context.Context, instance *rhtasv1.Fulcio, c client.Client) (*rhtasv1.SecretKeySelector, error) {
-	if instance.Spec.Certificate.PrivateKeyRef == nil && instance.Spec.Certificate.CARef != nil {
+	var privateKeyRef *rhtasv1.SecretKeySelector
+	if instance.Spec.Signer.File != nil {
+		privateKeyRef = instance.Spec.Signer.File.PrivateKeyRef
+	}
+	certificateChainRef := instance.Spec.Signer.CertificateChain.CertificateChainRef
+	if privateKeyRef == nil && certificateChainRef != nil {
 		return nil, reconcile.TerminalError(ErrMissingPrivateKey)
 	}
-	if instance.Spec.Certificate.PrivateKeyRef != nil && instance.Spec.Certificate.CARef == nil {
+	if privateKeyRef != nil && certificateChainRef == nil {
 		return nil, reconcile.TerminalError(ErrMissingCACert)
 	}
-	if instance.Spec.Certificate.PrivateKeyRef != nil && instance.Spec.Certificate.CARef != nil {
-		if err := generateSigner.RequireSecret(ctx, c, instance.Namespace, instance.Spec.Certificate.PrivateKeyRef); err != nil {
+	if privateKeyRef != nil && certificateChainRef != nil {
+		if err := generateSigner.RequireSecret(ctx, c, instance.Namespace, privateKeyRef); err != nil {
 			return nil, err
 		}
-		if err := generateSigner.RequireSecret(ctx, c, instance.Namespace, instance.Spec.Certificate.CARef); err != nil {
+		if err := generateSigner.RequireSecret(ctx, c, instance.Namespace, certificateChainRef); err != nil {
 			return nil, err
 		}
-		return instance.Spec.Certificate.CARef, nil
+		return certificateChainRef, nil
 	}
 	var ref *rhtasv1.SecretKeySelector
 	if instance.Status.Certificate != nil {
@@ -79,20 +84,21 @@ func generateData(ctx context.Context, instance *rhtasv1.Fulcio, c client.Client
 	}
 
 	config := &fulcioutils.FulcioCertConfig{
-		OrganizationEmail: instance.Spec.Certificate.OrganizationEmail,
-		OrganizationName:  instance.Spec.Certificate.OrganizationName,
+		OrganizationEmail: instance.Spec.Signer.CertificateChain.OrganizationEmail,
+		OrganizationName:  instance.Spec.Signer.CertificateChain.OrganizationName,
 		CommonName:        commonName,
 	}
 
-	if ref := instance.Spec.Certificate.PrivateKeyPasswordRef; ref != nil { //nolint:staticcheck
-		password, err := kubernetes.GetSecretData(ctx, c, instance.Namespace, ref)
+	file := instance.Spec.Signer.File
+	if file != nil && file.PrivateKeyPasswordRef != nil { //nolint:staticcheck
+		password, err := kubernetes.GetSecretData(ctx, c, instance.Namespace, file.PrivateKeyPasswordRef) //nolint:staticcheck
 		if err != nil {
 			return nil, err
 		}
 		config.PrivateKeyPassword = password
 	}
-	if ref := instance.Spec.Certificate.PrivateKeyRef; ref != nil {
-		key, err := kubernetes.GetSecretData(ctx, c, instance.Namespace, ref)
+	if file != nil && file.PrivateKeyRef != nil {
+		key, err := kubernetes.GetSecretData(ctx, c, instance.Namespace, file.PrivateKeyRef)
 		if err != nil {
 			return nil, err
 		}
@@ -116,7 +122,7 @@ func generateData(ctx context.Context, instance *rhtasv1.Fulcio, c client.Client
 		config.PublicKey = pemPubKey
 	}
 
-	if ref := instance.Spec.Certificate.CARef; ref != nil {
+	if ref := instance.Spec.Signer.CertificateChain.CertificateChainRef; ref != nil {
 		cert, err := kubernetes.GetSecretData(ctx, c, instance.Namespace, ref)
 		if err != nil {
 			return nil, err
@@ -137,19 +143,20 @@ func alignStatus(instance *rhtasv1.Fulcio, ref rhtasv1.SecretKeySelector) {
 	if instance.Status.Certificate == nil {
 		instance.Status.Certificate = &rhtasv1.FulcioCertStatus{}
 	}
-	if instance.Spec.Certificate.PrivateKeyRef != nil {
-		instance.Status.Certificate.PrivateKeyRef = instance.Spec.Certificate.PrivateKeyRef.DeepCopy()
+	file := instance.Spec.Signer.File
+	if file != nil && file.PrivateKeyRef != nil {
+		instance.Status.Certificate.PrivateKeyRef = file.PrivateKeyRef.DeepCopy()
 	} else {
 		instance.Status.Certificate.PrivateKeyRef = &rhtasv1.SecretKeySelector{
 			Key:                  constants.KeyPrivate,
 			LocalObjectReference: ref.LocalObjectReference,
 		}
 	}
-	if instance.Spec.Certificate.PrivateKeyPasswordRef != nil { //nolint:staticcheck
-		instance.Status.Certificate.PrivateKeyPasswordRef = instance.Spec.Certificate.PrivateKeyPasswordRef.DeepCopy() //nolint:staticcheck
+	if file != nil && file.PrivateKeyPasswordRef != nil { //nolint:staticcheck
+		instance.Status.Certificate.PrivateKeyPasswordRef = file.PrivateKeyPasswordRef.DeepCopy() //nolint:staticcheck
 	}
-	if instance.Spec.Certificate.CARef != nil {
-		instance.Status.Certificate.CARef = instance.Spec.Certificate.CARef.DeepCopy()
+	if instance.Spec.Signer.CertificateChain.CertificateChainRef != nil {
+		instance.Status.Certificate.CARef = instance.Spec.Signer.CertificateChain.CertificateChainRef.DeepCopy()
 	} else {
 		instance.Status.Certificate.CARef = &rhtasv1.SecretKeySelector{
 			Key:                  constants.KeyCert,
@@ -159,8 +166,8 @@ func alignStatus(instance *rhtasv1.Fulcio, ref rhtasv1.SecretKeySelector) {
 }
 
 func resolveCommonName(ctx context.Context, instance *rhtasv1.Fulcio, c client.Client) (string, error) {
-	if instance.Spec.Certificate.CommonName != "" {
-		return instance.Spec.Certificate.CommonName, nil
+	if instance.Spec.Signer.CertificateChain.CommonName != "" {
+		return instance.Spec.Signer.CertificateChain.CommonName, nil
 	}
 	if !utils.IsEnabled(instance.Spec.Ingress.Enabled) {
 		return fmt.Sprintf("%s.%s.svc.local", DeploymentName, instance.Namespace), nil

@@ -89,7 +89,7 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 
 				switch k.Name {
 				case "fulcio_v1.crt.pem":
-					expected, err = kubernetes.GetSecretData(ctx, cli, namespace.Name, s.Spec.Fulcio.Certificate.CARef)
+					expected, err = kubernetes.GetSecretData(ctx, cli, namespace.Name, s.Spec.Fulcio.Signer.CertificateChain.CertificateChainRef)
 					Expect(err).To(Not(HaveOccurred()))
 				case "rekor.pub":
 					expectedKeyRef := s.Spec.Rekor.Signer.KeyRef.DeepCopy()

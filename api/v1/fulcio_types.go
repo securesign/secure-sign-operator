@@ -11,6 +11,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const FulcioSignerTypeFile = "file"
+
 // FulcioSpec defines the desired state of Fulcio
 type FulcioSpec struct {
 	// Pod resource requirements and scheduling constraints
@@ -26,9 +28,9 @@ type FulcioSpec struct {
 	// Fulcio Configuration
 	//+required
 	Config FulcioConfig `json:"config"`
-	// Certificate configuration
+	// Signer configuration
 	//+required
-	Certificate FulcioCert `json:"certificate"`
+	Signer FulcioSigner `json:"signer"`
 	//Enable Service monitors for fulcio
 	//+optional
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
@@ -37,10 +39,23 @@ type FulcioSpec struct {
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
 }
 
-// FulcioCert defines certificate configuration for Fulcio CA
-// +kubebuilder:validation:XValidation:rule=(has(self.caRef) || has(self.organizationName) && self.organizationName != ""),message=organizationName cannot be empty
-// +kubebuilder:validation:XValidation:rule=(!has(self.caRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
-type FulcioCert struct {
+// FulcioSigner defines the desired state of the Fulcio Signer
+// +kubebuilder:validation:XValidation:rule="self.type != 'file' || !has(self.certificateChain.certificateChainRef) || (has(self.file) && has(self.file.privateKeyRef))",message="file.privateKeyRef cannot be empty when certificateChain.certificateChainRef is provided"
+type FulcioSigner struct {
+	// Type of the signer backend
+	//+kubebuilder:validation:Enum=file
+	//+optional
+	Type string `json:"type,omitempty"`
+	// Configuration for the Certificate Chain
+	//+required
+	CertificateChain FulcioCertificateChain `json:"certificateChain"`
+	// Configuration for file-based signer
+	//+optional
+	File *FulcioFile `json:"file,omitempty"`
+}
+
+// FulcioFile defines the desired state of the Fulcio file-based signer
+type FulcioFile struct {
 	// Reference to CA private key
 	//+optional
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
@@ -50,10 +65,14 @@ type FulcioCert struct {
 	// encrypted keys. Kubernetes Secrets provide encryption-at-rest.
 	// +optional
 	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
+}
 
-	// Reference to CA certificate
+// FulcioCertificateChain defines the certificate chain configuration for Fulcio CA
+// +kubebuilder:validation:XValidation:rule=(has(self.certificateChainRef) || has(self.organizationName) && self.organizationName != ""),message=organizationName cannot be empty
+type FulcioCertificateChain struct {
+	// Reference to CA certificate chain
 	//+optional
-	CARef *SecretKeySelector `json:"caRef,omitempty"`
+	CertificateChainRef *SecretKeySelector `json:"certificateChainRef,omitempty"`
 
 	//+optional
 	// CommonName specifies the common name for the Fulcio certificate.

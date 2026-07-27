@@ -168,10 +168,12 @@ func WithExternalPostgresDB(namespace, secretName string) Opts {
 
 func WithGeneratedCerts() Opts {
 	return func(s *rhtasv1.Securesign) {
-		s.Spec.Fulcio.Certificate = rhtasv1.FulcioCert{
-			OrganizationName:  "MyOrg",
-			OrganizationEmail: "my@email.org",
-			CommonName:        "fulcio",
+		s.Spec.Fulcio.Signer = rhtasv1.FulcioSigner{
+			CertificateChain: rhtasv1.FulcioCertificateChain{
+				OrganizationName:  "MyOrg",
+				OrganizationEmail: "my@email.org",
+				CommonName:        "fulcio",
+			},
 		}
 
 		if s.Spec.TimestampAuthority != nil {
@@ -218,24 +220,28 @@ func WithProvidedEncryptedCerts() Opts {
 			},
 		}
 
-		s.Spec.Fulcio.Certificate = rhtasv1.FulcioCert{
-			PrivateKeyRef: &rhtasv1.SecretKeySelector{
-				LocalObjectReference: rhtasv1.LocalObjectReference{
-					Name: "my-fulcio-secret",
+		s.Spec.Fulcio.Signer = rhtasv1.FulcioSigner{
+			File: &rhtasv1.FulcioFile{
+				PrivateKeyRef: &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
+						Name: "my-fulcio-secret",
+					},
+					Key: "private",
 				},
-				Key: "private",
+				PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
+						Name: "my-fulcio-secret",
+					},
+					Key: "password",
+				},
 			},
-			PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
-				LocalObjectReference: rhtasv1.LocalObjectReference{
-					Name: "my-fulcio-secret",
+			CertificateChain: rhtasv1.FulcioCertificateChain{
+				CertificateChainRef: &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
+						Name: "my-fulcio-secret",
+					},
+					Key: "cert",
 				},
-				Key: "password",
-			},
-			CARef: &rhtasv1.SecretKeySelector{
-				LocalObjectReference: rhtasv1.LocalObjectReference{
-					Name: "my-fulcio-secret",
-				},
-				Key: "cert",
 			},
 		}
 
@@ -301,18 +307,22 @@ func WithProvidedUnencryptedCerts() Opts {
 			},
 		}
 
-		s.Spec.Fulcio.Certificate = rhtasv1.FulcioCert{
-			PrivateKeyRef: &rhtasv1.SecretKeySelector{
-				LocalObjectReference: rhtasv1.LocalObjectReference{
-					Name: "my-fulcio-secret",
+		s.Spec.Fulcio.Signer = rhtasv1.FulcioSigner{
+			File: &rhtasv1.FulcioFile{
+				PrivateKeyRef: &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
+						Name: "my-fulcio-secret",
+					},
+					Key: "private",
 				},
-				Key: "private",
 			},
-			CARef: &rhtasv1.SecretKeySelector{
-				LocalObjectReference: rhtasv1.LocalObjectReference{
-					Name: "my-fulcio-secret",
+			CertificateChain: rhtasv1.FulcioCertificateChain{
+				CertificateChainRef: &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
+						Name: "my-fulcio-secret",
+					},
+					Key: "cert",
 				},
-				Key: "cert",
 			},
 		}
 

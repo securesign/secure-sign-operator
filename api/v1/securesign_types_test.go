@@ -104,7 +104,11 @@ var _ = Describe("Securesign", func() {
 					Name:      "ss-no-oidc",
 					Namespace: "default",
 				},
-				Spec: SecuresignSpec{},
+				Spec: SecuresignSpec{
+					Fulcio: FulcioSpec{
+						Signer: FulcioSigner{Type: "file"},
+					},
+				},
 			}
 			Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), obj))).To(BeTrue())
 			Expect(k8sClient.Create(context.Background(), obj)).
@@ -154,14 +158,14 @@ var _ = Describe("Securesign", func() {
 
 		It("fulcio with certificate", func() {
 			obj := generateMinimalSecuresign("ss-fulcio-cert")
-			obj.Spec.Fulcio.Certificate = FulcioCert{
+			obj.Spec.Fulcio.Signer.CertificateChain = FulcioCertificateChain{
 				OrganizationName: "test-org",
 			}
 			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
 
 			fetched := &Securesign{}
 			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(obj), fetched)).To(Succeed())
-			Expect(fetched.Spec.Fulcio.Certificate.OrganizationName).To(Equal("test-org"))
+			Expect(fetched.Spec.Fulcio.Signer.CertificateChain.OrganizationName).To(Equal("test-org"))
 		})
 	})
 })
@@ -184,8 +188,11 @@ func generateMinimalSecuresign(name string) *Securesign {
 						},
 					},
 				},
-				Certificate: FulcioCert{
-					OrganizationName: "org",
+				Signer: FulcioSigner{
+					Type: "file",
+					CertificateChain: FulcioCertificateChain{
+						OrganizationName: "org",
+					},
 				},
 			},
 		},

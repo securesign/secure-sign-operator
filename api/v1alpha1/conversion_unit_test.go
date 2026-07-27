@@ -66,6 +66,7 @@ func TestSecuresignConversionUnit(t *testing.T) {
 							},
 						},
 						Fulcio: rhtasv1.FulcioSpec{
+							Signer:     rhtasv1.FulcioSigner{Type: "file"},
 							Ingress:    rhtasv1.Ingress{Enabled: ptr.To(false)},
 							Monitoring: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						},
@@ -112,9 +113,9 @@ func TestSecuresignConversionUnit(t *testing.T) {
 									{Issuer: "https://accounts.google.com", ClientID: "sigstore", Type: "email"},
 								},
 							},
-							Certificate: rhtasv1.FulcioCert{OrganizationName: "Red Hat"},
-							Ingress:     rhtasv1.Ingress{Enabled: ptr.To(false)},
-							Monitoring:  rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
+							Signer:     rhtasv1.FulcioSigner{Type: "file", CertificateChain: rhtasv1.FulcioCertificateChain{OrganizationName: "Red Hat"}},
+							Ingress:    rhtasv1.Ingress{Enabled: ptr.To(false)},
+							Monitoring: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						},
 						Trillian: rhtasv1.TrillianSpec{
 							Db:         rhtasv1.TrillianDB{Create: ptr.To(true)},
@@ -463,9 +464,12 @@ func TestFulcioConversionUnit(t *testing.T) {
 							{Issuer: "https://oidc.eks.*.amazonaws.com/id/*", ClientID: "sigstore", Type: "kubernetes"},
 						},
 					},
-					Certificate: rhtasv1.FulcioCert{
-						OrganizationName: "Red Hat",
-						CommonName:       "fulcio.example.com",
+					Signer: rhtasv1.FulcioSigner{
+						Type: "file",
+						CertificateChain: rhtasv1.FulcioCertificateChain{
+							OrganizationName: "Red Hat",
+							CommonName:       "fulcio.example.com",
+						},
 					},
 					TrustedCA:  &rhtasv1.LocalObjectReference{Name: "ca-bundle"},
 					Ingress:    rhtasv1.Ingress{Enabled: ptr.To(false)},
@@ -497,6 +501,7 @@ func TestFulcioConversionUnit(t *testing.T) {
 			hub: &rhtasv1.Fulcio{
 				ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: "ns"},
 				Spec: rhtasv1.FulcioSpec{
+					Signer:     rhtasv1.FulcioSigner{Type: "file"},
 					Ingress:    rhtasv1.Ingress{Enabled: ptr.To(false)},
 					Monitoring: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 				},

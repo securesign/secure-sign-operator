@@ -5,4 +5,9 @@ func (s *FulcioSpec) SetDefaults() {
 	s.Ctlog.SetDefaults()
 	s.Monitoring.SetDefaults()
 	s.Ingress.SetDefaults()
+	s.Signer.SetDefaults()
+}
+
+func (s *FulcioSigner) SetDefaults() {
+	setDefault(&s.Type, FulcioSignerTypeFile)
 }

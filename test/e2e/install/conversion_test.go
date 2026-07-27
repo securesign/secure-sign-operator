@@ -77,9 +77,9 @@ var _ = Describe("Conversion webhook", Ordered, func() {
 			v1alpha1Obj := &v1alpha1.Fulcio{}
 			Expect(cli.Get(ctx, nsName(namespace.Name, s.Name), v1alpha1Obj)).To(Succeed())
 
-			Expect(v1Obj.Spec.Certificate.OrganizationName).To(Equal(v1alpha1Obj.Spec.Certificate.OrganizationName))
-			Expect(v1Obj.Spec.Certificate.OrganizationEmail).To(Equal(v1alpha1Obj.Spec.Certificate.OrganizationEmail))
-			Expect(v1Obj.Spec.Certificate.CommonName).To(Equal(v1alpha1Obj.Spec.Certificate.CommonName))
+			Expect(v1Obj.Spec.Signer.CertificateChain.OrganizationName).To(Equal(v1alpha1Obj.Spec.Certificate.OrganizationName))
+			Expect(v1Obj.Spec.Signer.CertificateChain.OrganizationEmail).To(Equal(v1alpha1Obj.Spec.Certificate.OrganizationEmail))
+			Expect(v1Obj.Spec.Signer.CertificateChain.CommonName).To(Equal(v1alpha1Obj.Spec.Certificate.CommonName))
 
 			Expect(v1Obj.Spec.Config.OIDCIssuers).To(HaveLen(len(v1alpha1Obj.Spec.Config.OIDCIssuers)))
 			Expect(v1Obj.Spec.Config.OIDCIssuers[0].Issuer).To(Equal(v1alpha1Obj.Spec.Config.OIDCIssuers[0].Issuer))

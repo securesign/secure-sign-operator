@@ -55,8 +55,8 @@ func readyFulcio(ns string) *rhtasv1.Fulcio {
 	f := &rhtasv1.Fulcio{
 		ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: ns},
 		Spec: rhtasv1.FulcioSpec{
-			Config:      rhtasv1.FulcioConfig{OIDCIssuers: []rhtasv1.OIDCIssuer{{ClientID: "t", Issuer: "t"}}},
-			Certificate: rhtasv1.FulcioCert{CommonName: "t", OrganizationName: "t", OrganizationEmail: "t@t"},
+			Config: rhtasv1.FulcioConfig{OIDCIssuers: []rhtasv1.OIDCIssuer{{ClientID: "t", Issuer: "t"}}},
+			Signer: rhtasv1.FulcioSigner{Type: "file", CertificateChain: rhtasv1.FulcioCertificateChain{CommonName: "t", OrganizationName: "t", OrganizationEmail: "t@t"}},
 		},
 	}
 	f.Status.CertificateChain = testPEM

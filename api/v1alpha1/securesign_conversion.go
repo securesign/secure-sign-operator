@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
@@ -44,6 +45,14 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Spec.Fulcio.ImagePullSecrets = restored.Spec.Fulcio.ImagePullSecrets
 	dst.Spec.Fulcio.Monitoring.ServiceMonitor = restored.Spec.Fulcio.Monitoring.ServiceMonitor
+	dst.Spec.Fulcio.Signer.Type = restored.Spec.Fulcio.Signer.Type
+	// If original v1 had File=&{} (empty struct), preserve it
+	if dst.Spec.Fulcio.Signer.File == nil && restored.Spec.Fulcio.Signer.File != nil {
+		emptyFile := &rhtasv1.FulcioFile{}
+		if equality.Semantic.DeepEqual(restored.Spec.Fulcio.Signer.File, emptyFile) {
+			dst.Spec.Fulcio.Signer.File = &rhtasv1.FulcioFile{}
+		}
+	}
 	dst.Spec.Ctlog.ImagePullSecrets = restored.Spec.Ctlog.ImagePullSecrets
 	dst.Spec.Ctlog.TrustedCA = restored.Spec.Ctlog.TrustedCA
 	dst.Spec.Ctlog.Monitoring.ServiceMonitor = restored.Spec.Ctlog.Monitoring.ServiceMonitor
