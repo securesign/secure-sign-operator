@@ -131,11 +131,16 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 						Namespace: namespaces["trillian"].Name,
 					},
 				},
-				PrivateKeyRef: &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: "my-ctlog-secret",
+				Signer: rhtasv1.CTlogSigner{
+					Type: "file",
+					File: &rhtasv1.CTlogFile{
+						PrivateKeyRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
+								Name: "my-ctlog-secret",
+							},
+							Key: "private",
+						},
 					},
-					Key: "private",
 				},
 				RootCertificates: []rhtasv1.SecretKeySelector{
 					{

@@ -22,8 +22,6 @@ import (
 )
 
 // CTlogSpec defines the desired state of CTlog component
-// +kubebuilder:validation:XValidation:rule=(!has(self.publicKeyRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
-// +kubebuilder:validation:XValidation:rule=(!has(self.privateKeyPasswordRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
 type CTlogSpec struct {
 	PodRequirements      `json:",inline"`
 	ServiceAccountConfig `json:",inline"`
@@ -33,22 +31,9 @@ type CTlogSpec struct {
 	//+kubebuilder:validation:Minimum=1
 	TreeID *int64 `json:"treeID,omitempty"`
 
-	// The private key used for signing STHs etc.
-	//+optional
-	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
-
-	// Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
-	// and not FIPS-compliant. Auto-generated keys are no longer password-encrypted;
-	// this field is retained only for backward compatibility with existing user-provided
-	// encrypted keys. Kubernetes Secrets provide encryption-at-rest.
-	// +optional
-	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
-
-	// The public key matching the private key (if both are present). It is
-	// used only by mirror logs for verifying the source log's signatures, but can
-	// be specified for regular logs as well for the convenience of test tools.
-	//+optional
-	PublicKeyRef *SecretKeySelector `json:"publicKeyRef,omitempty"`
+	// Signer configuration
+	//+required
+	Signer CTlogSigner `json:"signer"`
 
 	// List of secrets containing root certificates that are acceptable to the log.
 	// The certs are served through get-roots endpoint. Optional in mirrors.
@@ -63,8 +48,8 @@ type CTlogSpec struct {
 	Trillian ServiceReference `json:"trillian,omitempty"`
 
 	// Secret holding Certificate Transparency server config in text proto format
-	// If it is set then any setting of treeID, privateKeyRef, privateKeyPasswordRef,
-	// publicKeyRef, rootCertificates and trillian will be overridden.
+	// If it is set then any setting of treeID, signer, rootCertificates and
+	// trillian will be overridden.
 	//+optional
 	ServerConfigRef *LocalObjectReference `json:"serverConfigRef,omitempty"`
 
@@ -86,6 +71,41 @@ type CTlogSpec struct {
 	// ConfigMap with additional bundle of trusted CA
 	// +optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
+}
+
+const CTlogSignerTypeFile = "file"
+
+// CTlogSigner defines the desired state of the CTlog Signer
+type CTlogSigner struct {
+	// Type of the signer backend
+	//+kubebuilder:validation:Enum=file
+	//+optional
+	Type string `json:"type,omitempty"`
+	// Configuration for file-based signer
+	//+optional
+	File *CTlogFile `json:"file,omitempty"`
+}
+
+// CTlogFile defines the desired state of the CTlog file-based signer
+// +kubebuilder:validation:XValidation:rule=(!has(self.publicKeyRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
+// +kubebuilder:validation:XValidation:rule=(!has(self.privateKeyPasswordRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
+type CTlogFile struct {
+	// The private key used for signing STHs etc.
+	//+optional
+	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+
+	// Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
+	// and not FIPS-compliant. Auto-generated keys are no longer password-encrypted;
+	// this field is retained only for backward compatibility with existing user-provided
+	// encrypted keys. Kubernetes Secrets provide encryption-at-rest.
+	// +optional
+	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
+
+	// The public key matching the private key (if both are present). It is
+	// used only by mirror logs for verifying the source log's signatures, but can
+	// be specified for regular logs as well for the convenience of test tools.
+	//+optional
+	PublicKeyRef *SecretKeySelector `json:"publicKeyRef,omitempty"`
 }
 
 // CTlogStatus defines the observed state of CTlog component

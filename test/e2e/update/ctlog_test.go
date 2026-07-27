@@ -83,13 +83,16 @@ var _ = Describe("CTlog update", Ordered, func() {
 		It("modified ctlog.privateKeyRef and ctlog.publicKeyRef", func(ctx SpecContext) {
 			Eventually(func(g Gomega) error {
 				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-				s.Spec.Ctlog.PrivateKeyRef = &rhtasv1.SecretKeySelector{
+				if s.Spec.Ctlog.Signer.File == nil {
+					s.Spec.Ctlog.Signer.File = &rhtasv1.CTlogFile{}
+				}
+				s.Spec.Ctlog.Signer.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: "my-ctlog-secret",
 					},
 					Key: "private",
 				}
-				s.Spec.Ctlog.PublicKeyRef = &rhtasv1.SecretKeySelector{
+				s.Spec.Ctlog.Signer.File.PublicKeyRef = &rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{
 						Name: "my-ctlog-secret",
 					},

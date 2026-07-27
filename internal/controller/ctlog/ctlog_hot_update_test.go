@@ -204,19 +204,20 @@ var _ = Describe("CTlog update test", func() {
 			found := &rhtasv1.CTlog{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				found.Spec.PrivateKeyRef = &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: "key-secret",
+				found.Spec.Signer.File = &rhtasv1.CTlogFile{
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{
+							Name: "key-secret",
+						},
+						Key: "private",
 					},
-					Key: "private",
-				}
-				found.Spec.PublicKeyRef = &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: "key-secret",
+					PublicKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{
+							Name: "key-secret",
+						},
+						Key: "public",
 					},
-					Key: "public",
 				}
-				found.Spec.PrivateKeyPasswordRef = nil //nolint:staticcheck
 				return suite.Client().Update(ctx, found)
 			}).WithContext(ctx).Should(Succeed())
 

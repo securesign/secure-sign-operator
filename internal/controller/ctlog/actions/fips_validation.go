@@ -21,8 +21,8 @@ func NewFIPSValidationAction() action.Action[*rhtasv1.CTlog] {
 		ComponentName,
 		fipsAction.Wrapper(fipsAction.Config[*rhtasv1.CTlog]{
 			PasswordRef: func(i *rhtasv1.CTlog) *rhtasv1.SecretKeySelector {
-				if i.Spec.PrivateKeyRef != nil {
-					return i.Spec.PrivateKeyPasswordRef //nolint:staticcheck
+				if i.Spec.Signer.File != nil && i.Spec.Signer.File.PrivateKeyRef != nil {
+					return i.Spec.Signer.File.PrivateKeyPasswordRef //nolint:staticcheck
 				}
 				return nil
 			},
@@ -35,12 +35,17 @@ func ctlogCryptoMaterial(ctx context.Context, i *rhtasv1.CTlog, c client.Client)
 	var refs []fipsAction.CryptoRef
 
 	// Signer keys
-	if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, i.Spec.PrivateKeyRef,
-		"spec.privateKeyRef", fipsutil.ValidatePrivateKeyPEM, &refs); err != nil {
+	var privateKeyRef, publicKeyRef *rhtasv1.SecretKeySelector
+	if i.Spec.Signer.File != nil {
+		privateKeyRef = i.Spec.Signer.File.PrivateKeyRef
+		publicKeyRef = i.Spec.Signer.File.PublicKeyRef
+	}
+	if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, privateKeyRef,
+		"spec.signer.file.privateKeyRef", fipsutil.ValidatePrivateKeyPEM, &refs); err != nil {
 		return nil, err
 	}
-	if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, i.Spec.PublicKeyRef,
-		"spec.publicKeyRef", fipsutil.ValidatePublicKeyPEM, &refs); err != nil {
+	if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, publicKeyRef,
+		"spec.signer.file.publicKeyRef", fipsutil.ValidatePublicKeyPEM, &refs); err != nil {
 		return nil, err
 	}
 

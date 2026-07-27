@@ -227,6 +227,9 @@ var _ = Describe("Conversion webhook", func() {
 						},
 						Signer: rhtasv1.FulcioSigner{Type: "file", CertificateChain: rhtasv1.FulcioCertificateChain{OrganizationName: "Red Hat"}},
 					},
+					Ctlog: rhtasv1.CTlogSpec{
+						Signer: rhtasv1.CTlogSigner{Type: "file"},
+					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, v1obj)).To(Succeed())

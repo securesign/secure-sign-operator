@@ -161,10 +161,33 @@ func TestCTlogConversion(t *testing.T) {
 		Spoke:  &CTlog{},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			ctlogStatusFuzzerFuncs,
+			ctlogSignerFuzzerFuncs,
 			trillianServiceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
+}
+
+// ctlogSignerFuzzerFuncs constrains the CTlog v1 signer to only fill fields that
+// survive roundtrip — Type has no v1alpha1 equivalent and is always "file" today,
+// and File must never be a non-nil pointer to an all-zero struct (indistinguishable
+// from nil after roundtripping through the flat v1alpha1 CTlogSpec).
+func ctlogSignerFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.CTlogSigner, c randfill.Continue) {
+			s.Type = "file"
+			if c.Bool() {
+				s.File = &rhtasv1.CTlogFile{}
+				c.FillNoCustom(&s.File.PrivateKeyRef)
+				c.FillNoCustom(&s.File.PrivateKeyPasswordRef) //nolint:staticcheck
+				c.FillNoCustom(&s.File.PublicKeyRef)
+				if s.File.PrivateKeyRef == nil && s.File.PrivateKeyPasswordRef == nil && s.File.PublicKeyRef == nil { //nolint:staticcheck
+					s.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{}
+					c.FillNoCustom(s.File.PrivateKeyRef)
+				}
+			}
+		},
+	}
 }
 
 func TestRekorConversion(t *testing.T) {
