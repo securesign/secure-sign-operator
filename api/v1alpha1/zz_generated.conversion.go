@@ -668,6 +668,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*v1.ServiceReference)(nil), (*TrillianService)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_ServiceReference_To_v1alpha1_TrillianService(a.(*v1.ServiceReference), b.(*TrillianService), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*v1.TimestampAuthoritySignerStatus)(nil), (*TimestampAuthoritySigner)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_TimestampAuthoritySignerStatus_To_v1alpha1_TimestampAuthoritySigner(a.(*v1.TimestampAuthoritySignerStatus), b.(*TimestampAuthoritySigner), scope)
 	}); err != nil {
@@ -810,6 +815,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*TrillianLogSigner)(nil), (*v1.TrillianServiceStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_TrillianLogSigner_To_v1_TrillianServiceStatus(a.(*TrillianLogSigner), b.(*v1.TrillianServiceStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*TrillianService)(nil), (*v1.ServiceReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_TrillianService_To_v1_ServiceReference(a.(*TrillianService), b.(*v1.ServiceReference), scope)
 	}); err != nil {
 		return err
 	}
@@ -991,7 +1001,7 @@ func autoConvert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in *CTlogSpec, out *v1.CTlog
 	if err := Convert_v1alpha1_MonitoringWithTLogConfig_To_v1_MonitoringWithTLogConfig(&in.Monitoring, &out.Monitoring, s); err != nil {
 		return err
 	}
-	if err := Convert_v1alpha1_TrillianService_To_v1_TrillianService(&in.Trillian, &out.Trillian, s); err != nil {
+	if err := Convert_v1alpha1_TrillianService_To_v1_ServiceReference(&in.Trillian, &out.Trillian, s); err != nil {
 		return err
 	}
 	out.ServerConfigRef = (*v1.LocalObjectReference)(unsafe.Pointer(in.ServerConfigRef))
@@ -1020,7 +1030,7 @@ func autoConvert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *v1.CTlogSpec, out *CTlog
 	if err := Convert_v1_MonitoringWithTLogConfig_To_v1alpha1_MonitoringWithTLogConfig(&in.Monitoring, &out.Monitoring, s); err != nil {
 		return err
 	}
-	if err := Convert_v1_TrillianService_To_v1alpha1_TrillianService(&in.Trillian, &out.Trillian, s); err != nil {
+	if err := Convert_v1_ServiceReference_To_v1alpha1_TrillianService(&in.Trillian, &out.Trillian, s); err != nil {
 		return err
 	}
 	out.ServerConfigRef = (*LocalObjectReference)(unsafe.Pointer(in.ServerConfigRef))
@@ -1898,7 +1908,7 @@ func autoConvert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *v1.Rekor
 		return err
 	}
 	out.TreeID = (*int64)(unsafe.Pointer(in.TreeID))
-	if err := Convert_v1alpha1_TrillianService_To_v1_TrillianService(&in.Trillian, &out.Trillian, s); err != nil {
+	if err := Convert_v1alpha1_TrillianService_To_v1_ServiceReference(&in.Trillian, &out.Trillian, s); err != nil {
 		return err
 	}
 	// WARNING: in.ExternalAccess requires manual conversion: does not exist in peer-type
@@ -1934,7 +1944,7 @@ func autoConvert_v1_RekorSpec_To_v1alpha1_RekorSpec(in *v1.RekorSpec, out *Rekor
 	}
 	// WARNING: in.ServiceAccountConfig requires manual conversion: does not exist in peer-type
 	out.TreeID = (*int64)(unsafe.Pointer(in.TreeID))
-	if err := Convert_v1_TrillianService_To_v1alpha1_TrillianService(&in.Trillian, &out.Trillian, s); err != nil {
+	if err := Convert_v1_ServiceReference_To_v1alpha1_TrillianService(&in.Trillian, &out.Trillian, s); err != nil {
 		return err
 	}
 	// WARNING: in.Ingress requires manual conversion: does not exist in peer-type

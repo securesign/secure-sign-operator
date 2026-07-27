@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller"
+	_ "github.com/securesign/operator/internal/controller/trillian/serviceresolver"
 	testenvhelper "github.com/securesign/operator/internal/testing/envtest"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"

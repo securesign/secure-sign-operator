@@ -24,17 +24,15 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
 
-	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
-	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/utils/ptr"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	_ "github.com/securesign/operator/internal/controller/trillian/serviceresolver"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -120,8 +118,13 @@ var _ = Describe("CTlog controller", func() {
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
 			}).WithContext(ctx).Should(BeTrue())
 
-			By("Creating trillian service")
-			Expect(suite.Client().Create(ctx, kubernetes.CreateService(Namespace, trillian.LogserverDeploymentName, trillian.ServerPortName, trillian.ServerPort, trillian.ServerPort, labels.ForComponent(trillian.LogServerComponentName, instance.Name)))).To(Succeed())
+			By("Creating trillian object (service autodiscovery)")
+			Expect(suite.Client().Create(ctx, &rhtasv1.Trillian{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-trillian",
+					Namespace: Namespace,
+				},
+			})).To(Succeed())
 			Eventually(func(g Gomega, ctx context.Context) string {
 				found := &rhtasv1.CTlog{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())

@@ -44,8 +44,10 @@ var defaultWrapper = Wrapper[*rhtasv1.Rekor](
 	func(rekor *rhtasv1.Rekor, i *int64) {
 		rekor.Status.TreeID = i
 	},
-	func(rekor *rhtasv1.Rekor) *rhtasv1.TrillianService {
-		return &rekor.Spec.Trillian
+	func(rekor *rhtasv1.Rekor) *rhtasv1.ServiceReference {
+		return &rhtasv1.ServiceReference{
+			URL: "https://trillian-logserver.default.svc",
+		}
 	},
 )
 
@@ -577,10 +579,7 @@ func testRunner(pre pre, want want, handleFn handleFn) func(t *testing.T) {
 				Namespace: nnObject.Namespace,
 			},
 			Spec: rhtasv1.RekorSpec{
-				Trillian: rhtasv1.TrillianService{
-					Address: "trillian-logserver",
-					Port:    ptr.To(int32(8091)),
-				},
+				Trillian: rhtasv1.ServiceReference{},
 			},
 		}
 
@@ -702,10 +701,7 @@ func TestResolveTree_ConfigMapGetFailure_ReturnsRetryableError(t *testing.T) {
 			Namespace: nnObject.Namespace,
 		},
 		Spec: rhtasv1.RekorSpec{
-			Trillian: rhtasv1.TrillianService{
-				Address: "trillian-logserver",
-				Port:    ptr.To(int32(8091)),
-			},
+			Trillian: rhtasv1.ServiceReference{},
 		},
 	}
 
@@ -759,10 +755,7 @@ func TestResolveTree_RbacCreationFailure_ReturnsRetryableError(t *testing.T) {
 			Namespace: nnObject.Namespace,
 		},
 		Spec: rhtasv1.RekorSpec{
-			Trillian: rhtasv1.TrillianService{
-				Address: "trillian-logserver",
-				Port:    ptr.To(int32(8091)),
-			},
+			Trillian: rhtasv1.ServiceReference{},
 		},
 	}
 

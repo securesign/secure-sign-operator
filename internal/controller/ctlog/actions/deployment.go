@@ -102,10 +102,6 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 			return fmt.Errorf("CreateCTLogDeployment: %w", ctlogutils.ErrServerConfigNotSpecified)
 		case instance.Status.TreeID == nil:
 			return fmt.Errorf("CreateCTLogDeployment: %w", ctlogutils.ErrTreeNotSpecified)
-		case resolveTrillianAddress(instance) == "":
-			return fmt.Errorf("CreateCTLogDeployment: %w", ctlogutils.ErrTrillianAddressNotSpecified)
-		case instance.Spec.Trillian.Port == nil:
-			return fmt.Errorf("CreateCTLogDeployment: %w", ctlogutils.ErrTrillianPortNotSpecified)
 		}
 
 		spec := &dp.Spec

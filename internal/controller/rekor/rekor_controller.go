@@ -44,6 +44,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -193,5 +194,16 @@ func (r *rekorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&v13.Service{}).
 		Owns(&v1.Ingress{}).
 		Owns(&batchv1.CronJob{}).
+		Watches(&rhtasv1.Trillian{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+			list := &rhtasv1.RekorList{}
+			if err := mgr.GetClient().List(ctx, list, client.InNamespace(object.GetNamespace())); err != nil {
+				return nil
+			}
+			requests := make([]reconcile.Request, len(list.Items))
+			for i, k := range list.Items {
+				requests[i] = reconcile.Request{NamespacedName: types.NamespacedName{Namespace: object.GetNamespace(), Name: k.Name}}
+			}
+			return requests
+		})).
 		Complete(r)
 }

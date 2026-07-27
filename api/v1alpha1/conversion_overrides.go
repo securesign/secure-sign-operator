@@ -1,12 +1,17 @@
 package v1alpha1
 
 import (
+	"fmt"
 	"net/url"
+	"regexp"
+	"strconv"
 
 	v1 "github.com/securesign/operator/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
 )
+
+var portRe = regexp.MustCompile(`:(\d+)(?:/|$)`)
 
 func urlWithPath(rawUrl, path string) (string, error) {
 	u, err := url.Parse(rawUrl)
@@ -84,5 +89,34 @@ func Convert_v1_Ingress_To_v1alpha1_ExternalAccess(in *v1.Ingress, out *External
 	}
 	out.Host = in.Host
 	out.RouteSelectorLabels = in.Labels
+	return nil
+}
+
+func Convert_v1alpha1_TrillianService_To_v1_ServiceReference(in *TrillianService, out *v1.ServiceReference, _ apiconversion.Scope) error {
+	if in.Address != "" && in.Port != nil {
+		out.URL = fmt.Sprintf("%s:%d", in.Address, *in.Port)
+	} else if in.Address != "" {
+		out.URL = in.Address
+	}
+	return nil
+}
+
+func Convert_v1_ServiceReference_To_v1alpha1_TrillianService(in *v1.ServiceReference, out *TrillianService, _ apiconversion.Scope) error {
+	if in.URL == "" {
+		return nil
+	}
+	m := portRe.FindStringSubmatchIndex(in.URL)
+	if m == nil {
+		out.Address = in.URL
+		return nil
+	}
+	out.Address = in.URL[:m[0]]
+	port, err := strconv.ParseInt(in.URL[m[2]:m[3]], 10, 32)
+	if err != nil {
+		out.Address = in.URL
+		return nil
+	}
+	p := int32(port)
+	out.Port = &p
 	return nil
 }

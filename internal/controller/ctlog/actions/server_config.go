@@ -13,9 +13,9 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	ctlogUtils "github.com/securesign/operator/internal/controller/ctlog/utils"
-	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
+	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	corev1 "k8s.io/api/core/v1"
@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels2 "k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 const (
@@ -76,11 +75,12 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrTreeNotSpecified), instance)
 	case instance.Status.PrivateKeyRef == nil:
 		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrPrivateKeyNotSpecified), instance)
-	case instance.Spec.Trillian.Port == nil:
-		return i.Error(ctx, reconcile.TerminalError(fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrTrillianPortNotSpecified)), instance)
 	}
 
-	trillianUrl := fmt.Sprintf("%s:%d", resolveTrillianAddress(instance), *instance.Spec.Trillian.Port)
+	trillianUrl, err := utils.ResolveInternalServiceUrl(ctx, i.Client, instance.Spec.Trillian, instance.Namespace, &rhtasv1.Trillian{})
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("error resolving Trillian URL: %w", err), instance)
+	}
 
 	// Validate existing secret before attempting recreation
 	if instance.Status.ServerConfigRef != nil && instance.Status.ServerConfigRef.Name != "" {
@@ -371,11 +371,4 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 	}
 
 	return annotations
-}
-
-func resolveTrillianAddress(instance *rhtasv1.CTlog) string {
-	if instance.Spec.Trillian.Address != "" {
-		return instance.Spec.Trillian.Address
-	}
-	return fmt.Sprintf("%s.%s.svc", trillian.LogserverDeploymentName, instance.Namespace)
 }

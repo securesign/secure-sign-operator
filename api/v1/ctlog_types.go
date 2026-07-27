@@ -60,7 +60,7 @@ type CTlogSpec struct {
 	Monitoring MonitoringWithTLogConfig `json:"monitoring,omitempty"`
 
 	// Trillian service configuration
-	Trillian TrillianService `json:"trillian,omitempty"`
+	Trillian ServiceReference `json:"trillian,omitempty"`
 
 	// Secret holding Certificate Transparency server config in text proto format
 	// If it is set then any setting of treeID, privateKeyRef, privateKeyPasswordRef,

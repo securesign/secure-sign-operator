@@ -121,7 +121,8 @@ var _ = Describe("Rekor controller", func() {
 						Namespace: Namespace,
 					},
 					Spec: rhtasv1.RekorSpec{
-						TreeID: &treeID,
+						Trillian: rhtasv1.ServiceReference{URL: "test-trillian.test-namespace.svc:8091"},
+						TreeID:   &treeID,
 						Ingress: rhtasv1.Ingress{
 							Enabled: ptr.To(true),
 							Host:    "rekor.local",

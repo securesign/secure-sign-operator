@@ -110,9 +110,8 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 				Namespace: namespace.Name,
 			},
 			Spec: rhtasv1.CTlogSpec{
-				Trillian: rhtasv1.TrillianService{
-					Address: fmt.Sprintf("trillian-logserver.%s.svc.cluster.local", namespace.Name),
-					Port:    ptr.To(int32(8091)),
+				Trillian: rhtasv1.ServiceReference{
+					URL: fmt.Sprintf("trillian-logserver.%s.svc.cluster.local:8091", namespace.Name),
 				},
 				PrivateKeyRef: &rhtasv1.SecretKeySelector{
 					LocalObjectReference: rhtasv1.LocalObjectReference{

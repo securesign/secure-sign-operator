@@ -44,6 +44,9 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 			return err
 		}
 	}
+	if dst.Spec.Trillian.URL == "" {
+		dst.Spec.Trillian.Ref = restored.Spec.Trillian.Ref
+	}
 	return nil
 }
 

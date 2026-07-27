@@ -213,7 +213,9 @@ func generateCTlogObject(name string) *CTlog {
 				Replicas: ptr.To(int32(1)),
 			},
 			Trillian: TrillianService{
-				Port: ptr.To(int32(8091)),
+				// port without address does not survive conversion roundtrip
+				// port is correctly defaulted by controller
+				//Port: ptr.To(int32(8091)),
 			},
 			MaxCertChainSize: ptr.To(int64(153600)),
 			Monitoring: MonitoringWithTLogConfig{

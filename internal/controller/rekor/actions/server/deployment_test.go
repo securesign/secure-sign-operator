@@ -8,6 +8,7 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	actions2 "github.com/securesign/operator/internal/controller/trillian/actions"
+	_ "github.com/securesign/operator/internal/controller/trillian/serviceresolver"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"github.com/securesign/operator/internal/utils/fips"
@@ -30,8 +31,8 @@ func createRekorInstance() *rhtasv1.Rekor {
 			Namespace: testNamespace,
 		},
 		Spec: rhtasv1.RekorSpec{
-			Trillian: rhtasv1.TrillianService{
-				Port: ptr.To[int32](8091),
+			Trillian: rhtasv1.ServiceReference{
+				URL: "test-trillian.test-namespace.svc:8091",
 			},
 			Signer: rhtasv1.RekorSigner{
 				KMS: signerKMSSecret,
@@ -156,8 +157,11 @@ func TestDeployAction_Handle_DefaultTrillianAddress(t *testing.T) {
 			Namespace: testNamespace,
 		},
 		Spec: rhtasv1.RekorSpec{
-			Trillian: rhtasv1.TrillianService{
-				Port: ptr.To[int32](8091),
+			Trillian: rhtasv1.ServiceReference{
+				Ref: &rhtasv1.ServiceReferenceRef{
+					Namespace: testNamespace,
+					Name:      "test-trillian",
+				},
 			},
 			Signer: rhtasv1.RekorSigner{
 				KMS: signerKMSSecret,
@@ -189,7 +193,12 @@ func TestDeployAction_Handle_DefaultTrillianAddress(t *testing.T) {
 	})
 
 	c := testAction.FakeClientBuilder().
-		WithObjects(instance).
+		WithObjects(instance, &rhtasv1.Trillian{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-trillian",
+				Namespace: testNamespace,
+			},
+		}).
 		WithStatusSubresource(instance).
 		Build()
 
@@ -207,4 +216,70 @@ func TestDeployAction_Handle_DefaultTrillianAddress(t *testing.T) {
 	container := dep.Spec.Template.Spec.Containers[0]
 	g.Expect(container.Args).To(ContainElement("dns:///" + actions2.LogserverDeploymentName + "." + testNamespace + ".svc"))
 	g.Expect(container.Args).To(ContainElement(`{"loadBalancingConfig":[{"round_robin":{}}]}`))
+}
+
+func TestDeployAction_Handle_AutodiscoveryTrillianAddress(t *testing.T) {
+	ctx := t.Context()
+	g := NewWithT(t)
+
+	instance := &rhtasv1.Rekor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-rekor",
+			Namespace: testNamespace,
+		},
+		Spec: rhtasv1.RekorSpec{
+			Trillian: rhtasv1.ServiceReference{},
+			Signer: rhtasv1.RekorSigner{
+				KMS: signerKMSSecret,
+			},
+			SearchIndex: rhtasv1.SearchIndex{
+				Create: ptr.To(true),
+			},
+		},
+		Status: rhtasv1.RekorStatus{
+			TreeID:          ptr.To[int64](123456),
+			ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "test-config"},
+			Signer: rhtasv1.RekorSignerStatus{
+				KeyRef: &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "signer-secret"},
+					Key:                  testPrivateKey,
+				},
+			},
+		},
+	}
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:   constants.ReadyCondition,
+		Status: metav1.ConditionFalse,
+		Reason: state.Creating.String(),
+	})
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:   actions.ServerCondition,
+		Status: metav1.ConditionFalse,
+		Reason: state.Creating.String(),
+	})
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance, &rhtasv1.Trillian{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-trillian",
+				Namespace: testNamespace,
+			},
+		}).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewDeployAction())
+	result := a.Handle(ctx, instance)
+	g.Expect(result).ToNot(BeNil())
+	g.Expect(result.Err).ToNot(HaveOccurred())
+
+	dep := &v2.Deployment{}
+	g.Expect(c.Get(ctx, client.ObjectKey{
+		Name:      actions.ServerDeploymentName,
+		Namespace: testNamespace,
+	}, dep)).To(Succeed())
+
+	container := dep.Spec.Template.Spec.Containers[0]
+	g.Expect(container.Args).To(ContainElement("dns:///" + actions2.LogserverDeploymentName + "." + testNamespace + ".svc"))
+	g.Expect(container.Args).To(ContainElement("8091"))
 }
