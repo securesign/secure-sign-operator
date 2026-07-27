@@ -2969,6 +2969,8 @@ spec:
       jsonPath: .status.url
       name: URL
       type: string
+    deprecated: true
+    deprecationWarning: v1alpha1 is deprecated, use v1
     name: v1alpha1
     schema:
       openAPIV3Schema:

@@ -1560,6 +1560,8 @@ spec:
       jsonPath: .status.conditions[?(@.type=="Ready")].reason
       name: Status
       type: string
+    deprecated: true
+    deprecationWarning: v1alpha1 is deprecated, use v1
     name: v1alpha1
     schema:
       openAPIV3Schema:

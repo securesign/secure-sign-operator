@@ -69,6 +69,7 @@ type SecuresignTSAStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:deprecatedversion:warning="v1alpha1 is deprecated, use v1"
 //+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The Deployment status"
 //+kubebuilder:printcolumn:name="Rekor URL",type=string,JSONPath=`.status.rekor.url`,description="The rekor url"
 //+kubebuilder:printcolumn:name="Fulcio URL",type=string,JSONPath=`.status.fulcio.url`,description="The fulcio url"
