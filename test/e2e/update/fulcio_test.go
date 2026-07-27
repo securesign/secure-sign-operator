@@ -92,29 +92,34 @@ var _ = Describe("Fulcio update", Ordered, func() {
 		It("modified fulcio.certificate", func(ctx SpecContext) {
 			Eventually(func(g Gomega) error {
 				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-				cert := rhtasv1.FulcioCert{
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "my-fulcio-secret",
+				signer := rhtasv1.FulcioSigner{
+					Type: "file",
+					File: &rhtasv1.FulcioFile{
+						PrivateKeyRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
+								Name: "my-fulcio-secret",
+							},
+							Key: "private",
 						},
-						Key: "private",
 					},
-					CARef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "my-fulcio-secret",
+					CertificateChain: rhtasv1.FulcioCertificateChain{
+						CertificateChainRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
+								Name: "my-fulcio-secret",
+							},
+							Key: "cert",
 						},
-						Key: "cert",
 					},
 				}
 				if !fipsEnabled {
-					cert.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+					signer.File.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
 						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: "my-fulcio-secret",
 						},
 						Key: "password",
 					}
 				}
-				s.Spec.Fulcio.Certificate = cert
+				s.Spec.Fulcio.Signer = signer
 				return cli.Update(ctx, s)
 			}).Should(Succeed())
 		})

@@ -56,17 +56,22 @@ func TestFulcioCert_UserProvidedCert(t *testing.T) {
 	g.Expect(err).ToNot(HaveOccurred())
 
 	instance := fulcioInstance()
-	instance.Spec.Certificate = rhtasv1.FulcioCert{
-		PrivateKeyRef: &rhtasv1.SecretKeySelector{
-			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-private"},
-			Key:                  "private",
+	instance.Spec.Signer = rhtasv1.FulcioSigner{
+		Type: "file",
+		File: &rhtasv1.FulcioFile{
+			PrivateKeyRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-private"},
+				Key:                  "private",
+			},
 		},
-		CARef: &rhtasv1.SecretKeySelector{
-			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-cert"},
-			Key:                  "cert",
+		CertificateChain: rhtasv1.FulcioCertificateChain{
+			CertificateChainRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-cert"},
+				Key:                  "cert",
+			},
+			OrganizationName:  "RH",
+			OrganizationEmail: "jdoe@redhat.com",
 		},
-		OrganizationName:  "RH",
-		OrganizationEmail: "jdoe@redhat.com",
 	}
 
 	c := testAction.FakeClientBuilder().
@@ -98,14 +103,19 @@ func TestFulcioCert_UserProvidedRefs_MissingCASecret(t *testing.T) {
 	g := NewWithT(t)
 	ctx := t.Context()
 	instance := fulcioInstance()
-	instance.Spec.Certificate = rhtasv1.FulcioCert{
-		PrivateKeyRef: &rhtasv1.SecretKeySelector{
-			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-private"},
-			Key:                  "private",
+	instance.Spec.Signer = rhtasv1.FulcioSigner{
+		Type: "file",
+		File: &rhtasv1.FulcioFile{
+			PrivateKeyRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-private"},
+				Key:                  "private",
+			},
 		},
-		CARef: &rhtasv1.SecretKeySelector{
-			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "missing-ca"},
-			Key:                  "cert",
+		CertificateChain: rhtasv1.FulcioCertificateChain{
+			CertificateChainRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "missing-ca"},
+				Key:                  "cert",
+			},
 		},
 	}
 
@@ -129,10 +139,13 @@ func TestFulcioCert_PrivateKeyWithoutCARef_TerminalError(t *testing.T) {
 	g := NewWithT(t)
 	ctx := t.Context()
 	instance := fulcioInstance()
-	instance.Spec.Certificate = rhtasv1.FulcioCert{
-		PrivateKeyRef: &rhtasv1.SecretKeySelector{
-			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "my-key"},
-			Key:                  "private",
+	instance.Spec.Signer = rhtasv1.FulcioSigner{
+		Type: "file",
+		File: &rhtasv1.FulcioFile{
+			PrivateKeyRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "my-key"},
+				Key:                  "private",
+			},
 		},
 	}
 
@@ -153,10 +166,13 @@ func TestFulcioCert_CARefWithoutPrivateKey_TerminalError(t *testing.T) {
 	g := NewWithT(t)
 	ctx := t.Context()
 	instance := fulcioInstance()
-	instance.Spec.Certificate = rhtasv1.FulcioCert{
-		CARef: &rhtasv1.SecretKeySelector{
-			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "my-ca"},
-			Key:                  "cert",
+	instance.Spec.Signer = rhtasv1.FulcioSigner{
+		Type: "file",
+		CertificateChain: rhtasv1.FulcioCertificateChain{
+			CertificateChainRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "my-ca"},
+				Key:                  "cert",
+			},
 		},
 	}
 
@@ -177,9 +193,12 @@ func TestFulcioCert_GeneratesCorrectData(t *testing.T) {
 	g := NewWithT(t)
 	ctx := t.Context()
 	instance := fulcioInstance()
-	instance.Spec.Certificate = rhtasv1.FulcioCert{
-		OrganizationName:  "RH",
-		OrganizationEmail: "jdoe@redhat.com",
+	instance.Spec.Signer = rhtasv1.FulcioSigner{
+		Type: "file",
+		CertificateChain: rhtasv1.FulcioCertificateChain{
+			OrganizationName:  "RH",
+			OrganizationEmail: "jdoe@redhat.com",
+		},
 	}
 
 	c := testAction.FakeClientBuilder().
@@ -313,13 +332,16 @@ func TestFulcioCert_MissingPrivateKeyForCA(t *testing.T) {
 	g := NewWithT(t)
 	ctx := t.Context()
 	instance := fulcioInstance()
-	instance.Spec.Certificate = rhtasv1.FulcioCert{
-		CARef: &rhtasv1.SecretKeySelector{
-			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-cert"},
-			Key:                  "cert",
+	instance.Spec.Signer = rhtasv1.FulcioSigner{
+		Type: "file",
+		CertificateChain: rhtasv1.FulcioCertificateChain{
+			CertificateChainRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-cert"},
+				Key:                  "cert",
+			},
+			OrganizationName:  "RH",
+			OrganizationEmail: "jdoe@redhat.com",
 		},
-		OrganizationName:  "RH",
-		OrganizationEmail: "jdoe@redhat.com",
 	}
 
 	c := testAction.FakeClientBuilder().
@@ -384,18 +406,23 @@ func TestFulcioCert_PasswordRefRejectedInFIPS(t *testing.T) {
 	t.Cleanup(func() { fips.Enabled = original })
 
 	instance := fulcioInstance()
-	instance.Spec.Certificate = rhtasv1.FulcioCert{
-		PrivateKeyRef: &rhtasv1.SecretKeySelector{
-			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-private"},
-			Key:                  "private",
+	instance.Spec.Signer = rhtasv1.FulcioSigner{
+		Type: "file",
+		File: &rhtasv1.FulcioFile{
+			PrivateKeyRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-private"},
+				Key:                  "private",
+			},
+			PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-password"},
+				Key:                  "password",
+			},
 		},
-		CARef: &rhtasv1.SecretKeySelector{
-			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-cert"},
-			Key:                  "cert",
-		},
-		PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{ //nolint:staticcheck
-			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-password"},
-			Key:                  "password",
+		CertificateChain: rhtasv1.FulcioCertificateChain{
+			CertificateChainRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-cert"},
+				Key:                  "cert",
+			},
 		},
 	}
 
@@ -436,14 +463,19 @@ func TestFulcioCert_UnencryptedKeyAllowedInFIPS(t *testing.T) {
 	g.Expect(err).ToNot(HaveOccurred())
 
 	instance := fulcioInstance()
-	instance.Spec.Certificate = rhtasv1.FulcioCert{
-		PrivateKeyRef: &rhtasv1.SecretKeySelector{
-			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-private"},
-			Key:                  "private",
+	instance.Spec.Signer = rhtasv1.FulcioSigner{
+		Type: "file",
+		File: &rhtasv1.FulcioFile{
+			PrivateKeyRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-private"},
+				Key:                  "private",
+			},
 		},
-		CARef: &rhtasv1.SecretKeySelector{
-			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-cert"},
-			Key:                  "cert",
+		CertificateChain: rhtasv1.FulcioCertificateChain{
+			CertificateChainRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-cert"},
+				Key:                  "cert",
+			},
 		},
 	}
 

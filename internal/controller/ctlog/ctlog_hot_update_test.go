@@ -143,10 +143,13 @@ var _ = Describe("CTlog update test", func() {
 					Config: rhtasv1.FulcioConfig{
 						OIDCIssuers: []rhtasv1.OIDCIssuer{{ClientID: "test", Issuer: "test", Type: "email"}},
 					},
-					Certificate: rhtasv1.FulcioCert{
-						CommonName:        "test",
-						OrganizationName:  "test",
-						OrganizationEmail: "test@test.com",
+					Signer: rhtasv1.FulcioSigner{
+						Type: "file",
+						CertificateChain: rhtasv1.FulcioCertificateChain{
+							CommonName:        "test",
+							OrganizationName:  "test",
+							OrganizationEmail: "test@test.com",
+						},
 					},
 				},
 			}

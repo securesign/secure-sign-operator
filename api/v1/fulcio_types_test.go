@@ -135,7 +135,7 @@ var _ = Describe("Fulcio", func() {
 		Context("is validated", func() {
 			It("private key", func() {
 				invalidObject := generateMinimalFulcio("private-key-invalid")
-				invalidObject.Spec.Certificate.CARef = &SecretKeySelector{
+				invalidObject.Spec.Signer.CertificateChain.CertificateChainRef = &SecretKeySelector{
 					Key:                  "key",
 					LocalObjectReference: LocalObjectReference{Name: "name"},
 				}
@@ -286,13 +286,18 @@ var _ = Describe("Fulcio", func() {
 								},
 							},
 						},
-						Certificate: FulcioCert{
-							CommonName:            "CommonName",
-							OrganizationName:      "OrganizationName",
-							OrganizationEmail:     "OrganizationEmail",
-							CARef:                 &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
-							PrivateKeyRef:         &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
-							PrivateKeyPasswordRef: &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
+						Signer: FulcioSigner{
+							Type: "file",
+							CertificateChain: FulcioCertificateChain{
+								CommonName:          "CommonName",
+								OrganizationName:    "OrganizationName",
+								OrganizationEmail:   "OrganizationEmail",
+								CertificateChainRef: &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
+							},
+							File: &FulcioFile{
+								PrivateKeyRef:         &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
+								PrivateKeyPasswordRef: &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
+							},
 						},
 						Ctlog: CtlogService{
 							Address: "ctlog.default.svc",
@@ -349,9 +354,12 @@ func generateMinimalFulcio(name string) *Fulcio {
 					},
 				},
 			},
-			Certificate: FulcioCert{
-				CommonName:       "hostname",
-				OrganizationName: "organization",
+			Signer: FulcioSigner{
+				Type: "file",
+				CertificateChain: FulcioCertificateChain{
+					CommonName:       "hostname",
+					OrganizationName: "organization",
+				},
 			},
 		},
 	}

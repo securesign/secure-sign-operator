@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
@@ -15,6 +16,9 @@ func Convert_v1alpha1_FulcioSpec_To_v1_FulcioSpec(in *FulcioSpec, out *rhtasv1.F
 	if err := autoConvert_v1alpha1_FulcioSpec_To_v1_FulcioSpec(in, out, s); err != nil {
 		return err
 	}
+	if err := Convert_v1alpha1_FulcioCert_To_v1_FulcioSigner(&in.Certificate, &out.Signer, s); err != nil {
+		return err
+	}
 	return Convert_v1alpha1_ExternalAccess_To_v1_Ingress(&in.ExternalAccess, &out.Ingress, s)
 }
 
@@ -22,7 +26,66 @@ func Convert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(in *rhtasv1.FulcioSpec, out *F
 	if err := autoConvert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(in, out, s); err != nil {
 		return err
 	}
+	if err := Convert_v1_FulcioSigner_To_v1alpha1_FulcioCert(&in.Signer, &out.Certificate, s); err != nil {
+		return err
+	}
 	return Convert_v1_Ingress_To_v1alpha1_ExternalAccess(&in.Ingress, &out.ExternalAccess, s)
+}
+
+func Convert_v1alpha1_FulcioCert_To_v1_FulcioSigner(in *FulcioCert, out *rhtasv1.FulcioSigner, s apiconversion.Scope) error {
+	out.Type = rhtasv1.FulcioSignerTypeFile
+	out.CertificateChain.CommonName = in.CommonName
+	out.CertificateChain.OrganizationName = in.OrganizationName
+	out.CertificateChain.OrganizationEmail = in.OrganizationEmail
+	if in.CARef != nil {
+		out.CertificateChain.CertificateChainRef = &rhtasv1.SecretKeySelector{}
+		if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.CARef, out.CertificateChain.CertificateChainRef, s); err != nil {
+			return err
+		}
+	}
+	if in.PrivateKeyRef != nil || in.PrivateKeyPasswordRef != nil { //nolint:staticcheck
+		out.File = &rhtasv1.FulcioFile{}
+		if in.PrivateKeyRef != nil {
+			out.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{}
+			if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.PrivateKeyRef, out.File.PrivateKeyRef, s); err != nil {
+				return err
+			}
+		}
+		if in.PrivateKeyPasswordRef != nil { //nolint:staticcheck
+			out.File.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{}                                                                                   //nolint:staticcheck
+			if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.PrivateKeyPasswordRef, out.File.PrivateKeyPasswordRef, s); err != nil { //nolint:staticcheck
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func Convert_v1_FulcioSigner_To_v1alpha1_FulcioCert(in *rhtasv1.FulcioSigner, out *FulcioCert, s apiconversion.Scope) error {
+	out.CommonName = in.CertificateChain.CommonName
+	out.OrganizationName = in.CertificateChain.OrganizationName
+	out.OrganizationEmail = in.CertificateChain.OrganizationEmail
+	if in.CertificateChain.CertificateChainRef != nil {
+		out.CARef = &SecretKeySelector{}
+		if err := Convert_v1_SecretKeySelector_To_v1alpha1_SecretKeySelector(in.CertificateChain.CertificateChainRef, out.CARef, s); err != nil {
+			return err
+		}
+	}
+	if in.File != nil {
+		if in.File.PrivateKeyRef != nil {
+			out.PrivateKeyRef = &SecretKeySelector{}
+			if err := Convert_v1_SecretKeySelector_To_v1alpha1_SecretKeySelector(in.File.PrivateKeyRef, out.PrivateKeyRef, s); err != nil {
+				return err
+			}
+		}
+		if in.File.PrivateKeyPasswordRef != nil { //nolint:staticcheck
+			out.PrivateKeyPasswordRef = &SecretKeySelector{}                                                                                                //nolint:staticcheck
+			if err := Convert_v1_SecretKeySelector_To_v1alpha1_SecretKeySelector(in.File.PrivateKeyPasswordRef, out.PrivateKeyPasswordRef, s); err != nil { //nolint:staticcheck
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func Convert_v1alpha1_FulcioCert_To_v1_FulcioCertStatus(in *FulcioCert, out *rhtasv1.FulcioCertStatus, s apiconversion.Scope) error {
@@ -79,6 +142,14 @@ func (src *Fulcio) ConvertTo(dstRaw conversion.Hub) error {
 		return err
 	}
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
+	dst.Spec.Signer.Type = restored.Spec.Signer.Type
+	// If original v1 had File=&{} (empty struct), preserve it
+	if dst.Spec.Signer.File == nil && restored.Spec.Signer.File != nil {
+		emptyFile := &rhtasv1.FulcioFile{}
+		if equality.Semantic.DeepEqual(restored.Spec.Signer.File, emptyFile) {
+			dst.Spec.Signer.File = &rhtasv1.FulcioFile{}
+		}
+	}
 	dst.Status.CertificateChain = restored.Status.CertificateChain
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
 	return nil

@@ -30,10 +30,13 @@ func readyFulcio() *rhtasv1.Fulcio {
 	return &rhtasv1.Fulcio{
 		ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: "default"},
 		Spec: rhtasv1.FulcioSpec{
-			Certificate: rhtasv1.FulcioCert{
-				CommonName:        "test",
-				OrganizationName:  "test",
-				OrganizationEmail: "test@test.com",
+			Signer: rhtasv1.FulcioSigner{
+				Type: "file",
+				CertificateChain: rhtasv1.FulcioCertificateChain{
+					CommonName:        "test",
+					OrganizationName:  "test",
+					OrganizationEmail: "test@test.com",
+				},
 			},
 		},
 		Status: rhtasv1.FulcioStatus{

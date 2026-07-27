@@ -21,44 +21,26 @@ oc delete fulcio <securesign_name> -n <namespace>
 ```
 The operator will then automatically generate a new set of private keys and a new certificate, as well as redeploy the Fulcio Service.
 
-# Operator-Generated Certificate
-If you have deployed the Fulcio Service with self-generated private keys, you can follow these steps to rotate the keys:
-1. Generate a new private key.
-2. Create a new Kubernetes secret for the rotated key and the key's password using the following commands:
-    ```
-    oc create secret generic <secret_name> -n <namespace> --from-file=<key>=<path/to/private/key>
-    oc create secret generic <secret_name> -n <namespace> --from-literal=<key>=<password>  
-    ```
-3. Patch the securesign resource with updated references to the rotated keys:
-    ```
-    certificate:
-      organizationName: Red Hat
-      privateKeyRef:
-        name: rotated-private-key
-        key: rotated-private-key
-      privateKeyPasswordRef:
-        name: rotated-private-key-pass
-        key: rotated-private-key-pass
-    ```
-4. After patching, you should see the operator reconcile the Fulcio and CTLOG resources with the updated private key
-
 # User-Created Keys and Certificate Chain
-If you have deployed the Fulcio Service with self-generated private keys and a self generated Certificate, you can follow these steps to rotate the keys, this process is similar to the above:
+If you have deployed the Fulcio Service with a user-provided private key and certificate chain, you can follow these steps to rotate them. `signer.file.privateKeyRef` and `signer.certificateChain.certificateChainRef` must always be provided together — the operator does not support generating a certificate for a user-provided private key, or vice versa.
 1. Generate a new private key for the certificate.
 2. Create a new Kubernetes secret for the rotated key, password and Certificate.
 3. Patch the securesign resource with updated references to the rotated key and certificate:
     ```
-    certificate:
-      organizationName: Red Hat
-      privateKeyRef:
-        name: rotated-private-key
-        key: rotated-private-key
-      privateKeyPasswordRef:
-        name: rotated-private-key-pass
-        key: rotated-private-key-pass
-      caRef:
-        name: rotated-cert
-        key: rotated-cert
+    signer:
+      type: file
+      certificateChain:
+        organizationName: Red Hat
+        certificateChainRef:
+          name: rotated-cert
+          key: rotated-cert
+      file:
+        privateKeyRef:
+          name: rotated-private-key
+          key: rotated-private-key
+        privateKeyPasswordRef:
+          name: rotated-private-key-pass
+          key: rotated-private-key-pass
     ```
 4. After patching, you should see the operator reconcile the Fulcio and CTLOG resources with the updated private key.
 

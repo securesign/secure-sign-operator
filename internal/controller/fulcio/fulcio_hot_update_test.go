@@ -136,10 +136,13 @@ var _ = Describe("Fulcio hot update", func() {
 								},
 							},
 						},
-						Certificate: rhtasv1.FulcioCert{
-							OrganizationName:  "MyOrg",
-							OrganizationEmail: "my@email.com",
-							CommonName:        "local",
+						Signer: rhtasv1.FulcioSigner{
+							Type: "file",
+							CertificateChain: rhtasv1.FulcioCertificateChain{
+								OrganizationName:  "MyOrg",
+								OrganizationEmail: "my@email.com",
+								CommonName:        "local",
+							},
 						},
 						Monitoring: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 					},

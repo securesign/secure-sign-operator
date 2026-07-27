@@ -175,30 +175,35 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 							Type:      "email",
 						},
 					}},
-				Certificate: func() rhtasv1.FulcioCert {
-					cert := rhtasv1.FulcioCert{
-						PrivateKeyRef: &rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{
-								Name: "my-fulcio-secret",
+				Signer: func() rhtasv1.FulcioSigner {
+					signer := rhtasv1.FulcioSigner{
+						Type: "file",
+						File: &rhtasv1.FulcioFile{
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{
+									Name: "my-fulcio-secret",
+								},
+								Key: "private",
 							},
-							Key: "private",
 						},
-						CARef: &rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{
-								Name: "my-fulcio-secret",
+						CertificateChain: rhtasv1.FulcioCertificateChain{
+							CertificateChainRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{
+									Name: "my-fulcio-secret",
+								},
+								Key: "cert",
 							},
-							Key: "cert",
 						},
 					}
 					if !fipsEnabled {
-						cert.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+						signer.File.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "my-fulcio-secret",
 							},
 							Key: "password",
 						}
 					}
-					return cert
+					return signer
 				}(),
 			},
 		}

@@ -238,9 +238,11 @@ spec:
           IssuerURL: "https://your-oidc-issuer.example.com"
           Issuer: "https://your-oidc-issuer.example.com"
           Type: "email"
-    certificate:
-      organizationName: "Example Organization"
-      organizationEmail: "admin@example.com"
+    signer:
+      type: file
+      certificateChain:
+        organizationName: "Example Organization"
+        organizationEmail: "admin@example.com"
 
   ctlog:
     replicas: 3

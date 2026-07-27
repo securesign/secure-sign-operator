@@ -113,7 +113,7 @@ var _ = Describe("Conversion webhook", func() {
 							{Issuer: "https://accounts.google.com", ClientID: "sigstore", Type: "email"},
 						},
 					},
-					Certificate: rhtasv1.FulcioCert{OrganizationName: "Red Hat"},
+					Signer: rhtasv1.FulcioSigner{Type: "file", CertificateChain: rhtasv1.FulcioCertificateChain{OrganizationName: "Red Hat"}},
 				},
 			}
 			Expect(k8sClient.Create(ctx, v1obj)).To(Succeed())
@@ -225,7 +225,7 @@ var _ = Describe("Conversion webhook", func() {
 								{Issuer: "https://accounts.google.com", ClientID: "sigstore", Type: "email"},
 							},
 						},
-						Certificate: rhtasv1.FulcioCert{OrganizationName: "Red Hat"},
+						Signer: rhtasv1.FulcioSigner{Type: "file", CertificateChain: rhtasv1.FulcioCertificateChain{OrganizationName: "Red Hat"}},
 					},
 				},
 			}

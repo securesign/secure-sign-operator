@@ -148,15 +148,20 @@ var _ = Describe("Fulcio controller", func() {
 								},
 							},
 						},
-						Certificate: rhtasv1.FulcioCert{
-							OrganizationName:  "MyOrg",
-							OrganizationEmail: "my@email.com",
-							CommonName:        "local",
-							PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
-								LocalObjectReference: rhtasv1.LocalObjectReference{
-									Name: "password-secret",
+						Signer: rhtasv1.FulcioSigner{
+							Type: "file",
+							CertificateChain: rhtasv1.FulcioCertificateChain{
+								OrganizationName:  "MyOrg",
+								OrganizationEmail: "my@email.com",
+								CommonName:        "local",
+							},
+							File: &rhtasv1.FulcioFile{
+								PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{
+										Name: "password-secret",
+									},
+									Key: "password",
 								},
-								Key: "password",
 							},
 						},
 						Monitoring: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
