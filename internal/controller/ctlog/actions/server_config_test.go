@@ -257,7 +257,7 @@ func TestServerConfig_Handle(t *testing.T) {
 			env: env{
 				spec: rhtasv1.CTlogSpec{
 					ServerConfigRef: nil,
-					Trillian:        rhtasv1.TrillianService{Port: ptr.To(int32(80))},
+					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:80"},
 				},
 				status: rhtasv1.CTlogStatus{
 					ServerConfigRef: nil,
