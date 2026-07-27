@@ -207,7 +207,7 @@ type RekorStatus struct {
 	Signer           RekorSignerStatus     `json:"signer,omitempty"`
 	SearchIndex      SearchIndexStatus     `json:"searchIndex,omitempty"`
 	PvcName          string                `json:"pvcName,omitempty"`
-	MonitorPvcName   string                `json:"monitorpvcName,omitempty"`
+	MonitorPvcName   string                `json:"monitorPvcName,omitempty"`
 	Url              string                `json:"url,omitempty"`
 	RekorSearchUIUrl string                `json:"rekorSearchUIUrl,omitempty"`
 	// PEM-encoded public key resolved from the running Rekor service API.
