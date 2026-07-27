@@ -13,7 +13,9 @@ Trillian is the transparency log backend used by RHTAS components. It manages **
 Trillian supports the following database backends:
 
 * **Operator-managed MySQL** (default) - Deployed by the operator, suitable for development and testing only
-* **External MySQL** - User-provided production-ready MySQL instance, including MySQL-compatible databases (MariaDB, AWS RDS MySQL, Azure Database for MySQL)
+* **External MySQL** - User-provided production-ready MySQL instance, including MySQL-compatible databases (MariaDB*, AWS RDS MySQL, Azure Database for MySQL)
+
+> **\*FIPS Warning:** MariaDB is **not compatible** with FIPS mode. MariaDB's connection protocol requires SHA-1 authentication, which is not permitted on FIPS-enabled clusters. If you are deploying on a FIPS-enabled OpenShift cluster, use MySQL 8.0+ or PostgreSQL 13+ instead. See [FIPS 140-3 in RHTAS](fips.md#supported-databases) for details.
 * **External PostgreSQL** - User-provided production-ready PostgreSQL instance (preview feature)
 
 Database compatibility is based on the underlying Go drivers:
@@ -320,6 +322,7 @@ The database credentials secret should contain the connection details. The key n
 
 ## Related Documentation
 
+* [FIPS 140-3 in RHTAS](./fips.md)
 * [High Availability Overview](./high-availability-overview.md)
 * [Configuring External Search Index](./external-search-index.md)
 * [Configuring RWX Storage](./pvc-rwx-storage.md)
