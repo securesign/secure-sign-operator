@@ -104,6 +104,7 @@ type TrillianStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:deprecatedversion:warning="v1alpha1 is deprecated, use v1"
 //+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`,description="The component status"
 
 // Trillian is the Schema for the trillians API
