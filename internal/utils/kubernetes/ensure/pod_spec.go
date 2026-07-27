@@ -23,8 +23,12 @@ func PodSecurityContext(spec *core.PodSpec) error {
 	}
 	spec.SecurityContext.SeccompProfile.Type = core.SeccompProfileTypeRuntimeDefault
 
-	if !kubernetes.IsOpenShift() && spec.SecurityContext.FSGroup == nil {
-		spec.SecurityContext.FSGroup = ptr.To(runAsGroup)
+	if !kubernetes.IsOpenShift() {
+		if spec.SecurityContext.FSGroup == nil {
+			spec.SecurityContext.FSGroup = ptr.To(runAsGroup)
+		}
+	} else {
+		spec.SecurityContext.FSGroup = nil
 	}
 
 	for i := range spec.InitContainers {
@@ -55,7 +59,11 @@ func ensureContainerSecurityContext(container *core.Container) {
 	if container.SecurityContext.Capabilities.Drop == nil {
 		container.SecurityContext.Capabilities.Drop = []core.Capability{"ALL"}
 	}
-	if !kubernetes.IsOpenShift() && container.SecurityContext.RunAsUser == nil {
-		container.SecurityContext.RunAsUser = ptr.To(runAsUser)
+	if !kubernetes.IsOpenShift() {
+		if container.SecurityContext.RunAsUser == nil {
+			container.SecurityContext.RunAsUser = ptr.To(runAsUser)
+		}
+	} else {
+		container.SecurityContext.RunAsUser = nil
 	}
 }
