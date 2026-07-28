@@ -40,9 +40,7 @@ var serverConfigAnnotations = []string{
 	labels.LabelNamespace + "/rootCertificatesHash",
 	labels.LabelNamespace + "/privateKeyRef",
 	labels.LabelNamespace + "/logPrefix",
-	labels.LabelNamespace + "/pkcs11PinRef",
-	labels.LabelNamespace + "/pkcs11PublicKeyRef",
-	labels.LabelNamespace + "/pkcs11TokenLabel",
+	labels.LabelNamespace + "/pkcs11ContentHash",
 }
 
 func NewServerConfigAction() action.Action[*rhtasv1.CTlog] {
@@ -383,15 +381,23 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 		annotations[labels.LabelNamespace+"/logPrefix"] = instance.Spec.Prefix
 	}
 
-	// Include PKCS#11 refs in annotations for drift detection
+	// Include PKCS#11 content hashes in annotations for drift detection.
+	// Hash actual Secret content (not just name/key) so PIN rotation is detected
+	// even when the Secret name stays the same.
 	if instance.Spec.Signer.PKCS11 != nil {
+		pkcs11Hash := sha256.New()
 		if instance.Spec.Signer.PKCS11.PinSecretRef != nil {
-			annotations[labels.LabelNamespace+"/pkcs11PinRef"] = fmt.Sprintf("%s/%s", instance.Spec.Signer.PKCS11.PinSecretRef.Name, instance.Spec.Signer.PKCS11.PinSecretRef.Key)
+			if pinData, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, instance.Spec.Signer.PKCS11.PinSecretRef); err == nil {
+				pkcs11Hash.Write(pinData)
+			}
 		}
 		if instance.Spec.Signer.PKCS11.PublicKeyRef != nil {
-			annotations[labels.LabelNamespace+"/pkcs11PublicKeyRef"] = fmt.Sprintf("%s/%s", instance.Spec.Signer.PKCS11.PublicKeyRef.Name, instance.Spec.Signer.PKCS11.PublicKeyRef.Key)
+			if pubData, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, instance.Spec.Signer.PKCS11.PublicKeyRef); err == nil {
+				pkcs11Hash.Write(pubData)
+			}
 		}
-		annotations[labels.LabelNamespace+"/pkcs11TokenLabel"] = instance.Spec.Signer.PKCS11.TokenLabel
+		pkcs11Hash.Write([]byte(instance.Spec.Signer.PKCS11.TokenLabel))
+		annotations[labels.LabelNamespace+"/pkcs11ContentHash"] = hex.EncodeToString(pkcs11Hash.Sum(nil))
 	}
 
 	return annotations

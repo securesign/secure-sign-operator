@@ -223,12 +223,10 @@ func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.CTlog, template *
 	// (TerminationMessagePath, TerminationMessagePolicy, ImagePullPolicy).
 	reconcileInitContainers(&template.Spec, instance.Spec.InitContainers, pkcs11Config.ModulePath) //nolint:actionlint // template.Spec is the pod template, not the CR spec
 
-	// Inject auth env vars (e.g. HSM_PIN) if configured
+	// Inject auth env vars and secret mounts via shared ensure.ContainerAuth
 	if instance.Spec.Signer.Auth != nil {
-		for _, env := range instance.Spec.Signer.Auth.Env {
-			e := kubernetes.FindEnvByNameOrCreate(container, env.Name)
-			e.Value = env.Value
-			e.ValueFrom = env.ValueFrom
+		if err := ensure.ContainerAuth(container, instance.Spec.Signer.Auth)(&template.Spec); err != nil {
+			return
 		}
 	}
 
@@ -258,9 +256,9 @@ func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.CTlog, template *
 
 	// Operator-managed volumes: hsm-tokens defaults to EmptyDir but can be
 	// overridden by user-defined volumes or PVC for token persistence.
+	// Always reconcile (not just when absent) so persistence changes take effect.
 	if !hasVolume(&template.Spec, HSMTokensVolumeName) {
 		tokensVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, HSMTokensVolumeName) //nolint:actionlint // template.Spec is the pod template, not the CR spec
-		// Clear previous VolumeSource before setting new one to prevent collision
 		tokensVol.VolumeSource = core.VolumeSource{}
 		if pkcs11Config.Persistence != nil && pkcs11Config.Persistence.Name != "" {
 			tokensVol.PersistentVolumeClaim = &core.PersistentVolumeClaimVolumeSource{
@@ -269,6 +267,18 @@ func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.CTlog, template *
 		} else {
 			tokensVol.EmptyDir = &core.EmptyDirVolumeSource{}
 		}
+	} else {
+		// Volume exists from previous reconcile — update source if persistence changed
+		tokensVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, HSMTokensVolumeName) //nolint:actionlint // template.Spec is the pod template, not the CR spec
+		tokensVol.VolumeSource = core.VolumeSource{}
+		if pkcs11Config.Persistence != nil && pkcs11Config.Persistence.Name != "" {
+			tokensVol.PersistentVolumeClaim = &core.PersistentVolumeClaimVolumeSource{
+				ClaimName: pkcs11Config.Persistence.Name,
+			}
+		} else {
+			tokensVol.EmptyDir = &core.EmptyDirVolumeSource{}
+		}
+		ensureVolumeDefaultMode(tokensVol)
 	}
 
 	if !hasVolume(&template.Spec, HSMLibVolumeName) {
@@ -322,7 +332,9 @@ func reconcileInitContainers(podSpec *core.PodSpec, specs []rhtasv1.PKCS11InitCo
 	}
 
 	// Operator-managed hsm-lib-export container: copies the PKCS#11 .so
-	// from the vendor image to the shared lib volume.
+	// from the first init container's image to the shared lib volume.
+	// The first init container (specs[0]) must be the vendor HSM image
+	// that contains the PKCS#11 .so library at the path specified by modulePath.
 	if modulePath != "" && len(specs) > 0 {
 		desiredNames[HSMLibExportContainerName] = struct{}{}
 		libExport := kubernetes.FindInitContainerByNameOrCreate(podSpec, HSMLibExportContainerName)

@@ -94,13 +94,13 @@ spec:
         publicKeyRef:
           name: "<your-ctlog-pubkey-secret>"
           key: public.pem
-    auth:
-      env:
-        - name: "<VENDOR_AUTH_ENV>"
-          value: "<vendor-auth-value>"
-      secretMount:
-        - name: "<your-auth-secret>"
-          key: "<auth-secret-key>"
+      auth:
+        env:
+          - name: "<VENDOR_AUTH_ENV>"
+            value: "<vendor-auth-value>"
+        secretMount:
+          - name: "<your-auth-secret>"
+            key: "<auth-secret-key>"
     initContainers:
       - name: hsm-init
         image: "<your-hsm-init-image>"

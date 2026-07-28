@@ -61,10 +61,11 @@ func (e ensurePKCS11Config) Handle(ctx context.Context, instance *rhtasv1.CTlog)
 	if p.PinSecretRef == nil {
 		return e.Error(ctx, fmt.Errorf("pinSecretRef must be specified for PKCS#11 mode"), instance,
 			metav1.Condition{
-				Type:    PKCS11Condition,
-				Status:  metav1.ConditionFalse,
-				Reason:  state.Failure.String(),
-				Message: "pinSecretRef must be specified",
+				Type:               PKCS11Condition,
+				Status:             metav1.ConditionFalse,
+				Reason:             state.Failure.String(),
+				Message:            "pinSecretRef must be specified",
+				ObservedGeneration: instance.Generation,
 			},
 			metav1.Condition{
 				Type:               constants.ReadyCondition,
@@ -78,10 +79,11 @@ func (e ensurePKCS11Config) Handle(ctx context.Context, instance *rhtasv1.CTlog)
 	if p.PublicKeyRef == nil {
 		return e.Error(ctx, fmt.Errorf("publicKeyRef must be specified for PKCS#11 mode"), instance,
 			metav1.Condition{
-				Type:    PKCS11Condition,
-				Status:  metav1.ConditionFalse,
-				Reason:  state.Failure.String(),
-				Message: "publicKeyRef must be specified",
+				Type:               PKCS11Condition,
+				Status:             metav1.ConditionFalse,
+				Reason:             state.Failure.String(),
+				Message:            "publicKeyRef must be specified",
+				ObservedGeneration: instance.Generation,
 			},
 			metav1.Condition{
 				Type:               constants.ReadyCondition,
@@ -158,10 +160,12 @@ func (e ensurePKCS11Config) handleRotation(ctx context.Context, instance *rhtasv
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type: PKCS11Condition, Status: metav1.ConditionFalse,
 		Reason: "Rotation", Message: "PKCS#11 configuration drift detected",
+		ObservedGeneration: instance.Generation,
 	})
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type: ConfigCondition, Status: metav1.ConditionFalse,
 		Reason: "Rotation", Message: "Server config needs regeneration",
+		ObservedGeneration: instance.Generation,
 	})
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type: constants.ReadyCondition, Status: metav1.ConditionFalse,

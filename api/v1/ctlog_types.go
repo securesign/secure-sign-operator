@@ -154,6 +154,8 @@ type CTlogPKCS11Config struct {
 	// The operator copies this library to a shared volume and passes
 	// --pkcs11_module_path to ct_server.
 	//+required
+	//+kubebuilder:validation:MinLength=1
+	//+kubebuilder:validation:Pattern=`^/[a-zA-Z0-9._/-]+\.so[.0-9]*$`
 	ModulePath string `json:"modulePath"`
 
 	// Persistent storage for HSM tokens (key survives pod restarts).

@@ -118,7 +118,7 @@ func TestEnsurePKCS11Config_Handle(t *testing.T) {
 		{
 			name: "valid refs - resolves successfully",
 			secrets: []corev1.Secret{
-				{ObjectMeta: metav1.ObjectMeta{Name: "hsm-config", Namespace: "test"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "hsm-config", Namespace: "test"}, Data: map[string][]byte{"crypto11.conf": []byte(`{"Path":"/usr/lib64/libsofthsm2.so","TokenLabel":"test","Pin":"pin"}`)}},
 			},
 			instance: &rhtasv1.Fulcio{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-fulcio", Namespace: "test"},

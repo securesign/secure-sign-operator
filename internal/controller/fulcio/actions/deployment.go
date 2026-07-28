@@ -341,12 +341,10 @@ func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.Fulcio, sa string
 	container.Image = images.Registry.Get(images.FulcioServer)
 	container.Args = args
 
-	// Inject auth env vars from Signer.Auth
+	// Inject auth env vars and secret mounts via shared ensure.ContainerAuth
 	if auth := instance.Spec.Signer.Auth; auth != nil {
-		for _, env := range auth.Env {
-			e := kubernetes.FindEnvByNameOrCreate(container, env.Name)
-			e.Value = env.Value
-			e.ValueFrom = env.ValueFrom
+		if err := ensure.ContainerAuth(container, auth)(&template.Spec); err != nil {
+			return err
 		}
 	}
 
@@ -371,6 +369,7 @@ func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.Fulcio, sa string
 
 	hsmLibMount := kubernetes.FindVolumeMountByNameOrCreate(container, HSMLibVolumeName)
 	hsmLibMount.MountPath = HSMLibMountPath
+	hsmLibMount.ReadOnly = true
 
 	pkcs11ConfigMount := kubernetes.FindVolumeMountByNameOrCreate(container, PKCS11ConfigVolumeName)
 	pkcs11ConfigMount.MountPath = PKCS11ConfigMountPath
