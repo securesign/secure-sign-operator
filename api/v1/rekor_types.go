@@ -34,6 +34,12 @@ type RekorSpec struct {
 	Trillian ServiceReference `json:"trillian,omitempty"`
 	// Define whether you want to export service or not
 	Ingress Ingress `json:"ingress,omitempty"`
+	// Throttling configures HAProxy rate-limiting annotations on the OpenShift Route.
+	// When omitted, default throttling values are applied (concurrentTCP=200, rateHTTP=100, rateTCP=200).
+	// Set throttling.enabled to false to disable throttling entirely.
+	// These settings only take effect on OpenShift clusters.
+	//+optional
+	Throttling *IngressThrottling `json:"throttling,omitempty"`
 	//Enable Service monitors for rekor
 	Monitoring MonitoringWithTLogConfig `json:"monitoring,omitempty"`
 	// Signer configuration

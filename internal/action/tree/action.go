@@ -33,8 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const logserverDeploymentName = "trillian-logserver"
-
 func NewResolveTreeAction[T tlsAwareObject](component string, wrapper func(T) *wrapper[T]) action.Action[T] {
 	return &resolveTree[T]{
 		component:       component,

@@ -42,6 +42,12 @@ type ConsoleUI struct {
 	//+optional
 	//+kubebuilder:validation:XValidation:rule="!has(self.url) || size(self.url) == 0 || self.url.matches('^[a-zA-Z][a-zA-Z0-9+.-]*://[^/].*$')",message="url must follow the pattern scheme://host[:port][/path]"
 	Rekor ServiceReference `json:"rekor,omitempty"`
+	// Throttling configures HAProxy rate-limiting annotations on the OpenShift Route.
+	// When omitted, default throttling values are applied (concurrentTCP=100, rateHTTP=50, rateTCP=100).
+	// Set throttling.enabled to false to disable throttling entirely.
+	// These settings only take effect on OpenShift clusters.
+	//+optional
+	Throttling *IngressThrottling `json:"throttling,omitempty"`
 }
 
 type ConsoleAPI struct {

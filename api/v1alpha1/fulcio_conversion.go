@@ -152,6 +152,7 @@ func (src *Fulcio) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Status.CertificateChain = restored.Status.CertificateChain
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
+	dst.Spec.Throttling = restored.Spec.Throttling
 	return nil
 }
 

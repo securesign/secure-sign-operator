@@ -71,6 +71,12 @@ func enabledFieldsFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 				s.Enabled = ptr.To(c.Bool())
 			}
 		},
+		func(s *rhtasv1.IngressThrottling, c randfill.Continue) {
+			c.FillNoCustom(s)
+			if s.Enabled == nil {
+				s.Enabled = ptr.To(c.Bool())
+			}
+		},
 	}
 }
 

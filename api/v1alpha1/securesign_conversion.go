@@ -59,6 +59,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 			dst.Spec.Fulcio.Signer.File = &rhtasv1.FulcioFile{}
 		}
 	}
+	dst.Spec.Fulcio.Throttling = restored.Spec.Fulcio.Throttling
 	dst.Spec.Ctlog.ImagePullSecrets = restored.Spec.Ctlog.ImagePullSecrets
 	dst.Spec.Ctlog.TrustedCA = restored.Spec.Ctlog.TrustedCA
 	dst.Spec.Ctlog.Monitoring.ServiceMonitor = restored.Spec.Ctlog.Monitoring.ServiceMonitor
@@ -76,6 +77,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Spec.Rekor.ImagePullSecrets = restored.Spec.Rekor.ImagePullSecrets
 	dst.Spec.Rekor.Monitoring.ServiceMonitor = restored.Spec.Rekor.Monitoring.ServiceMonitor
+	dst.Spec.Rekor.Throttling = restored.Spec.Rekor.Throttling
 	if dst.Spec.Rekor.Trillian.URL == "" {
 		dst.Spec.Rekor.Trillian.Ref = restored.Spec.Rekor.Trillian.Ref
 	}
@@ -101,6 +103,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 		dst.Spec.TimestampAuthority.Monitoring.ServiceMonitor = restored.Spec.TimestampAuthority.Monitoring.ServiceMonitor
 		// restore also the auth from annotation for case where no KMS or Tink is set
 		dst.Spec.TimestampAuthority.Signer.Auth = mergeAuths(dst.Spec.TimestampAuthority.Signer.Auth, restored.Spec.TimestampAuthority.Signer.Auth)
+		dst.Spec.TimestampAuthority.Throttling = restored.Spec.TimestampAuthority.Throttling
 	}
 	return nil
 }

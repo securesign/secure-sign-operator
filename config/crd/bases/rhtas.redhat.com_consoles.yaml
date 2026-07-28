@@ -2231,6 +2231,41 @@ spec:
                           More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                         type: object
                     type: object
+                  throttling:
+                    description: |-
+                      Throttling configures HAProxy rate-limiting annotations on the OpenShift Route.
+                      When omitted, default throttling values are applied (concurrentTCP=100, rateHTTP=50, rateTCP=100).
+                      Set throttling.enabled to false to disable throttling entirely.
+                      These settings only take effect on OpenShift clusters.
+                    properties:
+                      concurrentTCP:
+                        description: |-
+                          Maximum number of concurrent TCP connections allowed per source IP address.
+                          Overrides the component-specific default when set.
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      enabled:
+                        default: true
+                        description: |-
+                          Whether to apply HAProxy rate-limiting annotations to the Route.
+                          Defaults to true. Set to false to disable throttling entirely.
+                        type: boolean
+                      rateHTTP:
+                        description: |-
+                          Maximum number of HTTP requests per second allowed per source IP address.
+                          Overrides the component-specific default when set.
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      rateTCP:
+                        description: |-
+                          Maximum number of TCP connections per second allowed per source IP address.
+                          Overrides the component-specific default when set.
+                        format: int32
+                        minimum: 1
+                        type: integer
+                    type: object
                   tolerations:
                     items:
                       description: |-

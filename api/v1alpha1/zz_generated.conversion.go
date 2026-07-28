@@ -1423,6 +1423,7 @@ func autoConvert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(in *v1.FulcioSpec, out *Fu
 	}
 	// WARNING: in.ServiceAccountConfig requires manual conversion: does not exist in peer-type
 	// WARNING: in.Ingress requires manual conversion: does not exist in peer-type
+	// WARNING: in.Throttling requires manual conversion: does not exist in peer-type
 	if err := Convert_v1_CtlogService_To_v1alpha1_CtlogService(&in.Ctlog, &out.Ctlog, s); err != nil {
 		return err
 	}
@@ -1915,6 +1916,7 @@ func autoConvert_v1_RekorSpec_To_v1alpha1_RekorSpec(in *v1.RekorSpec, out *Rekor
 		return err
 	}
 	// WARNING: in.Ingress requires manual conversion: does not exist in peer-type
+	// WARNING: in.Throttling requires manual conversion: does not exist in peer-type
 	if err := Convert_v1_MonitoringWithTLogConfig_To_v1alpha1_MonitoringWithTLogConfig(&in.Monitoring, &out.Monitoring, s); err != nil {
 		return err
 	}
@@ -2483,6 +2485,7 @@ func autoConvert_v1_TimestampAuthoritySpec_To_v1alpha1_TimestampAuthoritySpec(in
 	}
 	// WARNING: in.ServiceAccountConfig requires manual conversion: does not exist in peer-type
 	// WARNING: in.Ingress requires manual conversion: does not exist in peer-type
+	// WARNING: in.Throttling requires manual conversion: does not exist in peer-type
 	if err := Convert_v1_TimestampAuthoritySigner_To_v1alpha1_TimestampAuthoritySigner(&in.Signer, &out.Signer, s); err != nil {
 		return err
 	}

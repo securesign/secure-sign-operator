@@ -222,6 +222,81 @@ func TestSecuresignConversionUnit(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("fulcio/rekor/tsa throttling round-trip (v1-only field preserved via MarshalData)", func(t *testing.T) {
+		hub := &rhtasv1.Securesign{
+			ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+			Spec: rhtasv1.SecuresignSpec{
+				Fulcio: rhtasv1.FulcioSpec{
+					Throttling: &rhtasv1.IngressThrottling{
+						Enabled:       ptr.To(true),
+						ConcurrentTCP: ptr.To(int32(200)),
+						RateHTTP:      ptr.To(int32(100)),
+						RateTCP:       ptr.To(int32(150)),
+					},
+					Ingress:    rhtasv1.Ingress{Enabled: ptr.To(false)},
+					Monitoring: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
+				},
+				Rekor: rhtasv1.RekorSpec{
+					Throttling: &rhtasv1.IngressThrottling{
+						Enabled:       ptr.To(true),
+						ConcurrentTCP: ptr.To(int32(300)),
+						RateHTTP:      ptr.To(int32(150)),
+						RateTCP:       ptr.To(int32(250)),
+					},
+					Ingress: rhtasv1.Ingress{Enabled: ptr.To(false)},
+					Monitoring: rhtasv1.MonitoringWithTLogConfig{
+						MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
+						TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
+					},
+				},
+				Trillian: rhtasv1.TrillianSpec{
+					Monitoring: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
+				},
+				Ctlog: rhtasv1.CTlogSpec{
+					Monitoring: rhtasv1.MonitoringWithTLogConfig{
+						MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
+						TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
+					},
+				},
+				Tuf: rhtasv1.TufSpec{
+					Ingress: rhtasv1.Ingress{Enabled: ptr.To(false)},
+				},
+				TimestampAuthority: &rhtasv1.TimestampAuthoritySpec{
+					Throttling: &rhtasv1.IngressThrottling{
+						Enabled:       ptr.To(true),
+						ConcurrentTCP: ptr.To(int32(120)),
+						RateHTTP:      ptr.To(int32(60)),
+						RateTCP:       ptr.To(int32(120)),
+					},
+					Signer: rhtasv1.TimestampAuthoritySigner{
+						CertificateChain: rhtasv1.CertificateChain{
+							RootCA: &rhtasv1.TsaCertificateAuthority{
+								OrganizationName: "Red Hat",
+							},
+						},
+					},
+					Ingress:       rhtasv1.Ingress{Enabled: ptr.To(false)},
+					Monitoring:    rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
+					NTPMonitoring: rhtasv1.NTPMonitoring{Enabled: ptr.To(false)},
+				},
+			},
+		}
+
+		spoke := &Securesign{}
+		if err := spoke.ConvertFrom(hub); err != nil {
+			t.Fatalf("ConvertFrom failed: %v", err)
+		}
+
+		gotHub := &rhtasv1.Securesign{}
+		if err := spoke.ConvertTo(gotHub); err != nil {
+			t.Fatalf("ConvertTo failed: %v", err)
+		}
+
+		if !equality.Semantic.DeepEqual(hub, gotHub) {
+			t.Errorf("throttling lost during round-trip (-want +got):\n%s", cmp.Diff(hub, gotHub))
+		}
+	})
 }
 
 func TestCTlogConversionUnit(t *testing.T) {
@@ -497,6 +572,39 @@ func TestRekorConversionUnit(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("throttling round-trip (v1-only field preserved via MarshalData)", func(t *testing.T) {
+		hub := &rhtasv1.Rekor{
+			ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
+			Spec: rhtasv1.RekorSpec{
+				Throttling: &rhtasv1.IngressThrottling{
+					Enabled:       ptr.To(true),
+					ConcurrentTCP: ptr.To(int32(300)),
+					RateHTTP:      ptr.To(int32(150)),
+					RateTCP:       ptr.To(int32(250)),
+				},
+				Ingress: rhtasv1.Ingress{Enabled: ptr.To(false)},
+				Monitoring: rhtasv1.MonitoringWithTLogConfig{
+					MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
+					TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
+				},
+			},
+		}
+
+		spoke := &Rekor{}
+		if err := spoke.ConvertFrom(hub); err != nil {
+			t.Fatalf("ConvertFrom failed: %v", err)
+		}
+
+		gotHub := &rhtasv1.Rekor{}
+		if err := spoke.ConvertTo(gotHub); err != nil {
+			t.Fatalf("ConvertTo failed: %v", err)
+		}
+
+		if !equality.Semantic.DeepEqual(hub, gotHub) {
+			t.Errorf("throttling lost during round-trip (-want +got):\n%s", cmp.Diff(hub, gotHub))
+		}
+	})
 }
 
 func TestFulcioConversionUnit(t *testing.T) {
@@ -612,6 +720,36 @@ func TestFulcioConversionUnit(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("throttling round-trip (v1-only field preserved via MarshalData)", func(t *testing.T) {
+		hub := &rhtasv1.Fulcio{
+			ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: "default"},
+			Spec: rhtasv1.FulcioSpec{
+				Throttling: &rhtasv1.IngressThrottling{
+					Enabled:       ptr.To(true),
+					ConcurrentTCP: ptr.To(int32(200)),
+					RateHTTP:      ptr.To(int32(100)),
+					RateTCP:       ptr.To(int32(150)),
+				},
+				Ingress:    rhtasv1.Ingress{Enabled: ptr.To(false)},
+				Monitoring: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
+			},
+		}
+
+		spoke := &Fulcio{}
+		if err := spoke.ConvertFrom(hub); err != nil {
+			t.Fatalf("ConvertFrom failed: %v", err)
+		}
+
+		gotHub := &rhtasv1.Fulcio{}
+		if err := spoke.ConvertTo(gotHub); err != nil {
+			t.Fatalf("ConvertTo failed: %v", err)
+		}
+
+		if !equality.Semantic.DeepEqual(hub, gotHub) {
+			t.Errorf("throttling lost during round-trip (-want +got):\n%s", cmp.Diff(hub, gotHub))
+		}
+	})
 }
 
 func TestTrillianConversionUnit(t *testing.T) {
@@ -1095,6 +1233,37 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 
 		if !equality.Semantic.DeepEqual(hub, gotHub) {
 			t.Errorf("auth lost during round-trip (-want +got):\n%s", cmp.Diff(hub, gotHub))
+		}
+	})
+
+	t.Run("throttling round-trip (v1-only field preserved via MarshalData)", func(t *testing.T) {
+		hub := &rhtasv1.TimestampAuthority{
+			ObjectMeta: metav1.ObjectMeta{Name: "tsa", Namespace: "default"},
+			Spec: rhtasv1.TimestampAuthoritySpec{
+				Throttling: &rhtasv1.IngressThrottling{
+					Enabled:       ptr.To(true),
+					ConcurrentTCP: ptr.To(int32(120)),
+					RateHTTP:      ptr.To(int32(60)),
+					RateTCP:       ptr.To(int32(120)),
+				},
+				Ingress:       rhtasv1.Ingress{Enabled: ptr.To(false)},
+				Monitoring:    rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
+				NTPMonitoring: rhtasv1.NTPMonitoring{Enabled: ptr.To(false)},
+			},
+		}
+
+		spoke := &TimestampAuthority{}
+		if err := spoke.ConvertFrom(hub); err != nil {
+			t.Fatalf("ConvertFrom failed: %v", err)
+		}
+
+		gotHub := &rhtasv1.TimestampAuthority{}
+		if err := spoke.ConvertTo(gotHub); err != nil {
+			t.Fatalf("ConvertTo failed: %v", err)
+		}
+
+		if !equality.Semantic.DeepEqual(hub, gotHub) {
+			t.Errorf("throttling lost during round-trip (-want +got):\n%s", cmp.Diff(hub, gotHub))
 		}
 	})
 }

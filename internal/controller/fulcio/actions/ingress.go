@@ -22,6 +22,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// fulcioThrottlingDefaults are the default HAProxy rate-limiting values applied
+// when the CR does not override them. Fulcio's signing endpoint is a natural
+// DoS target on the client-facing signing path, so throttling defaults to on.
+var fulcioThrottlingDefaults = kubernetes.IngressThrottlingDefaults{
+	ConcurrentTCP: 100,
+	RateHTTP:      50,
+	RateTCP:       100,
+}
+
 func NewIngressAction() action.Action[*rhtasv1.Fulcio] {
 	return &ingressAction{}
 }
@@ -57,6 +66,7 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *ac
 		},
 		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.Ingress, ServerPortName),
 		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
+		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressHAProxyThrottling(instance.Spec.Throttling, fulcioThrottlingDefaults)),
 		// add ingress labels
 		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.Ingress.Labels)), instance.Spec.Ingress.Labels),
 		// add common labels
