@@ -133,17 +133,6 @@ replacements:
       kind: Deployment
       name: operator-controller-manager
 - source:
-    fieldPath: data.RELATED_IMAGE_REKOR_SEARCH_UI
-    kind: ConfigMap
-    name: related-images
-    version: v1
-  targets:
-  - fieldPaths:
-    - spec.template.spec.containers.[name=^manager$].env.[name=^RELATED_IMAGE_REKOR_SEARCH_UI$].value
-    select:
-      kind: Deployment
-      name: operator-controller-manager
-- source:
     fieldPath: data.RELATED_IMAGE_BACKFILL_REDIS
     kind: ConfigMap
     name: related-images

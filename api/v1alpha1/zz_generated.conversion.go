@@ -308,11 +308,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*RekorStatus)(nil), (*v1.RekorStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_RekorStatus_To_v1_RekorStatus(a.(*RekorStatus), b.(*v1.RekorStatus), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*SearchIndex)(nil), (*v1.SearchIndex)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_SearchIndex_To_v1_SearchIndex(a.(*SearchIndex), b.(*v1.SearchIndex), scope)
 	}); err != nil {
@@ -633,11 +628,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddConversionFunc((*v1.RekorSearchUI)(nil), (*RekorSearchUI)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_RekorSearchUI_To_v1alpha1_RekorSearchUI(a.(*v1.RekorSearchUI), b.(*RekorSearchUI), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddConversionFunc((*v1.RekorSignerStatus)(nil), (*RekorSigner)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_RekorSignerStatus_To_v1alpha1_RekorSigner(a.(*v1.RekorSignerStatus), b.(*RekorSigner), scope)
 	}); err != nil {
@@ -783,11 +773,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddConversionFunc((*RekorSearchUI)(nil), (*v1.RekorSearchUI)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_RekorSearchUI_To_v1_RekorSearchUI(a.(*RekorSearchUI), b.(*v1.RekorSearchUI), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddConversionFunc((*RekorService)(nil), (*v1.ServiceReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_RekorService_To_v1_ServiceReference(a.(*RekorService), b.(*v1.ServiceReference), scope)
 	}); err != nil {
@@ -800,6 +785,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*RekorSpec)(nil), (*v1.RekorSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_RekorSpec_To_v1_RekorSpec(a.(*RekorSpec), b.(*v1.RekorSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*RekorStatus)(nil), (*v1.RekorStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_RekorStatus_To_v1_RekorStatus(a.(*RekorStatus), b.(*v1.RekorStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -1836,26 +1826,6 @@ func Convert_v1_RekorLogRange_To_v1alpha1_RekorLogRange(in *v1.RekorLogRange, ou
 	return autoConvert_v1_RekorLogRange_To_v1alpha1_RekorLogRange(in, out, s)
 }
 
-func autoConvert_v1alpha1_RekorSearchUI_To_v1_RekorSearchUI(in *RekorSearchUI, out *v1.RekorSearchUI, s conversion.Scope) error {
-	if err := Convert_v1alpha1_PodRequirements_To_v1_PodRequirements(&in.PodRequirements, &out.PodRequirements, s); err != nil {
-		return err
-	}
-	out.Enabled = (*bool)(unsafe.Pointer(in.Enabled))
-	out.Host = in.Host
-	// WARNING: in.RouteSelectorLabels requires manual conversion: does not exist in peer-type
-	return nil
-}
-
-func autoConvert_v1_RekorSearchUI_To_v1alpha1_RekorSearchUI(in *v1.RekorSearchUI, out *RekorSearchUI, s conversion.Scope) error {
-	if err := Convert_v1_PodRequirements_To_v1alpha1_PodRequirements(&in.PodRequirements, &out.PodRequirements, s); err != nil {
-		return err
-	}
-	out.Enabled = (*bool)(unsafe.Pointer(in.Enabled))
-	out.Host = in.Host
-	// WARNING: in.Labels requires manual conversion: does not exist in peer-type
-	return nil
-}
-
 func autoConvert_v1alpha1_RekorService_To_v1_RekorService(in *RekorService, out *v1.RekorService, s conversion.Scope) error {
 	out.Address = in.Address
 	out.Port = (*int32)(unsafe.Pointer(in.Port))
@@ -1914,9 +1884,7 @@ func autoConvert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *v1.Rekor
 	if err := Convert_v1alpha1_MonitoringWithTLogConfig_To_v1_MonitoringWithTLogConfig(&in.Monitoring, &out.Monitoring, s); err != nil {
 		return err
 	}
-	if err := Convert_v1alpha1_RekorSearchUI_To_v1_RekorSearchUI(&in.RekorSearchUI, &out.RekorSearchUI, s); err != nil {
-		return err
-	}
+	// WARNING: in.RekorSearchUI requires manual conversion: does not exist in peer-type
 	if err := Convert_v1alpha1_RekorSigner_To_v1_RekorSigner(&in.Signer, &out.Signer, s); err != nil {
 		return err
 	}
@@ -1950,9 +1918,6 @@ func autoConvert_v1_RekorSpec_To_v1alpha1_RekorSpec(in *v1.RekorSpec, out *Rekor
 	if err := Convert_v1_MonitoringWithTLogConfig_To_v1alpha1_MonitoringWithTLogConfig(&in.Monitoring, &out.Monitoring, s); err != nil {
 		return err
 	}
-	if err := Convert_v1_RekorSearchUI_To_v1alpha1_RekorSearchUI(&in.RekorSearchUI, &out.RekorSearchUI, s); err != nil {
-		return err
-	}
 	if err := Convert_v1_RekorSigner_To_v1alpha1_RekorSigner(&in.Signer, &out.Signer, s); err != nil {
 		return err
 	}
@@ -1984,15 +1949,10 @@ func autoConvert_v1alpha1_RekorStatus_To_v1_RekorStatus(in *RekorStatus, out *v1
 	out.PvcName = in.PvcName
 	out.MonitorPvcName = in.MonitorPvcName
 	out.Url = in.Url
-	out.RekorSearchUIUrl = in.RekorSearchUIUrl
+	// WARNING: in.RekorSearchUIUrl requires manual conversion: does not exist in peer-type
 	out.TreeID = (*int64)(unsafe.Pointer(in.TreeID))
 	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))
 	return nil
-}
-
-// Convert_v1alpha1_RekorStatus_To_v1_RekorStatus is an autogenerated conversion function.
-func Convert_v1alpha1_RekorStatus_To_v1_RekorStatus(in *RekorStatus, out *v1.RekorStatus, s conversion.Scope) error {
-	return autoConvert_v1alpha1_RekorStatus_To_v1_RekorStatus(in, out, s)
 }
 
 func autoConvert_v1_RekorStatus_To_v1alpha1_RekorStatus(in *v1.RekorStatus, out *RekorStatus, s conversion.Scope) error {
@@ -2007,7 +1967,6 @@ func autoConvert_v1_RekorStatus_To_v1alpha1_RekorStatus(in *v1.RekorStatus, out 
 	out.PvcName = in.PvcName
 	out.MonitorPvcName = in.MonitorPvcName
 	out.Url = in.Url
-	out.RekorSearchUIUrl = in.RekorSearchUIUrl
 	// WARNING: in.PublicKey requires manual conversion: does not exist in peer-type
 	out.TreeID = (*int64)(unsafe.Pointer(in.TreeID))
 	out.Conditions = *(*[]metav1.Condition)(unsafe.Pointer(&in.Conditions))

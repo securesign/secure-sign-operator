@@ -88,7 +88,6 @@ var _ = Describe("Key rotation test", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		s = securesign.Create(namespace.Name, "test",
 			securesign.ChooseDefaults(fipsEnabled, namespace.Name),
-			securesign.WithSearchUI(),
 		)
 	})
 

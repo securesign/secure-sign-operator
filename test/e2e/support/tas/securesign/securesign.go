@@ -111,18 +111,6 @@ func WithoutMonitoring() Opts {
 	}
 }
 
-func WithSearchUI() Opts {
-	return func(s *rhtasv1.Securesign) {
-		s.Spec.Rekor.RekorSearchUI.Enabled = ptr.To(true)
-	}
-}
-
-func WithoutSearchUI() Opts {
-	return func(s *rhtasv1.Securesign) {
-		s.Spec.Rekor.RekorSearchUI.Enabled = ptr.To(false)
-	}
-}
-
 func WithDefaultOIDC() Opts {
 	return func(s *rhtasv1.Securesign) {
 		s.Spec.Fulcio.Config = rhtasv1.FulcioConfig{
@@ -403,7 +391,6 @@ func WithReplicas(replicas *int32) Opts {
 	return func(s *rhtasv1.Securesign) {
 		s.Spec.Fulcio.Replicas = replicas
 		s.Spec.Rekor.Replicas = replicas
-		s.Spec.Rekor.RekorSearchUI.Replicas = replicas
 		s.Spec.Ctlog.Replicas = replicas
 		s.Spec.TimestampAuthority.Replicas = replicas
 		s.Spec.Tuf.Replicas = replicas

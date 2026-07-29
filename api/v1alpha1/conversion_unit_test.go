@@ -22,6 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
+	"github.com/securesign/operator/internal/migration"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -215,6 +216,7 @@ func TestSecuresignConversionUnit(t *testing.T) {
 				t.Fatalf("ConvertTo failed: %v", err)
 			}
 
+			migration.StripAll(gotHub)
 			if !equality.Semantic.DeepEqual(expectedHub, gotHub) {
 				t.Errorf("v1alpha1 -> v1 mismatch (-want +got):\n%s", cmp.Diff(expectedHub, gotHub))
 			}
@@ -489,6 +491,7 @@ func TestRekorConversionUnit(t *testing.T) {
 			if err := tt.spoke.ConvertTo(gotHub); err != nil {
 				t.Fatalf("ConvertTo failed: %v", err)
 			}
+			migration.StripAll(gotHub)
 			if !equality.Semantic.DeepEqual(tt.hub, gotHub) {
 				t.Errorf("mismatch (-want +got):\n%s", cmp.Diff(tt.hub, gotHub))
 			}

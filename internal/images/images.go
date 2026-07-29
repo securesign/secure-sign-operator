@@ -22,7 +22,6 @@ const (
 
 	RekorRedis    Image = "RELATED_IMAGE_REKOR_REDIS"
 	RekorServer   Image = "RELATED_IMAGE_REKOR_SERVER"
-	RekorSearchUi Image = "RELATED_IMAGE_REKOR_SEARCH_UI"
 	RekorMonitor  Image = "RELATED_IMAGE_REKOR_MONITOR"
 	BackfillRedis Image = "RELATED_IMAGE_BACKFILL_REDIS"
 
@@ -48,7 +47,6 @@ var Images = []Image{
 	FulcioServer,
 	RekorRedis,
 	RekorServer,
-	RekorSearchUi,
 	RekorMonitor,
 	BackfillRedis,
 	Tuf,

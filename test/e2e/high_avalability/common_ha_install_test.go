@@ -3,9 +3,6 @@
 package ha
 
 import (
-	"net/http"
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -61,7 +58,6 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 		replicas = ptr.To(int32(2))
 		s = securesign.Create(namespace.Name, "test",
 			securesign.ChooseDefaults(fipsEnabled, namespace.Name),
-			securesign.WithSearchUI(),
 			securesign.WithReplicas(replicas),
 			securesign.WithNFSPVC(),
 		)
@@ -100,17 +96,6 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 				}
 				return dep.Status.AvailableReplicas, nil
 			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "rekor server should have at least %d available replicas", *replicas)
-		})
-
-		It("rekor search ui should have the correct replica count", func(ctx SpecContext) {
-			rekor.VerifySearchUI(ctx, cli, namespace.Name)
-			Eventually(func(ctx SpecContext) (int32, error) {
-				var dep appsv1.Deployment
-				if err := cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: rekoractions.SearchUiDeploymentName}, &dep); err != nil {
-					return 0, err
-				}
-				return dep.Status.AvailableReplicas, nil
-			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "rekor search ui should have at least %d available replicas", *replicas)
 		})
 
 		It("ctlog should have the correct replica count", func(ctx SpecContext) {
@@ -169,7 +154,7 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 		})
 
 		It("Services have ready endpoints", func(ctx SpecContext) {
-			endpointNames := []string{ctlogactions.ComponentName, fulcioactions.DeploymentName, rekoractions.SearchUiDeploymentName, rekoractions.ServerComponentName, trillianactions.LogServerComponentName, trillianactions.LogSignerComponentName, tsaactions.DeploymentName, constants.ComponentName}
+			endpointNames := []string{ctlogactions.ComponentName, fulcioactions.DeploymentName, rekoractions.ServerComponentName, trillianactions.LogServerComponentName, trillianactions.LogSignerComponentName, tsaactions.DeploymentName, constants.ComponentName}
 			for _, endpointName := range endpointNames {
 				Eventually(kubernetes.ExpectServiceHasAtLeastNReadyEndpoints).
 					WithContext(ctx).
@@ -199,25 +184,6 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, rekoractions.ServerComponentName, func() {
 				s = securesign.Get(ctx, cli, namespace.Name, s.Name)
 				tas.VerifyByCosign(ctx, targetImageName, s.Status.TufStatus.Url, s.Status.FulcioStatus.Url, s.Status.RekorStatus.Url, s.Status.TSAStatus.Url)
-			})
-		})
-		It("rekor-search-ui remains functional when a pod is deleted", func(ctx SpecContext) {
-			kubernetes.RemainsFunctionalWhenOnePodDeleted(ctx, cli, namespace.Name, rekoractions.SearchUiDeploymentName, func() {
-				r := rekor.Get(ctx, cli, namespace.Name, s.Name)
-				Expect(r).ToNot(BeNil())
-				Expect(r.Status.RekorSearchUIUrl).NotTo(BeEmpty())
-
-				httpClient := http.Client{
-					Timeout: time.Second * 10,
-				}
-				Eventually(func() bool {
-					resp, err := httpClient.Get(r.Status.RekorSearchUIUrl)
-					if err != nil {
-						return false
-					}
-					defer func() { _ = resp.Body.Close() }()
-					return resp.StatusCode == http.StatusOK
-				}).Should(BeTrue(), "Rekor UI should be accessible and return a status code of 200")
 			})
 		})
 		It("trillian-logserver remains functional when a pod is deleted", func(ctx SpecContext) {

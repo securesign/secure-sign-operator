@@ -48,7 +48,6 @@ func withRelatedImages() optManagerPod {
 func withReplicas(replicas int32) securesign.Opts {
 	return func(s *rhtasv1.Securesign) {
 		s.Spec.Rekor.Replicas = ptr.To(replicas)
-		s.Spec.Rekor.RekorSearchUI.Replicas = ptr.To(replicas)
 		s.Spec.Fulcio.Replicas = ptr.To(replicas)
 		s.Spec.Ctlog.Replicas = ptr.To(replicas)
 		s.Spec.Tuf.Replicas = ptr.To(replicas)
@@ -145,8 +144,6 @@ var _ = Describe("rolling upgrade with replicas", Ordered, func() {
 
 			verifyDeploymentHasNewImage(ctx, cli, s.Namespace, rekorAction.RedisDeploymentName)
 			verifyDeploymentHasNewImage(ctx, cli, s.Namespace, rekorAction.ServerDeploymentName)
-			verifyDeploymentHasNewImage(ctx, cli, s.Namespace, rekorAction.SearchUiDeploymentName)
-			verifyDeploymentHasNewImage(ctx, cli, s.Namespace, rekorAction.SearchUiDeploymentName)
 
 			verifyDeploymentHasNewImage(ctx, cli, s.Namespace, trillianAction.LogserverDeploymentName)
 			verifyDeploymentHasNewImage(ctx, cli, s.Namespace, trillianAction.LogsignerDeploymentName)

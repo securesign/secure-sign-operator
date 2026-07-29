@@ -71,6 +71,7 @@ func NewReconciler(c client.Client, scheme *runtime.Scheme, recorder events.Even
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=rekors,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=rekors/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=rhtas.redhat.com,resources=rekors/finalizers,verbs=update
+//+kubebuilder:rbac:groups=rhtas.redhat.com,resources=consoles,verbs=get;create;update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -104,9 +105,6 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	target := instance.DeepCopy()
 	conditionSupplier := func(rekor *rhtasv1.Rekor) []string {
 		components := fipsutil.AppendFIPSCondition([]string{actions2.ServerCondition, actions2.SignerCondition, trustmaterial.TrustMaterialCondition})
-		if utils.OptionalBool(rekor.Spec.RekorSearchUI.Enabled) {
-			components = append(components, actions2.UICondition)
-		}
 		if utils.OptionalBool(rekor.Spec.SearchIndex.Create) {
 			components = append(components, actions2.RedisCondition)
 		}
@@ -116,6 +114,9 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		transitions.NewToPendingPhaseAction[*rhtasv1.Rekor](),
 		transitions.NewEnsureConditionsAction[*rhtasv1.Rekor](conditionSupplier),
 
+		ui.NewMigrationAction(),
+		ui.NewCleanupAction(),
+
 		redis.NewTlsAction(),
 		redis.NewGeneratePasswordAction(),
 		server.NewFIPSValidationAction(),
@@ -124,7 +125,6 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		transitions.NewToCreatePhaseAction[*rhtasv1.Rekor](),
 
 		server.NewRBACAction(),
-		ui.NewRBACAction(),
 		redis.NewRBACAction(),
 		backfillredis.NewRBACAction(),
 		monitor.NewRBACAction(),
@@ -141,11 +141,6 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		redis.NewDeployAction(),
 		redis.NewCreateServiceAction(),
 
-		ui.NewDeployAction(),
-		ui.NewCreateServiceAction(),
-		ui.NewIngressAction(),
-		ui.NewStatusURLAction(),
-
 		backfillredis.NewBackfillRedisCronJobAction(),
 
 		monitor.NewStatefulSetAction(),
@@ -156,7 +151,6 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		server.NewRolloutCheckAction(),
 		server.NewResolvePubKeyAction(),
-		ui.NewRolloutCheckAction(),
 		redis.NewRolloutCheckAction(),
 
 		transitions.NewToReadyPhaseAction[*rhtasv1.Rekor](),

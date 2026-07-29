@@ -63,6 +63,23 @@ var _ = Describe("Console controller", func() {
 		})
 
 		It("should successfully reconcile a custom resource for Console", func() {
+			By("creating the TUF resource for autodiscovery")
+			tuf := &rhtasv1.Tuf{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      Name,
+					Namespace: Namespace,
+				},
+				Spec: rhtasv1.TufSpec{
+					Keys: []rhtasv1.TufKey{{Name: rhtasv1.TufKeyFulcio}},
+				},
+			}
+			Expect(suite.Client().Create(ctx, tuf)).To(Succeed())
+			tuf.Status.Url = "http://tuf.default.svc"
+			tuf.Status.Conditions = []metav1.Condition{
+				{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: "Ready", LastTransitionTime: metav1.Now()},
+			}
+			Expect(suite.Client().Status().Update(ctx, tuf)).To(Succeed())
+
 			By("creating the custom resource for the Kind Console")
 			err := suite.Client().Get(ctx, typeNamespaceName, console)
 			if err != nil && errors.IsNotFound(err) {
