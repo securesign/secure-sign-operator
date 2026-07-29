@@ -218,8 +218,14 @@ After the operator is running, create a namespace and apply a Securesign CR conf
 
 ```sh
 kubectl create ns securesign
-kubectl apply --server-side -n securesign -f config/samples/rhtas_v1alpha1_securesign.yaml
+kubectl apply --server-side -n securesign -f config/samples/rhtas_v1_securesign.yaml
 ```
+
+The `rhtas_v1_securesign.yaml` sample uses the `v1` API (the CRD storage version) and
+demonstrates the per-component `imagePullSecrets` described in
+[Image Registry](#image-registry). A `v1alpha1` variant
+(`config/samples/rhtas_v1alpha1_securesign.yaml`) is also provided for backward
+compatibility, but it cannot express `imagePullSecrets`.
 
 See `config/samples/` for example CR configurations with OIDC providers and external access.
 

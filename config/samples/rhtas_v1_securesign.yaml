@@ -1,0 +1,108 @@
+# Securesign sample on the v1 API (the CRD storage version).
+#
+# This mirrors rhtas_v1alpha1_securesign.yaml but uses apiVersion rhtas.redhat.com/v1
+# and additionally demonstrates per-component `imagePullSecrets`, which is only
+# available on the v1 API. Follow docs/kubernetes.md ("Image Registry") to create
+# the referenced `redhat-registry` pull secret before applying this CR, e.g.:
+#
+#   kubectl create secret docker-registry redhat-registry \
+#     --docker-server=registry.redhat.io \
+#     --docker-username=<your-username-or-sa-name> \
+#     --docker-password=<your-password-or-token> \
+#     -n <tas-namespace>
+#
+# Replace the placeholder Fulcio OIDC issuer URLs with a reachable issuer before use.
+apiVersion: rhtas.redhat.com/v1
+kind: Securesign
+metadata:
+  labels:
+    app.kubernetes.io/name: securesign-sample
+    app.kubernetes.io/instance: securesign-sample
+    app.kubernetes.io/part-of: trusted-artifact-signer
+  name: securesign-sample
+spec:
+  rekor:
+    imagePullSecrets:
+      - name: redhat-registry
+    ingress:
+      enabled: true
+    monitoring:
+      metrics:
+        enabled: true
+  trillian:
+    imagePullSecrets:
+      - name: redhat-registry
+    database:
+      create: true
+    monitoring:
+      metrics:
+        enabled: true
+  fulcio:
+    imagePullSecrets:
+      - name: redhat-registry
+    ingress:
+      enabled: true
+    config:
+      oidcIssuers:
+        - clientID: "trusted-artifact-signer"
+          issuerURL: "https://your-oidc-issuer-url"
+          issuer: "https://your-oidc-issuer-url"
+          type: "email"
+    signer:
+      certificateChain:
+        organizationName: Red Hat
+        organizationEmail: jdoe@redhat.com
+        commonName: fulcio.hostname
+    monitoring:
+      metrics:
+        enabled: true
+  tuf:
+    imagePullSecrets:
+      - name: redhat-registry
+    ingress:
+      enabled: true
+    keys:
+      - name: rekor.pub
+      - name: ctfe.pub
+      - name: fulcio_v1.crt.pem
+      - name: tsa.certchain.pem
+    rootKeySecretRef:
+      name: tuf-root-keys
+    pvc:
+      accessModes:
+        - ReadWriteOnce
+      retain: true
+      size: 100Mi
+  ctlog:
+    imagePullSecrets:
+      - name: redhat-registry
+    # signer is required on the v1 API; leave it empty to let the operator
+    # auto-generate and manage the CTlog signing key.
+    signer: {}
+    monitoring:
+      metrics:
+        enabled: true
+  tsa:
+    imagePullSecrets:
+      - name: redhat-registry
+    ingress:
+      enabled: true
+    monitoring:
+      metrics:
+        enabled: true
+    ntpMonitoring:
+      enabled: true
+    signer:
+      certificateChain:
+        rootCA:
+          organizationName: Red Hat
+          organizationEmail: jdoe@redhat.com
+          commonName: tsa.hostname-root
+        intermediateCA:
+          - organizationName: Red Hat
+            organizationEmail: jdoe@redhat.com
+            commonName: tsa.hostname-intermediate
+        leafCA:
+          organizationName: Red Hat
+          organizationEmail: jdoe@redhat.com
+          commonName: tsa.hostname-leaf
