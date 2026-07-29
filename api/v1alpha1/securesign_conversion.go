@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
+	"github.com/securesign/operator/internal/migration"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
@@ -39,6 +40,11 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	if err := Convert_v1alpha1_Securesign_To_v1_Securesign(src, dst, nil); err != nil {
 		return err
 	}
+
+	if err := migration.Set(dst, MigrationSearchUIData, src.Spec.Rekor.RekorSearchUI); err != nil {
+		return err
+	}
+
 	restored := &rhtasv1.Securesign{}
 	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
 		return err
@@ -104,5 +110,13 @@ func (dst *Securesign) ConvertFrom(srcRaw conversion.Hub) error {
 	if err := Convert_v1_Securesign_To_v1alpha1_Securesign(src, dst, nil); err != nil {
 		return err
 	}
+
+	var searchUI RekorSearchUI
+	if ok, err := migration.Pop(src, MigrationSearchUIData, &searchUI); err != nil {
+		return err
+	} else if ok {
+		dst.Spec.Rekor.RekorSearchUI = searchUI
+	}
+
 	return utilconversion.MarshalData(src, dst)
 }

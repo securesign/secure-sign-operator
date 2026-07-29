@@ -40,7 +40,6 @@ var fipsEnabled bool
 func securesignResource(namespace *v1.Namespace) *rhtasv1.Securesign {
 	return securesign.Create(namespace.Name, "test",
 		securesign.ChooseDefaults(fipsEnabled, namespace.Name),
-		securesign.WithoutSearchUI(),
 	)
 }
 

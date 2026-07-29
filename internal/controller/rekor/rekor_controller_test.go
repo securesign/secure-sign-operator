@@ -130,9 +130,6 @@ var _ = Describe("Rekor controller", func() {
 						Monitoring: rhtasv1.MonitoringWithTLogConfig{
 							MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						},
-						RekorSearchUI: rhtasv1.RekorSearchUI{
-							Enabled: utils.Pointer(true),
-						},
 						BackFillRedis: rhtasv1.BackFillRedis{
 							Enabled:  utils.Pointer(true),
 							Schedule: "0 0 * * *",
@@ -189,16 +186,6 @@ var _ = Describe("Rekor controller", func() {
 			By("Redis svc created")
 			Eventually(func(ctx context.Context) error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.RedisDeploymentName, Namespace: Namespace}, &corev1.Service{})
-			}).WithContext(ctx).Should(Succeed())
-
-			By("UI Deployment created")
-			Eventually(func(ctx context.Context) error {
-				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.SearchUiDeploymentName, Namespace: Namespace}, &appsv1.Deployment{})
-			}).WithContext(ctx).Should(Succeed())
-
-			By("UI svc created")
-			Eventually(func(ctx context.Context) error {
-				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.SearchUiDeploymentName, Namespace: Namespace}, &corev1.Service{})
 			}).WithContext(ctx).Should(Succeed())
 
 			By("Backfill Redis Cronjob Created")

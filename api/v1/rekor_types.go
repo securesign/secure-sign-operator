@@ -36,8 +36,6 @@ type RekorSpec struct {
 	Ingress Ingress `json:"ingress,omitempty"`
 	//Enable Service monitors for rekor
 	Monitoring MonitoringWithTLogConfig `json:"monitoring,omitempty"`
-	// Rekor Search UI
-	RekorSearchUI RekorSearchUI `json:"rekorSearchUI,omitempty"`
 	// Signer configuration
 	Signer RekorSigner `json:"signer,omitempty"`
 	// Attestations configuration
@@ -128,17 +126,6 @@ type RekorSigner struct {
 	KeyRef *SecretKeySelector `json:"keyRef,omitempty"`
 }
 
-type RekorSearchUI struct {
-	PodRequirements `json:",inline"`
-	// If set to true, the Operator will deploy a Rekor Search UI
-	//+kubebuilder:validation:XValidation:rule=(self || !oldSelf),message=Feature cannot be disabled
-	Enabled *bool `json:"enabled,omitempty"`
-	// Set hostname for your Ingress.
-	Host string `json:"host,omitempty"`
-	// Set labels applied to the created Ingress, e.g. for ingress-controller/route selection when sharding ingress traffic.
-	Labels map[string]string `json:"labels,omitempty"`
-}
-
 // SearchIndex define search index connection
 // +kubebuilder:validation:XValidation:rule=(!has(self.create) || !(self.create == true) || !has(self.provider) || self.provider == ""),message=Provider can be specified only with external db (create=false)
 // +kubebuilder:validation:XValidation:rule=(!has(self.create) || !(self.create == false) || self.provider != ""),message=Provider must be defined with external db (create=false)
@@ -202,14 +189,13 @@ type RekorSignerStatus struct {
 type RekorStatus struct {
 	// Reference to secret with Rekor's signer public key.
 	// Public key is automatically generated from signer private key.
-	PublicKeyRef     *SecretKeySelector    `json:"publicKeyRef,omitempty"`
-	ServerConfigRef  *LocalObjectReference `json:"serverConfigRef,omitempty"`
-	Signer           RekorSignerStatus     `json:"signer,omitempty"`
-	SearchIndex      SearchIndexStatus     `json:"searchIndex,omitempty"`
-	PvcName          string                `json:"pvcName,omitempty"`
-	MonitorPvcName   string                `json:"monitorPvcName,omitempty"`
-	Url              string                `json:"url,omitempty"`
-	RekorSearchUIUrl string                `json:"rekorSearchUIUrl,omitempty"`
+	PublicKeyRef    *SecretKeySelector    `json:"publicKeyRef,omitempty"`
+	ServerConfigRef *LocalObjectReference `json:"serverConfigRef,omitempty"`
+	Signer          RekorSignerStatus     `json:"signer,omitempty"`
+	SearchIndex     SearchIndexStatus     `json:"searchIndex,omitempty"`
+	PvcName         string                `json:"pvcName,omitempty"`
+	MonitorPvcName  string                `json:"monitorPvcName,omitempty"`
+	Url             string                `json:"url,omitempty"`
 	// PEM-encoded public key resolved from the running Rekor service API.
 	// +optional
 	PublicKey string `json:"publicKey,omitempty"`

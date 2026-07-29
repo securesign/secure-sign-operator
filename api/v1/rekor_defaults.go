@@ -9,17 +9,11 @@ func (s *RekorSpec) SetDefaults() {
 	s.PodRequirements.SetDefaults()
 	s.Monitoring.SetDefaults()
 	s.Ingress.SetDefaults()
-	s.RekorSearchUI.SetDefaults()
 	s.Signer.SetDefaults()
 	s.Attestations.SetDefaults()
 	s.SearchIndex.SetDefaults()
 	s.BackFillRedis.SetDefaults()
 	setDefault(&s.MaxRequestBodySize, ptr.To(int64(10485760)))
-}
-
-func (s *RekorSearchUI) SetDefaults() {
-	s.PodRequirements.SetDefaults()
-	setDefault(&s.Enabled, ptr.To(true))
 }
 
 func (s *RekorAttestations) SetDefaults() {

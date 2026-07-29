@@ -28,6 +28,7 @@ import (
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	v13 "k8s.io/api/apps/v1"
 	rbacV1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -306,7 +307,6 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 			ctl.DeploymentName:                     images.Registry.Get(images.CTLog),
 			tufAction.DeploymentName:               images.Registry.Get(images.HttpServer),
 			rekorAction.ServerDeploymentName:       images.Registry.Get(images.RekorServer),
-			rekorAction.SearchUiDeploymentName:     images.Registry.Get(images.RekorSearchUi),
 			trillianAction.LogsignerDeploymentName: images.Registry.Get(images.TrillianLogSigner),
 			trillianAction.LogserverDeploymentName: images.Registry.Get(images.TrillianServer),
 			tsaAction.DeploymentName:               images.Registry.Get(images.TimestampAuthority),
@@ -330,6 +330,39 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 			return v1Securesign
 		}).Should(gomega.Not(gomega.BeNil()))
 		tas.VerifyAllComponents(ctx, cli, v1Securesign, !fipsEnabled, true)
+	})
+
+	It("Verify RekorSearchUI migrated to Console CR", func(ctx SpecContext) {
+		gomega.Eventually(func(g gomega.Gomega) {
+			console := &rhtasv1.Console{}
+			g.Expect(cli.Get(ctx, types.NamespacedName{
+				Name:      securesignDeployment.Name + "-console",
+				Namespace: namespace.Name,
+			}, console)).To(gomega.Succeed())
+			g.Expect(console.Spec.UI.Ingress.Enabled).To(gomega.Equal(ptr.To(true)))
+		}).Should(gomega.Succeed())
+
+		orphanedResources := []runtimeCli.Object{
+			&v13.Deployment{ObjectMeta: metav1.ObjectMeta{Name: rekorAction.SearchUiDeploymentName, Namespace: namespace.Name}},
+			&v1.Service{ObjectMeta: metav1.ObjectMeta{Name: rekorAction.SearchUiDeploymentName, Namespace: namespace.Name}},
+			&v1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: rekorAction.RBACUIName, Namespace: namespace.Name}},
+			&rbacV1.RoleBinding{ObjectMeta: metav1.ObjectMeta{Name: rekorAction.RBACUIName, Namespace: namespace.Name}},
+		}
+		for _, obj := range orphanedResources {
+			key := runtimeCli.ObjectKeyFromObject(obj)
+			gomega.Eventually(func() bool {
+				return errors.IsNotFound(cli.Get(ctx, key, obj))
+			}).Should(gomega.BeTrue(), "orphaned resource %s/%s should be deleted", key.Namespace, key.Name)
+		}
+
+		gomega.Eventually(func(g gomega.Gomega) {
+			r := &rhtasv1.Rekor{}
+			g.Expect(cli.Get(ctx, types.NamespacedName{
+				Name:      securesignDeployment.Name,
+				Namespace: namespace.Name,
+			}, r)).To(gomega.Succeed())
+			g.Expect(meta.FindStatusCondition(r.Status.Conditions, rekorAction.UICondition)).To(gomega.BeNil())
+		}).Should(gomega.Succeed())
 	})
 
 	It("Enforce PSA restricted:latest after upgrade", func(ctx SpecContext) {

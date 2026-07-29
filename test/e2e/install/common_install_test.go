@@ -3,9 +3,6 @@
 package install
 
 import (
-	"net/http"
-	"time"
-
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
@@ -58,7 +55,6 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 	BeforeAll(func(ctx SpecContext) {
 		s = securesign.Create(namespace.Name, "test",
 			securesign.ChooseDefaults(fipsEnabled, namespace.Name),
-			securesign.WithSearchUI(),
 			func(v *rhtasv1.Securesign) {
 				// cover SECURESIGN-2694
 				v.Spec.Rekor.Attestations.Enabled = ptr.To(false)
@@ -236,24 +232,6 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 				Expect(err).To(Not(HaveOccurred()))
 				Expect(r.Labels).To(HaveKeyWithValue("foo", "bar"))
 			}
-		})
-
-		It("Verify Rekor Search UI is accessible", func(ctx SpecContext) {
-			r := rekor.Get(ctx, cli, namespace.Name, s.Name)
-			Expect(r).ToNot(BeNil())
-			Expect(r.Status.RekorSearchUIUrl).NotTo(BeEmpty())
-
-			httpClient := http.Client{
-				Timeout: time.Second * 10,
-			}
-			Eventually(func() bool {
-				resp, err := httpClient.Get(r.Status.RekorSearchUIUrl)
-				if err != nil {
-					return false
-				}
-				defer func() { _ = resp.Body.Close() }()
-				return resp.StatusCode == http.StatusOK
-			}, "30s", "1s").Should(BeTrue(), "Rekor UI should be accessible and return a status code of 200")
 		})
 
 		It("Use cosign cli", func(ctx SpecContext) {

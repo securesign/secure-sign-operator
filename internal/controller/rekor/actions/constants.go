@@ -12,8 +12,6 @@ const (
 	RedisDeploymentPort        = 6379
 	MonitorStatefulSetName     = "rekor-monitor"
 	SearchUiDeploymentName     = "rekor-search-ui"
-	SearchUiDeploymentPortName = "http"
-	SearchUiDeploymentPort     = 3000
 
 	RedisTlsSecret = "%s-rekor-redis-tls"
 
@@ -28,7 +26,6 @@ const (
 	RedisComponentName       = "rekor-redis"
 	MonitorComponentName     = "rekor-monitor"
 	MonitorMetricsPort       = 9464
-	UIComponentName          = "rekor-ui"
 	BackfillRedisCronJobName = "backfill-redis"
 	UICondition              = "UiAvailable"
 	ServerCondition          = "ServerAvailable"

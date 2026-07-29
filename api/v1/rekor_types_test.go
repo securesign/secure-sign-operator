@@ -247,9 +247,6 @@ var _ = Describe("Rekor", func() {
 							Enabled: ptr.To(true),
 							Host:    "hostname",
 						},
-						RekorSearchUI: RekorSearchUI{
-							Enabled: ptr.To(true),
-						},
 						BackFillRedis: BackFillRedis{
 							Enabled:  ptr.To(true),
 							Schedule: "* */2 * * 0-3",

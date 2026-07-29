@@ -23,11 +23,13 @@ import (
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
+	"github.com/securesign/operator/internal/migration"
 	urlfuzz "github.com/securesign/operator/internal/testing/fuzzer"
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 	"k8s.io/apimachinery/pkg/runtime"
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/conversion"
 	"sigs.k8s.io/randfill"
 )
 
@@ -311,6 +313,8 @@ func rekorStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			c.FillNoCustom(s)
 			// no v1 equivalent in RekorSignerStatus
 			s.Signer.KMS = ""
+			// no v1 equivalent — removed from v1 API
+			s.RekorSearchUIUrl = ""
 		},
 	}
 }
@@ -380,10 +384,14 @@ func securesignStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{}
 // Tests
 
 func TestSecuresignConversion(t *testing.T) {
+	t.Parallel()
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.Securesign{},
 		Spoke:  &Securesign{},
+		HubAfterMutation: func(hub conversion.Hub) {
+			migration.StripAll(hub.(*rhtasv1.Securesign))
+		},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			securesignStatusFuzzerFuncs,
 			tsaSignerFuzzerFuncs,
@@ -401,6 +409,7 @@ func TestSecuresignConversion(t *testing.T) {
 }
 
 func TestCTlogConversion(t *testing.T) {
+	t.Parallel()
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.CTlog{},
@@ -415,10 +424,14 @@ func TestCTlogConversion(t *testing.T) {
 }
 
 func TestRekorConversion(t *testing.T) {
+	t.Parallel()
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.Rekor{},
 		Spoke:  &Rekor{},
+		HubAfterMutation: func(hub conversion.Hub) {
+			migration.StripAll(hub.(*rhtasv1.Rekor))
+		},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			rekorStatusFuzzerFuncs,
 			trillianServiceFuzzerFuncs,
@@ -429,6 +442,7 @@ func TestRekorConversion(t *testing.T) {
 }
 
 func TestFulcioConversion(t *testing.T) {
+	t.Parallel()
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.Fulcio{},
@@ -441,6 +455,7 @@ func TestFulcioConversion(t *testing.T) {
 }
 
 func TestTrillianConversion(t *testing.T) {
+	t.Parallel()
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.Trillian{},
@@ -453,6 +468,7 @@ func TestTrillianConversion(t *testing.T) {
 }
 
 func TestTufConversion(t *testing.T) {
+	t.Parallel()
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.Tuf{},
@@ -469,6 +485,7 @@ func TestTufConversion(t *testing.T) {
 }
 
 func TestTimestampAuthorityConversion(t *testing.T) {
+	t.Parallel()
 	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
 		Scheme: rhtasScheme(),
 		Hub:    &rhtasv1.TimestampAuthority{},

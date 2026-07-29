@@ -3,12 +3,19 @@ package v1alpha1
 import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
+	"github.com/securesign/operator/internal/migration"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
+var MigrationSearchUIData = migration.Key("v1alpha1", "rekorSearchUI")
+
 func Convert_v1_RekorStatus_To_v1alpha1_RekorStatus(in *rhtasv1.RekorStatus, out *RekorStatus, s apiconversion.Scope) error {
 	return autoConvert_v1_RekorStatus_To_v1alpha1_RekorStatus(in, out, s)
+}
+
+func Convert_v1alpha1_RekorStatus_To_v1_RekorStatus(in *RekorStatus, out *rhtasv1.RekorStatus, s apiconversion.Scope) error {
+	return autoConvert_v1alpha1_RekorStatus_To_v1_RekorStatus(in, out, s)
 }
 
 func Convert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *rhtasv1.RekorSpec, s apiconversion.Scope) error {
@@ -16,9 +23,6 @@ func Convert_v1alpha1_RekorSpec_To_v1_RekorSpec(in *RekorSpec, out *rhtasv1.Reko
 		return err
 	}
 	if err := Convert_v1alpha1_ExternalAccess_To_v1_Ingress(&in.ExternalAccess, &out.Ingress, s); err != nil {
-		return err
-	}
-	if err := Convert_v1alpha1_RekorSearchUI_To_v1_RekorSearchUI(&in.RekorSearchUI, &out.RekorSearchUI, s); err != nil {
 		return err
 	}
 	return Convert_v1alpha1_Pvc_To_v1_Pvc(&in.Pvc, &out.Attestations.Pvc, s)
@@ -31,32 +35,10 @@ func Convert_v1_RekorSpec_To_v1alpha1_RekorSpec(in *rhtasv1.RekorSpec, out *Reko
 	if err := Convert_v1_Ingress_To_v1alpha1_ExternalAccess(&in.Ingress, &out.ExternalAccess, s); err != nil {
 		return err
 	}
-	if err := Convert_v1_RekorSearchUI_To_v1alpha1_RekorSearchUI(&in.RekorSearchUI, &out.RekorSearchUI, s); err != nil {
-		return err
-	}
 	return Convert_v1_Pvc_To_v1alpha1_Pvc(&in.Attestations.Pvc, &out.Pvc, s)
 }
 
-// RekorSearchUI had its RouteSelectorLabels field renamed to Labels in v1.
-
-func Convert_v1alpha1_RekorSearchUI_To_v1_RekorSearchUI(in *RekorSearchUI, out *rhtasv1.RekorSearchUI, s apiconversion.Scope) error {
-	if err := autoConvert_v1alpha1_RekorSearchUI_To_v1_RekorSearchUI(in, out, s); err != nil {
-		return err
-	}
-	out.Labels = in.RouteSelectorLabels
-	return nil
-}
-
-func Convert_v1_RekorSearchUI_To_v1alpha1_RekorSearchUI(in *rhtasv1.RekorSearchUI, out *RekorSearchUI, s apiconversion.Scope) error {
-	if err := autoConvert_v1_RekorSearchUI_To_v1alpha1_RekorSearchUI(in, out, s); err != nil {
-		return err
-	}
-	out.RouteSelectorLabels = in.Labels
-	return nil
-}
-
 func Convert_v1_RekorAttestations_To_v1alpha1_RekorAttestations(in *rhtasv1.RekorAttestations, out *RekorAttestations, s apiconversion.Scope) error {
-	// Pvc is handled at the RekorSpec level conversion, not here.
 	return autoConvert_v1_RekorAttestations_To_v1alpha1_RekorAttestations(in, out, s)
 }
 
@@ -65,6 +47,11 @@ func (src *Rekor) ConvertTo(dstRaw conversion.Hub) error {
 	if err := Convert_v1alpha1_Rekor_To_v1_Rekor(src, dst, nil); err != nil {
 		return err
 	}
+
+	if err := migration.Set(dst, MigrationSearchUIData, src.Spec.RekorSearchUI); err != nil {
+		return err
+	}
+
 	restored := &rhtasv1.Rekor{}
 	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
 		return err
@@ -75,6 +62,7 @@ func (src *Rekor) ConvertTo(dstRaw conversion.Hub) error {
 	if dst.Spec.Trillian.URL == "" {
 		dst.Spec.Trillian.Ref = restored.Spec.Trillian.Ref
 	}
+
 	return nil
 }
 
@@ -83,6 +71,14 @@ func (dst *Rekor) ConvertFrom(srcRaw conversion.Hub) error {
 	if err := Convert_v1_Rekor_To_v1alpha1_Rekor(src, dst, nil); err != nil {
 		return err
 	}
+
+	var searchUI RekorSearchUI
+	if ok, err := migration.Pop(src, MigrationSearchUIData, &searchUI); err != nil {
+		return err
+	} else if ok {
+		dst.Spec.RekorSearchUI = searchUI
+	}
+
 	return utilconversion.MarshalData(src, dst)
 }
 

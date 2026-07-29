@@ -62,7 +62,6 @@ var _ = Describe("Securesign FIPS Strict Mode (fips140=only)", Ordered, func() {
 			securesign.WithIngress(),
 			securesign.WithDefaultOIDC(),
 			securesign.WithNTPMonitoring(),
-			securesign.WithSearchUI(),
 			func(v *rhtasv1.Securesign) {
 				v.Spec.Rekor.Attestations.Enabled = ptr.To(false)
 				v.Spec.Ctlog.Monitoring.TLog.Enabled = ptr.To(true)
@@ -176,33 +175,6 @@ var _ = Describe("Securesign FIPS Strict Mode (fips140=only)", Ordered, func() {
 				redis = &list.Items[0]
 			}).WithContext(ctx).Should(Succeed())
 			verifyFipsOpenSSL(ctx, redis, rekoractions.RedisDeploymentName, getNamespace(), "/usr/bin/redis-server")
-		})
-
-		It("Verify rekor-ui is running in FIPS mode", func(ctx SpecContext) {
-			var ui *v1.Pod
-			Eventually(func(g Gomega, ctx context.Context) {
-				list := &v1.PodList{}
-				g.Expect(cli.List(ctx, list,
-					ctrlclient.InNamespace(getNamespace()),
-					ctrlclient.MatchingLabels{labels.LabelAppComponent: rekoractions.UIComponentName},
-				)).To(Succeed())
-				g.Expect(list.Items).To(HaveLen(1))
-				ui = &list.Items[0]
-			}).WithContext(ctx).Should(Succeed())
-
-			verifyGodebugOnly(ctx, ui, rekoractions.SearchUiDeploymentName, getNamespace())
-
-			host, err := k8ssupport.ExecInPodWithOutput(ctx, ui.Name, rekoractions.SearchUiDeploymentName, getNamespace(),
-				"cat", "/proc/sys/crypto/fips_enabled",
-			)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(strings.TrimSpace(string(host))).To(Equal("1"))
-
-			node, err := k8ssupport.ExecInPodWithOutput(ctx, ui.Name, rekoractions.SearchUiDeploymentName, getNamespace(),
-				"node", "-p", "require('crypto').getFips()",
-			)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(strings.TrimSpace(string(node))).To(Equal("1"))
 		})
 
 		It("Verify TUF Server is running in FIPS mode", func(ctx SpecContext) {

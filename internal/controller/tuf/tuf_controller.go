@@ -28,6 +28,7 @@ import (
 	"github.com/securesign/operator/internal/controller/predicate"
 	"github.com/securesign/operator/internal/controller/tuf/actions"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
+	_ "github.com/securesign/operator/internal/controller/tuf/serviceresolver"
 	fipsutil "github.com/securesign/operator/internal/utils/fips"
 	v1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"

@@ -27,8 +27,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller"
 	_ "github.com/securesign/operator/internal/controller/trillian/serviceresolver"
+	_ "github.com/securesign/operator/internal/controller/tuf/serviceresolver"
 	testenvhelper "github.com/securesign/operator/internal/testing/envtest"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -66,6 +68,9 @@ func (t *controllerSuite) BeforeSuite() {
 	t.ctx, t.cancel = context.WithCancel(context.Background())
 
 	By("bootstrapping test environment")
+	Expect(rhtasv1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(rhtasv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+
 	t.testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
@@ -77,13 +82,9 @@ func (t *controllerSuite) BeforeSuite() {
 	}
 
 	var err error
-	// cfg is defined in this file globally.
 	t.cfg, err = t.testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.cfg).NotTo(BeNil())
-
-	err = rhtasv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
 

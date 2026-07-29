@@ -63,7 +63,6 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 	BeforeAll(func(ctx SpecContext) {
 		s = securesign.Create(namespace.Name, "test",
 			securesign.ChooseDefaults(fipsEnabled, namespace.Name),
-			securesign.WithSearchUI(),
 			func(v *rhtasv1.Securesign) {
 				v.Spec.Rekor.Attestations.Enabled = ptr.To(true)
 			},
@@ -197,17 +196,6 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "rekor server should have at least %d available replicas", *replicas)
 		})
 
-		It("rekor search ui should have the correct replica count", func(ctx SpecContext) {
-			rekor.VerifySearchUI(ctx, cli, namespace.Name)
-			Eventually(func(ctx SpecContext) (int32, error) {
-				var dep appsv1.Deployment
-				if err := cli.Get(ctx, types.NamespacedName{Namespace: namespace.Name, Name: rekoractions.SearchUiDeploymentName}, &dep); err != nil {
-					return 0, err
-				}
-				return dep.Status.AvailableReplicas, nil
-			}).WithContext(ctx).Should(BeNumerically(">=", *replicas), "rekor search ui should have at least %d available replicas", *replicas)
-		})
-
 		It("ctlog should have the correct replica count", func(ctx SpecContext) {
 			ctlog.Verify(ctx, cli, namespace.Name, s.Name)
 			Eventually(func(ctx SpecContext) (int32, error) {
@@ -267,7 +255,6 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 			endpointNames := []string{
 				ctlogactions.ComponentName,
 				fulcioactions.DeploymentName,
-				rekoractions.SearchUiDeploymentName,
 				rekoractions.ServerComponentName,
 				trillianactions.LogServerComponentName,
 				trillianactions.LogSignerComponentName,

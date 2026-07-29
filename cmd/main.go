@@ -143,7 +143,6 @@ func main() {
 	utils.RelatedImageFlag("fulcio-server-image", images.FulcioServer, "The image used for the fulcio server.")
 	utils.RelatedImageFlag("rekor-redis-image", images.RekorRedis, "The image used for redis.")
 	utils.RelatedImageFlag("rekor-server-image", images.RekorServer, "The image used for rekor server.")
-	utils.RelatedImageFlag("rekor-search-ui-image", images.RekorSearchUi, "The image used for rekor search ui.")
 	utils.RelatedImageFlag("backfill-redis-image", images.BackfillRedis, "The image used for backfill redis.")
 	utils.RelatedImageFlag("tuf-image", images.Tuf, "The image used for TUF.")
 	utils.RelatedImageFlag("ctlog-image", images.CTLog, "The image used for ctlog.")

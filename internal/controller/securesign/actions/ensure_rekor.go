@@ -6,17 +6,20 @@ import (
 	"maps"
 	"slices"
 
+	rhtasv1 "github.com/securesign/operator/api/v1"
+	v1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/migration"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 
-	rhtasv1 "github.com/securesign/operator/api/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -54,6 +57,7 @@ func (i rekorAction) Handle(ctx context.Context, instance *rhtasv1.Securesign) *
 		ensure.ControllerReference[*rhtasv1.Rekor](instance, i.Client),
 		ensure.Labels[*rhtasv1.Rekor](slices.Collect(maps.Keys(l)), l),
 		ensure.Annotations[*rhtasv1.Rekor](annotations.InheritableAnnotations, instance.Annotations),
+		migration.Propagate[*rhtasv1.Rekor](v1alpha1.MigrationSearchUIData, instance.Annotations),
 		func(object *rhtasv1.Rekor) error {
 			defaulted := instance.Spec.Rekor.DeepCopy()
 			defaulted.SetDefaults()
@@ -68,6 +72,14 @@ func (i rekorAction) Handle(ctx context.Context, instance *rhtasv1.Securesign) *
 				Reason:  state.Failure.String(),
 				Message: err.Error(),
 			})
+	}
+
+	if migration.Has(instance, v1alpha1.MigrationSearchUIData) {
+		before := instance.DeepCopy()
+		migration.Remove(instance, v1alpha1.MigrationSearchUIData)
+		if err := i.Client.Patch(ctx, instance, client.MergeFrom(before)); err != nil {
+			return i.Error(ctx, fmt.Errorf("could not remove migration annotation from Securesign: %w", err), instance)
+		}
 	}
 
 	if result != controllerutil.OperationResultNone {
