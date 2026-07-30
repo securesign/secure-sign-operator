@@ -38,6 +38,40 @@ func rhtasScheme() *runtime.Scheme {
 	return s
 }
 
+// randUrlPath generates a URL-safe path
+func randUrlPath(c randfill.Continue) string {
+	if c.Bool() {
+		return fmt.Sprintf("path-%d/sub-%d", c.Intn(100), c.Intn(100))
+	}
+	return fmt.Sprintf("path-%d", c.Intn(100))
+}
+
+// randHttpUrl generates a valid HTTP URL for status fields that go through url.Parse
+// in urlWithPath/urlWithoutPath during conversion.
+func randHttpUrl(c randfill.Continue, withPort bool) string {
+	if c.Bool() {
+		return ""
+	}
+	u := fmt.Sprintf("http://svc-%d.ns.svc", c.Intn(1000))
+	if withPort {
+		u += fmt.Sprintf(":%d", c.Intn(65534)+1)
+	}
+	return u
+}
+
+// randGrpcUrl generates a valid gRPC target URI (dns:/// scheme) for Trillian service references.
+// Trillian uses gRPC, not HTTP — the address format must survive TrillianService ↔ ServiceReference conversion.
+func randGrpcUrl(c randfill.Continue, withPort bool) string {
+	if c.Bool() {
+		return ""
+	}
+	u := fmt.Sprintf("dns:///svc-%d.ns.svc", c.Intn(1000))
+	if withPort {
+		u += fmt.Sprintf(":%d", c.Intn(65534)+1)
+	}
+	return u
+}
+
 // enabledFieldsFuzzerFuncs ensures *bool Enabled fields are never nil in fuzzed v1 hub objects.
 // In production, nil is unreachable because the CRD schema defaulter always sets these fields.
 // The fuzzer bypasses the API server, so we replicate that invariant here.
@@ -73,371 +107,134 @@ func enabledFieldsFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	}
 }
 
+// randServiceReference generates a v1 ServiceReference with mutually exclusive URL/Ref fields.
+// URL and Ref cannot both be set; conversion picks URL when present and falls back to restoring Ref from annotation.
+func randServiceReference(c randfill.Continue, urlFunc func(c randfill.Continue, withPort bool) string) rhtasv1.ServiceReference {
+	switch c.Intn(3) {
+	case 0:
+		return rhtasv1.ServiceReference{
+			URL: urlFunc(c, c.Bool()),
+		}
+	case 1:
+		ref := &rhtasv1.ServiceReferenceRef{}
+		c.FillNoCustom(ref)
+		return rhtasv1.ServiceReference{Ref: ref}
+	default:
+		return rhtasv1.ServiceReference{}
+	}
+}
+
+// randServiceReference generates a v1 ServiceReference with mutually exclusive URL/Ref fields.
+// URL and Ref cannot both be set; conversion picks URL when present and falls back to restoring Ref from annotation.
+func randServiceReferenceWithOIDC(c randfill.Continue, urlFunc func(c randfill.Continue, withPort bool) string) rhtasv1.ServiceRefWithOIDC {
+	return rhtasv1.ServiceRefWithOIDC{
+		ServiceReference: randServiceReference(c, urlFunc),
+		OIDCIssuers:      []string{randHttpUrl(c, c.Bool())},
+	}
+}
+
 // trillianServiceFuzzerFuncs constrains both sides of the TrillianService ↔ ServiceReference
 // conversion to values that survive the roundtrip:
-//   - v1 ServiceReference: URL must be valid gRPC URI (dns:///host:port) or Ref
-//   - v1alpha1 TrillianService.Address uses dns:/// scheme
+//   - v1 ServiceReference: URL and Ref are mutually exclusive; URL must be valid "host:port"
+//   - v1alpha1 TrillianService.Address must not contain colons (ambiguous with port separator)
 func trillianServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *rhtasv1.ServiceReference, c randfill.Continue) {
-			switch c.Intn(3) {
-			case 0:
-				s.URL = fmt.Sprintf("dns:///host-%d.ns.svc:%d", c.Intn(1000), c.Intn(65534)+1)
-			case 1:
-				s.Ref = &rhtasv1.ServiceReferenceRef{}
-				c.FillNoCustom(s.Ref)
-			default:
-				// empty — autodiscovery
-			}
+			*s = randServiceReference(c, randGrpcUrl)
 		},
 		func(s *TrillianService, c randfill.Continue) {
-			if c.Intn(3) == 0 {
-				s.Address = ""
+			c.FillNoCustom(s)
+			s.Address = randGrpcUrl(c, false)
+			// empty address means use autoconfiguration (resolve from ref or autodiscover) - port is irrelevant and it will be dropped during conversion
+			if s.Address == "" {
 				s.Port = nil
 			} else {
-				s.Address = fmt.Sprintf("dns:///host-%d.ns.svc", c.Intn(1000))
 				s.Port = ptr.To(int32(c.Intn(65534) + 1))
 			}
 		},
 	}
 }
 
-// securesignTrillianFuzzerFuncs fuzzes Trillian ServiceReference fields at spec level
-// so they get gRPC dns:/// URLs, while tufServiceFuzzerFuncs controls the type-level
-// ServiceReference fuzzer for HTTP URLs. Without this, the HTTP fuzzer would apply to
-// Trillian fields too.
-func securesignTrillianFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+func ctlogServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
-		func(s *rhtasv1.CTlogSpec, c randfill.Continue) {
-			c.FillNoCustom(s)
-			s.Prefix = "trusted-artifact-signer"
-			switch c.Intn(3) {
-			case 0:
-				s.Trillian = rhtasv1.ServiceReference{
-					URL: fmt.Sprintf("dns:///host-%d.ns.svc:%d", c.Intn(1000), c.Intn(65534)+1),
-				}
-			case 1:
-				s.Trillian = rhtasv1.ServiceReference{Ref: &rhtasv1.ServiceReferenceRef{}}
-				c.FillNoCustom(s.Trillian.Ref)
-			default:
-				s.Trillian = rhtasv1.ServiceReference{}
-			}
-		},
-		func(s *rhtasv1.RekorSpec, c randfill.Continue) {
-			c.FillNoCustom(s)
-			switch c.Intn(3) {
-			case 0:
-				s.Trillian = rhtasv1.ServiceReference{
-					URL: fmt.Sprintf("dns:///host-%d.ns.svc:%d", c.Intn(1000), c.Intn(65534)+1),
-				}
-			case 1:
-				s.Trillian = rhtasv1.ServiceReference{Ref: &rhtasv1.ServiceReferenceRef{}}
-				c.FillNoCustom(s.Trillian.Ref)
-			default:
-				s.Trillian = rhtasv1.ServiceReference{}
-			}
-		},
-		func(s *TrillianService, c randfill.Continue) {
-			if c.Intn(3) == 0 {
-				s.Address = ""
-				s.Port = nil
-			} else {
-				s.Address = fmt.Sprintf("dns:///host-%d.ns.svc", c.Intn(1000))
-				s.Port = ptr.To(int32(c.Intn(65534) + 1))
-			}
-		},
-	}
-}
-
-func TestSecuresignConversion(t *testing.T) {
-	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
-		Scheme: rhtasScheme(),
-		Hub:    &rhtasv1.Securesign{},
-		Spoke:  &Securesign{},
-		FuzzerFuncs: []fuzzer.FuzzerFuncs{
-			tsaSignerFuzzerFuncs,
-			tsaStatusFuzzerFuncs,
-			securesignTSAStatusFuzzerFuncs,
-			tsaCertAuthorityFuzzerFuncs,
-			securesignTrillianFuzzerFuncs,
-			tufServiceFuzzerFuncs,
-			enabledFieldsFuzzerFuncs,
-		},
-	}))
-}
-
-// securesignTSAStatusFuzzerFuncs constrains SecuresignTSAStatus.Url to a well-formed URL
-// because conversion adds/removes the API suffix path.
-func securesignTSAStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
-	return []interface{}{
-		func(s *rhtasv1.SecuresignTSAStatus, _ randfill.Continue) {
-			// v1 Url includes the API suffix path
-			s.Url = "http://tsa-server.ns.svc:3000" + rhtasv1.TimestampPath
-		},
-		func(s *SecuresignTSAStatus, _ randfill.Continue) {
-			// v1alpha1 Url is the base host without the API suffix path
-			s.Url = "http://tsa-server.ns.svc:3000"
-		},
-	}
-}
-
-// ctlogStatusFuzzerFuncs constrains the CTlog spec and status for proper roundtrip.
-// The Url field must be a well-formed URL because conversion adds/removes the log prefix path.
-// The Prefix must be fixed so the URL path matches across the roundtrip.
-func ctlogStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
-	return []interface{}{
-		func(s *rhtasv1.CTlog, c randfill.Continue) {
-			c.FillNoCustom(s)
-			// Fix prefix to a known value so URL roundtrips correctly
-			s.Spec.Prefix = "trusted-artifact-signer"
-			// v1 Url includes the log prefix path
-			s.Status.Url = "http://ctlog.ns.svc/" + s.Spec.Prefix
-		},
-		func(s *CTlog, c randfill.Continue) {
-			c.FillNoCustom(s)
-			// v1alpha1 Url is the base host without the log prefix path
-			s.Status.Url = "http://ctlog.ns.svc"
-		},
-	}
-}
-
-func TestCTlogConversion(t *testing.T) {
-	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
-		Scheme: rhtasScheme(),
-		Hub:    &rhtasv1.CTlog{},
-		Spoke:  &CTlog{},
-		FuzzerFuncs: []fuzzer.FuzzerFuncs{
-			ctlogStatusFuzzerFuncs,
-			ctlogSignerFuzzerFuncs,
-			trillianServiceFuzzerFuncs,
-			enabledFieldsFuzzerFuncs,
-		},
-	}))
-}
-
-// ctlogSignerFuzzerFuncs constrains the CTlog v1 signer to only fill fields that
-// survive roundtrip — Type has no v1alpha1 equivalent and is always "file" today,
-// and File must never be a non-nil pointer to an all-zero struct (indistinguishable
-// from nil after roundtripping through the flat v1alpha1 CTlogSpec).
-func ctlogSignerFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
-	return []interface{}{
-		func(s *rhtasv1.CTlogSigner, c randfill.Continue) {
-			s.Type = "file"
-			if c.Bool() {
-				s.File = &rhtasv1.CTlogFile{}
-				c.FillNoCustom(&s.File.PrivateKeyRef)
-				c.FillNoCustom(&s.File.PrivateKeyPasswordRef) //nolint:staticcheck
-				c.FillNoCustom(&s.File.PublicKeyRef)
-				if s.File.PrivateKeyRef == nil && s.File.PrivateKeyPasswordRef == nil && s.File.PublicKeyRef == nil { //nolint:staticcheck
-					s.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{}
-					c.FillNoCustom(s.File.PrivateKeyRef)
-				}
-			}
-		},
-	}
-}
-
-func TestRekorConversion(t *testing.T) {
-	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
-		Scheme: rhtasScheme(),
-		Hub:    &rhtasv1.Rekor{},
-		Spoke:  &Rekor{},
-		// Only fill fields that survive roundtrip — v1 status type RekorSignerStatus omits KMS.
-		FuzzerFuncs: []fuzzer.FuzzerFuncs{
-			func(_ runtimeserializer.CodecFactory) []interface{} {
-				return []interface{}{
-					func(s *RekorStatus, c randfill.Continue) {
-						c.FillNoCustom(&s.PublicKeyRef)
-						c.FillNoCustom(&s.ServerConfigRef)
-						c.FillNoCustom(&s.Signer.PasswordRef)
-						c.FillNoCustom(&s.Signer.KeyRef)
-						c.FillNoCustom(&s.SearchIndex)
-						c.FillNoCustom(&s.PvcName)
-						c.FillNoCustom(&s.MonitorPvcName)
-						c.FillNoCustom(&s.Url)
-						c.FillNoCustom(&s.RekorSearchUIUrl)
-						c.FillNoCustom(&s.TreeID)
-						c.FillNoCustom(&s.Conditions)
-					},
-				}
-			},
-			trillianServiceFuzzerFuncs,
-			enabledFieldsFuzzerFuncs,
-		},
-	}))
-}
-
-func TestFulcioConversion(t *testing.T) {
-	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
-		Scheme: rhtasScheme(),
-		Hub:    &rhtasv1.Fulcio{},
-		Spoke:  &Fulcio{},
-		// Only fill fields that survive roundtrip — v1 status types omit spec-only fields.
-		FuzzerFuncs: []fuzzer.FuzzerFuncs{
-			func(_ runtimeserializer.CodecFactory) []interface{} {
-				return []interface{}{
-					func(s *FulcioStatus, c randfill.Continue) {
-						c.FillNoCustom(&s.Conditions)
-						c.FillNoCustom(&s.Url)
-						c.FillNoCustom(&s.ServerConfigRef)
-
-						if c.Bool() {
-							s.Certificate = &FulcioCert{}
-							c.FillNoCustom(&s.Certificate.PrivateKeyRef)
-							c.FillNoCustom(&s.Certificate.PrivateKeyPasswordRef)
-							c.FillNoCustom(&s.Certificate.CARef)
-						}
-					},
-				}
-			},
-			enabledFieldsFuzzerFuncs,
-		},
-	}))
-}
-
-func TestTrillianConversion(t *testing.T) {
-	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
-		Scheme: rhtasScheme(),
-		Hub:    &rhtasv1.Trillian{},
-		Spoke:  &Trillian{},
-		// Only fill fields that survive roundtrip — v1 status types omit spec-only fields.
-		FuzzerFuncs: []fuzzer.FuzzerFuncs{
-			func(_ runtimeserializer.CodecFactory) []interface{} {
-				return []interface{}{
-					func(s *TrillianStatus, c randfill.Continue) {
-						c.FillNoCustom(&s.Conditions)
-						c.FillNoCustom(&s.Db.Pvc.Name)
-						c.FillNoCustom(&s.Db.DatabaseSecretRef)
-						c.FillNoCustom(&s.Db.TLS)
-						c.FillNoCustom(&s.LogServer.TLS)
-						c.FillNoCustom(&s.LogSigner.TLS)
-					},
-				}
-			},
-			enabledFieldsFuzzerFuncs,
-		},
-	}))
-}
-
-func tufServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
-	fuzzAddr := func(c randfill.Continue) (string, *int32) {
-		if c.Intn(3) == 0 {
-			return "", nil
-		}
-		return fmt.Sprintf("http://svc-%d.ns.svc", c.Intn(1000)), ptr.To(int32(c.Intn(65534) + 1))
-	}
-	return []interface{}{
-		// Override the gRPC ServiceReference fuzzer from trillianServiceFuzzerFuncs
-		// with an HTTP one for TUF service references (CTlog, Fulcio, Rekor, TSA).
 		func(s *rhtasv1.ServiceReference, c randfill.Continue) {
-			switch c.Intn(3) {
-			case 0:
-				s.URL = fmt.Sprintf("http://svc-%d.ns.svc:%d", c.Intn(1000), c.Intn(65534)+1)
-			case 1:
-				s.Ref = &rhtasv1.ServiceReferenceRef{}
-				c.FillNoCustom(s.Ref)
-			default:
-				// empty — autodiscovery
-			}
+			*s = randServiceReference(c, randHttpUrl)
 		},
 		func(s *CtlogService, c randfill.Continue) {
-			s.Address, s.Port = fuzzAddr(c)
-			if s.Address != "" && c.Intn(2) == 0 {
-				s.Prefix = fmt.Sprintf("prefix-%d", c.Intn(100))
+			c.FillNoCustom(s)
+			s.Address = randHttpUrl(c, false)
+			// empty address means use autoconfiguration (resolve from ref or autodiscover) - port and prefix are irrelevant and they will be dropped during conversion
+			if s.Address == "" {
+				s.Port = nil
+				s.Prefix = ""
+			} else {
+				s.Port = ptr.To(int32(c.Intn(65534) + 1))
+				s.Prefix = randUrlPath(c)
 			}
 		},
-		func(s *FulcioService, c randfill.Continue) {
-			s.Address, s.Port = fuzzAddr(c)
+	}
+}
+
+func rekorServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.ServiceReference, c randfill.Continue) {
+			*s = randServiceReference(c, randHttpUrl)
 		},
 		func(s *RekorService, c randfill.Continue) {
-			s.Address, s.Port = fuzzAddr(c)
+			c.FillNoCustom(s)
+			s.Address = randHttpUrl(c, false)
+			// empty address means use autoconfiguration (resolve from ref or autodiscover) - port is irrelevant and it will be dropped during conversion
+			if s.Address == "" {
+				s.Port = nil
+			} else {
+				s.Port = ptr.To(int32(c.Intn(65534) + 1))
+			}
+		},
+	}
+}
+
+func tsaServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.ServiceReference, c randfill.Continue) {
+			*s = randServiceReference(c, randHttpUrl)
 		},
 		func(s *TsaService, c randfill.Continue) {
-			s.Address, s.Port = fuzzAddr(c)
+			c.FillNoCustom(s)
+			s.Address = randHttpUrl(c, false)
+			// empty address means use autoconfiguration (resolve from ref or autodiscover) - port is irrelevant and it will be dropped during conversion
+			if s.Address == "" {
+				s.Port = nil
+			} else {
+				s.Port = ptr.To(int32(c.Intn(65534) + 1))
+			}
 		},
 	}
 }
 
-func TestTufConversion(t *testing.T) {
-	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
-		Scheme: rhtasScheme(),
-		Hub:    &rhtasv1.Tuf{},
-		Spoke:  &Tuf{},
-		FuzzerFuncs: []fuzzer.FuzzerFuncs{
-			tufServiceFuzzerFuncs,
-			enabledFieldsFuzzerFuncs,
-		},
-	}))
-}
-
-func TestTimestampAuthorityConversion(t *testing.T) {
-	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
-		Scheme: rhtasScheme(),
-		Hub:    &rhtasv1.TimestampAuthority{},
-		Spoke:  &TimestampAuthority{},
-		FuzzerFuncs: []fuzzer.FuzzerFuncs{
-			tsaStatusFuzzerFuncs,
-			tsaSignerFuzzerFuncs,
-			tsaCertAuthorityFuzzerFuncs,
-			enabledFieldsFuzzerFuncs,
-		},
-	}))
-}
-
-// tsaStatusFuzzerFuncs constrains the TSA status to only fill fields that survive roundtrip.
-// The Url field must be a well-formed URL because conversion adds/removes the API suffix path.
-func tsaStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+func fulcioServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
-		func(s *rhtasv1.TimestampAuthorityStatus, c randfill.Continue) {
-			c.FillNoCustom(&s.Conditions)
-			c.FillNoCustom(&s.CertificateChain)
-			// v1 Url includes the API suffix path; must be a valid URL so url.Parse roundtrips correctly
-			s.Url = "http://tsa-server.ns.svc:3000" + rhtasv1.TimestampPath
-
-			if c.Bool() {
-				s.NtpConfigRef = &rhtasv1.LocalObjectReference{}
-				c.FillNoCustom(s.NtpConfigRef)
-			}
-
-			if c.Bool() {
-				s.Signer = &rhtasv1.TimestampAuthoritySignerStatus{}
-				c.FillNoCustom(&s.Signer.CertificateChainRef)
-				if c.Bool() {
-					s.Signer.FileSigner = &rhtasv1.FileSignerStatus{}
-					c.FillNoCustom(&s.Signer.FileSigner.PrivateKeyRef)
-					c.FillNoCustom(&s.Signer.FileSigner.PasswordRef)
-				}
-			}
+		func(s *rhtasv1.ServiceReference, c randfill.Continue) {
+			*s = randServiceReference(c, randHttpUrl)
 		},
-		func(s *TimestampAuthorityStatus, c randfill.Continue) {
-			c.FillNoCustom(&s.Conditions)
-			// v1alpha1 Url is the base host without the API suffix path
-			s.Url = "http://tsa-server.ns.svc:3000"
-
-			if c.Bool() {
-				ref := &LocalObjectReference{}
-				c.FillNoCustom(ref)
-				s.NTPMonitoring = &NTPMonitoring{
-					Config: &NtpMonitoringConfig{
-						NtpConfigRef: ref,
-					},
-				}
-			}
-
-			if c.Bool() {
-				s.Signer = &TimestampAuthoritySigner{}
-				c.FillNoCustom(&s.Signer.CertificateChain.CertificateChainRef)
-				if c.Bool() {
-					s.Signer.File = &File{}
-					c.FillNoCustom(&s.Signer.File.PrivateKeyRef)
-					c.FillNoCustom(&s.Signer.File.PasswordRef)
-				}
+		func(s *rhtasv1.ServiceRefWithOIDC, c randfill.Continue) {
+			*s = randServiceReferenceWithOIDC(c, randHttpUrl)
+		},
+		func(s *FulcioService, c randfill.Continue) {
+			c.FillNoCustom(s)
+			s.Address = randHttpUrl(c, false)
+			// empty address means use autoconfiguration (resolve from ref or autodiscover) - port is irrelevant and it will be dropped during conversion
+			if s.Address == "" {
+				s.Port = nil
+			} else {
+				s.Port = ptr.To(int32(c.Intn(65534) + 1))
 			}
 		},
 	}
 }
 
-// tsaSignerFuzzerFuncs ensures only one signer (File/Kms/Tink) is set at a time.
+// tsaSignerFuzzerFuncs constrains to one signer at a time — not a validation rule,
+// but a conversion limitation: if multiple signers (Kms/Tink) are configured, their
+// per-signer Auth is merged into a single v1 Auth field and we can't split it back.
 func tsaSignerFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *TimestampAuthoritySigner, c randfill.Continue) {
@@ -475,12 +272,265 @@ func tsaSignerFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	}
 }
 
+// tsaCertAuthorityFuzzerFuncs clears v1alpha1 TsaCertificateAuthority.PasswordRef and PrivateKeyRef
+// which have no v1 equivalent — v1 TsaCertificateAuthority only carries the three string fields.
 func tsaCertAuthorityFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(ca *TsaCertificateAuthority, c randfill.Continue) {
-			c.FillNoCustom(&ca.CommonName)
-			c.FillNoCustom(&ca.OrganizationName)
-			c.FillNoCustom(&ca.OrganizationEmail)
+			c.FillNoCustom(ca)
+			// no v1 equivalent in TsaCertificateAuthority
+			ca.PasswordRef = nil
+			ca.PrivateKeyRef = nil
 		},
 	}
+}
+
+func securesignFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		// http url vs grpc url fuzzers are figting between for ServiceReference fuzzer funcs - do not use them and overwrite
+		func(s *rhtasv1.Securesign, c randfill.Continue) {
+			c.FillNoCustom(s)
+			s.Spec.Ctlog.Trillian = randServiceReference(c, randGrpcUrl)
+			s.Spec.Rekor.Trillian = randServiceReference(c, randGrpcUrl)
+
+			s.Spec.Tuf.Ctlog = randServiceReference(c, randHttpUrl)
+			s.Spec.Tuf.Rekor = randServiceReference(c, randHttpUrl)
+			s.Spec.Tuf.Fulcio = randServiceReferenceWithOIDC(c, randHttpUrl)
+			s.Spec.Tuf.Tsa = randServiceReference(c, randHttpUrl)
+		},
+	}
+}
+
+// ctlogFuzzerFuncs constrains the CTlog spec and status for proper roundtrip.
+// We need to fuzz the whole CTlog object because the URL - suffix of the URL - is stored in the status.
+func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.CTlog, c randfill.Continue) {
+			c.FillNoCustom(s)
+			s.Spec.Prefix = randUrlPath(c)
+			s.Status.Url = randHttpUrl(c, c.Bool())
+			if s.Status.Url != "" {
+				s.Status.Url += "/" + s.Spec.Prefix
+			}
+
+		},
+		func(s *CTlog, c randfill.Continue) {
+			c.FillNoCustom(s)
+			s.Status.Url = randHttpUrl(c, c.Bool())
+		},
+	}
+}
+
+// tsaStatusFuzzerFuncs constrains the TSA status fields for proper roundtrip.
+func tsaStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.TimestampAuthorityStatus, c randfill.Continue) {
+			c.FillNoCustom(s)
+			s.Url = randHttpUrl(c, c.Bool())
+			if s.Url != "" {
+				s.Url += rhtasv1.TimestampPath
+			}
+		},
+		func(s *TimestampAuthorityStatus, c randfill.Continue) {
+			c.FillNoCustom(s)
+			s.Url = randHttpUrl(c, c.Bool())
+			// NTPMonitoring: only Config.NtpConfigRef survives roundtrip via v1 NtpConfigRef
+			if s.NTPMonitoring != nil {
+				var ref *LocalObjectReference
+				if s.NTPMonitoring.Config != nil {
+					ref = s.NTPMonitoring.Config.NtpConfigRef
+				}
+				if ref != nil {
+					s.NTPMonitoring = &NTPMonitoring{Config: &NtpMonitoringConfig{NtpConfigRef: ref}}
+				} else {
+					s.NTPMonitoring = nil
+				}
+			}
+			// Signer: only CertificateChain.CertificateChainRef and File survive v1 status roundtrip
+			if s.Signer != nil {
+				s.Signer.CertificateChain.RootCA = nil
+				s.Signer.CertificateChain.IntermediateCA = nil
+				s.Signer.CertificateChain.LeafCA = nil
+				s.Signer.Kms = nil
+				s.Signer.Tink = nil
+			}
+		},
+	}
+}
+
+// rekorStatusFuzzerFuncs clears RekorStatus.Signer.KMS which has no v1 equivalent
+// in the slim RekorSignerStatus type.
+func rekorStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *RekorStatus, c randfill.Continue) {
+			c.FillNoCustom(s)
+			// no v1 equivalent in RekorSignerStatus
+			s.Signer.KMS = ""
+		},
+	}
+}
+
+// fulcioStatusFuzzerFuncs clears FulcioStatus.Certificate string fields (CommonName,
+// OrganizationName, OrganizationEmail) which have no v1 equivalent in FulcioCertStatus.
+func fulcioStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *FulcioStatus, c randfill.Continue) {
+			c.FillNoCustom(s)
+			if s.Certificate != nil {
+				s.Certificate.CommonName = ""
+				s.Certificate.OrganizationName = ""
+				s.Certificate.OrganizationEmail = ""
+			}
+		},
+	}
+}
+
+// trillianStatusFuzzerFuncs clears v1alpha1 TrillianStatus fields that only exist in the
+// full spec types but not in the slim v1 status types (TrillianDBStatus, TrillianServiceStatus).
+func trillianStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *TrillianStatus, c randfill.Continue) {
+			c.FillNoCustom(s)
+			// no v1 equivalent in TrillianDBStatus
+			s.Db.Create = nil
+			s.Db.Pvc = Pvc{Name: s.Db.Pvc.Name}
+			s.Db.Provider = ""
+			s.Db.Uri = ""
+			s.LogServer.Replicas = nil
+			s.LogServer.Affinity = nil
+			s.LogServer.Resources = nil
+			s.LogServer.Tolerations = nil
+			s.LogSigner.Replicas = nil
+			s.LogSigner.Affinity = nil
+			s.LogSigner.Resources = nil
+			s.LogSigner.Tolerations = nil
+		},
+	}
+}
+
+// securesignStatusFuzzerFuncs constrains SecuresignStatus URL fields to valid HTTP URLs.
+// Status URLs go through url.Parse in urlWithPath/urlWithoutPath during conversion;
+// v1 TSAStatus.Url includes the TimestampPath suffix that conversion adds/removes.
+func securesignStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.SecuresignStatus, c randfill.Continue) {
+			c.FillNoCustom(s)
+			s.TSAStatus.Url = randHttpUrl(c, c.Bool())
+			if s.TSAStatus.Url != "" {
+				s.TSAStatus.Url += rhtasv1.TimestampPath
+			}
+			s.RekorStatus.Url = randHttpUrl(c, c.Bool())
+			s.FulcioStatus.Url = randHttpUrl(c, c.Bool())
+			s.TufStatus.Url = randHttpUrl(c, c.Bool())
+		},
+		func(s *SecuresignStatus, c randfill.Continue) {
+			c.FillNoCustom(s)
+			s.TSAStatus.Url = randHttpUrl(c, c.Bool())
+			s.RekorStatus.Url = randHttpUrl(c, c.Bool())
+			s.FulcioStatus.Url = randHttpUrl(c, c.Bool())
+			s.TufStatus.Url = randHttpUrl(c, c.Bool())
+		},
+	}
+}
+
+// Tests
+
+func TestSecuresignConversion(t *testing.T) {
+	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
+		Scheme: rhtasScheme(),
+		Hub:    &rhtasv1.Securesign{},
+		Spoke:  &Securesign{},
+		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			securesignStatusFuzzerFuncs,
+			tsaSignerFuzzerFuncs,
+			tsaStatusFuzzerFuncs,
+			tsaCertAuthorityFuzzerFuncs,
+			trillianServiceFuzzerFuncs,
+			ctlogServiceFuzzerFuncs,
+			rekorServiceFuzzerFuncs,
+			fulcioServiceFuzzerFuncs,
+			tsaServiceFuzzerFuncs,
+			securesignFuzzerFuncs,
+			enabledFieldsFuzzerFuncs,
+		},
+	}))
+}
+
+func TestCTlogConversion(t *testing.T) {
+	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
+		Scheme: rhtasScheme(),
+		Hub:    &rhtasv1.CTlog{},
+		Spoke:  &CTlog{},
+		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			ctlogFuzzerFuncs,
+			trillianServiceFuzzerFuncs,
+			enabledFieldsFuzzerFuncs,
+		},
+	}))
+}
+
+func TestRekorConversion(t *testing.T) {
+	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
+		Scheme: rhtasScheme(),
+		Hub:    &rhtasv1.Rekor{},
+		Spoke:  &Rekor{},
+		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			rekorStatusFuzzerFuncs,
+			trillianServiceFuzzerFuncs,
+			enabledFieldsFuzzerFuncs,
+		},
+	}))
+}
+
+func TestFulcioConversion(t *testing.T) {
+	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
+		Scheme: rhtasScheme(),
+		Hub:    &rhtasv1.Fulcio{},
+		Spoke:  &Fulcio{},
+		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			fulcioStatusFuzzerFuncs,
+			enabledFieldsFuzzerFuncs,
+		},
+	}))
+}
+
+func TestTrillianConversion(t *testing.T) {
+	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
+		Scheme: rhtasScheme(),
+		Hub:    &rhtasv1.Trillian{},
+		Spoke:  &Trillian{},
+		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			trillianStatusFuzzerFuncs,
+			enabledFieldsFuzzerFuncs,
+		},
+	}))
+}
+
+func TestTufConversion(t *testing.T) {
+	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
+		Scheme: rhtasScheme(),
+		Hub:    &rhtasv1.Tuf{},
+		Spoke:  &Tuf{},
+		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			enabledFieldsFuzzerFuncs,
+			ctlogServiceFuzzerFuncs,
+			rekorServiceFuzzerFuncs,
+			fulcioServiceFuzzerFuncs,
+			tsaServiceFuzzerFuncs,
+		},
+	}))
+}
+
+func TestTimestampAuthorityConversion(t *testing.T) {
+	t.Run("roundtrip", utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
+		Scheme: rhtasScheme(),
+		Hub:    &rhtasv1.TimestampAuthority{},
+		Spoke:  &TimestampAuthority{},
+		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			tsaStatusFuzzerFuncs,
+			tsaSignerFuzzerFuncs,
+			tsaCertAuthorityFuzzerFuncs,
+			enabledFieldsFuzzerFuncs,
+		},
+	}))
 }
