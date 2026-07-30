@@ -167,6 +167,8 @@ type ServiceReference struct {
 	URL string `json:"url,omitempty"`
 }
 
+func (s ServiceReference) GetServiceRef() ServiceReference { return s }
+
 // ServiceReferenceRef identifies a component CR by name and namespace.
 type ServiceReferenceRef struct {
 	// Name of the referenced CR.

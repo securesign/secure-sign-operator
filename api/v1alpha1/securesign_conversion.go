@@ -14,7 +14,7 @@ func Convert_v1alpha1_SecuresignTSAStatus_To_v1_SecuresignTSAStatus(in *Securesi
 	}
 	if out.Url != "" {
 		var err error
-		if out.Url, err = urlWithPath(out.Url, rhtasv1.TimestampPath); err != nil {
+		if out.Url, err = buildURL(out.Url, nil, rhtasv1.TimestampPath); err != nil {
 			return err
 		}
 	}
@@ -27,7 +27,7 @@ func Convert_v1_SecuresignTSAStatus_To_v1alpha1_SecuresignTSAStatus(in *rhtasv1.
 	}
 	if out.Url != "" {
 		var err error
-		if out.Url, err = urlWithoutPath(out.Url); err != nil {
+		if out.Url, _, err = splitURLPath(out.Url); err != nil {
 			return err
 		}
 	}
@@ -77,6 +77,19 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Trillian.Monitoring.ServiceMonitor = restored.Spec.Trillian.Monitoring.ServiceMonitor
 	dst.Spec.Tuf.ImagePullSecrets = restored.Spec.Tuf.ImagePullSecrets
 	dst.Spec.Tuf.TrustedCA = restored.Spec.Tuf.TrustedCA
+	if dst.Spec.Tuf.Rekor.URL == "" {
+		dst.Spec.Tuf.Rekor.Ref = restored.Spec.Tuf.Rekor.Ref
+	}
+	if dst.Spec.Tuf.Fulcio.URL == "" {
+		dst.Spec.Tuf.Fulcio.Ref = restored.Spec.Tuf.Fulcio.Ref
+	}
+	dst.Spec.Tuf.Fulcio.OIDCIssuers = restored.Spec.Tuf.Fulcio.OIDCIssuers
+	if dst.Spec.Tuf.Ctlog.URL == "" {
+		dst.Spec.Tuf.Ctlog.Ref = restored.Spec.Tuf.Ctlog.Ref
+	}
+	if dst.Spec.Tuf.Tsa.URL == "" {
+		dst.Spec.Tuf.Tsa.Ref = restored.Spec.Tuf.Tsa.Ref
+	}
 	if dst.Spec.TimestampAuthority != nil && restored.Spec.TimestampAuthority != nil {
 		dst.Spec.TimestampAuthority.ImagePullSecrets = restored.Spec.TimestampAuthority.ImagePullSecrets
 		dst.Spec.TimestampAuthority.Monitoring.ServiceMonitor = restored.Spec.TimestampAuthority.Monitoring.ServiceMonitor

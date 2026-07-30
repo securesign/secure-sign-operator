@@ -2,33 +2,11 @@ package v1alpha1
 
 import (
 	"fmt"
-	"net/url"
-	"regexp"
-	"strconv"
 
 	v1 "github.com/securesign/operator/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
 )
-
-var portRe = regexp.MustCompile(`:(\d+)(?:/|$)`)
-
-func urlWithPath(rawUrl, path string) (string, error) {
-	u, err := url.Parse(rawUrl)
-	if err != nil {
-		return "", err
-	}
-	u.Path = path
-	return u.String(), nil
-}
-
-func urlWithoutPath(rawUrl string) (string, error) {
-	u, err := url.Parse(rawUrl)
-	if err != nil {
-		return "", err
-	}
-	return u.Scheme + "://" + u.Host, nil
-}
 
 // MonitoringConfig: v1 splits Enabled into Metrics.Enabled + ServiceMonitor.Enabled.
 // Lossless round-trip is guaranteed by MarshalData/UnmarshalData in ConvertTo/ConvertFrom.
@@ -102,21 +80,57 @@ func Convert_v1alpha1_TrillianService_To_v1_ServiceReference(in *TrillianService
 }
 
 func Convert_v1_ServiceReference_To_v1alpha1_TrillianService(in *v1.ServiceReference, out *TrillianService, _ apiconversion.Scope) error {
+	grpcServiceReferenceToAddressPort(in, &out.Address, &out.Port)
+	return nil
+}
+
+func Convert_v1alpha1_CtlogService_To_v1_ServiceReference(in *CtlogService, out *v1.ServiceReference, _ apiconversion.Scope) error {
+	var err error
+	out.URL, err = buildURL(in.Address, in.Port, in.Prefix)
+	return err
+}
+
+func Convert_v1_ServiceReference_To_v1alpha1_CtlogService(in *v1.ServiceReference, out *CtlogService, _ apiconversion.Scope) error {
 	if in.URL == "" {
 		return nil
 	}
-	m := portRe.FindStringSubmatchIndex(in.URL)
-	if m == nil {
-		out.Address = in.URL
-		return nil
-	}
-	out.Address = in.URL[:m[0]]
-	port, err := strconv.ParseInt(in.URL[m[2]:m[3]], 10, 32)
+	base, prefix, err := splitURLPath(in.URL)
 	if err != nil {
-		out.Address = in.URL
-		return nil
+		return err
 	}
-	p := int32(port)
-	out.Port = &p
-	return nil
+	if prefix != "" {
+		out.Prefix = prefix
+	}
+	ref := &v1.ServiceReference{URL: base}
+	return serviceReferenceToAddressPort(ref, &out.Address, &out.Port)
+}
+
+func Convert_v1alpha1_FulcioService_To_v1_ServiceRefWithOIDC(in *FulcioService, out *v1.ServiceRefWithOIDC, _ apiconversion.Scope) error {
+	var err error
+	out.URL, err = buildURL(in.Address, in.Port, "")
+	return err
+}
+
+func Convert_v1_ServiceRefWithOIDC_To_v1alpha1_FulcioService(in *v1.ServiceRefWithOIDC, out *FulcioService, _ apiconversion.Scope) error {
+	return serviceReferenceToAddressPort(&in.ServiceReference, &out.Address, &out.Port)
+}
+
+func Convert_v1alpha1_RekorService_To_v1_ServiceReference(in *RekorService, out *v1.ServiceReference, _ apiconversion.Scope) error {
+	var err error
+	out.URL, err = buildURL(in.Address, in.Port, "")
+	return err
+}
+
+func Convert_v1_ServiceReference_To_v1alpha1_RekorService(in *v1.ServiceReference, out *RekorService, _ apiconversion.Scope) error {
+	return serviceReferenceToAddressPort(in, &out.Address, &out.Port)
+}
+
+func Convert_v1alpha1_TsaService_To_v1_ServiceReference(in *TsaService, out *v1.ServiceReference, _ apiconversion.Scope) error {
+	var err error
+	out.URL, err = buildURL(in.Address, in.Port, "")
+	return err
+}
+
+func Convert_v1_ServiceReference_To_v1alpha1_TsaService(in *v1.ServiceReference, out *TsaService, _ apiconversion.Scope) error {
+	return serviceReferenceToAddressPort(in, &out.Address, &out.Port)
 }

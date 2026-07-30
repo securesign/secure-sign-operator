@@ -83,7 +83,7 @@ func Convert_v1alpha1_TimestampAuthorityStatus_To_v1_TimestampAuthorityStatus(in
 	}
 	if out.Url != "" {
 		var err error
-		if out.Url, err = urlWithPath(out.Url, rhtasv1.TimestampPath); err != nil {
+		if out.Url, err = buildURL(out.Url, nil, rhtasv1.TimestampPath); err != nil {
 			return err
 		}
 	}
@@ -103,7 +103,7 @@ func Convert_v1_TimestampAuthorityStatus_To_v1alpha1_TimestampAuthorityStatus(in
 	}
 	if out.Url != "" {
 		var err error
-		if out.Url, err = urlWithoutPath(out.Url); err != nil {
+		if out.Url, _, err = splitURLPath(out.Url); err != nil {
 			return err
 		}
 	}

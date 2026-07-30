@@ -22,5 +22,4 @@ func (s *TufSpec) SetDefaults() {
 		s.Pvc.Size = ptr.To(k8sresource.MustParse("100Mi"))
 	}
 	s.Pvc.SetDefaults()
-	s.Ctlog.SetDefaults()
 }

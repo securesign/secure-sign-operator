@@ -109,10 +109,11 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *acti
 
 func (i deployAction) ensureServerDeployment(instance *rhtasv1.Rekor, sa string, labels map[string]string, internalTrillianUrl string) func(*v2.Deployment) error {
 	return func(dp *v2.Deployment) error {
-		m := portRe.FindStringSubmatchIndex(internalTrillianUrl)
-		if m == nil {
-			return fmt.Errorf("error parsing Trillian URL %q: no port found", internalTrillianUrl)
+		matches := portRe.FindAllStringSubmatchIndex(internalTrillianUrl, -1)
+		if len(matches) == 0 {
+			return fmt.Errorf("CreateRekorDeployment: %w", rekorutils.ErrTrillianPortNotSpecified)
 		}
+		m := matches[len(matches)-1]
 		trillianHost := internalTrillianUrl[:m[0]]
 		trillianPort := internalTrillianUrl[m[2]:m[3]]
 		switch {

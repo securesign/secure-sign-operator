@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	v1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/apis"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/serviceresolver"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
@@ -14,31 +16,58 @@ import (
 var (
 	ErrGetServiceFailed    = fmt.Errorf("failed to get service")
 	ErrAutodiscoveryFailed = fmt.Errorf("failed to autodiscovery service")
+	ErrServiceNotReady     = fmt.Errorf("service is not ready")
 )
 
-func ResolveInternalServiceUrl(ctx context.Context, cl client.Client, serviceRef v1.ServiceReference, instanceNamespace string, instance client.Object) (string, error) {
-	if serviceRef.URL != "" {
-		return serviceRef.URL, nil
-	}
-	if serviceRef.Ref != nil && serviceRef.Ref.Name != "" {
-		if err := cl.Get(ctx, types.NamespacedName{Namespace: serviceRef.Ref.Namespace, Name: serviceRef.Ref.Name}, instance); err != nil {
-			return "", fmt.Errorf("%w: %w", ErrGetServiceFailed, err)
-		}
-		return serviceresolver.Resolve(instance)
+func ResolveInternalServiceUrl(ctx context.Context, cl client.Client, serviceRef apis.ServiceReferencer, instanceNamespace string, instance client.Object) (string, error) {
+	ref := serviceRef.GetServiceRef()
+	if ref.URL != "" {
+		return ref.URL, nil
 	}
 
-	// Autoload service from list of objects (backwards compatibility)
-	var (
-		listObject client.ObjectList
-		err        error
-	)
-	if listObject, err = objectAsList(cl, instance); err != nil {
-		return "", err
-	}
-	if instance, err = autoloadService(ctx, cl, instanceNamespace, listObject); err != nil {
+	if err := serviceRefOrAutoload(ctx, cl, ref, instanceNamespace, instance); err != nil {
 		return "", err
 	}
 	return serviceresolver.Resolve(instance)
+}
+
+func ResolveExternalServiceUrl(ctx context.Context, cl client.Client, serviceRef apis.ServiceReferencer, instanceNamespace string, instance apis.AddressableConditionAware) (string, error) {
+	ref := serviceRef.GetServiceRef()
+	if ref.URL != "" {
+		return ref.URL, nil
+	}
+
+	if err := serviceRefOrAutoload(ctx, cl, ref, instanceNamespace, instance); err != nil {
+		return "", err
+	}
+	if !meta.IsStatusConditionTrue(instance.GetConditions(), constants.ReadyCondition) {
+		return "", fmt.Errorf("%w: %T %s", ErrServiceNotReady, instance, instance.GetName())
+	}
+	url := instance.GetServiceURL()
+	if url == "" {
+		return "", fmt.Errorf("%T %s: service url is empty", instance, instance.GetName())
+	}
+	return url, nil
+}
+
+func serviceRefOrAutoload(ctx context.Context, cl client.Client, serviceRef v1.ServiceReference, instanceNamespace string, instance client.Object) error {
+	if serviceRef.Ref != nil && serviceRef.Ref.Name != "" {
+		if err := cl.Get(ctx, types.NamespacedName{Namespace: serviceRef.Ref.Namespace, Name: serviceRef.Ref.Name}, instance); err != nil {
+			return fmt.Errorf("%w: %w", ErrGetServiceFailed, err)
+		}
+		return nil
+	}
+
+	// Autoload service from list of objects (backwards compatibility)
+	listObject, err := objectAsList(cl, instance)
+	if err != nil {
+		return err
+	}
+	found, err := autoloadService(ctx, cl, instanceNamespace, listObject)
+	if err != nil {
+		return err
+	}
+	return cl.Scheme().Convert(found, instance, nil)
 }
 
 func autoloadService(ctx context.Context, cl client.Client, namespace string, list client.ObjectList) (client.Object, error) {

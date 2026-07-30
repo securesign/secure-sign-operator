@@ -15,7 +15,6 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/job"
-	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/condition"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
 	"github.com/securesign/operator/test/e2e/support/tas/fulcio"
@@ -89,11 +88,11 @@ func RefreshTufRepository(ctx context.Context, cli client.Client, ns string, nam
 	t := Get(ctx, cli, ns, name)
 	Expect(t).ToNot(BeNil())
 
-	t.Spec.Ctlog.Address = ctlog.Get(ctx, cli, ns, name).Status.Url
-	t.Spec.Fulcio.Address = fulcio.Get(ctx, cli, ns, name).Status.Url
-	t.Spec.Rekor.Address = rekor.Get(ctx, cli, ns, name).Status.Url
-	t.Spec.Tsa.Address = tsa.Get(ctx, cli, ns, name).Status.Url
-	refreshJob := refreshTufJob(t)
+	t.Spec.Ctlog.URL = ctlog.Get(ctx, cli, ns, name).Status.Url
+	t.Spec.Fulcio.URL = fulcio.Get(ctx, cli, ns, name).Status.Url
+	t.Spec.Rekor.URL = rekor.Get(ctx, cli, ns, name).Status.Url
+	t.Spec.Tsa.URL = tsa.Get(ctx, cli, ns, name).Status.Url
+	refreshJob := refreshTufJob(ctx, cli, t)
 	Expect(cli.Create(ctx, refreshJob)).To(Succeed())
 
 	Eventually(func(g Gomega, ctx context.Context) bool {
@@ -114,7 +113,7 @@ func RefreshTufRepository(ctx context.Context, cli client.Client, ns string, nam
 	time.Sleep(5 * time.Second)
 }
 
-func refreshTufJob(instance *rhtasv1.Tuf) *v12.Job {
+func refreshTufJob(ctx context.Context, cli client.Client, instance *rhtasv1.Tuf) *v12.Job {
 	j := &v12.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:    instance.Namespace,
@@ -123,7 +122,7 @@ func refreshTufJob(instance *rhtasv1.Tuf) *v12.Job {
 	}
 	l := maps.Clone(instance.Labels)
 	l[labels.LabelAppComponent] = "test"
-	Expect(utils2.EnsureTufInitJob(instance, constants.RBACInitJobName, instance.Labels, []string{support.OidcIssuerUrl()})(j)).To(Succeed())
+	Expect(utils2.EnsureTufInitJob(ctx, cli, instance, constants.RBACInitJobName, instance.Labels)(j)).To(Succeed())
 	Expect(ensure.PodSecurityContext(&j.Spec.Template.Spec)).To(Succeed())
 	c := kubernetes.FindContainerByNameOrCreate(&j.Spec.Template.Spec, "tuf-init")
 	args := c.Args
