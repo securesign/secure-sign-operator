@@ -120,3 +120,11 @@ func Convert_v1_ServiceReference_To_v1alpha1_TrillianService(in *v1.ServiceRefer
 	out.Port = &p
 	return nil
 }
+
+func Convert_v1alpha1_FulcioStatus_To_v1_FulcioStatus(in *FulcioStatus, out *v1.FulcioStatus, s apiconversion.Scope) error {
+	return autoConvert_v1alpha1_FulcioStatus_To_v1_FulcioStatus(in, out, s)
+}
+
+func Convert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in *v1.FulcioStatus, out *FulcioStatus, s apiconversion.Scope) error {
+	return autoConvert_v1_FulcioStatus_To_v1alpha1_FulcioStatus(in, out, s)
+}

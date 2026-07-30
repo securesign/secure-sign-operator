@@ -100,6 +100,12 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Status.PublicKey = restored.Status.PublicKey
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
 	dst.Spec.Prefix = restored.Spec.Prefix
+	// Restore PKCS#11 config for CTlog signer
+	dst.Spec.Signer.PKCS11 = restored.Spec.Signer.PKCS11
+	dst.Spec.Signer.Auth = restored.Spec.Signer.Auth
+	dst.Spec.InitContainers = restored.Spec.InitContainers
+	dst.Spec.Volumes = restored.Spec.Volumes
+	dst.Spec.VolumeMounts = restored.Spec.VolumeMounts
 	if dst.Status.Url != "" && restored.Spec.Prefix != "" {
 		var err error
 		if dst.Status.Url, err = urlWithPath(dst.Status.Url, "/"+restored.Spec.Prefix); err != nil {
