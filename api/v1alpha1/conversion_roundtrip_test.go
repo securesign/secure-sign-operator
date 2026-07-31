@@ -483,6 +483,7 @@ func TestFulcioConversion(t *testing.T) {
 		Spoke:  &Fulcio{},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			fulcioStatusFuzzerFuncs,
+			ctlogServiceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))

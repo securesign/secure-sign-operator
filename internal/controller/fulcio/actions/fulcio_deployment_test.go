@@ -9,15 +9,20 @@ import (
 	"github.com/onsi/gomega/gstruct"
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/annotations"
-	"github.com/securesign/operator/internal/controller/fulcio/utils"
+	"github.com/securesign/operator/internal/constants"
+	ctlogActions "github.com/securesign/operator/internal/controller/ctlog/actions"
+	_ "github.com/securesign/operator/internal/controller/ctlog/serviceresolver"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/state"
+	testAction "github.com/securesign/operator/internal/testing/action"
 	"github.com/securesign/operator/internal/utils/fips"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 	v13 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -159,57 +164,12 @@ func TestNonFIPSNoClientSigningAlgorithms(t *testing.T) {
 		ContainElement(Equal("--client-signing-algorithms")))
 }
 
-func TestCtlogConfig(t *testing.T) {
-	tests := []struct {
-		name   string
-		args   rhtasv1.CtlogService
-		verify func(Gomega, *v13.Deployment, error)
-	}{
-		{
-			name: "missing address",
-			args: rhtasv1.CtlogService{
-				Port:   ptr.To(int32(1234)),
-				Prefix: "prefix",
-			},
-			verify: func(g Gomega, deployment *v13.Deployment, err error) {
-				g.Expect(err).Should(Succeed())
-				g.Expect(deployment.Spec.Template.Spec.Containers[0].Args).Should(ContainElement(Equal("--ct-log-url=http://ctlog.default.svc/prefix")))
-
-			},
-		},
-		{
-			name: "missing prefix",
-			args: rhtasv1.CtlogService{
-				Address: "http://address",
-				Port:    ptr.To(int32(1234)),
-			},
-			verify: func(g Gomega, deployment *v13.Deployment, err error) {
-				g.Expect(err).Should(HaveOccurred())
-				g.Expect(err).Should(MatchError(utils.ErrCtlogPrefixNotSpecified))
-			},
-		},
-		{
-			name: "valid",
-			args: rhtasv1.CtlogService{
-				Address: "http://address",
-				Port:    ptr.To(int32(1234)),
-				Prefix:  "prefix",
-			},
-			verify: func(g Gomega, deployment *v13.Deployment, err error) {
-				g.Expect(err).Should(Succeed())
-				g.Expect(deployment.Spec.Template.Spec.Containers[0].Args).Should(ContainElement(Equal("--ct-log-url=http://address:1234/prefix")))
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			g := NewWithT(t)
-			instance := createInstance()
-			instance.Spec.Ctlog = tt.args
-			deployment, err := createDeployment(instance, map[string]string{})
-			tt.verify(g, deployment, err)
-		})
-	}
+func TestCtlogUrlInDeployment(t *testing.T) {
+	g := NewWithT(t)
+	instance := createInstance()
+	dp, err := createDeploymentWithCtlogUrl(instance, map[string]string{}, "http://ctlog.default.svc/prefix")
+	g.Expect(err).Should(Succeed())
+	g.Expect(dp.Spec.Template.Spec.Containers[0].Args).Should(ContainElement(Equal("--ct-log-url=http://ctlog.default.svc/prefix")))
 }
 
 func findVolume(name string, volumes []v12.Volume) *v12.Volume {
@@ -222,18 +182,10 @@ func findVolume(name string, volumes []v12.Volume) *v12.Volume {
 }
 
 func createInstance() *rhtasv1.Fulcio {
-	port := int32(80)
 	return &rhtasv1.Fulcio{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "name",
 			Namespace: "default",
-		},
-		Spec: rhtasv1.FulcioSpec{
-			Ctlog: rhtasv1.CtlogService{
-				Address: "http://ctlog.default.svc",
-				Port:    &port,
-				Prefix:  "prefix",
-			},
 		},
 		Status: rhtasv1.FulcioStatus{
 			ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "config"},
@@ -252,6 +204,10 @@ func createInstance() *rhtasv1.Fulcio {
 }
 
 func createDeployment(instance *rhtasv1.Fulcio, labels map[string]string) (*v13.Deployment, error) {
+	return createDeploymentWithCtlogUrl(instance, labels, "http://ctlog.default.svc/prefix")
+}
+
+func createDeploymentWithCtlogUrl(instance *rhtasv1.Fulcio, labels map[string]string, ctlogUrl string) (*v13.Deployment, error) {
 	testAction := deployAction{}
 	d := &v13.Deployment{
 		ObjectMeta: v1.ObjectMeta{
@@ -261,7 +217,7 @@ func createDeployment(instance *rhtasv1.Fulcio, labels map[string]string) (*v13.
 	}
 
 	ensures := []func(*v13.Deployment) error{
-		testAction.ensureDeployment(instance, RBACName, labels),
+		testAction.ensureDeployment(instance, RBACName, labels, ctlogUrl),
 		ensure.Labels[*v13.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
 		deployment.TrustedCA(instance.GetTrustedCA(), "fulcio-server"),
@@ -275,77 +231,91 @@ func createDeployment(instance *rhtasv1.Fulcio, labels map[string]string) (*v13.
 	return d, nil
 }
 
-func TestResolveCTLUrl(t *testing.T) {
+func createHandleInstance() *rhtasv1.Fulcio {
+	instance := createInstance()
+	meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
+		Type:   constants.ReadyCondition,
+		Status: v1.ConditionFalse,
+		Reason: state.Creating.String(),
+	})
+	return instance
+}
+
+func TestDeployAction_Handle_RefCtlogAddress(t *testing.T) {
+	ctx := t.Context()
 	g := NewWithT(t)
-	action := deployAction{}
 
-	tests := []struct {
-		name   string
-		ctl    rhtasv1.CtlogService
-		tls    bool
-		assert func(g Gomega, url string, err error)
-	}{
-		{
-			name: "empty preffix",
-			ctl:  rhtasv1.CtlogService{Prefix: ""},
-			assert: func(g Gomega, url string, err error) {
-				g.Expect(err).Should(HaveOccurred())
-				g.Expect(err).Should(MatchError(utils.ErrCtlogPrefixNotSpecified))
-			},
-		},
-		{
-			name: "address no port",
-			ctl:  rhtasv1.CtlogService{Prefix: "test", Address: "http://ctlog.default.svc", Port: nil},
-			assert: func(g Gomega, url string, err error) {
-				g.Expect(err).ShouldNot(HaveOccurred())
-				g.Expect(url).Should(Equal("http://ctlog.default.svc/test"))
-			},
-		},
-		{
-			name: "address with port",
-			ctl:  rhtasv1.CtlogService{Prefix: "test", Address: "http://ctlog.default.svc", Port: ptr.To(int32(8080))},
-			assert: func(g Gomega, url string, err error) {
-				g.Expect(err).ShouldNot(HaveOccurred())
-				g.Expect(url).Should(Equal("http://ctlog.default.svc:8080/test"))
-			},
-		},
-		{
-			name: "address with port",
-			ctl:  rhtasv1.CtlogService{Prefix: "test", Address: "http://ctlog.default.svc", Port: ptr.To(int32(8080))},
-			assert: func(g Gomega, url string, err error) {
-				g.Expect(err).ShouldNot(HaveOccurred())
-				g.Expect(url).Should(Equal("http://ctlog.default.svc:8080/test"))
-			},
-		},
-		{
-			name: "autoresolve address no TLS",
-			ctl:  rhtasv1.CtlogService{Prefix: "test"},
-			tls:  false,
-			assert: func(g Gomega, url string, err error) {
-				g.Expect(err).ShouldNot(HaveOccurred())
-				g.Expect(url).Should(Equal("http://ctlog.default.svc/test"))
-			},
-		},
-		{
-			name: "autoresolve address TLS",
-			ctl:  rhtasv1.CtlogService{Prefix: "test"},
-			tls:  true,
-			assert: func(g Gomega, url string, err error) {
-				g.Expect(err).ShouldNot(HaveOccurred())
-				g.Expect(url).Should(Equal("https://ctlog.default.svc/test"))
-			},
+	instance := createHandleInstance()
+	instance.Spec.Ctlog = rhtasv1.ServiceReference{
+		Ref: &rhtasv1.ServiceReferenceRef{
+			Namespace: "default",
+			Name:      "test-ctlog",
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			instance := createInstance()
-			instance.Spec.Ctlog = tt.ctl
-			if tt.tls {
-				instance.Spec.TrustedCA = &rhtasv1.LocalObjectReference{}
-			}
-			url, err := action.resolveCTlogUrl(instance)
-			tt.assert(g, url, err)
-		})
+	ctlog := &rhtasv1.CTlog{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "test-ctlog",
+			Namespace: "default",
+		},
+		Spec: rhtasv1.CTlogSpec{
+			Prefix: "trusted-artifact-signer",
+		},
 	}
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance, ctlog).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewDeployAction())
+	result := a.Handle(ctx, instance)
+	g.Expect(result).ToNot(BeNil())
+	g.Expect(result.Err).ToNot(HaveOccurred())
+
+	dep := &v13.Deployment{}
+	g.Expect(c.Get(ctx, client.ObjectKey{
+		Name:      DeploymentName,
+		Namespace: "default",
+	}, dep)).To(Succeed())
+
+	expectedUrl := "http://" + ctlogActions.DeploymentName + ".default.svc/trusted-artifact-signer"
+	g.Expect(dep.Spec.Template.Spec.Containers[0].Args).To(ContainElement(Equal("--ct-log-url=" + expectedUrl)))
+}
+
+func TestDeployAction_Handle_AutodiscoveryCtlogAddress(t *testing.T) {
+	ctx := t.Context()
+	g := NewWithT(t)
+
+	instance := createHandleInstance()
+	instance.Spec.Ctlog = rhtasv1.ServiceReference{}
+
+	ctlog := &rhtasv1.CTlog{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "my-ctlog",
+			Namespace: "default",
+		},
+		Spec: rhtasv1.CTlogSpec{
+			Prefix: "trusted-artifact-signer",
+		},
+	}
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance, ctlog).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewDeployAction())
+	result := a.Handle(ctx, instance)
+	g.Expect(result).ToNot(BeNil())
+	g.Expect(result.Err).ToNot(HaveOccurred())
+
+	dep := &v13.Deployment{}
+	g.Expect(c.Get(ctx, client.ObjectKey{
+		Name:      DeploymentName,
+		Namespace: "default",
+	}, dep)).To(Succeed())
+
+	expectedUrl := "http://" + ctlogActions.DeploymentName + ".default.svc/trusted-artifact-signer"
+	g.Expect(dep.Spec.Template.Spec.Containers[0].Args).To(ContainElement(Equal("--ct-log-url=" + expectedUrl)))
 }

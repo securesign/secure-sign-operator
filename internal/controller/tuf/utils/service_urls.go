@@ -6,7 +6,7 @@ import (
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/apis"
-	"github.com/securesign/operator/internal/utils"
+	"github.com/securesign/operator/internal/serviceresolver"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -56,7 +56,7 @@ func resolveServiceAddress(ctx context.Context, c client.Client, instance *rhtas
 		return nil, fmt.Errorf("unknown key %s", keyName)
 	}
 	componentInstance := binding.newInstance()
-	url, err := utils.ResolveExternalServiceUrl(ctx, c, binding.serviceRef(instance), instance.Namespace, componentInstance)
+	url, err := serviceresolver.ResolveExternalServiceUrl(ctx, c, binding.serviceRef(instance), instance.Namespace, componentInstance)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrorResolveServiceUrl, err)
 	}

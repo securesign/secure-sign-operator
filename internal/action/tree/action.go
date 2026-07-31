@@ -14,6 +14,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/serviceresolver"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
@@ -218,7 +219,7 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 
 	trillianService := wrapped.GetTrillianService()
 
-	trillUrl, err = utils.ResolveInternalServiceUrl(ctx, i.Client, *trillianService, instance.GetNamespace(), &rhtasv1.Trillian{})
+	trillUrl, err = serviceresolver.ResolveInternalServiceUrl(ctx, i.Client, *trillianService, instance.GetNamespace(), &rhtasv1.Trillian{})
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not resolve trillian service: %w", err), instance)
 	}
