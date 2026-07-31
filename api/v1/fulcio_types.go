@@ -24,7 +24,7 @@ type FulcioSpec struct {
 	Ingress Ingress `json:"ingress,omitempty"`
 	// Ctlog service configuration
 	//+optional
-	Ctlog CtlogService `json:"ctlog,omitempty"`
+	Ctlog ServiceReference `json:"ctlog,omitempty"`
 	// Fulcio Configuration
 	//+required
 	Config FulcioConfig `json:"config"`

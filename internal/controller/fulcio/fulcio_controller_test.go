@@ -32,6 +32,7 @@ import (
 	httputils "github.com/securesign/operator/internal/utils/http"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	_ "github.com/securesign/operator/internal/controller/ctlog/serviceresolver"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -138,6 +139,12 @@ var _ = Describe("Fulcio controller", func() {
 							Host:    "fulcio.localhost",
 							Enabled: ptr.To(true),
 						},
+						Ctlog: rhtasv1.ServiceReference{
+							Ref: &rhtasv1.ServiceReferenceRef{
+								Namespace: Namespace,
+								Name:      "test-ctlog",
+							},
+						},
 						Config: rhtasv1.FulcioConfig{
 							OIDCIssuers: []rhtasv1.OIDCIssuer{
 								{
@@ -205,6 +212,14 @@ var _ = Describe("Fulcio controller", func() {
 				},
 				Data: map[string][]byte{
 					"password": []byte("secret"),
+				},
+			})).To(Succeed())
+
+			By("Creating CTlog CR (referenced by ServiceReference)")
+			Expect(suite.Client().Create(ctx, &rhtasv1.CTlog{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-ctlog",
+					Namespace: Namespace,
 				},
 			})).To(Succeed())
 

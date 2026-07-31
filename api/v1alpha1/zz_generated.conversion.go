@@ -1413,7 +1413,7 @@ func autoConvert_v1alpha1_FulcioSpec_To_v1_FulcioSpec(in *FulcioSpec, out *v1.Fu
 		return err
 	}
 	// WARNING: in.ExternalAccess requires manual conversion: does not exist in peer-type
-	if err := Convert_v1alpha1_CtlogService_To_v1_CtlogService(&in.Ctlog, &out.Ctlog, s); err != nil {
+	if err := Convert_v1alpha1_CtlogService_To_v1_ServiceReference(&in.Ctlog, &out.Ctlog, s); err != nil {
 		return err
 	}
 	if err := Convert_v1alpha1_FulcioConfig_To_v1_FulcioConfig(&in.Config, &out.Config, s); err != nil {
@@ -1433,7 +1433,7 @@ func autoConvert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(in *v1.FulcioSpec, out *Fu
 	}
 	// WARNING: in.ServiceAccountConfig requires manual conversion: does not exist in peer-type
 	// WARNING: in.Ingress requires manual conversion: does not exist in peer-type
-	if err := Convert_v1_CtlogService_To_v1alpha1_CtlogService(&in.Ctlog, &out.Ctlog, s); err != nil {
+	if err := Convert_v1_ServiceReference_To_v1alpha1_CtlogService(&in.Ctlog, &out.Ctlog, s); err != nil {
 		return err
 	}
 	if err := Convert_v1_FulcioConfig_To_v1alpha1_FulcioConfig(&in.Config, &out.Config, s); err != nil {

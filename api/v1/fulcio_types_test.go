@@ -184,26 +184,6 @@ var _ = Describe("Fulcio", func() {
 				Expect(fetched).To(Equal(validObject))
 			})
 
-			It("prefix with /", func() {
-				validObject := generateMinimalFulcio("prefix-valid")
-				validObject.Spec.Ctlog.Prefix = "logs/prefix"
-
-				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
-
-				fetched := &Fulcio{}
-				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(validObject), fetched)).To(Succeed())
-				Expect(fetched).To(Equal(validObject))
-			})
-
-			It("prefix with invalid chars", func() {
-				invalidObject := generateMinimalFulcio("prefix-invalid")
-				invalidObject.Spec.Ctlog.Prefix = "prefix.log"
-
-				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
-				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("spec.ctlog.prefix in body should match")))
-			})
-
 			When("replicas", func() {
 				It("nil", func() {
 					validObject := generateMinimalFulcio("replicas-nil")
@@ -240,7 +220,6 @@ var _ = Describe("Fulcio", func() {
 			fetched := &Fulcio{}
 			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 			Expect(fetched.Spec.Replicas).To(Equal(ptr.To(int32(1))))
-			Expect(fetched.Spec.Ctlog.Prefix).To(Equal("trusted-artifact-signer"))
 			Expect(fetched.Spec.Monitoring.Metrics.Enabled).To(Equal(ptr.To(true)))
 			Expect(fetched.Spec.Monitoring.ServiceMonitor.Enabled).To(Equal(ptr.To(false)))
 			Expect(fetched.Spec.Ingress.Enabled).To(Equal(ptr.To(false)))
@@ -299,10 +278,8 @@ var _ = Describe("Fulcio", func() {
 								PrivateKeyPasswordRef: &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
 							},
 						},
-						Ctlog: CtlogService{
-							Address: "ctlog.default.svc",
-							Port:    ptr.To(int32(80)),
-							Prefix:  "trusted-artifact-signer",
+						Ctlog: ServiceReference{
+							URL: "http://ctlog.default.svc:80/trusted-artifact-signer",
 						},
 					},
 				}
