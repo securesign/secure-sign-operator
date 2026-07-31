@@ -38,13 +38,18 @@ type ConsoleUI struct {
 	PodRequirements `json:",inline"`
 	// Define whether you want to export service or not
 	Ingress Ingress `json:"ingress,omitempty"`
+	// Rekor service configuration
+	//+optional
+	//+kubebuilder:validation:XValidation:rule="!has(self.url) || size(self.url) == 0 || self.url.matches('^[a-zA-Z][a-zA-Z0-9+.-]*://[^/].*$')",message="url must follow the pattern scheme://host[:port][/path]"
+	Rekor ServiceReference `json:"rekor,omitempty"`
 }
 
 type ConsoleAPI struct {
 	PodRequirements `json:",inline"`
 	// TUF service configuration
 	//+optional
-	Tuf TufService `json:"tuf,omitempty"`
+	//+kubebuilder:validation:XValidation:rule="!has(self.url) || size(self.url) == 0 || self.url.matches('^[a-zA-Z][a-zA-Z0-9+.-]*://[^/].*$')",message="url must follow the pattern scheme://host[:port][/path]"
+	Tuf ServiceReference `json:"tuf,omitempty"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
 	//+optional
 	TLS TLS `json:"tls,omitempty"`

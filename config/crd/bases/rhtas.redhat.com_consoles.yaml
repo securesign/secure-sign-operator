@@ -1123,16 +1123,35 @@ spec:
                   tuf:
                     description: TUF service configuration
                     properties:
-                      address:
-                        description: Address to TUF Server End point
+                      ref:
+                        description: In-cluster reference to a component CR.
+                        properties:
+                          name:
+                            description: Name of the referenced CR.
+                            minLength: 1
+                            type: string
+                          namespace:
+                            description: Namespace of the referenced CR.
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        - namespace
+                        type: object
+                      url:
+                        description: |-
+                          Direct URL for an external or cross-namespace service.
+                          Accepts: host:port, dns:///host:port, http(s)://host/path
+                        maxLength: 2048
+                        minLength: 1
                         type: string
-                      port:
-                        description: Port of TUF Server End point
-                        format: int32
-                        maximum: 65535
-                        minimum: 1
-                        type: integer
                     type: object
+                    x-kubernetes-validations:
+                    - message: url must follow the pattern scheme://host[:port][/path]
+                      rule: '!has(self.url) || size(self.url) == 0 || self.url.matches(''^[a-zA-Z][a-zA-Z0-9+.-]*://[^/].*$'')'
+                    - message: ref and url are mutually exclusive
+                      rule: '!(has(self.ref) && has(self.url) && size(self.url) >
+                        0)'
                 type: object
               imagePullSecrets:
                 description: |-
@@ -2115,6 +2134,38 @@ spec:
                         - message: Labels can't be modified
                           rule: (oldSelf.size() == 0 || self == oldSelf)
                     type: object
+                  rekor:
+                    description: Rekor service configuration
+                    properties:
+                      ref:
+                        description: In-cluster reference to a component CR.
+                        properties:
+                          name:
+                            description: Name of the referenced CR.
+                            minLength: 1
+                            type: string
+                          namespace:
+                            description: Namespace of the referenced CR.
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        - namespace
+                        type: object
+                      url:
+                        description: |-
+                          Direct URL for an external or cross-namespace service.
+                          Accepts: host:port, dns:///host:port, http(s)://host/path
+                        maxLength: 2048
+                        minLength: 1
+                        type: string
+                    type: object
+                    x-kubernetes-validations:
+                    - message: url must follow the pattern scheme://host[:port][/path]
+                      rule: '!has(self.url) || size(self.url) == 0 || self.url.matches(''^[a-zA-Z][a-zA-Z0-9+.-]*://[^/].*$'')'
+                    - message: ref and url are mutually exclusive
+                      rule: '!(has(self.ref) && has(self.url) && size(self.url) >
+                        0)'
                   replicas:
                     description: Number of desired pods.
                     format: int32

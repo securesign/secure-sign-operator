@@ -13,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
+	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
@@ -47,7 +48,15 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Console) *ac
 		result controllerutil.OperationResult
 	)
 
-	tufURL := resolveTufUrl(instance)
+	var tufURL string
+	if instance.Spec.Api.Tuf.URL != "" || instance.Spec.Api.Tuf.Ref != nil {
+		tufURL, err = utils.ResolveExternalServiceUrl(ctx, i.Client, instance.Spec.Api.Tuf, instance.Namespace, &rhtasv1.Tuf{})
+		if err != nil {
+			return i.Error(ctx, fmt.Errorf("error resolving TUF URL: %w", err), instance)
+		}
+	} else {
+		tufURL = fmt.Sprintf("http://tuf.%s.svc", instance.Namespace)
+	}
 
 	l := labels.For(actions.ApiComponentName, actions.ApiDeploymentName, instance.Name)
 
@@ -91,17 +100,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Console) *ac
 		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	}
 	return i.Continue()
-}
-
-func resolveTufUrl(instance *rhtasv1.Console) string {
-	if instance.Spec.Api.Tuf.Address != "" {
-		url := instance.Spec.Api.Tuf.Address
-		if instance.Spec.Api.Tuf.Port != nil {
-			url = fmt.Sprintf("%s:%d", url, *instance.Spec.Api.Tuf.Port)
-		}
-		return url
-	}
-	return fmt.Sprintf("http://tuf.%s.svc", instance.Namespace)
 }
 
 func ensureApiDeployment(labels map[string]string, tufURL string) func(*apps.Deployment) error {

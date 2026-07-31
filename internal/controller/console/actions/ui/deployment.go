@@ -13,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
+	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
@@ -46,6 +47,14 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Console) *ac
 		result controllerutil.OperationResult
 	)
 
+	var rekorURL string
+	if instance.Spec.UI.Rekor.URL != "" || instance.Spec.UI.Rekor.Ref != nil {
+		rekorURL, err = utils.ResolveExternalServiceUrl(ctx, i.Client, instance.Spec.UI.Rekor, instance.Namespace, &rhtasv1.Rekor{})
+		if err != nil {
+			return i.Error(ctx, fmt.Errorf("error resolving Rekor URL: %w", err), instance)
+		}
+	}
+
 	l := labels.For(actions.UIComponentName, actions.UIDeploymentName, instance.Name)
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
@@ -57,7 +66,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Console) *ac
 		},
 		ensure.ControllerReference[*apps.Deployment](instance, i.Client),
 		ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(l)), l),
-		ensureUIDeployment(instance, l),
+		ensureUIDeployment(instance, rekorURL, l),
 		ensureUIInitContainer(instance),
 		ensureUIProbes(),
 		deployment.PodRequirements(instance.Spec.UI.PodRequirements, actions.UIDeploymentName),
@@ -90,7 +99,7 @@ func apiTLSEnabled(instance *rhtasv1.Console) bool {
 	return instance.Status.Api.TLS.CertRef != nil
 }
 
-func ensureUIDeployment(instance *rhtasv1.Console, labels map[string]string) func(*apps.Deployment) error {
+func ensureUIDeployment(instance *rhtasv1.Console, rekorURL string, labels map[string]string) func(*apps.Deployment) error {
 	return func(dp *apps.Deployment) error {
 		spec := &dp.Spec
 		spec.Selector = &metav1.LabelSelector{
@@ -116,6 +125,13 @@ func ensureUIDeployment(instance *rhtasv1.Console, labels map[string]string) fun
 
 		apiURL := kubernetes.FindEnvByNameOrCreate(container, "CONSOLE_API_URL")
 		apiURL.Value = fmt.Sprintf("%s://%s:%d", scheme, apiHost, actions.ApiPort)
+
+		if rekorURL != "" {
+			rekorEnv := kubernetes.FindEnvByNameOrCreate(container, "NEXT_PUBLIC_REKOR_DEFAULT_DOMAIN")
+			rekorEnv.Value = rekorURL
+		} else {
+			kubernetes.RemoveEnvVarByName(container, "NEXT_PUBLIC_REKOR_DEFAULT_DOMAIN")
+		}
 
 		port := kubernetes.FindPortByNameOrCreate(container, actions.UIPortName)
 		port.ContainerPort = actions.UIPort
