@@ -103,16 +103,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*CtlogService)(nil), (*v1.CtlogService)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_CtlogService_To_v1_CtlogService(a.(*CtlogService), b.(*v1.CtlogService), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1.CtlogService)(nil), (*CtlogService)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_CtlogService_To_v1alpha1_CtlogService(a.(*v1.CtlogService), b.(*CtlogService), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*Extensions)(nil), (*v1.Extensions)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_Extensions_To_v1_Extensions(a.(*Extensions), b.(*v1.Extensions), scope)
 	}); err != nil {
@@ -160,16 +150,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*v1.FulcioList)(nil), (*FulcioList)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_FulcioList_To_v1alpha1_FulcioList(a.(*v1.FulcioList), b.(*FulcioList), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*FulcioService)(nil), (*v1.FulcioService)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_FulcioService_To_v1_FulcioService(a.(*FulcioService), b.(*v1.FulcioService), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1.FulcioService)(nil), (*FulcioService)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_FulcioService_To_v1alpha1_FulcioService(a.(*v1.FulcioService), b.(*FulcioService), scope)
 	}); err != nil {
 		return err
 	}
@@ -285,16 +265,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*v1.RekorLogRange)(nil), (*RekorLogRange)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_RekorLogRange_To_v1alpha1_RekorLogRange(a.(*v1.RekorLogRange), b.(*RekorLogRange), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*RekorService)(nil), (*v1.RekorService)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_RekorService_To_v1_RekorService(a.(*RekorService), b.(*v1.RekorService), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1.RekorService)(nil), (*RekorService)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_RekorService_To_v1alpha1_RekorService(a.(*v1.RekorService), b.(*RekorService), scope)
 	}); err != nil {
 		return err
 	}
@@ -498,16 +468,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*TrillianService)(nil), (*v1.TrillianService)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_TrillianService_To_v1_TrillianService(a.(*TrillianService), b.(*v1.TrillianService), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1.TrillianService)(nil), (*TrillianService)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_TrillianService_To_v1alpha1_TrillianService(a.(*v1.TrillianService), b.(*TrillianService), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*TrillianSpec)(nil), (*v1.TrillianSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_TrillianSpec_To_v1_TrillianSpec(a.(*TrillianSpec), b.(*v1.TrillianSpec), scope)
 	}); err != nil {
@@ -520,16 +480,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*v1.TrillianStatus)(nil), (*TrillianStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_TrillianStatus_To_v1alpha1_TrillianStatus(a.(*v1.TrillianStatus), b.(*TrillianStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*TsaService)(nil), (*v1.TsaService)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_TsaService_To_v1_TsaService(a.(*TsaService), b.(*v1.TsaService), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1.TsaService)(nil), (*TsaService)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_TsaService_To_v1alpha1_TsaService(a.(*v1.TsaService), b.(*TsaService), scope)
 	}); err != nil {
 		return err
 	}
@@ -1196,30 +1146,6 @@ func Convert_v1_CertificateChain_To_v1alpha1_CertificateChain(in *v1.Certificate
 	return autoConvert_v1_CertificateChain_To_v1alpha1_CertificateChain(in, out, s)
 }
 
-func autoConvert_v1alpha1_CtlogService_To_v1_CtlogService(in *CtlogService, out *v1.CtlogService, s conversion.Scope) error {
-	out.Address = in.Address
-	out.Port = (*int32)(unsafe.Pointer(in.Port))
-	out.Prefix = in.Prefix
-	return nil
-}
-
-// Convert_v1alpha1_CtlogService_To_v1_CtlogService is an autogenerated conversion function.
-func Convert_v1alpha1_CtlogService_To_v1_CtlogService(in *CtlogService, out *v1.CtlogService, s conversion.Scope) error {
-	return autoConvert_v1alpha1_CtlogService_To_v1_CtlogService(in, out, s)
-}
-
-func autoConvert_v1_CtlogService_To_v1alpha1_CtlogService(in *v1.CtlogService, out *CtlogService, s conversion.Scope) error {
-	out.Address = in.Address
-	out.Port = (*int32)(unsafe.Pointer(in.Port))
-	out.Prefix = in.Prefix
-	return nil
-}
-
-// Convert_v1_CtlogService_To_v1alpha1_CtlogService is an autogenerated conversion function.
-func Convert_v1_CtlogService_To_v1alpha1_CtlogService(in *v1.CtlogService, out *CtlogService, s conversion.Scope) error {
-	return autoConvert_v1_CtlogService_To_v1alpha1_CtlogService(in, out, s)
-}
-
 func autoConvert_v1alpha1_Extensions_To_v1_Extensions(in *Extensions, out *v1.Extensions, s conversion.Scope) error {
 	out.BuildSignerURI = in.BuildSignerURI
 	out.BuildSignerDigest = in.BuildSignerDigest
@@ -1386,34 +1312,12 @@ func Convert_v1_FulcioList_To_v1alpha1_FulcioList(in *v1.FulcioList, out *Fulcio
 	return autoConvert_v1_FulcioList_To_v1alpha1_FulcioList(in, out, s)
 }
 
-func autoConvert_v1alpha1_FulcioService_To_v1_FulcioService(in *FulcioService, out *v1.FulcioService, s conversion.Scope) error {
-	out.Address = in.Address
-	out.Port = (*int32)(unsafe.Pointer(in.Port))
-	return nil
-}
-
-// Convert_v1alpha1_FulcioService_To_v1_FulcioService is an autogenerated conversion function.
-func Convert_v1alpha1_FulcioService_To_v1_FulcioService(in *FulcioService, out *v1.FulcioService, s conversion.Scope) error {
-	return autoConvert_v1alpha1_FulcioService_To_v1_FulcioService(in, out, s)
-}
-
-func autoConvert_v1_FulcioService_To_v1alpha1_FulcioService(in *v1.FulcioService, out *FulcioService, s conversion.Scope) error {
-	out.Address = in.Address
-	out.Port = (*int32)(unsafe.Pointer(in.Port))
-	return nil
-}
-
-// Convert_v1_FulcioService_To_v1alpha1_FulcioService is an autogenerated conversion function.
-func Convert_v1_FulcioService_To_v1alpha1_FulcioService(in *v1.FulcioService, out *FulcioService, s conversion.Scope) error {
-	return autoConvert_v1_FulcioService_To_v1alpha1_FulcioService(in, out, s)
-}
-
 func autoConvert_v1alpha1_FulcioSpec_To_v1_FulcioSpec(in *FulcioSpec, out *v1.FulcioSpec, s conversion.Scope) error {
 	if err := Convert_v1alpha1_PodRequirements_To_v1_PodRequirements(&in.PodRequirements, &out.PodRequirements, s); err != nil {
 		return err
 	}
 	// WARNING: in.ExternalAccess requires manual conversion: does not exist in peer-type
-	if err := Convert_v1alpha1_CtlogService_To_v1_CtlogService(&in.Ctlog, &out.Ctlog, s); err != nil {
+	if err := Convert_v1alpha1_CtlogService_To_v1_ServiceReference(&in.Ctlog, &out.Ctlog, s); err != nil {
 		return err
 	}
 	if err := Convert_v1alpha1_FulcioConfig_To_v1_FulcioConfig(&in.Config, &out.Config, s); err != nil {
@@ -1433,7 +1337,7 @@ func autoConvert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(in *v1.FulcioSpec, out *Fu
 	}
 	// WARNING: in.ServiceAccountConfig requires manual conversion: does not exist in peer-type
 	// WARNING: in.Ingress requires manual conversion: does not exist in peer-type
-	if err := Convert_v1_CtlogService_To_v1alpha1_CtlogService(&in.Ctlog, &out.Ctlog, s); err != nil {
+	if err := Convert_v1_ServiceReference_To_v1alpha1_CtlogService(&in.Ctlog, &out.Ctlog, s); err != nil {
 		return err
 	}
 	if err := Convert_v1_FulcioConfig_To_v1alpha1_FulcioConfig(&in.Config, &out.Config, s); err != nil {
@@ -1854,28 +1758,6 @@ func autoConvert_v1_RekorSearchUI_To_v1alpha1_RekorSearchUI(in *v1.RekorSearchUI
 	out.Host = in.Host
 	// WARNING: in.Labels requires manual conversion: does not exist in peer-type
 	return nil
-}
-
-func autoConvert_v1alpha1_RekorService_To_v1_RekorService(in *RekorService, out *v1.RekorService, s conversion.Scope) error {
-	out.Address = in.Address
-	out.Port = (*int32)(unsafe.Pointer(in.Port))
-	return nil
-}
-
-// Convert_v1alpha1_RekorService_To_v1_RekorService is an autogenerated conversion function.
-func Convert_v1alpha1_RekorService_To_v1_RekorService(in *RekorService, out *v1.RekorService, s conversion.Scope) error {
-	return autoConvert_v1alpha1_RekorService_To_v1_RekorService(in, out, s)
-}
-
-func autoConvert_v1_RekorService_To_v1alpha1_RekorService(in *v1.RekorService, out *RekorService, s conversion.Scope) error {
-	out.Address = in.Address
-	out.Port = (*int32)(unsafe.Pointer(in.Port))
-	return nil
-}
-
-// Convert_v1_RekorService_To_v1alpha1_RekorService is an autogenerated conversion function.
-func Convert_v1_RekorService_To_v1alpha1_RekorService(in *v1.RekorService, out *RekorService, s conversion.Scope) error {
-	return autoConvert_v1_RekorService_To_v1alpha1_RekorService(in, out, s)
 }
 
 func autoConvert_v1alpha1_RekorSigner_To_v1_RekorSigner(in *RekorSigner, out *v1.RekorSigner, s conversion.Scope) error {
@@ -2781,28 +2663,6 @@ func Convert_v1_TrillianLogSigner_To_v1alpha1_TrillianLogSigner(in *v1.TrillianL
 	return autoConvert_v1_TrillianLogSigner_To_v1alpha1_TrillianLogSigner(in, out, s)
 }
 
-func autoConvert_v1alpha1_TrillianService_To_v1_TrillianService(in *TrillianService, out *v1.TrillianService, s conversion.Scope) error {
-	out.Address = in.Address
-	out.Port = (*int32)(unsafe.Pointer(in.Port))
-	return nil
-}
-
-// Convert_v1alpha1_TrillianService_To_v1_TrillianService is an autogenerated conversion function.
-func Convert_v1alpha1_TrillianService_To_v1_TrillianService(in *TrillianService, out *v1.TrillianService, s conversion.Scope) error {
-	return autoConvert_v1alpha1_TrillianService_To_v1_TrillianService(in, out, s)
-}
-
-func autoConvert_v1_TrillianService_To_v1alpha1_TrillianService(in *v1.TrillianService, out *TrillianService, s conversion.Scope) error {
-	out.Address = in.Address
-	out.Port = (*int32)(unsafe.Pointer(in.Port))
-	return nil
-}
-
-// Convert_v1_TrillianService_To_v1alpha1_TrillianService is an autogenerated conversion function.
-func Convert_v1_TrillianService_To_v1alpha1_TrillianService(in *v1.TrillianService, out *TrillianService, s conversion.Scope) error {
-	return autoConvert_v1_TrillianService_To_v1alpha1_TrillianService(in, out, s)
-}
-
 func autoConvert_v1alpha1_TrillianSpec_To_v1_TrillianSpec(in *TrillianSpec, out *v1.TrillianSpec, s conversion.Scope) error {
 	if err := Convert_v1alpha1_TrillianDB_To_v1_TrillianDB(&in.Db, &out.Db, s); err != nil {
 		return err
@@ -2899,28 +2759,6 @@ func autoConvert_v1_TsaCertificateAuthority_To_v1alpha1_TsaCertificateAuthority(
 	out.OrganizationName = in.OrganizationName
 	out.OrganizationEmail = in.OrganizationEmail
 	return nil
-}
-
-func autoConvert_v1alpha1_TsaService_To_v1_TsaService(in *TsaService, out *v1.TsaService, s conversion.Scope) error {
-	out.Address = in.Address
-	out.Port = (*int32)(unsafe.Pointer(in.Port))
-	return nil
-}
-
-// Convert_v1alpha1_TsaService_To_v1_TsaService is an autogenerated conversion function.
-func Convert_v1alpha1_TsaService_To_v1_TsaService(in *TsaService, out *v1.TsaService, s conversion.Scope) error {
-	return autoConvert_v1alpha1_TsaService_To_v1_TsaService(in, out, s)
-}
-
-func autoConvert_v1_TsaService_To_v1alpha1_TsaService(in *v1.TsaService, out *TsaService, s conversion.Scope) error {
-	out.Address = in.Address
-	out.Port = (*int32)(unsafe.Pointer(in.Port))
-	return nil
-}
-
-// Convert_v1_TsaService_To_v1alpha1_TsaService is an autogenerated conversion function.
-func Convert_v1_TsaService_To_v1alpha1_TsaService(in *v1.TsaService, out *TsaService, s conversion.Scope) error {
-	return autoConvert_v1_TsaService_To_v1alpha1_TsaService(in, out, s)
 }
 
 func autoConvert_v1alpha1_Tuf_To_v1_Tuf(in *Tuf, out *v1.Tuf, s conversion.Scope) error {

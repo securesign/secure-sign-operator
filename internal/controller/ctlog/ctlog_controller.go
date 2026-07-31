@@ -43,6 +43,7 @@ import (
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/ctlog/actions/monitor"
+	_ "github.com/securesign/operator/internal/controller/ctlog/serviceresolver"
 	tasPredicate "github.com/securesign/operator/internal/controller/predicate"
 )
 

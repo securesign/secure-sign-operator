@@ -16,6 +16,12 @@ func (s *Securesign) SetDefaults() {
 			Namespace: s.Namespace,
 		}
 	}
+	if s.Spec.Fulcio.Ctlog.URL == "" && s.Spec.Fulcio.Ctlog.Ref == nil {
+		s.Spec.Fulcio.Ctlog.Ref = &ServiceReferenceRef{
+			Name:      s.Name,
+			Namespace: s.Namespace,
+		}
+	}
 
 	if s.Spec.Tuf.Rekor.URL == "" && s.Spec.Tuf.Rekor.Ref == nil {
 		s.Spec.Tuf.Rekor.Ref = &ServiceReferenceRef{

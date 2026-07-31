@@ -32,6 +32,7 @@ import (
 	httputils "github.com/securesign/operator/internal/utils/http"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	_ "github.com/securesign/operator/internal/controller/ctlog/serviceresolver"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -156,6 +157,14 @@ var _ = Describe("Fulcio hot update", func() {
 				found := &rhtasv1.Fulcio{}
 				return suite.Client().Get(ctx, typeNamespaceName, found)
 			}).WithContext(ctx).Should(Succeed())
+
+			By("Creating CTlog CR (service autodiscovery)")
+			Expect(suite.Client().Create(ctx, &rhtasv1.CTlog{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-ctlog",
+					Namespace: Namespace,
+				},
+			})).To(Succeed())
 
 			deployment := &appsv1.Deployment{}
 			By("Checking if Deployment was successfully created in the reconciliation")
