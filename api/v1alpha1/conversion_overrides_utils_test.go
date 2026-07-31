@@ -33,7 +33,7 @@ func TestBuildURL(t *testing.T) {
 			name:    "address without scheme",
 			address: "rekor.ns.svc",
 			port:    ptr.To(int32(8080)),
-			wantErr: true,
+			wantURL: "//rekor.ns.svc:8080",
 		},
 		{
 			name:    "address with port and path",
@@ -43,16 +43,23 @@ func TestBuildURL(t *testing.T) {
 			wantURL: "http://ctlog.ns.svc:6963/trusted-artifact-signer",
 		},
 		{
-			name:    "replaces existing path",
-			address: "http://tsa.ns.svc:3000/old",
-			path:    "/api/v1/timestamp",
-			wantURL: "http://tsa.ns.svc:3000/api/v1/timestamp",
-		},
-		{
-			name:    "empty address",
+			name:    "empty address with port",
 			address: "",
 			port:    ptr.To(int32(8080)),
-			wantURL: "",
+			wantURL: "//:8080",
+		},
+		{
+			name:    "empty address with port and path",
+			address: "",
+			port:    ptr.To(int32(330)),
+			path:    "user",
+			wantURL: "//:330/user",
+		},
+		{
+			name:    "empty address with path only",
+			address: "",
+			path:    "user",
+			wantURL: "user",
 		},
 		{
 			name:    "both empty",
@@ -101,9 +108,46 @@ func TestServiceReferenceToAddressPort(t *testing.T) {
 			wantPort:    nil,
 		},
 		{
-			name:    "url without scheme",
-			url:     "rekor.ns.svc:8080",
-			wantErr: true,
+			name:        "schemeless with port and path",
+			url:         "//:330/path",
+			wantAddress: "",
+			wantPort:    ptr.To(int32(330)),
+		},
+		{
+			name:        "schemeless with port only",
+			url:         "//:330",
+			wantAddress: "",
+			wantPort:    ptr.To(int32(330)),
+		},
+		{
+			name:        "schemeless with host and port",
+			url:         "//host:330/path",
+			wantAddress: "host",
+			wantPort:    ptr.To(int32(330)),
+		},
+		{
+			name:        "http with empty host and port",
+			url:         "http://:330/path",
+			wantAddress: "",
+			wantPort:    ptr.To(int32(330)),
+		},
+		{
+			name:        "http with empty host and port no path",
+			url:         "http://:330",
+			wantAddress: "",
+			wantPort:    ptr.To(int32(330)),
+		},
+		{
+			name:        "bare path only",
+			url:         "user",
+			wantAddress: "",
+			wantPort:    nil,
+		},
+		{
+			name:        "absolute path only",
+			url:         "/path",
+			wantAddress: "",
+			wantPort:    nil,
 		},
 	}
 	for _, tt := range tests {
@@ -131,6 +175,7 @@ func TestBuildURLRoundTrip(t *testing.T) {
 	}{
 		{"with port", "http://rekor.ns.svc", ptr.To(int32(3000))},
 		{"without port", "http://rekor.ns.svc", nil},
+		{"empty address with port", "", ptr.To(int32(8080))},
 		{"empty", "", nil},
 	}
 	for _, tt := range tests {
@@ -268,6 +313,48 @@ func TestSplitURLPath(t *testing.T) {
 			name:     "url with trailing slash",
 			url:      "http://ctlog.ns.svc:8080/",
 			wantBase: "http://ctlog.ns.svc:8080",
+			wantPath: "",
+		},
+		{
+			name:     "schemeless with port and path",
+			url:      "//:330/path",
+			wantBase: "//:330",
+			wantPath: "path",
+		},
+		{
+			name:     "schemeless with port only",
+			url:      "//:330",
+			wantBase: "//:330",
+			wantPath: "",
+		},
+		{
+			name:     "schemeless path only",
+			url:      "///path",
+			wantBase: "",
+			wantPath: "path",
+		},
+		{
+			name:     "schemeless empty",
+			url:      "//",
+			wantBase: "",
+			wantPath: "",
+		},
+		{
+			name:     "schemeless host port path",
+			url:      "//host:330/path",
+			wantBase: "//host:330",
+			wantPath: "path",
+		},
+		{
+			name:     "http empty host with port and path",
+			url:      "http://:330/path",
+			wantBase: "http://:330",
+			wantPath: "path",
+		},
+		{
+			name:     "empty url",
+			url:      "",
+			wantBase: "",
 			wantPath: "",
 		},
 	}

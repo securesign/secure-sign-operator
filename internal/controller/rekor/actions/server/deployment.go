@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"regexp"
 	"slices"
 	"strconv"
 
@@ -37,8 +36,6 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 )
 
-var portRe = regexp.MustCompile(`:(\d+)(?:/|$)`)
-
 func NewDeployAction() action.Action[*rhtasv1.Rekor] {
 	return &deployAction{}
 }
@@ -62,11 +59,11 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *acti
 	)
 	labels := labels.For(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
 
-	internalTrillianUrl, err := utils.ResolveInternalServiceUrl(ctx, i.Client, instance.Spec.Trillian, instance.Namespace, &rhtasv1.Trillian{})
+	trillianHost, trillianPort, err := utils.ResolveInternalGrpcService(ctx, i.Client, instance.Spec.Trillian, instance.Namespace, &rhtasv1.Trillian{})
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("error resolving Trillian URL: %w", err), instance)
 	}
-	i.Logger.V(1).Info("trillian logserver", "address", internalTrillianUrl)
+	i.Logger.V(1).Info("trillian logserver", "address", trillianHost, "port", trillianPort)
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		&v2.Deployment{
@@ -75,7 +72,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *acti
 				Namespace: instance.Namespace,
 			},
 		},
-		i.ensureServerDeployment(instance, actions.RBACName, labels, internalTrillianUrl),
+		i.ensureServerDeployment(instance, actions.RBACName, labels, trillianHost, trillianPort),
 		deployment.PodRequirements(instance.Spec.PodRequirements, actions.ServerDeploymentName),
 		deployment.PodSecurityContext(),
 		i.ensureAttestation(instance),
@@ -107,15 +104,8 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *acti
 	}
 }
 
-func (i deployAction) ensureServerDeployment(instance *rhtasv1.Rekor, sa string, labels map[string]string, internalTrillianUrl string) func(*v2.Deployment) error {
+func (i deployAction) ensureServerDeployment(instance *rhtasv1.Rekor, sa string, labels map[string]string, trillianHost, trillianPort string) func(*v2.Deployment) error {
 	return func(dp *v2.Deployment) error {
-		matches := portRe.FindAllStringSubmatchIndex(internalTrillianUrl, -1)
-		if len(matches) == 0 {
-			return fmt.Errorf("CreateRekorDeployment: %w", rekorutils.ErrTrillianPortNotSpecified)
-		}
-		m := matches[len(matches)-1]
-		trillianHost := internalTrillianUrl[:m[0]]
-		trillianPort := internalTrillianUrl[m[2]:m[3]]
 		switch {
 		case instance.Status.ServerConfigRef == nil:
 			return fmt.Errorf("CreateRekorDeployment: %w", rekorutils.ErrServerConfigNotSpecified)

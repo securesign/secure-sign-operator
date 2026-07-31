@@ -71,7 +71,7 @@ func Convert_v1_Ingress_To_v1alpha1_ExternalAccess(in *v1.Ingress, out *External
 }
 
 func Convert_v1alpha1_TrillianService_To_v1_ServiceReference(in *TrillianService, out *v1.ServiceReference, _ apiconversion.Scope) error {
-	if in.Address != "" && in.Port != nil {
+	if in.Port != nil {
 		out.URL = fmt.Sprintf("%s:%d", in.Address, *in.Port)
 	} else if in.Address != "" {
 		out.URL = in.Address

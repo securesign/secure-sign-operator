@@ -145,11 +145,10 @@ func trillianServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} 
 		func(s *TrillianService, c randfill.Continue) {
 			c.FillNoCustom(s)
 			s.Address = randGrpcUrl(c, false)
-			// empty address means use autoconfiguration (resolve from ref or autodiscover) - port is irrelevant and it will be dropped during conversion
-			if s.Address == "" {
-				s.Port = nil
-			} else {
+			if c.Bool() {
 				s.Port = ptr.To(int32(c.Intn(65534) + 1))
+			} else {
+				s.Port = nil
 			}
 		},
 	}
@@ -163,14 +162,12 @@ func ctlogServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 		func(s *CtlogService, c randfill.Continue) {
 			c.FillNoCustom(s)
 			s.Address = randHttpUrl(c, false)
-			// empty address means use autoconfiguration (resolve from ref or autodiscover) - port and prefix are irrelevant and they will be dropped during conversion
-			if s.Address == "" {
-				s.Port = nil
-				s.Prefix = ""
-			} else {
+			if c.Bool() {
 				s.Port = ptr.To(int32(c.Intn(65534) + 1))
-				s.Prefix = randUrlPath(c)
+			} else {
+				s.Port = nil
 			}
+			s.Prefix = randUrlPath(c)
 		},
 	}
 }
@@ -183,11 +180,10 @@ func rekorServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 		func(s *RekorService, c randfill.Continue) {
 			c.FillNoCustom(s)
 			s.Address = randHttpUrl(c, false)
-			// empty address means use autoconfiguration (resolve from ref or autodiscover) - port is irrelevant and it will be dropped during conversion
-			if s.Address == "" {
-				s.Port = nil
-			} else {
+			if c.Bool() {
 				s.Port = ptr.To(int32(c.Intn(65534) + 1))
+			} else {
+				s.Port = nil
 			}
 		},
 	}
@@ -201,11 +197,10 @@ func tsaServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 		func(s *TsaService, c randfill.Continue) {
 			c.FillNoCustom(s)
 			s.Address = randHttpUrl(c, false)
-			// empty address means use autoconfiguration (resolve from ref or autodiscover) - port is irrelevant and it will be dropped during conversion
-			if s.Address == "" {
-				s.Port = nil
-			} else {
+			if c.Bool() {
 				s.Port = ptr.To(int32(c.Intn(65534) + 1))
+			} else {
+				s.Port = nil
 			}
 		},
 	}
@@ -222,11 +217,10 @@ func fulcioServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 		func(s *FulcioService, c randfill.Continue) {
 			c.FillNoCustom(s)
 			s.Address = randHttpUrl(c, false)
-			// empty address means use autoconfiguration (resolve from ref or autodiscover) - port is irrelevant and it will be dropped during conversion
-			if s.Address == "" {
-				s.Port = nil
-			} else {
+			if c.Bool() {
 				s.Port = ptr.To(int32(c.Intn(65534) + 1))
+			} else {
+				s.Port = nil
 			}
 		},
 	}

@@ -11,28 +11,16 @@ import (
 	v1 "github.com/securesign/operator/api/v1"
 )
 
-// parseURL parses rawURL and validates that scheme and host are present.
-func parseURL(rawURL string) (*url.URL, error) {
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return nil, fmt.Errorf("parsing URL %q: %w", rawURL, err)
-	}
-	if u.Scheme == "" {
-		return nil, fmt.Errorf("URL %q is missing scheme", rawURL)
-	}
-	if u.Host == "" {
-		return nil, fmt.Errorf("URL %q is missing host", rawURL)
-	}
-	return u, nil
-}
+const schemeSeparator = "//"
 
 // buildURL builds a URL from an address, optional port, and optional path.
 func buildURL(address string, port *int32, path string) (string, error) {
-	if address == "" {
-		return "", nil
+	if !strings.Contains(address, schemeSeparator) {
+		// use schemeless URI syntax
+		address = schemeSeparator + address
 	}
 
-	u, err := parseURL(address)
+	u, err := url.Parse(address)
 	if err != nil {
 		return "", err
 	}
@@ -47,11 +35,11 @@ func buildURL(address string, port *int32, path string) (string, error) {
 
 // splitURLPath splits rawURL into its origin (scheme://host[:port]) and path components.
 func splitURLPath(rawURL string) (base, path string, err error) {
-	u, err := parseURL(rawURL)
+	u, err := url.Parse(rawURL)
 	if err != nil {
 		return "", "", err
 	}
-	path = strings.TrimPrefix(u.Path, "/")
+	path = strings.TrimLeft(u.Path, "/")
 	u.Path = ""
 	u.RawPath = ""
 	u.RawQuery = ""
@@ -64,22 +52,25 @@ func serviceReferenceToAddressPort(in *v1.ServiceReference, address *string, por
 	if in.URL == "" {
 		return nil
 	}
-	u, err := parseURL(in.URL)
+	u, err := url.Parse(in.URL)
 	if err != nil {
 		return err
 	}
-	h, portStr, err := net.SplitHostPort(u.Host)
-	if err != nil {
-		*address = u.Scheme + "://" + u.Host
-		return nil
+	// scheme without host is meaningless
+	if u.Scheme != "" && u.Hostname() != "" {
+		*address = u.Scheme + "://"
 	}
-	*address = u.Scheme + "://" + h
-	p, err := strconv.ParseInt(portStr, 10, 32)
-	if err != nil {
-		return fmt.Errorf("parsing port in URL %q: %w", in.URL, err)
+	*address += u.Hostname()
+
+	if u.Port() != "" {
+		p, err := strconv.ParseInt(u.Port(), 10, 32)
+		if err != nil {
+			return fmt.Errorf("parsing port in URL %q: %w", in.URL, err)
+		}
+		p32 := int32(p)
+		*port = &p32
 	}
-	p32 := int32(p)
-	*port = &p32
+
 	return nil
 }
 

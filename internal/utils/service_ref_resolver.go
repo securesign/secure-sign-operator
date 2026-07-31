@@ -3,6 +3,9 @@ package utils
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/url"
+	"regexp"
 
 	v1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/apis"
@@ -19,16 +22,51 @@ var (
 	ErrServiceNotReady     = fmt.Errorf("service is not ready")
 )
 
-func ResolveInternalServiceUrl(ctx context.Context, cl client.Client, serviceRef apis.ServiceReferencer, instanceNamespace string, instance client.Object) (string, error) {
+var portRe = regexp.MustCompile(`:(\d+)(?:/|$)`)
+
+func ResolveInternalServiceUrl(ctx context.Context, cl client.Client, serviceRef apis.ServiceReferencer, instanceNamespace string, instance client.Object) (address string, err error) {
 	ref := serviceRef.GetServiceRef()
+	var (
+		users    = &url.URL{}
+		resolved *url.URL
+	)
 	if ref.URL != "" {
-		return ref.URL, nil
+		users, err = url.Parse(ref.URL)
+		if err != nil {
+			return
+		}
+		// user specified enough drop autodiscovery
+		if users.Hostname() != "" {
+			address = users.String()
+			return
+		}
 	}
 
-	if err := serviceRefOrAutoload(ctx, cl, ref, instanceNamespace, instance); err != nil {
-		return "", err
+	if err = serviceRefOrAutoload(ctx, cl, ref, instanceNamespace, instance); err != nil {
+		return
 	}
-	return serviceresolver.Resolve(instance)
+	var resolvedService string
+	resolvedService, err = serviceresolver.Resolve(instance)
+	if err != nil {
+		return
+	}
+	resolved, err = url.Parse(resolvedService)
+	if err != nil {
+		return
+	}
+
+	// no users host specified, use resolved host and scheme
+	users.Scheme = resolved.Scheme
+	if users.Port() == "" {
+		users.Host = resolved.Host
+	} else {
+		users.Host = net.JoinHostPort(resolved.Hostname(), users.Port())
+	}
+	if users.Path == "" {
+		users.Path = resolved.Path
+	}
+	address = users.String()
+	return
 }
 
 func ResolveExternalServiceUrl(ctx context.Context, cl client.Client, serviceRef apis.ServiceReferencer, instanceNamespace string, instance apis.AddressableConditionAware) (string, error) {
@@ -48,6 +86,44 @@ func ResolveExternalServiceUrl(ctx context.Context, cl client.Client, serviceRef
 		return "", fmt.Errorf("%T %s: service url is empty", instance, instance.GetName())
 	}
 	return url, nil
+}
+
+func ResolveInternalGrpcService(ctx context.Context, cl client.Client, serviceRef apis.ServiceReferencer, instanceNamespace string, instance client.Object) (address string, port string, err error) {
+	ref := serviceRef.GetServiceRef()
+
+	var userAddress, userPort string
+	if ref.URL != "" {
+		userAddress, userPort = splitGrpcAddressPort(ref.URL)
+		if userAddress != "" && userAddress != "//" {
+			address = userAddress
+			port = userPort
+			return
+		}
+	}
+
+	if err = serviceRefOrAutoload(ctx, cl, ref, instanceNamespace, instance); err != nil {
+		return
+	}
+	var resolved string
+	resolved, err = serviceresolver.Resolve(instance)
+	if err != nil {
+		return
+	}
+	address, port = splitGrpcAddressPort(resolved)
+
+	if userPort != "" {
+		port = userPort
+	}
+	return
+}
+
+func splitGrpcAddressPort(raw string) (address, port string) {
+	matches := portRe.FindAllStringSubmatchIndex(raw, -1)
+	if len(matches) == 0 {
+		return raw, ""
+	}
+	m := matches[len(matches)-1]
+	return raw[:m[0]], raw[m[2]:m[3]]
 }
 
 func serviceRefOrAutoload(ctx context.Context, cl client.Client, serviceRef v1.ServiceReference, instanceNamespace string, instance client.Object) error {
