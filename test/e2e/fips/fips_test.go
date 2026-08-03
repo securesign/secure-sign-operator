@@ -339,7 +339,25 @@ var _ = Describe("Securesign FIPS Strict Mode (fips140=only)", Ordered, func() {
 			Expect(strings.TrimSpace(string(node))).To(Equal("1"))
 		})
 
-		// TODO: re-add tuf-init FIPS check when Go CLI replacement is available
+		It("Verify tufcli is built in FIPS mode", func(ctx SpecContext) {
+			p := createFipsTestPod(getNamespace(), "fips-tufcli", "tufcli", images.Tuf,
+				[]string{"sleep"}, []string{"600"}, godebug)
+			Expect(cli.Create(ctx, p)).To(Succeed())
+			DeferCleanup(func() { _ = cli.Delete(ctx, p) })
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(cli.Get(ctx, ctrlclient.ObjectKeyFromObject(p), p)).To(Succeed())
+				g.Expect(p.Status.Phase).To(Equal(v1.PodRunning))
+			}).WithContext(ctx).Should(Succeed())
+			verifyFipsKernel(ctx, p, "tufcli", getNamespace())
+			verifyGodebugOnly(ctx, p, "tufcli", getNamespace())
+			out, err := k8ssupport.ExecInPodWithOutput(ctx,
+				p.Name, "tufcli", getNamespace(),
+				"grep", "-aom", "1", "GOFIPS140=", "/usr/bin/tufcli",
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(strings.TrimSpace(string(out))).To(ContainSubstring("GOFIPS140="),
+				"tufcli binary should be built with GOFIPS140")
+		})
 	})
 })
 
