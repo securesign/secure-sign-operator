@@ -22,37 +22,38 @@ var (
 	ErrServiceNotReady     = fmt.Errorf("service is not ready")
 )
 
-var portRe = regexp.MustCompile(`:(\d+)(?:/|$)`)
+// portRe matches a trailing :port, anchored to end-of-string so it can't match a
+// port embedded in the resolver authority (always followed by "/" before the target).
+var portRe = regexp.MustCompile(`:(\d+)$`)
 
-func ResolveInternalServiceUrl(ctx context.Context, cl client.Client, serviceRef apis.ServiceReferencer, instanceNamespace string, instance client.Object) (address string, err error) {
+func ResolveInternalServiceUrl(ctx context.Context, cl client.Client, serviceRef apis.ServiceReferencer, instanceNamespace string, instance client.Object) (string, error) {
 	ref := serviceRef.GetServiceRef()
 	var (
 		users    = &url.URL{}
 		resolved *url.URL
+		err      error
 	)
 	if ref.URL != "" {
 		users, err = url.Parse(ref.URL)
 		if err != nil {
-			return
+			return "", err
 		}
 		// user specified enough drop autodiscovery
 		if users.Hostname() != "" {
-			address = users.String()
-			return
+			return users.String(), nil
 		}
 	}
 
-	if err = serviceRefOrAutoload(ctx, cl, ref, instanceNamespace, instance); err != nil {
-		return
+	if err := serviceRefOrAutoload(ctx, cl, ref, instanceNamespace, instance); err != nil {
+		return "", err
 	}
-	var resolvedService string
-	resolvedService, err = serviceresolver.Resolve(instance)
+	resolvedService, err := serviceresolver.Resolve(instance)
 	if err != nil {
-		return
+		return "", err
 	}
 	resolved, err = url.Parse(resolvedService)
 	if err != nil {
-		return
+		return "", err
 	}
 
 	// no users host specified, use resolved host and scheme
@@ -65,8 +66,7 @@ func ResolveInternalServiceUrl(ctx context.Context, cl client.Client, serviceRef
 	if users.Path == "" {
 		users.Path = resolved.Path
 	}
-	address = users.String()
-	return
+	return users.String(), nil
 }
 
 func ResolveExternalServiceUrl(ctx context.Context, cl client.Client, serviceRef apis.ServiceReferencer, instanceNamespace string, instance apis.AddressableConditionAware) (string, error) {

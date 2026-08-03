@@ -19,11 +19,11 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"fmt"
 	"testing"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
+	urlfuzz "github.com/securesign/operator/internal/testing/fuzzer"
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 	"k8s.io/apimachinery/pkg/runtime"
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
@@ -36,40 +36,6 @@ func rhtasScheme() *runtime.Scheme {
 	_ = rhtasv1.AddToScheme(s)
 	_ = AddToScheme(s)
 	return s
-}
-
-// randUrlPath generates a URL-safe path
-func randUrlPath(c randfill.Continue) string {
-	if c.Bool() {
-		return fmt.Sprintf("path-%d/sub-%d", c.Intn(100), c.Intn(100))
-	}
-	return fmt.Sprintf("path-%d", c.Intn(100))
-}
-
-// randHttpUrl generates a valid HTTP URL for status fields that go through url.Parse
-// in urlWithPath/urlWithoutPath during conversion.
-func randHttpUrl(c randfill.Continue, withPort bool) string {
-	if c.Bool() {
-		return ""
-	}
-	u := fmt.Sprintf("http://svc-%d.ns.svc", c.Intn(1000))
-	if withPort {
-		u += fmt.Sprintf(":%d", c.Intn(65534)+1)
-	}
-	return u
-}
-
-// randGrpcUrl generates a valid gRPC target URI (dns:/// scheme) for Trillian service references.
-// Trillian uses gRPC, not HTTP — the address format must survive TrillianService ↔ ServiceReference conversion.
-func randGrpcUrl(c randfill.Continue, withPort bool) string {
-	if c.Bool() {
-		return ""
-	}
-	u := fmt.Sprintf("dns:///svc-%d.ns.svc", c.Intn(1000))
-	if withPort {
-		u += fmt.Sprintf(":%d", c.Intn(65534)+1)
-	}
-	return u
 }
 
 // enabledFieldsFuzzerFuncs ensures *bool Enabled fields are never nil in fuzzed v1 hub objects.
@@ -107,6 +73,11 @@ func enabledFieldsFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	}
 }
 
+// httpURLWithPath adapts urlfuzz.HTTPURL to randServiceReference's two-arg shape.
+func httpURLWithPath(c randfill.Continue, withPort bool) string {
+	return urlfuzz.HTTPURL(c, withPort, c.Bool())
+}
+
 // randServiceReference generates a v1 ServiceReference with mutually exclusive URL/Ref fields.
 // URL and Ref cannot both be set; conversion picks URL when present and falls back to restoring Ref from annotation.
 func randServiceReference(c randfill.Continue, urlFunc func(c randfill.Continue, withPort bool) string) rhtasv1.ServiceReference {
@@ -124,104 +95,85 @@ func randServiceReference(c randfill.Continue, urlFunc func(c randfill.Continue,
 	}
 }
 
-// randServiceReference generates a v1 ServiceReference with mutually exclusive URL/Ref fields.
-// URL and Ref cannot both be set; conversion picks URL when present and falls back to restoring Ref from annotation.
+// randServiceReferenceWithOIDC wraps randServiceReference, adding a random OIDCIssuers entry.
 func randServiceReferenceWithOIDC(c randfill.Continue, urlFunc func(c randfill.Continue, withPort bool) string) rhtasv1.ServiceRefWithOIDC {
 	return rhtasv1.ServiceRefWithOIDC{
 		ServiceReference: randServiceReference(c, urlFunc),
-		OIDCIssuers:      []string{randHttpUrl(c, c.Bool())},
+		OIDCIssuers:      []string{urlfuzz.HTTPURL(c, c.Bool(), c.Bool())},
 	}
 }
 
-// trillianServiceFuzzerFuncs constrains both sides of the TrillianService ↔ ServiceReference
-// conversion to values that survive the roundtrip:
-//   - v1 ServiceReference: URL and Ref are mutually exclusive; URL must be valid "host:port"
-//   - v1alpha1 TrillianService.Address must not contain colons (ambiguous with port separator)
-func trillianServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+// grpcServiceReferenceFuzzerFuncs fuzzes v1 ServiceReference with gRPC (dns:///) URLs.
+func grpcServiceReferenceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *rhtasv1.ServiceReference, c randfill.Continue) {
-			*s = randServiceReference(c, randGrpcUrl)
+			*s = randServiceReference(c, urlfuzz.GRPCURL)
 		},
+	}
+}
+
+// httpServiceReferenceFuzzerFuncs fuzzes v1 ServiceReference with HTTP URLs.
+func httpServiceReferenceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.ServiceReference, c randfill.Continue) {
+			*s = randServiceReference(c, httpURLWithPath)
+		},
+	}
+}
+
+// trillianServiceFuzzerFuncs fuzzes v1alpha1 TrillianService.Address as a gRPC target.
+func trillianServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
 		func(s *TrillianService, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Address = randGrpcUrl(c, false)
-			if c.Bool() {
-				s.Port = ptr.To(int32(c.Intn(65534) + 1))
-			} else {
-				s.Port = nil
-			}
+			s.Address = urlfuzz.GRPCURL(c, false)
+			s.Port = urlfuzz.Port(c)
 		},
 	}
 }
 
 func ctlogServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
-		func(s *rhtasv1.ServiceReference, c randfill.Continue) {
-			*s = randServiceReference(c, randHttpUrl)
-		},
 		func(s *CtlogService, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Address = randHttpUrl(c, false)
-			if c.Bool() {
-				s.Port = ptr.To(int32(c.Intn(65534) + 1))
-			} else {
-				s.Port = nil
-			}
-			s.Prefix = randUrlPath(c)
+			// Prefix already carries the path; a path in Address too doesn't
+			// round-trip (the split point isn't recoverable), so keep Address bare.
+			s.Address = urlfuzz.HTTPURL(c, false, false)
+			s.Port = urlfuzz.Port(c)
+			s.Prefix = urlfuzz.URLPath(c)
 		},
 	}
 }
 
 func rekorServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
-		func(s *rhtasv1.ServiceReference, c randfill.Continue) {
-			*s = randServiceReference(c, randHttpUrl)
-		},
 		func(s *RekorService, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Address = randHttpUrl(c, false)
-			if c.Bool() {
-				s.Port = ptr.To(int32(c.Intn(65534) + 1))
-			} else {
-				s.Port = nil
-			}
+			s.Address = urlfuzz.HTTPURL(c, false, c.Bool())
+			s.Port = urlfuzz.Port(c)
 		},
 	}
 }
 
 func tsaServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
-		func(s *rhtasv1.ServiceReference, c randfill.Continue) {
-			*s = randServiceReference(c, randHttpUrl)
-		},
 		func(s *TsaService, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Address = randHttpUrl(c, false)
-			if c.Bool() {
-				s.Port = ptr.To(int32(c.Intn(65534) + 1))
-			} else {
-				s.Port = nil
-			}
+			s.Address = urlfuzz.HTTPURL(c, false, c.Bool())
+			s.Port = urlfuzz.Port(c)
 		},
 	}
 }
 
 func fulcioServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
-		func(s *rhtasv1.ServiceReference, c randfill.Continue) {
-			*s = randServiceReference(c, randHttpUrl)
-		},
 		func(s *rhtasv1.ServiceRefWithOIDC, c randfill.Continue) {
-			*s = randServiceReferenceWithOIDC(c, randHttpUrl)
+			*s = randServiceReferenceWithOIDC(c, httpURLWithPath)
 		},
 		func(s *FulcioService, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Address = randHttpUrl(c, false)
-			if c.Bool() {
-				s.Port = ptr.To(int32(c.Intn(65534) + 1))
-			} else {
-				s.Port = nil
-			}
+			s.Address = urlfuzz.HTTPURL(c, false, c.Bool())
+			s.Port = urlfuzz.Port(c)
 		},
 	}
 }
@@ -281,16 +233,17 @@ func tsaCertAuthorityFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{}
 
 func securesignFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
-		// http url vs grpc url fuzzers are figting between for ServiceReference fuzzer funcs - do not use them and overwrite
+		// v1 ServiceReference fields need per-field URL schemes (gRPC for Trillian, HTTP
+		// for the rest); no single type-keyed fuzzer func can tell them apart, so set them explicitly.
 		func(s *rhtasv1.Securesign, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Spec.Ctlog.Trillian = randServiceReference(c, randGrpcUrl)
-			s.Spec.Rekor.Trillian = randServiceReference(c, randGrpcUrl)
+			s.Spec.Ctlog.Trillian = randServiceReference(c, urlfuzz.GRPCURL)
+			s.Spec.Rekor.Trillian = randServiceReference(c, urlfuzz.GRPCURL)
 
-			s.Spec.Tuf.Ctlog = randServiceReference(c, randHttpUrl)
-			s.Spec.Tuf.Rekor = randServiceReference(c, randHttpUrl)
-			s.Spec.Tuf.Fulcio = randServiceReferenceWithOIDC(c, randHttpUrl)
-			s.Spec.Tuf.Tsa = randServiceReference(c, randHttpUrl)
+			s.Spec.Tuf.Ctlog = randServiceReference(c, httpURLWithPath)
+			s.Spec.Tuf.Rekor = randServiceReference(c, httpURLWithPath)
+			s.Spec.Tuf.Fulcio = randServiceReferenceWithOIDC(c, httpURLWithPath)
+			s.Spec.Tuf.Tsa = randServiceReference(c, httpURLWithPath)
 		},
 	}
 }
@@ -301,8 +254,8 @@ func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *rhtasv1.CTlog, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Spec.Prefix = randUrlPath(c)
-			s.Status.Url = randHttpUrl(c, c.Bool())
+			s.Spec.Prefix = urlfuzz.URLPath(c)
+			s.Status.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
 			if s.Status.Url != "" {
 				s.Status.Url += "/" + s.Spec.Prefix
 			}
@@ -310,7 +263,7 @@ func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 		},
 		func(s *CTlog, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Status.Url = randHttpUrl(c, c.Bool())
+			s.Status.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
 		},
 	}
 }
@@ -320,14 +273,14 @@ func tsaStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *rhtasv1.TimestampAuthorityStatus, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Url = randHttpUrl(c, c.Bool())
+			s.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
 			if s.Url != "" {
 				s.Url += rhtasv1.TimestampPath
 			}
 		},
 		func(s *TimestampAuthorityStatus, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Url = randHttpUrl(c, c.Bool())
+			s.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
 			// NTPMonitoring: only Config.NtpConfigRef survives roundtrip via v1 NtpConfigRef
 			if s.NTPMonitoring != nil {
 				var ref *LocalObjectReference
@@ -409,20 +362,20 @@ func securesignStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{}
 	return []interface{}{
 		func(s *rhtasv1.SecuresignStatus, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.TSAStatus.Url = randHttpUrl(c, c.Bool())
+			s.TSAStatus.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
 			if s.TSAStatus.Url != "" {
 				s.TSAStatus.Url += rhtasv1.TimestampPath
 			}
-			s.RekorStatus.Url = randHttpUrl(c, c.Bool())
-			s.FulcioStatus.Url = randHttpUrl(c, c.Bool())
-			s.TufStatus.Url = randHttpUrl(c, c.Bool())
+			s.RekorStatus.Url = urlfuzz.HTTPURL(c, c.Bool(), c.Bool())
+			s.FulcioStatus.Url = urlfuzz.HTTPURL(c, c.Bool(), c.Bool())
+			s.TufStatus.Url = urlfuzz.HTTPURL(c, c.Bool(), c.Bool())
 		},
 		func(s *SecuresignStatus, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.TSAStatus.Url = randHttpUrl(c, c.Bool())
-			s.RekorStatus.Url = randHttpUrl(c, c.Bool())
-			s.FulcioStatus.Url = randHttpUrl(c, c.Bool())
-			s.TufStatus.Url = randHttpUrl(c, c.Bool())
+			s.TSAStatus.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
+			s.RekorStatus.Url = urlfuzz.HTTPURL(c, c.Bool(), c.Bool())
+			s.FulcioStatus.Url = urlfuzz.HTTPURL(c, c.Bool(), c.Bool())
+			s.TufStatus.Url = urlfuzz.HTTPURL(c, c.Bool(), c.Bool())
 		},
 	}
 }
@@ -458,6 +411,7 @@ func TestCTlogConversion(t *testing.T) {
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			ctlogFuzzerFuncs,
 			trillianServiceFuzzerFuncs,
+			grpcServiceReferenceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
@@ -471,6 +425,7 @@ func TestRekorConversion(t *testing.T) {
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			rekorStatusFuzzerFuncs,
 			trillianServiceFuzzerFuncs,
+			grpcServiceReferenceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
@@ -511,6 +466,7 @@ func TestTufConversion(t *testing.T) {
 			rekorServiceFuzzerFuncs,
 			fulcioServiceFuzzerFuncs,
 			tsaServiceFuzzerFuncs,
+			httpServiceReferenceFuzzerFuncs,
 		},
 	}))
 }

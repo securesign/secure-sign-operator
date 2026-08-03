@@ -43,6 +43,41 @@ func TestBuildURL(t *testing.T) {
 			wantURL: "http://ctlog.ns.svc:6963/trusted-artifact-signer",
 		},
 		{
+			name:    "address already carrying its own path, plus a prefix",
+			address: "address.org/path",
+			port:    ptr.To(int32(9999)),
+			path:    "shard1",
+			wantURL: "//address.org:9999/path/shard1",
+		},
+		{
+			name:    "address path has trailing slash, plus prefix",
+			address: "address.org/path/",
+			port:    ptr.To(int32(9999)),
+			path:    "shard1",
+			wantURL: "//address.org:9999/path/shard1",
+		},
+		{
+			name:    "address path has no trailing slash, prefix has leading slash",
+			address: "address.org/path",
+			port:    ptr.To(int32(9999)),
+			path:    "/shard1",
+			wantURL: "//address.org:9999/path/shard1",
+		},
+		{
+			name:    "address path and prefix both have their own slash",
+			address: "address.org/path/",
+			port:    ptr.To(int32(9999)),
+			path:    "/shard1",
+			wantURL: "//address.org:9999/path/shard1",
+		},
+		{
+			name:    "prefix itself has a trailing slash",
+			address: "address.org/path",
+			port:    ptr.To(int32(9999)),
+			path:    "shard1/",
+			wantURL: "//address.org:9999/path/shard1/",
+		},
+		{
 			name:    "empty address with port",
 			address: "",
 			port:    ptr.To(int32(8080)),
@@ -122,8 +157,14 @@ func TestServiceReferenceToAddressPort(t *testing.T) {
 		{
 			name:        "schemeless with host and port",
 			url:         "//host:330/path",
-			wantAddress: "host",
+			wantAddress: "//host/path",
 			wantPort:    ptr.To(int32(330)),
+		},
+		{
+			name:        "url with userinfo and query",
+			url:         "https://user:pass@rekor.ns.svc:8080/path?token=abc123",
+			wantAddress: "https://user:pass@rekor.ns.svc/path?token=abc123",
+			wantPort:    ptr.To(int32(8080)),
 		},
 		{
 			name:        "http with empty host and port",
@@ -227,6 +268,12 @@ func TestGrpcServiceReferenceToAddressPort(t *testing.T) {
 			url:         "dns://authority:53/trillian-logserver.ns.svc:8091",
 			wantAddress: "dns://authority:53/trillian-logserver.ns.svc",
 			wantPort:    ptr.To(int32(8091)),
+		},
+		{
+			name:        "dns with authority port but portless target",
+			url:         "dns://authority:53/trillian-logserver.ns.svc",
+			wantAddress: "dns://authority:53/trillian-logserver.ns.svc",
+			wantPort:    nil,
 		},
 		{
 			name:        "dns without port",
