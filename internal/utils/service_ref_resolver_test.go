@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/internal/serviceresolver"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -274,6 +275,46 @@ func TestResolveExternalServiceUrl_URLTakesPrecedence(t *testing.T) {
 
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(u).To(Equal("https://external.example.com"))
+}
+
+func TestResolveExternalServiceUrl_SchemelessMergesPortAndPath(t *testing.T) {
+	setup := func(t *testing.T) client.Client {
+		t.Helper()
+		rekor := &rhtasv1.Rekor{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-rekor", Namespace: "ns"},
+		}
+		cl := fake.NewClientBuilder().WithScheme(testScheme()).WithStatusSubresource(rekor).WithObjects(rekor).Build()
+		rekor.Status.Url = "https://rekor.apps.cluster.example.com/default-path"
+		rekor.Status.Conditions = []metav1.Condition{
+			{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Ready", LastTransitionTime: metav1.Now()},
+		}
+		NewWithT(t).Expect(cl.Status().Update(t.Context(), rekor)).To(Succeed())
+		return cl
+	}
+
+	t.Run("path only merges with resolved host", func(t *testing.T) {
+		g := NewWithT(t)
+		u, err := ResolveExternalServiceUrl(t.Context(), setup(t),
+			rhtasv1.ServiceReference{URL: "///custom-prefix"}, "ns", &rhtasv1.Rekor{})
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(u).To(Equal("https://rekor.apps.cluster.example.com/custom-prefix"))
+	})
+
+	t.Run("port and path merge with resolved host", func(t *testing.T) {
+		g := NewWithT(t)
+		u, err := ResolveExternalServiceUrl(t.Context(), setup(t),
+			rhtasv1.ServiceReference{URL: "//:8080/custom-prefix"}, "ns", &rhtasv1.Rekor{})
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(u).To(Equal("https://rekor.apps.cluster.example.com:8080/custom-prefix"))
+	})
+
+	t.Run("empty URL uses resolved as-is", func(t *testing.T) {
+		g := NewWithT(t)
+		u, err := ResolveExternalServiceUrl(t.Context(), setup(t),
+			rhtasv1.ServiceReference{}, "ns", &rhtasv1.Rekor{})
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(u).To(Equal("https://rekor.apps.cluster.example.com/default-path"))
+	})
 }
 
 func TestResolveExternalServiceUrl_FromStatus(t *testing.T) {

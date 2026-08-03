@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"regexp"
+	"strings"
 
 	v1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/apis"
@@ -28,20 +29,12 @@ var portRe = regexp.MustCompile(`:(\d+)$`)
 
 func ResolveInternalServiceUrl(ctx context.Context, cl client.Client, serviceRef apis.ServiceReferencer, instanceNamespace string, instance client.Object) (string, error) {
 	ref := serviceRef.GetServiceRef()
-	var (
-		users    = &url.URL{}
-		resolved *url.URL
-		err      error
-	)
-	if ref.URL != "" {
-		users, err = url.Parse(ref.URL)
-		if err != nil {
-			return "", err
-		}
-		// user specified enough drop autodiscovery
-		if users.Hostname() != "" {
-			return users.String(), nil
-		}
+	users, done, err := parseUserURL(ref)
+	if err != nil {
+		return "", err
+	}
+	if done {
+		return users.String(), nil
 	}
 
 	if err := serviceRefOrAutoload(ctx, cl, ref, instanceNamespace, instance); err != nil {
@@ -51,28 +44,17 @@ func ResolveInternalServiceUrl(ctx context.Context, cl client.Client, serviceRef
 	if err != nil {
 		return "", err
 	}
-	resolved, err = url.Parse(resolvedService)
-	if err != nil {
-		return "", err
-	}
-
-	// no users host specified, use resolved host and scheme
-	users.Scheme = resolved.Scheme
-	if users.Port() == "" {
-		users.Host = resolved.Host
-	} else {
-		users.Host = net.JoinHostPort(resolved.Hostname(), users.Port())
-	}
-	if users.Path == "" {
-		users.Path = resolved.Path
-	}
-	return users.String(), nil
+	return mergeURLs(users, resolvedService)
 }
 
 func ResolveExternalServiceUrl(ctx context.Context, cl client.Client, serviceRef apis.ServiceReferencer, instanceNamespace string, instance apis.AddressableConditionAware) (string, error) {
 	ref := serviceRef.GetServiceRef()
-	if ref.URL != "" {
-		return ref.URL, nil
+	users, done, err := parseUserURL(ref)
+	if err != nil {
+		return "", err
+	}
+	if done {
+		return users.String(), nil
 	}
 
 	if err := serviceRefOrAutoload(ctx, cl, ref, instanceNamespace, instance); err != nil {
@@ -81,11 +63,46 @@ func ResolveExternalServiceUrl(ctx context.Context, cl client.Client, serviceRef
 	if !meta.IsStatusConditionTrue(instance.GetConditions(), constants.ReadyCondition) {
 		return "", fmt.Errorf("%w: %T %s", ErrServiceNotReady, instance, instance.GetName())
 	}
-	url := instance.GetServiceURL()
-	if url == "" {
+	serviceURL := instance.GetServiceURL()
+	if serviceURL == "" {
 		return "", fmt.Errorf("%T %s: service url is empty", instance, instance.GetName())
 	}
-	return url, nil
+	return mergeURLs(users, serviceURL)
+}
+
+// parseUserURL extracts user overrides from a ServiceReference URL.
+// Returns done=true when the URL already has a hostname (no autodiscovery needed).
+func parseUserURL(ref v1.ServiceReference) (users *url.URL, done bool, err error) {
+	users = &url.URL{}
+	if ref.URL == "" {
+		return users, false, nil
+	}
+	users, err = url.Parse(ref.URL)
+	if err != nil {
+		return nil, false, err
+	}
+	return users, users.Hostname() != "", nil
+}
+
+// mergeURLs combines a user's port/path overrides with an autodiscovered URL.
+func mergeURLs(users *url.URL, resolvedRaw string) (string, error) {
+	resolved, err := url.Parse(resolvedRaw)
+	if err != nil {
+		return "", err
+	}
+	users.Scheme = resolved.Scheme
+	if users.Port() == "" {
+		users.Host = resolved.Host
+	} else {
+		users.Host = net.JoinHostPort(resolved.Hostname(), users.Port())
+	}
+	userPath := strings.TrimLeft(users.Path, "/")
+	if userPath == "" {
+		users.Path = resolved.Path
+	} else {
+		users.Path = "/" + userPath
+	}
+	return users.String(), nil
 }
 
 func ResolveInternalGrpcService(ctx context.Context, cl client.Client, serviceRef apis.ServiceReferencer, instanceNamespace string, instance client.Object) (address string, port string, err error) {

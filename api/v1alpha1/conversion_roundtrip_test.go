@@ -38,9 +38,8 @@ func rhtasScheme() *runtime.Scheme {
 	return s
 }
 
-// enabledFieldsFuzzerFuncs ensures *bool Enabled fields are never nil in fuzzed v1 hub objects.
-// In production, nil is unreachable because the CRD schema defaulter always sets these fields.
-// The fuzzer bypasses the API server, so we replicate that invariant here.
+// enabledFieldsFuzzerFuncs ensures *bool Enabled fields are never nil, matching the
+// CRD defaulter's guarantee (the fuzzer bypasses the API server, so we replicate it).
 func enabledFieldsFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *rhtasv1.Ingress, c randfill.Continue) {
@@ -178,9 +177,8 @@ func fulcioServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	}
 }
 
-// tsaSignerFuzzerFuncs constrains to one signer at a time — not a validation rule,
-// but a conversion limitation: if multiple signers (Kms/Tink) are configured, their
-// per-signer Auth is merged into a single v1 Auth field and we can't split it back.
+// tsaSignerFuzzerFuncs constrains to one signer at a time: with multiple signers
+// (Kms/Tink) their per-signer Auth merges into one v1 Auth field and can't split back.
 func tsaSignerFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *TimestampAuthoritySigner, c randfill.Continue) {
@@ -248,8 +246,8 @@ func securesignFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	}
 }
 
-// ctlogFuzzerFuncs constrains the CTlog spec and status for proper roundtrip.
-// We need to fuzz the whole CTlog object because the URL - suffix of the URL - is stored in the status.
+// ctlogFuzzerFuncs constrains CTlog spec/status so Status.Url stays consistent with
+// the Prefix suffix it's built from.
 func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *rhtasv1.CTlog, c randfill.Continue) {
@@ -355,9 +353,8 @@ func trillianStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	}
 }
 
-// securesignStatusFuzzerFuncs constrains SecuresignStatus URL fields to valid HTTP URLs.
-// Status URLs go through url.Parse in urlWithPath/urlWithoutPath during conversion;
-// v1 TSAStatus.Url includes the TimestampPath suffix that conversion adds/removes.
+// securesignStatusFuzzerFuncs constrains SecuresignStatus URL fields to valid HTTP
+// URLs; v1 TSAStatus.Url also carries the TimestampPath suffix conversion adds/removes.
 func securesignStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *rhtasv1.SecuresignStatus, c randfill.Continue) {

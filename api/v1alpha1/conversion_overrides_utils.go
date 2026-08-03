@@ -14,9 +14,10 @@ import (
 const schemeSeparator = "//"
 
 // buildURL builds a URL from an address, optional port, and optional path.
+// When address is empty the result is a schemeless authority-form URI per
+// RFC 3986 (e.g. "//:8080/prefix" or "///prefix").
 func buildURL(address string, port *int32, path string) (string, error) {
 	if !strings.Contains(address, schemeSeparator) {
-		// use schemeless URI syntax
 		address = schemeSeparator + address
 	}
 
@@ -28,10 +29,17 @@ func buildURL(address string, port *int32, path string) (string, error) {
 		u.Host = net.JoinHostPort(u.Hostname(), strconv.FormatInt(int64(*port), 10))
 	}
 	if path != "" {
-		// appends to any path address already carries, instead of overwriting it
 		u.Path = u.JoinPath(path).Path
+		if !strings.HasPrefix(u.Path, "/") {
+			u.Path = "/" + u.Path
+		}
 	}
-	return u.String(), nil
+	result := u.String()
+	// url.String() omits "//" when Host is empty; restore for RFC 3986.
+	if u.Scheme == "" && u.Host == "" && result != "" && !strings.HasPrefix(result, schemeSeparator) {
+		result = schemeSeparator + result
+	}
+	return result, nil
 }
 
 // splitURLPath splits rawURL into path and everything else. Query/fragment stay on
@@ -47,9 +55,7 @@ func splitURLPath(rawURL string) (base, path string, err error) {
 	return u.String(), path, nil
 }
 
-// serviceReferenceToAddressPort splits a URL into address (everything but the port)
-// and port, by mutating url.URL.Host and re-serializing — so query, userinfo, etc.
-// round-trip for free instead of needing to be handled one by one.
+// serviceReferenceToAddressPort splits a URL into address (everything but the port) and port.
 func serviceReferenceToAddressPort(in *v1.ServiceReference, address *string, port **int32) error {
 	if in.URL == "" {
 		return nil
@@ -80,10 +86,8 @@ func serviceReferenceToAddressPort(in *v1.ServiceReference, address *string, por
 	return nil
 }
 
-// grpcTargetPortRe matches a trailing :port, anchored to end-of-string so it can't
-// match a port embedded in the resolver authority (always followed by "/" before the
-// target). Not net/url-based: a bare "host:port" target has no scheme, and url.Parse
-// misreads that as scheme "host" with opaque "port".
+// grpcTargetPortRe matches a trailing :port. Not net/url-based: a bare "host:port"
+// target has no scheme, and url.Parse misreads that as scheme "host".
 var grpcTargetPortRe = regexp.MustCompile(`:(\d+)$`)
 
 // grpcServiceReferenceToAddressPort splits a gRPC target (grpc/grpc's doc/naming.md)

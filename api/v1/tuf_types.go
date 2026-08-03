@@ -60,19 +60,19 @@ type TufSpec struct {
 	Pvc Pvc `json:"pvc,omitempty"`
 	// Ctlog service configuration
 	//+optional
-	//+kubebuilder:validation:XValidation:rule="!has(self.url) || size(self.url) == 0 || self.url.matches('^[a-zA-Z][a-zA-Z0-9+.-]*://[^/]+/.+$')",message="url must follow the pattern scheme://host[:port]/path"
+	//+kubebuilder:validation:XValidation:rule="!has(self.url) || size(self.url) == 0 || self.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/]+/.+|//[^/]*/.+)$')",message="url must follow the pattern scheme://host[:port]/path or //[:port]/path"
 	Ctlog ServiceReference `json:"ctlog,omitempty"`
 	// Fulcio service configuration
 	//+optional
-	//+kubebuilder:validation:XValidation:rule="!has(self.url) || size(self.url) == 0 || self.url.matches('^[a-zA-Z][a-zA-Z0-9+.-]*://[^/].*$')",message="url must follow the pattern scheme://host[:port][/path]"
+	//+kubebuilder:validation:XValidation:rule="!has(self.url) || size(self.url) == 0 || self.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$')",message="url must follow the pattern scheme://host[:port][/path] or //[:port][/path]"
 	Fulcio ServiceRefWithOIDC `json:"fulcio,omitempty"`
 	// Rekor service configuration
 	//+optional
-	//+kubebuilder:validation:XValidation:rule="!has(self.url) || size(self.url) == 0 || self.url.matches('^[a-zA-Z][a-zA-Z0-9+.-]*://[^/].*$')",message="url must follow the pattern scheme://host[:port][/path]"
+	//+kubebuilder:validation:XValidation:rule="!has(self.url) || size(self.url) == 0 || self.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$')",message="url must follow the pattern scheme://host[:port][/path] or //[:port][/path]"
 	Rekor ServiceReference `json:"rekor,omitempty"`
 	// TSA service configuration
 	//+optional
-	//+kubebuilder:validation:XValidation:rule="!has(self.url) || size(self.url) == 0 || self.url.matches('^[a-zA-Z][a-zA-Z0-9+.-]*://[^/].*$')",message="url must follow the pattern scheme://host[:port][/path]"
+	//+kubebuilder:validation:XValidation:rule="!has(self.url) || size(self.url) == 0 || self.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$')",message="url must follow the pattern scheme://host[:port][/path] or //[:port][/path]"
 	Tsa ServiceReference `json:"tsa,omitempty"`
 
 	// ConfigMap with additional bundle of trusted CA

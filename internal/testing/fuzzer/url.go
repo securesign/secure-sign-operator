@@ -69,8 +69,7 @@ func bracketHost(host string) string {
 	return host
 }
 
-// hostPort returns Host(c), with a random port appended via net.JoinHostPort (which
-// brackets IPv6 itself) if withPort, or bracketHost(host) alone otherwise.
+// hostPort returns a host, with a random port if withPort.
 func hostPort(c randfill.Continue, withPort bool) string {
 	host := Host(c)
 	if withPort {
@@ -79,9 +78,8 @@ func hostPort(c randfill.Continue, withPort bool) string {
 	return bracketHost(host)
 }
 
-// HTTPURL returns a random http(s) URL, or empty. withPort/withPath are
-// deterministic gates — true always adds that piece, false never does — so pass
-// false for a bare base a caller appends its own path onto.
+// HTTPURL returns a random http(s) URL, or empty. withPort/withPath force that
+// piece on/off; pass withPath=false for a bare base to append a path onto later.
 func HTTPURL(c randfill.Continue, withPort, withPath bool) string {
 	if c.Intn(4) == 0 {
 		return ""
@@ -109,8 +107,7 @@ func HTTPURL(c randfill.Continue, withPort, withPath bool) string {
 	return u.String()
 }
 
-// GRPCURL returns a random "dns:" target (see grpc/grpc's doc/naming.md), with or
-// without a resolver authority and port, or empty. No path/query — targets have none.
+// GRPCURL returns a random "dns:///host[:port]" gRPC target, or empty.
 func GRPCURL(c randfill.Continue, withPort bool) string {
 	if c.Intn(4) == 0 {
 		return ""

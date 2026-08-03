@@ -987,8 +987,9 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-validations:
-                - message: url must follow the pattern scheme://host[:port]/path
-                  rule: '!has(self.url) || size(self.url) == 0 || self.url.matches(''^[a-zA-Z][a-zA-Z0-9+.-]*://[^/]+/.+$'')'
+                - message: url must follow the pattern scheme://host[:port]/path or
+                    //[:port]/path
+                  rule: '!has(self.url) || size(self.url) == 0 || self.url.matches(''^([a-zA-Z][a-zA-Z0-9+.-]*://[^/]+/.+|//[^/]*/.+)$'')'
                 - message: ref and url are mutually exclusive
                   rule: '!(has(self.ref) && has(self.url) && size(self.url) > 0)'
               fulcio:
@@ -1028,7 +1029,8 @@ spec:
                 type: object
                 x-kubernetes-validations:
                 - message: url must follow the pattern scheme://host[:port][/path]
-                  rule: '!has(self.url) || size(self.url) == 0 || self.url.matches(''^[a-zA-Z][a-zA-Z0-9+.-]*://[^/].*$'')'
+                    or //[:port][/path]
+                  rule: '!has(self.url) || size(self.url) == 0 || self.url.matches(''^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$'')'
                 - message: ref and url are mutually exclusive
                   rule: '!(has(self.ref) && has(self.url) && size(self.url) > 0)'
               imagePullSecrets:
@@ -1203,7 +1205,8 @@ spec:
                 type: object
                 x-kubernetes-validations:
                 - message: url must follow the pattern scheme://host[:port][/path]
-                  rule: '!has(self.url) || size(self.url) == 0 || self.url.matches(''^[a-zA-Z][a-zA-Z0-9+.-]*://[^/].*$'')'
+                    or //[:port][/path]
+                  rule: '!has(self.url) || size(self.url) == 0 || self.url.matches(''^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$'')'
                 - message: ref and url are mutually exclusive
                   rule: '!(has(self.ref) && has(self.url) && size(self.url) > 0)'
               replicas:
@@ -1363,7 +1366,8 @@ spec:
                 type: object
                 x-kubernetes-validations:
                 - message: url must follow the pattern scheme://host[:port][/path]
-                  rule: '!has(self.url) || size(self.url) == 0 || self.url.matches(''^[a-zA-Z][a-zA-Z0-9+.-]*://[^/].*$'')'
+                    or //[:port][/path]
+                  rule: '!has(self.url) || size(self.url) == 0 || self.url.matches(''^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$'')'
                 - message: ref and url are mutually exclusive
                   rule: '!(has(self.ref) && has(self.url) && size(self.url) > 0)'
             type: object

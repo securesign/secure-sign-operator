@@ -218,10 +218,11 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 
 	trillianService := wrapped.GetTrillianService()
 
-	trillUrl, err = utils.ResolveInternalServiceUrl(ctx, i.Client, *trillianService, instance.GetNamespace(), &rhtasv1.Trillian{})
+	trillHost, trillPort, err := utils.ResolveInternalGrpcService(ctx, i.Client, *trillianService, instance.GetNamespace(), &rhtasv1.Trillian{})
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not resolve trillian service: %w", err), instance)
 	}
+	trillUrl = fmt.Sprintf("%s:%s", trillHost, trillPort)
 	i.Logger.V(1).Info("trillian logserver", "address", trillUrl)
 
 	job := &batchv1.Job{
