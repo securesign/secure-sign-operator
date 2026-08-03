@@ -16,7 +16,6 @@ func TestBuildURL(t *testing.T) {
 		port    *int32
 		path    string
 		wantURL string
-		wantErr bool
 	}{
 		{
 			name:    "address with scheme and port",
@@ -33,7 +32,7 @@ func TestBuildURL(t *testing.T) {
 			name:    "address without scheme",
 			address: "rekor.ns.svc",
 			port:    ptr.To(int32(8080)),
-			wantErr: true,
+			wantURL: "//rekor.ns.svc:8080",
 		},
 		{
 			name:    "address with port and path",
@@ -43,16 +42,37 @@ func TestBuildURL(t *testing.T) {
 			wantURL: "http://ctlog.ns.svc:6963/trusted-artifact-signer",
 		},
 		{
-			name:    "replaces existing path",
-			address: "http://tsa.ns.svc:3000/old",
-			path:    "/api/v1/timestamp",
-			wantURL: "http://tsa.ns.svc:3000/api/v1/timestamp",
+			name:    "address already carrying its own path, plus a prefix",
+			address: "address.org/path",
+			port:    ptr.To(int32(9999)),
+			path:    "shard1",
+			wantURL: "//address.org:9999/path/shard1",
 		},
 		{
-			name:    "empty address",
+			name:    "prefix itself has a trailing slash",
+			address: "address.org/path",
+			port:    ptr.To(int32(9999)),
+			path:    "shard1/",
+			wantURL: "//address.org:9999/path/shard1/",
+		},
+		{
+			name:    "empty address with port",
 			address: "",
 			port:    ptr.To(int32(8080)),
-			wantURL: "",
+			wantURL: "//:8080",
+		},
+		{
+			name:    "empty address with port and path",
+			address: "",
+			port:    ptr.To(int32(6962)),
+			path:    "trusted-artifact-signer",
+			wantURL: "//:6962/trusted-artifact-signer",
+		},
+		{
+			name:    "empty address with path only",
+			address: "",
+			path:    "trusted-artifact-signer",
+			wantURL: "///trusted-artifact-signer",
 		},
 		{
 			name:    "both empty",
@@ -64,10 +84,6 @@ func TestBuildURL(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
 			got, err := buildURL(tt.address, tt.port, tt.path)
-			if tt.wantErr {
-				g.Expect(err).To(HaveOccurred())
-				return
-			}
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(got).To(Equal(tt.wantURL))
 		})
@@ -80,7 +96,6 @@ func TestServiceReferenceToAddressPort(t *testing.T) {
 		url         string
 		wantAddress string
 		wantPort    *int32
-		wantErr     bool
 	}{
 		{
 			name:        "url with port",
@@ -92,18 +107,40 @@ func TestServiceReferenceToAddressPort(t *testing.T) {
 			name:        "url without port",
 			url:         "http://rekor.ns.svc",
 			wantAddress: "http://rekor.ns.svc",
-			wantPort:    nil,
 		},
 		{
 			name:        "empty url",
 			url:         "",
 			wantAddress: "",
-			wantPort:    nil,
 		},
 		{
-			name:    "url without scheme",
-			url:     "rekor.ns.svc:8080",
-			wantErr: true,
+			name:        "schemeless with port and path",
+			url:         "//:330/path",
+			wantAddress: "",
+			wantPort:    ptr.To(int32(330)),
+		},
+		{
+			name:        "schemeless with host and port",
+			url:         "//host:330/path",
+			wantAddress: "//host/path",
+			wantPort:    ptr.To(int32(330)),
+		},
+		{
+			name:        "url with userinfo and query",
+			url:         "https://user:pass@rekor.ns.svc:8080/path?token=abc123",
+			wantAddress: "https://user:pass@rekor.ns.svc/path?token=abc123",
+			wantPort:    ptr.To(int32(8080)),
+		},
+		{
+			name:        "http with empty host and port",
+			url:         "http://:330/path",
+			wantAddress: "",
+			wantPort:    ptr.To(int32(330)),
+		},
+		{
+			name:        "bare path only",
+			url:         "user",
+			wantAddress: "",
 		},
 	}
 	for _, tt := range tests {
@@ -112,10 +149,6 @@ func TestServiceReferenceToAddressPort(t *testing.T) {
 			var address string
 			var port *int32
 			err := serviceReferenceToAddressPort(&rhtasv1.ServiceReference{URL: tt.url}, &address, &port)
-			if tt.wantErr {
-				g.Expect(err).To(HaveOccurred())
-				return
-			}
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(address).To(Equal(tt.wantAddress))
 			g.Expect(port).To(Equal(tt.wantPort))
@@ -131,6 +164,7 @@ func TestBuildURLRoundTrip(t *testing.T) {
 	}{
 		{"with port", "http://rekor.ns.svc", ptr.To(int32(3000))},
 		{"without port", "http://rekor.ns.svc", nil},
+		{"empty address with port", "", ptr.To(int32(8080))},
 		{"empty", "", nil},
 	}
 	for _, tt := range tests {
@@ -148,20 +182,6 @@ func TestBuildURLRoundTrip(t *testing.T) {
 			g.Expect(gotPort).To(Equal(tt.port))
 		})
 	}
-}
-
-func TestSplitURLPathBaseOnly(t *testing.T) {
-	g := NewWithT(t)
-
-	base, path, err := splitURLPath("http://tsa.ns.svc:3000/api/v1/timestamp")
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(base).To(Equal("http://tsa.ns.svc:3000"))
-	g.Expect(path).To(Equal("api/v1/timestamp"))
-
-	base, path, err = splitURLPath("http://tsa.ns.svc:3000")
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(base).To(Equal("http://tsa.ns.svc:3000"))
-	g.Expect(path).To(Equal(""))
 }
 
 func TestGrpcServiceReferenceToAddressPort(t *testing.T) {
@@ -184,16 +204,19 @@ func TestGrpcServiceReferenceToAddressPort(t *testing.T) {
 			wantPort:    ptr.To(int32(8091)),
 		},
 		{
+			name:        "dns with authority port but portless target",
+			url:         "dns://authority:53/trillian-logserver.ns.svc",
+			wantAddress: "dns://authority:53/trillian-logserver.ns.svc",
+		},
+		{
 			name:        "dns without port",
 			url:         "dns:///trillian-logserver.ns.svc",
 			wantAddress: "dns:///trillian-logserver.ns.svc",
-			wantPort:    nil,
 		},
 		{
 			name:        "empty url",
 			url:         "",
 			wantAddress: "",
-			wantPort:    nil,
 		},
 	}
 	for _, tt := range tests {
@@ -244,7 +267,6 @@ func TestSplitURLPath(t *testing.T) {
 		url      string
 		wantBase string
 		wantPath string
-		wantErr  bool
 	}{
 		{
 			name:     "url with path",
@@ -256,29 +278,50 @@ func TestSplitURLPath(t *testing.T) {
 			name:     "url without path",
 			url:      "http://ctlog.ns.svc:8080",
 			wantBase: "http://ctlog.ns.svc:8080",
-			wantPath: "",
 		},
 		{
 			name:     "url with nested path",
-			url:      "http://ctlog.ns.svc:8080/a/b/c",
-			wantBase: "http://ctlog.ns.svc:8080",
-			wantPath: "a/b/c",
+			url:      "http://tsa.ns.svc:3000/api/v1/timestamp",
+			wantBase: "http://tsa.ns.svc:3000",
+			wantPath: "api/v1/timestamp",
 		},
 		{
 			name:     "url with trailing slash",
 			url:      "http://ctlog.ns.svc:8080/",
 			wantBase: "http://ctlog.ns.svc:8080",
-			wantPath: "",
+		},
+		{
+			name:     "schemeless with port and path",
+			url:      "//:330/path",
+			wantBase: "//:330",
+			wantPath: "path",
+		},
+		{
+			name:     "schemeless path only",
+			url:      "///path",
+			wantPath: "path",
+		},
+		{
+			name:     "schemeless host port path",
+			url:      "//host:330/path",
+			wantBase: "//host:330",
+			wantPath: "path",
+		},
+		{
+			name:     "http empty host with port and path",
+			url:      "http://:330/path",
+			wantBase: "http://:330",
+			wantPath: "path",
+		},
+		{
+			name: "empty url",
+			url:  "",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
 			base, path, err := splitURLPath(tt.url)
-			if tt.wantErr {
-				g.Expect(err).To(HaveOccurred())
-				return
-			}
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(base).To(Equal(tt.wantBase))
 			g.Expect(path).To(Equal(tt.wantPath))

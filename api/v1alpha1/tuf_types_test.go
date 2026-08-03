@@ -343,6 +343,9 @@ func generateTufObject(name string) *Tuf {
 					"ReadWriteOnce",
 				},
 			},
+			Ctlog: CtlogService{
+				Prefix: "trusted-artifact-signer",
+			},
 		},
 	}
 }

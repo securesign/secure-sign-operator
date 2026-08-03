@@ -77,10 +77,11 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrPrivateKeyNotSpecified), instance)
 	}
 
-	trillianUrl, err := utils.ResolveInternalServiceUrl(ctx, i.Client, instance.Spec.Trillian, instance.Namespace, &rhtasv1.Trillian{})
+	trillianHost, trillianPort, err := utils.ResolveInternalGrpcService(ctx, i.Client, instance.Spec.Trillian, instance.Namespace, &rhtasv1.Trillian{})
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("error resolving Trillian URL: %w", err), instance)
 	}
+	trillianUrl := fmt.Sprintf("%s:%s", trillianHost, trillianPort)
 
 	// Validate existing secret before attempting recreation
 	if instance.Status.ServerConfigRef != nil && instance.Status.ServerConfigRef.Name != "" {

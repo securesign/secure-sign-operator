@@ -3,6 +3,10 @@ package utils
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/url"
+	"regexp"
+	"strings"
 
 	v1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/apis"
@@ -19,22 +23,38 @@ var (
 	ErrServiceNotReady     = fmt.Errorf("service is not ready")
 )
 
+// portRe matches a trailing :port, anchored to end-of-string so it can't match a
+// port embedded in the resolver authority (always followed by "/" before the target).
+var portRe = regexp.MustCompile(`:(\d+)$`)
+
 func ResolveInternalServiceUrl(ctx context.Context, cl client.Client, serviceRef apis.ServiceReferencer, instanceNamespace string, instance client.Object) (string, error) {
 	ref := serviceRef.GetServiceRef()
-	if ref.URL != "" {
-		return ref.URL, nil
+	users, done, err := parseUserURL(ref)
+	if err != nil {
+		return "", err
+	}
+	if done {
+		return users.String(), nil
 	}
 
 	if err := serviceRefOrAutoload(ctx, cl, ref, instanceNamespace, instance); err != nil {
 		return "", err
 	}
-	return serviceresolver.Resolve(instance)
+	resolvedService, err := serviceresolver.Resolve(instance)
+	if err != nil {
+		return "", err
+	}
+	return mergeURLs(users, resolvedService)
 }
 
 func ResolveExternalServiceUrl(ctx context.Context, cl client.Client, serviceRef apis.ServiceReferencer, instanceNamespace string, instance apis.AddressableConditionAware) (string, error) {
 	ref := serviceRef.GetServiceRef()
-	if ref.URL != "" {
-		return ref.URL, nil
+	users, done, err := parseUserURL(ref)
+	if err != nil {
+		return "", err
+	}
+	if done {
+		return users.String(), nil
 	}
 
 	if err := serviceRefOrAutoload(ctx, cl, ref, instanceNamespace, instance); err != nil {
@@ -43,11 +63,84 @@ func ResolveExternalServiceUrl(ctx context.Context, cl client.Client, serviceRef
 	if !meta.IsStatusConditionTrue(instance.GetConditions(), constants.ReadyCondition) {
 		return "", fmt.Errorf("%w: %T %s", ErrServiceNotReady, instance, instance.GetName())
 	}
-	url := instance.GetServiceURL()
-	if url == "" {
+	serviceURL := instance.GetServiceURL()
+	if serviceURL == "" {
 		return "", fmt.Errorf("%T %s: service url is empty", instance, instance.GetName())
 	}
-	return url, nil
+	return mergeURLs(users, serviceURL)
+}
+
+// parseUserURL extracts user overrides from a ServiceReference URL.
+// Returns done=true when the URL already has a hostname (no autodiscovery needed).
+func parseUserURL(ref v1.ServiceReference) (users *url.URL, done bool, err error) {
+	users = &url.URL{}
+	if ref.URL == "" {
+		return users, false, nil
+	}
+	users, err = url.Parse(ref.URL)
+	if err != nil {
+		return nil, false, err
+	}
+	return users, users.Hostname() != "", nil
+}
+
+// mergeURLs combines a user's port/path overrides with an autodiscovered URL.
+func mergeURLs(users *url.URL, resolvedRaw string) (string, error) {
+	resolved, err := url.Parse(resolvedRaw)
+	if err != nil {
+		return "", err
+	}
+	users.Scheme = resolved.Scheme
+	if users.Port() == "" {
+		users.Host = resolved.Host
+	} else {
+		users.Host = net.JoinHostPort(resolved.Hostname(), users.Port())
+	}
+	userPath := strings.TrimLeft(users.Path, "/")
+	if userPath == "" {
+		users.Path = resolved.Path
+	} else {
+		users.Path = "/" + userPath
+	}
+	return users.String(), nil
+}
+
+func ResolveInternalGrpcService(ctx context.Context, cl client.Client, serviceRef apis.ServiceReferencer, instanceNamespace string, instance client.Object) (address string, port string, err error) {
+	ref := serviceRef.GetServiceRef()
+
+	var userAddress, userPort string
+	if ref.URL != "" {
+		userAddress, userPort = splitGrpcAddressPort(ref.URL)
+		if userAddress != "" && userAddress != "//" {
+			address = userAddress
+			port = userPort
+			return
+		}
+	}
+
+	if err = serviceRefOrAutoload(ctx, cl, ref, instanceNamespace, instance); err != nil {
+		return
+	}
+	var resolved string
+	resolved, err = serviceresolver.Resolve(instance)
+	if err != nil {
+		return
+	}
+	address, port = splitGrpcAddressPort(resolved)
+
+	if userPort != "" {
+		port = userPort
+	}
+	return
+}
+
+func splitGrpcAddressPort(raw string) (address, port string) {
+	matches := portRe.FindAllStringSubmatchIndex(raw, -1)
+	if len(matches) == 0 {
+		return raw, ""
+	}
+	m := matches[len(matches)-1]
+	return raw[:m[0]], raw[m[2]:m[3]]
 }
 
 func serviceRefOrAutoload(ctx context.Context, cl client.Client, serviceRef v1.ServiceReference, instanceNamespace string, instance client.Object) error {

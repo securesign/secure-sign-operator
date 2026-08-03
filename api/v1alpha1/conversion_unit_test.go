@@ -132,6 +132,7 @@ func TestSecuresignConversionUnit(t *testing.T) {
 						},
 						Tuf: rhtasv1.TufSpec{
 							Ingress: rhtasv1.Ingress{Enabled: ptr.To(false)},
+							Ctlog:   rhtasv1.ServiceReference{URL: "///trusted-artifact-signer"},
 						},
 						TimestampAuthority: &rhtasv1.TimestampAuthoritySpec{
 							Signer: rhtasv1.TimestampAuthoritySigner{
@@ -170,6 +171,9 @@ func TestSecuresignConversionUnit(t *testing.T) {
 						},
 						Ctlog: CTlogSpec{
 							TreeID: ptr.To[int64](67890),
+						},
+						Tuf: TufSpec{
+							Ctlog: CtlogService{Prefix: "trusted-artifact-signer"},
 						},
 						TimestampAuthority: &TimestampAuthoritySpec{
 							Signer: TimestampAuthoritySigner{

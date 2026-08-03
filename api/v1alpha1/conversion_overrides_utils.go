@@ -11,28 +11,17 @@ import (
 	v1 "github.com/securesign/operator/api/v1"
 )
 
-// parseURL parses rawURL and validates that scheme and host are present.
-func parseURL(rawURL string) (*url.URL, error) {
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return nil, fmt.Errorf("parsing URL %q: %w", rawURL, err)
-	}
-	if u.Scheme == "" {
-		return nil, fmt.Errorf("URL %q is missing scheme", rawURL)
-	}
-	if u.Host == "" {
-		return nil, fmt.Errorf("URL %q is missing host", rawURL)
-	}
-	return u, nil
-}
+const schemeSeparator = "//"
 
 // buildURL builds a URL from an address, optional port, and optional path.
+// When address is empty the result is a schemeless authority-form URI per
+// RFC 3986 (e.g. "//:8080/prefix" or "///prefix").
 func buildURL(address string, port *int32, path string) (string, error) {
-	if address == "" {
-		return "", nil
+	if !strings.Contains(address, schemeSeparator) {
+		address = schemeSeparator + address
 	}
 
-	u, err := parseURL(address)
+	u, err := url.Parse(address)
 	if err != nil {
 		return "", err
 	}
@@ -40,64 +29,78 @@ func buildURL(address string, port *int32, path string) (string, error) {
 		u.Host = net.JoinHostPort(u.Hostname(), strconv.FormatInt(int64(*port), 10))
 	}
 	if path != "" {
-		u.Path = path
+		u.Path = u.JoinPath(path).Path
+		if !strings.HasPrefix(u.Path, "/") {
+			u.Path = "/" + u.Path
+		}
 	}
-	return u.String(), nil
+	result := u.String()
+	// url.String() omits "//" when Host is empty; restore for RFC 3986.
+	if u.Scheme == "" && u.Host == "" && result != "" && !strings.HasPrefix(result, schemeSeparator) {
+		result = schemeSeparator + result
+	}
+	return result, nil
 }
 
-// splitURLPath splits rawURL into its origin (scheme://host[:port]) and path components.
+// splitURLPath splits rawURL into path and everything else. Query/fragment stay on
+// base so a later buildURL doesn't lose them.
 func splitURLPath(rawURL string) (base, path string, err error) {
-	u, err := parseURL(rawURL)
+	u, err := url.Parse(rawURL)
 	if err != nil {
 		return "", "", err
 	}
-	path = strings.TrimPrefix(u.Path, "/")
+	path = strings.TrimLeft(u.Path, "/")
 	u.Path = ""
 	u.RawPath = ""
-	u.RawQuery = ""
-	u.Fragment = ""
 	return u.String(), path, nil
 }
 
-// serviceReferenceToAddressPort decomposes an URL into scheme://host and port.
+// serviceReferenceToAddressPort splits a URL into address (everything but the port) and port.
 func serviceReferenceToAddressPort(in *v1.ServiceReference, address *string, port **int32) error {
 	if in.URL == "" {
 		return nil
 	}
-	u, err := parseURL(in.URL)
+	u, err := url.Parse(in.URL)
 	if err != nil {
 		return err
 	}
-	h, portStr, err := net.SplitHostPort(u.Host)
-	if err != nil {
-		*address = u.Scheme + "://" + u.Host
+	if u.Port() != "" {
+		p, err := strconv.ParseInt(u.Port(), 10, 32)
+		if err != nil {
+			return fmt.Errorf("parsing port in URL %q: %w", in.URL, err)
+		}
+		p32 := int32(p)
+		*port = &p32
+	}
+	host := u.Hostname()
+	if host == "" {
+		// no host: scheme/path/query alone aren't a meaningful address
 		return nil
 	}
-	*address = u.Scheme + "://" + h
-	p, err := strconv.ParseInt(portStr, 10, 32)
-	if err != nil {
-		return fmt.Errorf("parsing port in URL %q: %w", in.URL, err)
+	// re-bracket IPv6: Hostname() strips brackets, needed once port is split out
+	if strings.Contains(host, ":") {
+		host = "[" + host + "]"
 	}
-	p32 := int32(p)
-	*port = &p32
+	u.Host = host
+	*address = u.String()
 	return nil
 }
 
-// grpcServiceReferenceToAddressPort decomposes a gRPC URI (e.g. dns:///host:port)
-// by stripping the last :port match via regex. gRPC uses a special name resolution
-// scheme: https://github.com/grpc/grpc/blob/master/doc/naming.md
+// grpcTargetPortRe matches a trailing :port. Not net/url-based: a bare "host:port"
+// target has no scheme, and url.Parse misreads that as scheme "host".
+var grpcTargetPortRe = regexp.MustCompile(`:(\d+)$`)
+
+// grpcServiceReferenceToAddressPort splits a gRPC target (grpc/grpc's doc/naming.md)
+// into address and port.
 func grpcServiceReferenceToAddressPort(in *v1.ServiceReference, address *string, port **int32) {
 	if in.URL == "" {
 		return
 	}
-	portRe := regexp.MustCompile(`:(\d+)(?:/|$)`)
-	matches := portRe.FindAllStringSubmatchIndex(in.URL, -1)
-	if len(matches) == 0 {
+	m := grpcTargetPortRe.FindStringSubmatchIndex(in.URL)
+	if m == nil {
 		*address = in.URL
 		return
 	}
-	m := matches[len(matches)-1]
-	*address = in.URL[:m[0]]
 	p, err := strconv.ParseInt(in.URL[m[2]:m[3]], 10, 32)
 	if err != nil {
 		*address = in.URL
@@ -105,4 +108,5 @@ func grpcServiceReferenceToAddressPort(in *v1.ServiceReference, address *string,
 	}
 	p32 := int32(p)
 	*port = &p32
+	*address = in.URL[:m[0]]
 }
