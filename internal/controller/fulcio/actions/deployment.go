@@ -66,7 +66,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 		},
 		deployment.PodResources(instance.Spec.InitContainers, instance.Spec.Volumes,
 			instance.Spec.VolumeMounts, containerName),
-		i.ensureFileCADeployment(instance, RBACName, labels),
+		i.ensureDeployment(instance, RBACName, labels),
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		// need to add Fulcio's unix domain socket used for the legacy gRPC server other way it will be
@@ -186,15 +186,17 @@ func (i deployAction) ensureCommonDeployment(dp *v1.Deployment, instance *rhtasv
 	return container
 }
 
-func (i deployAction) ensureFileCADeployment(instance *rhtasv1.Fulcio, sa string, labels map[string]string) func(deployment *v1.Deployment) error {
+func (i deployAction) ensureDeployment(instance *rhtasv1.Fulcio, sa string, labels map[string]string) func(deployment *v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
+		isKMS := instance.Spec.Signer.Type == rhtasv1.FulcioSignerTypeKMS
+
 		if instance.Status.ServerConfigRef == nil {
 			return errors.New("server config ref is not specified")
 		}
 		if instance.Status.Certificate == nil {
 			return errors.New("certificate config is not specified")
 		}
-		if instance.Status.Certificate.PrivateKeyRef == nil {
+		if !isKMS && instance.Status.Certificate.PrivateKeyRef == nil {
 			return errors.New("private key secret is not specified")
 		}
 
@@ -221,36 +223,108 @@ func (i deployAction) ensureFileCADeployment(instance *rhtasv1.Fulcio, sa string
 			"--port=5555",
 			"--grpc-port=5554",
 			fmt.Sprintf("--log_type=%s", utils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
-			"--ca=fileca",
-			"--fileca-key",
-			"/var/run/fulcio-secrets/key.pem",
-			"--fileca-cert",
-			"/var/run/fulcio-secrets/cert.pem",
-			fmt.Sprintf("--ct-log-url=%s", ctlogUrl),
 		}
 
-		if instance.Status.Certificate.PrivateKeyPasswordRef != nil {
-			env := kubernetes.FindEnvByNameOrCreate(container, "PASSWORD")
-			env.ValueFrom = &core.EnvVarSource{
-				SecretKeyRef: &core.SecretKeySelector{
-					Key: instance.Status.Certificate.PrivateKeyPasswordRef.Key,
-					LocalObjectReference: core.LocalObjectReference{
-						Name: instance.Status.Certificate.PrivateKeyPasswordRef.Name,
+		if isKMS {
+			args = append(args,
+				"--ca=kmsca",
+				fmt.Sprintf("--kms-resource=%s", instance.Spec.Signer.Kms.KeyResource),
+			)
+
+			certMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-cert")
+			certMount.MountPath = "/var/run/fulcio-secrets"
+			certMount.ReadOnly = true
+
+			cert := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-cert")
+			if cert.Projected == nil {
+				cert.Projected = &core.ProjectedVolumeSource{}
+			}
+			cert.Projected.Sources = []core.VolumeProjection{
+				{
+					Secret: &core.SecretProjection{
+						LocalObjectReference: core.LocalObjectReference{
+							Name: instance.Status.Certificate.CARef.Name,
+						},
+						Items: []core.KeyToPath{
+							{
+								Key:  instance.Status.Certificate.CARef.Key,
+								Path: "cert.pem",
+							},
+						},
 					},
 				},
 			}
-			args = append(args, "--fileca-key-passwd", "$(PASSWORD)")
+			ensure.EnsureVolumeDefaultMode(cert)
+
+			args = append(args, "--kms-cert-chain-path", "/var/run/fulcio-secrets/cert.pem")
+		} else {
+			args = append(args,
+				"--ca=fileca",
+				"--fileca-key",
+				"/var/run/fulcio-secrets/key.pem",
+				"--fileca-cert",
+				"/var/run/fulcio-secrets/cert.pem",
+			)
+
+			if instance.Status.Certificate.PrivateKeyPasswordRef != nil {
+				env := kubernetes.FindEnvByNameOrCreate(container, "PASSWORD")
+				env.ValueFrom = &core.EnvVarSource{
+					SecretKeyRef: &core.SecretKeySelector{
+						Key: instance.Status.Certificate.PrivateKeyPasswordRef.Key,
+						LocalObjectReference: core.LocalObjectReference{
+							Name: instance.Status.Certificate.PrivateKeyPasswordRef.Name,
+						},
+					},
+				}
+				args = append(args, "--fileca-key-passwd", "$(PASSWORD)")
+			}
+
+			certMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-cert")
+			certMount.MountPath = "/var/run/fulcio-secrets"
+			certMount.ReadOnly = true
+
+			cert := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-cert")
+			if cert.Projected == nil {
+				cert.Projected = &core.ProjectedVolumeSource{}
+			}
+			cert.Projected.Sources = []core.VolumeProjection{
+				{
+					Secret: &core.SecretProjection{
+						LocalObjectReference: core.LocalObjectReference{
+							Name: instance.Status.Certificate.PrivateKeyRef.Name,
+						},
+						Items: []core.KeyToPath{
+							{
+								Key:  instance.Status.Certificate.PrivateKeyRef.Key,
+								Path: "key.pem",
+							},
+						},
+					},
+				},
+				{
+					Secret: &core.SecretProjection{
+						LocalObjectReference: core.LocalObjectReference{
+							Name: instance.Status.Certificate.CARef.Name,
+						},
+						Items: []core.KeyToPath{
+							{
+								Key:  instance.Status.Certificate.CARef.Key,
+								Path: "cert.pem",
+							},
+						},
+					},
+				},
+			}
+			ensure.EnsureVolumeDefaultMode(cert)
 		}
+
+		args = append(args, fmt.Sprintf("--ct-log-url=%s", ctlogUrl))
 
 		if fips.Enabled() {
 			args = append(args, "--client-signing-algorithms", fips.ClientSigningAlgorithms)
 		}
 
 		container.Args = args
-
-		certMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-cert")
-		certMount.MountPath = "/var/run/fulcio-secrets"
-		certMount.ReadOnly = true
 
 		configMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-config")
 		configMount.MountPath = "/etc/fulcio-config"
@@ -267,41 +341,6 @@ func (i deployAction) ensureFileCADeployment(instance *rhtasv1.Fulcio, sa string
 			},
 		}
 		ensure.EnsureVolumeDefaultMode(config)
-
-		cert := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-cert")
-		cert.VolumeSource = core.VolumeSource{
-			Projected: &core.ProjectedVolumeSource{},
-		}
-		cert.Projected.Sources = []core.VolumeProjection{
-			{
-				Secret: &core.SecretProjection{
-					LocalObjectReference: core.LocalObjectReference{
-						Name: instance.Status.Certificate.PrivateKeyRef.Name,
-					},
-					Items: []core.KeyToPath{
-						{
-							Key:  instance.Status.Certificate.PrivateKeyRef.Key,
-							Path: "key.pem",
-						},
-					},
-				},
-			},
-			{
-				Secret: &core.SecretProjection{
-					LocalObjectReference: core.LocalObjectReference{
-						Name: instance.Status.Certificate.CARef.Name,
-					},
-					Items: []core.KeyToPath{
-						{
-							Key:  instance.Status.Certificate.CARef.Key,
-							Path: "cert.pem",
-						},
-					},
-				},
-			},
-		}
-
-		ensure.EnsureVolumeDefaultMode(cert)
 
 		oidcInfo := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "oidc-info")
 		oidcInfo.VolumeSource = core.VolumeSource{

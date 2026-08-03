@@ -460,22 +460,30 @@ func ctlogVolumesFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	}
 }
 
-// signerAuthFuzzerFuncs generates roundtrip-safe Auth values on FulcioSigner.
+// signerAuthFuzzerFuncs constrains FulcioSigner to valid states:
+// either file (with optional File struct) or KMS (with Kms).
+// Both cannot be set simultaneously — the conversion mutual exclusion guard
+// clears the opposite branch based on Type. Auth is orthogonal and can be
+// set for any signer type.
 func signerAuthFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *rhtasv1.FulcioSigner, c randfill.Continue) {
-			c.FillNoCustom(s)
-			if c.Bool() {
-				s.Auth = &rhtasv1.Auth{
-					Env: []core.EnvVar{
-						{Name: "TEST_VAR", Value: c.String(10)},
-					},
-					SecretMount: []rhtasv1.SecretKeySelector{
-						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret-" + c.String(5)}, Key: "key"},
-					},
+			c.FillNoCustom(&s.CertificateChain)
+			switch c.Intn(2) {
+			case 0:
+				s.Type = rhtasv1.FulcioSignerTypeFile
+				if c.Bool() {
+					s.File = &rhtasv1.FulcioFile{}
+					c.FillNoCustom(s.File)
 				}
-			} else {
-				s.Auth = nil
+			case 1:
+				s.Type = rhtasv1.FulcioSignerTypeKMS
+				s.Kms = &rhtasv1.KMS{}
+				c.FillNoCustom(s.Kms)
+			}
+			if c.Bool() {
+				s.Auth = &rhtasv1.Auth{}
+				c.FillNoCustom(s.Auth)
 			}
 		},
 	}

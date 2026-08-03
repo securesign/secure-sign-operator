@@ -869,6 +869,11 @@ func (in *FulcioSigner) DeepCopyInto(out *FulcioSigner) {
 		*out = new(FulcioFile)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Kms != nil {
+		in, out := &in.Kms, &out.Kms
+		*out = new(KMS)
+		**out = **in
+	}
 	if in.Auth != nil {
 		in, out := &in.Auth, &out.Auth
 		*out = new(Auth)

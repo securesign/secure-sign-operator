@@ -114,6 +114,100 @@ func TestTrustedCAByAnnotation(t *testing.T) {
 	g.Expect(oidcVolume.VolumeSource.Projected.Sources[0].ConfigMap.Name).Should(Equal("trusted-annotation"))
 }
 
+func TestKMSDeployment(t *testing.T) {
+	g := NewWithT(t)
+	instance := createKMSInstance()
+	labels := labels.For(componentName, DeploymentName, instance.Name)
+	dp, err := createDeployment(instance, labels)
+
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp).ShouldNot(BeNil())
+
+	container := dp.Spec.Template.Spec.Containers[0]
+	g.Expect(container.Args).Should(ContainElement("--ca=kmsca"))
+	g.Expect(container.Args).Should(ContainElement("--kms-resource=gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k"))
+	g.Expect(container.Args).Should(ContainElement("--kms-cert-chain-path"))
+	g.Expect(container.Args).Should(ContainElement("/var/run/fulcio-secrets/cert.pem"))
+	g.Expect(container.Args).ShouldNot(ContainElement("--ca=fileca"))
+	g.Expect(container.Args).ShouldNot(ContainElement(ContainSubstring("--fileca-key")))
+	g.Expect(container.Args).ShouldNot(ContainElement(ContainSubstring("--fileca-key-passwd")))
+
+	g.Expect(container.Env).ShouldNot(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"Name": Equal("PASSWORD"),
+	})), "PASSWORD env should not be set for KMS")
+}
+
+func TestKMSDeploymentWithAuth(t *testing.T) {
+	g := NewWithT(t)
+	instance := createKMSInstance()
+	instance.Spec.Signer.Auth = &rhtasv1.Auth{
+		Env: []v12.EnvVar{
+			{Name: "GOOGLE_APPLICATION_CREDENTIALS", Value: "/var/run/secrets/tas/auth/gcp-sa.json"},
+		},
+		SecretMount: []rhtasv1.SecretKeySelector{
+			{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "gcp-credentials"}, Key: "gcp-sa.json"},
+		},
+	}
+	labels := labels.For(componentName, DeploymentName, instance.Name)
+	dp, err := createDeployment(instance, labels)
+
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp).ShouldNot(BeNil())
+
+	container := dp.Spec.Template.Spec.Containers[0]
+	g.Expect(container.Env).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"Name": Equal("GOOGLE_APPLICATION_CREDENTIALS"),
+	})))
+
+	authVolume := findVolume("signer-auth", dp.Spec.Template.Spec.Volumes)
+	g.Expect(authVolume).ShouldNot(BeNil())
+	g.Expect(authVolume.VolumeSource.Projected).ShouldNot(BeNil())
+}
+
+func TestKMSDeploymentNoPrivateKeyVolume(t *testing.T) {
+	g := NewWithT(t)
+	instance := createKMSInstance()
+	labels := labels.For(componentName, DeploymentName, instance.Name)
+	dp, err := createDeployment(instance, labels)
+
+	g.Expect(err).ShouldNot(HaveOccurred())
+
+	certVolume := findVolume("fulcio-cert", dp.Spec.Template.Spec.Volumes)
+	g.Expect(certVolume).ShouldNot(BeNil())
+	g.Expect(certVolume.VolumeSource.Projected.Sources).Should(HaveLen(1))
+	g.Expect(certVolume.VolumeSource.Projected.Sources[0].Secret.Name).Should(Equal("cert-chain-secret"))
+}
+
+func TestKMSDeploymentFIPS(t *testing.T) {
+	g := NewWithT(t)
+
+	original := fips.Enabled
+	fips.Enabled = func() bool { return true }
+	t.Cleanup(func() { fips.Enabled = original })
+
+	instance := createKMSInstance()
+	labels := labels.For(componentName, DeploymentName, instance.Name)
+	dp, err := createDeployment(instance, labels)
+
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp.Spec.Template.Spec.Containers[0].Args).Should(
+		ContainElement(Equal("--client-signing-algorithms")))
+	g.Expect(dp.Spec.Template.Spec.Containers[0].Args).Should(
+		ContainElement(Equal(fips.ClientSigningAlgorithms)))
+	g.Expect(dp.Spec.Template.Spec.Containers[0].Args).Should(
+		ContainElement("--ca=kmsca"))
+}
+
+func TestKMSDeploymentMissingCertRef(t *testing.T) {
+	g := NewWithT(t)
+	instance := createKMSInstance()
+	instance.Status.Certificate.CARef = nil
+	labels := labels.For(componentName, DeploymentName, instance.Name)
+	_, err := createDeployment(instance, labels)
+
+	g.Expect(err).Should(HaveOccurred())
+}
+
 func TestMissingPrivateKey(t *testing.T) {
 	g := NewWithT(t)
 
@@ -251,6 +345,44 @@ func createInstance() *rhtasv1.Fulcio {
 	}
 }
 
+func createKMSInstance() *rhtasv1.Fulcio {
+	port := int32(80)
+	return &rhtasv1.Fulcio{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "name",
+			Namespace: "default",
+		},
+		Spec: rhtasv1.FulcioSpec{
+			Ctlog: rhtasv1.CtlogService{
+				Address: "http://ctlog.default.svc",
+				Port:    &port,
+				Prefix:  "prefix",
+			},
+			Signer: rhtasv1.FulcioSigner{
+				Type: rhtasv1.FulcioSignerTypeKMS,
+				CertificateChain: rhtasv1.FulcioCertificateChain{
+					CertificateChainRef: &rhtasv1.SecretKeySelector{
+						Key:                  "cert",
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "cert-chain-secret"},
+					},
+				},
+				Kms: &rhtasv1.KMS{
+					KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
+				},
+			},
+		},
+		Status: rhtasv1.FulcioStatus{
+			ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "config"},
+			Certificate: &rhtasv1.FulcioCertStatus{
+				CARef: &rhtasv1.SecretKeySelector{
+					Key:                  "cert",
+					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "cert-chain-secret"},
+				},
+			},
+		},
+	}
+}
+
 func createDeployment(instance *rhtasv1.Fulcio, labels map[string]string) (*v13.Deployment, error) {
 	testAction := deployAction{}
 	d := &v13.Deployment{
@@ -263,7 +395,7 @@ func createDeployment(instance *rhtasv1.Fulcio, labels map[string]string) (*v13.
 	ensures := []func(*v13.Deployment) error{
 		deployment.PodResources(instance.Spec.InitContainers, instance.Spec.Volumes,
 			instance.Spec.VolumeMounts, containerName),
-		testAction.ensureFileCADeployment(instance, RBACName, labels),
+		testAction.ensureDeployment(instance, RBACName, labels),
 		ensure.Labels[*v13.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
 		deployment.TrustedCA(instance.GetTrustedCA(), "fulcio-server"),

@@ -6275,10 +6275,26 @@ spec:
                             type: object
                             x-kubernetes-map-type: atomic
                         type: object
+                      kms:
+                        description: Configuration for KMS-based signer
+                        properties:
+                          keyResource:
+                            description: 'KMS key for signing timestamp responses.
+                              Valid options include: [gcpkms://resource, azurekms://resource,
+                              hashivault://resource, awskms://resource]'
+                            type: string
+                        required:
+                        - keyResource
+                        type: object
+                        x-kubernetes-validations:
+                        - message: keyResource must be a valid KMS URI (gcpkms://,
+                            azurekms://, hashivault://, or awskms://)
+                          rule: self.keyResource.matches('^(gcpkms|azurekms|hashivault|awskms)://.+$')
                       type:
                         description: Type of the signer backend
                         enum:
                         - file
+                        - kms
                         type: string
                     required:
                     - certificateChain
@@ -6288,6 +6304,14 @@ spec:
                         is provided
                       rule: self.type != 'file' || !has(self.certificateChain.certificateChainRef)
                         || (has(self.file) && has(self.file.privateKeyRef))
+                    - message: kms is required when type is 'kms'
+                      rule: self.type != 'kms' || has(self.kms)
+                    - message: certificateChainRef is required when type is 'kms'
+                      rule: self.type != 'kms' || has(self.certificateChain.certificateChainRef)
+                    - message: kms should not be configured when type is 'file'
+                      rule: self.type != 'file' || !has(self.kms)
+                    - message: file should not be configured when type is 'kms'
+                      rule: self.type != 'kms' || !has(self.file)
                   tolerations:
                     items:
                       description: |-

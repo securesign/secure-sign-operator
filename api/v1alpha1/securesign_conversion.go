@@ -46,17 +46,23 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Fulcio.ImagePullSecrets = restored.Spec.Fulcio.ImagePullSecrets
 	dst.Spec.Fulcio.Monitoring.ServiceMonitor = restored.Spec.Fulcio.Monitoring.ServiceMonitor
 	dst.Spec.Fulcio.Signer.Type = restored.Spec.Fulcio.Signer.Type
-	// If original v1 had File=&{} (empty struct), preserve it
-	if dst.Spec.Fulcio.Signer.File == nil && restored.Spec.Fulcio.Signer.File != nil {
-		emptyFile := &rhtasv1.FulcioFile{}
-		if equality.Semantic.DeepEqual(restored.Spec.Fulcio.Signer.File, emptyFile) {
-			dst.Spec.Fulcio.Signer.File = &rhtasv1.FulcioFile{}
+	if dst.Spec.Fulcio.Signer.Type == rhtasv1.FulcioSignerTypeKMS {
+		dst.Spec.Fulcio.Signer.File = nil
+		dst.Spec.Fulcio.Signer.Kms = restored.Spec.Fulcio.Signer.Kms
+	} else {
+		dst.Spec.Fulcio.Signer.Kms = nil
+		// If original v1 had File=&{} (empty struct), preserve it
+		if dst.Spec.Fulcio.Signer.File == nil && restored.Spec.Fulcio.Signer.File != nil {
+			emptyFile := &rhtasv1.FulcioFile{}
+			if equality.Semantic.DeepEqual(restored.Spec.Fulcio.Signer.File, emptyFile) {
+				dst.Spec.Fulcio.Signer.File = &rhtasv1.FulcioFile{}
+			}
 		}
 	}
+	dst.Spec.Fulcio.Signer.Auth = restored.Spec.Fulcio.Signer.Auth
 	dst.Spec.Fulcio.InitContainers = restored.Spec.Fulcio.InitContainers
 	dst.Spec.Fulcio.Volumes = restored.Spec.Fulcio.Volumes
 	dst.Spec.Fulcio.VolumeMounts = restored.Spec.Fulcio.VolumeMounts
-	dst.Spec.Fulcio.Signer.Auth = restored.Spec.Fulcio.Signer.Auth
 	dst.Spec.Ctlog.ImagePullSecrets = restored.Spec.Ctlog.ImagePullSecrets
 	dst.Spec.Ctlog.TrustedCA = restored.Spec.Ctlog.TrustedCA
 	dst.Spec.Ctlog.Monitoring.ServiceMonitor = restored.Spec.Ctlog.Monitoring.ServiceMonitor
