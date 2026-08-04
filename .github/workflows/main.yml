@@ -234,6 +234,14 @@ jobs:
           registry: registry.redhat.io
           auth_file_path: /tmp/config.json
 
+      - name: Log in to quay.io
+        uses: redhat-actions/podman-login@v1
+        with:
+          username: ${{ secrets.QUAY_USER }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+          registry: quay.io
+          auth_file_path: /tmp/config.json
+
       - name: Install Cluster
         uses: ./.github/actions/kind-cluster
         with:
@@ -281,6 +289,8 @@ jobs:
 
       - name: Run tests
         run: make test-e2e
+        env:
+          DOCKER_CONFIG: /tmp
 
       - name: Archive test artifacts
         uses: actions/upload-artifact@v4
@@ -330,6 +340,14 @@ jobs:
           registry: registry.redhat.io
           auth_file_path: /tmp/config.json
 
+      - name: Log in to quay.io
+        uses: redhat-actions/podman-login@v1
+        with:
+          username: ${{ secrets.QUAY_USER }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+          registry: quay.io
+          auth_file_path: /tmp/config.json
+
       - name: Install Cluster
         uses: ./.github/actions/kind-cluster
         with:
@@ -349,7 +367,7 @@ jobs:
           podman save ${{ env.IMG }} -o operator-oci.tar
           podman save ${{ env.BUNDLE_IMG }} -o operator-bundle-oci.tar
           podman save ${{ env.CATALOG_IMG }} -o operator-fbc-oci.tar
-          
+
           kind load image-archive operator-oci.tar
           kind load image-archive operator-bundle-oci.tar
           kind load image-archive operator-fbc-oci.tar
@@ -373,6 +391,7 @@ jobs:
           # Keep default .local hostnames — the base operator doesn't support INGRESS_HOST_TEMPLATE,
           # and switching hostnames mid-upgrade would break Ingress routing.
           INGRESS_HOST_TEMPLATE: '%[1]s.local'
+          DOCKER_CONFIG: /tmp
         run: go test -p 1 ./test/e2e/... -tags=upgrade -timeout 20m
 
       - name: Archive test artifacts
@@ -414,6 +433,14 @@ jobs:
           username: ${{ secrets.REGISTRY_USER }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
           registry: registry.redhat.io
+          auth_file_path: /tmp/config.json
+
+      - name: Log in to quay.io
+        uses: redhat-actions/podman-login@v1
+        with:
+          username: ${{ secrets.QUAY_USER }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+          registry: quay.io
           auth_file_path: /tmp/config.json
 
       - name: Install Cluster
@@ -464,6 +491,8 @@ jobs:
         run: go install github.com/sigstore/cosign/v3/cmd/cosign@v3.0.5
 
       - name: Run tests
+        env:
+          DOCKER_CONFIG: /tmp
         run: |
           make generate && go test -p 1 ./test/e2e/... -tags=ha -timeout 20m
 
@@ -600,6 +629,14 @@ jobs:
           registry: registry.redhat.io
           auth_file_path: /tmp/config.json
 
+      - name: Log in to quay.io
+        uses: redhat-actions/podman-login@v1
+        with:
+          username: ${{ secrets.QUAY_USER }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+          registry: quay.io
+          auth_file_path: /tmp/config.json
+
       - name: Install Cluster
         id: kind
         uses: ./.github/actions/kind-cluster
@@ -654,6 +691,8 @@ jobs:
           kubectl wait --for=condition=Ready securesign/securesign-sample --timeout=5m -n ${{ env.TEST_NAMESPACE }}
 
       - name: Run tests
+        env:
+          DOCKER_CONFIG: /tmp
         run: |
           export OIDC_ISSUER_URL="http://${{ steps.kind.outputs.oidc_host }}/realms/trusted-artifact-signer"
           export REKOR_UI_URL=$(kubectl  get rekor -o jsonpath='{.items[0].status.rekorSearchUIUrl}' -n ${{ env.TEST_NAMESPACE }})
@@ -755,6 +794,14 @@ jobs:
           registry: registry.redhat.io
           auth_file_path: /tmp/config.json
 
+      - name: Log in to quay.io
+        uses: redhat-actions/podman-login@v1
+        with:
+          username: ${{ secrets.QUAY_USER }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+          registry: quay.io
+          auth_file_path: /tmp/config.json
+
       - name: Install Cluster
         uses: ./.github/actions/kind-cluster
         with:
@@ -805,6 +852,8 @@ jobs:
 
       - name: Run E2E tests
         run: make test-e2e
+        env:
+          DOCKER_CONFIG: /tmp
 
       - name: Collect coverage from operator pod via Coverport
         if: always()
