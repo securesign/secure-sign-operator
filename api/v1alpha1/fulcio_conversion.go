@@ -152,6 +152,9 @@ func (src *Fulcio) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Status.CertificateChain = restored.Status.CertificateChain
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
+	dst.Spec.InitContainers = restored.Spec.InitContainers
+	dst.Spec.Volumes = restored.Spec.Volumes
+	dst.Spec.VolumeMounts = restored.Spec.VolumeMounts
 	return nil
 }
 

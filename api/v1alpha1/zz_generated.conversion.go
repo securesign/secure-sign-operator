@@ -1073,6 +1073,9 @@ func autoConvert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *v1.CTlogSpec, out *CTlog
 	}
 	out.MaxCertChainSize = (*int64)(unsafe.Pointer(in.MaxCertChainSize))
 	// WARNING: in.TrustedCA requires manual conversion: does not exist in peer-type
+	// WARNING: in.InitContainers requires manual conversion: does not exist in peer-type
+	// WARNING: in.Volumes requires manual conversion: does not exist in peer-type
+	// WARNING: in.VolumeMounts requires manual conversion: does not exist in peer-type
 	return nil
 }
 
@@ -1444,6 +1447,9 @@ func autoConvert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(in *v1.FulcioSpec, out *Fu
 		return err
 	}
 	out.TrustedCA = (*LocalObjectReference)(unsafe.Pointer(in.TrustedCA))
+	// WARNING: in.InitContainers requires manual conversion: does not exist in peer-type
+	// WARNING: in.Volumes requires manual conversion: does not exist in peer-type
+	// WARNING: in.VolumeMounts requires manual conversion: does not exist in peer-type
 	return nil
 }
 

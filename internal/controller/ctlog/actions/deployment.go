@@ -114,12 +114,6 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 		template.Labels = labels
 		template.Spec.ServiceAccountName = sa
 
-		volume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, volumeName)
-		if volume.Secret == nil {
-			volume.Secret = &core.SecretVolumeSource{}
-		}
-		volume.Secret.SecretName = instance.Status.ServerConfigRef.Name
-
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, containerName)
 		container.Image = images.Registry.Get(images.CTLog)
 
@@ -144,6 +138,22 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 		if instance.Spec.MaxCertChainSize != nil {
 			container.Args = append(container.Args, "--max_cert_chain_size", fmt.Sprintf("%d", *instance.Spec.MaxCertChainSize))
 		}
+
+		// Apply user-defined init containers, volumes, and volume mounts
+		ensure.ReconcileUserPodResources(&template.Spec, container,
+			instance.Spec.InitContainers, instance.Spec.Volumes, instance.Spec.VolumeMounts)
+
+		// Operator-managed volume and mount set AFTER user-defined resources
+		// so operator always wins if a user volume has the same name.
+		// Set the full VolumeSource to clear any conflicting source a user
+		// volume may have introduced (e.g. EmptyDir).
+		volume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, volumeName)
+		volume.VolumeSource = core.VolumeSource{
+			Secret: &core.SecretVolumeSource{
+				SecretName: instance.Status.ServerConfigRef.Name,
+			},
+		}
+		ensure.EnsureVolumeDefaultMode(volume)
 
 		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, volumeName)
 		volumeMount.MountPath = "/ctfe-keys"

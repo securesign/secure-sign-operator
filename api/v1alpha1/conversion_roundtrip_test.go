@@ -24,6 +24,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
 	urlfuzz "github.com/securesign/operator/internal/testing/fuzzer"
+	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 	"k8s.io/apimachinery/pkg/runtime"
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
@@ -377,6 +378,88 @@ func securesignStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{}
 	}
 }
 
+// signerVolumesFuzzerFuncs generates roundtrip-safe values for v1-only
+// volume extension fields that are preserved via MarshalData/UnmarshalData annotations:
+//   - FulcioSpec.{InitContainers, Volumes, VolumeMounts}
+func signerVolumesFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.FulcioSpec, c randfill.Continue) {
+			c.FillNoCustom(s)
+			if c.Bool() {
+				s.InitContainers = []rhtasv1.InitContainerSpec{
+					{
+						Name:    "init-" + c.String(5),
+						Image:   c.String(10) + ":latest",
+						Command: []string{"/bin/sh", "-c", "echo test"},
+					},
+				}
+			} else {
+				s.InitContainers = nil
+			}
+			if c.Bool() {
+				volName := "vol-" + c.String(5)
+				s.Volumes = []core.Volume{
+					{
+						Name: volName,
+						VolumeSource: core.VolumeSource{
+							ConfigMap: &core.ConfigMapVolumeSource{
+								LocalObjectReference: core.LocalObjectReference{Name: "cm-" + c.String(5)},
+							},
+						},
+					},
+				}
+				s.VolumeMounts = []core.VolumeMount{
+					{Name: volName, MountPath: "/mnt/" + c.String(5)},
+				}
+			} else {
+				s.Volumes = nil
+				s.VolumeMounts = nil
+			}
+		},
+	}
+}
+
+// ctlogVolumesFuzzerFuncs generates roundtrip-safe values for v1-only
+// volume extension fields on CTlogSpec.
+func ctlogVolumesFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.CTlogSpec, c randfill.Continue) {
+			c.FillNoCustom(s)
+			s.Prefix = urlfuzz.URLPath(c)
+			if c.Bool() {
+				s.InitContainers = []rhtasv1.InitContainerSpec{
+					{
+						Name:    "init-" + c.String(5),
+						Image:   c.String(10) + ":latest",
+						Command: []string{"/bin/sh", "-c", "echo test"},
+					},
+				}
+			} else {
+				s.InitContainers = nil
+			}
+			if c.Bool() {
+				volName := "vol-" + c.String(5)
+				s.Volumes = []core.Volume{
+					{
+						Name: volName,
+						VolumeSource: core.VolumeSource{
+							ConfigMap: &core.ConfigMapVolumeSource{
+								LocalObjectReference: core.LocalObjectReference{Name: "cm-" + c.String(5)},
+							},
+						},
+					},
+				}
+				s.VolumeMounts = []core.VolumeMount{
+					{Name: volName, MountPath: "/mnt/" + c.String(5)},
+				}
+			} else {
+				s.Volumes = nil
+				s.VolumeMounts = nil
+			}
+		},
+	}
+}
+
 // Tests
 
 func TestSecuresignConversion(t *testing.T) {
@@ -395,6 +478,8 @@ func TestSecuresignConversion(t *testing.T) {
 			fulcioServiceFuzzerFuncs,
 			tsaServiceFuzzerFuncs,
 			securesignFuzzerFuncs,
+			signerVolumesFuzzerFuncs,
+			ctlogVolumesFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
@@ -407,6 +492,7 @@ func TestCTlogConversion(t *testing.T) {
 		Spoke:  &CTlog{},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			ctlogFuzzerFuncs,
+			ctlogVolumesFuzzerFuncs,
 			trillianServiceFuzzerFuncs,
 			grpcServiceReferenceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
@@ -435,6 +521,7 @@ func TestFulcioConversion(t *testing.T) {
 		Spoke:  &Fulcio{},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			fulcioStatusFuzzerFuncs,
+			signerVolumesFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
