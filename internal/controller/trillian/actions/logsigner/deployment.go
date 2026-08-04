@@ -78,10 +78,11 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Trillian) *a
 
 	if result != controllerutil.OperationResultNone {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.SignerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  state.Creating.String(),
-			Message: "Deployment created",
+			Type:               actions.SignerCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Creating.String(),
+			Message:            "Deployment created",
+			ObservedGeneration: instance.Generation,
 		})
 		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	} else {
