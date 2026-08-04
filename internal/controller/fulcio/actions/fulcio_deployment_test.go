@@ -413,7 +413,6 @@ func TestFulcioOperatorVolumePrecedence(t *testing.T) {
 	g := NewWithT(t)
 
 	instance := createInstance()
-	// User tries to overwrite an operator-managed volume
 	instance.Spec.Volumes = []v12.Volume{
 		{
 			Name: "fulcio-config",
@@ -428,12 +427,62 @@ func TestFulcioOperatorVolumePrecedence(t *testing.T) {
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(dp).ShouldNot(BeNil())
 
-	// Operator must win — fulcio-config should have ConfigMap source, not EmptyDir
 	configVol := findVolume("fulcio-config", dp.Spec.Template.Spec.Volumes)
 	g.Expect(configVol).ShouldNot(BeNil(), "fulcio-config volume should be present")
 	g.Expect(configVol.ConfigMap).ShouldNot(BeNil(), "fulcio-config should have ConfigMap source (operator wins)")
 	g.Expect(configVol.ConfigMap.Name).Should(Equal("config"))
 	g.Expect(configVol.EmptyDir).Should(BeNil(), "fulcio-config should NOT have EmptyDir source")
+}
+
+// TestAuthInjectionInFileMode verifies that auth env vars and secret mounts
+// from spec.signer.auth are applied to the deployment.
+func TestAuthInjectionInFileMode(t *testing.T) {
+	g := NewWithT(t)
+
+	instance := createInstance()
+	instance.Spec.Signer.Auth = &rhtasv1.Auth{
+		Env: []v12.EnvVar{
+			{
+				Name:  "VENDOR_TOKEN",
+				Value: "test-token",
+			},
+		},
+		SecretMount: []rhtasv1.SecretKeySelector{
+			{
+				LocalObjectReference: rhtasv1.LocalObjectReference{
+					Name: "vendor-creds",
+				},
+			},
+		},
+	}
+
+	labels := labels.For(componentName, DeploymentName, instance.Name)
+	dp, err := createDeployment(instance, labels)
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp).ShouldNot(BeNil())
+
+	container := dp.Spec.Template.Spec.Containers[0]
+	var vendorTokenEnv *v12.EnvVar
+	for i := range container.Env {
+		if container.Env[i].Name == "VENDOR_TOKEN" {
+			vendorTokenEnv = &container.Env[i]
+			break
+		}
+	}
+	g.Expect(vendorTokenEnv).ShouldNot(BeNil(), "VENDOR_TOKEN env var should be present on main container")
+	g.Expect(vendorTokenEnv.Value).Should(Equal("test-token"))
+
+	authVol := findVolume("signer-auth", dp.Spec.Template.Spec.Volumes)
+	g.Expect(authVol).ShouldNot(BeNil(), "signer-auth volume should be present")
+	g.Expect(authVol.Projected).ShouldNot(BeNil(), "signer-auth volume should have Projected source")
+	g.Expect(authVol.Projected.Sources).Should(HaveLen(1))
+	g.Expect(authVol.Projected.Sources[0].Secret).ShouldNot(BeNil())
+	g.Expect(authVol.Projected.Sources[0].Secret.Name).Should(Equal("vendor-creds"))
+
+	authMount := findVolumeMount("signer-auth", container.VolumeMounts)
+	g.Expect(authMount).ShouldNot(BeNil(), "signer-auth mount should be present on main container")
+	g.Expect(authMount.MountPath).Should(Equal(ensure.AuthMountPath))
+	g.Expect(authMount.ReadOnly).Should(BeTrue())
 }
 
 func TestResolveCTLUrl(t *testing.T) {

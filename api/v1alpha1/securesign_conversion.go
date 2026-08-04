@@ -62,6 +62,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Fulcio.InitContainers = restored.Spec.Fulcio.InitContainers
 	dst.Spec.Fulcio.Volumes = restored.Spec.Fulcio.Volumes
 	dst.Spec.Fulcio.VolumeMounts = restored.Spec.Fulcio.VolumeMounts
+	dst.Spec.Fulcio.Signer.Auth = restored.Spec.Fulcio.Signer.Auth
 	dst.Spec.Ctlog.ImagePullSecrets = restored.Spec.Ctlog.ImagePullSecrets
 	dst.Spec.Ctlog.TrustedCA = restored.Spec.Ctlog.TrustedCA
 	dst.Spec.Ctlog.Monitoring.ServiceMonitor = restored.Spec.Ctlog.Monitoring.ServiceMonitor
@@ -80,6 +81,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Ctlog.InitContainers = restored.Spec.Ctlog.InitContainers
 	dst.Spec.Ctlog.Volumes = restored.Spec.Ctlog.Volumes
 	dst.Spec.Ctlog.VolumeMounts = restored.Spec.Ctlog.VolumeMounts
+	dst.Spec.Ctlog.Signer.Auth = restored.Spec.Ctlog.Signer.Auth
 	dst.Spec.Rekor.ImagePullSecrets = restored.Spec.Rekor.ImagePullSecrets
 	dst.Spec.Rekor.Monitoring.ServiceMonitor = restored.Spec.Rekor.Monitoring.ServiceMonitor
 	if dst.Spec.Rekor.Trillian.URL == "" {

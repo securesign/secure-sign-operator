@@ -62,6 +62,9 @@ type FulcioSigner struct {
 	// Configuration for file-based signer
 	//+optional
 	File *FulcioFile `json:"file,omitempty"`
+	// Authentication configuration for the signer backend.
+	//+optional
+	Auth *Auth `json:"auth,omitempty"`
 }
 
 // FulcioFile defines the desired state of the Fulcio file-based signer
