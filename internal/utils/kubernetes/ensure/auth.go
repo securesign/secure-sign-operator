@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	authVolumeName = "auth"
-	AuthMountPath  = constants.SecretMountPath + "/auth"
+	authVolumeName       = "signer-auth"
+	legacyAuthVolumeName = "auth"
+	AuthMountPath        = constants.SecretMountPath + "/auth"
 )
 
 func Auth(containerName string, auth *rhtasv1.Auth) func(spec *core.PodSpec) error {
@@ -21,26 +22,35 @@ func Auth(containerName string, auth *rhtasv1.Auth) func(spec *core.PodSpec) err
 }
 func ContainerAuth(container *core.Container, auth *rhtasv1.Auth) func(spec *core.PodSpec) error {
 	return func(templateSpec *core.PodSpec) error {
-		if auth != nil {
-			for _, env := range auth.Env {
-				e := kubernetes.FindEnvByNameOrCreate(container, env.Name)
-				if !equality.Semantic.DeepEqual(env, e) {
-					env.DeepCopyInto(e)
-				}
-			}
-			authProjected := kubernetes.FindVolumeByNameOrCreate(templateSpec, authVolumeName)
-			if authProjected.Projected == nil {
-				authProjected.Projected = &core.ProjectedVolumeSource{}
-			}
+		kubernetes.RemoveVolumeByName(templateSpec, legacyAuthVolumeName)
+		kubernetes.RemoveVolumeMountByName(container, legacyAuthVolumeName)
 
-			for _, secret := range auth.SecretMount {
-				findSecretProjectedVolumeByNameOrCreate(authProjected.Projected, secret.Name)
-			}
-
-			vm := kubernetes.FindVolumeMountByNameOrCreate(container, authVolumeName)
-			vm.MountPath = AuthMountPath
-			vm.ReadOnly = true
+		if auth == nil || (len(auth.Env) == 0 && len(auth.SecretMount) == 0) {
+			kubernetes.RemoveVolumeByName(templateSpec, authVolumeName)
+			kubernetes.RemoveVolumeMountByName(container, authVolumeName)
+			return nil
 		}
+
+		for _, env := range auth.Env {
+			e := kubernetes.FindEnvByNameOrCreate(container, env.Name)
+			if !equality.Semantic.DeepEqual(env, e) {
+				env.DeepCopyInto(e)
+			}
+		}
+
+		authProjected := kubernetes.FindVolumeByNameOrCreate(templateSpec, authVolumeName)
+		authProjected.VolumeSource = core.VolumeSource{
+			Projected: &core.ProjectedVolumeSource{},
+		}
+		for _, secret := range auth.SecretMount {
+			findSecretProjectedVolumeByNameOrCreate(authProjected.Projected, secret.Name)
+		}
+		EnsureVolumeDefaultMode(authProjected)
+
+		vm := kubernetes.FindVolumeMountByNameOrCreate(container, authVolumeName)
+		vm.MountPath = AuthMountPath
+		vm.ReadOnly = true
+
 		return nil
 	}
 }

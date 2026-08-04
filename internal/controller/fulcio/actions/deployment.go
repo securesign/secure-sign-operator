@@ -211,6 +211,11 @@ func (i deployAction) ensureFileCADeployment(instance *rhtasv1.Fulcio, sa string
 		container := i.ensureCommonDeployment(dp, instance, sa, labels)
 		template := &dp.Spec.Template
 
+		// Apply or clean up auth env vars and secret mounts
+		if err := ensure.ContainerAuth(container, instance.Spec.Signer.Auth)(&template.Spec); err != nil {
+			return err
+		}
+
 		args := []string{
 			"serve",
 			"--port=5555",

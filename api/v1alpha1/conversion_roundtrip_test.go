@@ -460,6 +460,58 @@ func ctlogVolumesFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	}
 }
 
+// signerAuthFuzzerFuncs generates roundtrip-safe Auth values on FulcioSigner.
+func signerAuthFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.FulcioSigner, c randfill.Continue) {
+			c.FillNoCustom(s)
+			if c.Bool() {
+				s.Auth = &rhtasv1.Auth{
+					Env: []core.EnvVar{
+						{Name: "TEST_VAR", Value: c.String(10)},
+					},
+					SecretMount: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret-" + c.String(5)}, Key: "key"},
+					},
+				}
+			} else {
+				s.Auth = nil
+			}
+		},
+	}
+}
+
+// ctlogAuthFuzzerFuncs generates roundtrip-safe Auth values on CTlogSigner.
+func ctlogAuthFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.CTlogSigner, c randfill.Continue) {
+			s.Type = "file"
+			if c.Bool() {
+				s.Auth = &rhtasv1.Auth{
+					Env: []core.EnvVar{
+						{Name: "TEST_VAR", Value: c.String(10)},
+					},
+					SecretMount: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret-" + c.String(5)}, Key: "key"},
+					},
+				}
+			} else {
+				s.Auth = nil
+			}
+			if c.Bool() {
+				s.File = &rhtasv1.CTlogFile{}
+				c.FillNoCustom(&s.File.PrivateKeyRef)
+				c.FillNoCustom(&s.File.PrivateKeyPasswordRef) //nolint:staticcheck
+				c.FillNoCustom(&s.File.PublicKeyRef)
+				if s.File.PrivateKeyRef == nil && s.File.PrivateKeyPasswordRef == nil && s.File.PublicKeyRef == nil { //nolint:staticcheck
+					s.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{}
+					c.FillNoCustom(s.File.PrivateKeyRef)
+				}
+			}
+		},
+	}
+}
+
 // Tests
 
 func TestSecuresignConversion(t *testing.T) {
@@ -480,6 +532,8 @@ func TestSecuresignConversion(t *testing.T) {
 			securesignFuzzerFuncs,
 			signerVolumesFuzzerFuncs,
 			ctlogVolumesFuzzerFuncs,
+			signerAuthFuzzerFuncs,
+			ctlogAuthFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
@@ -493,6 +547,7 @@ func TestCTlogConversion(t *testing.T) {
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			ctlogFuzzerFuncs,
 			ctlogVolumesFuzzerFuncs,
+			ctlogAuthFuzzerFuncs,
 			trillianServiceFuzzerFuncs,
 			grpcServiceReferenceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
@@ -522,6 +577,7 @@ func TestFulcioConversion(t *testing.T) {
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			fulcioStatusFuzzerFuncs,
 			signerVolumesFuzzerFuncs,
+			signerAuthFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
