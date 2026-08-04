@@ -95,10 +95,11 @@ func (i createServiceAction) Handle(ctx context.Context, instance *rhtasv1.Trill
 
 	if result != controllerutil.OperationResultNone {
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.ServerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  state.Creating.String(),
-			Message: "Service created",
+			Type:               actions.ServerCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Creating.String(),
+			Message:            "Service created",
+			ObservedGeneration: instance.Generation,
 		})
 		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	} else {

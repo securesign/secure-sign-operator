@@ -21,7 +21,7 @@ func (logsignerMonitoringConfig) TLS(i *rhtasv1.Trillian) rhtasv1.TLS {
 func NewCreateMonitorAction() action.Action[*rhtasv1.Trillian] {
 	return monitoring.NewAction(
 		actions.LogSignerComponentName, actions.LogSignerMonitoringName, actions.LogSignerComponentName,
-		actions.ServerCondition,
+		actions.SignerCondition,
 		logsignerMonitoringConfig{},
 	)
 }
