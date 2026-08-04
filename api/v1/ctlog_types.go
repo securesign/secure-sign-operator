@@ -84,16 +84,52 @@ type CTlogSpec struct {
 }
 
 const CTlogSignerTypeFile = "file"
+const CTlogSignerTypePKCS11 = "pkcs11"
+
+// CTlogPKCS11Config holds the CTLog PKCS#11/HSM signer configuration.
+// HSM token persistence (e.g. SoftHSM PVC) should be configured through
+// spec.ctlog.volumes rather than through this struct.
+// CTlogPKCS11Config holds the CTLog PKCS#11/HSM signer configuration.
+// Unlike Fulcio (which uses crypto11 and supports per-key selection via CKA_ID/CKA_LABEL),
+// ct_server uses trillian's keyspb.PKCS11Config which identifies the token by TokenLabel
+// only — key selection is handled at the token level (one signing key per token).
+// HSM token persistence should be configured through spec.ctlog.volumes.
+type CTlogPKCS11Config struct {
+	// Reference to a Secret key containing the HSM token PIN.
+	//+required
+	PinSecretRef *SecretKeySelector `json:"pinSecretRef"`
+	// Reference to a Secret key containing the PEM-encoded public key
+	// matching the HSM-resident private key.
+	//+required
+	PublicKeyRef *SecretKeySelector `json:"publicKeyRef"`
+	// The PKCS#11 token label identifying the HSM slot.
+	//+required
+	//+kubebuilder:validation:MinLength=1
+	TokenLabel string `json:"tokenLabel"`
+	// Absolute path to the PKCS#11 module (.so) inside the vendor init
+	// container image. The operator extracts the filename and mounts it
+	// from a shared EmptyDir volume.
+	//+required
+	//+kubebuilder:validation:MinLength=1
+	//+kubebuilder:validation:Pattern=`^/.+\..+$`
+	ModulePath string `json:"modulePath"`
+}
 
 // CTlogSigner defines the desired state of the CTlog Signer
+// +kubebuilder:validation:XValidation:rule="self.type != 'pkcs11' || has(self.pkcs11)",message="pkcs11 configuration is required when type is pkcs11"
+// +kubebuilder:validation:XValidation:rule="self.type != 'pkcs11' || !has(self.file)",message="file configuration must not be set when type is pkcs11"
+// +kubebuilder:validation:XValidation:rule="self.type != 'file' || !has(self.pkcs11)",message="pkcs11 configuration must not be set when type is file"
 type CTlogSigner struct {
 	// Type of the signer backend
-	//+kubebuilder:validation:Enum=file
+	//+kubebuilder:validation:Enum=file;pkcs11
 	//+optional
 	Type string `json:"type,omitempty"`
 	// Configuration for file-based signer
 	//+optional
 	File *CTlogFile `json:"file,omitempty"`
+	// Configuration for PKCS#11/HSM-based signer
+	//+optional
+	PKCS11 *CTlogPKCS11Config `json:"pkcs11,omitempty"`
 	// Authentication configuration for the signer backend.
 	//+optional
 	Auth *Auth `json:"auth,omitempty"`

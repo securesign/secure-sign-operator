@@ -113,6 +113,7 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Volumes = restored.Spec.Volumes
 	dst.Spec.VolumeMounts = restored.Spec.VolumeMounts
 	dst.Spec.Signer.Auth = restored.Spec.Signer.Auth
+	dst.Spec.Signer.PKCS11 = restored.Spec.Signer.PKCS11
 	return nil
 }
 
