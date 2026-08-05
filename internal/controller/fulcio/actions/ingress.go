@@ -27,7 +27,7 @@ import (
 // DoS target on the client-facing signing path, so throttling defaults to on.
 var fulcioThrottlingDefaults = kubernetes.IngressThrottlingDefaults{
 	ConcurrentTCP: 100,
-	RateHTTP:      50,
+	RateHTTP:      100,
 	RateTCP:       100,
 }
 
@@ -66,7 +66,8 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *ac
 		},
 		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.Ingress, ServerPortName),
 		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
-		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressHAProxyThrottling(instance.Spec.Throttling, fulcioThrottlingDefaults)),
+		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressHAProxyThrottling(instance.Spec.Ingress.Annotations, fulcioThrottlingDefaults)),
+		ensure.Annotations[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.Ingress.Annotations)), instance.Spec.Ingress.Annotations),
 		// add ingress labels
 		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.Ingress.Labels)), instance.Spec.Ingress.Labels),
 		// add common labels

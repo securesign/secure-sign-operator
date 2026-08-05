@@ -223,28 +223,16 @@ func TestSecuresignConversionUnit(t *testing.T) {
 		})
 	}
 
-	t.Run("fulcio/rekor/tsa throttling round-trip (v1-only field preserved via MarshalData)", func(t *testing.T) {
+	t.Run("ingress annotations round-trip (v1-only field preserved via MarshalData)", func(t *testing.T) {
 		hub := &rhtasv1.Securesign{
 			ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
 			Spec: rhtasv1.SecuresignSpec{
 				Fulcio: rhtasv1.FulcioSpec{
-					Throttling: &rhtasv1.IngressThrottling{
-						Enabled:       ptr.To(true),
-						ConcurrentTCP: ptr.To(int32(200)),
-						RateHTTP:      ptr.To(int32(100)),
-						RateTCP:       ptr.To(int32(150)),
-					},
-					Ingress:    rhtasv1.Ingress{Enabled: ptr.To(false)},
+					Ingress:    rhtasv1.Ingress{Enabled: ptr.To(false), Annotations: map[string]string{"custom/fulcio": "value"}},
 					Monitoring: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 				},
 				Rekor: rhtasv1.RekorSpec{
-					Throttling: &rhtasv1.IngressThrottling{
-						Enabled:       ptr.To(true),
-						ConcurrentTCP: ptr.To(int32(300)),
-						RateHTTP:      ptr.To(int32(150)),
-						RateTCP:       ptr.To(int32(250)),
-					},
-					Ingress: rhtasv1.Ingress{Enabled: ptr.To(false)},
+					Ingress: rhtasv1.Ingress{Enabled: ptr.To(false), Annotations: map[string]string{"custom/rekor": "value"}},
 					Monitoring: rhtasv1.MonitoringWithTLogConfig{
 						MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
@@ -263,12 +251,6 @@ func TestSecuresignConversionUnit(t *testing.T) {
 					Ingress: rhtasv1.Ingress{Enabled: ptr.To(false)},
 				},
 				TimestampAuthority: &rhtasv1.TimestampAuthoritySpec{
-					Throttling: &rhtasv1.IngressThrottling{
-						Enabled:       ptr.To(true),
-						ConcurrentTCP: ptr.To(int32(120)),
-						RateHTTP:      ptr.To(int32(60)),
-						RateTCP:       ptr.To(int32(120)),
-					},
 					Signer: rhtasv1.TimestampAuthoritySigner{
 						CertificateChain: rhtasv1.CertificateChain{
 							RootCA: &rhtasv1.TsaCertificateAuthority{
@@ -276,7 +258,7 @@ func TestSecuresignConversionUnit(t *testing.T) {
 							},
 						},
 					},
-					Ingress:       rhtasv1.Ingress{Enabled: ptr.To(false)},
+					Ingress:       rhtasv1.Ingress{Enabled: ptr.To(false), Annotations: map[string]string{"custom/tsa": "value"}},
 					Monitoring:    rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 					NTPMonitoring: rhtasv1.NTPMonitoring{Enabled: ptr.To(false)},
 				},
@@ -292,9 +274,10 @@ func TestSecuresignConversionUnit(t *testing.T) {
 		if err := spoke.ConvertTo(gotHub); err != nil {
 			t.Fatalf("ConvertTo failed: %v", err)
 		}
+		migration.StripAll(gotHub)
 
 		if !equality.Semantic.DeepEqual(hub, gotHub) {
-			t.Errorf("throttling lost during round-trip (-want +got):\n%s", cmp.Diff(hub, gotHub))
+			t.Errorf("annotations lost during round-trip (-want +got):\n%s", cmp.Diff(hub, gotHub))
 		}
 	})
 }
@@ -573,17 +556,11 @@ func TestRekorConversionUnit(t *testing.T) {
 		})
 	}
 
-	t.Run("throttling round-trip (v1-only field preserved via MarshalData)", func(t *testing.T) {
+	t.Run("ingress annotations round-trip (v1-only field preserved via MarshalData)", func(t *testing.T) {
 		hub := &rhtasv1.Rekor{
 			ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
 			Spec: rhtasv1.RekorSpec{
-				Throttling: &rhtasv1.IngressThrottling{
-					Enabled:       ptr.To(true),
-					ConcurrentTCP: ptr.To(int32(300)),
-					RateHTTP:      ptr.To(int32(150)),
-					RateTCP:       ptr.To(int32(250)),
-				},
-				Ingress: rhtasv1.Ingress{Enabled: ptr.To(false)},
+				Ingress: rhtasv1.Ingress{Enabled: ptr.To(false), Annotations: map[string]string{"custom/rekor": "value"}},
 				Monitoring: rhtasv1.MonitoringWithTLogConfig{
 					MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 					TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
@@ -600,9 +577,10 @@ func TestRekorConversionUnit(t *testing.T) {
 		if err := spoke.ConvertTo(gotHub); err != nil {
 			t.Fatalf("ConvertTo failed: %v", err)
 		}
+		migration.StripAll(gotHub)
 
 		if !equality.Semantic.DeepEqual(hub, gotHub) {
-			t.Errorf("throttling lost during round-trip (-want +got):\n%s", cmp.Diff(hub, gotHub))
+			t.Errorf("annotations lost during round-trip (-want +got):\n%s", cmp.Diff(hub, gotHub))
 		}
 	})
 }
@@ -721,17 +699,11 @@ func TestFulcioConversionUnit(t *testing.T) {
 		})
 	}
 
-	t.Run("throttling round-trip (v1-only field preserved via MarshalData)", func(t *testing.T) {
+	t.Run("ingress annotations round-trip (v1-only field preserved via MarshalData)", func(t *testing.T) {
 		hub := &rhtasv1.Fulcio{
 			ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: "default"},
 			Spec: rhtasv1.FulcioSpec{
-				Throttling: &rhtasv1.IngressThrottling{
-					Enabled:       ptr.To(true),
-					ConcurrentTCP: ptr.To(int32(200)),
-					RateHTTP:      ptr.To(int32(100)),
-					RateTCP:       ptr.To(int32(150)),
-				},
-				Ingress:    rhtasv1.Ingress{Enabled: ptr.To(false)},
+				Ingress:    rhtasv1.Ingress{Enabled: ptr.To(false), Annotations: map[string]string{"custom/fulcio": "value"}},
 				Monitoring: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 			},
 		}
@@ -747,7 +719,7 @@ func TestFulcioConversionUnit(t *testing.T) {
 		}
 
 		if !equality.Semantic.DeepEqual(hub, gotHub) {
-			t.Errorf("throttling lost during round-trip (-want +got):\n%s", cmp.Diff(hub, gotHub))
+			t.Errorf("annotations lost during round-trip (-want +got):\n%s", cmp.Diff(hub, gotHub))
 		}
 	})
 }
@@ -1236,17 +1208,11 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 		}
 	})
 
-	t.Run("throttling round-trip (v1-only field preserved via MarshalData)", func(t *testing.T) {
+	t.Run("ingress annotations round-trip (v1-only field preserved via MarshalData)", func(t *testing.T) {
 		hub := &rhtasv1.TimestampAuthority{
 			ObjectMeta: metav1.ObjectMeta{Name: "tsa", Namespace: "default"},
 			Spec: rhtasv1.TimestampAuthoritySpec{
-				Throttling: &rhtasv1.IngressThrottling{
-					Enabled:       ptr.To(true),
-					ConcurrentTCP: ptr.To(int32(120)),
-					RateHTTP:      ptr.To(int32(60)),
-					RateTCP:       ptr.To(int32(120)),
-				},
-				Ingress:       rhtasv1.Ingress{Enabled: ptr.To(false)},
+				Ingress:       rhtasv1.Ingress{Enabled: ptr.To(false), Annotations: map[string]string{"custom/tsa": "value"}},
 				Monitoring:    rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 				NTPMonitoring: rhtasv1.NTPMonitoring{Enabled: ptr.To(false)},
 			},
@@ -1263,7 +1229,7 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 		}
 
 		if !equality.Semantic.DeepEqual(hub, gotHub) {
-			t.Errorf("throttling lost during round-trip (-want +got):\n%s", cmp.Diff(hub, gotHub))
+			t.Errorf("annotations lost during round-trip (-want +got):\n%s", cmp.Diff(hub, gotHub))
 		}
 	})
 }

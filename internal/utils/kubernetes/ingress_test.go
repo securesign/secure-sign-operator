@@ -143,7 +143,7 @@ func TestEnsureIngressHAProxyThrottling(t *testing.T) {
 		annotations.HaproxyRateLimitRateTCP:       "100",
 	}
 
-	t.Run("nil throttling uses defaults, nil annotations", func(t *testing.T) {
+	t.Run("nil user annotations applies defaults", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 		ingress := &networkingv1.Ingress{}
 
@@ -154,7 +154,7 @@ func TestEnsureIngressHAProxyThrottling(t *testing.T) {
 		}
 	})
 
-	t.Run("nil throttling uses defaults, existing annotations preserved", func(t *testing.T) {
+	t.Run("empty user annotations applies defaults, existing annotations preserved", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 		ingress := &networkingv1.Ingress{
 			ObjectMeta: v2.ObjectMeta{
@@ -162,7 +162,7 @@ func TestEnsureIngressHAProxyThrottling(t *testing.T) {
 			},
 		}
 
-		g.Expect(EnsureIngressHAProxyThrottling(nil, defaults)(ingress)).To(gomega.Succeed())
+		g.Expect(EnsureIngressHAProxyThrottling(map[string]string{}, defaults)(ingress)).To(gomega.Succeed())
 
 		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue("existing", "value"))
 		for k, v := range defaultAnnotations {
@@ -170,39 +170,18 @@ func TestEnsureIngressHAProxyThrottling(t *testing.T) {
 		}
 	})
 
-	t.Run("partial override falls back to defaults for unset fields", func(t *testing.T) {
+	t.Run("non-haproxy user annotations still applies defaults", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 		ingress := &networkingv1.Ingress{}
-		throttling := &rhtasv1.IngressThrottling{
-			RateHTTP: utils.Pointer(int32(200)),
+
+		g.Expect(EnsureIngressHAProxyThrottling(map[string]string{"custom": "annotation"}, defaults)(ingress)).To(gomega.Succeed())
+
+		for k, v := range defaultAnnotations {
+			g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(k, v))
 		}
-
-		g.Expect(EnsureIngressHAProxyThrottling(throttling, defaults)(ingress)).To(gomega.Succeed())
-
-		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.HaproxyRateLimitConnections, annotations.HaproxyRateLimitConnectionsValue))
-		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.HaproxyRateLimitConcurrentTCP, "100"))
-		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.HaproxyRateLimitRateHTTP, "200"))
-		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.HaproxyRateLimitRateTCP, "100"))
 	})
 
-	t.Run("full override uses all custom values", func(t *testing.T) {
-		g := gomega.NewWithT(t)
-		ingress := &networkingv1.Ingress{}
-		throttling := &rhtasv1.IngressThrottling{
-			ConcurrentTCP: utils.Pointer(int32(10)),
-			RateHTTP:      utils.Pointer(int32(20)),
-			RateTCP:       utils.Pointer(int32(30)),
-		}
-
-		g.Expect(EnsureIngressHAProxyThrottling(throttling, defaults)(ingress)).To(gomega.Succeed())
-
-		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.HaproxyRateLimitConnections, annotations.HaproxyRateLimitConnectionsValue))
-		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.HaproxyRateLimitConcurrentTCP, "10"))
-		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.HaproxyRateLimitRateHTTP, "20"))
-		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.HaproxyRateLimitRateTCP, "30"))
-	})
-
-	t.Run("disabled removes existing throttling annotations", func(t *testing.T) {
+	t.Run("opt-out removes existing throttling annotations", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 		ingress := &networkingv1.Ingress{
 			ObjectMeta: v2.ObjectMeta{
@@ -215,16 +194,60 @@ func TestEnsureIngressHAProxyThrottling(t *testing.T) {
 				},
 			},
 		}
-		throttling := &rhtasv1.IngressThrottling{
-			Enabled: utils.Pointer(false),
-		}
 
-		g.Expect(EnsureIngressHAProxyThrottling(throttling, defaults)(ingress)).To(gomega.Succeed())
+		g.Expect(EnsureIngressHAProxyThrottling(
+			map[string]string{annotations.HaproxyRateLimitConnections: "false"},
+			defaults,
+		)(ingress)).To(gomega.Succeed())
 
 		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue("existing", "value"))
 		g.Expect(ingress.Annotations).ToNot(gomega.HaveKey(annotations.HaproxyRateLimitConnections))
 		g.Expect(ingress.Annotations).ToNot(gomega.HaveKey(annotations.HaproxyRateLimitConcurrentTCP))
 		g.Expect(ingress.Annotations).ToNot(gomega.HaveKey(annotations.HaproxyRateLimitRateHTTP))
 		g.Expect(ingress.Annotations).ToNot(gomega.HaveKey(annotations.HaproxyRateLimitRateTCP))
+	})
+
+	t.Run("opt-out sentinel is an exact case-sensitive match, not a truthiness check", func(t *testing.T) {
+		for _, value := range []string{"False", "FALSE", "0", " false", "false ", ""} {
+			g := gomega.NewWithT(t)
+			ingress := &networkingv1.Ingress{}
+
+			g.Expect(EnsureIngressHAProxyThrottling(
+				map[string]string{annotations.HaproxyRateLimitConnections: value},
+				defaults,
+			)(ingress)).To(gomega.Succeed())
+
+			for k, v := range defaultAnnotations {
+				g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(k, v), "value %q should not disable throttling", value)
+			}
+		}
+	})
+
+	t.Run("re-enabling after opt-out restores defaults", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		ingress := &networkingv1.Ingress{
+			ObjectMeta: v2.ObjectMeta{
+				Annotations: map[string]string{
+					"existing": "value",
+				},
+			},
+		}
+
+		// first reconcile: user opts out
+		g.Expect(EnsureIngressHAProxyThrottling(
+			map[string]string{annotations.HaproxyRateLimitConnections: "false"},
+			defaults,
+		)(ingress)).To(gomega.Succeed())
+		for _, key := range haproxyThrottlingAnnotationKeys {
+			g.Expect(ingress.Annotations).ToNot(gomega.HaveKey(key))
+		}
+
+		// second reconcile: user removes the opt-out annotation entirely
+		g.Expect(EnsureIngressHAProxyThrottling(map[string]string{}, defaults)(ingress)).To(gomega.Succeed())
+
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue("existing", "value"))
+		for k, v := range defaultAnnotations {
+			g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(k, v))
+		}
 	})
 }

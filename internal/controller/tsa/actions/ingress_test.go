@@ -85,11 +85,11 @@ func TestIngress_Handle_HAProxyThrottling(t *testing.T) {
 			}
 		},
 		NewAction:      NewIngressAction,
-		SetThrottling:  func(tsa *rhtasv1.TimestampAuthority, t *rhtasv1.IngressThrottling) { tsa.Spec.Throttling = t },
+		SetAnnotations: func(tsa *rhtasv1.TimestampAuthority, a map[string]string) { tsa.Spec.Ingress.Annotations = a },
 		IngressName:    DeploymentName,
 		Namespace:      "default",
 		DefaultTCP:     "100",
-		DefaultHTTP:    "50",
+		DefaultHTTP:    "100",
 		DefaultRateTCP: "100",
 	})
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/securesign/operator/internal/annotations"
 	v12 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -88,41 +87,33 @@ var haproxyThrottlingAnnotationKeys = []string{
 	annotations.HaproxyRateLimitRateTCP,
 }
 
+// haproxyRateLimitConnectionsDisabledValue is the exact, case-sensitive
+// annotation value that opts out of HAProxy throttling.
+const haproxyRateLimitConnectionsDisabledValue = "false"
+
 // EnsureIngressHAProxyThrottling sets OCP-native HAProxy rate-limiting and
 // connection-limit annotations on the Ingress, propagated to the auto-created Route.
-// If throttling is nil, the component defaults are applied. If throttling.Enabled
-// is explicitly false, any previously-set throttling annotations are removed.
-func EnsureIngressHAProxyThrottling(throttling *rhtasv1.IngressThrottling, defaults IngressThrottlingDefaults) func(ingress *networkingv1.Ingress) error {
+// Component defaults are always applied. If the user sets
+// "haproxy.router.openshift.io/rate-limit-connections" to "false" in their
+// Ingress.Annotations, all HAProxy rate-limiting annotations are removed instead.
+// User-provided annotation overrides take effect via a separate ensure.Annotations
+// call that runs after this function in the ensure chain.
+func EnsureIngressHAProxyThrottling(userAnnotations map[string]string, defaults IngressThrottlingDefaults) func(ingress *networkingv1.Ingress) error {
 	return func(ingress *networkingv1.Ingress) error {
-		if throttling != nil && !ptr.Deref(throttling.Enabled, true) {
+		if userAnnotations[annotations.HaproxyRateLimitConnections] == haproxyRateLimitConnectionsDisabledValue {
 			for _, key := range haproxyThrottlingAnnotationKeys {
 				delete(ingress.Annotations, key)
 			}
 			return nil
 		}
 
-		concurrentTCP := defaults.ConcurrentTCP
-		rateHTTP := defaults.RateHTTP
-		rateTCP := defaults.RateTCP
-		if throttling != nil {
-			if throttling.ConcurrentTCP != nil {
-				concurrentTCP = *throttling.ConcurrentTCP
-			}
-			if throttling.RateHTTP != nil {
-				rateHTTP = *throttling.RateHTTP
-			}
-			if throttling.RateTCP != nil {
-				rateTCP = *throttling.RateTCP
-			}
-		}
-
 		if ingress.Annotations == nil {
 			ingress.Annotations = map[string]string{}
 		}
 		ingress.Annotations[annotations.HaproxyRateLimitConnections] = annotations.HaproxyRateLimitConnectionsValue
-		ingress.Annotations[annotations.HaproxyRateLimitConcurrentTCP] = strconv.FormatInt(int64(concurrentTCP), 10)
-		ingress.Annotations[annotations.HaproxyRateLimitRateHTTP] = strconv.FormatInt(int64(rateHTTP), 10)
-		ingress.Annotations[annotations.HaproxyRateLimitRateTCP] = strconv.FormatInt(int64(rateTCP), 10)
+		ingress.Annotations[annotations.HaproxyRateLimitConcurrentTCP] = strconv.FormatInt(int64(defaults.ConcurrentTCP), 10)
+		ingress.Annotations[annotations.HaproxyRateLimitRateHTTP] = strconv.FormatInt(int64(defaults.RateHTTP), 10)
+		ingress.Annotations[annotations.HaproxyRateLimitRateTCP] = strconv.FormatInt(int64(defaults.RateTCP), 10)
 		return nil
 	}
 }

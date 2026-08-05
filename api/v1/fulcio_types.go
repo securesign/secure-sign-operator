@@ -22,12 +22,6 @@ type FulcioSpec struct {
 	// Define whether you want to export service or not
 	//+optional
 	Ingress Ingress `json:"ingress,omitempty"`
-	// Throttling configures HAProxy rate-limiting annotations on the OpenShift Route.
-	// When omitted, default throttling values are applied (concurrentTCP=100, rateHTTP=50, rateTCP=100).
-	// Set throttling.enabled to false to disable throttling entirely.
-	// These settings only take effect on OpenShift clusters.
-	//+optional
-	Throttling *IngressThrottling `json:"throttling,omitempty"`
 	// Ctlog service configuration
 	//+optional
 	Ctlog CtlogService `json:"ctlog,omitempty"`
@@ -71,32 +65,6 @@ type FulcioFile struct {
 	// encrypted keys. Kubernetes Secrets provide encryption-at-rest.
 	// +optional
 	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
-}
-
-// IngressThrottling configures HAProxy rate-limiting annotations on OpenShift Routes.
-// On non-OpenShift clusters these settings have no effect.
-// When the parent field is nil, component-specific defaults are applied automatically.
-type IngressThrottling struct {
-	// Whether to apply HAProxy rate-limiting annotations to the Route.
-	// Defaults to true. Set to false to disable throttling entirely.
-	//+optional
-	//+kubebuilder:default:=true
-	Enabled *bool `json:"enabled,omitempty"`
-	// Maximum number of concurrent TCP connections allowed per source IP address.
-	// Overrides the component-specific default when set.
-	//+optional
-	//+kubebuilder:validation:Minimum=1
-	ConcurrentTCP *int32 `json:"concurrentTCP,omitempty"`
-	// Maximum number of HTTP requests per second allowed per source IP address.
-	// Overrides the component-specific default when set.
-	//+optional
-	//+kubebuilder:validation:Minimum=1
-	RateHTTP *int32 `json:"rateHTTP,omitempty"`
-	// Maximum number of TCP connections per second allowed per source IP address.
-	// Overrides the component-specific default when set.
-	//+optional
-	//+kubebuilder:validation:Minimum=1
-	RateTCP *int32 `json:"rateTCP,omitempty"`
 }
 
 // FulcioCertificateChain defines the certificate chain configuration for Fulcio CA

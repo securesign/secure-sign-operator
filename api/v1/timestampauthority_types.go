@@ -29,12 +29,6 @@ type TimestampAuthoritySpec struct {
 	ServiceAccountConfig `json:",inline"`
 	//Define whether you want to export service or not
 	Ingress Ingress `json:"ingress,omitempty"`
-	// Throttling configures HAProxy rate-limiting annotations on the OpenShift Route.
-	// When omitted, default throttling values are applied (concurrentTCP=100, rateHTTP=50, rateTCP=100).
-	// Set throttling.enabled to false to disable throttling entirely.
-	// These settings only take effect on OpenShift clusters.
-	//+optional
-	Throttling *IngressThrottling `json:"throttling,omitempty"`
 	//Signer configuration
 	//+required
 	Signer TimestampAuthoritySigner `json:"signer"`

@@ -986,6 +986,13 @@ spec:
               ingress:
                 description: Define whether you want to export service or not
                 properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      Set annotations applied to the created Ingress resource. On OpenShift these propagate to the auto-generated Route.
+                      User-provided annotations override any operator-managed defaults (e.g. HAProxy rate-limiting).
+                    type: object
                   enabled:
                     description: |-
                       If set to true, the Operator will create a Kubernetes Ingress resource.
@@ -1561,41 +1568,6 @@ spec:
                 - message: only one signer should be configured at any time
                   rule: '[has(self.file), has(self.kms), has(self.tink)].filter(x,
                     x).size() <= 1'
-              throttling:
-                description: |-
-                  Throttling configures HAProxy rate-limiting annotations on the OpenShift Route.
-                  When omitted, default throttling values are applied (concurrentTCP=100, rateHTTP=50, rateTCP=100).
-                  Set throttling.enabled to false to disable throttling entirely.
-                  These settings only take effect on OpenShift clusters.
-                properties:
-                  concurrentTCP:
-                    description: |-
-                      Maximum number of concurrent TCP connections allowed per source IP address.
-                      Overrides the component-specific default when set.
-                    format: int32
-                    minimum: 1
-                    type: integer
-                  enabled:
-                    default: true
-                    description: |-
-                      Whether to apply HAProxy rate-limiting annotations to the Route.
-                      Defaults to true. Set to false to disable throttling entirely.
-                    type: boolean
-                  rateHTTP:
-                    description: |-
-                      Maximum number of HTTP requests per second allowed per source IP address.
-                      Overrides the component-specific default when set.
-                    format: int32
-                    minimum: 1
-                    type: integer
-                  rateTCP:
-                    description: |-
-                      Maximum number of TCP connections per second allowed per source IP address.
-                      Overrides the component-specific default when set.
-                    format: int32
-                    minimum: 1
-                    type: integer
-                type: object
               tolerations:
                 items:
                   description: |-

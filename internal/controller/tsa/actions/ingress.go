@@ -28,7 +28,7 @@ import (
 // with traffic similar to Fulcio.
 var tsaThrottlingDefaults = kubernetes.IngressThrottlingDefaults{
 	ConcurrentTCP: 100,
-	RateHTTP:      50,
+	RateHTTP:      100,
 	RateTCP:       100,
 }
 
@@ -67,7 +67,8 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.TimestampAu
 		},
 		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.Ingress, DeploymentName),
 		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
-		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressHAProxyThrottling(instance.Spec.Throttling, tsaThrottlingDefaults)),
+		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressHAProxyThrottling(instance.Spec.Ingress.Annotations, tsaThrottlingDefaults)),
+		ensure.Annotations[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.Ingress.Annotations)), instance.Spec.Ingress.Annotations),
 		// add ingress labels
 		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.Ingress.Labels)), instance.Spec.Ingress.Labels),
 		// add common labels

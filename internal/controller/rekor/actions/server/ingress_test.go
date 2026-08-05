@@ -86,11 +86,11 @@ func TestIngress_Handle_HAProxyThrottling(t *testing.T) {
 			}
 		},
 		NewAction:      NewIngressAction,
-		SetThrottling:  func(r *rhtasv1.Rekor, t *rhtasv1.IngressThrottling) { r.Spec.Throttling = t },
+		SetAnnotations: func(r *rhtasv1.Rekor, a map[string]string) { r.Spec.Ingress.Annotations = a },
 		IngressName:    actions.ServerDeploymentName,
 		Namespace:      "default",
 		DefaultTCP:     "200",
-		DefaultHTTP:    "100",
+		DefaultHTTP:    "200",
 		DefaultRateTCP: "200",
 	})
 }
