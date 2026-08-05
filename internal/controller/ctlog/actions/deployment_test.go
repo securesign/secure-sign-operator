@@ -221,13 +221,13 @@ func TestCTLogAuthInjectionInFileMode(t *testing.T) {
 	g.Expect(vendorTokenEnv.ValueFrom).ShouldNot(BeNil())
 	g.Expect(vendorTokenEnv.ValueFrom.SecretKeyRef.Name).Should(Equal("vendor-credentials"))
 
-	// Verify "signer-auth" volume is present
-	authVol := findCTLogVolume("signer-auth", dp.Spec.Template.Spec.Volumes)
-	g.Expect(authVol).ShouldNot(BeNil(), "signer-auth volume should be present")
+	// Verify "auth" volume is present
+	authVol := findCTLogVolume("auth", dp.Spec.Template.Spec.Volumes)
+	g.Expect(authVol).ShouldNot(BeNil(), "auth volume should be present")
 
-	// Verify "signer-auth" volume mount is present on main container
-	authMount := findCTLogVolumeMount("signer-auth", container.VolumeMounts)
-	g.Expect(authMount).ShouldNot(BeNil(), "signer-auth mount should be present on main container")
+	// Verify "auth" volume mount is present on main container
+	authMount := findCTLogVolumeMount("auth", container.VolumeMounts)
+	g.Expect(authMount).ShouldNot(BeNil(), "auth mount should be present on main container")
 }
 
 // TestCTLogOperatorVolumePrecedence verifies that an operator-managed volume

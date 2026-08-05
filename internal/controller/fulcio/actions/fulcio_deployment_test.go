@@ -472,15 +472,15 @@ func TestAuthInjectionInFileMode(t *testing.T) {
 	g.Expect(vendorTokenEnv).ShouldNot(BeNil(), "VENDOR_TOKEN env var should be present on main container")
 	g.Expect(vendorTokenEnv.Value).Should(Equal("test-token"))
 
-	authVol := findVolume("signer-auth", dp.Spec.Template.Spec.Volumes)
-	g.Expect(authVol).ShouldNot(BeNil(), "signer-auth volume should be present")
-	g.Expect(authVol.Projected).ShouldNot(BeNil(), "signer-auth volume should have Projected source")
+	authVol := findVolume("auth", dp.Spec.Template.Spec.Volumes)
+	g.Expect(authVol).ShouldNot(BeNil(), "auth volume should be present")
+	g.Expect(authVol.Projected).ShouldNot(BeNil(), "auth volume should have Projected source")
 	g.Expect(authVol.Projected.Sources).Should(HaveLen(1))
 	g.Expect(authVol.Projected.Sources[0].Secret).ShouldNot(BeNil())
 	g.Expect(authVol.Projected.Sources[0].Secret.Name).Should(Equal("vendor-creds"))
 
-	authMount := findVolumeMount("signer-auth", container.VolumeMounts)
-	g.Expect(authMount).ShouldNot(BeNil(), "signer-auth mount should be present on main container")
+	authMount := findVolumeMount("auth", container.VolumeMounts)
+	g.Expect(authMount).ShouldNot(BeNil(), "auth mount should be present on main container")
 	g.Expect(authMount.MountPath).Should(Equal(ensure.AuthMountPath))
 	g.Expect(authMount.ReadOnly).Should(BeTrue())
 }
