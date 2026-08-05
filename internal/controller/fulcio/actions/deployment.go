@@ -64,6 +64,8 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 				Namespace: instance.Namespace,
 			},
 		},
+		deployment.PodResources(instance.Spec.InitContainers, instance.Spec.Volumes,
+			instance.Spec.VolumeMounts, containerName),
 		i.ensureFileCADeployment(instance, RBACName, labels),
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
@@ -142,10 +144,6 @@ func (i deployAction) ensureCommonDeployment(dp *v1.Deployment, instance *rhtasv
 		monitoringPort.ContainerPort = 2112
 		monitoringPort.Protocol = core.ProtocolTCP
 	}
-
-	// Apply user-defined init containers, volumes, and volume mounts
-	ensure.ReconcileUserPodResources(&template.Spec, container,
-		instance.Spec.InitContainers, instance.Spec.Volumes, instance.Spec.VolumeMounts)
 
 	if container.LivenessProbe == nil {
 		container.LivenessProbe = &core.Probe{}

@@ -9,6 +9,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,6 +46,8 @@ func createCTLogDeployment(instance *rhtasv1.CTlog) (*apps.Deployment, error) {
 
 	action := deployAction{}
 	ensures := []func(*apps.Deployment) error{
+		deployment.PodResources(instance.Spec.InitContainers, instance.Spec.Volumes,
+			instance.Spec.VolumeMounts, containerName),
 		action.ensureDeployment(instance, RBACName, l),
 		ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(l)), l),
 	}

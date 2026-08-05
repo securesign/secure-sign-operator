@@ -261,6 +261,8 @@ func createDeployment(instance *rhtasv1.Fulcio, labels map[string]string) (*v13.
 	}
 
 	ensures := []func(*v13.Deployment) error{
+		deployment.PodResources(instance.Spec.InitContainers, instance.Spec.Volumes,
+			instance.Spec.VolumeMounts, containerName),
 		testAction.ensureFileCADeployment(instance, RBACName, labels),
 		ensure.Labels[*v13.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Proxy(),
