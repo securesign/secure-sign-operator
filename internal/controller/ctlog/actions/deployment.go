@@ -64,6 +64,8 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 				Namespace: instance.Namespace,
 			},
 		},
+		deployment.PodResources(instance.Spec.InitContainers, instance.Spec.Volumes,
+			instance.Spec.VolumeMounts, containerName),
 		i.ensureDeployment(instance, RBACName, labels),
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
@@ -138,10 +140,6 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 		if instance.Spec.MaxCertChainSize != nil {
 			container.Args = append(container.Args, "--max_cert_chain_size", fmt.Sprintf("%d", *instance.Spec.MaxCertChainSize))
 		}
-
-		// Apply user-defined init containers, volumes, and volume mounts
-		ensure.ReconcileUserPodResources(&template.Spec, container,
-			instance.Spec.InitContainers, instance.Spec.Volumes, instance.Spec.VolumeMounts)
 
 		// Operator-managed volume and mount set AFTER user-defined resources
 		// so operator always wins if a user volume has the same name.
