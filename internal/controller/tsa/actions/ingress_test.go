@@ -93,3 +93,31 @@ func TestIngress_Handle_HAProxyThrottling(t *testing.T) {
 		DefaultRateTCP: "100",
 	})
 }
+
+func TestIngress_Handle_AnnotationRemoval(t *testing.T) {
+	testAction.RunIngressAnnotationRemovalTests(t, testAction.IngressAnnotationTestConfig[*rhtasv1.TimestampAuthority]{
+		NewInstance: func() *rhtasv1.TimestampAuthority {
+			return &rhtasv1.TimestampAuthority{
+				ObjectMeta: metav1.ObjectMeta{Name: "tsa", Namespace: "default"},
+				Spec: rhtasv1.TimestampAuthoritySpec{
+					Ingress: rhtasv1.Ingress{Enabled: ptr.To(true), Host: "tsa.example.com"},
+				},
+				Status: rhtasv1.TimestampAuthorityStatus{
+					Conditions: []metav1.Condition{
+						{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: state.Ready.String()},
+					},
+				},
+			}
+		},
+		NewService: func() *v1.Service {
+			return &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{Name: DeploymentName, Namespace: "default"},
+				Spec:       v1.ServiceSpec{Ports: []v1.ServicePort{{Name: DeploymentName, Port: 80}}},
+			}
+		},
+		NewAction:      NewIngressAction,
+		SetAnnotations: func(tsa *rhtasv1.TimestampAuthority, a map[string]string) { tsa.Spec.Ingress.Annotations = a },
+		IngressName:    DeploymentName,
+		Namespace:      "default",
+	})
+}
