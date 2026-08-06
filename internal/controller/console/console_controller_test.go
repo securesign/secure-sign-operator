@@ -74,7 +74,10 @@ var _ = Describe("Console controller", func() {
 				},
 			}
 			Expect(suite.Client().Create(ctx, tuf)).To(Succeed())
-			tuf.Status.Url = "http://tuf.default.svc"
+			// Simulates a Tuf instance with Ingress enabled, where status-url.go
+				// resolves Status.Url to the external route/ingress host rather than
+				// the in-cluster Service DNS name.
+				tuf.Status.Url = "https://tuf-default.apps.example.com"
 			tuf.Status.Conditions = []metav1.Condition{
 				{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: "Ready", LastTransitionTime: metav1.Now()},
 			}
@@ -111,6 +114,20 @@ var _ = Describe("Console controller", func() {
 			Eventually(func() error {
 				return suite.Client().Get(ctx, types.NamespacedName{Name: actions.ApiDeploymentName, Namespace: Namespace}, &appsv1.Deployment{})
 			}).Should(Succeed())
+
+			By("API Deployment uses the in-cluster TUF service URL when Console.Spec.Api.Tuf is not explicitly set, ignoring Tuf's externally-facing Status.Url")
+			apiDeployment := &appsv1.Deployment{}
+			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.ApiDeploymentName, Namespace: Namespace}, apiDeployment)).To(Succeed())
+			Expect(apiDeployment.Spec.Template.Spec.Containers[0].Args).To(ContainElement("--tuf-repo-url=http://tuf.default.svc"))
+			var waitForTuf *corev1.Container
+			for i := range apiDeployment.Spec.Template.Spec.InitContainers {
+				if apiDeployment.Spec.Template.Spec.InitContainers[i].Name == "wait-for-tuf" {
+					waitForTuf = &apiDeployment.Spec.Template.Spec.InitContainers[i]
+				}
+			}
+			Expect(waitForTuf).ToNot(BeNil())
+			Expect(waitForTuf.Args[0]).To(ContainSubstring("http://tuf.default.svc"))
+			Expect(waitForTuf.Args[0]).ToNot(ContainSubstring("apps.example.com"))
 
 			By("API Service created")
 			Eventually(func() error {

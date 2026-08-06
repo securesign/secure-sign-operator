@@ -48,9 +48,14 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Console) *ac
 		result controllerutil.OperationResult
 	)
 
-	tufURL, err := utils.ResolveExternalServiceUrl(ctx, i.Client, instance.Spec.Api.Tuf, instance.Namespace, &rhtasv1.Tuf{})
-	if err != nil {
-		return i.Error(ctx, fmt.Errorf("error resolving TUF URL: %w", err), instance)
+	var tufURL string
+	if instance.Spec.Api.Tuf.URL != "" || instance.Spec.Api.Tuf.Ref != nil {
+		tufURL, err = utils.ResolveExternalServiceUrl(ctx, i.Client, instance.Spec.Api.Tuf, instance.Namespace, &rhtasv1.Tuf{})
+		if err != nil {
+			return i.Error(ctx, fmt.Errorf("error resolving TUF URL: %w", err), instance)
+		}
+	} else {
+		tufURL = fmt.Sprintf("http://tuf.%s.svc", instance.Namespace)
 	}
 
 	l := labels.For(actions.ApiComponentName, actions.ApiDeploymentName, instance.Name)
