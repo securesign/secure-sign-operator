@@ -70,7 +70,7 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *act
 		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.Ingress, actions.ServerDeploymentPortName),
 		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
 		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressHAProxyThrottling(instance.Spec.Ingress.Annotations, rekorThrottlingDefaults)),
-		ensure.Annotations[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.Ingress.Annotations)), instance.Spec.Ingress.Annotations),
+		kubernetes.EnsureIngressAnnotations(instance.Spec.Ingress.Annotations),
 		// add ingress labels
 		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.Ingress.Labels)), instance.Spec.Ingress.Labels),
 		// add common labels
