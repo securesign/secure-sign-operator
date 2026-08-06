@@ -130,6 +130,16 @@ func EnsureIngressHAProxyThrottling(userAnnotations map[string]string, defaults 
 // removal. Instead, this function persists the key set it applied on the previous
 // reconcile in annotations.ManagedIngressAnnotationKeys, so it can delete exactly
 // those keys before copying in the current desired set.
+//
+// IMPORTANT: The HAProxy throttling annotation keys (haproxyThrottlingAnnotationKeys)
+// are excluded from tracking. Their full lifecycle (set to defaults, deleted on
+// opt-out) is owned by EnsureIngressHAProxyThrottling, which is called earlier
+// in the ensure chain and unconditionally recomputes them every reconcile. If we
+// tracked them here, a removal from the CR would cause this function to delete
+// them after EnsureIngressHAProxyThrottling just re-added them in the same
+// reconcile, breaking re-enablement of throttling. User-provided overrides of
+// those keys (e.g., concurrentTCP=10) are still copied in normally; they just
+// aren't recorded for deletion on removal.
 func EnsureIngressAnnotations(userAnnotations map[string]string) func(ingress *networkingv1.Ingress) error {
 	return func(ingress *networkingv1.Ingress) error {
 		var previouslyManaged []string
@@ -147,7 +157,13 @@ func EnsureIngressAnnotations(userAnnotations map[string]string) func(ingress *n
 		}
 		maps.Copy(ingress.Annotations, userAnnotations)
 
-		nowManaged := slices.Sorted(maps.Keys(userAnnotations))
+		// Compute the set of keys to track, excluding the HAProxy throttling keys
+		// which are managed by EnsureIngressHAProxyThrottling.
+		trackable := maps.Clone(userAnnotations)
+		for _, key := range haproxyThrottlingAnnotationKeys {
+			delete(trackable, key)
+		}
+		nowManaged := slices.Sorted(maps.Keys(trackable))
 		if nowManaged == nil {
 			nowManaged = []string{}
 		}
