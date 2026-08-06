@@ -109,7 +109,8 @@ type RekorSigner struct {
 	//   - azurekms://keyname
 	//   - gcpkms://keyname
 	//   - hashivault://keyname
-	// +kubebuilder:validation:XValidation:rule="self == 'secret' || self == 'memory' || self.matches('^awskms://.+$') || self.matches('^gcpkms://.+$') || self.matches('^azurekms://.+$') || self.matches('^hashivault://.+$')",message="KMS must be 'secret', 'memory', or a valid URI with a key path (e.g., awskms:///key-id)"
+	//   - openbao://keyname
+	// +kubebuilder:validation:XValidation:rule="self == 'secret' || self == 'memory' || self.matches('^awskms://.+$') || self.matches('^gcpkms://.+$') || self.matches('^azurekms://.+$') || self.matches('^hashivault://.+$') || self.matches('^openbao://.+$')",message="KMS must be 'secret', 'memory', or a valid URI with a key path (e.g., awskms:///key-id)"
 	KMS string `json:"kms,omitempty"`
 
 	// Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design

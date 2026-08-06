@@ -5466,13 +5466,14 @@ spec:
                             - azurekms://keyname
                             - gcpkms://keyname
                             - hashivault://keyname
+                            - openbao://keyname
                         type: string
                         x-kubernetes-validations:
                         - message: KMS must be 'secret', 'memory', or a valid URI
                             with a key path (e.g., awskms:///key-id)
                           rule: self == 'secret' || self == 'memory' || self.matches('^awskms://.+$')
                             || self.matches('^gcpkms://.+$') || self.matches('^azurekms://.+$')
-                            || self.matches('^hashivault://.+$')
+                            || self.matches('^hashivault://.+$') || self.matches('^openbao://.+$')
                       passwordRef:
                         description: |-
                           Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
@@ -9626,17 +9627,14 @@ spec:
                         description: Configuration for KMS based signer
                         properties:
                           keyResource:
-                            description: 'KMS key for signing timestamp responses.
-                              Valid options include: [gcpkms://resource, azurekms://resource,
-                              hashivault://resource, awskms://resource]'
                             type: string
                         required:
                         - keyResource
                         type: object
                         x-kubernetes-validations:
                         - message: keyResource must be a valid KMS URI (gcpkms://,
-                            azurekms://, hashivault://, or awskms://)
-                          rule: self.keyResource.matches('^(gcpkms|azurekms|hashivault|awskms)://.+$')
+                            azurekms://, hashivault://, openbao://, or awskms://)
+                          rule: self.keyResource.matches('^(gcpkms|azurekms|hashivault|openbao|awskms)://.+$')
                       tink:
                         description: Configuration for Tink based signer
                         properties:
