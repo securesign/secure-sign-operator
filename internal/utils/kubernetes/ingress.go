@@ -2,6 +2,9 @@ package kubernetes
 
 import (
 	"context"
+	"encoding/json"
+	"maps"
+	"slices"
 	"strconv"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -114,6 +117,45 @@ func EnsureIngressHAProxyThrottling(userAnnotations map[string]string, defaults 
 		ingress.Annotations[annotations.HaproxyRateLimitConcurrentTCP] = strconv.FormatInt(int64(defaults.ConcurrentTCP), 10)
 		ingress.Annotations[annotations.HaproxyRateLimitRateHTTP] = strconv.FormatInt(int64(defaults.RateHTTP), 10)
 		ingress.Annotations[annotations.HaproxyRateLimitRateTCP] = strconv.FormatInt(int64(defaults.RateTCP), 10)
+		return nil
+	}
+}
+
+// EnsureIngressAnnotations reconciles user-provided annotations onto the Ingress.
+//
+// Unlike ensure.Annotations, whose managed-key list is a fixed set the caller
+// passes in, this function's managed set is the user's own CR annotations map —
+// which means a key removed from the CR is also absent from any managed-key list
+// derived from the CR's *current* state, so a naive caller could never detect the
+// removal. Instead, this function persists the key set it applied on the previous
+// reconcile in annotations.ManagedIngressAnnotationKeys, so it can delete exactly
+// those keys before copying in the current desired set.
+func EnsureIngressAnnotations(userAnnotations map[string]string) func(ingress *networkingv1.Ingress) error {
+	return func(ingress *networkingv1.Ingress) error {
+		var previouslyManaged []string
+		if raw, ok := ingress.Annotations[annotations.ManagedIngressAnnotationKeys]; ok {
+			// A missing or corrupt tracking value is treated as an empty managed
+			// set rather than failing reconciliation.
+			_ = json.Unmarshal([]byte(raw), &previouslyManaged)
+		}
+
+		if ingress.Annotations == nil {
+			ingress.Annotations = map[string]string{}
+		}
+		for _, key := range previouslyManaged {
+			delete(ingress.Annotations, key)
+		}
+		maps.Copy(ingress.Annotations, userAnnotations)
+
+		nowManaged := slices.Sorted(maps.Keys(userAnnotations))
+		if nowManaged == nil {
+			nowManaged = []string{}
+		}
+		encoded, err := json.Marshal(nowManaged)
+		if err != nil {
+			return err
+		}
+		ingress.Annotations[annotations.ManagedIngressAnnotationKeys] = string(encoded)
 		return nil
 	}
 }

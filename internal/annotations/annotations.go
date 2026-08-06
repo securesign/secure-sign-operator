@@ -125,6 +125,18 @@
 //	  name: example
 //	  annotations:
 //	    rhtas.redhat.com/log-type: "dev"
+//
+// # Annotation: rhtas.redhat.com/managed-ingress-annotation-keys
+//
+// [ManagedIngressAnnotationKeys] is an operator-owned annotation applied to every
+// Ingress the operator manages. Its value is a JSON array of the user-supplied
+// annotation keys (from the owning CR's Ingress.Annotations) that were applied on
+// the previous reconcile. It lets the operator delete a key from the Ingress once
+// it has been removed from the CR, which a fixed/static managed-key list cannot do.
+//
+// This annotation is managed entirely by the operator. Do not set or modify it
+// manually — a corrupted or hand-edited value is tolerated (treated as empty) but
+// will cause one reconcile to skip cleanup of any then-stale key.
 package annotations
 
 const (
@@ -139,6 +151,10 @@ const (
 
 	// LogType defines the annotation key used to configure the logging type for managed resources.
 	LogType = "rhtas.redhat.com/log-type"
+
+	// ManagedIngressAnnotationKeys defines the annotation key used to record which
+	// user-supplied annotation keys the operator last applied to a managed Ingress.
+	ManagedIngressAnnotationKeys = "rhtas.redhat.com/managed-ingress-annotation-keys"
 
 	// TreeId define the annotation key to document association of resource with specific Merkle Tree
 	TreeId = "rhtas.redhat.com/treeId"

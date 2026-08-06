@@ -251,3 +251,78 @@ func TestEnsureIngressHAProxyThrottling(t *testing.T) {
 		}
 	})
 }
+
+func TestEnsureIngressAnnotations(t *testing.T) {
+	t.Run("nil user annotations on a fresh ingress sets only the tracking annotation", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		ingress := &networkingv1.Ingress{}
+
+		g.Expect(EnsureIngressAnnotations(nil)(ingress)).To(gomega.Succeed())
+
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.ManagedIngressAnnotationKeys, "[]"))
+	})
+
+	t.Run("user annotations are applied and tracked", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		ingress := &networkingv1.Ingress{}
+
+		g.Expect(EnsureIngressAnnotations(map[string]string{"custom/one": "a", "custom/two": "b"})(ingress)).To(gomega.Succeed())
+
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue("custom/one", "a"))
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue("custom/two", "b"))
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.ManagedIngressAnnotationKeys, `["custom/one","custom/two"]`))
+	})
+
+	t.Run("annotation removed from user input on a later call is deleted from the ingress", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		ingress := &networkingv1.Ingress{}
+		g.Expect(EnsureIngressAnnotations(map[string]string{"custom/one": "a", "custom/two": "b"})(ingress)).To(gomega.Succeed())
+
+		g.Expect(EnsureIngressAnnotations(map[string]string{"custom/one": "a"})(ingress)).To(gomega.Succeed())
+
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue("custom/one", "a"))
+		g.Expect(ingress.Annotations).ToNot(gomega.HaveKey("custom/two"))
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.ManagedIngressAnnotationKeys, `["custom/one"]`))
+	})
+
+	t.Run("all annotations removed are deleted and the tracking annotation resets to an empty array", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		ingress := &networkingv1.Ingress{}
+		g.Expect(EnsureIngressAnnotations(map[string]string{"custom/one": "a"})(ingress)).To(gomega.Succeed())
+
+		g.Expect(EnsureIngressAnnotations(nil)(ingress)).To(gomega.Succeed())
+
+		g.Expect(ingress.Annotations).ToNot(gomega.HaveKey("custom/one"))
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.ManagedIngressAnnotationKeys, "[]"))
+	})
+
+	t.Run("annotations not managed by this function are preserved", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		ingress := &networkingv1.Ingress{
+			ObjectMeta: v2.ObjectMeta{
+				Annotations: map[string]string{"route.openshift.io/termination": "edge"},
+			},
+		}
+
+		g.Expect(EnsureIngressAnnotations(map[string]string{"custom/one": "a"})(ingress)).To(gomega.Succeed())
+
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue("route.openshift.io/termination", "edge"))
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue("custom/one", "a"))
+	})
+
+	t.Run("a missing or malformed tracking annotation is tolerated rather than erroring", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		ingress := &networkingv1.Ingress{
+			ObjectMeta: v2.ObjectMeta{
+				Annotations: map[string]string{
+					annotations.ManagedIngressAnnotationKeys: "not-json",
+				},
+			},
+		}
+
+		g.Expect(EnsureIngressAnnotations(map[string]string{"custom/one": "a"})(ingress)).To(gomega.Succeed())
+
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue("custom/one", "a"))
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.ManagedIngressAnnotationKeys, `["custom/one"]`))
+	})
+}
