@@ -97,3 +97,33 @@ func TestIngress_Handle_HAProxyThrottling(t *testing.T) {
 		DefaultRateTCP: "100",
 	})
 }
+
+func TestIngress_Handle_AnnotationRemoval(t *testing.T) {
+	testAction.RunIngressAnnotationRemovalTests(t, testAction.IngressAnnotationTestConfig[*rhtasv1.Console]{
+		NewInstance: func() *rhtasv1.Console {
+			return &rhtasv1.Console{
+				ObjectMeta: metav1.ObjectMeta{Name: "console", Namespace: "default"},
+				Spec: rhtasv1.ConsoleSpec{
+					UI: rhtasv1.ConsoleUI{
+						Ingress: rhtasv1.Ingress{Enabled: ptr.To(true), Host: "console.example.com"},
+					},
+				},
+				Status: rhtasv1.ConsoleStatus{
+					Conditions: []metav1.Condition{
+						{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: state.Ready.String()},
+					},
+				},
+			}
+		},
+		NewService: func() *v1.Service {
+			return &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{Name: actions.UIDeploymentName, Namespace: "default"},
+				Spec:       v1.ServiceSpec{Ports: []v1.ServicePort{{Name: actions.UIPortName, Port: 80}}},
+			}
+		},
+		NewAction:      NewIngressAction,
+		SetAnnotations: func(c *rhtasv1.Console, a map[string]string) { c.Spec.UI.Ingress.Annotations = a },
+		IngressName:    actions.UIDeploymentName,
+		Namespace:      "default",
+	})
+}
