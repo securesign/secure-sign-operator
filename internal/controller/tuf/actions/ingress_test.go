@@ -126,4 +126,25 @@ func TestIngress_Handle_Annotations(t *testing.T) {
 		g.Expect(c.Get(ctx, types.NamespacedName{Name: tufConstants.DeploymentName, Namespace: "default"}, ingress)).To(Succeed())
 		g.Expect(ingress.Annotations).To(HaveKeyWithValue("custom/annotation", "value"))
 	})
+
+	t.Run("annotation removed from the CR is deleted from the ingress on the next reconcile", func(t *testing.T) {
+		g := NewWithT(t)
+		c := testAction.FakeClientBuilder().WithObjects(newService()).Build()
+		a := testAction.PrepareAction(c, NewIngressAction())
+
+		instance := newInstance(map[string]string{"custom/one": "a", "custom/two": "b"})
+		a.Handle(ctx, instance)
+
+		ingress := &networkingv1.Ingress{}
+		g.Expect(c.Get(ctx, types.NamespacedName{Name: tufConstants.DeploymentName, Namespace: "default"}, ingress)).To(Succeed())
+		g.Expect(ingress.Annotations).To(HaveKeyWithValue("custom/one", "a"))
+		g.Expect(ingress.Annotations).To(HaveKeyWithValue("custom/two", "b"))
+
+		instance.Spec.Ingress.Annotations = map[string]string{"custom/one": "a"}
+		a.Handle(ctx, instance)
+
+		g.Expect(c.Get(ctx, types.NamespacedName{Name: tufConstants.DeploymentName, Namespace: "default"}, ingress)).To(Succeed())
+		g.Expect(ingress.Annotations).To(HaveKeyWithValue("custom/one", "a"))
+		g.Expect(ingress.Annotations).ToNot(HaveKey("custom/two"))
+	})
 }
