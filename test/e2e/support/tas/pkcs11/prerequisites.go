@@ -65,7 +65,7 @@ func CreatePrerequisites(ctx context.Context, cli client.Client, namespace strin
 	for _, r := range resources {
 		if err := cli.Create(ctx, r); err != nil {
 			if !errors.IsAlreadyExists(err) {
-				return fmt.Errorf("creating %s %s: %w", r.GetObjectKind().GroupVersionKind().Kind, r.GetName(), err)
+				return fmt.Errorf("creating %T %s: %w", r, r.GetName(), err)
 			}
 		}
 	}
@@ -75,7 +75,9 @@ func CreatePrerequisites(ctx context.Context, cli client.Client, namespace strin
 	ctlogJob := ctlogKeyCeremonyJob(namespace)
 	for _, job := range []*batchv1.Job{fulcioJob, ctlogJob} {
 		if err := cli.Create(ctx, job); err != nil {
-			return fmt.Errorf("creating job %s: %w", job.Name, err)
+			if !errors.IsAlreadyExists(err) {
+				return fmt.Errorf("creating job %s: %w", job.Name, err)
+			}
 		}
 	}
 
@@ -227,12 +229,28 @@ func keyCeremonyJob(namespace, name, containerName, script, pvcName string) *bat
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					RestartPolicy: corev1.RestartPolicyNever,
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsNonRoot: ptr.To(true),
+						RunAsUser:    ptr.To(int64(1001)),
+						RunAsGroup:   ptr.To(int64(1001)),
+						FSGroup:      ptr.To(int64(1001)),
+						SeccompProfile: &corev1.SeccompProfile{
+							Type: corev1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
 					Containers: []corev1.Container{
 						{
-							Name:    containerName,
-							Image:   SoftHSMInitImage,
-							Command: []string{"/bin/bash", "-c"},
-							Args:    []string{script},
+							Name:            containerName,
+							Image:           SoftHSMInitImage,
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Command:         []string{"/bin/bash", "-c"},
+							Args:            []string{script},
+							SecurityContext: &corev1.SecurityContext{
+								AllowPrivilegeEscalation: ptr.To(false),
+								Capabilities: &corev1.Capabilities{
+									Drop: []corev1.Capability{"ALL"},
+								},
+							},
 							Env: []corev1.EnvVar{
 								{
 									Name: "HSM_PIN",

@@ -405,7 +405,6 @@ func WithPKCS11Signer(namespace string) Opts {
 		WithTSA()(s)
 		WithIngress()(s)
 		WithDefaultOIDC()(s)
-		WithManagedDatabase()(s)
 
 		// --- Fulcio PKCS#11 signer ---
 		s.Spec.Fulcio.Signer = rhtasv1.FulcioSigner{
