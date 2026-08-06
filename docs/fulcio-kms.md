@@ -114,7 +114,7 @@ oc patch securesign <name> -n <namespace> --type merge -p '{
 
 Check that `CertCondition` is `True`:
 ```bash
-oc get fulcio <name> -n <namespace> -o jsonpath='{.status.conditions[?(@.type=="CertCondition")].status}'
+oc get fulcio <name> -n <namespace> -o jsonpath='{.status.conditions[?(@.type=="FulcioCertAvailable")].status}'
 ```
 
 Verify pod args:
