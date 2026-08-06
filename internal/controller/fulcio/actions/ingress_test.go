@@ -93,3 +93,31 @@ func TestIngress_Handle_HAProxyThrottling(t *testing.T) {
 		DefaultRateTCP: "100",
 	})
 }
+
+func TestIngress_Handle_AnnotationRemoval(t *testing.T) {
+	testAction.RunIngressAnnotationRemovalTests(t, testAction.IngressAnnotationTestConfig[*rhtasv1.Fulcio]{
+		NewInstance: func() *rhtasv1.Fulcio {
+			return &rhtasv1.Fulcio{
+				ObjectMeta: metav1.ObjectMeta{Name: "fulcio", Namespace: "default"},
+				Spec: rhtasv1.FulcioSpec{
+					Ingress: rhtasv1.Ingress{Enabled: ptr.To(true), Host: "fulcio.example.com"},
+				},
+				Status: rhtasv1.FulcioStatus{
+					Conditions: []metav1.Condition{
+						{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: state.Ready.String()},
+					},
+				},
+			}
+		},
+		NewService: func() *v1.Service {
+			return &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{Name: DeploymentName, Namespace: "default"},
+				Spec:       v1.ServiceSpec{Ports: []v1.ServicePort{{Name: ServerPortName, Port: 80}}},
+			}
+		},
+		NewAction:      NewIngressAction,
+		SetAnnotations: func(f *rhtasv1.Fulcio, a map[string]string) { f.Spec.Ingress.Annotations = a },
+		IngressName:    DeploymentName,
+		Namespace:      "default",
+	})
+}
