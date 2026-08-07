@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	pkcs11helpers "github.com/securesign/operator/internal/controller/common/pkcs11"
 	futils "github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/images"
 )
@@ -57,6 +58,15 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 
 	labels := labels.For(ComponentName, DeploymentName, instance.Name)
 
+	var signerDeployFn func(*v1.Deployment) error
+	switch instance.Spec.Signer.Type {
+	case rhtasv1.FulcioSignerTypePKCS11:
+		signerDeployFn = i.ensurePKCS11Deployment(instance, RBACName, labels)
+	default:
+		signerDeployFn = i.ensureFileCADeployment(instance, RBACName, labels)
+		meta.RemoveStatusCondition(&instance.Status.Conditions, PKCS11Condition)
+	}
+
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		&v1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -66,7 +76,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 		},
 		deployment.PodResources(instance.Spec.InitContainers, instance.Spec.Volumes,
 			instance.Spec.VolumeMounts, containerName),
-		i.ensureFileCADeployment(instance, RBACName, labels),
+		signerDeployFn,
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		// need to add Fulcio's unix domain socket used for the legacy gRPC server other way it will be
@@ -202,14 +212,21 @@ func (i deployAction) ensureFileCADeployment(instance *rhtasv1.Fulcio, sa string
 			return errors.New("CA secret is not specified")
 		}
 
+		// Set up shared deployment scaffolding (replicas, selector, labels, SA, ports, probes, user-defined resources)
+		container := i.ensureCommonDeployment(dp, instance, sa, labels)
+		template := &dp.Spec.Template
+
+		// Clean up PKCS#11-specific volumes when switching back to file mode
+		kubernetes.RemoveVolumeByName(&template.Spec, PKCS11ConfigVolumeName)
+		kubernetes.RemoveVolumeByName(&template.Spec, PKCS11CertVolumeName)
+		kubernetes.RemoveVolumeMountByName(container, PKCS11ConfigVolumeName)
+		kubernetes.RemoveVolumeMountByName(container, PKCS11CertVolumeName)
+		pkcs11helpers.CleanupHSMResources(&template.Spec, container)
+
 		ctlogUrl, err := i.resolveCTlogUrl(instance)
 		if err != nil {
 			return fmt.Errorf("could not resolve CTLog url: %w", err)
 		}
-
-		// Set up shared deployment scaffolding (replicas, selector, labels, SA, ports, probes, user-defined resources)
-		container := i.ensureCommonDeployment(dp, instance, sa, labels)
-		template := &dp.Spec.Template
 
 		// Apply or clean up auth env vars and secret mounts
 		if err := ensure.ContainerAuth(container, instance.Spec.Signer.Auth)(&template.Spec); err != nil {
@@ -324,6 +341,126 @@ func (i deployAction) ensureFileCADeployment(instance *rhtasv1.Fulcio, sa string
 			},
 		}
 		ensure.EnsureVolumeDefaultMode(oidcInfo)
+
+		return nil
+	}
+}
+
+func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.Fulcio, sa string, lbls map[string]string) func(*v1.Deployment) error {
+	return func(dp *v1.Deployment) error {
+		if instance.Spec.Signer.PKCS11 == nil {
+			return errors.New("PKCS#11 config not specified")
+		}
+		if instance.Status.ServerConfigRef == nil {
+			return errors.New("server config ref is not specified")
+		}
+		if instance.Status.Certificate == nil || instance.Status.Certificate.CARef == nil {
+			return errors.New("CA certificate reference not yet resolved")
+		}
+
+		ctlogUrl, err := i.resolveCTlogUrl(instance)
+		if err != nil {
+			return fmt.Errorf("could not resolve CTLog url: %w", err)
+		}
+
+		// Reuse shared scaffolding (replicas, selector, labels, SA, ports, probes, ReconcileUserPodResources)
+		container := i.ensureCommonDeployment(dp, instance, sa, lbls)
+		template := &dp.Spec.Template
+
+		// Auth
+		if err := ensure.ContainerAuth(container, instance.Spec.Signer.Auth)(&template.Spec); err != nil {
+			return err
+		}
+
+		pkcs11Cfg := instance.Spec.Signer.PKCS11
+		configRef := pkcs11Cfg.ConfigRef
+
+		args := []string{
+			"serve",
+			"--port=5555",
+			"--grpc-port=5554",
+			fmt.Sprintf("--log_type=%s", utils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
+			"--ca=pkcs11ca",
+			fmt.Sprintf("--pkcs11-config-path=%s/%s", PKCS11ConfigMountPath, configRef.Key),
+			fmt.Sprintf("--hsm-caroot-id=%d", pkcs11Cfg.KeyConfig.ID),
+			fmt.Sprintf("--aws-hsm-root-ca-path=%s/%s",
+				PKCS11CertMountPath, instance.Status.Certificate.CARef.Key),
+			fmt.Sprintf("--ct-log-url=%s", ctlogUrl),
+		}
+		if fips.Enabled() {
+			args = append(args, "--client-signing-algorithms", fips.ClientSigningAlgorithms)
+		}
+		container.Args = args
+
+		// PKCS#11-specific volume mounts
+		pkcs11ConfigMount := kubernetes.FindVolumeMountByNameOrCreate(container, PKCS11ConfigVolumeName)
+		pkcs11ConfigMount.MountPath = PKCS11ConfigMountPath
+		pkcs11ConfigMount.ReadOnly = true
+
+		pkcs11CertMount := kubernetes.FindVolumeMountByNameOrCreate(container, PKCS11CertVolumeName)
+		pkcs11CertMount.MountPath = PKCS11CertMountPath
+		pkcs11CertMount.ReadOnly = true
+
+		pkcs11helpers.EnsureHSMResources(&template.Spec, container, instance.Spec.Volumes)
+
+		configMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-config")
+		configMount.MountPath = "/etc/fulcio-config"
+
+		oidcInfoMount := kubernetes.FindVolumeMountByNameOrCreate(container, "oidc-info")
+		oidcInfoMount.MountPath = "/var/run/fulcio"
+
+		// PKCS#11-specific volumes
+		pkcs11ConfigVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, PKCS11ConfigVolumeName)
+		pkcs11ConfigVol.VolumeSource = core.VolumeSource{
+			Secret: &core.SecretVolumeSource{
+				SecretName: configRef.Name,
+				Items: []core.KeyToPath{
+					{Key: configRef.Key, Path: configRef.Key},
+				},
+			},
+		}
+		ensure.EnsureVolumeDefaultMode(pkcs11ConfigVol)
+
+		pkcs11CertVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, PKCS11CertVolumeName)
+		pkcs11CertVol.VolumeSource = core.VolumeSource{
+			Secret: &core.SecretVolumeSource{
+				SecretName: instance.Status.Certificate.CARef.Name,
+				Items: []core.KeyToPath{
+					{Key: instance.Status.Certificate.CARef.Key, Path: instance.Status.Certificate.CARef.Key},
+				},
+			},
+		}
+		ensure.EnsureVolumeDefaultMode(pkcs11CertVol)
+
+		// Shared volumes (same as file mode)
+		config := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-config")
+		config.VolumeSource = core.VolumeSource{
+			ConfigMap: &core.ConfigMapVolumeSource{
+				LocalObjectReference: core.LocalObjectReference{
+					Name: instance.Status.ServerConfigRef.Name,
+				},
+			},
+		}
+		ensure.EnsureVolumeDefaultMode(config)
+
+		oidcInfo := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "oidc-info")
+		oidcInfo.VolumeSource = core.VolumeSource{
+			Projected: &core.ProjectedVolumeSource{
+				Sources: []core.VolumeProjection{{
+					ConfigMap: &core.ConfigMapProjection{
+						LocalObjectReference: core.LocalObjectReference{Name: "kube-root-ca.crt"},
+						Items: []core.KeyToPath{
+							{Key: "ca.crt", Path: "ca.crt", Mode: ptr.To(int32(0666))},
+						},
+					},
+				}},
+			},
+		}
+		ensure.EnsureVolumeDefaultMode(oidcInfo)
+
+		// Clean up file-mode volumes that should not be present in PKCS#11 mode
+		kubernetes.RemoveVolumeByName(&template.Spec, "fulcio-cert")
+		kubernetes.RemoveVolumeMountByName(container, "fulcio-cert")
 
 		return nil
 	}

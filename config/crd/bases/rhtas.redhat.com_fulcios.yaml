@@ -2187,10 +2187,54 @@ spec:
                         type: object
                         x-kubernetes-map-type: atomic
                     type: object
+                  pkcs11:
+                    description: Configuration for PKCS#11/HSM-based signer
+                    properties:
+                      configRef:
+                        description: |-
+                          Reference to a Secret key holding the crypto11 JSON configuration
+                          (module path, token label, PIN, etc.).
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      keyConfig:
+                        description: Identifies the signing key on the HSM token.
+                        properties:
+                          id:
+                            description: PKCS#11 CKA_ID of the key (numeric).
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          label:
+                            description: PKCS#11 CKA_LABEL of the key.
+                            minLength: 1
+                            type: string
+                        required:
+                        - id
+                        - label
+                        type: object
+                    required:
+                    - configRef
+                    - keyConfig
+                    type: object
                   type:
                     description: Type of the signer backend
                     enum:
                     - file
+                    - pkcs11
                     type: string
                 required:
                 - certificateChain
@@ -2200,6 +2244,15 @@ spec:
                     is provided
                   rule: self.type != 'file' || !has(self.certificateChain.certificateChainRef)
                     || (has(self.file) && has(self.file.privateKeyRef))
+                - message: pkcs11 configuration is required when type is pkcs11
+                  rule: self.type != 'pkcs11' || has(self.pkcs11)
+                - message: file configuration must not be set when type is pkcs11
+                  rule: self.type != 'pkcs11' || !has(self.file)
+                - message: certificateChain.certificateChainRef is required when type
+                    is pkcs11
+                  rule: self.type != 'pkcs11' || has(self.certificateChain.certificateChainRef)
+                - message: pkcs11 configuration must not be set when type is file
+                  rule: self.type != 'file' || !has(self.pkcs11)
               tolerations:
                 items:
                   description: |-
