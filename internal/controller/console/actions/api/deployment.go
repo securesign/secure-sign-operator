@@ -10,6 +10,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/console/actions"
+	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
@@ -55,7 +56,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Console) *ac
 			return i.Error(ctx, fmt.Errorf("error resolving TUF URL: %w", err), instance)
 		}
 	} else {
-		tufURL = fmt.Sprintf("http://tuf.%s.svc", instance.Namespace)
+		tufURL = fmt.Sprintf("http://%s.%s.svc", tufConstants.DeploymentName, instance.Namespace)
 	}
 
 	l := labels.For(actions.ApiComponentName, actions.ApiDeploymentName, instance.Name)
