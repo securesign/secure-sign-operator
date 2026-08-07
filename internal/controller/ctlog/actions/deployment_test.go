@@ -182,6 +182,54 @@ func TestCTLogUserDefinedInitContainersInFileMode(t *testing.T) {
 	g.Expect(initContainer.Command).Should(Equal([]string{"/bin/setup"}))
 }
 
+// TestCTLogAuthInjectionInFileMode verifies that auth env vars and secret
+// mounts from spec.signer.auth are applied to the deployment.
+func TestCTLogAuthInjectionInFileMode(t *testing.T) {
+	g := NewWithT(t)
+
+	instance := createCTLogInstance()
+	instance.Spec.Signer.Auth = &rhtasv1.Auth{
+		Env: []core.EnvVar{
+			{
+				Name: "VENDOR_TOKEN",
+				ValueFrom: &core.EnvVarSource{
+					SecretKeyRef: &core.SecretKeySelector{
+						LocalObjectReference: core.LocalObjectReference{
+							Name: "vendor-credentials",
+						},
+						Key: "token",
+					},
+				},
+			},
+		},
+	}
+
+	dp, err := createCTLogDeployment(instance)
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp).ShouldNot(BeNil())
+
+	// Verify VENDOR_TOKEN env var is present on main container
+	container := dp.Spec.Template.Spec.Containers[0]
+	var vendorTokenEnv *core.EnvVar
+	for i := range container.Env {
+		if container.Env[i].Name == "VENDOR_TOKEN" {
+			vendorTokenEnv = &container.Env[i]
+			break
+		}
+	}
+	g.Expect(vendorTokenEnv).ShouldNot(BeNil(), "VENDOR_TOKEN env var should be present on main container")
+	g.Expect(vendorTokenEnv.ValueFrom).ShouldNot(BeNil())
+	g.Expect(vendorTokenEnv.ValueFrom.SecretKeyRef.Name).Should(Equal("vendor-credentials"))
+
+	// Verify "auth" volume is present
+	authVol := findCTLogVolume("auth", dp.Spec.Template.Spec.Volumes)
+	g.Expect(authVol).ShouldNot(BeNil(), "auth volume should be present")
+
+	// Verify "auth" volume mount is present on main container
+	authMount := findCTLogVolumeMount("auth", container.VolumeMounts)
+	g.Expect(authMount).ShouldNot(BeNil(), "auth mount should be present on main container")
+}
+
 // TestCTLogOperatorVolumePrecedence verifies that an operator-managed volume
 // is NOT overwritten by a user volume with the same name.
 func TestCTLogOperatorVolumePrecedence(t *testing.T) {

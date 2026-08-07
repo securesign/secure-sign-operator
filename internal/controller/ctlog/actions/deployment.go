@@ -141,6 +141,11 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 			container.Args = append(container.Args, "--max_cert_chain_size", fmt.Sprintf("%d", *instance.Spec.MaxCertChainSize))
 		}
 
+		// Apply or clean up auth env vars and secret mounts
+		if err := ensure.ContainerAuth(container, instance.Spec.Signer.Auth)(&template.Spec); err != nil {
+			return err
+		}
+
 		// Operator-managed volume and mount set AFTER user-defined resources
 		// so operator always wins if a user volume has the same name.
 		// Set the full VolumeSource to clear any conflicting source a user

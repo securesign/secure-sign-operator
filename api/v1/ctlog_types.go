@@ -94,6 +94,9 @@ type CTlogSigner struct {
 	// Configuration for file-based signer
 	//+optional
 	File *CTlogFile `json:"file,omitempty"`
+	// Authentication configuration for the signer backend.
+	//+optional
+	Auth *Auth `json:"auth,omitempty"`
 }
 
 // CTlogFile defines the desired state of the CTlog file-based signer
