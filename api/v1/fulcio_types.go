@@ -7,6 +7,7 @@
 package v1
 
 import (
+	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -37,6 +38,15 @@ type FulcioSpec struct {
 	// ConfigMap with additional bundle of trusted CA
 	//+optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
+	// InitContainers to run before the main server container.
+	//+optional
+	InitContainers []InitContainerSpec `json:"initContainers,omitempty"`
+	// Additional volumes to attach to the deployment pods.
+	//+optional
+	Volumes []core.Volume `json:"volumes,omitempty"`
+	// Additional volume mounts for the main server container.
+	//+optional
+	VolumeMounts []core.VolumeMount `json:"volumeMounts,omitempty"`
 }
 
 // FulcioSigner defines the desired state of the Fulcio Signer

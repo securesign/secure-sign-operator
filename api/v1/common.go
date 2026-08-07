@@ -266,6 +266,42 @@ type ServiceAccountConfig struct {
 	ImagePullSecrets []core.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
 
+// InitContainerSpec defines a curated subset of corev1.Container for custom init containers.
+// These containers run before the main server to perform vendor-specific initialization.
+type InitContainerSpec struct {
+	// Name of the init container. Must be unique within the pod.
+	//+required
+	//+kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+	Name string `json:"name"`
+	// Container image name.
+	//+required
+	Image string `json:"image"`
+	// Entrypoint array. Not executed within a shell.
+	//+optional
+	Command []string `json:"command,omitempty"`
+	// Arguments to the entrypoint.
+	//+optional
+	Args []string `json:"args,omitempty"`
+	// List of environment variables to set in the container.
+	//+optional
+	Env []core.EnvVar `json:"env,omitempty"`
+	// List of sources to populate environment variables in the container.
+	//+optional
+	EnvFrom []core.EnvFromSource `json:"envFrom,omitempty"`
+	// Pod volumes to mount into the container's filesystem.
+	//+optional
+	VolumeMounts []core.VolumeMount `json:"volumeMounts,omitempty"`
+	// Compute Resources required by this container.
+	//+optional
+	Resources *core.ResourceRequirements `json:"resources,omitempty"`
+	// SecurityContext defines the security options the container should be run with.
+	//+optional
+	SecurityContext *core.SecurityContext `json:"securityContext,omitempty"`
+	// Image pull policy.
+	//+optional
+	ImagePullPolicy core.PullPolicy `json:"imagePullPolicy,omitempty"`
+}
+
 type PodRequirements struct {
 	// Number of desired pods.
 	// +optional
