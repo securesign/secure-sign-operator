@@ -7,11 +7,13 @@
 package v1
 
 import (
+	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const FulcioSignerTypeFile = "file"
+const FulcioSignerTypeKMS = "kms"
 
 // FulcioSpec defines the desired state of Fulcio
 type FulcioSpec struct {
@@ -37,13 +39,26 @@ type FulcioSpec struct {
 	// ConfigMap with additional bundle of trusted CA
 	//+optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
+	// InitContainers to run before the main server container.
+	//+optional
+	InitContainers []InitContainerSpec `json:"initContainers,omitempty"`
+	// Additional volumes to attach to the deployment pods.
+	//+optional
+	Volumes []core.Volume `json:"volumes,omitempty"`
+	// Additional volume mounts for the main server container.
+	//+optional
+	VolumeMounts []core.VolumeMount `json:"volumeMounts,omitempty"`
 }
 
 // FulcioSigner defines the desired state of the Fulcio Signer
 // +kubebuilder:validation:XValidation:rule="self.type != 'file' || !has(self.certificateChain.certificateChainRef) || (has(self.file) && has(self.file.privateKeyRef))",message="file.privateKeyRef cannot be empty when certificateChain.certificateChainRef is provided"
+// +kubebuilder:validation:XValidation:rule="self.type != 'kms' || has(self.kms)",message="kms is required when type is 'kms'"
+// +kubebuilder:validation:XValidation:rule="self.type != 'kms' || has(self.certificateChain.certificateChainRef)",message="certificateChainRef is required when type is 'kms'"
+// +kubebuilder:validation:XValidation:rule="self.type != 'file' || !has(self.kms)",message="kms should not be configured when type is 'file'"
+// +kubebuilder:validation:XValidation:rule="self.type != 'kms' || !has(self.file)",message="file should not be configured when type is 'kms'"
 type FulcioSigner struct {
 	// Type of the signer backend
-	//+kubebuilder:validation:Enum=file
+	//+kubebuilder:validation:Enum=file;kms
 	//+optional
 	Type string `json:"type,omitempty"`
 	// Configuration for the Certificate Chain
@@ -52,6 +67,12 @@ type FulcioSigner struct {
 	// Configuration for file-based signer
 	//+optional
 	File *FulcioFile `json:"file,omitempty"`
+	// Configuration for KMS-based signer
+	//+optional
+	Kms *KMS `json:"kms,omitempty"`
+	// Authentication configuration for the signer backend.
+	//+optional
+	Auth *Auth `json:"auth,omitempty"`
 }
 
 // FulcioFile defines the desired state of the Fulcio file-based signer

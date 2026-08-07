@@ -612,6 +612,50 @@ func TestFulcioConversionUnit(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("KMS signer roundtrip preserves Kms and Auth", func(t *testing.T) {
+		hub := &rhtasv1.Fulcio{
+			ObjectMeta: metav1.ObjectMeta{Name: "fulcio-kms", Namespace: "default"},
+			Spec: rhtasv1.FulcioSpec{
+				Signer: rhtasv1.FulcioSigner{
+					Type: rhtasv1.FulcioSignerTypeKMS,
+					CertificateChain: rhtasv1.FulcioCertificateChain{
+						CertificateChainRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "cert-chain"},
+							Key:                  "cert",
+						},
+					},
+					Kms: &rhtasv1.KMS{
+						KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
+					},
+					Auth: &rhtasv1.Auth{
+						Env: []core.EnvVar{
+							{Name: "GOOGLE_APPLICATION_CREDENTIALS", Value: "/var/run/gcp/creds.json"},
+						},
+						SecretMount: []rhtasv1.SecretKeySelector{
+							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "gcp-creds"}, Key: "credentials.json"},
+						},
+					},
+				},
+				Ingress:    rhtasv1.Ingress{Enabled: ptr.To(false)},
+				Monitoring: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
+			},
+		}
+
+		spoke := &Fulcio{}
+		if err := spoke.ConvertFrom(hub); err != nil {
+			t.Fatalf("ConvertFrom failed: %v", err)
+		}
+
+		gotHub := &rhtasv1.Fulcio{}
+		if err := spoke.ConvertTo(gotHub); err != nil {
+			t.Fatalf("ConvertTo failed: %v", err)
+		}
+
+		if !equality.Semantic.DeepEqual(hub, gotHub) {
+			t.Errorf("KMS fields lost during round-trip (-want +got):\n%s", cmp.Diff(hub, gotHub))
+		}
+	})
 }
 
 func TestTrillianConversionUnit(t *testing.T) {

@@ -64,6 +64,8 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 				Namespace: instance.Namespace,
 			},
 		},
+		deployment.PodResources(instance.Spec.InitContainers, instance.Spec.Volumes,
+			instance.Spec.VolumeMounts, containerName),
 		i.ensureDeployment(instance, RBACName, labels),
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
@@ -112,15 +114,89 @@ func (i deployAction) resolveCTlogUrl(instance *rhtasv1.Fulcio) (string, error) 
 	return fmt.Sprintf("%s://ctlog.%s.svc/%s", protocol, instance.Namespace, instance.Spec.Ctlog.Prefix), nil
 }
 
+// ensureCommonDeployment sets up the shared deployment scaffolding used by all signer modes:
+// replicas, selector, labels, service account, ports, probes, and user-defined pod resources.
+func (i deployAction) ensureCommonDeployment(dp *v1.Deployment, instance *rhtasv1.Fulcio, sa string, labels map[string]string) *core.Container {
+	spec := &dp.Spec
+	spec.Replicas = utils.Pointer[int32](1)
+	spec.Selector = &metav1.LabelSelector{
+		MatchLabels: labels,
+	}
+
+	template := &spec.Template
+	template.Labels = labels
+	template.Spec.ServiceAccountName = sa
+	template.Spec.AutomountServiceAccountToken = &[]bool{true}[0]
+
+	container := kubernetes.FindContainerByNameOrCreate(&template.Spec, containerName)
+	container.Image = images.Registry.Get(images.FulcioServer)
+
+	http := kubernetes.FindPortByNameOrCreate(container, "http")
+	http.ContainerPort = 5555
+	http.Protocol = core.ProtocolTCP
+
+	grpc := kubernetes.FindPortByNameOrCreate(container, "grpc")
+	grpc.ContainerPort = 5554
+	grpc.Protocol = core.ProtocolTCP
+
+	if utils.IsEnabled(instance.Spec.Monitoring.Metrics.Enabled) {
+		monitoringPort := kubernetes.FindPortByNameOrCreate(container, "monitoring")
+		monitoringPort.ContainerPort = 2112
+		monitoringPort.Protocol = core.ProtocolTCP
+	}
+
+	if container.LivenessProbe == nil {
+		container.LivenessProbe = &core.Probe{}
+	}
+	if container.LivenessProbe.HTTPGet == nil {
+		container.LivenessProbe.HTTPGet = &core.HTTPGetAction{}
+	}
+	container.LivenessProbe.HTTPGet.Path = constants.HealthzPath
+	container.LivenessProbe.HTTPGet.Port = intstr.FromInt32(5555)
+	container.LivenessProbe.InitialDelaySeconds = 0
+	container.LivenessProbe.PeriodSeconds = 10
+	container.LivenessProbe.TimeoutSeconds = 1
+	container.LivenessProbe.FailureThreshold = 3
+
+	if container.ReadinessProbe == nil {
+		container.ReadinessProbe = &core.Probe{}
+	}
+	if container.ReadinessProbe.HTTPGet == nil {
+		container.ReadinessProbe.HTTPGet = &core.HTTPGetAction{}
+	}
+	container.ReadinessProbe.HTTPGet.Path = constants.HealthzPath
+	container.ReadinessProbe.HTTPGet.Port = intstr.FromInt32(5555)
+	container.ReadinessProbe.InitialDelaySeconds = 0
+	container.ReadinessProbe.PeriodSeconds = 10
+	container.ReadinessProbe.TimeoutSeconds = 1
+	container.ReadinessProbe.FailureThreshold = 3
+
+	if container.StartupProbe == nil {
+		container.StartupProbe = &core.Probe{}
+	}
+	if container.StartupProbe.HTTPGet == nil {
+		container.StartupProbe.HTTPGet = &core.HTTPGetAction{}
+	}
+	container.StartupProbe.HTTPGet.Path = constants.HealthzPath
+	container.StartupProbe.HTTPGet.Port = intstr.FromInt32(5555)
+	container.StartupProbe.PeriodSeconds = 5
+	container.StartupProbe.TimeoutSeconds = 5
+	container.StartupProbe.FailureThreshold = 12
+
+	return container
+}
+
 func (i deployAction) ensureDeployment(instance *rhtasv1.Fulcio, sa string, labels map[string]string) func(deployment *v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
+		isKMS := instance.Spec.Signer.Type == rhtasv1.FulcioSignerTypeKMS
+
 		if instance.Status.ServerConfigRef == nil {
 			return errors.New("server config ref is not specified")
 		}
 		if instance.Status.Certificate == nil {
 			return errors.New("certificate config is not specified")
 		}
-		if instance.Status.Certificate.PrivateKeyRef == nil {
+		if !isKMS && instance.Status.Certificate.PrivateKeyRef == nil {
 			return errors.New("private key secret is not specified")
 		}
 
@@ -133,69 +209,122 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.Fulcio, sa string, labe
 			return fmt.Errorf("could not resolve CTLog url: %w", err)
 		}
 
+		// Set up shared deployment scaffolding (replicas, selector, labels, SA, ports, probes, user-defined resources)
+		container := i.ensureCommonDeployment(dp, instance, sa, labels)
+		template := &dp.Spec.Template
+
+		// Apply or clean up auth env vars and secret mounts
+		if err := ensure.ContainerAuth(container, instance.Spec.Signer.Auth)(&template.Spec); err != nil {
+			return err
+		}
+
 		args := []string{
 			"serve",
 			"--port=5555",
 			"--grpc-port=5554",
 			fmt.Sprintf("--log_type=%s", utils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
-			"--ca=fileca",
-			"--fileca-key",
-			"/var/run/fulcio-secrets/key.pem",
-			"--fileca-cert",
-			"/var/run/fulcio-secrets/cert.pem",
-			fmt.Sprintf("--ct-log-url=%s", ctlogUrl),
 		}
 
-		spec := &dp.Spec
-		spec.Replicas = utils.Pointer[int32](1)
-		spec.Selector = &metav1.LabelSelector{
-			MatchLabels: labels,
-		}
+		if isKMS {
+			args = append(args,
+				"--ca=kmsca",
+				fmt.Sprintf("--kms-resource=%s", instance.Spec.Signer.Kms.KeyResource),
+			)
 
-		template := &spec.Template
-		template.Labels = labels
-		template.Spec.ServiceAccountName = sa
-		template.Spec.AutomountServiceAccountToken = &[]bool{true}[0]
+			certMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-cert")
+			certMount.MountPath = "/var/run/fulcio-secrets"
+			certMount.ReadOnly = true
 
-		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, containerName)
-		container.Image = images.Registry.Get(images.FulcioServer)
-
-		if instance.Status.Certificate.PrivateKeyPasswordRef != nil {
-			env := kubernetes.FindEnvByNameOrCreate(container, "PASSWORD")
-			env.ValueFrom = &core.EnvVarSource{
-				SecretKeyRef: &core.SecretKeySelector{
-					Key: instance.Status.Certificate.PrivateKeyPasswordRef.Key,
-					LocalObjectReference: core.LocalObjectReference{
-						Name: instance.Status.Certificate.PrivateKeyPasswordRef.Name,
+			cert := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-cert")
+			if cert.Projected == nil {
+				cert.Projected = &core.ProjectedVolumeSource{}
+			}
+			cert.Projected.Sources = []core.VolumeProjection{
+				{
+					Secret: &core.SecretProjection{
+						LocalObjectReference: core.LocalObjectReference{
+							Name: instance.Status.Certificate.CARef.Name,
+						},
+						Items: []core.KeyToPath{
+							{
+								Key:  instance.Status.Certificate.CARef.Key,
+								Path: "cert.pem",
+							},
+						},
 					},
 				},
 			}
-			args = append(args, "--fileca-key-passwd", "$(PASSWORD)")
+			ensure.EnsureVolumeDefaultMode(cert)
+
+			args = append(args, "--kms-cert-chain-path", "/var/run/fulcio-secrets/cert.pem")
+		} else {
+			args = append(args,
+				"--ca=fileca",
+				"--fileca-key",
+				"/var/run/fulcio-secrets/key.pem",
+				"--fileca-cert",
+				"/var/run/fulcio-secrets/cert.pem",
+			)
+
+			if instance.Status.Certificate.PrivateKeyPasswordRef != nil {
+				env := kubernetes.FindEnvByNameOrCreate(container, "PASSWORD")
+				env.ValueFrom = &core.EnvVarSource{
+					SecretKeyRef: &core.SecretKeySelector{
+						Key: instance.Status.Certificate.PrivateKeyPasswordRef.Key,
+						LocalObjectReference: core.LocalObjectReference{
+							Name: instance.Status.Certificate.PrivateKeyPasswordRef.Name,
+						},
+					},
+				}
+				args = append(args, "--fileca-key-passwd", "$(PASSWORD)")
+			}
+
+			certMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-cert")
+			certMount.MountPath = "/var/run/fulcio-secrets"
+			certMount.ReadOnly = true
+
+			cert := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-cert")
+			if cert.Projected == nil {
+				cert.Projected = &core.ProjectedVolumeSource{}
+			}
+			cert.Projected.Sources = []core.VolumeProjection{
+				{
+					Secret: &core.SecretProjection{
+						LocalObjectReference: core.LocalObjectReference{
+							Name: instance.Status.Certificate.PrivateKeyRef.Name,
+						},
+						Items: []core.KeyToPath{
+							{
+								Key:  instance.Status.Certificate.PrivateKeyRef.Key,
+								Path: "key.pem",
+							},
+						},
+					},
+				},
+				{
+					Secret: &core.SecretProjection{
+						LocalObjectReference: core.LocalObjectReference{
+							Name: instance.Status.Certificate.CARef.Name,
+						},
+						Items: []core.KeyToPath{
+							{
+								Key:  instance.Status.Certificate.CARef.Key,
+								Path: "cert.pem",
+							},
+						},
+					},
+				},
+			}
+			ensure.EnsureVolumeDefaultMode(cert)
 		}
+
+		args = append(args, fmt.Sprintf("--ct-log-url=%s", ctlogUrl))
 
 		if fips.Enabled() {
 			args = append(args, "--client-signing-algorithms", fips.ClientSigningAlgorithms)
 		}
 
 		container.Args = args
-
-		http := kubernetes.FindPortByNameOrCreate(container, "http")
-		http.ContainerPort = 5555
-		http.Protocol = core.ProtocolTCP
-
-		grpc := kubernetes.FindPortByNameOrCreate(container, "grpc")
-		grpc.ContainerPort = 5554
-		grpc.Protocol = core.ProtocolTCP
-
-		if utils.IsEnabled(instance.Spec.Monitoring.Metrics.Enabled) {
-			monitoringPort := kubernetes.FindPortByNameOrCreate(container, "monitoring")
-			monitoringPort.ContainerPort = 2112
-			monitoringPort.Protocol = core.ProtocolTCP
-		}
-
-		certMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-cert")
-		certMount.MountPath = "/var/run/fulcio-secrets"
-		certMount.ReadOnly = true
 
 		configMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-config")
 		configMount.MountPath = "/etc/fulcio-config"
@@ -204,47 +333,18 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.Fulcio, sa string, labe
 		oidcInfoMount.MountPath = "/var/run/fulcio"
 
 		config := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-config")
-		if config.ConfigMap == nil {
-			config.ConfigMap = &core.ConfigMapVolumeSource{}
-		}
-		config.ConfigMap.Name = instance.Status.ServerConfigRef.Name
-
-		cert := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-cert")
-		if cert.Projected == nil {
-			cert.Projected = &core.ProjectedVolumeSource{}
-		}
-		cert.Projected.Sources = []core.VolumeProjection{
-			{
-				Secret: &core.SecretProjection{
-					LocalObjectReference: core.LocalObjectReference{
-						Name: instance.Status.Certificate.PrivateKeyRef.Name,
-					},
-					Items: []core.KeyToPath{
-						{
-							Key:  instance.Status.Certificate.PrivateKeyRef.Key,
-							Path: "key.pem",
-						},
-					},
-				},
-			},
-			{
-				Secret: &core.SecretProjection{
-					LocalObjectReference: core.LocalObjectReference{
-						Name: instance.Status.Certificate.CARef.Name,
-					},
-					Items: []core.KeyToPath{
-						{
-							Key:  instance.Status.Certificate.CARef.Key,
-							Path: "cert.pem",
-						},
-					},
+		config.VolumeSource = core.VolumeSource{
+			ConfigMap: &core.ConfigMapVolumeSource{
+				LocalObjectReference: core.LocalObjectReference{
+					Name: instance.Status.ServerConfigRef.Name,
 				},
 			},
 		}
+		ensure.EnsureVolumeDefaultMode(config)
 
 		oidcInfo := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "oidc-info")
-		if oidcInfo.Projected == nil {
-			oidcInfo.Projected = &core.ProjectedVolumeSource{}
+		oidcInfo.VolumeSource = core.VolumeSource{
+			Projected: &core.ProjectedVolumeSource{},
 		}
 		oidcInfo.Projected.Sources = []core.VolumeProjection{
 			{
@@ -262,44 +362,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.Fulcio, sa string, labe
 				},
 			},
 		}
-
-		if container.LivenessProbe == nil {
-			container.LivenessProbe = &core.Probe{}
-		}
-		if container.LivenessProbe.HTTPGet == nil {
-			container.LivenessProbe.HTTPGet = &core.HTTPGetAction{}
-		}
-		container.LivenessProbe.HTTPGet.Path = constants.HealthzPath
-		container.LivenessProbe.HTTPGet.Port = intstr.FromInt32(5555)
-		container.LivenessProbe.InitialDelaySeconds = 0
-		container.LivenessProbe.PeriodSeconds = 10
-		container.LivenessProbe.TimeoutSeconds = 1
-		container.LivenessProbe.FailureThreshold = 3
-
-		if container.ReadinessProbe == nil {
-			container.ReadinessProbe = &core.Probe{}
-		}
-		if container.ReadinessProbe.HTTPGet == nil {
-			container.ReadinessProbe.HTTPGet = &core.HTTPGetAction{}
-		}
-		container.ReadinessProbe.HTTPGet.Path = constants.HealthzPath
-		container.ReadinessProbe.HTTPGet.Port = intstr.FromInt32(5555)
-		container.ReadinessProbe.InitialDelaySeconds = 0
-		container.ReadinessProbe.PeriodSeconds = 10
-		container.ReadinessProbe.TimeoutSeconds = 1
-		container.ReadinessProbe.FailureThreshold = 3
-
-		if container.StartupProbe == nil {
-			container.StartupProbe = &core.Probe{}
-		}
-		if container.StartupProbe.HTTPGet == nil {
-			container.StartupProbe.HTTPGet = &core.HTTPGetAction{}
-		}
-		container.StartupProbe.HTTPGet.Path = constants.HealthzPath
-		container.StartupProbe.HTTPGet.Port = intstr.FromInt32(5555)
-		container.StartupProbe.PeriodSeconds = 5
-		container.StartupProbe.TimeoutSeconds = 5
-		container.StartupProbe.FailureThreshold = 12
+		ensure.EnsureVolumeDefaultMode(oidcInfo)
 
 		return nil
 	}

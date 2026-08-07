@@ -1,0 +1,259 @@
+package actions
+
+import (
+	"maps"
+	"slices"
+	"testing"
+
+	. "github.com/onsi/gomega"
+	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
+	apps "k8s.io/api/apps/v1"
+	core "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
+)
+
+func createCTLogInstance() *rhtasv1.CTlog {
+	return &rhtasv1.CTlog{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ctlog",
+			Namespace: "default",
+		},
+		Spec: rhtasv1.CTlogSpec{
+			Trillian: rhtasv1.ServiceReference{
+				URL: "trillian-logserver.default.svc:8091",
+			},
+			Prefix: "trusted-artifact-signer",
+		},
+		Status: rhtasv1.CTlogStatus{
+			ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "ctlog-config"},
+			TreeID:          ptr.To(int64(123456)),
+		},
+	}
+}
+
+func createCTLogDeployment(instance *rhtasv1.CTlog) (*apps.Deployment, error) {
+	l := labels.For(ComponentName, DeploymentName, instance.Name)
+	dp := &apps.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      DeploymentName,
+			Namespace: instance.Namespace,
+		},
+	}
+
+	action := deployAction{}
+	ensures := []func(*apps.Deployment) error{
+		deployment.PodResources(instance.Spec.InitContainers, instance.Spec.Volumes,
+			instance.Spec.VolumeMounts, containerName),
+		action.ensureDeployment(instance, RBACName, l),
+		ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(l)), l),
+	}
+	for _, en := range ensures {
+		if err := en(dp); err != nil {
+			return nil, err
+		}
+	}
+	return dp, nil
+}
+
+func findCTLogVolume(name string, volumes []core.Volume) *core.Volume {
+	for i := range volumes {
+		if volumes[i].Name == name {
+			return &volumes[i]
+		}
+	}
+	return nil
+}
+
+func findCTLogVolumeMount(name string, mounts []core.VolumeMount) *core.VolumeMount {
+	for i := range mounts {
+		if mounts[i].Name == name {
+			return &mounts[i]
+		}
+	}
+	return nil
+}
+
+// TestCTLogUserDefinedVolumesInFileMode verifies that user-specified Volumes and
+// VolumeMounts on CTlogSpec are applied to the deployment alongside
+// operator-managed volumes.
+func TestCTLogUserDefinedVolumesInFileMode(t *testing.T) {
+	g := NewWithT(t)
+
+	instance := createCTLogInstance()
+	// Add user-defined volumes
+	instance.Spec.Volumes = []core.Volume{
+		{
+			Name: "custom-data",
+			VolumeSource: core.VolumeSource{
+				PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
+					ClaimName: "custom-data-pvc",
+				},
+			},
+		},
+		{
+			Name: "custom-config",
+			VolumeSource: core.VolumeSource{
+				ConfigMap: &core.ConfigMapVolumeSource{
+					LocalObjectReference: core.LocalObjectReference{
+						Name: "vendor-settings",
+					},
+				},
+			},
+		},
+	}
+	// Add user-defined volume mounts
+	instance.Spec.VolumeMounts = []core.VolumeMount{
+		{
+			Name:      "custom-data",
+			MountPath: "/var/lib/custom/data",
+		},
+		{
+			Name:      "custom-config",
+			MountPath: "/etc/custom",
+			ReadOnly:  true,
+		},
+	}
+
+	dp, err := createCTLogDeployment(instance)
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp).ShouldNot(BeNil())
+
+	// Verify user-defined volumes are present with correct sources
+	customDataVol := findCTLogVolume("custom-data", dp.Spec.Template.Spec.Volumes)
+	g.Expect(customDataVol).ShouldNot(BeNil(), "custom-data volume should be present")
+	g.Expect(customDataVol.PersistentVolumeClaim).ShouldNot(BeNil())
+	g.Expect(customDataVol.PersistentVolumeClaim.ClaimName).Should(Equal("custom-data-pvc"))
+
+	customConfigVol := findCTLogVolume("custom-config", dp.Spec.Template.Spec.Volumes)
+	g.Expect(customConfigVol).ShouldNot(BeNil(), "custom-config volume should be present")
+	g.Expect(customConfigVol.ConfigMap).ShouldNot(BeNil())
+	g.Expect(customConfigVol.ConfigMap.Name).Should(Equal("vendor-settings"))
+	// EnsureVolumeDefaultMode should have set DefaultMode on ConfigMap
+	g.Expect(customConfigVol.ConfigMap.DefaultMode).Should(HaveValue(Equal(int32(0644))))
+
+	// Verify user-defined volume mounts are present on the main container
+	container := dp.Spec.Template.Spec.Containers[0]
+	customDataMount := findCTLogVolumeMount("custom-data", container.VolumeMounts)
+	g.Expect(customDataMount).ShouldNot(BeNil(), "custom-data mount should be present on main container")
+	g.Expect(customDataMount.MountPath).Should(Equal("/var/lib/custom/data"))
+
+	customConfigMount := findCTLogVolumeMount("custom-config", container.VolumeMounts)
+	g.Expect(customConfigMount).ShouldNot(BeNil(), "custom-config mount should be present on main container")
+	g.Expect(customConfigMount.MountPath).Should(Equal("/etc/custom"))
+	g.Expect(customConfigMount.ReadOnly).Should(BeTrue())
+
+	// Verify operator-managed "keys" volume still present
+	keysVol := findCTLogVolume(volumeName, dp.Spec.Template.Spec.Volumes)
+	g.Expect(keysVol).ShouldNot(BeNil(), "operator-managed keys volume should still be present")
+
+	// Verify operator-managed "keys" volume mount still present at /ctfe-keys
+	keysMount := findCTLogVolumeMount(volumeName, container.VolumeMounts)
+	g.Expect(keysMount).ShouldNot(BeNil(), "operator-managed keys mount should still be present")
+	g.Expect(keysMount.MountPath).Should(Equal("/ctfe-keys"))
+}
+
+// TestCTLogUserDefinedInitContainersInFileMode verifies that user-specified
+// init containers are applied to the deployment.
+func TestCTLogUserDefinedInitContainersInFileMode(t *testing.T) {
+	g := NewWithT(t)
+
+	instance := createCTLogInstance()
+	instance.Spec.InitContainers = []rhtasv1.InitContainerSpec{
+		{
+			Name:    "setup-init",
+			Image:   "vendor-init:latest",
+			Command: []string{"/bin/setup"},
+		},
+	}
+
+	dp, err := createCTLogDeployment(instance)
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp).ShouldNot(BeNil())
+
+	// Verify init container is present
+	g.Expect(dp.Spec.Template.Spec.InitContainers).Should(HaveLen(1))
+	initContainer := dp.Spec.Template.Spec.InitContainers[0]
+	g.Expect(initContainer.Name).Should(Equal("setup-init"))
+	g.Expect(initContainer.Image).Should(Equal("vendor-init:latest"))
+	g.Expect(initContainer.Command).Should(Equal([]string{"/bin/setup"}))
+}
+
+// TestCTLogAuthInjectionInFileMode verifies that auth env vars and secret
+// mounts from spec.signer.auth are applied to the deployment.
+func TestCTLogAuthInjectionInFileMode(t *testing.T) {
+	g := NewWithT(t)
+
+	instance := createCTLogInstance()
+	instance.Spec.Signer.Auth = &rhtasv1.Auth{
+		Env: []core.EnvVar{
+			{
+				Name: "VENDOR_TOKEN",
+				ValueFrom: &core.EnvVarSource{
+					SecretKeyRef: &core.SecretKeySelector{
+						LocalObjectReference: core.LocalObjectReference{
+							Name: "vendor-credentials",
+						},
+						Key: "token",
+					},
+				},
+			},
+		},
+	}
+
+	dp, err := createCTLogDeployment(instance)
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp).ShouldNot(BeNil())
+
+	// Verify VENDOR_TOKEN env var is present on main container
+	container := dp.Spec.Template.Spec.Containers[0]
+	var vendorTokenEnv *core.EnvVar
+	for i := range container.Env {
+		if container.Env[i].Name == "VENDOR_TOKEN" {
+			vendorTokenEnv = &container.Env[i]
+			break
+		}
+	}
+	g.Expect(vendorTokenEnv).ShouldNot(BeNil(), "VENDOR_TOKEN env var should be present on main container")
+	g.Expect(vendorTokenEnv.ValueFrom).ShouldNot(BeNil())
+	g.Expect(vendorTokenEnv.ValueFrom.SecretKeyRef.Name).Should(Equal("vendor-credentials"))
+
+	// Verify "signer-auth" volume is present
+	authVol := findCTLogVolume("signer-auth", dp.Spec.Template.Spec.Volumes)
+	g.Expect(authVol).ShouldNot(BeNil(), "signer-auth volume should be present")
+
+	// Verify "signer-auth" volume mount is present on main container
+	authMount := findCTLogVolumeMount("signer-auth", container.VolumeMounts)
+	g.Expect(authMount).ShouldNot(BeNil(), "signer-auth mount should be present on main container")
+}
+
+// TestCTLogOperatorVolumePrecedence verifies that an operator-managed volume
+// is NOT overwritten by a user volume with the same name.
+func TestCTLogOperatorVolumePrecedence(t *testing.T) {
+	g := NewWithT(t)
+
+	instance := createCTLogInstance()
+	// Add user volume with same name as operator-managed volume
+	instance.Spec.Volumes = []core.Volume{
+		{
+			Name: volumeName, // "keys" - same as operator-managed volume
+			VolumeSource: core.VolumeSource{
+				EmptyDir: &core.EmptyDirVolumeSource{},
+			},
+		},
+	}
+
+	dp, err := createCTLogDeployment(instance)
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp).ShouldNot(BeNil())
+
+	// Verify the "keys" volume has Secret source (operator wins), NOT EmptyDir
+	keysVol := findCTLogVolume(volumeName, dp.Spec.Template.Spec.Volumes)
+	g.Expect(keysVol).ShouldNot(BeNil(), "keys volume should be present")
+	g.Expect(keysVol.Secret).ShouldNot(BeNil(), "keys volume should have Secret source (operator wins)")
+	g.Expect(keysVol.Secret.SecretName).Should(Equal("ctlog-config"))
+	g.Expect(keysVol.EmptyDir).Should(BeNil(), "keys volume should NOT have EmptyDir source")
+}

@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -71,6 +72,15 @@ type CTlogSpec struct {
 	// ConfigMap with additional bundle of trusted CA
 	// +optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
+	// InitContainers to run before the main server container.
+	//+optional
+	InitContainers []InitContainerSpec `json:"initContainers,omitempty"`
+	// Additional volumes to attach to the deployment pods.
+	//+optional
+	Volumes []core.Volume `json:"volumes,omitempty"`
+	// Additional volume mounts for the main server container.
+	//+optional
+	VolumeMounts []core.VolumeMount `json:"volumeMounts,omitempty"`
 }
 
 const CTlogSignerTypeFile = "file"
@@ -84,6 +94,9 @@ type CTlogSigner struct {
 	// Configuration for file-based signer
 	//+optional
 	File *CTlogFile `json:"file,omitempty"`
+	// Authentication configuration for the signer backend.
+	//+optional
+	Auth *Auth `json:"auth,omitempty"`
 }
 
 // CTlogFile defines the desired state of the CTlog file-based signer
