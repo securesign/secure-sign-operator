@@ -113,14 +113,6 @@ type File struct {
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef"`
 }
 
-// TSA KMS signer config
-// +kubebuilder:validation:XValidation:rule="self.keyResource.matches('^(gcpkms|azurekms|hashivault|awskms)://.+$')",message="keyResource must be a valid KMS URI (gcpkms://, azurekms://, hashivault://, or awskms://)"
-type KMS struct {
-	//KMS key for signing timestamp responses. Valid options include: [gcpkms://resource, azurekms://resource, hashivault://resource, awskms://resource]
-	//+required
-	KeyResource string `json:"keyResource"`
-}
-
 // TSA Tink signer config
 // +kubebuilder:validation:XValidation:rule="self.keyResource.matches('^(gcp-kms|aws-kms|hcvault)://.+$')",message="keyResource must be a valid Tink KMS URI (gcp-kms://, aws-kms://, or hcvault://)"
 type Tink struct {

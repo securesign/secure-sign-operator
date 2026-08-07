@@ -232,6 +232,15 @@ type Pvc struct {
 	AccessModes []PersistentVolumeAccessMode `json:"accessModes,omitempty"`
 }
 
+// KMS configures a remote key management service for signing operations.
+// Used by TSA and Fulcio signer backends.
+// XValidation is also present on RekorSigner.KMS (string field) in rekor_types.go.
+// +kubebuilder:validation:XValidation:rule="self.keyResource.matches('^(gcpkms|azurekms|hashivault|openbao|awskms)://.+$')",message="keyResource must be a valid KMS URI (gcpkms://, azurekms://, hashivault://, openbao://, or awskms://)"
+type KMS struct {
+	//+required
+	KeyResource string `json:"keyResource"`
+}
+
 type Auth struct {
 	// Environmental variables used to define authentication parameters
 	//+optional
