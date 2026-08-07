@@ -23,6 +23,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// consoleThrottlingDefaults are the default HAProxy rate-limiting values applied
+// when the CR does not override them, matching the Fulcio/TSA baseline for a
+// UI dashboard.
+var consoleThrottlingDefaults = kubernetes.IngressThrottlingDefaults{
+	ConcurrentTCP: 100,
+	RateHTTP:      50,
+	RateTCP:       100,
+}
+
 func NewIngressAction() action.Action[*rhtasv1.Console] {
 	return &ingressAction{}
 }
@@ -58,6 +67,8 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Console) *a
 		},
 		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.UI.Ingress, actions.UIPortName),
 		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
+		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressHAProxyThrottling(instance.Spec.UI.Ingress.Annotations, consoleThrottlingDefaults)),
+		kubernetes.EnsureIngressAnnotations(instance.Spec.UI.Ingress.Annotations),
 		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.UI.Ingress.Labels)), instance.Spec.UI.Ingress.Labels),
 		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(l)), l),
 		ensure.ControllerReference[*v2.Ingress](instance, i.Client),

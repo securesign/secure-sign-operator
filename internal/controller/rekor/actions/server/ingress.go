@@ -24,6 +24,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// rekorThrottlingDefaults are the default HAProxy rate-limiting values applied
+// when the CR does not override them. Every sign and verify operation hits
+// Rekor, and TUF clients can fetch multiple files per refresh, so Rekor gets
+// higher defaults than the other components.
+var rekorThrottlingDefaults = kubernetes.IngressThrottlingDefaults{
+	ConcurrentTCP: 200,
+	RateHTTP:      200,
+	RateTCP:       200,
+}
+
 func NewIngressAction() action.Action[*rhtasv1.Rekor] {
 	return &ingressAction{}
 }
@@ -59,6 +69,8 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *act
 		},
 		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.Ingress, actions.ServerDeploymentPortName),
 		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
+		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressHAProxyThrottling(instance.Spec.Ingress.Annotations, rekorThrottlingDefaults)),
+		kubernetes.EnsureIngressAnnotations(instance.Spec.Ingress.Annotations),
 		// add ingress labels
 		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.Ingress.Labels)), instance.Spec.Ingress.Labels),
 		// add common labels

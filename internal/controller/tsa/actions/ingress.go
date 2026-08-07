@@ -23,6 +23,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// tsaThrottlingDefaults are the default HAProxy rate-limiting values applied
+// when the CR does not override them. TSA is an optional timestamp endpoint
+// with traffic similar to Fulcio.
+var tsaThrottlingDefaults = kubernetes.IngressThrottlingDefaults{
+	ConcurrentTCP: 100,
+	RateHTTP:      100,
+	RateTCP:       100,
+}
+
 func NewIngressAction() action.Action[*rhtasv1.TimestampAuthority] {
 	return &ingressAction{}
 }
@@ -58,6 +67,8 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.TimestampAu
 		},
 		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.Ingress, DeploymentName),
 		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
+		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressHAProxyThrottling(instance.Spec.Ingress.Annotations, tsaThrottlingDefaults)),
+		kubernetes.EnsureIngressAnnotations(instance.Spec.Ingress.Annotations),
 		// add ingress labels
 		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.Ingress.Labels)), instance.Spec.Ingress.Labels),
 		// add common labels

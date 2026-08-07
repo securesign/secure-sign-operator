@@ -16,6 +16,10 @@ type Ingress struct {
 	// Set labels applied to the created Ingress, e.g. for ingress-controller/route selection when sharding ingress traffic.
 	//+kubebuilder:validation:XValidation:rule="(oldSelf.size() == 0 || self == oldSelf)",message=Labels can't be modified
 	Labels map[string]string `json:"labels,omitempty"`
+	// Set annotations applied to the created Ingress resource. On OpenShift these propagate to the auto-generated Route.
+	// User-provided annotations override any operator-managed defaults (e.g. HAProxy rate-limiting).
+	//+optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // TlogMonitoring configures monitoring for the Rekor transparency log.

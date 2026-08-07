@@ -58,6 +58,7 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *actio
 		},
 		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.Ingress, tufConstants.PortName),
 		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
+		kubernetes.EnsureIngressAnnotations(instance.Spec.Ingress.Annotations),
 		// add ingress labels
 		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.Ingress.Labels)), instance.Spec.Ingress.Labels),
 		// add common labels

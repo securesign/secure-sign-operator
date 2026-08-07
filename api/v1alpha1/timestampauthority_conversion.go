@@ -216,6 +216,7 @@ func (src *TimestampAuthority) ConvertTo(dstRaw conversion.Hub) error {
 	// restore also the auth from annotation for case where no KMS or Tink is set
 	dst.Spec.Signer.Auth = mergeAuths(dst.Spec.Signer.Auth, restored.Spec.Signer.Auth)
 	dst.Status.CertificateChain = restored.Status.CertificateChain
+	dst.Spec.Ingress.Annotations = restored.Spec.Ingress.Annotations
 	return nil
 }
 

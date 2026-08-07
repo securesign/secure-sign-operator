@@ -59,6 +59,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 			dst.Spec.Fulcio.Signer.File = &rhtasv1.FulcioFile{}
 		}
 	}
+	dst.Spec.Fulcio.Ingress.Annotations = restored.Spec.Fulcio.Ingress.Annotations
 	dst.Spec.Ctlog.ImagePullSecrets = restored.Spec.Ctlog.ImagePullSecrets
 	dst.Spec.Ctlog.TrustedCA = restored.Spec.Ctlog.TrustedCA
 	dst.Spec.Ctlog.Monitoring.ServiceMonitor = restored.Spec.Ctlog.Monitoring.ServiceMonitor
@@ -76,11 +77,13 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Spec.Rekor.ImagePullSecrets = restored.Spec.Rekor.ImagePullSecrets
 	dst.Spec.Rekor.Monitoring.ServiceMonitor = restored.Spec.Rekor.Monitoring.ServiceMonitor
+	dst.Spec.Rekor.Ingress.Annotations = restored.Spec.Rekor.Ingress.Annotations
 	if dst.Spec.Rekor.Trillian.URL == "" {
 		dst.Spec.Rekor.Trillian.Ref = restored.Spec.Rekor.Trillian.Ref
 	}
 	dst.Spec.Trillian.ImagePullSecrets = restored.Spec.Trillian.ImagePullSecrets
 	dst.Spec.Trillian.Monitoring.ServiceMonitor = restored.Spec.Trillian.Monitoring.ServiceMonitor
+	dst.Spec.Tuf.Ingress.Annotations = restored.Spec.Tuf.Ingress.Annotations
 	dst.Spec.Tuf.ImagePullSecrets = restored.Spec.Tuf.ImagePullSecrets
 	dst.Spec.Tuf.TrustedCA = restored.Spec.Tuf.TrustedCA
 	if dst.Spec.Tuf.Rekor.URL == "" {
@@ -101,6 +104,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 		dst.Spec.TimestampAuthority.Monitoring.ServiceMonitor = restored.Spec.TimestampAuthority.Monitoring.ServiceMonitor
 		// restore also the auth from annotation for case where no KMS or Tink is set
 		dst.Spec.TimestampAuthority.Signer.Auth = mergeAuths(dst.Spec.TimestampAuthority.Signer.Auth, restored.Spec.TimestampAuthority.Signer.Auth)
+		dst.Spec.TimestampAuthority.Ingress.Annotations = restored.Spec.TimestampAuthority.Ingress.Annotations
 	}
 	return nil
 }

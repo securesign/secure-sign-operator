@@ -5,6 +5,7 @@ import (
 
 	"github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/annotations"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"github.com/securesign/operator/internal/utils"
 	v1 "k8s.io/api/core/v1"
@@ -127,4 +128,239 @@ func TestEnsureIngressSpec(t *testing.T) {
 			g.Expect(existing.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.Service.Port.Name).To(gomega.Equal(name))
 		})
 	}
+}
+
+func TestEnsureIngressHAProxyThrottling(t *testing.T) {
+	defaults := IngressThrottlingDefaults{
+		ConcurrentTCP: 100,
+		RateHTTP:      50,
+		RateTCP:       100,
+	}
+	defaultAnnotations := map[string]string{
+		annotations.HaproxyRateLimitConnections:   annotations.HaproxyRateLimitConnectionsValue,
+		annotations.HaproxyRateLimitConcurrentTCP: "100",
+		annotations.HaproxyRateLimitRateHTTP:      "50",
+		annotations.HaproxyRateLimitRateTCP:       "100",
+	}
+
+	t.Run("nil user annotations applies defaults", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		ingress := &networkingv1.Ingress{}
+
+		g.Expect(EnsureIngressHAProxyThrottling(nil, defaults)(ingress)).To(gomega.Succeed())
+
+		for k, v := range defaultAnnotations {
+			g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(k, v))
+		}
+	})
+
+	t.Run("empty user annotations applies defaults, existing annotations preserved", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		ingress := &networkingv1.Ingress{
+			ObjectMeta: v2.ObjectMeta{
+				Annotations: map[string]string{"existing": "value"},
+			},
+		}
+
+		g.Expect(EnsureIngressHAProxyThrottling(map[string]string{}, defaults)(ingress)).To(gomega.Succeed())
+
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue("existing", "value"))
+		for k, v := range defaultAnnotations {
+			g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(k, v))
+		}
+	})
+
+	t.Run("non-haproxy user annotations still applies defaults", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		ingress := &networkingv1.Ingress{}
+
+		g.Expect(EnsureIngressHAProxyThrottling(map[string]string{"custom": "annotation"}, defaults)(ingress)).To(gomega.Succeed())
+
+		for k, v := range defaultAnnotations {
+			g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(k, v))
+		}
+	})
+
+	t.Run("opt-out removes existing throttling annotations", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		ingress := &networkingv1.Ingress{
+			ObjectMeta: v2.ObjectMeta{
+				Annotations: map[string]string{
+					"existing":                                "value",
+					annotations.HaproxyRateLimitConnections:   annotations.HaproxyRateLimitConnectionsValue,
+					annotations.HaproxyRateLimitConcurrentTCP: "100",
+					annotations.HaproxyRateLimitRateHTTP:      "50",
+					annotations.HaproxyRateLimitRateTCP:       "100",
+				},
+			},
+		}
+
+		g.Expect(EnsureIngressHAProxyThrottling(
+			map[string]string{annotations.HaproxyRateLimitConnections: "false"},
+			defaults,
+		)(ingress)).To(gomega.Succeed())
+
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue("existing", "value"))
+		g.Expect(ingress.Annotations).ToNot(gomega.HaveKey(annotations.HaproxyRateLimitConnections))
+		g.Expect(ingress.Annotations).ToNot(gomega.HaveKey(annotations.HaproxyRateLimitConcurrentTCP))
+		g.Expect(ingress.Annotations).ToNot(gomega.HaveKey(annotations.HaproxyRateLimitRateHTTP))
+		g.Expect(ingress.Annotations).ToNot(gomega.HaveKey(annotations.HaproxyRateLimitRateTCP))
+	})
+
+	t.Run("opt-out sentinel is an exact case-sensitive match, not a truthiness check", func(t *testing.T) {
+		for _, value := range []string{"False", "FALSE", "0", " false", "false ", ""} {
+			g := gomega.NewWithT(t)
+			ingress := &networkingv1.Ingress{}
+
+			g.Expect(EnsureIngressHAProxyThrottling(
+				map[string]string{annotations.HaproxyRateLimitConnections: value},
+				defaults,
+			)(ingress)).To(gomega.Succeed())
+
+			for k, v := range defaultAnnotations {
+				g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(k, v), "value %q should not disable throttling", value)
+			}
+		}
+	})
+
+	t.Run("re-enabling after opt-out restores defaults", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		ingress := &networkingv1.Ingress{
+			ObjectMeta: v2.ObjectMeta{
+				Annotations: map[string]string{
+					"existing": "value",
+				},
+			},
+		}
+
+		// first reconcile: user opts out
+		g.Expect(EnsureIngressHAProxyThrottling(
+			map[string]string{annotations.HaproxyRateLimitConnections: "false"},
+			defaults,
+		)(ingress)).To(gomega.Succeed())
+		for _, key := range haproxyThrottlingAnnotationKeys {
+			g.Expect(ingress.Annotations).ToNot(gomega.HaveKey(key))
+		}
+
+		// second reconcile: user removes the opt-out annotation entirely
+		g.Expect(EnsureIngressHAProxyThrottling(map[string]string{}, defaults)(ingress)).To(gomega.Succeed())
+
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue("existing", "value"))
+		for k, v := range defaultAnnotations {
+			g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(k, v))
+		}
+	})
+}
+
+func TestEnsureIngressAnnotations(t *testing.T) {
+	t.Run("nil user annotations on a fresh ingress sets only the tracking annotation", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		ingress := &networkingv1.Ingress{}
+
+		g.Expect(EnsureIngressAnnotations(nil)(ingress)).To(gomega.Succeed())
+
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.ManagedIngressAnnotationKeys, "[]"))
+	})
+
+	t.Run("user annotations are applied and tracked", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		ingress := &networkingv1.Ingress{}
+
+		g.Expect(EnsureIngressAnnotations(map[string]string{"custom/one": "a", "custom/two": "b"})(ingress)).To(gomega.Succeed())
+
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue("custom/one", "a"))
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue("custom/two", "b"))
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.ManagedIngressAnnotationKeys, `["custom/one","custom/two"]`))
+	})
+
+	t.Run("annotation removed from user input on a later call is deleted from the ingress", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		ingress := &networkingv1.Ingress{}
+		g.Expect(EnsureIngressAnnotations(map[string]string{"custom/one": "a", "custom/two": "b"})(ingress)).To(gomega.Succeed())
+
+		g.Expect(EnsureIngressAnnotations(map[string]string{"custom/one": "a"})(ingress)).To(gomega.Succeed())
+
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue("custom/one", "a"))
+		g.Expect(ingress.Annotations).ToNot(gomega.HaveKey("custom/two"))
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.ManagedIngressAnnotationKeys, `["custom/one"]`))
+	})
+
+	t.Run("all annotations removed are deleted and the tracking annotation resets to an empty array", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		ingress := &networkingv1.Ingress{}
+		g.Expect(EnsureIngressAnnotations(map[string]string{"custom/one": "a"})(ingress)).To(gomega.Succeed())
+
+		g.Expect(EnsureIngressAnnotations(nil)(ingress)).To(gomega.Succeed())
+
+		g.Expect(ingress.Annotations).ToNot(gomega.HaveKey("custom/one"))
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.ManagedIngressAnnotationKeys, "[]"))
+	})
+
+	t.Run("annotations not managed by this function are preserved", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		ingress := &networkingv1.Ingress{
+			ObjectMeta: v2.ObjectMeta{
+				Annotations: map[string]string{"route.openshift.io/termination": "edge"},
+			},
+		}
+
+		g.Expect(EnsureIngressAnnotations(map[string]string{"custom/one": "a"})(ingress)).To(gomega.Succeed())
+
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue("route.openshift.io/termination", "edge"))
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue("custom/one", "a"))
+	})
+
+	t.Run("a missing or malformed tracking annotation is tolerated rather than erroring", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		ingress := &networkingv1.Ingress{
+			ObjectMeta: v2.ObjectMeta{
+				Annotations: map[string]string{
+					annotations.ManagedIngressAnnotationKeys: "not-json",
+				},
+			},
+		}
+
+		g.Expect(EnsureIngressAnnotations(map[string]string{"custom/one": "a"})(ingress)).To(gomega.Succeed())
+
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue("custom/one", "a"))
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.ManagedIngressAnnotationKeys, `["custom/one"]`))
+	})
+
+	t.Run("HAProxy throttling keys are excluded from tracking to avoid conflicts with EnsureIngressHAProxyThrottling", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		defaults := IngressThrottlingDefaults{
+			ConcurrentTCP: 100,
+			RateHTTP:      50,
+			RateTCP:       100,
+		}
+		ingress := &networkingv1.Ingress{}
+
+		// Reconcile 1: User opts out of throttling by setting rate-limit-connections to "false"
+		g.Expect(EnsureIngressHAProxyThrottling(
+			map[string]string{annotations.HaproxyRateLimitConnections: "false"},
+			defaults,
+		)(ingress)).To(gomega.Succeed())
+		g.Expect(EnsureIngressAnnotations(map[string]string{annotations.HaproxyRateLimitConnections: "false"})(ingress)).To(gomega.Succeed())
+
+		// Verify opt-out worked: throttling keys should be absent
+		g.Expect(ingress.Annotations).ToNot(gomega.HaveKey(annotations.HaproxyRateLimitConcurrentTCP))
+		g.Expect(ingress.Annotations).ToNot(gomega.HaveKey(annotations.HaproxyRateLimitRateHTTP))
+		g.Expect(ingress.Annotations).ToNot(gomega.HaveKey(annotations.HaproxyRateLimitRateTCP))
+		// The opt-out annotation itself is present
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.HaproxyRateLimitConnections, "false"))
+		// The opt-out annotation should NOT be tracked (excluded from management)
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.ManagedIngressAnnotationKeys, "[]"))
+
+		// Reconcile 2: User removes the opt-out annotation entirely (empty map means no overrides)
+		g.Expect(EnsureIngressHAProxyThrottling(map[string]string{}, defaults)(ingress)).To(gomega.Succeed())
+		g.Expect(EnsureIngressAnnotations(map[string]string{})(ingress)).To(gomega.Succeed())
+
+		// Verify re-enablement worked: throttling defaults should be back
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.HaproxyRateLimitConnections, annotations.HaproxyRateLimitConnectionsValue))
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.HaproxyRateLimitConcurrentTCP, "100"))
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.HaproxyRateLimitRateHTTP, "50"))
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.HaproxyRateLimitRateTCP, "100"))
+		// Tracking annotation should be empty (no custom annotations managed)
+		g.Expect(ingress.Annotations).To(gomega.HaveKeyWithValue(annotations.ManagedIngressAnnotationKeys, "[]"))
+	})
 }
