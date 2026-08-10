@@ -32,6 +32,8 @@ import (
 	httputils "github.com/securesign/operator/internal/utils/http"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	ctlogActions "github.com/securesign/operator/internal/controller/ctlog/actions"
+	_ "github.com/securesign/operator/internal/controller/ctlog/serviceresolver"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -138,6 +140,12 @@ var _ = Describe("Fulcio controller", func() {
 							Host:    "fulcio.localhost",
 							Enabled: ptr.To(true),
 						},
+						Ctlog: rhtasv1.ServiceReference{
+							Ref: &rhtasv1.ServiceReferenceRef{
+								Namespace: Namespace,
+								Name:      "test-ctlog",
+							},
+						},
 						Config: rhtasv1.FulcioConfig{
 							OIDCIssuers: []rhtasv1.OIDCIssuer{
 								{
@@ -207,6 +215,21 @@ var _ = Describe("Fulcio controller", func() {
 					"password": []byte("secret"),
 				},
 			})).To(Succeed())
+
+			By("Creating CTlog CR (referenced by ServiceReference)")
+			ctlog := &rhtasv1.CTlog{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-ctlog",
+					Namespace: Namespace,
+				},
+			}
+			Expect(suite.Client().Create(ctx, ctlog)).To(Succeed())
+			meta.SetStatusCondition(&ctlog.Status.Conditions, metav1.Condition{
+				Type:   ctlogActions.TLSCondition,
+				Status: metav1.ConditionTrue,
+				Reason: "Resolved",
+			})
+			Expect(suite.Client().Status().Update(ctx, ctlog)).To(Succeed())
 
 			By("Secrets are resolved")
 			certSecretName := fmt.Sprintf("fulcio-cert-config-%s", Name)

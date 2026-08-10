@@ -1,4 +1,4 @@
-package utils
+package serviceresolver
 
 import (
 	"fmt"
@@ -6,7 +6,6 @@ import (
 
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
-	"github.com/securesign/operator/internal/serviceresolver"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -14,10 +13,10 @@ import (
 )
 
 func init() {
-	serviceresolver.Register(func(obj *rhtasv1.Rekor) (string, error) {
+	Register(func(obj *rhtasv1.Rekor) (string, error) {
 		return fmt.Sprintf("http://rekor-server.%s.svc:3000", obj.Namespace), nil
 	})
-	serviceresolver.Register(func(obj *rhtasv1.Trillian) (string, error) {
+	Register(func(obj *rhtasv1.Trillian) (string, error) {
 		return fmt.Sprintf("dns:///trillian-logserver.%s.svc:8091", obj.Namespace), nil
 	})
 }

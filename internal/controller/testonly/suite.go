@@ -29,6 +29,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	"github.com/securesign/operator/internal/controller"
+	_ "github.com/securesign/operator/internal/controller/ctlog/serviceresolver"
 	_ "github.com/securesign/operator/internal/controller/trillian/serviceresolver"
 	_ "github.com/securesign/operator/internal/controller/tuf/serviceresolver"
 	testenvhelper "github.com/securesign/operator/internal/testing/envtest"

@@ -104,24 +104,6 @@ func randServiceReferenceWithOIDC(c randfill.Continue, urlFunc func(c randfill.C
 	}
 }
 
-// grpcServiceReferenceFuzzerFuncs fuzzes v1 ServiceReference with gRPC (dns:///) URLs.
-func grpcServiceReferenceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
-	return []interface{}{
-		func(s *rhtasv1.ServiceReference, c randfill.Continue) {
-			*s = randServiceReference(c, urlfuzz.GRPCURL)
-		},
-	}
-}
-
-// httpServiceReferenceFuzzerFuncs fuzzes v1 ServiceReference with HTTP URLs.
-func httpServiceReferenceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
-	return []interface{}{
-		func(s *rhtasv1.ServiceReference, c randfill.Continue) {
-			*s = randServiceReference(c, httpURLWithPath)
-		},
-	}
-}
-
 // trillianServiceFuzzerFuncs fuzzes v1alpha1 TrillianService.Address as a gRPC target.
 func trillianServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
@@ -239,6 +221,7 @@ func securesignFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			c.FillNoCustom(s)
 			s.Spec.Ctlog.Trillian = randServiceReference(c, urlfuzz.GRPCURL)
 			s.Spec.Rekor.Trillian = randServiceReference(c, urlfuzz.GRPCURL)
+			s.Spec.Fulcio.Ctlog = randServiceReference(c, httpURLWithPath)
 
 			s.Spec.Tuf.Ctlog = randServiceReference(c, httpURLWithPath)
 			s.Spec.Tuf.Rekor = randServiceReference(c, httpURLWithPath)
@@ -249,11 +232,12 @@ func securesignFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 }
 
 // ctlogFuzzerFuncs constrains CTlog spec/status so Status.Url stays consistent with
-// the Prefix suffix it's built from.
+// the Prefix suffix it's built from and Trillian ServiceReference uses gRPC URLs.
 func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *rhtasv1.CTlog, c randfill.Continue) {
 			c.FillNoCustom(s)
+			s.Spec.Trillian = randServiceReference(c, urlfuzz.GRPCURL)
 			s.Spec.Prefix = urlfuzz.URLPath(c)
 			s.Status.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
 			if s.Status.Url != "" {
@@ -264,6 +248,39 @@ func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 		func(s *CTlog, c randfill.Continue) {
 			c.FillNoCustom(s)
 			s.Status.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
+		},
+	}
+}
+
+// rekorFuzzerFuncs constrains Rekor spec so Trillian ServiceReference uses gRPC URLs.
+func rekorFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.Rekor, c randfill.Continue) {
+			c.FillNoCustom(s)
+			s.Spec.Trillian = randServiceReference(c, urlfuzz.GRPCURL)
+		},
+	}
+}
+
+// fulcioFuzzerFuncs constrains Fulcio spec so Ctlog ServiceReference uses HTTP URLs.
+func fulcioFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.Fulcio, c randfill.Continue) {
+			c.FillNoCustom(s)
+			s.Spec.Ctlog = randServiceReference(c, httpURLWithPath)
+		},
+	}
+}
+
+// tufFuzzerFuncs constrains Tuf spec so all ServiceReference fields use HTTP URLs.
+func tufFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.Tuf, c randfill.Continue) {
+			c.FillNoCustom(s)
+			s.Spec.Ctlog = randServiceReference(c, httpURLWithPath)
+			s.Spec.Rekor = randServiceReference(c, httpURLWithPath)
+			s.Spec.Fulcio = randServiceReferenceWithOIDC(c, httpURLWithPath)
+			s.Spec.Tsa = randServiceReference(c, httpURLWithPath)
 		},
 	}
 }
@@ -417,7 +434,6 @@ func TestCTlogConversion(t *testing.T) {
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			ctlogFuzzerFuncs,
 			trillianServiceFuzzerFuncs,
-			grpcServiceReferenceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
@@ -433,9 +449,9 @@ func TestRekorConversion(t *testing.T) {
 			migration.StripAll(hub.(*rhtasv1.Rekor))
 		},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			rekorFuzzerFuncs,
 			rekorStatusFuzzerFuncs,
 			trillianServiceFuzzerFuncs,
-			grpcServiceReferenceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
@@ -448,7 +464,9 @@ func TestFulcioConversion(t *testing.T) {
 		Hub:    &rhtasv1.Fulcio{},
 		Spoke:  &Fulcio{},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			fulcioFuzzerFuncs,
 			fulcioStatusFuzzerFuncs,
+			ctlogServiceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
@@ -474,12 +492,12 @@ func TestTufConversion(t *testing.T) {
 		Hub:    &rhtasv1.Tuf{},
 		Spoke:  &Tuf{},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
+			tufFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 			ctlogServiceFuzzerFuncs,
 			rekorServiceFuzzerFuncs,
 			fulcioServiceFuzzerFuncs,
 			tsaServiceFuzzerFuncs,
-			httpServiceReferenceFuzzerFuncs,
 		},
 	}))
 }

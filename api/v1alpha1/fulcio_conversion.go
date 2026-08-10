@@ -152,6 +152,9 @@ func (src *Fulcio) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Status.CertificateChain = restored.Status.CertificateChain
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
+	if dst.Spec.Ctlog.URL == "" {
+		dst.Spec.Ctlog.Ref = restored.Spec.Ctlog.Ref
+	}
 	return nil
 }
 

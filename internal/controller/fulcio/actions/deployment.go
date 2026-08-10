@@ -17,7 +17,6 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
-	"github.com/securesign/operator/internal/utils/tls"
 	v1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -27,8 +26,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
-	futils "github.com/securesign/operator/internal/controller/fulcio/utils"
 	"github.com/securesign/operator/internal/images"
+	"github.com/securesign/operator/internal/serviceresolver"
 )
 
 const containerName = "fulcio-server"
@@ -57,6 +56,11 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 
 	labels := labels.For(ComponentName, DeploymentName, instance.Name)
 
+	ctlogUrl, err := serviceresolver.ResolveInternalServiceUrl(ctx, i.Client, instance.Spec.Ctlog, instance.Namespace, &rhtasv1.CTlog{})
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not resolve CTLog url: %w", err), instance)
+	}
+
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		&v1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -64,7 +68,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 				Namespace: instance.Namespace,
 			},
 		},
-		i.ensureDeployment(instance, RBACName, labels),
+		i.ensureDeployment(instance, RBACName, labels, ctlogUrl),
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		// need to add Fulcio's unix domain socket used for the legacy gRPC server other way it will be
@@ -88,31 +92,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 	}
 }
 
-func (i deployAction) resolveCTlogUrl(instance *rhtasv1.Fulcio) (string, error) {
-	if instance.Spec.Ctlog.Prefix == "" {
-		return "", futils.ErrCtlogPrefixNotSpecified
-	}
-
-	if instance.Spec.Ctlog.Address != "" {
-		url := instance.Spec.Ctlog.Address
-		if instance.Spec.Ctlog.Port != nil {
-			url = fmt.Sprintf("%s:%d", url, *instance.Spec.Ctlog.Port)
-		}
-		return fmt.Sprintf("%s/%s", url, instance.Spec.Ctlog.Prefix), nil
-	}
-
-	var (
-		protocol string
-	)
-	if tls.UseTlsClient(instance) {
-		protocol = "https"
-	} else {
-		protocol = "http"
-	}
-	return fmt.Sprintf("%s://ctlog.%s.svc/%s", protocol, instance.Namespace, instance.Spec.Ctlog.Prefix), nil
-}
-
-func (i deployAction) ensureDeployment(instance *rhtasv1.Fulcio, sa string, labels map[string]string) func(deployment *v1.Deployment) error {
+func (i deployAction) ensureDeployment(instance *rhtasv1.Fulcio, sa string, labels map[string]string, ctlogUrl string) func(deployment *v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
 		if instance.Status.ServerConfigRef == nil {
 			return errors.New("server config ref is not specified")
@@ -126,11 +106,6 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.Fulcio, sa string, labe
 
 		if instance.Status.Certificate.CARef == nil {
 			return errors.New("CA secret is not specified")
-		}
-
-		ctlogUrl, err := i.resolveCTlogUrl(instance)
-		if err != nil {
-			return fmt.Errorf("could not resolve CTLog url: %w", err)
 		}
 
 		args := []string{

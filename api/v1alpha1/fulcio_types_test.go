@@ -287,7 +287,7 @@ var _ = Describe("Fulcio", func() {
 								PrivateKeyPasswordRef: &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
 							},
 							Ctlog: CtlogService{
-								Address: "ctlog.default.svc",
+								Address: "http://ctlog.default.svc",
 								Port:    ptr.To(int32(80)),
 								Prefix:  "trusted-artifact-signer",
 							},
