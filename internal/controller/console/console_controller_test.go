@@ -83,6 +83,20 @@ var _ = Describe("Console controller", func() {
 			}
 			Expect(suite.Client().Status().Update(ctx, tuf)).To(Succeed())
 
+			By("creating the Rekor resource for autodiscovery")
+			rekor := &rhtasv1.Rekor{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      Name,
+					Namespace: Namespace,
+				},
+			}
+			Expect(suite.Client().Create(ctx, rekor)).To(Succeed())
+			rekor.Status.Url = "https://rekor-default.apps.example.com"
+			rekor.Status.Conditions = []metav1.Condition{
+				{Type: constants.ReadyCondition, Status: metav1.ConditionTrue, Reason: "Ready", LastTransitionTime: metav1.Now()},
+			}
+			Expect(suite.Client().Status().Update(ctx, rekor)).To(Succeed())
+
 			By("creating the custom resource for the Kind Console")
 			err := suite.Client().Get(ctx, typeNamespaceName, console)
 			if err != nil && errors.IsNotFound(err) {
@@ -118,7 +132,7 @@ var _ = Describe("Console controller", func() {
 			By("API Deployment uses the in-cluster TUF service URL when Console.Spec.Api.Tuf is not explicitly set, ignoring Tuf's externally-facing Status.Url")
 			apiDeployment := &appsv1.Deployment{}
 			Expect(suite.Client().Get(ctx, types.NamespacedName{Name: actions.ApiDeploymentName, Namespace: Namespace}, apiDeployment)).To(Succeed())
-			Expect(apiDeployment.Spec.Template.Spec.Containers[0].Args).To(ContainElement("--tuf-repo-url=http://tuf.default.svc"))
+			Expect(apiDeployment.Spec.Template.Spec.Containers[0].Args).To(ContainElement("--tuf-repo-url=http://tuf.default.svc:80"))
 			var waitForTuf *corev1.Container
 			for i := range apiDeployment.Spec.Template.Spec.InitContainers {
 				if apiDeployment.Spec.Template.Spec.InitContainers[i].Name == "wait-for-tuf" {
