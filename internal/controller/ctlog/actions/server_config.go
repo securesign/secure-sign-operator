@@ -382,6 +382,39 @@ func (i serverConfig) handleRootCertificates(ctx context.Context, instance *rhta
 //   - nil if the secret is valid
 //   - errSecretInvalid if the secret needs recreation (not a failure)
 //   - other error for API errors - reconciliation should fail
+func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog) ([]ctlogUtils.ShardConfig, error) {
+	shards := make([]ctlogUtils.ShardConfig, 0, len(instance.Spec.Sharding))
+	for _, s := range instance.Spec.Sharding {
+		publicKey, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, &s.PublicKeyRef)
+		if err != nil {
+			return nil, fmt.Errorf("shard %d publicKeyRef: %w", s.TreeID, err)
+		}
+
+		sc := ctlogUtils.ShardConfig{
+			TreeID:     s.TreeID,
+			TreeLength: s.TreeLength,
+			PublicKey:  publicKey,
+		}
+
+		if s.PrivateKeyRef != nil {
+			sc.PrivateKey, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyRef)
+			if err != nil {
+				return nil, fmt.Errorf("shard %d privateKeyRef: %w", s.TreeID, err)
+			}
+		}
+
+		if s.PrivateKeyPasswordRef != nil { //nolint:staticcheck
+			sc.PrivateKeyPass, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyPasswordRef) //nolint:staticcheck
+			if err != nil {
+				return nil, fmt.Errorf("shard %d privateKeyPasswordRef: %w", s.TreeID, err)
+			}
+		}
+
+		shards = append(shards, sc)
+	}
+	return shards, nil
+}
+
 func (i serverConfig) validateExistingSecret(ctx context.Context, instance *rhtasv1.CTlog, trillianUrl string) error {
 	secretMeta, err := kubernetes.GetSecretMetadata(ctx, i.Client, instance.Namespace, instance.Status.ServerConfigRef.Name)
 	if err != nil {
@@ -430,6 +463,20 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 	}
 
 	if instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11 && instance.Spec.Signer.PKCS11 != nil {
+
+	if len(instance.Spec.Sharding) > 0 {
+		h := sha256.New()
+		for _, shard := range instance.Spec.Sharding {
+			_, _ = fmt.Fprintf(h, "%d:%d:%s/%s", shard.TreeID, shard.TreeLength, shard.PublicKeyRef.Name, shard.PublicKeyRef.Key)
+			if shard.PrivateKeyRef != nil {
+				_, _ = fmt.Fprintf(h, ":%s/%s", shard.PrivateKeyRef.Name, shard.PrivateKeyRef.Key)
+			}
+			if shard.PrivateKeyPasswordRef != nil {
+				_, _ = fmt.Fprintf(h, ":%s/%s", shard.PrivateKeyPasswordRef.Name, shard.PrivateKeyPasswordRef.Key)
+			}
+		}
+		annotations[labels.LabelNamespace+"/shardingHash"] = hex.EncodeToString(h.Sum(nil))
+	}
 		annotations[labels.LabelNamespace+"/pkcs11SpecHash"] = pkcs11SpecHash(instance.Spec.Signer.PKCS11)
 	}
 
