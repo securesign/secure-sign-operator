@@ -15,6 +15,7 @@ import (
 	"github.com/securesign/operator/internal/controller/rekor/actions/searchIndex/redis"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/serviceresolver"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/fips"
@@ -59,7 +60,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *acti
 	)
 	labels := labels.For(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
 
-	trillianHost, trillianPort, err := utils.ResolveInternalGrpcService(ctx, i.Client, instance.Spec.Trillian, instance.Namespace, &rhtasv1.Trillian{})
+	trillianHost, trillianPort, err := serviceresolver.ResolveInternalGrpcService(ctx, i.Client, instance.Spec.Trillian, instance.Namespace, &rhtasv1.Trillian{})
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("error resolving Trillian URL: %w", err), instance)
 	}

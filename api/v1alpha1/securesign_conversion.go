@@ -59,6 +59,9 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 			dst.Spec.Fulcio.Signer.File = &rhtasv1.FulcioFile{}
 		}
 	}
+	if dst.Spec.Fulcio.Ctlog.URL == "" {
+		dst.Spec.Fulcio.Ctlog.Ref = restored.Spec.Fulcio.Ctlog.Ref
+	}
 	dst.Spec.Ctlog.ImagePullSecrets = restored.Spec.Ctlog.ImagePullSecrets
 	dst.Spec.Ctlog.TrustedCA = restored.Spec.Ctlog.TrustedCA
 	dst.Spec.Ctlog.Monitoring.ServiceMonitor = restored.Spec.Ctlog.Monitoring.ServiceMonitor

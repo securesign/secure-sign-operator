@@ -1,4 +1,4 @@
-package utils
+package serviceresolver
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	v1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/constants"
-	"github.com/securesign/operator/internal/serviceresolver"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,7 +39,7 @@ func ResolveInternalServiceUrl(ctx context.Context, cl client.Client, serviceRef
 	if err := serviceRefOrAutoload(ctx, cl, ref, instanceNamespace, instance); err != nil {
 		return "", err
 	}
-	resolvedService, err := serviceresolver.Resolve(instance)
+	resolvedService, err := Resolve(instance)
 	if err != nil {
 		return "", err
 	}
@@ -122,7 +121,7 @@ func ResolveInternalGrpcService(ctx context.Context, cl client.Client, serviceRe
 		return
 	}
 	var resolved string
-	resolved, err = serviceresolver.Resolve(instance)
+	resolved, err = Resolve(instance)
 	if err != nil {
 		return
 	}

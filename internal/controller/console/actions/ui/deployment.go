@@ -12,8 +12,8 @@ import (
 	"github.com/securesign/operator/internal/controller/console/actions"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
+	"github.com/securesign/operator/internal/serviceresolver"
 	"github.com/securesign/operator/internal/state"
-	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
@@ -47,7 +47,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Console) *ac
 		result controllerutil.OperationResult
 	)
 
-	rekorURL, err := utils.ResolveExternalServiceUrl(ctx, i.Client, instance.Spec.UI.Rekor, instance.Namespace, &rhtasv1.Rekor{})
+	rekorURL, err := serviceresolver.ResolveExternalServiceUrl(ctx, i.Client, instance.Spec.UI.Rekor, instance.Namespace, &rhtasv1.Rekor{})
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("error resolving Rekor URL: %w", err), instance)
 	}

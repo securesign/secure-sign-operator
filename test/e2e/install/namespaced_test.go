@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/test/e2e/support"
-	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
@@ -153,20 +152,17 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			},
 		}
 
-		protocol := "http"
-		if testSupportKubernetes.IsRemoteClusterOpenshift() {
-			// enable TLS
-			protocol = "https"
-		}
-
 		fulcioObject = &rhtasv1.Fulcio{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespaces["fulcio"].Name,
 				Name:      "test",
 			},
 			Spec: rhtasv1.FulcioSpec{
-				Ctlog: rhtasv1.CtlogService{
-					Address: fmt.Sprintf("%s://ctlog.%s.svc.cluster.local", protocol, namespaces["ctlog"].Name),
+				Ctlog: rhtasv1.ServiceReference{
+					Ref: &rhtasv1.ServiceReferenceRef{
+						Namespace: namespaces["ctlog"].Name,
+						Name:      ctlogObject.Name,
+					},
 				},
 				Ingress: rhtasv1.Ingress{
 					Enabled: ptr.To(true),
