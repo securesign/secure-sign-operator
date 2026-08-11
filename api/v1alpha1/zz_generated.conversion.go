@@ -1006,6 +1006,7 @@ func autoConvert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *v1.CTlogSpec, out *CTlog
 	if err := Convert_v1_ServiceReference_To_v1alpha1_TrillianService(&in.Trillian, &out.Trillian, s); err != nil {
 		return err
 	}
+	// WARNING: in.Sharding requires manual conversion: does not exist in peer-type
 	out.ServerConfigRef = (*LocalObjectReference)(unsafe.Pointer(in.ServerConfigRef))
 	// WARNING: in.Prefix requires manual conversion: does not exist in peer-type
 	if err := Convert_v1_TLS_To_v1alpha1_TLS(&in.TLS, &out.TLS, s); err != nil {

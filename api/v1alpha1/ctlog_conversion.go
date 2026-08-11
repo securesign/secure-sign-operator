@@ -100,6 +100,7 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Status.PublicKey = restored.Status.PublicKey
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
 	dst.Spec.Prefix = restored.Spec.Prefix
+	dst.Spec.Sharding = restored.Spec.Sharding
 	if dst.Status.Url != "" && restored.Spec.Prefix != "" {
 		var err error
 		if dst.Status.Url, err = buildURL(dst.Status.Url, nil, restored.Spec.Prefix); err != nil {

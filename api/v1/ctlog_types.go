@@ -47,9 +47,17 @@ type CTlogSpec struct {
 	// Trillian service configuration
 	Trillian ServiceReference `json:"trillian,omitempty"`
 
-	// Secret holding Certificate Transparency server config in text proto format
-	// If it is set then any setting of treeID, signer, rootCertificates and
-	// trillian will be overridden.
+	// Inactive shards
+	// +listType=map
+	// +listMapKey=treeID
+	// +patchStrategy=merge
+	// +patchMergeKey=treeID
+	Sharding []CTlogLogRange `json:"sharding,omitempty"`
+
+	// Deprecated: Use spec fields (treeID, signer, rootCertificates, trillian, sharding) instead.
+	// Secret holding Certificate Transparency server config in text proto format.
+	// If it is set then all other spec fields will be overridden.
+	// Retained as an escape hatch for advanced configurations.
 	//+optional
 	ServerConfigRef *LocalObjectReference `json:"serverConfigRef,omitempty"`
 
@@ -75,6 +83,30 @@ type CTlogSpec struct {
 	// Authentication configuration for the signer backend.
 	//+optional
 	Auth *Auth `json:"auth,omitempty"`
+}
+
+// CTlogLogRange defines the range and key details of an inactive CTlog shard
+// +kubebuilder:validation:XValidation:rule=(!has(self.privateKeyPasswordRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
+// +structType=atomic
+type CTlogLogRange struct {
+	// ID of Merkle tree in Trillian backend
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=1
+	TreeID int64 `json:"treeID"`
+	// Length of the tree at the time the shard was frozen
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=0
+	TreeLength int64 `json:"treeLength"`
+	// Reference to a secret containing the public key for the log shard
+	// +kubebuilder:validation:Required
+	PublicKeyRef SecretKeySelector `json:"publicKeyRef"`
+	// Reference to a secret containing the private key for the log shard
+	// +optional
+	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+	// Deprecated: Legacy PEM encryption is insecure by design and not FIPS-compliant.
+	// Reference to a secret containing the password to decrypt the private key
+	// +optional
+	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
 }
 
 const CTlogSignerTypeFile = "file"
