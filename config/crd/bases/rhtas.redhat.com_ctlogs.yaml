@@ -2034,12 +2034,96 @@ spec:
                       rule: (!has(self.publicKeyRef) || has(self.privateKeyRef))
                     - message: privateKeyRef cannot be empty
                       rule: (!has(self.privateKeyPasswordRef) || has(self.privateKeyRef))
+                  pkcs11:
+                    description: Configuration for PKCS#11/HSM-based signer
+                    properties:
+                      keyID:
+                        description: PKCS#11 CKA_ID of the signing key.
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      keyLabel:
+                        description: PKCS#11 CKA_LABEL of the signing key.
+                        minLength: 1
+                        type: string
+                      modulePath:
+                        description: Absolute path to the PKCS#11 module (.so).
+                        minLength: 1
+                        pattern: ^/.+\..+$
+                        type: string
+                      pinSecretRef:
+                        description: Reference to a Secret key containing the HSM
+                          user PIN.
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      publicKeyRef:
+                        description: PEM-encoded public key matching the HSM-resident
+                          private key.
+                        properties:
+                          key:
+                            description: The key of the secret to select from. Must
+                              be a valid secret key.
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      slotNumber:
+                        description: Numeric slot ID (alternative to tokenLabel).
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      tokenLabel:
+                        description: Token label identifying the HSM slot.
+                        minLength: 1
+                        type: string
+                    required:
+                    - publicKeyRef
+                    type: object
+                    x-kubernetes-validations:
+                    - message: publicKeyRef is required for CTLog PKCS#11 signer
+                      rule: has(self.publicKeyRef)
+                    - message: modulePath is required for CTLog PKCS#11 signer
+                      rule: has(self.modulePath)
+                    - message: tokenLabel is required for CTLog PKCS#11 signer
+                      rule: has(self.tokenLabel)
+                    - message: pinSecretRef is required for CTLog PKCS#11 signer
+                      rule: has(self.pinSecretRef)
                   type:
                     description: Type of the signer backend
                     enum:
                     - file
+                    - pkcs11
                     type: string
                 type: object
+                x-kubernetes-validations:
+                - message: pkcs11 configuration is required when type is pkcs11
+                  rule: '!has(self.type) || self.type != ''pkcs11'' || has(self.pkcs11)'
+                - message: file configuration must not be set when type is pkcs11
+                  rule: '!has(self.type) || self.type != ''pkcs11'' || !has(self.file)'
+                - message: pkcs11 configuration must not be set when type is file
+                  rule: '!has(self.type) || self.type != ''file'' || !has(self.pkcs11)'
               tls:
                 description: Configuration for enabling TLS (Transport Layer Security)
                   encryption for manged service.
