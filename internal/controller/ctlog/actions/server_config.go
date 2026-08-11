@@ -362,8 +362,8 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 			}
 		}
 
-		if s.PrivateKeyPasswordRef != nil {
-			sc.PrivateKeyPass, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyPasswordRef)
+		if s.PrivateKeyPasswordRef != nil { //nolint:staticcheck
+			sc.PrivateKeyPass, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyPasswordRef) //nolint:staticcheck
 			if err != nil {
 				return nil, fmt.Errorf("shard %d privateKeyPasswordRef: %w", s.TreeID, err)
 			}
@@ -429,12 +429,12 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 	if len(instance.Spec.Sharding) > 0 {
 		h := sha256.New()
 		for _, shard := range instance.Spec.Sharding {
-			fmt.Fprintf(h, "%d:%d:%s/%s", shard.TreeID, shard.TreeLength, shard.PublicKeyRef.Name, shard.PublicKeyRef.Key)
+			_, _ = fmt.Fprintf(h, "%d:%d:%s/%s", shard.TreeID, shard.TreeLength, shard.PublicKeyRef.Name, shard.PublicKeyRef.Key)
 			if shard.PrivateKeyRef != nil {
-				fmt.Fprintf(h, ":%s/%s", shard.PrivateKeyRef.Name, shard.PrivateKeyRef.Key)
+				_, _ = fmt.Fprintf(h, ":%s/%s", shard.PrivateKeyRef.Name, shard.PrivateKeyRef.Key)
 			}
-			if shard.PrivateKeyPasswordRef != nil {
-				fmt.Fprintf(h, ":%s/%s", shard.PrivateKeyPasswordRef.Name, shard.PrivateKeyPasswordRef.Key)
+			if shard.PrivateKeyPasswordRef != nil { //nolint:staticcheck
+				_, _ = fmt.Fprintf(h, ":%s/%s", shard.PrivateKeyPasswordRef.Name, shard.PrivateKeyPasswordRef.Key) //nolint:staticcheck
 			}
 		}
 		annotations[labels.LabelNamespace+"/shardingHash"] = hex.EncodeToString(h.Sum(nil))
