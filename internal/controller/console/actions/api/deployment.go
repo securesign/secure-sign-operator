@@ -10,7 +10,6 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller/console/actions"
-	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
@@ -49,14 +48,9 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Console) *ac
 		result controllerutil.OperationResult
 	)
 
-	var tufURL string
-	if instance.Spec.Api.Tuf.URL != "" || instance.Spec.Api.Tuf.Ref != nil {
-		tufURL, err = utils.ResolveExternalServiceUrl(ctx, i.Client, instance.Spec.Api.Tuf, instance.Namespace, &rhtasv1.Tuf{})
-		if err != nil {
-			return i.Error(ctx, fmt.Errorf("error resolving TUF URL: %w", err), instance)
-		}
-	} else {
-		tufURL = fmt.Sprintf("http://%s.%s.svc", tufConstants.DeploymentName, instance.Namespace)
+	tufURL, err := utils.ResolveInternalServiceUrl(ctx, i.Client, instance.Spec.Api.Tuf, instance.Namespace, &rhtasv1.Tuf{})
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("error resolving TUF URL: %w", err), instance)
 	}
 
 	l := labels.For(actions.ApiComponentName, actions.ApiDeploymentName, instance.Name)

@@ -11,6 +11,6 @@ import (
 func init() {
 	serviceresolver.Register(
 		func(obj *rhtasv1.Tuf) (string, error) {
-			return fmt.Sprintf("http://%s.%s.svc:%d", constants.DeploymentName, obj.Namespace, constants.Port), nil
+			return fmt.Sprintf("http://%s.%s.svc:%d", constants.DeploymentName, obj.Namespace, obj.Spec.Port), nil
 		})
 }

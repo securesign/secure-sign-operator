@@ -47,12 +47,9 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Console) *ac
 		result controllerutil.OperationResult
 	)
 
-	var rekorURL string
-	if instance.Spec.UI.Rekor.URL != "" || instance.Spec.UI.Rekor.Ref != nil {
-		rekorURL, err = utils.ResolveExternalServiceUrl(ctx, i.Client, instance.Spec.UI.Rekor, instance.Namespace, &rhtasv1.Rekor{})
-		if err != nil {
-			return i.Error(ctx, fmt.Errorf("error resolving Rekor URL: %w", err), instance)
-		}
+	rekorURL, err := utils.ResolveExternalServiceUrl(ctx, i.Client, instance.Spec.UI.Rekor, instance.Namespace, &rhtasv1.Rekor{})
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("error resolving Rekor URL: %w", err), instance)
 	}
 
 	l := labels.For(actions.UIComponentName, actions.UIDeploymentName, instance.Name)
