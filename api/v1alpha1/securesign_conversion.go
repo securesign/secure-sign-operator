@@ -73,6 +73,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Ctlog.TrustedCA = restored.Spec.Ctlog.TrustedCA
 	dst.Spec.Ctlog.Monitoring.ServiceMonitor = restored.Spec.Ctlog.Monitoring.ServiceMonitor
 	dst.Spec.Ctlog.Prefix = restored.Spec.Ctlog.Prefix
+	dst.Spec.Ctlog.Sharding = restored.Spec.Ctlog.Sharding
 	dst.Spec.Ctlog.Signer.Type = restored.Spec.Ctlog.Signer.Type
 	// If original v1 had File=&{} (empty struct), preserve it
 	if dst.Spec.Ctlog.Signer.File == nil && restored.Spec.Ctlog.Signer.File != nil {
