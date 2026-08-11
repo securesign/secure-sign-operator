@@ -106,6 +106,39 @@ type CTlogPKCS11Config struct {
 }
 
 // CTlogSigner defines the desired state of the CTlog Signer
+	// +kubebuilder:validation:Required
+	PublicKeyRef SecretKeySelector `json:"publicKeyRef"`
+	// Reference to a secret containing the private key for the log shard
+	// +optional
+	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+	// Deprecated: Legacy PEM encryption is insecure by design and not FIPS-compliant.
+	// Reference to a secret containing the password to decrypt the private key
+	// +optional
+	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
+}
+
+const CTlogSignerTypeFile = "file"
+
+// CTlogSigner defines the desired state of the CTlog Signer
+type CTlogSigner struct {
+	// Type of the signer backend
+	//+kubebuilder:validation:Enum=file
+	//+optional
+	Type string `json:"type,omitempty"`
+	// Configuration for file-based signer
+	//+optional
+	File *CTlogFile `json:"file,omitempty"`
+}
+
+// CTlogFile defines the desired state of the CTlog file-based signer
+// +kubebuilder:validation:XValidation:rule=(!has(self.publicKeyRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
+type CTlogFile struct {
+	// The private key used for signing STHs etc.
+	//+optional
+	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+
+	// The public key matching the private key (if both are present). It is
+	// used only by mirror logs for verifying the source log's signatures, but can
 // +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || has(self.pkcs11)",message="pkcs11 configuration is required when type is pkcs11"
 // +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || !has(self.file)",message="file configuration must not be set when type is pkcs11"
 // +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'file' || !has(self.pkcs11)",message="pkcs11 configuration must not be set when type is file"

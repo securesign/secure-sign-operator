@@ -41,6 +41,7 @@ var serverConfigAnnotations = []string{
 	labels.LabelNamespace + "/privateKeyRef",
 	labels.LabelNamespace + "/logPrefix",
 	labels.LabelNamespace + "/pkcs11SpecHash",
+	labels.LabelNamespace + "/shardingHash",
 }
 
 func NewServerConfigAction() action.Action[*rhtasv1.CTlog] {
