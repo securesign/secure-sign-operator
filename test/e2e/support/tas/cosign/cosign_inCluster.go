@@ -23,16 +23,29 @@ import (
 const cosignImage = "registry.redhat.io/rhtas/cosign-rhel9:1.4.0"
 
 type InClusterCosign struct {
-	tufUrl    string
-	namespace string
-	cli       client.Client
+	tufUrl             string
+	namespace          string
+	cli                client.Client
+	registryAuthSecret string
 }
 
-func NewInClusterCosign(namespace, tufUrl string, client client.Client) *InClusterCosign {
-	return &InClusterCosign{
+func NewInClusterCosign(namespace, tufUrl string, client client.Client, opts ...InClusterOption) *InClusterCosign {
+	c := &InClusterCosign{
 		tufUrl:    tufUrl,
 		namespace: namespace,
 		cli:       client,
+	}
+	for _, o := range opts {
+		o(c)
+	}
+	return c
+}
+
+type InClusterOption func(*InClusterCosign)
+
+func WithRegistryAuthSecret(secretName string) InClusterOption {
+	return func(c *InClusterCosign) {
+		c.registryAuthSecret = secretName
 	}
 }
 
@@ -91,6 +104,33 @@ func (c *InClusterCosign) executeInJob(ctx context.Context, script string) error
 	if err != nil {
 		return err
 	}
+
+	var volumes []v1.Volume
+	var volumeMounts []v1.VolumeMount
+
+	if c.registryAuthSecret != "" {
+		volumes = append(volumes, v1.Volume{
+			Name: "registry-auth",
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: c.registryAuthSecret,
+					Items: []v1.KeyToPath{
+						{Key: v1.DockerConfigJsonKey, Path: "config.json"},
+					},
+				},
+			},
+		})
+		volumeMounts = append(volumeMounts, v1.VolumeMount{
+			Name:      "registry-auth",
+			MountPath: "/tmp/registry-auth",
+			ReadOnly:  true,
+		})
+		proxyEnvs = append(proxyEnvs, v1.EnvVar{
+			Name:  "DOCKER_CONFIG",
+			Value: "/tmp/registry-auth",
+		})
+	}
+
 	j := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "cosign-",
@@ -104,13 +144,15 @@ func (c *InClusterCosign) executeInJob(ctx context.Context, script string) error
 			Template: v1.PodTemplateSpec{
 				Spec: v1.PodSpec{
 					RestartPolicy: v1.RestartPolicyNever,
+					Volumes:       volumes,
 					Containers: []v1.Container{
 						{
-							Name:    "cosign",
-							Image:   cosignImage,
-							Command: []string{"/bin/sh", "-c"},
-							Args:    []string{script},
-							Env:     proxyEnvs,
+							Name:         "cosign",
+							Image:        cosignImage,
+							Command:      []string{"/bin/sh", "-c"},
+							Args:         []string{script},
+							Env:          proxyEnvs,
+							VolumeMounts: volumeMounts,
 						},
 					},
 				},
