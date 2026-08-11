@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	_ "embed"
 	"encoding/hex"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -461,6 +462,155 @@ func TestServerConfig_Handle(t *testing.T) {
 					secret, err := kubernetes.GetSecret(ctx, cli, "default", instance.Status.ServerConfigRef.Name)
 					g.Expect(err).ShouldNot(HaveOccurred())
 					g.Expect(secret.Data).To(HaveKey("config"))
+				},
+			},
+		},
+		{
+			name: "create config with shards",
+			env: env{
+				spec: rhtasv1.CTlogSpec{
+					ServerConfigRef: nil,
+					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
+					Sharding: []rhtasv1.CTlogLogRange{
+						{
+							TreeID:     111111,
+							TreeLength: 50,
+							PublicKeyRef: rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+								Key:                  "public",
+							},
+						},
+					},
+				},
+				status: rhtasv1.CTlogStatus{
+					ServerConfigRef: nil,
+					TreeID:          ptr.To(int64(123456)),
+					RootCertificates: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+					},
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
+					PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
+				},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: "secret", Namespace: "default"},
+						Data:       map[string][]byte{"cert": cert, "private": privateKey, "public": publicKey},
+					},
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: "shard-keys", Namespace: "default"},
+						Data:       map[string][]byte{"public": publicKey},
+					},
+				},
+			},
+			want: want{
+				result: testAction.Return(),
+				verify: func(ctx context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
+					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
+
+					secret, err := kubernetes.GetSecret(ctx, cli, "default", instance.Status.ServerConfigRef.Name)
+					g.Expect(err).ShouldNot(HaveOccurred())
+					g.Expect(secret.Data).To(HaveKey("config"))
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("111111"))
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("is_readonly:true"))
+				},
+			},
+		},
+		{
+			name: "create config with shard including private key",
+			env: env{
+				spec: rhtasv1.CTlogSpec{
+					ServerConfigRef: nil,
+					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
+					Sharding: []rhtasv1.CTlogLogRange{
+						{
+							TreeID:     222222,
+							TreeLength: 100,
+							PublicKeyRef: rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+								Key:                  "public",
+							},
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+								Key:                  "private",
+							},
+						},
+					},
+				},
+				status: rhtasv1.CTlogStatus{
+					ServerConfigRef: nil,
+					TreeID:          ptr.To(int64(123456)),
+					RootCertificates: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+					},
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
+					PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
+				},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: "secret", Namespace: "default"},
+						Data:       map[string][]byte{"cert": cert, "private": privateKey, "public": publicKey},
+					},
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: "shard-keys", Namespace: "default"},
+						Data:       map[string][]byte{"public": publicKey, "private": privateKey},
+					},
+				},
+			},
+			want: want{
+				result: testAction.Return(),
+				verify: func(ctx context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
+					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
+
+					secret, err := kubernetes.GetSecret(ctx, cli, "default", instance.Status.ServerConfigRef.Name)
+					g.Expect(err).ShouldNot(HaveOccurred())
+					g.Expect(secret.Data).To(HaveKey("config"))
+					g.Expect(secret.Data).To(HaveKey("shard-222222-private"))
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("222222"))
+				},
+			},
+		},
+		{
+			name: "shard secret not found requeues",
+			env: env{
+				spec: rhtasv1.CTlogSpec{
+					ServerConfigRef: nil,
+					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
+					Sharding: []rhtasv1.CTlogLogRange{
+						{
+							TreeID:     333333,
+							TreeLength: 10,
+							PublicKeyRef: rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "missing-shard-secret"},
+								Key:                  "public",
+							},
+						},
+					},
+				},
+				status: rhtasv1.CTlogStatus{
+					ServerConfigRef: nil,
+					TreeID:          ptr.To(int64(123456)),
+					RootCertificates: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+					},
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
+					PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
+				},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: "secret", Namespace: "default"},
+						Data:       map[string][]byte{"cert": cert, "private": privateKey, "public": publicKey},
+					},
+				},
+			},
+			want: want{
+				result: testAction.RequeueAfter(5 * time.Second),
+				verify: func(_ context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
+					g.Expect(instance.Status.ServerConfigRef).Should(BeNil())
+					g.Expect(instance.Status.Conditions).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Message": ContainSubstring("Failed to resolve shard secrets"),
+						"Status":  Equal(metav1.ConditionFalse),
+						"Reason":  Equal(state.Failure.String()),
+					})))
 				},
 			},
 		},
@@ -992,6 +1142,186 @@ func TestServerConfig_Update(t *testing.T) {
 					g.Expect(c).ShouldNot(BeNil())
 					g.Expect(c.Status).Should(Equal(metav1.ConditionTrue))
 					g.Expect(c.ObservedGeneration).Should(Equal(int64(2)))
+				},
+			},
+		},
+		{
+			name: "sharding change triggers config recreation",
+			env: func() env {
+				inst := newBaseInstance()
+				inst.Generation = 2
+				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "old-config"}
+				inst.Spec.Sharding = []rhtasv1.CTlogLogRange{
+					{
+						TreeID:     444444,
+						TreeLength: 50,
+						PublicKeyRef: rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+							Key:                  "public",
+						},
+					},
+				}
+				return env{
+					instance: inst,
+					objects: []client.Object{
+						newKeySecret("default"),
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "shard-keys", Namespace: "default"},
+							Data:       map[string][]byte{"public": publicKey},
+						},
+						newConfigSecret("old-config", "default", defaultAnnotations()),
+					},
+				}
+			}(),
+			want: want{
+				result: testAction.Return(),
+				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+					g.Expect(current.Status.ServerConfigRef.Name).ShouldNot(Equal("old-config"))
+					g.Expect(current.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
+
+					secret, err := kubernetes.GetSecret(ctx, cli, "default", current.Status.ServerConfigRef.Name)
+					g.Expect(err).ShouldNot(HaveOccurred())
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("444444"))
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("is_readonly:true"))
+					g.Expect(secret.Annotations).To(HaveKey("rhtas.redhat.com/shardingHash"))
+				},
+			},
+		},
+		{
+			name: "sharding with multiple shards and private keys",
+			env: func() env {
+				inst := newBaseInstance()
+				inst.Generation = 2
+				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "old-config"}
+				inst.Spec.Sharding = []rhtasv1.CTlogLogRange{
+					{
+						TreeID:     555555,
+						TreeLength: 30,
+						PublicKeyRef: rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard1-keys"},
+							Key:                  "public",
+						},
+						PrivateKeyRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard1-keys"},
+							Key:                  "private",
+						},
+					},
+					{
+						TreeID:     666666,
+						TreeLength: 20,
+						PublicKeyRef: rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard2-keys"},
+							Key:                  "public",
+						},
+					},
+				}
+				return env{
+					instance: inst,
+					objects: []client.Object{
+						newKeySecret("default"),
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "shard1-keys", Namespace: "default"},
+							Data:       map[string][]byte{"public": publicKey, "private": privateKey},
+						},
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "shard2-keys", Namespace: "default"},
+							Data:       map[string][]byte{"public": publicKey},
+						},
+						newConfigSecret("old-config", "default", defaultAnnotations()),
+					},
+				}
+			}(),
+			want: want{
+				result: testAction.Return(),
+				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+					g.Expect(current.Status.ServerConfigRef.Name).ShouldNot(Equal("old-config"))
+
+					secret, err := kubernetes.GetSecret(ctx, cli, "default", current.Status.ServerConfigRef.Name)
+					g.Expect(err).ShouldNot(HaveOccurred())
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("555555"))
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("666666"))
+					g.Expect(secret.Data).To(HaveKey("shard-555555-private"))
+					g.Expect(secret.Data).ToNot(HaveKey("shard-666666-private"))
+				},
+			},
+		},
+		{
+			name: "sharding unchanged does not recreate config",
+			env: func() env {
+				inst := newBaseInstance()
+				inst.Generation = 2
+				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "existing-config"}
+				inst.Spec.Sharding = []rhtasv1.CTlogLogRange{
+					{
+						TreeID:     777777,
+						TreeLength: 10,
+						PublicKeyRef: rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+							Key:                  "public",
+						},
+					},
+				}
+
+				ann := defaultAnnotations()
+				h := sha256.New()
+				_, _ = fmt.Fprintf(h, "%d:%d:%s/%s", int64(777777), int64(10), "shard-keys", "public")
+				ann["rhtas.redhat.com/shardingHash"] = hex.EncodeToString(h.Sum(nil))
+
+				return env{
+					instance: inst,
+					objects: []client.Object{
+						newKeySecret("default"),
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "shard-keys", Namespace: "default"},
+							Data:       map[string][]byte{"public": publicKey},
+						},
+						newConfigSecret("existing-config", "default", ann),
+					},
+				}
+			}(),
+			want: want{
+				result: testAction.Return(),
+				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+					g.Expect(current.Status.ServerConfigRef.Name).Should(Equal("existing-config"))
+
+					c := meta.FindStatusCondition(current.Status.Conditions, ConfigCondition)
+					g.Expect(c).ShouldNot(BeNil())
+					g.Expect(c.ObservedGeneration).Should(Equal(int64(2)))
+					g.Expect(c.Status).Should(Equal(metav1.ConditionTrue))
+				},
+			},
+		},
+		{
+			name: "shard secret missing during update requeues",
+			env: func() env {
+				inst := newBaseInstance()
+				inst.Generation = 2
+				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "old-config"}
+				inst.Spec.Sharding = []rhtasv1.CTlogLogRange{
+					{
+						TreeID:     888888,
+						TreeLength: 5,
+						PublicKeyRef: rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "nonexistent-shard"},
+							Key:                  "public",
+						},
+					},
+				}
+				return env{
+					instance: inst,
+					objects: []client.Object{
+						newKeySecret("default"),
+						newConfigSecret("old-config", "default", defaultAnnotations()),
+					},
+				}
+			}(),
+			want: want{
+				result: testAction.RequeueAfter(5 * time.Second),
+				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+					c := meta.FindStatusCondition(current.Status.Conditions, ConfigCondition)
+					g.Expect(c).ShouldNot(BeNil())
+					g.Expect(c.Status).Should(Equal(metav1.ConditionFalse))
+					g.Expect(c.Message).Should(ContainSubstring("Failed to resolve shard secrets"))
 				},
 			},
 		},
