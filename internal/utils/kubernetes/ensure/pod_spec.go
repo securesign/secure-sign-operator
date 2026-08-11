@@ -1,6 +1,8 @@
 package ensure
 
 import (
+	"slices"
+
 	v1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	core "k8s.io/api/core/v1"
@@ -108,12 +110,22 @@ func ReconcileInitContainers(podSpec *core.PodSpec, specs []v1.InitContainerSpec
 		} else {
 			c.Resources = core.ResourceRequirements{}
 		}
+		// Only set ImagePullPolicy if explicitly specified; otherwise preserve
+		// the Kubernetes default applied by the API server (e.g. "IfNotPresent").
+		// The Go zero value ("") differs from the API server default and would
+		// cause an infinite update loop via CreateOrUpdate.
 		if spec.ImagePullPolicy != "" {
 			c.ImagePullPolicy = spec.ImagePullPolicy
 		}
 		c.RestartPolicy = spec.RestartPolicy
-		c.Env = append([]core.EnvVar{}, spec.Env...)
-		c.VolumeMounts = append([]core.VolumeMount{}, spec.VolumeMounts...)
+		// Use slices.Clone instead of append([]T{}, slice...) to preserve nil.
+		// append([]T{}, nil...) produces a non-nil empty slice ([]T{}), but the
+		// Kubernetes API server strips empty slices via omitempty on round-trip,
+		// returning nil. reflect.DeepEqual(nil, []T{}) is false, causing
+		// CreateOrUpdate to "update" the Deployment on every reconcile -- an
+		// infinite loop that demotes Ready from Initialize back to Creating.
+		c.Env = slices.Clone(spec.Env)
+		c.VolumeMounts = slices.Clone(spec.VolumeMounts)
 	}
 
 	// Remove init containers that are no longer in the spec.

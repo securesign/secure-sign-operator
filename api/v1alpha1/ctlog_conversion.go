@@ -114,6 +114,7 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Spec.PodExtensions = restored.Spec.PodExtensions
 	dst.Spec.Auth = restored.Spec.Auth
+	dst.Spec.Signer.PKCS11 = restored.Spec.Signer.PKCS11
 	return nil
 }
 

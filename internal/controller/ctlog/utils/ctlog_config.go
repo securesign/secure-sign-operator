@@ -94,7 +94,7 @@ func (c *Config) MarshalConfig() ([]byte, error) {
 
 	block, _ := pem.Decode(c.PubKey)
 	if block == nil {
-		return nil, fmt.Errorf("failed to decode private key")
+		return nil, fmt.Errorf("failed to decode public key PEM")
 	}
 
 	proto := configpb.LogConfig{
@@ -171,6 +171,67 @@ func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertifi
 	for i, cert := range ctlogConfig.RootCerts {
 		fulcioKey := fmt.Sprintf("fulcio-%d", i)
 		data[fulcioKey] = cert
+	}
+	return data, nil
+}
+
+// CreateCtlogPKCS11Config creates a CTLog protobuf configuration for PKCS#11 mode.
+// Instead of PEMKeyFile, the PrivateKey field is an anypb.Any wrapping keyspb.PKCS11Config.
+// The returned map contains only the protobuf config and root certificates;
+// private key material lives on the HSM and is not included.
+func CreateCtlogPKCS11Config(
+	trillianUrl string,
+	treeID int64,
+	rootCerts []RootCertificate,
+	tokenLabel, pin string,
+	publicKeyPEM []byte,
+	logPrefix string,
+) (map[string][]byte, error) {
+	rootPems := make([]string, 0, len(rootCerts))
+	for i := range rootCerts {
+		rootPems = append(rootPems, fmt.Sprintf("%sfulcio-%d", rootsPemFileDir, i))
+	}
+
+	block, _ := pem.Decode(publicKeyPEM)
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode public key PEM")
+	}
+
+	logConfig := configpb.LogConfig{
+		LogId:        treeID,
+		Prefix:       logPrefix,
+		RootsPemFile: rootPems,
+		PrivateKey: mustMarshalAny(&keyspb.PKCS11Config{
+			TokenLabel: tokenLabel,
+			Pin:        pin,
+			PublicKey:  string(publicKeyPEM),
+		}),
+		PublicKey:      &keyspb.PublicKey{Der: block.Bytes},
+		LogBackendName: "trillian",
+		ExtKeyUsages:   []string{"CodeSigning"},
+	}
+
+	multiConfig := configpb.LogMultiConfig{
+		LogConfigs: &configpb.LogConfigSet{
+			Config: []*configpb.LogConfig{&logConfig},
+		},
+		Backends: &configpb.LogBackendSet{
+			Backend: []*configpb.LogBackend{{
+				Name:        "trillian",
+				BackendSpec: trillianUrl,
+			}},
+		},
+	}
+	marshalledConfig, err := prototext.Marshal(&multiConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal PKCS#11 ctlog config: %w", err)
+	}
+
+	data := map[string][]byte{
+		ConfigKey: marshalledConfig,
+	}
+	for i, cert := range rootCerts {
+		data[fmt.Sprintf("fulcio-%d", i)] = cert
 	}
 	return data, nil
 }

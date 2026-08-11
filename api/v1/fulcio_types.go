@@ -12,6 +12,7 @@ import (
 )
 
 const FulcioSignerTypeFile = "file"
+const FulcioSignerTypePKCS11 = "pkcs11"
 
 // FulcioSpec defines the desired state of Fulcio
 type FulcioSpec struct {
@@ -43,11 +44,28 @@ type FulcioSpec struct {
 	Auth *Auth `json:"auth,omitempty"`
 }
 
+// FulcioPKCS11Config holds the Fulcio PKCS#11/HSM signer configuration.
+// Mode A (structured): set modulePath + tokenLabel + pinSecretRef — operator generates crypto11 JSON.
+// Mode B (configRef): provide full crypto11 JSON for vendor-specific fields.
+// +kubebuilder:validation:XValidation:rule="has(self.configRef) || (has(self.modulePath) && has(self.tokenLabel) && has(self.pinSecretRef))",message="either configRef or all of modulePath+tokenLabel+pinSecretRef must be set"
+// +kubebuilder:validation:XValidation:rule="has(self.keyID)",message="keyID is required for Fulcio PKCS#11 signer"
+type FulcioPKCS11Config struct {
+	PKCS11Config `json:",inline"`
+	// Reference to a Secret key holding a complete crypto11 JSON config.
+	// When set, modulePath/tokenLabel/pinSecretRef are ignored.
+	//+optional
+	ConfigRef *SecretKeySelector `json:"configRef,omitempty"`
+}
+
 // FulcioSigner defines the desired state of the Fulcio Signer
-// +kubebuilder:validation:XValidation:rule="self.type != 'file' || !has(self.certificateChain.certificateChainRef) || (has(self.file) && has(self.file.privateKeyRef))",message="file.privateKeyRef cannot be empty when certificateChain.certificateChainRef is provided"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'file' || !has(self.certificateChain.certificateChainRef) || (has(self.file) && has(self.file.privateKeyRef))",message="file.privateKeyRef cannot be empty when certificateChain.certificateChainRef is provided"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || has(self.pkcs11)",message="pkcs11 configuration is required when type is pkcs11"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || !has(self.file)",message="file configuration must not be set when type is pkcs11"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || has(self.certificateChain.certificateChainRef)",message="certificateChain.certificateChainRef is required when type is pkcs11"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'file' || !has(self.pkcs11)",message="pkcs11 configuration must not be set when type is file"
 type FulcioSigner struct {
 	// Type of the signer backend
-	//+kubebuilder:validation:Enum=file
+	//+kubebuilder:validation:Enum=file;pkcs11
 	//+optional
 	Type string `json:"type,omitempty"`
 	// Configuration for the Certificate Chain
@@ -56,6 +74,9 @@ type FulcioSigner struct {
 	// Configuration for file-based signer
 	//+optional
 	File *FulcioFile `json:"file,omitempty"`
+	// Configuration for PKCS#11/HSM-based signer
+	//+optional
+	PKCS11 *FulcioPKCS11Config `json:"pkcs11,omitempty"`
 }
 
 // FulcioFile defines the desired state of the Fulcio file-based signer

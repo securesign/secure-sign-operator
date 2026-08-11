@@ -30,6 +30,9 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.CTlog] {
 			ResolveRef:   resolveRef,
 			GenerateData: generateData,
 			AlignStatus:  alignStatus,
+			IsEnabled: func(i *rhtasv1.CTlog) bool {
+				return i.Spec.Signer.Type == rhtasv1.CTlogSignerTypeFile || i.Spec.Signer.Type == ""
+			},
 			MutateSecret: func(_ *rhtasv1.CTlog, secret *corev1.Secret) {
 				if secret.Labels == nil {
 					secret.Labels = make(map[string]string)
