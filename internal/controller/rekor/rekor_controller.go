@@ -46,10 +46,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	crpredicate "sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/predicate"
+	ctrlutil "github.com/securesign/operator/internal/utils/controller"
 	batchv1 "k8s.io/api/batch/v1"
 )
 
@@ -188,16 +190,10 @@ func (r *rekorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&v13.Service{}).
 		Owns(&v1.Ingress{}).
 		Owns(&batchv1.CronJob{}).
-		Watches(&rhtasv1.Trillian{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
-			list := &rhtasv1.RekorList{}
-			if err := mgr.GetClient().List(ctx, list, client.InNamespace(object.GetNamespace())); err != nil {
-				return nil
-			}
-			requests := make([]reconcile.Request, len(list.Items))
-			for i, k := range list.Items {
-				requests[i] = reconcile.Request{NamespacedName: types.NamespacedName{Namespace: object.GetNamespace(), Name: k.Name}}
-			}
-			return requests
-		})).
+		Watches(&rhtasv1.Trillian{}, handler.EnqueueRequestsFromMapFunc(
+			ctrlutil.ServiceRefWatch(mgr.GetClient(), &rhtasv1.RekorList{}, func(o client.Object) rhtasv1.ServiceReference {
+				return o.(*rhtasv1.Rekor).Spec.Trillian
+			}),
+		), builder.WithPredicates(crpredicate.GenerationChangedPredicate{})).
 		Complete(r)
 }

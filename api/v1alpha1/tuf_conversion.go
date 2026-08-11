@@ -25,6 +25,10 @@ func (src *Tuf) ConvertTo(dstRaw conversion.Hub) error {
 		dst.Spec.Fulcio.Ref = restored.Spec.Fulcio.Ref
 	}
 	dst.Spec.Fulcio.OIDCIssuers = restored.Spec.Fulcio.OIDCIssuers
+	// v1alpha1 inject prefix into URL - we need to restore empty URL to allow ref resolution
+	if restored.Spec.Ctlog.URL == "" && dst.Spec.Ctlog.URL == "///trusted-artifact-signer" { //nolint:goconst
+		dst.Spec.Ctlog.URL = ""
+	}
 	if dst.Spec.Ctlog.URL == "" {
 		dst.Spec.Ctlog.Ref = restored.Spec.Ctlog.Ref
 	}

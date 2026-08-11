@@ -74,78 +74,12 @@ type MonitoringWithTLogConfig struct {
 	Tuf TufService `json:"tuf,omitempty"`
 }
 
-// TrillianService configuration to connect Trillian server
-type TrillianService struct {
-	// Address to Trillian Log Server End point
-	//+optional
-	Address string `json:"address,omitempty"`
-	// Port of Trillian Log Server End point
-	//+kubebuilder:validation:Minimum:=1
-	//+kubebuilder:validation:Maximum:=65535
-	//+optional
-	Port *int32 `json:"port,omitempty"`
-}
-
 // TufService configuration to connect TUF server
 type TufService struct {
 	// Address to TUF Server End point
 	//+optional
 	Address string `json:"address,omitempty"`
 	// Port of TUF Server End point
-	//+kubebuilder:validation:Minimum:=1
-	//+kubebuilder:validation:Maximum:=65535
-	//+optional
-	Port *int32 `json:"port,omitempty"`
-}
-
-// CtlogService configuration to connect Ctlog server
-type CtlogService struct {
-	// Address to Ctlog Log Server End point
-	//+optional
-	Address string `json:"address,omitempty"`
-	// Port of Ctlog Log Server End point
-	//+kubebuilder:validation:Minimum:=1
-	//+kubebuilder:validation:Maximum:=65535
-	//+optional
-	Port *int32 `json:"port,omitempty"`
-	// Prefix is the name of the log. The prefix cannot be empty and can
-	// contain "/" path separator characters to define global override handler prefix.
-	//+kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$"
-	//+optional
-	Prefix string `json:"prefix,omitempty"`
-}
-
-// FulcioService configuration to connect Fulcio server
-type FulcioService struct {
-	// Address to Fulcio End point
-	//+optional
-	Address string `json:"address,omitempty"`
-	// Port of Fulcio End point
-	//+kubebuilder:validation:Minimum:=1
-	//+kubebuilder:validation:Maximum:=65535
-	//+optional
-	Port *int32 `json:"port,omitempty"`
-}
-
-// RekorService configuration to connect Rekor server
-type RekorService struct {
-	// Address to Rekor End point
-	//+optional
-	Address string `json:"address,omitempty"`
-	// Port of Rekor End point
-	//+kubebuilder:validation:Minimum:=1
-	//+kubebuilder:validation:Maximum:=65535
-	//+optional
-	Port *int32 `json:"port,omitempty"`
-}
-
-// TsaService configuration to connect TSA server
-type TsaService struct {
-	// Address is the full TSA endpoint URL including the API suffix path
-	// (e.g. http://tsa.example.com/api/v1/timestamp).
-	//+optional
-	Address string `json:"address,omitempty"`
-	// Port of TSA End point
 	//+kubebuilder:validation:Minimum:=1
 	//+kubebuilder:validation:Maximum:=65535
 	//+optional

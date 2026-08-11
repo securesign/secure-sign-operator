@@ -152,6 +152,11 @@ func (src *Fulcio) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Status.CertificateChain = restored.Status.CertificateChain
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
+
+	// v1alpha1 inject prefix into URL - we need to restore empty URL to allow ref resolution
+	if restored.Spec.Ctlog.URL == "" && dst.Spec.Ctlog.URL == "///trusted-artifact-signer" { //nolint:goconst
+		dst.Spec.Ctlog.URL = ""
+	}
 	if dst.Spec.Ctlog.URL == "" {
 		dst.Spec.Ctlog.Ref = restored.Spec.Ctlog.Ref
 	}

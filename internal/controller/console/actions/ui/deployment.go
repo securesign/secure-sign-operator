@@ -49,7 +49,13 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Console) *ac
 
 	rekorURL, err := serviceresolver.ResolveExternalServiceUrl(ctx, i.Client, instance.Spec.UI.Rekor, instance.Namespace, &rhtasv1.Rekor{})
 	if err != nil {
-		return i.Error(ctx, fmt.Errorf("error resolving Rekor URL: %w", err), instance)
+		return i.Error(ctx, fmt.Errorf("error resolving Rekor URL: %w", err), instance, metav1.Condition{
+			Type:               constants.ReadyCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Creating.String(),
+			Message:            fmt.Sprintf("Waiting for Rekor service to become available: %v", err),
+			ObservedGeneration: instance.Generation,
+		})
 	}
 
 	l := labels.For(actions.UIComponentName, actions.UIDeploymentName, instance.Name)
@@ -123,12 +129,8 @@ func ensureUIDeployment(instance *rhtasv1.Console, rekorURL string, labels map[s
 		apiURL := kubernetes.FindEnvByNameOrCreate(container, "CONSOLE_API_URL")
 		apiURL.Value = fmt.Sprintf("%s://%s:%d", scheme, apiHost, actions.ApiPort)
 
-		if rekorURL != "" {
-			rekorEnv := kubernetes.FindEnvByNameOrCreate(container, "NEXT_PUBLIC_REKOR_DEFAULT_DOMAIN")
-			rekorEnv.Value = rekorURL
-		} else {
-			kubernetes.RemoveEnvVarByName(container, "NEXT_PUBLIC_REKOR_DEFAULT_DOMAIN")
-		}
+		rekorEnv := kubernetes.FindEnvByNameOrCreate(container, "NEXT_PUBLIC_REKOR_DEFAULT_DOMAIN")
+		rekorEnv.Value = rekorURL
 
 		port := kubernetes.FindPortByNameOrCreate(container, actions.UIPortName)
 		port.ContainerPort = actions.UIPort

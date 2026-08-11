@@ -24,6 +24,7 @@ import (
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/action/trustmaterial"
 	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller"
 
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
@@ -32,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 
 	v1 "k8s.io/api/apps/v1"
@@ -39,12 +41,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	crpredicate "sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/ctlog/actions/monitor"
 	_ "github.com/securesign/operator/internal/controller/ctlog/serviceresolver"
 	tasPredicate "github.com/securesign/operator/internal/controller/predicate"
+	ctrlutil "github.com/securesign/operator/internal/utils/controller"
 )
 
 // ctlogReconciler reconciles a CTlog object
@@ -164,6 +168,7 @@ func (r *ctlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&rhtasv1.CTlog{}, builder.WithPredicates(tasPredicate.ConfigurationChangedOnFailurePredicate[*rhtasv1.CTlog]())).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
+		// receive update on Fulcio root cert change (pulled from status.certificateChain)
 		Watches(&rhtasv1.Fulcio{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
 			list := &rhtasv1.CTlogList{}
 			if err := mgr.GetClient().List(ctx, list, client.InNamespace(object.GetNamespace())); err != nil {
@@ -174,17 +179,24 @@ func (r *ctlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				requests[i] = reconcile.Request{NamespacedName: types.NamespacedName{Namespace: object.GetNamespace(), Name: k.Name}}
 			}
 			return requests
-		})).
-		Watches(&rhtasv1.Trillian{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
-			list := &rhtasv1.CTlogList{}
-			if err := mgr.GetClient().List(ctx, list, client.InNamespace(object.GetNamespace())); err != nil {
-				return nil
-			}
-			requests := make([]reconcile.Request, len(list.Items))
-			for i, k := range list.Items {
-				requests[i] = reconcile.Request{NamespacedName: types.NamespacedName{Namespace: object.GetNamespace(), Name: k.Name}}
-			}
-			return requests
-		})).
+		}), builder.WithPredicates(crpredicate.Or(
+			crpredicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldF, ok1 := e.ObjectOld.(*rhtasv1.Fulcio)
+					newF, ok2 := e.ObjectNew.(*rhtasv1.Fulcio)
+					if !ok1 || !ok2 {
+						return true
+					}
+					return oldF.Status.CertificateChain != newF.Status.CertificateChain
+				},
+			},
+			tasPredicate.ConditionChangedPredicate[*rhtasv1.Fulcio](constants.ReadyCondition),
+		))).
+		// receive update on Trillian change (serviceRef binding)
+		Watches(&rhtasv1.Trillian{}, handler.EnqueueRequestsFromMapFunc(
+			ctrlutil.ServiceRefWatch(mgr.GetClient(), &rhtasv1.CTlogList{}, func(o client.Object) rhtasv1.ServiceReference {
+				return o.(*rhtasv1.CTlog).Spec.Trillian
+			}),
+		), builder.WithPredicates(crpredicate.GenerationChangedPredicate{})).
 		Complete(r)
 }

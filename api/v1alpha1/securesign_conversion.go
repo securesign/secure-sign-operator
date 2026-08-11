@@ -59,6 +59,10 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 			dst.Spec.Fulcio.Signer.File = &rhtasv1.FulcioFile{}
 		}
 	}
+	// v1alpha1 inject prefix into URL - we need to restore empty URL to allow ref resolution
+	if restored.Spec.Fulcio.Ctlog.URL == "" && dst.Spec.Fulcio.Ctlog.URL == "///trusted-artifact-signer" { //nolint:goconst
+		dst.Spec.Fulcio.Ctlog.URL = ""
+	}
 	if dst.Spec.Fulcio.Ctlog.URL == "" {
 		dst.Spec.Fulcio.Ctlog.Ref = restored.Spec.Fulcio.Ctlog.Ref
 	}
@@ -93,6 +97,10 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 		dst.Spec.Tuf.Fulcio.Ref = restored.Spec.Tuf.Fulcio.Ref
 	}
 	dst.Spec.Tuf.Fulcio.OIDCIssuers = restored.Spec.Tuf.Fulcio.OIDCIssuers
+	// v1alpha1 inject prefix into URL - we need to restore empty URL to allow ref resolution
+	if restored.Spec.Tuf.Ctlog.URL == "" && dst.Spec.Tuf.Ctlog.URL == "///trusted-artifact-signer" { //nolint:goconst
+		dst.Spec.Tuf.Ctlog.URL = ""
+	}
 	if dst.Spec.Tuf.Ctlog.URL == "" {
 		dst.Spec.Tuf.Ctlog.Ref = restored.Spec.Tuf.Ctlog.Ref
 	}
