@@ -51,7 +51,7 @@ func TestMarshalData(t *testing.T) {
 			},
 			Spec: rhtasv1.SecuresignSpec{
 				Rekor: rhtasv1.RekorSpec{
-					Signer: rhtasv1.RekorSigner{KMS: "secret"},
+					Signer: rhtasv1.RekorSigner{Type: rhtasv1.RekorSignerTypeSecret},
 					TreeID: ptr.To[int64](12345),
 				},
 			},
@@ -108,7 +108,7 @@ func TestMarshalData(t *testing.T) {
 			},
 			Spec: rhtasv1.SecuresignSpec{
 				Rekor: rhtasv1.RekorSpec{
-					Signer: rhtasv1.RekorSigner{KMS: "secret"},
+					Signer: rhtasv1.RekorSigner{Type: rhtasv1.RekorSignerTypeSecret},
 					TreeID: ptr.To[int64](12345),
 				},
 			},
@@ -189,7 +189,7 @@ func TestUnmarshalData(t *testing.T) {
 		src.SetGroupVersionKind(oldSecuresignGVK)
 		src.SetName("test-1")
 		src.SetAnnotations(map[string]string{
-			DataAnnotation: `{"metadata":{"name":"test-1","creationTimestamp":null,"labels":{"label1":""}},"spec":{"rekor":{"signer":{"kms":"secret"}}}}`,
+			DataAnnotation: `{"metadata":{"name":"test-1","creationTimestamp":null,"labels":{"label1":""}},"spec":{"rekor":{"signer":{"type":"secret"}}}}`,
 		})
 
 		dst := &rhtasv1.Securesign{
@@ -214,7 +214,7 @@ func TestUnmarshalData(t *testing.T) {
 		src.SetName("test-1")
 		src.SetAnnotations(map[string]string{
 			"annotation-1": "",
-			DataAnnotation: `{"metadata":{"name":"test-1","creationTimestamp":null,"labels":{"label1":""}},"spec":{"rekor":{"signer":{"kms":"secret"}}}}`,
+			DataAnnotation: `{"metadata":{"name":"test-1","creationTimestamp":null,"labels":{"label1":""}},"spec":{"rekor":{"signer":{"type":"secret"}}}}`,
 		})
 
 		dst := &rhtasv1.Securesign{

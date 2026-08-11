@@ -118,6 +118,7 @@ type RekorSigner struct {
 	//   - azurekms://keyname
 	//   - gcpkms://keyname
 	//   - hashivault://keyname
+	// openbao:// URIs are supported from the v1 API onwards and will be rejected by v1alpha1 validation.
 	// +kubebuilder:validation:XValidation:rule="self == '' || self == 'secret' || self == 'memory' || self.matches('^awskms://.+$') || self.matches('^gcpkms://.+$') || self.matches('^azurekms://.+$') || self.matches('^hashivault://.+$')",message="KMS must be '', 'secret', 'memory', or a valid URI with a key path (e.g., awskms:///key-id)"
 	// +kubebuilder:default:=secret
 	KMS string `json:"kms,omitempty"`

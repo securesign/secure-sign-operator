@@ -4432,8 +4432,7 @@ spec:
                       keyRef:
                         description: |-
                           Reference to the signer private key.
-
-                          Optional field. When KMS is set to "secret", this field can be left empty, in which case the operator will automatically generate a signer key.
+                          When type is "secret", this field can be left empty — the operator will automatically generate a signer key.
                         properties:
                           key:
                             description: The key of the secret to select from. Must
@@ -4451,32 +4450,25 @@ spec:
                         type: object
                         x-kubernetes-map-type: atomic
                       kms:
-                        description: |-
-                          KMS Signer provider. Specifies the key management system (KMS) used for signing operations.
-
-                          Valid values:
-                          - "secret" (default): The signer key is stored in a Kubernetes Secret.
-                          - "memory": Ephemeral signer key stored in memory. Recommended for development use only.
-                          - KMS URI: A URI to a cloud-based KMS, following the Go Cloud Development Kit (Go Cloud) URI format. Supported URIs include:
-                            - awskms://keyname
-                            - azurekms://keyname
-                            - gcpkms://keyname
-                            - hashivault://keyname
-                        type: string
+                        description: Configuration for KMS-based signer.
+                        properties:
+                          keyResource:
+                            description: 'KMS key resource URI. Valid schemes: gcpkms://,
+                              azurekms://, hashivault://, openbao://, awskms://'
+                            type: string
+                        required:
+                        - keyResource
+                        type: object
                         x-kubernetes-validations:
-                        - message: KMS must be 'secret', 'memory', or a valid URI
-                            with a key path (e.g., awskms:///key-id)
-                          rule: self == 'secret' || self == 'memory' || self.matches('^awskms://.+$')
-                            || self.matches('^gcpkms://.+$') || self.matches('^azurekms://.+$')
-                            || self.matches('^hashivault://.+$')
+                        - message: keyResource must be a valid KMS URI (gcpkms://,
+                            azurekms://, hashivault://, openbao://, or awskms://)
+                          rule: self.keyResource.matches('^(gcpkms|azurekms|hashivault|openbao|awskms)://.+$')
                       passwordRef:
                         description: |-
                           Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
                           and not FIPS-compliant. Auto-generated keys are no longer password-encrypted;
                           this field is retained only for backward compatibility with existing user-provided
                           encrypted keys. Kubernetes Secrets provide encryption-at-rest.
-                          This should be set only if the private key referenced by `keyRef` is encrypted with a password.
-                          If KMS is set to a value other than "secret", this field is ignored.
                         properties:
                           key:
                             description: The key of the secret to select from. Must
@@ -4493,7 +4485,29 @@ spec:
                         - name
                         type: object
                         x-kubernetes-map-type: atomic
+                      type:
+                        description: Type of the signer backend.
+                        enum:
+                        - secret
+                        - memory
+                        - kms
+                        type: string
                     type: object
+                    x-kubernetes-validations:
+                    - message: kms is required when type is 'kms'
+                      rule: '!has(self.type) || self.type != ''kms'' || has(self.kms)'
+                    - message: kms should not be configured when type is 'secret'
+                      rule: '!has(self.type) || self.type != ''secret'' || !has(self.kms)'
+                    - message: kms should not be configured when type is 'memory'
+                      rule: '!has(self.type) || self.type != ''memory'' || !has(self.kms)'
+                    - message: keyRef should not be configured when type is 'kms'
+                        or 'memory'
+                      rule: '!has(self.type) || !(self.type == ''kms'' || self.type
+                        == ''memory'') || !has(self.keyRef)'
+                    - message: passwordRef should not be configured when type is 'kms'
+                        or 'memory'
+                      rule: '!has(self.type) || !(self.type == ''kms'' || self.type
+                        == ''memory'') || !has(self.passwordRef)'
                   tolerations:
                     items:
                       description: |-
@@ -8622,17 +8636,16 @@ spec:
                         description: Configuration for KMS based signer
                         properties:
                           keyResource:
-                            description: 'KMS key for signing timestamp responses.
-                              Valid options include: [gcpkms://resource, azurekms://resource,
-                              hashivault://resource, awskms://resource]'
+                            description: 'KMS key resource URI. Valid schemes: gcpkms://,
+                              azurekms://, hashivault://, openbao://, awskms://'
                             type: string
                         required:
                         - keyResource
                         type: object
                         x-kubernetes-validations:
                         - message: keyResource must be a valid KMS URI (gcpkms://,
-                            azurekms://, hashivault://, or awskms://)
-                          rule: self.keyResource.matches('^(gcpkms|azurekms|hashivault|awskms)://.+$')
+                            azurekms://, hashivault://, openbao://, or awskms://)
+                          rule: self.keyResource.matches('^(gcpkms|azurekms|hashivault|openbao|awskms)://.+$')
                       tink:
                         description: Configuration for Tink based signer
                         properties:
@@ -15436,6 +15449,7 @@ spec:
                             - azurekms://keyname
                             - gcpkms://keyname
                             - hashivault://keyname
+                          openbao:// URIs are supported from the v1 API onwards and will be rejected by v1alpha1 validation.
                         type: string
                         x-kubernetes-validations:
                         - message: KMS must be '', 'secret', 'memory', or a valid

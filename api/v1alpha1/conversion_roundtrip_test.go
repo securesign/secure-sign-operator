@@ -336,6 +336,33 @@ func tsaStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	}
 }
 
+// rekorSignerFuzzerFuncs constrains v1 RekorSigner.Type to valid enum values and
+// ensures Kms is set only when Type is "kms", so the v1↔v1alpha1 flat-string
+// conversion roundtrips cleanly.
+func rekorSignerFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.RekorSigner, c randfill.Continue) {
+			types := []string{rhtasv1.RekorSignerTypeSecret, rhtasv1.RekorSignerTypeMemory, rhtasv1.RekorSignerTypeKMS}
+			s.Type = types[c.Intn(len(types))]
+			if s.Type == rhtasv1.RekorSignerTypeKMS {
+				var key string
+				c.FillNoCustom(&key)
+				s.Kms = &rhtasv1.KMS{KeyResource: "awskms://" + key}
+			} else {
+				s.Kms = nil
+			}
+			if c.Bool() {
+				s.KeyRef = &rhtasv1.SecretKeySelector{}
+				c.FillNoCustom(s.KeyRef)
+			}
+			if c.Bool() {
+				s.PasswordRef = &rhtasv1.SecretKeySelector{} //nolint:staticcheck
+				c.FillNoCustom(s.PasswordRef)                //nolint:staticcheck
+			}
+		},
+	}
+}
+
 // rekorStatusFuzzerFuncs clears RekorStatus.Signer.KMS which has no v1 equivalent
 // in the slim RekorSignerStatus type.
 func rekorStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
@@ -425,6 +452,7 @@ func TestSecuresignConversion(t *testing.T) {
 		},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			securesignStatusFuzzerFuncs,
+			rekorSignerFuzzerFuncs,
 			tsaSignerFuzzerFuncs,
 			tsaStatusFuzzerFuncs,
 			tsaCertAuthorityFuzzerFuncs,
@@ -466,6 +494,7 @@ func TestRekorConversion(t *testing.T) {
 		},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			rekorFuzzerFuncs,
+			rekorSignerFuzzerFuncs,
 			rekorStatusFuzzerFuncs,
 			trillianServiceFuzzerFuncs,
 			tufServiceFuzzerFuncs,

@@ -102,7 +102,7 @@ func TestSecuresignConversionUnit(t *testing.T) {
 						Rekor: rhtasv1.RekorSpec{
 							PodRequirements: rhtasv1.PodRequirements{Replicas: ptr.To[int32](2)},
 							TreeID:          ptr.To[int64](12345),
-							Signer:          rhtasv1.RekorSigner{KMS: "secret"},
+							Signer:          rhtasv1.RekorSigner{Type: rhtasv1.RekorSignerTypeSecret},
 							Ingress:         rhtasv1.Ingress{Enabled: ptr.To(false)},
 							Monitoring: rhtasv1.MonitoringWithTLogConfig{
 								MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
@@ -392,7 +392,7 @@ func TestRekorConversionUnit(t *testing.T) {
 							Retain: ptr.To(true),
 						},
 					},
-					Signer:    rhtasv1.RekorSigner{KMS: "secret"},
+					Signer:    rhtasv1.RekorSigner{Type: rhtasv1.RekorSignerTypeSecret},
 					TrustedCA: &rhtasv1.LocalObjectReference{Name: "trusted-ca"},
 					Ingress:   rhtasv1.Ingress{Enabled: ptr.To(false)},
 					Monitoring: rhtasv1.MonitoringWithTLogConfig{
@@ -448,6 +448,29 @@ func TestRekorConversionUnit(t *testing.T) {
 			},
 		},
 		{
+			name: "KMS URI roundtrip",
+			hub: &rhtasv1.Rekor{
+				ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
+				Spec: rhtasv1.RekorSpec{
+					Signer: rhtasv1.RekorSigner{
+						Type: rhtasv1.RekorSignerTypeKMS,
+						Kms:  &rhtasv1.KMS{KeyResource: "openbao://rekor-key"},
+					},
+					Ingress: rhtasv1.Ingress{Enabled: ptr.To(false)},
+					Monitoring: rhtasv1.MonitoringWithTLogConfig{
+						MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
+						TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
+					},
+				},
+			},
+			spoke: &Rekor{
+				ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
+				Spec: RekorSpec{
+					Signer: RekorSigner{KMS: "openbao://rekor-key"},
+				},
+			},
+		},
+		{
 			name: "sharding and search index",
 			hub: &rhtasv1.Rekor{
 				ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
@@ -496,6 +519,49 @@ func TestRekorConversionUnit(t *testing.T) {
 				t.Errorf("mismatch (-want +got):\n%s", cmp.Diff(tt.hub, gotHub))
 			}
 		})
+	}
+}
+
+func TestRekorAuthRestorationRoundtrip(t *testing.T) {
+	hub := &rhtasv1.Rekor{
+		ObjectMeta: metav1.ObjectMeta{Name: "rekor", Namespace: "default"},
+		Spec: rhtasv1.RekorSpec{
+			Signer: rhtasv1.RekorSigner{
+				Type: rhtasv1.RekorSignerTypeKMS,
+				Kms:  &rhtasv1.KMS{KeyResource: "openbao://rekor-key"},
+			},
+			Auth: &rhtasv1.Auth{
+				Env: []core.EnvVar{
+					{Name: "VAULT_ADDR", Value: "http://openbao:8200"},
+					{Name: "VAULT_TOKEN", Value: "test-token"},
+				},
+			},
+			Ingress: rhtasv1.Ingress{Enabled: ptr.To(false)},
+			Monitoring: rhtasv1.MonitoringWithTLogConfig{
+				MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
+				TLog:             rhtasv1.TlogMonitoring{Enabled: ptr.To(false)},
+			},
+		},
+	}
+
+	spoke := &Rekor{}
+	if err := spoke.ConvertFrom(hub); err != nil {
+		t.Fatalf("ConvertFrom failed: %v", err)
+	}
+
+	gotHub := &rhtasv1.Rekor{}
+	if err := spoke.ConvertTo(gotHub); err != nil {
+		t.Fatalf("ConvertTo failed: %v", err)
+	}
+
+	if !equality.Semantic.DeepEqual(hub.Spec.Auth, gotHub.Spec.Auth) {
+		t.Errorf("Auth not restored (-want +got):\n%s", cmp.Diff(hub.Spec.Auth, gotHub.Spec.Auth))
+	}
+	if gotHub.Spec.Signer.Type != rhtasv1.RekorSignerTypeKMS {
+		t.Errorf("Type: want %q, got %q", rhtasv1.RekorSignerTypeKMS, gotHub.Spec.Signer.Type)
+	}
+	if gotHub.Spec.Signer.Kms == nil || gotHub.Spec.Signer.Kms.KeyResource != "openbao://rekor-key" {
+		t.Errorf("Kms not restored: got %+v", gotHub.Spec.Signer.Kms)
 	}
 }
 

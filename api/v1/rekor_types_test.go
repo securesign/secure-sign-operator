@@ -122,7 +122,7 @@ var _ = Describe("Rekor", func() {
 			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 			Expect(fetched.Spec.MaxRequestBodySize).To(Equal(ptr.To(int64(10485760))))
 			Expect(fetched.Spec.Trillian).To(Equal(ServiceReference{}))
-			Expect(fetched.Spec.Signer.KMS).To(Equal("secret"))
+			Expect(fetched.Spec.Signer.Type).To(Equal(RekorSignerTypeSecret))
 			Expect(fetched.Spec.BackFillRedis.Schedule).To(Equal("0 0 * * *"))
 			Expect(fetched.Spec.BackFillRedis.Enabled).To(Equal(ptr.To(true)))
 			Expect(fetched.Spec.Attestations.Pvc.Size).To(Equal(ptr.To(k8sresource.MustParse("5Gi"))))
@@ -197,28 +197,69 @@ var _ = Describe("Rekor", func() {
 		})
 
 		Context("signer validation", func() {
-			When("using valid KMS values", func() {
+			When("using valid signer types", func() {
 				It("should allow 'secret'", func() {
-					validObject := generateMinimalRekor("rekor-kms-valid-secret")
-					validObject.Spec.Signer.KMS = "secret"
+					validObject := generateMinimalRekor("rekor-signer-valid-secret")
+					validObject.Spec.Signer.Type = RekorSignerTypeSecret
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
 
-				It("should allow 'awskms://' URI", func() {
-					validObject := generateMinimalRekor("rekor-kms-valid-aws")
-					validObject.Spec.Signer.KMS = "awskms://key/arn"
+				It("should allow 'memory'", func() {
+					validObject := generateMinimalRekor("rekor-signer-valid-memory")
+					validObject.Spec.Signer.Type = RekorSignerTypeMemory
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("should allow 'kms' with kms config", func() {
+					validObject := generateMinimalRekor("rekor-signer-valid-kms")
+					validObject.Spec.Signer.Type = RekorSignerTypeKMS
+					validObject.Spec.Signer.Kms = &KMS{KeyResource: "awskms://key/arn"}
+					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+				})
+
+				It("should allow 'kms' with openbao URI", func() {
+					validObject := generateMinimalRekor("rekor-signer-valid-openbao")
+					validObject.Spec.Signer.Type = RekorSignerTypeKMS
+					validObject.Spec.Signer.Kms = &KMS{KeyResource: "openbao://rekor-key"}
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
 			})
 
-			When("using invalid KMS values", func() {
-				It("should reject a random string", func() {
-					invalidObject := generateMinimalRekor("rekor-kms-invalid-random")
-					invalidObject.Spec.Signer.KMS = "unsupported"
+			When("using invalid signer configurations", func() {
+				It("should reject an invalid type enum", func() {
+					invalidObject := generateMinimalRekor("rekor-signer-invalid-type")
+					invalidObject.Spec.Signer.Type = "unsupported"
+
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				})
+
+				It("should reject 'kms' type without kms config", func() {
+					invalidObject := generateMinimalRekor("rekor-signer-kms-no-config")
+					invalidObject.Spec.Signer.Type = RekorSignerTypeKMS
 
 					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 					Expect(k8sClient.Create(context.Background(), invalidObject)).
-						To(MatchError(ContainSubstring("KMS must be 'secret', 'memory', or a valid URI")))
+						To(MatchError(ContainSubstring("kms is required when type is 'kms'")))
+				})
+
+				It("should reject 'secret' type with kms config", func() {
+					invalidObject := generateMinimalRekor("rekor-signer-secret-with-kms")
+					invalidObject.Spec.Signer.Type = RekorSignerTypeSecret
+					invalidObject.Spec.Signer.Kms = &KMS{KeyResource: "awskms://key/arn"}
+
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("kms should not be configured when type is 'secret'")))
+				})
+
+				It("should reject 'memory' type with kms config", func() {
+					invalidObject := generateMinimalRekor("rekor-signer-memory-with-kms")
+					invalidObject.Spec.Signer.Type = RekorSignerTypeMemory
+					invalidObject.Spec.Signer.Kms = &KMS{KeyResource: "awskms://key/arn"}
+
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("kms should not be configured when type is 'memory'")))
 				})
 			})
 		})
@@ -261,7 +302,7 @@ var _ = Describe("Rekor", func() {
 							},
 						},
 						Signer: RekorSigner{
-							KMS: "secret",
+							Type: RekorSignerTypeSecret,
 							KeyRef: &SecretKeySelector{
 								LocalObjectReference: LocalObjectReference{
 									Name: "secret",

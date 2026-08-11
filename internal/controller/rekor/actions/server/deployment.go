@@ -155,14 +155,21 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1.Rekor, sa string,
 
 		const privateKeyVolumeName = "rekor-private-key-volume"
 
-		if instance.Spec.Signer.KMS != "secret" && instance.Spec.Signer.KMS != "" { //nolint:goconst
-			signerArg := instance.Spec.Signer.KMS
-			args = append(args, "--rekor_server.signer", signerArg)
-
+		switch instance.Spec.Signer.Type {
+		case rhtasv1.RekorSignerTypeKMS:
+			if instance.Spec.Signer.Kms == nil {
+				return fmt.Errorf("kms config is required when type is %q", rhtasv1.RekorSignerTypeKMS)
+			}
+			args = append(args, "--rekor_server.signer", instance.Spec.Signer.Kms.KeyResource)
 			kubernetes.RemoveVolumeByName(&template.Spec, privateKeyVolumeName)
 			kubernetes.RemoveVolumeMountByName(container, privateKeyVolumeName)
 			kubernetes.RemoveEnvVarByName(container, "SIGNER_PASSWORD")
-		} else {
+		case rhtasv1.RekorSignerTypeMemory:
+			args = append(args, "--rekor_server.signer", "memory")
+			kubernetes.RemoveVolumeByName(&template.Spec, privateKeyVolumeName)
+			kubernetes.RemoveVolumeMountByName(container, privateKeyVolumeName)
+			kubernetes.RemoveEnvVarByName(container, "SIGNER_PASSWORD")
+		default:
 			if instance.Status.Signer.KeyRef == nil {
 				return rekorutils.ErrSignerKeyNotSpecified
 			}
@@ -203,7 +210,6 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1.Rekor, sa string,
 			args = append(args, "--client-signing-algorithms", fips.ClientSigningAlgorithms)
 		}
 
-		//TODO mount additional ENV variables and secrets to enable cloud KMS service
 		if instance.Spec.MaxRequestBodySize != nil {
 			args = append(args, "--max_request_body_size", fmt.Sprintf("%d", *instance.Spec.MaxRequestBodySize))
 		}
