@@ -2,6 +2,7 @@ package actions
 
 import (
 	_ "embed"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/serviceresolver"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	httpmock "github.com/securesign/operator/internal/testing/http"
@@ -64,6 +66,10 @@ func TestFulcioResolvePubKey_CanHandle(t *testing.T) {
 }
 
 func TestFulcioResolvePubKey_Handle(t *testing.T) {
+	serviceresolver.Register(func(obj *rhtasv1.Fulcio) (string, error) {
+		return fmt.Sprintf("http://%s.%s.svc", DeploymentName, obj.Namespace), nil
+	})
+
 	g := NewWithT(t)
 	type want struct {
 		result          *action.Result

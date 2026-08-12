@@ -13,6 +13,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	v1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/serviceresolver"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestParseTrustBundle(t *testing.T) {
@@ -256,15 +260,33 @@ func TestExtractSigningCert(t *testing.T) {
 }
 
 func TestResolveBaseURL(t *testing.T) {
-	t.Run("in-container uses internal service URL", func(t *testing.T) {
+	serviceresolver.Register(
+		func(obj *v1.Fulcio) (string, error) {
+			return "http://fulcio-server.test-ns.svc:300/withPath", nil
+		})
+
+	fulcio := &v1.Fulcio{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "fulcio-server",
+			Namespace: "test-ns",
+		},
+		Status: v1.FulcioStatus{
+			Url: "https://fulcio.external.example.com:300/withPath",
+		},
+	}
+	t.Run("in-container uses internal service URL and keep only host part of the URL", func(t *testing.T) {
 		// Simulate in-container: unset KUBECONFIG, ensure namespace file exists
 		t.Setenv("KUBECONFIG", "")
 		t.Setenv("HOME", t.TempDir())
 		nsFile := "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 		if _, err := os.Stat(nsFile); err == nil {
+
 			// Running in a real container or the file exists — internal URL expected
-			got := ResolveBaseURL("fulcio-server", "test-ns", "https://fulcio.external.example.com")
-			if got != "http://fulcio-server.test-ns.svc" {
+			got, err := ResolveBaseURL(fulcio)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != "http://fulcio-server.test-ns.svc:300" {
 				t.Errorf("expected internal URL, got %s", got)
 			}
 		} else {
@@ -272,35 +294,25 @@ func TestResolveBaseURL(t *testing.T) {
 		}
 	})
 
-	t.Run("outside container uses statusUrl host", func(t *testing.T) {
+	t.Run("outside container uses statusUrl host and keep only host part of the URL", func(t *testing.T) {
 		t.Setenv("KUBECONFIG", "/some/config")
-		got := ResolveBaseURL("fulcio-server", "test-ns", "https://fulcio.external.example.com")
-		if got != "https://fulcio.external.example.com" {
+		got, err := ResolveBaseURL(fulcio)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "https://fulcio.external.example.com:300" {
 			t.Errorf("expected statusUrl host, got %s", got)
 		}
 	})
-
-	t.Run("outside container strips path from statusUrl", func(t *testing.T) {
-		t.Setenv("KUBECONFIG", "/some/config")
-		got := ResolveBaseURL("tsa-server", "test-ns", "http://tsa.test:8090/api/v1/timestamp")
-		if got != "http://tsa.test:8090" {
-			t.Errorf("expected base URL without path, got %s", got)
-		}
-	})
-
 	t.Run("outside container with empty statusUrl falls back to internal", func(t *testing.T) {
 		t.Setenv("KUBECONFIG", "/some/config")
-		got := ResolveBaseURL("fulcio-server", "test-ns", "")
-		if got != "http://fulcio-server.test-ns.svc" {
-			t.Errorf("expected internal URL, got %s", got)
+		fulcio.Status.Url = ""
+		got, err := ResolveBaseURL(fulcio)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
 		}
-	})
-
-	t.Run("with port", func(t *testing.T) {
-		t.Setenv("KUBECONFIG", "/some/config")
-		got := ResolveBaseURL("tsa-server", "test-ns", "", 3000)
-		if got != "http://tsa-server.test-ns.svc:3000" {
-			t.Errorf("expected internal URL with port, got %s", got)
+		if got != "http://fulcio-server.test-ns.svc:300" {
+			t.Errorf("expected internal URL, got %s", got)
 		}
 	})
 }

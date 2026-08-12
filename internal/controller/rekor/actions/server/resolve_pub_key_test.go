@@ -12,6 +12,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
+	_ "github.com/securesign/operator/internal/controller/rekor/serviceresolver"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	httpmock "github.com/securesign/operator/internal/testing/http"

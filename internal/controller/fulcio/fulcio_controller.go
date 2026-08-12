@@ -30,6 +30,7 @@ import (
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	ctlogActions "github.com/securesign/operator/internal/controller/ctlog/actions"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
+	_ "github.com/securesign/operator/internal/controller/fulcio/serviceresolver"
 	v12 "k8s.io/api/core/v1"
 	v13 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/events"

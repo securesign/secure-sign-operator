@@ -6,6 +6,7 @@ import (
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/serviceresolver"
 	"github.com/securesign/operator/internal/state"
 	v12 "k8s.io/api/networking/v1"
 
@@ -45,7 +46,11 @@ func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *a
 		}
 		url = protocol + ingress.Spec.Rules[0].Host
 	} else {
-		url = fmt.Sprintf("http://%s.%s.svc", actions.ServerDeploymentName, instance.Namespace)
+		var err error
+		url, err = serviceresolver.Resolve(instance)
+		if err != nil {
+			return i.Error(ctx, fmt.Errorf("error resolving internal URL: %w", err), instance)
+		}
 	}
 
 	if url == instance.Status.Url {

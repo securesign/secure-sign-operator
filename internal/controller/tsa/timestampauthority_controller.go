@@ -38,6 +38,7 @@ import (
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/tsa/actions"
+	_ "github.com/securesign/operator/internal/controller/tsa/serviceresolver"
 	v1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
 	v13 "k8s.io/api/networking/v1"

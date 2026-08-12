@@ -29,7 +29,10 @@ func (r rekorTrustMaterialResolver) SetTrustMaterial(instance *rhtasv1.Rekor, pe
 }
 
 func (r rekorTrustMaterialResolver) Resolve(ctx context.Context, cli client.Client, instance *rhtasv1.Rekor) ([]byte, error) {
-	baseURL := trustmaterial.ResolveBaseURL(actions.ServerDeploymentName, instance.Namespace, instance.Status.Url)
+	baseURL, err := trustmaterial.ResolveBaseURL(instance)
+	if err != nil {
+		return nil, err
+	}
 	u, err := url.JoinPath(baseURL, "/api/v1/log/publicKey")
 	if err != nil {
 		return nil, err

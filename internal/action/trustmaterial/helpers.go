@@ -13,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/apis"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/serviceresolver"
 	httputils "github.com/securesign/operator/internal/utils/http"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -31,25 +32,26 @@ func hasRefreshAcknowledgement(instance client.Object) bool {
 	return b
 }
 
-// ResolveBaseURL returns the base URL (removes the path suffix) for in-cluster HTTP calls to a component's service.
-// When the operator runs inside a pod (ContainerMode), it uses the internal Kubernetes DNS name
-// which is always reachable. When running outside (local dev), it falls back to statusUrl.
-//
-// TODO: The http:// protocol is hardcoded. When internal TLS between ingress and pods is
-// implemented (planned for OCP), the protocol must be resolved dynamically from the
-// component's TLS configuration (e.g. service-serving-cert annotation or TLS status).
-func ResolveBaseURL(deploymentName, namespace, statusUrl string, port ...int) string {
+func ResolveBaseURL(instance apis.AddressableObject) (string, error) {
+	var (
+		serviceURL string
+		u          *url.URL
+		err        error
+	)
 	inContainer, _ := kubernetes.ContainerMode()
-	if !inContainer && statusUrl != "" {
-		if u, err := url.Parse(statusUrl); err == nil {
-			return u.Scheme + "://" + u.Host
-		}
-		return statusUrl
+	if !inContainer && instance.GetServiceURL() != "" {
+		serviceURL = instance.GetServiceURL()
+	} else {
+		serviceURL, err = serviceresolver.Resolve(instance)
 	}
-	if len(port) > 0 {
-		return fmt.Sprintf("http://%s.%s.svc:%d", deploymentName, namespace, port[0])
+	if err != nil {
+		return "", err
 	}
-	return fmt.Sprintf("http://%s.%s.svc", deploymentName, namespace)
+
+	if u, err = url.Parse(serviceURL); err == nil {
+		return u.Scheme + "://" + u.Host, nil
+	}
+	return "", err
 }
 
 // FetchPEMOverHTTP fetches raw bytes from fullURL, loading instance's

@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	_ "github.com/securesign/operator/internal/controller/console/serviceresolver"
 	tasPredicate "github.com/securesign/operator/internal/controller/predicate"
 	ctrlutil "github.com/securesign/operator/internal/utils/controller"
 )
