@@ -259,8 +259,11 @@ type PodExtensions struct {
 
 // AdditionalVolume defines a named volume with a restricted set of source types.
 // This avoids exposing the full corev1.VolumeSource (30+ types) in the CRD schema.
-// Exactly one volume source must be specified; the kubelet rejects pods with
-// zero or multiple sources at scheduling time.
+// MaxProperties=2 enforces exactly one volume source: the merged object has
+// "name" + one source field = 2 properties. Setting two sources (e.g. secret +
+// configMap) would produce 3 properties and be rejected.
+// +kubebuilder:validation:MinProperties=2
+// +kubebuilder:validation:MaxProperties=2
 type AdditionalVolume struct {
 	// Name of the volume. Must be unique within the pod.
 	//+required
@@ -272,8 +275,6 @@ type AdditionalVolume struct {
 
 // AdditionalVolumeSource restricts volume sources to the types commonly needed
 // for operator extensions: Secret, ConfigMap, EmptyDir, PVC, CSI, and Projected.
-// +kubebuilder:validation:MinProperties=1
-// +kubebuilder:validation:MaxProperties=1
 type AdditionalVolumeSource struct {
 	// Secret represents a secret that should populate this volume.
 	//+optional

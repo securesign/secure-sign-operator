@@ -55,7 +55,7 @@ func PodRequirements(requirements rhtasv1.PodRequirements, containerName string)
 	}
 }
 
-// PodResources applies user-defined init containers, volumes, and volume mounts
+// PodExtensions applies user-defined init containers, volumes, and volume mounts
 // to a Deployment. It is a standalone ensure function so callers can compose it
 // independently from signer-specific logic.
 func PodExtensions(ext rhtasv1.PodExtensions, containerName string) func(*v1.Deployment) error {

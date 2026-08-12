@@ -69,27 +69,6 @@ func ensureContainerSecurityContext(container *core.Container) {
 	}
 }
 
-// EnsureVolumeDefaultMode applies the same DefaultMode that the Kubernetes API
-// server would apply (0644 / octal 0644 = 420 decimal) to volume sources that
-// support it. Without this, a user-specified volume that omits DefaultMode
-// would differ from the API server's response on every reconcile (nil vs *420),
-// causing an infinite update loop.
-func EnsureVolumeDefaultMode(v *core.Volume) {
-	defaultMode := ptr.To(int32(0644))
-	if v.ConfigMap != nil && v.ConfigMap.DefaultMode == nil {
-		v.ConfigMap.DefaultMode = defaultMode
-	}
-	if v.Secret != nil && v.Secret.DefaultMode == nil {
-		v.Secret.DefaultMode = defaultMode
-	}
-	if v.Projected != nil && v.Projected.DefaultMode == nil {
-		v.Projected.DefaultMode = defaultMode
-	}
-	if v.DownwardAPI != nil && v.DownwardAPI.DefaultMode == nil {
-		v.DownwardAPI.DefaultMode = defaultMode
-	}
-}
-
 // ReconcileUserPodResources applies user-defined init containers, volumes, and
 // volume mounts to a PodSpec and main container. This is the shared entry point
 // called by both Fulcio and CTLog deployment actions to avoid duplication.

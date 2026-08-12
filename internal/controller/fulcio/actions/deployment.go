@@ -245,13 +245,15 @@ func (i deployAction) ensureFileCADeployment(instance *rhtasv1.Fulcio) func(depl
 				LocalObjectReference: core.LocalObjectReference{
 					Name: instance.Status.ServerConfigRef.Name,
 				},
+				DefaultMode: ptr.To(int32(0644)),
 			},
 		}
-		ensure.EnsureVolumeDefaultMode(config)
 
 		cert := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-cert")
 		cert.VolumeSource = core.VolumeSource{
-			Projected: &core.ProjectedVolumeSource{},
+			Projected: &core.ProjectedVolumeSource{
+				DefaultMode: ptr.To(int32(0644)),
+			},
 		}
 		cert.Projected.Sources = []core.VolumeProjection{
 			{
@@ -282,11 +284,11 @@ func (i deployAction) ensureFileCADeployment(instance *rhtasv1.Fulcio) func(depl
 			},
 		}
 
-		ensure.EnsureVolumeDefaultMode(cert)
-
 		oidcInfo := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "oidc-info")
 		oidcInfo.VolumeSource = core.VolumeSource{
-			Projected: &core.ProjectedVolumeSource{},
+			Projected: &core.ProjectedVolumeSource{
+				DefaultMode: ptr.To(int32(0644)),
+			},
 		}
 		oidcInfo.Projected.Sources = []core.VolumeProjection{
 			{
@@ -304,8 +306,6 @@ func (i deployAction) ensureFileCADeployment(instance *rhtasv1.Fulcio) func(depl
 				},
 			},
 		}
-		ensure.EnsureVolumeDefaultMode(oidcInfo)
-
 		return nil
 	}
 }

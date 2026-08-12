@@ -25,6 +25,7 @@ import (
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -149,10 +150,10 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 		volume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, volumeName)
 		volume.VolumeSource = core.VolumeSource{
 			Secret: &core.SecretVolumeSource{
-				SecretName: instance.Status.ServerConfigRef.Name,
+				SecretName:  instance.Status.ServerConfigRef.Name,
+				DefaultMode: ptr.To(int32(0644)),
 			},
 		}
-		ensure.EnsureVolumeDefaultMode(volume)
 
 		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, volumeName)
 		volumeMount.MountPath = "/ctfe-keys"

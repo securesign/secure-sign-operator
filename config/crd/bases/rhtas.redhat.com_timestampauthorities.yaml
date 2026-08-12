@@ -2260,10 +2260,11 @@ spec:
                   description: |-
                     AdditionalVolume defines a named volume with a restricted set of source types.
                     This avoids exposing the full corev1.VolumeSource (30+ types) in the CRD schema.
-                    Exactly one volume source must be specified; the kubelet rejects pods with
-                    zero or multiple sources at scheduling time.
-                  maxProperties: 1
-                  minProperties: 1
+                    MaxProperties=2 enforces exactly one volume source: the merged object has
+                    "name" + one source field = 2 properties. Setting two sources (e.g. secret +
+                    configMap) would produce 3 properties and be rejected.
+                  maxProperties: 2
+                  minProperties: 2
                   properties:
                     configMap:
                       description: ConfigMap represents a configMap that should populate

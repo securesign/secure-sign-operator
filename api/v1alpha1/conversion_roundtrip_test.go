@@ -413,52 +413,41 @@ func securesignStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{}
 	}
 }
 
-// fuzzPodExtensions generates roundtrip-safe values for v1-only PodExtensions fields.
-func fuzzPodExtensions(ext *rhtasv1.PodExtensions, c randfill.Continue) {
-	if c.Bool() {
-		ext.InitContainers = []rhtasv1.InitContainerSpec{
-			{
-				Name:    "init-" + c.String(5),
-				Image:   c.String(10) + ":latest",
-				Command: []string{"/bin/sh", "-c", "echo test"},
-			},
-		}
-	} else {
-		ext.InitContainers = nil
-	}
-	if c.Bool() {
-		volName := "vol-" + c.String(5)
-		ext.Volumes = []rhtasv1.AdditionalVolume{
-			{
-				Name: volName,
-				AdditionalVolumeSource: rhtasv1.AdditionalVolumeSource{
-					ConfigMap: &core.ConfigMapVolumeSource{
-						LocalObjectReference: core.LocalObjectReference{Name: "cm-" + c.String(5)},
-					},
-				},
-			},
-		}
-		ext.VolumeMounts = []core.VolumeMount{
-			{Name: volName, MountPath: "/mnt/" + c.String(5)},
-		}
-	} else {
-		ext.Volumes = nil
-		ext.VolumeMounts = nil
-	}
-}
-
-// podExtensionsFuzzerFuncs generates roundtrip-safe PodExtensions values
-// for both FulcioSpec and CTlogSpec.
+// podExtensionsFuzzerFuncs registers a type-level fuzzer for PodExtensions.
+// The randfill framework applies it to any struct embedding PodExtensions.
 func podExtensionsFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
-		func(s *rhtasv1.FulcioSpec, c randfill.Continue) {
-			c.FillNoCustom(s)
-			fuzzPodExtensions(&s.PodExtensions, c)
-		},
-		func(s *rhtasv1.CTlogSpec, c randfill.Continue) {
-			c.FillNoCustom(s)
-			s.Prefix = urlfuzz.URLPath(c)
-			fuzzPodExtensions(&s.PodExtensions, c)
+		func(s *rhtasv1.PodExtensions, c randfill.Continue) {
+			if c.Bool() {
+				s.InitContainers = []rhtasv1.InitContainerSpec{
+					{
+						Name:    "init-" + c.String(5),
+						Image:   c.String(10) + ":latest",
+						Command: []string{"/bin/sh", "-c", "echo test"},
+					},
+				}
+			} else {
+				s.InitContainers = nil
+			}
+			if c.Bool() {
+				volName := "vol-" + c.String(5)
+				s.Volumes = []rhtasv1.AdditionalVolume{
+					{
+						Name: volName,
+						AdditionalVolumeSource: rhtasv1.AdditionalVolumeSource{
+							ConfigMap: &core.ConfigMapVolumeSource{
+								LocalObjectReference: core.LocalObjectReference{Name: "cm-" + c.String(5)},
+							},
+						},
+					},
+				}
+				s.VolumeMounts = []core.VolumeMount{
+					{Name: volName, MountPath: "/mnt/" + c.String(5)},
+				}
+			} else {
+				s.Volumes = nil
+				s.VolumeMounts = nil
+			}
 		},
 	}
 }
