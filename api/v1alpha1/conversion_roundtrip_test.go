@@ -148,6 +148,20 @@ func tsaServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	}
 }
 
+func tufServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *TufService, c randfill.Continue) {
+			c.FillNoCustom(s)
+			s.Address = urlfuzz.HTTPURL(c, false, c.Bool())
+			s.Port = urlfuzz.Port(c)
+		},
+		func(s *rhtasv1.MonitoringWithTLogConfig, c randfill.Continue) {
+			c.FillNoCustom(s)
+			s.Tuf = randServiceReference(c, httpURLWithPath)
+		},
+	}
+}
+
 func fulcioServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *rhtasv1.ServiceRefWithOIDC, c randfill.Continue) {
@@ -419,6 +433,7 @@ func TestSecuresignConversion(t *testing.T) {
 			rekorServiceFuzzerFuncs,
 			fulcioServiceFuzzerFuncs,
 			tsaServiceFuzzerFuncs,
+			tufServiceFuzzerFuncs,
 			securesignFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
@@ -434,6 +449,7 @@ func TestCTlogConversion(t *testing.T) {
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			ctlogFuzzerFuncs,
 			trillianServiceFuzzerFuncs,
+			tufServiceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
@@ -452,6 +468,7 @@ func TestRekorConversion(t *testing.T) {
 			rekorFuzzerFuncs,
 			rekorStatusFuzzerFuncs,
 			trillianServiceFuzzerFuncs,
+			tufServiceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))

@@ -134,3 +134,13 @@ func Convert_v1alpha1_TsaService_To_v1_ServiceReference(in *TsaService, out *v1.
 func Convert_v1_ServiceReference_To_v1alpha1_TsaService(in *v1.ServiceReference, out *TsaService, _ apiconversion.Scope) error {
 	return serviceReferenceToAddressPort(in, &out.Address, &out.Port)
 }
+
+func Convert_v1alpha1_TufService_To_v1_ServiceReference(in *TufService, out *v1.ServiceReference, _ apiconversion.Scope) error {
+	var err error
+	out.URL, err = buildURL(in.Address, in.Port, "")
+	return err
+}
+
+func Convert_v1_ServiceReference_To_v1alpha1_TufService(in *v1.ServiceReference, out *TufService, _ apiconversion.Scope) error {
+	return serviceReferenceToAddressPort(in, &out.Address, &out.Port)
+}

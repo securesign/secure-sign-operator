@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/securesign/operator/internal/images"
+	"github.com/securesign/operator/internal/serviceresolver"
 	"github.com/securesign/operator/internal/state"
 
 	"github.com/securesign/operator/internal/action"
@@ -17,7 +18,6 @@ import (
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
-	"github.com/securesign/operator/internal/utils/tls"
 	v1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -58,15 +58,20 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) 
 		result controllerutil.OperationResult
 	)
 
-	var protocol string
-	if tls.UseTlsClient(instance) {
-		protocol = "https"
-	} else {
-		protocol = "http"
+	tufServerHost, err := serviceresolver.ResolveInternalServiceUrl(ctx, i.Client, instance.Spec.Monitoring.Tuf, instance.Namespace, &rhtasv1.Tuf{})
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not resolve TUF url: %w", err), instance, metav1.Condition{
+			Type:               actions.MonitorCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Creating.String(),
+			Message:            fmt.Sprintf("Waiting for TUF service to become available: %v", err),
+			ObservedGeneration: instance.Generation,
+		})
 	}
-
-	tufServerHost := i.resolveTufUrl(instance)
-	ctlogServerHost := fmt.Sprintf("%s://%s.%s.svc", protocol, actions.ComponentName, instance.Namespace)
+	ctlogServerHost, err := serviceresolver.Resolve(instance)
+	if err != nil {
+		return i.Error(ctx, err, instance)
+	}
 
 	labels := labels.For(actions.MonitorComponentName, actions.MonitorStatefulSetName, instance.Name)
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
@@ -125,17 +130,6 @@ func (i statefulSetAction) ensureTLS(tlsConfig rhtasv1.TLS, name string) func(st
 	}
 }
 
-func (i statefulSetAction) resolveTufUrl(instance *rhtasv1.CTlog) string {
-	if instance.Spec.Monitoring.Tuf.Address != "" {
-		url := instance.Spec.Monitoring.Tuf.Address
-		if instance.Spec.Monitoring.Tuf.Port != nil {
-			url = fmt.Sprintf("%s:%d", url, *instance.Spec.Monitoring.Tuf.Port)
-		}
-		return url
-	}
-	return fmt.Sprintf("http://tuf.%s.svc", instance.Namespace)
-}
-
 func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1.CTlog, sa string, labels map[string]string, ctlogServerHost string, tufServerHost string) func(*v1.StatefulSet) error {
 	return func(ss *v1.StatefulSet) error {
 
@@ -160,8 +154,8 @@ func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1.CTlog, sa 
 			"/bin/sh",
 			"-c",
 			fmt.Sprintf(
-				`/ctlog_monitor --file=%s/checkpoint_log.txt --once=false --interval=%s --url=%s/%s --tuf-repository=%s --tuf-root-path="%s/root.json"`,
-				mountPath, interval.String(), ctlogServerHost, instance.Spec.Prefix, tufServerHost, mountPath),
+				`/ctlog_monitor --file=%s/checkpoint_log.txt --once=false --interval=%s --url=%s --tuf-repository=%s --tuf-root-path="%s/root.json"`,
+				mountPath, interval.String(), ctlogServerHost, tufServerHost, mountPath),
 		}
 
 		container.Ports = []core.ContainerPort{
@@ -217,9 +211,10 @@ func (i statefulSetAction) ensureInitContainer(ctlogServerHost string, tufHost s
 		initContainer.Command = []string{
 			"/bin/sh",
 			"-c",
+			// use common endpoint to check prefix availability (see https://datatracker.ietf.org/doc/html/rfc6962)
 			fmt.Sprintf(`
                 echo "Waiting for ctlog-server...";
-                until curl -sSf -k %s > /dev/null 2>&1; do
+                until curl -sSf -k %s/ct/v1/get-sth > /dev/null 2>&1; do
                     echo "ctlog-server not ready...";
                     sleep 5;
                 done;

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/securesign/operator/internal/images"
+	"github.com/securesign/operator/internal/serviceresolver"
 	"github.com/securesign/operator/internal/state"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -54,8 +55,20 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) 
 		result controllerutil.OperationResult
 	)
 
-	tufServerHost := i.resolveTufUrl(instance)
-	rekorServerHost := fmt.Sprintf("http://%s.%s.svc", actions.ServerComponentName, instance.Namespace)
+	tufServerHost, err := serviceresolver.ResolveInternalServiceUrl(ctx, i.Client, instance.Spec.Monitoring.Tuf, instance.Namespace, &rhtasv1.Tuf{})
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("could not resolve TUF url: %w", err), instance, metav1.Condition{
+			Type:               actions.MonitorCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Creating.String(),
+			Message:            fmt.Sprintf("Waiting for TUF service to become available: %v", err),
+			ObservedGeneration: instance.Generation,
+		})
+	}
+	rekorServerHost, err := serviceresolver.Resolve(instance)
+	if err != nil {
+		return i.Error(ctx, err, instance)
+	}
 
 	labels := labels.For(actions.MonitorComponentName, actions.MonitorStatefulSetName, instance.Name)
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
@@ -99,17 +112,6 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) 
 		}
 	}
 	return i.Continue()
-}
-
-func (i statefulSetAction) resolveTufUrl(instance *rhtasv1.Rekor) string {
-	if instance.Spec.Monitoring.Tuf.Address != "" {
-		url := instance.Spec.Monitoring.Tuf.Address
-		if instance.Spec.Monitoring.Tuf.Port != nil {
-			url = fmt.Sprintf("%s:%d", url, *instance.Spec.Monitoring.Tuf.Port)
-		}
-		return url
-	}
-	return fmt.Sprintf("http://tuf.%s.svc", instance.Namespace)
 }
 
 func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1.Rekor, sa string, labels map[string]string, rekorServerHost string, tufServerHost string) func(*v1.StatefulSet) error {

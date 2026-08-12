@@ -192,10 +192,15 @@ func (r *ctlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			},
 			tasPredicate.ConditionChangedPredicate[*rhtasv1.Fulcio](constants.ReadyCondition),
 		))).
-		// receive update on Trillian change (serviceRef binding)
+		// ServiceRef bindings
 		Watches(&rhtasv1.Trillian{}, handler.EnqueueRequestsFromMapFunc(
 			ctrlutil.ServiceRefWatch(mgr.GetClient(), &rhtasv1.CTlogList{}, func(o client.Object) rhtasv1.ServiceReference {
 				return o.(*rhtasv1.CTlog).Spec.Trillian
+			}),
+		), builder.WithPredicates(crpredicate.GenerationChangedPredicate{})).
+		Watches(&rhtasv1.Tuf{}, handler.EnqueueRequestsFromMapFunc(
+			ctrlutil.ServiceRefWatch(mgr.GetClient(), &rhtasv1.CTlogList{}, func(o client.Object) rhtasv1.ServiceReference {
+				return o.(*rhtasv1.CTlog).Spec.Monitoring.Tuf
 			}),
 		), builder.WithPredicates(crpredicate.GenerationChangedPredicate{})).
 		Complete(r)

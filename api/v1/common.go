@@ -71,19 +71,7 @@ type MonitoringWithTLogConfig struct {
 	TLog TlogMonitoring `json:"tlog,omitempty"`
 	// TUF service configuration
 	//+optional
-	Tuf TufService `json:"tuf,omitempty"`
-}
-
-// TufService configuration to connect TUF server
-type TufService struct {
-	// Address to TUF Server End point
-	//+optional
-	Address string `json:"address,omitempty"`
-	// Port of TUF Server End point
-	//+kubebuilder:validation:Minimum:=1
-	//+kubebuilder:validation:Maximum:=65535
-	//+optional
-	Port *int32 `json:"port,omitempty"`
+	Tuf ServiceReference `json:"tuf,omitempty"`
 }
 
 // ServiceReference identifies a component service either by in-cluster CR

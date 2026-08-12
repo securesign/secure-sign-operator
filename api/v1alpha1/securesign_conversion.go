@@ -81,10 +81,16 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	if dst.Spec.Ctlog.Trillian.URL == "" {
 		dst.Spec.Ctlog.Trillian.Ref = restored.Spec.Ctlog.Trillian.Ref
 	}
+	if dst.Spec.Ctlog.Monitoring.Tuf.URL == "" {
+		dst.Spec.Ctlog.Monitoring.Tuf.Ref = restored.Spec.Ctlog.Monitoring.Tuf.Ref
+	}
 	dst.Spec.Rekor.ImagePullSecrets = restored.Spec.Rekor.ImagePullSecrets
 	dst.Spec.Rekor.Monitoring.ServiceMonitor = restored.Spec.Rekor.Monitoring.ServiceMonitor
 	if dst.Spec.Rekor.Trillian.URL == "" {
 		dst.Spec.Rekor.Trillian.Ref = restored.Spec.Rekor.Trillian.Ref
+	}
+	if dst.Spec.Rekor.Monitoring.Tuf.URL == "" {
+		dst.Spec.Rekor.Monitoring.Tuf.Ref = restored.Spec.Rekor.Monitoring.Tuf.Ref
 	}
 	dst.Spec.Trillian.ImagePullSecrets = restored.Spec.Trillian.ImagePullSecrets
 	dst.Spec.Trillian.Monitoring.ServiceMonitor = restored.Spec.Trillian.Monitoring.ServiceMonitor

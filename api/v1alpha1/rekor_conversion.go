@@ -62,6 +62,9 @@ func (src *Rekor) ConvertTo(dstRaw conversion.Hub) error {
 	if dst.Spec.Trillian.URL == "" {
 		dst.Spec.Trillian.Ref = restored.Spec.Trillian.Ref
 	}
+	if dst.Spec.Monitoring.Tuf.URL == "" {
+		dst.Spec.Monitoring.Tuf.Ref = restored.Spec.Monitoring.Tuf.Ref
+	}
 
 	return nil
 }
