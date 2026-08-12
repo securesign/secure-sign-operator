@@ -7,6 +7,7 @@ import (
 
 func (s *RekorSpec) SetDefaults() {
 	s.PodRequirements.SetDefaults()
+	s.PodExtensions.SetDefaults()
 	s.Monitoring.SetDefaults()
 	s.Ingress.SetDefaults()
 	s.Signer.SetDefaults()

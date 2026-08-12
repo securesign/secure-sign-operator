@@ -43,6 +43,7 @@ type TimestampAuthoritySpec struct {
 	// MaxRequestBodySize sets the maximum size in bytes for HTTP request body. Passed as --max-request-body-size.
 	//+optional
 	MaxRequestBodySize *int64 `json:"maxRequestBodySize,omitempty"`
+	PodExtensions      `json:",inline"`
 }
 
 // TimestampAuthoritySigner defines the desired state of the Timestamp Authority Signer

@@ -4,6 +4,7 @@ import "k8s.io/utils/ptr"
 
 func (s *CTlogSpec) SetDefaults() {
 	s.PodRequirements.SetDefaults()
+	s.PodExtensions.SetDefaults()
 	s.Monitoring.SetDefaults()
 	s.Signer.SetDefaults()
 	setDefault(&s.Prefix, "trusted-artifact-signer")

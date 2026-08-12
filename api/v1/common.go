@@ -188,6 +188,128 @@ type ServiceAccountConfig struct {
 	ImagePullSecrets []core.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
 
+// InitContainerSpec defines a curated subset of corev1.Container for custom init containers.
+// These containers run before the main server to perform vendor-specific initialization.
+type InitContainerSpec struct {
+	// Name of the init container. Must be unique within the pod.
+	//+required
+	//+kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+	Name string `json:"name"`
+	// Container image name.
+	//+required
+	//+kubebuilder:validation:MinLength=1
+	Image string `json:"image"`
+	// Entrypoint array. Not executed within a shell.
+	//+optional
+	Command []string `json:"command,omitempty"`
+	// Arguments to the entrypoint.
+	//+optional
+	Args []string `json:"args,omitempty"`
+	// List of environment variables to set in the container.
+	//+optional
+	// +listType=map
+	// +listMapKey=name
+	Env []core.EnvVar `json:"env,omitempty"`
+	// List of sources to populate environment variables in the container.
+	//+optional
+	EnvFrom []core.EnvFromSource `json:"envFrom,omitempty"`
+	// Pod volumes to mount into the container's filesystem.
+	//+optional
+	// +listType=map
+	// +listMapKey=name
+	VolumeMounts []core.VolumeMount `json:"volumeMounts,omitempty"`
+	// Compute Resources required by this container.
+	//+optional
+	Resources *core.ResourceRequirements `json:"resources,omitempty"`
+	// SecurityContext defines the security options the container should be run with.
+	//+optional
+	SecurityContext *core.SecurityContext `json:"securityContext,omitempty"`
+	// Image pull policy.
+	//+optional
+	ImagePullPolicy core.PullPolicy `json:"imagePullPolicy,omitempty"`
+	// Restart policy for the init container. Set to "Always" to create a
+	// native sidecar container (Kubernetes 1.29+) that starts before the
+	// main container and runs for the pod's lifetime.
+	// +optional
+	// +kubebuilder:validation:Enum=Always
+	RestartPolicy *core.ContainerRestartPolicy `json:"restartPolicy,omitempty"`
+}
+
+// PodExtensions groups user-specified pod customization fields: init containers,
+// volumes, and volume mounts. Embed with json:",inline" to keep the JSON paths
+// at the spec level (e.g. spec.initContainers, not spec.podExtensions.initContainers).
+type PodExtensions struct {
+	// InitContainers to run before the main server container.
+	//+optional
+	// +listType=map
+	// +listMapKey=name
+	InitContainers []InitContainerSpec `json:"initContainers,omitempty"`
+	// Additional volumes to attach to the deployment pods.
+	// Only a curated set of volume source types is permitted.
+	//+optional
+	// +listType=map
+	// +listMapKey=name
+	Volumes []AdditionalVolume `json:"volumes,omitempty"`
+	// Additional volume mounts for the main server container.
+	//+optional
+	// +listType=map
+	// +listMapKey=name
+	VolumeMounts []core.VolumeMount `json:"volumeMounts,omitempty"`
+}
+
+// AdditionalVolume defines a named volume with a restricted set of source types.
+// This avoids exposing the full corev1.VolumeSource (30+ types) in the CRD schema.
+// Exactly one volume source must be specified; the kubelet rejects pods with
+// zero or multiple sources at scheduling time.
+type AdditionalVolume struct {
+	// Name of the volume. Must be unique within the pod.
+	//+required
+	//+kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+	// Source of the volume.
+	AdditionalVolumeSource `json:",inline"`
+}
+
+// AdditionalVolumeSource restricts volume sources to the types commonly needed
+// for operator extensions: Secret, ConfigMap, EmptyDir, PVC, CSI, and Projected.
+// +kubebuilder:validation:MinProperties=1
+// +kubebuilder:validation:MaxProperties=1
+type AdditionalVolumeSource struct {
+	// Secret represents a secret that should populate this volume.
+	//+optional
+	Secret *core.SecretVolumeSource `json:"secret,omitempty"`
+	// ConfigMap represents a configMap that should populate this volume.
+	//+optional
+	ConfigMap *core.ConfigMapVolumeSource `json:"configMap,omitempty"`
+	// EmptyDir represents a temporary directory that shares a pod's lifetime.
+	//+optional
+	EmptyDir *core.EmptyDirVolumeSource `json:"emptyDir,omitempty"`
+	// PersistentVolumeClaim represents a reference to a PersistentVolumeClaim.
+	//+optional
+	PersistentVolumeClaim *core.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
+	// CSI represents ephemeral storage provided by external CSI drivers.
+	//+optional
+	CSI *core.CSIVolumeSource `json:"csi,omitempty"`
+	// Projected items for all in one resources secrets, configmaps, and downward API.
+	//+optional
+	Projected *core.ProjectedVolumeSource `json:"projected,omitempty"`
+}
+
+// ToVolume converts an AdditionalVolume to a core.Volume.
+func (v *AdditionalVolume) ToVolume() core.Volume {
+	return core.Volume{
+		Name: v.Name,
+		VolumeSource: core.VolumeSource{
+			Secret:                v.Secret,
+			ConfigMap:             v.ConfigMap,
+			EmptyDir:              v.EmptyDir,
+			PersistentVolumeClaim: v.PersistentVolumeClaim,
+			CSI:                   v.CSI,
+			Projected:             v.Projected,
+		},
+	}
+}
+
 type PodRequirements struct {
 	// Number of desired pods.
 	// +optional

@@ -60,6 +60,7 @@ func (src *Trillian) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
+	dst.Spec.PodExtensions = restored.Spec.PodExtensions
 	return nil
 }
 

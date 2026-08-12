@@ -77,7 +77,8 @@ type TufSpec struct {
 
 	// ConfigMap with additional bundle of trusted CA
 	// +optional
-	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
+	TrustedCA     *LocalObjectReference `json:"trustedCA,omitempty"`
+	PodExtensions `json:",inline"`
 }
 
 type TufKey struct {

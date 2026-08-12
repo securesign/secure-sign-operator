@@ -67,6 +67,8 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 		})
 	}
 
+	// PodExtensions (user overrides) are applied first; operator ensure functions
+	// run after, so operator-managed volumes take precedence over user collisions.
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
 		&v1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -74,7 +76,10 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 				Namespace: instance.Namespace,
 			},
 		},
-		i.ensureDeployment(instance, RBACName, labels, ctlogUrl),
+		deployment.PodExtensions(instance.Spec.PodExtensions, containerName),
+		i.ensureCommonDeployment(instance, RBACName, labels, ctlogUrl),
+		ensure.Optional(instance.Spec.Signer.Type == rhtasv1.FulcioSignerTypeFile || instance.Spec.Signer.Type == "",
+			i.ensureFileCADeployment(instance)),
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		// need to add Fulcio's unix domain socket used for the legacy gRPC server other way it will be
@@ -98,35 +103,10 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 	}
 }
 
-func (i deployAction) ensureDeployment(instance *rhtasv1.Fulcio, sa string, labels map[string]string, ctlogUrl string) func(deployment *v1.Deployment) error {
+// ensureCommonDeployment sets up the shared deployment scaffolding used by all signer modes:
+// replicas, selector, labels, service account, ports, probes, and ct-log-url.
+func (i deployAction) ensureCommonDeployment(instance *rhtasv1.Fulcio, sa string, labels map[string]string, ctlogUrl string) func(*v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
-		if instance.Status.ServerConfigRef == nil {
-			return errors.New("server config ref is not specified")
-		}
-		if instance.Status.Certificate == nil {
-			return errors.New("certificate config is not specified")
-		}
-		if instance.Status.Certificate.PrivateKeyRef == nil {
-			return errors.New("private key secret is not specified")
-		}
-
-		if instance.Status.Certificate.CARef == nil {
-			return errors.New("CA secret is not specified")
-		}
-
-		args := []string{
-			"serve",
-			"--port=5555",
-			"--grpc-port=5554",
-			fmt.Sprintf("--log_type=%s", utils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
-			"--ca=fileca",
-			"--fileca-key",
-			"/var/run/fulcio-secrets/key.pem",
-			"--fileca-cert",
-			"/var/run/fulcio-secrets/cert.pem",
-			fmt.Sprintf("--ct-log-url=%s", ctlogUrl),
-		}
-
 		spec := &dp.Spec
 		spec.Replicas = utils.Pointer[int32](1)
 		spec.Selector = &metav1.LabelSelector{
@@ -141,25 +121,6 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.Fulcio, sa string, labe
 		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, containerName)
 		container.Image = images.Registry.Get(images.FulcioServer)
 
-		if instance.Status.Certificate.PrivateKeyPasswordRef != nil {
-			env := kubernetes.FindEnvByNameOrCreate(container, "PASSWORD")
-			env.ValueFrom = &core.EnvVarSource{
-				SecretKeyRef: &core.SecretKeySelector{
-					Key: instance.Status.Certificate.PrivateKeyPasswordRef.Key,
-					LocalObjectReference: core.LocalObjectReference{
-						Name: instance.Status.Certificate.PrivateKeyPasswordRef.Name,
-					},
-				},
-			}
-			args = append(args, "--fileca-key-passwd", "$(PASSWORD)")
-		}
-
-		if fips.Enabled() {
-			args = append(args, "--client-signing-algorithms", fips.ClientSigningAlgorithms)
-		}
-
-		container.Args = args
-
 		http := kubernetes.FindPortByNameOrCreate(container, "http")
 		http.ContainerPort = 5555
 		http.Protocol = core.ProtocolTCP
@@ -172,76 +133,6 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.Fulcio, sa string, labe
 			monitoringPort := kubernetes.FindPortByNameOrCreate(container, "monitoring")
 			monitoringPort.ContainerPort = 2112
 			monitoringPort.Protocol = core.ProtocolTCP
-		}
-
-		certMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-cert")
-		certMount.MountPath = "/var/run/fulcio-secrets"
-		certMount.ReadOnly = true
-
-		configMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-config")
-		configMount.MountPath = "/etc/fulcio-config"
-
-		oidcInfoMount := kubernetes.FindVolumeMountByNameOrCreate(container, "oidc-info")
-		oidcInfoMount.MountPath = "/var/run/fulcio"
-
-		config := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-config")
-		if config.ConfigMap == nil {
-			config.ConfigMap = &core.ConfigMapVolumeSource{}
-		}
-		config.ConfigMap.Name = instance.Status.ServerConfigRef.Name
-
-		cert := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-cert")
-		if cert.Projected == nil {
-			cert.Projected = &core.ProjectedVolumeSource{}
-		}
-		cert.Projected.Sources = []core.VolumeProjection{
-			{
-				Secret: &core.SecretProjection{
-					LocalObjectReference: core.LocalObjectReference{
-						Name: instance.Status.Certificate.PrivateKeyRef.Name,
-					},
-					Items: []core.KeyToPath{
-						{
-							Key:  instance.Status.Certificate.PrivateKeyRef.Key,
-							Path: "key.pem",
-						},
-					},
-				},
-			},
-			{
-				Secret: &core.SecretProjection{
-					LocalObjectReference: core.LocalObjectReference{
-						Name: instance.Status.Certificate.CARef.Name,
-					},
-					Items: []core.KeyToPath{
-						{
-							Key:  instance.Status.Certificate.CARef.Key,
-							Path: "cert.pem",
-						},
-					},
-				},
-			},
-		}
-
-		oidcInfo := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "oidc-info")
-		if oidcInfo.Projected == nil {
-			oidcInfo.Projected = &core.ProjectedVolumeSource{}
-		}
-		oidcInfo.Projected.Sources = []core.VolumeProjection{
-			{
-				ConfigMap: &core.ConfigMapProjection{
-					LocalObjectReference: core.LocalObjectReference{
-						Name: "kube-root-ca.crt",
-					},
-					Items: []core.KeyToPath{
-						{
-							Key:  "ca.crt",
-							Path: "ca.crt",
-							Mode: ptr.To(int32(0666)),
-						},
-					},
-				},
-			},
 		}
 
 		if container.LivenessProbe == nil {
@@ -281,6 +172,139 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.Fulcio, sa string, labe
 		container.StartupProbe.PeriodSeconds = 5
 		container.StartupProbe.TimeoutSeconds = 5
 		container.StartupProbe.FailureThreshold = 12
+
+		container.Args = []string{
+			"serve",
+			"--port=5555",
+			"--grpc-port=5554",
+			fmt.Sprintf("--log_type=%s", utils.GetOrDefault(instance.GetAnnotations(), annotations.LogType, string(constants.Prod))),
+			fmt.Sprintf("--ct-log-url=%s", ctlogUrl),
+		}
+
+		return nil
+	}
+}
+
+func (i deployAction) ensureFileCADeployment(instance *rhtasv1.Fulcio) func(deployment *v1.Deployment) error {
+	return func(dp *v1.Deployment) error {
+		if instance.Status.ServerConfigRef == nil {
+			return errors.New("server config ref is not specified")
+		}
+		if instance.Status.Certificate == nil {
+			return errors.New("certificate config is not specified")
+		}
+		if instance.Status.Certificate.PrivateKeyRef == nil {
+			return errors.New("private key secret is not specified")
+		}
+
+		if instance.Status.Certificate.CARef == nil {
+			return errors.New("CA secret is not specified")
+		}
+
+		container := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, containerName)
+		template := &dp.Spec.Template
+
+		container.Args = append(container.Args,
+			"--ca=fileca",
+			"--fileca-key",
+			"/var/run/fulcio-secrets/key.pem",
+			"--fileca-cert",
+			"/var/run/fulcio-secrets/cert.pem",
+		)
+
+		if instance.Status.Certificate.PrivateKeyPasswordRef != nil {
+			env := kubernetes.FindEnvByNameOrCreate(container, "PASSWORD")
+			env.ValueFrom = &core.EnvVarSource{
+				SecretKeyRef: &core.SecretKeySelector{
+					Key: instance.Status.Certificate.PrivateKeyPasswordRef.Key,
+					LocalObjectReference: core.LocalObjectReference{
+						Name: instance.Status.Certificate.PrivateKeyPasswordRef.Name,
+					},
+				},
+			}
+			container.Args = append(container.Args, "--fileca-key-passwd", "$(PASSWORD)")
+		}
+
+		if fips.Enabled() {
+			container.Args = append(container.Args, "--client-signing-algorithms", fips.ClientSigningAlgorithms)
+		}
+
+		certMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-cert")
+		certMount.MountPath = "/var/run/fulcio-secrets"
+		certMount.ReadOnly = true
+
+		configMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-config")
+		configMount.MountPath = "/etc/fulcio-config"
+
+		oidcInfoMount := kubernetes.FindVolumeMountByNameOrCreate(container, "oidc-info")
+		oidcInfoMount.MountPath = "/var/run/fulcio"
+
+		config := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-config")
+		config.VolumeSource = core.VolumeSource{
+			ConfigMap: &core.ConfigMapVolumeSource{
+				LocalObjectReference: core.LocalObjectReference{
+					Name: instance.Status.ServerConfigRef.Name,
+				},
+			},
+		}
+		ensure.EnsureVolumeDefaultMode(config)
+
+		cert := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-cert")
+		cert.VolumeSource = core.VolumeSource{
+			Projected: &core.ProjectedVolumeSource{},
+		}
+		cert.Projected.Sources = []core.VolumeProjection{
+			{
+				Secret: &core.SecretProjection{
+					LocalObjectReference: core.LocalObjectReference{
+						Name: instance.Status.Certificate.PrivateKeyRef.Name,
+					},
+					Items: []core.KeyToPath{
+						{
+							Key:  instance.Status.Certificate.PrivateKeyRef.Key,
+							Path: "key.pem",
+						},
+					},
+				},
+			},
+			{
+				Secret: &core.SecretProjection{
+					LocalObjectReference: core.LocalObjectReference{
+						Name: instance.Status.Certificate.CARef.Name,
+					},
+					Items: []core.KeyToPath{
+						{
+							Key:  instance.Status.Certificate.CARef.Key,
+							Path: "cert.pem",
+						},
+					},
+				},
+			},
+		}
+
+		ensure.EnsureVolumeDefaultMode(cert)
+
+		oidcInfo := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "oidc-info")
+		oidcInfo.VolumeSource = core.VolumeSource{
+			Projected: &core.ProjectedVolumeSource{},
+		}
+		oidcInfo.Projected.Sources = []core.VolumeProjection{
+			{
+				ConfigMap: &core.ConfigMapProjection{
+					LocalObjectReference: core.LocalObjectReference{
+						Name: "kube-root-ca.crt",
+					},
+					Items: []core.KeyToPath{
+						{
+							Key:  "ca.crt",
+							Path: "ca.crt",
+							Mode: ptr.To(int32(0666)),
+						},
+					},
+				},
+			},
+		}
+		ensure.EnsureVolumeDefaultMode(oidcInfo)
 
 		return nil
 	}

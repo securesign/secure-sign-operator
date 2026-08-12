@@ -160,6 +160,7 @@ func (src *Fulcio) ConvertTo(dstRaw conversion.Hub) error {
 	if dst.Spec.Ctlog.URL == "" {
 		dst.Spec.Ctlog.Ref = restored.Spec.Ctlog.Ref
 	}
+	dst.Spec.PodExtensions = restored.Spec.PodExtensions
 	return nil
 }
 
