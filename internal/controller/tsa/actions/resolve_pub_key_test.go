@@ -2,6 +2,7 @@ package actions
 
 import (
 	_ "embed"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/serviceresolver"
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	httpmock "github.com/securesign/operator/internal/testing/http"
@@ -49,6 +51,10 @@ func TestTSAResolvePubKey_CanHandle(t *testing.T) {
 }
 
 func TestTSAResolvePubKey_Handle(t *testing.T) {
+	serviceresolver.Register(func(obj *rhtasv1.TimestampAuthority) (string, error) {
+		return fmt.Sprintf("http://%s.%s.svc:%d%s", DeploymentName, obj.Namespace, ServerPort, rhtasv1.TimestampPath), nil
+	})
+
 	g := NewWithT(t)
 	type want struct {
 		result           *action.Result

@@ -29,7 +29,10 @@ func (r fulcioTrustMaterialResolver) SetTrustMaterial(instance *rhtasv1.Fulcio, 
 }
 
 func (r fulcioTrustMaterialResolver) Resolve(ctx context.Context, cli client.Client, instance *rhtasv1.Fulcio) ([]byte, error) {
-	baseURL := trustmaterial.ResolveBaseURL(DeploymentName, instance.Namespace, instance.Status.Url)
+	baseURL, err := trustmaterial.ResolveBaseURL(instance)
+	if err != nil {
+		return nil, err
+	}
 	u, err := url.JoinPath(baseURL, "/api/v2/trustBundle")
 	if err != nil {
 		return nil, err

@@ -29,8 +29,11 @@ func (r tsaTrustMaterialResolver) SetTrustMaterial(instance *rhtasv1.TimestampAu
 }
 
 func (r tsaTrustMaterialResolver) Resolve(ctx context.Context, cli client.Client, instance *rhtasv1.TimestampAuthority) ([]byte, error) {
-	u := trustmaterial.ResolveBaseURL(DeploymentName, instance.Namespace, instance.Status.Url, ServerPort)
-	u, err := url.JoinPath(u, rhtasv1.TimestampPath, "certchain")
+	baseURL, err := trustmaterial.ResolveBaseURL(instance)
+	if err != nil {
+		return nil, err
+	}
+	u, err := url.JoinPath(baseURL, rhtasv1.TimestampPath, "certchain")
 	if err != nil {
 		return nil, err
 	}
