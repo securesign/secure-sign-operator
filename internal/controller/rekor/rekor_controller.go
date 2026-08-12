@@ -35,6 +35,7 @@ import (
 	"github.com/securesign/operator/internal/controller/rekor/actions/monitor"
 	"github.com/securesign/operator/internal/controller/rekor/actions/server"
 	"github.com/securesign/operator/internal/controller/rekor/actions/ui"
+	_ "github.com/securesign/operator/internal/controller/rekor/serviceresolver"
 	v13 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/events"
