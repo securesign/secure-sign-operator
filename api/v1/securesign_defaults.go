@@ -1,7 +1,7 @@
 package v1
 
 func (s *Securesign) SetDefaults() {
-	// keep securesign minimal - defaulted on sub-resource level
+	// keep securesign minimal - component defaults are handled by sub-resource webhooks
 
 	// bind all services together if created by Securesign umbrella
 	if s.Spec.Ctlog.Trillian.URL == "" && s.Spec.Ctlog.Trillian.Ref == nil {

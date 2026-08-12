@@ -67,6 +67,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 		dst.Spec.Fulcio.Ctlog.Ref = restored.Spec.Fulcio.Ctlog.Ref
 	}
 	dst.Spec.Fulcio.PodExtensions = restored.Spec.Fulcio.PodExtensions
+	dst.Spec.Fulcio.Auth = restored.Spec.Fulcio.Auth
 	dst.Spec.Ctlog.ImagePullSecrets = restored.Spec.Ctlog.ImagePullSecrets
 	dst.Spec.Ctlog.TrustedCA = restored.Spec.Ctlog.TrustedCA
 	dst.Spec.Ctlog.Monitoring.ServiceMonitor = restored.Spec.Ctlog.Monitoring.ServiceMonitor
@@ -86,6 +87,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 		dst.Spec.Ctlog.Monitoring.Tuf.Ref = restored.Spec.Ctlog.Monitoring.Tuf.Ref
 	}
 	dst.Spec.Ctlog.PodExtensions = restored.Spec.Ctlog.PodExtensions
+	dst.Spec.Ctlog.Auth = restored.Spec.Ctlog.Auth
 	dst.Spec.Rekor.ImagePullSecrets = restored.Spec.Rekor.ImagePullSecrets
 	dst.Spec.Rekor.Monitoring.ServiceMonitor = restored.Spec.Rekor.Monitoring.ServiceMonitor
 	dst.Spec.Rekor.PodExtensions = restored.Spec.Rekor.PodExtensions

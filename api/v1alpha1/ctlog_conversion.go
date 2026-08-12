@@ -113,6 +113,7 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 		dst.Spec.Monitoring.Tuf.Ref = restored.Spec.Monitoring.Tuf.Ref
 	}
 	dst.Spec.PodExtensions = restored.Spec.PodExtensions
+	dst.Spec.Auth = restored.Spec.Auth
 	return nil
 }
 

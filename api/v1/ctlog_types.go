@@ -72,6 +72,9 @@ type CTlogSpec struct {
 	// +optional
 	TrustedCA     *LocalObjectReference `json:"trustedCA,omitempty"`
 	PodExtensions `json:",inline"`
+	// Authentication configuration for the signer backend.
+	//+optional
+	Auth *Auth `json:"auth,omitempty"`
 }
 
 const CTlogSignerTypeFile = "file"

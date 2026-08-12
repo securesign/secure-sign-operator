@@ -14,6 +14,7 @@ import (
 	"github.com/securesign/operator/internal/state"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"github.com/securesign/operator/internal/utils/fips"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	v13 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -363,12 +364,59 @@ func TestFulcioOperatorVolumePrecedence(t *testing.T) {
 	g.Expect(err).ShouldNot(HaveOccurred())
 	g.Expect(dp).ShouldNot(BeNil())
 
-	// Operator must win — fulcio-config should have ConfigMap source, not EmptyDir
 	configVol := findVolume("fulcio-config", dp.Spec.Template.Spec.Volumes)
 	g.Expect(configVol).ShouldNot(BeNil(), "fulcio-config volume should be present")
 	g.Expect(configVol.ConfigMap).ShouldNot(BeNil(), "fulcio-config should have ConfigMap source (operator wins)")
 	g.Expect(configVol.ConfigMap.Name).Should(Equal("config"))
 	g.Expect(configVol.EmptyDir).Should(BeNil(), "fulcio-config should NOT have EmptyDir source")
+}
+
+func TestAuthInjectionInFileMode(t *testing.T) {
+	g := NewWithT(t)
+
+	instance := createInstance()
+	instance.Spec.Auth = &rhtasv1.Auth{
+		Env: []v12.EnvVar{
+			{
+				Name:  "VENDOR_TOKEN",
+				Value: "test-token",
+			},
+		},
+		SecretMount: []rhtasv1.SecretKeySelector{
+			{
+				LocalObjectReference: rhtasv1.LocalObjectReference{
+					Name: "vendor-creds",
+				},
+			},
+		},
+	}
+
+	dp, err := handleDeployment(t, instance)
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp).ShouldNot(BeNil())
+
+	container := dp.Spec.Template.Spec.Containers[0]
+	var vendorTokenEnv *v12.EnvVar
+	for i := range container.Env {
+		if container.Env[i].Name == "VENDOR_TOKEN" {
+			vendorTokenEnv = &container.Env[i]
+			break
+		}
+	}
+	g.Expect(vendorTokenEnv).ShouldNot(BeNil(), "VENDOR_TOKEN env var should be present on main container")
+	g.Expect(vendorTokenEnv.Value).Should(Equal("test-token"))
+
+	authVol := findVolume("auth", dp.Spec.Template.Spec.Volumes)
+	g.Expect(authVol).ShouldNot(BeNil(), "auth volume should be present")
+	g.Expect(authVol.Projected).ShouldNot(BeNil(), "auth volume should have Projected source")
+	g.Expect(authVol.Projected.Sources).Should(HaveLen(1))
+	g.Expect(authVol.Projected.Sources[0].Secret).ShouldNot(BeNil())
+	g.Expect(authVol.Projected.Sources[0].Secret.Name).Should(Equal("vendor-creds"))
+
+	authMount := findVolumeMount("auth", container.VolumeMounts)
+	g.Expect(authMount).ShouldNot(BeNil(), "auth mount should be present on main container")
+	g.Expect(authMount.MountPath).Should(Equal(ensure.AuthMountPath))
+	g.Expect(authMount.ReadOnly).Should(BeTrue())
 }
 
 func TestDeployAction_Handle_RefCtlogAddress(t *testing.T) {
