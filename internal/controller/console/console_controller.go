@@ -6,6 +6,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/controller"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -22,11 +23,15 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	crpredicate "sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	tasPredicate "github.com/securesign/operator/internal/controller/predicate"
+	ctrlutil "github.com/securesign/operator/internal/utils/controller"
 )
 
 type consoleReconciler struct {
@@ -123,5 +128,28 @@ func (r *consoleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		Owns(&v13.Ingress{}).
+		Watches(&rhtasv1.Rekor{}, handler.EnqueueRequestsFromMapFunc(
+			ctrlutil.ServiceRefWatch(mgr.GetClient(), &rhtasv1.ConsoleList{}, func(o client.Object) rhtasv1.ServiceReference {
+				return o.(*rhtasv1.Console).Spec.UI.Rekor
+			}),
+		), builder.WithPredicates(crpredicate.Or(
+			// react external URL change with ready condition
+			crpredicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldC, ok1 := e.ObjectOld.(*rhtasv1.Rekor)
+					newC, ok2 := e.ObjectNew.(*rhtasv1.Rekor)
+					if !ok1 || !ok2 {
+						return true
+					}
+					return oldC.Status.Url != newC.Status.Url
+				},
+			},
+			tasPredicate.ConditionChangedPredicate[*rhtasv1.Rekor](constants.ReadyCondition),
+		))).
+		Watches(&rhtasv1.Tuf{}, handler.EnqueueRequestsFromMapFunc(
+			ctrlutil.ServiceRefWatch(mgr.GetClient(), &rhtasv1.ConsoleList{}, func(o client.Object) rhtasv1.ServiceReference {
+				return o.(*rhtasv1.Console).Spec.Api.Tuf
+			}),
+		), builder.WithPredicates(crpredicate.GenerationChangedPredicate{})).
 		Complete(r)
 }

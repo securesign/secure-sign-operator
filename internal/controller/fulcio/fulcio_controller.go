@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
+	ctlogActions "github.com/securesign/operator/internal/controller/ctlog/actions"
 	"github.com/securesign/operator/internal/controller/fulcio/actions"
 	v12 "k8s.io/api/core/v1"
 	v13 "k8s.io/api/networking/v1"
@@ -40,10 +41,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	crpredicate "sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/predicate"
+	ctrlutil "github.com/securesign/operator/internal/utils/controller"
 )
 
 // fulcioReconciler reconciles a Fulcio object
@@ -149,16 +152,13 @@ func (r *fulcioReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
 		Owns(&v13.Ingress{}).
-		Watches(&rhtasv1.CTlog{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
-			list := &rhtasv1.FulcioList{}
-			if err := mgr.GetClient().List(ctx, list, client.InNamespace(object.GetNamespace())); err != nil {
-				return nil
-			}
-			requests := make([]reconcile.Request, len(list.Items))
-			for i, k := range list.Items {
-				requests[i] = reconcile.Request{NamespacedName: types.NamespacedName{Namespace: object.GetNamespace(), Name: k.Name}}
-			}
-			return requests
-		})).
+		Watches(&rhtasv1.CTlog{}, handler.EnqueueRequestsFromMapFunc(
+			ctrlutil.ServiceRefWatch(mgr.GetClient(), &rhtasv1.FulcioList{}, func(o client.Object) rhtasv1.ServiceReference {
+				return o.(*rhtasv1.Fulcio).Spec.Ctlog
+			}),
+		), builder.WithPredicates(crpredicate.Or(
+			crpredicate.GenerationChangedPredicate{},
+			predicate.ConditionChangedPredicate[*rhtasv1.CTlog](ctlogActions.TLSCondition),
+		))).
 		Complete(r)
 }

@@ -58,7 +58,13 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 
 	ctlogUrl, err := serviceresolver.ResolveInternalServiceUrl(ctx, i.Client, instance.Spec.Ctlog, instance.Namespace, &rhtasv1.CTlog{})
 	if err != nil {
-		return i.Error(ctx, fmt.Errorf("could not resolve CTLog url: %w", err), instance)
+		return i.Error(ctx, fmt.Errorf("could not resolve CTLog url: %w", err), instance, metav1.Condition{
+			Type:               constants.ReadyCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Creating.String(),
+			Message:            fmt.Sprintf("Waiting for CTLog service to become available: %v", err),
+			ObservedGeneration: instance.Generation,
+		})
 	}
 
 	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,

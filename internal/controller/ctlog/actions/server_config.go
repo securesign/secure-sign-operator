@@ -79,7 +79,13 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 
 	trillianHost, trillianPort, err := serviceresolver.ResolveInternalGrpcService(ctx, i.Client, instance.Spec.Trillian, instance.Namespace, &rhtasv1.Trillian{})
 	if err != nil {
-		return i.Error(ctx, fmt.Errorf("error resolving Trillian URL: %w", err), instance)
+		return i.Error(ctx, fmt.Errorf("error resolving Trillian URL: %w", err), instance, metav1.Condition{
+			Type:               ConfigCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Creating.String(),
+			Message:            fmt.Sprintf("Waiting for Trillian service to become available: %v", err),
+			ObservedGeneration: instance.Generation,
+		})
 	}
 	trillianUrl := fmt.Sprintf("%s:%s", trillianHost, trillianPort)
 

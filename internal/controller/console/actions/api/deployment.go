@@ -50,7 +50,13 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Console) *ac
 
 	tufURL, err := serviceresolver.ResolveInternalServiceUrl(ctx, i.Client, instance.Spec.Api.Tuf, instance.Namespace, &rhtasv1.Tuf{})
 	if err != nil {
-		return i.Error(ctx, fmt.Errorf("error resolving TUF URL: %w", err), instance)
+		return i.Error(ctx, fmt.Errorf("error resolving TUF URL: %w", err), instance, metav1.Condition{
+			Type:               constants.ReadyCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Creating.String(),
+			Message:            fmt.Sprintf("Waiting for TUF service to become available: %v", err),
+			ObservedGeneration: instance.Generation,
+		})
 	}
 
 	l := labels.For(actions.ApiComponentName, actions.ApiDeploymentName, instance.Name)

@@ -3,10 +3,10 @@ package actions
 import (
 	"context"
 	"fmt"
-	"net/url"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/serviceresolver"
 	"github.com/securesign/operator/internal/state"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -29,20 +29,10 @@ func (i statusUrlAction) CanHandle(_ context.Context, instance *rhtasv1.CTlog) b
 }
 
 func (i statusUrlAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
-	protocol := "http"
-	if instance.Status.TLS.CertRef != nil {
-		protocol = "https"
+	internalUrl, err := serviceresolver.Resolve(instance)
+	if err != nil {
+		return i.Error(ctx, fmt.Errorf("error resolving internal URL: %w", err), instance)
 	}
-	u := url.URL{
-		Scheme: protocol,
-		Host:   fmt.Sprintf("%s.%s.svc", DeploymentName, instance.Namespace),
-		Path:   instance.Spec.Prefix,
-	}
-
-	if u.String() == instance.Status.Url {
-		return i.Continue()
-	}
-
-	instance.Status.Url = u.String()
+	instance.Status.Url = internalUrl
 	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }

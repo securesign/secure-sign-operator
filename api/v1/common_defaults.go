@@ -27,14 +27,6 @@ func (s *TlogMonitoring) SetDefaults() {
 	setDefault(&s.Interval, &metav1.Duration{Duration: 10 * time.Minute})
 }
 
-func (s *TrillianService) SetDefaults() {
-	setDefault(&s.Port, ptr.To(int32(8091)))
-}
-
-func (s *CtlogService) SetDefaults() {
-	setDefault(&s.Prefix, "trusted-artifact-signer")
-}
-
 func (s *Pvc) SetDefaults() {
 	if s.Size == nil {
 		s.Size = ptr.To(k8sresource.MustParse("5Gi"))
