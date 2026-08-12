@@ -39,7 +39,12 @@ import (
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/events"
 
+	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/controller/predicate"
+	_ "github.com/securesign/operator/internal/controller/rekor/serviceresolver"
+	ctrlutil "github.com/securesign/operator/internal/utils/controller"
 	v12 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -48,11 +53,6 @@ import (
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	crpredicate "sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	rhtasv1 "github.com/securesign/operator/api/v1"
-	"github.com/securesign/operator/internal/controller/predicate"
-	ctrlutil "github.com/securesign/operator/internal/utils/controller"
-	batchv1 "k8s.io/api/batch/v1"
 )
 
 // rekorReconciler reconciles a Rekor object
@@ -193,6 +193,11 @@ func (r *rekorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&rhtasv1.Trillian{}, handler.EnqueueRequestsFromMapFunc(
 			ctrlutil.ServiceRefWatch(mgr.GetClient(), &rhtasv1.RekorList{}, func(o client.Object) rhtasv1.ServiceReference {
 				return o.(*rhtasv1.Rekor).Spec.Trillian
+			}),
+		), builder.WithPredicates(crpredicate.GenerationChangedPredicate{})).
+		Watches(&rhtasv1.Tuf{}, handler.EnqueueRequestsFromMapFunc(
+			ctrlutil.ServiceRefWatch(mgr.GetClient(), &rhtasv1.RekorList{}, func(o client.Object) rhtasv1.ServiceReference {
+				return o.(*rhtasv1.Rekor).Spec.Monitoring.Tuf
 			}),
 		), builder.WithPredicates(crpredicate.GenerationChangedPredicate{})).
 		Complete(r)
