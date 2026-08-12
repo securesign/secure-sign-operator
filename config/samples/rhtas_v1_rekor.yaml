@@ -1,0 +1,33 @@
+apiVersion: rhtas.redhat.com/v1
+kind: Rekor
+metadata:
+  labels:
+    app.kubernetes.io/name: securesign-sample
+    app.kubernetes.io/instance: securesign-sample
+    app.kubernetes.io/part-of: trusted-artifact-signer
+  name: rekor-sample
+spec:
+  ingress:
+    enabled: true
+  monitoring:
+    metrics:
+      enabled: true
+    serviceMonitor:
+      enabled: true
+    tlog:
+      enabled: true
+      interval: 10m
+  signer:
+    kms: secret
+  attestations:
+    enabled: true
+    pvc:
+      size: 5Gi
+      retain: true
+      accessModes:
+        - ReadWriteOnce
+  searchIndex:
+    create: true
+  backFillRedis:
+    enabled: true
+    schedule: "0 0 * * *"

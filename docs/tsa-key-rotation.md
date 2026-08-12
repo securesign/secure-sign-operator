@@ -73,7 +73,7 @@ cat leafCA.crt.pem intermediateCA.crt.pem rootCA.crt.pem > chain.pem
 Note: Replace "CHANGE_ME" with your desired password. Ensure you keep your private keys secure and handle passwords carefully.
 
 ## Operator-Generated Signer Keys and Certificate Chain
-If you have deployed the operator with the default configuration found [here](https://github.com/securesign/secure-sign-operator/blob/fc9c5b01a487c263033faf6599467f8a676c412c/config/samples/rhtas_v1alpha1_securesign.yaml#L51), rotating the keys is a straightforward process. Simply delete the Timestamp Authority instance using the following command:
+If you have deployed the operator with the default configuration found [here](https://github.com/securesign/secure-sign-operator/blob/main/config/samples/rhtas_v1_securesign.yaml), rotating the keys is a straightforward process. Simply delete the Timestamp Authority instance using the following command:
     ```
     oc delete timestampAuthority <securesign_name> -n <namespace>
     ```

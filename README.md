@@ -18,7 +18,7 @@ Once the operator is installed, deploy the signing infrastructure by creating a 
 1. Modify the sample CR for your environment (OIDC issuer, certificate details, external access):
 
 ```sh
-kubectl apply -f config/samples/rhtas_v1alpha1_securesign.yaml -n <operator-namespace>
+kubectl apply -f config/samples/rhtas_v1_securesign.yaml -n <operator-namespace>
 ```
 
 2. The operator deploys Fulcio, Rekor, Trillian, CTlog, TUF, and optionally a Timestamp Authority.

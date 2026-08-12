@@ -1,4 +1,4 @@
-apiVersion: rhtas.redhat.com/v1alpha1
+apiVersion: rhtas.redhat.com/v1
 kind: Trillian
 metadata:
   labels:
@@ -9,6 +9,16 @@ metadata:
 spec:
   database:
     create: true
+    pvc:
+      size: 5Gi
+      retain: true
+      accessModes:
+        - ReadWriteOnce
+  monitoring:
+    metrics:
+      enabled: true
+    serviceMonitor:
+      enabled: true
   server:
     replicas: 1
   signer:
