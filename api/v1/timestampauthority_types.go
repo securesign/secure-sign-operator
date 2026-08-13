@@ -37,6 +37,9 @@ type TimestampAuthoritySpec struct {
 	//ConfigMap with additional bundle of trusted CA
 	//+optional
 	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
+	//Configuration for authentication for key management services
+	//+optional
+	Auth *Auth `json:"auth,omitempty"`
 	//Configuration for NTP monitoring
 	//+optional
 	NTPMonitoring NTPMonitoring `json:"ntpMonitoring,omitempty"`
@@ -62,9 +65,6 @@ type TimestampAuthoritySigner struct {
 	//Configuration for Tink based signer
 	//+optional
 	Tink *Tink `json:"tink,omitempty"`
-	//Configuration for authentication for key management services
-	//+optional
-	Auth *Auth `json:"auth,omitempty"`
 }
 
 // Certificate chain config

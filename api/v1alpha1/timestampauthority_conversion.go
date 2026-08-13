@@ -14,12 +14,44 @@ func Convert_v1alpha1_TimestampAuthoritySpec_To_v1_TimestampAuthoritySpec(in *Ti
 	if err := autoConvert_v1alpha1_TimestampAuthoritySpec_To_v1_TimestampAuthoritySpec(in, out, s); err != nil {
 		return err
 	}
+	var auths []*rhtasv1.Auth
+	if in.Signer.Kms != nil && in.Signer.Kms.Auth != nil {
+		auth := new(rhtasv1.Auth)
+		if err := autoConvert_v1alpha1_Auth_To_v1_Auth(in.Signer.Kms.Auth, auth, s); err != nil {
+			return err
+		}
+		auths = append(auths, auth)
+	}
+	if in.Signer.Tink != nil && in.Signer.Tink.Auth != nil {
+		auth := new(rhtasv1.Auth)
+		if err := autoConvert_v1alpha1_Auth_To_v1_Auth(in.Signer.Tink.Auth, auth, s); err != nil {
+			return err
+		}
+		auths = append(auths, auth)
+	}
+	if auth := mergeAuths(auths...); auth != nil {
+		out.Auth = auth
+	}
 	return Convert_v1alpha1_ExternalAccess_To_v1_Ingress(&in.ExternalAccess, &out.Ingress, s)
 }
 
 func Convert_v1_TimestampAuthoritySpec_To_v1alpha1_TimestampAuthoritySpec(in *rhtasv1.TimestampAuthoritySpec, out *TimestampAuthoritySpec, s apiconversion.Scope) error {
 	if err := autoConvert_v1_TimestampAuthoritySpec_To_v1alpha1_TimestampAuthoritySpec(in, out, s); err != nil {
 		return err
+	}
+	if in.Auth != nil {
+		if out.Signer.Kms != nil {
+			out.Signer.Kms.Auth = new(Auth)
+			if err := autoConvert_v1_Auth_To_v1alpha1_Auth(in.Auth, out.Signer.Kms.Auth, s); err != nil {
+				return err
+			}
+		}
+		if out.Signer.Tink != nil {
+			out.Signer.Tink.Auth = new(Auth)
+			if err := autoConvert_v1_Auth_To_v1alpha1_Auth(in.Auth, out.Signer.Tink.Auth, s); err != nil {
+				return err
+			}
+		}
 	}
 	return Convert_v1_Ingress_To_v1alpha1_ExternalAccess(&in.Ingress, &out.ExternalAccess, s)
 }
@@ -119,49 +151,7 @@ func Convert_v1alpha1_Tink_To_v1_Tink(in *Tink, out *rhtasv1.Tink, s apiconversi
 }
 
 func Convert_v1alpha1_TimestampAuthoritySigner_To_v1_TimestampAuthoritySigner(in *TimestampAuthoritySigner, out *rhtasv1.TimestampAuthoritySigner, s apiconversion.Scope) error {
-	if err := autoConvert_v1alpha1_TimestampAuthoritySigner_To_v1_TimestampAuthoritySigner(in, out, s); err != nil {
-		return err
-	}
-	var auths []*rhtasv1.Auth
-	if in.Kms != nil && in.Kms.Auth != nil {
-		auth := new(rhtasv1.Auth)
-		if err := autoConvert_v1alpha1_Auth_To_v1_Auth(in.Kms.Auth, auth, s); err != nil {
-			return err
-		}
-		auths = append(auths, auth)
-	}
-	if in.Tink != nil && in.Tink.Auth != nil {
-		auth := new(rhtasv1.Auth)
-		if err := autoConvert_v1alpha1_Auth_To_v1_Auth(in.Tink.Auth, auth, s); err != nil {
-			return err
-		}
-		auths = append(auths, auth)
-	}
-	if auth := mergeAuths(auths...); auth != nil {
-		out.Auth = auth
-	}
-	return nil
-}
-
-func Convert_v1_TimestampAuthoritySigner_To_v1alpha1_TimestampAuthoritySigner(in *rhtasv1.TimestampAuthoritySigner, out *TimestampAuthoritySigner, s apiconversion.Scope) error {
-	if err := autoConvert_v1_TimestampAuthoritySigner_To_v1alpha1_TimestampAuthoritySigner(in, out, s); err != nil {
-		return err
-	}
-	if in.Auth != nil {
-		if out.Kms != nil {
-			out.Kms.Auth = new(Auth)
-			if err := autoConvert_v1_Auth_To_v1alpha1_Auth(in.Auth, out.Kms.Auth, s); err != nil {
-				return err
-			}
-		}
-		if out.Tink != nil {
-			out.Tink.Auth = new(Auth)
-			if err := autoConvert_v1_Auth_To_v1alpha1_Auth(in.Auth, out.Tink.Auth, s); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return autoConvert_v1alpha1_TimestampAuthoritySigner_To_v1_TimestampAuthoritySigner(in, out, s)
 }
 
 // mergeAuths merges the given auth objects into a single auth object and keep only unique values.
@@ -214,7 +204,7 @@ func (src *TimestampAuthority) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
 	// restore also the auth from annotation for case where no KMS or Tink is set
-	dst.Spec.Signer.Auth = mergeAuths(dst.Spec.Signer.Auth, restored.Spec.Signer.Auth)
+	dst.Spec.Auth = mergeAuths(dst.Spec.Auth, restored.Spec.Auth)
 	dst.Status.CertificateChain = restored.Status.CertificateChain
 	dst.Spec.PodExtensions = restored.Spec.PodExtensions
 	return nil

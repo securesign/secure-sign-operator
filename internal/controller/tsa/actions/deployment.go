@@ -72,6 +72,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.TimestampAut
 		i.ensureDeployment(instance, RBACName, labels),
 		ensure.ControllerReference[*apps.Deployment](instance, i.Client),
 		ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(labels)), labels),
+		deployment.Auth(DeploymentName, instance.Spec.Auth),
 		deployment.Proxy(),
 		deployment.GODEBUG(instance.GetAnnotations()),
 		deployment.TrustedCA(instance.GetTrustedCA(), DeploymentName),
@@ -156,11 +157,6 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 				)
 			}
 		}
-
-		if err := ensure.ContainerAuth(container, instance.Spec.Signer.Auth)(&template.Spec); err != nil {
-			return err
-		}
-
 		switch tsaUtils.GetSignerType(&instance.Spec.Signer) {
 		case tsaUtils.FileType:
 			{

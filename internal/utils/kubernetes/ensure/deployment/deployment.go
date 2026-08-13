@@ -72,3 +72,9 @@ func PodSecurityContext() func(deployment *v1.Deployment) error {
 		return ensure.PodSecurityContext(&dp.Spec.Template.Spec)
 	}
 }
+
+func Auth(containerName string, auth *rhtasv1.Auth) func(*v1.Deployment) error {
+	return func(object *v1.Deployment) error {
+		return ensure.Auth(containerName, auth)(&object.Spec.Template.Spec)
+	}
+}
