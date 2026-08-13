@@ -25,6 +25,7 @@ import (
 	utilconversion "github.com/securesign/operator/internal/conversion"
 	"github.com/securesign/operator/internal/migration"
 	urlfuzz "github.com/securesign/operator/internal/testing/fuzzer"
+	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 	"k8s.io/apimachinery/pkg/runtime"
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
@@ -439,6 +440,45 @@ func securesignStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{}
 	}
 }
 
+// podExtensionsFuzzerFuncs registers a type-level fuzzer for PodExtensions.
+// The randfill framework applies it to any struct embedding PodExtensions.
+func podExtensionsFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.PodExtensions, c randfill.Continue) {
+			if c.Bool() {
+				s.InitContainers = []rhtasv1.InitContainerSpec{
+					{
+						Name:    "init-" + c.String(5),
+						Image:   c.String(10) + ":latest",
+						Command: []string{"/bin/sh", "-c", "echo test"},
+					},
+				}
+			} else {
+				s.InitContainers = nil
+			}
+			if c.Bool() {
+				volName := "vol-" + c.String(5)
+				s.Volumes = []rhtasv1.AdditionalVolume{
+					{
+						Name: volName,
+						AdditionalVolumeSource: rhtasv1.AdditionalVolumeSource{
+							ConfigMap: &core.ConfigMapVolumeSource{
+								LocalObjectReference: core.LocalObjectReference{Name: "cm-" + c.String(5)},
+							},
+						},
+					},
+				}
+				s.VolumeMounts = []core.VolumeMount{
+					{Name: volName, MountPath: "/mnt/" + c.String(5)},
+				}
+			} else {
+				s.Volumes = nil
+				s.VolumeMounts = nil
+			}
+		},
+	}
+}
+
 // Tests
 
 func TestSecuresignConversion(t *testing.T) {
@@ -463,6 +503,7 @@ func TestSecuresignConversion(t *testing.T) {
 			tsaServiceFuzzerFuncs,
 			tufServiceFuzzerFuncs,
 			securesignFuzzerFuncs,
+			podExtensionsFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
@@ -476,6 +517,7 @@ func TestCTlogConversion(t *testing.T) {
 		Spoke:  &CTlog{},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			ctlogFuzzerFuncs,
+			podExtensionsFuzzerFuncs,
 			trillianServiceFuzzerFuncs,
 			tufServiceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
@@ -513,6 +555,7 @@ func TestFulcioConversion(t *testing.T) {
 			fulcioFuzzerFuncs,
 			fulcioStatusFuzzerFuncs,
 			ctlogServiceFuzzerFuncs,
+			podExtensionsFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))

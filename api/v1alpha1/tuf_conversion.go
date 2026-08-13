@@ -35,6 +35,7 @@ func (src *Tuf) ConvertTo(dstRaw conversion.Hub) error {
 	if dst.Spec.Tsa.URL == "" {
 		dst.Spec.Tsa.Ref = restored.Spec.Tsa.Ref
 	}
+	dst.Spec.PodExtensions = restored.Spec.PodExtensions
 	return nil
 }
 

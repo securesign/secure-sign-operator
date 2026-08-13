@@ -55,6 +55,18 @@ func PodRequirements(requirements rhtasv1.PodRequirements, containerName string)
 	}
 }
 
+// PodExtensions applies user-defined init containers, volumes, and volume mounts
+// to a Deployment. It is a standalone ensure function so callers can compose it
+// independently from signer-specific logic.
+func PodExtensions(ext rhtasv1.PodExtensions, containerName string) func(*v1.Deployment) error {
+	return func(dp *v1.Deployment) error {
+		template := &dp.Spec.Template
+		container := kubernetes.FindContainerByNameOrCreate(&template.Spec, containerName)
+		ensure.ReconcileUserPodResources(&template.Spec, container, ext)
+		return nil
+	}
+}
+
 func PodSecurityContext() func(deployment *v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
 		return ensure.PodSecurityContext(&dp.Spec.Template.Spec)

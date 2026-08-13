@@ -60,6 +60,7 @@ type RekorSpec struct {
 	// MaxRequestBodySize sets the maximum size in bytes for HTTP request body. Passed as --max_request_body_size.
 	//+optional
 	MaxRequestBodySize *int64 `json:"maxRequestBodySize,omitempty"`
+	PodExtensions      `json:",inline"`
 }
 
 // RekorAttestations defines the configuration for storing attestations.

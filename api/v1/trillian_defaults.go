@@ -5,6 +5,7 @@ import "k8s.io/utils/ptr"
 func (s *TrillianSpec) SetDefaults() {
 	s.Db.SetDefaults()
 	s.Monitoring.SetDefaults()
+	s.PodExtensions.SetDefaults()
 	s.LogServer.SetDefaults()
 	s.LogSigner.SetDefaults()
 	setDefault(&s.MaxRecvMessageSize, ptr.To(int64(153600)))

@@ -112,6 +112,7 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	if dst.Spec.Monitoring.Tuf.URL == "" {
 		dst.Spec.Monitoring.Tuf.Ref = restored.Spec.Monitoring.Tuf.Ref
 	}
+	dst.Spec.PodExtensions = restored.Spec.PodExtensions
 	return nil
 }
 

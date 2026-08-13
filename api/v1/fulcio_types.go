@@ -36,7 +36,8 @@ type FulcioSpec struct {
 	Monitoring MonitoringConfig `json:"monitoring,omitempty"`
 	// ConfigMap with additional bundle of trusted CA
 	//+optional
-	TrustedCA *LocalObjectReference `json:"trustedCA,omitempty"`
+	TrustedCA     *LocalObjectReference `json:"trustedCA,omitempty"`
+	PodExtensions `json:",inline"`
 }
 
 // FulcioSigner defines the desired state of the Fulcio Signer

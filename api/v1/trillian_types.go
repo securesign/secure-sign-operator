@@ -43,7 +43,8 @@ type TrillianSpec struct {
 	MaxRecvMessageSize *int64 `json:"maxRecvMessageSize,omitempty"`
 	//Configuration for authentication for key management services
 	//+optional
-	Auth *Auth `json:"auth,omitempty"`
+	Auth          *Auth `json:"auth,omitempty"`
+	PodExtensions `json:",inline"`
 }
 
 // trillianService is the shared base for TrillianLogServer and TrillianLogSigner.

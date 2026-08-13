@@ -38,3 +38,22 @@ func (s *Pvc) SetDefaults() {
 func (s *PodRequirements) SetDefaults() {
 	setDefault(&s.Replicas, ptr.To(int32(1)))
 }
+
+func (s *PodExtensions) SetDefaults() {
+	for i := range s.Volumes {
+		s.Volumes[i].SetDefaults()
+	}
+}
+
+func (v *AdditionalVolume) SetDefaults() {
+	defaultMode := ptr.To(int32(0644))
+	if v.Secret != nil && v.Secret.DefaultMode == nil {
+		v.Secret.DefaultMode = defaultMode
+	}
+	if v.ConfigMap != nil && v.ConfigMap.DefaultMode == nil {
+		v.ConfigMap.DefaultMode = defaultMode
+	}
+	if v.Projected != nil && v.Projected.DefaultMode == nil {
+		v.Projected.DefaultMode = defaultMode
+	}
+}

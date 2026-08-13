@@ -66,6 +66,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	if dst.Spec.Fulcio.Ctlog.URL == "" {
 		dst.Spec.Fulcio.Ctlog.Ref = restored.Spec.Fulcio.Ctlog.Ref
 	}
+	dst.Spec.Fulcio.PodExtensions = restored.Spec.Fulcio.PodExtensions
 	dst.Spec.Ctlog.ImagePullSecrets = restored.Spec.Ctlog.ImagePullSecrets
 	dst.Spec.Ctlog.TrustedCA = restored.Spec.Ctlog.TrustedCA
 	dst.Spec.Ctlog.Monitoring.ServiceMonitor = restored.Spec.Ctlog.Monitoring.ServiceMonitor
@@ -84,8 +85,10 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	if dst.Spec.Ctlog.Monitoring.Tuf.URL == "" {
 		dst.Spec.Ctlog.Monitoring.Tuf.Ref = restored.Spec.Ctlog.Monitoring.Tuf.Ref
 	}
+	dst.Spec.Ctlog.PodExtensions = restored.Spec.Ctlog.PodExtensions
 	dst.Spec.Rekor.ImagePullSecrets = restored.Spec.Rekor.ImagePullSecrets
 	dst.Spec.Rekor.Monitoring.ServiceMonitor = restored.Spec.Rekor.Monitoring.ServiceMonitor
+	dst.Spec.Rekor.PodExtensions = restored.Spec.Rekor.PodExtensions
 	if dst.Spec.Rekor.Trillian.URL == "" {
 		dst.Spec.Rekor.Trillian.Ref = restored.Spec.Rekor.Trillian.Ref
 	}
@@ -94,8 +97,10 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Spec.Trillian.ImagePullSecrets = restored.Spec.Trillian.ImagePullSecrets
 	dst.Spec.Trillian.Monitoring.ServiceMonitor = restored.Spec.Trillian.Monitoring.ServiceMonitor
+	dst.Spec.Trillian.PodExtensions = restored.Spec.Trillian.PodExtensions
 	dst.Spec.Tuf.ImagePullSecrets = restored.Spec.Tuf.ImagePullSecrets
 	dst.Spec.Tuf.TrustedCA = restored.Spec.Tuf.TrustedCA
+	dst.Spec.Tuf.PodExtensions = restored.Spec.Tuf.PodExtensions
 	if dst.Spec.Tuf.Rekor.URL == "" {
 		dst.Spec.Tuf.Rekor.Ref = restored.Spec.Tuf.Rekor.Ref
 	}
@@ -116,6 +121,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	if dst.Spec.TimestampAuthority != nil && restored.Spec.TimestampAuthority != nil {
 		dst.Spec.TimestampAuthority.ImagePullSecrets = restored.Spec.TimestampAuthority.ImagePullSecrets
 		dst.Spec.TimestampAuthority.Monitoring.ServiceMonitor = restored.Spec.TimestampAuthority.Monitoring.ServiceMonitor
+		dst.Spec.TimestampAuthority.PodExtensions = restored.Spec.TimestampAuthority.PodExtensions
 		// restore also the auth from annotation for case where no KMS or Tink is set
 		dst.Spec.TimestampAuthority.Signer.Auth = mergeAuths(dst.Spec.TimestampAuthority.Signer.Auth, restored.Spec.TimestampAuthority.Signer.Auth)
 	}

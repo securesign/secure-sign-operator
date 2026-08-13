@@ -4,6 +4,7 @@ import "k8s.io/utils/ptr"
 
 func (s *TimestampAuthoritySpec) SetDefaults() {
 	s.PodRequirements.SetDefaults()
+	s.PodExtensions.SetDefaults()
 	s.Monitoring.SetDefaults()
 	s.Ingress.SetDefaults()
 	s.NTPMonitoring.SetDefaults()
