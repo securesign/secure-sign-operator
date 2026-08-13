@@ -85,10 +85,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *acti
 		i.ensureAttestation(instance),
 		ensure.ControllerReference[*v2.Deployment](instance, i.Client),
 		ensure.Labels[*v2.Deployment](slices.Collect(maps.Keys(labels)), labels),
-		func(object *v2.Deployment) error {
-			err := ensure.Auth(actions.ServerDeploymentName, instance.Spec.Auth)(&object.Spec.Template.Spec)
-			return err
-		},
+		deployment.Auth(actions.ServerDeploymentName, instance.Spec.Auth),
 		deployment.Proxy(),
 		deployment.GODEBUG(instance.GetAnnotations()),
 		deployment.TrustedCA(instance.GetTrustedCA(), actions.ServerDeploymentName),

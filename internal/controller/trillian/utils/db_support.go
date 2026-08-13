@@ -13,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 )
@@ -25,24 +26,16 @@ func EnsureDB(instance *rhtasv1.Trillian, containerName, caPath string) []func(*
 
 func ensureDbAuth(instance *rhtasv1.Trillian, containerName string) []func(dp *apps.Deployment) error {
 	return []func(dp *apps.Deployment) error{
-		// ensure user auth
-		func(deploy *apps.Deployment) error {
-			ref := &deploy.Spec.Template.Spec
-			err := ensure.ContainerAuth(kubernetes.FindContainerByNameOrCreate(ref, containerName), instance.Spec.Auth)(ref)
-			return err
-		},
-
-		// ensure dbSecret auth
+		deployment.Auth(containerName, instance.Spec.Auth),
 		ensure.Optional(instance.Status.Db.DatabaseSecretRef != nil,
-			func(deploy *apps.Deployment) error {
-				ref := &deploy.Spec.Template.Spec
-				err := ensure.ContainerAuth(kubernetes.FindContainerByNameOrCreate(ref, containerName), dbSecretToAuth(instance.Status.Db.DatabaseSecretRef))(ref)
-				return err
-			}),
+			deployment.Auth(containerName, dbSecretToAuth(instance.Status.Db.DatabaseSecretRef))),
 	}
 }
 
 func dbSecretToAuth(databaseSecretRef *rhtasv1.LocalObjectReference) *rhtasv1.Auth {
+	if databaseSecretRef == nil {
+		return nil
+	}
 	auth := rhtasv1.Auth{}
 	keys := []string{actions.SecretUser, actions.SecretPassword, actions.SecretHost, actions.SecretPort, actions.SecretDatabaseName}
 

@@ -123,7 +123,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 		dst.Spec.TimestampAuthority.Monitoring.ServiceMonitor = restored.Spec.TimestampAuthority.Monitoring.ServiceMonitor
 		dst.Spec.TimestampAuthority.PodExtensions = restored.Spec.TimestampAuthority.PodExtensions
 		// restore also the auth from annotation for case where no KMS or Tink is set
-		dst.Spec.TimestampAuthority.Signer.Auth = mergeAuths(dst.Spec.TimestampAuthority.Signer.Auth, restored.Spec.TimestampAuthority.Signer.Auth)
+		dst.Spec.TimestampAuthority.Auth = mergeAuths(dst.Spec.TimestampAuthority.Auth, restored.Spec.TimestampAuthority.Auth)
 	}
 	return nil
 }

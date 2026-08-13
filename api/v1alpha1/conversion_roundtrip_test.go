@@ -207,10 +207,6 @@ func tsaSignerFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 				s.Tink = &rhtasv1.Tink{}
 				c.FillNoCustom(s.Tink)
 			}
-			if c.Bool() {
-				s.Auth = &rhtasv1.Auth{}
-				c.FillNoCustom(s.Auth)
-			}
 		},
 	}
 }

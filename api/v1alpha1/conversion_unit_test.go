@@ -957,10 +957,10 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 						Kms: &rhtasv1.KMS{
 							KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k/cryptoKeyVersions/1",
 						},
-						Auth: &rhtasv1.Auth{
-							SecretMount: []rhtasv1.SecretKeySelector{
-								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "gcp-creds"}, Key: "credentials.json"},
-							},
+					},
+					Auth: &rhtasv1.Auth{
+						SecretMount: []rhtasv1.SecretKeySelector{
+							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "gcp-creds"}, Key: "credentials.json"},
 						},
 					},
 					Ingress:    rhtasv1.Ingress{Enabled: ptr.To(false)},
@@ -1014,10 +1014,10 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 								Key:                  "keyset.json",
 							},
 						},
-						Auth: &rhtasv1.Auth{
-							Env: []core.EnvVar{
-								{Name: "GOOGLE_APPLICATION_CREDENTIALS", Value: "/var/run/secrets/gcp/creds.json"},
-							},
+					},
+					Auth: &rhtasv1.Auth{
+						Env: []core.EnvVar{
+							{Name: "GOOGLE_APPLICATION_CREDENTIALS", Value: "/var/run/secrets/gcp/creds.json"},
 						},
 					},
 					Ingress:    rhtasv1.Ingress{Enabled: ptr.To(false)},
@@ -1134,13 +1134,13 @@ func TestTimestampAuthorityConversionUnit(t *testing.T) {
 							Key:                  "chain.pem",
 						},
 					},
-					Auth: &rhtasv1.Auth{
-						Env: []core.EnvVar{
-							{Name: "NO_KMS_CREDS", Value: "/var/run/secrets/gcp/creds.json"},
-						},
-						SecretMount: []rhtasv1.SecretKeySelector{
-							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "gcp-creds"}, Key: "credentials.json"},
-						},
+				},
+				Auth: &rhtasv1.Auth{
+					Env: []core.EnvVar{
+						{Name: "NO_KMS_CREDS", Value: "/var/run/secrets/gcp/creds.json"},
+					},
+					SecretMount: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "gcp-creds"}, Key: "credentials.json"},
 					},
 				},
 				Ingress:       rhtasv1.Ingress{Enabled: ptr.To(false)},
