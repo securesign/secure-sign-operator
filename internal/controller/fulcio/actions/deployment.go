@@ -82,6 +82,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 			i.ensureFileCADeployment(instance)),
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
+		deployment.Auth(containerName, instance.Spec.Auth),
 		// need to add Fulcio's unix domain socket used for the legacy gRPC server other way it will be
 		// rest v1 api will be routed through proxy
 		deployment.Proxy("@fulcio-legacy-grpc-socket"),

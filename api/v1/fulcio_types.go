@@ -38,6 +38,9 @@ type FulcioSpec struct {
 	//+optional
 	TrustedCA     *LocalObjectReference `json:"trustedCA,omitempty"`
 	PodExtensions `json:",inline"`
+	// Authentication configuration for the signer backend.
+	//+optional
+	Auth *Auth `json:"auth,omitempty"`
 }
 
 // FulcioSigner defines the desired state of the Fulcio Signer

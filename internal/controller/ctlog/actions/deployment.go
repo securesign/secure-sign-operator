@@ -71,6 +71,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 		i.ensureDeployment(instance, RBACName, labels),
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
+		deployment.Auth(containerName, instance.Spec.Auth),
 		deployment.Proxy(),
 		deployment.GODEBUG(instance.GetAnnotations()),
 		deployment.TrustedCA(instance.GetTrustedCA(), containerName),

@@ -161,6 +161,7 @@ func (src *Fulcio) ConvertTo(dstRaw conversion.Hub) error {
 		dst.Spec.Ctlog.Ref = restored.Spec.Ctlog.Ref
 	}
 	dst.Spec.PodExtensions = restored.Spec.PodExtensions
+	dst.Spec.Auth = restored.Spec.Auth
 	return nil
 }
 
