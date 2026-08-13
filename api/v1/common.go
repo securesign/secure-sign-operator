@@ -154,6 +154,14 @@ type Pvc struct {
 	AccessModes []PersistentVolumeAccessMode `json:"accessModes,omitempty"`
 }
 
+// KMS configures a remote key management service for signing operations.
+// +kubebuilder:validation:XValidation:rule="self.keyResource.matches('^(gcpkms|azurekms|hashivault|openbao|awskms)://.+$')",message="keyResource must be a valid KMS URI (gcpkms://, azurekms://, hashivault://, openbao://, or awskms://)"
+type KMS struct {
+	// KMS key resource URI. Valid schemes: gcpkms://, azurekms://, hashivault://, openbao://, awskms://
+	//+required
+	KeyResource string `json:"keyResource"`
+}
+
 type Auth struct {
 	// Environmental variables used to define authentication parameters
 	//+optional

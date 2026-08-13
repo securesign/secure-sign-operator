@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	"unsafe"
+
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
 	"github.com/securesign/operator/internal/migration"
@@ -83,6 +85,43 @@ func (dst *Rekor) ConvertFrom(srcRaw conversion.Hub) error {
 	}
 
 	return utilconversion.MarshalData(src, dst)
+}
+
+// v1alpha1 flat KMS string → v1 struct-based signer.
+func Convert_v1alpha1_RekorSigner_To_v1_RekorSigner(in *RekorSigner, out *rhtasv1.RekorSigner, s apiconversion.Scope) error {
+	switch in.KMS {
+	case rhtasv1.RekorSignerTypeSecret:
+		out.Type = rhtasv1.RekorSignerTypeSecret
+	case rhtasv1.RekorSignerTypeMemory:
+		out.Type = rhtasv1.RekorSignerTypeMemory
+	case "":
+		out.Type = ""
+	default:
+		out.Type = rhtasv1.RekorSignerTypeKMS
+		out.Kms = &rhtasv1.KMS{KeyResource: in.KMS}
+	}
+	out.PasswordRef = (*rhtasv1.SecretKeySelector)(unsafe.Pointer(in.PasswordRef)) //nolint:staticcheck
+	out.KeyRef = (*rhtasv1.SecretKeySelector)(unsafe.Pointer(in.KeyRef))
+	return nil
+}
+
+// v1 struct-based signer → v1alpha1 flat KMS string.
+func Convert_v1_RekorSigner_To_v1alpha1_RekorSigner(in *rhtasv1.RekorSigner, out *RekorSigner, s apiconversion.Scope) error {
+	switch in.Type {
+	case rhtasv1.RekorSignerTypeKMS:
+		if in.Kms != nil {
+			out.KMS = in.Kms.KeyResource
+		}
+	case rhtasv1.RekorSignerTypeMemory:
+		out.KMS = rhtasv1.RekorSignerTypeMemory
+	case rhtasv1.RekorSignerTypeSecret:
+		out.KMS = rhtasv1.RekorSignerTypeSecret
+	default:
+		out.KMS = in.Type
+	}
+	out.PasswordRef = (*SecretKeySelector)(unsafe.Pointer(in.PasswordRef)) //nolint:staticcheck
+	out.KeyRef = (*SecretKeySelector)(unsafe.Pointer(in.KeyRef))
+	return nil
 }
 
 // Cross-type conversion: v1alpha1.RekorSigner (status) ↔ v1.RekorSignerStatus.

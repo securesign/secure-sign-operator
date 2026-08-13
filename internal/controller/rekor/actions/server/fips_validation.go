@@ -20,7 +20,7 @@ func NewFIPSValidationAction() action.Action[*rhtasv1.Rekor] {
 		actions.ServerComponentName,
 		fipsAction.Wrapper(fipsAction.Config[*rhtasv1.Rekor]{
 			PasswordRef: func(i *rhtasv1.Rekor) *rhtasv1.SecretKeySelector {
-				if (i.Spec.Signer.KMS == signerKMSSecret || i.Spec.Signer.KMS == "") && i.Spec.Signer.KeyRef != nil {
+				if (i.Spec.Signer.Type == rhtasv1.RekorSignerTypeSecret || i.Spec.Signer.Type == "") && i.Spec.Signer.KeyRef != nil {
 					return i.Spec.Signer.PasswordRef //nolint:staticcheck
 				}
 				return nil
@@ -34,7 +34,7 @@ func rekorCryptoMaterial(ctx context.Context, i *rhtasv1.Rekor, c client.Client)
 	var refs []fipsAction.CryptoRef
 
 	// Signer key (only for local secret-backed signers, not external KMS)
-	if (i.Spec.Signer.KMS == signerKMSSecret || i.Spec.Signer.KMS == "") && i.Spec.Signer.KeyRef != nil {
+	if (i.Spec.Signer.Type == rhtasv1.RekorSignerTypeSecret || i.Spec.Signer.Type == "") && i.Spec.Signer.KeyRef != nil {
 		if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, i.Spec.Signer.KeyRef,
 			"spec.signer.keyRef", fipsutil.ValidatePrivateKeyPEM, &refs); err != nil {
 			return nil, err

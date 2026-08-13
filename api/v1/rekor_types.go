@@ -95,33 +95,37 @@ type RekorAttestations struct {
 	Pvc Pvc `json:"pvc,omitempty"`
 }
 
-type RekorSigner struct {
+const (
+	RekorSignerTypeSecret = "secret"
+	RekorSignerTypeMemory = "memory"
+	RekorSignerTypeKMS    = "kms"
+)
 
-	// KMS Signer provider. Specifies the key management system (KMS) used for signing operations.
-	//
-	// Valid values:
-	// - "secret" (default): The signer key is stored in a Kubernetes Secret.
-	// - "memory": Ephemeral signer key stored in memory. Recommended for development use only.
-	// - KMS URI: A URI to a cloud-based KMS, following the Go Cloud Development Kit (Go Cloud) URI format. Supported URIs include:
-	//   - awskms://keyname
-	//   - azurekms://keyname
-	//   - gcpkms://keyname
-	//   - hashivault://keyname
-	// +kubebuilder:validation:XValidation:rule="self == 'secret' || self == 'memory' || self.matches('^awskms://.+$') || self.matches('^gcpkms://.+$') || self.matches('^azurekms://.+$') || self.matches('^hashivault://.+$')",message="KMS must be 'secret', 'memory', or a valid URI with a key path (e.g., awskms:///key-id)"
-	KMS string `json:"kms,omitempty"`
+// RekorSigner defines the signer configuration for the Rekor transparency log.
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'kms' || has(self.kms)",message="kms is required when type is 'kms'"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'secret' || !has(self.kms)",message="kms should not be configured when type is 'secret'"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'memory' || !has(self.kms)",message="kms should not be configured when type is 'memory'"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || !(self.type == 'kms' || self.type == 'memory') || !has(self.keyRef)",message="keyRef should not be configured when type is 'kms' or 'memory'"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || !(self.type == 'kms' || self.type == 'memory') || !has(self.passwordRef)",message="passwordRef should not be configured when type is 'kms' or 'memory'"
+type RekorSigner struct {
+	// Type of the signer backend.
+	//+kubebuilder:validation:Enum=secret;memory;kms
+	//+optional
+	Type string `json:"type,omitempty"`
+
+	// Configuration for KMS-based signer.
+	//+optional
+	Kms *KMS `json:"kms,omitempty"`
 
 	// Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
 	// and not FIPS-compliant. Auto-generated keys are no longer password-encrypted;
 	// this field is retained only for backward compatibility with existing user-provided
 	// encrypted keys. Kubernetes Secrets provide encryption-at-rest.
-	// This should be set only if the private key referenced by `keyRef` is encrypted with a password.
-	// If KMS is set to a value other than "secret", this field is ignored.
 	// +optional
 	PasswordRef *SecretKeySelector `json:"passwordRef,omitempty"`
 
 	// Reference to the signer private key.
-	//
-	// Optional field. When KMS is set to "secret", this field can be left empty, in which case the operator will automatically generate a signer key.
+	// When type is "secret", this field can be left empty — the operator will automatically generate a signer key.
 	// +optional
 	KeyRef *SecretKeySelector `json:"keyRef,omitempty"`
 }

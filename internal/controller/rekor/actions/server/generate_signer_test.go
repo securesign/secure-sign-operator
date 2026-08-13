@@ -38,7 +38,8 @@ func rekorInstance() *rhtasv1.Rekor {
 func TestRekorSigner_KMSDisabled(t *testing.T) {
 	g := NewWithT(t)
 	instance := rekorInstance()
-	instance.Spec.Signer.KMS = "awskms://key"
+	instance.Spec.Signer.Type = rhtasv1.RekorSignerTypeKMS
+	instance.Spec.Signer.Kms = &rhtasv1.KMS{KeyResource: "awskms://key"}
 
 	c := testAction.FakeClientBuilder().Build()
 	a := testAction.PrepareAction(c, NewGenerateSignerAction())
@@ -48,7 +49,7 @@ func TestRekorSigner_KMSDisabled(t *testing.T) {
 func TestRekorSigner_KMSSecretEnabled(t *testing.T) {
 	g := NewWithT(t)
 	instance := rekorInstance()
-	instance.Spec.Signer.KMS = "secret"
+	instance.Spec.Signer.Type = rhtasv1.RekorSignerTypeSecret
 
 	c := testAction.FakeClientBuilder().Build()
 	a := testAction.PrepareAction(c, NewGenerateSignerAction())

@@ -1505,17 +1505,16 @@ spec:
                     description: Configuration for KMS based signer
                     properties:
                       keyResource:
-                        description: 'KMS key for signing timestamp responses. Valid
-                          options include: [gcpkms://resource, azurekms://resource,
-                          hashivault://resource, awskms://resource]'
+                        description: 'KMS key resource URI. Valid schemes: gcpkms://,
+                          azurekms://, hashivault://, openbao://, awskms://'
                         type: string
                     required:
                     - keyResource
                     type: object
                     x-kubernetes-validations:
                     - message: keyResource must be a valid KMS URI (gcpkms://, azurekms://,
-                        hashivault://, or awskms://)
-                      rule: self.keyResource.matches('^(gcpkms|azurekms|hashivault|awskms)://.+$')
+                        hashivault://, openbao://, or awskms://)
+                      rule: self.keyResource.matches('^(gcpkms|azurekms|hashivault|openbao|awskms)://.+$')
                   tink:
                     description: Configuration for Tink based signer
                     properties:
