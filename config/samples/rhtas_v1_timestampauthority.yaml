@@ -1,4 +1,4 @@
-apiVersion: rhtas.redhat.com/v1alpha1
+apiVersion: rhtas.redhat.com/v1
 kind: TimestampAuthority
 metadata:
   labels:
@@ -9,10 +9,13 @@ metadata:
     app.kubernetes.io/created-by: rhtas-operator
   name: timestampauthority-sample
 spec:
-  externalAccess:
+  ingress:
     enabled: true
   monitoring:
-    enabled: true
+    metrics:
+      enabled: true
+    serviceMonitor:
+      enabled: true
   ntpMonitoring:
     enabled: true
   signer:

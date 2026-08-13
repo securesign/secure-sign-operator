@@ -1,0 +1,20 @@
+apiVersion: rhtas.redhat.com/v1
+kind: CTlog
+metadata:
+  labels:
+    app.kubernetes.io/name: securesign-sample
+    app.kubernetes.io/instance: securesign-sample
+    app.kubernetes.io/part-of: trusted-artifact-signer
+  name: ctlog-sample
+spec:
+  signer:
+    type: file
+  prefix: trusted-artifact-signer
+  monitoring:
+    metrics:
+      enabled: true
+    serviceMonitor:
+      enabled: true
+    tlog:
+      enabled: true
+      interval: 10m

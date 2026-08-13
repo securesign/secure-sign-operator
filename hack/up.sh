@@ -49,4 +49,4 @@ do
   sleep 10
 done
 
-make deploy && kubectl create -f config/samples/rhtas_v1alpha1_securesign.yaml
+make deploy && kubectl create -f config/samples/rhtas_v1_securesign.yaml

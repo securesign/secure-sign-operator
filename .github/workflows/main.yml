@@ -276,7 +276,7 @@ jobs:
       - name: Wait for conversion webhook readiness
         run: |
           for i in $(seq 1 60); do
-            kubectl create --dry-run=server -f config/samples/rhtas_v1alpha1_securesign.yaml 2>/dev/null && break
+            kubectl create --dry-run=server -f config/samples/rhtas_v1_securesign.yaml 2>/dev/null && break
             echo "Waiting for conversion webhook... ($i/60)"
             sleep 2
           done
@@ -478,7 +478,7 @@ jobs:
       - name: Wait for conversion webhook readiness
         run: |
           for i in $(seq 1 60); do
-            kubectl create --dry-run=server -f config/samples/rhtas_v1alpha1_securesign.yaml 2>/dev/null && break
+            kubectl create --dry-run=server -f config/samples/rhtas_v1_securesign.yaml 2>/dev/null && break
             echo "Waiting for conversion webhook... ($i/60)"
             sleep 2
           done
@@ -677,16 +677,16 @@ jobs:
       - name: Wait for conversion webhook readiness
         run: |
           for i in $(seq 1 60); do
-            kubectl create --dry-run=server -f config/samples/rhtas_v1alpha1_securesign.yaml 2>/dev/null && break
+            kubectl create --dry-run=server -f config/samples/rhtas_v1_securesign.yaml 2>/dev/null && break
             echo "Waiting for conversion webhook... ($i/60)"
             sleep 2
           done
 
       - name: Install securesign
         run: |
-          sed -i 's#https://your-oidc-issuer-url#http://${{ steps.kind.outputs.oidc_host }}/realms/trusted-artifact-signer#' config/samples/rhtas_v1alpha1_securesign.yaml
+          sed -i 's#https://your-oidc-issuer-url#http://${{ steps.kind.outputs.oidc_host }}/realms/trusted-artifact-signer#' config/samples/rhtas_v1_securesign.yaml
           kubectl create ns ${{ env.TEST_NAMESPACE }}
-          kubectl create -f config/samples/rhtas_v1alpha1_securesign.yaml -n ${{ env.TEST_NAMESPACE }}
+          kubectl create -f config/samples/rhtas_v1_securesign.yaml -n ${{ env.TEST_NAMESPACE }}
           sleep 1
           kubectl wait --for=condition=Ready securesign/securesign-sample --timeout=5m -n ${{ env.TEST_NAMESPACE }}
 
@@ -835,7 +835,7 @@ jobs:
       - name: Wait for conversion webhook readiness
         run: |
           for i in $(seq 1 60); do
-            kubectl create --dry-run=server -f config/samples/rhtas_v1alpha1_securesign.yaml 2>/dev/null && break
+            kubectl create --dry-run=server -f config/samples/rhtas_v1_securesign.yaml 2>/dev/null && break
             echo "Waiting for conversion webhook... ($i/60)"
             sleep 2
           done

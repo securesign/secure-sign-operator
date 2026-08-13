@@ -1,0 +1,23 @@
+apiVersion: rhtas.redhat.com/v1
+kind: Tuf
+metadata:
+  labels:
+    app.kubernetes.io/name: securesign-sample
+    app.kubernetes.io/instance: securesign-sample
+    app.kubernetes.io/part-of: trusted-artifact-signer
+  name: tuf-sample
+spec:
+  replicas: 1
+  ingress:
+    enabled: true
+  port: 80
+  keys:
+    - name: rekor.pub
+    - name: fulcio_v1.crt.pem
+    - name: ctfe.pub
+    - name: tsa.certchain.pem
+  pvc:
+    size: 100Mi
+    retain: true
+    accessModes:
+      - ReadWriteOnce

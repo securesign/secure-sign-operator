@@ -218,7 +218,7 @@ After the operator is running, create a namespace and apply a Securesign CR conf
 
 ```sh
 kubectl create ns securesign
-kubectl apply --server-side -n securesign -f config/samples/rhtas_v1alpha1_securesign.yaml
+kubectl apply --server-side -n securesign -f config/samples/rhtas_v1_securesign.yaml
 ```
 
 See `config/samples/` for example CR configurations with OIDC providers and external access.

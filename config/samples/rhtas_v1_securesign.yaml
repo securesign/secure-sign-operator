@@ -1,0 +1,40 @@
+apiVersion: rhtas.redhat.com/v1
+kind: Securesign
+metadata:
+  labels:
+    app.kubernetes.io/name: securesign-sample
+    app.kubernetes.io/instance: securesign-sample
+    app.kubernetes.io/part-of: trusted-artifact-signer
+  name: securesign-sample
+spec:
+  fulcio:
+    ingress:
+      enabled: true
+    config:
+      oidcIssuers:
+        - clientID: "trusted-artifact-signer"
+          issuerURL: "https://your-oidc-issuer-url"
+          issuer: "https://your-oidc-issuer-url"
+          type: "email"
+    signer:
+      certificateChain:
+        organizationName: Red Hat
+  # Rekor and TUF are optional (configured by defaults). Ingress is disabled by default so lets enable it for external access.
+  rekor:
+    ingress:
+      enabled: true
+  tuf:
+    ingress:
+      enabled: true
+  # Timestamp Authority is optional, if not provided, the default timestamp authority will be used
+  tsa:
+    ingress:
+      enabled: true
+    signer:
+      certificateChain:
+        intermediateCA:
+          - organizationName: Red Hat
+        leafCA:
+          organizationName: Red Hat
+        rootCA:
+          organizationName: Red Hat

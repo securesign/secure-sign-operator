@@ -14,7 +14,7 @@ Before you begin, ensure that:
 2. An instance of the Fulcio Service is running.
 
 # Operator-Generated Private keys and Certificate
-If you have deployed the operator with the default configuration found [here](https://github.com/securesign/secure-sign-operator/blob/fc9c5b01a487c263033faf6599467f8a676c412c/config/samples/rhtas_v1alpha1_securesign.yaml#L29), rotating the private keys and certificate is a straightforward process.
+If you have deployed the operator with the default configuration found [here](https://github.com/securesign/secure-sign-operator/blob/main/config/samples/rhtas_v1_securesign.yaml), rotating the private keys and certificate is a straightforward process.
 Remove the Fulcio resource:
 ```
 oc delete fulcio <securesign_name> -n <namespace>
