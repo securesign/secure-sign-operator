@@ -140,28 +140,54 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 		chainVolumeMount.MountPath = certChainMountPath
 		chainVolumeMount.ReadOnly = true
 
-		if utils.IsEnabled(instance.Spec.NTPMonitoring.Enabled) {
-			if instance.Status.NtpConfigRef != nil {
-				ntpConfigVolume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, ntpConfigVolumeName)
+		if err := ensure.OptionalToggle(utils.IsEnabled(instance.Spec.NTPMonitoring.Enabled) && instance.Status.NtpConfigRef != nil, ensure.Toggleable[*core.PodSpec]{
+			Ensure: func(spec *core.PodSpec) error {
+				appArgs = append(appArgs,
+					fmt.Sprintf("--ntp-monitoring=%s/ntp-config.yaml", NtpMountPath),
+				)
+
+				ntpConfigVolume := kubernetes.FindVolumeByNameOrCreate(spec, ntpConfigVolumeName)
 				if ntpConfigVolume.ConfigMap == nil {
 					ntpConfigVolume.ConfigMap = &core.ConfigMapVolumeSource{}
 				}
 				ntpConfigVolume.ConfigMap.Name = instance.Status.NtpConfigRef.Name
 
-				ntpConfigVolumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, ntpConfigVolumeName)
+				c := kubernetes.FindContainerByNameOrCreate(spec, DeploymentName)
+				ntpConfigVolumeMount := kubernetes.FindVolumeMountByNameOrCreate(c, ntpConfigVolumeName)
 				ntpConfigVolumeMount.ReadOnly = true
 				ntpConfigVolumeMount.MountPath = NtpMountPath
-
-				appArgs = append(appArgs,
-					fmt.Sprintf("--ntp-monitoring=%s/ntp-config.yaml", NtpMountPath),
-				)
-			}
+				return nil
+			},
+			Managed: &core.PodSpec{
+				Volumes: []core.Volume{{Name: ntpConfigVolumeName}},
+				Containers: []core.Container{{
+					Name:         DeploymentName,
+					VolumeMounts: []core.VolumeMount{{Name: ntpConfigVolumeName}},
+				}},
+			},
+		})(&template.Spec); err != nil {
+			return err
 		}
-		switch tsaUtils.GetSignerType(&instance.Spec.Signer) {
-		case tsaUtils.FileType:
-			{
 
-				fileSignerVolume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, fileSignerVolumeName)
+		signerType := tsaUtils.GetSignerType(&instance.Spec.Signer)
+		switch signerType {
+		case tsaUtils.KmsType:
+			appArgs = append(appArgs,
+				"--timestamp-signer=kms",
+				fmt.Sprintf("--kms-key-resource=%s", instance.Spec.Signer.Kms.KeyResource),
+			)
+		default:
+			// file and tink: args and resources handled by OptionalToggle below
+		}
+
+		if err := ensure.OptionalToggle(signerType == tsaUtils.FileType, ensure.Toggleable[*core.PodSpec]{
+			Ensure: func(spec *core.PodSpec) error {
+				appArgs = append(appArgs,
+					"--timestamp-signer=file",
+					fmt.Sprintf("--file-signer-key-path=%s/private_key.pem", fileSignerMountPath),
+				)
+
+				fileSignerVolume := kubernetes.FindVolumeByNameOrCreate(spec, fileSignerVolumeName)
 				if fileSignerVolume.Secret == nil {
 					fileSignerVolume.Secret = &core.SecretVolumeSource{}
 				}
@@ -173,18 +199,15 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 					},
 				}
 
-				fileSignerVolumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, fileSignerVolumeName)
+				c := kubernetes.FindContainerByNameOrCreate(spec, DeploymentName)
+				fileSignerVolumeMount := kubernetes.FindVolumeMountByNameOrCreate(c, fileSignerVolumeName)
 				fileSignerVolumeMount.MountPath = fileSignerMountPath
 				fileSignerVolumeMount.ReadOnly = true
 
-				appArgs = append(appArgs,
-					"--timestamp-signer=file",
-					fmt.Sprintf("--file-signer-key-path=%s/private_key.pem", fileSignerMountPath),
-				)
-
 				if instance.Status.Signer.FileSigner.PasswordRef != nil {
-					fileSignerPasswordEnv := kubernetes.FindEnvByNameOrCreate(container, "SIGNER_PASSWORD")
-					fileSignerPasswordEnv.ValueFrom = &core.EnvVarSource{
+					appArgs = append(appArgs, "--file-signer-passwd=$(SIGNER_PASSWORD)")
+					env := kubernetes.FindEnvByNameOrCreate(c, "SIGNER_PASSWORD")
+					env.ValueFrom = &core.EnvVarSource{
 						SecretKeyRef: &core.SecretKeySelector{
 							LocalObjectReference: core.LocalObjectReference{
 								Name: instance.Status.Signer.FileSigner.PasswordRef.Name,
@@ -192,19 +215,33 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 							Key: instance.Status.Signer.FileSigner.PasswordRef.Key,
 						},
 					}
-					appArgs = append(appArgs, "--file-signer-passwd=$(SIGNER_PASSWORD)")
 				}
-			}
-		case tsaUtils.KmsType:
-			{
+				return nil
+			},
+			Managed: &core.PodSpec{
+				Volumes: []core.Volume{{Name: fileSignerVolumeName}},
+				Containers: []core.Container{{
+					Name:         DeploymentName,
+					VolumeMounts: []core.VolumeMount{{Name: fileSignerVolumeName}},
+					Env:          []core.EnvVar{{Name: "SIGNER_PASSWORD"}},
+				}},
+			},
+		})(&template.Spec); err != nil {
+			return err
+		}
+
+		if err := ensure.OptionalToggle(signerType == tsaUtils.TinkType, ensure.Toggleable[*core.PodSpec]{
+			Ensure: func(spec *core.PodSpec) error {
 				appArgs = append(appArgs,
-					"--timestamp-signer=kms",
-					fmt.Sprintf("--kms-key-resource=%s", instance.Spec.Signer.Kms.KeyResource),
+					"--timestamp-signer=tink",
+					fmt.Sprintf("--tink-key-resource=%s", instance.Spec.Signer.Tink.KeyResource),
+					fmt.Sprintf("--tink-keyset-path=%s/encryptedKeySet", tinkSignerMountPath),
 				)
-			}
-		case tsaUtils.TinkType:
-			{
-				tinkSignerVolume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, tinkSignerVolumeName)
+				if strings.HasPrefix(instance.Spec.Signer.Tink.KeyResource, "hcvault://") {
+					appArgs = append(appArgs, "--tink-hcvault-token=$(VAULT_TOKEN)")
+				}
+
+				tinkSignerVolume := kubernetes.FindVolumeByNameOrCreate(spec, tinkSignerVolumeName)
 				if tinkSignerVolume.Secret == nil {
 					tinkSignerVolume.Secret = &core.SecretVolumeSource{}
 				}
@@ -216,21 +253,21 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.TimestampAuthority, sa 
 					},
 				}
 
-				tinkSignerVolumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, tinkSignerVolumeName)
+				c := kubernetes.FindContainerByNameOrCreate(spec, DeploymentName)
+				tinkSignerVolumeMount := kubernetes.FindVolumeMountByNameOrCreate(c, tinkSignerVolumeName)
 				tinkSignerVolumeMount.MountPath = tinkSignerMountPath
 				tinkSignerVolumeMount.ReadOnly = true
-
-				appArgs = append(appArgs,
-					"--timestamp-signer=tink",
-					fmt.Sprintf("--tink-key-resource=%s", instance.Spec.Signer.Tink.KeyResource),
-					fmt.Sprintf("--tink-keyset-path=%s/encryptedKeySet", tinkSignerMountPath),
-				)
-
-				if strings.HasPrefix(instance.Spec.Signer.Tink.KeyResource, "hcvault://") {
-					appArgs = append(appArgs, "--tink-hcvault-token=$(VAULT_TOKEN)")
-				}
-
-			}
+				return nil
+			},
+			Managed: &core.PodSpec{
+				Volumes: []core.Volume{{Name: tinkSignerVolumeName}},
+				Containers: []core.Container{{
+					Name:         DeploymentName,
+					VolumeMounts: []core.VolumeMount{{Name: tinkSignerVolumeName}},
+				}},
+			},
+		})(&template.Spec); err != nil {
+			return err
 		}
 
 		container.Image = images.Registry.Get(images.TimestampAuthority)

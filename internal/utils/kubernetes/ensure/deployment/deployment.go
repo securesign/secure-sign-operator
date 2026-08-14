@@ -18,8 +18,7 @@ func Proxy(noProxy ...string) func(*v1.Deployment) error {
 
 func GODEBUG(componentAnnotations map[string]string) func(*v1.Deployment) error {
 	return func(dp *v1.Deployment) error {
-		ensure.SetGodebugEnv(dp.Spec.Template.Spec.Containers, componentAnnotations)
-		return nil
+		return ensure.GODEBUG(componentAnnotations)(&dp.Spec.Template.Spec)
 	}
 }
 

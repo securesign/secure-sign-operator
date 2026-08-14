@@ -74,8 +74,7 @@ func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1.Reko
 			return ensure.PodSecurityContext(&object.Spec.JobTemplate.Spec.Template.Spec)
 		},
 		func(object *batchv1.CronJob) error {
-			ensure.SetGodebugEnv(object.Spec.JobTemplate.Spec.Template.Spec.Containers, instance.GetAnnotations())
-			return nil
+			return ensure.GODEBUG(instance.GetAnnotations())(&object.Spec.JobTemplate.Spec.Template.Spec)
 		},
 		func(object *batchv1.CronJob) error {
 			ref := &object.Spec.JobTemplate.Spec.Template.Spec
