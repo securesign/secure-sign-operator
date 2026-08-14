@@ -18,7 +18,7 @@ spec:
       enabled: true
       interval: 10m
   signer:
-    kms: secret
+    type: secret
   attestations:
     enabled: true
     pvc:
