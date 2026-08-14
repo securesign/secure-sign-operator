@@ -158,49 +158,61 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1.Rekor, sa string,
 				return fmt.Errorf("kms config is required when type is %q", rhtasv1.RekorSignerTypeKMS)
 			}
 			args = append(args, "--rekor_server.signer", instance.Spec.Signer.Kms.KeyResource)
-			kubernetes.RemoveVolumeByName(&template.Spec, privateKeyVolumeName)
-			kubernetes.RemoveVolumeMountByName(container, privateKeyVolumeName)
-			kubernetes.RemoveEnvVarByName(container, "SIGNER_PASSWORD")
 		case rhtasv1.RekorSignerTypeMemory:
 			args = append(args, "--rekor_server.signer", "memory")
-			kubernetes.RemoveVolumeByName(&template.Spec, privateKeyVolumeName)
-			kubernetes.RemoveVolumeMountByName(container, privateKeyVolumeName)
-			kubernetes.RemoveEnvVarByName(container, "SIGNER_PASSWORD")
 		default:
-			if instance.Status.Signer.KeyRef == nil {
-				return rekorutils.ErrSignerKeyNotSpecified
-			}
-			privateVolume := kubernetes.FindVolumeByNameOrCreate(&template.Spec, privateKeyVolumeName)
-			if privateVolume.Secret == nil {
-				privateVolume.Secret = &v1.SecretVolumeSource{}
-			}
-			privateVolume.Secret.SecretName = instance.Status.Signer.KeyRef.Name
-			privateVolume.Secret.Items = []v1.KeyToPath{
-				{
-					Key:  instance.Status.Signer.KeyRef.Key,
-					Path: constants.KeyPrivate,
-				},
-			}
+			// file signer: args and resources handled by OptionalToggle below
+		}
 
-			volumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, privateKeyVolumeName)
-			volumeMount.MountPath = "/key"
-			volumeMount.ReadOnly = true
+		isFileSigner := instance.Spec.Signer.Type != rhtasv1.RekorSignerTypeKMS && instance.Spec.Signer.Type != rhtasv1.RekorSignerTypeMemory
+		if err := ensure.OptionalToggle(isFileSigner, ensure.Toggleable[*v1.PodSpec]{
+			Ensure: func(spec *v1.PodSpec) error {
+				if instance.Status.Signer.KeyRef == nil {
+					return rekorutils.ErrSignerKeyNotSpecified
+				}
+				args = append(args, "--rekor_server.signer", "/key/private")
 
-			args = append(args, "--rekor_server.signer", "/key/private")
-
-			// Add signer password
-			if instance.Status.Signer.PasswordRef != nil {
-				args = append(args, "--rekor_server.signer-passwd", "$(SIGNER_PASSWORD)")
-				env := kubernetes.FindEnvByNameOrCreate(container, "SIGNER_PASSWORD")
-				env.ValueFrom = &v1.EnvVarSource{
-					SecretKeyRef: &v1.SecretKeySelector{
-						Key: instance.Status.Signer.PasswordRef.Key,
-						LocalObjectReference: v1.LocalObjectReference{
-							Name: instance.Status.Signer.PasswordRef.Name,
-						},
+				privateVolume := kubernetes.FindVolumeByNameOrCreate(spec, privateKeyVolumeName)
+				if privateVolume.Secret == nil {
+					privateVolume.Secret = &v1.SecretVolumeSource{}
+				}
+				privateVolume.Secret.SecretName = instance.Status.Signer.KeyRef.Name
+				privateVolume.Secret.Items = []v1.KeyToPath{
+					{
+						Key:  instance.Status.Signer.KeyRef.Key,
+						Path: constants.KeyPrivate,
 					},
 				}
-			}
+
+				c := kubernetes.FindContainerByNameOrCreate(spec, actions.ServerDeploymentName)
+				volumeMount := kubernetes.FindVolumeMountByNameOrCreate(c, privateKeyVolumeName)
+				volumeMount.MountPath = "/key"
+				volumeMount.ReadOnly = true
+
+				if instance.Status.Signer.PasswordRef != nil {
+					args = append(args, "--rekor_server.signer-passwd", "$(SIGNER_PASSWORD)")
+					env := kubernetes.FindEnvByNameOrCreate(c, "SIGNER_PASSWORD")
+					env.ValueFrom = &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							Key: instance.Status.Signer.PasswordRef.Key,
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: instance.Status.Signer.PasswordRef.Name,
+							},
+						},
+					}
+				}
+				return nil
+			},
+			Managed: &v1.PodSpec{
+				Volumes: []v1.Volume{{Name: privateKeyVolumeName}},
+				Containers: []v1.Container{{
+					Name:         actions.ServerDeploymentName,
+					VolumeMounts: []v1.VolumeMount{{Name: privateKeyVolumeName}},
+					Env:          []v1.EnvVar{{Name: "SIGNER_PASSWORD"}},
+				}},
+			},
+		})(&template.Spec); err != nil {
+			return err
 		}
 
 		if fips.Enabled() {
@@ -309,21 +321,28 @@ func (i deployAction) ensureAttestation(instance *rhtasv1.Rekor) func(*v2.Deploy
 		}
 
 		// File storage
-		if enabledFileAttestationStorage(instance) {
-			storageVolume := kubernetes.FindVolumeByNameOrCreate(&dp.Spec.Template.Spec, storageVolumeName)
-			if storageVolume.PersistentVolumeClaim == nil {
-				storageVolume.PersistentVolumeClaim = &v1.PersistentVolumeClaimVolumeSource{}
-			}
-			storageVolume.PersistentVolumeClaim.ClaimName = instance.Status.PvcName
+		if err := ensure.OptionalToggle(enabledFileAttestationStorage(instance), ensure.Toggleable[*v1.PodSpec]{
+			Ensure: func(spec *v1.PodSpec) error {
+				storageVolume := kubernetes.FindVolumeByNameOrCreate(spec, storageVolumeName)
+				if storageVolume.PersistentVolumeClaim == nil {
+					storageVolume.PersistentVolumeClaim = &v1.PersistentVolumeClaimVolumeSource{}
+				}
+				storageVolume.PersistentVolumeClaim.ClaimName = instance.Status.PvcName
 
-			storageVolumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, storageVolumeName)
-			storageVolumeMount.MountPath = "/var/run/attestations"
-		} else {
-			// other storage bucket options
-
-			// remove unused storage volume
-			kubernetes.RemoveVolumeByName(&dp.Spec.Template.Spec, storageVolumeName)
-			kubernetes.RemoveVolumeMountByName(container, storageVolumeName)
+				c := kubernetes.FindContainerByNameOrCreate(spec, actions.ServerDeploymentName)
+				storageVolumeMount := kubernetes.FindVolumeMountByNameOrCreate(c, storageVolumeName)
+				storageVolumeMount.MountPath = "/var/run/attestations"
+				return nil
+			},
+			Managed: &v1.PodSpec{
+				Volumes: []v1.Volume{{Name: storageVolumeName}},
+				Containers: []v1.Container{{
+					Name:         actions.ServerDeploymentName,
+					VolumeMounts: []v1.VolumeMount{{Name: storageVolumeName}},
+				}},
+			},
+		})(&dp.Spec.Template.Spec); err != nil {
+			return err
 		}
 
 		return nil

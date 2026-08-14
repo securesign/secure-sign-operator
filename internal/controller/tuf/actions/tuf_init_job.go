@@ -121,8 +121,7 @@ func (i initJobAction) ensureInitJob(ctx context.Context, labels map[string]stri
 			return nil
 		},
 		func(object *v2.Job) error {
-			ensure.SetGodebugEnv(object.Spec.Template.Spec.Containers, instance.GetAnnotations())
-			return nil
+			return ensure.GODEBUG(instance.GetAnnotations())(&object.Spec.Template.Spec)
 		},
 		func(object *v2.Job) error {
 			return ensure.PodSecurityContext(&object.Spec.Template.Spec)

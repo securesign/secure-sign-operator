@@ -93,8 +93,7 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) 
 			return ensure.PodSecurityContext(&object.Spec.Template.Spec)
 		},
 		func(object *v1.StatefulSet) error {
-			ensure.SetGodebugEnv(object.Spec.Template.Spec.Containers, instance.GetAnnotations())
-			return nil
+			return ensure.GODEBUG(instance.GetAnnotations())(&object.Spec.Template.Spec)
 		},
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create %s statefulset: %w", actions.MonitorStatefulSetName, err), instance,
@@ -126,6 +125,9 @@ func (i statefulSetAction) ensureTLS(tlsConfig rhtasv1.TLS, name string) func(st
 		if err := tlsensure.TLS(tlsConfig, name)(&sts.Spec.Template); err != nil {
 			return err
 		}
+		container := kubernetes.FindContainerByNameOrCreate(&sts.Spec.Template.Spec, name)
+		sslEnv := kubernetes.FindEnvByNameOrCreate(container, "SSL_CERT_DIR")
+		sslEnv.Value = constants.SecretMountPath
 		return nil
 	}
 }
@@ -168,13 +170,6 @@ func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1.CTlog, sa 
 
 		homeEnv := kubernetes.FindEnvByNameOrCreate(container, "HOME")
 		homeEnv.Value = mountPath
-
-		if ctlogutils.TlsEnabled(instance) {
-			sslEnv := kubernetes.FindEnvByNameOrCreate(container, "SSL_CERT_DIR")
-			sslEnv.Value = constants.SecretMountPath
-		} else {
-			kubernetes.RemoveEnvVarByName(container, "SSL_CERT_DIR")
-		}
 
 		volumeMount := kubernetes.FindVolumeMountByNameOrCreate(container, storageVolumeName)
 		volumeMount.MountPath = mountPath

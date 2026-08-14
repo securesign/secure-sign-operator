@@ -1,10 +1,12 @@
-package ensure
+package ensure_test
 
 import (
 	"testing"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/internal/annotations"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
+	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -76,7 +78,6 @@ func TestSetGodebugEnv(t *testing.T) {
 				{Name: "server"},
 			},
 			verify: func(g Gomega, containers []corev1.Container) {
-				SetGodebugEnv(containers, nil)
 				g.Expect(containers[0].Env).Should(HaveLen(1))
 				g.Expect(containers[0].Env[0]).Should(Equal(corev1.EnvVar{Name: "GODEBUG", Value: "fips140=only"}))
 			},
@@ -128,8 +129,14 @@ func TestSetGodebugEnv(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
 			t.Setenv("GODEBUG", tt.godebug)
-			SetGodebugEnv(tt.containers, tt.componentAnnotations)
-			tt.verify(g, tt.containers)
+			dp := &v1.Deployment{Spec: v1.DeploymentSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{
+				Containers: tt.containers,
+			}}}}
+			g.Expect(deployment.GODEBUG(tt.componentAnnotations)(dp)).Should(Succeed())
+			if tt.name == "idempotent - no duplication on repeat call" {
+				g.Expect(deployment.GODEBUG(tt.componentAnnotations)(dp)).Should(Succeed())
+			}
+			tt.verify(g, dp.Spec.Template.Spec.Containers)
 		})
 	}
 }

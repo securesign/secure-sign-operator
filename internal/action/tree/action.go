@@ -34,8 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const logserverDeploymentName = "trillian-logserver"
-
 func NewResolveTreeAction[T tlsAwareObject](component string, wrapper func(T) *wrapper[T]) action.Action[T] {
 	return &resolveTree[T]{
 		component:       component,
@@ -255,8 +253,7 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 			return ensure.PodSecurityContext(&object.Spec.Template.Spec)
 		},
 		func(object *batchv1.Job) error {
-			ensure.SetGodebugEnv(object.Spec.Template.Spec.Containers, instance.GetAnnotations())
-			return nil
+			return ensure.GODEBUG(instance.GetAnnotations())(&object.Spec.Template.Spec)
 		},
 		func(object *batchv1.Job) error {
 			return ensureTls.TrustedCA(instance.GetTrustedCA(), createTreeContainerName)(&object.Spec.Template)
