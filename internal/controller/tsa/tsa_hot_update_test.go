@@ -206,18 +206,12 @@ var _ = Describe("Timestamp Authority hot update", func() {
 						},
 						Key: "leafPrivateKey",
 					},
-					PasswordRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "tsa-test-secret",
-						},
-						Key: "leafPrivateKeyPassword",
-					},
 				}
 				return suite.Client().Update(ctx, found)
 			}).WithContext(ctx).Should(Succeed())
 
 			By("Creating new certificate chain and signer keys")
-			secret := tsa.CreateSecrets(Namespace, "tsa-test-secret", true)
+			secret := tsa.CreateSecrets(Namespace, "tsa-test-secret", false)
 			Expect(suite.Client().Create(ctx, secret)).NotTo(HaveOccurred())
 
 			By("Status field changed for cert chain")
@@ -229,7 +223,7 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			By("Status field changed for signer key")
 			Eventually(func(g Gomega, ctx context.Context) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Signer.FileSigner.PasswordRef.Name
+				return found.Status.Signer.FileSigner.PrivateKeyRef.Name
 			}).WithContext(ctx).Should(Equal("tsa-test-secret"))
 
 			Eventually(func(g Gomega, ctx context.Context) bool {

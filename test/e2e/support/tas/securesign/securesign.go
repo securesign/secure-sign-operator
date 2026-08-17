@@ -276,12 +276,6 @@ func WithProvidedEncryptedCerts() Opts {
 						},
 						Key: "leafPrivateKey",
 					},
-					PasswordRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "test-tsa-secret",
-						},
-						Key: "leafPrivateKeyPassword",
-					},
 				},
 			}
 		}

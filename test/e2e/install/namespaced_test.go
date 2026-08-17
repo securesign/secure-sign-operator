@@ -218,35 +218,24 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 				Ingress: rhtasv1.Ingress{
 					Enabled: ptr.To(true),
 				},
-				Signer: func() rhtasv1.TimestampAuthoritySigner {
-					signer := rhtasv1.TimestampAuthoritySigner{
-						CertificateChain: rhtasv1.CertificateChain{
-							CertificateChainRef: &rhtasv1.SecretKeySelector{
-								LocalObjectReference: rhtasv1.LocalObjectReference{
-									Name: "test-tsa-secret",
-								},
-								Key: "certificateChain",
-							},
-						},
-						File: &rhtasv1.File{
-							PrivateKeyRef: &rhtasv1.SecretKeySelector{
-								LocalObjectReference: rhtasv1.LocalObjectReference{
-									Name: "test-tsa-secret",
-								},
-								Key: "leafPrivateKey",
-							},
-						},
-					}
-					if !fipsEnabled {
-						signer.File.PasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+				Signer: rhtasv1.TimestampAuthoritySigner{
+					CertificateChain: rhtasv1.CertificateChain{
+						CertificateChainRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "test-tsa-secret",
 							},
-							Key: "leafPrivateKeyPassword",
-						}
-					}
-					return signer
-				}(),
+							Key: "certificateChain",
+						},
+					},
+					File: &rhtasv1.File{
+						PrivateKeyRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
+								Name: "test-tsa-secret",
+							},
+							Key: "leafPrivateKey",
+						},
+					},
+				},
 				NTPMonitoring: rhtasv1.NTPMonitoring{
 					Enabled: ptr.To(true),
 					Config: &rhtasv1.NtpMonitoringConfig{
@@ -352,7 +341,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			Expect(cli.Create(ctx, tufCtlogSecret)).To(Succeed())
 
 			// TSA
-			tsaSecret := tsa.CreateSecrets(namespaces["tsa"].Name, "test-tsa-secret", !fipsEnabled)
+			tsaSecret := tsa.CreateSecrets(namespaces["tsa"].Name, "test-tsa-secret", false)
 
 			tufTSASecret := tsaSecret.DeepCopy()
 			tufTSASecret.Namespace = namespaces["tuf"].Name
