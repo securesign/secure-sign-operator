@@ -186,6 +186,7 @@ func tsaSignerFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			case 0:
 				s.File = &File{}
 				c.FillNoCustom(s.File)
+				s.File.PasswordRef = nil
 			case 1:
 				s.Kms = &KMS{}
 				c.FillNoCustom(s.Kms)

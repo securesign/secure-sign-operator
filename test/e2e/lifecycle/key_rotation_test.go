@@ -408,7 +408,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 
 		It("Update tsa cert", func(ctx SpecContext) {
 			secretName := "new-tsa-cert"
-			newTsaSecret = tsa.CreateSecrets(namespace.Name, secretName, !fipsEnabled)
+			newTsaSecret = tsa.CreateSecrets(namespace.Name, secretName, false)
 			Expect(cli.Create(ctx, newTsaSecret)).To(Succeed())
 
 			Eventually(func() error {
@@ -422,7 +422,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 						Key: "certificateChain",
 					}}
 
-				signer := &rhtasv1.File{
+				f.Spec.TimestampAuthority.Signer.File = &rhtasv1.File{
 					PrivateKeyRef: &rhtasv1.SecretKeySelector{
 						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: secretName,
@@ -430,15 +430,6 @@ var _ = Describe("Key rotation test", Ordered, func() {
 						Key: "leafPrivateKey",
 					},
 				}
-				if !fipsEnabled {
-					signer.PasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: secretName,
-						},
-						Key: "leafPrivateKeyPassword",
-					}
-				}
-				f.Spec.TimestampAuthority.Signer.File = signer
 
 				return cli.Update(ctx, f)
 			}).Should(Succeed())

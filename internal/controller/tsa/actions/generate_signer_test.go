@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func tsaInstance() *rhtasv1.TimestampAuthority {
@@ -277,49 +276,6 @@ func TestTSASigner_DeterministicName(t *testing.T) {
 	g.Expect(fmt.Sprintf(signerSecretNameFormat, "my-tsa")).To(Equal("tsa-signer-config-my-tsa"))
 }
 
-func TestTSASigner_PasswordRefRejectedInFIPS(t *testing.T) {
-	g := NewWithT(t)
-	ctx := t.Context()
-
-	original := fips.Enabled
-	fips.Enabled = func() bool { return true }
-	t.Cleanup(func() { fips.Enabled = original })
-
-	instance := tsaInstance()
-	instance.Spec.Signer = rhtasv1.TimestampAuthoritySigner{
-		CertificateChain: rhtasv1.CertificateChain{
-			CertificateChainRef: &rhtasv1.SecretKeySelector{
-				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-cert-secret"},
-				Key:                  "certificateChain",
-			},
-		},
-		File: &rhtasv1.File{
-			PrivateKeyRef: &rhtasv1.SecretKeySelector{
-				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-key-secret"},
-				Key:                  "leafPrivateKey",
-			},
-			PasswordRef: &rhtasv1.SecretKeySelector{ //nolint:staticcheck
-				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-password"},
-				Key:                  "password",
-			},
-		},
-	}
-
-	c := testAction.FakeClientBuilder().
-		WithObjects(instance).
-		WithStatusSubresource(instance).
-		Build()
-
-	a := testAction.PrepareAction(c, NewFIPSValidationAction())
-	result := a.Handle(ctx, instance)
-
-	g.Expect(result.Err).To(HaveOccurred())
-	g.Expect(errors.Is(result.Err, reconcile.TerminalError(result.Err))).To(BeTrue())
-	g.Expect(result.Err.Error()).To(ContainSubstring("FIPS"))
-	cond := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
-	g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-}
-
 func TestTSASigner_UnencryptedKeyAllowedInFIPS(t *testing.T) {
 	g := NewWithT(t)
 	ctx := t.Context()
@@ -409,18 +365,13 @@ func TestTSASigner_AlignStatusFields(t *testing.T) {
 						Key:                  "myKey",
 						LocalObjectReference: rhtasv1.LocalObjectReference{Name: userSecret},
 					},
-					PasswordRef: &rhtasv1.SecretKeySelector{
-						Key:                  "myPassword",
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: userSecret},
-					},
 				},
 			},
 			testCase: func(g Gomega, instance *rhtasv1.TimestampAuthority) {
 				g.Expect(instance.Status.Signer.FileSigner).NotTo(BeNil())
 				g.Expect(instance.Status.Signer.FileSigner.PrivateKeyRef.Name).To(Equal(userSecret), "should preserve user-provided PrivateKeyRef")
 				g.Expect(instance.Status.Signer.FileSigner.PrivateKeyRef.Key).To(Equal("myKey"))
-				g.Expect(instance.Status.Signer.FileSigner.PasswordRef.Name).To(Equal(userSecret), "should preserve user-provided PasswordRef")
-				g.Expect(instance.Status.Signer.FileSigner.PasswordRef.Key).To(Equal("myPassword"))
+				g.Expect(instance.Status.Signer.FileSigner.PasswordRef).To(BeNil())
 				g.Expect(instance.Status.Signer.CertificateChainRef.Name).To(Equal("test-secret"))
 			},
 		},
@@ -437,7 +388,6 @@ func TestTSASigner_AlignStatusFields(t *testing.T) {
 						Key:                  "myKey",
 						LocalObjectReference: rhtasv1.LocalObjectReference{Name: userSecret},
 					},
-					// PasswordRef intentionally nil
 				},
 			},
 			testCase: func(g Gomega, instance *rhtasv1.TimestampAuthority) {
@@ -479,6 +429,66 @@ func TestTSASigner_AlignStatusFields(t *testing.T) {
 					"should reflect spec CertificateChainRef")
 				g.Expect(instance.Status.Signer.FileSigner.PrivateKeyRef.Name).To(Equal("user-secret"),
 					"should reflect spec PrivateKeyRef")
+			},
+		},
+		{
+			name: "preserves PasswordRef when PrivateKeyRef unchanged",
+			signer: rhtasv1.TimestampAuthoritySigner{
+				CertificateChain: rhtasv1.CertificateChain{},
+				File: &rhtasv1.File{
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						Key:                  "leafPrivateKey",
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "same-key-secret"},
+					},
+				},
+			},
+			existingStatus: &rhtasv1.TimestampAuthoritySignerStatus{
+				FileSigner: &rhtasv1.FileSignerStatus{
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						Key:                  "leafPrivateKey",
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "same-key-secret"},
+					},
+					PasswordRef: &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+						Key:                  "password",
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "password-secret"},
+					},
+				},
+			},
+			testCase: func(g Gomega, instance *rhtasv1.TimestampAuthority) {
+				g.Expect(instance.Status.Signer.FileSigner).NotTo(BeNil())
+				g.Expect(instance.Status.Signer.FileSigner.PasswordRef).NotTo(BeNil(), //nolint:staticcheck
+					"PasswordRef should be preserved when PrivateKeyRef is unchanged")
+				g.Expect(instance.Status.Signer.FileSigner.PasswordRef.Name).To(Equal("password-secret")) //nolint:staticcheck
+				g.Expect(instance.Status.Signer.FileSigner.PasswordRef.Key).To(Equal("password"))         //nolint:staticcheck
+			},
+		},
+		{
+			name: "drops PasswordRef when PrivateKeyRef changes",
+			signer: rhtasv1.TimestampAuthoritySigner{
+				CertificateChain: rhtasv1.CertificateChain{},
+				File: &rhtasv1.File{
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						Key:                  "leafPrivateKey",
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new-key-secret"},
+					},
+				},
+			},
+			existingStatus: &rhtasv1.TimestampAuthoritySignerStatus{
+				FileSigner: &rhtasv1.FileSignerStatus{
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						Key:                  "leafPrivateKey",
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old-key-secret"},
+					},
+					PasswordRef: &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+						Key:                  "password",
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "password-secret"},
+					},
+				},
+			},
+			testCase: func(g Gomega, instance *rhtasv1.TimestampAuthority) {
+				g.Expect(instance.Status.Signer.FileSigner).NotTo(BeNil())
+				g.Expect(instance.Status.Signer.FileSigner.PasswordRef).To(BeNil(), //nolint:staticcheck
+					"PasswordRef should be dropped when PrivateKeyRef changes")
 			},
 		},
 		{
