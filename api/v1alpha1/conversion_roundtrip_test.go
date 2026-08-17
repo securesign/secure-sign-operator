@@ -50,6 +50,10 @@ func enabledFieldsFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			if s.Enabled == nil {
 				s.Enabled = ptr.To(c.Bool())
 			}
+			// empty map doesn't survive JSON omitempty roundtrip
+			if len(s.Annotations) == 0 {
+				s.Annotations = nil
+			}
 		},
 		func(s *rhtasv1.MonitoringConfig, c randfill.Continue) {
 			c.FillNoCustom(s)

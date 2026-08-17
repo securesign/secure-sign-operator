@@ -16,6 +16,7 @@ func (src *Tuf) ConvertTo(dstRaw conversion.Hub) error {
 	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
 		return err
 	}
+	dst.Spec.Ingress.Annotations = restored.Spec.Ingress.Annotations
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
 	dst.Spec.TrustedCA = restored.Spec.TrustedCA
 

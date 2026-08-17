@@ -43,7 +43,7 @@ func tlsTestScheme(t *testing.T) *runtime.Scheme {
 
 func apiServerWith(profile *configv1.TLSSecurityProfile, adherence configv1.TLSAdherencePolicy) *configv1.APIServer {
 	return &configv1.APIServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		ObjectMeta: metav1.ObjectMeta{Name: openshiftClusterResourceName},
 		Spec: configv1.APIServerSpec{
 			TLSSecurityProfile: profile,
 			TLSAdherence:       adherence,
@@ -189,7 +189,7 @@ func TestResolveClusterTLSProfile_NotFoundClassification(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	cli := fake.NewClientBuilder().WithScheme(tlsTestScheme(t)).Build()
-	err := cli.Get(context.Background(), client.ObjectKey{Name: "cluster"}, &configv1.APIServer{})
+	err := cli.Get(context.Background(), client.ObjectKey{Name: openshiftClusterResourceName}, &configv1.APIServer{})
 
 	g.Expect(apierrors.IsNotFound(err)).To(gomega.BeTrue())
 }
