@@ -70,22 +70,41 @@ func ensureContainerSecurityContext(container *core.Container) {
 }
 
 // ReconcileUserPodResources applies user-defined init containers, volumes, and
-// volume mounts to a PodSpec and main container. This is the shared entry point
-// called by both Fulcio and CTLog deployment actions to avoid duplication.
-func ReconcileUserPodResources(podSpec *core.PodSpec, container *core.Container, ext v1.PodExtensions) {
+// volume mounts to a PodSpec. It uses the previous UserSpecState to remove
+// volumes and volume mounts that are no longer desired via EnsureWithCleanup.
+// Returns the current state so the caller can persist it via WriteLastApplied.
+func ReconcileUserPodResources(podSpec *core.PodSpec, containerName string, ext v1.PodExtensions, prev UserSpecState) (UserSpecState, error) {
 	ReconcileInitContainers(podSpec, ext.InitContainers)
 
-	for i := range ext.Volumes {
-		coreVol := ext.Volumes[i].ToVolume()
-		v := kubernetes.FindVolumeByNameOrCreate(podSpec, coreVol.Name)
-		v.VolumeSource = coreVol.VolumeSource
+	if err := EnsureWithCleanup(podSpec, Toggleable[*core.PodSpec]{
+		Ensure:  upsertUserResources(containerName, ext),
+		Managed: StaleResources(prev, ext, containerName),
+	}); err != nil {
+		return UserSpecState{}, err
 	}
 
-	for _, vm := range ext.VolumeMounts {
-		m := kubernetes.FindVolumeMountByNameOrCreate(container, vm.Name)
-		name := m.Name
-		*m = vm
-		m.Name = name
+	return UserSpecState{
+		Volumes:      Names(ext.Volumes, func(v v1.AdditionalVolume) string { return v.Name }),
+		VolumeMounts: Names(ext.VolumeMounts, func(vm core.VolumeMount) string { return vm.Name }),
+	}, nil
+}
+
+func upsertUserResources(containerName string, ext v1.PodExtensions) func(*core.PodSpec) error {
+	return func(spec *core.PodSpec) error {
+		for i := range ext.Volumes {
+			coreVol := ext.Volumes[i].ToVolume()
+			v := kubernetes.FindVolumeByNameOrCreate(spec, coreVol.Name)
+			v.VolumeSource = coreVol.VolumeSource
+		}
+
+		container := kubernetes.FindContainerByNameOrCreate(spec, containerName)
+		for _, vm := range ext.VolumeMounts {
+			m := kubernetes.FindVolumeMountByNameOrCreate(container, vm.Name)
+			name := m.Name
+			*m = vm
+			m.Name = name
+		}
+		return nil
 	}
 }
 

@@ -29,6 +29,17 @@ func OptionalToggle[T any](condition bool, t Toggleable[T]) func(T) error {
 	}
 }
 
+// EnsureWithCleanup applies t.Ensure to the target and then removes items
+// declared in t.Managed. Unlike OptionalToggle, it always runs both steps.
+// Use it when Managed represents stale items to remove after upserting desired state.
+func EnsureWithCleanup[T any](target T, t Toggleable[T]) error {
+	if err := t.Ensure(target); err != nil {
+		return err
+	}
+	removeManaged(target, t.Managed)
+	return nil
+}
+
 // removeManaged removes items declared in managed from the live object.
 // It uses reflect to match items by Name across all nested slices (Volumes,
 // Containers, VolumeMounts, Env, Ports, etc.) regardless of resource type.
