@@ -10,6 +10,7 @@ import (
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/trillian/dbsecret"
 	trillianUtils "github.com/securesign/operator/internal/controller/trillian/utils"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
@@ -142,7 +143,7 @@ func (i deployAction) ensureDbDeployment(instance *rhtasv1.Trillian, sa string, 
 		volumeMount.MountPath = "/var/lib/mysql"
 
 		// Env variables from secret DatabaseSecretRef.Name
-		keys := []string{actions.SecretUser, actions.SecretPassword, actions.SecretRootPassword, actions.SecretPort, actions.SecretDatabaseName}
+		keys := []string{dbsecret.SecretUser, dbsecret.SecretPassword, dbsecret.SecretRootPassword, dbsecret.SecretPort, dbsecret.SecretDatabaseName}
 		for _, v := range keys {
 			temp := strings.ReplaceAll(v, "-", "_")
 			temp = strings.ToUpper(temp)

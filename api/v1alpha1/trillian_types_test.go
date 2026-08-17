@@ -248,10 +248,6 @@ var _ = Describe("Trillian", func() {
 						},
 					}
 
-					expectedTrillianInstance.Spec.Db.DatabaseSecretRef = &LocalObjectReference{
-						Name: "secret",
-					}
-
 					Expect(k8sClient.Create(context.Background(), &trillianInstance)).To(Succeed())
 					fetchedTrillian := &Trillian{}
 					Expect(k8sClient.Get(context.Background(), getKey(&trillianInstance), fetchedTrillian)).To(Succeed())
