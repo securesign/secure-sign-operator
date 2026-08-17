@@ -3,7 +3,6 @@ package v1alpha1
 import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
-	"k8s.io/apimachinery/pkg/api/equality"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
@@ -33,7 +32,7 @@ func Convert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(in *rhtasv1.FulcioSpec, out *F
 }
 
 func Convert_v1alpha1_FulcioCert_To_v1_FulcioSigner(in *FulcioCert, out *rhtasv1.FulcioSigner, s apiconversion.Scope) error {
-	out.Type = rhtasv1.FulcioSignerTypeFile
+	out.Type = rhtasv1.SignerTypeFile
 	out.CertificateChain.CommonName = in.CommonName
 	out.CertificateChain.OrganizationName = in.OrganizationName
 	out.CertificateChain.OrganizationEmail = in.OrganizationEmail
@@ -143,12 +142,11 @@ func (src *Fulcio) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
 	dst.Spec.Signer.Type = restored.Spec.Signer.Type
-	// If original v1 had File=&{} (empty struct), preserve it
-	if dst.Spec.Signer.File == nil && restored.Spec.Signer.File != nil {
-		emptyFile := &rhtasv1.FulcioFile{}
-		if equality.Semantic.DeepEqual(restored.Spec.Signer.File, emptyFile) {
-			dst.Spec.Signer.File = &rhtasv1.FulcioFile{}
-		}
+	if dst.Spec.Signer.File == nil {
+		dst.Spec.Signer.File = restored.Spec.Signer.File
+	}
+	if dst.Spec.Signer.Kms == nil {
+		dst.Spec.Signer.Kms = restored.Spec.Signer.Kms
 	}
 	dst.Status.CertificateChain = restored.Status.CertificateChain
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor

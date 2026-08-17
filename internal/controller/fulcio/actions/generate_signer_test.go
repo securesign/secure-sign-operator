@@ -46,6 +46,25 @@ func TestFulcioCert_IsAlwaysEnabled(t *testing.T) {
 	g.Expect(a.CanHandle(t.Context(), instance)).To(BeTrue())
 }
 
+func TestFulcioCert_DisabledForKMSSigner(t *testing.T) {
+	g := NewWithT(t)
+	instance := fulcioInstance()
+	instance.Spec.Signer = rhtasv1.FulcioSigner{
+		Type: rhtasv1.SignerTypeKMS,
+		CertificateChain: rhtasv1.FulcioCertificateChain{
+			CertificateChainRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "cert-chain"},
+				Key:                  "cert",
+			},
+		},
+		Kms: &rhtasv1.KMS{KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k"},
+	}
+
+	c := testAction.FakeClientBuilder().Build()
+	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	g.Expect(a.CanHandle(t.Context(), instance)).To(BeFalse())
+}
+
 func TestFulcioCert_UserProvidedCert(t *testing.T) {
 	g := NewWithT(t)
 	ctx := t.Context()
@@ -395,6 +414,57 @@ func TestFulcioCert_CanHandle_GenerationBump(t *testing.T) {
 	c := testAction.FakeClientBuilder().Build()
 	a := testAction.PrepareAction(c, NewGenerateSignerAction())
 	g.Expect(a.CanHandle(t.Context(), instance)).To(BeTrue())
+}
+
+func TestFulcioFIPS_KMSSkipsPrivateKeyValidation(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+
+	original := fips.Enabled
+	fips.Enabled = func() bool { return true }
+	t.Cleanup(func() { fips.Enabled = original })
+
+	ecKey, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	g.Expect(err).ToNot(HaveOccurred())
+	certConfig := &utils.FulcioCertConfig{
+		OrganizationName: "Test",
+		CommonName:       "test-ca",
+		PrivateKey: func() []byte {
+			k, _ := utils.CreateCAKey(ecKey)
+			return k
+		}(),
+	}
+	certPEM, err := utils.CreateFulcioCA(certConfig)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	instance := fulcioInstance()
+	instance.Spec.Signer = rhtasv1.FulcioSigner{
+		Type: rhtasv1.SignerTypeKMS,
+		CertificateChain: rhtasv1.FulcioCertificateChain{
+			CertificateChainRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "cert-chain"},
+				Key:                  "cert",
+			},
+		},
+		Kms: &rhtasv1.KMS{KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k"},
+	}
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance,
+			&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "cert-chain", Namespace: "default"},
+				Data:       map[string][]byte{"cert": certPEM},
+			},
+		).
+		WithStatusSubresource(instance).
+		Build()
+
+	a := testAction.PrepareAction(c, NewFIPSValidationAction())
+	g.Expect(a.CanHandle(ctx, instance)).To(BeTrue())
+
+	result := a.Handle(ctx, instance)
+	g.Expect(result).To(Equal(testAction.Return()))
+	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, fips.FIPSCondition)).To(BeTrue())
 }
 
 func TestFulcioCert_PasswordRefRejectedInFIPS(t *testing.T) {

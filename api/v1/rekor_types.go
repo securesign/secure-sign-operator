@@ -96,12 +96,6 @@ type RekorAttestations struct {
 	Pvc Pvc `json:"pvc,omitempty"`
 }
 
-const (
-	RekorSignerTypeSecret = "secret"
-	RekorSignerTypeMemory = "memory"
-	RekorSignerTypeKMS    = "kms"
-)
-
 // RekorSigner defines the signer configuration for the Rekor transparency log.
 // +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'kms' || has(self.kms)",message="kms is required when type is 'kms'"
 // +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'secret' || !has(self.kms)",message="kms should not be configured when type is 'secret'"

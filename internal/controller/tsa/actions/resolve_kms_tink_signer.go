@@ -13,8 +13,6 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
-	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -117,7 +115,7 @@ func (a *resolveKMSTinkSignerAction) Handle(ctx context.Context, instance *rhtas
 	instance.SetCondition(metav1.Condition{
 		Type:               TSASignerCondition,
 		Status:             metav1.ConditionTrue,
-		Reason:             "Resolved",
+		Reason:             constants.ReasonResolved,
 		Message:            "Using existing secret",
 		ObservedGeneration: instance.GetGeneration(),
 	})
@@ -127,25 +125,5 @@ func (a *resolveKMSTinkSignerAction) Handle(ctx context.Context, instance *rhtas
 
 func (a *resolveKMSTinkSignerAction) ensureCertChainLabel(ctx context.Context, instance *rhtasv1.TimestampAuthority, ref *rhtasv1.SecretKeySelector) error {
 	label := labels.LabelNamespace + "/tsa.certchain.pem"
-
-	existing, err := kubernetes.ListSecrets(ctx, a.Client, instance.Namespace, label)
-	if err != nil {
-		return err
-	}
-	for _, s := range existing.Items {
-		if s.Name == ref.Name {
-			continue
-		}
-		if err := labels.Remove(ctx, &s, a.Client, label); err != nil {
-			return err
-		}
-	}
-
-	secret := &corev1.Secret{}
-	secret.Name = ref.Name
-	secret.Namespace = instance.Namespace
-	_, err = kubernetes.CreateOrUpdate(ctx, a.Client, secret,
-		ensure.Labels[*corev1.Secret]([]string{label}, map[string]string{label: tsaUtils.KeyCertificateChain}),
-	)
-	return err
+	return kubernetes.EnsureExclusiveSecretLabel(ctx, a.Client, instance.Namespace, ref.Name, label, tsaUtils.KeyCertificateChain)
 }

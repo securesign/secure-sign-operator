@@ -122,7 +122,7 @@ var _ = Describe("Rekor", func() {
 			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
 			Expect(fetched.Spec.MaxRequestBodySize).To(Equal(ptr.To(int64(10485760))))
 			Expect(fetched.Spec.Trillian).To(Equal(ServiceReference{}))
-			Expect(fetched.Spec.Signer.Type).To(Equal(RekorSignerTypeSecret))
+			Expect(fetched.Spec.Signer.Type).To(Equal(SignerTypeSecret))
 			Expect(fetched.Spec.BackFillRedis.Schedule).To(Equal("0 0 * * *"))
 			Expect(fetched.Spec.BackFillRedis.Enabled).To(Equal(ptr.To(true)))
 			Expect(fetched.Spec.Attestations.Pvc.Size).To(Equal(ptr.To(k8sresource.MustParse("5Gi"))))
@@ -200,26 +200,26 @@ var _ = Describe("Rekor", func() {
 			When("using valid signer types", func() {
 				It("should allow 'secret'", func() {
 					validObject := generateMinimalRekor("rekor-signer-valid-secret")
-					validObject.Spec.Signer.Type = RekorSignerTypeSecret
+					validObject.Spec.Signer.Type = SignerTypeSecret
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
 
 				It("should allow 'memory'", func() {
 					validObject := generateMinimalRekor("rekor-signer-valid-memory")
-					validObject.Spec.Signer.Type = RekorSignerTypeMemory
+					validObject.Spec.Signer.Type = SignerTypeMemory
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
 
 				It("should allow 'kms' with kms config", func() {
 					validObject := generateMinimalRekor("rekor-signer-valid-kms")
-					validObject.Spec.Signer.Type = RekorSignerTypeKMS
+					validObject.Spec.Signer.Type = SignerTypeKMS
 					validObject.Spec.Signer.Kms = &KMS{KeyResource: "awskms://key/arn"}
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
 
 				It("should allow 'kms' with openbao URI", func() {
 					validObject := generateMinimalRekor("rekor-signer-valid-openbao")
-					validObject.Spec.Signer.Type = RekorSignerTypeKMS
+					validObject.Spec.Signer.Type = SignerTypeKMS
 					validObject.Spec.Signer.Kms = &KMS{KeyResource: "openbao://rekor-key"}
 					Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
 				})
@@ -235,7 +235,7 @@ var _ = Describe("Rekor", func() {
 
 				It("should reject 'kms' type without kms config", func() {
 					invalidObject := generateMinimalRekor("rekor-signer-kms-no-config")
-					invalidObject.Spec.Signer.Type = RekorSignerTypeKMS
+					invalidObject.Spec.Signer.Type = SignerTypeKMS
 
 					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 					Expect(k8sClient.Create(context.Background(), invalidObject)).
@@ -244,7 +244,7 @@ var _ = Describe("Rekor", func() {
 
 				It("should reject 'secret' type with kms config", func() {
 					invalidObject := generateMinimalRekor("rekor-signer-secret-with-kms")
-					invalidObject.Spec.Signer.Type = RekorSignerTypeSecret
+					invalidObject.Spec.Signer.Type = SignerTypeSecret
 					invalidObject.Spec.Signer.Kms = &KMS{KeyResource: "awskms://key/arn"}
 
 					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
@@ -254,7 +254,7 @@ var _ = Describe("Rekor", func() {
 
 				It("should reject 'memory' type with kms config", func() {
 					invalidObject := generateMinimalRekor("rekor-signer-memory-with-kms")
-					invalidObject.Spec.Signer.Type = RekorSignerTypeMemory
+					invalidObject.Spec.Signer.Type = SignerTypeMemory
 					invalidObject.Spec.Signer.Kms = &KMS{KeyResource: "awskms://key/arn"}
 
 					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
@@ -302,7 +302,7 @@ var _ = Describe("Rekor", func() {
 							},
 						},
 						Signer: RekorSigner{
-							Type: RekorSignerTypeSecret,
+							Type: SignerTypeSecret,
 							KeyRef: &SecretKeySelector{
 								LocalObjectReference: LocalObjectReference{
 									Name: "secret",

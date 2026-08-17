@@ -39,6 +39,9 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.Fulcio] {
 			ResolveRef:   resolveRef,
 			GenerateData: generateData,
 			AlignStatus:  alignStatus,
+			IsEnabled: func(instance *rhtasv1.Fulcio) bool {
+				return instance.Spec.Signer.Type == rhtasv1.SignerTypeFile || instance.Spec.Signer.Type == ""
+			},
 			MutateSecret: func(_ *rhtasv1.Fulcio, secret *corev1.Secret) {
 				if secret.Labels == nil {
 					secret.Labels = make(map[string]string)

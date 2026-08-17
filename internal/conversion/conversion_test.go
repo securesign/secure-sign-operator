@@ -51,7 +51,7 @@ func TestMarshalData(t *testing.T) {
 			},
 			Spec: rhtasv1.SecuresignSpec{
 				Rekor: rhtasv1.RekorSpec{
-					Signer: rhtasv1.RekorSigner{Type: rhtasv1.RekorSignerTypeSecret},
+					Signer: rhtasv1.RekorSigner{Type: rhtasv1.SignerTypeSecret},
 					TreeID: ptr.To[int64](12345),
 				},
 			},
@@ -108,7 +108,7 @@ func TestMarshalData(t *testing.T) {
 			},
 			Spec: rhtasv1.SecuresignSpec{
 				Rekor: rhtasv1.RekorSpec{
-					Signer: rhtasv1.RekorSigner{Type: rhtasv1.RekorSignerTypeSecret},
+					Signer: rhtasv1.RekorSigner{Type: rhtasv1.SignerTypeSecret},
 					TreeID: ptr.To[int64](12345),
 				},
 			},

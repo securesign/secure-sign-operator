@@ -137,6 +137,41 @@ var _ = Describe("Securesign", func() {
 		})
 	})
 
+	Context("KMS Fulcio signer in aggregate CR", func() {
+		It("accepts KMS Fulcio signer", func() {
+			obj := generateMinimalSecuresign("ss-fulcio-kms")
+			obj.Spec.Fulcio.Signer = FulcioSigner{
+				Type: SignerTypeKMS,
+				CertificateChain: FulcioCertificateChain{
+					CertificateChainRef: &SecretKeySelector{
+						Key:                  "cert",
+						LocalObjectReference: LocalObjectReference{Name: "cert-chain-secret"},
+					},
+				},
+				Kms: &KMS{
+					KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+		})
+
+		It("rejects KMS Fulcio signer without certificateChainRef", func() {
+			obj := generateMinimalSecuresign("ss-fulcio-kms-no-chain")
+			obj.Spec.Fulcio.Signer = FulcioSigner{
+				Type: SignerTypeKMS,
+				CertificateChain: FulcioCertificateChain{
+					OrganizationName: "org",
+				},
+				Kms: &KMS{
+					KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
+				},
+			}
+			Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), obj))).To(BeTrue())
+			Expect(k8sClient.Create(context.Background(), obj)).
+				To(MatchError(ContainSubstring("certificateChainRef is required")))
+		})
+	})
+
 	Context("partial sub-specs with user overrides", func() {
 		It("rekor with custom replicas", func() {
 			obj := generateMinimalSecuresign("ss-rekor-replicas")

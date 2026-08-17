@@ -153,18 +153,18 @@ func (i deployAction) ensureServerDeployment(instance *rhtasv1.Rekor, sa string,
 		const privateKeyVolumeName = "rekor-private-key-volume"
 
 		switch instance.Spec.Signer.Type {
-		case rhtasv1.RekorSignerTypeKMS:
+		case rhtasv1.SignerTypeKMS:
 			if instance.Spec.Signer.Kms == nil {
-				return fmt.Errorf("kms config is required when type is %q", rhtasv1.RekorSignerTypeKMS)
+				return fmt.Errorf("kms config is required when type is %q", rhtasv1.SignerTypeKMS)
 			}
 			args = append(args, "--rekor_server.signer", instance.Spec.Signer.Kms.KeyResource)
-		case rhtasv1.RekorSignerTypeMemory:
+		case rhtasv1.SignerTypeMemory:
 			args = append(args, "--rekor_server.signer", "memory")
 		default:
 			// file signer: args and resources handled by OptionalToggle below
 		}
 
-		isFileSigner := instance.Spec.Signer.Type != rhtasv1.RekorSignerTypeKMS && instance.Spec.Signer.Type != rhtasv1.RekorSignerTypeMemory
+		isFileSigner := instance.Spec.Signer.Type != rhtasv1.SignerTypeKMS && instance.Spec.Signer.Type != rhtasv1.SignerTypeMemory
 		if err := ensure.OptionalToggle(isFileSigner, ensure.Toggleable[*v1.PodSpec]{
 			Ensure: func(spec *v1.PodSpec) error {
 				if instance.Status.Signer.KeyRef == nil {

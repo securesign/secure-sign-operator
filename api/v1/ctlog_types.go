@@ -77,8 +77,6 @@ type CTlogSpec struct {
 	Auth *Auth `json:"auth,omitempty"`
 }
 
-const CTlogSignerTypeFile = "file"
-
 // CTlogSigner defines the desired state of the CTlog Signer
 type CTlogSigner struct {
 	// Type of the signer backend
