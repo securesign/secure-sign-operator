@@ -101,7 +101,6 @@ func Convert_v1alpha1_RekorSigner_To_v1_RekorSigner(in *RekorSigner, out *rhtasv
 		out.Type = rhtasv1.RekorSignerTypeKMS
 		out.Kms = &rhtasv1.KMS{KeyResource: in.KMS}
 	}
-	out.PasswordRef = (*rhtasv1.SecretKeySelector)(unsafe.Pointer(in.PasswordRef)) //nolint:staticcheck
 	out.KeyRef = (*rhtasv1.SecretKeySelector)(unsafe.Pointer(in.KeyRef))
 	return nil
 }
@@ -120,7 +119,6 @@ func Convert_v1_RekorSigner_To_v1alpha1_RekorSigner(in *rhtasv1.RekorSigner, out
 	default:
 		out.KMS = in.Type
 	}
-	out.PasswordRef = (*SecretKeySelector)(unsafe.Pointer(in.PasswordRef)) //nolint:staticcheck
 	out.KeyRef = (*SecretKeySelector)(unsafe.Pointer(in.KeyRef))
 	return nil
 }

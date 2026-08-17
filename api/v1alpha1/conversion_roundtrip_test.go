@@ -336,7 +336,8 @@ func tsaStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 
 // rekorSignerFuzzerFuncs constrains v1 RekorSigner.Type to valid enum values and
 // ensures Kms is set only when Type is "kms", so the v1↔v1alpha1 flat-string
-// conversion roundtrips cleanly.
+// conversion roundtrips cleanly. It also clears v1alpha1 RekorSigner.PasswordRef,
+// which has no v1 equivalent — the field was removed from the v1 API.
 func rekorSignerFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *rhtasv1.RekorSigner, c randfill.Continue) {
@@ -353,10 +354,11 @@ func rekorSignerFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 				s.KeyRef = &rhtasv1.SecretKeySelector{}
 				c.FillNoCustom(s.KeyRef)
 			}
-			if c.Bool() {
-				s.PasswordRef = &rhtasv1.SecretKeySelector{} //nolint:staticcheck
-				c.FillNoCustom(s.PasswordRef)                //nolint:staticcheck
-			}
+		},
+		func(s *RekorSigner, c randfill.Continue) {
+			c.FillNoCustom(s)
+			// no v1 equivalent — removed from v1 API
+			s.PasswordRef = nil
 		},
 	}
 }

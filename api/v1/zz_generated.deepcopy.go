@@ -1406,11 +1406,6 @@ func (in *RekorSigner) DeepCopyInto(out *RekorSigner) {
 		*out = new(KMS)
 		**out = **in
 	}
-	if in.PasswordRef != nil {
-		in, out := &in.PasswordRef, &out.PasswordRef
-		*out = new(SecretKeySelector)
-		**out = **in
-	}
 	if in.KeyRef != nil {
 		in, out := &in.KeyRef, &out.KeyRef
 		*out = new(SecretKeySelector)
