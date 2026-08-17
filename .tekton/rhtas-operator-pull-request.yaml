@@ -8,7 +8,7 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch
-      == "testkpkcs11" && (".tekton/rhtas-operator-bundle-pull-request.yaml".pathChanged() || ".tekton/rhtas-operator-pull-request.yaml".pathChanged()
+      == "main" && (".tekton/rhtas-operator-bundle-pull-request.yaml".pathChanged() || ".tekton/rhtas-operator-pull-request.yaml".pathChanged()
       || "bundle.Dockerfile".pathChanged() || "Dockerfile.rhtas-operator.rh".pathChanged()
       || "config/***".pathChanged() || "hack/***".pathChanged()
       || "api/***".pathChanged() || "internal/***".pathChanged() || "cmd/***".pathChanged()
