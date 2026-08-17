@@ -6,6 +6,6 @@ jobs:
   trigger-konflux-build:
     uses: securesign/actions/.github/workflows/trigger-konflux-build.yaml@main
     with:
-      branch: main
+      branch: testkpkcs11
     secrets:
       token: ${{ secrets.GITHUB_TOKEN }}

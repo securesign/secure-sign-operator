@@ -7,7 +7,7 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
-      == "main" && (".tekton/rhtas-operator-bundle-push.yaml".pathChanged() || ".tekton/rhtas-operator-push.yaml".pathChanged()
+      == "testkpkcs11" && (".tekton/rhtas-operator-bundle-push.yaml".pathChanged() || ".tekton/rhtas-operator-push.yaml".pathChanged()
       || "bundle.Dockerfile".pathChanged() || "Dockerfile.rhtas-operator.rh".pathChanged()
       || "config/***".pathChanged() || "hack/***".pathChanged()
       || "api/***".pathChanged() || "internal/***".pathChanged() || "cmd/***".pathChanged()
@@ -49,7 +49,7 @@ spec:
     - name: url
       value: https://github.com/securesign/pipelines.git
     - name: revision
-      value: main
+      value: testkpkcs11
     - name: pathInRepo
       value: pipelines/bundle-build-oci-ta.yaml
     resolver: git
