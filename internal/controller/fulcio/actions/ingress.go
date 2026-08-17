@@ -22,6 +22,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// fulcioThrottlingDefaults are the default HAProxy rate-limiting values applied
+// when the CR does not override them. Fulcio's signing endpoint is a natural
+// DoS target on the client-facing signing path, so throttling defaults to on.
+var fulcioThrottlingDefaults = kubernetes.IngressThrottlingDefaults{
+	ConcurrentTCP: 100,
+	RateHTTP:      100,
+	RateTCP:       100,
+}
+
 func NewIngressAction() action.Action[*rhtasv1.Fulcio] {
 	return &ingressAction{}
 }
@@ -57,13 +66,30 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *ac
 		},
 		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.Ingress, ServerPortName),
 		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
-		// add ingress labels
-		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.Ingress.Labels)), instance.Spec.Ingress.Labels),
-		// add common labels
+		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressHAProxyThrottling(instance.Spec.Ingress.Annotations, fulcioThrottlingDefaults)),
+		func(ingress *v2.Ingress) error {
+			if ingress.Labels == nil {
+				ingress.Labels = map[string]string{}
+			}
+			for k := range ingress.Labels {
+				if _, isComponent := labels[k]; isComponent {
+					continue
+				}
+				if _, isCurrent := instance.Spec.Ingress.Labels[k]; !isCurrent {
+					delete(ingress.Labels, k)
+				}
+			}
+			maps.Copy(ingress.Labels, instance.Spec.Ingress.Labels)
+			return nil
+		},
 		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(labels)), labels),
 		ensure.ControllerReference[*v2.Ingress](instance, i.Client),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create ingress object: %w", err), instance)
+	}
+
+	if err = kubernetes.ApplyIngressUserMetadata(ctx, i.Client, svc.Name, svc.Namespace, instance.Spec.Ingress.Annotations, instance.Spec.Ingress.Labels); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not apply user metadata to ingress: %w", err), instance)
 	}
 
 	if result != controllerutil.OperationResultNone {

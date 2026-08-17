@@ -207,6 +207,7 @@ func (src *TimestampAuthority) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Auth = mergeAuths(dst.Spec.Auth, restored.Spec.Auth)
 	dst.Status.CertificateChain = restored.Status.CertificateChain
 	dst.Spec.PodExtensions = restored.Spec.PodExtensions
+	dst.Spec.Ingress.Annotations = restored.Spec.Ingress.Annotations
 	return nil
 }
 

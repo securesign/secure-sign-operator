@@ -23,6 +23,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// consoleThrottlingDefaults are the default HAProxy rate-limiting values applied
+// when the CR does not override them, matching the Fulcio/TSA baseline for a
+// UI dashboard.
+var consoleThrottlingDefaults = kubernetes.IngressThrottlingDefaults{
+	ConcurrentTCP: 100,
+	RateHTTP:      50,
+	RateTCP:       100,
+}
+
 func NewIngressAction() action.Action[*rhtasv1.Console] {
 	return &ingressAction{}
 }
@@ -58,11 +67,30 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Console) *a
 		},
 		kubernetes.EnsureIngressSpec(ctx, i.Client, *svc, instance.Spec.UI.Ingress, actions.UIPortName),
 		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressTLS()),
-		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(instance.Spec.UI.Ingress.Labels)), instance.Spec.UI.Ingress.Labels),
+		ensure.Optional(kubernetes.IsOpenShift(), kubernetes.EnsureIngressHAProxyThrottling(instance.Spec.UI.Ingress.Annotations, consoleThrottlingDefaults)),
+		func(ingress *v2.Ingress) error {
+			if ingress.Labels == nil {
+				ingress.Labels = map[string]string{}
+			}
+			for k := range ingress.Labels {
+				if _, isComponent := l[k]; isComponent {
+					continue
+				}
+				if _, isCurrent := instance.Spec.UI.Ingress.Labels[k]; !isCurrent {
+					delete(ingress.Labels, k)
+				}
+			}
+			maps.Copy(ingress.Labels, instance.Spec.UI.Ingress.Labels)
+			return nil
+		},
 		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(l)), l),
 		ensure.ControllerReference[*v2.Ingress](instance, i.Client),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create ingress object: %w", err), instance)
+	}
+
+	if err = kubernetes.ApplyIngressUserMetadata(ctx, i.Client, svc.Name, svc.Namespace, instance.Spec.UI.Ingress.Annotations, instance.Spec.UI.Ingress.Labels); err != nil {
+		return i.Error(ctx, fmt.Errorf("could not apply user metadata to ingress: %w", err), instance)
 	}
 
 	if result != controllerutil.OperationResultNone {
