@@ -28,18 +28,22 @@ func ContainerAuth(container *core.Container, auth *rhtasv1.Auth) func(spec *cor
 					env.DeepCopyInto(e)
 				}
 			}
-			authProjected := kubernetes.FindVolumeByNameOrCreate(templateSpec, authVolumeName)
-			if authProjected.Projected == nil {
-				authProjected.Projected = &core.ProjectedVolumeSource{}
-			}
 
-			for _, secret := range auth.SecretMount {
-				findSecretProjectedVolumeByNameOrCreate(authProjected.Projected, secret.Name)
-			}
+			// Only create volume and mount when there are secrets to mount
+			if len(auth.SecretMount) > 0 {
+				authProjected := kubernetes.FindVolumeByNameOrCreate(templateSpec, authVolumeName)
+				if authProjected.Projected == nil {
+					authProjected.Projected = &core.ProjectedVolumeSource{}
+				}
 
-			vm := kubernetes.FindVolumeMountByNameOrCreate(container, authVolumeName)
-			vm.MountPath = AuthMountPath
-			vm.ReadOnly = true
+				for _, secret := range auth.SecretMount {
+					findSecretProjectedVolumeByNameOrCreate(authProjected.Projected, secret.Name)
+				}
+
+				vm := kubernetes.FindVolumeMountByNameOrCreate(container, authVolumeName)
+				vm.MountPath = AuthMountPath
+				vm.ReadOnly = true
+			}
 		}
 		return nil
 	}

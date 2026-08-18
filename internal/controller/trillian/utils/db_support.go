@@ -15,6 +15,7 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 	apps "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 const initContainerName = "wait-for-trillian-db"
@@ -26,8 +27,24 @@ func EnsureDB(instance *rhtasv1.Trillian, containerName, caPath string) []func(*
 func ensureDbAuth(instance *rhtasv1.Trillian, containerName string) []func(dp *apps.Deployment) error {
 	return []func(dp *apps.Deployment) error{
 		deployment.Auth(containerName, instance.Spec.Auth),
-		ensure.Optional(instance.Status.Db.DatabaseSecretRef != nil,
-			deployment.Auth(containerName, dbsecret.DbSecretToAuth(instance.Status.Db.DatabaseSecretRef))),
+		func(d *apps.Deployment) error {
+			dbAuth := dbsecret.DbSecretToAuth(instance.Status.Db.DatabaseSecretRef)
+			// Status.Db.DatabaseSecretRef is operator managed so we use OptionalToggle instead of user-specified toggle
+			toggle := ensure.Toggleable[*apps.Deployment]{
+				Ensure: func(d *apps.Deployment) error {
+					return ensure.Auth(containerName, dbAuth)(&d.Spec.Template.Spec)
+				},
+				Managed: &apps.Deployment{
+					Spec: apps.DeploymentSpec{
+						Template: v1.PodTemplateSpec{
+							Spec: v1.PodSpec{
+								Containers: []v1.Container{{Name: containerName, Env: dbAuth.Env}},
+							},
+						},
+					},
+				}}
+			return ensure.OptionalToggle(instance.Status.Db.DatabaseSecretRef != nil, toggle)(d)
+		},
 	}
 }
 

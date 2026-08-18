@@ -18,6 +18,7 @@ import (
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
+	"github.com/securesign/operator/internal/utils/kubernetes/ensure/cronjob"
 	tlsensure "github.com/securesign/operator/internal/utils/tls/ensure"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
@@ -76,10 +77,7 @@ func (i backfillRedisCronJob) Handle(ctx context.Context, instance *rhtasv1.Reko
 		func(object *batchv1.CronJob) error {
 			return ensure.GODEBUG(instance.GetAnnotations())(&object.Spec.JobTemplate.Spec.Template.Spec)
 		},
-		func(object *batchv1.CronJob) error {
-			ref := &object.Spec.JobTemplate.Spec.Template.Spec
-			return ensure.Auth(actions.BackfillRedisCronJobName, instance.Spec.Auth)(ref)
-		},
+		cronjob.Auth(actions.BackfillRedisCronJobName, instance.Spec.Auth),
 		func(object *batchv1.CronJob) error {
 			return tlsensure.TrustedCA(instance.GetTrustedCA(), actions.BackfillRedisCronJobName)(&object.Spec.JobTemplate.Spec.Template)
 		},

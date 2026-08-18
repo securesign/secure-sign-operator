@@ -147,6 +147,12 @@ const (
 	// trust material change and accept the newly observed value.
 	RefreshTrustMaterial = "rhtas.redhat.com/refresh-trust-material"
 
+	// LastUserSpecApplied stores the last-applied state as JSON for user-specified
+	// resources (env vars, volumes, volume mounts, containers) so the next reconcile
+	// can diff against the current spec and remove whatever the user dropped.
+	// Written and read by the operator only — not a user-facing switch.
+	LastUserSpecApplied = "rhtas.redhat.com/last-user-spec-applied"
+
 	TLS = "service.beta.openshift.io/serving-cert-secret-name"
 )
 

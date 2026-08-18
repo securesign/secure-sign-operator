@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"github.com/securesign/operator/internal/annotations"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -447,23 +448,321 @@ func TestOptionalToggle_MultipleContainers(t *testing.T) {
 	g.Expect(spec.Containers[1].VolumeMounts[0].Name).To(Equal("sidecar-vol"))
 }
 
-func TestOptionalToggle_EmptyManagedIsNoop(t *testing.T) {
+func TestUserSpecifiedToggle_MultipleCallsDisjointFields(t *testing.T) {
 	g := NewWithT(t)
 
-	toggle := Toggleable[*appsv1.Deployment]{
-		Ensure: func(dp *appsv1.Deployment) error {
+	// First call manages volumes
+	toggle1 := Toggleable[*corev1.Pod]{
+		Ensure: func(obj *corev1.Pod) error {
 			return nil
 		},
-		Managed: &appsv1.Deployment{},
+		Managed: &corev1.Pod{
+			Spec: corev1.PodSpec{
+				Volumes: []corev1.Volume{
+					{Name: "keep-vol"},
+				},
+			},
+		},
 	}
 
-	dp := &appsv1.Deployment{
-		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{
-			Volumes: []corev1.Volume{{Name: "keep-me"}},
-		}}},
+	// Second call manages container env vars
+	toggle2 := Toggleable[*corev1.Pod]{
+		Ensure: func(obj *corev1.Pod) error {
+			return nil
+		},
+		Managed: &corev1.Pod{
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name: "server",
+						Env: []corev1.EnvVar{
+							{Name: "KEEP_ENV"},
+						},
+					},
+				},
+			},
+		},
 	}
 
-	fn := OptionalToggle(false, toggle)
-	g.Expect(fn(dp)).To(Succeed())
-	g.Expect(dp.Spec.Template.Spec.Volumes).To(HaveLen(1))
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				annotations.LastUserSpecApplied: `{"spec":{"volumes":[{"name":"keep-vol"},{"name":"drop-vol"}]}}`,
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "server",
+					Env: []corev1.EnvVar{
+						{Name: "KEEP_ENV", Value: "1"},
+						{Name: "DROP_ENV", Value: "2"},
+						{Name: "UNRELATED_ENV", Value: "3"},
+					},
+				},
+			},
+			Volumes: []corev1.Volume{
+				{Name: "keep-vol"},
+				{Name: "drop-vol"},
+				{Name: "unrelated"},
+			},
+		},
+	}
+
+	// First call: manage volumes, should remove drop-vol
+	fn1 := UserSpecifiedToggle(toggle1)
+	g.Expect(fn1(pod)).To(Succeed())
+	g.Expect(pod.Spec.Volumes).To(HaveLen(2))
+	volNames := []string{pod.Spec.Volumes[0].Name, pod.Spec.Volumes[1].Name}
+	g.Expect(volNames).To(ConsistOf("keep-vol", "unrelated"))
+	g.Expect(pod.Annotations[annotations.LastUserSpecApplied]).To(MatchJSON(`{"spec":{"volumes":[{"name":"keep-vol"}]}}`))
+
+	// Update annotation to include both volumes and containers for second call
+	pod.Annotations[annotations.LastUserSpecApplied] = `{"spec":{"volumes":[{"name":"keep-vol"}],"containers":[{"name":"server","env":[{"name":"KEEP_ENV"},{"name":"DROP_ENV"}]}]}}`
+
+	// Second call: manage env vars, should remove DROP_ENV but keep volumes annotation
+	fn2 := UserSpecifiedToggle(toggle2)
+	g.Expect(fn2(pod)).To(Succeed())
+
+	// Volumes should still be there (not removed by second call)
+	g.Expect(pod.Spec.Volumes).To(HaveLen(2))
+	volNames = []string{pod.Spec.Volumes[0].Name, pod.Spec.Volumes[1].Name}
+	g.Expect(volNames).To(ConsistOf("keep-vol", "unrelated"))
+
+	// Env vars should be cleaned up
+	envNames := make([]string, 0, len(pod.Spec.Containers[0].Env))
+	for _, e := range pod.Spec.Containers[0].Env {
+		envNames = append(envNames, e.Name)
+	}
+	g.Expect(envNames).To(ConsistOf("KEEP_ENV", "UNRELATED_ENV"))
+
+	// Annotation should have both volumes and containers
+	g.Expect(pod.Annotations[annotations.LastUserSpecApplied]).To(MatchJSON(`{"spec":{"volumes":[{"name":"keep-vol"}],"containers":[{"name":"server","env":[{"name":"KEEP_ENV"}]}]}}`))
+}
+
+func TestUserSpecifiedToggle_RemovesDroppedItems(t *testing.T) {
+	g := NewWithT(t)
+
+	toggle := Toggleable[*corev1.Pod]{
+		Ensure: func(obj *corev1.Pod) error {
+			return nil
+		},
+		Managed: &corev1.Pod{
+			Spec: corev1.PodSpec{
+				Volumes: []corev1.Volume{
+					{Name: "keep"},
+				},
+			},
+		},
+	}
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{annotations.LastUserSpecApplied: `{"spec":{"volumes":[{"name":"keep"}, {"name":"drop"}]}}`}},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "server",
+					VolumeMounts: []corev1.VolumeMount{
+						{Name: "keep", MountPath: "/keep"},
+					},
+				},
+			},
+			Volumes: []corev1.Volume{
+				{Name: "keep"},
+				{Name: "drop"},
+				{Name: "unrelated"},
+			},
+		},
+	}
+
+	fn := UserSpecifiedToggle(toggle)
+	g.Expect(fn(pod)).To(Succeed())
+	g.Expect(pod.Spec.Volumes).To(HaveLen(2))
+	g.Expect(pod.Spec.Volumes[0].Name).To(Equal("keep"))
+	g.Expect(pod.Spec.Volumes[1].Name).To(Equal("unrelated"))
+	g.Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(1))
+	g.Expect(pod.Spec.Containers[0].VolumeMounts[0].Name).To(Equal("keep"))
+	g.Expect(pod.Annotations[annotations.LastUserSpecApplied]).To(Equal(`{"spec":{"volumes":[{"name":"keep"}]}}`))
+}
+
+func TestUserSpecifiedToggle_RemovesEnvVarsFromContainer(t *testing.T) {
+	g := NewWithT(t)
+
+	toggle := Toggleable[*corev1.Pod]{
+		Ensure: func(obj *corev1.Pod) error {
+			return nil
+		},
+		Managed: &corev1.Pod{
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name: "server",
+						Env: []corev1.EnvVar{
+							{Name: "KEEP"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{annotations.LastUserSpecApplied: `{"spec":{"containers":[{"name":"server","env":[{"name":"KEEP"},{"name":"DROP"}]}]}}`}},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "server",
+					Env: []corev1.EnvVar{
+						{Name: "KEEP", Value: "1"},
+						{Name: "DROP", Value: "2"},
+						{Name: "UNRELATED", Value: "3"},
+					},
+				},
+			},
+		},
+	}
+
+	fn := UserSpecifiedToggle(toggle)
+	g.Expect(fn(pod)).To(Succeed())
+	envNames := make([]string, 0, len(pod.Spec.Containers[0].Env))
+	for _, e := range pod.Spec.Containers[0].Env {
+		envNames = append(envNames, e.Name)
+	}
+	g.Expect(envNames).To(ConsistOf("KEEP", "UNRELATED"))
+}
+
+func TestUserSpecifiedToggle_RemovesEntireContainer(t *testing.T) {
+	g := NewWithT(t)
+
+	toggle := Toggleable[*corev1.Pod]{
+		Ensure: func(obj *corev1.Pod) error {
+			return nil
+		},
+		Managed: &corev1.Pod{
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: "main"},
+				},
+			},
+		},
+	}
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{annotations.LastUserSpecApplied: `{"spec":{"containers":[{"name":"main"},{"name":"sidecar"}]}}`}},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "main"},
+				{Name: "sidecar"},
+			},
+		},
+	}
+
+	fn := UserSpecifiedToggle(toggle)
+	g.Expect(fn(pod)).To(Succeed())
+	g.Expect(pod.Spec.Containers).To(HaveLen(1))
+	g.Expect(pod.Spec.Containers[0].Name).To(Equal("main"))
+}
+
+func TestUserSpecifiedToggle_EnsureRunsAfterCleanup(t *testing.T) {
+	g := NewWithT(t)
+
+	toggle := Toggleable[*corev1.Pod]{
+		Ensure: func(obj *corev1.Pod) error {
+			// Idempotent ensure - only add if not present
+			found := false
+			for _, v := range obj.Spec.Volumes {
+				if v.Name == "new" {
+					found = true
+					break
+				}
+			}
+			if !found {
+				obj.Spec.Volumes = append(obj.Spec.Volumes, corev1.Volume{Name: "new"})
+			}
+			return nil
+		},
+		Managed: &corev1.Pod{
+			Spec: corev1.PodSpec{
+				Volumes: []corev1.Volume{
+					{Name: "new"},
+				},
+			},
+		},
+	}
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{annotations.LastUserSpecApplied: `{"spec":{"volumes":[{"name":"old"}]}}`}},
+		Spec: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				{Name: "old"},
+			},
+		},
+	}
+
+	fn := UserSpecifiedToggle(toggle)
+	g.Expect(fn(pod)).To(Succeed())
+	g.Expect(pod.Spec.Volumes).To(HaveLen(1))
+	g.Expect(pod.Spec.Volumes[0].Name).To(Equal("new"))
+	g.Expect(pod.Annotations[annotations.LastUserSpecApplied]).To(Equal(`{"spec":{"volumes":[{"name":"new"}]}}`))
+}
+
+func TestUserSpecifiedToggle_NoLastApplied(t *testing.T) {
+	g := NewWithT(t)
+
+	toggle := Toggleable[*corev1.Pod]{
+		Ensure: func(obj *corev1.Pod) error {
+			return nil
+		},
+		Managed: &corev1.Pod{
+			Spec: corev1.PodSpec{
+				Volumes: []corev1.Volume{
+					{Name: "vol1"},
+				},
+			},
+		},
+	}
+
+	pod := &corev1.Pod{
+		Spec: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				{Name: "vol1"},
+				{Name: "unrelated"},
+			},
+		},
+	}
+
+	fn := UserSpecifiedToggle(toggle)
+	g.Expect(fn(pod)).To(Succeed())
+	g.Expect(pod.Spec.Volumes).To(HaveLen(2))
+	g.Expect(pod.Annotations[annotations.LastUserSpecApplied]).To(MatchJSON(`{"spec":{"volumes":[{"name":"vol1"}]}}`))
+}
+
+func TestUserSpecifiedToggle_ClearsAllManagedVolumes(t *testing.T) {
+	g := NewWithT(t)
+
+	toggle := Toggleable[*corev1.Pod]{
+		Ensure: func(obj *corev1.Pod) error {
+			return nil
+		},
+		Managed: &corev1.Pod{
+			Spec: corev1.PodSpec{
+				Volumes: []corev1.Volume{},
+			},
+		},
+	}
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{annotations.LastUserSpecApplied: `{"spec":{"volumes":[{"name":"A"}]}}`}},
+		Spec: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				{Name: "A"},
+				{Name: "unrelated"},
+			},
+		},
+	}
+
+	fn := UserSpecifiedToggle(toggle)
+	g.Expect(fn(pod)).To(Succeed())
+	g.Expect(pod.Spec.Volumes).To(HaveLen(1))
+	g.Expect(pod.Spec.Volumes[0].Name).To(Equal("unrelated"))
 }

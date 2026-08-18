@@ -201,6 +201,12 @@ func TestCTLogAuthInjectionInFileMode(t *testing.T) {
 				},
 			},
 		},
+		SecretMount: []rhtasv1.SecretKeySelector{
+			{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "vendor-credentials"},
+				Key:                  "credential.json",
+			},
+		},
 	}
 
 	dp, err := createCTLogDeployment(instance)
