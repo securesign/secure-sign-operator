@@ -15,7 +15,6 @@ env:
   CATALOG_IMG: ghcr.io/securesign/secure-sign-operator-fbc:dev-${{ github.sha }}
   NEW_OLM_CHANNEL: rhtas-operator.v1.5.0
   OCP_VERSION: ${{ vars.OLM_INDEX_VERSION }}
-  INGRESS_HOST_TEMPLATE: '%[1]s.%[2]s.127.0.0.1.nip.io'
   TARGET_PLATFORM: kubernetes
   CLI_CGW_VERSION: "1.4.2"
 
@@ -270,7 +269,8 @@ jobs:
 
       - name: Configure Ingress hostname template
         run: |
-          kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
+          NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+          kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="%[1]s.%[2]s.${NODE_IP}.nip.io"
           kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
 
       - name: Wait for conversion webhook readiness
@@ -472,7 +472,8 @@ jobs:
 
       - name: Configure Ingress hostname template
         run: |
-          kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
+          NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+          kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="%[1]s.%[2]s.${NODE_IP}.nip.io"
           kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
 
       - name: Wait for conversion webhook readiness
@@ -671,7 +672,8 @@ jobs:
 
       - name: Configure Ingress hostname template
         run: |
-          kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
+          NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+          kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="%[1]s.%[2]s.${NODE_IP}.nip.io"
           kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
 
       - name: Wait for conversion webhook readiness
@@ -829,7 +831,8 @@ jobs:
 
       - name: Configure Ingress hostname template
         run: |
-          kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
+          NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+          kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="%[1]s.%[2]s.${NODE_IP}.nip.io"
           kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
 
       - name: Wait for conversion webhook readiness

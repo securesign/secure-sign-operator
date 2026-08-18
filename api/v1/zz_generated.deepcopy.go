@@ -297,6 +297,7 @@ func (in *CTlogSpec) DeepCopyInto(out *CTlogSpec) {
 		*out = make([]SecretKeySelector, len(*in))
 		copy(*out, *in)
 	}
+	in.Ingress.DeepCopyInto(&out.Ingress)
 	in.Monitoring.DeepCopyInto(&out.Monitoring)
 	in.Trillian.DeepCopyInto(&out.Trillian)
 	if in.ServerConfigRef != nil {

@@ -89,6 +89,7 @@ func WithIngress() Opts {
 		s.Spec.Rekor.Ingress.Enabled = ptr.To(true)
 		s.Spec.Tuf.Ingress.Enabled = ptr.To(true)
 		s.Spec.Fulcio.Ingress.Enabled = ptr.To(true)
+		s.Spec.Ctlog.Ingress.Enabled = ptr.To(true)
 		if s.Spec.TimestampAuthority != nil {
 			s.Spec.TimestampAuthority.Ingress.Enabled = ptr.To(true)
 		}
