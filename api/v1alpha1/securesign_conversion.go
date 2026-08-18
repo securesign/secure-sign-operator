@@ -89,6 +89,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Spec.Ctlog.PodExtensions = restored.Spec.Ctlog.PodExtensions
 	dst.Spec.Ctlog.Auth = restored.Spec.Ctlog.Auth
+	dst.Spec.Ctlog.Ingress = restored.Spec.Ctlog.Ingress
 	dst.Spec.Rekor.ImagePullSecrets = restored.Spec.Rekor.ImagePullSecrets
 	dst.Spec.Rekor.Monitoring.ServiceMonitor = restored.Spec.Rekor.Monitoring.ServiceMonitor
 	dst.Spec.Rekor.PodExtensions = restored.Spec.Rekor.PodExtensions

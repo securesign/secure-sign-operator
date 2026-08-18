@@ -51,12 +51,18 @@ func EnsureIngressSpec(ctx context.Context, cli client.Client, svc v12.Service, 
 
 // EnsureIngressTLS set flags for Openshift cluster to auto-create TLS termination
 func EnsureIngressTLS() func(ingress *networkingv1.Ingress) error {
+	return EnsureIngressTermination("edge")
+}
+
+// EnsureIngressTermination sets the given OpenShift Route termination mode
+// (e.g. "edge", "reencrypt") for the auto-generated Ingress-to-Route conversion.
+func EnsureIngressTermination(termination string) func(ingress *networkingv1.Ingress) error {
 	return func(ingress *networkingv1.Ingress) error {
 
 		if ingress.Annotations == nil {
 			ingress.Annotations = map[string]string{}
 		}
-		ingress.Annotations["route.openshift.io/termination"] = "edge"
+		ingress.Annotations["route.openshift.io/termination"] = termination
 
 		if ingress.Spec.TLS == nil {
 			// ocp is able to autogenerate TLS

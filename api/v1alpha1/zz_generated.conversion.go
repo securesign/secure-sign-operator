@@ -1000,6 +1000,7 @@ func autoConvert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *v1.CTlogSpec, out *CTlog
 	out.TreeID = (*int64)(unsafe.Pointer(in.TreeID))
 	// WARNING: in.Signer requires manual conversion: does not exist in peer-type
 	out.RootCertificates = *(*[]SecretKeySelector)(unsafe.Pointer(&in.RootCertificates))
+	// WARNING: in.Ingress requires manual conversion: does not exist in peer-type
 	if err := Convert_v1_MonitoringWithTLogConfig_To_v1alpha1_MonitoringWithTLogConfig(&in.Monitoring, &out.Monitoring, s); err != nil {
 		return err
 	}

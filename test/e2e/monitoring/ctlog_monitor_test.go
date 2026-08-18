@@ -13,7 +13,6 @@ import (
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/test/e2e/support"
-	testSupportKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
@@ -149,11 +148,6 @@ var _ = Describe("Ctlog Monitor", Ordered, func() {
 			var ctlogServerUrl string
 			var found bool
 
-			protocol := "http"
-			if testSupportKubernetes.IsRemoteClusterOpenshift() {
-				protocol = "https"
-			}
-
 			for _, cmd := range ctlogMonitorContainer.Command {
 				if matches := urlRegex.FindStringSubmatch(cmd); len(matches) == 2 {
 					ctlogServerUrl = matches[1]
@@ -164,10 +158,12 @@ var _ = Describe("Ctlog Monitor", Ordered, func() {
 			Expect(found).To(BeTrue(), "Expected --url parameter to be present in container command")
 			Expect(ctlogServerUrl).ToNot(BeEmpty(), "Expected URL to not be empty")
 
-			// Verify the URL matches exactly what the ctlog service provides
-			expectedCtlogServerUrl := fmt.Sprintf("%s://ctlog.%s.svc/trusted-artifact-signer", protocol, namespace.Name)
-			Expect(ctlogServerUrl).To(Equal(expectedCtlogServerUrl),
-				fmt.Sprintf("Expected URL to be %s, but got %s", expectedCtlogServerUrl, ctlogServerUrl))
+			// Must match Status.Url exactly: the monitor looks itself up in
+			// the trusted root by exact base_url match.
+			ctlogInstance := &rhtasv1.CTlog{}
+			Expect(cli.Get(ctx, ctrl.ObjectKey{Namespace: namespace.Name, Name: s.Name}, ctlogInstance)).To(Succeed())
+			Expect(ctlogServerUrl).To(Equal(ctlogInstance.Status.Url),
+				fmt.Sprintf("Expected URL to be %s, but got %s", ctlogInstance.Status.Url, ctlogServerUrl))
 		})
 	})
 })
