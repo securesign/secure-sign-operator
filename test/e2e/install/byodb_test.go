@@ -108,7 +108,9 @@ var _ = Describe("Securesign install with byodb", Ordered, func() {
 	})
 
 	BeforeAll(func(ctx SpecContext) {
-		targetImageName = support.PrepareImage(ctx)
+		reg := support.DeployTestRegistry(ctx, cli, namespace.Name)
+		DeferCleanup(reg.Close)
+		targetImageName = reg.PrepareImage(ctx)
 	})
 
 	Describe("Install with byodb", func() {

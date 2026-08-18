@@ -76,7 +76,9 @@ var _ = Describe("Rekor Monitor Log", Ordered, func() {
 	})
 
 	BeforeAll(func(ctx SpecContext) {
-		signedImageName = support.PrepareImage(ctx)
+		reg := support.DeployTestRegistry(ctx, cli, namespace.Name)
+		DeferCleanup(reg.Close)
+		signedImageName = reg.PrepareImage(ctx)
 	})
 
 	BeforeAll(func(ctx SpecContext) {

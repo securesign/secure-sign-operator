@@ -24,13 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/yaml"
 
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/name"
-	containerv1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/mutate"
-	"github.com/google/go-containerregistry/pkg/v1/random"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/uuid"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/dsl/core"
 	. "github.com/onsi/gomega"
@@ -110,48 +103,6 @@ func createTestNamespace(ctx context.Context, cli client.Client, withPSA bool) *
 	return ns
 }
 
-func PrepareImage(ctx context.Context) string {
-	if v, ok := os.LookupEnv("TEST_IMAGE"); ok {
-		return v
-	}
-
-	image, err := random.Image(1024, 8)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	image, err = mutate.Config(image, containerv1.Config{
-		Labels: map[string]string{
-			"quay.expires-after": "1h",
-			"run-id":             uuid.New().String(),
-		},
-	})
-	if err != nil {
-		panic(err.Error())
-	}
-
-	digest, err := image.Digest()
-	if err != nil {
-		panic(err.Error())
-	}
-
-	imageRef := fmt.Sprintf("quay.io/securesign/e2e-tests@%s", digest.String())
-	ref, err := name.ParseReference(imageRef)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	pusher, err := remote.NewPusher(remote.WithAuthFromKeychain(authn.DefaultKeychain))
-	if err != nil {
-		panic(err.Error())
-	}
-
-	err = pusher.Push(ctx, ref, image)
-	if err != nil {
-		panic(err.Error())
-	}
-	return imageRef
-}
 
 func CreateRegistryAuthSecret(ctx context.Context, cli client.Client, namespace, secretName string) error {
 	dockerConfigDir := os.Getenv("DOCKER_CONFIG")

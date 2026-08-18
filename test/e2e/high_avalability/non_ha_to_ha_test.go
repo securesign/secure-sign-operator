@@ -70,7 +70,9 @@ var _ = Describe("Securesign install with certificate generation", Ordered, func
 	})
 
 	BeforeAll(func(ctx SpecContext) {
-		targetImageName = support.PrepareImage(ctx)
+		reg := support.DeployTestRegistry(ctx, cli, namespace.Name)
+		DeferCleanup(reg.Close)
+		targetImageName = reg.PrepareImage(ctx)
 	})
 
 	Describe("Non HA to HA test", func() {

@@ -57,7 +57,9 @@ func BenchmarkInstall(b *testing.B) {
 			postgresql.WaitAndLoadSchema(ctx, cli, namespaceName)
 		}
 
-		targetImageName = support.PrepareImage(context.Background())
+		reg := support.DeployTestRegistry(ctx, cli, namespaceName)
+		defer reg.Close()
+		targetImageName = reg.PrepareImage(ctx)
 
 		b.StartTimer()
 		err = installTAS(ctx, cli, namespaceName, fipsEnabled)

@@ -101,8 +101,10 @@ var _ = Describe("Operator upgrade", Ordered, func() {
 	})
 
 	BeforeAll(func(ctx SpecContext) {
-		prevImageName = support.PrepareImage(ctx)
-		newImageName = support.PrepareImage(ctx)
+		reg := support.DeployTestRegistry(ctx, cli, namespace.Name)
+		DeferCleanup(reg.Close)
+		prevImageName = reg.InClusterRef(reg.PrepareImage(ctx))
+		newImageName = reg.InClusterRef(reg.PrepareImage(ctx))
 	})
 
 	It("Install TAS", func(ctx SpecContext) {
