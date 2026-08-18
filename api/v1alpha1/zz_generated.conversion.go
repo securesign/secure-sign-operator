@@ -1725,7 +1725,7 @@ func Convert_v1_RekorLogRange_To_v1alpha1_RekorLogRange(in *v1.RekorLogRange, ou
 
 func autoConvert_v1alpha1_RekorSigner_To_v1_RekorSigner(in *RekorSigner, out *v1.RekorSigner, s conversion.Scope) error {
 	// WARNING: in.KMS requires manual conversion: does not exist in peer-type
-	out.PasswordRef = (*v1.SecretKeySelector)(unsafe.Pointer(in.PasswordRef))
+	// WARNING: in.PasswordRef requires manual conversion: does not exist in peer-type
 	out.KeyRef = (*v1.SecretKeySelector)(unsafe.Pointer(in.KeyRef))
 	return nil
 }
@@ -1733,7 +1733,6 @@ func autoConvert_v1alpha1_RekorSigner_To_v1_RekorSigner(in *RekorSigner, out *v1
 func autoConvert_v1_RekorSigner_To_v1alpha1_RekorSigner(in *v1.RekorSigner, out *RekorSigner, s conversion.Scope) error {
 	// WARNING: in.Type requires manual conversion: does not exist in peer-type
 	// WARNING: in.Kms requires manual conversion: does not exist in peer-type
-	out.PasswordRef = (*SecretKeySelector)(unsafe.Pointer(in.PasswordRef))
 	out.KeyRef = (*SecretKeySelector)(unsafe.Pointer(in.KeyRef))
 	return nil
 }

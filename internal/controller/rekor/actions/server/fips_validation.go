@@ -19,12 +19,6 @@ func NewFIPSValidationAction() action.Action[*rhtasv1.Rekor] {
 		fipsutil.FIPSCondition,
 		actions.ServerComponentName,
 		fipsAction.Wrapper(fipsAction.Config[*rhtasv1.Rekor]{
-			PasswordRef: func(i *rhtasv1.Rekor) *rhtasv1.SecretKeySelector {
-				if (i.Spec.Signer.Type == rhtasv1.RekorSignerTypeSecret || i.Spec.Signer.Type == "") && i.Spec.Signer.KeyRef != nil {
-					return i.Spec.Signer.PasswordRef //nolint:staticcheck
-				}
-				return nil
-			},
 			CryptoMaterial: rekorCryptoMaterial,
 		}),
 	)

@@ -201,12 +201,6 @@ func WithProvidedEncryptedCerts() Opts {
 				},
 				Key: "private",
 			},
-			PasswordRef: &rhtasv1.SecretKeySelector{
-				LocalObjectReference: rhtasv1.LocalObjectReference{
-					Name: "my-rekor-secret",
-				},
-				Key: "password",
-			},
 		}
 
 		s.Spec.Fulcio.Signer = rhtasv1.FulcioSigner{

@@ -15,7 +15,6 @@ import (
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
 	fulciohelpers "github.com/securesign/operator/test/e2e/support/tas/fulcio"
-	rekorhelpers "github.com/securesign/operator/test/e2e/support/tas/rekor"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -97,15 +96,5 @@ var _ = Describe("FIPS password-ref rejection", Ordered, func() {
 		})
 	})
 
-	Describe("Rekor", func() {
-		assertRejectsPasswordRef(fipsutil.FIPSCondition, func(ctx context.Context) []metav1.Condition {
-			cr := rekorhelpers.Get(ctx, cli, namespace.Name, s.Name)
-			if cr == nil {
-				return nil
-			}
-			return cr.GetConditions()
-		})
-	})
-
-	// TSA PasswordRef was removed from v1 API — no password-ref rejection to test.
+	// Rekor and TSA PasswordRef were removed from the v1 API — no password-ref rejection to test.
 })
