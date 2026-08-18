@@ -181,24 +181,16 @@ var _ = Describe("Fulcio update", Ordered, func() {
 		It("update TUF deployment", func(ctx SpecContext) {
 			Eventually(func(g Gomega) error {
 				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-				s.Spec.Tuf.Keys = []rhtasv1.TufKey{
+				s.Spec.Tuf.Fulcio = []rhtasv1.TrustRootBindingWithOIDC{
 					{
-						Name: "rekor.pub",
-					},
-					{
-						Name: "fulcio_v1.crt.pem",
-						SecretRef: &rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{
-								Name: "my-fulcio-secret",
+						TrustRootBinding: rhtasv1.TrustRootBinding{
+							SecretRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{
+									Name: "my-fulcio-secret",
+								},
+								Key: "cert",
 							},
-							Key: "cert",
 						},
-					},
-					{
-						Name: "tsa.certchain.pem",
-					},
-					{
-						Name: "ctfe.pub",
 					},
 				}
 				return cli.Update(ctx, s)
@@ -207,7 +199,12 @@ var _ = Describe("Fulcio update", Ordered, func() {
 				t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 				return t.Status.Keys
 			}).Should(And(HaveLen(4), WithTransform(func(keys []rhtasv1.TufKeyStatus) string {
-				return keys[1].SecretRef.Name
+				for _, k := range keys {
+					if k.Name == rhtasv1.TufKeyFulcio {
+						return k.SecretRef.Name
+					}
+				}
+				return ""
 			}, Equal("my-fulcio-secret"))))
 			tuf.RefreshTufRepository(ctx, cli, namespace.Name, s.Name)
 		})

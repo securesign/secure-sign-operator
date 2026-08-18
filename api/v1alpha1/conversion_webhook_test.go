@@ -151,7 +151,7 @@ var _ = Describe("Conversion webhook", func() {
 	})
 
 	Context("Tuf", func() {
-		It("should preserve keys across versions", func() {
+		It("should preserve trust root bindings across versions, and TSA inclusion via Keys presence", func() {
 			v1obj := &rhtasv1.Tuf{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "tuf-keys-test",
@@ -159,18 +159,33 @@ var _ = Describe("Conversion webhook", func() {
 				},
 				Spec: rhtasv1.TufSpec{
 					Port: 80,
-					Keys: []rhtasv1.TufKey{
-						{Name: "rekor.pub"},
-						{Name: "ctfe.pub"},
-					},
+					Rekor: []rhtasv1.TrustRootBinding{{
+						SecretRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "rekor-key"},
+							Key:                  "public",
+						},
+					}},
+					// Tsa left nil: excluded from the trust root.
 				},
 			}
 			Expect(k8sClient.Create(ctx, v1obj)).To(Succeed())
 
 			v1alpha1obj := &Tuf{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "tuf-keys-test", Namespace: testNs}, v1alpha1obj)).To(Succeed())
-			Expect(v1alpha1obj.Spec.Keys).To(HaveLen(2))
 			Expect(v1alpha1obj.Spec.Port).To(Equal(int32(80)))
+
+			byName := map[string]TufKey{}
+			for _, k := range v1alpha1obj.Spec.Keys {
+				byName[k.Name] = k
+			}
+			Expect(byName).To(HaveKey("rekor.pub"))
+			Expect(byName["rekor.pub"].SecretRef).To(Equal(&SecretKeySelector{
+				LocalObjectReference: LocalObjectReference{Name: "rekor-key"},
+				Key:                  "public",
+			}))
+			Expect(byName).To(HaveKey("ctfe.pub"))
+			Expect(byName).To(HaveKey("fulcio_v1.crt.pem"))
+			Expect(byName).ToNot(HaveKey("tsa.certchain.pem"))
 		})
 	})
 

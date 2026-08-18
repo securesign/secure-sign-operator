@@ -58,11 +58,6 @@ func (i tufAction) Handle(ctx context.Context, instance *rhtasv1.Securesign) *ac
 		func(object *rhtasv1.Tuf) error {
 			defaulted := instance.Spec.Tuf.DeepCopy()
 			defaulted.SetDefaults()
-			if instance.Spec.TimestampAuthority == nil && instance.Spec.Tuf.Tsa.URL == "" && instance.Spec.Tuf.Tsa.Ref == nil {
-				defaulted.Keys = slices.DeleteFunc(defaulted.Keys, func(key rhtasv1.TufKey) bool {
-					return key.Name == rhtasv1.TufKeyTSA && key.SecretRef == nil
-				})
-			}
 			object.Spec = *defaulted
 			return nil
 		},

@@ -1,19 +1,20 @@
 package actions
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"maps"
 	"reflect"
 	"slices"
+
+	"context"
 	"time"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
-	"github.com/securesign/operator/internal/action/trustmaterial"
 	"github.com/securesign/operator/internal/constants"
 	tufConstants "github.com/securesign/operator/internal/controller/tuf/constants"
+	"github.com/securesign/operator/internal/controller/tuf/trustroot"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	k8sutils "github.com/securesign/operator/internal/utils/kubernetes"
@@ -21,24 +22,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const (
-	tufKeysSecretFormat = "tuf-keys-%s"
-
-	rekorKeyName  = "rekor.pub"
-	ctfeKeyName   = "ctfe.pub"
-	fulcioKeyName = "fulcio_v1.crt.pem"
-	tsaKeyName    = "tsa.certchain.pem"
-)
-
-var (
-	ErrNoReadyComponent      = errors.New("no ready component instance found")
-	ErrTrustMaterialNotReady = errors.New("trust material not yet available")
-)
+const tufKeysSecretFormat = "tuf-keys-%s"
 
 func NewResolveKeysAction() action.Action[*rhtasv1.Tuf] {
 	return &resolveKeysAction{}
@@ -52,50 +39,45 @@ func (i resolveKeysAction) Name() string {
 	return "resolve keys"
 }
 
-func (i resolveKeysAction) CanHandle(ctx context.Context, instance *rhtasv1.Tuf) bool {
-	if state.FromInstance(instance, constants.ReadyCondition) < state.Pending {
-		return false
-	}
-	return !instance.Status.MatchesKeys(instance.Spec.Keys)
+func (i resolveKeysAction) CanHandle(_ context.Context, instance *rhtasv1.Tuf) bool {
+	return state.FromInstance(instance, constants.ReadyCondition) >= state.Pending
 }
 
 func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *action.Result {
-	if state.FromInstance(instance, constants.ReadyCondition) != state.Pending {
-		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{Type: constants.ReadyCondition,
-			Status: v1.ConditionFalse, Reason: state.Pending.String(), Message: "Resolving keys",
-			ObservedGeneration: instance.Generation})
-	}
-
 	autodiscoveredData := make(map[string][]byte)
-	resolvedKeys := make([]rhtasv1.TufKey, 0, len(instance.Spec.Keys))
+	resolvedKeys := make([]rhtasv1.TufKeyStatus, 0, 4)
 
-	for _, key := range instance.Spec.Keys {
-		if key.SecretRef != nil {
-			resolvedKeys = append(resolvedKeys, key)
-			continue
+	for _, key := range trustroot.ActiveKeys(instance) {
+		var (
+			resolved  trustroot.Resolved
+			err       error
+			secretRef *rhtasv1.SecretKeySelector
+		)
+		if key == trustroot.Fulcio {
+			binding := trustroot.FulcioBinding(instance)
+			resolved, err = trustroot.ResolveFulcio(ctx, i.Client, instance.Namespace, binding)
+			secretRef = binding.SecretRef
+		} else {
+			binding := trustroot.Binding(instance, key)
+			resolved, err = trustroot.Resolve(ctx, i.Client, instance.Namespace, key, binding)
+			secretRef = binding.SecretRef
 		}
-
-		trustMaterial, err := discoverFromStatus(ctx, i.Client, instance.Namespace, key.Name)
 		if err != nil {
 			if errors.Is(err, reconcile.TerminalError(nil)) {
-				msg := err.Error()
-				if inner := errors.Unwrap(err); inner != nil {
-					msg = inner.Error()
-				}
 				return i.Error(ctx, err, instance,
 					v1.Condition{
-						Type:    key.Name,
+						Type:    key.String(),
 						Status:  v1.ConditionFalse,
 						Reason:  state.Failure.String(),
-						Message: msg,
-					})
+						Message: err.Error()},
+				)
 			}
 			meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{Type: constants.ReadyCondition,
 				Status: v1.ConditionFalse, Reason: state.Pending.String(), Message: "Resolving keys",
 				ObservedGeneration: instance.Generation})
 
 			meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
-				Type:    key.Name,
+				Type:    key.String(),
 				Status:  v1.ConditionFalse,
 				Reason:  state.Failure.String(),
 				Message: err.Error(),
@@ -106,8 +88,12 @@ func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *a
 			return i.RequeueAfter(5 * time.Second)
 		}
 
-		autodiscoveredData[key.Name] = []byte(trustMaterial)
-		resolvedKeys = append(resolvedKeys, rhtasv1.TufKey{Name: key.Name})
+		if secretRef != nil {
+			resolvedKeys = append(resolvedKeys, rhtasv1.TufKeyStatus{Name: key.String(), SecretRef: secretRef})
+			continue
+		}
+		autodiscoveredData[key.String()] = resolved.Material
+		resolvedKeys = append(resolvedKeys, rhtasv1.TufKeyStatus{Name: key.String()})
 	}
 
 	if len(autodiscoveredData) > 0 {
@@ -137,63 +123,34 @@ func (i resolveKeysAction) Handle(ctx context.Context, instance *rhtasv1.Tuf) *a
 		}
 	}
 
-	if len(instance.Status.Keys) != len(resolvedKeys) {
-		instance.Status.Keys = make([]rhtasv1.TufKeyStatus, 0, len(resolvedKeys))
+	changed := len(instance.Status.Keys) != len(resolvedKeys)
+	if changed {
+		instance.Status.Keys = make([]rhtasv1.TufKeyStatus, len(resolvedKeys))
 	}
 	for index, key := range resolvedKeys {
-		ks := rhtasv1.TufKeyStatus(key)
-		if len(instance.Status.Keys) < index+1 {
-			instance.Status.Keys = append(instance.Status.Keys, ks)
-			meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
-				Type:   key.Name,
-				Status: v1.ConditionTrue,
-				Reason: state.Ready.String(),
-			})
-		} else {
-			if !reflect.DeepEqual(ks, instance.Status.Keys[index]) {
-				instance.Status.Keys[index] = ks
-				meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
-					Type:   key.Name,
-					Status: v1.ConditionTrue,
-					Reason: state.Ready.String(),
-				})
-			}
+		if !reflect.DeepEqual(key, instance.Status.Keys[index]) {
+			instance.Status.Keys[index] = key
+			changed = true
+		}
+		meta.SetStatusCondition(&instance.Status.Conditions, v1.Condition{
+			Type:   key.Name,
+			Status: v1.ConditionTrue,
+			Reason: state.Ready.String(),
+		})
+	}
+
+	active := make(map[string]bool, len(resolvedKeys))
+	for _, key := range resolvedKeys {
+		active[key.Name] = true
+	}
+	for _, name := range []string{trustroot.Rekor.String(), trustroot.CTFE.String(), trustroot.Fulcio.String(), trustroot.TSA.String()} {
+		if !active[name] && meta.RemoveStatusCondition(&instance.Status.Conditions, name) {
+			changed = true
 		}
 	}
 
+	if !changed {
+		return i.Continue()
+	}
 	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
-}
-
-type trustMaterialSource struct {
-	list             client.ObjectList
-	getTrustMaterial func(runtime.Object) string
-}
-
-var keyToSource = map[string]trustMaterialSource{
-	rekorKeyName:  {list: &rhtasv1.RekorList{}, getTrustMaterial: func(obj runtime.Object) string { return obj.(*rhtasv1.Rekor).Status.PublicKey }},
-	ctfeKeyName:   {list: &rhtasv1.CTlogList{}, getTrustMaterial: func(obj runtime.Object) string { return obj.(*rhtasv1.CTlog).Status.PublicKey }},
-	fulcioKeyName: {list: &rhtasv1.FulcioList{}, getTrustMaterial: func(obj runtime.Object) string { return obj.(*rhtasv1.Fulcio).Status.CertificateChain }},
-	tsaKeyName:    {list: &rhtasv1.TimestampAuthorityList{}, getTrustMaterial: func(obj runtime.Object) string { return obj.(*rhtasv1.TimestampAuthority).Status.CertificateChain }},
-}
-
-func discoverFromStatus(ctx context.Context, cli client.Client, namespace, keyName string) (string, error) {
-	src, ok := keyToSource[keyName]
-	if !ok {
-		return "", reconcile.TerminalError(fmt.Errorf("unknown key %s — no autodiscovery mapping defined", keyName))
-	}
-
-	list := src.list.DeepCopyObject().(client.ObjectList)
-	item, err := trustmaterial.FindReadyInstance(ctx, cli, namespace, list)
-	if err != nil {
-		if errors.Is(err, trustmaterial.ErrNoReadyInstance) {
-			return "", ErrNoReadyComponent
-		}
-		return "", err
-	}
-
-	material := src.getTrustMaterial(item)
-	if err := trustmaterial.ValidatePEM([]byte(material)); err != nil {
-		return "", fmt.Errorf("%w: %w", ErrTrustMaterialNotReady, err)
-	}
-	return material, nil
 }

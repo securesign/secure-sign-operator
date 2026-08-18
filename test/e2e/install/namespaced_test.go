@@ -260,18 +260,20 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 				Ingress: rhtasv1.Ingress{
 					Enabled: ptr.To(true),
 				},
-				Keys: []rhtasv1.TufKey{
+				Fulcio: []rhtasv1.TrustRootBindingWithOIDC{
 					{
-						Name: "fulcio_v1.crt.pem",
-						SecretRef: &rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{
-								Name: "my-fulcio-secret",
+						TrustRootBinding: rhtasv1.TrustRootBinding{
+							SecretRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{
+									Name: "my-fulcio-secret",
+								},
+								Key: "cert",
 							},
-							Key: "cert",
 						},
 					},
+				},
+				Rekor: []rhtasv1.TrustRootBinding{
 					{
-						Name: "rekor.pub",
 						SecretRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "my-rekor-secret",
@@ -279,8 +281,9 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 							Key: "public",
 						},
 					},
+				},
+				Ctlog: []rhtasv1.TrustRootBinding{
 					{
-						Name: "ctfe.pub",
 						SecretRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "my-ctlog-secret",
@@ -288,8 +291,9 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 							Key: "public",
 						},
 					},
+				},
+				Tsa: &[]rhtasv1.TrustRootBinding{
 					{
-						Name: "tsa.certchain.pem",
 						SecretRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "test-tsa-secret",
@@ -367,11 +371,11 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 		})
 
 		It("Create TUF instance", func(ctx SpecContext) {
-			tufObject.Spec.Fulcio.URL = fulcio.Get(ctx, cli, namespaces["fulcio"].Name, fulcioObject.Name).Status.Url
-			tufObject.Spec.Fulcio.OIDCIssuers = []string{support.OidcIssuerUrl()}
-			tufObject.Spec.Rekor.URL = rekor.Get(ctx, cli, namespaces["rekor"].Name, rekorObject.Name).Status.Url
-			tufObject.Spec.Tsa.URL = tsa.Get(ctx, cli, namespaces["tsa"].Name, tsaObject.Name).Status.Url
-			tufObject.Spec.Ctlog.URL = ctlog.Get(ctx, cli, namespaces["ctlog"].Name, ctlogObject.Name).Status.Url
+			tufObject.Spec.Fulcio[0].URL = fulcio.Get(ctx, cli, namespaces["fulcio"].Name, fulcioObject.Name).Status.Url
+			tufObject.Spec.Fulcio[0].OIDCIssuers = []string{support.OidcIssuerUrl()}
+			tufObject.Spec.Rekor[0].URL = rekor.Get(ctx, cli, namespaces["rekor"].Name, rekorObject.Name).Status.Url
+			(*tufObject.Spec.Tsa)[0].URL = tsa.Get(ctx, cli, namespaces["tsa"].Name, tsaObject.Name).Status.Url
+			tufObject.Spec.Ctlog[0].URL = ctlog.Get(ctx, cli, namespaces["ctlog"].Name, ctlogObject.Name).Status.Url
 			Expect(cli.Create(ctx, tufObject)).To(Succeed())
 			tuf.Verify(ctx, cli, namespaces["tuf"].Name, tufObject.Name)
 		})

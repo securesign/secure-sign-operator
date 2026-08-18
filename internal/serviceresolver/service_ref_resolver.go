@@ -104,6 +104,12 @@ func mergeURLs(users *url.URL, resolvedRaw string) (string, error) {
 	return users.String(), nil
 }
 
+// PopulateInstance resolves serviceRef (explicit ref, or autodiscovery-by-listing)
+// and populates instance with the found object's data.
+func PopulateInstance(ctx context.Context, cl client.Client, serviceRef apis.ServiceReferencer, instanceNamespace string, instance client.Object) error {
+	return serviceRefOrAutoload(ctx, cl, serviceRef.GetServiceRef(), instanceNamespace, instance)
+}
+
 func ResolveInternalGrpcService(ctx context.Context, cl client.Client, serviceRef apis.ServiceReferencer, instanceNamespace string, instance client.Object) (address string, port string, err error) {
 	ref := serviceRef.GetServiceRef()
 

@@ -83,6 +83,9 @@ func TestSecuresignConversionUnit(t *testing.T) {
 						},
 						Tuf: rhtasv1.TufSpec{
 							Ingress: rhtasv1.Ingress{Enabled: ptr.To(false)},
+							Ctlog:   []rhtasv1.TrustRootBinding{{}},
+							Rekor:   []rhtasv1.TrustRootBinding{{}},
+							Fulcio:  []rhtasv1.TrustRootBindingWithOIDC{{}},
 						},
 					},
 				}
@@ -90,6 +93,15 @@ func TestSecuresignConversionUnit(t *testing.T) {
 			spoke: func() *Securesign {
 				return &Securesign{
 					ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+					Spec: SecuresignSpec{
+						Tuf: TufSpec{
+							Keys: []TufKey{
+								{Name: "rekor.pub"},
+								{Name: "ctfe.pub"},
+								{Name: "fulcio_v1.crt.pem"},
+							},
+						},
+					},
 				}
 			},
 		},
@@ -133,7 +145,9 @@ func TestSecuresignConversionUnit(t *testing.T) {
 						},
 						Tuf: rhtasv1.TufSpec{
 							Ingress: rhtasv1.Ingress{Enabled: ptr.To(false)},
-							Ctlog:   rhtasv1.ServiceReference{URL: "///trusted-artifact-signer"},
+							Ctlog:   []rhtasv1.TrustRootBinding{{ServiceReference: rhtasv1.ServiceReference{URL: "///trusted-artifact-signer"}}},
+							Rekor:   []rhtasv1.TrustRootBinding{{}},
+							Fulcio:  []rhtasv1.TrustRootBindingWithOIDC{{}},
 						},
 						TimestampAuthority: &rhtasv1.TimestampAuthoritySpec{
 							Signer: rhtasv1.TimestampAuthoritySigner{
@@ -175,6 +189,11 @@ func TestSecuresignConversionUnit(t *testing.T) {
 						},
 						Tuf: TufSpec{
 							Ctlog: CtlogService{Prefix: "trusted-artifact-signer"},
+							Keys: []TufKey{
+								{Name: "rekor.pub"},
+								{Name: "ctfe.pub"},
+								{Name: "fulcio_v1.crt.pem"},
+							},
 						},
 						TimestampAuthority: &TimestampAuthoritySpec{
 							Signer: TimestampAuthoritySigner{
@@ -818,15 +837,10 @@ func TestTufConversionUnit(t *testing.T) {
 			hub: &rhtasv1.Tuf{
 				ObjectMeta: metav1.ObjectMeta{Name: "tuf", Namespace: "default"},
 				Spec: rhtasv1.TufSpec{
-					Port: 80,
-					Keys: []rhtasv1.TufKey{
-						{Name: "rekor.pub"},
-						{Name: "ctfe.pub"},
-						{Name: "fulcio_v1.crt.pem"},
-					},
-					Ctlog:   rhtasv1.ServiceReference{URL: "http://ctlog:6963/trusted-artifact-signer"},
-					Fulcio:  rhtasv1.ServiceRefWithOIDC{ServiceReference: rhtasv1.ServiceReference{URL: "http://fulcio:5554"}},
-					Rekor:   rhtasv1.ServiceReference{URL: "http://rekor:3000"},
+					Port:    80,
+					Ctlog:   []rhtasv1.TrustRootBinding{{ServiceReference: rhtasv1.ServiceReference{URL: "http://ctlog:6963/trusted-artifact-signer"}}},
+					Fulcio:  []rhtasv1.TrustRootBindingWithOIDC{{TrustRootBinding: rhtasv1.TrustRootBinding{ServiceReference: rhtasv1.ServiceReference{URL: "http://fulcio:5554"}}}},
+					Rekor:   []rhtasv1.TrustRootBinding{{ServiceReference: rhtasv1.ServiceReference{URL: "http://rekor:3000"}}},
 					Ingress: rhtasv1.Ingress{Enabled: ptr.To(false)},
 				},
 			},

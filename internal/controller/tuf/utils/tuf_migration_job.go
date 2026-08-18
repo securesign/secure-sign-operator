@@ -3,10 +3,12 @@ package utils
 import (
 	"context"
 	_ "embed"
+	"fmt"
 	"strings"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
+	"github.com/securesign/operator/internal/controller/tuf/trustroot"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
@@ -80,21 +82,28 @@ func EnsureTufMigrationJob(ctx context.Context, c client.Client, instance *rhtas
 		workdir := kubernetes.FindEnvByNameOrCreate(container, "WORKDIR")
 		workdir.Value = workdirVolumePath
 
-		for _, key := range instance.Spec.Keys {
-			result, err := resolveServiceAddress(ctx, c, instance, key.Name)
-			if err != nil {
-				return err
+		for _, key := range trustroot.ActiveKeys(instance) {
+			var resolved trustroot.Resolved
+			var err error
+			if key == trustroot.Fulcio {
+				resolved, err = trustroot.ResolveFulcio(ctx, c, instance.Namespace, trustroot.FulcioBinding(instance))
+			} else {
+				resolved, err = trustroot.Resolve(ctx, c, instance.Namespace, key, trustroot.Binding(instance, key))
 			}
-			switch key.Name {
-			case rhtasv1.TufKeyRekor:
-				kubernetes.FindEnvByNameOrCreate(container, "REKOR_URL").Value = result.Address
-			case rhtasv1.TufKeyCTFE:
-				kubernetes.FindEnvByNameOrCreate(container, "CTLOG_URL").Value = result.Address
-			case rhtasv1.TufKeyFulcio:
-				kubernetes.FindEnvByNameOrCreate(container, "FULCIO_URL").Value = result.Address
-				kubernetes.FindEnvByNameOrCreate(container, "OIDC_ISSUERS").Value = strings.Join(result.OIDCIssuers, ",")
-			case rhtasv1.TufKeyTSA:
-				kubernetes.FindEnvByNameOrCreate(container, "TSA_URL").Value = result.Address
+			if err != nil {
+				return fmt.Errorf("%w: %w", ErrorResolveServiceUrl, err)
+			}
+
+			switch key {
+			case trustroot.Rekor:
+				kubernetes.FindEnvByNameOrCreate(container, "REKOR_URL").Value = resolved.Address
+			case trustroot.CTFE:
+				kubernetes.FindEnvByNameOrCreate(container, "CTLOG_URL").Value = resolved.Address
+			case trustroot.Fulcio:
+				kubernetes.FindEnvByNameOrCreate(container, "FULCIO_URL").Value = resolved.Address
+				kubernetes.FindEnvByNameOrCreate(container, "OIDC_ISSUERS").Value = strings.Join(resolved.OIDCIssuers, ",")
+			case trustroot.TSA:
+				kubernetes.FindEnvByNameOrCreate(container, "TSA_URL").Value = resolved.Address
 			}
 		}
 

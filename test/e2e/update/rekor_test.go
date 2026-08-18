@@ -147,24 +147,14 @@ var _ = Describe("Rekor update", Ordered, func() {
 		It("update TUF deployment", func(ctx SpecContext) {
 			Eventually(func(g Gomega) error {
 				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-				s.Spec.Tuf.Keys = []rhtasv1.TufKey{
+				s.Spec.Tuf.Rekor = []rhtasv1.TrustRootBinding{
 					{
-						Name: "rekor.pub",
 						SecretRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "my-rekor-secret",
 							},
 							Key: "public",
 						},
-					},
-					{
-						Name: "fulcio_v1.crt.pem",
-					},
-					{
-						Name: "tsa.certchain.pem",
-					},
-					{
-						Name: "ctfe.pub",
 					},
 				}
 				return cli.Update(ctx, s)
@@ -173,7 +163,12 @@ var _ = Describe("Rekor update", Ordered, func() {
 				t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 				return t.Status.Keys
 			}).Should(And(HaveLen(4), WithTransform(func(keys []rhtasv1.TufKeyStatus) string {
-				return keys[0].SecretRef.Name
+				for _, k := range keys {
+					if k.Name == rhtasv1.TufKeyRekor {
+						return k.SecretRef.Name
+					}
+				}
+				return ""
 			}, Equal("my-rekor-secret"))))
 			tuf.RefreshTufRepository(ctx, cli, namespace.Name, s.Name)
 		})

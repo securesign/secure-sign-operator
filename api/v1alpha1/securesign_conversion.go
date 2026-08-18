@@ -114,22 +114,21 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Tuf.ImagePullSecrets = restored.Spec.Tuf.ImagePullSecrets
 	dst.Spec.Tuf.TrustedCA = restored.Spec.Tuf.TrustedCA
 	dst.Spec.Tuf.PodExtensions = restored.Spec.Tuf.PodExtensions
-	if dst.Spec.Tuf.Rekor.URL == "" {
-		dst.Spec.Tuf.Rekor.Ref = restored.Spec.Tuf.Rekor.Ref
+	restoreBindingRef(dst.Spec.Tuf.Rekor, restored.Spec.Tuf.Rekor)
+	if len(dst.Spec.Tuf.Fulcio) > 0 && len(restored.Spec.Tuf.Fulcio) > 0 {
+		if dst.Spec.Tuf.Fulcio[0].URL == "" {
+			dst.Spec.Tuf.Fulcio[0].Ref = restored.Spec.Tuf.Fulcio[0].Ref
+		}
+		dst.Spec.Tuf.Fulcio[0].OIDCIssuers = restored.Spec.Tuf.Fulcio[0].OIDCIssuers
 	}
-	if dst.Spec.Tuf.Fulcio.URL == "" {
-		dst.Spec.Tuf.Fulcio.Ref = restored.Spec.Tuf.Fulcio.Ref
-	}
-	dst.Spec.Tuf.Fulcio.OIDCIssuers = restored.Spec.Tuf.Fulcio.OIDCIssuers
 	// v1alpha1 inject prefix into URL - we need to restore empty URL to allow ref resolution
-	if restored.Spec.Tuf.Ctlog.URL == "" && dst.Spec.Tuf.Ctlog.URL == "///trusted-artifact-signer" { //nolint:goconst
-		dst.Spec.Tuf.Ctlog.URL = ""
+	if len(dst.Spec.Tuf.Ctlog) > 0 && len(restored.Spec.Tuf.Ctlog) > 0 &&
+		restored.Spec.Tuf.Ctlog[0].URL == "" && dst.Spec.Tuf.Ctlog[0].URL == "///trusted-artifact-signer" { //nolint:goconst
+		dst.Spec.Tuf.Ctlog[0].URL = ""
 	}
-	if dst.Spec.Tuf.Ctlog.URL == "" {
-		dst.Spec.Tuf.Ctlog.Ref = restored.Spec.Tuf.Ctlog.Ref
-	}
-	if dst.Spec.Tuf.Tsa.URL == "" {
-		dst.Spec.Tuf.Tsa.Ref = restored.Spec.Tuf.Tsa.Ref
+	restoreBindingRef(dst.Spec.Tuf.Ctlog, restored.Spec.Tuf.Ctlog)
+	if dst.Spec.Tuf.Tsa != nil && restored.Spec.Tuf.Tsa != nil {
+		restoreBindingRef(*dst.Spec.Tuf.Tsa, *restored.Spec.Tuf.Tsa)
 	}
 	if dst.Spec.TimestampAuthority != nil && restored.Spec.TimestampAuthority != nil {
 		dst.Spec.TimestampAuthority.ImagePullSecrets = restored.Spec.TimestampAuthority.ImagePullSecrets

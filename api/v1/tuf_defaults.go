@@ -10,12 +10,6 @@ func (s *TufSpec) SetDefaults() {
 	s.PodExtensions.SetDefaults()
 	s.Ingress.SetDefaults()
 	setDefault(&s.Port, int32(80))
-	setDefaultSlice(&s.Keys, []TufKey{
-		{Name: TufKeyRekor},
-		{Name: TufKeyCTFE},
-		{Name: TufKeyFulcio},
-		{Name: TufKeyTSA},
-	})
 	if s.RootKeySecretRef == nil {
 		s.RootKeySecretRef = &LocalObjectReference{Name: "tuf-root-keys"}
 	}
