@@ -479,7 +479,7 @@ func WithPKCS11Signer(namespace string) Opts {
 		s.Spec.Fulcio.InitContainers = []rhtasv1.InitContainerSpec{
 			{
 				Name:    "hsm-lib-export",
-				Image:   "quay.io/rh-ee-sacm/softhsm-init:v3",
+				Image:   "quay.io/securesign/softhsm-init:1.0-test",
 				Command: []string{"cp", "/usr/lib64/pkcs11/libsofthsm2.so", "/var/run/hsm-lib/"},
 				VolumeMounts: []core.VolumeMount{
 					{
@@ -523,7 +523,7 @@ func WithPKCS11Signer(namespace string) Opts {
 		s.Spec.Ctlog.InitContainers = []rhtasv1.InitContainerSpec{
 			{
 				Name:    "hsm-lib-export",
-				Image:   "quay.io/rh-ee-sacm/softhsm-init:v3",
+				Image:   "quay.io/securesign/softhsm-init:1.0-test",
 				Command: []string{"cp", "/usr/lib64/pkcs11/libsofthsm2.so", "/var/run/hsm-lib/"},
 				VolumeMounts: []core.VolumeMount{
 					{
