@@ -65,16 +65,6 @@ type TrillianDB struct {
 	// Create Database if a database is not created one must be defined using the DatabaseSecret field
 	//+kubebuilder:validation:XValidation:rule=(self == oldSelf),message=Field is immutable
 	Create *bool `json:"create,omitempty"`
-	// DatabaseSecretRef is deprecated. Use Auth instead.
-	// Secret with values to be used to connect to an existing DB or to be used with the creation of a new DB
-	// mysql-host: The host of the MySQL server
-	// mysql-port: The port of the MySQL server
-	// mysql-user: The user to connect to the MySQL server
-	// mysql-password: The password to connect to the MySQL server
-	// mysql-database: The database to connect to
-	//+optional
-	// +kubebuilder:validation:Deprecated=true
-	DatabaseSecretRef *LocalObjectReference `json:"databaseSecretRef,omitempty"`
 	// PVC configuration
 	Pvc Pvc `json:"pvc,omitempty"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged database.
