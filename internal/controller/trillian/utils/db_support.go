@@ -8,14 +8,13 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 	rhtasv1 "github.com/securesign/operator/api/v1"
-	"github.com/securesign/operator/internal/controller/trillian/actions"
+	"github.com/securesign/operator/internal/controller/trillian/dbsecret"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
 	apps "k8s.io/api/apps/v1"
-	core "k8s.io/api/core/v1"
 )
 
 const initContainerName = "wait-for-trillian-db"
@@ -28,34 +27,8 @@ func ensureDbAuth(instance *rhtasv1.Trillian, containerName string) []func(dp *a
 	return []func(dp *apps.Deployment) error{
 		deployment.Auth(containerName, instance.Spec.Auth),
 		ensure.Optional(instance.Status.Db.DatabaseSecretRef != nil,
-			deployment.Auth(containerName, dbSecretToAuth(instance.Status.Db.DatabaseSecretRef))),
+			deployment.Auth(containerName, dbsecret.DbSecretToAuth(instance.Status.Db.DatabaseSecretRef))),
 	}
-}
-
-func dbSecretToAuth(databaseSecretRef *rhtasv1.LocalObjectReference) *rhtasv1.Auth {
-	if databaseSecretRef == nil {
-		return nil
-	}
-	auth := rhtasv1.Auth{}
-	keys := []string{actions.SecretUser, actions.SecretPassword, actions.SecretHost, actions.SecretPort, actions.SecretDatabaseName}
-
-	for _, v := range keys {
-		temp := strings.ReplaceAll(v, "-", "_")
-		temp = strings.ToUpper(temp)
-
-		auth.Env = append(auth.Env, core.EnvVar{
-			Name: temp,
-			ValueFrom: &core.EnvVarSource{
-				SecretKeyRef: &core.SecretKeySelector{
-					Key: v,
-					LocalObjectReference: core.LocalObjectReference{
-						Name: databaseSecretRef.Name,
-					},
-				},
-			},
-		})
-	}
-	return &auth
 }
 
 func ensureDbParams(instance *rhtasv1.Trillian, containerName string, useTls bool, caPath string) func(dp *apps.Deployment) error {
@@ -103,7 +76,7 @@ func ensureDbParams(instance *rhtasv1.Trillian, containerName string, useTls boo
 			}
 			// ensure dbSecret auth
 			if instance.Status.Db.DatabaseSecretRef != nil {
-				err = ensure.ContainerAuth(initContainer, dbSecretToAuth(instance.Status.Db.DatabaseSecretRef))(ref)
+				err = ensure.ContainerAuth(initContainer, dbsecret.DbSecretToAuth(instance.Status.Db.DatabaseSecretRef))(ref)
 				if err != nil {
 					return err
 				}

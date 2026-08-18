@@ -246,25 +246,6 @@ spec:
                     x-kubernetes-validations:
                     - message: Field is immutable
                       rule: (self == oldSelf)
-                  databaseSecretRef:
-                    description: |-
-                      DatabaseSecretRef is deprecated. Use Auth instead.
-                      Secret with values to be used to connect to an existing DB or to be used with the creation of a new DB
-                      mysql-host: The host of the MySQL server
-                      mysql-port: The port of the MySQL server
-                      mysql-user: The user to connect to the MySQL server
-                      mysql-password: The password to connect to the MySQL server
-                      mysql-database: The database to connect to
-                    properties:
-                      name:
-                        description: |-
-                          Name of the referent.
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                        type: string
-                    required:
-                    - name
-                    type: object
-                    x-kubernetes-map-type: atomic
                   provider:
                     description: DB provider. Supported are mysql, postgresql.
                     enum:

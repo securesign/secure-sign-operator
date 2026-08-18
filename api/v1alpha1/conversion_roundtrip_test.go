@@ -109,9 +109,13 @@ func randServiceReferenceWithOIDC(c randfill.Continue, urlFunc func(c randfill.C
 	}
 }
 
-// trillianServiceFuzzerFuncs fuzzes v1alpha1 TrillianService.Address as a gRPC target.
 func trillianServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
+		func(s *TrillianSpec, c randfill.Continue) {
+			c.FillNoCustom(s)
+			// spec DatabaseSecretRef no field in v1
+			s.Db.DatabaseSecretRef = nil
+		},
 		func(s *TrillianService, c randfill.Continue) {
 			c.FillNoCustom(s)
 			s.Address = urlfuzz.GRPCURL(c, false)
@@ -398,6 +402,11 @@ func fulcioStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 // full spec types but not in the slim v1 status types (TrillianDBStatus, TrillianServiceStatus).
 func trillianStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
+		func(s *TrillianSpec, c randfill.Continue) {
+			c.FillNoCustom(s)
+			// spec DatabaseSecretRef converts to v1 Auth and is not restored on ConvertFrom
+			s.Db.DatabaseSecretRef = nil
+		},
 		func(s *TrillianStatus, c randfill.Continue) {
 			c.FillNoCustom(s)
 			// no v1 equivalent in TrillianDBStatus

@@ -5,6 +5,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/controller/trillian/dbsecret"
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/condition"
 	"github.com/securesign/operator/test/e2e/support/postgresql"
@@ -137,9 +138,9 @@ func WithManagedDatabase() Opts {
 func WithExternalDatabase(secretName string) Opts {
 	return func(s *rhtasv1.Securesign) {
 		s.Spec.Trillian.Db.Create = ptr.To(false)
-		s.Spec.Trillian.Db.DatabaseSecretRef = &rhtasv1.LocalObjectReference{
+		s.Spec.Trillian.Auth = dbsecret.DbSecretToAuth(&rhtasv1.LocalObjectReference{
 			Name: secretName,
-		}
+		})
 	}
 }
 
