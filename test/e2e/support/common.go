@@ -23,7 +23,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/yaml"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
+	containerv1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/uuid"
@@ -88,13 +91,28 @@ func PrepareImage(ctx context.Context) string {
 		panic(err.Error())
 	}
 
-	targetImageName := fmt.Sprintf("ttl.sh/%s:15m", uuid.New().String())
-	ref, err := name.ParseReference(targetImageName)
+	image, err = mutate.Config(image, containerv1.Config{
+		Labels: map[string]string{
+			"quay.expires-after": "1h",
+			"run-id":             uuid.New().String(),
+		},
+	})
 	if err != nil {
 		panic(err.Error())
 	}
 
-	pusher, err := remote.NewPusher()
+	digest, err := image.Digest()
+	if err != nil {
+		panic(err.Error())
+	}
+
+	imageRef := fmt.Sprintf("quay.io/securesign/e2e-tests@%s", digest.String())
+	ref, err := name.ParseReference(imageRef)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	pusher, err := remote.NewPusher(remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	if err != nil {
 		panic(err.Error())
 	}
@@ -103,7 +121,36 @@ func PrepareImage(ctx context.Context) string {
 	if err != nil {
 		panic(err.Error())
 	}
-	return targetImageName
+	return imageRef
+}
+
+func CreateRegistryAuthSecret(ctx context.Context, cli client.Client, namespace, secretName string) error {
+	dockerConfigDir := os.Getenv("DOCKER_CONFIG")
+	if dockerConfigDir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get home dir: %w", err)
+		}
+		dockerConfigDir = filepath.Join(home, ".docker")
+	}
+	configPath := filepath.Join(dockerConfigDir, "config.json")
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to read docker config at %s: %w", configPath, err)
+	}
+
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: namespace,
+		},
+		Type: v1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{
+			v1.DockerConfigJsonKey: data,
+		},
+	}
+	return cli.Create(ctx, secret)
 }
 
 func EnvOrDefault(env string, def string) string {
