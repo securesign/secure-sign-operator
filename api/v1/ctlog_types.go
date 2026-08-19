@@ -118,8 +118,8 @@ type CTlogLogRange struct {
 }
 
 const (
-	CTlogSignerTypeFile    = "file"
-	CTlogSignerTypePKCS11  = "pkcs11"
+	CTlogSignerTypeFile   = "file"
+	CTlogSignerTypePKCS11 = "pkcs11"
 )
 
 // CTlogPKCS11Config configures PKCS#11/HSM-based signing for CTlog.

@@ -6,9 +6,9 @@ import (
 	"encoding/pem"
 	"fmt"
 
-	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
