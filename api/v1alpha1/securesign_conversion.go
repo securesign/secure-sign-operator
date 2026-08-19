@@ -82,6 +82,10 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 			dst.Spec.Ctlog.Signer.File = &rhtasv1.CTlogFile{}
 		}
 	}
+	// Preserve PKCS11 configuration if present
+	if dst.Spec.Ctlog.Signer.PKCS11 == nil && restored.Spec.Ctlog.Signer.PKCS11 != nil {
+		dst.Spec.Ctlog.Signer.PKCS11 = restored.Spec.Ctlog.Signer.PKCS11
+	}
 	if dst.Spec.Ctlog.Trillian.URL == "" {
 		dst.Spec.Ctlog.Trillian.Ref = restored.Spec.Ctlog.Trillian.Ref
 	}
