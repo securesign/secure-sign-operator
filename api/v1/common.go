@@ -328,3 +328,31 @@ type PodRequirements struct {
 	Resources   *core.ResourceRequirements `json:"resources,omitempty"`
 	Tolerations []core.Toleration          `json:"tolerations,omitempty"`
 }
+
+// PKCS11Config configures connection to a PKCS#11 HSM module.
+type PKCS11Config struct {
+	// Absolute path to the PKCS#11 module (.so).
+	//+optional
+	//+kubebuilder:validation:MinLength=1
+	//+kubebuilder:validation:Pattern=`^/.+\..+$`
+	ModulePath string `json:"modulePath,omitempty"`
+	// Token label identifying the HSM slot.
+	//+optional
+	//+kubebuilder:validation:MinLength=1
+	TokenLabel string `json:"tokenLabel,omitempty"`
+	// Numeric slot ID (alternative to tokenLabel).
+	//+optional
+	//+kubebuilder:validation:Minimum=0
+	SlotNumber *int32 `json:"slotNumber,omitempty"`
+	// Reference to a Secret key containing the HSM user PIN.
+	//+optional
+	PinSecretRef *SecretKeySelector `json:"pinSecretRef,omitempty"`
+	// PKCS#11 CKA_ID of the signing key.
+	//+optional
+	//+kubebuilder:validation:Minimum=0
+	KeyID *int32 `json:"keyID,omitempty"`
+	// PKCS#11 CKA_LABEL of the signing key.
+	//+optional
+	//+kubebuilder:validation:MinLength=1
+	KeyLabel string `json:"keyLabel,omitempty"`
+}
