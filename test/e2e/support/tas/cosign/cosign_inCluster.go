@@ -45,11 +45,11 @@ func (c *InClusterCosign) Sign(ctx context.Context, targetImageName string) erro
 		return fmt.Errorf("received empty OIDC token")
 	}
 
-	return c.executeInJob(ctx, fmt.Sprintf("cosign sign -y --identity-token=%s %s", oidcToken, targetImageName))
+	return c.executeInJob(ctx, fmt.Sprintf("cosign sign -y --allow-insecure-registry --identity-token=%s %s", oidcToken, targetImageName))
 }
 
 func (c *InClusterCosign) Verify(ctx context.Context, targetImageName string) error {
-	return c.executeInJob(ctx, fmt.Sprintf("cosign verify --certificate-identity-regexp '.*@redhat' --certificate-oidc-issuer-regexp '.*keycloak.*' %s", targetImageName))
+	return c.executeInJob(ctx, fmt.Sprintf("cosign verify --allow-insecure-registry --certificate-identity-regexp '.*@redhat' --certificate-oidc-issuer-regexp '.*keycloak.*' %s", targetImageName))
 }
 
 func (c *InClusterCosign) VerifyByCosign(ctx context.Context, targetImageName string) {
@@ -59,8 +59,8 @@ func (c *InClusterCosign) VerifyByCosign(ctx context.Context, targetImageName st
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(oidcToken).ToNot(BeEmpty())
 		return c.executeInJob(ctx, fmt.Sprintf(`cosign initialize --mirror=%s --root=%s/root.json \
-		&& cosign sign -y --identity-token=%s %s \
-		&& cosign verify --certificate-identity-regexp '.*@redhat' --certificate-oidc-issuer-regexp '.*keycloak.*' %s
+		&& cosign sign -y --allow-insecure-registry --identity-token=%s %s \
+		&& cosign verify --allow-insecure-registry --certificate-identity-regexp '.*@redhat' --certificate-oidc-issuer-regexp '.*keycloak.*' %s
 		`, c.tufUrl, c.tufUrl, oidcToken, targetImageName, targetImageName))
 	}).WithContext(ctx).WithPolling(2 * time.Second).Should(Succeed())
 }
