@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	registryImage = "docker.io/library/registry:2"
+	registryImage = "mirror.gcr.io/library/registry:2"
 	registryName  = "test-registry"
 	registryPort  = int32(5000)
 )
