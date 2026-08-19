@@ -55,7 +55,9 @@ var _ = Describe("HA Securesign install", Ordered, func() {
 	})
 
 	BeforeAll(func(ctx SpecContext) {
-		targetImageName = support.PrepareImage(ctx)
+		reg := support.DeployTestRegistry(ctx, cli, namespace.Name)
+		DeferCleanup(reg.Close)
+		targetImageName = reg.PrepareImage(ctx)
 	})
 
 	Describe("Install with HA configured", func() {
