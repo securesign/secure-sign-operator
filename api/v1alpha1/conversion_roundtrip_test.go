@@ -105,9 +105,13 @@ func randServiceReferenceWithOIDC(c randfill.Continue, urlFunc func(c randfill.C
 	}
 }
 
-// trillianServiceFuzzerFuncs fuzzes v1alpha1 TrillianService.Address as a gRPC target.
 func trillianServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
+		func(s *TrillianSpec, c randfill.Continue) {
+			c.FillNoCustom(s)
+			// spec DatabaseSecretRef no field in v1
+			s.Db.DatabaseSecretRef = nil
+		},
 		func(s *TrillianService, c randfill.Continue) {
 			c.FillNoCustom(s)
 			s.Address = urlfuzz.GRPCURL(c, false)
@@ -186,6 +190,7 @@ func tsaSignerFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			case 0:
 				s.File = &File{}
 				c.FillNoCustom(s.File)
+				s.File.PasswordRef = nil
 			case 1:
 				s.Kms = &KMS{}
 				c.FillNoCustom(s.Kms)
@@ -335,7 +340,8 @@ func tsaStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 
 // rekorSignerFuzzerFuncs constrains v1 RekorSigner.Type to valid enum values and
 // ensures Kms is set only when Type is "kms", so the v1↔v1alpha1 flat-string
-// conversion roundtrips cleanly.
+// conversion roundtrips cleanly. It also clears v1alpha1 RekorSigner.PasswordRef,
+// which has no v1 equivalent — the field was removed from the v1 API.
 func rekorSignerFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *rhtasv1.RekorSigner, c randfill.Continue) {
@@ -352,10 +358,11 @@ func rekorSignerFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 				s.KeyRef = &rhtasv1.SecretKeySelector{}
 				c.FillNoCustom(s.KeyRef)
 			}
-			if c.Bool() {
-				s.PasswordRef = &rhtasv1.SecretKeySelector{} //nolint:staticcheck
-				c.FillNoCustom(s.PasswordRef)                //nolint:staticcheck
-			}
+		},
+		func(s *RekorSigner, c randfill.Continue) {
+			c.FillNoCustom(s)
+			// no v1 equivalent — removed from v1 API
+			s.PasswordRef = nil
 		},
 	}
 }
@@ -393,6 +400,11 @@ func fulcioStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 // full spec types but not in the slim v1 status types (TrillianDBStatus, TrillianServiceStatus).
 func trillianStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
+		func(s *TrillianSpec, c randfill.Continue) {
+			c.FillNoCustom(s)
+			// spec DatabaseSecretRef converts to v1 Auth and is not restored on ConvertFrom
+			s.Db.DatabaseSecretRef = nil
+		},
 		func(s *TrillianStatus, c randfill.Continue) {
 			c.FillNoCustom(s)
 			// no v1 equivalent in TrillianDBStatus

@@ -8147,28 +8147,6 @@ spec:
                         - message: keyResource must be a valid KMS URI (gcpkms://,
                             azurekms://, hashivault://, openbao://, or awskms://)
                           rule: self.keyResource.matches('^(gcpkms|azurekms|hashivault|openbao|awskms)://.+$')
-                      passwordRef:
-                        description: |-
-                          Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
-                          and not FIPS-compliant. Auto-generated keys are no longer password-encrypted;
-                          this field is retained only for backward compatibility with existing user-provided
-                          encrypted keys. Kubernetes Secrets provide encryption-at-rest.
-                        properties:
-                          key:
-                            description: The key of the secret to select from. Must
-                              be a valid secret key.
-                            pattern: ^[-._a-zA-Z0-9]+$
-                            type: string
-                          name:
-                            description: |-
-                              Name of the referent.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        required:
-                        - key
-                        - name
-                        type: object
-                        x-kubernetes-map-type: atomic
                       type:
                         description: Type of the signer backend.
                         enum:
@@ -8188,10 +8166,6 @@ spec:
                         or 'memory'
                       rule: '!has(self.type) || !(self.type == ''kms'' || self.type
                         == ''memory'') || !has(self.keyRef)'
-                    - message: passwordRef should not be configured when type is 'kms'
-                        or 'memory'
-                      rule: '!has(self.type) || !(self.type == ''kms'' || self.type
-                        == ''memory'') || !has(self.passwordRef)'
                   tolerations:
                     items:
                       description: |-
@@ -9272,25 +9246,6 @@ spec:
                         x-kubernetes-validations:
                         - message: Field is immutable
                           rule: (self == oldSelf)
-                      databaseSecretRef:
-                        description: |-
-                          DatabaseSecretRef is deprecated. Use Auth instead.
-                          Secret with values to be used to connect to an existing DB or to be used with the creation of a new DB
-                          mysql-host: The host of the MySQL server
-                          mysql-port: The port of the MySQL server
-                          mysql-user: The user to connect to the MySQL server
-                          mysql-password: The password to connect to the MySQL server
-                          mysql-database: The database to connect to
-                        properties:
-                          name:
-                            description: |-
-                              Name of the referent.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        required:
-                        - name
-                        type: object
-                        x-kubernetes-map-type: atomic
                       provider:
                         description: DB provider. Supported are mysql, postgresql.
                         enum:
@@ -14996,28 +14951,6 @@ spec:
                       file:
                         description: Configuration for file-based signer
                         properties:
-                          passwordRef:
-                            description: |-
-                              Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
-                              and not FIPS-compliant. Auto-generated keys are no longer password-encrypted;
-                              this field is retained only for backward compatibility with existing user-provided
-                              encrypted keys. Kubernetes Secrets provide encryption-at-rest.
-                            properties:
-                              key:
-                                description: The key of the secret to select from.
-                                  Must be a valid secret key.
-                                pattern: ^[-._a-zA-Z0-9]+$
-                                type: string
-                              name:
-                                description: |-
-                                  Name of the referent.
-                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                type: string
-                            required:
-                            - key
-                            - name
-                            type: object
-                            x-kubernetes-map-type: atomic
                           privateKeyRef:
                             description: Reference to the signer's root private key
                             properties:

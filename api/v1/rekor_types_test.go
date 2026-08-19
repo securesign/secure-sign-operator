@@ -309,12 +309,6 @@ var _ = Describe("Rekor", func() {
 								},
 								Key: "key",
 							},
-							PasswordRef: &SecretKeySelector{
-								LocalObjectReference: LocalObjectReference{
-									Name: "secret",
-								},
-								Key: "key",
-							},
 						},
 						Trillian: ServiceReference{
 							URL: "trillian-system.default.svc:8091",

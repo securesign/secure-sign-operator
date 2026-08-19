@@ -1,7 +1,6 @@
 package server
 
 import (
-	"errors"
 	"fmt"
 	"testing"
 
@@ -15,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -192,37 +190,68 @@ func TestRekorSigner_DeterministicName(t *testing.T) {
 	g.Expect(fmt.Sprintf(signerSecretNameFormat, "my-rekor")).To(Equal("rekor-signer-config-my-rekor"))
 }
 
-func TestRekorSigner_PasswordRefRejectedInFIPS(t *testing.T) {
+func TestRekorSigner_AlignStatusPreservesPasswordRefWhenKeyRefUnchanged(t *testing.T) {
 	g := NewWithT(t)
-	ctx := t.Context()
-
-	original := fips.Enabled
-	fips.Enabled = func() bool { return true }
-	t.Cleanup(func() { fips.Enabled = original })
-
 	instance := rekorInstance()
+
+	// Pre-existing status with both KeyRef and PasswordRef set (from older API version)
+	instance.Status.Signer = rhtasv1.RekorSignerStatus{
+		KeyRef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
+			Key:                  "private",
+		},
+		PasswordRef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "password-secret"},
+			Key:                  "password",
+		},
+	}
+
+	// Spec points to the SAME key
 	instance.Spec.Signer.KeyRef = &rhtasv1.SecretKeySelector{
 		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
 		Key:                  "private",
 	}
-	instance.Spec.Signer.PasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
-		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-password"},
-		Key:                  "password",
+
+	ref := rhtasv1.SecretKeySelector{}
+	alignStatus(instance, ref)
+
+	g.Expect(instance.Status.Signer.KeyRef).ToNot(BeNil())
+	g.Expect(instance.Status.Signer.KeyRef.Name).To(Equal("user-secret"))
+	g.Expect(instance.Status.Signer.PasswordRef).ToNot(BeNil(),
+		"PasswordRef must be preserved when KeyRef has not changed")
+	g.Expect(instance.Status.Signer.PasswordRef.Name).To(Equal("password-secret"))
+	g.Expect(instance.Status.Signer.PasswordRef.Key).To(Equal("password"))
+}
+
+func TestRekorSigner_AlignStatusDropsPasswordRefWhenKeyRefChanges(t *testing.T) {
+	g := NewWithT(t)
+	instance := rekorInstance()
+
+	// Pre-existing status with both KeyRef and PasswordRef set (from older API version)
+	instance.Status.Signer = rhtasv1.RekorSignerStatus{
+		KeyRef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old-secret"},
+			Key:                  "private",
+		},
+		PasswordRef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "password-secret"},
+			Key:                  "password",
+		},
 	}
 
-	c := testAction.FakeClientBuilder().
-		WithObjects(instance).
-		WithStatusSubresource(instance).
-		Build()
+	// Spec points to a DIFFERENT key
+	instance.Spec.Signer.KeyRef = &rhtasv1.SecretKeySelector{
+		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new-secret"},
+		Key:                  "private",
+	}
 
-	a := testAction.PrepareAction(c, NewFIPSValidationAction())
-	result := a.Handle(ctx, instance)
+	ref := rhtasv1.SecretKeySelector{}
+	alignStatus(instance, ref)
 
-	g.Expect(result.Err).To(HaveOccurred())
-	g.Expect(errors.Is(result.Err, reconcile.TerminalError(result.Err))).To(BeTrue())
-	g.Expect(result.Err.Error()).To(ContainSubstring("FIPS"))
-	cond := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
-	g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+	g.Expect(instance.Status.Signer.KeyRef).ToNot(BeNil())
+	g.Expect(instance.Status.Signer.KeyRef.Name).To(Equal("new-secret"))
+	g.Expect(instance.Status.Signer.PasswordRef).To(BeNil(),
+		"PasswordRef must be dropped when KeyRef has changed")
 }
 
 func TestRekorSigner_UnencryptedKeyAllowedInFIPS(t *testing.T) {

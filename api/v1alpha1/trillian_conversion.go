@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/controller/trillian/dbsecret"
 	utilconversion "github.com/securesign/operator/internal/conversion"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
@@ -9,6 +10,10 @@ import (
 
 func Convert_v1_TrillianSpec_To_v1alpha1_TrillianSpec(in *rhtasv1.TrillianSpec, out *TrillianSpec, s apiconversion.Scope) error {
 	return autoConvert_v1_TrillianSpec_To_v1alpha1_TrillianSpec(in, out, s)
+}
+
+func Convert_v1alpha1_TrillianDB_To_v1_TrillianDB(in *TrillianDB, out *rhtasv1.TrillianDB, s apiconversion.Scope) error {
+	return autoConvert_v1alpha1_TrillianDB_To_v1_TrillianDB(in, out, s)
 }
 
 func Convert_v1alpha1_TrillianDB_To_v1_TrillianDBStatus(in *TrillianDB, out *rhtasv1.TrillianDBStatus, s apiconversion.Scope) error {
@@ -61,6 +66,17 @@ func (src *Trillian) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
 	dst.Spec.PodExtensions = restored.Spec.PodExtensions
+
+	if src.Spec.Db.DatabaseSecretRef != nil {
+		v1Ref := &rhtasv1.LocalObjectReference{Name: src.Spec.Db.DatabaseSecretRef.Name}
+		auth := dbsecret.DbSecretToAuth(v1Ref)
+		if dst.Spec.Auth == nil {
+			dst.Spec.Auth = auth
+		} else {
+			dst.Spec.Auth = mergeAuths(dst.Spec.Auth, auth)
+		}
+	}
+
 	return nil
 }
 

@@ -106,14 +106,6 @@ var _ = Describe("TSA update", Ordered, func() {
 						},
 					},
 				}
-				if !fipsEnabled {
-					signer.File.PasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "my-tsa-secret",
-						},
-						Key: "leafPrivateKeyPassword",
-					}
-				}
 				s.Spec.TimestampAuthority.Signer = signer
 				return cli.Update(ctx, s)
 			}).Should(Succeed())
@@ -130,7 +122,7 @@ var _ = Describe("TSA update", Ordered, func() {
 		})
 
 		It("created my-tsa-secret", func(ctx SpecContext) {
-			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "my-tsa-secret", !fipsEnabled))).Should(Succeed())
+			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "my-tsa-secret", false))).Should(Succeed())
 		})
 
 		It("acknowledges the trust material drift", func(ctx SpecContext) {

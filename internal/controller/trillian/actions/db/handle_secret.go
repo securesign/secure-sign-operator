@@ -10,6 +10,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	trillian "github.com/securesign/operator/internal/controller/trillian/actions"
+	"github.com/securesign/operator/internal/controller/trillian/dbsecret"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	utils2 "github.com/securesign/operator/internal/utils"
@@ -31,10 +32,10 @@ const (
 	dbConnectionResource   = "trillian-db-connection"
 	dbConnectionSecretName = "trillian-db-connection-"
 
-	annotationDatabase = labels.LabelNamespace + "/" + trillian.SecretDatabaseName
-	annotationUser     = labels.LabelNamespace + "/" + trillian.SecretUser
-	annotationPort     = labels.LabelNamespace + "/" + trillian.SecretPort
-	annotationHost     = labels.LabelNamespace + "/" + trillian.SecretHost
+	annotationDatabase = labels.LabelNamespace + "/" + dbsecret.SecretDatabaseName
+	annotationUser     = labels.LabelNamespace + "/" + dbsecret.SecretUser
+	annotationPort     = labels.LabelNamespace + "/" + dbsecret.SecretPort
+	annotationHost     = labels.LabelNamespace + "/" + dbsecret.SecretHost
 )
 
 var managedAnnotations = []string{annotationDatabase, annotationUser, annotationPort, annotationHost}
@@ -55,8 +56,6 @@ func (i handleSecretAction) CanHandle(_ context.Context, instance *rhtasv1.Trill
 	switch {
 	case utils2.OptionalBool(instance.Spec.Db.Create) && instance.Status.Db.DatabaseSecretRef == nil:
 		return true
-	case !equality.Semantic.DeepDerivative(instance.Spec.Db.DatabaseSecretRef, instance.Status.Db.DatabaseSecretRef):
-		return true
 	default:
 		return !meta.IsStatusConditionTrue(instance.GetConditions(), trillian.DbCondition)
 	}
@@ -65,10 +64,6 @@ func (i handleSecretAction) CanHandle(_ context.Context, instance *rhtasv1.Trill
 func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1.Trillian) *action.Result {
 	// external database
 	if !utils2.OptionalBool(instance.Spec.Db.Create) {
-		// copy deprecated DatabaseSecretRef for backward compatibility
-		if !equality.Semantic.DeepEqual(instance.Spec.Db.DatabaseSecretRef, instance.Status.Db.DatabaseSecretRef) {
-			instance.Status.Db.DatabaseSecretRef = instance.Spec.Db.DatabaseSecretRef
-		}
 		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 			Type:    trillian.DbCondition,
 			Status:  metav1.ConditionTrue,
@@ -82,16 +77,6 @@ func (i handleSecretAction) Handle(ctx context.Context, instance *rhtasv1.Trilli
 	var (
 		err error
 	)
-	if instance.Spec.Db.DatabaseSecretRef != nil {
-		// skip if spec and status is equal
-		if equality.Semantic.DeepEqual(instance.Spec.Db.DatabaseSecretRef, instance.Status.Db.DatabaseSecretRef) {
-			return i.Continue()
-		}
-
-		// update database connection by spec
-		instance.Status.Db.DatabaseSecretRef = instance.Spec.Db.DatabaseSecretRef
-		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
-	}
 
 	// skip if status exists
 	if instance.Status.Db.DatabaseSecretRef != nil {
@@ -163,12 +148,12 @@ func (i handleSecretAction) defaultDBData() map[string][]byte {
 	rootPass = utils2.GeneratePassword(12)
 	mysqlPass = utils2.GeneratePassword(12)
 	return map[string][]byte{
-		trillian.SecretRootPassword: rootPass,
-		trillian.SecretPassword:     mysqlPass,
-		trillian.SecretDatabaseName: []byte(databaseName),
-		trillian.SecretUser:         []byte(user),
-		trillian.SecretPort:         []byte(strconv.Itoa(port)),
-		trillian.SecretHost:         []byte(host),
+		dbsecret.SecretRootPassword: rootPass,
+		dbsecret.SecretPassword:     mysqlPass,
+		dbsecret.SecretDatabaseName: []byte(databaseName),
+		dbsecret.SecretUser:         []byte(user),
+		dbsecret.SecretPort:         []byte(strconv.Itoa(port)),
+		dbsecret.SecretHost:         []byte(host),
 	}
 }
 

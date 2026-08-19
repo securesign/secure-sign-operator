@@ -46,14 +46,6 @@ var _ = Describe("Trillian", func() {
 			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), created)).ToNot(Succeed())
 		})
 
-		It("can be created with database secret", func() {
-			created := generateMinimalTrillian("trillian-database-secret")
-			created.Spec.Db.DatabaseSecretRef = &LocalObjectReference{
-				Name: "database-secret-name",
-			}
-			Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
-		})
-
 		When("changing monitoring", func() {
 			It("metrics enabled false->true", func() {
 				created := generateMinimalTrillian("trillian-monitoring-1")
@@ -214,9 +206,6 @@ var _ = Describe("Trillian", func() {
 								Name:         "storage",
 								StorageClass: "storage-class",
 								Size:         &storage,
-							},
-							DatabaseSecretRef: &LocalObjectReference{
-								Name: "secret",
 							},
 						},
 					},

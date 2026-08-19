@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/controller/trillian/dbsecret"
 	utilconversion "github.com/securesign/operator/internal/conversion"
 	"github.com/securesign/operator/internal/migration"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -100,6 +101,16 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Trillian.ImagePullSecrets = restored.Spec.Trillian.ImagePullSecrets
 	dst.Spec.Trillian.Monitoring.ServiceMonitor = restored.Spec.Trillian.Monitoring.ServiceMonitor
 	dst.Spec.Trillian.PodExtensions = restored.Spec.Trillian.PodExtensions
+	if src.Spec.Trillian.Db.DatabaseSecretRef != nil {
+		v1Ref := &rhtasv1.LocalObjectReference{Name: src.Spec.Trillian.Db.DatabaseSecretRef.Name}
+		auth := dbsecret.DbSecretToAuth(v1Ref)
+		if dst.Spec.Trillian.Auth == nil {
+			dst.Spec.Trillian.Auth = auth
+		} else {
+			dst.Spec.Trillian.Auth = mergeAuths(dst.Spec.Trillian.Auth, auth)
+		}
+	}
+
 	dst.Spec.Tuf.ImagePullSecrets = restored.Spec.Tuf.ImagePullSecrets
 	dst.Spec.Tuf.TrustedCA = restored.Spec.Tuf.TrustedCA
 	dst.Spec.Tuf.PodExtensions = restored.Spec.Tuf.PodExtensions
