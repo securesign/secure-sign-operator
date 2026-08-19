@@ -1264,7 +1264,7 @@ func TestServerConfig_Update(t *testing.T) {
 
 				ann := defaultAnnotations()
 				h := sha256.New()
-				_, _ = fmt.Fprintf(h, "%d:%d:%s/%s", int64(777777), int64(10), "shard-keys", "public")
+				_, _ = fmt.Fprintf(h, "%d:%d:%s:%s/%s", int64(777777), int64(10), "file", "shard-keys", "public")
 				ann["rhtas.redhat.com/shardingHash"] = hex.EncodeToString(h.Sum(nil))
 
 				return env{
