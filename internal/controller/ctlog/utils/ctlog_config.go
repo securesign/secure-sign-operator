@@ -6,6 +6,7 @@ import (
 	"encoding/pem"
 	"fmt"
 
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -142,7 +143,7 @@ func (c *Config) MarshalConfig() ([]byte, error) {
 func (c *Config) marshalShardLogConfig(shard ShardConfig, rootPems []string) (*configpb.LogConfig, error) {
 	block, _ := pem.Decode(shard.PublicKey)
 	if block == nil {
-		return nil, fmt.Errorf("failed to decode public key")
+		return nil, fmt.Errorf("failed to decode public key for shard %d", shard.TreeID)
 	}
 
 	cfg := &configpb.LogConfig{
@@ -155,7 +156,9 @@ func (c *Config) marshalShardLogConfig(shard ShardConfig, rootPems []string) (*c
 		IsReadonly:     true,
 	}
 
-	if len(shard.PrivateKey) > 0 {
+	if shard.Type == rhtasv1.CTlogSignerTypePKCS11 && shard.PKCS11 != nil {
+		cfg.PrivateKey = mustMarshalAny(c.buildPKCS11Config(shard))
+	} else if len(shard.PrivateKey) > 0 {
 		cfg.PrivateKey = mustMarshalAny(&keyspb.PEMKeyFile{
 			Path:     fmt.Sprintf("%sshard-%d-private", rootsPemFileDir, shard.TreeID),
 			Password: string(shard.PrivateKeyPass),
@@ -163,6 +166,14 @@ func (c *Config) marshalShardLogConfig(shard ShardConfig, rootPems []string) (*c
 	}
 
 	return cfg, nil
+}
+
+func (c *Config) buildPKCS11Config(shard ShardConfig) *keyspb.PKCS11Config {
+	return &keyspb.PKCS11Config{
+		TokenLabel: shard.PKCS11.TokenLabel,
+		Pin:        "", // PIN is resolved separately by HSM client at runtime
+		PublicKey:  string(shard.PublicKey),
+	}
 }
 
 func mustMarshalAny(pb proto.Message) *anypb.Any {

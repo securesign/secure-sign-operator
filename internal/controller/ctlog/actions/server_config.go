@@ -355,18 +355,40 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 			PublicKey:  publicKey,
 		}
 
-		if s.PrivateKeyRef != nil {
-			sc.PrivateKey, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyRef)
-			if err != nil {
-				return nil, fmt.Errorf("shard %d privateKeyRef: %w", s.TreeID, err)
+		// Determine shard type - default to active signer type if not specified
+		shardType := s.Type
+		if shardType == "" {
+			shardType = instance.Spec.Signer.Type
+			if shardType == "" {
+				shardType = rhtasv1.CTlogSignerTypeFile
 			}
 		}
+		sc.Type = shardType
 
-		if s.PrivateKeyPasswordRef != nil { //nolint:staticcheck
-			sc.PrivateKeyPass, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyPasswordRef) //nolint:staticcheck
-			if err != nil {
-				return nil, fmt.Errorf("shard %d privateKeyPasswordRef: %w", s.TreeID, err)
+		if shardType == rhtasv1.CTlogSignerTypePKCS11 {
+			// For PKCS#11 shards, copy the signer's PKCS#11 config
+			if instance.Spec.Signer.PKCS11 != nil {
+				sc.PKCS11 = &instance.Spec.Signer.PKCS11.PKCS11Config
+			} else {
+				return nil, fmt.Errorf("shard %d type is pkcs11 but signer has no PKCS#11 configuration", s.TreeID)
 			}
+		} else if shardType == rhtasv1.CTlogSignerTypeFile {
+			// For file shards, resolve the private key from the shard config
+			if s.PrivateKeyRef != nil {
+				sc.PrivateKey, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyRef)
+				if err != nil {
+					return nil, fmt.Errorf("shard %d privateKeyRef: %w", s.TreeID, err)
+				}
+			}
+
+			if s.PrivateKeyPasswordRef != nil { //nolint:staticcheck
+				sc.PrivateKeyPass, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyPasswordRef) //nolint:staticcheck
+				if err != nil {
+					return nil, fmt.Errorf("shard %d privateKeyPasswordRef: %w", s.TreeID, err)
+				}
+			}
+		} else {
+			return nil, fmt.Errorf("shard %d has invalid type: %s", s.TreeID, shardType)
 		}
 
 		shards = append(shards, sc)
@@ -429,7 +451,14 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 	if len(instance.Spec.Sharding) > 0 {
 		h := sha256.New()
 		for _, shard := range instance.Spec.Sharding {
-			_, _ = fmt.Fprintf(h, "%d:%d:%s/%s", shard.TreeID, shard.TreeLength, shard.PublicKeyRef.Name, shard.PublicKeyRef.Key)
+			shardType := shard.Type
+			if shardType == "" {
+				shardType = instance.Spec.Signer.Type
+				if shardType == "" {
+					shardType = rhtasv1.CTlogSignerTypeFile
+				}
+			}
+			_, _ = fmt.Fprintf(h, "%d:%d:%s:%s/%s", shard.TreeID, shard.TreeLength, shardType, shard.PublicKeyRef.Name, shard.PublicKeyRef.Key)
 			if shard.PrivateKeyRef != nil {
 				_, _ = fmt.Fprintf(h, ":%s/%s", shard.PrivateKeyRef.Name, shard.PrivateKeyRef.Key)
 			}
