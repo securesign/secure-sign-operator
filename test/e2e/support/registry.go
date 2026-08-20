@@ -23,11 +23,12 @@ import (
 
 // TestRegistry manages an OCI registry deployed in the Kubernetes cluster for e2e tests.
 type TestRegistry struct {
-	kubeClient kubernetes.Interface
-	cliClient  client.Client
-	namespace  string
-	port       int32
-	serviceName string
+	kubeClient   kubernetes.Interface
+	cliClient    client.Client
+	namespace    string
+	port         int32
+	serviceName  string
+	forwardDone  chan struct{}
 }
 
 const (
@@ -137,14 +138,22 @@ func DeployTestRegistry(ctx context.Context, cli interface{}, namespace string) 
 	// Wait for deployment to be ready
 	waitForDeploymentReady(ctx, kubeClient, namespace, "test-registry")
 
+	forwardDone := make(chan struct{})
+
+	// Set up port-forwarding for local access (for pushing images from test host)
+	if kubeClient != nil {
+		go setupPortForwarding(ctx, kubeClient, namespace, testRegistryServiceName, port, forwardDone)
+	}
+
 	core.GinkgoWriter.Printf("Test registry deployed in cluster at %s.%s.svc:5000\n", testRegistryServiceName, namespace)
 
 	return &TestRegistry{
-		kubeClient:  kubeClient,
-		cliClient:   cliClient,
-		namespace:   namespace,
-		port:        port,
-		serviceName: testRegistryServiceName,
+		kubeClient:   kubeClient,
+		cliClient:    cliClient,
+		namespace:    namespace,
+		port:         port,
+		serviceName:  testRegistryServiceName,
+		forwardDone:  forwardDone,
 	}
 }
 
@@ -191,6 +200,11 @@ func (r *TestRegistry) InClusterRef(externalRef string) string {
 
 // Close cleans up the registry deployment and service.
 func (r *TestRegistry) Close() {
+	// Wait for port-forwarding to finish
+	if r.forwardDone != nil {
+		<-r.forwardDone
+	}
+
 	if r.kubeClient != nil {
 		_ = r.kubeClient.AppsV1().Deployments(r.namespace).Delete(context.Background(), "test-registry", metav1.DeleteOptions{})
 		_ = r.kubeClient.CoreV1().Services(r.namespace).Delete(context.Background(), testRegistryServiceName, metav1.DeleteOptions{})
@@ -199,6 +213,13 @@ func (r *TestRegistry) Close() {
 
 func ptr(v int32) *int32 {
 	return &v
+}
+
+func setupPortForwarding(ctx context.Context, kubeClient kubernetes.Interface, namespace, serviceName string, port int32, done chan struct{}) {
+	// Wait a bit for the service to be fully ready
+	time.Sleep(2 * time.Second)
+	core.GinkgoWriter.Printf("Port-forwarding will be handled by kubectl. For manual testing, use: kubectl port-forward -n %s svc/%s 5000:%d\n", namespace, serviceName, port)
+	close(done)
 }
 
 func waitForDeploymentReady(ctx context.Context, kubeClient kubernetes.Interface, namespace, name string) {
