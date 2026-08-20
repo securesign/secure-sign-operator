@@ -93,15 +93,14 @@ func deployHostRegistry(ctx context.Context) *TestRegistry {
 // deployInClusterRegistry deploys the registry as a Kubernetes pod with a Service.
 func deployInClusterRegistry(ctx context.Context, cli interface{}, namespace string) *TestRegistry {
 	var kubeClient kubernetes.Interface
+	var cliClient client.Client
 
 	// Try to get kubernetes client
 	switch c := cli.(type) {
 	case kubernetes.Interface:
 		kubeClient = c
 	case client.Client:
-		// If we got a controller-runtime client, we can use it directly
-		// But for Kubernetes operations, we need the clientset
-		// This is a limitation - ideally we'd convert it
+		cliClient = c
 	}
 
 	port := int32(5000)
@@ -173,8 +172,19 @@ func deployInClusterRegistry(ctx context.Context, cli interface{}, namespace str
 		},
 	}
 
-	// Create resources if kubeClient is available
-	if kubeClient != nil {
+	// Create resources using controller-runtime client if available
+	if cliClient != nil {
+		err := cliClient.Create(context.Background(), deployment)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		err = cliClient.Create(context.Background(), service)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			Expect(err).ToNot(HaveOccurred())
+		}
+	} else if kubeClient != nil {
+		// Fallback to kubernetes clientset if available
 		_, err := kubeClient.AppsV1().Deployments(namespace).Create(context.Background(), deployment, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			Expect(err).ToNot(HaveOccurred())
@@ -193,6 +203,7 @@ func deployInClusterRegistry(ctx context.Context, cli interface{}, namespace str
 
 	return &TestRegistry{
 		kubeClient:  kubeClient,
+		cliClient:   cliClient,
 		namespace:   namespace,
 		port:        5000,
 		serviceName: testRegistryServiceName,
@@ -275,33 +286,29 @@ func isInsideCluster() bool {
 // getDockerHostIP discovers the host IP that's accessible from Docker containers.
 // For Kind/Docker Desktop, this is typically 172.17.0.1 or the Docker gateway.
 func getDockerHostIP() string {
-	// First try common Docker gateway IPs
+	// First try common Docker gateway IPs - these are the most reliable
+	// Don't check if they're reachable yet since the registry may not be listening
 	candidates := []string{
-		"172.17.0.1",     // Default Docker gateway
+		"172.17.0.1",     // Default Docker gateway (most common)
 		"172.18.0.1",     // Alternative Docker gateway
+		"host.docker.internal", // Docker Desktop hostname (will be resolved by container)
 		"192.168.65.1",   // Docker Desktop on Mac
-		"host.docker.internal", // Docker Desktop hostname
 	}
 
+	// For Kind in GitHub Actions, 172.17.0.1 is almost always correct
+	// Just return the first candidate since we can't test connectivity yet
 	for _, ip := range candidates {
-		if isReachable(ip, 5000, 1*time.Second) {
-			return ip
+		// host.docker.internal doesn't resolve from outside container, skip first
+		if ip == "host.docker.internal" {
+			continue
 		}
+		core.GinkgoWriter.Printf("Using Docker host IP: %s\n", ip)
+		return ip
 	}
 
-	// Fallback: try to detect from the local machine's IP
-	conn, err := net.Dial("udp", "8.8.8.8:80")
-	if err == nil {
-		defer conn.Close()
-		localAddr := conn.LocalAddr().(*net.UDPAddr)
-		if localAddr != nil && localAddr.IP != nil {
-			return localAddr.IP.String()
-		}
-	}
-
-	// Last resort: localhost (won't work for pods but better than nothing)
-	core.GinkgoWriter.Printf("Warning: Could not determine Docker host IP, using localhost\n")
-	return "localhost"
+	// Fallback: try host.docker.internal
+	core.GinkgoWriter.Printf("Using fallback Docker host name: host.docker.internal\n")
+	return "host.docker.internal"
 }
 
 // isReachable checks if a host:port is reachable with a timeout.
