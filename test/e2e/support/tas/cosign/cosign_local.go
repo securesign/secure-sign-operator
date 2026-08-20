@@ -46,7 +46,7 @@ func (c *LocalCosign) Sign(ctx context.Context, targetImageName string) error {
 		return fmt.Errorf("received empty OIDC token")
 	}
 
-	signArgs := []string{"sign", "-y", "--identity-token=" + oidcToken, targetImageName}
+	signArgs := []string{"sign", "-y", "--allow-insecure-registry", "--identity-token=" + oidcToken, targetImageName}
 	if !useSigningConfig {
 		signArgs = append(signArgs, "--fulcio-url="+c.fulcioUrl,
 			"--rekor-url="+c.rekorUrl,
@@ -60,6 +60,7 @@ func (c *LocalCosign) Sign(ctx context.Context, targetImageName string) error {
 func (c *LocalCosign) Verify(ctx context.Context, targetImageName string) error {
 	ensureCosignConfig()
 	verifyArgs := []string{"verify",
+		"--allow-insecure-registry",
 		"--certificate-identity-regexp", ".*@redhat",
 		"--certificate-oidc-issuer-regexp", ".*keycloak.*",
 		targetImageName}
