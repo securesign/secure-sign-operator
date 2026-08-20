@@ -29,6 +29,7 @@ import (
 	"github.com/operator-framework/operator-lib/predicate"
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/securesign/actions"
+	ctrlutil "github.com/securesign/operator/internal/utils/controller"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -129,7 +130,7 @@ func (r *securesignReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
 		For(&rhtasv1.Securesign{}).
 		Owns(&rhtasv1.Fulcio{}).
@@ -137,6 +138,11 @@ func (r *securesignReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&rhtasv1.Tuf{}).
 		Owns(&rhtasv1.Trillian{}).
 		Owns(&rhtasv1.CTlog{}).
-		Owns(&rhtasv1.TimestampAuthority{}).
-		Complete(r)
+		Owns(&rhtasv1.TimestampAuthority{})
+
+	// Re-reconcile all Securesign instances when the cluster-wide TLS security profile
+	// (config.openshift.io APIServer/cluster) changes. OpenShift-only; no-op on vanilla k8s.
+	ctrlutil.WatchAPIServer(b, mgr.GetClient(), &rhtasv1.SecuresignList{})
+
+	return b.Complete(r)
 }

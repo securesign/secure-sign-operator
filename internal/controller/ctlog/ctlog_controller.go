@@ -163,7 +163,7 @@ func (r *ctlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
 		For(&rhtasv1.CTlog{}, builder.WithPredicates(tasPredicate.ConfigurationChangedOnFailurePredicate[*rhtasv1.CTlog]())).
 		Owns(&v1.Deployment{}).
@@ -202,6 +202,11 @@ func (r *ctlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			ctrlutil.ServiceRefWatch(mgr.GetClient(), &rhtasv1.CTlogList{}, func(o client.Object) rhtasv1.ServiceReference {
 				return o.(*rhtasv1.CTlog).Spec.Monitoring.Tuf
 			}),
-		), builder.WithPredicates(crpredicate.GenerationChangedPredicate{})).
-		Complete(r)
+		), builder.WithPredicates(crpredicate.GenerationChangedPredicate{}))
+
+	// Re-reconcile all CTlog instances when the cluster-wide TLS security profile
+	// (config.openshift.io APIServer/cluster) changes. OpenShift-only; no-op on vanilla k8s.
+	ctrlutil.WatchAPIServer(b, mgr.GetClient(), &rhtasv1.CTlogList{})
+
+	return b.Complete(r)
 }

@@ -44,6 +44,7 @@ import (
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	tasPredicate "github.com/securesign/operator/internal/controller/predicate"
+	ctrlutil "github.com/securesign/operator/internal/utils/controller"
 
 	// Register the service resolver for the trillian controller
 	_ "github.com/securesign/operator/internal/controller/trillian/serviceresolver"
@@ -165,10 +166,15 @@ func (r *trillianReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
 		For(&rhtasv1.Trillian{}, builder.WithPredicates(tasPredicate.ConfigurationChangedOnFailurePredicate[*rhtasv1.Trillian]())).
 		Owns(&v1.Deployment{}).
-		Owns(&v12.Service{}).
-		Complete(r)
+		Owns(&v12.Service{})
+
+	// Re-reconcile all Trillian instances when the cluster-wide TLS security profile
+	// (config.openshift.io APIServer/cluster) changes. OpenShift-only; no-op on vanilla k8s.
+	ctrlutil.WatchAPIServer(b, mgr.GetClient(), &rhtasv1.TrillianList{})
+
+	return b.Complete(r)
 }

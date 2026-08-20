@@ -29,6 +29,7 @@ import (
 	"github.com/securesign/operator/internal/controller/tuf/actions"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	_ "github.com/securesign/operator/internal/controller/tuf/serviceresolver"
+	ctrlutil "github.com/securesign/operator/internal/utils/controller"
 	fipsutil "github.com/securesign/operator/internal/utils/fips"
 	v1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
@@ -158,11 +159,16 @@ func (r *tufReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
 		For(&rhtasv1.Tuf{}, builder.WithPredicates(predicate.ConfigurationChangedOnFailurePredicate[*rhtasv1.Tuf]())).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
-		Owns(&v13.Ingress{}).
-		Complete(r)
+		Owns(&v13.Ingress{})
+
+	// Re-reconcile all Tuf instances when the cluster-wide TLS security profile
+	// (config.openshift.io APIServer/cluster) changes. OpenShift-only; no-op on vanilla k8s.
+	ctrlutil.WatchAPIServer(b, mgr.GetClient(), &rhtasv1.TufList{})
+
+	return b.Complete(r)
 }

@@ -147,7 +147,7 @@ func (r *fulcioReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
 		For(&rhtasv1.Fulcio{}, builder.WithPredicates(predicate.ConfigurationChangedOnFailurePredicate[*rhtasv1.Fulcio]())).
 		Owns(&v1.Deployment{}).
@@ -160,6 +160,11 @@ func (r *fulcioReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		), builder.WithPredicates(crpredicate.Or(
 			crpredicate.GenerationChangedPredicate{},
 			predicate.ConditionChangedPredicate[*rhtasv1.CTlog](ctlogActions.TLSCondition),
-		))).
-		Complete(r)
+		)))
+
+	// Re-reconcile all Fulcio instances when the cluster-wide TLS security profile
+	// (config.openshift.io APIServer/cluster) changes. OpenShift-only; no-op on vanilla k8s.
+	ctrlutil.WatchAPIServer(b, mgr.GetClient(), &rhtasv1.FulcioList{})
+
+	return b.Complete(r)
 }

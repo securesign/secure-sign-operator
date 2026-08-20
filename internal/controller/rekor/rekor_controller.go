@@ -183,7 +183,7 @@ func (r *rekorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(pause).
 		For(&rhtasv1.Rekor{}, builder.WithPredicates(predicate.ConfigurationChangedOnFailurePredicate[*rhtasv1.Rekor]())).
 		Owns(&v12.Deployment{}).
@@ -200,6 +200,11 @@ func (r *rekorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			ctrlutil.ServiceRefWatch(mgr.GetClient(), &rhtasv1.RekorList{}, func(o client.Object) rhtasv1.ServiceReference {
 				return o.(*rhtasv1.Rekor).Spec.Monitoring.Tuf
 			}),
-		), builder.WithPredicates(crpredicate.GenerationChangedPredicate{})).
-		Complete(r)
+		), builder.WithPredicates(crpredicate.GenerationChangedPredicate{}))
+
+	// Re-reconcile all Rekor instances when the cluster-wide TLS security profile
+	// (config.openshift.io APIServer/cluster) changes. OpenShift-only; no-op on vanilla k8s.
+	ctrlutil.WatchAPIServer(b, mgr.GetClient(), &rhtasv1.RekorList{})
+
+	return b.Complete(r)
 }
