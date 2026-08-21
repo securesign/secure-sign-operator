@@ -134,10 +134,6 @@ test: manifests generate fmt vet envtest ## Run tests.
 test-e2e: generate
 	go test ./test/e2e/... -tags=integration -timeout 30m
 
-.PHONY: test-e2e-pkcs11
-test-e2e-pkcs11: generate
-	go test ./test/e2e/pkcs11/... -tags=pkcs11 -timeout 30m
-
 # Switch images from `registry.redhat.io` images to the dev images
 .PHONY: dev-images
 dev-images:

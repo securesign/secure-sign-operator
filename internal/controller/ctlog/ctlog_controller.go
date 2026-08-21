@@ -104,7 +104,7 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	target := instance.DeepCopy()
 	conditionSupplier := func(instance *rhtasv1.CTlog) []string {
 		conditions := []string{actions.CertCondition, actions.SignerCondition, actions.ConfigCondition, actions.TLSCondition, trustmaterial.TrustMaterialCondition}
-		if instance.Spec.Signer.Type == rhtasv1.CTlogSignerTypePKCS11 {
+		if instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11 {
 			conditions = append(conditions, actions.PKCS11Condition)
 		}
 		return fipsutil.AppendFIPSCondition(conditions)

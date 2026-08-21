@@ -252,10 +252,18 @@ jobs:
       - name: Pull Container image from GHCR
         run: podman pull ${{ env.IMG }}
 
+      - name: Pull SoftHSM init image
+        run: podman pull quay.io/securesign/softhsm-init:1.0-test
+
       - name: Load Docker image into Kind cluster
         run: |
           podman save ${{ env.IMG }} -o operator-oci.tar
           kind load image-archive operator-oci.tar
+
+      - name: Load SoftHSM init image into Kind cluster
+        run: |
+          podman save quay.io/securesign/softhsm-init:1.0-test -o softhsm-init-oci.tar
+          kind load image-archive softhsm-init-oci.tar
 
       - name: Replace images
         run: make dev-images && cat config/default/images.env
@@ -297,125 +305,6 @@ jobs:
         if: always()
         with:
           name: test-kind
-          path: test/**/k8s-dump-*.tar.gz
-          if-no-files-found: ignore
-
-      - name: dump the logs of the operator
-        run: kubectl logs -n openshift-rhtas-operator deployment/rhtas-operator-controller-manager
-        if: always()
-
-  test-pkcs11:
-    name: Test PKCS#11 deployment
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: read
-    needs:
-    - build-operator
-    - build-tufcli
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - name: Download tufcli
-        uses: actions/download-artifact@v4
-        with:
-          name: tufcli
-          path: /tmp/tufcli
-      - run: echo "/tmp/tufcli" >> $GITHUB_PATH
-
-      - name: Log in to GitHub Container Registry
-        uses: redhat-actions/podman-login@v1
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          auth_file_path: /tmp/config.json
-
-      - name: Log in to registry.redhat.io
-        uses: redhat-actions/podman-login@v1
-        with:
-          username: ${{ secrets.REGISTRY_USER }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
-          registry: registry.redhat.io
-          auth_file_path: /tmp/config.json
-
-      - name: Log in to quay.io
-        uses: redhat-actions/podman-login@v1
-        with:
-          username: ${{ secrets.QUAY_USER }}
-          password: ${{ secrets.QUAY_PASSWORD }}
-          registry: quay.io
-          auth_file_path: /tmp/config.json
-
-      - name: Install Cluster
-        uses: ./.github/actions/kind-cluster
-        with:
-          config: ./ci/config.yaml
-          prometheus: 'true'
-          keycloak: 'true'
-          olm: 'true'
-
-      - name: Pull Container image from GHCR
-        run: podman pull ${{ env.IMG }}
-
-      - name: Pull SoftHSM init image
-        run: podman pull quay.io/rh-ee-sacm/softhsm-init:v3
-
-      - name: Load Docker image into Kind cluster
-        run: |
-          podman save ${{ env.IMG }} -o operator-oci.tar
-          kind load image-archive operator-oci.tar
-
-      - name: Load SoftHSM init image into Kind cluster
-        run: |
-          podman save quay.io/rh-ee-sacm/softhsm-init:v3 -o softhsm-init-oci.tar
-          kind load image-archive softhsm-init-oci.tar
-
-      - name: Replace images
-        run: make dev-images && cat config/default/images.env
-
-      - name: Deploy operator container
-        run: make deploy
-
-      - name: Wait for operator to be ready
-        run: |
-          kubectl wait --for=condition=available deployment/rhtas-operator-controller-manager --timeout=120s -n openshift-rhtas-operator
-
-      - name: Configure Ingress hostname template
-        run: |
-          kubectl set env deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator INGRESS_HOST_TEMPLATE="${INGRESS_HOST_TEMPLATE}"
-          kubectl rollout status deployment/rhtas-operator-controller-manager -n openshift-rhtas-operator --timeout=120s
-
-      - name: Wait for conversion webhook readiness
-        run: |
-          for i in $(seq 1 60); do
-            kubectl create --dry-run=server -f config/samples/rhtas_v1alpha1_securesign.yaml 2>/dev/null && break
-            echo "Waiting for conversion webhook... ($i/60)"
-            sleep 2
-          done
-
-      - name: Add service hosts to /etc/hosts
-        run: |
-          sudo echo "127.0.0.1 keycloak-internal.keycloak-system.svc" | sudo tee -a /etc/hosts
-      - name: Install cosign
-        run: go install github.com/sigstore/cosign/v3/cmd/cosign@v3.0.5
-
-      - name: Run PKCS#11 tests
-        run: make test-e2e-pkcs11
-        env:
-          DOCKER_CONFIG: /tmp
-
-      - name: Archive test artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-pkcs11
           path: test/**/k8s-dump-*.tar.gz
           if-no-files-found: ignore
 

@@ -9,5 +9,5 @@ func (s *FulcioSpec) SetDefaults() {
 }
 
 func (s *FulcioSigner) SetDefaults() {
-	setDefault(&s.Type, FulcioSignerTypeFile)
+	setDefault(&s.Type, SignerTypeFile)
 }

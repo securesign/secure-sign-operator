@@ -11,6 +11,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	pkcs11helpers "github.com/securesign/operator/internal/controller/common/pkcs11"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -38,7 +39,7 @@ func (a ensurePKCS11Config) Name() string {
 //   - The content hash of spec.signer.pkcs11 fields differs from the hash
 //     stored in the PKCS11Condition message (drift detection).
 func (a ensurePKCS11Config) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool {
-	if instance.Spec.Signer.Type != rhtasv1.CTlogSignerTypePKCS11 {
+	if instance.Spec.Signer.Type != rhtasv1.SignerTypePKCS11 {
 		return false
 	}
 
@@ -167,26 +168,9 @@ func pkcs11SpecHash(p *rhtasv1.CTlogPKCS11Config) string {
 		return ""
 	}
 	h := sha256.New()
-	if p.PinSecretRef != nil {
-		h.Write([]byte(p.PinSecretRef.Name))
-		h.Write([]byte{0})
-		h.Write([]byte(p.PinSecretRef.Key))
-		h.Write([]byte{0})
-	}
+	pkcs11helpers.HashCoreConfig(h, &p.PKCS11Config)
 	if p.PublicKeyRef != nil {
-		h.Write([]byte(p.PublicKeyRef.Name))
-		h.Write([]byte{0})
-		h.Write([]byte(p.PublicKeyRef.Key))
-		h.Write([]byte{0})
+		fmt.Fprintf(h, "publicKeyRef:%s/%s\n", p.PublicKeyRef.Name, p.PublicKeyRef.Key) //nolint:errcheck // hash.Hash.Write never returns an error
 	}
-	h.Write([]byte(p.TokenLabel))
-	h.Write([]byte{0})
-	h.Write([]byte(p.ModulePath))
-	h.Write([]byte{0})
-	if p.KeyID != nil {
-		_, _ = fmt.Fprintf(h, "%d", *p.KeyID)
-	}
-	h.Write([]byte{0})
-	h.Write([]byte(p.KeyLabel))
 	return hex.EncodeToString(h.Sum(nil))
 }

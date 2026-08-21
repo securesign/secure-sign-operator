@@ -237,7 +237,7 @@ func TestCTLogPKCS11VolumesAndMounts(t *testing.T) {
 	g := NewWithT(t)
 
 	instance := createCTLogInstance()
-	instance.Spec.Signer.Type = rhtasv1.CTlogSignerTypePKCS11
+	instance.Spec.Signer.Type = rhtasv1.SignerTypePKCS11
 	instance.Spec.Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
 		PKCS11Config: rhtasv1.PKCS11Config{
 			ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
@@ -290,7 +290,7 @@ func TestCTLogPKCS11CleanupOnFileMode(t *testing.T) {
 
 	// First, create a deployment in PKCS#11 mode
 	instance := createCTLogInstance()
-	instance.Spec.Signer.Type = rhtasv1.CTlogSignerTypePKCS11
+	instance.Spec.Signer.Type = rhtasv1.SignerTypePKCS11
 	instance.Spec.Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
 		PKCS11Config: rhtasv1.PKCS11Config{
 			ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
@@ -314,7 +314,7 @@ func TestCTLogPKCS11CleanupOnFileMode(t *testing.T) {
 		"precondition: hsm-lib should be present in PKCS#11 mode")
 
 	// Now switch to file mode and re-apply the deployment ensures
-	instance.Spec.Signer.Type = rhtasv1.CTlogSignerTypeFile
+	instance.Spec.Signer.Type = rhtasv1.SignerTypeFile
 	instance.Spec.Signer.PKCS11 = nil
 
 	l := labels.For(ComponentName, DeploymentName, instance.Name)
@@ -350,7 +350,7 @@ func TestCTLogPKCS11UserPVCPreserved(t *testing.T) {
 	g := NewWithT(t)
 
 	instance := createCTLogInstance()
-	instance.Spec.Signer.Type = rhtasv1.CTlogSignerTypePKCS11
+	instance.Spec.Signer.Type = rhtasv1.SignerTypePKCS11
 	instance.Spec.Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
 		PKCS11Config: rhtasv1.PKCS11Config{
 			ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",

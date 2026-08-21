@@ -428,7 +428,7 @@ func createPKCS11Instance() *rhtasv1.Fulcio {
 		},
 		Spec: rhtasv1.FulcioSpec{
 			Signer: rhtasv1.FulcioSigner{
-				Type: rhtasv1.FulcioSignerTypePKCS11,
+				Type: rhtasv1.SignerTypePKCS11,
 				PKCS11: &rhtasv1.FulcioPKCS11Config{
 					PKCS11Config: rhtasv1.PKCS11Config{
 						KeyID:    ptr.To(int32(1)),

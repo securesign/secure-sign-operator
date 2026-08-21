@@ -1091,7 +1091,7 @@ func TestServerConfig_PKCS11(t *testing.T) {
 						Trillian: rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:8091"},
 						Prefix:   "trusted-artifact-signer",
 						Signer: rhtasv1.CTlogSigner{
-							Type: rhtasv1.CTlogSignerTypePKCS11,
+							Type: rhtasv1.SignerTypePKCS11,
 							PKCS11: &rhtasv1.CTlogPKCS11Config{
 								PKCS11Config: rhtasv1.PKCS11Config{
 									PinSecretRef: &rhtasv1.SecretKeySelector{
@@ -1168,7 +1168,7 @@ func TestServerConfig_PKCS11(t *testing.T) {
 						Trillian: rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:8091"},
 						Prefix:   "trusted-artifact-signer",
 						Signer: rhtasv1.CTlogSigner{
-							Type: rhtasv1.CTlogSignerTypePKCS11,
+							Type: rhtasv1.SignerTypePKCS11,
 							PKCS11: &rhtasv1.CTlogPKCS11Config{
 								PKCS11Config: rhtasv1.PKCS11Config{
 									PinSecretRef: nil,
@@ -1230,7 +1230,7 @@ func TestServerConfig_PKCS11(t *testing.T) {
 						Trillian: rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:8091"},
 						Prefix:   "trusted-artifact-signer",
 						Signer: rhtasv1.CTlogSigner{
-							Type: rhtasv1.CTlogSignerTypePKCS11,
+							Type: rhtasv1.SignerTypePKCS11,
 							PKCS11: &rhtasv1.CTlogPKCS11Config{
 								PKCS11Config: rhtasv1.PKCS11Config{
 									PinSecretRef: &rhtasv1.SecretKeySelector{
@@ -1293,7 +1293,7 @@ func TestServerConfig_PKCS11(t *testing.T) {
 						Trillian: rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:8091"},
 						Prefix:   "trusted-artifact-signer",
 						Signer: rhtasv1.CTlogSigner{
-							Type: rhtasv1.CTlogSignerTypePKCS11,
+							Type: rhtasv1.SignerTypePKCS11,
 							PKCS11: &rhtasv1.CTlogPKCS11Config{
 								PKCS11Config: rhtasv1.PKCS11Config{
 									PinSecretRef: &rhtasv1.SecretKeySelector{

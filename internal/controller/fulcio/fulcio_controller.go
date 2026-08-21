@@ -102,7 +102,7 @@ func (r *fulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	target := instance.DeepCopy()
 	conditionSupplier := func(instance *rhtasv1.Fulcio) []string {
 		conditions := []string{actions.CertCondition, trustmaterial.TrustMaterialCondition}
-		if instance.Spec.Signer.Type == rhtasv1.FulcioSignerTypePKCS11 {
+		if instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11 {
 			conditions = append(conditions, actions.PKCS11Condition)
 		}
 		return fipsutil.AppendFIPSCondition(conditions)

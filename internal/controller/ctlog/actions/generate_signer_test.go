@@ -247,7 +247,7 @@ func TestCTlogKeys_PasswordRefRejectedInFIPS(t *testing.T) {
 func TestCTlogKeys_PKCS11DisablesGenerateSigner(t *testing.T) {
 	g := NewWithT(t)
 	instance := ctlogInstance()
-	instance.Spec.Signer.Type = rhtasv1.CTlogSignerTypePKCS11
+	instance.Spec.Signer.Type = rhtasv1.SignerTypePKCS11
 
 	c := testAction.FakeClientBuilder().Build()
 	a := testAction.PrepareAction(c, NewGenerateSignerAction())
@@ -257,7 +257,7 @@ func TestCTlogKeys_PKCS11DisablesGenerateSigner(t *testing.T) {
 func TestCTlogKeys_FileModeEnablesGenerateSigner(t *testing.T) {
 	g := NewWithT(t)
 	instance := ctlogInstance()
-	instance.Spec.Signer.Type = rhtasv1.CTlogSignerTypeFile
+	instance.Spec.Signer.Type = rhtasv1.SignerTypeFile
 
 	c := testAction.FakeClientBuilder().Build()
 	a := testAction.PrepareAction(c, NewGenerateSignerAction())

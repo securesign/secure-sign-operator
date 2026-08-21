@@ -79,9 +79,9 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 		},
 		deployment.PodExtensions(instance.Spec.PodExtensions, containerName),
 		i.ensureCommonDeployment(instance, RBACName, labels, ctlogUrl),
-		ensure.Optional(instance.Spec.Signer.Type == rhtasv1.FulcioSignerTypeFile || instance.Spec.Signer.Type == "",
+		ensure.Optional(instance.Spec.Signer.Type == rhtasv1.SignerTypeFile || instance.Spec.Signer.Type == "",
 			i.ensureFileCADeployment(instance)),
-		ensure.Optional(instance.Spec.Signer.Type == rhtasv1.FulcioSignerTypePKCS11,
+		ensure.Optional(instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11,
 			i.ensurePKCS11Deployment(instance)),
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
@@ -93,7 +93,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 		deployment.TrustedCA(instance.GetTrustedCA(), containerName),
 		deployment.PodRequirements(instance.Spec.PodRequirements, containerName),
 		deployment.PodSecurityContext(),
-		deployment.Auth(containerName, instance.Spec.Auth),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Fulcio: %w", err), instance)
 	}
@@ -215,6 +214,7 @@ func (i deployAction) ensureFileCADeployment(instance *rhtasv1.Fulcio) func(depl
 		kubernetes.RemoveVolumeMountByName(container, PKCS11ConfigVolumeName)
 		kubernetes.RemoveVolumeMountByName(container, PKCS11CertVolumeName)
 		pkcs11helpers.CleanupHSMResources(&template.Spec, container)
+		meta.RemoveStatusCondition(&instance.Status.Conditions, PKCS11Condition)
 
 		container.Args = append(container.Args,
 			"--ca=fileca",
@@ -343,6 +343,9 @@ func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.Fulcio) func(*v1.
 
 		pkcs11Cfg := instance.Spec.Signer.PKCS11
 		configRef := pkcs11Cfg.ConfigRef
+		if configRef == nil {
+			return fmt.Errorf("PKCS#11 configRef not yet resolved")
+		}
 
 		container.Args = append(container.Args,
 			"--ca=pkcs11ca",

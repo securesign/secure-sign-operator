@@ -19,7 +19,7 @@ import (
 
 const (
 	// SoftHSMInitImage is the image containing SoftHSM2 + Fulcio createca tooling.
-	SoftHSMInitImage = "quay.io/rh-ee-sacm/softhsm-init:v3"
+	SoftHSMInitImage = "quay.io/securesign/softhsm-init:1.0-test"
 
 	// HSM PIN used for SoftHSM token initialization.
 	hsmPIN = "testpin123"

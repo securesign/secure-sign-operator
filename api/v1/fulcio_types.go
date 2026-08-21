@@ -11,9 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const FulcioSignerTypeFile = "file"
-const FulcioSignerTypePKCS11 = "pkcs11"
-
 // FulcioSpec defines the desired state of Fulcio
 type FulcioSpec struct {
 	// Pod resource requirements and scheduling constraints
@@ -45,15 +42,12 @@ type FulcioSpec struct {
 }
 
 // FulcioPKCS11Config holds the Fulcio PKCS#11/HSM signer configuration.
-// Mode A (structured): set modulePath + tokenLabel + pinSecretRef — operator generates crypto11 JSON.
-// Mode B (configRef): provide full crypto11 JSON for vendor-specific fields.
-// +kubebuilder:validation:XValidation:rule="has(self.configRef) || (has(self.modulePath) && has(self.tokenLabel) && has(self.pinSecretRef))",message="either configRef or all of modulePath+tokenLabel+pinSecretRef must be set"
+// +kubebuilder:validation:XValidation:rule="has(self.configRef)",message="configRef is required for Fulcio PKCS#11 signer"
 // +kubebuilder:validation:XValidation:rule="has(self.keyID)",message="keyID is required for Fulcio PKCS#11 signer"
 type FulcioPKCS11Config struct {
 	PKCS11Config `json:",inline"`
-	// Reference to a Secret key holding a complete crypto11 JSON config.
-	// When set, modulePath/tokenLabel/pinSecretRef are ignored.
-	//+optional
+	// Reference to a Secret key holding a complete crypto11 JSON config for Fulcio.
+	//+required
 	ConfigRef *SecretKeySelector `json:"configRef,omitempty"`
 }
 

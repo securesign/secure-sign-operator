@@ -33,7 +33,7 @@ func Convert_v1_FulcioSpec_To_v1alpha1_FulcioSpec(in *rhtasv1.FulcioSpec, out *F
 }
 
 func Convert_v1alpha1_FulcioCert_To_v1_FulcioSigner(in *FulcioCert, out *rhtasv1.FulcioSigner, s apiconversion.Scope) error {
-	out.Type = rhtasv1.FulcioSignerTypeFile
+	out.Type = rhtasv1.SignerTypeFile
 	out.CertificateChain.CommonName = in.CommonName
 	out.CertificateChain.OrganizationName = in.OrganizationName
 	out.CertificateChain.OrganizationEmail = in.OrganizationEmail

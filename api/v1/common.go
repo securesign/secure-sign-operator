@@ -6,6 +6,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	SignerTypeFile   = "file"
+	SignerTypePKCS11 = "pkcs11"
+)
+
 type Ingress struct {
 	// If set to true, the Operator will create a Kubernetes Ingress resource.
 	// On OpenShift, the platform automatically derives a Route from this Ingress, using "edge" TLS termination by default.
@@ -332,10 +337,6 @@ type PKCS11Config struct {
 	//+optional
 	//+kubebuilder:validation:MinLength=1
 	TokenLabel string `json:"tokenLabel,omitempty"`
-	// Numeric slot ID (alternative to tokenLabel).
-	//+optional
-	//+kubebuilder:validation:Minimum=0
-	SlotNumber *int32 `json:"slotNumber,omitempty"`
 	// Reference to a Secret key containing the HSM user PIN.
 	//+optional
 	PinSecretRef *SecretKeySelector `json:"pinSecretRef,omitempty"`

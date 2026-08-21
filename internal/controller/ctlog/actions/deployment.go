@@ -79,7 +79,6 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 		deployment.TrustedCA(instance.GetTrustedCA(), containerName),
 		deployment.PodRequirements(instance.Spec.PodRequirements, containerName),
 		deployment.PodSecurityContext(),
-		deployment.Auth(containerName, instance.Spec.Auth),
 		ensure.Optional(
 			ctlogutils.TlsEnabled(instance),
 			i.ensureTLS(instance.Status.TLS, containerName),
@@ -142,7 +141,7 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 			metricsPort.Protocol = core.ProtocolTCP
 		}
 
-		isPKCS11 := instance.Spec.Signer.Type == rhtasv1.CTlogSignerTypePKCS11
+		isPKCS11 := instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11
 
 		if isPKCS11 {
 			p := instance.Spec.Signer.PKCS11
@@ -158,12 +157,29 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 			container.Args = append(container.Args, "--max_cert_chain_size", fmt.Sprintf("%d", *instance.Spec.MaxCertChainSize))
 		}
 
-		if isPKCS11 {
-			if err := i.ensurePKCS11Resources(instance, &template.Spec, container); err != nil {
-				return err
-			}
-		} else {
-			i.cleanupPKCS11Resources(&template.Spec, container)
+		if err := ensure.OptionalToggle(isPKCS11, ensure.Toggleable[*core.PodSpec]{
+			Ensure: func(spec *core.PodSpec) error {
+				c := kubernetes.FindContainerByNameOrCreate(spec, containerName)
+				pkcs11helpers.EnsureHSMResources(spec, c, instance.Spec.Volumes)
+				return nil
+			},
+			Managed: &core.PodSpec{
+				Volumes: []core.Volume{
+					{Name: constants.HSMTokensVolumeName},
+					{Name: constants.HSMLibVolumeName},
+				},
+				Containers: []core.Container{{
+					Name: containerName,
+					VolumeMounts: []core.VolumeMount{
+						{Name: constants.HSMTokensVolumeName},
+						{Name: constants.HSMLibVolumeName},
+					},
+				}},
+			},
+		})(&template.Spec); err != nil {
+			return err
+		}
+		if !isPKCS11 {
 			meta.RemoveStatusCondition(&instance.Status.Conditions, PKCS11Condition)
 		}
 
@@ -223,24 +239,6 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 
 		return nil
 	}
-}
-
-// ensurePKCS11Resources adds HSM-specific volumes and mounts to the deployment.
-// The hsm-lib-export init container is user-defined via spec.initContainers;
-// the operator only manages the hsm-tokens and hsm-lib volumes.
-func (i deployAction) ensurePKCS11Resources(
-	instance *rhtasv1.CTlog,
-	podSpec *core.PodSpec,
-	container *core.Container,
-) error {
-	pkcs11helpers.EnsureHSMResources(podSpec, container, instance.Spec.Volumes)
-	return nil
-}
-
-// cleanupPKCS11Resources removes operator-managed PKCS#11 volume mounts and volumes
-// when the signer type is not pkcs11 (e.g. switching back to file mode).
-func (i deployAction) cleanupPKCS11Resources(podSpec *core.PodSpec, container *core.Container) {
-	pkcs11helpers.CleanupHSMResources(podSpec, container)
 }
 
 func (i deployAction) ensureTlsTrillian(ctx context.Context, instance *rhtasv1.CTlog) func(*v1.Deployment) error {

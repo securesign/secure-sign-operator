@@ -444,7 +444,7 @@ func TestFulcioCert_PasswordRefRejectedInFIPS(t *testing.T) {
 func TestFulcioCert_PKCS11DisablesGenerateSigner(t *testing.T) {
 	g := NewWithT(t)
 	instance := fulcioInstance()
-	instance.Spec.Signer.Type = rhtasv1.FulcioSignerTypePKCS11
+	instance.Spec.Signer.Type = rhtasv1.SignerTypePKCS11
 
 	c := testAction.FakeClientBuilder().Build()
 	a := testAction.PrepareAction(c, NewGenerateSignerAction())
@@ -454,7 +454,7 @@ func TestFulcioCert_PKCS11DisablesGenerateSigner(t *testing.T) {
 func TestFulcioCert_FileModeEnablesGenerateSigner(t *testing.T) {
 	g := NewWithT(t)
 	instance := fulcioInstance()
-	instance.Spec.Signer.Type = rhtasv1.FulcioSignerTypeFile
+	instance.Spec.Signer.Type = rhtasv1.SignerTypeFile
 
 	c := testAction.FakeClientBuilder().Build()
 	a := testAction.PrepareAction(c, NewGenerateSignerAction())

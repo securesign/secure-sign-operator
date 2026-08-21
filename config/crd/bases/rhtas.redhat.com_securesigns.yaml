@@ -2116,11 +2116,6 @@ spec:
                             - name
                             type: object
                             x-kubernetes-map-type: atomic
-                          slotNumber:
-                            description: Numeric slot ID (alternative to tokenLabel).
-                            format: int32
-                            minimum: 0
-                            type: integer
                           tokenLabel:
                             description: Token label identifying the HSM slot.
                             minLength: 1
@@ -5264,9 +5259,8 @@ spec:
                         description: Configuration for PKCS#11/HSM-based signer
                         properties:
                           configRef:
-                            description: |-
-                              Reference to a Secret key holding a complete crypto11 JSON config.
-                              When set, modulePath/tokenLabel/pinSecretRef are ignored.
+                            description: Reference to a Secret key holding a complete
+                              crypto11 JSON config for Fulcio.
                             properties:
                               key:
                                 description: The key of the secret to select from.
@@ -5316,21 +5310,16 @@ spec:
                             - name
                             type: object
                             x-kubernetes-map-type: atomic
-                          slotNumber:
-                            description: Numeric slot ID (alternative to tokenLabel).
-                            format: int32
-                            minimum: 0
-                            type: integer
                           tokenLabel:
                             description: Token label identifying the HSM slot.
                             minLength: 1
                             type: string
+                        required:
+                        - configRef
                         type: object
                         x-kubernetes-validations:
-                        - message: either configRef or all of modulePath+tokenLabel+pinSecretRef
-                            must be set
-                          rule: has(self.configRef) || (has(self.modulePath) && has(self.tokenLabel)
-                            && has(self.pinSecretRef))
+                        - message: configRef is required for Fulcio PKCS#11 signer
+                          rule: has(self.configRef)
                         - message: keyID is required for Fulcio PKCS#11 signer
                           rule: has(self.keyID)
                       type:

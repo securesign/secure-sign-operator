@@ -11,6 +11,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
+	pkcs11helpers "github.com/securesign/operator/internal/controller/common/pkcs11"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -31,7 +32,7 @@ func (a ensurePKCS11Config) Name() string {
 }
 
 func (a ensurePKCS11Config) CanHandle(_ context.Context, instance *rhtasv1.Fulcio) bool {
-	if instance.Spec.Signer.Type != rhtasv1.FulcioSignerTypePKCS11 {
+	if instance.Spec.Signer.Type != rhtasv1.SignerTypePKCS11 {
 		return false
 	}
 	if state.FromInstance(instance, constants.ReadyCondition) < state.Creating {
@@ -144,20 +145,13 @@ func computePKCS11Hash(instance *rhtasv1.Fulcio) string {
 	h := sha256.New()
 	if instance.Spec.Signer.PKCS11 != nil {
 		cfg := instance.Spec.Signer.PKCS11
+		pkcs11helpers.HashCoreConfig(h, &cfg.PKCS11Config)
 		if cfg.ConfigRef != nil {
-			//nolint:errcheck // hash.Hash.Write never returns an error
-			fmt.Fprintf(h, "configRef:%s/%s\n", cfg.ConfigRef.Name, cfg.ConfigRef.Key)
+			fmt.Fprintf(h, "configRef:%s/%s\n", cfg.ConfigRef.Name, cfg.ConfigRef.Key) //nolint:errcheck // hash.Hash.Write never returns an error
 		}
-		keyID := int32(0)
-		if cfg.KeyID != nil {
-			keyID = *cfg.KeyID
-		}
-		//nolint:errcheck // hash.Hash.Write never returns an error
-		fmt.Fprintf(h, "keyConfig:%d/%s\n", keyID, cfg.KeyLabel)
 	}
 	if ref := instance.Spec.Signer.CertificateChain.CertificateChainRef; ref != nil {
-		//nolint:errcheck // hash.Hash.Write never returns an error
-		fmt.Fprintf(h, "certChainRef:%s/%s\n", ref.Name, ref.Key)
+		fmt.Fprintf(h, "certChainRef:%s/%s\n", ref.Name, ref.Key) //nolint:errcheck
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }

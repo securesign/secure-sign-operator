@@ -40,7 +40,7 @@ var serverConfigAnnotations = []string{
 	labels.LabelNamespace + "/rootCertificatesHash",
 	labels.LabelNamespace + "/privateKeyRef",
 	labels.LabelNamespace + "/logPrefix",
-	labels.LabelNamespace + "/pkcs11ContentHash",
+	labels.LabelNamespace + "/pkcs11SpecHash",
 }
 
 func NewServerConfigAction() action.Action[*rhtasv1.CTlog] {
@@ -74,7 +74,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 	switch {
 	case instance.Status.TreeID == nil:
 		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrTreeNotSpecified), instance)
-	case (instance.Spec.Signer.Type == rhtasv1.CTlogSignerTypeFile || instance.Spec.Signer.Type == "") && instance.Status.PrivateKeyRef == nil:
+	case (instance.Spec.Signer.Type == rhtasv1.SignerTypeFile || instance.Spec.Signer.Type == "") && instance.Status.PrivateKeyRef == nil:
 		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrPrivateKeyNotSpecified), instance)
 	}
 
@@ -144,7 +144,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 		return i.RequeueAfter(5 * time.Second)
 	}
 
-	isPKCS11 := instance.Spec.Signer.Type == rhtasv1.CTlogSignerTypePKCS11
+	isPKCS11 := instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11
 
 	var cfg map[string][]byte
 	if isPKCS11 {
@@ -428,21 +428,8 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 		annotations[labels.LabelNamespace+"/logPrefix"] = instance.Spec.Prefix
 	}
 
-	if instance.Spec.Signer.Type == rhtasv1.CTlogSignerTypePKCS11 && instance.Spec.Signer.PKCS11 != nil {
-		p := instance.Spec.Signer.PKCS11
-		pinData, pinErr := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, p.PinSecretRef)
-		pubKeyData, pubErr := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, p.PublicKeyRef)
-		if pinErr == nil && pubErr == nil {
-			h := sha256.New()
-			h.Write(pinData)
-			h.Write([]byte{0})
-			h.Write(pubKeyData)
-			h.Write([]byte{0})
-			h.Write([]byte(p.TokenLabel))
-			h.Write([]byte{0})
-			h.Write([]byte(p.ModulePath))
-			annotations[labels.LabelNamespace+"/pkcs11ContentHash"] = hex.EncodeToString(h.Sum(nil))
-		}
+	if instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11 && instance.Spec.Signer.PKCS11 != nil {
+		annotations[labels.LabelNamespace+"/pkcs11ContentHash"] = pkcs11SpecHash(instance.Spec.Signer.PKCS11)
 	}
 
 	return annotations

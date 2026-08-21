@@ -26,7 +26,7 @@ func pkcs11CTlogInstance() *rhtasv1.CTlog {
 		},
 		Spec: rhtasv1.CTlogSpec{
 			Signer: rhtasv1.CTlogSigner{
-				Type: rhtasv1.CTlogSignerTypePKCS11,
+				Type: rhtasv1.SignerTypePKCS11,
 				PKCS11: &rhtasv1.CTlogPKCS11Config{
 					PKCS11Config: rhtasv1.PKCS11Config{
 						PinSecretRef: &rhtasv1.SecretKeySelector{
@@ -60,7 +60,7 @@ func pkcs11CTlogInstance() *rhtasv1.CTlog {
 func TestCanHandle_FileMode(t *testing.T) {
 	g := NewWithT(t)
 	instance := pkcs11CTlogInstance()
-	instance.Spec.Signer.Type = rhtasv1.CTlogSignerTypeFile
+	instance.Spec.Signer.Type = rhtasv1.SignerTypeFile
 	instance.Spec.Signer.PKCS11 = nil
 
 	a := NewEnsurePKCS11ConfigAction()

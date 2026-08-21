@@ -1,6 +1,6 @@
-//go:build pkcs11
+//go:build integration
 
-package pkcs11
+package install
 
 import (
 	"context"

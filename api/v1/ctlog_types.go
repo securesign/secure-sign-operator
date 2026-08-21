@@ -80,9 +80,6 @@ type CTlogSpec struct {
 	Auth *Auth `json:"auth,omitempty"`
 }
 
-const CTlogSignerTypeFile = "file"
-const CTlogSignerTypePKCS11 = "pkcs11"
-
 // CTlogPKCS11Config holds the CTLog PKCS#11/HSM signer configuration.
 // HSM token persistence (e.g. SoftHSM PVC) should be configured through
 // spec.ctlog.volumes rather than through this struct.
