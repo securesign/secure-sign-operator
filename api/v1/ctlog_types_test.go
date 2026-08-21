@@ -100,7 +100,7 @@ var _ = Describe("CTlog", func() {
 		})
 
 		Context("is validated", func() {
-			It("publicKeyRef requires privateKeyRef", func() {
+			It("publicKeyRef requires privateKeyRef in file signer", func() {
 				invalidObject := generateMinimalCTlog("public-key-invalid")
 				invalidObject.Spec.Signer.File = &CTlogFile{
 					PublicKeyRef: &SecretKeySelector{
@@ -126,6 +126,25 @@ var _ = Describe("CTlog", func() {
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
 					To(MatchError(ContainSubstring("privateKeyRef cannot be empty")))
+			})
+
+			When("sharding with file-type shard", func() {
+				It("requires privateKeyRef", func() {
+					invalidObject := generateMinimalCTlog("shard-file-no-key")
+					invalidObject.Spec.Sharding = []CTlogLogRange{
+						{
+							TreeID: 1,
+							Type:   "file",
+							PublicKeyRef: SecretKeySelector{
+								Key:                  "key",
+								LocalObjectReference: LocalObjectReference{Name: "name"},
+							},
+						},
+					}
+					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+					Expect(k8sClient.Create(context.Background(), invalidObject)).
+						To(MatchError(ContainSubstring("privateKeyRef is required for file-type shards")))
+				})
 			})
 
 			When("replicas", func() {

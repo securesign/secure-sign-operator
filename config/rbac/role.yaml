@@ -23,9 +23,20 @@ rules:
   resources:
   - namespaces
   verbs:
+  - create
   - get
   - list
   - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - trusted-artifact-signer
+  resources:
+  - namespaces
+  verbs:
+  - delete
+  - patch
+  - update
 - apiGroups:
   - ""
   resources:
@@ -111,6 +122,32 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - console.openshift.io
+  resources:
+  - consoleclidownloads
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - console.openshift.io
+  resourceNames:
+  - cosign
+  - createtree
+  - ec
+  - fetch-tsa-certs
+  - gitsign
+  - rekor-cli
+  - tuftool
+  - updatetree
+  resources:
+  - consoleclidownloads
+  verbs:
+  - delete
+  - patch
+  - update
 - apiGroups:
   - coordination.k8s.io
   resources:

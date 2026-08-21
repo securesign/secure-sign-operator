@@ -67,6 +67,20 @@ func ctlogCryptoMaterial(ctx context.Context, i *rhtasv1.CTlog, c client.Client)
 		}
 	}
 
+	// Shard keys (for inactive shards in sharding configuration)
+	for idx, shard := range i.Spec.Sharding {
+		if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, &shard.PublicKeyRef,
+			fmt.Sprintf("spec.sharding[%d].publicKeyRef", idx), fipsutil.ValidatePublicKeyPEM, &refs); err != nil {
+			return nil, err
+		}
+		if shard.PrivateKeyRef != nil {
+			if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, shard.PrivateKeyRef,
+				fmt.Sprintf("spec.sharding[%d].privateKeyRef", idx), fipsutil.ValidatePrivateKeyPEM, &refs); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	// Custom server config crypto material
 	if i.Spec.ServerConfigRef != nil {
 		secret, err := kubernetes.GetSecret(ctx, c, i.Namespace, i.Spec.ServerConfigRef.Name)
