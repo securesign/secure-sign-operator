@@ -127,7 +127,9 @@ var _ = Describe("Securesign install with v1alpha1 API", Ordered, func() {
 	})
 
 	BeforeAll(func(ctx SpecContext) {
-		targetImageName = support.PrepareImage(ctx)
+		reg := support.DeployTestRegistry(ctx, cli, namespace.Name)
+		DeferCleanup(reg.Close)
+		targetImageName = reg.PrepareImage(ctx)
 	})
 
 	Describe("Install with v1alpha1 CR", func() {
