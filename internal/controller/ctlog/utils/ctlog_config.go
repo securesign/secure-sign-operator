@@ -100,6 +100,16 @@ func (c *Config) MarshalConfig() ([]byte, error) {
 		return nil, fmt.Errorf("failed to decode public key PEM")
 	}
 
+	configs := make([]*configpb.LogConfig, 0, 1+len(c.Shards))
+
+	for _, shard := range c.Shards {
+		shardCfg, err := c.marshalShardLogConfig(shard, rootPems)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create shard config for treeID %d: %w", shard.TreeID, err)
+		}
+		configs = append(configs, shardCfg)
+	}
+
 	activeLog := configpb.LogConfig{
 		LogId:        c.LogID,
 		Prefix:       c.LogPrefix,
@@ -112,15 +122,7 @@ func (c *Config) MarshalConfig() ([]byte, error) {
 		ExtKeyUsages:   []string{"CodeSigning"},
 	}
 
-	configs := []*configpb.LogConfig{&activeLog}
-
-	for _, shard := range c.Shards {
-		shardCfg, err := c.marshalShardLogConfig(shard, rootPems)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create shard config for treeID %d: %w", shard.TreeID, err)
-		}
-		configs = append(configs, shardCfg)
-	}
+	configs = append(configs, &activeLog)
 
 	multiConfig := configpb.LogMultiConfig{
 		LogConfigs: &configpb.LogConfigSet{
