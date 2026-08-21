@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 func NewIngressAction() action.Action[*rhtasv1.Rekor] {
@@ -42,8 +41,8 @@ func (i ingressAction) CanHandle(_ context.Context, instance *rhtasv1.Rekor) boo
 
 func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
 	var (
-		result controllerutil.OperationResult
-		err    error
+		err     error
+		changed bool
 	)
 	ok := types.NamespacedName{Name: actions.ServerDeploymentName, Namespace: instance.Namespace}
 	labels := labels.For(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
@@ -53,7 +52,7 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *act
 		return i.Error(ctx, fmt.Errorf("could not find service for ingress: %w", err), instance)
 	}
 
-	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+	if changed, err = kubernetes.ApplySSA(ctx, i.Client,
 		&v2.Ingress{
 			ObjectMeta: metav1.ObjectMeta{Name: svc.Name, Namespace: svc.Namespace},
 		},
@@ -65,18 +64,18 @@ func (i ingressAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *act
 		ensure.Labels[*v2.Ingress](slices.Collect(maps.Keys(labels)), labels),
 		ensure.ControllerReference[*v2.Ingress](instance, i.Client),
 	); err != nil {
-		return i.Error(ctx, fmt.Errorf("could not create ingress object: %w", err), instance)
+		return i.Error(ctx, fmt.Errorf("could not reconcile ingress object: %w", err), instance)
 	}
 
-	if result != controllerutil.OperationResultNone {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.ServerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  state.Creating.String(),
-			Message: "Ingress created",
-		})
-		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
-	} else {
+	if !changed {
 		return i.Continue()
 	}
+
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:    actions.ServerCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  state.Creating.String(),
+		Message: "Ingress created",
+	})
+	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }

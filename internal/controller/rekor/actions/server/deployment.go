@@ -28,13 +28,11 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	rekorutils "github.com/securesign/operator/internal/controller/rekor/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	rhtasv1 "github.com/securesign/operator/api/v1"
 )
 
 func NewDeployAction() action.Action[*rhtasv1.Rekor] {
@@ -55,8 +53,8 @@ func (i deployAction) CanHandle(_ context.Context, instance *rhtasv1.Rekor) bool
 
 func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *action.Result {
 	var (
-		err    error
-		result controllerutil.OperationResult
+		err     error
+		changed bool
 	)
 	labels := labels.For(actions.ServerComponentName, actions.ServerDeploymentName, instance.Name)
 
@@ -72,7 +70,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *acti
 	}
 	i.Logger.V(1).Info("trillian logserver", "address", trillianHost, "port", trillianPort)
 
-	if result, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+	if changed, err = kubernetes.ApplySSA(ctx, i.Client,
 		&v2.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      actions.ServerDeploymentName,
@@ -94,18 +92,17 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Rekor) *acti
 		return i.Error(ctx, fmt.Errorf("could create server Deployment: %w", err), instance)
 	}
 
-	if result != controllerutil.OperationResultNone {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:    actions.ServerCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  state.Creating.String(),
-			Message: "Deployment created",
-		})
-		i.Recorder.Eventf(instance, nil, v1.EventTypeNormal, "DeploymentUpdated", "Updated", "Deployment updated: %s", instance.Name)
-		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
-	} else {
+	if !changed {
 		return i.Continue()
 	}
+
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:    actions.ServerCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  state.Creating.String(),
+		Message: "Deployment created",
+	})
+	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 }
 
 func (i deployAction) ensureServerDeployment(instance *rhtasv1.Rekor, sa string, labels map[string]string, trillianHost, trillianPort string) func(*v2.Deployment) error {
