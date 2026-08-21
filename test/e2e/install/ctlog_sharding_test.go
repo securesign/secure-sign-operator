@@ -198,9 +198,6 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 
 				// Update securesign resource with new tree and sharding config
 				Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-				s.Spec.Ctlog.ServerConfigRef = &rhtasv1.LocalObjectReference{
-					Name: secretName,
-				}
 
 				s.Spec.Ctlog.TreeID = ptr.To(newTreeId)
 
@@ -212,15 +209,6 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 						Name: secretName,
 					},
 					Key: "private",
-				}
-
-				if !fipsEnabled {
-					s.Spec.Ctlog.Signer.File.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: secretName,
-						},
-						Key: "password",
-					}
 				}
 
 				s.Spec.Ctlog.Signer.File.PublicKeyRef = &rhtasv1.SecretKeySelector{
