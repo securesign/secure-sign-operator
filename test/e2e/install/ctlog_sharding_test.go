@@ -161,11 +161,15 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 				frozen := cfg.LogConfigs.Config[0]
 				Expect(frozen).ToNot(BeNil())
 
+				// Store the old tree ID before modifying
+				frozenTreeId := frozen.LogId
+
 				// Create a copy for the active shard
 				cfg.LogConfigs.Config = append(cfg.LogConfigs.Config, proto.Clone(frozen).(*configpb.LogConfig))
 				active := cfg.LogConfigs.Config[1]
 
 				// Configure the frozen shard
+				frozen.LogId = frozenTreeId // Ensure LogId is set correctly
 				frozen.NotAfterLimit = timestamp
 				frozen.Prefix = "trusted-artifact-signer-shard-0"
 				frozenKey := &keyspb.PEMKeyFile{}
