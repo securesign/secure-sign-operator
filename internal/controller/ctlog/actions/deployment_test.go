@@ -7,6 +7,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure"
 	"github.com/securesign/operator/internal/utils/kubernetes/ensure/deployment"
@@ -183,6 +184,7 @@ func TestCTLogUserDefinedInitContainersInFileMode(t *testing.T) {
 
 // TestCTLogAuthInjectionInFileMode verifies that auth env vars and secret
 // mounts from spec.signer.auth are applied to the deployment.
+// mounts from spec.auth are applied to the deployment.
 func TestCTLogAuthInjectionInFileMode(t *testing.T) {
 	g := NewWithT(t)
 
@@ -227,6 +229,166 @@ func TestCTLogAuthInjectionInFileMode(t *testing.T) {
 	// Verify "auth" volume mount is present on main container
 	authMount := findCTLogVolumeMount("auth", container.VolumeMounts)
 	g.Expect(authMount).ShouldNot(BeNil(), "auth mount should be present on main container")
+}
+
+// TestCTLogPKCS11VolumesAndMounts verifies that PKCS#11 mode adds the expected
+// HSM volumes, mounts, and --pkcs11_module_path argument.
+func TestCTLogPKCS11VolumesAndMounts(t *testing.T) {
+	g := NewWithT(t)
+
+	instance := createCTLogInstance()
+	instance.Spec.Signer.Type = rhtasv1.SignerTypePKCS11
+	instance.Spec.Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
+		PKCS11Config: rhtasv1.PKCS11Config{
+			ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
+			TokenLabel: "test-token",
+			PinSecretRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
+				Key:                  "pin",
+			},
+		},
+		PublicKeyRef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
+			Key:                  "public",
+		},
+	}
+
+	dp, err := createCTLogDeployment(instance)
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp).ShouldNot(BeNil())
+
+	// Verify hsm-tokens volume exists (defaults to EmptyDir when not user-provided)
+	hsmTokensVol := findCTLogVolume(constants.HSMTokensVolumeName, dp.Spec.Template.Spec.Volumes)
+	g.Expect(hsmTokensVol).ShouldNot(BeNil(), "hsm-tokens volume should be present")
+	g.Expect(hsmTokensVol.EmptyDir).ShouldNot(BeNil(), "hsm-tokens should default to EmptyDir")
+
+	// Verify hsm-lib volume exists (always EmptyDir)
+	hsmLibVol := findCTLogVolume(constants.HSMLibVolumeName, dp.Spec.Template.Spec.Volumes)
+	g.Expect(hsmLibVol).ShouldNot(BeNil(), "hsm-lib volume should be present")
+	g.Expect(hsmLibVol.EmptyDir).ShouldNot(BeNil(), "hsm-lib should be EmptyDir")
+
+	// Verify volume mounts on main container
+	container := dp.Spec.Template.Spec.Containers[0]
+	hsmTokensMount := findCTLogVolumeMount(constants.HSMTokensVolumeName, container.VolumeMounts)
+	g.Expect(hsmTokensMount).ShouldNot(BeNil(), "hsm-tokens mount should be present on main container")
+	g.Expect(hsmTokensMount.MountPath).Should(Equal(constants.HSMTokensMountPath))
+
+	hsmLibMount := findCTLogVolumeMount(constants.HSMLibVolumeName, container.VolumeMounts)
+	g.Expect(hsmLibMount).ShouldNot(BeNil(), "hsm-lib mount should be present on main container")
+	g.Expect(hsmLibMount.MountPath).Should(Equal(constants.HSMLibMountPath))
+	g.Expect(hsmLibMount.ReadOnly).Should(BeTrue())
+
+	// Verify --pkcs11_module_path arg uses path.Base of modulePath
+	g.Expect(container.Args).Should(ContainElement(
+		Equal("--pkcs11_module_path=/var/run/hsm-lib/libsofthsm2.so")))
+}
+
+// TestCTLogPKCS11CleanupOnFileMode verifies that switching from PKCS#11 to file mode
+// removes the hsm-tokens and hsm-lib volumes.
+func TestCTLogPKCS11CleanupOnFileMode(t *testing.T) {
+	g := NewWithT(t)
+
+	// First, create a deployment in PKCS#11 mode
+	instance := createCTLogInstance()
+	instance.Spec.Signer.Type = rhtasv1.SignerTypePKCS11
+	instance.Spec.Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
+		PKCS11Config: rhtasv1.PKCS11Config{
+			ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
+			TokenLabel: "test-token",
+			PinSecretRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
+				Key:                  "pin",
+			},
+		},
+		PublicKeyRef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
+			Key:                  "public",
+		},
+	}
+
+	dp, err := createCTLogDeployment(instance)
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(findCTLogVolume(constants.HSMTokensVolumeName, dp.Spec.Template.Spec.Volumes)).ShouldNot(BeNil(),
+		"precondition: hsm-tokens should be present in PKCS#11 mode")
+	g.Expect(findCTLogVolume(constants.HSMLibVolumeName, dp.Spec.Template.Spec.Volumes)).ShouldNot(BeNil(),
+		"precondition: hsm-lib should be present in PKCS#11 mode")
+
+	// Now switch to file mode and re-apply the deployment ensures
+	instance.Spec.Signer.Type = rhtasv1.SignerTypeFile
+	instance.Spec.Signer.PKCS11 = nil
+
+	l := labels.For(ComponentName, DeploymentName, instance.Name)
+	action := deployAction{}
+	ensures := []func(*apps.Deployment) error{
+		deployment.PodExtensions(instance.Spec.PodExtensions, containerName),
+		action.ensureDeployment(instance, RBACName, l),
+		ensure.Labels[*apps.Deployment](slices.Collect(maps.Keys(l)), l),
+		deployment.Auth(containerName, instance.Spec.Auth),
+	}
+	for _, en := range ensures {
+		err := en(dp)
+		g.Expect(err).ShouldNot(HaveOccurred())
+	}
+
+	// Verify PKCS#11 volumes are removed
+	g.Expect(findCTLogVolume(constants.HSMTokensVolumeName, dp.Spec.Template.Spec.Volumes)).Should(BeNil(),
+		"hsm-tokens volume should be removed in file mode")
+	g.Expect(findCTLogVolume(constants.HSMLibVolumeName, dp.Spec.Template.Spec.Volumes)).Should(BeNil(),
+		"hsm-lib volume should be removed in file mode")
+
+	// Verify PKCS#11 mounts are removed from main container
+	container := dp.Spec.Template.Spec.Containers[0]
+	g.Expect(findCTLogVolumeMount(constants.HSMTokensVolumeName, container.VolumeMounts)).Should(BeNil(),
+		"hsm-tokens mount should be removed in file mode")
+	g.Expect(findCTLogVolumeMount(constants.HSMLibVolumeName, container.VolumeMounts)).Should(BeNil(),
+		"hsm-lib mount should be removed in file mode")
+}
+
+// TestCTLogPKCS11UserPVCPreserved verifies that a user-defined PVC for hsm-tokens
+// is preserved and not overwritten with EmptyDir.
+func TestCTLogPKCS11UserPVCPreserved(t *testing.T) {
+	g := NewWithT(t)
+
+	instance := createCTLogInstance()
+	instance.Spec.Signer.Type = rhtasv1.SignerTypePKCS11
+	instance.Spec.Signer.PKCS11 = &rhtasv1.CTlogPKCS11Config{
+		PKCS11Config: rhtasv1.PKCS11Config{
+			ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
+			TokenLabel: "test-token",
+			PinSecretRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
+				Key:                  "pin",
+			},
+		},
+		PublicKeyRef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
+			Key:                  "public",
+		},
+	}
+	// User defines hsm-tokens as a PVC
+	instance.Spec.Volumes = []rhtasv1.AdditionalVolume{
+		{
+			Name: constants.HSMTokensVolumeName,
+			AdditionalVolumeSource: rhtasv1.AdditionalVolumeSource{
+				PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
+					ClaimName: "softhsm-tokens-pvc",
+				},
+			},
+		},
+	}
+
+	dp, err := createCTLogDeployment(instance)
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp).ShouldNot(BeNil())
+
+	// Verify the PVC source is preserved (not overwritten with EmptyDir)
+	hsmTokensVol := findCTLogVolume(constants.HSMTokensVolumeName, dp.Spec.Template.Spec.Volumes)
+	g.Expect(hsmTokensVol).ShouldNot(BeNil(), "hsm-tokens volume should be present")
+	g.Expect(hsmTokensVol.PersistentVolumeClaim).ShouldNot(BeNil(),
+		"hsm-tokens PVC source should be preserved")
+	g.Expect(hsmTokensVol.PersistentVolumeClaim.ClaimName).Should(Equal("softhsm-tokens-pvc"))
+	g.Expect(hsmTokensVol.EmptyDir).Should(BeNil(),
+		"hsm-tokens should NOT have EmptyDir when user provides PVC")
 }
 
 // TestCTLogOperatorVolumePrecedence verifies that an operator-managed volume

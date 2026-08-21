@@ -244,6 +244,36 @@ func TestCTlogKeys_PasswordRefRejectedInFIPS(t *testing.T) {
 	g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 }
 
+func TestCTlogKeys_PKCS11DisablesGenerateSigner(t *testing.T) {
+	g := NewWithT(t)
+	instance := ctlogInstance()
+	instance.Spec.Signer.Type = rhtasv1.SignerTypePKCS11
+
+	c := testAction.FakeClientBuilder().Build()
+	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	g.Expect(a.CanHandle(t.Context(), instance)).To(BeFalse())
+}
+
+func TestCTlogKeys_FileModeEnablesGenerateSigner(t *testing.T) {
+	g := NewWithT(t)
+	instance := ctlogInstance()
+	instance.Spec.Signer.Type = rhtasv1.SignerTypeFile
+
+	c := testAction.FakeClientBuilder().Build()
+	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	g.Expect(a.CanHandle(t.Context(), instance)).To(BeTrue())
+}
+
+func TestCTlogKeys_EmptyTypeEnablesGenerateSigner(t *testing.T) {
+	g := NewWithT(t)
+	instance := ctlogInstance()
+	instance.Spec.Signer.Type = ""
+
+	c := testAction.FakeClientBuilder().Build()
+	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	g.Expect(a.CanHandle(t.Context(), instance)).To(BeTrue())
+}
+
 func TestCTlogKeys_UnencryptedKeyAllowedInFIPS(t *testing.T) {
 	g := NewWithT(t)
 	ctx := t.Context()

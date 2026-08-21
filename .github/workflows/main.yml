@@ -252,10 +252,18 @@ jobs:
       - name: Pull Container image from GHCR
         run: podman pull ${{ env.IMG }}
 
+      - name: Pull SoftHSM init image
+        run: podman pull quay.io/securesign/softhsm-init:1.0-test
+
       - name: Load Docker image into Kind cluster
         run: |
           podman save ${{ env.IMG }} -o operator-oci.tar
           kind load image-archive operator-oci.tar
+
+      - name: Load SoftHSM init image into Kind cluster
+        run: |
+          podman save quay.io/securesign/softhsm-init:1.0-test -o softhsm-init-oci.tar
+          kind load image-archive softhsm-init-oci.tar
 
       - name: Replace images
         run: make dev-images && cat config/default/images.env

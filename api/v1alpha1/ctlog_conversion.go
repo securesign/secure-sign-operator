@@ -53,7 +53,7 @@ func Convert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in *CTlogSpec, out *rhtasv1.CTlo
 	if err := autoConvert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in, out, s); err != nil {
 		return err
 	}
-	out.Signer.Type = rhtasv1.CTlogSignerTypeFile
+	out.Signer.Type = rhtasv1.SignerTypeFile
 	if in.PrivateKeyRef != nil || in.PrivateKeyPasswordRef != nil || in.PublicKeyRef != nil { //nolint:staticcheck
 		out.Signer.File = &rhtasv1.CTlogFile{}
 		if in.PrivateKeyRef != nil {
@@ -115,6 +115,7 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.PodExtensions = restored.Spec.PodExtensions
 	dst.Spec.Auth = restored.Spec.Auth
 	dst.Spec.Ingress = restored.Spec.Ingress
+	dst.Spec.Signer.PKCS11 = restored.Spec.Signer.PKCS11
 	return nil
 }
 

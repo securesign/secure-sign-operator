@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"path"
 	"slices"
 	"strconv"
 
@@ -20,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	pkcs11helpers "github.com/securesign/operator/internal/controller/common/pkcs11"
 	ctlogutils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	v1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -139,9 +141,46 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 			metricsPort.Protocol = core.ProtocolTCP
 		}
 
+		isPKCS11 := instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11
+
+		if isPKCS11 {
+			p := instance.Spec.Signer.PKCS11
+			if p == nil {
+				return fmt.Errorf("PKCS#11 config not yet resolved")
+			}
+			modulePath := fmt.Sprintf("%s/%s", constants.HSMLibMountPath, path.Base(p.ModulePath))
+			appArgs = append(appArgs, fmt.Sprintf("--pkcs11_module_path=%s", modulePath))
+		}
+
 		container.Args = appArgs
 		if instance.Spec.MaxCertChainSize != nil {
 			container.Args = append(container.Args, "--max_cert_chain_size", fmt.Sprintf("%d", *instance.Spec.MaxCertChainSize))
+		}
+
+		if err := ensure.OptionalToggle(isPKCS11, ensure.Toggleable[*core.PodSpec]{
+			Ensure: func(spec *core.PodSpec) error {
+				c := kubernetes.FindContainerByNameOrCreate(spec, containerName)
+				pkcs11helpers.EnsureHSMResources(spec, c, instance.Spec.Volumes)
+				return nil
+			},
+			Managed: &core.PodSpec{
+				Volumes: []core.Volume{
+					{Name: constants.HSMTokensVolumeName},
+					{Name: constants.HSMLibVolumeName},
+				},
+				Containers: []core.Container{{
+					Name: containerName,
+					VolumeMounts: []core.VolumeMount{
+						{Name: constants.HSMTokensVolumeName},
+						{Name: constants.HSMLibVolumeName},
+					},
+				}},
+			},
+		})(&template.Spec); err != nil {
+			return err
+		}
+		if !isPKCS11 {
+			meta.RemoveStatusCondition(&instance.Status.Conditions, PKCS11Condition)
 		}
 
 		// Operator-managed volume and mount set AFTER user-defined resources

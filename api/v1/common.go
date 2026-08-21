@@ -6,6 +6,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	SignerTypeFile   = "file"
+	SignerTypePKCS11 = "pkcs11"
+)
+
 type Ingress struct {
 	// If set to true, the Operator will create a Kubernetes Ingress resource.
 	// On OpenShift, the platform automatically derives a Route from this Ingress, using "edge" TLS termination by default.
@@ -317,6 +322,32 @@ func (v *AdditionalVolume) ToVolume() core.Volume {
 			Projected:             v.Projected,
 		},
 	}
+}
+
+// PKCS11Config holds the common PKCS#11/HSM configuration shared by all
+// components (Fulcio, CTLog). Component-specific extensions (e.g. configRef
+// for Fulcio, publicKeyRef for CTLog) live on the embedding struct.
+type PKCS11Config struct {
+	// Absolute path to the PKCS#11 module (.so).
+	//+optional
+	//+kubebuilder:validation:MinLength=1
+	//+kubebuilder:validation:Pattern=`^/.+\..+$`
+	ModulePath string `json:"modulePath,omitempty"`
+	// Token label identifying the HSM slot.
+	//+optional
+	//+kubebuilder:validation:MinLength=1
+	TokenLabel string `json:"tokenLabel,omitempty"`
+	// Reference to a Secret key containing the HSM user PIN.
+	//+optional
+	PinSecretRef *SecretKeySelector `json:"pinSecretRef,omitempty"`
+	// PKCS#11 CKA_ID of the signing key.
+	//+optional
+	//+kubebuilder:validation:Minimum=0
+	KeyID *int32 `json:"keyID,omitempty"`
+	// PKCS#11 CKA_LABEL of the signing key.
+	//+optional
+	//+kubebuilder:validation:MinLength=1
+	KeyLabel string `json:"keyLabel,omitempty"`
 }
 
 type PodRequirements struct {

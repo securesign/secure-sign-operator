@@ -261,6 +261,58 @@ func TestReconcileInitContainers(t *testing.T) {
 				g.Expect(mounts[0].MountPath).To(Equal("/etc/custom"))
 			},
 		},
+		{
+			name:    "nil Env and VolumeMounts stay nil (prevents K8s omitempty infinite update loop)",
+			podSpec: core.PodSpec{},
+			specs: []rhtasv1.InitContainerSpec{
+				{
+					Name:    "hsm-lib-export",
+					Image:   "vendor-hsm:latest",
+					Command: []string{"cp", "/usr/lib64/libpkcs11.so", "/hsm-lib/"},
+					// Env and VolumeMounts intentionally omitted (nil)
+				},
+			},
+			verify: func(g Gomega, spec *core.PodSpec) {
+				g.Expect(spec.InitContainers).To(HaveLen(1))
+				c := spec.InitContainers[0]
+				// Env and VolumeMounts must be nil, not []T{}.
+				// The Kubernetes API server strips empty slices via omitempty,
+				// returning nil on the next read. If we set a non-nil empty
+				// slice, reflect.DeepEqual(nil, []T{}) = false in
+				// CreateOrUpdate, causing an infinite deployment update loop.
+				g.Expect(c.Env).To(BeNil(), "nil Env must stay nil to avoid omitempty round-trip mismatch")
+				g.Expect(c.VolumeMounts).To(BeNil(), "nil VolumeMounts must stay nil to avoid omitempty round-trip mismatch")
+			},
+		},
+		{
+			name: "ImagePullPolicy is preserved when not explicitly set",
+			podSpec: core.PodSpec{
+				InitContainers: []core.Container{
+					{
+						Name:            "setup",
+						Image:           "setup:1.0",
+						ImagePullPolicy: core.PullIfNotPresent, // API server default
+					},
+				},
+			},
+			specs: []rhtasv1.InitContainerSpec{
+				{
+					Name:  "setup",
+					Image: "setup:2.0",
+					// ImagePullPolicy intentionally omitted (zero value "")
+				},
+			},
+			verify: func(g Gomega, spec *core.PodSpec) {
+				g.Expect(spec.InitContainers).To(HaveLen(1))
+				// The API-server-defaulted ImagePullPolicy must be preserved
+				// when the user does not explicitly set one.
+				g.Expect(spec.InitContainers[0].ImagePullPolicy).To(
+					Equal(core.PullIfNotPresent),
+					"API-server-defaulted ImagePullPolicy must not be overwritten with empty string")
+				// But the image should be updated
+				g.Expect(spec.InitContainers[0].Image).To(Equal("setup:2.0"))
+			},
+		},
 	}
 
 	for _, tt := range tests {

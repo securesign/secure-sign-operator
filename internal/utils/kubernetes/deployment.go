@@ -203,3 +203,21 @@ func FindEnvByNameOrCreate(container *corev1.Container, envName string) *corev1.
 	container.Env = append(container.Env, corev1.EnvVar{Name: envName})
 	return &container.Env[len(container.Env)-1]
 }
+
+func RemoveVolumeByName(podSpec *corev1.PodSpec, name string) {
+	for i, v := range podSpec.Volumes {
+		if v.Name == name {
+			podSpec.Volumes = append(podSpec.Volumes[:i], podSpec.Volumes[i+1:]...)
+			return
+		}
+	}
+}
+
+func RemoveVolumeMountByName(container *corev1.Container, name string) {
+	for i, m := range container.VolumeMounts {
+		if m.Name == name {
+			container.VolumeMounts = append(container.VolumeMounts[:i], container.VolumeMounts[i+1:]...)
+			return
+		}
+	}
+}

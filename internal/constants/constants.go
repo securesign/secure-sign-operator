@@ -13,4 +13,9 @@ const (
 	KeyPassword = "password"
 
 	HealthzPath = "/healthz"
+
+	HSMTokensVolumeName = "hsm-tokens"
+	HSMLibVolumeName    = "hsm-lib"
+	HSMTokensMountPath  = "/var/run/hsm-tokens"
+	HSMLibMountPath     = "/var/run/hsm-lib"
 )

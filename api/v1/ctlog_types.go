@@ -80,17 +80,35 @@ type CTlogSpec struct {
 	Auth *Auth `json:"auth,omitempty"`
 }
 
-const CTlogSignerTypeFile = "file"
+// CTlogPKCS11Config holds the CTLog PKCS#11/HSM signer configuration.
+// HSM token persistence (e.g. SoftHSM PVC) should be configured through
+// spec.ctlog.volumes rather than through this struct.
+// +kubebuilder:validation:XValidation:rule="has(self.publicKeyRef)",message="publicKeyRef is required for CTLog PKCS#11 signer"
+// +kubebuilder:validation:XValidation:rule="has(self.modulePath)",message="modulePath is required for CTLog PKCS#11 signer"
+// +kubebuilder:validation:XValidation:rule="has(self.tokenLabel)",message="tokenLabel is required for CTLog PKCS#11 signer"
+// +kubebuilder:validation:XValidation:rule="has(self.pinSecretRef)",message="pinSecretRef is required for CTLog PKCS#11 signer"
+type CTlogPKCS11Config struct {
+	PKCS11Config `json:",inline"`
+	// PEM-encoded public key matching the HSM-resident private key.
+	//+required
+	PublicKeyRef *SecretKeySelector `json:"publicKeyRef"`
+}
 
 // CTlogSigner defines the desired state of the CTlog Signer
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || has(self.pkcs11)",message="pkcs11 configuration is required when type is pkcs11"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || !has(self.file)",message="file configuration must not be set when type is pkcs11"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'file' || !has(self.pkcs11)",message="pkcs11 configuration must not be set when type is file"
 type CTlogSigner struct {
 	// Type of the signer backend
-	//+kubebuilder:validation:Enum=file
+	//+kubebuilder:validation:Enum=file;pkcs11
 	//+optional
 	Type string `json:"type,omitempty"`
 	// Configuration for file-based signer
 	//+optional
 	File *CTlogFile `json:"file,omitempty"`
+	// Configuration for PKCS#11/HSM-based signer
+	//+optional
+	PKCS11 *CTlogPKCS11Config `json:"pkcs11,omitempty"`
 }
 
 // CTlogFile defines the desired state of the CTlog file-based signer
