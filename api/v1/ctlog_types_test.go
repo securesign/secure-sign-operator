@@ -147,29 +147,6 @@ var _ = Describe("CTlog", func() {
 				})
 			})
 
-			When("sharding with pkcs11-type shard", func() {
-				It("must not have privateKeyRef", func() {
-					invalidObject := generateMinimalCTlog("shard-pkcs11-with-key")
-					invalidObject.Spec.Sharding = []CTlogLogRange{
-						{
-							TreeID: 1,
-							Type:   "pkcs11",
-							PublicKeyRef: SecretKeySelector{
-								Key:                  "key",
-								LocalObjectReference: LocalObjectReference{Name: "name"},
-							},
-							PrivateKeyRef: &SecretKeySelector{
-								Key:                  "key",
-								LocalObjectReference: LocalObjectReference{Name: "name"},
-							},
-						},
-					}
-					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
-					Expect(k8sClient.Create(context.Background(), invalidObject)).
-						To(MatchError(ContainSubstring("privateKeyRef must not be set for pkcs11-type shards")))
-				})
-			})
-
 			When("replicas", func() {
 				It("nil", func() {
 					validObject := generateMinimalCTlog("replicas-nil")

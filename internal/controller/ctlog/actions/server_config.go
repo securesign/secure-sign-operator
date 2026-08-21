@@ -355,7 +355,7 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 			PublicKey:  publicKey,
 		}
 
-		// Determine shard type - default to active signer type if not specified
+		// Determine shard type - default to file if not specified
 		shardType := s.Type
 		if shardType == "" {
 			shardType = instance.Spec.Signer.Type
@@ -365,30 +365,19 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 		}
 		sc.Type = shardType
 
-		if shardType == rhtasv1.CTlogSignerTypePKCS11 {
-			// For PKCS#11 shards, copy the signer's PKCS#11 config
-			if instance.Spec.Signer.PKCS11 != nil {
-				sc.PKCS11 = &instance.Spec.Signer.PKCS11.PKCS11Config
-			} else {
-				return nil, fmt.Errorf("shard %d type is pkcs11 but signer has no PKCS#11 configuration", s.TreeID)
+		// For file shards, resolve the private key from the shard config
+		if s.PrivateKeyRef != nil {
+			sc.PrivateKey, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyRef)
+			if err != nil {
+				return nil, fmt.Errorf("shard %d privateKeyRef: %w", s.TreeID, err)
 			}
-		} else if shardType == rhtasv1.CTlogSignerTypeFile {
-			// For file shards, resolve the private key from the shard config
-			if s.PrivateKeyRef != nil {
-				sc.PrivateKey, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyRef)
-				if err != nil {
-					return nil, fmt.Errorf("shard %d privateKeyRef: %w", s.TreeID, err)
-				}
-			}
+		}
 
-			if s.PrivateKeyPasswordRef != nil { //nolint:staticcheck
-				sc.PrivateKeyPass, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyPasswordRef) //nolint:staticcheck
-				if err != nil {
-					return nil, fmt.Errorf("shard %d privateKeyPasswordRef: %w", s.TreeID, err)
-				}
+		if s.PrivateKeyPasswordRef != nil { //nolint:staticcheck
+			sc.PrivateKeyPass, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyPasswordRef) //nolint:staticcheck
+			if err != nil {
+				return nil, fmt.Errorf("shard %d privateKeyPasswordRef: %w", s.TreeID, err)
 			}
-		} else {
-			return nil, fmt.Errorf("shard %d has invalid type: %s", s.TreeID, shardType)
 		}
 
 		shards = append(shards, sc)

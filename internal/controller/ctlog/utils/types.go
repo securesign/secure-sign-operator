@@ -10,6 +10,5 @@ type ShardConfig struct {
 	PublicKey      []byte
 	PrivateKey     []byte
 	PrivateKeyPass []byte
-	Type           string                // "file" or "pkcs11"
-	PKCS11         *rhtasv1.PKCS11Config // PKCS#11 config for HSM-based shards
+	Type           string // "file"
 }

@@ -88,7 +88,6 @@ type CTlogSpec struct {
 // CTlogLogRange defines the range and key details of an inactive CTlog shard
 // +kubebuilder:validation:XValidation:rule=(!has(self.privateKeyPasswordRef) || has(self.privateKeyRef)),message=privateKeyRef cannot be empty
 // +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'file' || has(self.privateKeyRef)",message="privateKeyRef is required for file-type shards"
-// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || !has(self.privateKeyRef)",message="privateKeyRef must not be set for pkcs11-type shards"
 // +structType=atomic
 type CTlogLogRange struct {
 	// ID of Merkle tree in Trillian backend
@@ -99,16 +98,14 @@ type CTlogLogRange struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Minimum=0
 	TreeLength int64 `json:"treeLength"`
-	// Type of signer backend for this shard (file or pkcs11)
-	// Defaults to the active signer type if not specified
-	// +kubebuilder:validation:Enum=file;pkcs11
+	// Type of signer backend for this shard (file)
+	// +kubebuilder:validation:Enum=file
 	// +optional
 	Type string `json:"type,omitempty"`
 	// Reference to a secret containing the public key for the log shard
 	// +kubebuilder:validation:Required
 	PublicKeyRef SecretKeySelector `json:"publicKeyRef"`
 	// Reference to a secret containing the private key for the log shard
-	// Only required for file-type shards; must not be set for pkcs11-type shards
 	// +optional
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
 	// Deprecated: Legacy PEM encryption is insecure by design and not FIPS-compliant.
@@ -118,33 +115,18 @@ type CTlogLogRange struct {
 }
 
 const (
-	CTlogSignerTypeFile   = "file"
-	CTlogSignerTypePKCS11 = "pkcs11"
+	CTlogSignerTypeFile = "file"
 )
 
-// CTlogPKCS11Config configures PKCS#11/HSM-based signing for CTlog.
-type CTlogPKCS11Config struct {
-	PKCS11Config `json:",inline"`
-	// PEM-encoded public key matching the HSM-resident private key.
-	//+required
-	PublicKeyRef *SecretKeySelector `json:"publicKeyRef"`
-}
-
 // CTlogSigner defines the desired state of the CTlog Signer
-// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || has(self.pkcs11)",message="pkcs11 configuration is required when type is pkcs11"
-// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || !has(self.file)",message="file configuration must not be set when type is pkcs11"
-// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'file' || !has(self.pkcs11)",message="pkcs11 configuration must not be set when type is file"
 type CTlogSigner struct {
 	// Type of the signer backend
-	//+kubebuilder:validation:Enum=file;pkcs11
+	//+kubebuilder:validation:Enum=file
 	//+optional
 	Type string `json:"type,omitempty"`
 	// Configuration for file-based signer
 	//+optional
 	File *CTlogFile `json:"file,omitempty"`
-	// Configuration for PKCS#11/HSM-based signer
-	//+optional
-	PKCS11 *CTlogPKCS11Config `json:"pkcs11,omitempty"`
 }
 
 // CTlogFile defines the desired state of the CTlog file-based signer
