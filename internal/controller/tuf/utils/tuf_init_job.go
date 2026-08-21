@@ -24,6 +24,10 @@ const (
 
 func EnsureTufInitJob(ctx context.Context, c client.Client, instance *rhtasv1.Tuf, sa string, labels map[string]string) func(*batchv1.Job) error {
 	return func(job *batchv1.Job) error {
+		if instance.Spec.RootKeySecretRef == nil {
+			return fmt.Errorf("rootKeySecretRef is not set")
+		}
+
 		// prepare args
 		args := []string{"--operator", constants.OperatorName, "--export-keys", instance.Spec.RootKeySecretRef.Name}
 		for _, key := range trustroot.ActiveKeys(instance) {
