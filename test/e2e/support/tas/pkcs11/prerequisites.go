@@ -14,6 +14,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/securesign/operator/internal/utils/kubernetes"
 	k8sSupport "github.com/securesign/operator/test/e2e/support/kubernetes"
 )
 
@@ -217,6 +218,21 @@ echo ===PK=== && cat /tmp/pk.pem && echo ===PKE===
 	return keyCeremonyJob(namespace, jobCTLogCeremony, "kc", script, pvcCTLogTokens)
 }
 
+func keyCeremonyPodSecurityContext() *corev1.PodSecurityContext {
+	sc := &corev1.PodSecurityContext{
+		RunAsNonRoot: ptr.To(true),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+	}
+	if !kubernetes.IsOpenShift() {
+		sc.RunAsUser = ptr.To(int64(1001))
+		sc.RunAsGroup = ptr.To(int64(1001))
+		sc.FSGroup = ptr.To(int64(1001))
+	}
+	return sc
+}
+
 // keyCeremonyJob creates a batch Job with the SoftHSM init image.
 func keyCeremonyJob(namespace, name, containerName, script, pvcName string) *batchv1.Job {
 	return &batchv1.Job{
@@ -228,16 +244,8 @@ func keyCeremonyJob(namespace, name, containerName, script, pvcName string) *bat
 			BackoffLimit: ptr.To[int32](0),
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyNever,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot: ptr.To(true),
-						RunAsUser:    ptr.To(int64(1001)),
-						RunAsGroup:   ptr.To(int64(1001)),
-						FSGroup:      ptr.To(int64(1001)),
-						SeccompProfile: &corev1.SeccompProfile{
-							Type: corev1.SeccompProfileTypeRuntimeDefault,
-						},
-					},
+					RestartPolicy:   corev1.RestartPolicyNever,
+					SecurityContext: keyCeremonyPodSecurityContext(),
 					Containers: []corev1.Container{
 						{
 							Name:            containerName,
