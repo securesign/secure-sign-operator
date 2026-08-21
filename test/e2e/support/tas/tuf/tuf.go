@@ -88,10 +88,25 @@ func RefreshTufRepository(ctx context.Context, cli client.Client, ns string, nam
 	t := Get(ctx, cli, ns, name)
 	Expect(t).ToNot(BeNil())
 
-	t.Spec.Ctlog.URL = ctlog.Get(ctx, cli, ns, name).Status.Url
-	t.Spec.Fulcio.URL = fulcio.Get(ctx, cli, ns, name).Status.Url
-	t.Spec.Rekor.URL = rekor.Get(ctx, cli, ns, name).Status.Url
-	t.Spec.Tsa.URL = tsa.Get(ctx, cli, ns, name).Status.Url
+	if len(t.Spec.Ctlog) == 0 {
+		t.Spec.Ctlog = []rhtasv1.TrustRootBinding{{}}
+	}
+	t.Spec.Ctlog[0].URL = ctlog.Get(ctx, cli, ns, name).Status.Url
+
+	if len(t.Spec.Fulcio) == 0 {
+		t.Spec.Fulcio = []rhtasv1.TrustRootBindingWithOIDC{{}}
+	}
+	t.Spec.Fulcio[0].URL = fulcio.Get(ctx, cli, ns, name).Status.Url
+
+	if len(t.Spec.Rekor) == 0 {
+		t.Spec.Rekor = []rhtasv1.TrustRootBinding{{}}
+	}
+	t.Spec.Rekor[0].URL = rekor.Get(ctx, cli, ns, name).Status.Url
+
+	if t.Spec.Tsa == nil || len(*t.Spec.Tsa) == 0 {
+		t.Spec.Tsa = &[]rhtasv1.TrustRootBinding{{}}
+	}
+	(*t.Spec.Tsa)[0].URL = tsa.Get(ctx, cli, ns, name).Status.Url
 	refreshJob := refreshTufJob(ctx, cli, t)
 	Expect(cli.Create(ctx, refreshJob)).To(Succeed())
 

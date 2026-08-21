@@ -16795,80 +16795,145 @@ spec:
                         type: object
                     type: object
                   ctlog:
-                    description: Ctlog service configuration
-                    properties:
-                      ref:
-                        description: In-cluster reference to a component CR.
-                        properties:
-                          name:
-                            description: Name of the referenced CR.
-                            minLength: 1
-                            type: string
-                          namespace:
-                            description: Namespace of the referenced CR.
-                            minLength: 1
-                            type: string
-                        required:
-                        - name
-                        - namespace
-                        type: object
-                      url:
-                        description: |-
-                          Direct URL for an external or cross-namespace service.
-                          Accepts: host:port, dns:///host:port, http(s)://host/path
-                        maxLength: 2048
-                        minLength: 1
-                        type: string
-                    type: object
+                    description: |-
+                      Ctlog service and trust material binding.
+                      At most one entry is allowed today; this ceiling is deliberate and temporary,
+                      pending future multi-instance support.
+                    items:
+                      description: |-
+                        TrustRootBinding identifies a component's service binding and, optionally, a
+                        reference to the Secret holding its trust material (public key for
+                        Rekor/CTlog, cert chain for Fulcio/TSA). If SecretRef is unset, the operator
+                        resolves material from the referenced or autodiscovered component CR's
+                        status.
+                      properties:
+                        ref:
+                          description: In-cluster reference to a component CR.
+                          properties:
+                            name:
+                              description: Name of the referenced CR.
+                              minLength: 1
+                              type: string
+                            namespace:
+                              description: Namespace of the referenced CR.
+                              minLength: 1
+                              type: string
+                          required:
+                          - name
+                          - namespace
+                          type: object
+                        secretRef:
+                          description: SecretKeySelector selects a key of a Secret.
+                          properties:
+                            key:
+                              description: The key of the secret to select from. Must
+                                be a valid secret key.
+                              pattern: ^[-._a-zA-Z0-9]+$
+                              type: string
+                            name:
+                              description: |-
+                                Name of the referent.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              type: string
+                          required:
+                          - key
+                          - name
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        url:
+                          description: |-
+                            Direct URL for an external or cross-namespace service.
+                            Accepts: host:port, dns:///host:port, http(s)://host/path
+                          maxLength: 2048
+                          minLength: 1
+                          type: string
+                      type: object
+                      x-kubernetes-validations:
+                      - message: ref and secretRef are mutually exclusive
+                        rule: '!(has(self.ref) && has(self.secretRef))'
+                      - message: ref and url are mutually exclusive
+                        rule: '!(has(self.ref) && has(self.url) && size(self.url)
+                          > 0)'
+                    maxItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
                     x-kubernetes-validations:
                     - message: url must follow the pattern scheme://host[:port]/path
                         or //[:port]/path
-                      rule: '!has(self.url) || size(self.url) == 0 || self.url.matches(''^([a-zA-Z][a-zA-Z0-9+.-]*://[^/]+/.+|//[^/]*/.+)$'')'
-                    - message: ref and url are mutually exclusive
-                      rule: '!(has(self.ref) && has(self.url) && size(self.url) >
-                        0)'
+                      rule: self.all(x, !has(x.url) || size(x.url) == 0 || x.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/]+/.+|//[^/]*/.+)$'))
                   fulcio:
-                    description: Fulcio service configuration
-                    properties:
-                      oidcIssuers:
-                        description: |-
-                          OIDCIssuers is a list of OIDC issuer URLs to include in the Fulcio signing configuration.
-                          Use for manual configuration; when specified, these values take precedence over auto-loaded OIDC configuration from the Fulcio service reference.
-                        items:
-                          pattern: ^[a-zA-Z][a-zA-Z0-9+.-]*://.+$
+                    description: |-
+                      Fulcio service and trust material binding.
+                      At most one entry is allowed today; this ceiling is deliberate and temporary,
+                      pending future multi-instance support.
+                    items:
+                      description: |-
+                        TrustRootBindingWithOIDC is a TrustRootBinding for Fulcio, which additionally
+                        carries the OIDC issuers accepted for code-signing certificate requests.
+                      properties:
+                        oidcIssuers:
+                          description: |-
+                            OIDCIssuers is a list of OIDC issuer URLs to include in the Fulcio signing configuration.
+                            Use for manual configuration; when specified, these values take precedence over auto-loaded OIDC configuration from the Fulcio service reference.
+                          items:
+                            pattern: ^[a-zA-Z][a-zA-Z0-9+.-]*://.+$
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: set
+                        ref:
+                          description: In-cluster reference to a component CR.
+                          properties:
+                            name:
+                              description: Name of the referenced CR.
+                              minLength: 1
+                              type: string
+                            namespace:
+                              description: Namespace of the referenced CR.
+                              minLength: 1
+                              type: string
+                          required:
+                          - name
+                          - namespace
+                          type: object
+                        secretRef:
+                          description: SecretKeySelector selects a key of a Secret.
+                          properties:
+                            key:
+                              description: The key of the secret to select from. Must
+                                be a valid secret key.
+                              pattern: ^[-._a-zA-Z0-9]+$
+                              type: string
+                            name:
+                              description: |-
+                                Name of the referent.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              type: string
+                          required:
+                          - key
+                          - name
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        url:
+                          description: |-
+                            Direct URL for an external or cross-namespace service.
+                            Accepts: host:port, dns:///host:port, http(s)://host/path
+                          maxLength: 2048
+                          minLength: 1
                           type: string
-                        type: array
-                        x-kubernetes-list-type: set
-                      ref:
-                        description: In-cluster reference to a component CR.
-                        properties:
-                          name:
-                            description: Name of the referenced CR.
-                            minLength: 1
-                            type: string
-                          namespace:
-                            description: Namespace of the referenced CR.
-                            minLength: 1
-                            type: string
-                        required:
-                        - name
-                        - namespace
-                        type: object
-                      url:
-                        description: |-
-                          Direct URL for an external or cross-namespace service.
-                          Accepts: host:port, dns:///host:port, http(s)://host/path
-                        maxLength: 2048
-                        minLength: 1
-                        type: string
-                    type: object
+                      type: object
+                      x-kubernetes-validations:
+                      - message: ref and secretRef are mutually exclusive
+                        rule: '!(has(self.ref) && has(self.secretRef))'
+                      - message: ref and url are mutually exclusive
+                        rule: '!(has(self.ref) && has(self.url) && size(self.url)
+                          > 0)'
+                    maxItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
                     x-kubernetes-validations:
                     - message: url must follow the pattern scheme://host[:port][/path]
                         or //[:port][/path]
-                      rule: '!has(self.url) || size(self.url) == 0 || self.url.matches(''^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$'')'
-                    - message: ref and url are mutually exclusive
-                      rule: '!(has(self.ref) && has(self.url) && size(self.url) >
-                        0)'
+                      rule: self.all(x, !has(x.url) || size(x.url) == 0 || x.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$'))
                   imagePullSecrets:
                     description: |-
                       ImagePullSecrets is an optional list of references to secrets in the same namespace
@@ -17492,48 +17557,6 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
-                  keys:
-                    description: List of TUF targets which will be added to TUF root
-                    items:
-                      properties:
-                        name:
-                          description: File name which will be used as TUF target.
-                          enum:
-                          - rekor.pub
-                          - ctfe.pub
-                          - fulcio_v1.crt.pem
-                          - tsa.certchain.pem
-                          type: string
-                        secretRef:
-                          description: |-
-                            Reference to secret object.
-                            If unset, the operator resolves the trust material from the corresponding component CR's
-                            status field (e.g. Rekor.Status.PublicKey, Fulcio.Status.CertificateChain) and stores it
-                            in a TUF-owned secret.
-                          properties:
-                            key:
-                              description: The key of the secret to select from. Must
-                                be a valid secret key.
-                              pattern: ^[-._a-zA-Z0-9]+$
-                              type: string
-                            name:
-                              description: |-
-                                Name of the referent.
-                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              type: string
-                          required:
-                          - key
-                          - name
-                          type: object
-                          x-kubernetes-map-type: atomic
-                      required:
-                      - name
-                      type: object
-                    minItems: 1
-                    type: array
-                    x-kubernetes-list-map-keys:
-                    - name
-                    x-kubernetes-list-type: map
                   port:
                     format: int32
                     maximum: 65535
@@ -17591,38 +17614,72 @@ spec:
                       rule: oldSelf == null || has(self.name) || (!has(oldSelf.accessModes)
                         || has(self.accessModes) && oldSelf.accessModes == self.accessModes)
                   rekor:
-                    description: Rekor service configuration
-                    properties:
-                      ref:
-                        description: In-cluster reference to a component CR.
-                        properties:
-                          name:
-                            description: Name of the referenced CR.
-                            minLength: 1
-                            type: string
-                          namespace:
-                            description: Namespace of the referenced CR.
-                            minLength: 1
-                            type: string
-                        required:
-                        - name
-                        - namespace
-                        type: object
-                      url:
-                        description: |-
-                          Direct URL for an external or cross-namespace service.
-                          Accepts: host:port, dns:///host:port, http(s)://host/path
-                        maxLength: 2048
-                        minLength: 1
-                        type: string
-                    type: object
+                    description: |-
+                      Rekor service and trust material binding.
+                      At most one entry is allowed today; this ceiling is deliberate and temporary,
+                      pending future multi-instance support.
+                    items:
+                      description: |-
+                        TrustRootBinding identifies a component's service binding and, optionally, a
+                        reference to the Secret holding its trust material (public key for
+                        Rekor/CTlog, cert chain for Fulcio/TSA). If SecretRef is unset, the operator
+                        resolves material from the referenced or autodiscovered component CR's
+                        status.
+                      properties:
+                        ref:
+                          description: In-cluster reference to a component CR.
+                          properties:
+                            name:
+                              description: Name of the referenced CR.
+                              minLength: 1
+                              type: string
+                            namespace:
+                              description: Namespace of the referenced CR.
+                              minLength: 1
+                              type: string
+                          required:
+                          - name
+                          - namespace
+                          type: object
+                        secretRef:
+                          description: SecretKeySelector selects a key of a Secret.
+                          properties:
+                            key:
+                              description: The key of the secret to select from. Must
+                                be a valid secret key.
+                              pattern: ^[-._a-zA-Z0-9]+$
+                              type: string
+                            name:
+                              description: |-
+                                Name of the referent.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              type: string
+                          required:
+                          - key
+                          - name
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        url:
+                          description: |-
+                            Direct URL for an external or cross-namespace service.
+                            Accepts: host:port, dns:///host:port, http(s)://host/path
+                          maxLength: 2048
+                          minLength: 1
+                          type: string
+                      type: object
+                      x-kubernetes-validations:
+                      - message: ref and secretRef are mutually exclusive
+                        rule: '!(has(self.ref) && has(self.secretRef))'
+                      - message: ref and url are mutually exclusive
+                        rule: '!(has(self.ref) && has(self.url) && size(self.url)
+                          > 0)'
+                    maxItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
                     x-kubernetes-validations:
                     - message: url must follow the pattern scheme://host[:port][/path]
                         or //[:port][/path]
-                      rule: '!has(self.url) || size(self.url) == 0 || self.url.matches(''^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$'')'
-                    - message: ref and url are mutually exclusive
-                      rule: '!(has(self.ref) && has(self.url) && size(self.url) >
-                        0)'
+                      rule: self.all(x, !has(x.url) || size(x.url) == 0 || x.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$'))
                   replicas:
                     description: Number of desired pods.
                     format: int32
@@ -17754,38 +17811,74 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   tsa:
-                    description: TSA service configuration
-                    properties:
-                      ref:
-                        description: In-cluster reference to a component CR.
-                        properties:
-                          name:
-                            description: Name of the referenced CR.
-                            minLength: 1
-                            type: string
-                          namespace:
-                            description: Namespace of the referenced CR.
-                            minLength: 1
-                            type: string
-                        required:
-                        - name
-                        - namespace
-                        type: object
-                      url:
-                        description: |-
-                          Direct URL for an external or cross-namespace service.
-                          Accepts: host:port, dns:///host:port, http(s)://host/path
-                        maxLength: 2048
-                        minLength: 1
-                        type: string
-                    type: object
+                    description: |-
+                      TSA service and trust material binding. A nil value excludes TSA from the
+                      trust root entirely; a non-nil value (even an empty list, meaning
+                      autodiscover) includes it.
+                      At most one entry is allowed today; this ceiling is deliberate and temporary,
+                      pending future multi-instance support.
+                    items:
+                      description: |-
+                        TrustRootBinding identifies a component's service binding and, optionally, a
+                        reference to the Secret holding its trust material (public key for
+                        Rekor/CTlog, cert chain for Fulcio/TSA). If SecretRef is unset, the operator
+                        resolves material from the referenced or autodiscovered component CR's
+                        status.
+                      properties:
+                        ref:
+                          description: In-cluster reference to a component CR.
+                          properties:
+                            name:
+                              description: Name of the referenced CR.
+                              minLength: 1
+                              type: string
+                            namespace:
+                              description: Namespace of the referenced CR.
+                              minLength: 1
+                              type: string
+                          required:
+                          - name
+                          - namespace
+                          type: object
+                        secretRef:
+                          description: SecretKeySelector selects a key of a Secret.
+                          properties:
+                            key:
+                              description: The key of the secret to select from. Must
+                                be a valid secret key.
+                              pattern: ^[-._a-zA-Z0-9]+$
+                              type: string
+                            name:
+                              description: |-
+                                Name of the referent.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              type: string
+                          required:
+                          - key
+                          - name
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        url:
+                          description: |-
+                            Direct URL for an external or cross-namespace service.
+                            Accepts: host:port, dns:///host:port, http(s)://host/path
+                          maxLength: 2048
+                          minLength: 1
+                          type: string
+                      type: object
+                      x-kubernetes-validations:
+                      - message: ref and secretRef are mutually exclusive
+                        rule: '!(has(self.ref) && has(self.secretRef))'
+                      - message: ref and url are mutually exclusive
+                        rule: '!(has(self.ref) && has(self.url) && size(self.url)
+                          > 0)'
+                    maxItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
                     x-kubernetes-validations:
                     - message: url must follow the pattern scheme://host[:port][/path]
                         or //[:port][/path]
-                      rule: '!has(self.url) || size(self.url) == 0 || self.url.matches(''^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$'')'
-                    - message: ref and url are mutually exclusive
-                      rule: '!(has(self.ref) && has(self.url) && size(self.url) >
-                        0)'
+                      rule: self.all(x, !has(x.url) || size(x.url) == 0 || x.url.matches('^([a-zA-Z][a-zA-Z0-9+.-]*://[^/].*|//.+)$'))
                   volumeMounts:
                     description: Additional volume mounts for the main server container.
                     items:

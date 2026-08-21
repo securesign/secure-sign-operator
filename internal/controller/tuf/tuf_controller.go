@@ -29,6 +29,7 @@ import (
 	"github.com/securesign/operator/internal/controller/tuf/actions"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
 	_ "github.com/securesign/operator/internal/controller/tuf/serviceresolver"
+	"github.com/securesign/operator/internal/controller/tuf/trustroot"
 	fipsutil "github.com/securesign/operator/internal/utils/fips"
 	v1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
@@ -97,9 +98,10 @@ func (r *tufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	target := instance.DeepCopy()
 	conditionSupplier := func(tuf *rhtasv1.Tuf) []string {
-		conditions := make([]string, 0, len(tuf.Spec.Keys)+1)
-		for _, k := range tuf.Spec.Keys {
-			conditions = append(conditions, k.Name)
+		activeKeys := trustroot.ActiveKeys(tuf)
+		conditions := make([]string, 0, len(activeKeys)+1)
+		for _, k := range activeKeys {
+			conditions = append(conditions, k.String())
 		}
 		conditions = append(conditions, constants.RepositoryCondition)
 		return fipsutil.AppendFIPSCondition(conditions)

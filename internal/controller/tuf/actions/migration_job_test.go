@@ -112,6 +112,11 @@ func TestMigrateJob_Succeeded(t *testing.T) {
 			Name:      "test-secret",
 			Namespace: t.Name(),
 		},
+		Data: map[string][]byte{
+			"rekor.pub":         []byte(testPEM),
+			"ctfe.pub":          []byte(testPEM),
+			"fulcio_v1.crt.pem": []byte(testPEM),
+		},
 	})).To(Succeed())
 
 	instance := &rhtasv1.Tuf{
@@ -126,6 +131,21 @@ func TestMigrateJob_Succeeded(t *testing.T) {
 			PodRequirements: rhtasv1.PodRequirements{
 				Replicas: ptr.To(int32(1)),
 			},
+			Rekor: []rhtasv1.TrustRootBinding{{
+				ServiceReference: rhtasv1.ServiceReference{URL: "http://rekor.fakeserver.com"},
+				SecretRef:        &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "test-secret"}, Key: "rekor.pub"},
+			}},
+			Ctlog: []rhtasv1.TrustRootBinding{{
+				ServiceReference: rhtasv1.ServiceReference{URL: "http://ctlog.fakeserver.com"},
+				SecretRef:        &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "test-secret"}, Key: "ctfe.pub"},
+			}},
+			Fulcio: []rhtasv1.TrustRootBindingWithOIDC{{
+				TrustRootBinding: rhtasv1.TrustRootBinding{
+					ServiceReference: rhtasv1.ServiceReference{URL: "http://fulcio.fakeserver.com"},
+					SecretRef:        &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "test-secret"}, Key: "fulcio_v1.crt.pem"},
+				},
+				OIDCIssuers: []string{"https://oidc.fakeserver.com"},
+			}},
 		},
 		Status: rhtasv1.TufStatus{Conditions: []metav1.Condition{
 			{
@@ -202,6 +222,11 @@ func TestMigrateJob_Failed(t *testing.T) {
 			Name:      "test-secret",
 			Namespace: t.Name(),
 		},
+		Data: map[string][]byte{
+			"rekor.pub":         []byte(testPEM),
+			"ctfe.pub":          []byte(testPEM),
+			"fulcio_v1.crt.pem": []byte(testPEM),
+		},
 	})).To(Succeed())
 
 	instance := &rhtasv1.Tuf{
@@ -216,6 +241,21 @@ func TestMigrateJob_Failed(t *testing.T) {
 			PodRequirements: rhtasv1.PodRequirements{
 				Replicas: ptr.To(int32(1)),
 			},
+			Rekor: []rhtasv1.TrustRootBinding{{
+				ServiceReference: rhtasv1.ServiceReference{URL: "http://rekor.fakeserver.com"},
+				SecretRef:        &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "test-secret"}, Key: "rekor.pub"},
+			}},
+			Ctlog: []rhtasv1.TrustRootBinding{{
+				ServiceReference: rhtasv1.ServiceReference{URL: "http://ctlog.fakeserver.com"},
+				SecretRef:        &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "test-secret"}, Key: "ctfe.pub"},
+			}},
+			Fulcio: []rhtasv1.TrustRootBindingWithOIDC{{
+				TrustRootBinding: rhtasv1.TrustRootBinding{
+					ServiceReference: rhtasv1.ServiceReference{URL: "http://fulcio.fakeserver.com"},
+					SecretRef:        &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "test-secret"}, Key: "fulcio_v1.crt.pem"},
+				},
+				OIDCIssuers: []string{"https://oidc.fakeserver.com"},
+			}},
 		},
 		Status: rhtasv1.TufStatus{Conditions: []metav1.Condition{
 			{

@@ -120,56 +120,42 @@ func createInstance(name, ns string) *rhtasv1.Tuf {
 			Name:      name,
 		},
 		Spec: rhtasv1.TufSpec{
-			Ctlog: rhtasv1.ServiceReference{
-				URL: "http://ctlog.fakeserver.com/trusted-artifact-signer",
-			},
-			Fulcio: rhtasv1.ServiceRefWithOIDC{
-				ServiceReference: rhtasv1.ServiceReference{
-					URL: "http://fulcio.fakeserver.com",
-				},
-				OIDCIssuers: []string{"https://keycloak.example.com/auth/realms/trusted-artifact-signer"},
-			},
-			Rekor: rhtasv1.ServiceReference{
-				URL: "http://rekor.fakeserver.com",
-			},
-			Tsa: rhtasv1.ServiceReference{
-				URL: "http://tsa.fakeserver.com",
-			},
-			Keys: []rhtasv1.TufKey{
+			Ctlog: []rhtasv1.TrustRootBinding{
 				{
-					Name: "rekor.pub",
+					ServiceReference: rhtasv1.ServiceReference{URL: "http://ctlog.fakeserver.com/trusted-artifact-signer"},
 					SecretRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "test",
-						},
-						Key: "public",
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "test"},
+						Key:                  "public",
 					},
 				},
+			},
+			Fulcio: []rhtasv1.TrustRootBindingWithOIDC{
 				{
-					Name: "ctfe.pub",
-					SecretRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "test",
+					TrustRootBinding: rhtasv1.TrustRootBinding{
+						ServiceReference: rhtasv1.ServiceReference{URL: "http://fulcio.fakeserver.com"},
+						SecretRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "test"},
+							Key:                  "cert",
 						},
-						Key: "public",
+					},
+					OIDCIssuers: []string{"https://keycloak.example.com/auth/realms/trusted-artifact-signer"},
+				},
+			},
+			Rekor: []rhtasv1.TrustRootBinding{
+				{
+					ServiceReference: rhtasv1.ServiceReference{URL: "http://rekor.fakeserver.com"},
+					SecretRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "test"},
+						Key:                  "public",
 					},
 				},
+			},
+			Tsa: &[]rhtasv1.TrustRootBinding{
 				{
-					Name: "fulcio_v1.crt.pem",
+					ServiceReference: rhtasv1.ServiceReference{URL: "http://tsa.fakeserver.com"},
 					SecretRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "test",
-						},
-						Key: "cert",
-					},
-				},
-				{
-					Name: "tsa.certchain.pem",
-					SecretRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "test",
-						},
-						Key: "cert",
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "test"},
+						Key:                  "cert",
 					},
 				},
 			},

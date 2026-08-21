@@ -1,9 +1,13 @@
 package utils
 
 import (
+	"fmt"
+
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	core "k8s.io/api/core/v1"
 )
+
+var ErrorResolveServiceUrl = fmt.Errorf("failed to resolve service url")
 
 func secretsVolumeProjection(keys []rhtasv1.TufKeyStatus) *core.ProjectedVolumeSource {
 

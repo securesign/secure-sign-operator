@@ -97,11 +97,43 @@ func randServiceReference(c randfill.Continue, urlFunc func(c randfill.Continue,
 	}
 }
 
-// randServiceReferenceWithOIDC wraps randServiceReference, adding a random OIDCIssuers entry.
-func randServiceReferenceWithOIDC(c randfill.Continue, urlFunc func(c randfill.Continue, withPort bool) string) rhtasv1.ServiceRefWithOIDC {
-	return rhtasv1.ServiceRefWithOIDC{
-		ServiceReference: randServiceReference(c, urlFunc),
-		OIDCIssuers:      []string{urlfuzz.HTTPURL(c, c.Bool(), c.Bool())},
+// randTrustRootBinding wraps randServiceReference, adding a random optional SecretRef.
+func randTrustRootBinding(c randfill.Continue, urlFunc func(c randfill.Continue, withPort bool) string) rhtasv1.TrustRootBinding {
+	b := rhtasv1.TrustRootBinding{ServiceReference: randServiceReference(c, urlFunc)}
+	if c.Bool() {
+		b.SecretRef = &rhtasv1.SecretKeySelector{}
+		c.FillNoCustom(b.SecretRef)
+	}
+	return b
+}
+
+// tufKeysFuzzerFuncs fuzzes v1alpha1 TufSpec.Keys with the four canonical, well-known
+// TUF target names instead of the generic random names randfill would otherwise produce.
+// tsa.certchain.pem is included or omitted at random, matching how TSA's inclusion in the
+// v1 trust root is decided in v1alpha1 terms.
+func tufKeysFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *TufSpec, c randfill.Continue) {
+			c.FillNoCustom(s)
+			keys := []TufKey{
+				{Name: rhtasv1.TufKeyRekor},
+				{Name: rhtasv1.TufKeyCTFE},
+				{Name: rhtasv1.TufKeyFulcio},
+			}
+			if c.Bool() {
+				keys = append(keys, TufKey{Name: rhtasv1.TufKeyTSA})
+			} else {
+				// tsa.certchain.pem absent from Keys means TSA is excluded
+				s.Tsa = TsaService{}
+			}
+			for i := range keys {
+				if c.Bool() {
+					keys[i].SecretRef = &SecretKeySelector{}
+					c.FillNoCustom(keys[i].SecretRef)
+				}
+			}
+			s.Keys = keys
+		},
 	}
 }
 
@@ -169,9 +201,6 @@ func tufServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 
 func fulcioServiceFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
-		func(s *rhtasv1.ServiceRefWithOIDC, c randfill.Continue) {
-			*s = randServiceReferenceWithOIDC(c, httpURLWithPath)
-		},
 		func(s *FulcioService, c randfill.Continue) {
 			c.FillNoCustom(s)
 			s.Address = urlfuzz.HTTPURL(c, false, c.Bool())
@@ -239,10 +268,17 @@ func securesignFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			s.Spec.Rekor.Trillian = randServiceReference(c, urlfuzz.GRPCURL)
 			s.Spec.Fulcio.Ctlog = randServiceReference(c, httpURLWithPath)
 
-			s.Spec.Tuf.Ctlog = randServiceReference(c, httpURLWithPath)
-			s.Spec.Tuf.Rekor = randServiceReference(c, httpURLWithPath)
-			s.Spec.Tuf.Fulcio = randServiceReferenceWithOIDC(c, httpURLWithPath)
-			s.Spec.Tuf.Tsa = randServiceReference(c, httpURLWithPath)
+			s.Spec.Tuf.Ctlog = []rhtasv1.TrustRootBinding{randTrustRootBinding(c, httpURLWithPath)}
+			s.Spec.Tuf.Rekor = []rhtasv1.TrustRootBinding{randTrustRootBinding(c, httpURLWithPath)}
+			s.Spec.Tuf.Fulcio = []rhtasv1.TrustRootBindingWithOIDC{{
+				TrustRootBinding: randTrustRootBinding(c, httpURLWithPath),
+				OIDCIssuers:      []string{urlfuzz.HTTPURL(c, c.Bool(), c.Bool())},
+			}}
+			if c.Bool() {
+				s.Spec.Tuf.Tsa = &[]rhtasv1.TrustRootBinding{randTrustRootBinding(c, httpURLWithPath)}
+			} else {
+				s.Spec.Tuf.Tsa = nil
+			}
 		},
 	}
 }
@@ -293,10 +329,17 @@ func tufFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *rhtasv1.Tuf, c randfill.Continue) {
 			c.FillNoCustom(s)
-			s.Spec.Ctlog = randServiceReference(c, httpURLWithPath)
-			s.Spec.Rekor = randServiceReference(c, httpURLWithPath)
-			s.Spec.Fulcio = randServiceReferenceWithOIDC(c, httpURLWithPath)
-			s.Spec.Tsa = randServiceReference(c, httpURLWithPath)
+			s.Spec.Ctlog = []rhtasv1.TrustRootBinding{randTrustRootBinding(c, httpURLWithPath)}
+			s.Spec.Rekor = []rhtasv1.TrustRootBinding{randTrustRootBinding(c, httpURLWithPath)}
+			s.Spec.Fulcio = []rhtasv1.TrustRootBindingWithOIDC{{
+				TrustRootBinding: randTrustRootBinding(c, httpURLWithPath),
+				OIDCIssuers:      []string{urlfuzz.HTTPURL(c, c.Bool(), c.Bool())},
+			}}
+			if c.Bool() {
+				s.Spec.Tsa = &[]rhtasv1.TrustRootBinding{randTrustRootBinding(c, httpURLWithPath)}
+			} else {
+				s.Spec.Tsa = nil
+			}
 		},
 	}
 }
@@ -510,6 +553,7 @@ func TestSecuresignConversion(t *testing.T) {
 			fulcioServiceFuzzerFuncs,
 			tsaServiceFuzzerFuncs,
 			tufServiceFuzzerFuncs,
+			tufKeysFuzzerFuncs,
 			securesignFuzzerFuncs,
 			podExtensionsFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
@@ -595,6 +639,7 @@ func TestTufConversion(t *testing.T) {
 			rekorServiceFuzzerFuncs,
 			fulcioServiceFuzzerFuncs,
 			tsaServiceFuzzerFuncs,
+			tufKeysFuzzerFuncs,
 		},
 	}))
 }

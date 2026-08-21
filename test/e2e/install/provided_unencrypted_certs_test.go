@@ -48,18 +48,20 @@ var _ = Describe("Securesign install with provided unencrypted certs", Ordered, 
 			securesign.ChooseDefaults(fipsEnabled, namespace.Name),
 			securesign.WithProvidedUnencryptedCerts(),
 			func(v *rhtasv1.Securesign) {
-				v.Spec.Tuf.Keys = []rhtasv1.TufKey{
+				v.Spec.Tuf.Fulcio = []rhtasv1.TrustRootBindingWithOIDC{
 					{
-						Name: "fulcio_v1.crt.pem",
-						SecretRef: &rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{
-								Name: "my-fulcio-secret",
+						TrustRootBinding: rhtasv1.TrustRootBinding{
+							SecretRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{
+									Name: "my-fulcio-secret",
+								},
+								Key: "cert",
 							},
-							Key: "cert",
 						},
 					},
+				}
+				v.Spec.Tuf.Rekor = []rhtasv1.TrustRootBinding{
 					{
-						Name: "rekor.pub",
 						SecretRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "my-rekor-secret",
@@ -67,8 +69,9 @@ var _ = Describe("Securesign install with provided unencrypted certs", Ordered, 
 							Key: "public",
 						},
 					},
+				}
+				v.Spec.Tuf.Ctlog = []rhtasv1.TrustRootBinding{
 					{
-						Name: "ctfe.pub",
 						SecretRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "my-ctlog-secret",
@@ -76,8 +79,9 @@ var _ = Describe("Securesign install with provided unencrypted certs", Ordered, 
 							Key: "public",
 						},
 					},
+				}
+				v.Spec.Tuf.Tsa = &[]rhtasv1.TrustRootBinding{
 					{
-						Name: "tsa.certchain.pem",
 						SecretRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "test-tsa-secret",

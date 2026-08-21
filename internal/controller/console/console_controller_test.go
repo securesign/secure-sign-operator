@@ -69,9 +69,6 @@ var _ = Describe("Console controller", func() {
 					Name:      Name,
 					Namespace: Namespace,
 				},
-				Spec: rhtasv1.TufSpec{
-					Keys: []rhtasv1.TufKey{{Name: rhtasv1.TufKeyFulcio}},
-				},
 			}
 			Expect(suite.Client().Create(ctx, tuf)).To(Succeed())
 			// Simulates a Tuf instance with Ingress enabled, where status-url.go
