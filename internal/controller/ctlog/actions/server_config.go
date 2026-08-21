@@ -373,13 +373,6 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 			}
 		}
 
-		if s.PrivateKeyPasswordRef != nil { //nolint:staticcheck
-			sc.PrivateKeyPass, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyPasswordRef) //nolint:staticcheck
-			if err != nil {
-				return nil, fmt.Errorf("shard %d privateKeyPasswordRef: %w", s.TreeID, err)
-			}
-		}
-
 		shards = append(shards, sc)
 	}
 	return shards, nil
@@ -450,9 +443,6 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 			_, _ = fmt.Fprintf(h, "%d:%d:%s:%s/%s", shard.TreeID, shard.TreeLength, shardType, shard.PublicKeyRef.Name, shard.PublicKeyRef.Key)
 			if shard.PrivateKeyRef != nil {
 				_, _ = fmt.Fprintf(h, ":%s/%s", shard.PrivateKeyRef.Name, shard.PrivateKeyRef.Key)
-			}
-			if shard.PrivateKeyPasswordRef != nil { //nolint:staticcheck
-				_, _ = fmt.Fprintf(h, ":%s/%s", shard.PrivateKeyPasswordRef.Name, shard.PrivateKeyPasswordRef.Key) //nolint:staticcheck
 			}
 		}
 		annotations[labels.LabelNamespace+"/shardingHash"] = hex.EncodeToString(h.Sum(nil))

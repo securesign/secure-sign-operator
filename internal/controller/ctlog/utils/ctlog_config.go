@@ -157,8 +157,7 @@ func (c *Config) marshalShardLogConfig(shard ShardConfig, rootPems []string) (*c
 
 	if len(shard.PrivateKey) > 0 {
 		cfg.PrivateKey = mustMarshalAny(&keyspb.PEMKeyFile{
-			Path:     fmt.Sprintf("%sshard-%d-private", rootsPemFileDir, shard.TreeID),
-			Password: string(shard.PrivateKeyPass),
+			Path: fmt.Sprintf("%sshard-%d-private", rootsPemFileDir, shard.TreeID),
 		})
 	}
 
