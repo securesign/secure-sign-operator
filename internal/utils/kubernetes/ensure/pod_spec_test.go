@@ -188,6 +188,131 @@ func ptrBool(b bool) *bool {
 	return &b
 }
 
+func TestReconcileUserPodResources(t *testing.T) {
+	findContainer := func(spec *core.PodSpec, name string) *core.Container {
+		for i := range spec.Containers {
+			if spec.Containers[i].Name == name {
+				return &spec.Containers[i]
+			}
+		}
+		return nil
+	}
+
+	tests := []struct {
+		name    string
+		podSpec core.PodSpec
+		ext     rhtasv1.PodExtensions
+		prev    UserSpecState
+		verify  func(Gomega, *core.PodSpec, UserSpecState)
+	}{
+		{
+			name:    "adds volumes and mounts from empty state",
+			podSpec: core.PodSpec{Containers: []core.Container{{Name: "app"}}},
+			ext: rhtasv1.PodExtensions{
+				Volumes: []rhtasv1.AdditionalVolume{
+					{Name: "custom-config", AdditionalVolumeSource: rhtasv1.AdditionalVolumeSource{
+						ConfigMap: &core.ConfigMapVolumeSource{LocalObjectReference: core.LocalObjectReference{Name: "my-cm"}},
+					}},
+				},
+				VolumeMounts: []core.VolumeMount{
+					{Name: "custom-config", MountPath: "/etc/custom"},
+				},
+			},
+			prev: UserSpecState{},
+			verify: func(g Gomega, spec *core.PodSpec, current UserSpecState) {
+				g.Expect(spec.Volumes).To(HaveLen(1))
+				g.Expect(spec.Volumes[0].Name).To(Equal("custom-config"))
+				g.Expect(spec.Volumes[0].ConfigMap.Name).To(Equal("my-cm"))
+				c := findContainer(spec, "app")
+				g.Expect(c.VolumeMounts).To(HaveLen(1))
+				g.Expect(c.VolumeMounts[0].MountPath).To(Equal("/etc/custom"))
+				g.Expect(current.Volumes).To(ConsistOf("custom-config"))
+				g.Expect(current.VolumeMounts).To(ConsistOf("custom-config"))
+			},
+		},
+		{
+			name: "removes stale volumes and mounts",
+			podSpec: core.PodSpec{
+				Containers: []core.Container{{
+					Name: "app",
+					VolumeMounts: []core.VolumeMount{
+						{Name: "stale-vol", MountPath: "/old"},
+						{Name: "operator-vol", MountPath: "/op"},
+					},
+				}},
+				Volumes: []core.Volume{
+					{Name: "stale-vol", VolumeSource: core.VolumeSource{EmptyDir: &core.EmptyDirVolumeSource{}}},
+					{Name: "operator-vol", VolumeSource: core.VolumeSource{EmptyDir: &core.EmptyDirVolumeSource{}}},
+				},
+			},
+			ext:  rhtasv1.PodExtensions{},
+			prev: UserSpecState{Volumes: []string{"stale-vol"}, VolumeMounts: []string{"stale-vol"}},
+			verify: func(g Gomega, spec *core.PodSpec, current UserSpecState) {
+				g.Expect(spec.Volumes).To(HaveLen(1))
+				g.Expect(spec.Volumes[0].Name).To(Equal("operator-vol"))
+				c := findContainer(spec, "app")
+				g.Expect(c.VolumeMounts).To(HaveLen(1))
+				g.Expect(c.VolumeMounts[0].Name).To(Equal("operator-vol"))
+				g.Expect(current.Volumes).To(BeEmpty())
+				g.Expect(current.VolumeMounts).To(BeEmpty())
+			},
+		},
+		{
+			name: "does not remove volumes not in previous state",
+			podSpec: core.PodSpec{
+				Containers: []core.Container{{
+					Name:         "app",
+					VolumeMounts: []core.VolumeMount{{Name: "operator-managed", MountPath: "/op"}},
+				}},
+				Volumes: []core.Volume{
+					{Name: "operator-managed", VolumeSource: core.VolumeSource{EmptyDir: &core.EmptyDirVolumeSource{}}},
+				},
+			},
+			ext:  rhtasv1.PodExtensions{},
+			prev: UserSpecState{},
+			verify: func(g Gomega, spec *core.PodSpec, current UserSpecState) {
+				g.Expect(spec.Volumes).To(HaveLen(1))
+				g.Expect(spec.Volumes[0].Name).To(Equal("operator-managed"))
+				c := findContainer(spec, "app")
+				g.Expect(c.VolumeMounts).To(HaveLen(1))
+			},
+		},
+		{
+			name: "updates existing volume source",
+			podSpec: core.PodSpec{
+				Containers: []core.Container{{Name: "app"}},
+				Volumes: []core.Volume{
+					{Name: "cfg", VolumeSource: core.VolumeSource{
+						ConfigMap: &core.ConfigMapVolumeSource{LocalObjectReference: core.LocalObjectReference{Name: "old-cm"}},
+					}},
+				},
+			},
+			ext: rhtasv1.PodExtensions{
+				Volumes: []rhtasv1.AdditionalVolume{
+					{Name: "cfg", AdditionalVolumeSource: rhtasv1.AdditionalVolumeSource{
+						ConfigMap: &core.ConfigMapVolumeSource{LocalObjectReference: core.LocalObjectReference{Name: "new-cm"}},
+					}},
+				},
+			},
+			prev: UserSpecState{Volumes: []string{"cfg"}},
+			verify: func(g Gomega, spec *core.PodSpec, current UserSpecState) {
+				g.Expect(spec.Volumes).To(HaveLen(1))
+				g.Expect(spec.Volumes[0].ConfigMap.Name).To(Equal("new-cm"))
+				g.Expect(current.Volumes).To(ConsistOf("cfg"))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			current, err := ReconcileUserPodResources(&tt.podSpec, "app", tt.ext, tt.prev)
+			g.Expect(err).ToNot(HaveOccurred())
+			tt.verify(g, &tt.podSpec, current)
+		})
+	}
+}
+
 func TestReconcileInitContainers(t *testing.T) {
 	tests := []struct {
 		name    string

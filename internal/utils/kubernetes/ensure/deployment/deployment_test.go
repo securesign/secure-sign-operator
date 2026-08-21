@@ -5,6 +5,7 @@ import (
 
 	"github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/annotations"
 	testAction "github.com/securesign/operator/internal/testing/action"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/internal/utils/tls"
@@ -265,4 +266,41 @@ func TestPodRequirements(t *testing.T) {
 			tt.verify(g, dp)
 		})
 	}
+}
+
+func TestPodExtensions_PreservesOtherAnnotationConcerns(t *testing.T) {
+	t.Parallel()
+	g := gomega.NewWithT(t)
+
+	dp := &v1.Deployment{
+		ObjectMeta: v2.ObjectMeta{
+			Annotations: map[string]string{
+				annotations.LastUserSpecApplied: `{"auth":{"volumes":["auth-vol"]}}`,
+			},
+		},
+		Spec: v1.DeploymentSpec{
+			Template: core.PodTemplateSpec{
+				Spec: core.PodSpec{
+					Containers: []core.Container{{Name: "app"}},
+				},
+			},
+		},
+	}
+
+	fn := PodExtensions(rhtasv1.PodExtensions{
+		Volumes: []rhtasv1.AdditionalVolume{
+			{Name: "custom-config", AdditionalVolumeSource: rhtasv1.AdditionalVolumeSource{
+				ConfigMap: &core.ConfigMapVolumeSource{LocalObjectReference: core.LocalObjectReference{Name: "my-cm"}},
+			}},
+		},
+	}, "app")
+	g.Expect(fn(dp)).To(gomega.Succeed())
+
+	g.Expect(dp.Spec.Template.Spec.Volumes).To(gomega.HaveLen(1))
+	g.Expect(dp.Spec.Template.Spec.Volumes[0].Name).To(gomega.Equal("custom-config"))
+
+	g.Expect(dp.GetAnnotations()).To(gomega.HaveKeyWithValue(
+		annotations.LastUserSpecApplied,
+		`{"auth":{"volumes":["auth-vol"]},"podExtensions":{"volumes":["custom-config"]}}`,
+	))
 }

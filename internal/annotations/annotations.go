@@ -147,6 +147,30 @@ const (
 	// trust material change and accept the newly observed value.
 	RefreshTrustMaterial = "rhtas.redhat.com/refresh-trust-material"
 
+	// LastUserSpecApplied tracks, per concern, the names of user-specified
+	// resources applied during the last reconcile, so the next reconcile can
+	// detect removals. The value is a JSON object keyed by concern name, e.g.:
+	//
+	//	{"podExtensions": {"volumes": ["a"], "volumeMounts": ["a"]}}
+	//
+	// Each concern (e.g. "podExtensions") owns exactly one top-level key and
+	// only ever reads/writes it via ensure.ReadNamespacedState /
+	// ensure.WriteNamespacedState — this lets multiple independent ensure
+	// functions share this one annotation on the same object without
+	// overwriting each other's tracked state.
+	//
+	// We use an annotation-based diff approach instead of Server-Side Apply (SSA)
+	// because SSA field ownership tracks at the field level, not the semantic
+	// "user-specified resource" level. When the operator and user both touch
+	// PodSpec.Volumes, SSA cannot distinguish operator-managed volumes from
+	// user-specified ones — conflicts arise on shared slice fields, and removing
+	// a single user volume requires the operator to re-apply the entire field,
+	// which risks clobbering operator-managed entries. This annotation sidesteps
+	// SSA ownership entirely: it records which named resources the user specified,
+	// so the next reconcile can compute the diff and remove stale items without
+	// affecting operator-managed resources in the same slice.
+	LastUserSpecApplied = "rhtas.redhat.com/last-user-spec-applied"
+
 	TLS = "service.beta.openshift.io/serving-cert-secret-name"
 )
 
