@@ -69,6 +69,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Spec.Fulcio.PodExtensions = restored.Spec.Fulcio.PodExtensions
 	dst.Spec.Fulcio.Auth = restored.Spec.Fulcio.Auth
+	dst.Spec.Fulcio.Ingress.Annotations = restored.Spec.Fulcio.Ingress.Annotations
 	dst.Spec.Ctlog.ImagePullSecrets = restored.Spec.Ctlog.ImagePullSecrets
 	dst.Spec.Ctlog.TrustedCA = restored.Spec.Ctlog.TrustedCA
 	dst.Spec.Ctlog.Monitoring.ServiceMonitor = restored.Spec.Ctlog.Monitoring.ServiceMonitor
@@ -92,6 +93,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Rekor.ImagePullSecrets = restored.Spec.Rekor.ImagePullSecrets
 	dst.Spec.Rekor.Monitoring.ServiceMonitor = restored.Spec.Rekor.Monitoring.ServiceMonitor
 	dst.Spec.Rekor.PodExtensions = restored.Spec.Rekor.PodExtensions
+	dst.Spec.Rekor.Ingress.Annotations = restored.Spec.Rekor.Ingress.Annotations
 	if dst.Spec.Rekor.Trillian.URL == "" {
 		dst.Spec.Rekor.Trillian.Ref = restored.Spec.Rekor.Trillian.Ref
 	}
@@ -110,7 +112,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 			dst.Spec.Trillian.Auth = mergeAuths(dst.Spec.Trillian.Auth, auth)
 		}
 	}
-
+	dst.Spec.Tuf.Ingress.Annotations = restored.Spec.Tuf.Ingress.Annotations
 	dst.Spec.Tuf.ImagePullSecrets = restored.Spec.Tuf.ImagePullSecrets
 	dst.Spec.Tuf.TrustedCA = restored.Spec.Tuf.TrustedCA
 	dst.Spec.Tuf.PodExtensions = restored.Spec.Tuf.PodExtensions
@@ -136,6 +138,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 		dst.Spec.TimestampAuthority.PodExtensions = restored.Spec.TimestampAuthority.PodExtensions
 		// restore also the auth from annotation for case where no KMS or Tink is set
 		dst.Spec.TimestampAuthority.Auth = mergeAuths(dst.Spec.TimestampAuthority.Auth, restored.Spec.TimestampAuthority.Auth)
+		dst.Spec.TimestampAuthority.Ingress.Annotations = restored.Spec.TimestampAuthority.Ingress.Annotations
 	}
 	return nil
 }
