@@ -10,6 +10,103 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+func TestReadNamespacedState(t *testing.T) {
+	tests := []struct {
+		name    string
+		ann     map[string]string
+		concern string
+		expect  UserSpecState
+	}{
+		{
+			name:    "no annotation leaves dst zero value",
+			ann:     nil,
+			concern: "podExtensions",
+			expect:  UserSpecState{},
+		},
+		{
+			name:    "concern present is parsed",
+			ann:     map[string]string{annotations.LastUserSpecApplied: `{"podExtensions":{"volumes":["a"]}}`},
+			concern: "podExtensions",
+			expect:  UserSpecState{Volumes: []string{"a"}},
+		},
+		{
+			name:    "other concern's key is ignored",
+			ann:     map[string]string{annotations.LastUserSpecApplied: `{"auth":{"volumes":["ignore-me"]}}`},
+			concern: "podExtensions",
+			expect:  UserSpecState{},
+		},
+		{
+			name:    "malformed annotation leaves dst zero value",
+			ann:     map[string]string{annotations.LastUserSpecApplied: `not json`},
+			concern: "podExtensions",
+			expect:  UserSpecState{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			svc := &v1.Service{ObjectMeta: metav1.ObjectMeta{Annotations: tt.ann}}
+			var got UserSpecState
+			ReadNamespacedState(svc, tt.concern, &got)
+			g.Expect(got).To(Equal(tt.expect))
+		})
+	}
+}
+
+func TestWriteNamespacedState(t *testing.T) {
+	t.Run("writes concern under its own key", func(t *testing.T) {
+		g := NewWithT(t)
+		svc := &v1.Service{ObjectMeta: metav1.ObjectMeta{}}
+		WriteNamespacedState(svc, "podExtensions", UserSpecState{Volumes: []string{"a"}})
+		g.Expect(svc.GetAnnotations()).To(HaveKeyWithValue(annotations.LastUserSpecApplied, `{"podExtensions":{"volumes":["a"]}}`))
+	})
+
+	t.Run("preserves another concern's key already present", func(t *testing.T) {
+		g := NewWithT(t)
+		svc := &v1.Service{ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				annotations.LastUserSpecApplied: `{"auth":{"volumes":["auth-vol"]}}`,
+			},
+		}}
+		WriteNamespacedState(svc, "podExtensions", UserSpecState{Volumes: []string{"a"}})
+
+		var auth UserSpecState
+		ReadNamespacedState(svc, "auth", &auth)
+		g.Expect(auth).To(Equal(UserSpecState{Volumes: []string{"auth-vol"}}))
+
+		var podExt UserSpecState
+		ReadNamespacedState(svc, "podExtensions", &podExt)
+		g.Expect(podExt).To(Equal(UserSpecState{Volumes: []string{"a"}}))
+	})
+
+	t.Run("removing this concern's data preserves another concern's key", func(t *testing.T) {
+		g := NewWithT(t)
+		svc := &v1.Service{ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				annotations.LastUserSpecApplied: `{"auth":{"volumes":["auth-vol"]},"podExtensions":{"volumes":["old"]}}`,
+			},
+		}}
+		WriteNamespacedState(svc, "podExtensions", UserSpecState{})
+
+		g.Expect(svc.GetAnnotations()[annotations.LastUserSpecApplied]).To(Equal(`{"auth":{"volumes":["auth-vol"]}}`))
+	})
+
+	t.Run("removing the last concern removes the whole annotation", func(t *testing.T) {
+		g := NewWithT(t)
+		svc := &v1.Service{ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				annotations.LastUserSpecApplied: `{"podExtensions":{"volumes":["old"]}}`,
+				"other-annotation":              "keep",
+			},
+		}}
+		WriteNamespacedState(svc, "podExtensions", UserSpecState{})
+
+		g.Expect(svc.GetAnnotations()).ToNot(HaveKey(annotations.LastUserSpecApplied))
+		g.Expect(svc.GetAnnotations()).To(HaveKeyWithValue("other-annotation", "keep"))
+	})
+}
+
 func TestReadLastApplied(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -29,7 +126,7 @@ func TestReadLastApplied(t *testing.T) {
 		{
 			name: "valid JSON is parsed",
 			ann: map[string]string{
-				annotations.LastUserSpecApplied: `{"volumes":["vol-a","vol-b"],"volumeMounts":["vol-a"]}`,
+				annotations.LastUserSpecApplied: `{"podExtensions":{"volumes":["vol-a","vol-b"],"volumeMounts":["vol-a"]}}`,
 			},
 			expect: UserSpecState{
 				Volumes:      []string{"vol-a", "vol-b"},
@@ -42,14 +139,11 @@ func TestReadLastApplied(t *testing.T) {
 			expect: UserSpecState{},
 		},
 		{
-			name: "annotations and labels are parsed",
+			name: "another concern's data does not leak into podExtensions state",
 			ann: map[string]string{
-				annotations.LastUserSpecApplied: `{"annotations":["k1"],"labels":["l1","l2"]}`,
+				annotations.LastUserSpecApplied: `{"auth":{"volumes":["auth-vol"]}}`,
 			},
-			expect: UserSpecState{
-				Annotations: []string{"k1"},
-				Labels:      []string{"l1", "l2"},
-			},
+			expect: UserSpecState{},
 		},
 	}
 
@@ -64,27 +158,28 @@ func TestReadLastApplied(t *testing.T) {
 }
 
 func TestWriteLastApplied(t *testing.T) {
-	t.Run("writes state to annotation", func(t *testing.T) {
+	t.Run("writes state under the podExtensions key", func(t *testing.T) {
 		g := NewWithT(t)
 		svc := &v1.Service{ObjectMeta: metav1.ObjectMeta{}}
 		state := UserSpecState{Volumes: []string{"vol-a"}, VolumeMounts: []string{"vol-a"}}
 		WriteLastApplied(svc, state)
-		g.Expect(svc.GetAnnotations()).To(HaveKey(annotations.LastUserSpecApplied))
+		g.Expect(svc.GetAnnotations()).To(HaveKeyWithValue(annotations.LastUserSpecApplied,
+			`{"podExtensions":{"volumes":["vol-a"],"volumeMounts":["vol-a"]}}`))
 
 		roundtrip := ReadLastApplied(svc)
 		g.Expect(roundtrip).To(Equal(state))
 	})
 
-	t.Run("empty state removes annotation", func(t *testing.T) {
+	t.Run("empty state removes only the podExtensions key", func(t *testing.T) {
 		g := NewWithT(t)
 		svc := &v1.Service{ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				annotations.LastUserSpecApplied: `{"volumes":["old"]}`,
+				annotations.LastUserSpecApplied: `{"auth":{"volumes":["auth-vol"]},"podExtensions":{"volumes":["old"]}}`,
 				"other-annotation":              "keep",
 			},
 		}}
 		WriteLastApplied(svc, UserSpecState{})
-		g.Expect(svc.GetAnnotations()).ToNot(HaveKey(annotations.LastUserSpecApplied))
+		g.Expect(svc.GetAnnotations()).To(HaveKeyWithValue(annotations.LastUserSpecApplied, `{"auth":{"volumes":["auth-vol"]}}`))
 		g.Expect(svc.GetAnnotations()).To(HaveKeyWithValue("other-annotation", "keep"))
 	})
 
@@ -93,98 +188,10 @@ func TestWriteLastApplied(t *testing.T) {
 		svc := &v1.Service{ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{"existing": "value"},
 		}}
-		WriteLastApplied(svc, UserSpecState{Labels: []string{"l1"}})
+		WriteLastApplied(svc, UserSpecState{Volumes: []string{"a"}})
 		g.Expect(svc.GetAnnotations()).To(HaveKeyWithValue("existing", "value"))
 		g.Expect(svc.GetAnnotations()).To(HaveKey(annotations.LastUserSpecApplied))
 	})
-}
-
-func TestManagedKeys(t *testing.T) {
-	tests := []struct {
-		name     string
-		previous []string
-		desired  []string
-		expect   []string
-	}{
-		{
-			name:     "union of previous and desired",
-			previous: []string{"a", "b"},
-			desired:  []string{"b", "c"},
-			expect:   []string{"a", "b", "c"},
-		},
-		{
-			name:     "empty previous",
-			previous: nil,
-			desired:  []string{"a"},
-			expect:   []string{"a"},
-		},
-		{
-			name:     "empty desired includes previous for cleanup",
-			previous: []string{"a", "b"},
-			desired:  nil,
-			expect:   []string{"a", "b"},
-		},
-		{
-			name:     "both empty",
-			previous: nil,
-			desired:  nil,
-			expect:   []string{},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			g := NewWithT(t)
-			got := ManagedKeys(tt.previous, tt.desired)
-			g.Expect(got).To(Equal(tt.expect))
-		})
-	}
-}
-
-func TestKeySet(t *testing.T) {
-	g := NewWithT(t)
-	g.Expect(KeySet(map[string]string{"b": "2", "a": "1"})).To(Equal([]string{"a", "b"}))
-	g.Expect(KeySet(nil)).To(Equal([]string{}))
-}
-
-func TestUserSpecState_Equal(t *testing.T) {
-	tests := []struct {
-		name  string
-		a, b  UserSpecState
-		equal bool
-	}{
-		{
-			name:  "both empty",
-			a:     UserSpecState{},
-			b:     UserSpecState{},
-			equal: true,
-		},
-		{
-			name:  "same volumes",
-			a:     UserSpecState{Volumes: []string{"a", "b"}},
-			b:     UserSpecState{Volumes: []string{"a", "b"}},
-			equal: true,
-		},
-		{
-			name:  "different volumes",
-			a:     UserSpecState{Volumes: []string{"a"}},
-			b:     UserSpecState{Volumes: []string{"b"}},
-			equal: false,
-		},
-		{
-			name:  "nil and empty slice are equal",
-			a:     UserSpecState{Volumes: nil},
-			b:     UserSpecState{Volumes: []string{}},
-			equal: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			g := NewWithT(t)
-			g.Expect(tt.a.Equal(tt.b)).To(Equal(tt.equal))
-		})
-	}
 }
 
 func TestStaleResources(t *testing.T) {

@@ -2,7 +2,6 @@ package ensure
 
 import (
 	"encoding/json"
-	"slices"
 	"sort"
 
 	v1 "github.com/securesign/operator/api/v1"
@@ -11,79 +10,89 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// UserSpecState tracks the names of user-specified resources that were applied
-// during the last reconcile. Stored as JSON in the LastUserSpecApplied annotation.
+// podExtensionsConcern is this file's key within the namespaced
+// LastUserSpecApplied annotation. See ReadNamespacedState.
+const podExtensionsConcern = "podExtensions"
+
+// UserSpecState tracks the names of user-specified volumes and volume mounts
+// that were applied during the last reconcile. Stored under the
+// "podExtensions" key of the LastUserSpecApplied annotation.
 type UserSpecState struct {
 	Volumes      []string `json:"volumes,omitempty"`
 	VolumeMounts []string `json:"volumeMounts,omitempty"`
-	Annotations  []string `json:"annotations,omitempty"`
-	Labels       []string `json:"labels,omitempty"`
 }
 
-// Equal reports whether two UserSpecState values are identical.
-func (s UserSpecState) Equal(other UserSpecState) bool {
-	return slices.Equal(s.Volumes, other.Volumes) &&
-		slices.Equal(s.VolumeMounts, other.VolumeMounts) &&
-		slices.Equal(s.Annotations, other.Annotations) &&
-		slices.Equal(s.Labels, other.Labels)
-}
-
-// ReadLastApplied reads and parses the tracking annotation from the object.
-// Returns an empty state if the annotation is absent or malformed.
-func ReadLastApplied(obj client.Object) UserSpecState {
+// ReadNamespacedState reads the LastUserSpecApplied annotation, which stores
+// a JSON object keyed by concern name (e.g. "podExtensions", "auth"), and
+// unmarshals the payload for the given concern into dst. dst is left
+// untouched if the annotation is absent, malformed, or has no entry for
+// concern.
+//
+// Namespacing by concern lets multiple independent ensure functions share
+// one annotation without overwriting each other's tracked state: each
+// concern only ever reads and writes its own key.
+func ReadNamespacedState(obj client.Object, concern string, dst any) {
 	raw := obj.GetAnnotations()[annotations.LastUserSpecApplied]
 	if raw == "" {
-		return UserSpecState{}
+		return
 	}
-	var state UserSpecState
-	_ = json.Unmarshal([]byte(raw), &state)
-	return state
+	var all map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(raw), &all); err != nil {
+		return
+	}
+	payload, ok := all[concern]
+	if !ok {
+		return
+	}
+	_ = json.Unmarshal(payload, dst)
 }
 
-// WriteLastApplied serializes the current state into the tracking annotation.
-// If the state is empty, the annotation is removed.
-func WriteLastApplied(obj client.Object, state UserSpecState) {
+// WriteNamespacedState marshals src and stores it under concern in the
+// LastUserSpecApplied annotation, re-reading the existing annotation first
+// so other concerns' keys are preserved. If src marshals to an empty JSON
+// object ("{}"), the concern's key is removed instead of stored. If no
+// concerns remain, the annotation itself is removed.
+func WriteNamespacedState(obj client.Object, concern string, src any) {
 	anns := obj.GetAnnotations()
 	if anns == nil {
 		anns = make(map[string]string)
 	}
 
-	if state.Equal(UserSpecState{}) {
+	all := map[string]json.RawMessage{}
+	if raw, ok := anns[annotations.LastUserSpecApplied]; ok && raw != "" {
+		_ = json.Unmarshal([]byte(raw), &all)
+	}
+
+	data, _ := json.Marshal(src)
+	if string(data) == "{}" {
+		delete(all, concern)
+	} else {
+		all[concern] = data
+	}
+
+	if len(all) == 0 {
 		delete(anns, annotations.LastUserSpecApplied)
 	} else {
-		data, _ := json.Marshal(state)
-		anns[annotations.LastUserSpecApplied] = string(data)
+		merged, _ := json.Marshal(all)
+		anns[annotations.LastUserSpecApplied] = string(merged)
 	}
 	obj.SetAnnotations(anns)
 }
 
-// ManagedKeys returns the union of previous and desired key sets.
-// Pass the result to ensure.Annotations or ensure.Labels so that keys removed
-// from the desired set are still in the managed list and get deleted.
-func ManagedKeys(previous, desired []string) []string {
-	seen := make(map[string]struct{}, len(previous)+len(desired))
-	for _, k := range previous {
-		seen[k] = struct{}{}
-	}
-	for _, k := range desired {
-		seen[k] = struct{}{}
-	}
-	keys := make([]string, 0, len(seen))
-	for k := range seen {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
+// ReadLastApplied reads and parses the podExtensions tracking state from the
+// object's LastUserSpecApplied annotation. Returns an empty state if absent
+// or malformed.
+func ReadLastApplied(obj client.Object) UserSpecState {
+	var state UserSpecState
+	ReadNamespacedState(obj, podExtensionsConcern, &state)
+	return state
 }
 
-// KeySet extracts the keys from a map and returns them sorted.
-func KeySet(m map[string]string) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
+// WriteLastApplied serializes state under the podExtensions key of the
+// LastUserSpecApplied annotation, preserving any other concern's data
+// already stored under other keys in the same annotation.
+func WriteLastApplied(obj client.Object, state UserSpecState) {
+	WriteNamespacedState(obj, podExtensionsConcern, state)
 }
 
 // Names extracts names from a slice of items with a Name field via a getter function.

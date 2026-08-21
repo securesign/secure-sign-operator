@@ -147,9 +147,17 @@ const (
 	// trust material change and accept the newly observed value.
 	RefreshTrustMaterial = "rhtas.redhat.com/refresh-trust-material"
 
-	// LastUserSpecApplied tracks the names of user-specified resources (volumes,
-	// volume mounts, annotations, labels) applied during the last reconcile.
-	// The value is a JSON-encoded object used to detect removals on the next reconcile.
+	// LastUserSpecApplied tracks, per concern, the names of user-specified
+	// resources applied during the last reconcile, so the next reconcile can
+	// detect removals. The value is a JSON object keyed by concern name, e.g.:
+	//
+	//	{"podExtensions": {"volumes": ["a"], "volumeMounts": ["a"]}}
+	//
+	// Each concern (e.g. "podExtensions") owns exactly one top-level key and
+	// only ever reads/writes it via ensure.ReadNamespacedState /
+	// ensure.WriteNamespacedState — this lets multiple independent ensure
+	// functions share this one annotation on the same object without
+	// overwriting each other's tracked state.
 	//
 	// We use an annotation-based diff approach instead of Server-Side Apply (SSA)
 	// because SSA field ownership tracks at the field level, not the semantic

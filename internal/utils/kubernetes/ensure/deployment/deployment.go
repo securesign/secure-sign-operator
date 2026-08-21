@@ -65,8 +65,6 @@ func PodExtensions(ext rhtasv1.PodExtensions, containerName string) func(*v1.Dep
 		if err != nil {
 			return err
 		}
-		current.Annotations = prev.Annotations
-		current.Labels = prev.Labels
 		ensure.WriteLastApplied(dp, current)
 		return nil
 	}
