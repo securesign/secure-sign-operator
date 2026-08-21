@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	pkcs11helpers "github.com/securesign/operator/internal/controller/common/pkcs11"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/serviceresolver"
 )
@@ -80,6 +81,8 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 		i.ensureCommonDeployment(instance, RBACName, labels, ctlogUrl),
 		ensure.Optional(instance.Spec.Signer.Type == rhtasv1.FulcioSignerTypeFile || instance.Spec.Signer.Type == "",
 			i.ensureFileCADeployment(instance)),
+		ensure.Optional(instance.Spec.Signer.Type == rhtasv1.FulcioSignerTypePKCS11,
+			i.ensurePKCS11Deployment(instance)),
 		ensure.ControllerReference[*v1.Deployment](instance, i.Client),
 		ensure.Labels[*v1.Deployment](slices.Collect(maps.Keys(labels)), labels),
 		deployment.Auth(containerName, instance.Spec.Auth),
@@ -90,6 +93,7 @@ func (i deployAction) Handle(ctx context.Context, instance *rhtasv1.Fulcio) *act
 		deployment.TrustedCA(instance.GetTrustedCA(), containerName),
 		deployment.PodRequirements(instance.Spec.PodRequirements, containerName),
 		deployment.PodSecurityContext(),
+		deployment.Auth(containerName, instance.Spec.Auth),
 	); err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create Fulcio: %w", err), instance)
 	}
@@ -205,6 +209,13 @@ func (i deployAction) ensureFileCADeployment(instance *rhtasv1.Fulcio) func(depl
 		container := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, containerName)
 		template := &dp.Spec.Template
 
+		// Clean up PKCS#11-specific volumes when switching back to file mode
+		kubernetes.RemoveVolumeByName(&template.Spec, PKCS11ConfigVolumeName)
+		kubernetes.RemoveVolumeByName(&template.Spec, PKCS11CertVolumeName)
+		kubernetes.RemoveVolumeMountByName(container, PKCS11ConfigVolumeName)
+		kubernetes.RemoveVolumeMountByName(container, PKCS11CertVolumeName)
+		pkcs11helpers.CleanupHSMResources(&template.Spec, container)
+
 		container.Args = append(container.Args,
 			"--ca=fileca",
 			"--fileca-key",
@@ -307,6 +318,112 @@ func (i deployAction) ensureFileCADeployment(instance *rhtasv1.Fulcio) func(depl
 				},
 			},
 		}
+		return nil
+	}
+}
+
+func (i deployAction) ensurePKCS11Deployment(instance *rhtasv1.Fulcio) func(*v1.Deployment) error {
+	return func(dp *v1.Deployment) error {
+		if instance.Spec.Signer.PKCS11 == nil {
+			return errors.New("PKCS#11 config not specified")
+		}
+		if instance.Status.ServerConfigRef == nil {
+			return errors.New("server config ref is not specified")
+		}
+		if instance.Status.Certificate == nil || instance.Status.Certificate.CARef == nil {
+			return errors.New("CA certificate reference not yet resolved")
+		}
+
+		container := kubernetes.FindContainerByNameOrCreate(&dp.Spec.Template.Spec, containerName)
+		template := &dp.Spec.Template
+
+		// Clean up file-mode volumes that should not be present in PKCS#11 mode
+		kubernetes.RemoveVolumeByName(&template.Spec, "fulcio-cert")
+		kubernetes.RemoveVolumeMountByName(container, "fulcio-cert")
+
+		pkcs11Cfg := instance.Spec.Signer.PKCS11
+		configRef := pkcs11Cfg.ConfigRef
+
+		container.Args = append(container.Args,
+			"--ca=pkcs11ca",
+			fmt.Sprintf("--pkcs11-config-path=%s/%s", PKCS11ConfigMountPath, configRef.Key),
+			fmt.Sprintf("--aws-hsm-root-ca-path=%s/%s",
+				PKCS11CertMountPath, instance.Status.Certificate.CARef.Key),
+		)
+		if pkcs11Cfg.KeyID != nil {
+			container.Args = append(container.Args,
+				fmt.Sprintf("--hsm-caroot-id=%d", *pkcs11Cfg.KeyID))
+		}
+		if fips.Enabled() {
+			container.Args = append(container.Args, "--client-signing-algorithms", fips.ClientSigningAlgorithms)
+		}
+
+		// PKCS#11-specific volume mounts
+		pkcs11ConfigMount := kubernetes.FindVolumeMountByNameOrCreate(container, PKCS11ConfigVolumeName)
+		pkcs11ConfigMount.MountPath = PKCS11ConfigMountPath
+		pkcs11ConfigMount.ReadOnly = true
+
+		pkcs11CertMount := kubernetes.FindVolumeMountByNameOrCreate(container, PKCS11CertVolumeName)
+		pkcs11CertMount.MountPath = PKCS11CertMountPath
+		pkcs11CertMount.ReadOnly = true
+
+		pkcs11helpers.EnsureHSMResources(&template.Spec, container, instance.Spec.Volumes)
+
+		configMount := kubernetes.FindVolumeMountByNameOrCreate(container, "fulcio-config")
+		configMount.MountPath = "/etc/fulcio-config"
+
+		oidcInfoMount := kubernetes.FindVolumeMountByNameOrCreate(container, "oidc-info")
+		oidcInfoMount.MountPath = "/var/run/fulcio"
+
+		// PKCS#11-specific volumes
+		pkcs11ConfigVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, PKCS11ConfigVolumeName)
+		pkcs11ConfigVol.VolumeSource = core.VolumeSource{
+			Secret: &core.SecretVolumeSource{
+				SecretName:  configRef.Name,
+				DefaultMode: ptr.To(int32(0644)),
+				Items: []core.KeyToPath{
+					{Key: configRef.Key, Path: configRef.Key},
+				},
+			},
+		}
+
+		pkcs11CertVol := kubernetes.FindVolumeByNameOrCreate(&template.Spec, PKCS11CertVolumeName)
+		pkcs11CertVol.VolumeSource = core.VolumeSource{
+			Secret: &core.SecretVolumeSource{
+				SecretName:  instance.Status.Certificate.CARef.Name,
+				DefaultMode: ptr.To(int32(0644)),
+				Items: []core.KeyToPath{
+					{Key: instance.Status.Certificate.CARef.Key, Path: instance.Status.Certificate.CARef.Key},
+				},
+			},
+		}
+
+		// Shared volumes (same as file mode)
+		config := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "fulcio-config")
+		config.VolumeSource = core.VolumeSource{
+			ConfigMap: &core.ConfigMapVolumeSource{
+				LocalObjectReference: core.LocalObjectReference{
+					Name: instance.Status.ServerConfigRef.Name,
+				},
+				DefaultMode: ptr.To(int32(0644)),
+			},
+		}
+
+		oidcInfo := kubernetes.FindVolumeByNameOrCreate(&template.Spec, "oidc-info")
+		oidcInfo.VolumeSource = core.VolumeSource{
+			Projected: &core.ProjectedVolumeSource{
+				DefaultMode: ptr.To(int32(0644)),
+				Sources: []core.VolumeProjection{{
+					ConfigMap: &core.ConfigMapProjection{
+						LocalObjectReference: core.LocalObjectReference{Name: "kube-root-ca.crt"},
+						Items: []core.KeyToPath{
+							{Key: "ca.crt", Path: "ca.crt", Mode: ptr.To(int32(0666))},
+						},
+					},
+				}},
+			},
+		}
+
 		return nil
 	}
 }

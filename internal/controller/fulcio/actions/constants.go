@@ -11,7 +11,13 @@ const (
 	ServiceMonitorName = "fulcio-metrics"
 	RBACName           = "fulcio"
 
-	CertCondition = "FulcioCertAvailable"
+	CertCondition   = "FulcioCertAvailable"
+	PKCS11Condition = "FulcioPKCS11ConfigAvailable"
+
+	PKCS11CertMountPath    = "/var/run/fulcio-pkcs11-cert"
+	PKCS11CertVolumeName   = "fulcio-pkcs11-cert"
+	PKCS11ConfigMountPath  = "/var/run/pkcs11-config"
+	PKCS11ConfigVolumeName = "pkcs11-config"
 
 	ServerPortName   = "http"
 	ServerPort       = 80

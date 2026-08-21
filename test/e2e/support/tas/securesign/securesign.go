@@ -9,6 +9,7 @@ import (
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/condition"
 	"github.com/securesign/operator/test/e2e/support/postgresql"
+	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -385,6 +386,201 @@ func WithReplicas(replicas *int32) Opts {
 		s.Spec.Tuf.Replicas = replicas
 		s.Spec.Trillian.LogServer.Replicas = replicas
 		s.Spec.Trillian.LogSigner.Replicas = replicas
+	}
+}
+
+func WithPKCS11Signer(namespace string) Opts {
+	return func(s *rhtasv1.Securesign) {
+		WithTSA()(s)
+		WithIngress()(s)
+		WithDefaultOIDC()(s)
+
+		// --- Fulcio PKCS#11 signer ---
+		s.Spec.Fulcio.Signer = rhtasv1.FulcioSigner{
+			Type: rhtasv1.FulcioSignerTypePKCS11,
+			PKCS11: &rhtasv1.FulcioPKCS11Config{
+				PKCS11Config: rhtasv1.PKCS11Config{
+					KeyID:    ptr.To(int32(99)),
+					KeyLabel: "PKCS11CA",
+				},
+				ConfigRef: &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
+						Name: "fulcio-pkcs11-config",
+					},
+					Key: "crypto11.conf",
+				},
+			},
+			CertificateChain: rhtasv1.FulcioCertificateChain{
+				CertificateChainRef: &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
+						Name: "fulcio-root-ca",
+					},
+					Key: "cert.pem",
+				},
+			},
+		}
+		s.Spec.Fulcio.Auth = &rhtasv1.Auth{
+			Env: []core.EnvVar{
+				{
+					Name:  "SOFTHSM2_CONF",
+					Value: "/etc/softhsm/softhsm2.conf",
+				},
+			},
+		}
+
+		// --- CTLog PKCS#11 signer ---
+		s.Spec.Ctlog.Signer = rhtasv1.CTlogSigner{
+			Type: rhtasv1.CTlogSignerTypePKCS11,
+			PKCS11: &rhtasv1.CTlogPKCS11Config{
+				PKCS11Config: rhtasv1.PKCS11Config{
+					ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
+					TokenLabel: "PKCS11CA",
+					PinSecretRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{
+							Name: "hsm-credentials",
+						},
+						Key: "pin",
+					},
+				},
+				PublicKeyRef: &rhtasv1.SecretKeySelector{
+					LocalObjectReference: rhtasv1.LocalObjectReference{
+						Name: "ctlog-public-key",
+					},
+					Key: "public.pem",
+				},
+			},
+		}
+		s.Spec.Ctlog.Auth = &rhtasv1.Auth{
+			Env: []core.EnvVar{
+				{
+					Name:  "SOFTHSM2_CONF",
+					Value: "/etc/softhsm/softhsm2.conf",
+				},
+			},
+		}
+
+		// --- CTLog root certificates (Fulcio's CA) ---
+		s.Spec.Ctlog.RootCertificates = []rhtasv1.SecretKeySelector{
+			{
+				LocalObjectReference: rhtasv1.LocalObjectReference{
+					Name: "fulcio-root-ca",
+				},
+				Key: "cert.pem",
+			},
+		}
+
+		// --- Fulcio init containers, volumes, volumeMounts ---
+		s.Spec.Fulcio.InitContainers = []rhtasv1.InitContainerSpec{
+			{
+				Name:    "hsm-lib-export",
+				Image:   "quay.io/securesign/softhsm-init:1.0-test",
+				Command: []string{"cp", "/usr/lib64/pkcs11/libsofthsm2.so", "/var/run/hsm-lib/"},
+				VolumeMounts: []core.VolumeMount{
+					{
+						Name:      "hsm-lib",
+						MountPath: "/var/run/hsm-lib",
+					},
+				},
+			},
+		}
+
+		s.Spec.Fulcio.Volumes = []rhtasv1.AdditionalVolume{
+			{
+				Name: "softhsm-config",
+				AdditionalVolumeSource: rhtasv1.AdditionalVolumeSource{
+					ConfigMap: &core.ConfigMapVolumeSource{
+						LocalObjectReference: core.LocalObjectReference{
+							Name: "softhsm-config",
+						},
+					},
+				},
+			},
+			{
+				Name: "hsm-tokens",
+				AdditionalVolumeSource: rhtasv1.AdditionalVolumeSource{
+					PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
+						ClaimName: "hsm-tokens-pvc",
+					},
+				},
+			},
+		}
+
+		s.Spec.Fulcio.VolumeMounts = []core.VolumeMount{
+			{
+				Name:      "softhsm-config",
+				MountPath: "/etc/softhsm",
+				ReadOnly:  true,
+			},
+		}
+
+		// --- CTLog init containers, volumes, volumeMounts ---
+		s.Spec.Ctlog.InitContainers = []rhtasv1.InitContainerSpec{
+			{
+				Name:    "hsm-lib-export",
+				Image:   "quay.io/securesign/softhsm-init:1.0-test",
+				Command: []string{"cp", "/usr/lib64/pkcs11/libsofthsm2.so", "/var/run/hsm-lib/"},
+				VolumeMounts: []core.VolumeMount{
+					{
+						Name:      "hsm-lib",
+						MountPath: "/var/run/hsm-lib",
+					},
+				},
+			},
+		}
+
+		s.Spec.Ctlog.Volumes = []rhtasv1.AdditionalVolume{
+			{
+				Name: "softhsm-config",
+				AdditionalVolumeSource: rhtasv1.AdditionalVolumeSource{
+					ConfigMap: &core.ConfigMapVolumeSource{
+						LocalObjectReference: core.LocalObjectReference{
+							Name: "softhsm-config",
+						},
+					},
+				},
+			},
+			{
+				Name: "hsm-tokens",
+				AdditionalVolumeSource: rhtasv1.AdditionalVolumeSource{
+					PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
+						ClaimName: "ctlog-hsm-tokens-pvc",
+					},
+				},
+			},
+		}
+
+		s.Spec.Ctlog.VolumeMounts = []core.VolumeMount{
+			{
+				Name:      "softhsm-config",
+				MountPath: "/etc/softhsm",
+				ReadOnly:  true,
+			},
+		}
+
+		// --- TSA generated certs ---
+		if s.Spec.TimestampAuthority != nil {
+			s.Spec.TimestampAuthority.Signer = rhtasv1.TimestampAuthoritySigner{
+				CertificateChain: rhtasv1.CertificateChain{
+					RootCA: &rhtasv1.TsaCertificateAuthority{
+						OrganizationName: "RHTAS",
+						CommonName:       "tsa-root",
+					},
+					IntermediateCA: []*rhtasv1.TsaCertificateAuthority{
+						{
+							OrganizationName: "RHTAS",
+							CommonName:       "tsa-intermediate",
+						},
+					},
+					LeafCA: &rhtasv1.TsaCertificateAuthority{
+						OrganizationName: "RHTAS",
+						CommonName:       "tsa-leaf",
+					},
+				},
+			}
+		}
+
+		// --- NTP Monitoring ---
+		WithNTPMonitoring()(s)
 	}
 }
 

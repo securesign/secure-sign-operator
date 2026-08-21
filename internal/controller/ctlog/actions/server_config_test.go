@@ -1061,6 +1061,324 @@ func TestServerConfig_Update(t *testing.T) {
 	}
 }
 
+func TestServerConfig_PKCS11(t *testing.T) {
+	t.Parallel()
+	g := NewWithT(t)
+
+	type env struct {
+		instance rhtasv1.CTlog
+		objects  []client.Object
+	}
+	type want struct {
+		result *action.Result
+		verify func(context.Context, Gomega, client.Client, *rhtasv1.CTlog)
+	}
+	tests := []struct {
+		name string
+		env  env
+		want want
+	}{
+		{
+			name: "PKCS#11 mode creates config successfully",
+			env: func() env {
+				inst := rhtasv1.CTlog{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test-pkcs11",
+						Namespace:  "default",
+						Generation: 1,
+					},
+					Spec: rhtasv1.CTlogSpec{
+						Trillian: rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:8091"},
+						Prefix:   "trusted-artifact-signer",
+						Signer: rhtasv1.CTlogSigner{
+							Type: rhtasv1.CTlogSignerTypePKCS11,
+							PKCS11: &rhtasv1.CTlogPKCS11Config{
+								PKCS11Config: rhtasv1.PKCS11Config{
+									PinSecretRef: &rhtasv1.SecretKeySelector{
+										LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
+										Key:                  "pin",
+									},
+									TokenLabel: "test-token",
+									ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
+								},
+								PublicKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
+									Key:                  "public",
+								},
+							},
+						},
+					},
+					Status: rhtasv1.CTlogStatus{
+						TreeID: ptr.To(int64(123456)),
+						RootCertificates: []rhtasv1.SecretKeySelector{
+							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:               constants.ReadyCondition,
+								Reason:             state.Creating.String(),
+								ObservedGeneration: 1,
+							},
+						},
+					},
+				}
+				return env{
+					instance: inst,
+					objects: []client.Object{
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "pin-secret", Namespace: "default"},
+							Data:       map[string][]byte{"pin": []byte("1234")},
+						},
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "pubkey-secret", Namespace: "default"},
+							Data:       map[string][]byte{"public": publicKey},
+						},
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "fulcio-secret", Namespace: "default"},
+							Data:       map[string][]byte{"cert": cert},
+						},
+					},
+				}
+			}(),
+			want: want{
+				result: testAction.Return(),
+				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+					g.Expect(current.Status.ServerConfigRef).ShouldNot(BeNil())
+					g.Expect(current.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
+
+					data, err := kubernetes.GetSecretData(ctx, cli, "default", &rhtasv1.SecretKeySelector{
+						LocalObjectReference: *current.Status.ServerConfigRef, Key: "config",
+					})
+					g.Expect(err).ShouldNot(HaveOccurred())
+					g.Expect(data).To(ContainSubstring("test-token"))
+					g.Expect(data).To(ContainSubstring("1234"))
+				},
+			},
+		},
+		{
+			name: "PKCS#11 mode with nil PinSecretRef returns error",
+			env: func() env {
+				inst := rhtasv1.CTlog{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test-nil-pin",
+						Namespace:  "default",
+						Generation: 1,
+					},
+					Spec: rhtasv1.CTlogSpec{
+						Trillian: rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:8091"},
+						Prefix:   "trusted-artifact-signer",
+						Signer: rhtasv1.CTlogSigner{
+							Type: rhtasv1.CTlogSignerTypePKCS11,
+							PKCS11: &rhtasv1.CTlogPKCS11Config{
+								PKCS11Config: rhtasv1.PKCS11Config{
+									PinSecretRef: nil,
+									TokenLabel:   "test-token",
+									ModulePath:   "/usr/lib64/pkcs11/libsofthsm2.so",
+								},
+								PublicKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
+									Key:                  "public",
+								},
+							},
+						},
+					},
+					Status: rhtasv1.CTlogStatus{
+						TreeID: ptr.To(int64(123456)),
+						RootCertificates: []rhtasv1.SecretKeySelector{
+							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:               constants.ReadyCondition,
+								Reason:             state.Creating.String(),
+								ObservedGeneration: 1,
+							},
+						},
+					},
+				}
+				return env{
+					instance: inst,
+					objects: []client.Object{
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "pubkey-secret", Namespace: "default"},
+							Data:       map[string][]byte{"public": publicKey},
+						},
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "fulcio-secret", Namespace: "default"},
+							Data:       map[string][]byte{"cert": cert},
+						},
+					},
+				}
+			}(),
+			want: want{
+				result: nil, // error result
+				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+					g.Expect(current.Status.ServerConfigRef).Should(BeNil())
+				},
+			},
+		},
+		{
+			name: "PKCS#11 mode with nil PublicKeyRef returns error",
+			env: func() env {
+				inst := rhtasv1.CTlog{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test-nil-pubkey",
+						Namespace:  "default",
+						Generation: 1,
+					},
+					Spec: rhtasv1.CTlogSpec{
+						Trillian: rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:8091"},
+						Prefix:   "trusted-artifact-signer",
+						Signer: rhtasv1.CTlogSigner{
+							Type: rhtasv1.CTlogSignerTypePKCS11,
+							PKCS11: &rhtasv1.CTlogPKCS11Config{
+								PKCS11Config: rhtasv1.PKCS11Config{
+									PinSecretRef: &rhtasv1.SecretKeySelector{
+										LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
+										Key:                  "pin",
+									},
+									TokenLabel: "test-token",
+									ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
+								},
+								PublicKeyRef: nil,
+							},
+						},
+					},
+					Status: rhtasv1.CTlogStatus{
+						TreeID: ptr.To(int64(123456)),
+						RootCertificates: []rhtasv1.SecretKeySelector{
+							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:               constants.ReadyCondition,
+								Reason:             state.Creating.String(),
+								ObservedGeneration: 1,
+							},
+						},
+					},
+				}
+				return env{
+					instance: inst,
+					objects: []client.Object{
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "pin-secret", Namespace: "default"},
+							Data:       map[string][]byte{"pin": []byte("1234")},
+						},
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "fulcio-secret", Namespace: "default"},
+							Data:       map[string][]byte{"cert": cert},
+						},
+					},
+				}
+			}(),
+			want: want{
+				result: nil, // error result
+				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+					g.Expect(current.Status.ServerConfigRef).Should(BeNil())
+				},
+			},
+		},
+		{
+			name: "PKCS#11 mode skips PrivateKeyRef nil check",
+			env: func() env {
+				// In PKCS#11 mode, PrivateKeyRef is not required (keys live on HSM)
+				inst := rhtasv1.CTlog{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test-pkcs11-no-privkey",
+						Namespace:  "default",
+						Generation: 1,
+					},
+					Spec: rhtasv1.CTlogSpec{
+						Trillian: rhtasv1.ServiceReference{URL: "trillian-logserver.default.svc:8091"},
+						Prefix:   "trusted-artifact-signer",
+						Signer: rhtasv1.CTlogSigner{
+							Type: rhtasv1.CTlogSignerTypePKCS11,
+							PKCS11: &rhtasv1.CTlogPKCS11Config{
+								PKCS11Config: rhtasv1.PKCS11Config{
+									PinSecretRef: &rhtasv1.SecretKeySelector{
+										LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret"},
+										Key:                  "pin",
+									},
+									TokenLabel: "test-token",
+									ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
+								},
+								PublicKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret"},
+									Key:                  "public",
+								},
+							},
+						},
+					},
+					Status: rhtasv1.CTlogStatus{
+						TreeID:        ptr.To(int64(123456)),
+						PrivateKeyRef: nil, // No private key in PKCS#11 mode
+						RootCertificates: []rhtasv1.SecretKeySelector{
+							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "fulcio-secret"}, Key: "cert"},
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:               constants.ReadyCondition,
+								Reason:             state.Creating.String(),
+								ObservedGeneration: 1,
+							},
+						},
+					},
+				}
+				return env{
+					instance: inst,
+					objects: []client.Object{
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "pin-secret", Namespace: "default"},
+							Data:       map[string][]byte{"pin": []byte("1234")},
+						},
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "pubkey-secret", Namespace: "default"},
+							Data:       map[string][]byte{"public": publicKey},
+						},
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "fulcio-secret", Namespace: "default"},
+							Data:       map[string][]byte{"cert": cert},
+						},
+					},
+				}
+			}(),
+			want: want{
+				result: testAction.Return(),
+				verify: func(ctx context.Context, g Gomega, cli client.Client, current *rhtasv1.CTlog) {
+					g.Expect(current.Status.ServerConfigRef).ShouldNot(BeNil())
+					g.Expect(current.Status.ServerConfigRef.Name).Should(ContainSubstring("ctlog-config-"))
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := t.Context()
+			c := testAction.FakeClientBuilder().
+				WithObjects(&tt.env.instance).
+				WithStatusSubresource(&tt.env.instance).
+				WithObjects(tt.env.objects...).
+				Build()
+
+			a := testAction.PrepareAction(c, NewServerConfigAction())
+			result := a.Handle(ctx, &tt.env.instance)
+
+			if tt.want.result != nil {
+				if !reflect.DeepEqual(result, tt.want.result) {
+					t.Errorf("Handle() = %v, want %v", result, tt.want.result)
+				}
+			} else {
+				// Expect an error result for nil-ref tests
+				g.Expect(action.IsError(result)).To(BeTrue(), "expected error result")
+			}
+			if tt.want.verify != nil {
+				tt.want.verify(ctx, g, c, &tt.env.instance)
+			}
+		})
+	}
+}
+
 func TestServerConfig_Prerequisites(t *testing.T) {
 	t.Parallel()
 	newBaseInstance := func() rhtasv1.CTlog {

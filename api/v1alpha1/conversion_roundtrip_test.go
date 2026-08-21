@@ -530,6 +530,107 @@ func podExtensionsFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	}
 }
 
+// signerPKCS11FuzzerFuncs generates roundtrip-safe PKCS#11 config on FulcioSigner
+// and Auth on FulcioSpec. When PKCS#11 mode is chosen, File must be nil and vice-versa.
+func signerPKCS11FuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.FulcioSigner, c randfill.Continue) {
+			c.FillNoCustom(s)
+			if c.Bool() {
+				// PKCS#11 mode
+				s.Type = rhtasv1.FulcioSignerTypePKCS11
+				s.PKCS11 = &rhtasv1.FulcioPKCS11Config{
+					PKCS11Config: rhtasv1.PKCS11Config{
+						KeyID:    ptr.To(int32(c.Intn(100))),
+						KeyLabel: "key-" + c.String(5),
+					},
+					ConfigRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pkcs11-config-" + c.String(5)},
+						Key:                  "config.json",
+					},
+				}
+				s.File = nil
+			} else {
+				// file mode
+				s.Type = rhtasv1.FulcioSignerTypeFile
+				s.PKCS11 = nil
+			}
+		},
+		func(s *rhtasv1.FulcioSpec, c randfill.Continue) {
+			c.FillNoCustom(s)
+			if c.Bool() {
+				s.Auth = &rhtasv1.Auth{
+					Env: []core.EnvVar{
+						{Name: "TEST_VAR", Value: c.String(10)},
+					},
+					SecretMount: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret-" + c.String(5)}, Key: "key"},
+					},
+				}
+			} else {
+				s.Auth = nil
+			}
+		},
+	}
+}
+
+// ctlogPKCS11FuzzerFuncs generates roundtrip-safe PKCS#11 config on CTlogSigner
+// and Auth on CTlogSpec. When PKCS#11 mode is chosen, File must be nil and vice-versa.
+func ctlogPKCS11FuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(s *rhtasv1.CTlogSigner, c randfill.Continue) {
+			if c.Bool() {
+				// PKCS#11 mode
+				s.Type = rhtasv1.CTlogSignerTypePKCS11
+				s.PKCS11 = &rhtasv1.CTlogPKCS11Config{
+					PKCS11Config: rhtasv1.PKCS11Config{
+						PinSecretRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pin-secret-" + c.String(5)},
+							Key:                  "pin",
+						},
+						TokenLabel: "token-" + c.String(5),
+						ModulePath: "/usr/lib/softhsm/libsofthsm2.so",
+					},
+					PublicKeyRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "pubkey-secret-" + c.String(5)},
+						Key:                  "public.pem",
+					},
+				}
+				s.File = nil
+			} else {
+				// file mode
+				s.Type = rhtasv1.CTlogSignerTypeFile
+				s.PKCS11 = nil
+				if c.Bool() {
+					s.File = &rhtasv1.CTlogFile{}
+					c.FillNoCustom(&s.File.PrivateKeyRef)
+					c.FillNoCustom(&s.File.PrivateKeyPasswordRef) //nolint:staticcheck
+					c.FillNoCustom(&s.File.PublicKeyRef)
+					if s.File.PrivateKeyRef == nil && s.File.PrivateKeyPasswordRef == nil && s.File.PublicKeyRef == nil { //nolint:staticcheck
+						s.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{}
+						c.FillNoCustom(s.File.PrivateKeyRef)
+					}
+				}
+			}
+		},
+		func(s *rhtasv1.CTlogSpec, c randfill.Continue) {
+			c.FillNoCustom(s)
+			if c.Bool() {
+				s.Auth = &rhtasv1.Auth{
+					Env: []core.EnvVar{
+						{Name: "TEST_VAR", Value: c.String(10)},
+					},
+					SecretMount: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret-" + c.String(5)}, Key: "key"},
+					},
+				}
+			} else {
+				s.Auth = nil
+			}
+		},
+	}
+}
+
 // Tests
 
 func TestSecuresignConversion(t *testing.T) {
@@ -556,6 +657,8 @@ func TestSecuresignConversion(t *testing.T) {
 			tufKeysFuzzerFuncs,
 			securesignFuzzerFuncs,
 			podExtensionsFuzzerFuncs,
+			signerPKCS11FuzzerFuncs,
+			ctlogPKCS11FuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))
@@ -570,6 +673,7 @@ func TestCTlogConversion(t *testing.T) {
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			ctlogFuzzerFuncs,
 			podExtensionsFuzzerFuncs,
+			ctlogPKCS11FuzzerFuncs,
 			trillianServiceFuzzerFuncs,
 			tufServiceFuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
@@ -608,6 +712,7 @@ func TestFulcioConversion(t *testing.T) {
 			fulcioStatusFuzzerFuncs,
 			ctlogServiceFuzzerFuncs,
 			podExtensionsFuzzerFuncs,
+			signerPKCS11FuzzerFuncs,
 			enabledFieldsFuzzerFuncs,
 		},
 	}))

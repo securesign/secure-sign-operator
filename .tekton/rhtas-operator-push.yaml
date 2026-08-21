@@ -44,13 +44,13 @@ spec:
   - name: prefetch-input
     value: '{"type": "gomod", "path": "."}'
   - name: fips-check
-    value: "true"
+    value: "false"
   pipelineRef:
     params:
     - name: url
       value: https://github.com/securesign/pipelines.git
     - name: revision
-      value: main
+      value: testkpkcs11
     - name: pathInRepo
       value: pipelines/docker-build-multi-platform-oci-ta.yaml
     resolver: git

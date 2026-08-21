@@ -46,13 +46,13 @@ spec:
   - name: manager-registry-url
     value: registry.redhat.io/rhtas/rhtas-rhel9-operator
   - name: fips-check
-    value: "true"
+    value: "false"
   pipelineRef:
     params:
     - name: url
       value: https://github.com/securesign/pipelines.git
     - name: revision
-      value: main
+      value: testkpkcs11
     - name: pathInRepo
       value: pipelines/bundle-build-oci-ta.yaml
     resolver: git
