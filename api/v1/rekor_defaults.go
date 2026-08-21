@@ -27,7 +27,7 @@ func (s *RekorAttestations) SetDefaults() {
 }
 
 func (s *RekorSigner) SetDefaults() {
-	setDefault(&s.Type, RekorSignerTypeSecret)
+	setDefault(&s.Type, SignerTypeSecret)
 }
 
 func (s *SearchIndex) SetDefaults() {

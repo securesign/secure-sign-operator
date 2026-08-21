@@ -37,7 +37,7 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.Rekor] {
 }
 
 func isEnabled(instance *rhtasv1.Rekor) bool {
-	return instance.Spec.Signer.Type == rhtasv1.RekorSignerTypeSecret || instance.Spec.Signer.Type == ""
+	return instance.Spec.Signer.Type == rhtasv1.SignerTypeSecret || instance.Spec.Signer.Type == ""
 }
 
 func resolveRef(ctx context.Context, instance *rhtasv1.Rekor, c client.Client) (*rhtasv1.SecretKeySelector, error) {

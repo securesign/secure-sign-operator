@@ -28,7 +28,7 @@ func rekorCryptoMaterial(ctx context.Context, i *rhtasv1.Rekor, c client.Client)
 	var refs []fipsAction.CryptoRef
 
 	// Signer key (only for local secret-backed signers, not external KMS)
-	if (i.Spec.Signer.Type == rhtasv1.RekorSignerTypeSecret || i.Spec.Signer.Type == "") && i.Spec.Signer.KeyRef != nil {
+	if (i.Spec.Signer.Type == rhtasv1.SignerTypeSecret || i.Spec.Signer.Type == "") && i.Spec.Signer.KeyRef != nil {
 		if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, i.Spec.Signer.KeyRef,
 			"spec.signer.keyRef", fipsutil.ValidatePrivateKeyPEM, &refs); err != nil {
 			return nil, err

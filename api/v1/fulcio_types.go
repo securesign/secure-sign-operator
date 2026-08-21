@@ -11,8 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const FulcioSignerTypeFile = "file"
-
 // FulcioSpec defines the desired state of Fulcio
 type FulcioSpec struct {
 	// Pod resource requirements and scheduling constraints
@@ -44,10 +42,14 @@ type FulcioSpec struct {
 }
 
 // FulcioSigner defines the desired state of the Fulcio Signer
-// +kubebuilder:validation:XValidation:rule="self.type != 'file' || !has(self.certificateChain.certificateChainRef) || (has(self.file) && has(self.file.privateKeyRef))",message="file.privateKeyRef cannot be empty when certificateChain.certificateChainRef is provided"
+// +kubebuilder:validation:XValidation:rule="(has(self.type) && self.type != 'file') || !has(self.certificateChain.certificateChainRef) || (has(self.file) && has(self.file.privateKeyRef))",message="file.privateKeyRef cannot be empty when certificateChain.certificateChainRef is provided"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'kms' || has(self.kms)",message="kms is required when type is 'kms'"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'kms' || has(self.certificateChain.certificateChainRef)",message="certificateChainRef is required when type is 'kms'"
+// +kubebuilder:validation:XValidation:rule="(has(self.type) && self.type == 'kms') || !has(self.kms)",message="kms should not be configured unless type is 'kms'"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'kms' || !has(self.file)",message="file should not be configured when type is 'kms'"
 type FulcioSigner struct {
 	// Type of the signer backend
-	//+kubebuilder:validation:Enum=file
+	//+kubebuilder:validation:Enum=file;kms
 	//+optional
 	Type string `json:"type,omitempty"`
 	// Configuration for the Certificate Chain
@@ -56,6 +58,9 @@ type FulcioSigner struct {
 	// Configuration for file-based signer
 	//+optional
 	File *FulcioFile `json:"file,omitempty"`
+	// Configuration for KMS-based signer
+	//+optional
+	Kms *KMS `json:"kms,omitempty"`
 }
 
 // FulcioFile defines the desired state of the Fulcio file-based signer

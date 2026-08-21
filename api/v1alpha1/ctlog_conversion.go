@@ -3,7 +3,6 @@ package v1alpha1
 import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
-	"k8s.io/apimachinery/pkg/api/equality"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
@@ -53,7 +52,7 @@ func Convert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in *CTlogSpec, out *rhtasv1.CTlo
 	if err := autoConvert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in, out, s); err != nil {
 		return err
 	}
-	out.Signer.Type = rhtasv1.CTlogSignerTypeFile
+	out.Signer.Type = rhtasv1.SignerTypeFile
 	if in.PrivateKeyRef != nil || in.PrivateKeyPasswordRef != nil || in.PublicKeyRef != nil { //nolint:staticcheck
 		out.Signer.File = &rhtasv1.CTlogFile{}
 		if in.PrivateKeyRef != nil {
@@ -90,12 +89,8 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
 	dst.Spec.TrustedCA = restored.Spec.TrustedCA
 	dst.Spec.Signer.Type = restored.Spec.Signer.Type
-	// If original v1 had File=&{} (empty struct), preserve it
-	if dst.Spec.Signer.File == nil && restored.Spec.Signer.File != nil {
-		emptyFile := &rhtasv1.CTlogFile{}
-		if equality.Semantic.DeepEqual(restored.Spec.Signer.File, emptyFile) {
-			dst.Spec.Signer.File = &rhtasv1.CTlogFile{}
-		}
+	if dst.Spec.Signer.File == nil {
+		dst.Spec.Signer.File = restored.Spec.Signer.File
 	}
 	dst.Status.PublicKey = restored.Status.PublicKey
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor

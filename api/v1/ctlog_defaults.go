@@ -12,5 +12,5 @@ func (s *CTlogSpec) SetDefaults() {
 }
 
 func (s *CTlogSigner) SetDefaults() {
-	setDefault(&s.Type, CTlogSignerTypeFile)
+	setDefault(&s.Type, SignerTypeFile)
 }

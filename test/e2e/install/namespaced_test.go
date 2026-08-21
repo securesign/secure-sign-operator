@@ -107,7 +107,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 					URL: fmt.Sprintf("trillian-logserver.%s.svc.cluster.local:8091", namespaces["trillian"].Name),
 				},
 				Signer: rhtasv1.RekorSigner{
-					Type: rhtasv1.RekorSignerTypeSecret,
+					Type: rhtasv1.SignerTypeSecret,
 					KeyRef: &rhtasv1.SecretKeySelector{
 						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: "my-rekor-secret",

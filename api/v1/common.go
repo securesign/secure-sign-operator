@@ -6,6 +6,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	SignerTypeFile   = "file"
+	SignerTypeKMS    = "kms"
+	SignerTypeSecret = "secret"
+	SignerTypeMemory = "memory"
+)
+
 type Ingress struct {
 	// If set to true, the Operator will create a Kubernetes Ingress resource.
 	// On OpenShift, the platform automatically derives a Route from this Ingress, using "edge" TLS termination by default.

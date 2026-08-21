@@ -35,7 +35,7 @@ func createRekorInstance() *rhtasv1.Rekor {
 				URL: "test-trillian.test-namespace.svc:8091",
 			},
 			Signer: rhtasv1.RekorSigner{
-				Type: rhtasv1.RekorSignerTypeSecret,
+				Type: rhtasv1.SignerTypeSecret,
 			},
 			SearchIndex: rhtasv1.SearchIndex{
 				Create: ptr.To(true),
@@ -164,7 +164,7 @@ func TestDeployAction_Handle_DefaultTrillianAddress(t *testing.T) {
 				},
 			},
 			Signer: rhtasv1.RekorSigner{
-				Type: rhtasv1.RekorSignerTypeSecret,
+				Type: rhtasv1.SignerTypeSecret,
 			},
 			SearchIndex: rhtasv1.SearchIndex{
 				Create: ptr.To(true),
@@ -230,7 +230,7 @@ func TestDeployAction_Handle_AutodiscoveryTrillianAddress(t *testing.T) {
 		Spec: rhtasv1.RekorSpec{
 			Trillian: rhtasv1.ServiceReference{},
 			Signer: rhtasv1.RekorSigner{
-				Type: rhtasv1.RekorSignerTypeSecret,
+				Type: rhtasv1.SignerTypeSecret,
 			},
 			SearchIndex: rhtasv1.SearchIndex{
 				Create: ptr.To(true),

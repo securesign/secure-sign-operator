@@ -53,12 +53,11 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Fulcio.ImagePullSecrets = restored.Spec.Fulcio.ImagePullSecrets
 	dst.Spec.Fulcio.Monitoring.ServiceMonitor = restored.Spec.Fulcio.Monitoring.ServiceMonitor
 	dst.Spec.Fulcio.Signer.Type = restored.Spec.Fulcio.Signer.Type
-	// If original v1 had File=&{} (empty struct), preserve it
-	if dst.Spec.Fulcio.Signer.File == nil && restored.Spec.Fulcio.Signer.File != nil {
-		emptyFile := &rhtasv1.FulcioFile{}
-		if equality.Semantic.DeepEqual(restored.Spec.Fulcio.Signer.File, emptyFile) {
-			dst.Spec.Fulcio.Signer.File = &rhtasv1.FulcioFile{}
-		}
+	if dst.Spec.Fulcio.Signer.File == nil {
+		dst.Spec.Fulcio.Signer.File = restored.Spec.Fulcio.Signer.File
+	}
+	if dst.Spec.Fulcio.Signer.Kms == nil {
+		dst.Spec.Fulcio.Signer.Kms = restored.Spec.Fulcio.Signer.Kms
 	}
 	// v1alpha1 inject prefix into URL - we need to restore empty URL to allow ref resolution
 	if restored.Spec.Fulcio.Ctlog.URL == "" && dst.Spec.Fulcio.Ctlog.URL == "///trusted-artifact-signer" { //nolint:goconst

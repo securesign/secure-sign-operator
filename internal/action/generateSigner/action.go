@@ -22,10 +22,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const (
-	reasonResolved = "Resolved"
-)
-
 // NewAction creates a generic signer secret action.
 func NewAction[T apis.ConditionsAwareObject](
 	conditionType string,
@@ -105,7 +101,7 @@ func (i signerAction[T]) Handle(ctx context.Context, instance T) *action.Result 
 		instance.SetCondition(metav1.Condition{
 			Type:               i.conditionType,
 			Status:             metav1.ConditionTrue,
-			Reason:             reasonResolved,
+			Reason:             constants.ReasonResolved,
 			Message:            "Using existing secret",
 			ObservedGeneration: instance.GetGeneration(),
 		})
@@ -124,7 +120,7 @@ func (i signerAction[T]) Handle(ctx context.Context, instance T) *action.Result 
 		instance.SetCondition(metav1.Condition{
 			Type:               i.conditionType,
 			Status:             metav1.ConditionTrue,
-			Reason:             reasonResolved,
+			Reason:             constants.ReasonResolved,
 			ObservedGeneration: instance.GetGeneration(),
 		})
 		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
@@ -228,7 +224,7 @@ func (i signerAction[T]) handleCreate(ctx context.Context, instance T, w *wrappe
 	instance.SetCondition(metav1.Condition{
 		Type:               i.conditionType,
 		Status:             metav1.ConditionTrue,
-		Reason:             reasonResolved,
+		Reason:             constants.ReasonResolved,
 		ObservedGeneration: instance.GetGeneration(),
 	})
 	return i.ReturnOnChange(i.PersistStatus)(ctx, instance)

@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	_ "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -225,6 +226,298 @@ var _ = Describe("Fulcio", func() {
 			Expect(fetched.Spec.Ingress.Enabled).To(Equal(ptr.To(false)))
 		})
 
+		Context("KMS signer", func() {
+			It("valid KMS signer with certificateChainRef", func() {
+				validObject := generateMinimalFulcio("fulcio-kms-valid")
+				validObject.Spec.Signer = FulcioSigner{
+					Type: SignerTypeKMS,
+					CertificateChain: FulcioCertificateChain{
+						CertificateChainRef: &SecretKeySelector{
+							Key:                  "cert",
+							LocalObjectReference: LocalObjectReference{Name: "cert-chain-secret"},
+						},
+					},
+					Kms: &KMS{
+						KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("KMS signer requires certificateChainRef", func() {
+				invalidObject := generateMinimalFulcio("fulcio-kms-no-chain")
+				invalidObject.Spec.Signer = FulcioSigner{
+					Type: SignerTypeKMS,
+					CertificateChain: FulcioCertificateChain{
+						OrganizationName: "org",
+					},
+					Kms: &KMS{
+						KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
+					},
+				}
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("certificateChainRef is required")))
+			})
+
+			It("KMS signer requires kms field", func() {
+				invalidObject := generateMinimalFulcio("fulcio-kms-no-kms")
+				invalidObject.Spec.Signer = FulcioSigner{
+					Type: SignerTypeKMS,
+					CertificateChain: FulcioCertificateChain{
+						CertificateChainRef: &SecretKeySelector{
+							Key:                  "cert",
+							LocalObjectReference: LocalObjectReference{Name: "cert-chain-secret"},
+						},
+					},
+				}
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("kms is required")))
+			})
+
+			It("invalid KMS URI", func() {
+				invalidObject := generateMinimalFulcio("fulcio-kms-bad-uri")
+				invalidObject.Spec.Signer = FulcioSigner{
+					Type: SignerTypeKMS,
+					CertificateChain: FulcioCertificateChain{
+						CertificateChainRef: &SecretKeySelector{
+							Key:                  "cert",
+							LocalObjectReference: LocalObjectReference{Name: "cert-chain-secret"},
+						},
+					},
+					Kms: &KMS{
+						KeyResource: "invalid://key",
+					},
+				}
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("keyResource must be a valid KMS URI")))
+			})
+
+			It("file type cannot have kms field", func() {
+				invalidObject := generateMinimalFulcio("fulcio-file-with-kms")
+				invalidObject.Spec.Signer.Kms = &KMS{
+					KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
+				}
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("kms should not be configured")))
+			})
+
+			It("valid KMS signer with awskms URI", func() {
+				validObject := generateMinimalFulcio("fulcio-kms-aws")
+				validObject.Spec.Signer = generateKMSSigner("awskms:///1234abcd-12ab-34cd-56ef-1234567890ab")
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("valid KMS signer with awskms ARN URI", func() {
+				validObject := generateMinimalFulcio("fulcio-kms-aws-arn")
+				validObject.Spec.Signer = generateKMSSigner("awskms:///arn:aws:kms:us-east-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab")
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("valid KMS signer with azurekms URI", func() {
+				validObject := generateMinimalFulcio("fulcio-kms-azure")
+				validObject.Spec.Signer = generateKMSSigner("azurekms://mykeyvault.vault.azure.net/keys/mykey")
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("valid KMS signer with hashivault URI", func() {
+				validObject := generateMinimalFulcio("fulcio-kms-vault")
+				validObject.Spec.Signer = generateKMSSigner("hashivault://cosign")
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("KMS signer with Auth env vars", func() {
+				validObject := generateMinimalFulcio("fulcio-kms-auth-env")
+				validObject.Spec.Signer = generateKMSSigner("gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k")
+				validObject.Spec.Auth = &Auth{
+					Env: []corev1.EnvVar{
+						{Name: "GOOGLE_APPLICATION_CREDENTIALS", Value: "/var/run/secrets/gcp/sa.json"},
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("KMS signer with Auth secretMount", func() {
+				validObject := generateMinimalFulcio("fulcio-kms-auth-mount")
+				validObject.Spec.Signer = generateKMSSigner("awskms:///1234abcd-12ab-34cd-56ef-1234567890ab")
+				validObject.Spec.Auth = &Auth{
+					SecretMount: []SecretKeySelector{
+						{Key: "credentials", LocalObjectReference: LocalObjectReference{Name: "aws-creds"}},
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("KMS signer with Auth env and secretMount combined", func() {
+				validObject := generateMinimalFulcio("fulcio-kms-auth-both")
+				validObject.Spec.Signer = generateKMSSigner("azurekms://mykeyvault.vault.azure.net/keys/mykey")
+				validObject.Spec.Auth = &Auth{
+					Env: []corev1.EnvVar{
+						{Name: "AZURE_TENANT_ID", Value: "tenant"},
+						{Name: "AZURE_CLIENT_ID", Value: "client"},
+					},
+					SecretMount: []SecretKeySelector{
+						{Key: "client-secret", LocalObjectReference: LocalObjectReference{Name: "azure-sp"}},
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("KMS signer with empty Auth", func() {
+				validObject := generateMinimalFulcio("fulcio-kms-auth-empty")
+				validObject.Spec.Signer = generateKMSSigner("hashivault://cosign")
+				validObject.Spec.Auth = &Auth{}
+				Expect(k8sClient.Create(context.Background(), validObject)).To(Succeed())
+			})
+
+			It("KMS signer can be deleted", func() {
+				created := generateMinimalFulcio("fulcio-kms-delete")
+				created.Spec.Signer = generateKMSSigner("gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k")
+				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
+
+				Expect(k8sClient.Delete(context.Background(), created)).To(Succeed())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), created)).ToNot(Succeed())
+			})
+
+			It("KMS signer fully populated", func() {
+				fulcio := Fulcio{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "fulcio-kms-full",
+						Namespace: "default",
+					},
+					Spec: FulcioSpec{
+						Monitoring: MonitoringConfig{
+							Metrics:        MetricsConfig{Enabled: ptr.To(true)},
+							ServiceMonitor: ServiceMonitorConfig{Enabled: ptr.To(true)},
+						},
+						Ingress: Ingress{
+							Enabled: ptr.To(true),
+							Host:    "fulcio.example.com",
+						},
+						Config: FulcioConfig{
+							OIDCIssuers: []OIDCIssuer{
+								{Issuer: "https://issuer.example.com", ClientID: "client", Type: "email"},
+							},
+						},
+						Signer: FulcioSigner{
+							Type: SignerTypeKMS,
+							CertificateChain: FulcioCertificateChain{
+								CertificateChainRef: &SecretKeySelector{
+									Key:                  "cert-chain",
+									LocalObjectReference: LocalObjectReference{Name: "fulcio-cert-chain"},
+								},
+							},
+							Kms: &KMS{
+								KeyResource: "awskms:///arn:aws:kms:us-east-1:123456789012:key/mrk-abc123",
+							},
+						},
+						Auth: &Auth{
+							Env: []corev1.EnvVar{
+								{Name: "AWS_REGION", Value: "us-east-1"},
+							},
+							SecretMount: []SecretKeySelector{
+								{Key: "credentials", LocalObjectReference: LocalObjectReference{Name: "aws-kms-creds"}},
+							},
+						},
+						Ctlog: ServiceReference{},
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), &fulcio)).To(Succeed())
+
+				fetched := &Fulcio{}
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(&fulcio), fetched)).To(Succeed())
+				Expect(fetched.Spec).To(Equal(fulcio.Spec))
+			})
+
+			It("KMS type cannot have file field", func() {
+				invalidObject := generateMinimalFulcio("fulcio-kms-with-file")
+				invalidObject.Spec.Signer = generateKMSSigner("gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k")
+				invalidObject.Spec.Signer.File = &FulcioFile{
+					PrivateKeyRef: &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "secret"}},
+				}
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("file should not be configured")))
+			})
+
+			It("empty KMS keyResource", func() {
+				invalidObject := generateMinimalFulcio("fulcio-kms-empty-key")
+				invalidObject.Spec.Signer = FulcioSigner{
+					Type: SignerTypeKMS,
+					CertificateChain: FulcioCertificateChain{
+						CertificateChainRef: &SecretKeySelector{
+							Key:                  "cert",
+							LocalObjectReference: LocalObjectReference{Name: "cert-chain-secret"},
+						},
+					},
+					Kms: &KMS{
+						KeyResource: "",
+					},
+				}
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("keyResource must be a valid KMS URI")))
+			})
+
+			It("KMS URI scheme only without path", func() {
+				invalidObject := generateMinimalFulcio("fulcio-kms-scheme-only")
+				invalidObject.Spec.Signer = generateKMSSigner("gcpkms://")
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("keyResource must be a valid KMS URI")))
+			})
+
+			It("KMS URI is case sensitive", func() {
+				invalidObject := generateMinimalFulcio("fulcio-kms-uppercase")
+				invalidObject.Spec.Signer = generateKMSSigner("GCPKMS://projects/p/locations/l/keyRings/kr/cryptoKeys/k")
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("keyResource must be a valid KMS URI")))
+			})
+
+			It("default type with kms field rejected", func() {
+				invalidObject := generateMinimalFulcio("fulcio-default-with-kms")
+				invalidObject.Spec.Signer.Type = ""
+				invalidObject.Spec.Signer.Kms = &KMS{
+					KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
+				}
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), invalidObject)).
+					To(MatchError(ContainSubstring("kms should not be configured")))
+			})
+
+			It("update file signer to KMS", func() {
+				created := generateMinimalFulcio("fulcio-file-to-kms")
+				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
+
+				fetched := &Fulcio{}
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
+
+				fetched.Spec.Signer = generateKMSSigner("gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k")
+				Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
+			})
+
+			It("update KMS signer to file", func() {
+				created := generateMinimalFulcio("fulcio-kms-to-file")
+				created.Spec.Signer = generateKMSSigner("gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k")
+				Expect(k8sClient.Create(context.Background(), created)).To(Succeed())
+
+				fetched := &Fulcio{}
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(created), fetched)).To(Succeed())
+
+				fetched.Spec.Signer = FulcioSigner{
+					Type: SignerTypeFile,
+					CertificateChain: FulcioCertificateChain{
+						OrganizationName: "org",
+					},
+				}
+				Expect(k8sClient.Update(context.Background(), fetched)).To(Succeed())
+			})
+		})
+
 		Context("CR is fully populated", func() {
 			It("outputs the CR", func() {
 				fulcioInstance := Fulcio{
@@ -338,6 +631,21 @@ func generateMinimalFulcio(name string) *Fulcio {
 					OrganizationName: "organization",
 				},
 			},
+		},
+	}
+}
+
+func generateKMSSigner(keyResource string) FulcioSigner {
+	return FulcioSigner{
+		Type: SignerTypeKMS,
+		CertificateChain: FulcioCertificateChain{
+			CertificateChainRef: &SecretKeySelector{
+				Key:                  "cert",
+				LocalObjectReference: LocalObjectReference{Name: "cert-chain-secret"},
+			},
+		},
+		Kms: &KMS{
+			KeyResource: keyResource,
 		},
 	}
 }

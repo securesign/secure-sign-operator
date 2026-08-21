@@ -146,7 +146,7 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:   CertCondition,
 		Status: metav1.ConditionTrue,
-		Reason: "Resolved",
+		Reason: constants.ReasonResolved,
 	})
 	return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 }

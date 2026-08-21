@@ -161,7 +161,7 @@ func TestResolvePubKey_Handle(t *testing.T) {
 				publicKey: validPEM,
 				conditions: []metav1.Condition{
 					{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Initialize.String()},
-					{Type: TrustMaterialCondition, Status: metav1.ConditionTrue, Reason: ReasonResolved,
+					{Type: TrustMaterialCondition, Status: metav1.ConditionTrue, Reason: constants.ReasonResolved,
 						LastTransitionTime: metav1.Now()},
 				},
 				resolve: func(_ context.Context, _ client.Client, _ *rhtasv1.Rekor) ([]byte, error) {
@@ -198,7 +198,7 @@ func TestResolvePubKey_Handle(t *testing.T) {
 				publicKey: "-----BEGIN PUBLIC KEY-----\nOLDKEYDATA1234AB\n-----END PUBLIC KEY-----\n",
 				conditions: []metav1.Condition{
 					{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Initialize.String()},
-					{Type: TrustMaterialCondition, Status: metav1.ConditionTrue, Reason: ReasonResolved,
+					{Type: TrustMaterialCondition, Status: metav1.ConditionTrue, Reason: constants.ReasonResolved,
 						LastTransitionTime: metav1.Now()},
 				},
 				resolve: func(_ context.Context, _ client.Client, _ *rhtasv1.Rekor) ([]byte, error) {
@@ -246,7 +246,7 @@ func TestResolvePubKey_Handle(t *testing.T) {
 				publicKey: validPEM,
 				conditions: []metav1.Condition{
 					{Type: constants.ReadyCondition, Status: metav1.ConditionFalse, Reason: state.Initialize.String()},
-					{Type: TrustMaterialCondition, Status: metav1.ConditionTrue, Reason: ReasonResolved,
+					{Type: TrustMaterialCondition, Status: metav1.ConditionTrue, Reason: constants.ReasonResolved,
 						LastTransitionTime: metav1.Now()},
 				},
 				resolve: func(_ context.Context, _ client.Client, _ *rhtasv1.Rekor) ([]byte, error) {
@@ -424,7 +424,7 @@ func TestResolvePubKey_Drift(t *testing.T) {
 			name: "new drift detected immediately — flags Drifted, blocks Ready, fires Warning once",
 			env: env{
 				publicKey:  oldPEM,
-				conditions: []metav1.Condition{readyCond(metav1.ConditionTrue, ""), trustMaterialCond(metav1.ConditionTrue, ReasonResolved, "")},
+				conditions: []metav1.Condition{readyCond(metav1.ConditionTrue, ""), trustMaterialCond(metav1.ConditionTrue, constants.ReasonResolved, "")},
 				resolve:    resolvesTo(validPEM),
 			},
 			want: want{
@@ -450,7 +450,7 @@ func TestResolvePubKey_Drift(t *testing.T) {
 				publicKey:     validPEM,
 				resolveCalled: true,
 				condStatus:    metav1.ConditionTrue,
-				condReason:    ReasonResolved,
+				condReason:    constants.ReasonResolved,
 				readyStatus:   metav1.ConditionFalse,
 				readyReason:   state.Ready.String(),
 			},
@@ -485,7 +485,7 @@ func TestResolvePubKey_Drift(t *testing.T) {
 				publicKey:         validPEM,
 				resolveCalled:     true,
 				condStatus:        metav1.ConditionTrue,
-				condReason:        ReasonResolved,
+				condReason:        constants.ReasonResolved,
 				readyStatus:       metav1.ConditionFalse,
 				readyReason:       state.Ready.String(),
 				event:             "TrustMaterialUpdated",
@@ -516,7 +516,7 @@ func TestResolvePubKey_Drift(t *testing.T) {
 			name: "transient fetch error unrelated to any drift leaves Ready untouched",
 			env: env{
 				publicKey:  validPEM,
-				conditions: []metav1.Condition{readyCond(metav1.ConditionTrue, ""), trustMaterialCond(metav1.ConditionTrue, ReasonResolved, "")},
+				conditions: []metav1.Condition{readyCond(metav1.ConditionTrue, ""), trustMaterialCond(metav1.ConditionTrue, constants.ReasonResolved, "")},
 				resolve: func(_ context.Context, _ client.Client, _ *rhtasv1.Rekor) ([]byte, error) {
 					return nil, errors.New("connection refused")
 				},
@@ -536,7 +536,7 @@ func TestResolvePubKey_Drift(t *testing.T) {
 			env: env{
 				publicKey:   validPEM,
 				annotations: map[string]string{annotations.RefreshTrustMaterial: "true"},
-				conditions:  []metav1.Condition{readyCond(metav1.ConditionTrue, ""), trustMaterialCond(metav1.ConditionTrue, ReasonResolved, "")},
+				conditions:  []metav1.Condition{readyCond(metav1.ConditionTrue, ""), trustMaterialCond(metav1.ConditionTrue, constants.ReasonResolved, "")},
 				resolve:     resolvesTo(validPEM), // unchanged
 			},
 			want: want{
@@ -544,7 +544,7 @@ func TestResolvePubKey_Drift(t *testing.T) {
 				publicKey:         validPEM,
 				resolveCalled:     true,
 				condStatus:        metav1.ConditionTrue,
-				condReason:        ReasonResolved,
+				condReason:        constants.ReasonResolved,
 				readyStatus:       metav1.ConditionTrue,
 				readyReason:       state.Ready.String(),
 				annotationCleared: ptr.To(true),
@@ -568,7 +568,7 @@ func TestResolvePubKey_Drift(t *testing.T) {
 				publicKey:         validPEM,
 				resolveCalled:     true,
 				condStatus:        metav1.ConditionTrue,
-				condReason:        ReasonResolved,
+				condReason:        constants.ReasonResolved,
 				readyStatus:       metav1.ConditionFalse,
 				readyReason:       state.Ready.String(),
 				event:             "AnnotationClearFailed",
