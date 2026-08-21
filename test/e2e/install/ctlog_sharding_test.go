@@ -287,12 +287,12 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 			// Verify frozen shard has the old tree ID
 			frozenCfg := cfg.LogConfigs.Config[0]
 			Expect(frozenCfg.LogId).To(Equal(*oldTreeId))
-			Expect(frozenCfg.NotAfterLimit).ToNot(BeNil())
+			Expect(frozenCfg.IsReadonly).To(BeTrue())
 
 			// Verify active shard has the new tree ID
 			activeCfg := cfg.LogConfigs.Config[1]
 			Expect(activeCfg.LogId).To(Equal(*c.Status.TreeID))
-			Expect(activeCfg.NotAfterStart).ToNot(BeNil())
+			Expect(activeCfg.IsReadonly).To(BeFalse())
 		})
 	})
 })
