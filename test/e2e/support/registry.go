@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
@@ -212,6 +213,7 @@ func deployInClusterRegistry(ctx context.Context, cli interface{}, namespace str
 
 // PrepareImage creates a random OCI image and pushes it to the registry.
 // Returns the image reference in the format expected by the environment.
+// Tries ttl.sh first; if it fails, falls back to quay.io/securesign/e2e-tests.
 func (r *TestRegistry) PrepareImage(ctx context.Context) string {
 	// Create a random image
 	image, err := random.Image(1024, 8)
@@ -228,17 +230,32 @@ func (r *TestRegistry) PrepareImage(ctx context.Context) string {
 	digest, err := image.Digest()
 	Expect(err).ToNot(HaveOccurred())
 
-	// For localhost (in-memory registry), use localhost:port
-	imageRef := fmt.Sprintf("localhost:%d/e2e-test@%s", r.port, digest.String())
-	ref, err := name.ParseReference(imageRef, name.Insecure)
+	// Try ttl.sh first (fast, temporary registry)
+	ttlRef := fmt.Sprintf("ttl.sh/%s:4h", uuid.New().String())
+	ttlNameRef, err := name.ParseReference(ttlRef)
+	if err == nil {
+		ttlPusher, err := remote.NewPusher()
+		if err == nil {
+			err = ttlPusher.Push(ctx, ttlNameRef, image)
+			if err == nil {
+				core.GinkgoWriter.Printf("Pushed test image to ttl.sh: %s\n", ttlRef)
+				return ttlRef
+			}
+			core.GinkgoWriter.Printf("Warning: Failed to push to ttl.sh, falling back to quay.io: %v\n", err)
+		}
+	}
+
+	// Fallback to quay.io if ttl.sh fails
+	quayRef := fmt.Sprintf("quay.io/securesign/e2e-tests@%s", digest.String())
+	quayNameRef, err := name.ParseReference(quayRef)
 	Expect(err).ToNot(HaveOccurred())
 
-	pusher, err := remote.NewPusher()
+	quayPusher, err := remote.NewPusher(remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	Expect(err).ToNot(HaveOccurred())
-	Expect(pusher.Push(ctx, ref, image)).To(Succeed())
+	Expect(quayPusher.Push(ctx, quayNameRef, image)).To(Succeed())
 
-	core.GinkgoWriter.Printf("Pushed test image: %s\n", imageRef)
-	return imageRef
+	core.GinkgoWriter.Printf("Pushed test image to quay.io: %s\n", quayRef)
+	return quayRef
 }
 
 // InClusterRef transforms the image reference to be accessible from pods.
