@@ -2,6 +2,7 @@ package support
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -16,6 +17,7 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	v12 "k8s.io/api/apps/v1"
 	v13 "k8s.io/api/batch/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -23,7 +25,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/yaml"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
+	containerv1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/uuid"
@@ -34,7 +39,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/json"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -88,13 +92,29 @@ func PrepareImage(ctx context.Context) string {
 		panic(err.Error())
 	}
 
-	targetImageName := fmt.Sprintf("ttl.sh/%s:15m", uuid.New().String())
-	ref, err := name.ParseReference(targetImageName)
+	image, err = mutate.Config(image, containerv1.Config{
+		Labels: map[string]string{
+			"quay.expires-after": "1h",
+			"run-id":             uuid.New().String(),
+		},
+	})
 	if err != nil {
 		panic(err.Error())
 	}
 
-	pusher, err := remote.NewPusher()
+	digest, err := image.Digest()
+	if err != nil {
+		panic(err.Error())
+	}
+
+	// Try quay.io first; if credentials unavailable, fallback to ttl.sh
+	imageRef := fmt.Sprintf("quay.io/securesign/e2e-tests@%s", digest.String())
+	ref, err := name.ParseReference(imageRef)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	pusher, err := remote.NewPusher(remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	if err != nil {
 		panic(err.Error())
 	}
@@ -103,7 +123,83 @@ func PrepareImage(ctx context.Context) string {
 	if err != nil {
 		panic(err.Error())
 	}
-	return targetImageName
+	return imageRef
+}
+
+// filterDockerConfig extracts only quay.io credentials from docker config to minimize blast radius
+func filterDockerConfig(configData []byte) ([]byte, error) {
+	var config map[string]interface{}
+	err := json.Unmarshal(configData, &config)
+	if err != nil {
+		return configData, nil // Return original if not valid JSON
+	}
+
+	filtered := map[string]interface{}{}
+
+	// Copy over auths section with only quay.io entries
+	if auths, ok := config["auths"].(map[string]interface{}); ok {
+		filteredAuths := make(map[string]interface{})
+		// Include quay.io and potential variations
+		for _, key := range []string{"quay.io", "https://quay.io"} {
+			if auth, exists := auths[key]; exists {
+				filteredAuths[key] = auth
+			}
+		}
+		if len(filteredAuths) > 0 {
+			filtered["auths"] = filteredAuths
+		}
+	}
+
+	// If no auths found, return original to preserve other config
+	if len(filtered) == 0 {
+		return configData, nil
+	}
+
+	return json.Marshal(filtered)
+}
+
+func CreateRegistryAuthSecret(ctx context.Context, cli client.Client, namespace, secretName string) error {
+	dockerConfigDir := os.Getenv("DOCKER_CONFIG")
+	if dockerConfigDir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get home dir: %w", err)
+		}
+		dockerConfigDir = filepath.Join(home, ".docker")
+	}
+	configPath := filepath.Join(dockerConfigDir, "config.json")
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to read docker config at %s: %w", configPath, err)
+	}
+
+	// Extract only quay.io credentials to minimize blast radius
+	filteredData, err := filterDockerConfig(data)
+	if err != nil {
+		return fmt.Errorf("failed to filter docker config: %w", err)
+	}
+
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: namespace,
+		},
+		Type: v1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{
+			v1.DockerConfigJsonKey: filteredData,
+		},
+	}
+
+	// Try to create, if already exists then update
+	err = cli.Create(ctx, secret)
+	if err != nil {
+		if errors.IsAlreadyExists(err) {
+			return cli.Update(ctx, secret)
+		}
+		return err
+	}
+	return nil
 }
 
 func EnvOrDefault(env string, def string) string {
