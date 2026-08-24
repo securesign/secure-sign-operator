@@ -121,22 +121,7 @@ func PrepareImage(ctx context.Context) string {
 
 	err = pusher.Push(ctx, ref, image)
 	if err != nil {
-		// Fallback to ttl.sh if quay.io push fails (e.g., missing credentials in PR contexts)
-		core.GinkgoWriter.Printf("Warning: Failed to push to quay.io, falling back to ttl.sh: %v\n", err)
-		fallbackRef := fmt.Sprintf("ttl.sh/%s:4h", uuid.New().String())
-		fallbackNameRef, err := name.ParseReference(fallbackRef)
-		if err != nil {
-			panic(err.Error())
-		}
-		fallbackPusher, err := remote.NewPusher()
-		if err != nil {
-			panic(err.Error())
-		}
-		err = fallbackPusher.Push(ctx, fallbackNameRef, image)
-		if err != nil {
-			panic(err.Error())
-		}
-		return fallbackRef
+		panic(err.Error())
 	}
 	return imageRef
 }
