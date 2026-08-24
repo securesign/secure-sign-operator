@@ -97,3 +97,7 @@ func (i *Securesign) GetConditions() []metav1.Condition {
 func (i *Securesign) SetCondition(newCondition metav1.Condition) {
 	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
 }
+
+func (i *Securesign) RemoveCondition(conditionType string) {
+	meta.RemoveStatusCondition(&i.Status.Conditions, conditionType)
+}

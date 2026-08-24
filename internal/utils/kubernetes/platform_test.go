@@ -169,6 +169,65 @@ func TestDetectOpenShiftWithRetry_ContextTimeout(t *testing.T) {
 	g.Expect(err.Error()).To(gomega.ContainSubstring("timed out"))
 }
 
+func TestRetryOnTransient_RetriesThenSucceeds(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	calls := 0
+	err := RetryOnTransient(
+		context.Background(), logr.Discard(),
+		wait.Backoff{Duration: 1 * time.Millisecond, Factor: 1.0, Steps: 10},
+		"test operation",
+		func(context.Context) error {
+			calls++
+			if calls < 3 {
+				return apierrors.NewServiceUnavailable("server busy")
+			}
+			return nil
+		},
+	)
+
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(calls).To(gomega.Equal(3)) // 2 transient failures + 1 success
+}
+
+func TestRetryOnTransient_NonTransientPropagatedImmediately(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	unexpectedErr := errors.New("boom")
+	calls := 0
+	err := RetryOnTransient(
+		context.Background(), logr.Discard(), fastBackoff(),
+		"test operation",
+		func(context.Context) error {
+			calls++
+			return unexpectedErr
+		},
+	)
+
+	g.Expect(err).To(gomega.MatchError(unexpectedErr))
+	g.Expect(calls).To(gomega.Equal(1)) // not retried
+}
+
+func TestRetryOnTransient_TimeoutWrapsLastTransientError(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+
+	err := RetryOnTransient(
+		ctx, logr.Discard(),
+		wait.Backoff{Duration: 5 * time.Millisecond, Factor: 1.0, Steps: 100},
+		"test operation",
+		func(context.Context) error {
+			return io.EOF
+		},
+	)
+
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(err.Error()).To(gomega.ContainSubstring("timed out during test operation"))
+	g.Expect(err).To(gomega.MatchError(io.EOF))
+}
+
 func buildFakeClient(services ...apiregistrationv1.APIService) client.Client {
 	scheme := runtime.NewScheme()
 	if err := apiregistrationv1.SchemeBuilder.AddToScheme(scheme); err != nil {

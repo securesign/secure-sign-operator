@@ -25,7 +25,7 @@
 // [TrustedCA] specifies the name of a ConfigMap containing a custom CA bundle.
 //
 // If set on the Securesign resource, this annotation is automatically propagated
-// to child resources. ([github.com/securesign/operator/api/rhtasv1.Securesign])
+// to child resources. ([github.com/securesign/operator/api/v1.Securesign])
 //
 // Example usage:
 //
@@ -59,7 +59,7 @@
 // to all child resources and overwrites any value set directly on them.
 // Per-component overrides via this annotation are only effective on standalone
 // child CRs that are not managed by a Securesign parent.
-// ([github.com/securesign/operator/api/rhtasv1.Securesign])
+// ([github.com/securesign/operator/api/v1.Securesign])
 //
 // Example usage:
 //
@@ -110,12 +110,12 @@
 //   - "prod": Enables minimal, structured logging optimized for performance.
 //
 // Affects the following services:
-//   - Rekor ([github.com/securesign/operator/api/rhtasv1.Rekor])
-//   - Timestamp Authority ([github.com/securesign/operator/api/rhtasv1.TimestampAuthority])
-//   - Fulcio ([github.com/securesign/operator/api/rhtasv1.Fulcio])
+//   - Rekor ([github.com/securesign/operator/api/v1.Rekor])
+//   - Timestamp Authority ([github.com/securesign/operator/api/v1.TimestampAuthority])
+//   - Fulcio ([github.com/securesign/operator/api/v1.Fulcio])
 //
 // If set on the Securesign resource, this annotation is automatically propagated
-// to child resources. ([github.com/securesign/operator/api/rhtasv1.Securesign])
+// to child resources. ([github.com/securesign/operator/api/v1.Securesign])
 //
 // Example usage:
 //
@@ -125,6 +125,39 @@
 //	  name: example
 //	  annotations:
 //	    rhtas.redhat.com/log-type: "dev"
+//
+// # Annotation: rhtas.redhat.com/tlsAdherence
+//
+// [TLSAdherence] controls whether the operator blocks or only warns when a
+// managed component cannot yet honour the cluster TLS security profile. This is
+// an interim control, removed once all upstream binaries honour the profile.
+//
+// Supported values:
+//   - "legacy": deploy a non-compliant component with a Warning condition; do
+//     not block. This is the default when the cluster policy is not strict.
+//   - "strict": block deployment of a non-compliant component with an error
+//     condition.
+//
+// Any other value is treated as absent, so the component inherits the cluster
+// policy. The cluster-wide policy (OpenShift APIServer spec.tlsAdherence) is a
+// floor: this annotation may match or tighten it but never relax it, so "legacy"
+// on a strict cluster is a configuration error.
+//
+// The annotation only takes effect on clusters where the operator resolves the
+// cluster TLS profile (OpenShift with resolution enabled); elsewhere it has no
+// effect. If set on the Securesign resource it is propagated to child resources
+// and overwrites any value set directly on them; per-component overrides are only
+// effective on standalone child CRs.
+// ([github.com/securesign/operator/api/v1.Securesign])
+//
+// Example usage:
+//
+//	apiVersion: rhtas.redhat.com/v1alpha1
+//	kind: Securesign
+//	metadata:
+//	  name: example
+//	  annotations:
+//	    rhtas.redhat.com/tlsAdherence: "strict"
 package annotations
 
 const (
@@ -151,9 +184,14 @@ const (
 	// for drift detection across reconcile cycles.
 	PKCS11SpecHash = "rhtas.redhat.com/pkcs11-spec-hash"
 
+	// TLSAdherence defines the annotation key controlling whether the operator blocks
+	// ("strict") or only warns ("legacy", the default) when a component cannot yet
+	// honour the cluster TLS security profile.
+	TLSAdherence = "rhtas.redhat.com/tlsAdherence"
+
 	TLS = "service.beta.openshift.io/serving-cert-secret-name"
 )
 
 var InheritableAnnotations = []string{
-	TrustedCA, LogType, Godebug,
+	TrustedCA, LogType, Godebug, TLSAdherence,
 }

@@ -240,6 +240,10 @@ func (i *Rekor) SetCondition(newCondition metav1.Condition) {
 	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
 }
 
+func (i *Rekor) RemoveCondition(conditionType string) {
+	meta.RemoveStatusCondition(&i.Status.Conditions, conditionType)
+}
+
 func (i *Rekor) GetTrustedCA() *LocalObjectReference {
 	if i.Spec.TrustedCA != nil {
 		return i.Spec.TrustedCA

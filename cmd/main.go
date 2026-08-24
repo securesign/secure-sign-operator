@@ -42,6 +42,7 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,6 +55,7 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	v1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -197,6 +199,10 @@ func main() {
 		setupLog.Error(resolveErr, "unable to resolve cluster TLS security profile")
 		os.Exit(1)
 	}
+
+	// Snapshot the cluster-wide TLS adherence policy (a floor for every component).
+	// The SecurityProfileWatcher restarts the operator when it changes.
+	appconfig.ClusterTLSAdherenceStrict = clusterEnforcesStrictTLS(tlsAdherence)
 
 	tlsConfigFn, unsupportedCiphers := ostls.NewTLSConfigFromProfile(tlsProfileSpec)
 	if len(unsupportedCiphers) > 0 {
@@ -419,7 +425,17 @@ func resolveClusterTLSProfile(ctx context.Context, cli client.Client, openshift,
 		return intermediateSpec, configv1.TLSAdherencePolicyNoOpinion, nil
 	}
 
-	tlsProfileSpec, err := ostls.FetchAPIServerTLSProfile(ctx, cli)
+	// Wrap both fetches (each a single Get) in the shared transient-error retry so
+	// a momentary API blip during startup is not mistaken for a persistent failure.
+	// ctx is already bounded by APIServerTimeout, so retries cannot hang startup.
+	fetchBackoff := wait.Backoff{Duration: 2 * time.Second, Factor: 2.0, Jitter: 0.1, Steps: 5}
+
+	var tlsProfileSpec configv1.TLSProfileSpec
+	err := kubernetes.RetryOnTransient(ctx, log, fetchBackoff, "cluster TLS security profile fetch", func(ctx context.Context) error {
+		var e error
+		tlsProfileSpec, e = ostls.FetchAPIServerTLSProfile(ctx, cli)
+		return e
+	})
 	if err != nil {
 		if apiErrors.IsNotFound(err) || apimeta.IsNoMatchError(err) {
 			log.Info("config.openshift.io APIServer not available; using Intermediate TLS defaults")
@@ -429,18 +445,40 @@ func resolveClusterTLSProfile(ctx context.Context, cli client.Client, openshift,
 		}
 	}
 
-	tlsAdherence, err := ostls.FetchAPIServerTLSAdherencePolicy(ctx, cli)
+	var tlsAdherence configv1.TLSAdherencePolicy
+	err = kubernetes.RetryOnTransient(ctx, log, fetchBackoff, "cluster TLS adherence policy fetch", func(ctx context.Context) error {
+		var e error
+		tlsAdherence, e = ostls.FetchAPIServerTLSAdherencePolicy(ctx, cli)
+		return e
+	})
 	if err != nil {
 		if apiErrors.IsNotFound(err) || apimeta.IsNoMatchError(err) {
+			// Absence is a genuine NoOpinion, not a failure to determine the policy.
 			log.Info("TLSAdherencePolicy API not available; defaulting to NoOpinion")
+			tlsAdherence = configv1.TLSAdherencePolicyNoOpinion
 		} else {
-			log.Error(err, "unable to fetch cluster TLS adherence policy; defaulting to NoOpinion")
+			// Fail closed: silently downgrading an unexpected error to NoOpinion could
+			// relax the floor and let a non-compliant component roll out on a strict cluster.
+			return configv1.TLSProfileSpec{}, "", fmt.Errorf("unable to fetch cluster TLS adherence policy: %w", err)
 		}
-		tlsAdherence = configv1.TLSAdherencePolicyNoOpinion
 	}
 
 	log.Info("cluster TLS security profile resolved")
 	return tlsProfileSpec, tlsAdherence, nil
+}
+
+// clusterEnforcesStrictTLS reports whether the cluster-wide TLS adherence policy
+// mandates that every component honour the cluster TLS security profile.
+// StrictAllComponents (and any unrecognised value, per openshift/api's
+// fail-secure guidance) is strict; NoOpinion and LegacyAdheringComponentsOnly
+// are not.
+func clusterEnforcesStrictTLS(policy configv1.TLSAdherencePolicy) bool {
+	switch policy {
+	case configv1.TLSAdherencePolicyNoOpinion, configv1.TLSAdherencePolicyLegacyAdheringComponentsOnly:
+		return false
+	default:
+		return true
+	}
 }
 
 func setupController(name string, constructor controller.Constructor, manager ctrl.Manager) {

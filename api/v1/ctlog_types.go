@@ -194,6 +194,10 @@ func (i *CTlog) SetCondition(newCondition metav1.Condition) {
 	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
 }
 
+func (i *CTlog) RemoveCondition(conditionType string) {
+	meta.RemoveStatusCondition(&i.Status.Conditions, conditionType)
+}
+
 func (i *CTlog) GetTrustedCA() *LocalObjectReference {
 	if i.Spec.TrustedCA != nil {
 		return i.Spec.TrustedCA
