@@ -107,31 +107,33 @@ var _ = Describe("TUF controller", func() {
 							Enabled: ptr.To(true),
 						},
 						Port: 8181,
-						Keys: []rhtasv1.TufKey{
+						// Fulcio via secretRef, Rekor via an explicit ref, and CTlog via autodiscovery
+						Fulcio: []rhtasv1.TrustRootBindingWithOIDC{
 							{
-								Name: "fulcio_v1.crt.pem",
-								SecretRef: &rhtasv1.SecretKeySelector{
-									LocalObjectReference: rhtasv1.LocalObjectReference{
-										Name: "fulcio-pub-key",
+								TrustRootBinding: rhtasv1.TrustRootBinding{
+									SecretRef: &rhtasv1.SecretKeySelector{
+										LocalObjectReference: rhtasv1.LocalObjectReference{
+											Name: "fulcio-pub-key",
+										},
+										Key: "cert",
 									},
-									Key: "cert",
 								},
 							},
+						},
+						Rekor: []rhtasv1.TrustRootBinding{
 							{
-								Name: "ctfe.pub",
-							},
-							{
-								Name: "rekor.pub",
-								SecretRef: &rhtasv1.SecretKeySelector{
-									LocalObjectReference: rhtasv1.LocalObjectReference{
-										Name: "rekor-pub-key",
-									},
-									Key: "public",
+								ServiceReference: rhtasv1.ServiceReference{
+									Ref: &rhtasv1.ServiceReferenceRef{Name: "rekor-test", Namespace: TufNamespace},
 								},
 							},
 						},
 					},
 				}
+				Expect(suite.Client().Create(ctx, &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "fulcio-pub-key", Namespace: TufNamespace},
+					Data:       map[string][]byte{"cert": []byte(tufTestPublicKeyPEM)},
+				})).To(Succeed())
+
 				err = suite.Client().Create(ctx, tuf)
 				Expect(err).To(Not(HaveOccurred()))
 			}
@@ -149,54 +151,23 @@ var _ = Describe("TUF controller", func() {
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
 			}).WithContext(ctx).Should(BeTrue())
 
-			By("Pending phase until ctlog public key is resolved")
+			By("Pending phase until Rekor/Ctlog/Fulcio are all resolved")
+			found := &rhtasv1.Tuf{}
 			Eventually(func(g Gomega, ctx context.Context) string {
-				found := &rhtasv1.Tuf{}
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
 				g.Expect(cond).ToNot(BeNil())
 				return cond.Reason
 			}).WithContext(ctx).Should(Equal(state.Pending.String()))
 
-			By("Creating component CRs for autodiscovery and service URL resolution")
-			ctlogCR := &rhtasv1.CTlog{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "ctlog-test",
-					Namespace: typeNamespaceName.Namespace,
-				},
-			}
-			Expect(suite.Client().Create(ctx, ctlogCR)).To(Succeed())
-			ctlogCR.Status.PublicKey = tufTestPublicKeyPEM
-			ctlogCR.Status.Url = "https://example.com/ctlog"
-			ctlogCR.SetCondition(metav1.Condition{
-				Type:    constants.ReadyCondition,
-				Status:  metav1.ConditionTrue,
-				Reason:  state.Ready.String(),
-				Message: "Component is ready",
-			})
-			Expect(suite.Client().Status().Update(ctx, ctlogCR)).To(Succeed())
-
-			By("Waiting until Tuf init job is created")
-			found := &rhtasv1.Tuf{}
-			Eventually(func(g Gomega, ctx context.Context) string {
-				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.PvcName
-			}).WithContext(ctx).ShouldNot(BeEmpty())
-
-			Eventually(func(g Gomega, ctx context.Context) *metav1.Condition {
-				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, tufConstants.RepositoryCondition)
-			}).WithContext(ctx).Should(
-				And(
-					WithTransform(func(condition *metav1.Condition) string {
-						return condition.Reason
-					}, Equal(state.Pending.String())),
-					WithTransform(func(condition *metav1.Condition) string {
-						return condition.Message
-					}, ContainSubstring("failed to resolve service url")),
-				))
-
+			By("Creating component CRs for autodiscovery and ref resolution, not yet ready")
 			componentObjects := []apis.AddressableConditionAware{
+				&rhtasv1.CTlog{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ctlog-test",
+						Namespace: typeNamespaceName.Namespace,
+					},
+				},
 				&rhtasv1.Fulcio{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "fulcio-test",
@@ -233,21 +204,23 @@ var _ = Describe("TUF controller", func() {
 				Expect(suite.Client().Create(ctx, component)).To(Succeed())
 			}
 
-			Eventually(func(g Gomega, ctx context.Context) *metav1.Condition {
+			By("Still pending: component instances exist but aren't Ready yet")
+			Eventually(func(g Gomega, ctx context.Context) string {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return meta.FindStatusCondition(found.Status.Conditions, tufConstants.RepositoryCondition)
-			}).WithContext(ctx).Should(
-				And(
-					WithTransform(func(condition *metav1.Condition) string {
-						return condition.Reason
-					}, Equal(state.Pending.String())),
-					WithTransform(func(condition *metav1.Condition) string {
-						return condition.Message
-					}, ContainSubstring("service is not ready")),
-				))
+				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
+				g.Expect(cond).ToNot(BeNil())
+				return cond.Reason
+			}).WithContext(ctx).Should(Equal(state.Pending.String()))
 
+			By("Marking Ctlog and the referenced Fulcio/Rekor instances Ready")
 			for i, component := range componentObjects {
 				Expect(setStatusURL(component, "https://example.com/"+strconv.Itoa(i))).To(BeTrue())
+				switch c := component.(type) {
+				case *rhtasv1.CTlog:
+					c.Status.PublicKey = tufTestPublicKeyPEM
+				case *rhtasv1.Rekor:
+					c.Status.PublicKey = tufTestPublicKeyPEM
+				}
 				component.SetCondition(metav1.Condition{
 					Type:    constants.ReadyCondition,
 					Status:  metav1.ConditionTrue,
@@ -256,6 +229,12 @@ var _ = Describe("TUF controller", func() {
 				})
 				Expect(suite.Client().Status().Update(ctx, component)).To(Succeed())
 			}
+
+			By("Waiting until Tuf init job is created")
+			Eventually(func(g Gomega, ctx context.Context) string {
+				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
+				return found.Status.PvcName
+			}).WithContext(ctx).ShouldNot(BeEmpty())
 
 			initJobList := &batchv1.JobList{}
 			Eventually(func(ctx context.Context) []batchv1.Job {

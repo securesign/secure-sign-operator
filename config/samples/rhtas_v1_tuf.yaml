@@ -11,11 +11,6 @@ spec:
   ingress:
     enabled: true
   port: 80
-  keys:
-    - name: rekor.pub
-    - name: fulcio_v1.crt.pem
-    - name: ctfe.pub
-    - name: tsa.certchain.pem
   pvc:
     size: 100Mi
     retain: true

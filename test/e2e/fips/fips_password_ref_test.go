@@ -15,9 +15,7 @@ import (
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
 	fulciohelpers "github.com/securesign/operator/test/e2e/support/tas/fulcio"
-	rekorhelpers "github.com/securesign/operator/test/e2e/support/tas/rekor"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
-	tsahelpers "github.com/securesign/operator/test/e2e/support/tas/tsa"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -98,23 +96,5 @@ var _ = Describe("FIPS password-ref rejection", Ordered, func() {
 		})
 	})
 
-	Describe("Rekor", func() {
-		assertRejectsPasswordRef(fipsutil.FIPSCondition, func(ctx context.Context) []metav1.Condition {
-			cr := rekorhelpers.Get(ctx, cli, namespace.Name, s.Name)
-			if cr == nil {
-				return nil
-			}
-			return cr.GetConditions()
-		})
-	})
-
-	Describe("TSA", func() {
-		assertRejectsPasswordRef(fipsutil.FIPSCondition, func(ctx context.Context) []metav1.Condition {
-			cr := tsahelpers.Get(ctx, cli, namespace.Name, s.Name)
-			if cr == nil {
-				return nil
-			}
-			return cr.GetConditions()
-		})
-	})
+	// Rekor and TSA PasswordRef were removed from the v1 API — no password-ref rejection to test.
 })

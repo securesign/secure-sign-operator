@@ -30,6 +30,7 @@ import (
 	"github.com/securesign/operator/internal/controller/ctlog/actions"
 	fipsutil "github.com/securesign/operator/internal/utils/fips"
 	v12 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -122,6 +123,8 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		actions.NewRBACAction(),
 		actions.NewDeployAction(),
 		actions.NewServiceAction(),
+		actions.NewIngressAction(),
+		actions.NewStatusUrlAction(),
 		actions.NewCreateMonitorAction(),
 
 		monitor.NewRBACAction(),
@@ -129,7 +132,6 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		monitor.NewCreateServiceAction(),
 		monitor.NewCreateMonitorAction(),
 
-		actions.NewStatusUrlAction(),
 		transitions.NewToInitializePhaseAction[*rhtasv1.CTlog](),
 
 		actions.NewRolloutCheckAction(),
@@ -168,6 +170,7 @@ func (r *ctlogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&rhtasv1.CTlog{}, builder.WithPredicates(tasPredicate.ConfigurationChangedOnFailurePredicate[*rhtasv1.CTlog]())).
 		Owns(&v1.Deployment{}).
 		Owns(&v12.Service{}).
+		Owns(&networkingv1.Ingress{}).
 		// receive update on Fulcio root cert change (pulled from status.certificateChain)
 		Watches(&rhtasv1.Fulcio{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
 			list := &rhtasv1.CTlogList{}

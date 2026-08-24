@@ -105,36 +105,6 @@ func Convert_v1_ServiceReference_To_v1alpha1_CtlogService(in *v1.ServiceReferenc
 	return serviceReferenceToAddressPort(ref, &out.Address, &out.Port)
 }
 
-func Convert_v1alpha1_FulcioService_To_v1_ServiceRefWithOIDC(in *FulcioService, out *v1.ServiceRefWithOIDC, _ apiconversion.Scope) error {
-	var err error
-	out.URL, err = buildURL(in.Address, in.Port, "")
-	return err
-}
-
-func Convert_v1_ServiceRefWithOIDC_To_v1alpha1_FulcioService(in *v1.ServiceRefWithOIDC, out *FulcioService, _ apiconversion.Scope) error {
-	return serviceReferenceToAddressPort(&in.ServiceReference, &out.Address, &out.Port)
-}
-
-func Convert_v1alpha1_RekorService_To_v1_ServiceReference(in *RekorService, out *v1.ServiceReference, _ apiconversion.Scope) error {
-	var err error
-	out.URL, err = buildURL(in.Address, in.Port, "")
-	return err
-}
-
-func Convert_v1_ServiceReference_To_v1alpha1_RekorService(in *v1.ServiceReference, out *RekorService, _ apiconversion.Scope) error {
-	return serviceReferenceToAddressPort(in, &out.Address, &out.Port)
-}
-
-func Convert_v1alpha1_TsaService_To_v1_ServiceReference(in *TsaService, out *v1.ServiceReference, _ apiconversion.Scope) error {
-	var err error
-	out.URL, err = buildURL(in.Address, in.Port, "")
-	return err
-}
-
-func Convert_v1_ServiceReference_To_v1alpha1_TsaService(in *v1.ServiceReference, out *TsaService, _ apiconversion.Scope) error {
-	return serviceReferenceToAddressPort(in, &out.Address, &out.Port)
-}
-
 func Convert_v1alpha1_TufService_To_v1_ServiceReference(in *TufService, out *v1.ServiceReference, _ apiconversion.Scope) error {
 	var err error
 	out.URL, err = buildURL(in.Address, in.Port, "")

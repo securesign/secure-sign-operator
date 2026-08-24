@@ -113,16 +113,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*File)(nil), (*v1.File)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_File_To_v1_File(a.(*File), b.(*v1.File), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1.File)(nil), (*File)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_File_To_v1alpha1_File(a.(*v1.File), b.(*File), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*Fulcio)(nil), (*v1.Fulcio)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_Fulcio_To_v1_Fulcio(a.(*Fulcio), b.(*v1.Fulcio), scope)
 	}); err != nil {
@@ -418,11 +408,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*TrillianDB)(nil), (*v1.TrillianDB)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_TrillianDB_To_v1_TrillianDB(a.(*TrillianDB), b.(*v1.TrillianDB), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*v1.TrillianDB)(nil), (*TrillianDB)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_TrillianDB_To_v1alpha1_TrillianDB(a.(*v1.TrillianDB), b.(*TrillianDB), scope)
 	}); err != nil {
@@ -483,16 +468,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*TufKey)(nil), (*v1.TufKey)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_TufKey_To_v1_TufKey(a.(*TufKey), b.(*v1.TufKey), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1.TufKey)(nil), (*TufKey)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_TufKey_To_v1alpha1_TufKey(a.(*v1.TufKey), b.(*TufKey), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*TufList)(nil), (*v1.TufList)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_TufList_To_v1_TufList(a.(*TufList), b.(*v1.TufList), scope)
 	}); err != nil {
@@ -520,6 +495,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*v1.CTlogStatus)(nil), (*CTlogStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_CTlogStatus_To_v1alpha1_CTlogStatus(a.(*v1.CTlogStatus), b.(*CTlogStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1.File)(nil), (*File)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_File_To_v1alpha1_File(a.(*v1.File), b.(*File), scope)
 	}); err != nil {
 		return err
 	}
@@ -588,28 +568,13 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddConversionFunc((*v1.ServiceRefWithOIDC)(nil), (*FulcioService)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_ServiceRefWithOIDC_To_v1alpha1_FulcioService(a.(*v1.ServiceRefWithOIDC), b.(*FulcioService), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddConversionFunc((*v1.ServiceReference)(nil), (*CtlogService)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_ServiceReference_To_v1alpha1_CtlogService(a.(*v1.ServiceReference), b.(*CtlogService), scope)
 	}); err != nil {
 		return err
 	}
-	if err := s.AddConversionFunc((*v1.ServiceReference)(nil), (*RekorService)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_ServiceReference_To_v1alpha1_RekorService(a.(*v1.ServiceReference), b.(*RekorService), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddConversionFunc((*v1.ServiceReference)(nil), (*TrillianService)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_ServiceReference_To_v1alpha1_TrillianService(a.(*v1.ServiceReference), b.(*TrillianService), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddConversionFunc((*v1.ServiceReference)(nil), (*TsaService)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_ServiceReference_To_v1alpha1_TsaService(a.(*v1.ServiceReference), b.(*TsaService), scope)
 	}); err != nil {
 		return err
 	}
@@ -683,6 +648,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*File)(nil), (*v1.File)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_File_To_v1_File(a.(*File), b.(*v1.File), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*FulcioCert)(nil), (*v1.FulcioCertStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_FulcioCert_To_v1_FulcioCertStatus(a.(*FulcioCert), b.(*v1.FulcioCertStatus), scope)
 	}); err != nil {
@@ -690,11 +660,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*FulcioCert)(nil), (*v1.FulcioSigner)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_FulcioCert_To_v1_FulcioSigner(a.(*FulcioCert), b.(*v1.FulcioSigner), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddConversionFunc((*FulcioService)(nil), (*v1.ServiceRefWithOIDC)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_FulcioService_To_v1_ServiceRefWithOIDC(a.(*FulcioService), b.(*v1.ServiceRefWithOIDC), scope)
 	}); err != nil {
 		return err
 	}
@@ -710,11 +675,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*MonitoringConfig)(nil), (*v1.MonitoringConfig)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_MonitoringConfig_To_v1_MonitoringConfig(a.(*MonitoringConfig), b.(*v1.MonitoringConfig), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddConversionFunc((*RekorService)(nil), (*v1.ServiceReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_RekorService_To_v1_ServiceReference(a.(*RekorService), b.(*v1.ServiceReference), scope)
 	}); err != nil {
 		return err
 	}
@@ -773,6 +733,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*TrillianDB)(nil), (*v1.TrillianDB)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_TrillianDB_To_v1_TrillianDB(a.(*TrillianDB), b.(*v1.TrillianDB), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*TrillianDB)(nil), (*v1.TrillianDBStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_TrillianDB_To_v1_TrillianDBStatus(a.(*TrillianDB), b.(*v1.TrillianDBStatus), scope)
 	}); err != nil {
@@ -795,11 +760,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*TsaCertificateAuthority)(nil), (*v1.TsaCertificateAuthority)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_TsaCertificateAuthority_To_v1_TsaCertificateAuthority(a.(*TsaCertificateAuthority), b.(*v1.TsaCertificateAuthority), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddConversionFunc((*TsaService)(nil), (*v1.ServiceReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_TsaService_To_v1_ServiceReference(a.(*TsaService), b.(*v1.ServiceReference), scope)
 	}); err != nil {
 		return err
 	}
@@ -1000,6 +960,7 @@ func autoConvert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *v1.CTlogSpec, out *CTlog
 	out.TreeID = (*int64)(unsafe.Pointer(in.TreeID))
 	// WARNING: in.Signer requires manual conversion: does not exist in peer-type
 	out.RootCertificates = *(*[]SecretKeySelector)(unsafe.Pointer(&in.RootCertificates))
+	// WARNING: in.Ingress requires manual conversion: does not exist in peer-type
 	if err := Convert_v1_MonitoringWithTLogConfig_To_v1alpha1_MonitoringWithTLogConfig(&in.Monitoring, &out.Monitoring, s); err != nil {
 		return err
 	}
@@ -1185,25 +1146,14 @@ func Convert_v1_Extensions_To_v1alpha1_Extensions(in *v1.Extensions, out *Extens
 }
 
 func autoConvert_v1alpha1_File_To_v1_File(in *File, out *v1.File, s conversion.Scope) error {
-	out.PasswordRef = (*v1.SecretKeySelector)(unsafe.Pointer(in.PasswordRef))
+	// WARNING: in.PasswordRef requires manual conversion: does not exist in peer-type
 	out.PrivateKeyRef = (*v1.SecretKeySelector)(unsafe.Pointer(in.PrivateKeyRef))
 	return nil
 }
 
-// Convert_v1alpha1_File_To_v1_File is an autogenerated conversion function.
-func Convert_v1alpha1_File_To_v1_File(in *File, out *v1.File, s conversion.Scope) error {
-	return autoConvert_v1alpha1_File_To_v1_File(in, out, s)
-}
-
 func autoConvert_v1_File_To_v1alpha1_File(in *v1.File, out *File, s conversion.Scope) error {
-	out.PasswordRef = (*SecretKeySelector)(unsafe.Pointer(in.PasswordRef))
 	out.PrivateKeyRef = (*SecretKeySelector)(unsafe.Pointer(in.PrivateKeyRef))
 	return nil
-}
-
-// Convert_v1_File_To_v1alpha1_File is an autogenerated conversion function.
-func Convert_v1_File_To_v1alpha1_File(in *v1.File, out *File, s conversion.Scope) error {
-	return autoConvert_v1_File_To_v1alpha1_File(in, out, s)
 }
 
 func autoConvert_v1alpha1_Fulcio_To_v1_Fulcio(in *Fulcio, out *v1.Fulcio, s conversion.Scope) error {
@@ -1736,7 +1686,7 @@ func Convert_v1_RekorLogRange_To_v1alpha1_RekorLogRange(in *v1.RekorLogRange, ou
 
 func autoConvert_v1alpha1_RekorSigner_To_v1_RekorSigner(in *RekorSigner, out *v1.RekorSigner, s conversion.Scope) error {
 	// WARNING: in.KMS requires manual conversion: does not exist in peer-type
-	out.PasswordRef = (*v1.SecretKeySelector)(unsafe.Pointer(in.PasswordRef))
+	// WARNING: in.PasswordRef requires manual conversion: does not exist in peer-type
 	out.KeyRef = (*v1.SecretKeySelector)(unsafe.Pointer(in.KeyRef))
 	return nil
 }
@@ -1744,7 +1694,6 @@ func autoConvert_v1alpha1_RekorSigner_To_v1_RekorSigner(in *RekorSigner, out *v1
 func autoConvert_v1_RekorSigner_To_v1alpha1_RekorSigner(in *v1.RekorSigner, out *RekorSigner, s conversion.Scope) error {
 	// WARNING: in.Type requires manual conversion: does not exist in peer-type
 	// WARNING: in.Kms requires manual conversion: does not exist in peer-type
-	out.PasswordRef = (*SecretKeySelector)(unsafe.Pointer(in.PasswordRef))
 	out.KeyRef = (*SecretKeySelector)(unsafe.Pointer(in.KeyRef))
 	return nil
 }
@@ -2287,7 +2236,15 @@ func autoConvert_v1alpha1_TimestampAuthoritySigner_To_v1_TimestampAuthoritySigne
 	if err := Convert_v1alpha1_CertificateChain_To_v1_CertificateChain(&in.CertificateChain, &out.CertificateChain, s); err != nil {
 		return err
 	}
-	out.File = (*v1.File)(unsafe.Pointer(in.File))
+	if in.File != nil {
+		in, out := &in.File, &out.File
+		*out = new(v1.File)
+		if err := Convert_v1alpha1_File_To_v1_File(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.File = nil
+	}
 	if in.Kms != nil {
 		in, out := &in.Kms, &out.Kms
 		*out = new(v1.KMS)
@@ -2313,7 +2270,15 @@ func autoConvert_v1_TimestampAuthoritySigner_To_v1alpha1_TimestampAuthoritySigne
 	if err := Convert_v1_CertificateChain_To_v1alpha1_CertificateChain(&in.CertificateChain, &out.CertificateChain, s); err != nil {
 		return err
 	}
-	out.File = (*File)(unsafe.Pointer(in.File))
+	if in.File != nil {
+		in, out := &in.File, &out.File
+		*out = new(File)
+		if err := Convert_v1_File_To_v1alpha1_File(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.File = nil
+	}
 	if in.Kms != nil {
 		in, out := &in.Kms, &out.Kms
 		*out = new(KMS)
@@ -2486,7 +2451,7 @@ func Convert_v1_Trillian_To_v1alpha1_Trillian(in *v1.Trillian, out *Trillian, s 
 
 func autoConvert_v1alpha1_TrillianDB_To_v1_TrillianDB(in *TrillianDB, out *v1.TrillianDB, s conversion.Scope) error {
 	out.Create = (*bool)(unsafe.Pointer(in.Create))
-	out.DatabaseSecretRef = (*v1.LocalObjectReference)(unsafe.Pointer(in.DatabaseSecretRef))
+	// WARNING: in.DatabaseSecretRef requires manual conversion: does not exist in peer-type
 	if err := Convert_v1alpha1_Pvc_To_v1_Pvc(&in.Pvc, &out.Pvc, s); err != nil {
 		return err
 	}
@@ -2498,14 +2463,8 @@ func autoConvert_v1alpha1_TrillianDB_To_v1_TrillianDB(in *TrillianDB, out *v1.Tr
 	return nil
 }
 
-// Convert_v1alpha1_TrillianDB_To_v1_TrillianDB is an autogenerated conversion function.
-func Convert_v1alpha1_TrillianDB_To_v1_TrillianDB(in *TrillianDB, out *v1.TrillianDB, s conversion.Scope) error {
-	return autoConvert_v1alpha1_TrillianDB_To_v1_TrillianDB(in, out, s)
-}
-
 func autoConvert_v1_TrillianDB_To_v1alpha1_TrillianDB(in *v1.TrillianDB, out *TrillianDB, s conversion.Scope) error {
 	out.Create = (*bool)(unsafe.Pointer(in.Create))
-	out.DatabaseSecretRef = (*LocalObjectReference)(unsafe.Pointer(in.DatabaseSecretRef))
 	if err := Convert_v1_Pvc_To_v1alpha1_Pvc(&in.Pvc, &out.Pvc, s); err != nil {
 		return err
 	}
@@ -2755,28 +2714,6 @@ func Convert_v1_Tuf_To_v1alpha1_Tuf(in *v1.Tuf, out *Tuf, s conversion.Scope) er
 	return autoConvert_v1_Tuf_To_v1alpha1_Tuf(in, out, s)
 }
 
-func autoConvert_v1alpha1_TufKey_To_v1_TufKey(in *TufKey, out *v1.TufKey, s conversion.Scope) error {
-	out.Name = in.Name
-	out.SecretRef = (*v1.SecretKeySelector)(unsafe.Pointer(in.SecretRef))
-	return nil
-}
-
-// Convert_v1alpha1_TufKey_To_v1_TufKey is an autogenerated conversion function.
-func Convert_v1alpha1_TufKey_To_v1_TufKey(in *TufKey, out *v1.TufKey, s conversion.Scope) error {
-	return autoConvert_v1alpha1_TufKey_To_v1_TufKey(in, out, s)
-}
-
-func autoConvert_v1_TufKey_To_v1alpha1_TufKey(in *v1.TufKey, out *TufKey, s conversion.Scope) error {
-	out.Name = in.Name
-	out.SecretRef = (*SecretKeySelector)(unsafe.Pointer(in.SecretRef))
-	return nil
-}
-
-// Convert_v1_TufKey_To_v1alpha1_TufKey is an autogenerated conversion function.
-func Convert_v1_TufKey_To_v1alpha1_TufKey(in *v1.TufKey, out *TufKey, s conversion.Scope) error {
-	return autoConvert_v1_TufKey_To_v1alpha1_TufKey(in, out, s)
-}
-
 func autoConvert_v1alpha1_TufList_To_v1_TufList(in *TufList, out *v1.TufList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
@@ -2825,23 +2762,15 @@ func autoConvert_v1alpha1_TufSpec_To_v1_TufSpec(in *TufSpec, out *v1.TufSpec, s 
 	}
 	// WARNING: in.ExternalAccess requires manual conversion: does not exist in peer-type
 	out.Port = in.Port
-	out.Keys = *(*[]v1.TufKey)(unsafe.Pointer(&in.Keys))
+	// WARNING: in.Keys requires manual conversion: does not exist in peer-type
 	out.RootKeySecretRef = (*v1.LocalObjectReference)(unsafe.Pointer(in.RootKeySecretRef))
 	if err := Convert_v1alpha1_TufPvc_To_v1_Pvc(&in.Pvc, &out.Pvc, s); err != nil {
 		return err
 	}
-	if err := Convert_v1alpha1_CtlogService_To_v1_ServiceReference(&in.Ctlog, &out.Ctlog, s); err != nil {
-		return err
-	}
-	if err := Convert_v1alpha1_FulcioService_To_v1_ServiceRefWithOIDC(&in.Fulcio, &out.Fulcio, s); err != nil {
-		return err
-	}
-	if err := Convert_v1alpha1_RekorService_To_v1_ServiceReference(&in.Rekor, &out.Rekor, s); err != nil {
-		return err
-	}
-	if err := Convert_v1alpha1_TsaService_To_v1_ServiceReference(&in.Tsa, &out.Tsa, s); err != nil {
-		return err
-	}
+	// WARNING: in.Ctlog requires manual conversion: inconvertible types (github.com/securesign/operator/api/v1alpha1.CtlogService vs []github.com/securesign/operator/api/v1.TrustRootBinding)
+	// WARNING: in.Fulcio requires manual conversion: inconvertible types (github.com/securesign/operator/api/v1alpha1.FulcioService vs []github.com/securesign/operator/api/v1.TrustRootBindingWithOIDC)
+	// WARNING: in.Rekor requires manual conversion: inconvertible types (github.com/securesign/operator/api/v1alpha1.RekorService vs []github.com/securesign/operator/api/v1.TrustRootBinding)
+	// WARNING: in.Tsa requires manual conversion: inconvertible types (github.com/securesign/operator/api/v1alpha1.TsaService vs *[]github.com/securesign/operator/api/v1.TrustRootBinding)
 	return nil
 }
 
@@ -2852,23 +2781,14 @@ func autoConvert_v1_TufSpec_To_v1alpha1_TufSpec(in *v1.TufSpec, out *TufSpec, s 
 	// WARNING: in.ServiceAccountConfig requires manual conversion: does not exist in peer-type
 	// WARNING: in.Ingress requires manual conversion: does not exist in peer-type
 	out.Port = in.Port
-	out.Keys = *(*[]TufKey)(unsafe.Pointer(&in.Keys))
 	out.RootKeySecretRef = (*LocalObjectReference)(unsafe.Pointer(in.RootKeySecretRef))
 	if err := Convert_v1_Pvc_To_v1alpha1_TufPvc(&in.Pvc, &out.Pvc, s); err != nil {
 		return err
 	}
-	if err := Convert_v1_ServiceReference_To_v1alpha1_CtlogService(&in.Ctlog, &out.Ctlog, s); err != nil {
-		return err
-	}
-	if err := Convert_v1_ServiceRefWithOIDC_To_v1alpha1_FulcioService(&in.Fulcio, &out.Fulcio, s); err != nil {
-		return err
-	}
-	if err := Convert_v1_ServiceReference_To_v1alpha1_RekorService(&in.Rekor, &out.Rekor, s); err != nil {
-		return err
-	}
-	if err := Convert_v1_ServiceReference_To_v1alpha1_TsaService(&in.Tsa, &out.Tsa, s); err != nil {
-		return err
-	}
+	// WARNING: in.Ctlog requires manual conversion: inconvertible types ([]github.com/securesign/operator/api/v1.TrustRootBinding vs github.com/securesign/operator/api/v1alpha1.CtlogService)
+	// WARNING: in.Fulcio requires manual conversion: inconvertible types ([]github.com/securesign/operator/api/v1.TrustRootBindingWithOIDC vs github.com/securesign/operator/api/v1alpha1.FulcioService)
+	// WARNING: in.Rekor requires manual conversion: inconvertible types ([]github.com/securesign/operator/api/v1.TrustRootBinding vs github.com/securesign/operator/api/v1alpha1.RekorService)
+	// WARNING: in.Tsa requires manual conversion: inconvertible types (*[]github.com/securesign/operator/api/v1.TrustRootBinding vs github.com/securesign/operator/api/v1alpha1.TsaService)
 	// WARNING: in.TrustedCA requires manual conversion: does not exist in peer-type
 	// WARNING: in.PodExtensions requires manual conversion: does not exist in peer-type
 	return nil

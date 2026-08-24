@@ -15,6 +15,7 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -92,6 +93,11 @@ func generateData(ctx context.Context, instance *rhtasv1.TimestampAuthority, c c
 }
 
 func alignStatus(instance *rhtasv1.TimestampAuthority, ref rhtasv1.SecretKeySelector) {
+	var oldFileSigner *rhtasv1.FileSignerStatus
+	if instance.Status.Signer != nil {
+		oldFileSigner = instance.Status.Signer.FileSigner
+	}
+
 	instance.Status.Signer = signerStatusFromSpec(&instance.Spec.Signer)
 
 	if instance.Spec.Signer.File == nil && instance.Spec.Signer.CertificateChain.CertificateChainRef == nil {
@@ -111,6 +117,13 @@ func alignStatus(instance *rhtasv1.TimestampAuthority, ref rhtasv1.SecretKeySele
 			LocalObjectReference: ref.LocalObjectReference,
 		}
 	}
+
+	// Backward compat: PasswordRef was removed from spec but may still exist in status
+	// for deployments using legacy encrypted keys. Preserve it unless the key changed.
+	if oldFileSigner != nil && instance.Status.Signer.FileSigner != nil &&
+		equality.Semantic.DeepEqual(instance.Status.Signer.FileSigner.PrivateKeyRef, oldFileSigner.PrivateKeyRef) {
+		instance.Status.Signer.FileSigner.PasswordRef = oldFileSigner.PasswordRef
+	}
 }
 
 func signerStatusFromSpec(signer *rhtasv1.TimestampAuthoritySigner) *rhtasv1.TimestampAuthoritySignerStatus {
@@ -120,9 +133,6 @@ func signerStatusFromSpec(signer *rhtasv1.TimestampAuthoritySigner) *rhtasv1.Tim
 	if signer.File != nil {
 		status.FileSigner = &rhtasv1.FileSignerStatus{
 			PrivateKeyRef: signer.File.PrivateKeyRef.DeepCopy(),
-		}
-		if signer.File.PasswordRef != nil { //nolint:staticcheck
-			status.FileSigner.PasswordRef = signer.File.PasswordRef.DeepCopy() //nolint:staticcheck
 		}
 	}
 	return status

@@ -85,12 +85,10 @@ var _ = Describe("TUF", func() {
 			Expect(fetched.Spec.Port).To(Equal(int32(80)))
 			Expect(fetched.Spec.Replicas).To(Equal(ptr.To(int32(1))))
 			Expect(fetched.Spec.RootKeySecretRef).To(Equal(&LocalObjectReference{Name: "tuf-root-keys"}))
-			Expect(fetched.Spec.Keys).To(ConsistOf(
-				TufKey{Name: "rekor.pub"},
-				TufKey{Name: "ctfe.pub"},
-				TufKey{Name: "fulcio_v1.crt.pem"},
-				TufKey{Name: "tsa.certchain.pem"},
-			))
+			Expect(fetched.Spec.Ctlog).To(BeEmpty())
+			Expect(fetched.Spec.Rekor).To(BeEmpty())
+			Expect(fetched.Spec.Fulcio).To(BeEmpty())
+			Expect(fetched.Spec.Tsa).To(BeNil())
 			Expect(fetched.Spec.Ingress.Enabled).To(Equal(ptr.To(false)))
 		})
 
@@ -111,39 +109,18 @@ var _ = Describe("TUF", func() {
 					To(MatchError(ContainSubstring("should be less than or equal to 65535")))
 			})
 
-			It("tuf key with unsupported name", func() {
-				invalidObject := generateMinimalTuf("unsupported-key")
-				invalidObject.Spec.Keys = []TufKey{
-					{
-						Name: "unsupported",
-						SecretRef: &SecretKeySelector{
-							LocalObjectReference: LocalObjectReference{
-								Name: "fake",
-							},
-							Key: "fake",
-						},
-					},
-				}
+			It("more than one ctlog binding is rejected", func() {
+				invalidObject := generateMinimalTuf("too-many-ctlog")
+				invalidObject.Spec.Ctlog = []TrustRootBinding{{}, {}}
 				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
 				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(And(ContainSubstring("Unsupported value:"), ContainSubstring("supported values: \"rekor.pub\", \"ctfe.pub\", \"fulcio_v1.crt.pem\", \"tsa.certchain.pem\""))))
-			})
-
-			It("duplicate key names are rejected", func() {
-				invalidObject := generateMinimalTuf("duplicate-key")
-				invalidObject.Spec.Keys = []TufKey{
-					{Name: "rekor.pub"},
-					{Name: "rekor.pub"},
-				}
-				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
-				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("Duplicate value")))
+					To(MatchError(ContainSubstring("Too many")))
 			})
 
 			When("service URL validation", func() {
 				It("rejects ctlog without scheme", func() {
 					obj := generateMinimalTuf("ctlog-no-scheme")
-					obj.Spec.Ctlog.URL = "ctlog:6963/path"
+					obj.Spec.Ctlog = []TrustRootBinding{{ServiceReference: ServiceReference{URL: "ctlog:6963/path"}}}
 					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), obj))).To(BeTrue())
 					Expect(k8sClient.Create(context.Background(), obj)).
 						To(MatchError(ContainSubstring("url must follow the pattern scheme://host[:port]/path")))
@@ -151,7 +128,7 @@ var _ = Describe("TUF", func() {
 
 				It("rejects ctlog without path", func() {
 					obj := generateMinimalTuf("ctlog-no-path")
-					obj.Spec.Ctlog.URL = "http://ctlog:6963"
+					obj.Spec.Ctlog = []TrustRootBinding{{ServiceReference: ServiceReference{URL: "http://ctlog:6963"}}}
 					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), obj))).To(BeTrue())
 					Expect(k8sClient.Create(context.Background(), obj)).
 						To(MatchError(ContainSubstring("url must follow the pattern scheme://host[:port]/path")))
@@ -159,13 +136,13 @@ var _ = Describe("TUF", func() {
 
 				It("accepts ctlog with scheme and path", func() {
 					obj := generateMinimalTuf("ctlog-valid")
-					obj.Spec.Ctlog.URL = "http://ctlog:6963/trusted-artifact-signer"
+					obj.Spec.Ctlog = []TrustRootBinding{{ServiceReference: ServiceReference{URL: "http://ctlog:6963/trusted-artifact-signer"}}}
 					Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
 				})
 
 				It("rejects fulcio without scheme", func() {
 					obj := generateMinimalTuf("fulcio-no-scheme")
-					obj.Spec.Fulcio.URL = "fulcio:5554"
+					obj.Spec.Fulcio = []TrustRootBindingWithOIDC{{TrustRootBinding: TrustRootBinding{ServiceReference: ServiceReference{URL: "fulcio:5554"}}}}
 					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), obj))).To(BeTrue())
 					Expect(k8sClient.Create(context.Background(), obj)).
 						To(MatchError(ContainSubstring("url must follow the pattern scheme://host[:port]")))
@@ -173,13 +150,13 @@ var _ = Describe("TUF", func() {
 
 				It("accepts fulcio with scheme", func() {
 					obj := generateMinimalTuf("fulcio-valid")
-					obj.Spec.Fulcio.URL = "http://fulcio:5554"
+					obj.Spec.Fulcio = []TrustRootBindingWithOIDC{{TrustRootBinding: TrustRootBinding{ServiceReference: ServiceReference{URL: "http://fulcio:5554"}}}}
 					Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
 				})
 
 				It("rejects rekor without scheme", func() {
 					obj := generateMinimalTuf("rekor-no-scheme")
-					obj.Spec.Rekor.URL = "rekor:3000"
+					obj.Spec.Rekor = []TrustRootBinding{{ServiceReference: ServiceReference{URL: "rekor:3000"}}}
 					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), obj))).To(BeTrue())
 					Expect(k8sClient.Create(context.Background(), obj)).
 						To(MatchError(ContainSubstring("url must follow the pattern scheme://host[:port]")))
@@ -187,13 +164,13 @@ var _ = Describe("TUF", func() {
 
 				It("accepts rekor with scheme", func() {
 					obj := generateMinimalTuf("rekor-valid")
-					obj.Spec.Rekor.URL = "http://rekor:3000"
+					obj.Spec.Rekor = []TrustRootBinding{{ServiceReference: ServiceReference{URL: "http://rekor:3000"}}}
 					Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
 				})
 
 				It("rejects tsa without scheme", func() {
 					obj := generateMinimalTuf("tsa-no-scheme")
-					obj.Spec.Tsa.URL = "tsa:3000"
+					obj.Spec.Tsa = &[]TrustRootBinding{{ServiceReference: ServiceReference{URL: "tsa:3000"}}}
 					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), obj))).To(BeTrue())
 					Expect(k8sClient.Create(context.Background(), obj)).
 						To(MatchError(ContainSubstring("url must follow the pattern scheme://host[:port]")))
@@ -201,19 +178,29 @@ var _ = Describe("TUF", func() {
 
 				It("accepts tsa with scheme", func() {
 					obj := generateMinimalTuf("tsa-valid")
-					obj.Spec.Tsa.URL = "http://tsa:3000"
+					obj.Spec.Tsa = &[]TrustRootBinding{{ServiceReference: ServiceReference{URL: "http://tsa:3000"}}}
 					Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+				})
+
+				It("accepts a nil tsa (excluded from the trust root)", func() {
+					obj := generateMinimalTuf("tsa-excluded")
+					obj.Spec.Tsa = nil
+					Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+
+					fetched := &Tuf{}
+					Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(obj), fetched)).To(Succeed())
+					Expect(fetched.Spec.Tsa).To(BeNil())
 				})
 
 				It("rejects fulcio oidc issuer without scheme", func() {
 					obj := generateMinimalTuf("oidc-no-scheme")
-					obj.Spec.Fulcio.OIDCIssuers = []string{"accounts.google.com"}
+					obj.Spec.Fulcio = []TrustRootBindingWithOIDC{{OIDCIssuers: []string{"accounts.google.com"}}}
 					Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), obj))).To(BeTrue())
 				})
 
 				It("accepts fulcio oidc issuer with scheme", func() {
 					obj := generateMinimalTuf("oidc-valid")
-					obj.Spec.Fulcio.OIDCIssuers = []string{"https://accounts.google.com"}
+					obj.Spec.Fulcio = []TrustRootBindingWithOIDC{{OIDCIssuers: []string{"https://accounts.google.com"}}}
 					Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
 				})
 			})
@@ -277,9 +264,8 @@ var _ = Describe("TUF", func() {
 							Enabled: ptr.To(true),
 							Host:    "hostname",
 						},
-						Keys: []TufKey{
+						Rekor: []TrustRootBinding{
 							{
-								Name: "rekor.pub",
 								SecretRef: &SecretKeySelector{
 									LocalObjectReference: LocalObjectReference{
 										Name: "object",

@@ -26,7 +26,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
-	ctlogutils "github.com/securesign/operator/internal/controller/ctlog/utils"
 	tlsensure "github.com/securesign/operator/internal/utils/tls/ensure"
 )
 
@@ -68,7 +67,13 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) 
 			ObservedGeneration: instance.Generation,
 		})
 	}
-	ctlogServerHost, err := serviceresolver.Resolve(instance)
+
+	// Deliberately not serviceresolver.Resolve/ResolveExternalServiceUrl like Rekor's monitor:
+	// unlike Rekor (which validates a signed checkpoint), this monitor compares the log URL
+	// byte-for-byte against the URL stored in TUF metadata, so it must dial the exact external
+	// URL once ingress is enabled. ResolveExternalServiceUrl requires CTlog.Ready, but this
+	// action runs before Ready (server and monitor share one CR), which would deadlock.
+	ctlogServerHost, err := actions.ResolveUrl(ctx, i.Client, instance)
 	if err != nil {
 		return i.Error(ctx, err, instance)
 	}
@@ -85,10 +90,9 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) 
 		i.ensureInitContainer(ctlogServerHost, tufServerHost),
 		ensure.ControllerReference[*v1.StatefulSet](instance, i.Client),
 		ensure.Labels[*v1.StatefulSet](slices.Collect(maps.Keys(labels)), labels),
-		ensure.Optional(
-			ctlogutils.TlsEnabled(instance),
-			i.ensureTLS(instance.Status.TLS, actions.MonitorStatefulSetName),
-		),
+		func(object *v1.StatefulSet) error {
+			return tlsensure.TrustedCA(instance.GetTrustedCA(), actions.MonitorStatefulSetName)(&object.Spec.Template)
+		},
 		func(object *v1.StatefulSet) error {
 			return ensure.PodSecurityContext(&object.Spec.Template.Spec)
 		},
@@ -118,18 +122,6 @@ func (i statefulSetAction) Handle(ctx context.Context, instance *rhtasv1.CTlog) 
 		}
 	}
 	return i.Continue()
-}
-
-func (i statefulSetAction) ensureTLS(tlsConfig rhtasv1.TLS, name string) func(sts *v1.StatefulSet) error {
-	return func(sts *v1.StatefulSet) error {
-		if err := tlsensure.TLS(tlsConfig, name)(&sts.Spec.Template); err != nil {
-			return err
-		}
-		container := kubernetes.FindContainerByNameOrCreate(&sts.Spec.Template.Spec, name)
-		sslEnv := kubernetes.FindEnvByNameOrCreate(container, "SSL_CERT_DIR")
-		sslEnv.Value = constants.SecretMountPath
-		return nil
-	}
 }
 
 func (i statefulSetAction) ensureMonitorStatefulSet(instance *rhtasv1.CTlog, sa string, labels map[string]string, ctlogServerHost string, tufServerHost string) func(*v1.StatefulSet) error {

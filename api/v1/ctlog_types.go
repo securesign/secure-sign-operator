@@ -41,6 +41,9 @@ type CTlogSpec struct {
 	// +listType=atomic
 	RootCertificates []SecretKeySelector `json:"rootCertificates,omitempty"`
 
+	// Define whether you want to export service or not
+	Ingress Ingress `json:"ingress,omitempty"`
+
 	//Enable Service monitors for ctlog
 	Monitoring MonitoringWithTLogConfig `json:"monitoring,omitempty"`
 

@@ -8,6 +8,7 @@ import (
 
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/tuf/constants"
+	"github.com/securesign/operator/internal/controller/tuf/trustroot"
 	"github.com/securesign/operator/internal/images"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	batchv1 "k8s.io/api/batch/v1"
@@ -25,40 +26,34 @@ func EnsureTufInitJob(ctx context.Context, c client.Client, instance *rhtasv1.Tu
 	return func(job *batchv1.Job) error {
 		// prepare args
 		args := []string{"--operator", constants.OperatorName, "--export-keys", instance.Spec.RootKeySecretRef.Name}
-		for _, key := range instance.Spec.Keys {
-			switch key.Name {
-			case rhtasv1.TufKeyRekor:
-				result, err := resolveServiceAddress(ctx, c, instance, key.Name)
-				if err != nil {
-					return err
-				}
-				args = append(args, "--rekor-uri", result.Address)
-				args = append(args, "--rekor-key", filepath.Join(secretsMonthPath, key.Name))
-			case rhtasv1.TufKeyCTFE:
-				result, err := resolveServiceAddress(ctx, c, instance, key.Name)
-				if err != nil {
-					return err
-				}
-				args = append(args, "--ctlog-uri", result.Address)
-				args = append(args, "--ctlog-key", filepath.Join(secretsMonthPath, key.Name))
-			case rhtasv1.TufKeyFulcio:
-				result, err := resolveServiceAddress(ctx, c, instance, key.Name)
-				if err != nil {
-					return err
-				}
-				args = append(args, "--fulcio-uri", result.Address)
-				for _, issuer := range result.OIDCIssuers {
+		for _, key := range trustroot.ActiveKeys(instance) {
+			var resolved trustroot.Resolved
+			var err error
+			if key == trustroot.Fulcio {
+				resolved, err = trustroot.ResolveFulcio(ctx, c, instance.Namespace, trustroot.FulcioBinding(instance))
+			} else {
+				resolved, err = trustroot.Resolve(ctx, c, instance.Namespace, key, trustroot.Binding(instance, key))
+			}
+			if err != nil {
+				return fmt.Errorf("%w: %w", ErrorResolveServiceUrl, err)
+			}
+
+			switch key {
+			case trustroot.Rekor:
+				args = append(args, "--rekor-uri", resolved.Address)
+				args = append(args, "--rekor-key", filepath.Join(secretsMonthPath, key.String()))
+			case trustroot.CTFE:
+				args = append(args, "--ctlog-uri", resolved.Address)
+				args = append(args, "--ctlog-key", filepath.Join(secretsMonthPath, key.String()))
+			case trustroot.Fulcio:
+				args = append(args, "--fulcio-uri", resolved.Address)
+				for _, issuer := range resolved.OIDCIssuers {
 					args = append(args, "--oidc-uri", issuer)
 				}
-				args = append(args, "--fulcio-cert", filepath.Join(secretsMonthPath, key.Name))
-
-			case rhtasv1.TufKeyTSA:
-				result, err := resolveServiceAddress(ctx, c, instance, key.Name)
-				if err != nil {
-					return err
-				}
-				args = append(args, "--tsa-uri", result.Address)
-				args = append(args, "--tsa-cert", filepath.Join(secretsMonthPath, key.Name))
+				args = append(args, "--fulcio-cert", filepath.Join(secretsMonthPath, key.String()))
+			case trustroot.TSA:
+				args = append(args, "--tsa-uri", resolved.Address)
+				args = append(args, "--tsa-cert", filepath.Join(secretsMonthPath, key.String()))
 			}
 		}
 		args = append(args, targetMonthPath)

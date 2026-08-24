@@ -15,12 +15,6 @@ func NewFIPSValidationAction() action.Action[*rhtasv1.TimestampAuthority] {
 		fipsutil.FIPSCondition,
 		ComponentName,
 		fipsAction.Wrapper(fipsAction.Config[*rhtasv1.TimestampAuthority]{
-			PasswordRef: func(i *rhtasv1.TimestampAuthority) *rhtasv1.SecretKeySelector {
-				if i.Spec.Signer.File != nil && i.Spec.Signer.File.PrivateKeyRef != nil {
-					return i.Spec.Signer.File.PasswordRef //nolint:staticcheck
-				}
-				return nil
-			},
 			CryptoMaterial: func(ctx context.Context, i *rhtasv1.TimestampAuthority, c client.Client) ([]fipsAction.CryptoRef, error) {
 				var refs []fipsAction.CryptoRef
 				if i.Spec.Signer.File != nil {

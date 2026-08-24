@@ -128,3 +128,13 @@ func TestEnsureIngressSpec(t *testing.T) {
 		})
 	}
 }
+
+func TestEnsureIngressTermination(t *testing.T) {
+	t.Parallel()
+	g := gomega.NewWithT(t)
+
+	ingress := &networkingv1.Ingress{}
+	g.Expect(EnsureIngressTermination("reencrypt")(ingress)).To(gomega.Succeed())
+	g.Expect(ingress.Annotations["route.openshift.io/termination"]).To(gomega.Equal("reencrypt"))
+	g.Expect(ingress.Spec.TLS).To(gomega.HaveLen(1))
+}

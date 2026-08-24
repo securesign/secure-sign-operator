@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
+	"github.com/securesign/operator/internal/controller/trillian/dbsecret"
 	utilconversion "github.com/securesign/operator/internal/conversion"
 	"github.com/securesign/operator/internal/migration"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -88,6 +89,7 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Spec.Ctlog.PodExtensions = restored.Spec.Ctlog.PodExtensions
 	dst.Spec.Ctlog.Auth = restored.Spec.Ctlog.Auth
+	dst.Spec.Ctlog.Ingress = restored.Spec.Ctlog.Ingress
 	dst.Spec.Rekor.ImagePullSecrets = restored.Spec.Rekor.ImagePullSecrets
 	dst.Spec.Rekor.Monitoring.ServiceMonitor = restored.Spec.Rekor.Monitoring.ServiceMonitor
 	dst.Spec.Rekor.PodExtensions = restored.Spec.Rekor.PodExtensions
@@ -100,25 +102,34 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Trillian.ImagePullSecrets = restored.Spec.Trillian.ImagePullSecrets
 	dst.Spec.Trillian.Monitoring.ServiceMonitor = restored.Spec.Trillian.Monitoring.ServiceMonitor
 	dst.Spec.Trillian.PodExtensions = restored.Spec.Trillian.PodExtensions
+	if src.Spec.Trillian.Db.DatabaseSecretRef != nil {
+		v1Ref := &rhtasv1.LocalObjectReference{Name: src.Spec.Trillian.Db.DatabaseSecretRef.Name}
+		auth := dbsecret.DbSecretToAuth(v1Ref)
+		if dst.Spec.Trillian.Auth == nil {
+			dst.Spec.Trillian.Auth = auth
+		} else {
+			dst.Spec.Trillian.Auth = mergeAuths(dst.Spec.Trillian.Auth, auth)
+		}
+	}
+
 	dst.Spec.Tuf.ImagePullSecrets = restored.Spec.Tuf.ImagePullSecrets
 	dst.Spec.Tuf.TrustedCA = restored.Spec.Tuf.TrustedCA
 	dst.Spec.Tuf.PodExtensions = restored.Spec.Tuf.PodExtensions
-	if dst.Spec.Tuf.Rekor.URL == "" {
-		dst.Spec.Tuf.Rekor.Ref = restored.Spec.Tuf.Rekor.Ref
+	restoreBindingRef(dst.Spec.Tuf.Rekor, restored.Spec.Tuf.Rekor)
+	if len(dst.Spec.Tuf.Fulcio) > 0 && len(restored.Spec.Tuf.Fulcio) > 0 {
+		if dst.Spec.Tuf.Fulcio[0].URL == "" {
+			dst.Spec.Tuf.Fulcio[0].Ref = restored.Spec.Tuf.Fulcio[0].Ref
+		}
+		dst.Spec.Tuf.Fulcio[0].OIDCIssuers = restored.Spec.Tuf.Fulcio[0].OIDCIssuers
 	}
-	if dst.Spec.Tuf.Fulcio.URL == "" {
-		dst.Spec.Tuf.Fulcio.Ref = restored.Spec.Tuf.Fulcio.Ref
-	}
-	dst.Spec.Tuf.Fulcio.OIDCIssuers = restored.Spec.Tuf.Fulcio.OIDCIssuers
 	// v1alpha1 inject prefix into URL - we need to restore empty URL to allow ref resolution
-	if restored.Spec.Tuf.Ctlog.URL == "" && dst.Spec.Tuf.Ctlog.URL == "///trusted-artifact-signer" { //nolint:goconst
-		dst.Spec.Tuf.Ctlog.URL = ""
+	if len(dst.Spec.Tuf.Ctlog) > 0 && len(restored.Spec.Tuf.Ctlog) > 0 &&
+		restored.Spec.Tuf.Ctlog[0].URL == "" && dst.Spec.Tuf.Ctlog[0].URL == "///trusted-artifact-signer" { //nolint:goconst
+		dst.Spec.Tuf.Ctlog[0].URL = ""
 	}
-	if dst.Spec.Tuf.Ctlog.URL == "" {
-		dst.Spec.Tuf.Ctlog.Ref = restored.Spec.Tuf.Ctlog.Ref
-	}
-	if dst.Spec.Tuf.Tsa.URL == "" {
-		dst.Spec.Tuf.Tsa.Ref = restored.Spec.Tuf.Tsa.Ref
+	restoreBindingRef(dst.Spec.Tuf.Ctlog, restored.Spec.Tuf.Ctlog)
+	if dst.Spec.Tuf.Tsa != nil && restored.Spec.Tuf.Tsa != nil {
+		restoreBindingRef(*dst.Spec.Tuf.Tsa, *restored.Spec.Tuf.Tsa)
 	}
 	if dst.Spec.TimestampAuthority != nil && restored.Spec.TimestampAuthority != nil {
 		dst.Spec.TimestampAuthority.ImagePullSecrets = restored.Spec.TimestampAuthority.ImagePullSecrets

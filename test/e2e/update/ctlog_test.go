@@ -151,18 +151,8 @@ var _ = Describe("CTlog update", Ordered, func() {
 		It("update TUF deployment", func(ctx SpecContext) {
 			Eventually(func(g Gomega) error {
 				g.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
-				s.Spec.Tuf.Keys = []rhtasv1.TufKey{
+				s.Spec.Tuf.Ctlog = []rhtasv1.TrustRootBinding{
 					{
-						Name: "rekor.pub",
-					},
-					{
-						Name: "fulcio_v1.crt.pem",
-					},
-					{
-						Name: "tsa.certchain.pem",
-					},
-					{
-						Name: "ctfe.pub",
 						SecretRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: "my-ctlog-secret",
@@ -177,7 +167,12 @@ var _ = Describe("CTlog update", Ordered, func() {
 				t := tuf.Get(ctx, cli, namespace.Name, s.Name)
 				return t.Status.Keys
 			}).Should(And(HaveLen(4), WithTransform(func(keys []rhtasv1.TufKeyStatus) string {
-				return keys[3].SecretRef.Name
+				for _, k := range keys {
+					if k.Name == rhtasv1.TufKeyCTFE {
+						return k.SecretRef.Name
+					}
+				}
+				return ""
 			}, Equal("my-ctlog-secret"))))
 			tuf.RefreshTufRepository(ctx, cli, namespace.Name, s.Name)
 		})
