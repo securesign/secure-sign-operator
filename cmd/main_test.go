@@ -193,3 +193,26 @@ func TestResolveClusterTLSProfile_NotFoundClassification(t *testing.T) {
 
 	g.Expect(apierrors.IsNotFound(err)).To(gomega.BeTrue())
 }
+
+// clusterEnforcesStrictTLS: StrictAllComponents (and any unrecognised value) is strict;
+// NoOpinion and LegacyAdheringComponentsOnly are not.
+func TestClusterEnforcesStrictTLS(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		policy configv1.TLSAdherencePolicy
+		want   bool
+	}{
+		{"StrictAllComponents is strict", configv1.TLSAdherencePolicyStrictAllComponents, true},
+		{"NoOpinion is not strict", configv1.TLSAdherencePolicyNoOpinion, false},
+		{"LegacyAdheringComponentsOnly is not strict", configv1.TLSAdherencePolicyLegacyAdheringComponentsOnly, false},
+		{"unrecognised value is treated as strict (fail-secure)", configv1.TLSAdherencePolicy("SomethingNew"), true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			g.Expect(clusterEnforcesStrictTLS(tt.policy)).To(gomega.Equal(tt.want))
+		})
+	}
+}

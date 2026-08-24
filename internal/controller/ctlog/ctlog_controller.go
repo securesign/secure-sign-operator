@@ -21,6 +21,7 @@ import (
 
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/tlsadherence"
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/action/trustmaterial"
 	"github.com/securesign/operator/internal/annotations"
@@ -113,6 +114,7 @@ func (r *ctlogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		actions.NewTlsAction(),
 
 		transitions.NewToCreatePhaseAction[*rhtasv1.CTlog](),
+		tlsadherence.NewAction[*rhtasv1.CTlog]("ctlog", tlsadherence.CanHonourClusterTLSProfile[*rhtasv1.CTlog]),
 
 		actions.NewHandleFulcioCertAction(),
 		actions.NewFIPSValidationAction(),

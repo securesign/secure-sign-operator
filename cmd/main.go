@@ -54,6 +54,7 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	v1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -197,6 +198,12 @@ func main() {
 		setupLog.Error(resolveErr, "unable to resolve cluster TLS security profile")
 		os.Exit(1)
 	}
+
+	// The cluster-wide TLS adherence policy is a floor for every managed component:
+	// a per-resource tlsAdherence annotation may match or tighten it but never relax
+	// it. Snapshot it once at startup; the SecurityProfileWatcher restarts the operator
+	// when it changes.
+	appconfig.ClusterTLSAdherenceStrict = clusterEnforcesStrictTLS(tlsAdherence)
 
 	tlsConfigFn, unsupportedCiphers := ostls.NewTLSConfigFromProfile(tlsProfileSpec)
 	if len(unsupportedCiphers) > 0 {
@@ -441,6 +448,23 @@ func resolveClusterTLSProfile(ctx context.Context, cli client.Client, openshift,
 
 	log.Info("cluster TLS security profile resolved")
 	return tlsProfileSpec, tlsAdherence, nil
+}
+
+// clusterEnforcesStrictTLS reports whether the cluster-wide TLS adherence policy
+// mandates that every component honour the cluster TLS security profile.
+//
+// StrictAllComponents is strict. NoOpinion and LegacyAdheringComponentsOnly are
+// not (this covers the common case where the field is absent or the TLSAdherence
+// feature gate is off, which FetchAPIServerTLSAdherencePolicy maps to NoOpinion).
+// Any other, unrecognised value of a present field is treated as strict, matching
+// the fail-secure guidance in openshift/api.
+func clusterEnforcesStrictTLS(policy configv1.TLSAdherencePolicy) bool {
+	switch policy {
+	case configv1.TLSAdherencePolicyNoOpinion, configv1.TLSAdherencePolicyLegacyAdheringComponentsOnly:
+		return false
+	default:
+		return true
+	}
 }
 
 func setupController(name string, constructor controller.Constructor, manager ctrl.Manager) {

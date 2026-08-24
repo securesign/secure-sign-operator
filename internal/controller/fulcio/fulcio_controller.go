@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/tlsadherence"
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/action/trustmaterial"
 	"github.com/securesign/operator/internal/annotations"
@@ -110,6 +111,7 @@ func (r *fulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		actions.NewFIPSValidationAction(),
 		actions.NewGenerateSignerAction(),
 		transitions.NewToCreatePhaseAction[*rhtasv1.Fulcio](),
+		tlsadherence.NewAction[*rhtasv1.Fulcio]("fulcio", tlsadherence.CanHonourClusterTLSProfile[*rhtasv1.Fulcio]),
 		actions.NewRBACAction(),
 		actions.NewServerConfigAction(),
 		actions.NewDeployAction(),

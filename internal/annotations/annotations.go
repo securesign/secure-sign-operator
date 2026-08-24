@@ -125,6 +125,52 @@
 //	  name: example
 //	  annotations:
 //	    rhtas.redhat.com/log-type: "dev"
+//
+// # Annotation: rhtas.redhat.com/tlsAdherence
+//
+// [TLSAdherence] controls whether the operator blocks or only warns when a
+// managed component cannot yet honour the cluster TLS security profile.
+//
+// This is an interim control. Once all upstream binaries honour the cluster
+// profile it will be deprecated and removed (see STORY-994).
+//
+// Supported values:
+//   - "legacy": deploy a non-compliant component and surface a Warning condition;
+//     do not block the rollout. This is the operator default when the cluster
+//     policy is not strict and the annotation is absent or empty.
+//   - "strict": block deployment of any component that cannot honour the cluster
+//     TLS profile, surfacing an error condition instead of rolling out.
+//
+// A component that can honour the profile is a no-op in either mode.
+//
+// This annotation only takes effect on clusters where the operator resolves and
+// enforces the cluster TLS security profile (OpenShift with resolution enabled).
+// On vanilla Kubernetes, or when cluster TLS profile resolution is disabled, the
+// annotation has no effect for any value: neither strict nor legacy sets a
+// condition or blocks, and the operator deploys exactly as it does today.
+//
+// Relationship to the cluster policy: the cluster-wide TLS adherence policy
+// (OpenShift APIServer spec.tlsAdherence) is a floor. This annotation may match
+// or tighten it but never relax it. When the cluster mandates StrictAllComponents,
+// setting this annotation to "legacy" is a configuration error and blocks the
+// rollout; an absent annotation inherits the cluster mandate (strict). When the
+// cluster policy is not strict (the common case, including clusters without the
+// TLSAdherence feature gate), this annotation is the operative control.
+//
+// Precedence: if set on the Securesign resource, this annotation is automatically
+// propagated to child resources and overwrites any value set directly on them.
+// Per-component overrides via this annotation are only effective on standalone
+// child CRs that are not managed by a Securesign parent.
+// ([github.com/securesign/operator/api/rhtasv1.Securesign])
+//
+// Example usage:
+//
+//	apiVersion: rhtas.redhat.com/v1alpha1
+//	kind: Securesign
+//	metadata:
+//	  name: example
+//	  annotations:
+//	    rhtas.redhat.com/tlsAdherence: "strict"
 package annotations
 
 const (
@@ -147,9 +193,14 @@ const (
 	// trust material change and accept the newly observed value.
 	RefreshTrustMaterial = "rhtas.redhat.com/refresh-trust-material"
 
+	// TLSAdherence defines the annotation key controlling whether the operator blocks
+	// ("strict") or only warns ("legacy", the default) when a component cannot yet
+	// honour the cluster TLS security profile.
+	TLSAdherence = "rhtas.redhat.com/tlsAdherence"
+
 	TLS = "service.beta.openshift.io/serving-cert-secret-name"
 )
 
 var InheritableAnnotations = []string{
-	TrustedCA, LogType, Godebug,
+	TrustedCA, LogType, Godebug, TLSAdherence,
 }

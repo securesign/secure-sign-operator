@@ -22,6 +22,7 @@ import (
 	olpredicate "github.com/operator-framework/operator-lib/predicate"
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/tlsadherence"
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller"
@@ -113,6 +114,7 @@ func (r *tufReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		actions.NewResolveKeysAction(),
 		actions.NewFIPSValidationAction(),
 		transitions.NewToCreatePhaseAction[*rhtasv1.Tuf](),
+		tlsadherence.NewAction[*rhtasv1.Tuf]("tuf", tlsadherence.CanHonourClusterTLSProfile[*rhtasv1.Tuf]),
 		actions.NewRBACInitJobAction(),
 		actions.NewRBACAction(),
 		actions.NewCreatePvcAction(),

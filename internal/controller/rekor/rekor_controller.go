@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/tlsadherence"
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/action/trustmaterial"
 	"github.com/securesign/operator/internal/annotations"
@@ -126,6 +127,7 @@ func (r *rekorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		server.NewGenerateSignerAction(),
 
 		transitions.NewToCreatePhaseAction[*rhtasv1.Rekor](),
+		tlsadherence.NewAction[*rhtasv1.Rekor]("rekor", tlsadherence.CanHonourClusterTLSProfile[*rhtasv1.Rekor]),
 
 		server.NewRBACAction(),
 		redis.NewRBACAction(),
