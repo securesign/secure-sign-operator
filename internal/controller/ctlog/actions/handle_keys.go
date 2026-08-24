@@ -236,7 +236,7 @@ func (g handleKeys) generateAndUploadSecret(ctx context.Context, instance *v1alp
 			Namespace:    instance.Namespace,
 		},
 	}
-	if _, err = kubernetes.CreateOrUpdate(ctx, g.Client,
+	if err = kubernetes.Create(ctx, g.Client,
 		secret,
 		ensure.ControllerReference[*v1.Secret](instance, g.Client),
 		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(componentLabels)), componentLabels),

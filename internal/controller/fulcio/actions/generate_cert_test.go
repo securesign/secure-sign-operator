@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 )
@@ -447,4 +448,43 @@ func TestGenerateCert_Handle(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGenerateCert_Handle_UncachedClientRejectsEmptyNameGet(t *testing.T) {
+	ctx := context.TODO()
+	g := NewWithT(t)
+
+	instance := &rhtasv1alpha1.Fulcio{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "instance",
+			Namespace: "default",
+		},
+		Spec: rhtasv1alpha1.FulcioSpec{
+			Certificate: rhtasv1alpha1.FulcioCert{
+				OrganizationName:  "RH",
+				OrganizationEmail: "jdoe@redhat.com",
+			},
+		},
+	}
+	instance.SetCondition(metav1.Condition{
+		Type:   constants.ReadyCondition,
+		Reason: state.Pending.String(),
+	})
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance).
+		WithStatusSubresource(instance).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, wrapped client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				if _, ok := obj.(*v1.Secret); ok && key.Name == "" {
+					return errors.NewBadRequest("resource name may not be empty")
+				}
+				return wrapped.Get(ctx, key, obj, opts...)
+			},
+		}).
+		Build()
+
+	a := testAction.PrepareAction(c, NewHandleCertAction())
+	g.Expect(a.Handle(ctx, instance)).To(Equal(testAction.StatusUpdate()))
+	g.Expect(meta.IsStatusConditionPresentAndEqual(instance.Status.Conditions, CertCondition, metav1.ConditionTrue)).To(BeTrue())
 }

@@ -15,10 +15,12 @@ import (
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -565,4 +567,41 @@ func TestKeys_Handle(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestKeys_Handle_UncachedClientRejectsEmptyNameGet(t *testing.T) {
+	g := NewWithT(t)
+	ctx := context.TODO()
+
+	instance := &v1alpha1.CTlog{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "instance",
+			Namespace: "default",
+		},
+	}
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:   constants.ReadyCondition,
+		Reason: state.Creating.String(),
+	})
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance).
+		WithStatusSubresource(instance).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, wrapped client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				if _, ok := obj.(*v1.Secret); ok && key.Name == "" {
+					return k8sErrors.NewBadRequest("resource name may not be empty")
+				}
+				return wrapped.Get(ctx, key, obj, opts...)
+			},
+		}).
+		Build()
+
+	a := testAction.PrepareAction(c, NewHandleKeysAction())
+	g.Expect(a.Handle(ctx, instance)).To(Equal(testAction.StatusUpdate()))
+
+	found := &v1alpha1.CTlog{}
+	g.Expect(c.Get(ctx, client.ObjectKeyFromObject(instance), found)).To(Succeed())
+	g.Expect(found.Status.PrivateKeyRef).To(Not(BeNil()))
+	g.Expect(found.Status.PublicKeyRef).To(Not(BeNil()))
 }

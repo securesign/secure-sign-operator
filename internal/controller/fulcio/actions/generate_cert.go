@@ -164,7 +164,7 @@ func (g handleCert) Handle(ctx context.Context, instance *v1alpha1.Fulcio) *acti
 			Namespace:    instance.Namespace,
 		},
 	}
-	if _, err = kubernetes.CreateOrUpdate(ctx, g.Client,
+	if err = kubernetes.Create(ctx, g.Client,
 		newCert,
 		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(componentLabels)), componentLabels),
 		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(keyLabels)), keyLabels),

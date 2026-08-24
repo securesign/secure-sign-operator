@@ -189,7 +189,7 @@ func (g generateSigner) Handle(ctx context.Context, instance *v1alpha1.Timestamp
 		},
 	}
 
-	if _, err = kubernetes.CreateOrUpdate(ctx, g.Client,
+	if err = kubernetes.Create(ctx, g.Client,
 		certificateChain,
 		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(componentLabels)), componentLabels),
 		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(certLabels)), certLabels),
