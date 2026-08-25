@@ -18,6 +18,7 @@ import (
 	v13 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -417,6 +418,128 @@ func TestAuthInjectionInFileMode(t *testing.T) {
 	g.Expect(authMount).ShouldNot(BeNil(), "auth mount should be present on main container")
 	g.Expect(authMount.MountPath).Should(Equal(ensure.AuthMountPath))
 	g.Expect(authMount.ReadOnly).Should(BeTrue())
+}
+
+func createPKCS11Instance() *rhtasv1.Fulcio {
+	return &rhtasv1.Fulcio{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "name",
+			Namespace: "default",
+		},
+		Spec: rhtasv1.FulcioSpec{
+			Signer: rhtasv1.FulcioSigner{
+				Type: rhtasv1.SignerTypePKCS11,
+				PKCS11: &rhtasv1.FulcioPKCS11Config{
+					KeyID: ptr.To(int64(1)),
+					ConfigRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "crypto11-config"},
+						Key:                  "config.json",
+					},
+				},
+				CertificateChain: rhtasv1.FulcioCertificateChain{
+					CertificateChainRef: &rhtasv1.SecretKeySelector{
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ca-cert"},
+						Key:                  "cert.pem",
+					},
+				},
+			},
+			Ctlog: rhtasv1.ServiceReference{
+				URL: "http://ctlog.default.svc/prefix",
+			},
+		},
+		Status: rhtasv1.FulcioStatus{
+			Conditions: []v1.Condition{
+				{
+					Type:   constants.ReadyCondition,
+					Status: v1.ConditionTrue,
+					Reason: state.Ready.String(),
+				},
+			},
+			ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "config"},
+			Certificate: &rhtasv1.FulcioCertStatus{
+				CARef: &rhtasv1.SecretKeySelector{
+					Key:                  "cert.pem",
+					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ca-cert"},
+				},
+			},
+		},
+	}
+}
+
+// TestFulcioPKCS11Deployment verifies that PKCS#11 mode sets up the expected
+// args, volumes, and mounts, and removes file-mode resources.
+func TestFulcioPKCS11Deployment(t *testing.T) {
+	g := NewWithT(t)
+
+	instance := createPKCS11Instance()
+	dp, err := handleDeployment(t, instance)
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp).ShouldNot(BeNil())
+
+	container := dp.Spec.Template.Spec.Containers[0]
+
+	// Verify --ca=pkcs11ca in args
+	g.Expect(container.Args).Should(ContainElement(Equal("--ca=pkcs11ca")))
+
+	// Verify --pkcs11-config-path arg
+	g.Expect(container.Args).Should(ContainElement(
+		Equal("--pkcs11-config-path=/var/run/pkcs11-config/config.json")))
+
+	// Verify --hsm-caroot-id arg
+	g.Expect(container.Args).Should(ContainElement(Equal("--hsm-caroot-id=1")))
+
+	// Verify pkcs11-config volume exists
+	pkcs11ConfigVol := findVolume(PKCS11ConfigVolumeName, dp.Spec.Template.Spec.Volumes)
+	g.Expect(pkcs11ConfigVol).ShouldNot(BeNil(), "pkcs11-config volume should be present")
+	g.Expect(pkcs11ConfigVol.Secret).ShouldNot(BeNil())
+	g.Expect(pkcs11ConfigVol.Secret.SecretName).Should(Equal("crypto11-config"))
+
+	// Verify fulcio-pkcs11-cert volume exists
+	pkcs11CertVol := findVolume(PKCS11CertVolumeName, dp.Spec.Template.Spec.Volumes)
+	g.Expect(pkcs11CertVol).ShouldNot(BeNil(), "fulcio-pkcs11-cert volume should be present")
+	g.Expect(pkcs11CertVol.Secret).ShouldNot(BeNil())
+	g.Expect(pkcs11CertVol.Secret.SecretName).Should(Equal("ca-cert"))
+
+	// Verify hsm-tokens volume exists
+	hsmTokensVol := findVolume(constants.HSMTokensVolumeName, dp.Spec.Template.Spec.Volumes)
+	g.Expect(hsmTokensVol).ShouldNot(BeNil(), "hsm-tokens volume should be present")
+	g.Expect(hsmTokensVol.EmptyDir).ShouldNot(BeNil())
+
+	// Verify hsm-lib volume exists
+	hsmLibVol := findVolume(constants.HSMLibVolumeName, dp.Spec.Template.Spec.Volumes)
+	g.Expect(hsmLibVol).ShouldNot(BeNil(), "hsm-lib volume should be present")
+	g.Expect(hsmLibVol.EmptyDir).ShouldNot(BeNil())
+
+	// Verify fulcio-cert volume does NOT exist (cleaned up from file mode)
+	g.Expect(findVolume("fulcio-cert", dp.Spec.Template.Spec.Volumes)).Should(BeNil(),
+		"fulcio-cert volume should not be present in PKCS#11 mode")
+}
+
+// TestFulcioPKCS11FileModeCleansUp verifies that when using file mode, the
+// PKCS#11-specific volumes are NOT present.
+func TestFulcioPKCS11FileModeCleansUp(t *testing.T) {
+	g := NewWithT(t)
+
+	instance := createInstance()
+	dp, err := handleDeployment(t, instance)
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp).ShouldNot(BeNil())
+
+	// Verify PKCS#11 volumes are NOT present
+	g.Expect(findVolume(PKCS11ConfigVolumeName, dp.Spec.Template.Spec.Volumes)).Should(BeNil(),
+		"pkcs11-config volume should not be present in file mode")
+	g.Expect(findVolume(PKCS11CertVolumeName, dp.Spec.Template.Spec.Volumes)).Should(BeNil(),
+		"fulcio-pkcs11-cert volume should not be present in file mode")
+	g.Expect(findVolume(constants.HSMTokensVolumeName, dp.Spec.Template.Spec.Volumes)).Should(BeNil(),
+		"hsm-tokens volume should not be present in file mode")
+	g.Expect(findVolume(constants.HSMLibVolumeName, dp.Spec.Template.Spec.Volumes)).Should(BeNil(),
+		"hsm-lib volume should not be present in file mode")
+
+	// Verify file-mode volumes ARE present
+	g.Expect(findVolume("fulcio-cert", dp.Spec.Template.Spec.Volumes)).ShouldNot(BeNil(),
+		"fulcio-cert volume should be present in file mode")
+	g.Expect(findVolume("fulcio-config", dp.Spec.Template.Spec.Volumes)).ShouldNot(BeNil(),
+		"fulcio-config volume should be present in file mode")
 }
 
 func TestDeployAction_Handle_RefCtlogAddress(t *testing.T) {

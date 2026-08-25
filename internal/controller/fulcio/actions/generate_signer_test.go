@@ -472,6 +472,36 @@ func TestFulcioCert_CanHandle_GenerationBump(t *testing.T) {
 	g.Expect(a.CanHandle(t.Context(), instance)).To(BeTrue())
 }
 
+func TestFulcioCert_PKCS11DisablesGenerateSigner(t *testing.T) {
+	g := NewWithT(t)
+	instance := fulcioInstance()
+	instance.Spec.Signer.Type = rhtasv1.SignerTypePKCS11
+
+	c := testAction.FakeClientBuilder().Build()
+	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	g.Expect(a.CanHandle(t.Context(), instance)).To(BeFalse())
+}
+
+func TestFulcioCert_FileModeEnablesGenerateSigner(t *testing.T) {
+	g := NewWithT(t)
+	instance := fulcioInstance()
+	instance.Spec.Signer.Type = rhtasv1.SignerTypeFile
+
+	c := testAction.FakeClientBuilder().Build()
+	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	g.Expect(a.CanHandle(t.Context(), instance)).To(BeTrue())
+}
+
+func TestFulcioCert_EmptyTypeEnablesGenerateSigner(t *testing.T) {
+	g := NewWithT(t)
+	instance := fulcioInstance()
+	instance.Spec.Signer.Type = ""
+
+	c := testAction.FakeClientBuilder().Build()
+	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	g.Expect(a.CanHandle(t.Context(), instance)).To(BeTrue())
+}
+
 func TestFulcioCert_UnencryptedKeyAllowedInFIPS(t *testing.T) {
 	g := NewWithT(t)
 	ctx := t.Context()
