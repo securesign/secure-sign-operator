@@ -54,6 +54,7 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	v1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -84,6 +85,11 @@ var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
+
+// openshiftClusterResourceName is the fixed name of cluster-scoped OpenShift
+// config resources (configv1.Ingress, configv1.APIServer) that the operator
+// is permitted to watch.
+const openshiftClusterResourceName = "cluster"
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -260,7 +266,7 @@ func main() {
 		// cluster-wide list is forbidden.
 		cacheOpts.ByObject[&configv1.Ingress{}] = cache.ByObject{
 			Field: fields.SelectorFromSet(fields.Set{
-				"metadata.name": "cluster",
+				"metadata.name": openshiftClusterResourceName,
 			}),
 		}
 		if !appconfig.DisableClusterTLSProfile {
@@ -269,7 +275,7 @@ func main() {
 			// full cluster-wide list would be forbidden.
 			cacheOpts.ByObject[&configv1.APIServer{}] = cache.ByObject{
 				Field: fields.SelectorFromSet(fields.Set{
-					"metadata.name": "cluster",
+					"metadata.name": openshiftClusterResourceName,
 				}),
 			}
 		}

@@ -4376,6 +4376,13 @@ spec:
                   ingress:
                     description: Define whether you want to export service or not
                     properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          Set annotations applied to the created Ingress resource. On OpenShift these propagate to the auto-generated Route.
+                          User-provided annotations override any operator-managed defaults (e.g. HAProxy rate-limiting).
+                        type: object
                       enabled:
                         description: |-
                           If set to true, the Operator will create a Kubernetes Ingress resource.
@@ -7257,6 +7264,13 @@ spec:
                   ingress:
                     description: Define whether you want to export service or not
                     properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          Set annotations applied to the created Ingress resource. On OpenShift these propagate to the auto-generated Route.
+                          User-provided annotations override any operator-managed defaults (e.g. HAProxy rate-limiting).
+                        type: object
                       enabled:
                         description: |-
                           If set to true, the Operator will create a Kubernetes Ingress resource.
@@ -14093,6 +14107,13 @@ spec:
                   ingress:
                     description: Define whether you want to export service or not
                     properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          Set annotations applied to the created Ingress resource. On OpenShift these propagate to the auto-generated Route.
+                          User-provided annotations override any operator-managed defaults (e.g. HAProxy rate-limiting).
+                        type: object
                       enabled:
                         description: |-
                           If set to true, the Operator will create a Kubernetes Ingress resource.
@@ -16960,6 +16981,13 @@ spec:
                   ingress:
                     description: Define whether you want to export service or not
                     properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          Set annotations applied to the created Ingress resource. On OpenShift these propagate to the auto-generated Route.
+                          User-provided annotations override any operator-managed defaults (e.g. HAProxy rate-limiting).
+                        type: object
                       enabled:
                         description: |-
                           If set to true, the Operator will create a Kubernetes Ingress resource.

@@ -148,6 +148,14 @@ const (
 	RefreshTrustMaterial = "rhtas.redhat.com/refresh-trust-material"
 
 	TLS = "service.beta.openshift.io/serving-cert-secret-name"
+
+	HaproxyRateLimitConnections   = "haproxy.router.openshift.io/rate-limit-connections"
+	HaproxyRateLimitConcurrentTCP = "haproxy.router.openshift.io/rate-limit-connections.concurrent-tcp"
+	HaproxyRateLimitRateHTTP      = "haproxy.router.openshift.io/rate-limit-connections.rate-http"
+	HaproxyRateLimitRateTCP       = "haproxy.router.openshift.io/rate-limit-connections.rate-tcp"
+	// HaproxyRateLimitConnectionsValue is the annotation value that enables
+	// HAProxy rate-limit-connections on an OpenShift Route.
+	HaproxyRateLimitConnectionsValue = "true"
 )
 
 var InheritableAnnotations = []string{
