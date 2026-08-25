@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/labels"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -63,10 +64,14 @@ func generateData(_ context.Context, _ *rhtasv1.CTlog, _ client.Client) (map[str
 }
 
 func alignStatus(instance *rhtasv1.CTlog, ref rhtasv1.SecretKeySelector) {
+	// Save existing status values before overwrite so we can preserve
+	// PrivateKeyPasswordRef for legacy encrypted-key deployments.
+	oldPasswordRef := instance.Status.PrivateKeyPasswordRef
+	oldPrivateKeyRef := instance.Status.PrivateKeyRef
+
 	file := instance.Spec.Signer.File
 	if file != nil && file.PrivateKeyRef != nil {
 		instance.Status.PrivateKeyRef = file.PrivateKeyRef
-		instance.Status.PrivateKeyPasswordRef = file.PrivateKeyPasswordRef //nolint:staticcheck
 
 		//TODO: Status.PublicKey resolver will be extracted to separate action.
 		if file.PublicKeyRef != nil {
@@ -86,6 +91,16 @@ func alignStatus(instance *rhtasv1.CTlog, ref rhtasv1.SecretKeySelector) {
 			Key:                  constants.KeyPublic,
 			LocalObjectReference: ref.LocalObjectReference,
 		}
+	}
+
+	// Backward compat: PrivateKeyPasswordRef was removed from spec but may still
+	// exist in status for deployments using legacy encrypted keys. Preserve it
+	// unless the key reference changed.
+	if oldPasswordRef != nil &&
+		equality.Semantic.DeepEqual(instance.Status.PrivateKeyRef, oldPrivateKeyRef) {
+		instance.Status.PrivateKeyPasswordRef = oldPasswordRef
+	} else {
+		instance.Status.PrivateKeyPasswordRef = nil
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{

@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"testing"
 
@@ -21,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func ctlogInstance() *rhtasv1.CTlog {
@@ -61,10 +59,6 @@ func TestCTlogKeys_UserProvidedKeyRef(t *testing.T) {
 			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
 			Key:                  "public",
 		},
-		PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{ //nolint:staticcheck
-			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
-			Key:                  "password",
-		},
 	}
 
 	userSecret := &corev1.Secret{
@@ -82,7 +76,6 @@ func TestCTlogKeys_UserProvidedKeyRef(t *testing.T) {
 	g.Expect(result).To(Equal(testAction.Return()))
 	g.Expect(instance.Status.PrivateKeyRef.Name).To(Equal("user-secret"))
 	g.Expect(instance.Status.PublicKeyRef.Name).To(Equal("user-secret"))
-	g.Expect(instance.Status.PrivateKeyPasswordRef.Name).To(Equal("user-secret")) //nolint:staticcheck
 	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, SignerCondition)).To(BeTrue())
 
 	// Config condition should be invalidated
@@ -209,39 +202,64 @@ func TestCTlogKeys_DeterministicName(t *testing.T) {
 	g.Expect(fmt.Sprintf(signerSecretNameFormat, "my-ctlog")).To(Equal("ctlog-keys-config-my-ctlog"))
 }
 
-func TestCTlogKeys_PasswordRefRejectedInFIPS(t *testing.T) {
+func TestCTlogKeys_AlignStatus_PreservesPrivateKeyPasswordRefWhenPrivateKeyRefUnchanged(t *testing.T) {
 	g := NewWithT(t)
-	ctx := t.Context()
-
-	original := fips.Enabled
-	fips.Enabled = func() bool { return true }
-	t.Cleanup(func() { fips.Enabled = original })
-
 	instance := ctlogInstance()
+
+	passwordRef := &rhtasv1.SecretKeySelector{
+		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "legacy-secret"},
+		Key:                  "password",
+	}
+	privateKeyRef := &rhtasv1.SecretKeySelector{
+		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
+		Key:                  "private",
+	}
+
+	instance.Status.PrivateKeyPasswordRef = passwordRef
+	instance.Status.PrivateKeyRef = privateKeyRef
+
+	// Spec points to the SAME key as status
 	instance.Spec.Signer.File = &rhtasv1.CTlogFile{
 		PrivateKeyRef: &rhtasv1.SecretKeySelector{
 			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
 			Key:                  "private",
 		},
-		PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{ //nolint:staticcheck
-			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-password"},
-			Key:                  "password",
+	}
+
+	alignStatus(instance, rhtasv1.SecretKeySelector{})
+
+	g.Expect(instance.Status.PrivateKeyPasswordRef).ToNot(BeNil())
+	g.Expect(instance.Status.PrivateKeyPasswordRef.Name).To(Equal("legacy-secret"))
+	g.Expect(instance.Status.PrivateKeyPasswordRef.Key).To(Equal("password"))
+}
+
+func TestCTlogKeys_AlignStatus_DropsPrivateKeyPasswordRefWhenPrivateKeyRefChanges(t *testing.T) {
+	g := NewWithT(t)
+	instance := ctlogInstance()
+
+	passwordRef := &rhtasv1.SecretKeySelector{
+		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "legacy-secret"},
+		Key:                  "password",
+	}
+	privateKeyRef := &rhtasv1.SecretKeySelector{
+		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old-secret"},
+		Key:                  "private",
+	}
+
+	instance.Status.PrivateKeyPasswordRef = passwordRef
+	instance.Status.PrivateKeyRef = privateKeyRef
+
+	// Spec points to a DIFFERENT key than status
+	instance.Spec.Signer.File = &rhtasv1.CTlogFile{
+		PrivateKeyRef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new-secret"},
+			Key:                  "private",
 		},
 	}
 
-	c := testAction.FakeClientBuilder().
-		WithObjects(instance).
-		WithStatusSubresource(instance).
-		Build()
+	alignStatus(instance, rhtasv1.SecretKeySelector{})
 
-	a := testAction.PrepareAction(c, NewFIPSValidationAction())
-	result := a.Handle(ctx, instance)
-
-	g.Expect(result.Err).To(HaveOccurred())
-	g.Expect(errors.Is(result.Err, reconcile.TerminalError(result.Err))).To(BeTrue())
-	g.Expect(result.Err.Error()).To(ContainSubstring("FIPS"))
-	cond := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
-	g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+	g.Expect(instance.Status.PrivateKeyPasswordRef).To(BeNil())
 }
 
 func TestCTlogKeys_UnencryptedKeyAllowedInFIPS(t *testing.T) {

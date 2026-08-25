@@ -304,7 +304,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			secretName := "new-ctlog"
-			newCtlConfig = ctlog.CreateSecret(namespace.Name, secretName, !fipsEnabled)
+			newCtlConfig = ctlog.CreateSecret(namespace.Name, secretName, false)
 
 			cfg := &configpb.LogMultiConfig{}
 			now := time.Now()
@@ -363,15 +363,6 @@ var _ = Describe("Key rotation test", Ordered, func() {
 						Name: secretName,
 					},
 					Key: "private",
-				}
-
-				if !fipsEnabled {
-					f.Spec.Ctlog.Signer.File.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: secretName,
-						},
-						Key: "password",
-					}
 				}
 
 				f.Spec.Ctlog.Signer.File.PublicKeyRef = &rhtasv1.SecretKeySelector{

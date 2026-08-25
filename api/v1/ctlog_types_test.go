@@ -114,20 +114,6 @@ var _ = Describe("CTlog", func() {
 					To(MatchError(ContainSubstring("privateKeyRef cannot be empty")))
 			})
 
-			It("privateKeyPasswordRef requires privateKeyRef", func() {
-				invalidObject := generateMinimalCTlog("private-key-password-invalid")
-				invalidObject.Spec.Signer.File = &CTlogFile{
-					PrivateKeyPasswordRef: &SecretKeySelector{
-						Key:                  "key",
-						LocalObjectReference: LocalObjectReference{Name: "name"},
-					},
-				}
-
-				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), invalidObject))).To(BeTrue())
-				Expect(k8sClient.Create(context.Background(), invalidObject)).
-					To(MatchError(ContainSubstring("privateKeyRef cannot be empty")))
-			})
-
 			When("replicas", func() {
 				It("nil", func() {
 					validObject := generateMinimalCTlog("replicas-nil")
@@ -177,12 +163,6 @@ var _ = Describe("CTlog", func() {
 									},
 								},
 								PrivateKeyRef: &SecretKeySelector{
-									Key: "key",
-									LocalObjectReference: LocalObjectReference{
-										Name: "name",
-									},
-								},
-								PrivateKeyPasswordRef: &SecretKeySelector{
 									Key: "key",
 									LocalObjectReference: LocalObjectReference{
 										Name: "name",
