@@ -16,6 +16,7 @@ import (
 	"github.com/securesign/operator/internal/utils"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -90,13 +91,6 @@ func generateData(ctx context.Context, instance *rhtasv1.Fulcio, c client.Client
 	}
 
 	file := instance.Spec.Signer.File
-	if file != nil && file.PrivateKeyPasswordRef != nil { //nolint:staticcheck
-		password, err := kubernetes.GetSecretData(ctx, c, instance.Namespace, file.PrivateKeyPasswordRef) //nolint:staticcheck
-		if err != nil {
-			return nil, err
-		}
-		config.PrivateKeyPassword = password
-	}
 	if file != nil && file.PrivateKeyRef != nil {
 		key, err := kubernetes.GetSecretData(ctx, c, instance.Namespace, file.PrivateKeyRef)
 		if err != nil {
@@ -143,6 +137,13 @@ func alignStatus(instance *rhtasv1.Fulcio, ref rhtasv1.SecretKeySelector) {
 	if instance.Status.Certificate == nil {
 		instance.Status.Certificate = &rhtasv1.FulcioCertStatus{}
 	}
+
+	// Snapshot fields that may be overwritten by the rebuild below.
+	// PrivateKeyPasswordRef is deprecated and ignored by the controller but may
+	// still exist in status for deployments created with legacy encrypted keys.
+	oldPrivateKeyRef := instance.Status.Certificate.PrivateKeyRef.DeepCopy()
+	oldPasswordRef := instance.Status.Certificate.PrivateKeyPasswordRef.DeepCopy() //nolint:staticcheck
+
 	file := instance.Spec.Signer.File
 	if file != nil && file.PrivateKeyRef != nil {
 		instance.Status.Certificate.PrivateKeyRef = file.PrivateKeyRef.DeepCopy()
@@ -152,9 +153,6 @@ func alignStatus(instance *rhtasv1.Fulcio, ref rhtasv1.SecretKeySelector) {
 			LocalObjectReference: ref.LocalObjectReference,
 		}
 	}
-	if file != nil && file.PrivateKeyPasswordRef != nil { //nolint:staticcheck
-		instance.Status.Certificate.PrivateKeyPasswordRef = file.PrivateKeyPasswordRef.DeepCopy() //nolint:staticcheck
-	}
 	if instance.Spec.Signer.CertificateChain.CertificateChainRef != nil {
 		instance.Status.Certificate.CARef = instance.Spec.Signer.CertificateChain.CertificateChainRef.DeepCopy()
 	} else {
@@ -162,6 +160,15 @@ func alignStatus(instance *rhtasv1.Fulcio, ref rhtasv1.SecretKeySelector) {
 			Key:                  constants.KeyCert,
 			LocalObjectReference: ref.LocalObjectReference,
 		}
+	}
+
+	// Backward compat: preserve the legacy PasswordRef when the private key
+	// reference has not changed (i.e. no key rotation happened).
+	if oldPasswordRef != nil &&
+		equality.Semantic.DeepEqual(instance.Status.Certificate.PrivateKeyRef, oldPrivateKeyRef) {
+		instance.Status.Certificate.PrivateKeyPasswordRef = oldPasswordRef //nolint:staticcheck
+	} else {
+		instance.Status.Certificate.PrivateKeyPasswordRef = nil //nolint:staticcheck
 	}
 }
 

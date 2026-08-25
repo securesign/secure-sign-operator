@@ -212,12 +212,6 @@ func WithProvidedEncryptedCerts() Opts {
 					},
 					Key: "private",
 				},
-				PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: "my-fulcio-secret",
-					},
-					Key: "password",
-				},
 			},
 			CertificateChain: rhtasv1.FulcioCertificateChain{
 				CertificateChainRef: &rhtasv1.SecretKeySelector{

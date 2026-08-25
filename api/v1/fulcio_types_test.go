@@ -274,8 +274,7 @@ var _ = Describe("Fulcio", func() {
 								CertificateChainRef: &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
 							},
 							File: &FulcioFile{
-								PrivateKeyRef:         &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
-								PrivateKeyPasswordRef: &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
+								PrivateKeyRef: &SecretKeySelector{Key: "key", LocalObjectReference: LocalObjectReference{Name: "name"}},
 							},
 						},
 						Ctlog: ServiceReference{

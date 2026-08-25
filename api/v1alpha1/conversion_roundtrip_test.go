@@ -321,6 +321,17 @@ func rekorFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	}
 }
 
+// fulcioCertFuzzerFuncs clears FulcioCert.PrivateKeyPasswordRef which was removed
+// from the v1 spec (FulcioFile) and has no roundtrip path through FulcioSigner.
+func fulcioCertFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
+	return []interface{}{
+		func(f *FulcioCert, c randfill.Continue) {
+			c.FillNoCustom(f)
+			f.PrivateKeyPasswordRef = nil
+		},
+	}
+}
+
 // fulcioFuzzerFuncs constrains Fulcio spec so Ctlog ServiceReference uses HTTP URLs.
 func fulcioFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
@@ -558,6 +569,7 @@ func TestSecuresignConversion(t *testing.T) {
 			ctlogServiceFuzzerFuncs,
 			rekorServiceFuzzerFuncs,
 			fulcioServiceFuzzerFuncs,
+			fulcioCertFuzzerFuncs,
 			tsaServiceFuzzerFuncs,
 			tufServiceFuzzerFuncs,
 			tufKeysFuzzerFuncs,
@@ -612,6 +624,7 @@ func TestFulcioConversion(t *testing.T) {
 		Spoke:  &Fulcio{},
 		FuzzerFuncs: []fuzzer.FuzzerFuncs{
 			fulcioFuzzerFuncs,
+			fulcioCertFuzzerFuncs,
 			fulcioStatusFuzzerFuncs,
 			ctlogServiceFuzzerFuncs,
 			podExtensionsFuzzerFuncs,

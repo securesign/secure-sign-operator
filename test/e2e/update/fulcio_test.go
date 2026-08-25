@@ -111,14 +111,6 @@ var _ = Describe("Fulcio update", Ordered, func() {
 						},
 					},
 				}
-				if !fipsEnabled {
-					signer.File.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "my-fulcio-secret",
-						},
-						Key: "password",
-					}
-				}
 				s.Spec.Fulcio.Signer = signer
 				return cli.Update(ctx, s)
 			}).Should(Succeed())
@@ -135,7 +127,7 @@ var _ = Describe("Fulcio update", Ordered, func() {
 		})
 
 		It("created my-fulcio-secret", func(ctx SpecContext) {
-			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret", !fipsEnabled))).Should(Succeed())
+			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret", false))).Should(Succeed())
 		})
 
 		It("acknowledges the trust material drift", func(ctx SpecContext) {
