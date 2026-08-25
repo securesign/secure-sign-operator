@@ -25,8 +25,6 @@ import (
 	"time"
 
 	"github.com/securesign/operator/internal/constants"
-	"github.com/securesign/operator/internal/labels"
-	"github.com/securesign/operator/internal/state"
 	httpmock "github.com/securesign/operator/internal/testing/http"
 	k8sTest "github.com/securesign/operator/internal/testing/kubernetes"
 	httputils "github.com/securesign/operator/internal/utils/http"
@@ -163,14 +161,6 @@ var _ = Describe("Fulcio controller", func() {
 								OrganizationEmail: "my@email.com",
 								CommonName:        "local",
 							},
-							File: &rhtasv1.FulcioFile{
-								PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
-									LocalObjectReference: rhtasv1.LocalObjectReference{
-										Name: "password-secret",
-									},
-									Key: "password",
-								},
-							},
 						},
 						Monitoring: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						TrustedCA: &rhtasv1.LocalObjectReference{
@@ -194,27 +184,6 @@ var _ = Describe("Fulcio controller", func() {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return meta.IsStatusConditionPresentAndEqual(found.Status.Conditions, constants.ReadyCondition, metav1.ConditionFalse)
 			}).WithContext(ctx).Should(BeTrue())
-
-			By("Pending phase until password key is resolved")
-			Eventually(func(g Gomega, ctx context.Context) string {
-				found := &rhtasv1.Fulcio{}
-				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				cond := meta.FindStatusCondition(found.Status.Conditions, constants.ReadyCondition)
-				g.Expect(cond).ToNot(BeNil())
-				return cond.Reason
-			}).WithContext(ctx).Should(Equal(state.Pending.String()))
-
-			By("Creating password secret with cert password")
-			Expect(suite.Client().Create(ctx, &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "password-secret",
-					Namespace: typeNamespaceName.Namespace,
-					Labels:    labels.ForComponent(actions.ComponentName, instance.Name),
-				},
-				Data: map[string][]byte{
-					"password": []byte("secret"),
-				},
-			})).To(Succeed())
 
 			By("Creating CTlog CR (referenced by ServiceReference)")
 			ctlog := &rhtasv1.CTlog{
@@ -255,11 +224,6 @@ var _ = Describe("Fulcio controller", func() {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
 				return found.Status.Certificate.PrivateKeyRef.Name
 			}).WithContext(ctx).Should(Equal(certSecret.Name))
-			Eventually(func(g Gomega, ctx context.Context) string {
-				found := &rhtasv1.Fulcio{}
-				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				return found.Status.Certificate.PrivateKeyPasswordRef.Name
-			}).WithContext(ctx).Should(Equal("password-secret"))
 
 			Expect(certSecret.Data).To(And(HaveKey("private"), HaveKey("cert")))
 

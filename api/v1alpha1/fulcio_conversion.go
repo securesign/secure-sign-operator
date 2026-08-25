@@ -43,19 +43,11 @@ func Convert_v1alpha1_FulcioCert_To_v1_FulcioSigner(in *FulcioCert, out *rhtasv1
 			return err
 		}
 	}
-	if in.PrivateKeyRef != nil || in.PrivateKeyPasswordRef != nil { //nolint:staticcheck
+	if in.PrivateKeyRef != nil {
 		out.File = &rhtasv1.FulcioFile{}
-		if in.PrivateKeyRef != nil {
-			out.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{}
-			if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.PrivateKeyRef, out.File.PrivateKeyRef, s); err != nil {
-				return err
-			}
-		}
-		if in.PrivateKeyPasswordRef != nil { //nolint:staticcheck
-			out.File.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{}                                                                                   //nolint:staticcheck
-			if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.PrivateKeyPasswordRef, out.File.PrivateKeyPasswordRef, s); err != nil { //nolint:staticcheck
-				return err
-			}
+		out.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{}
+		if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.PrivateKeyRef, out.File.PrivateKeyRef, s); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -75,12 +67,6 @@ func Convert_v1_FulcioSigner_To_v1alpha1_FulcioCert(in *rhtasv1.FulcioSigner, ou
 		if in.File.PrivateKeyRef != nil {
 			out.PrivateKeyRef = &SecretKeySelector{}
 			if err := Convert_v1_SecretKeySelector_To_v1alpha1_SecretKeySelector(in.File.PrivateKeyRef, out.PrivateKeyRef, s); err != nil {
-				return err
-			}
-		}
-		if in.File.PrivateKeyPasswordRef != nil { //nolint:staticcheck
-			out.PrivateKeyPasswordRef = &SecretKeySelector{}                                                                                                //nolint:staticcheck
-			if err := Convert_v1_SecretKeySelector_To_v1alpha1_SecretKeySelector(in.File.PrivateKeyPasswordRef, out.PrivateKeyPasswordRef, s); err != nil { //nolint:staticcheck
 				return err
 			}
 		}

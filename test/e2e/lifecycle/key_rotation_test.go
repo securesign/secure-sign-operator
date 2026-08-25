@@ -123,7 +123,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 
 		It("Update fulcio cert", func(ctx SpecContext) {
 			secretName := "new-fulcio-cert"
-			newFulcioCert = fulcio.CreateSecret(namespace.Name, secretName, !fipsEnabled)
+			newFulcioCert = fulcio.CreateSecret(namespace.Name, secretName, false)
 			Expect(cli.Create(ctx, newFulcioCert)).To(Succeed())
 
 			Eventually(func() error {
@@ -137,15 +137,6 @@ var _ = Describe("Key rotation test", Ordered, func() {
 						Name: secretName,
 					},
 					Key: "private",
-				}
-
-				if !fipsEnabled {
-					f.Spec.Fulcio.Signer.File.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{ //nolint:staticcheck
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: secretName,
-						},
-						Key: "password",
-					}
 				}
 
 				f.Spec.Fulcio.Signer.CertificateChain.CertificateChainRef = &rhtasv1.SecretKeySelector{

@@ -20,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func fulcioInstance() *rhtasv1.Fulcio {
@@ -323,6 +322,82 @@ func TestFulcioCert_MigrationPreservesPasswordRef(t *testing.T) {
 	g.Expect(instance.Status.Certificate.PrivateKeyPasswordRef.Key).To(Equal(constants.KeyPassword))         //nolint:staticcheck
 }
 
+func TestFulcioCert_AlignStatusPreservesPasswordRefWhenKeyUnchanged(t *testing.T) {
+	g := NewWithT(t)
+	instance := fulcioInstance()
+	instance.Spec.Signer = rhtasv1.FulcioSigner{
+		Type: "file",
+		File: &rhtasv1.FulcioFile{
+			PrivateKeyRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "same-key-secret"},
+				Key:                  "private",
+			},
+		},
+	}
+	instance.Status.Certificate = &rhtasv1.FulcioCertStatus{
+		PrivateKeyRef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "same-key-secret"},
+			Key:                  "private",
+		},
+		PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "same-key-secret"},
+			Key:                  constants.KeyPassword,
+		},
+		CARef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ca-secret"},
+			Key:                  constants.KeyCert,
+		},
+	}
+
+	ref := rhtasv1.SecretKeySelector{
+		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ca-secret"},
+		Key:                  constants.KeyCert,
+	}
+	alignStatus(instance, ref)
+
+	g.Expect(instance.Status.Certificate.PrivateKeyPasswordRef).ToNot(BeNil())                       //nolint:staticcheck
+	g.Expect(instance.Status.Certificate.PrivateKeyPasswordRef.Name).To(Equal("same-key-secret"))    //nolint:staticcheck
+	g.Expect(instance.Status.Certificate.PrivateKeyPasswordRef.Key).To(Equal(constants.KeyPassword)) //nolint:staticcheck
+	g.Expect(instance.Status.Certificate.PrivateKeyRef.Name).To(Equal("same-key-secret"))
+}
+
+func TestFulcioCert_AlignStatusDropsPasswordRefWhenKeyChanges(t *testing.T) {
+	g := NewWithT(t)
+	instance := fulcioInstance()
+	instance.Spec.Signer = rhtasv1.FulcioSigner{
+		Type: "file",
+		File: &rhtasv1.FulcioFile{
+			PrivateKeyRef: &rhtasv1.SecretKeySelector{
+				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new-key-secret"},
+				Key:                  "private",
+			},
+		},
+	}
+	instance.Status.Certificate = &rhtasv1.FulcioCertStatus{
+		PrivateKeyRef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old-key-secret"},
+			Key:                  "private",
+		},
+		PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{ //nolint:staticcheck
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "old-key-secret"},
+			Key:                  constants.KeyPassword,
+		},
+		CARef: &rhtasv1.SecretKeySelector{
+			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ca-secret"},
+			Key:                  constants.KeyCert,
+		},
+	}
+
+	ref := rhtasv1.SecretKeySelector{
+		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ca-secret"},
+		Key:                  constants.KeyCert,
+	}
+	alignStatus(instance, ref)
+
+	g.Expect(instance.Status.Certificate.PrivateKeyPasswordRef).To(BeNil()) //nolint:staticcheck
+	g.Expect(instance.Status.Certificate.PrivateKeyRef.Name).To(Equal("new-key-secret"))
+}
+
 func TestFulcioCert_DeterministicName(t *testing.T) {
 	g := NewWithT(t)
 	g.Expect(fmt.Sprintf(certSecretNameFormat, "my-fulcio")).To(Equal("fulcio-cert-config-my-fulcio"))
@@ -395,50 +470,6 @@ func TestFulcioCert_CanHandle_GenerationBump(t *testing.T) {
 	c := testAction.FakeClientBuilder().Build()
 	a := testAction.PrepareAction(c, NewGenerateSignerAction())
 	g.Expect(a.CanHandle(t.Context(), instance)).To(BeTrue())
-}
-
-func TestFulcioCert_PasswordRefRejectedInFIPS(t *testing.T) {
-	g := NewWithT(t)
-	ctx := t.Context()
-
-	original := fips.Enabled
-	fips.Enabled = func() bool { return true }
-	t.Cleanup(func() { fips.Enabled = original })
-
-	instance := fulcioInstance()
-	instance.Spec.Signer = rhtasv1.FulcioSigner{
-		Type: "file",
-		File: &rhtasv1.FulcioFile{
-			PrivateKeyRef: &rhtasv1.SecretKeySelector{
-				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-private"},
-				Key:                  "private",
-			},
-			PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{ //nolint:staticcheck
-				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-password"},
-				Key:                  "password",
-			},
-		},
-		CertificateChain: rhtasv1.FulcioCertificateChain{
-			CertificateChainRef: &rhtasv1.SecretKeySelector{
-				LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-cert"},
-				Key:                  "cert",
-			},
-		},
-	}
-
-	c := testAction.FakeClientBuilder().
-		WithObjects(instance).
-		WithStatusSubresource(instance).
-		Build()
-
-	a := testAction.PrepareAction(c, NewFIPSValidationAction())
-	result := a.Handle(ctx, instance)
-
-	g.Expect(result.Err).To(HaveOccurred())
-	g.Expect(errors.Is(result.Err, reconcile.TerminalError(result.Err))).To(BeTrue())
-	g.Expect(result.Err.Error()).To(ContainSubstring("FIPS"))
-	cond := meta.FindStatusCondition(instance.Status.Conditions, constants.ReadyCondition)
-	g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 }
 
 func TestFulcioCert_UnencryptedKeyAllowedInFIPS(t *testing.T) {

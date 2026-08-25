@@ -63,12 +63,6 @@ type FulcioFile struct {
 	// Reference to CA private key
 	//+optional
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
-	// Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
-	// and not FIPS-compliant. Auto-generated keys are no longer password-encrypted;
-	// this field is retained only for backward compatibility with existing user-provided
-	// encrypted keys. Kubernetes Secrets provide encryption-at-rest.
-	// +optional
-	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
 }
 
 // FulcioCertificateChain defines the certificate chain configuration for Fulcio CA
