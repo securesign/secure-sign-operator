@@ -287,6 +287,8 @@ func securesignFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			c.FillNoCustom(s)
 			// PrivateKeyPasswordRef was removed from v1 spec; it has no roundtrip path.
 			s.Spec.Ctlog.PrivateKeyPasswordRef = nil
+			// ServerConfigRef is deprecated in favor of spec.sharding; it has no roundtrip path.
+			s.Spec.Ctlog.ServerConfigRef = nil
 		},
 	}
 }
@@ -310,6 +312,12 @@ func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			s.Status.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
 			// PrivateKeyPasswordRef was removed from v1 spec; it has no roundtrip path.
 			s.Spec.PrivateKeyPasswordRef = nil
+			// ServerConfigRef is deprecated in favor of spec.sharding; it has no roundtrip path.
+			s.Spec.ServerConfigRef = nil
+			// PrivateKeyPasswordRef in status was also removed from v1; clear it so it roundtrips.
+			s.Status.PrivateKeyPasswordRef = nil
+			// ServerConfigRef in status is also deprecated.
+			s.Status.ServerConfigRef = nil
 		},
 	}
 }
