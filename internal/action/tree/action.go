@@ -58,18 +58,9 @@ func (i resolveTree[T]) CanHandle(ctx context.Context, instance T) bool {
 
 	switch {
 	case wrapped.GetStatusTreeID() == nil:
-		// If an explicit TreeID is specified in spec, use it instead of creating new
-		if wrapped.GetTreeID() != nil && *wrapped.GetTreeID() != int64(0) {
-			return true
-		}
-		// Otherwise create a new tree
 		return true
 	case wrapped.GetTreeID() != nil:
-		// If both spec and status TreeID are set but differ, align status to spec
-		if !equality.Semantic.DeepEqual(wrapped.GetTreeID(), wrapped.GetStatusTreeID()) {
-			return true
-		}
-		return false
+		return !equality.Semantic.DeepEqual(wrapped.GetTreeID(), wrapped.GetStatusTreeID())
 	default:
 		return !meta.IsStatusConditionTrue(instance.GetConditions(), JobCondition)
 	}
