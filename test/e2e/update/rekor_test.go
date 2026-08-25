@@ -107,7 +107,7 @@ var _ = Describe("Rekor update", Ordered, func() {
 		})
 
 		It("created my-rekor-secret", func(ctx SpecContext) {
-			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret", false))).Should(Succeed())
+			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret"))).Should(Succeed())
 		})
 
 		It("acknowledges the trust material drift", func(ctx SpecContext) {

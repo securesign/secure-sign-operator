@@ -127,7 +127,7 @@ var _ = Describe("Fulcio update", Ordered, func() {
 		})
 
 		It("created my-fulcio-secret", func(ctx SpecContext) {
-			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret", false))).Should(Succeed())
+			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret"))).Should(Succeed())
 		})
 
 		It("acknowledges the trust material drift", func(ctx SpecContext) {
