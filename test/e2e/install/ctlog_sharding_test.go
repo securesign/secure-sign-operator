@@ -209,16 +209,16 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 				// Add sharding configuration
 				s.Spec.Ctlog.Sharding = []rhtasv1.CTlogLogRange{
 					{
-						TreeID:     *oldTreeId,
-						TreeLength: 0, // Will be updated during deployment
-						Type:       "file",
-						PublicKeyRef: rhtasv1.SecretKeySelector{
+						TreeID: *oldTreeId,
+						Type:   "file",
+						Prefix: "shard-0",
+						PublicKeyRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: secretName,
 							},
 							Key: "public-0",
 						},
-						PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						PrivateKeyRef: rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: secretName,
 							},
@@ -299,7 +299,7 @@ func createTree(namespace, displayName string) *v1.Pod {
 			Containers: []v1.Container{
 				{
 					Name:    "createtree",
-					Image:   images.TrillianCreateTree.String(),
+					Image:   images.Registry.Get(images.TrillianCreateTree),
 					Command: []string{"createtree"},
 					Args:    args,
 					SecurityContext: &v1.SecurityContext{

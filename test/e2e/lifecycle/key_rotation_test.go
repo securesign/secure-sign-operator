@@ -340,10 +340,6 @@ var _ = Describe("Key rotation test", Ordered, func() {
 
 			Eventually(func() error {
 				f := securesign.Get(ctx, cli, s.Namespace, s.Name)
-				f.Spec.Ctlog.ServerConfigRef = &rhtasv1.LocalObjectReference{
-					Name: secretName,
-				}
-
 				f.Spec.Ctlog.TreeID = &newTreeId
 
 				if f.Spec.Ctlog.Signer.File == nil {
