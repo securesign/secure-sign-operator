@@ -114,20 +114,20 @@ func PrepareImage(ctx context.Context) string {
 		panic(err.Error())
 	}
 
-	// Use hardcoded quay credentials if available, otherwise fall back to default keychain
-	var auth authn.Authenticator
 	quayUsername := os.Getenv("QUAY_USERNAME")
 	quayPassword := os.Getenv("QUAY_PASSWORD")
+
+	var pusherOpt remote.Option
 	if quayUsername != "" && quayPassword != "" {
-		auth = &authn.Basic{
+		pusherOpt = remote.WithAuth(&authn.Basic{
 			Username: quayUsername,
 			Password: quayPassword,
-		}
+		})
 	} else {
-		auth = authn.DefaultKeychain
+		pusherOpt = remote.WithAuthFromKeychain(authn.DefaultKeychain)
 	}
 
-	pusher, err := remote.NewPusher(remote.WithAuth(auth))
+	pusher, err := remote.NewPusher(pusherOpt)
 	if err != nil {
 		panic(err.Error())
 	}
