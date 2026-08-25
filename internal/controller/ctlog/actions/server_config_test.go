@@ -473,11 +473,15 @@ func TestServerConfig_Handle(t *testing.T) {
 					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 					Sharding: []rhtasv1.CTlogLogRange{
 						{
-							TreeID:     111111,
-							TreeLength: 50,
-							PublicKeyRef: rhtasv1.SecretKeySelector{
+							TreeID: 111111,
+							Prefix: "shard-111111",
+							PublicKeyRef: &rhtasv1.SecretKeySelector{
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
 								Key:                  "public",
+							},
+							PrivateKeyRef: rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+								Key:                  "private",
 							},
 						},
 					},
@@ -498,7 +502,7 @@ func TestServerConfig_Handle(t *testing.T) {
 					},
 					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{Name: "shard-keys", Namespace: "default"},
-						Data:       map[string][]byte{"public": publicKey},
+						Data:       map[string][]byte{"public": publicKey, "private": privateKey},
 					},
 				},
 			},
@@ -523,13 +527,13 @@ func TestServerConfig_Handle(t *testing.T) {
 					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 					Sharding: []rhtasv1.CTlogLogRange{
 						{
-							TreeID:     222222,
-							TreeLength: 100,
-							PublicKeyRef: rhtasv1.SecretKeySelector{
+							TreeID: 222222,
+							Prefix: "shard-222222",
+							PublicKeyRef: &rhtasv1.SecretKeySelector{
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
 								Key:                  "public",
 							},
-							PrivateKeyRef: &rhtasv1.SecretKeySelector{
+							PrivateKeyRef: rhtasv1.SecretKeySelector{
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
 								Key:                  "private",
 							},
@@ -577,11 +581,15 @@ func TestServerConfig_Handle(t *testing.T) {
 					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 					Sharding: []rhtasv1.CTlogLogRange{
 						{
-							TreeID:     333333,
-							TreeLength: 10,
-							PublicKeyRef: rhtasv1.SecretKeySelector{
+							TreeID: 333333,
+							Prefix: "shard-333333",
+							PublicKeyRef: &rhtasv1.SecretKeySelector{
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "missing-shard-secret"},
 								Key:                  "public",
+							},
+							PrivateKeyRef: rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "missing-shard-secret"},
+								Key:                  "private",
 							},
 						},
 					},
@@ -1153,11 +1161,15 @@ func TestServerConfig_Update(t *testing.T) {
 				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "old-config"}
 				inst.Spec.Sharding = []rhtasv1.CTlogLogRange{
 					{
-						TreeID:     444444,
-						TreeLength: 50,
-						PublicKeyRef: rhtasv1.SecretKeySelector{
+						TreeID: 444444,
+						Prefix: "shard-444444",
+						PublicKeyRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
 							Key:                  "public",
+						},
+						PrivateKeyRef: rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+							Key:                  "private",
 						},
 					},
 				}
@@ -1195,23 +1207,27 @@ func TestServerConfig_Update(t *testing.T) {
 				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "old-config"}
 				inst.Spec.Sharding = []rhtasv1.CTlogLogRange{
 					{
-						TreeID:     555555,
-						TreeLength: 30,
-						PublicKeyRef: rhtasv1.SecretKeySelector{
+						TreeID: 555555,
+						Prefix: "shard-555555",
+						PublicKeyRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard1-keys"},
 							Key:                  "public",
 						},
-						PrivateKeyRef: &rhtasv1.SecretKeySelector{
+						PrivateKeyRef: rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard1-keys"},
 							Key:                  "private",
 						},
 					},
 					{
-						TreeID:     666666,
-						TreeLength: 20,
-						PublicKeyRef: rhtasv1.SecretKeySelector{
+						TreeID: 666666,
+						Prefix: "shard-666666",
+						PublicKeyRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard2-keys"},
 							Key:                  "public",
+						},
+						PrivateKeyRef: rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard2-keys"},
+							Key:                  "private",
 						},
 					},
 				}
@@ -1253,9 +1269,9 @@ func TestServerConfig_Update(t *testing.T) {
 				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "existing-config"}
 				inst.Spec.Sharding = []rhtasv1.CTlogLogRange{
 					{
-						TreeID:     777777,
-						TreeLength: 10,
-						PublicKeyRef: rhtasv1.SecretKeySelector{
+						TreeID: 777777,
+						Prefix: "shard-777777",
+						PublicKeyRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
 							Key:                  "public",
 						},
@@ -1299,9 +1315,9 @@ func TestServerConfig_Update(t *testing.T) {
 				inst.Status.ServerConfigRef = &rhtasv1.LocalObjectReference{Name: "old-config"}
 				inst.Spec.Sharding = []rhtasv1.CTlogLogRange{
 					{
-						TreeID:     888888,
-						TreeLength: 5,
-						PublicKeyRef: rhtasv1.SecretKeySelector{
+						TreeID: 888888,
+						Prefix: "shard-888888",
+						PublicKeyRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "nonexistent-shard"},
 							Key:                  "public",
 						},
