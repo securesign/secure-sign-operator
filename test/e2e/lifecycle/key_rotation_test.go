@@ -123,7 +123,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 
 		It("Update fulcio cert", func(ctx SpecContext) {
 			secretName := "new-fulcio-cert"
-			newFulcioCert = fulcio.CreateSecret(namespace.Name, secretName, !fipsEnabled)
+			newFulcioCert = fulcio.CreateSecret(namespace.Name, secretName, false)
 			Expect(cli.Create(ctx, newFulcioCert)).To(Succeed())
 
 			Eventually(func() error {

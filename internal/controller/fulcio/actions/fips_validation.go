@@ -15,12 +15,6 @@ func NewFIPSValidationAction() action.Action[*rhtasv1.Fulcio] {
 		fipsutil.FIPSCondition,
 		ComponentName,
 		fipsAction.Wrapper(fipsAction.Config[*rhtasv1.Fulcio]{
-			PasswordRef: func(i *rhtasv1.Fulcio) *rhtasv1.SecretKeySelector {
-				if i.Spec.Signer.File != nil && i.Spec.Signer.File.PrivateKeyRef != nil {
-					return i.Spec.Signer.File.PrivateKeyPasswordRef //nolint:staticcheck
-				}
-				return nil
-			},
 			CryptoMaterial: func(ctx context.Context, i *rhtasv1.Fulcio, c client.Client) ([]fipsAction.CryptoRef, error) {
 				var refs []fipsAction.CryptoRef
 				var privateKeyRef *rhtasv1.SecretKeySelector

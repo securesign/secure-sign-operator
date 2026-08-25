@@ -323,7 +323,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 			Expect(cli.Create(ctx, tufRekorSecret)).To(Succeed())
 
 			// Fulcio
-			fulcioSecret := fulcio.CreateSecret(namespaces["fulcio"].Name, "my-fulcio-secret", !fipsEnabled)
+			fulcioSecret := fulcio.CreateSecret(namespaces["fulcio"].Name, "my-fulcio-secret", false)
 
 			tufFulcioSecret := fulcioSecret.DeepCopy()
 			tufFulcioSecret.Namespace = namespaces["tuf"].Name
