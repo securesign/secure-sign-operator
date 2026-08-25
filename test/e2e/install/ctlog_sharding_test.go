@@ -4,11 +4,10 @@ package install
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
+	"github.com/google/trillian"
 	"github.com/google/trillian/crypto/keyspb"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,19 +16,18 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/test/e2e/support"
-	testKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
+	trillianAdmin "github.com/securesign/operator/test/e2e/support/tas/trillian"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 	runtimeCli "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -41,6 +39,7 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 	var s *rhtasv1.Securesign
 	var fipsEnabled bool
 	var runningTimestamp time.Time
+	var newTreeId int64
 
 	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
 		fipsEnabled = enabled
@@ -94,13 +93,18 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 			Expect(oldPublicKey).ToNot(BeEmpty())
 		})
 
+		It("Freeze the current tree", func(ctx SpecContext) {
+			adminAddr := fmt.Sprintf("trillian-logserver.%s.svc:8091", namespace.Name)
+			Expect(trillianAdmin.SetTreeState(ctx, adminAddr, *oldTreeId, trillian.TreeState_DRAINING)).To(Succeed())
+			Expect(trillianAdmin.SetTreeState(ctx, adminAddr, *oldTreeId, trillian.TreeState_FROZEN)).To(Succeed())
+		})
+
 		It("Create new tree for active log", func(ctx SpecContext) {
-			newCreatePod := createTree(namespace.Name, "ctlog-sharding-tree")
-			Expect(cli.Create(ctx, newCreatePod)).To(Succeed())
-			Eventually(func(gomega Gomega) bool {
-				gomega.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(newCreatePod), newCreatePod)).To(Succeed())
-				return newCreatePod.Status.Phase == v1.PodSucceeded
-			}).Should(BeTrue())
+			adminAddr := fmt.Sprintf("trillian-logserver.%s.svc:8091", namespace.Name)
+			var err error
+			newTreeId, err = trillianAdmin.CreateTree(ctx, adminAddr, "ctlog-sharding-tree")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(newTreeId).To(BeNumerically(">", 0))
 		})
 
 		It("Configure sharding with new tree", func(ctx SpecContext) {
@@ -108,26 +112,8 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 			Eventually(func() error {
 				s := securesign.Get(ctx, cli, namespace.Name, "test")
 
-				// Get new tree ID from the latest created pod logs
-				podList := &v1.PodList{}
-				Expect(cli.List(ctx, podList, runtimeCli.InNamespace(namespace.Name))).To(Succeed())
-
-				var newTreeId int64
-				for _, pod := range podList.Items {
-					if strings.HasPrefix(pod.Name, "create-tree-") && pod.Status.Phase == v1.PodSucceeded {
-						createTreeLog, err := testKubernetes.GetPodLogs(ctx, pod.Name, "createtree", namespace.Name)
-						if err == nil {
-							lines := strings.Split(strings.TrimSpace(createTreeLog), "\n")
-							if len(lines) > 0 {
-								newTreeId, _ = strconv.ParseInt(lines[len(lines)-1], 10, 64)
-								break
-							}
-						}
-					}
-				}
-
 				if newTreeId == 0 {
-					return fmt.Errorf("failed to get new tree ID")
+					return fmt.Errorf("new tree ID not set")
 				}
 
 				secretName := "ctlog-sharding-config"
@@ -280,36 +266,3 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 		})
 	})
 })
-
-func createTree(namespace, displayName string) *v1.Pod {
-	args := []string{
-		"--admin_server", fmt.Sprintf("trillian-logserver.%s.svc:8091", namespace),
-		"--display_name", displayName,
-	}
-	if testKubernetes.IsRemoteClusterOpenshift() {
-		args = append(args, "--tls_cert_file", "/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt")
-	}
-	return &v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "create-tree-",
-			Namespace:    namespace,
-		},
-		Spec: v1.PodSpec{
-			RestartPolicy: v1.RestartPolicyNever,
-			Containers: []v1.Container{
-				{
-					Name:    "createtree",
-					Image:   images.Registry.Get(images.TrillianCreateTree),
-					Command: []string{"createtree"},
-					Args:    args,
-					SecurityContext: &v1.SecurityContext{
-						AllowPrivilegeEscalation: ptr.To(false),
-						Capabilities:             &v1.Capabilities{Drop: []v1.Capability{"ALL"}},
-						RunAsNonRoot:             ptr.To(true),
-						SeccompProfile:           &v1.SeccompProfile{Type: v1.SeccompProfileTypeRuntimeDefault},
-					},
-				},
-			},
-		},
-	}
-}
