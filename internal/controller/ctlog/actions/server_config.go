@@ -40,6 +40,7 @@ var serverConfigAnnotations = []string{
 	labels.LabelNamespace + "/rootCertificatesHash",
 	labels.LabelNamespace + "/privateKeyRef",
 	labels.LabelNamespace + "/logPrefix",
+	labels.LabelNamespace + "/pkcs11SpecHash",
 }
 
 func NewServerConfigAction() action.Action[*rhtasv1.CTlog] {
@@ -73,7 +74,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 	switch {
 	case instance.Status.TreeID == nil:
 		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrTreeNotSpecified), instance)
-	case instance.Status.PrivateKeyRef == nil:
+	case (instance.Spec.Signer.Type == rhtasv1.SignerTypeFile || instance.Spec.Signer.Type == "") && instance.Status.PrivateKeyRef == nil:
 		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrPrivateKeyNotSpecified), instance)
 	}
 
@@ -143,23 +144,29 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 		return i.RequeueAfter(5 * time.Second)
 	}
 
-	certConfig, err := i.handlePrivateKey(ctx, instance)
-	if err != nil {
-		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-			Type:               ConfigCondition,
-			Status:             metav1.ConditionFalse,
-			Reason:             SignerKeyReason,
-			Message:            "Waiting for Ctlog private key secret",
-			ObservedGeneration: instance.Generation,
-		})
-		if _, err := i.PersistStatus(ctx, instance); err != nil {
-			return i.Error(ctx, err, instance)
-		}
-		return i.RequeueAfter(5 * time.Second)
-	}
+	isPKCS11 := instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11
 
 	var cfg map[string][]byte
-	if cfg, err = ctlogUtils.CreateCtlogConfig(trillianUrl, *instance.Status.TreeID, rootCerts, certConfig, instance.Spec.Prefix); err != nil {
+	if isPKCS11 {
+		cfg, err = i.buildPKCS11Config(ctx, instance, trillianUrl, rootCerts)
+	} else {
+		certConfig, keyErr := i.handlePrivateKey(ctx, instance)
+		if keyErr != nil {
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:               ConfigCondition,
+				Status:             metav1.ConditionFalse,
+				Reason:             SignerKeyReason,
+				Message:            "Waiting for Ctlog private key secret",
+				ObservedGeneration: instance.Generation,
+			})
+			if _, err := i.PersistStatus(ctx, instance); err != nil {
+				return i.Error(ctx, err, instance)
+			}
+			return i.RequeueAfter(5 * time.Second)
+		}
+		cfg, err = ctlogUtils.CreateCtlogConfig(trillianUrl, *instance.Status.TreeID, rootCerts, certConfig, instance.Spec.Prefix)
+	}
+	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create CTLog configuration: %w", err), instance, metav1.Condition{
 			Type:               ConfigCondition,
 			Status:             metav1.ConditionFalse,
@@ -287,6 +294,50 @@ func (i serverConfig) cleanup(ctx context.Context, instance *rhtasv1.CTlog, conf
 	}
 }
 
+func (i serverConfig) buildPKCS11Config(
+	ctx context.Context,
+	instance *rhtasv1.CTlog,
+	trillianUrl string,
+	rootCerts []ctlogUtils.RootCertificate,
+) (map[string][]byte, error) {
+	p := instance.Spec.Signer.PKCS11
+	if p == nil {
+		return nil, fmt.Errorf("PKCS#11 config is nil")
+	}
+	if p.PinSecretRef == nil {
+		return nil, fmt.Errorf("pinSecretRef is required for PKCS#11 signer")
+	}
+	if p.PublicKeyRef == nil {
+		return nil, fmt.Errorf("publicKeyRef is required for PKCS#11 signer")
+	}
+
+	pin, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, p.PinSecretRef)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read PIN secret: %w", err)
+	}
+	if len(pin) == 0 {
+		return nil, fmt.Errorf("PIN secret %s/%s is empty", p.PinSecretRef.Name, p.PinSecretRef.Key)
+	}
+
+	publicKey, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, p.PublicKeyRef)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read public key secret: %w", err)
+	}
+	if len(publicKey) == 0 {
+		return nil, fmt.Errorf("public key secret %s/%s is empty", p.PublicKeyRef.Name, p.PublicKeyRef.Key)
+	}
+
+	return ctlogUtils.CreateCtlogPKCS11Config(
+		trillianUrl,
+		*instance.Status.TreeID,
+		rootCerts,
+		p.TokenLabel,
+		string(pin),
+		publicKey,
+		instance.Spec.Prefix,
+	)
+}
+
 func (i serverConfig) handlePrivateKey(ctx context.Context, instance *rhtasv1.CTlog) (*ctlogUtils.KeyConfig, error) {
 	if instance == nil {
 		return nil, nil
@@ -375,6 +426,10 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 
 	if instance.Spec.Prefix != "" {
 		annotations[labels.LabelNamespace+"/logPrefix"] = instance.Spec.Prefix
+	}
+
+	if instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11 && instance.Spec.Signer.PKCS11 != nil {
+		annotations[labels.LabelNamespace+"/pkcs11SpecHash"] = pkcs11SpecHash(instance.Spec.Signer.PKCS11)
 	}
 
 	return annotations

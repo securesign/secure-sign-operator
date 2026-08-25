@@ -147,6 +147,10 @@ const (
 	// trust material change and accept the newly observed value.
 	RefreshTrustMaterial = "rhtas.redhat.com/refresh-trust-material"
 
+	// PKCS11SpecHash stores the SHA-256 hash of the resolved PKCS#11 spec fields
+	// for drift detection across reconcile cycles.
+	PKCS11SpecHash = "rhtas.redhat.com/pkcs11-spec-hash"
+
 	TLS = "service.beta.openshift.io/serving-cert-secret-name"
 )
 

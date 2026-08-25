@@ -9,10 +9,14 @@ const (
 	MonitorStatefulSetName = "ctlog-monitor"
 	MonitorComponentName   = "ctlog-monitor"
 
-	CertCondition    = "FulcioCertAvailable"
-	TLSCondition     = "ServerTLS"
-	ConfigCondition  = "ServerConfigAvailable"
-	SignerCondition  = "SignerAvailable"
+	CertCondition         = "FulcioCertAvailable"
+	TLSCondition          = "ServerTLS"
+	ConfigCondition       = "ServerConfigAvailable"
+	SignerCondition       = "SignerAvailable"
+	PKCS11Condition       = "PKCS11ConfigAvailable"
+	PKCS11MessageResolved = "PKCS#11 config resolved"
+
+	ReasonResolved   = "Resolved"
 	SignerKeyReason  = "SignerKey"
 	FulcioReason     = "FulcioCertificate"
 	MonitorCondition = "MonitorAvailable"
