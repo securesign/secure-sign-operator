@@ -1967,28 +1967,6 @@ spec:
                   file:
                     description: Configuration for file-based signer
                     properties:
-                      privateKeyPasswordRef:
-                        description: |-
-                          Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
-                          and not FIPS-compliant. Auto-generated keys are no longer password-encrypted;
-                          this field is retained only for backward compatibility with existing user-provided
-                          encrypted keys. Kubernetes Secrets provide encryption-at-rest.
-                        properties:
-                          key:
-                            description: The key of the secret to select from. Must
-                              be a valid secret key.
-                            pattern: ^[-._a-zA-Z0-9]+$
-                            type: string
-                          name:
-                            description: |-
-                              Name of the referent.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                        required:
-                        - key
-                        - name
-                        type: object
-                        x-kubernetes-map-type: atomic
                       privateKeyRef:
                         description: The private key used for signing STHs etc.
                         properties:
@@ -2032,8 +2010,6 @@ spec:
                     x-kubernetes-validations:
                     - message: privateKeyRef cannot be empty
                       rule: (!has(self.publicKeyRef) || has(self.privateKeyRef))
-                    - message: privateKeyRef cannot be empty
-                      rule: (!has(self.privateKeyPasswordRef) || has(self.privateKeyRef))
                   type:
                     description: Type of the signer backend
                     enum:

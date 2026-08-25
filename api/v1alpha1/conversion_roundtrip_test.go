@@ -280,6 +280,11 @@ func securesignFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 				s.Spec.Tuf.Tsa = nil
 			}
 		},
+		func(s *Securesign, c randfill.Continue) {
+			c.FillNoCustom(s)
+			// PrivateKeyPasswordRef was removed from v1 spec; it has no roundtrip path.
+			s.Spec.Ctlog.PrivateKeyPasswordRef = nil
+		},
 	}
 }
 
@@ -300,6 +305,8 @@ func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 		func(s *CTlog, c randfill.Continue) {
 			c.FillNoCustom(s)
 			s.Status.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
+			// PrivateKeyPasswordRef was removed from v1 spec; it has no roundtrip path.
+			s.Spec.PrivateKeyPasswordRef = nil
 		},
 	}
 }

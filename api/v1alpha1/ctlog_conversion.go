@@ -34,12 +34,6 @@ func Convert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *rhtasv1.CTlogSpec, out *CTlo
 			return err
 		}
 	}
-	if in.Signer.File.PrivateKeyPasswordRef != nil { //nolint:staticcheck
-		out.PrivateKeyPasswordRef = &SecretKeySelector{}                                                                                                       //nolint:staticcheck
-		if err := Convert_v1_SecretKeySelector_To_v1alpha1_SecretKeySelector(in.Signer.File.PrivateKeyPasswordRef, out.PrivateKeyPasswordRef, s); err != nil { //nolint:staticcheck
-			return err
-		}
-	}
 	if in.Signer.File.PublicKeyRef != nil {
 		out.PublicKeyRef = &SecretKeySelector{}
 		if err := Convert_v1_SecretKeySelector_To_v1alpha1_SecretKeySelector(in.Signer.File.PublicKeyRef, out.PublicKeyRef, s); err != nil {
@@ -54,17 +48,11 @@ func Convert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in *CTlogSpec, out *rhtasv1.CTlo
 		return err
 	}
 	out.Signer.Type = rhtasv1.CTlogSignerTypeFile
-	if in.PrivateKeyRef != nil || in.PrivateKeyPasswordRef != nil || in.PublicKeyRef != nil { //nolint:staticcheck
+	if in.PrivateKeyRef != nil || in.PublicKeyRef != nil {
 		out.Signer.File = &rhtasv1.CTlogFile{}
 		if in.PrivateKeyRef != nil {
 			out.Signer.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{}
 			if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.PrivateKeyRef, out.Signer.File.PrivateKeyRef, s); err != nil {
-				return err
-			}
-		}
-		if in.PrivateKeyPasswordRef != nil { //nolint:staticcheck
-			out.Signer.File.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{}                                                                                   //nolint:staticcheck
-			if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(in.PrivateKeyPasswordRef, out.Signer.File.PrivateKeyPasswordRef, s); err != nil { //nolint:staticcheck
 				return err
 			}
 		}

@@ -328,9 +328,8 @@ func TestCTlogConversionUnit(t *testing.T) {
 					Signer: rhtasv1.CTlogSigner{
 						Type: "file",
 						File: &rhtasv1.CTlogFile{
-							PrivateKeyRef:         &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-secret"}, Key: "private"},
-							PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-secret"}, Key: "password"},
-							PublicKeyRef:          &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-secret"}, Key: "public"},
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-secret"}, Key: "private"},
+							PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "ctlog-secret"}, Key: "public"},
 						},
 					},
 					RootCertificates: []rhtasv1.SecretKeySelector{
@@ -349,9 +348,8 @@ func TestCTlogConversionUnit(t *testing.T) {
 			spoke: &CTlog{
 				ObjectMeta: metav1.ObjectMeta{Name: "ctlog", Namespace: "default"},
 				Spec: CTlogSpec{
-					PrivateKeyRef:         &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "ctlog-secret"}, Key: "private"},
-					PrivateKeyPasswordRef: &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "ctlog-secret"}, Key: "password"},
-					PublicKeyRef:          &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "ctlog-secret"}, Key: "public"},
+					PrivateKeyRef: &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "ctlog-secret"}, Key: "private"},
+					PublicKeyRef:  &SecretKeySelector{LocalObjectReference: LocalObjectReference{Name: "ctlog-secret"}, Key: "public"},
 					RootCertificates: []SecretKeySelector{
 						{LocalObjectReference: LocalObjectReference{Name: "root-cert"}, Key: "ca.crt"},
 					},

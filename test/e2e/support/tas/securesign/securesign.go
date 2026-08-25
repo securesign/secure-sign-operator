@@ -238,12 +238,6 @@ func WithProvidedEncryptedCerts() Opts {
 					},
 					Key: "private",
 				},
-				PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{ //nolint:staticcheck
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: "my-ctlog-secret",
-					},
-					Key: "password",
-				},
 			},
 		}
 		s.Spec.Ctlog.RootCertificates = []rhtasv1.SecretKeySelector{

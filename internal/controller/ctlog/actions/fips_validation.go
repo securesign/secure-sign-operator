@@ -20,12 +20,6 @@ func NewFIPSValidationAction() action.Action[*rhtasv1.CTlog] {
 		fipsutil.FIPSCondition,
 		ComponentName,
 		fipsAction.Wrapper(fipsAction.Config[*rhtasv1.CTlog]{
-			PasswordRef: func(i *rhtasv1.CTlog) *rhtasv1.SecretKeySelector {
-				if i.Spec.Signer.File != nil && i.Spec.Signer.File.PrivateKeyRef != nil {
-					return i.Spec.Signer.File.PrivateKeyPasswordRef //nolint:staticcheck
-				}
-				return nil
-			},
 			CryptoMaterial: ctlogCryptoMaterial,
 		}),
 	)

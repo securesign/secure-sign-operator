@@ -13,7 +13,6 @@ import (
 	"github.com/securesign/operator/test/e2e/support"
 	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
-	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
 	fulciohelpers "github.com/securesign/operator/test/e2e/support/tas/fulcio"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	v1 "k8s.io/api/core/v1"
@@ -75,16 +74,6 @@ var _ = Describe("FIPS password-ref rejection", Ordered, func() {
 			)
 		})
 	}
-
-	Describe("CTlog", func() {
-		assertRejectsPasswordRef(fipsutil.FIPSCondition, func(ctx context.Context) []metav1.Condition {
-			cr := ctlog.Get(ctx, cli, namespace.Name, s.Name)
-			if cr == nil {
-				return nil
-			}
-			return cr.GetConditions()
-		})
-	})
 
 	Describe("Fulcio", func() {
 		assertRejectsPasswordRef(fipsutil.FIPSCondition, func(ctx context.Context) []metav1.Condition {
