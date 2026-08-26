@@ -113,6 +113,11 @@ type CTlogPKCS11Config struct {
 	PublicKeyRef *SecretKeySelector `json:"publicKeyRef"`
 }
 
+const (
+	CTlogSignerTypeFile    = "file"
+	CTlogSignerTypePKCS11  = "pkcs11"
+)
+
 // CTlogLogRange defines the range and key details of an inactive CTlog shard
 // +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'file' || has(self.privateKeyRef)",message="privateKeyRef is required for file-type shards"
 // +structType=atomic
