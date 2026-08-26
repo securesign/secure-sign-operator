@@ -1968,26 +1968,11 @@ spec:
                   description: CTlogLogRange defines the range and key details of
                     an inactive CTlog shard
                   properties:
-                    privateKeyPasswordRef:
-                      description: |-
-                        Deprecated: Legacy PEM encryption is insecure by design and not FIPS-compliant.
-                        Reference to a secret containing the password to decrypt the private key
-                      properties:
-                        key:
-                          description: The key of the secret to select from. Must
-                            be a valid secret key.
-                          pattern: ^[-._a-zA-Z0-9]+$
-                          type: string
-                        name:
-                          description: |-
-                            Name of the referent.
-                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          type: string
-                      required:
-                      - key
-                      - name
-                      type: object
-                      x-kubernetes-map-type: atomic
+                    prefix:
+                      description: Prefix for the shard's URL path (e.g., "shard-12345").
+                        Required to generate proper shard URLs.
+                      pattern: ^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$
+                      type: string
                     privateKeyRef:
                       description: Reference to a secret containing the private key
                         for the log shard
@@ -2031,19 +2016,22 @@ spec:
                       format: int64
                       minimum: 1
                       type: integer
-                    treeLength:
-                      description: Length of the tree at the time the shard was frozen
-                      format: int64
-                      minimum: 0
-                      type: integer
+                    type:
+                      description: Type of signer backend for this shard (file or
+                        pkcs11)
+                      enum:
+                      - file
+                      - pkcs11
+                      type: string
                   required:
-                  - publicKeyRef
+                  - prefix
+                  - privateKeyRef
                   - treeID
                   type: object
                   x-kubernetes-map-type: atomic
                   x-kubernetes-validations:
-                  - message: privateKeyRef cannot be empty
-                    rule: (!has(self.privateKeyPasswordRef) || has(self.privateKeyRef))
+                  - message: privateKeyRef is required for file-type shards
+                    rule: '!has(self.type) || self.type != ''file'' || has(self.privateKeyRef)'
                 type: array
                 x-kubernetes-list-map-keys:
                 - treeID
