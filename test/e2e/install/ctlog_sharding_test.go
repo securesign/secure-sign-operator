@@ -294,12 +294,6 @@ func updateTree(namespace string, treeID int64, state string) *v1.Pod {
 		},
 		Spec: v1.PodSpec{
 			RestartPolicy: v1.RestartPolicyNever,
-			SecurityContext: &v1.PodSecurityContext{
-				RunAsNonRoot: ptr.To(true),
-				SeccompProfile: &v1.SeccompProfile{
-					Type: v1.SeccompProfileTypeRuntimeDefault,
-				},
-			},
 			Containers: []v1.Container{
 				{
 					Name:    "updatetree",
@@ -309,12 +303,6 @@ func updateTree(namespace string, treeID int64, state string) *v1.Pod {
 						"-admin_server=trillian-admin:8090",
 						"-tree_id=" + strconv.FormatInt(treeID, 10),
 						"-tree_state=" + state,
-					},
-					SecurityContext: &v1.SecurityContext{
-						AllowPrivilegeEscalation: ptr.To(false),
-						Capabilities: &v1.Capabilities{
-							Drop: []v1.Capability{"ALL"},
-						},
 					},
 				},
 			},
@@ -330,12 +318,6 @@ func createTree(namespace, displayName string) *v1.Pod {
 		},
 		Spec: v1.PodSpec{
 			RestartPolicy: v1.RestartPolicyNever,
-			SecurityContext: &v1.PodSecurityContext{
-				RunAsNonRoot: ptr.To(true),
-				SeccompProfile: &v1.SeccompProfile{
-					Type: v1.SeccompProfileTypeRuntimeDefault,
-				},
-			},
 			Containers: []v1.Container{
 				{
 					Name:    "createtree",
@@ -344,12 +326,6 @@ func createTree(namespace, displayName string) *v1.Pod {
 					Args: []string{
 						"-admin_server=trillian-admin:8090",
 						"-display_name=" + displayName,
-					},
-					SecurityContext: &v1.SecurityContext{
-						AllowPrivilegeEscalation: ptr.To(false),
-						Capabilities: &v1.Capabilities{
-							Drop: []v1.Capability{"ALL"},
-						},
 					},
 				},
 			},
