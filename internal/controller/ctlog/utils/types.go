@@ -2,11 +2,6 @@ package utils
 
 import rhtasv1 "github.com/securesign/operator/api/v1"
 
-const (
-	ShardTypeFile   = "file"
-	ShardTypePKCS11 = "pkcs11"
-)
-
 type RootCertificate []byte
 
 type ShardConfig struct {
