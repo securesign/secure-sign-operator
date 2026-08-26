@@ -96,14 +96,14 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 		})
 
 		It("Freeze the current tree", func(ctx SpecContext) {
-			drainingPod := updateTree(namespace.Name, oldTreeId, "DRAINING")
+			drainingPod := updateTree(namespace.Name, *oldTreeId, "DRAINING")
 			Expect(cli.Create(ctx, drainingPod)).To(Succeed())
 			Eventually(func(gomega Gomega) bool {
 				gomega.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(drainingPod), drainingPod)).To(Succeed())
 				return drainingPod.Status.Phase == v1.PodSucceeded
 			}).Should(BeTrue())
 
-			freezePod := updateTree(namespace.Name, oldTreeId, "FROZEN")
+			freezePod := updateTree(namespace.Name, *oldTreeId, "FROZEN")
 			Expect(cli.Create(ctx, freezePod)).To(Succeed())
 			Eventually(func(gomega Gomega) bool {
 				gomega.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(freezePod), freezePod)).To(Succeed())
