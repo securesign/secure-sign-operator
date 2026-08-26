@@ -122,7 +122,7 @@ var _ = Describe("TSA update", Ordered, func() {
 		})
 
 		It("created my-tsa-secret", func(ctx SpecContext) {
-			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "my-tsa-secret", false))).Should(Succeed())
+			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "my-tsa-secret"))).Should(Succeed())
 		})
 
 		It("acknowledges the trust material drift", func(ctx SpecContext) {

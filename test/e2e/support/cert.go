@@ -11,9 +11,7 @@ import (
 	"time"
 )
 
-const CertPassword = "LetMeIn123"
-
-func CreateCertificates(passwordProtected bool) ([]byte, []byte, []byte, error) {
+func CreateCertificates() ([]byte, []byte, []byte, error) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, nil, nil, err
@@ -24,19 +22,9 @@ func CreateCertificates(passwordProtected bool) ([]byte, []byte, []byte, error) 
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	var block *pem.Block
-	if passwordProtected {
-		// Simulate a user-provided encrypted key — exercises the backward-compat
-		// DecryptPEMBlock/IsEncryptedPEMBlock path in production code.
-		block, err = x509.EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", privateKeyBytes, []byte(CertPassword), x509.PEMCipherAES256) //nolint:staticcheck
-		if err != nil {
-			return nil, nil, nil, err
-		}
-	} else {
-		block = &pem.Block{
-			Type:  "EC PRIVATE KEY",
-			Bytes: privateKeyBytes,
-		}
+	block := &pem.Block{
+		Type:  "EC PRIVATE KEY",
+		Bytes: privateKeyBytes,
 	}
 	privateKeyPem := pem.EncodeToMemory(block)
 

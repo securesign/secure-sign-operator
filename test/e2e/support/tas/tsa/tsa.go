@@ -98,37 +98,29 @@ func GetCertificateChain(ctx context.Context, url string) error {
 	return nil
 }
 
-func CreateSecrets(ns string, name string, passwordProtected bool) *v1.Secret {
+func CreateSecrets(ns string, name string) *v1.Secret {
 
 	config := &tsaUtils.TsaCertChainConfig{}
-	_, rootPrivateKey, rootCA, err := support.CreateCertificates(passwordProtected)
+	_, rootPrivateKey, rootCA, err := support.CreateCertificates()
 	if err != nil {
 		return nil
 	}
 	config.RootPrivateKey = rootPrivateKey
 
-	intermediatePublicKey, intermediatePrivateKey, _, err := support.CreateCertificates(passwordProtected)
+	intermediatePublicKey, intermediatePrivateKey, _, err := support.CreateCertificates()
 	if err != nil {
 		return nil
 	}
 	config.IntermediatePrivateKeys = append(config.IntermediatePrivateKeys, intermediatePrivateKey)
 
-	leafPublicKey, leafPrivateKey, _, err := support.CreateCertificates(passwordProtected)
+	leafPublicKey, leafPrivateKey, _, err := support.CreateCertificates()
 	if err != nil {
 		return nil
 	}
 	config.LeafPrivateKey = leafPrivateKey
 
 	block, _ := pem.Decode(rootPrivateKey)
-	keyBytes := block.Bytes
-	// Decrypt the encrypted test key to use it for signing intermediate/leaf certs.
-	if x509.IsEncryptedPEMBlock(block) { //nolint:staticcheck
-		keyBytes, err = x509.DecryptPEMBlock(block, []byte(support.CertPassword)) //nolint:staticcheck
-		if err != nil {
-			return nil
-		}
-	}
-	rootPrivKey, err := x509.ParseECPrivateKey(keyBytes)
+	rootPrivKey, err := x509.ParseECPrivateKey(block.Bytes)
 	if err != nil {
 		return nil
 	}
@@ -185,11 +177,6 @@ func CreateSecrets(ns string, name string, passwordProtected bool) *v1.Secret {
 			"leafPrivateKey":    config.LeafPrivateKey,
 			"certificateChain":  config.CertificateChain,
 		},
-	}
-	if passwordProtected {
-		s.Data["rootPrivateKeyPassword"] = []byte(support.CertPassword)
-		s.Data["interPrivateKeyPassword-0"] = []byte(support.CertPassword)
-		s.Data["leafPrivateKeyPassword"] = []byte(support.CertPassword)
 	}
 	return s
 }
