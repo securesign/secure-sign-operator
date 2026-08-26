@@ -14,10 +14,13 @@ import (
 
 	. "github.com/onsi/gomega"
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
+	testAction "github.com/securesign/operator/internal/testing/action"
 	common "github.com/securesign/operator/internal/testing/common/tsa"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 func Test_NewGenerateSignerAction(t *testing.T) {
@@ -124,6 +127,37 @@ func Test_SignerHandle(t *testing.T) {
 				g.Expect(secret.Name).To(Equal(instance.Status.Signer.CertificateChain.CertificateChainRef.Name), "Secret name mismatch for CertificateChainRef")
 				g.Expect(secret.Name).To(Equal(instance.Status.Signer.File.PrivateKeyRef.Name), "Secret name mismatch for PrivateKeyRef")
 				g.Expect(secret.Annotations).To(Equal(generateSecretAnnotations(instance.Spec.Signer)), "Secret annotation mismatch")
+
+				g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, TSASignerCondition)).To(BeTrue())
+
+				return true
+			},
+		},
+		{
+			name: "generate all resources with uncached client rejecting empty-name Get",
+			setup: func(instance *rhtasv1alpha1.TimestampAuthority) (client.WithWatch, action.Action[*rhtasv1alpha1.TimestampAuthority]) {
+				instance.Status.Conditions[0].Reason = state.Pending.String()
+				cli := testAction.FakeClientBuilder().
+					WithObjects(instance).
+					WithStatusSubresource(instance).
+					WithInterceptorFuncs(interceptor.Funcs{
+						Get: func(ctx context.Context, wrapped client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+							if _, ok := obj.(*v1.Secret); ok && key.Name == "" {
+								return k8sErrors.NewBadRequest("resource name may not be empty")
+							}
+							return wrapped.Get(ctx, key, obj, opts...)
+						},
+					}).
+					Build()
+				return common.TsaTestSetup(instance, t, cli, NewGenerateSignerAction())
+			},
+			testCase: func(g Gomega, _ action.Action[*rhtasv1alpha1.TimestampAuthority], client client.WithWatch, instance *rhtasv1alpha1.TimestampAuthority) bool {
+
+				secret, err := kubernetes.FindSecret(context.TODO(), client, instance.Namespace, TSACertCALabel)
+				g.Expect(err).NotTo(HaveOccurred(), "Unable to find secret")
+
+				g.Expect(instance.Status.Signer).NotTo(BeNil(), "Status Signer should not be nil")
+				g.Expect(secret.Name).To(Equal(instance.Status.Signer.CertificateChain.CertificateChainRef.Name), "Secret name mismatch for CertificateChainRef")
 
 				g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, TSASignerCondition)).To(BeTrue())
 

@@ -10,12 +10,14 @@ import (
 	"github.com/securesign/operator/internal/constants"
 	"github.com/securesign/operator/internal/state"
 	v1 "k8s.io/api/core/v1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 
 	. "github.com/onsi/gomega"
 	"github.com/securesign/operator/internal/controller/rekor/actions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	rhtasv1alpha1 "github.com/securesign/operator/api/v1alpha1"
 	testAction "github.com/securesign/operator/internal/testing/action"
@@ -459,6 +461,46 @@ func TestGenerateSigner_Handle(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGenerateSigner_Handle_UncachedClientRejectsEmptyNameGet(t *testing.T) {
+	g := NewWithT(t)
+	ctx := context.TODO()
+
+	instance := &rhtasv1alpha1.Rekor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "rekor",
+			Namespace: "default",
+		},
+	}
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:   constants.ReadyCondition,
+		Reason: state.Pending.String(),
+	})
+	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+		Type:   actions.SignerCondition,
+		Status: metav1.ConditionFalse,
+		Reason: state.Pending.String(),
+	})
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance).
+		WithStatusSubresource(instance).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, wrapped client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				if _, ok := obj.(*v1.Secret); ok && key.Name == "" {
+					return k8sErrors.NewBadRequest("resource name may not be empty")
+				}
+				return wrapped.Get(ctx, key, obj, opts...)
+			},
+		}).
+		Build()
+
+	a := testAction.PrepareAction(c, NewGenerateSignerAction())
+	g.Expect(a.Handle(ctx, instance)).To(Equal(testAction.StatusUpdate()))
+	g.Expect(instance.Status.Signer.KeyRef).ShouldNot(BeNil())
+	g.Expect(instance.Status.Signer.KeyRef.Name).Should(ContainSubstring("rekor-signer-rekor-"))
+	g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, actions.SignerCondition)).Should(BeTrue())
 }
 
 func TestGenerateSigner_SECURESIGN_1455(t *testing.T) {

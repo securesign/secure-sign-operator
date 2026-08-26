@@ -19,7 +19,9 @@ import (
 	testAction "github.com/securesign/operator/internal/testing/action"
 	httpmock "github.com/securesign/operator/internal/testing/http"
 	v1 "k8s.io/api/core/v1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/securesign/operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -270,4 +272,59 @@ func TestResolvePubKey_Handle(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestResolvePubKey_Handle_UncachedClientRejectsEmptyNameGet(t *testing.T) {
+	g := NewWithT(t)
+	ctx := context.TODO()
+
+	instance := &v1alpha1.Rekor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "rekor",
+			Namespace: "default",
+		},
+		Status: v1alpha1.RekorStatus{
+			TreeID:       ptr.To(int64(123456789)),
+			PublicKeyRef: nil,
+			Conditions: []metav1.Condition{
+				{
+					Type:   actions.ServerCondition,
+					Reason: state.Initialize.String(),
+					Status: metav1.ConditionFalse,
+				},
+			},
+		},
+	}
+
+	c := testAction.FakeClientBuilder().
+		WithObjects(instance).
+		WithStatusSubresource(instance).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, wrapped client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				if _, ok := obj.(*v1.Secret); ok && key.Name == "" {
+					return k8sErrors.NewBadRequest("resource name may not be empty")
+				}
+				return wrapped.Get(ctx, key, obj, opts...)
+			},
+		}).
+		Build()
+
+	httpmock.SetMockTransport(http.DefaultClient, map[string]httpmock.RoundTripFunc{
+		"http://rekor-server.default.svc/api/v1/log/publicKey": func(req *http.Request) *http.Response {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewReader(testPublicKey)),
+				Header:     make(http.Header),
+			}
+		},
+	})
+	defer httpmock.RestoreDefaultTransport(http.DefaultClient)
+
+	a := testAction.PrepareAction(c, NewResolvePubKeyAction())
+	g.Expect(a.Handle(ctx, instance)).To(Equal(testAction.StatusUpdate()))
+
+	secrets := v1.SecretList{}
+	g.Expect(kubernetes.FindByLabelSelector(ctx, c, &secrets, instance.Namespace, RekorPubLabel)).To(Succeed())
+	g.Expect(secrets.Items).Should(HaveLen(1))
+	g.Expect(secrets.Items[0].Data).Should(HaveKeyWithValue("public", testPublicKey))
 }

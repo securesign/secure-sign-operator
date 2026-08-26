@@ -105,7 +105,7 @@ func (i resolvePubKeyAction) Handle(ctx context.Context, instance *rhtasv1alpha1
 		},
 	}
 
-	if _, err = kubernetes.CreateOrUpdate(ctx, i.Client,
+	if err = kubernetes.Create(ctx, i.Client,
 		newConfig,
 		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(componentLabels)), componentLabels),
 		ensure.Labels[*v1.Secret](slices.Collect(maps.Keys(keyLabels)), keyLabels),
