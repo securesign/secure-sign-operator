@@ -944,7 +944,7 @@ func autoConvert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in *CTlogSpec, out *v1.CTlog
 	if err := Convert_v1alpha1_TrillianService_To_v1_ServiceReference(&in.Trillian, &out.Trillian, s); err != nil {
 		return err
 	}
-	out.ServerConfigRef = (*v1.LocalObjectReference)(unsafe.Pointer(in.ServerConfigRef))
+	// WARNING: in.ServerConfigRef requires manual conversion: does not exist in peer-type
 	if err := Convert_v1alpha1_TLS_To_v1_TLS(&in.TLS, &out.TLS, s); err != nil {
 		return err
 	}
@@ -968,7 +968,6 @@ func autoConvert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *v1.CTlogSpec, out *CTlog
 		return err
 	}
 	// WARNING: in.Sharding requires manual conversion: does not exist in peer-type
-	out.ServerConfigRef = (*LocalObjectReference)(unsafe.Pointer(in.ServerConfigRef))
 	// WARNING: in.Prefix requires manual conversion: does not exist in peer-type
 	if err := Convert_v1_TLS_To_v1alpha1_TLS(&in.TLS, &out.TLS, s); err != nil {
 		return err
