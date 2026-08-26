@@ -48,7 +48,9 @@ func BenchmarkInstall(b *testing.B) {
 		defer deleteNamespace(ctx, cli, namespaceName)
 		defer dumpNamespace(ctx, cli, b, namespaceName)
 
-		targetImageName = support.PrepareImage(context.Background())
+		reg := support.DeployTestRegistry(ctx, cli, namespaceName)
+		defer reg.Close()
+		targetImageName = reg.PrepareImage(ctx)
 
 		b.StartTimer()
 		err = installTAS(ctx, cli, namespaceName)
