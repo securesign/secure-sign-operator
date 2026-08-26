@@ -403,7 +403,7 @@ func determineShardType(shardType, activeSignerType string) string {
 	if shardType == "" {
 		shardType = activeSignerType
 		if shardType == "" {
-			shardType = "file"
+			shardType = ctlogUtils.ShardTypeFile
 		}
 	}
 	return shardType
@@ -430,14 +430,15 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 		shardType := determineShardType(s.Type, instance.Spec.Signer.Type)
 		sc.Type = shardType
 
-		if shardType == "pkcs11" {
+		switch shardType {
+		case ctlogUtils.ShardTypePKCS11:
 			// For PKCS#11 shards, copy the signer's PKCS#11 config
 			if instance.Spec.Signer.PKCS11 != nil {
 				sc.PKCS11 = instance.Spec.Signer.PKCS11
 			} else {
 				return nil, fmt.Errorf("shard %d type is pkcs11 but signer has no PKCS#11 configuration", s.TreeID)
 			}
-		} else if shardType == "file" {
+		case ctlogUtils.ShardTypeFile:
 			// For file shards, resolve the private key from the shard config
 			if s.PrivateKeyRef.Name != "" {
 				var err error
@@ -446,7 +447,7 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 					return nil, fmt.Errorf("shard %d privateKeyRef: %w", s.TreeID, err)
 				}
 			}
-		} else {
+		default:
 			return nil, fmt.Errorf("shard %d has invalid type: %s", s.TreeID, shardType)
 		}
 
