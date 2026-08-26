@@ -397,6 +397,7 @@ func (i serverConfig) handleRootCertificates(ctx context.Context, instance *rhta
 //   - nil if the secret is valid
 //   - errSecretInvalid if the secret needs recreation (not a failure)
 //   - other error for API errors - reconciliation should fail
+//
 // determineShardType returns the effective shard type, defaulting to active signer type, then "file".
 func determineShardType(shardType, activeSignerType string) string {
 	if shardType == "" {

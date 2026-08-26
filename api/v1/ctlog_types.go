@@ -114,8 +114,8 @@ type CTlogPKCS11Config struct {
 }
 
 const (
-	CTlogSignerTypeFile    = "file"
-	CTlogSignerTypePKCS11  = "pkcs11"
+	CTlogSignerTypeFile   = "file"
+	CTlogSignerTypePKCS11 = "pkcs11"
 )
 
 // CTlogLogRange defines the range and key details of an inactive CTlog shard
