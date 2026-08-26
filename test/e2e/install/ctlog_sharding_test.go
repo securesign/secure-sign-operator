@@ -4,10 +4,11 @@ package install
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
-	"github.com/google/trillian"
 	"github.com/google/trillian/crypto/keyspb"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -16,12 +17,12 @@ import (
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"github.com/securesign/operator/test/e2e/support"
+	testKubernetes "github.com/securesign/operator/test/e2e/support/kubernetes"
 	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas"
 	"github.com/securesign/operator/test/e2e/support/tas/ctlog"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
-	trillianAdmin "github.com/securesign/operator/test/e2e/support/tas/trillian"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -95,17 +96,34 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 		})
 
 		It("Freeze the current tree", func(ctx SpecContext) {
-			adminAddr := fmt.Sprintf("trillian-logserver.%s.svc:8091", namespace.Name)
-			Expect(trillianAdmin.SetTreeState(ctx, adminAddr, *oldTreeId, trillian.TreeState_DRAINING)).To(Succeed())
-			Expect(trillianAdmin.SetTreeState(ctx, adminAddr, *oldTreeId, trillian.TreeState_FROZEN)).To(Succeed())
+			drainingPod := updateTree(namespace.Name, oldTreeId, "DRAINING")
+			Expect(cli.Create(ctx, drainingPod)).To(Succeed())
+			Eventually(func(gomega Gomega) bool {
+				gomega.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(drainingPod), drainingPod)).To(Succeed())
+				return drainingPod.Status.Phase == v1.PodSucceeded
+			}).Should(BeTrue())
+
+			freezePod := updateTree(namespace.Name, oldTreeId, "FROZEN")
+			Expect(cli.Create(ctx, freezePod)).To(Succeed())
+			Eventually(func(gomega Gomega) bool {
+				gomega.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(freezePod), freezePod)).To(Succeed())
+				return freezePod.Status.Phase == v1.PodSucceeded
+			}).Should(BeTrue())
 		})
 
 		It("Create new tree for active log", func(ctx SpecContext) {
-			adminAddr := fmt.Sprintf("trillian-logserver.%s.svc:8091", namespace.Name)
-			var err error
-			newTreeId, err = trillianAdmin.CreateTree(ctx, adminAddr, "ctlog-sharding-tree")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(newTreeId).To(BeNumerically(">", 0))
+			createPod := createTree(namespace.Name, "ctlog-sharding-tree")
+			Expect(cli.Create(ctx, createPod)).To(Succeed())
+			Eventually(func(gomega Gomega) bool {
+				gomega.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(createPod), createPod)).To(Succeed())
+				return createPod.Status.Phase == v1.PodSucceeded
+			}).Should(BeTrue())
+
+			createTreeLog, err := testKubernetes.GetPodLogs(ctx, createPod.Name, "createtree", namespace.Name)
+			Expect(err).ToNot(HaveOccurred())
+			lines := strings.Split(strings.TrimSpace(createTreeLog), "\n")
+			newTreeId, err = strconv.ParseInt(lines[len(lines)-1], 10, 64)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("Configure sharding with new tree", func(ctx SpecContext) {
@@ -267,3 +285,50 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 		})
 	})
 })
+
+func updateTree(namespace string, treeID int64, state string) *v1.Pod {
+	return &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "update-tree-",
+			Namespace:    namespace,
+		},
+		Spec: v1.PodSpec{
+			RestartPolicy: v1.RestartPolicyNever,
+			Containers: []v1.Container{
+				{
+					Name:    "updatetree",
+					Image:   "registry.redhat.io/rhtas/updatetree-rhel9:1.1.0",
+					Command: []string{"updatetree"},
+					Args: []string{
+						"-admin_server=trillian-admin:8090",
+						"-tree_id=" + strconv.FormatInt(treeID, 10),
+						"-tree_state=" + state,
+					},
+				},
+			},
+		},
+	}
+}
+
+func createTree(namespace, displayName string) *v1.Pod {
+	return &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "create-tree-",
+			Namespace:    namespace,
+		},
+		Spec: v1.PodSpec{
+			RestartPolicy: v1.RestartPolicyNever,
+			Containers: []v1.Container{
+				{
+					Name:    "createtree",
+					Image:   "registry.redhat.io/rhtas/createtree-rhel9:1.1.0",
+					Command: []string{"createtree"},
+					Args: []string{
+						"-admin_server=trillian-admin:8090",
+						"-display_name=" + displayName,
+					},
+				},
+			},
+		},
+	}
+}
