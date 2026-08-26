@@ -140,6 +140,10 @@ type CTlogLogRange struct {
 	// Reference to a secret containing the private key for the log shard
 	// +kubebuilder:validation:Required
 	PrivateKeyRef SecretKeySelector `json:"privateKeyRef"`
+	// Reference to a secret containing the password for the private key (if encrypted).
+	// Deprecated: Passwords are not FIPS-compliant. Kept for backward compatibility with legacy instances.
+	// +optional
+	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
 }
 
 // CTlogSigner defines the desired state of the CTlog Signer
