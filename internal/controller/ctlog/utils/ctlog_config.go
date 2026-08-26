@@ -157,23 +157,13 @@ func (c *Config) marshalShardLogConfig(shard ShardConfig, rootPems []string) (*c
 		IsReadonly:     true,
 	}
 
-	if shard.Type == "pkcs11" && shard.PKCS11 != nil {
-		cfg.PrivateKey = mustMarshalAny(c.buildPKCS11Config(shard))
-	} else if len(shard.PrivateKey) > 0 {
+	if len(shard.PrivateKey) > 0 {
 		cfg.PrivateKey = mustMarshalAny(&keyspb.PEMKeyFile{
 			Path: fmt.Sprintf("%sshard-%d-private", rootsPemFileDir, shard.TreeID),
 		})
 	}
 
 	return cfg, nil
-}
-
-func (c *Config) buildPKCS11Config(shard ShardConfig) *keyspb.PKCS11Config {
-	return &keyspb.PKCS11Config{
-		TokenLabel: shard.PKCS11.TokenLabel,
-		Pin:        "", // PIN is resolved separately by HSM client at runtime
-		PublicKey:  string(shard.PublicKey),
-	}
 }
 
 func mustMarshalAny(pb proto.Message) *anypb.Any {

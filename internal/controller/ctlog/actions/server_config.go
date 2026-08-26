@@ -377,37 +377,25 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 			PublicKey: publicKey,
 		}
 
-		// Determine shard type - default to active signer type if not specified
+		// Determine shard type - shards are independent of active signer
 		shardType := determineShardType(s.Type)
 		sc.Type = shardType
 
-		switch shardType {
-		case rhtasv1.SignerTypePKCS11:
-			// For PKCS#11 shards, copy the signer's PKCS#11 config
-			if instance.Spec.Signer.PKCS11 != nil {
-				sc.PKCS11 = instance.Spec.Signer.PKCS11
-			} else {
-				return nil, fmt.Errorf("shard %d type is pkcs11 but signer has no PKCS#11 configuration", s.TreeID)
+		// For file shards, resolve the private key from the shard config
+		if s.PrivateKeyRef.Name != "" {
+			var err error
+			sc.PrivateKey, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, &s.PrivateKeyRef)
+			if err != nil {
+				return nil, fmt.Errorf("shard %d privateKeyRef: %w", s.TreeID, err)
 			}
-		case rhtasv1.SignerTypeFile:
-			// For file shards, resolve the private key from the shard config
-			if s.PrivateKeyRef.Name != "" {
-				var err error
-				sc.PrivateKey, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, &s.PrivateKeyRef)
-				if err != nil {
-					return nil, fmt.Errorf("shard %d privateKeyRef: %w", s.TreeID, err)
-				}
+		}
+		// Resolve password if present (deprecated, for legacy compatibility)
+		if s.PrivateKeyPasswordRef != nil {
+			var err error
+			sc.Password, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyPasswordRef)
+			if err != nil {
+				return nil, fmt.Errorf("shard %d privateKeyPasswordRef: %w", s.TreeID, err)
 			}
-			// Resolve password if present (deprecated, for legacy compatibility)
-			if s.PrivateKeyPasswordRef != nil {
-				var err error
-				sc.Password, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyPasswordRef)
-				if err != nil {
-					return nil, fmt.Errorf("shard %d privateKeyPasswordRef: %w", s.TreeID, err)
-				}
-			}
-		default:
-			return nil, fmt.Errorf("shard %d has invalid type: %s", s.TreeID, shardType)
 		}
 
 		shards = append(shards, sc)
