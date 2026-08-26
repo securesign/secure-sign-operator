@@ -87,12 +87,6 @@ func (i resolveTree[T]) handleManual(ctx context.Context, instance T) *action.Re
 	wrapped := i.wrapper(instance)
 
 	if wrapped.GetTreeID() != nil && *wrapped.GetTreeID() != int64(0) {
-		// Verify the tree exists in Trillian before using it
-		if wrapped.GetStatusTreeID() != nil && *wrapped.GetStatusTreeID() == *wrapped.GetTreeID() {
-			// Tree already verified in status, no action needed
-			return i.Continue()
-		}
-		// Set the specified tree ID - it will be verified by other actions
 		wrapped.SetStatusTreeID(wrapped.GetTreeID())
 		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
 	}
@@ -203,20 +197,6 @@ func (i resolveTree[T]) handleJob(ctx context.Context, instance T) *action.Resul
 	var err error
 	var trillUrl string
 	wrapped := i.wrapper(instance)
-
-	// If an explicit TreeID is specified in spec and already in status, skip job creation
-	if wrapped.GetTreeID() != nil && *wrapped.GetTreeID() != int64(0) &&
-		wrapped.GetStatusTreeID() != nil && *wrapped.GetStatusTreeID() == *wrapped.GetTreeID() {
-		i.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "UsingExplicitTreeID", "Resolved",
-			"Using explicit TreeID from spec: %d", *wrapped.GetTreeID())
-		instance.SetCondition(metav1.Condition{
-			Type:    JobCondition,
-			Status:  metav1.ConditionTrue,
-			Reason:  state.Ready.String(),
-			Message: fmt.Sprintf("Using explicit TreeID: %d", *wrapped.GetTreeID()),
-		})
-		return i.ReturnOnChange(i.PersistStatus)(ctx, instance)
-	}
 
 	labels := labels.For("createtree", i.component, instance.GetName())
 
