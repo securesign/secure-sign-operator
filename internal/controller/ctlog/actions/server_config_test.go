@@ -145,12 +145,8 @@ func TestServerConfig_CanHandle(t *testing.T) {
 					Namespace:  "default",
 					Generation: tt.generation,
 				},
-				Spec: rhtasv1.CTlogSpec{
-					ServerConfigRef: tt.serverConfigRef,
-				},
-				Status: rhtasv1.CTlogStatus{
-					ServerConfigRef: tt.statusServerConfigRef,
-				},
+				Spec:   rhtasv1.CTlogSpec{},
+				Status: rhtasv1.CTlogStatus{},
 			}
 			if tt.status != "" {
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -190,12 +186,8 @@ func TestServerConfig_Handle(t *testing.T) {
 		{
 			name: "use spec.serverConfigRef",
 			env: env{
-				spec: rhtasv1.CTlogSpec{
-					ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "config"},
-				},
-				status: rhtasv1.CTlogStatus{
-					ServerConfigRef: nil,
-				},
+				spec:   rhtasv1.CTlogSpec{},
+				status: rhtasv1.CTlogStatus{},
 				objects: []client.Object{
 					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
@@ -220,12 +212,10 @@ func TestServerConfig_Handle(t *testing.T) {
 			name: "create a new config",
 			env: env{
 				spec: rhtasv1.CTlogSpec{
-					ServerConfigRef: nil,
-					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
+					Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 				},
 				status: rhtasv1.CTlogStatus{
-					ServerConfigRef: nil,
-					TreeID:          ptr.To(int64(123456)),
+					TreeID: ptr.To(int64(123456)),
 					RootCertificates: []rhtasv1.SecretKeySelector{
 						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
 					},
@@ -258,12 +248,10 @@ func TestServerConfig_Handle(t *testing.T) {
 			name: "create a new config with an uncached client rejecting empty-name Get",
 			env: env{
 				spec: rhtasv1.CTlogSpec{
-					ServerConfigRef: nil,
-					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:80"},
+					Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:80"},
 				},
 				status: rhtasv1.CTlogStatus{
-					ServerConfigRef: nil,
-					TreeID:          ptr.To(int64(123456)),
+					TreeID: ptr.To(int64(123456)),
 					RootCertificates: []rhtasv1.SecretKeySelector{
 						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
 					},
@@ -304,12 +292,10 @@ func TestServerConfig_Handle(t *testing.T) {
 			name: "Waiting for Fulcio root certificate",
 			env: env{
 				spec: rhtasv1.CTlogSpec{
-					ServerConfigRef: nil,
-					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
+					Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 				},
 				status: rhtasv1.CTlogStatus{
-					ServerConfigRef: nil,
-					TreeID:          ptr.To(int64(123456)),
+					TreeID: ptr.To(int64(123456)),
 					RootCertificates: []rhtasv1.SecretKeySelector{
 						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "not-existing"}, Key: "cert"},
 					},
@@ -346,12 +332,10 @@ func TestServerConfig_Handle(t *testing.T) {
 			name: "Waiting for Ctlog private key secret",
 			env: env{
 				spec: rhtasv1.CTlogSpec{
-					ServerConfigRef: nil,
-					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
+					Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 				},
 				status: rhtasv1.CTlogStatus{
-					ServerConfigRef: nil,
-					TreeID:          ptr.To(int64(123456)),
+					TreeID: ptr.To(int64(123456)),
 					RootCertificates: []rhtasv1.SecretKeySelector{
 						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
 					},
@@ -388,12 +372,10 @@ func TestServerConfig_Handle(t *testing.T) {
 			name: "Delete existing Ctlog configuration",
 			env: env{
 				spec: rhtasv1.CTlogSpec{
-					ServerConfigRef: nil,
-					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
+					Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 				},
 				status: rhtasv1.CTlogStatus{
-					ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "config"},
-					TreeID:          ptr.To(int64(123456)),
+					TreeID: ptr.To(int64(123456)),
 					RootCertificates: []rhtasv1.SecretKeySelector{
 						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
 					},
@@ -440,8 +422,7 @@ func TestServerConfig_Handle(t *testing.T) {
 			name: "create config with shards",
 			env: env{
 				spec: rhtasv1.CTlogSpec{
-					ServerConfigRef: nil,
-					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
+					Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 					Sharding: []rhtasv1.CTlogLogRange{
 						{
 							TreeID: 111111,
@@ -458,8 +439,7 @@ func TestServerConfig_Handle(t *testing.T) {
 					},
 				},
 				status: rhtasv1.CTlogStatus{
-					ServerConfigRef: nil,
-					TreeID:          ptr.To(int64(123456)),
+					TreeID: ptr.To(int64(123456)),
 					RootCertificates: []rhtasv1.SecretKeySelector{
 						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
 					},
@@ -494,8 +474,7 @@ func TestServerConfig_Handle(t *testing.T) {
 			name: "create config with shard including private key",
 			env: env{
 				spec: rhtasv1.CTlogSpec{
-					ServerConfigRef: nil,
-					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
+					Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 					Sharding: []rhtasv1.CTlogLogRange{
 						{
 							TreeID: 222222,
@@ -512,8 +491,7 @@ func TestServerConfig_Handle(t *testing.T) {
 					},
 				},
 				status: rhtasv1.CTlogStatus{
-					ServerConfigRef: nil,
-					TreeID:          ptr.To(int64(123456)),
+					TreeID: ptr.To(int64(123456)),
 					RootCertificates: []rhtasv1.SecretKeySelector{
 						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
 					},
@@ -548,8 +526,7 @@ func TestServerConfig_Handle(t *testing.T) {
 			name: "shard secret not found requeues",
 			env: env{
 				spec: rhtasv1.CTlogSpec{
-					ServerConfigRef: nil,
-					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
+					Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 					Sharding: []rhtasv1.CTlogLogRange{
 						{
 							TreeID: 333333,
@@ -566,8 +543,7 @@ func TestServerConfig_Handle(t *testing.T) {
 					},
 				},
 				status: rhtasv1.CTlogStatus{
-					ServerConfigRef: nil,
-					TreeID:          ptr.To(int64(123456)),
+					TreeID: ptr.To(int64(123456)),
 					RootCertificates: []rhtasv1.SecretKeySelector{
 						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
 					},
@@ -597,12 +573,10 @@ func TestServerConfig_Handle(t *testing.T) {
 			name: "Update config on cert change",
 			env: env{
 				spec: rhtasv1.CTlogSpec{
-					ServerConfigRef: nil,
-					Trillian:        rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
+					Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 				},
 				status: rhtasv1.CTlogStatus{
-					ServerConfigRef: nil,
-					TreeID:          ptr.To(int64(123456)),
+					TreeID: ptr.To(int64(123456)),
 					RootCertificates: []rhtasv1.SecretKeySelector{
 						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
 						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new"}, Key: "cert"},
@@ -714,8 +688,7 @@ func TestServerConfig_Update(t *testing.T) {
 				Prefix:   "trusted-artifact-signer",
 			},
 			Status: rhtasv1.CTlogStatus{
-				ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "existing-config"},
-				TreeID:          ptr.To(int64(123456)),
+				TreeID: ptr.To(int64(123456)),
 				RootCertificates: []rhtasv1.SecretKeySelector{
 					{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
 				},
@@ -1704,8 +1677,7 @@ func TestServerConfig_Prerequisites(t *testing.T) {
 				Prefix:   "trusted-artifact-signer",
 			},
 			Status: rhtasv1.CTlogStatus{
-				ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "existing-config"},
-				TreeID:          ptr.To(int64(123456)),
+				TreeID: ptr.To(int64(123456)),
 				RootCertificates: []rhtasv1.SecretKeySelector{
 					{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
 				},

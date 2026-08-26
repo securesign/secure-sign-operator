@@ -1973,22 +1973,6 @@ spec:
                       x-kubernetes-map-type: atomic
                     type: array
                     x-kubernetes-list-type: atomic
-                  serverConfigRef:
-                    description: |-
-                      Deprecated: Use spec fields (treeID, signer, rootCertificates, trillian, sharding) instead.
-                      Secret holding Certificate Transparency server config in text proto format.
-                      If it is set then all other spec fields will be overridden.
-                      Retained as an escape hatch for advanced configurations.
-                    properties:
-                      name:
-                        description: |-
-                          Name of the referent.
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                        type: string
-                    required:
-                    - name
-                    type: object
-                    x-kubernetes-map-type: atomic
                   sharding:
                     description: Inactive shards
                     items:
@@ -2000,6 +1984,26 @@ spec:
                             Required to generate proper shard URLs.
                           pattern: ^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$
                           type: string
+                        privateKeyPasswordRef:
+                          description: |-
+                            Reference to a secret containing the password for the private key (if encrypted).
+                            Deprecated: Passwords are not FIPS-compliant. Kept for backward compatibility with legacy instances.
+                          properties:
+                            key:
+                              description: The key of the secret to select from. Must
+                                be a valid secret key.
+                              pattern: ^[-._a-zA-Z0-9]+$
+                              type: string
+                            name:
+                              description: |-
+                                Name of the referent.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              type: string
+                          required:
+                          - key
+                          - name
+                          type: object
+                          x-kubernetes-map-type: atomic
                         privateKeyRef:
                           description: Reference to a secret containing the private
                             key for the log shard
