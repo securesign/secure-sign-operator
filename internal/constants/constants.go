@@ -4,6 +4,7 @@ const (
 	AppName = "trusted-artifact-signer"
 
 	ReadyCondition = "Ready"
+	ReasonResolved = "Resolved"
 
 	SecretMountPath = "/var/run/secrets/tas"
 

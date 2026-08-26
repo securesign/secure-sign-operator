@@ -91,14 +91,14 @@ func (dst *Rekor) ConvertFrom(srcRaw conversion.Hub) error {
 // v1alpha1 flat KMS string → v1 struct-based signer.
 func Convert_v1alpha1_RekorSigner_To_v1_RekorSigner(in *RekorSigner, out *rhtasv1.RekorSigner, s apiconversion.Scope) error {
 	switch in.KMS {
-	case rhtasv1.RekorSignerTypeSecret:
-		out.Type = rhtasv1.RekorSignerTypeSecret
-	case rhtasv1.RekorSignerTypeMemory:
-		out.Type = rhtasv1.RekorSignerTypeMemory
+	case rhtasv1.SignerTypeSecret:
+		out.Type = rhtasv1.SignerTypeSecret
+	case rhtasv1.SignerTypeMemory:
+		out.Type = rhtasv1.SignerTypeMemory
 	case "":
 		out.Type = ""
 	default:
-		out.Type = rhtasv1.RekorSignerTypeKMS
+		out.Type = rhtasv1.SignerTypeKMS
 		out.Kms = &rhtasv1.KMS{KeyResource: in.KMS}
 	}
 	out.KeyRef = (*rhtasv1.SecretKeySelector)(unsafe.Pointer(in.KeyRef))
@@ -108,14 +108,14 @@ func Convert_v1alpha1_RekorSigner_To_v1_RekorSigner(in *RekorSigner, out *rhtasv
 // v1 struct-based signer → v1alpha1 flat KMS string.
 func Convert_v1_RekorSigner_To_v1alpha1_RekorSigner(in *rhtasv1.RekorSigner, out *RekorSigner, s apiconversion.Scope) error {
 	switch in.Type {
-	case rhtasv1.RekorSignerTypeKMS:
+	case rhtasv1.SignerTypeKMS:
 		if in.Kms != nil {
 			out.KMS = in.Kms.KeyResource
 		}
-	case rhtasv1.RekorSignerTypeMemory:
-		out.KMS = rhtasv1.RekorSignerTypeMemory
-	case rhtasv1.RekorSignerTypeSecret:
-		out.KMS = rhtasv1.RekorSignerTypeSecret
+	case rhtasv1.SignerTypeMemory:
+		out.KMS = rhtasv1.SignerTypeMemory
+	case rhtasv1.SignerTypeSecret:
+		out.KMS = rhtasv1.SignerTypeSecret
 	default:
 		out.KMS = in.Type
 	}

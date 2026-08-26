@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -120,6 +121,33 @@ var (
 	// a Secret's Immutable field from true to false.
 	ErrImmutableSecretMutability = errors.New("can't update Secret mutability")
 )
+
+func EnsureExclusiveSecretLabel(ctx context.Context, c client.Client, namespace, targetName, label, value string) error {
+	existing, err := ListSecrets(ctx, c, namespace, label)
+	if err != nil {
+		return err
+	}
+	for _, s := range existing.Items {
+		if s.Name == targetName {
+			continue
+		}
+		if err := labels.Remove(ctx, &s, c, label); err != nil {
+			return err
+		}
+	}
+
+	secret := &corev1.Secret{}
+	secret.Name = targetName
+	secret.Namespace = namespace
+	_, err = CreateOrUpdate(ctx, c, secret, func(s *corev1.Secret) error {
+		if s.Labels == nil {
+			s.Labels = make(map[string]string)
+		}
+		s.Labels[label] = value
+		return nil
+	})
+	return err
+}
 
 func EnsureSecretData(immutable bool, data map[string][]byte) func(secret *corev1.Secret) error {
 	return func(instance *corev1.Secret) error {
