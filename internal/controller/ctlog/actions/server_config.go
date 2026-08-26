@@ -447,6 +447,14 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 					return nil, fmt.Errorf("shard %d privateKeyRef: %w", s.TreeID, err)
 				}
 			}
+			// Resolve password if present (deprecated, for legacy compatibility)
+			if s.PrivateKeyPasswordRef != nil {
+				var err error
+				sc.Password, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyPasswordRef)
+				if err != nil {
+					return nil, fmt.Errorf("shard %d privateKeyPasswordRef: %w", s.TreeID, err)
+				}
+			}
 		default:
 			return nil, fmt.Errorf("shard %d has invalid type: %s", s.TreeID, shardType)
 		}
@@ -514,6 +522,9 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 			_, _ = fmt.Fprintf(h, "%d:%s:%s", shard.TreeID, shardType, publicKeyRefStr)
 			if shard.PrivateKeyRef.Name != "" {
 				_, _ = fmt.Fprintf(h, ":%s/%s", shard.PrivateKeyRef.Name, shard.PrivateKeyRef.Key)
+			}
+			if shard.PrivateKeyPasswordRef != nil {
+				_, _ = fmt.Fprintf(h, ":%s/%s", shard.PrivateKeyPasswordRef.Name, shard.PrivateKeyPasswordRef.Key)
 			}
 		}
 		annotations[labels.LabelNamespace+"/shardingHash"] = hex.EncodeToString(h.Sum(nil))
