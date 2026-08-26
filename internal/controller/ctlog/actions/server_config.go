@@ -145,6 +145,21 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 		return i.RequeueAfter(5 * time.Second)
 	}
 
+	shards, err := i.handleShards(ctx, instance)
+	if err != nil {
+		meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+			Type:               ConfigCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             state.Failure.String(),
+			Message:            fmt.Sprintf("Failed to resolve shard secrets: %v", err),
+			ObservedGeneration: instance.Generation,
+		})
+		if _, err := i.PersistStatus(ctx, instance); err != nil {
+			return i.Error(ctx, err, instance)
+		}
+		return i.RequeueAfter(5 * time.Second)
+	}
+
 	isPKCS11 := instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11
 
 	var cfg map[string][]byte
@@ -165,7 +180,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 			}
 			return i.RequeueAfter(5 * time.Second)
 		}
-		cfg, err = ctlogUtils.CreateCtlogConfig(trillianUrl, *instance.Status.TreeID, rootCerts, certConfig, instance.Spec.Prefix)
+		cfg, err = ctlogUtils.CreateCtlogConfig(trillianUrl, *instance.Status.TreeID, rootCerts, certConfig, instance.Spec.Prefix, shards)
 	}
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create CTLog configuration: %w", err), instance, metav1.Condition{
@@ -385,15 +400,18 @@ func (i serverConfig) handleRootCertificates(ctx context.Context, instance *rhta
 func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog) ([]ctlogUtils.ShardConfig, error) {
 	shards := make([]ctlogUtils.ShardConfig, 0, len(instance.Spec.Sharding))
 	for _, s := range instance.Spec.Sharding {
-		publicKey, err := kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, &s.PublicKeyRef)
-		if err != nil {
-			return nil, fmt.Errorf("shard %d publicKeyRef: %w", s.TreeID, err)
+		var publicKey []byte
+		if s.PublicKeyRef != nil {
+			var err error
+			publicKey, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PublicKeyRef)
+			if err != nil {
+				return nil, fmt.Errorf("shard %d publicKeyRef: %w", s.TreeID, err)
+			}
 		}
 
 		sc := ctlogUtils.ShardConfig{
-			TreeID:     s.TreeID,
-			TreeLength: s.TreeLength,
-			PublicKey:  publicKey,
+			TreeID:    s.TreeID,
+			PublicKey: publicKey,
 		}
 
 		// Determine shard type - default to active signer type if not specified
@@ -401,31 +419,25 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 		if shardType == "" {
 			shardType = instance.Spec.Signer.Type
 			if shardType == "" {
-				shardType = rhtasv1.CTlogSignerTypeFile
+				shardType = "file"
 			}
 		}
 		sc.Type = shardType
 
-		if shardType == rhtasv1.CTlogSignerTypePKCS11 {
+		if shardType == "pkcs11" {
 			// For PKCS#11 shards, copy the signer's PKCS#11 config
 			if instance.Spec.Signer.PKCS11 != nil {
-				sc.PKCS11 = &instance.Spec.Signer.PKCS11.PKCS11Config
+				sc.PKCS11 = instance.Spec.Signer.PKCS11
 			} else {
 				return nil, fmt.Errorf("shard %d type is pkcs11 but signer has no PKCS#11 configuration", s.TreeID)
 			}
-		} else if shardType == rhtasv1.CTlogSignerTypeFile {
+		} else if shardType == "file" {
 			// For file shards, resolve the private key from the shard config
-			if s.PrivateKeyRef != nil {
-				sc.PrivateKey, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyRef)
+			if s.PrivateKeyRef.Name != "" {
+				var err error
+				sc.PrivateKey, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, &s.PrivateKeyRef)
 				if err != nil {
 					return nil, fmt.Errorf("shard %d privateKeyRef: %w", s.TreeID, err)
-				}
-			}
-
-			if s.PrivateKeyPasswordRef != nil { //nolint:staticcheck
-				sc.PrivateKeyPass, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyPasswordRef) //nolint:staticcheck
-				if err != nil {
-					return nil, fmt.Errorf("shard %d privateKeyPasswordRef: %w", s.TreeID, err)
 				}
 			}
 		} else {
@@ -493,15 +505,16 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 			if shardType == "" {
 				shardType = instance.Spec.Signer.Type
 				if shardType == "" {
-					shardType = rhtasv1.CTlogSignerTypeFile
+					shardType = "file"
 				}
 			}
-			_, _ = fmt.Fprintf(h, "%d:%d:%s:%s/%s", shard.TreeID, shard.TreeLength, shardType, shard.PublicKeyRef.Name, shard.PublicKeyRef.Key)
-			if shard.PrivateKeyRef != nil {
-				_, _ = fmt.Fprintf(h, ":%s/%s", shard.PrivateKeyRef.Name, shard.PrivateKeyRef.Key)
+			publicKeyRefStr := ""
+			if shard.PublicKeyRef != nil {
+				publicKeyRefStr = shard.PublicKeyRef.Name + "/" + shard.PublicKeyRef.Key
 			}
-			if shard.PrivateKeyPasswordRef != nil {
-				_, _ = fmt.Fprintf(h, ":%s/%s", shard.PrivateKeyPasswordRef.Name, shard.PrivateKeyPasswordRef.Key)
+			_, _ = fmt.Fprintf(h, "%d:%s:%s", shard.TreeID, shardType, publicKeyRefStr)
+			if shard.PrivateKeyRef.Name != "" {
+				_, _ = fmt.Fprintf(h, ":%s/%s", shard.PrivateKeyRef.Name, shard.PrivateKeyRef.Key)
 			}
 		}
 		annotations[labels.LabelNamespace+"/shardingHash"] = hex.EncodeToString(h.Sum(nil))
