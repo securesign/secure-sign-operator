@@ -2063,6 +2063,8 @@ spec:
                       x-kubernetes-validations:
                       - message: privateKeyRef is required for file-type shards
                         rule: '!has(self.type) || self.type != ''file'' || has(self.privateKeyRef)'
+                      - message: privateKeyRef is required for pkcs11-type shards
+                        rule: '!has(self.type) || self.type != ''pkcs11'' || has(self.privateKeyRef)'
                     type: array
                     x-kubernetes-list-map-keys:
                     - treeID
