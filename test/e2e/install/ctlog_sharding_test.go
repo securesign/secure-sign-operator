@@ -136,7 +136,7 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 				}
 
 				secretName := "ctlog-sharding-config"
-				newCtlogSecret := ctlog.CreateSecretWithPassword(namespace.Name, secretName)
+				newCtlogSecret := ctlog.CreateSecret(namespace.Name, secretName)
 
 				// Prepare config with sharding
 				cfg := &configpb.LogMultiConfig{}
@@ -171,9 +171,13 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 				// Configure the active shard
 				active.LogId = newTreeId
 				active.Prefix = "trusted-artifact-signer"
+				password := ""
+				if pwd, ok := newCtlogSecret.Data["password"]; ok {
+					password = string(pwd)
+				}
 				activeAnyKey, err := anypb.New(&keyspb.PEMKeyFile{
 					Path:     "/ctfe-keys/private",
-					Password: string(newCtlogSecret.Data["password"]),
+					Password: password,
 				})
 				Expect(err).ToNot(HaveOccurred())
 				active.PrivateKey = activeAnyKey
