@@ -296,7 +296,6 @@ func updateTree(namespace string, treeID int64, state string) *v1.Pod {
 			RestartPolicy: v1.RestartPolicyNever,
 			SecurityContext: &v1.PodSecurityContext{
 				RunAsNonRoot: ptr.To(true),
-				RunAsUser:    ptr.To(int64(65532)),
 				SeccompProfile: &v1.SeccompProfile{
 					Type: v1.SeccompProfileTypeRuntimeDefault,
 				},
@@ -333,7 +332,6 @@ func createTree(namespace, displayName string) *v1.Pod {
 			RestartPolicy: v1.RestartPolicyNever,
 			SecurityContext: &v1.PodSecurityContext{
 				RunAsNonRoot: ptr.To(true),
-				RunAsUser:    ptr.To(int64(65532)),
 				SeccompProfile: &v1.SeccompProfile{
 					Type: v1.SeccompProfileTypeRuntimeDefault,
 				},
