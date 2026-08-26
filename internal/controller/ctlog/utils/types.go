@@ -1,7 +1,5 @@
 package utils
 
-import rhtasv1 "github.com/securesign/operator/api/v1"
-
 type RootCertificate []byte
 
 type ShardConfig struct {
@@ -9,7 +7,6 @@ type ShardConfig struct {
 	TreeLength int64
 	PublicKey  []byte
 	PrivateKey []byte
-	Password   []byte                     // Password for encrypted private key (deprecated, for legacy compatibility)
-	Type       string                     // "file" or "pkcs11"
-	PKCS11     *rhtasv1.CTlogPKCS11Config // PKCS#11 config for HSM-based shards
+	Password   []byte // Password for encrypted private key (deprecated, for legacy compatibility)
+	Type       string // "file" or "pkcs11"
 }
