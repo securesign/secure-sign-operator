@@ -113,6 +113,7 @@ const (
 
 // CTlogLogRange defines the range and key details of an inactive CTlog shard
 // +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'file' || has(self.privateKeyRef)",message="privateKeyRef is required for file-type shards"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || has(self.privateKeyRef)",message="privateKeyRef is required for pkcs11-type shards"
 // +structType=atomic
 type CTlogLogRange struct {
 	// ID of Merkle tree in Trillian backend
