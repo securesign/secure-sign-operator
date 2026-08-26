@@ -135,7 +135,7 @@ type CTlogLogRange struct {
 	// +kubebuilder:validation:Required
 	PrivateKeyRef SecretKeySelector `json:"privateKeyRef"`
 	// Reference to a secret containing the password for the private key (if encrypted).
-	// Deprecated: Passwords are not FIPS-compliant. Kept for backward compatibility with legacy instances.
+	// Passwords are not FIPS-compliant. Kept for backward compatibility with legacy instances.
 	// +optional
 	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
 }
@@ -163,13 +163,6 @@ type CTlogFile struct {
 	// The private key used for signing STHs etc.
 	//+optional
 	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
-
-	// Deprecated: Legacy PEM encryption as specified in RFC 1423 is insecure by design
-	// and not FIPS-compliant. Auto-generated keys are no longer password-encrypted;
-	// this field is retained only for backward compatibility with existing user-provided
-	// encrypted keys. Kubernetes Secrets provide encryption-at-rest.
-	// +optional
-	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
 
 	// The public key matching the private key (if both are present). It is
 	// used only by mirror logs for verifying the source log's signatures, but can
