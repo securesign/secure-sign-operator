@@ -259,6 +259,17 @@ var _ = Describe("Key rotation test", Ordered, func() {
 	})
 
 	Describe("Update transparency log", func() {
+		var oldCtlogPub []byte
+		It("Download ctlog public key", func(ctx SpecContext) {
+			c := ctlog.Get(ctx, cli, namespace.Name, s.Name)
+			Expect(c).ToNot(BeNil())
+
+			configSecret, err := ctlog.GetConfigSecret(ctx, cli, s.Namespace, c.Status.ServerConfigRef.Name)
+			Expect(err).ToNot(HaveOccurred())
+			oldCtlogPub = configSecret.Data["public"]
+			Expect(oldCtlogPub).ToNot(BeEmpty())
+		})
+
 		It("Update ctlog keys", func(ctx SpecContext) {
 			c := ctlog.Get(ctx, cli, namespace.Name, s.Name)
 			Expect(c).ToNot(BeNil())
@@ -358,6 +369,28 @@ var _ = Describe("Key rotation test", Ordered, func() {
 					},
 					Key: "public",
 				}
+
+				// Add old tree to sharding (mirrors Rekor's pattern)
+				f.Spec.Ctlog.Sharding = []rhtasv1.CTlogLogRange{
+					{
+						TreeID: *oldTreeId,
+						Type:   "file",
+						Prefix: "shard-0",
+						PublicKeyRef: &rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
+								Name: secretName,
+							},
+							Key: "public-0",
+						},
+						PrivateKeyRef: rhtasv1.SecretKeySelector{
+							LocalObjectReference: rhtasv1.LocalObjectReference{
+								Name: secretName,
+							},
+							Key: "private-0",
+						},
+					},
+				}
+
 				return cli.Update(ctx, f)
 			}).Should(Succeed())
 			Eventually(func(g Gomega) bool {
