@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
-	rhtasv1 "github.com/securesign/operator/api/v1"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -158,7 +157,7 @@ func (c *Config) marshalShardLogConfig(shard ShardConfig, rootPems []string) (*c
 		IsReadonly:     true,
 	}
 
-	if shard.Type == rhtasv1.CTlogSignerTypePKCS11 && shard.PKCS11 != nil {
+	if shard.Type == "pkcs11" && shard.PKCS11 != nil {
 		cfg.PrivateKey = mustMarshalAny(c.buildPKCS11Config(shard))
 	} else if len(shard.PrivateKey) > 0 {
 		cfg.PrivateKey = mustMarshalAny(&keyspb.PEMKeyFile{
