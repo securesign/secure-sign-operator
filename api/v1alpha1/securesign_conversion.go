@@ -68,10 +68,12 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Spec.Fulcio.PodExtensions = restored.Spec.Fulcio.PodExtensions
 	dst.Spec.Fulcio.Auth = restored.Spec.Fulcio.Auth
+	dst.Spec.Fulcio.Signer.PKCS11 = restored.Spec.Fulcio.Signer.PKCS11
 	dst.Spec.Ctlog.ImagePullSecrets = restored.Spec.Ctlog.ImagePullSecrets
 	dst.Spec.Ctlog.TrustedCA = restored.Spec.Ctlog.TrustedCA
 	dst.Spec.Ctlog.Monitoring.ServiceMonitor = restored.Spec.Ctlog.Monitoring.ServiceMonitor
 	dst.Spec.Ctlog.Prefix = restored.Spec.Ctlog.Prefix
+	dst.Spec.Ctlog.Sharding = restored.Spec.Ctlog.Sharding
 	dst.Spec.Ctlog.Signer.Type = restored.Spec.Ctlog.Signer.Type
 	// If original v1 had File=&{} (empty struct), preserve it
 	if dst.Spec.Ctlog.Signer.File == nil && restored.Spec.Ctlog.Signer.File != nil {
@@ -79,6 +81,10 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 		if equality.Semantic.DeepEqual(restored.Spec.Ctlog.Signer.File, emptyFile) {
 			dst.Spec.Ctlog.Signer.File = &rhtasv1.CTlogFile{}
 		}
+	}
+	// Preserve PKCS11 configuration if present
+	if dst.Spec.Ctlog.Signer.PKCS11 == nil && restored.Spec.Ctlog.Signer.PKCS11 != nil {
+		dst.Spec.Ctlog.Signer.PKCS11 = restored.Spec.Ctlog.Signer.PKCS11
 	}
 	if dst.Spec.Ctlog.Trillian.URL == "" {
 		dst.Spec.Ctlog.Trillian.Ref = restored.Spec.Ctlog.Trillian.Ref
@@ -88,6 +94,8 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Spec.Ctlog.PodExtensions = restored.Spec.Ctlog.PodExtensions
 	dst.Spec.Ctlog.Auth = restored.Spec.Ctlog.Auth
+	dst.Spec.Ctlog.Ingress = restored.Spec.Ctlog.Ingress
+	dst.Spec.Ctlog.Signer.PKCS11 = restored.Spec.Ctlog.Signer.PKCS11
 	dst.Spec.Rekor.ImagePullSecrets = restored.Spec.Rekor.ImagePullSecrets
 	dst.Spec.Rekor.Monitoring.ServiceMonitor = restored.Spec.Rekor.Monitoring.ServiceMonitor
 	dst.Spec.Rekor.PodExtensions = restored.Spec.Rekor.PodExtensions
@@ -113,22 +121,21 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Tuf.ImagePullSecrets = restored.Spec.Tuf.ImagePullSecrets
 	dst.Spec.Tuf.TrustedCA = restored.Spec.Tuf.TrustedCA
 	dst.Spec.Tuf.PodExtensions = restored.Spec.Tuf.PodExtensions
-	if dst.Spec.Tuf.Rekor.URL == "" {
-		dst.Spec.Tuf.Rekor.Ref = restored.Spec.Tuf.Rekor.Ref
+	restoreBindingRef(dst.Spec.Tuf.Rekor, restored.Spec.Tuf.Rekor)
+	if len(dst.Spec.Tuf.Fulcio) > 0 && len(restored.Spec.Tuf.Fulcio) > 0 {
+		if dst.Spec.Tuf.Fulcio[0].URL == "" {
+			dst.Spec.Tuf.Fulcio[0].Ref = restored.Spec.Tuf.Fulcio[0].Ref
+		}
+		dst.Spec.Tuf.Fulcio[0].OIDCIssuers = restored.Spec.Tuf.Fulcio[0].OIDCIssuers
 	}
-	if dst.Spec.Tuf.Fulcio.URL == "" {
-		dst.Spec.Tuf.Fulcio.Ref = restored.Spec.Tuf.Fulcio.Ref
-	}
-	dst.Spec.Tuf.Fulcio.OIDCIssuers = restored.Spec.Tuf.Fulcio.OIDCIssuers
 	// v1alpha1 inject prefix into URL - we need to restore empty URL to allow ref resolution
-	if restored.Spec.Tuf.Ctlog.URL == "" && dst.Spec.Tuf.Ctlog.URL == "///trusted-artifact-signer" { //nolint:goconst
-		dst.Spec.Tuf.Ctlog.URL = ""
+	if len(dst.Spec.Tuf.Ctlog) > 0 && len(restored.Spec.Tuf.Ctlog) > 0 &&
+		restored.Spec.Tuf.Ctlog[0].URL == "" && dst.Spec.Tuf.Ctlog[0].URL == "///trusted-artifact-signer" { //nolint:goconst
+		dst.Spec.Tuf.Ctlog[0].URL = ""
 	}
-	if dst.Spec.Tuf.Ctlog.URL == "" {
-		dst.Spec.Tuf.Ctlog.Ref = restored.Spec.Tuf.Ctlog.Ref
-	}
-	if dst.Spec.Tuf.Tsa.URL == "" {
-		dst.Spec.Tuf.Tsa.Ref = restored.Spec.Tuf.Tsa.Ref
+	restoreBindingRef(dst.Spec.Tuf.Ctlog, restored.Spec.Tuf.Ctlog)
+	if dst.Spec.Tuf.Tsa != nil && restored.Spec.Tuf.Tsa != nil {
+		restoreBindingRef(*dst.Spec.Tuf.Tsa, *restored.Spec.Tuf.Tsa)
 	}
 	if dst.Spec.TimestampAuthority != nil && restored.Spec.TimestampAuthority != nil {
 		dst.Spec.TimestampAuthority.ImagePullSecrets = restored.Spec.TimestampAuthority.ImagePullSecrets
