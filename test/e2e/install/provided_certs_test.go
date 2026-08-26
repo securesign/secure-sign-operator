@@ -88,7 +88,9 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 	})
 
 	BeforeAll(func(ctx SpecContext) {
-		targetImageName = support.PrepareImage(ctx)
+		reg := support.DeployTestRegistry(ctx, cli, namespace.Name)
+		DeferCleanup(reg.Close)
+		targetImageName = reg.PrepareImage(ctx)
 	})
 
 	Describe("Install with provided certificates", func() {
