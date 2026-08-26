@@ -57,13 +57,6 @@ type CTlogSpec struct {
 	// +patchMergeKey=treeID
 	Sharding []CTlogLogRange `json:"sharding,omitempty"`
 
-	// Deprecated: Use spec fields (treeID, signer, rootCertificates, trillian, sharding) instead.
-	// Secret holding Certificate Transparency server config in text proto format.
-	// If it is set then all other spec fields will be overridden.
-	// Retained as an escape hatch for advanced configurations.
-	//+optional
-	ServerConfigRef *LocalObjectReference `json:"serverConfigRef,omitempty"`
-
 	// Prefix is the name of the log. The prefix cannot be empty and can
 	// contain "/" path separator characters to define global override handler prefix.
 	//+kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$"
