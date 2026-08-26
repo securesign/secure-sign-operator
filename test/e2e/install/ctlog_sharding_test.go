@@ -136,7 +136,7 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 				}
 
 				secretName := "ctlog-sharding-config"
-				newCtlogSecret := ctlog.CreateSecret(namespace.Name, secretName)
+				newCtlogSecret := ctlog.CreateSecret(namespace.Name, secretName, false)
 
 				// Prepare config with sharding
 				cfg := &configpb.LogMultiConfig{}
