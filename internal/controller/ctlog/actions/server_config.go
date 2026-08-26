@@ -397,6 +397,17 @@ func (i serverConfig) handleRootCertificates(ctx context.Context, instance *rhta
 //   - nil if the secret is valid
 //   - errSecretInvalid if the secret needs recreation (not a failure)
 //   - other error for API errors - reconciliation should fail
+// determineShardType returns the effective shard type, defaulting to active signer type, then "file".
+func determineShardType(shardType, activeSignerType string) string {
+	if shardType == "" {
+		shardType = activeSignerType
+		if shardType == "" {
+			shardType = "file"
+		}
+	}
+	return shardType
+}
+
 func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog) ([]ctlogUtils.ShardConfig, error) {
 	shards := make([]ctlogUtils.ShardConfig, 0, len(instance.Spec.Sharding))
 	for _, s := range instance.Spec.Sharding {
@@ -415,13 +426,7 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 		}
 
 		// Determine shard type - default to active signer type if not specified
-		shardType := s.Type
-		if shardType == "" {
-			shardType = instance.Spec.Signer.Type
-			if shardType == "" {
-				shardType = "file"
-			}
-		}
+		shardType := determineShardType(s.Type, instance.Spec.Signer.Type)
 		sc.Type = shardType
 
 		if shardType == "pkcs11" {
@@ -496,18 +501,10 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 		annotations[labels.LabelNamespace+"/logPrefix"] = instance.Spec.Prefix
 	}
 
-	if instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11 && instance.Spec.Signer.PKCS11 != nil {
-
 	if len(instance.Spec.Sharding) > 0 {
 		h := sha256.New()
 		for _, shard := range instance.Spec.Sharding {
-			shardType := shard.Type
-			if shardType == "" {
-				shardType = instance.Spec.Signer.Type
-				if shardType == "" {
-					shardType = "file"
-				}
-			}
+			shardType := determineShardType(shard.Type, instance.Spec.Signer.Type)
 			publicKeyRefStr := ""
 			if shard.PublicKeyRef != nil {
 				publicKeyRefStr = shard.PublicKeyRef.Name + "/" + shard.PublicKeyRef.Key
@@ -519,6 +516,8 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 		}
 		annotations[labels.LabelNamespace+"/shardingHash"] = hex.EncodeToString(h.Sum(nil))
 	}
+
+	if instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11 && instance.Spec.Signer.PKCS11 != nil {
 		annotations[labels.LabelNamespace+"/pkcs11SpecHash"] = pkcs11SpecHash(instance.Spec.Signer.PKCS11)
 	}
 
