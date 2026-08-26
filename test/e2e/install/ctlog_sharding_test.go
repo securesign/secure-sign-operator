@@ -96,14 +96,14 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 		})
 
 		It("Freeze the current tree", func(ctx SpecContext) {
-			drainingPod := updateTree(namespace.Name, *oldTreeId, "DRAINING")
+			drainingPod := updateTree(namespace.Name, oldTreeId, "DRAINING")
 			Expect(cli.Create(ctx, drainingPod)).To(Succeed())
 			Eventually(func(gomega Gomega) bool {
 				gomega.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(drainingPod), drainingPod)).To(Succeed())
 				return drainingPod.Status.Phase == v1.PodSucceeded
 			}).Should(BeTrue())
 
-			freezePod := updateTree(namespace.Name, *oldTreeId, "FROZEN")
+			freezePod := updateTree(namespace.Name, oldTreeId, "FROZEN")
 			Expect(cli.Create(ctx, freezePod)).To(Succeed())
 			Eventually(func(gomega Gomega) bool {
 				gomega.Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(freezePod), freezePod)).To(Succeed())
@@ -286,7 +286,16 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 	})
 })
 
-func updateTree(namespace string, treeID int64, state string) *v1.Pod {
+func updateTree(namespace string, treeId *int64, state string) *v1.Pod {
+	args := []string{
+		"--admin_server", fmt.Sprintf("trillian-logserver.%s.svc:8091", namespace),
+		"--tree_id", strconv.FormatInt(*treeId, 10),
+		"--tree_state", state,
+	}
+	if testKubernetes.IsRemoteClusterOpenshift() {
+		args = append(args, "--tls_cert_file", "/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt")
+	}
+
 	return &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "update-tree-",
@@ -299,10 +308,12 @@ func updateTree(namespace string, treeID int64, state string) *v1.Pod {
 					Name:    "updatetree",
 					Image:   "registry.redhat.io/rhtas/updatetree-rhel9:1.1.0",
 					Command: []string{"updatetree"},
-					Args: []string{
-						"-admin_server=trillian-admin:8090",
-						"-tree_id=" + strconv.FormatInt(treeID, 10),
-						"-tree_state=" + state,
+					Args:    args,
+					SecurityContext: &v1.SecurityContext{
+						AllowPrivilegeEscalation: ptr.To(false),
+						Capabilities:             &v1.Capabilities{Drop: []v1.Capability{"ALL"}},
+						RunAsNonRoot:             ptr.To(true),
+						SeccompProfile:           &v1.SeccompProfile{Type: v1.SeccompProfileTypeRuntimeDefault},
 					},
 				},
 			},
@@ -311,6 +322,13 @@ func updateTree(namespace string, treeID int64, state string) *v1.Pod {
 }
 
 func createTree(namespace, displayName string) *v1.Pod {
+	args := []string{
+		"--admin_server", fmt.Sprintf("trillian-logserver.%s.svc:8091", namespace),
+		"--display_name", displayName,
+	}
+	if testKubernetes.IsRemoteClusterOpenshift() {
+		args = append(args, "--tls_cert_file", "/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt")
+	}
 	return &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "create-tree-",
@@ -323,9 +341,12 @@ func createTree(namespace, displayName string) *v1.Pod {
 					Name:    "createtree",
 					Image:   "registry.redhat.io/rhtas/createtree-rhel9:1.1.0",
 					Command: []string{"createtree"},
-					Args: []string{
-						"-admin_server=trillian-admin:8090",
-						"-display_name=" + displayName,
+					Args:    args,
+					SecurityContext: &v1.SecurityContext{
+						AllowPrivilegeEscalation: ptr.To(false),
+						Capabilities:             &v1.Capabilities{Drop: []v1.Capability{"ALL"}},
+						RunAsNonRoot:             ptr.To(true),
+						SeccompProfile:           &v1.SeccompProfile{Type: v1.SeccompProfileTypeRuntimeDefault},
 					},
 				},
 			},
