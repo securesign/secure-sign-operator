@@ -85,10 +85,6 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 			dst.Spec.Signer.File = &rhtasv1.CTlogFile{}
 		}
 	}
-	// Preserve PKCS11 configuration if present
-	if dst.Spec.Signer.PKCS11 == nil && restored.Spec.Signer.PKCS11 != nil {
-		dst.Spec.Signer.PKCS11 = restored.Spec.Signer.PKCS11
-	}
 	dst.Status.PublicKey = restored.Status.PublicKey
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
 	dst.Spec.Prefix = restored.Spec.Prefix
