@@ -272,12 +272,12 @@ func (in *CTlogLogRange) DeepCopyInto(out *CTlogLogRange) {
 	}
 	if in.NotAfterStart != nil {
 		in, out := &in.NotAfterStart, &out.NotAfterStart
-		*out = new(int64)
+		*out = new(string)
 		**out = **in
 	}
 	if in.NotAfterLimit != nil {
 		in, out := &in.NotAfterLimit, &out.NotAfterLimit
-		*out = new(int64)
+		*out = new(string)
 		**out = **in
 	}
 }
