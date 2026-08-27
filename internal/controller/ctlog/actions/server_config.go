@@ -42,6 +42,7 @@ var serverConfigAnnotations = []string{
 	labels.LabelNamespace + "/logPrefix",
 	labels.LabelNamespace + "/pkcs11SpecHash",
 	labels.LabelNamespace + "/shardingHash",
+	labels.LabelNamespace + "/activeLogValidity",
 }
 
 func NewServerConfigAction() action.Action[*rhtasv1.CTlog] {
@@ -172,7 +173,15 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 			}
 			return i.RequeueAfter(5 * time.Second)
 		}
-		cfg, err = ctlogUtils.CreateCtlogConfig(trillianUrl, *instance.Status.TreeID, rootCerts, certConfig, instance.Spec.Prefix, shards)
+		notAfterStart := int64(0)
+		notAfterLimit := int64(0)
+		if instance.Spec.NotAfterStart != nil {
+			notAfterStart = instance.Spec.NotAfterStart.Unix()
+		}
+		if instance.Spec.NotAfterLimit != nil {
+			notAfterLimit = instance.Spec.NotAfterLimit.Unix()
+		}
+		cfg, err = ctlogUtils.CreateCtlogConfig(trillianUrl, *instance.Status.TreeID, rootCerts, certConfig, instance.Spec.Prefix, shards, notAfterStart, notAfterLimit)
 	}
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create CTLog configuration: %w", err), instance, metav1.Condition{
@@ -453,6 +462,17 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 
 	if instance.Spec.Prefix != "" {
 		annotations[labels.LabelNamespace+"/logPrefix"] = instance.Spec.Prefix
+	}
+
+	if instance.Spec.NotAfterStart != nil || instance.Spec.NotAfterLimit != nil {
+		h := sha256.New()
+		if instance.Spec.NotAfterStart != nil {
+			_, _ = fmt.Fprintf(h, "NotAfterStart:%d", instance.Spec.NotAfterStart.Unix())
+		}
+		if instance.Spec.NotAfterLimit != nil {
+			_, _ = fmt.Fprintf(h, ":NotAfterLimit:%d", instance.Spec.NotAfterLimit.Unix())
+		}
+		annotations[labels.LabelNamespace+"/activeLogValidity"] = hex.EncodeToString(h.Sum(nil))
 	}
 
 	if len(instance.Spec.Sharding) > 0 {

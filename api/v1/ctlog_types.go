@@ -79,6 +79,13 @@ type CTlogSpec struct {
 	// Authentication configuration for the signer backend.
 	//+optional
 	Auth *Auth `json:"auth,omitempty"`
+
+	// RFC3339 timestamp when this log's certificates become valid.
+	// +optional
+	NotAfterStart *metav1.Time `json:"notAfterStart,omitempty"`
+	// RFC3339 timestamp when this log's certificates expire.
+	// +optional
+	NotAfterLimit *metav1.Time `json:"notAfterLimit,omitempty"`
 }
 
 // CTlogPKCS11Config holds the CTLog PKCS#11/HSM signer configuration.
