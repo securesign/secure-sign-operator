@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/constants"
@@ -243,8 +244,8 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
 								Key:                  "private",
 							},
-							NotAfterStart: ptr.To("2024-01-01T00:00:00Z"),
-							NotAfterLimit: ptr.To("2025-01-01T00:00:00Z"),
+							NotAfterStart: &metav1.Time{Time: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
+							NotAfterLimit: &metav1.Time{Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
 						},
 					},
 				},
