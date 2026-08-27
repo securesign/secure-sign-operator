@@ -370,23 +370,16 @@ var _ = Describe("Key rotation test", Ordered, func() {
 					Key: "public",
 				}
 
-				// Add old tree to sharding (mirrors Rekor's pattern)
+				// Add old tree to sharding as read-only frozen shard
 				f.Spec.Ctlog.Sharding = []rhtasv1.CTlogLogRange{
 					{
 						TreeID: *oldTreeId,
-						Type:   "file",
 						Prefix: "shard-0",
 						PublicKeyRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: secretName,
 							},
 							Key: "public-0",
-						},
-						PrivateKeyRef: rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{
-								Name: secretName,
-							},
-							Key: "private-0",
 						},
 					},
 				}
