@@ -9,4 +9,5 @@ type ShardConfig struct {
 	PrivateKey []byte
 	Password   []byte // Password for encrypted private key (deprecated, for legacy compatibility)
 	Type       string // "file" or "pkcs11"
+	Prefix     string // URL path prefix for the shard
 }
