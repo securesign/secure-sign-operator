@@ -143,12 +143,12 @@ func TestResolveClusterTLSProfile_ProfileFetchError(t *testing.T) {
 	g.Expect(err.Error()).To(gomega.ContainSubstring("unable to fetch cluster TLS security profile"))
 }
 
-// resolveClusterTLSProfile: an unexpected error fetching only the adherence policy is tolerated;
-// the resolver keeps the profile and defaults adherence to NoOpinion.
+// resolveClusterTLSProfile: an unexpected error fetching the adherence policy must fail closed.
+// Silently defaulting to NoOpinion would relax a StrictAllComponents cluster to legacy and let a
+// non-compliant component roll out, so the resolver aborts instead.
 func TestResolveClusterTLSProfile_AdherenceFetchError(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewWithT(t)
-	modern := *configv1.TLSProfiles[configv1.TLSProfileModernType]
 
 	apiServer := apiServerWith(
 		&configv1.TLSSecurityProfile{Type: configv1.TLSProfileModernType},
@@ -174,12 +174,11 @@ func TestResolveClusterTLSProfile_AdherenceFetchError(t *testing.T) {
 		}).
 		Build()
 
-	profile, adherence, err := resolveClusterTLSProfile(
+	_, _, err := resolveClusterTLSProfile(
 		context.Background(), cli, true, false, logr.Discard())
 
-	g.Expect(err).ToNot(gomega.HaveOccurred())
-	g.Expect(profile.MinTLSVersion).To(gomega.Equal(modern.MinTLSVersion))
-	g.Expect(adherence).To(gomega.Equal(configv1.TLSAdherencePolicyNoOpinion))
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(err.Error()).To(gomega.ContainSubstring("unable to fetch cluster TLS adherence policy"))
 }
 
 // Guard: the NotFound classification the resolver relies on must hold for the fake client so the
@@ -192,4 +191,27 @@ func TestResolveClusterTLSProfile_NotFoundClassification(t *testing.T) {
 	err := cli.Get(context.Background(), client.ObjectKey{Name: "cluster"}, &configv1.APIServer{})
 
 	g.Expect(apierrors.IsNotFound(err)).To(gomega.BeTrue())
+}
+
+// clusterEnforcesStrictTLS: StrictAllComponents (and any unrecognised value) is strict;
+// NoOpinion and LegacyAdheringComponentsOnly are not.
+func TestClusterEnforcesStrictTLS(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		policy configv1.TLSAdherencePolicy
+		want   bool
+	}{
+		{"StrictAllComponents is strict", configv1.TLSAdherencePolicyStrictAllComponents, true},
+		{"NoOpinion is not strict", configv1.TLSAdherencePolicyNoOpinion, false},
+		{"LegacyAdheringComponentsOnly is not strict", configv1.TLSAdherencePolicyLegacyAdheringComponentsOnly, false},
+		{"unrecognised value is treated as strict (fail-secure)", configv1.TLSAdherencePolicy("SomethingNew"), true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			g.Expect(clusterEnforcesStrictTLS(tt.policy)).To(gomega.Equal(tt.want))
+		})
+	}
 }

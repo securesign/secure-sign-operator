@@ -148,6 +148,10 @@ func (i *Tuf) SetCondition(newCondition metav1.Condition) {
 	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
 }
 
+func (i *Tuf) RemoveCondition(conditionType string) {
+	meta.RemoveStatusCondition(&i.Status.Conditions, conditionType)
+}
+
 func (i *Tuf) GetTrustedCA() *LocalObjectReference {
 	if v, ok := i.GetAnnotations()["rhtas.redhat.com/trusted-ca"]; ok {
 		return &LocalObjectReference{

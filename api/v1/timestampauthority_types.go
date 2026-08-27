@@ -157,6 +157,10 @@ func (i *TimestampAuthority) SetCondition(newCondition metav1.Condition) {
 	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
 }
 
+func (i *TimestampAuthority) RemoveCondition(conditionType string) {
+	meta.RemoveStatusCondition(&i.Status.Conditions, conditionType)
+}
+
 // TimestampAuthoritySignerStatus holds the resolved secret references for the signer.
 type TimestampAuthoritySignerStatus struct {
 	CertificateChainRef *SecretKeySelector `json:"certificateChainRef,omitempty"`

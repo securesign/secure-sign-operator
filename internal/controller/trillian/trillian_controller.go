@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/tlsadherence"
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/controller"
@@ -114,6 +115,7 @@ func (r *trillianReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 		actions.NewFIPSValidationAction(),
 
+		tlsadherence.NewAction[*rhtasv1.Trillian]("trillian", tlsadherence.CanHonourClusterTLSProfile[*rhtasv1.Trillian]),
 		transitions.NewToCreatePhaseAction[*rhtasv1.Trillian](),
 		logserver.NewRBACAction(),
 		logsigner.NewRBACAction(),

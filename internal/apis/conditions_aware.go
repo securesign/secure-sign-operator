@@ -10,4 +10,5 @@ type ConditionsAwareObject interface {
 	client.Object
 	GetConditions() []metav1.Condition
 	SetCondition(newCondition metav1.Condition)
+	RemoveCondition(conditionType string)
 }

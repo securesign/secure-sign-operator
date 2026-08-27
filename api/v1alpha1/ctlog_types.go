@@ -126,6 +126,10 @@ func (i *CTlog) SetCondition(newCondition metav1.Condition) {
 	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
 }
 
+func (i *CTlog) RemoveCondition(conditionType string) {
+	meta.RemoveStatusCondition(&i.Status.Conditions, conditionType)
+}
+
 func (i *CTlog) GetTrustedCA() *LocalObjectReference {
 	if v, ok := i.GetAnnotations()["rhtas.redhat.com/trusted-ca"]; ok {
 		return &LocalObjectReference{

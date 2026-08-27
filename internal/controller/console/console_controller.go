@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/tlsadherence"
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
@@ -81,6 +82,7 @@ func (r *consoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 		consoleapi.NewTlsAction(),
 
+		tlsadherence.NewAction[*rhtasv1.Console]("console", tlsadherence.CanHonourClusterTLSProfile[*rhtasv1.Console]),
 		transitions.NewToCreatePhaseAction[*rhtasv1.Console](),
 		consoleapi.NewRBACAction(),
 		ui.NewRBACAction(),

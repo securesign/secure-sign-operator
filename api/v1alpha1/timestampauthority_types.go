@@ -174,6 +174,10 @@ func (i *TimestampAuthority) SetCondition(newCondition metav1.Condition) {
 	meta.SetStatusCondition(&i.Status.Conditions, newCondition)
 }
 
+func (i *TimestampAuthority) RemoveCondition(conditionType string) {
+	meta.RemoveStatusCondition(&i.Status.Conditions, conditionType)
+}
+
 // TimestampAuthorityStatus defines the observed state of TimestampAuthority
 type TimestampAuthorityStatus struct {
 	NTPMonitoring *NTPMonitoring            `json:"ntpMonitoring,omitempty"`

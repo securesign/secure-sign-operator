@@ -65,16 +65,10 @@ func DetectOpenShiftPlatform(log logr.Logger, apiServiceName string, apiServiceT
 
 func detectOpenShiftWithRetry(ctx context.Context, log logr.Logger, cl client.Client, apiServiceName string, backoff wait.Backoff) (bool, error) {
 	var found bool
-	var lastErr error
-	retryErr := wait.ExponentialBackoffWithContext(ctx, backoff, func(ctx context.Context) (bool, error) {
+	err := RetryOnTransient(ctx, log, backoff, "OpenShift platform detection", func(ctx context.Context) error {
 		apiServiceList := &apiregistrationv1.APIServiceList{}
-		if listErr := cl.List(ctx, apiServiceList); listErr != nil {
-			if isTransientError(listErr) {
-				log.Info("Transient error during OpenShift platform detection, retrying", "error", listErr)
-				lastErr = listErr
-				return false, nil
-			}
-			return false, listErr
+		if err := cl.List(ctx, apiServiceList); err != nil {
+			return err
 		}
 		for _, apiService := range apiServiceList.Items {
 			if service := apiService.Spec.Service; service != nil {
@@ -82,22 +76,42 @@ func detectOpenShiftWithRetry(ctx context.Context, log logr.Logger, cl client.Cl
 				if apiServiceName == service.Namespace || apiServiceName == service.Name {
 					log.Info("Discovered APIService matching API service name", "namespace", service.Namespace, "name", service.Name)
 					found = true
-					return true, nil
+					return nil
 				}
 			}
+		}
+		return nil
+	})
+	return found, err
+}
+
+// RetryOnTransient runs op with exponential backoff, retrying only on transient
+// API/network errors (see isTransientError); non-transient errors are returned
+// immediately. description is used in retry logs and in the timeout error
+// returned when the context is cancelled or the backoff is exhausted.
+func RetryOnTransient(ctx context.Context, log logr.Logger, backoff wait.Backoff, description string, op func(ctx context.Context) error) error {
+	var lastErr error
+	retryErr := wait.ExponentialBackoffWithContext(ctx, backoff, func(ctx context.Context) (bool, error) {
+		if err := op(ctx); err != nil {
+			if isTransientError(err) {
+				log.Info("Transient error during "+description+", retrying", "error", err)
+				lastErr = err
+				return false, nil
+			}
+			return false, err
 		}
 		return true, nil
 	})
 	if retryErr != nil {
 		if wait.Interrupted(retryErr) {
 			if lastErr != nil {
-				return false, fmt.Errorf("timed out waiting for API server during OpenShift platform detection: %w", lastErr)
+				return fmt.Errorf("timed out during %s: %w", description, lastErr)
 			}
-			return false, errors.New("timed out waiting for API server during OpenShift platform detection")
+			return fmt.Errorf("timed out during %s", description)
 		}
-		return false, retryErr
+		return retryErr
 	}
-	return found, nil
+	return nil
 }
 
 func isTransientError(err error) bool {

@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/securesign/operator/internal/action"
+	"github.com/securesign/operator/internal/action/tlsadherence"
 	"github.com/securesign/operator/internal/action/transitions"
 	"github.com/securesign/operator/internal/action/trustmaterial"
 	"github.com/securesign/operator/internal/annotations"
@@ -105,6 +106,7 @@ func (r *timestampAuthorityReconciler) Reconcile(ctx context.Context, req ctrl.R
 		actions.NewFIPSValidationAction(),
 		actions.NewGenerateSignerAction(),
 		actions.NewResolveKMSTinkSignerAction(),
+		tlsadherence.NewAction[*rhtasv1.TimestampAuthority]("timestamp-authority", tlsadherence.CanHonourClusterTLSProfile[*rhtasv1.TimestampAuthority]),
 		transitions.NewToCreatePhaseAction[*rhtasv1.TimestampAuthority](),
 		actions.NewRBACAction(),
 		actions.NewNtpMonitoringAction(),
