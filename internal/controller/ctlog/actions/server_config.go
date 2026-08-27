@@ -374,6 +374,14 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 			Prefix:    s.Prefix,
 		}
 
+		// Set validity timestamps if provided
+		if s.NotAfterStart != nil {
+			sc.NotAfterStart = *s.NotAfterStart
+		}
+		if s.NotAfterLimit != nil {
+			sc.NotAfterLimit = *s.NotAfterLimit
+		}
+
 		// Determine shard type - shards are independent of active signer
 		shardType := determineShardType(s.Type)
 		sc.Type = shardType
