@@ -157,16 +157,12 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 				cfg.LogConfigs.Config = append(cfg.LogConfigs.Config, proto.Clone(frozen).(*configpb.LogConfig))
 				active := cfg.LogConfigs.Config[1]
 
-				// Configure the frozen shard
+				// Configure the frozen shard (read-only, no private key needed)
 				frozen.LogId = frozenTreeId // Ensure LogId is set correctly
 				frozen.NotAfterLimit = timestamp
 				frozen.Prefix = "trusted-artifact-signer-shard-0"
-				frozenKey := &keyspb.PEMKeyFile{}
-				Expect(anypb.UnmarshalTo(frozen.PrivateKey, frozenKey, proto.UnmarshalOptions{})).To(Succeed())
-				frozenKey.Path = "/ctfe-keys/private-0"
-				frozenAnyKey, err := anypb.New(frozenKey)
-				Expect(err).ToNot(HaveOccurred())
-				frozen.PrivateKey = frozenAnyKey
+				frozen.PrivateKey = nil // Frozen shards are read-only
+				frozen.IsReadonly = true
 
 				// Configure the active shard
 				active.LogId = newTreeId
@@ -188,7 +184,6 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 				Expect(err).ToNot(HaveOccurred())
 				newCtlogSecret.Data["config"] = configdata
 				newCtlogSecret.Data["fulcio"] = oldConfig.Data["fulcio"]
-				newCtlogSecret.Data["private-0"] = oldConfig.Data["private"]
 				newCtlogSecret.Data["public-0"] = oldConfig.Data["public"]
 
 				Expect(cli.Create(ctx, newCtlogSecret)).To(Succeed())
