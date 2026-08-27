@@ -368,10 +368,14 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 			}
 		}
 
+		// Determine shard type - shards are independent of active signer
+		shardType := determineShardType(s.Type)
+
 		sc := ctlogUtils.ShardConfig{
 			TreeID:    s.TreeID,
 			PublicKey: publicKey,
 			Prefix:    s.Prefix,
+			Type:      shardType,
 		}
 
 		// Set validity timestamps if provided
@@ -382,24 +386,41 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 			sc.NotAfterLimit = s.NotAfterLimit.Unix()
 		}
 
-		// Determine shard type - shards are independent of active signer
-		shardType := determineShardType(s.Type)
-		sc.Type = shardType
-
-		// For file shards, resolve the private key from the shard config
-		if s.PrivateKeyRef != nil && s.PrivateKeyRef.Name != "" {
-			var err error
-			sc.PrivateKey, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyRef)
-			if err != nil {
-				return nil, fmt.Errorf("shard %d privateKeyRef: %w", s.TreeID, err)
+		if shardType == rhtasv1.SignerTypePKCS11 {
+			// Validate PKCS11 shard required fields
+			if s.ModulePath == "" {
+				return nil, fmt.Errorf("shard %d (pkcs11): modulePath is required", s.TreeID)
 			}
-		}
-		// Resolve password if present (deprecated, for legacy compatibility)
-		if s.PrivateKeyPasswordRef != nil {
-			var err error
-			sc.Password, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyPasswordRef)
-			if err != nil {
-				return nil, fmt.Errorf("shard %d privateKeyPasswordRef: %w", s.TreeID, err)
+			if s.TokenLabel == "" {
+				return nil, fmt.Errorf("shard %d (pkcs11): tokenLabel is required", s.TreeID)
+			}
+			if s.PinSecretRef == nil {
+				return nil, fmt.Errorf("shard %d (pkcs11): pinSecretRef is required", s.TreeID)
+			}
+			if s.PublicKeyRef == nil {
+				return nil, fmt.Errorf("shard %d (pkcs11): publicKeyRef is required", s.TreeID)
+			}
+
+			// Store PKCS11-specific fields
+			sc.ModulePath = s.ModulePath
+			sc.TokenLabel = s.TokenLabel
+			sc.PinSecretRef = s.PinSecretRef
+		} else {
+			// For file shards, resolve the private key from the shard config
+			if s.PrivateKeyRef != nil && s.PrivateKeyRef.Name != "" {
+				var err error
+				sc.PrivateKey, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyRef)
+				if err != nil {
+					return nil, fmt.Errorf("shard %d privateKeyRef: %w", s.TreeID, err)
+				}
+			}
+			// Resolve password if present (deprecated, for legacy compatibility)
+			if s.PrivateKeyPasswordRef != nil {
+				var err error
+				sc.Password, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyPasswordRef)
+				if err != nil {
+					return nil, fmt.Errorf("shard %d privateKeyPasswordRef: %w", s.TreeID, err)
+				}
 			}
 		}
 
@@ -464,11 +485,18 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 				publicKeyRefStr = shard.PublicKeyRef.Name + "/" + shard.PublicKeyRef.Key
 			}
 			_, _ = fmt.Fprintf(h, "%d:%s:%s", shard.TreeID, shardType, publicKeyRefStr)
-			if shard.PrivateKeyRef.Name != "" {
+			if shard.PrivateKeyRef != nil && shard.PrivateKeyRef.Name != "" {
 				_, _ = fmt.Fprintf(h, ":%s/%s", shard.PrivateKeyRef.Name, shard.PrivateKeyRef.Key)
 			}
 			if shard.PrivateKeyPasswordRef != nil {
 				_, _ = fmt.Fprintf(h, ":%s/%s", shard.PrivateKeyPasswordRef.Name, shard.PrivateKeyPasswordRef.Key)
+			}
+			// Include PKCS11-specific fields in hash for drift detection
+			if shardType == rhtasv1.SignerTypePKCS11 {
+				_, _ = fmt.Fprintf(h, ":pkcs11:%s:%s", shard.ModulePath, shard.TokenLabel)
+				if shard.PinSecretRef != nil {
+					_, _ = fmt.Fprintf(h, ":%s/%s", shard.PinSecretRef.Name, shard.PinSecretRef.Key)
+				}
 			}
 		}
 		annotations[labels.LabelNamespace+"/shardingHash"] = hex.EncodeToString(h.Sum(nil))

@@ -309,5 +309,45 @@ var _ = Describe("CTlog PKCS#11 sharding configuration", Ordered, func() {
 			Expect(pkcs11Shard.PinSecretRef).ToNot(BeNil())
 			Expect(pkcs11Shard.PublicKeyRef).ToNot(BeNil())
 		})
+
+		It("Verify PKCS#11 sharding config is correctly marshaled in server config", func(ctx SpecContext) {
+			c := ctlog.Get(ctx, cli, namespace.Name, s.Name)
+			Expect(c).ToNot(BeNil())
+			Expect(c.Status.ServerConfigRef).ToNot(BeNil())
+
+			configSecret, err := kubernetes.GetSecret(ctx, cli, namespace.Name, c.Status.ServerConfigRef.Name)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(configSecret).ToNot(BeNil())
+
+			// Verify server config contains protobuf with correct shards
+			configData, ok := configSecret.Data["config"]
+			Expect(ok).To(BeTrue())
+			Expect(configData).ToNot(BeEmpty())
+
+			cfg := &configpb.LogMultiConfig{}
+			Expect(prototext.Unmarshal(configData, cfg)).To(Succeed())
+			Expect(cfg.LogConfigs).ToNot(BeNil())
+			Expect(cfg.LogConfigs.Config).To(HaveLen(3)) // 2 shards + 1 active
+
+			// Verify file shard marshaled correctly
+			fileCfg := cfg.LogConfigs.Config[0]
+			Expect(fileCfg.LogId).To(Equal(*oldTreeId))
+			Expect(fileCfg.Prefix).To(Equal("shard-0"))
+			Expect(fileCfg.IsReadonly).To(BeTrue())
+			Expect(fileCfg.PrivateKey).ToNot(BeNil())
+			filePrivateKey := &keyspb.PEMKeyFile{}
+			Expect(anypb.UnmarshalTo(fileCfg.PrivateKey, filePrivateKey, proto.UnmarshalOptions{})).To(Succeed())
+			Expect(filePrivateKey.Path).To(ContainSubstring("private"))
+
+			// Verify PKCS#11 shard marshaled correctly
+			pkcs11Cfg := cfg.LogConfigs.Config[1]
+			Expect(pkcs11Cfg.LogId).To(Equal(*oldTreeId + 1))
+			Expect(pkcs11Cfg.Prefix).To(Equal("shard-hsm"))
+			Expect(pkcs11Cfg.IsReadonly).To(BeTrue())
+			Expect(pkcs11Cfg.PrivateKey).ToNot(BeNil())
+			pkcs11PrivateKey := &keyspb.PKCS11Config{}
+			Expect(anypb.UnmarshalTo(pkcs11Cfg.PrivateKey, pkcs11PrivateKey, proto.UnmarshalOptions{})).To(Succeed())
+			Expect(pkcs11PrivateKey.TokenLabel).To(Equal("test-ctlog-hsm"))
+		})
 	})
 })

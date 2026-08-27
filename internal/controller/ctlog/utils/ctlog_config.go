@@ -170,7 +170,21 @@ func (c *Config) marshalShardLogConfig(shard ShardConfig, rootPems []string) (*c
 		cfg.PrivateKey = mustMarshalAny(&keyspb.PEMKeyFile{
 			Path:     fmt.Sprintf("%sshard-%d-private", rootsPemFileDir, shard.TreeID),
 			Password: string(shard.Password),
+	// Handle shard type-specific private key configuration
+	if shard.Type == "pkcs11" {
+		// For PKCS11 shards, store token label and pin in config
+		cfg.PrivateKey = mustMarshalAny(&keyspb.PKCS11Config{
+			TokenLabel: shard.TokenLabel,
+			Pin:        "", // PIN is passed via environment variables, not in config
+			PublicKey:  string(shard.PublicKey),
 		})
+	} else {
+		// For file-type shards, use PEMKeyFile
+		if len(shard.PrivateKey) > 0 {
+			cfg.PrivateKey = mustMarshalAny(&keyspb.PEMKeyFile{
+				Path: fmt.Sprintf("%sshard-%d-private", rootsPemFileDir, shard.TreeID),
+			})
+		}
 	}
 
 	return cfg, nil

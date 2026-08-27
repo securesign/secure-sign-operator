@@ -1,5 +1,7 @@
 package utils
 
+import rhtasv1 "github.com/securesign/operator/api/v1"
+
 type RootCertificate []byte
 
 type ShardConfig struct {
@@ -11,4 +13,8 @@ type ShardConfig struct {
 	Prefix        string // URL path prefix for the shard
 	NotAfterStart int64  // Unix timestamp: when shard certificates become valid
 	NotAfterLimit int64  // Unix timestamp: when shard certificates expire
+	// PKCS11-specific fields (only used when Type == "pkcs11")
+	ModulePath    string                       // Absolute path to PKCS#11 module (.so)
+	TokenLabel    string                       // HSM token label
+	PinSecretRef  *rhtasv1.SecretKeySelector   // Reference to HSM PIN secret
 }
