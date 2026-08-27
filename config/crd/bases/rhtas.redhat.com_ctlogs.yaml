@@ -1952,6 +1952,17 @@ spec:
                   description: CTlogLogRange defines the range and key details of
                     an inactive CTlog shard
                   properties:
+                    notAfterLimit:
+                      description: Unix timestamp when this shard's certificates expire.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    notAfterStart:
+                      description: Unix timestamp when this shard's certificates become
+                        valid.
+                      format: int64
+                      minimum: 0
+                      type: integer
                     prefix:
                       description: Prefix for the shard's URL path (e.g., "shard-12345").
                         Required to generate proper shard URLs.
