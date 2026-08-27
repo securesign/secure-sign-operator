@@ -1955,14 +1955,14 @@ spec:
                     notAfterLimit:
                       description: |-
                         RFC3339 timestamp when this shard's certificates expire.
-                        Example: "2025-01-01T00:00:00Z"
-                      pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$
+                        Examples: "2025-01-01T00:00:00Z" or "2025-01-01T00:00:00.123456789Z"
+                      pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$
                       type: string
                     notAfterStart:
                       description: |-
                         RFC3339 timestamp when this shard's certificates become valid.
-                        Example: "2024-01-01T00:00:00Z"
-                      pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$
+                        Examples: "2024-01-01T00:00:00Z" or "2024-01-01T00:00:00.123456789Z"
+                      pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$
                       type: string
                     prefix:
                       description: Prefix for the shard's URL path (e.g., "shard-12345").
