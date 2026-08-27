@@ -133,6 +133,10 @@ type CTlogLogRange struct {
 	// RFC3339 timestamp when this shard's certificates expire.
 	// +optional
 	NotAfterLimit *metav1.Time `json:"notAfterLimit,omitempty"`
+	// Reference to a secret containing the frozen SignedTreeHead (STH) for this shard.
+	// The STH is the final, immutable signed tree head for a frozen shard.
+	// +optional
+	FrozenSTHRef *SecretKeySelector `json:"frozenSTHRef,omitempty"`
 }
 
 // CTlogSigner defines the desired state of the CTlog Signer
