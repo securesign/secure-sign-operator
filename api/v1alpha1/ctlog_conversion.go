@@ -114,14 +114,5 @@ func (dst *CTlog) ConvertFrom(srcRaw conversion.Hub) error {
 	if err := Convert_v1_CTlog_To_v1alpha1_CTlog(src, dst, nil); err != nil {
 		return err
 	}
-	// Store NotAfterStart and NotAfterLimit from shards in annotation so they survive roundtrip
-	if len(src.Spec.Sharding) > 0 {
-		for _, shard := range src.Spec.Sharding {
-			if shard.NotAfterStart != nil || shard.NotAfterLimit != nil {
-				// These will be restored during ConvertTo
-				break
-			}
-		}
-	}
 	return utilconversion.MarshalData(src, dst)
 }
