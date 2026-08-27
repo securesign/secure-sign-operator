@@ -196,7 +196,7 @@ func WithGeneratedCerts() Opts {
 func WithProvidedCerts() Opts {
 	return func(s *rhtasv1.Securesign) {
 		s.Spec.Rekor.Signer = rhtasv1.RekorSigner{
-			Type: rhtasv1.RekorSignerTypeSecret,
+			Type: rhtasv1.SignerTypeSecret,
 			KeyRef: &rhtasv1.SecretKeySelector{
 				LocalObjectReference: rhtasv1.LocalObjectReference{
 					Name: "my-rekor-secret",

@@ -113,6 +113,7 @@ func (r *fulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		actions.NewFIPSValidationAction(),
 		actions.NewEnsurePKCS11ConfigAction(),
 		actions.NewGenerateSignerAction(),
+		actions.NewResolveKMSSignerAction(),
 		transitions.NewToCreatePhaseAction[*rhtasv1.Fulcio](),
 		actions.NewRBACAction(),
 		actions.NewServerConfigAction(),

@@ -84,7 +84,7 @@ var _ = Describe("Rekor update", Ordered, func() {
 			Eventually(func(g Gomega) error {
 				Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
 				s.Spec.Rekor.Signer = rhtasv1.RekorSigner{
-					Type: rhtasv1.RekorSignerTypeSecret,
+					Type: rhtasv1.SignerTypeSecret,
 					KeyRef: &rhtasv1.SecretKeySelector{
 						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: "my-rekor-secret",

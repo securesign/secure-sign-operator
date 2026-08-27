@@ -78,7 +78,7 @@ var _ = Describe("Conversion webhook", func() {
 				},
 				Spec: rhtasv1.RekorSpec{
 					TreeID: ptr.To[int64](11111),
-					Signer: rhtasv1.RekorSigner{Type: rhtasv1.RekorSignerTypeSecret},
+					Signer: rhtasv1.RekorSigner{Type: rhtasv1.SignerTypeSecret},
 					Attestations: rhtasv1.RekorAttestations{
 						Enabled: ptr.To(true),
 						Url:     "file:///var/run/attestations?no_tmp_dir=true",
@@ -232,7 +232,7 @@ var _ = Describe("Conversion webhook", func() {
 				},
 				Spec: rhtasv1.SecuresignSpec{
 					Rekor: rhtasv1.RekorSpec{
-						Signer: rhtasv1.RekorSigner{Type: rhtasv1.RekorSignerTypeSecret},
+						Signer: rhtasv1.RekorSigner{Type: rhtasv1.SignerTypeSecret},
 					},
 					Fulcio: rhtasv1.FulcioSpec{
 						Config: rhtasv1.FulcioConfig{

@@ -60,9 +60,14 @@ type FulcioPKCS11Config struct {
 // +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || !has(self.file)",message="file configuration must not be set when type is pkcs11"
 // +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || has(self.certificateChain.certificateChainRef)",message="certificateChain.certificateChainRef is required when type is pkcs11"
 // +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'file' || !has(self.pkcs11)",message="pkcs11 configuration must not be set when type is file"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'kms' || has(self.kms)",message="kms is required when type is 'kms'"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'kms' || has(self.certificateChain.certificateChainRef)",message="certificateChainRef is required when type is 'kms'"
+// +kubebuilder:validation:XValidation:rule="(has(self.type) && self.type == 'kms') || !has(self.kms)",message="kms should not be configured unless type is 'kms'"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'kms' || !has(self.file)",message="file should not be configured when type is 'kms'"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'kms' || !has(self.pkcs11)",message="pkcs11 configuration must not be set when type is 'kms'"
 type FulcioSigner struct {
 	// Type of the signer backend
-	//+kubebuilder:validation:Enum=file;pkcs11
+	//+kubebuilder:validation:Enum=file;kms;pkcs11
 	//+optional
 	Type string `json:"type,omitempty"`
 	// Configuration for the Certificate Chain
@@ -74,6 +79,9 @@ type FulcioSigner struct {
 	// Configuration for PKCS#11/HSM-based signer
 	//+optional
 	PKCS11 *FulcioPKCS11Config `json:"pkcs11,omitempty"`
+	// Configuration for KMS-based signer
+	//+optional
+	Kms *KMS `json:"kms,omitempty"`
 }
 
 // FulcioFile defines the desired state of the Fulcio file-based signer

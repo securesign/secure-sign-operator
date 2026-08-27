@@ -19,7 +19,6 @@ import (
 const (
 	TrustMaterialCondition = "TrustMaterialAvailable"
 	ReasonResolveFailed    = "ResolveFailed"
-	ReasonResolved         = "Resolved"
 
 	// ReasonDrifted marks a trust material change requiring manual
 	// acknowledgement (see [annotations.RefreshTrustMaterial]) before acceptance.
@@ -133,7 +132,7 @@ func (a *resolveAction[T]) acceptTrustMaterial(ctx context.Context, instance T, 
 	instance.SetCondition(metav1.Condition{
 		Type:               TrustMaterialCondition,
 		Status:             metav1.ConditionTrue,
-		Reason:             ReasonResolved,
+		Reason:             constants.ReasonResolved,
 		Message:            fmt.Sprintf("Trust material for %s resolved successfully", a.resolver.ComponentName()),
 		ObservedGeneration: instance.GetGeneration(),
 	})
@@ -145,7 +144,7 @@ func (a *resolveAction[T]) acceptTrustMaterial(ctx context.Context, instance T, 
 	switch {
 	case current == "":
 		a.Recorder.Eventf(instance, nil, "Normal", "TrustMaterialResolved",
-			ReasonResolved, "Resolved %s trust material from running service", a.resolver.ComponentName())
+			constants.ReasonResolved, "Resolved %s trust material from running service", a.resolver.ComponentName())
 	case wasDrifted:
 		a.Recorder.Eventf(instance, nil, "Normal", "TrustMaterialUpdated", "Updated",
 			"Accepted updated %s trust material after manual acknowledgement", a.resolver.ComponentName())
