@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // reference code https://github.com/sigstore/scaffolding/blob/main/cmd/ctlog/createctconfig/main.go
@@ -155,6 +156,14 @@ func (c *Config) marshalShardLogConfig(shard ShardConfig, rootPems []string) (*c
 		LogBackendName: "trillian",
 		ExtKeyUsages:   []string{"CodeSigning"},
 		IsReadonly:     true,
+	}
+
+	// Set certificate validity timestamps if provided (as Unix seconds)
+	if shard.NotAfterStart > 0 {
+		cfg.NotAfterStart = &timestamppb.Timestamp{Seconds: shard.NotAfterStart}
+	}
+	if shard.NotAfterLimit > 0 {
+		cfg.NotAfterLimit = &timestamppb.Timestamp{Seconds: shard.NotAfterLimit}
 	}
 
 	if len(shard.PrivateKey) > 0 {
