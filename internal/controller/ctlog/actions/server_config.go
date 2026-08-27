@@ -374,12 +374,20 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 			Prefix:    s.Prefix,
 		}
 
-		// Set validity timestamps if provided
+		// Parse and set validity timestamps if provided (RFC3339 format)
 		if s.NotAfterStart != nil {
-			sc.NotAfterStart = *s.NotAfterStart
+			t, err := time.Parse(time.RFC3339, *s.NotAfterStart)
+			if err != nil {
+				return nil, fmt.Errorf("shard %d notAfterStart: invalid timestamp format %q: %w", s.TreeID, *s.NotAfterStart, err)
+			}
+			sc.NotAfterStart = t.Unix()
 		}
 		if s.NotAfterLimit != nil {
-			sc.NotAfterLimit = *s.NotAfterLimit
+			t, err := time.Parse(time.RFC3339, *s.NotAfterLimit)
+			if err != nil {
+				return nil, fmt.Errorf("shard %d notAfterLimit: invalid timestamp format %q: %w", s.TreeID, *s.NotAfterLimit, err)
+			}
+			sc.NotAfterLimit = t.Unix()
 		}
 
 		// Determine shard type - shards are independent of active signer
