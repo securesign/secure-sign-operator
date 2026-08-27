@@ -282,15 +282,6 @@ func securesignFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			} else {
 				s.Spec.Tuf.Tsa = nil
 			}
-			// NotAfterStart and NotAfterLimit must be nil or real times (not zero values)
-			for i := range s.Spec.Ctlog.Sharding {
-				if s.Spec.Ctlog.Sharding[i].NotAfterStart != nil && s.Spec.Ctlog.Sharding[i].NotAfterStart.IsZero() {
-					s.Spec.Ctlog.Sharding[i].NotAfterStart = nil
-				}
-				if s.Spec.Ctlog.Sharding[i].NotAfterLimit != nil && s.Spec.Ctlog.Sharding[i].NotAfterLimit.IsZero() {
-					s.Spec.Ctlog.Sharding[i].NotAfterLimit = nil
-				}
-			}
 		},
 		func(s *Securesign, c randfill.Continue) {
 			c.FillNoCustom(s)
@@ -313,17 +304,6 @@ func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			s.Status.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
 			if s.Status.Url != "" {
 				s.Status.Url += "/" + s.Spec.Prefix
-			}
-			// NotAfterStart and NotAfterLimit are populated by fuzzer but must be properly
-			// initialized or nil (not zero values). This ensures they survive roundtrip via annotation.
-			for i := range s.Spec.Sharding {
-				// If either field is set, make sure it's a real time, not a zero value
-				if s.Spec.Sharding[i].NotAfterStart != nil && s.Spec.Sharding[i].NotAfterStart.IsZero() {
-					s.Spec.Sharding[i].NotAfterStart = nil
-				}
-				if s.Spec.Sharding[i].NotAfterLimit != nil && s.Spec.Sharding[i].NotAfterLimit.IsZero() {
-					s.Spec.Sharding[i].NotAfterLimit = nil
-				}
 			}
 		},
 		func(s *CTlog, c randfill.Continue) {
