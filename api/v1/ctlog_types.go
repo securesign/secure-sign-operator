@@ -134,16 +134,16 @@ type CTlogLogRange struct {
 	// +optional
 	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
 	// RFC3339 timestamp when this shard's certificates become valid.
-	// Example: "2024-01-01T00:00:00Z"
+	// Examples: "2024-01-01T00:00:00Z" or "2024-01-01T00:00:00.123456789Z"
 	// +optional
 	// +kubebuilder:validation:Type=string
-	// +kubebuilder:validation:Pattern="^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+	// +kubebuilder:validation:Pattern="^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
 	NotAfterStart *string `json:"notAfterStart,omitempty"`
 	// RFC3339 timestamp when this shard's certificates expire.
-	// Example: "2025-01-01T00:00:00Z"
+	// Examples: "2025-01-01T00:00:00Z" or "2025-01-01T00:00:00.123456789Z"
 	// +optional
 	// +kubebuilder:validation:Type=string
-	// +kubebuilder:validation:Pattern="^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+	// +kubebuilder:validation:Pattern="^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
 	NotAfterLimit *string `json:"notAfterLimit,omitempty"`
 }
 
