@@ -67,6 +67,10 @@ func ctlogCryptoMaterial(ctx context.Context, i *rhtasv1.CTlog, c client.Client)
 			fmt.Sprintf("spec.sharding[%d].privateKeyRef", idx), fipsutil.ValidatePrivateKeyPEM, &refs); err != nil {
 			return nil, err
 		}
+		// FIPS does not support password-protected keys
+		if shard.PrivateKeyPasswordRef != nil {
+			return nil, fmt.Errorf("spec.sharding[%d].privateKeyPasswordRef: password-protected keys are not FIPS-compliant", idx)
+		}
 	}
 
 	return refs, nil
