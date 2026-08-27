@@ -188,6 +188,242 @@ var _ = Describe("CTlog", func() {
 				Expect(fetchedCTlog.Spec).To(Equal(ctlogInstance.Spec))
 			})
 		})
+
+		Context("PKCS#11 Sharding", func() {
+			It("supports PKCS#11 shard configuration", func() {
+				tree := int64(1000)
+				ctlogInstance := CTlog{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ctlog-pkcs11-shard",
+						Namespace: "default",
+					},
+					Spec: CTlogSpec{
+						TreeID: &tree,
+						Signer: CTlogSigner{
+							Type: "file",
+							File: &CTlogFile{},
+						},
+						Sharding: []CTlogLogRange{
+							{
+								TreeID:     10000,
+								Type:       "pkcs11",
+								Prefix:     "shard-hsm",
+								ModulePath: "/usr/lib/softhsm/libsofthsm2.so",
+								TokenLabel: "test-token",
+								PinSecretRef: &SecretKeySelector{
+									LocalObjectReference: LocalObjectReference{Name: "hsm-pin"},
+									Key:                  "pin",
+								},
+								PublicKeyRef: &SecretKeySelector{
+									LocalObjectReference: LocalObjectReference{Name: "shard-keys"},
+									Key:                  "public-key.pem",
+								},
+							},
+						},
+					},
+				}
+
+				Expect(k8sClient.Create(context.Background(), &ctlogInstance)).To(Succeed())
+				fetchedCTlog := &CTlog{}
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(&ctlogInstance), fetchedCTlog)).To(Succeed())
+				Expect(fetchedCTlog.Spec.Sharding).To(HaveLen(1))
+				Expect(fetchedCTlog.Spec.Sharding[0].Type).To(Equal("pkcs11"))
+				Expect(fetchedCTlog.Spec.Sharding[0].ModulePath).To(Equal("/usr/lib/softhsm/libsofthsm2.so"))
+				Expect(fetchedCTlog.Spec.Sharding[0].TokenLabel).To(Equal("test-token"))
+			})
+
+			It("supports mixed file and PKCS#11 shards", func() {
+				tree := int64(2000)
+				ctlogInstance := CTlog{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ctlog-mixed-shards",
+						Namespace: "default",
+					},
+					Spec: CTlogSpec{
+						TreeID: &tree,
+						Signer: CTlogSigner{
+							Type: "file",
+							File: &CTlogFile{},
+						},
+						Sharding: []CTlogLogRange{
+							{
+								TreeID: 20000,
+								Type:   "file",
+								Prefix: "shard-file",
+								PrivateKeyRef: &SecretKeySelector{
+									LocalObjectReference: LocalObjectReference{Name: "keys"},
+									Key:                  "key.pem",
+								},
+							},
+							{
+								TreeID:     20001,
+								Type:       "pkcs11",
+								Prefix:     "shard-hsm",
+								ModulePath: "/usr/lib/softhsm/libsofthsm2.so",
+								TokenLabel: "test-token",
+								PinSecretRef: &SecretKeySelector{
+									LocalObjectReference: LocalObjectReference{Name: "hsm-pin"},
+									Key:                  "pin",
+								},
+								PublicKeyRef: &SecretKeySelector{
+									LocalObjectReference: LocalObjectReference{Name: "shard-keys"},
+									Key:                  "public-key.pem",
+								},
+							},
+						},
+					},
+				}
+
+				Expect(k8sClient.Create(context.Background(), &ctlogInstance)).To(Succeed())
+				fetchedCTlog := &CTlog{}
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(&ctlogInstance), fetchedCTlog)).To(Succeed())
+				Expect(fetchedCTlog.Spec.Sharding).To(HaveLen(2))
+				Expect(fetchedCTlog.Spec.Sharding[0].Type).To(Equal("file"))
+				Expect(fetchedCTlog.Spec.Sharding[1].Type).To(Equal("pkcs11"))
+			})
+
+			It("PKCS#11 shard requires modulePath", func() {
+				tree := int64(3000)
+				invalidObject := CTlog{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ctlog-pkcs11-missing-module",
+						Namespace: "default",
+					},
+					Spec: CTlogSpec{
+						TreeID: &tree,
+						Signer: CTlogSigner{
+							Type: "file",
+							File: &CTlogFile{},
+						},
+						Sharding: []CTlogLogRange{
+							{
+								TreeID:     30000,
+								Type:       "pkcs11",
+								Prefix:     "shard-hsm",
+								TokenLabel: "test-token",
+								PinSecretRef: &SecretKeySelector{
+									LocalObjectReference: LocalObjectReference{Name: "hsm-pin"},
+									Key:                  "pin",
+								},
+								PublicKeyRef: &SecretKeySelector{
+									LocalObjectReference: LocalObjectReference{Name: "shard-keys"},
+									Key:                  "public-key.pem",
+								},
+							},
+						},
+					},
+				}
+
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), &invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), &invalidObject)).
+					To(MatchError(ContainSubstring("modulePath is required for pkcs11-type shards")))
+			})
+
+			It("PKCS#11 shard requires tokenLabel", func() {
+				tree := int64(3001)
+				invalidObject := CTlog{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ctlog-pkcs11-missing-token",
+						Namespace: "default",
+					},
+					Spec: CTlogSpec{
+						TreeID: &tree,
+						Signer: CTlogSigner{
+							Type: "file",
+							File: &CTlogFile{},
+						},
+						Sharding: []CTlogLogRange{
+							{
+								TreeID:     30001,
+								Type:       "pkcs11",
+								Prefix:     "shard-hsm",
+								ModulePath: "/usr/lib/softhsm/libsofthsm2.so",
+								PinSecretRef: &SecretKeySelector{
+									LocalObjectReference: LocalObjectReference{Name: "hsm-pin"},
+									Key:                  "pin",
+								},
+								PublicKeyRef: &SecretKeySelector{
+									LocalObjectReference: LocalObjectReference{Name: "shard-keys"},
+									Key:                  "public-key.pem",
+								},
+							},
+						},
+					},
+				}
+
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), &invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), &invalidObject)).
+					To(MatchError(ContainSubstring("tokenLabel is required for pkcs11-type shards")))
+			})
+
+			It("PKCS#11 shard requires pinSecretRef", func() {
+				tree := int64(3002)
+				invalidObject := CTlog{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ctlog-pkcs11-missing-pin",
+						Namespace: "default",
+					},
+					Spec: CTlogSpec{
+						TreeID: &tree,
+						Signer: CTlogSigner{
+							Type: "file",
+							File: &CTlogFile{},
+						},
+						Sharding: []CTlogLogRange{
+							{
+								TreeID:     30002,
+								Type:       "pkcs11",
+								Prefix:     "shard-hsm",
+								ModulePath: "/usr/lib/softhsm/libsofthsm2.so",
+								TokenLabel: "test-token",
+								PublicKeyRef: &SecretKeySelector{
+									LocalObjectReference: LocalObjectReference{Name: "shard-keys"},
+									Key:                  "public-key.pem",
+								},
+							},
+						},
+					},
+				}
+
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), &invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), &invalidObject)).
+					To(MatchError(ContainSubstring("pinSecretRef is required for pkcs11-type shards")))
+			})
+
+			It("PKCS#11 shard requires publicKeyRef", func() {
+				tree := int64(3003)
+				invalidObject := CTlog{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ctlog-pkcs11-missing-pubkey",
+						Namespace: "default",
+					},
+					Spec: CTlogSpec{
+						TreeID: &tree,
+						Signer: CTlogSigner{
+							Type: "file",
+							File: &CTlogFile{},
+						},
+						Sharding: []CTlogLogRange{
+							{
+								TreeID:     30003,
+								Type:       "pkcs11",
+								Prefix:     "shard-hsm",
+								ModulePath: "/usr/lib/softhsm/libsofthsm2.so",
+								TokenLabel: "test-token",
+								PinSecretRef: &SecretKeySelector{
+									LocalObjectReference: LocalObjectReference{Name: "hsm-pin"},
+									Key:                  "pin",
+								},
+							},
+						},
+					},
+				}
+
+				Expect(apierrors.IsInvalid(k8sClient.Create(context.Background(), &invalidObject))).To(BeTrue())
+				Expect(k8sClient.Create(context.Background(), &invalidObject)).
+					To(MatchError(ContainSubstring("publicKeyRef is required for pkcs11-type shards")))
+			})
+		})
 	})
 })
 

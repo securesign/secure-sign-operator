@@ -1952,6 +1952,11 @@ spec:
                   description: CTlogLogRange defines the range and key details of
                     an inactive CTlog shard
                   properties:
+                    modulePath:
+                      description: Absolute path to the PKCS#11 module (.so) for pkcs11-type
+                        shards.
+                      pattern: ^/.+\..+$
+                      type: string
                     notAfterLimit:
                       description: RFC3339 timestamp when this shard's certificates
                         expire.
@@ -1962,6 +1967,25 @@ spec:
                         become valid.
                       format: date-time
                       type: string
+                    pinSecretRef:
+                      description: Reference to a Secret key containing the HSM user
+                        PIN for pkcs11-type shards.
+                      properties:
+                        key:
+                          description: The key of the secret to select from. Must
+                            be a valid secret key.
+                          pattern: ^[-._a-zA-Z0-9]+$
+                          type: string
+                        name:
+                          description: |-
+                            Name of the referent.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                      x-kubernetes-map-type: atomic
                     prefix:
                       description: Prefix for the shard's URL path (e.g., "shard-12345").
                         Required to generate proper shard URLs.
@@ -1989,7 +2013,7 @@ spec:
                       x-kubernetes-map-type: atomic
                     privateKeyRef:
                       description: Reference to a secret containing the private key
-                        for the log shard
+                        for the log shard (file-type shards only)
                       properties:
                         key:
                           description: The key of the secret to select from. Must
@@ -2025,6 +2049,10 @@ spec:
                       - name
                       type: object
                       x-kubernetes-map-type: atomic
+                    tokenLabel:
+                      description: Token label identifying the HSM slot for pkcs11-type
+                        shards.
+                      type: string
                     treeID:
                       description: ID of Merkle tree in Trillian backend
                       format: int64
@@ -2039,15 +2067,20 @@ spec:
                       type: string
                   required:
                   - prefix
-                  - privateKeyRef
                   - treeID
                   type: object
                   x-kubernetes-map-type: atomic
                   x-kubernetes-validations:
                   - message: privateKeyRef is required for file-type shards
                     rule: '!has(self.type) || self.type != ''file'' || has(self.privateKeyRef)'
-                  - message: privateKeyRef is required for pkcs11-type shards
-                    rule: '!has(self.type) || self.type != ''pkcs11'' || has(self.privateKeyRef)'
+                  - message: modulePath is required for pkcs11-type shards
+                    rule: '!has(self.type) || self.type != ''pkcs11'' || has(self.modulePath)'
+                  - message: tokenLabel is required for pkcs11-type shards
+                    rule: '!has(self.type) || self.type != ''pkcs11'' || has(self.tokenLabel)'
+                  - message: pinSecretRef is required for pkcs11-type shards
+                    rule: '!has(self.type) || self.type != ''pkcs11'' || has(self.pinSecretRef)'
+                  - message: publicKeyRef is required for pkcs11-type shards
+                    rule: '!has(self.type) || self.type != ''pkcs11'' || has(self.publicKeyRef)'
                 type: array
                 x-kubernetes-list-map-keys:
                 - treeID

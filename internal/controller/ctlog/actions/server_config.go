@@ -387,9 +387,9 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 		sc.Type = shardType
 
 		// For file shards, resolve the private key from the shard config
-		if s.PrivateKeyRef.Name != "" {
+		if s.PrivateKeyRef != nil && s.PrivateKeyRef.Name != "" {
 			var err error
-			sc.PrivateKey, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, &s.PrivateKeyRef)
+			sc.PrivateKey, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyRef)
 			if err != nil {
 				return nil, fmt.Errorf("shard %d privateKeyRef: %w", s.TreeID, err)
 			}

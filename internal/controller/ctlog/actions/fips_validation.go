@@ -63,7 +63,7 @@ func ctlogCryptoMaterial(ctx context.Context, i *rhtasv1.CTlog, c client.Client)
 			fmt.Sprintf("spec.sharding[%d].publicKeyRef", idx), fipsutil.ValidatePublicKeyPEM, &refs); err != nil {
 			return nil, err
 		}
-		if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, &shard.PrivateKeyRef,
+		if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, shard.PrivateKeyRef,
 			fmt.Sprintf("spec.sharding[%d].privateKeyRef", idx), fipsutil.ValidatePrivateKeyPEM, &refs); err != nil {
 			return nil, err
 		}

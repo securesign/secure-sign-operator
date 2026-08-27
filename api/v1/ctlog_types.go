@@ -108,7 +108,10 @@ type CTlogPKCS11Config struct {
 
 // CTlogLogRange defines the range and key details of an inactive CTlog shard
 // +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'file' || has(self.privateKeyRef)",message="privateKeyRef is required for file-type shards"
-// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || has(self.privateKeyRef)",message="privateKeyRef is required for pkcs11-type shards"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || has(self.modulePath)",message="modulePath is required for pkcs11-type shards"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || has(self.tokenLabel)",message="tokenLabel is required for pkcs11-type shards"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || has(self.pinSecretRef)",message="pinSecretRef is required for pkcs11-type shards"
+// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || has(self.publicKeyRef)",message="publicKeyRef is required for pkcs11-type shards"
 // +structType=atomic
 type CTlogLogRange struct {
 	// ID of Merkle tree in Trillian backend
@@ -126,13 +129,23 @@ type CTlogLogRange struct {
 	// Reference to a secret containing the public key for the log shard
 	// +kubebuilder:validation:Optional
 	PublicKeyRef *SecretKeySelector `json:"publicKeyRef,omitempty"`
-	// Reference to a secret containing the private key for the log shard
-	// +kubebuilder:validation:Required
-	PrivateKeyRef SecretKeySelector `json:"privateKeyRef"`
+	// Reference to a secret containing the private key for the log shard (file-type shards only)
+	// +kubebuilder:validation:Optional
+	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
 	// Reference to a secret containing the password for the private key (if encrypted).
 	// Passwords are not FIPS-compliant. Kept for backward compatibility with legacy instances.
 	// +optional
 	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
+	// Absolute path to the PKCS#11 module (.so) for pkcs11-type shards.
+	// +optional
+	// +kubebuilder:validation:Pattern=`^/.+\..+$`
+	ModulePath string `json:"modulePath,omitempty"`
+	// Token label identifying the HSM slot for pkcs11-type shards.
+	// +optional
+	TokenLabel string `json:"tokenLabel,omitempty"`
+	// Reference to a Secret key containing the HSM user PIN for pkcs11-type shards.
+	// +optional
+	PinSecretRef *SecretKeySelector `json:"pinSecretRef,omitempty"`
 	// RFC3339 timestamp when this shard's certificates become valid.
 	// +optional
 	NotAfterStart *metav1.Time `json:"notAfterStart,omitempty"`
