@@ -382,7 +382,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 							},
 							Key: "public-0",
 						},
-						PrivateKeyRef: rhtasv1.SecretKeySelector{
+						PrivateKeyRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: secretName,
 							},

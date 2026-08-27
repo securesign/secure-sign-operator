@@ -227,7 +227,7 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 							},
 							Key: "public-0",
 						},
-						PrivateKeyRef: rhtasv1.SecretKeySelector{
+						PrivateKeyRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: secretName,
 							},
