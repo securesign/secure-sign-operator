@@ -225,6 +225,9 @@ func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertifi
 		if len(shard.PrivateKey) > 0 {
 			data[fmt.Sprintf("shard-%d-private", shard.TreeID)] = shard.PrivateKey
 		}
+		if len(shard.Password) > 0 {
+			data[fmt.Sprintf("shard-%d-password", shard.TreeID)] = shard.Password
+		}
 	}
 	return data, nil
 }
