@@ -1959,7 +1959,7 @@ spec:
                 description: Inactive shards
                 items:
                   description: CTlogLogRange defines the range and key details of
-                    an inactive CTlog shard
+                    a frozen CTlog shard (read-only)
                   properties:
                     notAfterLimit:
                       description: RFC3339 timestamp when this shard's certificates
@@ -1976,45 +1976,6 @@ spec:
                         Required to generate proper shard URLs.
                       pattern: ^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$
                       type: string
-                    privateKeyPasswordRef:
-                      description: |-
-                        Reference to a secret containing the password for the private key (if encrypted).
-                        Passwords are not FIPS-compliant. Kept for backward compatibility with legacy instances.
-                      properties:
-                        key:
-                          description: The key of the secret to select from. Must
-                            be a valid secret key.
-                          pattern: ^[-._a-zA-Z0-9]+$
-                          type: string
-                        name:
-                          description: |-
-                            Name of the referent.
-                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          type: string
-                      required:
-                      - key
-                      - name
-                      type: object
-                      x-kubernetes-map-type: atomic
-                    privateKeyRef:
-                      description: Reference to a secret containing the private key
-                        for the log shard
-                      properties:
-                        key:
-                          description: The key of the secret to select from. Must
-                            be a valid secret key.
-                          pattern: ^[-._a-zA-Z0-9]+$
-                          type: string
-                        name:
-                          description: |-
-                            Name of the referent.
-                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          type: string
-                      required:
-                      - key
-                      - name
-                      type: object
-                      x-kubernetes-map-type: atomic
                     publicKeyRef:
                       description: Reference to a secret containing the public key
                         for the log shard
@@ -2039,24 +2000,11 @@ spec:
                       format: int64
                       minimum: 1
                       type: integer
-                    type:
-                      description: Type of signer backend for this shard (file or
-                        pkcs11)
-                      enum:
-                      - file
-                      - pkcs11
-                      type: string
                   required:
                   - prefix
-                  - privateKeyRef
                   - treeID
                   type: object
                   x-kubernetes-map-type: atomic
-                  x-kubernetes-validations:
-                  - message: privateKeyRef is required for file-type shards
-                    rule: '!has(self.type) || self.type != ''file'' || has(self.privateKeyRef)'
-                  - message: privateKeyRef is required for pkcs11-type shards
-                    rule: '!has(self.type) || self.type != ''pkcs11'' || has(self.privateKeyRef)'
                 type: array
                 x-kubernetes-list-map-keys:
                 - treeID

@@ -356,15 +356,6 @@ func (i serverConfig) handleRootCertificates(ctx context.Context, instance *rhta
 //   - nil if the secret is valid
 //   - errSecretInvalid if the secret needs recreation (not a failure)
 //   - other error for API errors - reconciliation should fail
-//
-// determineShardType returns the shard type, defaulting to "file" if not specified.
-func determineShardType(shardType string) string {
-	if shardType == "" {
-		shardType = rhtasv1.SignerTypeFile
-	}
-	return shardType
-}
-
 func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog) ([]ctlogUtils.ShardConfig, error) {
 	shards := make([]ctlogUtils.ShardConfig, 0, len(instance.Spec.Sharding))
 	for _, s := range instance.Spec.Sharding {
@@ -389,27 +380,6 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 		}
 		if s.NotAfterLimit != nil {
 			sc.NotAfterLimit = s.NotAfterLimit.Unix()
-		}
-
-		// Determine shard type - shards are independent of active signer
-		shardType := determineShardType(s.Type)
-		sc.Type = shardType
-
-		// For file shards, resolve the private key from the shard config
-		if s.PrivateKeyRef.Name != "" {
-			var err error
-			sc.PrivateKey, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, &s.PrivateKeyRef)
-			if err != nil {
-				return nil, fmt.Errorf("shard %d privateKeyRef: %w", s.TreeID, err)
-			}
-		}
-		// Resolve password if present (deprecated, for legacy compatibility)
-		if s.PrivateKeyPasswordRef != nil {
-			var err error
-			sc.Password, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PrivateKeyPasswordRef)
-			if err != nil {
-				return nil, fmt.Errorf("shard %d privateKeyPasswordRef: %w", s.TreeID, err)
-			}
 		}
 
 		shards = append(shards, sc)
@@ -478,18 +448,11 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 	if len(instance.Spec.Sharding) > 0 {
 		h := sha256.New()
 		for _, shard := range instance.Spec.Sharding {
-			shardType := determineShardType(shard.Type)
 			publicKeyRefStr := ""
 			if shard.PublicKeyRef != nil {
 				publicKeyRefStr = shard.PublicKeyRef.Name + "/" + shard.PublicKeyRef.Key
 			}
-			_, _ = fmt.Fprintf(h, "%d:%s:%s", shard.TreeID, shardType, publicKeyRefStr)
-			if shard.PrivateKeyRef.Name != "" {
-				_, _ = fmt.Fprintf(h, ":%s/%s", shard.PrivateKeyRef.Name, shard.PrivateKeyRef.Key)
-			}
-			if shard.PrivateKeyPasswordRef != nil {
-				_, _ = fmt.Fprintf(h, ":%s/%s", shard.PrivateKeyPasswordRef.Name, shard.PrivateKeyPasswordRef.Key)
-			}
+			_, _ = fmt.Fprintf(h, "%d:%s", shard.TreeID, publicKeyRefStr)
 		}
 		annotations[labels.LabelNamespace+"/shardingHash"] = hex.EncodeToString(h.Sum(nil))
 	}

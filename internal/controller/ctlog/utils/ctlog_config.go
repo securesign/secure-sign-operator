@@ -179,13 +179,6 @@ func (c *Config) marshalShardLogConfig(shard ShardConfig, rootPems []string) (*c
 		cfg.NotAfterLimit = &timestamppb.Timestamp{Seconds: shard.NotAfterLimit}
 	}
 
-	if len(shard.PrivateKey) > 0 {
-		cfg.PrivateKey = mustMarshalAny(&keyspb.PEMKeyFile{
-			Path:     fmt.Sprintf("%sshard-%d-private", rootsPemFileDir, shard.TreeID),
-			Password: string(shard.Password),
-		})
-	}
-
 	return cfg, nil
 }
 
@@ -236,11 +229,6 @@ func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertifi
 	for i, cert := range ctlogConfig.RootCerts {
 		fulcioKey := fmt.Sprintf("fulcio-%d", i)
 		data[fulcioKey] = cert
-	}
-	for _, shard := range shards {
-		if len(shard.PrivateKey) > 0 {
-			data[fmt.Sprintf("shard-%d-private", shard.TreeID)] = shard.PrivateKey
-		}
 	}
 	return data, nil
 }

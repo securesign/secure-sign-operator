@@ -215,23 +215,16 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 					Key: "public",
 				}
 
-				// Add sharding configuration
+				// Add sharding configuration (read-only frozen shards)
 				s.Spec.Ctlog.Sharding = []rhtasv1.CTlogLogRange{
 					{
 						TreeID: *oldTreeId,
-						Type:   "file",
 						Prefix: "shard-0",
 						PublicKeyRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{
 								Name: secretName,
 							},
 							Key: "public-0",
-						},
-						PrivateKeyRef: rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{
-								Name: secretName,
-							},
-							Key: "private-0",
 						},
 					},
 				}

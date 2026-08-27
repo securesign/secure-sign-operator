@@ -113,19 +113,13 @@ type CTlogPKCS11Config struct {
 	PublicKeyRef *SecretKeySelector `json:"publicKeyRef"`
 }
 
-// CTlogLogRange defines the range and key details of an inactive CTlog shard
-// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'file' || has(self.privateKeyRef)",message="privateKeyRef is required for file-type shards"
-// +kubebuilder:validation:XValidation:rule="!has(self.type) || self.type != 'pkcs11' || has(self.privateKeyRef)",message="privateKeyRef is required for pkcs11-type shards"
+// CTlogLogRange defines the range and key details of a frozen CTlog shard (read-only)
 // +structType=atomic
 type CTlogLogRange struct {
 	// ID of Merkle tree in Trillian backend
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum=1
 	TreeID int64 `json:"treeID"`
-	// Type of signer backend for this shard (file or pkcs11)
-	// +kubebuilder:validation:Enum=file;pkcs11
-	// +optional
-	Type string `json:"type,omitempty"`
 	// Prefix for the shard's URL path (e.g., "shard-12345"). Required to generate proper shard URLs.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern="^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$"
@@ -133,13 +127,6 @@ type CTlogLogRange struct {
 	// Reference to a secret containing the public key for the log shard
 	// +kubebuilder:validation:Optional
 	PublicKeyRef *SecretKeySelector `json:"publicKeyRef,omitempty"`
-	// Reference to a secret containing the private key for the log shard
-	// +kubebuilder:validation:Required
-	PrivateKeyRef SecretKeySelector `json:"privateKeyRef"`
-	// Reference to a secret containing the password for the private key (if encrypted).
-	// Passwords are not FIPS-compliant. Kept for backward compatibility with legacy instances.
-	// +optional
-	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
 	// RFC3339 timestamp when this shard's certificates become valid.
 	// +optional
 	NotAfterStart *metav1.Time `json:"notAfterStart,omitempty"`
