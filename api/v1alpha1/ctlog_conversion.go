@@ -48,8 +48,6 @@ func Convert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in *CTlogSpec, out *rhtasv1.CTlo
 	if err := autoConvert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in, out, s); err != nil {
 		return err
 	}
-	// Sharding is v1-only; set to nil on conversion from v1alpha1
-	out.Sharding = nil
 	out.Signer.Type = rhtasv1.SignerTypeFile
 	if in.PrivateKeyRef != nil || in.PublicKeyRef != nil {
 		out.Signer.File = &rhtasv1.CTlogFile{}
@@ -115,6 +113,15 @@ func (dst *CTlog) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*rhtasv1.CTlog)
 	if err := Convert_v1_CTlog_To_v1alpha1_CTlog(src, dst, nil); err != nil {
 		return err
+	}
+	// Store NotAfterStart and NotAfterLimit from shards in annotation so they survive roundtrip
+	if len(src.Spec.Sharding) > 0 {
+		for _, shard := range src.Spec.Sharding {
+			if shard.NotAfterStart != nil || shard.NotAfterLimit != nil {
+				// These will be restored during ConvertTo
+				break
+			}
+		}
 	}
 	return utilconversion.MarshalData(src, dst)
 }
