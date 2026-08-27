@@ -133,6 +133,14 @@ type CTlogLogRange struct {
 	// Passwords are not FIPS-compliant. Kept for backward compatibility with legacy instances.
 	// +optional
 	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
+	// Unix timestamp when this shard's certificates become valid.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	NotAfterStart *int64 `json:"notAfterStart,omitempty"`
+	// Unix timestamp when this shard's certificates expire.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	NotAfterLimit *int64 `json:"notAfterLimit,omitempty"`
 }
 
 // CTlogSigner defines the desired state of the CTlog Signer
