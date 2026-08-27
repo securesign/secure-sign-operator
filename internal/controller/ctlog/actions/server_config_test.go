@@ -443,7 +443,7 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 				"trillian-logserver.default.svc:80", 123456,
 				[]ctlogUtils.RootCertificate{cert},
 				&ctlogUtils.KeyConfig{PrivateKey: privateKey, PublicKey: publicKey, PrivateKeyPass: []byte("secure")},
-				"trusted-artifact-signer", nil,
+				"trusted-artifact-signer", nil, 0, 0,
 			)),
 		}
 	}

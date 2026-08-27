@@ -976,6 +976,8 @@ func autoConvert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *v1.CTlogSpec, out *CTlog
 	// WARNING: in.TrustedCA requires manual conversion: does not exist in peer-type
 	// WARNING: in.PodExtensions requires manual conversion: does not exist in peer-type
 	// WARNING: in.Auth requires manual conversion: does not exist in peer-type
+	// WARNING: in.NotAfterStart requires manual conversion: does not exist in peer-type
+	// WARNING: in.NotAfterLimit requires manual conversion: does not exist in peer-type
 	return nil
 }
 

@@ -60,6 +60,11 @@ type Config struct {
 	RootCerts []RootCertificate
 
 	Shards []ShardConfig
+
+	// NotAfterStart is the Unix timestamp when the active log's certificates become valid
+	NotAfterStart int64
+	// NotAfterLimit is the Unix timestamp when the active log's certificates expire
+	NotAfterLimit int64
 }
 
 // AddRootCertificate will add the specified root certificate to truststore.
@@ -120,6 +125,14 @@ func (c *Config) MarshalConfig() ([]byte, error) {
 		PublicKey:      &keyspb.PublicKey{Der: block.Bytes},
 		LogBackendName: "trillian",
 		ExtKeyUsages:   []string{"CodeSigning"},
+	}
+
+	// Set certificate validity timestamps if provided (as Unix seconds)
+	if c.NotAfterStart > 0 {
+		activeLog.NotAfterStart = &timestamppb.Timestamp{Seconds: c.NotAfterStart}
+	}
+	if c.NotAfterLimit > 0 {
+		activeLog.NotAfterLimit = &timestamppb.Timestamp{Seconds: c.NotAfterLimit}
 	}
 
 	configs = append(configs, &activeLog)
@@ -192,12 +205,14 @@ func createConfigWithKeys(certConfig *KeyConfig) *Config {
 	}
 }
 
-func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertificate, keyConfig *KeyConfig, logPrefix string, shards []ShardConfig) (map[string][]byte, error) {
+func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertificate, keyConfig *KeyConfig, logPrefix string, shards []ShardConfig, notAfterStart, notAfterLimit int64) (map[string][]byte, error) {
 	ctlogConfig := createConfigWithKeys(keyConfig)
 	ctlogConfig.LogID = treeID
 	ctlogConfig.LogPrefix = logPrefix
 	ctlogConfig.TrillianServerAddr = trillianUrl
 	ctlogConfig.Shards = shards
+	ctlogConfig.NotAfterStart = notAfterStart
+	ctlogConfig.NotAfterLimit = notAfterLimit
 
 	for _, cert := range rootCerts {
 		if err := ctlogConfig.AddRootCertificate(cert); err != nil {
