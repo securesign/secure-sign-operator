@@ -136,10 +136,6 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
 								Key:                  "public",
 							},
-							PrivateKeyRef: rhtasv1.SecretKeySelector{
-								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
-								Key:                  "private",
-							},
 						},
 					},
 				},
@@ -188,10 +184,6 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
 								Key:                  "public",
 							},
-							PrivateKeyRef: rhtasv1.SecretKeySelector{
-								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
-								Key:                  "private",
-							},
 						},
 					},
 				},
@@ -239,10 +231,6 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 							PublicKeyRef: &rhtasv1.SecretKeySelector{
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
 								Key:                  "public",
-							},
-							PrivateKeyRef: rhtasv1.SecretKeySelector{
-								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
-								Key:                  "private",
 							},
 							NotAfterStart: &metav1.Time{Time: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
 							NotAfterLimit: &metav1.Time{Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
@@ -294,14 +282,6 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 							PublicKeyRef: &rhtasv1.SecretKeySelector{
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
 								Key:                  "public",
-							},
-							PrivateKeyRef: rhtasv1.SecretKeySelector{
-								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
-								Key:                  "private",
-							},
-							PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
-								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
-								Key:                  "password",
 							},
 						},
 					},
@@ -475,10 +455,6 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
 							Key:                  "public",
 						},
-						PrivateKeyRef: rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
-							Key:                  "private",
-						},
 					},
 				}
 				return env{
@@ -521,10 +497,6 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard1-keys"},
 							Key:                  "public",
 						},
-						PrivateKeyRef: rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard1-keys"},
-							Key:                  "private",
-						},
 					},
 					{
 						TreeID: 666666,
@@ -532,10 +504,6 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 						PublicKeyRef: &rhtasv1.SecretKeySelector{
 							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard2-keys"},
 							Key:                  "public",
-						},
-						PrivateKeyRef: rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard2-keys"},
-							Key:                  "private",
 						},
 					},
 				}

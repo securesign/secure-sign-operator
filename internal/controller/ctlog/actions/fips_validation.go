@@ -57,19 +57,11 @@ func ctlogCryptoMaterial(ctx context.Context, i *rhtasv1.CTlog, c client.Client)
 		}
 	}
 
-	// Shard keys (for inactive shards in sharding configuration)
+	// Shard keys (for read-only shards in sharding configuration)
 	for idx, shard := range i.Spec.Sharding {
 		if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, shard.PublicKeyRef,
 			fmt.Sprintf("spec.sharding[%d].publicKeyRef", idx), fipsutil.ValidatePublicKeyPEM, &refs); err != nil {
 			return nil, err
-		}
-		if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, &shard.PrivateKeyRef,
-			fmt.Sprintf("spec.sharding[%d].privateKeyRef", idx), fipsutil.ValidatePrivateKeyPEM, &refs); err != nil {
-			return nil, err
-		}
-		// FIPS does not support password-protected keys
-		if shard.PrivateKeyPasswordRef != nil {
-			return nil, fmt.Errorf("spec.sharding[%d].privateKeyPasswordRef: password-protected keys are not FIPS-compliant", idx)
 		}
 	}
 

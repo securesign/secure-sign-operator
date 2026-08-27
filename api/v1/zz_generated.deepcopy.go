@@ -264,12 +264,6 @@ func (in *CTlogLogRange) DeepCopyInto(out *CTlogLogRange) {
 		*out = new(SecretKeySelector)
 		**out = **in
 	}
-	out.PrivateKeyRef = in.PrivateKeyRef
-	if in.PrivateKeyPasswordRef != nil {
-		in, out := &in.PrivateKeyPasswordRef, &out.PrivateKeyPasswordRef
-		*out = new(SecretKeySelector)
-		**out = **in
-	}
 	if in.NotAfterStart != nil {
 		in, out := &in.NotAfterStart, &out.NotAfterStart
 		*out = (*in).DeepCopy()
