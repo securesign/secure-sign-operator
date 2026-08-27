@@ -295,7 +295,7 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
 								Key:                  "public",
 							},
-							PrivateKeyRef: rhtasv1.SecretKeySelector{
+							PrivateKeyRef: &rhtasv1.SecretKeySelector{
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
 								Key:                  "private",
 							},
