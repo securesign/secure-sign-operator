@@ -375,6 +375,7 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 		sc := ctlogUtils.ShardConfig{
 			TreeID:    s.TreeID,
 			PublicKey: publicKey,
+			Prefix:    s.Prefix,
 		}
 
 		// Determine shard type - shards are independent of active signer

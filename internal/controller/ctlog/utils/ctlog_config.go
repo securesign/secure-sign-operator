@@ -149,7 +149,7 @@ func (c *Config) marshalShardLogConfig(shard ShardConfig, rootPems []string) (*c
 
 	cfg := &configpb.LogConfig{
 		LogId:          shard.TreeID,
-		Prefix:         fmt.Sprintf("shard-%d", shard.TreeID),
+		Prefix:         shard.Prefix,
 		RootsPemFile:   rootPems,
 		PublicKey:      &keyspb.PublicKey{Der: block.Bytes},
 		LogBackendName: "trillian",
