@@ -1961,6 +1961,26 @@ spec:
                   description: CTlogLogRange defines the range and key details of
                     a frozen CTlog shard (read-only)
                   properties:
+                    frozenSTHRef:
+                      description: |-
+                        Reference to a secret containing the frozen SignedTreeHead (STH) for this shard.
+                        The STH is the final, immutable signed tree head for a frozen shard.
+                      properties:
+                        key:
+                          description: The key of the secret to select from. Must
+                            be a valid secret key.
+                          pattern: ^[-._a-zA-Z0-9]+$
+                          type: string
+                        name:
+                          description: |-
+                            Name of the referent.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                      x-kubernetes-map-type: atomic
                     notAfterLimit:
                       description: RFC3339 timestamp when this shard's certificates
                         expire.

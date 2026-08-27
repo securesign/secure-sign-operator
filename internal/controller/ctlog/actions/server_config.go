@@ -368,10 +368,20 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 			}
 		}
 
+		var frozenSTH []byte
+		if s.FrozenSTHRef != nil {
+			var err error
+			frozenSTH, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.FrozenSTHRef)
+			if err != nil {
+				return nil, fmt.Errorf("shard %d frozenSTHRef: %w", s.TreeID, err)
+			}
+		}
+
 		sc := ctlogUtils.ShardConfig{
 			TreeID:    s.TreeID,
 			PublicKey: publicKey,
 			Prefix:    s.Prefix,
+			FrozenSTH: frozenSTH,
 		}
 
 		// Set validity timestamps if provided
@@ -452,7 +462,11 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 			if shard.PublicKeyRef != nil {
 				publicKeyRefStr = shard.PublicKeyRef.Name + "/" + shard.PublicKeyRef.Key
 			}
-			_, _ = fmt.Fprintf(h, "%d:%s", shard.TreeID, publicKeyRefStr)
+			frozenSTHRefStr := ""
+			if shard.FrozenSTHRef != nil {
+				frozenSTHRefStr = shard.FrozenSTHRef.Name + "/" + shard.FrozenSTHRef.Key
+			}
+			_, _ = fmt.Fprintf(h, "%d:%s:%s", shard.TreeID, publicKeyRefStr, frozenSTHRefStr)
 		}
 		annotations[labels.LabelNamespace+"/shardingHash"] = hex.EncodeToString(h.Sum(nil))
 	}
