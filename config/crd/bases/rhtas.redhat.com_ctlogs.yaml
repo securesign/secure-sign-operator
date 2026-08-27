@@ -1852,6 +1852,15 @@ spec:
                   rule: '!has(self.serviceMonitor) || !has(self.serviceMonitor.enabled)
                     || !self.serviceMonitor.enabled || (has(self.metrics) && has(self.metrics.enabled)
                     && self.metrics.enabled)'
+              notAfterLimit:
+                description: RFC3339 timestamp when this log's certificates expire.
+                format: date-time
+                type: string
+              notAfterStart:
+                description: RFC3339 timestamp when this log's certificates become
+                  valid.
+                format: date-time
+                type: string
               prefix:
                 description: |-
                   Prefix is the name of the log. The prefix cannot be empty and can

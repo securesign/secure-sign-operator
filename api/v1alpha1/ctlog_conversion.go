@@ -90,6 +90,8 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
 	dst.Spec.Prefix = restored.Spec.Prefix
 	dst.Spec.Sharding = restored.Spec.Sharding
+	dst.Spec.NotAfterStart = restored.Spec.NotAfterStart
+	dst.Spec.NotAfterLimit = restored.Spec.NotAfterLimit
 	if dst.Status.Url != "" && restored.Spec.Prefix != "" {
 		var err error
 		if dst.Status.Url, err = buildURL(dst.Status.Url, nil, restored.Spec.Prefix); err != nil {
