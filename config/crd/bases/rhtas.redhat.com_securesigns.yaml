@@ -5203,6 +5203,20 @@ spec:
                             type: object
                             x-kubernetes-map-type: atomic
                         type: object
+                      kms:
+                        description: Configuration for KMS-based signer
+                        properties:
+                          keyResource:
+                            description: 'KMS key resource URI. Valid schemes: gcpkms://,
+                              azurekms://, hashivault://, openbao://, awskms://'
+                            type: string
+                        required:
+                        - keyResource
+                        type: object
+                        x-kubernetes-validations:
+                        - message: keyResource must be a valid KMS URI (gcpkms://,
+                            azurekms://, hashivault://, openbao://, or awskms://)
+                          rule: self.keyResource.matches('^(gcpkms|azurekms|hashivault|openbao|awskms)://.+$')
                       pkcs11:
                         description: Configuration for PKCS#11/HSM-based signer
                         properties:
@@ -5244,6 +5258,7 @@ spec:
                         description: Type of the signer backend
                         enum:
                         - file
+                        - kms
                         - pkcs11
                         type: string
                     required:
@@ -5263,6 +5278,16 @@ spec:
                       rule: '!has(self.type) || self.type != ''pkcs11'' || has(self.certificateChain.certificateChainRef)'
                     - message: pkcs11 configuration must not be set when type is file
                       rule: '!has(self.type) || self.type != ''file'' || !has(self.pkcs11)'
+                    - message: kms is required when type is 'kms'
+                      rule: '!has(self.type) || self.type != ''kms'' || has(self.kms)'
+                    - message: certificateChainRef is required when type is 'kms'
+                      rule: '!has(self.type) || self.type != ''kms'' || has(self.certificateChain.certificateChainRef)'
+                    - message: kms should not be configured unless type is 'kms'
+                      rule: (has(self.type) && self.type == 'kms') || !has(self.kms)
+                    - message: file should not be configured when type is 'kms'
+                      rule: '!has(self.type) || self.type != ''kms'' || !has(self.file)'
+                    - message: pkcs11 configuration must not be set when type is 'kms'
+                      rule: '!has(self.type) || self.type != ''kms'' || !has(self.pkcs11)'
                   tolerations:
                     items:
                       description: |-

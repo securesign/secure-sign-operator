@@ -48,13 +48,9 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 	})
 
 	BeforeAll(func(ctx SpecContext) {
-		providedCerts := securesign.WithProvidedEncryptedCerts()
-		if fipsEnabled {
-			providedCerts = securesign.WithProvidedUnencryptedCerts()
-		}
 		s = securesign.Create(namespace.Name, "test",
 			securesign.ChooseDefaults(fipsEnabled, namespace.Name),
-			providedCerts,
+			securesign.WithProvidedCerts(),
 		)
 	})
 
@@ -64,10 +60,10 @@ var _ = Describe("Securesign key autodiscovery test", Ordered, func() {
 
 	Describe("Install with provided certificates", func() {
 		BeforeAll(func(ctx SpecContext) {
-			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret", false))).To(Succeed())
-			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret", false))).To(Succeed())
-			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret", false))).To(Succeed())
-			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tsa-secret", false))).To(Succeed())
+			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tsa-secret"))).To(Succeed())
 			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 

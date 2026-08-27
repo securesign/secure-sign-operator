@@ -106,6 +106,122 @@ func TestTrustedCAByAnnotation(t *testing.T) {
 	g.Expect(oidcVolume.VolumeSource.Projected.Sources[0].ConfigMap.Name).Should(Equal("trusted-annotation"))
 }
 
+func TestKMSDeployment(t *testing.T) {
+	g := NewWithT(t)
+	instance := createKMSInstance()
+	dp, err := handleDeployment(t, instance)
+
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp).ShouldNot(BeNil())
+
+	container := dp.Spec.Template.Spec.Containers[0]
+	g.Expect(container.Args).Should(ContainElement("--ca=kmsca"))
+	g.Expect(container.Args).Should(ContainElement("--kms-resource"))
+	g.Expect(container.Args).Should(ContainElement("gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k"))
+	g.Expect(container.Args).Should(ContainElement("--kms-cert-chain-path"))
+	g.Expect(container.Args).Should(ContainElement("/var/run/fulcio-secrets/cert.pem"))
+	g.Expect(container.Args).ShouldNot(ContainElement("--ca=fileca"))
+	g.Expect(container.Args).ShouldNot(ContainElement(ContainSubstring("--fileca-key")))
+	g.Expect(container.Args).ShouldNot(ContainElement(ContainSubstring("--fileca-key-passwd")))
+
+	g.Expect(container.Env).ShouldNot(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"Name": Equal("PASSWORD"),
+	})), "PASSWORD env should not be set for KMS")
+}
+
+func TestFileToKMSSwitchRemovesPassword(t *testing.T) {
+	g := NewWithT(t)
+
+	// First reconcile in file mode with PASSWORD set
+	fileInstance := createInstance()
+	fileInstance.Status.Certificate.PrivateKeyPasswordRef = &rhtasv1.SecretKeySelector{
+		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"},
+		Key:                  "password",
+	}
+	fileDp, err := handleDeployment(t, fileInstance)
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(fileDp.Spec.Template.Spec.Containers[0].Env).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"Name": Equal("PASSWORD"),
+	})), "PASSWORD should exist after file-mode reconcile")
+
+	// Switch to KMS — pass the existing deployment so CreateOrUpdate updates it
+	kmsInstance := createKMSInstance()
+	kmsDp, err := handleDeployment(t, kmsInstance, fileDp)
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(kmsDp).ShouldNot(BeNil())
+
+	g.Expect(kmsDp.Spec.Template.Spec.Containers[0].Env).ShouldNot(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"Name": Equal("PASSWORD"),
+	})), "PASSWORD env should be removed after File→KMS switch")
+}
+
+func TestKMSDeploymentWithAuth(t *testing.T) {
+	g := NewWithT(t)
+	instance := createKMSInstance()
+	instance.Spec.Auth = &rhtasv1.Auth{
+		Env: []v12.EnvVar{
+			{Name: "GOOGLE_APPLICATION_CREDENTIALS", Value: "/var/run/secrets/tas/auth/gcp-sa.json"},
+		},
+		SecretMount: []rhtasv1.SecretKeySelector{
+			{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "gcp-credentials"}, Key: "gcp-sa.json"},
+		},
+	}
+	dp, err := handleDeployment(t, instance)
+
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp).ShouldNot(BeNil())
+
+	container := dp.Spec.Template.Spec.Containers[0]
+	g.Expect(container.Env).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"Name": Equal("GOOGLE_APPLICATION_CREDENTIALS"),
+	})))
+
+	authVolume := findVolume("auth", dp.Spec.Template.Spec.Volumes)
+	g.Expect(authVolume).ShouldNot(BeNil())
+	g.Expect(authVolume.VolumeSource.Projected).ShouldNot(BeNil())
+}
+
+func TestKMSDeploymentNoPrivateKeyVolume(t *testing.T) {
+	g := NewWithT(t)
+	instance := createKMSInstance()
+	dp, err := handleDeployment(t, instance)
+
+	g.Expect(err).ShouldNot(HaveOccurred())
+
+	certVolume := findVolume("fulcio-cert", dp.Spec.Template.Spec.Volumes)
+	g.Expect(certVolume).ShouldNot(BeNil())
+	g.Expect(certVolume.VolumeSource.Projected.Sources).Should(HaveLen(1))
+	g.Expect(certVolume.VolumeSource.Projected.Sources[0].Secret.Name).Should(Equal("cert-chain-secret"))
+}
+
+func TestKMSDeploymentFIPS(t *testing.T) {
+	g := NewWithT(t)
+
+	original := fips.Enabled
+	fips.Enabled = func() bool { return true }
+	t.Cleanup(func() { fips.Enabled = original })
+
+	instance := createKMSInstance()
+	dp, err := handleDeployment(t, instance)
+
+	g.Expect(err).ShouldNot(HaveOccurred())
+	g.Expect(dp.Spec.Template.Spec.Containers[0].Args).Should(
+		ContainElement(Equal("--client-signing-algorithms")))
+	g.Expect(dp.Spec.Template.Spec.Containers[0].Args).Should(
+		ContainElement(Equal(fips.ClientSigningAlgorithms)))
+	g.Expect(dp.Spec.Template.Spec.Containers[0].Args).Should(
+		ContainElement("--ca=kmsca"))
+}
+
+func TestKMSDeploymentMissingCertRef(t *testing.T) {
+	g := NewWithT(t)
+	instance := createKMSInstance()
+	instance.Status.Certificate.CARef = nil
+	_, err := handleDeployment(t, instance)
+
+	g.Expect(err).Should(HaveOccurred())
+}
+
 func TestMissingPrivateKey(t *testing.T) {
 	g := NewWithT(t)
 
@@ -216,6 +332,48 @@ func handleDeployment(t *testing.T, instance *rhtasv1.Fulcio, objects ...client.
 		return nil, err
 	}
 	return dep, nil
+}
+
+func createKMSInstance() *rhtasv1.Fulcio {
+	return &rhtasv1.Fulcio{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "name",
+			Namespace: "default",
+		},
+		Spec: rhtasv1.FulcioSpec{
+			Ctlog: rhtasv1.ServiceReference{
+				URL: "http://ctlog.default.svc/prefix",
+			},
+			Signer: rhtasv1.FulcioSigner{
+				Type: rhtasv1.SignerTypeKMS,
+				CertificateChain: rhtasv1.FulcioCertificateChain{
+					CertificateChainRef: &rhtasv1.SecretKeySelector{
+						Key:                  "cert",
+						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "cert-chain-secret"},
+					},
+				},
+				Kms: &rhtasv1.KMS{
+					KeyResource: "gcpkms://projects/p/locations/l/keyRings/kr/cryptoKeys/k",
+				},
+			},
+		},
+		Status: rhtasv1.FulcioStatus{
+			Conditions: []v1.Condition{
+				{
+					Type:   constants.ReadyCondition,
+					Status: v1.ConditionTrue,
+					Reason: state.Ready.String(),
+				},
+			},
+			ServerConfigRef: &rhtasv1.LocalObjectReference{Name: "config"},
+			Certificate: &rhtasv1.FulcioCertStatus{
+				CARef: &rhtasv1.SecretKeySelector{
+					Key:                  "cert",
+					LocalObjectReference: rhtasv1.LocalObjectReference{Name: "cert-chain-secret"},
+				},
+			},
+		},
+	}
 }
 
 // TestUserDefinedVolumesInFileMode verifies that user-specified Volumes and

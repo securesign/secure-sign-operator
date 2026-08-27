@@ -193,84 +193,10 @@ func WithGeneratedCerts() Opts {
 	}
 }
 
-func WithProvidedEncryptedCerts() Opts {
+func WithProvidedCerts() Opts {
 	return func(s *rhtasv1.Securesign) {
 		s.Spec.Rekor.Signer = rhtasv1.RekorSigner{
-			Type: rhtasv1.RekorSignerTypeSecret,
-			KeyRef: &rhtasv1.SecretKeySelector{
-				LocalObjectReference: rhtasv1.LocalObjectReference{
-					Name: "my-rekor-secret",
-				},
-				Key: "private",
-			},
-		}
-
-		s.Spec.Fulcio.Signer = rhtasv1.FulcioSigner{
-			File: &rhtasv1.FulcioFile{
-				PrivateKeyRef: &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: "my-fulcio-secret",
-					},
-					Key: "private",
-				},
-			},
-			CertificateChain: rhtasv1.FulcioCertificateChain{
-				CertificateChainRef: &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: "my-fulcio-secret",
-					},
-					Key: "cert",
-				},
-			},
-		}
-
-		s.Spec.Ctlog.Signer = rhtasv1.CTlogSigner{
-			Type: "file",
-			File: &rhtasv1.CTlogFile{
-				PrivateKeyRef: &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: "my-ctlog-secret",
-					},
-					Key: "private",
-				},
-			},
-		}
-		s.Spec.Ctlog.RootCertificates = []rhtasv1.SecretKeySelector{
-			{
-				LocalObjectReference: rhtasv1.LocalObjectReference{
-					Name: "my-fulcio-secret",
-				},
-				Key: "cert",
-			},
-		}
-
-		if s.Spec.TimestampAuthority != nil {
-			s.Spec.TimestampAuthority.Signer = rhtasv1.TimestampAuthoritySigner{
-				CertificateChain: rhtasv1.CertificateChain{
-					CertificateChainRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "test-tsa-secret",
-						},
-						Key: "certificateChain",
-					},
-				},
-				File: &rhtasv1.File{
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "test-tsa-secret",
-						},
-						Key: "leafPrivateKey",
-					},
-				},
-			}
-		}
-	}
-}
-
-func WithProvidedUnencryptedCerts() Opts {
-	return func(s *rhtasv1.Securesign) {
-		s.Spec.Rekor.Signer = rhtasv1.RekorSigner{
-			Type: rhtasv1.RekorSignerTypeSecret,
+			Type: rhtasv1.SignerTypeSecret,
 			KeyRef: &rhtasv1.SecretKeySelector{
 				LocalObjectReference: rhtasv1.LocalObjectReference{
 					Name: "my-rekor-secret",

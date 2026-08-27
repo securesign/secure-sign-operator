@@ -50,12 +50,12 @@ func Get(ctx context.Context, cli client.Client, ns string, name string) *rhtasv
 
 }
 
-func CreateSecret(ns string, name string, passwrodProtected bool) *v1.Secret {
-	public, private, _, err := support.CreateCertificates(passwrodProtected)
+func CreateSecret(ns string, name string) *v1.Secret {
+	public, private, _, err := support.CreateCertificates()
 	if err != nil {
 		return nil
 	}
-	s := &v1.Secret{
+	return &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: ns,
@@ -65,10 +65,6 @@ func CreateSecret(ns string, name string, passwrodProtected bool) *v1.Secret {
 			"public":  public,
 		},
 	}
-	if passwrodProtected {
-		s.Data["password"] = []byte(support.CertPassword)
-	}
-	return s
 }
 
 // GetConfigSecret retrieves the ctlog-config secret by name

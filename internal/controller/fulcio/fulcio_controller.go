@@ -114,6 +114,7 @@ func (r *fulcioReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		actions.NewFIPSValidationAction(),
 		actions.NewEnsurePKCS11ConfigAction(),
 		actions.NewGenerateSignerAction(),
+		actions.NewResolveKMSSignerAction(),
 		tlsadherence.NewAction[*rhtasv1.Fulcio]("fulcio", tlsadherence.CanHonourClusterTLSProfile[*rhtasv1.Fulcio]),
 		transitions.NewToCreatePhaseAction[*rhtasv1.Fulcio](),
 		actions.NewRBACAction(),

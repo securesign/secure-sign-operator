@@ -406,9 +406,9 @@ func tsaStatusFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 func rekorSignerFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(s *rhtasv1.RekorSigner, c randfill.Continue) {
-			types := []string{rhtasv1.RekorSignerTypeSecret, rhtasv1.RekorSignerTypeMemory, rhtasv1.RekorSignerTypeKMS}
+			types := []string{rhtasv1.SignerTypeSecret, rhtasv1.SignerTypeMemory, rhtasv1.SignerTypeKMS}
 			s.Type = types[c.Intn(len(types))]
-			if s.Type == rhtasv1.RekorSignerTypeKMS {
+			if s.Type == rhtasv1.SignerTypeKMS {
 				var key string
 				c.FillNoCustom(&key)
 				s.Kms = &rhtasv1.KMS{KeyResource: "awskms://" + key}

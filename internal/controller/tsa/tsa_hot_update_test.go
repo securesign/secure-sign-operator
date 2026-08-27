@@ -211,7 +211,7 @@ var _ = Describe("Timestamp Authority hot update", func() {
 			}).WithContext(ctx).Should(Succeed())
 
 			By("Creating new certificate chain and signer keys")
-			secret := tsa.CreateSecrets(Namespace, "tsa-test-secret", false)
+			secret := tsa.CreateSecrets(Namespace, "tsa-test-secret")
 			Expect(suite.Client().Create(ctx, secret)).NotTo(HaveOccurred())
 
 			By("Status field changed for cert chain")

@@ -17,13 +17,15 @@ func NewFIPSValidationAction() action.Action[*rhtasv1.Fulcio] {
 		fipsAction.Wrapper(fipsAction.Config[*rhtasv1.Fulcio]{
 			CryptoMaterial: func(ctx context.Context, i *rhtasv1.Fulcio, c client.Client) ([]fipsAction.CryptoRef, error) {
 				var refs []fipsAction.CryptoRef
-				var privateKeyRef *rhtasv1.SecretKeySelector
-				if i.Spec.Signer.File != nil {
-					privateKeyRef = i.Spec.Signer.File.PrivateKeyRef
-				}
-				if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, privateKeyRef,
-					"spec.signer.file.privateKeyRef", fipsutil.ValidatePrivateKeyPEM, &refs); err != nil {
-					return nil, err
+				if i.Spec.Signer.Type == rhtasv1.SignerTypeFile || i.Spec.Signer.Type == "" {
+					var privateKeyRef *rhtasv1.SecretKeySelector
+					if i.Spec.Signer.File != nil {
+						privateKeyRef = i.Spec.Signer.File.PrivateKeyRef
+					}
+					if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, privateKeyRef,
+						"spec.signer.file.privateKeyRef", fipsutil.ValidatePrivateKeyPEM, &refs); err != nil {
+						return nil, err
+					}
 				}
 				if err := fipsAction.AppendSecretRef(ctx, c, i.Namespace, i.Spec.Signer.CertificateChain.CertificateChainRef,
 					"spec.signer.certificateChain.certificateChainRef", fipsutil.ValidateCertificateChainPEM, &refs); err != nil {

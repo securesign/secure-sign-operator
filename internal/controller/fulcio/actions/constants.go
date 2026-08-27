@@ -20,6 +20,9 @@ const (
 	PKCS11ConfigMountPath  = "/var/run/pkcs11-config"
 	PKCS11ConfigVolumeName = "pkcs11-config"
 
+	kubeRootCACertKey = "ca.crt"
+	fulcioCertPemKey  = "cert.pem"
+
 	ServerPortName   = "http"
 	ServerPort       = 80
 	TargetServerPort = 5555

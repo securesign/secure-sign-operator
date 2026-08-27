@@ -9,6 +9,9 @@ import (
 const (
 	SignerTypeFile   = "file"
 	SignerTypePKCS11 = "pkcs11"
+	SignerTypeKMS    = "kms"
+	SignerTypeSecret = "secret"
+	SignerTypeMemory = "memory"
 )
 
 type Ingress struct {

@@ -3,6 +3,7 @@
 package install
 
 import (
+	"github.com/securesign/operator/test/e2e/support/postgresql"
 	"github.com/securesign/operator/test/e2e/support/steps"
 	"github.com/securesign/operator/test/e2e/support/tas/securesign"
 	"github.com/securesign/operator/test/e2e/support/tas/tsa"
@@ -25,11 +26,10 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 	var targetImageName string
 	var namespace *v1.Namespace
 	var s *rhtasv1.Securesign
+	var fipsEnabled bool
 
 	BeforeAll(steps.DetectAndConfigureFIPS(cli, func(enabled bool) {
-		if enabled {
-			Skip("Encrypted PEM uses MD5 key derivation, incompatible with FIPS strict mode")
-		}
+		fipsEnabled = enabled
 	}))
 
 	BeforeAll(steps.CreateNamespace(cli, func(new *v1.Namespace) {
@@ -37,9 +37,16 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 	}))
 
 	BeforeAll(func(ctx SpecContext) {
+		if fipsEnabled {
+			Expect(postgresql.CreateDB(ctx, cli, namespace.Name, postgresql.DefaultSecretName, "fips-password")).To(Succeed())
+			postgresql.WaitAndLoadSchema(ctx, cli, namespace.Name)
+		}
+	})
+
+	BeforeAll(func(ctx SpecContext) {
 		s = securesign.Create(namespace.Name, "test",
-			securesign.WithDefaults(),
-			securesign.WithProvidedEncryptedCerts(),
+			securesign.ChooseDefaults(fipsEnabled, namespace.Name),
+			securesign.WithProvidedCerts(),
 			func(v *rhtasv1.Securesign) {
 				v.Spec.Tuf.Fulcio = []rhtasv1.TrustRootBindingWithOIDC{
 					{
@@ -93,10 +100,10 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 
 	Describe("Install with provided certificates", func() {
 		BeforeAll(func(ctx SpecContext) {
-			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret", false))).To(Succeed())
-			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret", false))).To(Succeed())
-			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret", false))).To(Succeed())
-			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tsa-secret", false))).To(Succeed())
+			Expect(cli.Create(ctx, ctlog.CreateSecret(namespace.Name, "my-ctlog-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, fulcio.CreateSecret(namespace.Name, "my-fulcio-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, rekor.CreateSecret(namespace.Name, "my-rekor-secret"))).To(Succeed())
+			Expect(cli.Create(ctx, tsa.CreateSecrets(namespace.Name, "test-tsa-secret"))).To(Succeed())
 			Expect(cli.Create(ctx, s)).To(Succeed())
 		})
 
@@ -155,7 +162,7 @@ var _ = Describe("Securesign install with provided certs", Ordered, func() {
 		})
 
 		It("All other components are running", func(ctx SpecContext) {
-			tas.VerifyAllComponents(ctx, cli, s, true, true)
+			tas.VerifyAllComponents(ctx, cli, s, !fipsEnabled, true)
 		})
 
 		It("Use cosign cli", func(ctx SpecContext) {
