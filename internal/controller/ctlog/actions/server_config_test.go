@@ -282,6 +282,63 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "create config with shard encrypted private key password",
+			env: env{
+				spec: rhtasv1.CTlogSpec{
+					Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
+					Sharding: []rhtasv1.CTlogLogRange{
+						{
+							TreeID: 444444,
+							Prefix: "shard-444444",
+							PublicKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+								Key:                  "public",
+							},
+							PrivateKeyRef: rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+								Key:                  "private",
+							},
+							PrivateKeyPasswordRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+								Key:                  "password",
+							},
+						},
+					},
+				},
+				status: rhtasv1.CTlogStatus{
+					TreeID: ptr.To(int64(123456)),
+					RootCertificates: []rhtasv1.SecretKeySelector{
+						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
+					},
+					PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
+					PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
+				},
+				objects: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: "secret", Namespace: "default"},
+						Data:       map[string][]byte{"cert": cert, "private": privateKey, "public": publicKey},
+					},
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: "shard-keys", Namespace: "default"},
+						Data:       map[string][]byte{"public": publicKey, "private": privateKey, "password": []byte("secret-password")},
+					},
+				},
+			},
+			want: want{
+				result: testAction.Return(),
+				verify: func(ctx context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
+					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
+
+					secret, err := kubernetes.GetSecret(ctx, cli, "default", instance.Status.ServerConfigRef.Name)
+					g.Expect(err).ShouldNot(HaveOccurred())
+					g.Expect(secret.Data).To(HaveKey("config"))
+					g.Expect(secret.Data).To(HaveKey("shard-444444-private"))
+					g.Expect(secret.Data).To(HaveKey("shard-444444-password"))
+					g.Expect(secret.Data["shard-444444-password"]).To(Equal([]byte("secret-password")))
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
