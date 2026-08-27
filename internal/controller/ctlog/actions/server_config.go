@@ -150,10 +150,6 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 			Message:            fmt.Sprintf("Failed to resolve shard secrets: %v", err),
 			ObservedGeneration: instance.Generation,
 		})
-		if _, err := i.PersistStatus(ctx, instance); err != nil {
-			return i.Error(ctx, err, instance)
-		}
-		return i.RequeueAfter(5 * time.Second)
 	}
 
 	isPKCS11 := instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11
