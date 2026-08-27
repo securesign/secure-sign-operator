@@ -334,8 +334,8 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 					g.Expect(err).ShouldNot(HaveOccurred())
 					g.Expect(secret.Data).To(HaveKey("config"))
 					g.Expect(secret.Data).To(HaveKey("shard-444444-private"))
-					g.Expect(secret.Data).To(HaveKey("shard-444444-password"))
-					g.Expect(secret.Data["shard-444444-password"]).To(Equal([]byte("secret-password")))
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("shard-444444"))
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("secret-password"))
 				},
 			},
 		},
