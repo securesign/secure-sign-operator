@@ -16,5 +16,6 @@ type ShardConfig struct {
 	// PKCS11-specific fields (only used when Type == "pkcs11")
 	ModulePath    string                       // Absolute path to PKCS#11 module (.so)
 	TokenLabel    string                       // HSM token label
+	Pin           []byte                       // HSM user PIN (from secret)
 	PinSecretRef  *rhtasv1.SecretKeySelector   // Reference to HSM PIN secret
 }

@@ -156,7 +156,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 
 	var cfg map[string][]byte
 	if isPKCS11 {
-		cfg, err = i.buildPKCS11Config(ctx, instance, trillianUrl, rootCerts)
+		cfg, err = i.buildPKCS11Config(ctx, instance, trillianUrl, rootCerts, shards)
 	} else {
 		certConfig, keyErr := i.handlePrivateKey(ctx, instance)
 		if keyErr != nil {
@@ -265,6 +265,7 @@ func (i serverConfig) buildPKCS11Config(
 	instance *rhtasv1.CTlog,
 	trillianUrl string,
 	rootCerts []ctlogUtils.RootCertificate,
+	shards []ctlogUtils.ShardConfig,
 ) (map[string][]byte, error) {
 	p := instance.Spec.Signer.PKCS11
 	if p == nil {
@@ -301,6 +302,7 @@ func (i serverConfig) buildPKCS11Config(
 		string(pin),
 		publicKey,
 		instance.Spec.Prefix,
+		shards,
 	)
 }
 
@@ -399,6 +401,16 @@ func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog)
 			}
 			if s.PublicKeyRef == nil {
 				return nil, fmt.Errorf("shard %d (pkcs11): publicKeyRef is required", s.TreeID)
+			}
+
+			// Read PIN from secret for PKCS11 shard
+			var err error
+			sc.Pin, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PinSecretRef)
+			if err != nil {
+				return nil, fmt.Errorf("shard %d (pkcs11): failed to read PIN secret: %w", s.TreeID, err)
+			}
+			if len(sc.Pin) == 0 {
+				return nil, fmt.Errorf("shard %d (pkcs11): PIN secret %s/%s is empty", s.TreeID, s.PinSecretRef.Name, s.PinSecretRef.Key)
 			}
 
 			// Store PKCS11-specific fields

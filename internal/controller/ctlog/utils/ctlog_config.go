@@ -175,7 +175,7 @@ func (c *Config) marshalShardLogConfig(shard ShardConfig, rootPems []string) (*c
 		// For PKCS11 shards, store token label and pin in config
 		cfg.PrivateKey = mustMarshalAny(&keyspb.PKCS11Config{
 			TokenLabel: shard.TokenLabel,
-			Pin:        "", // PIN is passed via environment variables, not in config
+			Pin:        string(shard.Pin), // PIN from secret
 			PublicKey:  string(shard.PublicKey),
 		})
 	} else {
@@ -244,6 +244,52 @@ func CreateCtlogConfig(trillianUrl string, treeID int64, rootCerts []RootCertifi
 	return data, nil
 }
 
+// marshalShardLogConfigForPKCS11 marshals a shard log config for use in PKCS11 configs.
+// It's similar to marshalShardLogConfig but used as a standalone function for PKCS11 mode.
+func marshalShardLogConfigForPKCS11(shard ShardConfig, rootPems []string) (*configpb.LogConfig, error) {
+	block, _ := pem.Decode(shard.PublicKey)
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode public key for shard %d", shard.TreeID)
+	}
+
+	cfg := &configpb.LogConfig{
+		LogId:          shard.TreeID,
+		Prefix:         shard.Prefix,
+		RootsPemFile:   rootPems,
+		PublicKey:      &keyspb.PublicKey{Der: block.Bytes},
+		LogBackendName: "trillian",
+		ExtKeyUsages:   []string{"CodeSigning"},
+		IsReadonly:     true,
+	}
+
+	// Set certificate validity timestamps if provided (as Unix seconds)
+	if shard.NotAfterStart > 0 {
+		cfg.NotAfterStart = &timestamppb.Timestamp{Seconds: shard.NotAfterStart}
+	}
+	if shard.NotAfterLimit > 0 {
+		cfg.NotAfterLimit = &timestamppb.Timestamp{Seconds: shard.NotAfterLimit}
+	}
+
+	// Handle shard type-specific private key configuration
+	if shard.Type == "pkcs11" {
+		// For PKCS11 shards, store token label and pin in config
+		cfg.PrivateKey = mustMarshalAny(&keyspb.PKCS11Config{
+			TokenLabel: shard.TokenLabel,
+			Pin:        string(shard.Pin), // PIN from secret
+			PublicKey:  string(shard.PublicKey),
+		})
+	} else {
+		// For file-type shards, use PEMKeyFile
+		if len(shard.PrivateKey) > 0 {
+			cfg.PrivateKey = mustMarshalAny(&keyspb.PEMKeyFile{
+				Path: fmt.Sprintf("%sshard-%d-private", rootsPemFileDir, shard.TreeID),
+			})
+		}
+	}
+
+	return cfg, nil
+}
+
 // CreateCtlogPKCS11Config creates a CTLog protobuf configuration for PKCS#11 mode.
 // Instead of PEMKeyFile, the PrivateKey field is an anypb.Any wrapping keyspb.PKCS11Config.
 // The returned map contains only the protobuf config and root certificates;
@@ -255,6 +301,7 @@ func CreateCtlogPKCS11Config(
 	tokenLabel, pin string,
 	publicKeyPEM []byte,
 	logPrefix string,
+	shards []ShardConfig,
 ) (map[string][]byte, error) {
 	rootPems := make([]string, 0, len(rootCerts))
 	for i := range rootCerts {
@@ -266,7 +313,19 @@ func CreateCtlogPKCS11Config(
 		return nil, fmt.Errorf("failed to decode public key PEM")
 	}
 
-	logConfig := configpb.LogConfig{
+	configs := make([]*configpb.LogConfig, 0, 1+len(shards))
+
+	// Add shard configurations first
+	for _, shard := range shards {
+		shardCfg, err := marshalShardLogConfigForPKCS11(shard, rootPems)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create shard config for treeID %d: %w", shard.TreeID, err)
+		}
+		configs = append(configs, shardCfg)
+	}
+
+	// Add active log configuration
+	logConfig := &configpb.LogConfig{
 		LogId:        treeID,
 		Prefix:       logPrefix,
 		RootsPemFile: rootPems,
@@ -279,10 +338,11 @@ func CreateCtlogPKCS11Config(
 		LogBackendName: "trillian",
 		ExtKeyUsages:   []string{"CodeSigning"},
 	}
+	configs = append(configs, logConfig)
 
 	multiConfig := configpb.LogMultiConfig{
 		LogConfigs: &configpb.LogConfigSet{
-			Config: []*configpb.LogConfig{&logConfig},
+			Config: configs,
 		},
 		Backends: &configpb.LogBackendSet{
 			Backend: []*configpb.LogBackend{{
@@ -301,6 +361,12 @@ func CreateCtlogPKCS11Config(
 	}
 	for i, cert := range rootCerts {
 		data[fmt.Sprintf("fulcio-%d", i)] = cert
+	}
+	// Include shard private key data
+	for _, shard := range shards {
+		if len(shard.PrivateKey) > 0 {
+			data[fmt.Sprintf("shard-%d-private", shard.TreeID)] = shard.PrivateKey
+		}
 	}
 	return data, nil
 }
