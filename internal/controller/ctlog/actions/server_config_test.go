@@ -243,8 +243,8 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
 								Key:                  "private",
 							},
-							NotAfterStart: ptr.To(int64(1704067200)), // 2024-01-01
-							NotAfterLimit: ptr.To(int64(1735689600)), // 2025-01-01
+							NotAfterStart: ptr.To("2024-01-01T00:00:00Z"),
+							NotAfterLimit: ptr.To("2025-01-01T00:00:00Z"),
 						},
 					},
 				},
