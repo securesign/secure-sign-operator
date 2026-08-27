@@ -172,7 +172,7 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 			},
 		},
 		{
-			name: "create config with shard including private key",
+			name: "create config with readonly shard",
 			env: env{
 				spec: rhtasv1.CTlogSpec{
 					Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
@@ -202,7 +202,7 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 					},
 					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{Name: "shard-keys", Namespace: "default"},
-						Data:       map[string][]byte{"public": publicKey, "private": privateKey},
+						Data:       map[string][]byte{"public": publicKey},
 					},
 				},
 			},
@@ -214,8 +214,9 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 					secret, err := kubernetes.GetSecret(ctx, cli, "default", instance.Status.ServerConfigRef.Name)
 					g.Expect(err).ShouldNot(HaveOccurred())
 					g.Expect(secret.Data).To(HaveKey("config"))
-					g.Expect(secret.Data).To(HaveKey("shard-222222-private"))
+					g.Expect(secret.Data).NotTo(HaveKey("shard-222222-private"))
 					g.Expect(string(secret.Data["config"])).To(ContainSubstring("222222"))
+					g.Expect(string(secret.Data["config"])).To(ContainSubstring("is_readonly:true"))
 				},
 			},
 		},
@@ -267,55 +268,6 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 					g.Expect(string(secret.Data["config"])).To(ContainSubstring("333333"))
 					g.Expect(string(secret.Data["config"])).To(ContainSubstring("1704067200"))
 					g.Expect(string(secret.Data["config"])).To(ContainSubstring("1735689600"))
-				},
-			},
-		},
-		{
-			name: "create config with shard encrypted private key password",
-			env: env{
-				spec: rhtasv1.CTlogSpec{
-					Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
-					Sharding: []rhtasv1.CTlogLogRange{
-						{
-							TreeID: 444444,
-							Prefix: "shard-444444",
-							PublicKeyRef: &rhtasv1.SecretKeySelector{
-								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
-								Key:                  "public",
-							},
-						},
-					},
-				},
-				status: rhtasv1.CTlogStatus{
-					TreeID: ptr.To(int64(123456)),
-					RootCertificates: []rhtasv1.SecretKeySelector{
-						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
-					},
-					PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
-					PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
-				},
-				objects: []client.Object{
-					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{Name: "secret", Namespace: "default"},
-						Data:       map[string][]byte{"cert": cert, "private": privateKey, "public": publicKey},
-					},
-					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{Name: "shard-keys", Namespace: "default"},
-						Data:       map[string][]byte{"public": publicKey, "private": privateKey, "password": []byte("secret-password")},
-					},
-				},
-			},
-			want: want{
-				result: testAction.Return(),
-				verify: func(ctx context.Context, g Gomega, instance *rhtasv1.CTlog, cli client.WithWatch) {
-					g.Expect(instance.Status.ServerConfigRef).ShouldNot(BeNil())
-
-					secret, err := kubernetes.GetSecret(ctx, cli, "default", instance.Status.ServerConfigRef.Name)
-					g.Expect(err).ShouldNot(HaveOccurred())
-					g.Expect(secret.Data).To(HaveKey("config"))
-					g.Expect(secret.Data).To(HaveKey("shard-444444-private"))
-					g.Expect(string(secret.Data["config"])).To(ContainSubstring("shard-444444"))
-					g.Expect(string(secret.Data["config"])).To(ContainSubstring("secret-password"))
 				},
 			},
 		},
@@ -532,8 +484,8 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 					g.Expect(err).ShouldNot(HaveOccurred())
 					g.Expect(string(secret.Data["config"])).To(ContainSubstring("555555"))
 					g.Expect(string(secret.Data["config"])).To(ContainSubstring("666666"))
-					g.Expect(secret.Data).To(HaveKey("shard-555555-private"))
-					g.Expect(secret.Data).To(HaveKey("shard-666666-private"))
+					g.Expect(secret.Data).NotTo(HaveKey("shard-555555-private"))
+					g.Expect(secret.Data).NotTo(HaveKey("shard-666666-private"))
 				},
 			},
 		},
