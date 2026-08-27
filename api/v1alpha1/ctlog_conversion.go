@@ -25,6 +25,7 @@ func Convert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *rhtasv1.CTlogSpec, out *CTlo
 	if err := autoConvert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in, out, s); err != nil {
 		return err
 	}
+	// Sharding is v1-only; drop it on conversion to v1alpha1
 	if in.Signer.File == nil {
 		return nil
 	}
@@ -47,6 +48,8 @@ func Convert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in *CTlogSpec, out *rhtasv1.CTlo
 	if err := autoConvert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in, out, s); err != nil {
 		return err
 	}
+	// Sharding is v1-only; set to nil on conversion from v1alpha1
+	out.Sharding = nil
 	out.Signer.Type = rhtasv1.SignerTypeFile
 	if in.PrivateKeyRef != nil || in.PublicKeyRef != nil {
 		out.Signer.File = &rhtasv1.CTlogFile{}

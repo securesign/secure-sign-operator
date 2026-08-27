@@ -282,6 +282,13 @@ func securesignFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			} else {
 				s.Spec.Tuf.Tsa = nil
 			}
+			// NotAfterStart and NotAfterLimit are v1-only fields in CTlogLogRange shards.
+			// They don't survive v1→v1alpha1 roundtrip (v1alpha1 has no Sharding field),
+			// so clear them from the hub to avoid roundtrip comparison failures.
+			for i := range s.Spec.Ctlog.Sharding {
+				s.Spec.Ctlog.Sharding[i].NotAfterStart = nil
+				s.Spec.Ctlog.Sharding[i].NotAfterLimit = nil
+			}
 		},
 		func(s *Securesign, c randfill.Continue) {
 			c.FillNoCustom(s)
@@ -305,7 +312,13 @@ func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			if s.Status.Url != "" {
 				s.Status.Url += "/" + s.Spec.Prefix
 			}
-
+			// NotAfterStart and NotAfterLimit are v1-only fields in CTlogLogRange shards.
+			// They don't survive v1→v1alpha1 roundtrip (v1alpha1 has no Sharding field),
+			// so clear them from the hub to avoid roundtrip comparison failures.
+			for i := range s.Spec.Sharding {
+				s.Spec.Sharding[i].NotAfterStart = nil
+				s.Spec.Sharding[i].NotAfterLimit = nil
+			}
 		},
 		func(s *CTlog, c randfill.Continue) {
 			c.FillNoCustom(s)
