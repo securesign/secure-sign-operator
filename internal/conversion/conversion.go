@@ -140,8 +140,8 @@ func GetFuzzer(scheme *runtime.Scheme, funcs ...fuzzer.FuzzerFuncs) *randfill.Fi
 						return
 					}
 					if c.Bool() {
-						// Set the Time sometimes empty to also get coverage for this case.
-						*input = &metav1.Time{}
+						// &metav1.Time{} serializes to nil. Use nil for an empty time to keep the rountrip working also with restored annotation
+						*input = nil
 						return
 					}
 					var sec, nsec uint32
