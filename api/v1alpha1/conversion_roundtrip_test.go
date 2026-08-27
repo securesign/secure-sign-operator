@@ -314,10 +314,6 @@ func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			s.Spec.PrivateKeyPasswordRef = nil
 			// ServerConfigRef is deprecated in favor of spec.sharding; it has no roundtrip path.
 			s.Spec.ServerConfigRef = nil
-			// PrivateKeyPasswordRef in status was also removed from v1; clear it so it roundtrips.
-			s.Status.PrivateKeyPasswordRef = nil
-			// ServerConfigRef in status is also deprecated.
-			s.Status.ServerConfigRef = nil
 		},
 	}
 }
