@@ -141,15 +141,18 @@ func (i deployAction) ensureDeployment(instance *rhtasv1.CTlog, sa string, label
 			metricsPort.Protocol = core.ProtocolTCP
 		}
 
-		isPKCS11 := instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11
+		isPKCS11 := false
+		if len(instance.Spec.Logs) > 0 && instance.Spec.Logs[0].Signer != nil {
+			isPKCS11 = instance.Spec.Logs[0].Signer.Type == rhtasv1.SignerTypePKCS11
 
-		if isPKCS11 {
-			p := instance.Spec.Signer.PKCS11
-			if p == nil {
-				return fmt.Errorf("PKCS#11 config not yet resolved")
+			if isPKCS11 {
+				p := instance.Spec.Logs[0].Signer.PKCS11
+				if p == nil {
+					return fmt.Errorf("PKCS#11 config not yet resolved")
+				}
+				modulePath := fmt.Sprintf("%s/%s", constants.HSMLibMountPath, path.Base(p.ModulePath))
+				appArgs = append(appArgs, fmt.Sprintf("--pkcs11_module_path=%s", modulePath))
 			}
-			modulePath := fmt.Sprintf("%s/%s", constants.HSMLibMountPath, path.Base(p.ModulePath))
-			appArgs = append(appArgs, fmt.Sprintf("--pkcs11_module_path=%s", modulePath))
 		}
 
 		container.Args = appArgs

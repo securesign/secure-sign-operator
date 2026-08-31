@@ -72,7 +72,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 	switch {
 	case instance.Status.TreeID == nil:
 		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrTreeNotSpecified), instance)
-	case (instance.Spec.Signer.Type == rhtasv1.SignerTypeFile || instance.Spec.Signer.Type == "") && instance.Status.PrivateKeyRef == nil:
+	case getSignerType(instance) == rhtasv1.SignerTypeFile && instance.Status.PrivateKeyRef == nil:
 		return i.Error(ctx, fmt.Errorf("%s: %v", i.Name(), ctlogUtils.ErrPrivateKeyNotSpecified), instance)
 	}
 
@@ -153,7 +153,7 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 		})
 	}
 
-	isPKCS11 := instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11
+	isPKCS11 := getSignerType(instance) == rhtasv1.SignerTypePKCS11
 
 	var cfg map[string][]byte
 	if isPKCS11 {
@@ -175,13 +175,18 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 		}
 		notAfterStart := int64(0)
 		notAfterLimit := int64(0)
-		if instance.Spec.NotAfterStart != nil {
-			notAfterStart = instance.Spec.NotAfterStart.Unix()
+		// Get NotAfterStart/NotAfterLimit from first active log
+		if len(instance.Spec.Logs) > 0 && instance.Spec.Logs[0].NotAfterStart != nil {
+			notAfterStart = instance.Spec.Logs[0].NotAfterStart.Unix()
 		}
-		if instance.Spec.NotAfterLimit != nil {
-			notAfterLimit = instance.Spec.NotAfterLimit.Unix()
+		if len(instance.Spec.Logs) > 0 && instance.Spec.Logs[0].NotAfterLimit != nil {
+			notAfterLimit = instance.Spec.Logs[0].NotAfterLimit.Unix()
 		}
-		cfg, err = ctlogUtils.CreateCtlogConfig(trillianUrl, *instance.Status.TreeID, rootCerts, certConfig, instance.Spec.Prefix, shards, notAfterStart, notAfterLimit)
+		logPrefix := ""
+		if len(instance.Spec.Logs) > 0 {
+			logPrefix = instance.Spec.Logs[0].Prefix
+		}
+		cfg, err = ctlogUtils.CreateCtlogConfig(trillianUrl, *instance.Status.TreeID, rootCerts, certConfig, logPrefix, shards, notAfterStart, notAfterLimit)
 	}
 	if err != nil {
 		return i.Error(ctx, fmt.Errorf("could not create CTLog configuration: %w", err), instance, metav1.Condition{
@@ -275,7 +280,10 @@ func (i serverConfig) buildPKCS11Config(
 	trillianUrl string,
 	rootCerts []ctlogUtils.RootCertificate,
 ) (map[string][]byte, error) {
-	p := instance.Spec.Signer.PKCS11
+	var p *rhtasv1.CTlogPKCS11Config
+	if len(instance.Spec.Logs) > 0 && instance.Spec.Logs[0].Signer != nil {
+		p = instance.Spec.Logs[0].Signer.PKCS11
+	}
 	if p == nil {
 		return nil, fmt.Errorf("PKCS#11 config is nil")
 	}
@@ -302,6 +310,11 @@ func (i serverConfig) buildPKCS11Config(
 		return nil, fmt.Errorf("public key secret %s/%s is empty", p.PublicKeyRef.Name, p.PublicKeyRef.Key)
 	}
 
+	logPrefix := ""
+	if len(instance.Spec.Logs) > 0 {
+		logPrefix = instance.Spec.Logs[0].Prefix
+	}
+
 	return ctlogUtils.CreateCtlogPKCS11Config(
 		trillianUrl,
 		*instance.Status.TreeID,
@@ -309,7 +322,7 @@ func (i serverConfig) buildPKCS11Config(
 		p.TokenLabel,
 		string(pin),
 		publicKey,
-		instance.Spec.Prefix,
+		logPrefix,
 	)
 }
 
@@ -357,39 +370,53 @@ func (i serverConfig) handleRootCertificates(ctx context.Context, instance *rhta
 //   - errSecretInvalid if the secret needs recreation (not a failure)
 //   - other error for API errors - reconciliation should fail
 func (i serverConfig) handleShards(ctx context.Context, instance *rhtasv1.CTlog) ([]ctlogUtils.ShardConfig, error) {
-	shards := make([]ctlogUtils.ShardConfig, 0, len(instance.Spec.Sharding))
-	for _, s := range instance.Spec.Sharding {
+	// Collect read-only logs (shards) from the Logs array
+	readOnlyLogs := make([]rhtasv1.CTLogConfig, 0)
+	for _, log := range instance.Spec.Logs {
+		if log.Readonly != nil && *log.Readonly {
+			readOnlyLogs = append(readOnlyLogs, log)
+		}
+	}
+
+	shards := make([]ctlogUtils.ShardConfig, 0, len(readOnlyLogs))
+	for _, log := range readOnlyLogs {
 		var publicKey []byte
-		if s.PublicKeyRef != nil {
+		if log.Signer != nil && log.Signer.File != nil && log.Signer.File.PublicKeyRef != nil {
 			var err error
-			publicKey, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.PublicKeyRef)
+			publicKey, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, log.Signer.File.PublicKeyRef)
 			if err != nil {
-				return nil, fmt.Errorf("shard %d publicKeyRef: %w", s.TreeID, err)
+				treeID := "unknown"
+				if log.LogId != nil {
+					treeID = fmt.Sprintf("%d", *log.LogId)
+				}
+				return nil, fmt.Errorf("shard %s publicKeyRef: %w", treeID, err)
 			}
 		}
 
 		var frozenSTH []byte
-		if s.FrozenSTHRef != nil {
-			var err error
-			frozenSTH, err = kubernetes.GetSecretData(ctx, i.Client, instance.Namespace, s.FrozenSTHRef)
-			if err != nil {
-				return nil, fmt.Errorf("shard %d frozenSTHRef: %w", s.TreeID, err)
-			}
+		if log.FrozenSTH != nil {
+			// Convert frozen STH to byte representation
+			frozenSTH = []byte(fmt.Sprintf("%d", log.FrozenSTH.TreeSize))
+		}
+
+		treeID := int64(0)
+		if log.LogId != nil {
+			treeID = *log.LogId
 		}
 
 		sc := ctlogUtils.ShardConfig{
-			TreeID:    s.TreeID,
+			TreeID:    treeID,
 			PublicKey: publicKey,
-			Prefix:    s.Prefix,
+			Prefix:    log.Prefix,
 			FrozenSTH: frozenSTH,
 		}
 
 		// Set validity timestamps if provided
-		if s.NotAfterStart != nil {
-			sc.NotAfterStart = s.NotAfterStart.Unix()
+		if log.NotAfterStart != nil {
+			sc.NotAfterStart = log.NotAfterStart.Unix()
 		}
-		if s.NotAfterLimit != nil {
-			sc.NotAfterLimit = s.NotAfterLimit.Unix()
+		if log.NotAfterLimit != nil {
+			sc.NotAfterLimit = log.NotAfterLimit.Unix()
 		}
 
 		shards = append(shards, sc)
@@ -440,40 +467,57 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 		annotations[labels.LabelNamespace+"/privateKeyRef"] = fmt.Sprintf("%s/%s", instance.Status.PrivateKeyRef.Name, instance.Status.PrivateKeyRef.Key)
 	}
 
-	if instance.Spec.Prefix != "" {
-		annotations[labels.LabelNamespace+"/logPrefix"] = instance.Spec.Prefix
+	if len(instance.Spec.Logs) > 0 && instance.Spec.Logs[0].Prefix != "" {
+		annotations[labels.LabelNamespace+"/logPrefix"] = instance.Spec.Logs[0].Prefix
 	}
 
-	if instance.Spec.NotAfterStart != nil || instance.Spec.NotAfterLimit != nil {
+	if len(instance.Spec.Logs) > 0 && (instance.Spec.Logs[0].NotAfterStart != nil || instance.Spec.Logs[0].NotAfterLimit != nil) {
 		h := sha256.New()
-		if instance.Spec.NotAfterStart != nil {
-			_, _ = fmt.Fprintf(h, "NotAfterStart:%d", instance.Spec.NotAfterStart.Unix())
+		if instance.Spec.Logs[0].NotAfterStart != nil {
+			_, _ = fmt.Fprintf(h, "NotAfterStart:%d", instance.Spec.Logs[0].NotAfterStart.Unix())
 		}
-		if instance.Spec.NotAfterLimit != nil {
-			_, _ = fmt.Fprintf(h, ":NotAfterLimit:%d", instance.Spec.NotAfterLimit.Unix())
+		if instance.Spec.Logs[0].NotAfterLimit != nil {
+			_, _ = fmt.Fprintf(h, ":NotAfterLimit:%d", instance.Spec.Logs[0].NotAfterLimit.Unix())
 		}
 		annotations[labels.LabelNamespace+"/activeLogValidity"] = hex.EncodeToString(h.Sum(nil))
 	}
 
-	if len(instance.Spec.Sharding) > 0 {
+	if len(instance.Spec.Logs) > 0 {
 		h := sha256.New()
-		for _, shard := range instance.Spec.Sharding {
-			publicKeyRefStr := ""
-			if shard.PublicKeyRef != nil {
-				publicKeyRefStr = shard.PublicKeyRef.Name + "/" + shard.PublicKeyRef.Key
+		// Hash all read-only logs for sharding
+		for _, log := range instance.Spec.Logs {
+			if log.Readonly != nil && *log.Readonly {
+				publicKeyRefStr := ""
+				if log.Signer != nil && log.Signer.File != nil && log.Signer.File.PublicKeyRef != nil {
+					publicKeyRefStr = log.Signer.File.PublicKeyRef.Name + "/" + log.Signer.File.PublicKeyRef.Key
+				}
+				frozenSTHRefStr := ""
+				if log.FrozenSTH != nil {
+					frozenSTHRefStr = fmt.Sprintf("%d", log.FrozenSTH.TreeSize)
+				}
+				if log.LogId != nil {
+					_, _ = fmt.Fprintf(h, "%d:%s:%s", *log.LogId, publicKeyRefStr, frozenSTHRefStr)
+				}
 			}
-			frozenSTHRefStr := ""
-			if shard.FrozenSTHRef != nil {
-				frozenSTHRefStr = shard.FrozenSTHRef.Name + "/" + shard.FrozenSTHRef.Key
-			}
-			_, _ = fmt.Fprintf(h, "%d:%s:%s", shard.TreeID, publicKeyRefStr, frozenSTHRefStr)
 		}
-		annotations[labels.LabelNamespace+"/shardingHash"] = hex.EncodeToString(h.Sum(nil))
+		hashStr := hex.EncodeToString(h.Sum(nil))
+		if hashStr != hex.EncodeToString(make([]byte, 32)) {
+			annotations[labels.LabelNamespace+"/shardingHash"] = hashStr
+		}
 	}
 
-	if instance.Spec.Signer.Type == rhtasv1.SignerTypePKCS11 && instance.Spec.Signer.PKCS11 != nil {
-		annotations[labels.LabelNamespace+"/pkcs11SpecHash"] = pkcs11SpecHash(instance.Spec.Signer.PKCS11)
+	signerType := getSignerType(instance)
+	if signerType == rhtasv1.SignerTypePKCS11 && len(instance.Spec.Logs) > 0 && instance.Spec.Logs[0].Signer != nil && instance.Spec.Logs[0].Signer.PKCS11 != nil {
+		annotations[labels.LabelNamespace+"/pkcs11SpecHash"] = pkcs11SpecHash(instance.Spec.Logs[0].Signer.PKCS11)
 	}
 
 	return annotations
+}
+
+// getSignerType returns the signer type from the first active log
+func getSignerType(instance *rhtasv1.CTlog) string {
+	if len(instance.Spec.Logs) == 0 || instance.Spec.Logs[0].Signer == nil {
+		return rhtasv1.SignerTypeFile // default
+	}
+	return instance.Spec.Logs[0].Signer.Type
 }

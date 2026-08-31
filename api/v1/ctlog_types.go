@@ -25,21 +25,15 @@ import (
 type CTlogSpec struct {
 	PodRequirements      `json:",inline"`
 	ServiceAccountConfig `json:",inline"`
-	// The ID of a Trillian tree that stores the log data.
-	// If it is unset, the operator will create new Merkle tree in the Trillian backend
-	//+optional
-	//+kubebuilder:validation:Minimum=1
-	TreeID *int64 `json:"treeID,omitempty"`
 
-	// Signer configuration
-	//+required
-	Signer CTlogSigner `json:"signer"`
-
-	// List of secrets containing root certificates that are acceptable to the log.
-	// The certs are served through get-roots endpoint. Optional in mirrors.
-	//+optional
-	// +listType=atomic
-	RootCertificates []SecretKeySelector `json:"rootCertificates,omitempty"`
+	// Logs defines the list of certificate transparency logs (active and frozen shards).
+	// Each entry represents either the active log or a frozen shard.
+	// +required
+	// +listType=map
+	// +listMapKey=logId
+	// +patchStrategy=merge
+	// +patchMergeKey=logId
+	Logs []CTLogConfig `json:"logs"`
 
 	// Define whether you want to export service or not
 	Ingress Ingress `json:"ingress,omitempty"`
@@ -49,19 +43,6 @@ type CTlogSpec struct {
 
 	// Trillian service configuration
 	Trillian ServiceReference `json:"trillian,omitempty"`
-
-	// Inactive shards
-	// +listType=map
-	// +listMapKey=treeID
-	// +patchStrategy=merge
-	// +patchMergeKey=treeID
-	Sharding []CTlogLogRange `json:"sharding,omitempty"`
-
-	// Prefix is the name of the log. The prefix cannot be empty and can
-	// contain "/" path separator characters to define global override handler prefix.
-	//+kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$"
-	//+optional
-	Prefix string `json:"prefix,omitempty"`
 
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
 	//+optional
@@ -79,13 +60,6 @@ type CTlogSpec struct {
 	// Authentication configuration for the signer backend.
 	//+optional
 	Auth *Auth `json:"auth,omitempty"`
-
-	// RFC3339 timestamp when this log's certificates become valid.
-	// +optional
-	NotAfterStart *metav1.Time `json:"notAfterStart,omitempty"`
-	// RFC3339 timestamp when this log's certificates expire.
-	// +optional
-	NotAfterLimit *metav1.Time `json:"notAfterLimit,omitempty"`
 }
 
 // CTlogPKCS11Config holds the CTLog PKCS#11/HSM signer configuration.
@@ -113,7 +87,74 @@ type CTlogPKCS11Config struct {
 	PublicKeyRef *SecretKeySelector `json:"publicKeyRef"`
 }
 
+// CTLogConfig defines the configuration for a certificate transparency log (active or frozen).
+// +structType=atomic
+type CTLogConfig struct {
+	// LogId is the optional Trillian tree ID. If not set, the operator will generate one.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1
+	LogId *int64 `json:"logId,omitempty"`
+
+	// Prefix is the name of the log. The prefix cannot be empty and can
+	// contain "/" path separator characters to define global override handler prefix.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern="^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$"
+	Prefix string `json:"prefix"`
+
+	// Roots is a list of secrets containing root certificates acceptable to the log.
+	// The certs are served through get-roots endpoint. Optional for mirrors.
+	// +optional
+	// +listType=atomic
+	Roots []SecretKeySelector `json:"roots,omitempty"`
+
+	// Signer configuration. Required for active logs, optional for frozen shards.
+	// +optional
+	Signer *CTlogSigner `json:"signer,omitempty"`
+
+	// RFC3339 timestamp when this log's certificates become valid.
+	// +optional
+	NotAfterStart *metav1.Time `json:"notAfterStart,omitempty"`
+
+	// RFC3339 timestamp when this log's certificates expire.
+	// +optional
+	NotAfterLimit *metav1.Time `json:"notAfterLimit,omitempty"`
+
+	// Mirror indicates if this is a mirror log (read-only, no signing).
+	// +optional
+	Mirror *bool `json:"mirror,omitempty"`
+
+	// Readonly indicates if this is a frozen/read-only shard.
+	// +optional
+	Readonly *bool `json:"readonly,omitempty"`
+
+	// FrozenSTH is the frozen SignedTreeHead for a frozen shard.
+	// Only meaningful when readonly is true.
+	// +optional
+	FrozenSTH *CTLogFrozenSTH `json:"frozenSTH,omitempty"`
+}
+
+// CTLogFrozenSTH represents a frozen SignedTreeHead for a read-only shard.
+// +structType=atomic
+type CTLogFrozenSTH struct {
+	// TreeSize is the number of leaves in the tree.
+	// +kubebuilder:validation:Minimum=0
+	TreeSize *int64 `json:"treeSize,omitempty"`
+
+	// Timestamp is the Unix timestamp when the STH was signed.
+	// +optional
+	Timestamp *metav1.Time `json:"timestamp,omitempty"`
+
+	// Sha256RootHash is the Base64-encoded root hash.
+	// +optional
+	Sha256RootHash []byte `json:"sha256RootHash,omitempty"`
+
+	// TreeHeadSignature is the Base64-encoded signature.
+	// +optional
+	TreeHeadSignature []byte `json:"treeHeadSignature,omitempty"`
+}
+
 // CTlogLogRange defines the range and key details of a frozen CTlog shard (read-only)
+// Deprecated: Use CTLogConfig with readonly=true instead.
 // +structType=atomic
 type CTlogLogRange struct {
 	// ID of Merkle tree in Trillian backend
@@ -170,18 +211,54 @@ type CTlogFile struct {
 	PublicKeyRef *SecretKeySelector `json:"publicKeyRef,omitempty"`
 }
 
+// CTlogLogStatus contains status information for a single log.
+// +structType=atomic
+type CTlogLogStatus struct {
+	// LogId is the Trillian tree ID.
+	LogId *int64 `json:"logId,omitempty"`
+	// Prefix is the log's URL prefix.
+	Prefix string `json:"prefix,omitempty"`
+	// PrivateKeyRef points to the secret containing the private key (for active logs only).
+	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+	// PrivateKeyPasswordRef points to the secret containing the private key password (if encrypted).
+	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
+	// PublicKeyRef points to the secret containing the public key.
+	PublicKeyRef *SecretKeySelector `json:"publicKeyRef,omitempty"`
+	// PublicKey is the PEM-encoded public key.
+	PublicKey string `json:"publicKey,omitempty"`
+	// RootCertificates are the resolved root certificates.
+	// +listType=atomic
+	RootCertificates []SecretKeySelector `json:"rootCertificates,omitempty"`
+	// Readonly indicates if this is a frozen shard.
+	Readonly *bool `json:"readonly,omitempty"`
+}
+
 // CTlogStatus defines the observed state of CTlog component
 type CTlogStatus struct {
-	ServerConfigRef       *LocalObjectReference `json:"serverConfigRef,omitempty"`
-	PrivateKeyRef         *SecretKeySelector    `json:"privateKeyRef,omitempty"`
-	PrivateKeyPasswordRef *SecretKeySelector    `json:"privateKeyPasswordRef,omitempty"`
-	PublicKeyRef          *SecretKeySelector    `json:"publicKeyRef,omitempty"`
+	ServerConfigRef *LocalObjectReference `json:"serverConfigRef,omitempty"`
+	// Logs contains status information for each log.
+	// +listType=map
+	// +listMapKey=logId
+	// +patchStrategy=merge
+	// +patchMergeKey=logId
+	// +optional
+	Logs []CTlogLogStatus `json:"logs,omitempty"`
+
+	// Deprecated: Use logs[0].PrivateKeyRef instead
+	PrivateKeyRef *SecretKeySelector `json:"privateKeyRef,omitempty"`
+	// Deprecated: Use logs[0].PrivateKeyPasswordRef instead
+	PrivateKeyPasswordRef *SecretKeySelector `json:"privateKeyPasswordRef,omitempty"`
+	// Deprecated: Use logs[0].PublicKeyRef instead
+	PublicKeyRef *SecretKeySelector `json:"publicKeyRef,omitempty"`
+	// Deprecated: Use logs[0].RootCertificates instead
 	// +listType=atomic
 	RootCertificates []SecretKeySelector `json:"rootCertificates,omitempty"`
 	// PEM-encoded public key resolved from the CTlog signer secret.
+	// Deprecated: Use logs[0].PublicKey instead
 	// +optional
 	PublicKey string `json:"publicKey,omitempty"`
 	// The ID of a Trillian tree that stores the log data.
+	// Deprecated: Use logs[0].LogId instead
 	TreeID *int64 `json:"treeID,omitempty"`
 	// Configuration for enabling TLS (Transport Layer Security) encryption for manged service.
 	//+optional

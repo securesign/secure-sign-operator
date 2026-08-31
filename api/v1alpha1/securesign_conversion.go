@@ -72,18 +72,8 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Ctlog.ImagePullSecrets = restored.Spec.Ctlog.ImagePullSecrets
 	dst.Spec.Ctlog.TrustedCA = restored.Spec.Ctlog.TrustedCA
 	dst.Spec.Ctlog.Monitoring.ServiceMonitor = restored.Spec.Ctlog.Monitoring.ServiceMonitor
-	dst.Spec.Ctlog.Prefix = restored.Spec.Ctlog.Prefix
-	dst.Spec.Ctlog.Sharding = restored.Spec.Ctlog.Sharding
-	dst.Spec.Ctlog.NotAfterStart = restored.Spec.Ctlog.NotAfterStart
-	dst.Spec.Ctlog.NotAfterLimit = restored.Spec.Ctlog.NotAfterLimit
-	dst.Spec.Ctlog.Signer.Type = restored.Spec.Ctlog.Signer.Type
-	// If original v1 had File=&{} (empty struct), preserve it
-	if dst.Spec.Ctlog.Signer.File == nil && restored.Spec.Ctlog.Signer.File != nil {
-		emptyFile := &rhtasv1.CTlogFile{}
-		if equality.Semantic.DeepEqual(restored.Spec.Ctlog.Signer.File, emptyFile) {
-			dst.Spec.Ctlog.Signer.File = &rhtasv1.CTlogFile{}
-		}
-	}
+	// Restore Logs array from storage
+	dst.Spec.Ctlog.Logs = restored.Spec.Ctlog.Logs
 	if dst.Spec.Ctlog.Trillian.URL == "" {
 		dst.Spec.Ctlog.Trillian.Ref = restored.Spec.Ctlog.Trillian.Ref
 	}
@@ -93,7 +83,6 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Ctlog.PodExtensions = restored.Spec.Ctlog.PodExtensions
 	dst.Spec.Ctlog.Auth = restored.Spec.Ctlog.Auth
 	dst.Spec.Ctlog.Ingress = restored.Spec.Ctlog.Ingress
-	dst.Spec.Ctlog.Signer.PKCS11 = restored.Spec.Ctlog.Signer.PKCS11
 	dst.Spec.Rekor.ImagePullSecrets = restored.Spec.Rekor.ImagePullSecrets
 	dst.Spec.Rekor.Monitoring.ServiceMonitor = restored.Spec.Rekor.Monitoring.ServiceMonitor
 	dst.Spec.Rekor.PodExtensions = restored.Spec.Rekor.PodExtensions

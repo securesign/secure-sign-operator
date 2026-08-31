@@ -300,10 +300,13 @@ func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 		func(s *rhtasv1.CTlog, c randfill.Continue) {
 			c.FillNoCustom(s)
 			s.Spec.Trillian = randServiceReference(c, urlfuzz.GRPCURL)
-			s.Spec.Prefix = urlfuzz.URLPath(c)
+			// Set Prefix on first log if it exists
+			if len(s.Spec.Logs) > 0 {
+				s.Spec.Logs[0].Prefix = urlfuzz.URLPath(c)
+			}
 			s.Status.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
-			if s.Status.Url != "" {
-				s.Status.Url += "/" + s.Spec.Prefix
+			if s.Status.Url != "" && len(s.Spec.Logs) > 0 {
+				s.Status.Url += "/" + s.Spec.Logs[0].Prefix
 			}
 		},
 		func(s *CTlog, c randfill.Continue) {
@@ -311,7 +314,7 @@ func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			s.Status.Url = urlfuzz.HTTPURL(c, c.Bool(), false)
 			// PrivateKeyPasswordRef was removed from v1 spec; it has no roundtrip path.
 			s.Spec.PrivateKeyPasswordRef = nil
-			// ServerConfigRef is deprecated in favor of spec.sharding; it has no roundtrip path.
+			// ServerConfigRef is deprecated in favor of spec.logs; it has no roundtrip path.
 			s.Spec.ServerConfigRef = nil
 		},
 	}

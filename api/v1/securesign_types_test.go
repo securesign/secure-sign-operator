@@ -54,7 +54,14 @@ var _ = Describe("Securesign", func() {
 
 		It("empty ctlog", func() {
 			obj := generateMinimalSecuresign("ss-empty-ctlog")
-			obj.Spec.Ctlog = CTlogSpec{Signer: CTlogSigner{Type: "file"}}
+			obj.Spec.Ctlog = CTlogSpec{
+				Logs: []CTLogConfig{
+					{
+						Prefix: "log",
+						Signer: &CTlogSigner{Type: "file"},
+					},
+				},
+			}
 			Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
 		})
 
@@ -172,7 +179,12 @@ var _ = Describe("Securesign", func() {
 						Signer: FulcioSigner{Type: "file"},
 					},
 					Ctlog: CTlogSpec{
-						Signer: CTlogSigner{Type: "file"},
+						Logs: []CTLogConfig{
+							{
+								Prefix: "log",
+								Signer: &CTlogSigner{Type: "file"},
+							},
+						},
 					},
 				},
 			}
@@ -297,7 +309,12 @@ func generateMinimalSecuresign(name string) *Securesign {
 				},
 			},
 			Ctlog: CTlogSpec{
-				Signer: CTlogSigner{Type: "file"},
+				Logs: []CTLogConfig{
+					{
+						Prefix: "log",
+						Signer: &CTlogSigner{Type: "file"},
+					},
+				},
 			},
 		},
 	}

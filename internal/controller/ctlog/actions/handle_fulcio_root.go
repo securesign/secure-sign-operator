@@ -42,8 +42,8 @@ func (g handleFulcioCert) Name() string {
 
 // CanHandle gates on the component's readiness state and cert resolution status.
 //
-// Spec.RootCertificates empty → autodiscovery: operator resolves certs from Fulcio CR status.
-// Spec.RootCertificates set   → user-provided: operator uses the explicit refs from spec.
+// Spec.Logs[0].Roots empty → autodiscovery: operator resolves certs from Fulcio CR status.
+// Spec.Logs[0].Roots set   → user-provided: operator uses the explicit refs from spec.
 func (g handleFulcioCert) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool {
 	c := meta.FindStatusCondition(instance.GetConditions(), constants.ReadyCondition)
 	switch {
@@ -54,14 +54,14 @@ func (g handleFulcioCert) CanHandle(_ context.Context, instance *rhtasv1.CTlog) 
 	case len(instance.Status.RootCertificates) == 0:
 		// No certs resolved yet — initial resolution needed.
 		return true
-	case len(instance.Spec.RootCertificates) == 0:
+	case len(instance.Spec.Logs) == 0 || len(instance.Spec.Logs[0].Roots) == 0:
 		// Autodiscovery: always re-run Handle so it can compare the provisioned cert
 		// against Fulcio CR's current status and detect rotation.
 		// Handle itself short-circuits with Continue() when content is unchanged.
 		return true
 	default:
 		// User-provided: only re-run when spec refs differ from status refs.
-		return !equality.Semantic.DeepDerivative(instance.Spec.RootCertificates, instance.Status.RootCertificates)
+		return !equality.Semantic.DeepDerivative(instance.Spec.Logs[0].Roots, instance.Status.RootCertificates)
 	}
 }
 
@@ -78,7 +78,10 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *
 		return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 	}
 
-	if len(instance.Spec.RootCertificates) == 0 {
+	// Check if we need to autodiscover or use user-provided certificates
+	userProvidedRoots := len(instance.Spec.Logs) > 0 && len(instance.Spec.Logs[0].Roots) > 0
+
+	if !userProvidedRoots {
 		cert, err := g.discoverFulcioRootCert(ctx, instance.Namespace)
 		if err != nil {
 			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
@@ -133,7 +136,7 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *
 		}
 		instance.Status.RootCertificates = []rhtasv1.SecretKeySelector{sks}
 	} else {
-		instance.Status.RootCertificates = instance.Spec.RootCertificates
+		instance.Status.RootCertificates = instance.Spec.Logs[0].Roots
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{

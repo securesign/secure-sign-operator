@@ -107,7 +107,12 @@ var _ = Describe("CTlog update test", func() {
 								Name:      "test-trillian",
 							},
 						},
-						TreeID: &treeID,
+						Logs: []rhtasv1.CTLogConfig{
+							{
+								LogId:  &treeID,
+								Prefix: "test-log",
+							},
+						},
 						Monitoring: rhtasv1.MonitoringWithTLogConfig{
 							MonitoringConfig: rhtasv1.MonitoringConfig{Metrics: rhtasv1.MetricsConfig{Enabled: ptr.To(false)}, ServiceMonitor: rhtasv1.ServiceMonitorConfig{Enabled: ptr.To(false)}},
 						},
@@ -204,7 +209,10 @@ var _ = Describe("CTlog update test", func() {
 			found := &rhtasv1.CTlog{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				g.Expect(suite.Client().Get(ctx, typeNamespaceName, found)).Should(Succeed())
-				found.Spec.Signer.File = &rhtasv1.CTlogFile{
+				if found.Spec.Logs[0].Signer == nil {
+					found.Spec.Logs[0].Signer = &rhtasv1.CTlogSigner{}
+				}
+				found.Spec.Logs[0].Signer.File = &rhtasv1.CTlogFile{
 					PrivateKeyRef: &rhtasv1.SecretKeySelector{
 						LocalObjectReference: rhtasv1.LocalObjectReference{
 							Name: "key-secret",

@@ -50,7 +50,7 @@ func TestCTlogKeys_UserProvidedKeyRef(t *testing.T) {
 	g := NewWithT(t)
 	ctx := t.Context()
 	instance := ctlogInstance()
-	instance.Spec.Signer.File = &rhtasv1.CTlogFile{
+	instance.Spec.Logs[0].Signer.File = &rhtasv1.CTlogFile{
 		PrivateKeyRef: &rhtasv1.SecretKeySelector{
 			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
 			Key:                  "private",
@@ -89,7 +89,7 @@ func TestCTlogKeys_UserProvidedPrivateKeyOnly_DerivesPublicKey(t *testing.T) {
 	g := NewWithT(t)
 	ctx := t.Context()
 	instance := ctlogInstance()
-	instance.Spec.Signer.File = &rhtasv1.CTlogFile{
+	instance.Spec.Logs[0].Signer.File = &rhtasv1.CTlogFile{
 		PrivateKeyRef: &rhtasv1.SecretKeySelector{
 			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
 			Key:                  "private",
@@ -219,7 +219,7 @@ func TestCTlogKeys_AlignStatus_PreservesPrivateKeyPasswordRefWhenPrivateKeyRefUn
 	instance.Status.PrivateKeyRef = privateKeyRef
 
 	// Spec points to the SAME key as status
-	instance.Spec.Signer.File = &rhtasv1.CTlogFile{
+	instance.Spec.Logs[0].Signer.File = &rhtasv1.CTlogFile{
 		PrivateKeyRef: &rhtasv1.SecretKeySelector{
 			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
 			Key:                  "private",
@@ -250,7 +250,7 @@ func TestCTlogKeys_AlignStatus_DropsPrivateKeyPasswordRefWhenPrivateKeyRefChange
 	instance.Status.PrivateKeyRef = privateKeyRef
 
 	// Spec points to a DIFFERENT key than status
-	instance.Spec.Signer.File = &rhtasv1.CTlogFile{
+	instance.Spec.Logs[0].Signer.File = &rhtasv1.CTlogFile{
 		PrivateKeyRef: &rhtasv1.SecretKeySelector{
 			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "new-secret"},
 			Key:                  "private",
@@ -265,7 +265,7 @@ func TestCTlogKeys_AlignStatus_DropsPrivateKeyPasswordRefWhenPrivateKeyRefChange
 func TestCTlogKeys_PKCS11DisablesGenerateSigner(t *testing.T) {
 	g := NewWithT(t)
 	instance := ctlogInstance()
-	instance.Spec.Signer.Type = rhtasv1.SignerTypePKCS11
+	instance.Spec.Logs[0].Signer.Type = rhtasv1.SignerTypePKCS11
 
 	c := testAction.FakeClientBuilder().Build()
 	a := testAction.PrepareAction(c, NewGenerateSignerAction())
@@ -275,7 +275,7 @@ func TestCTlogKeys_PKCS11DisablesGenerateSigner(t *testing.T) {
 func TestCTlogKeys_FileModeEnablesGenerateSigner(t *testing.T) {
 	g := NewWithT(t)
 	instance := ctlogInstance()
-	instance.Spec.Signer.Type = rhtasv1.SignerTypeFile
+	instance.Spec.Logs[0].Signer.Type = rhtasv1.SignerTypeFile
 
 	c := testAction.FakeClientBuilder().Build()
 	a := testAction.PrepareAction(c, NewGenerateSignerAction())
@@ -285,7 +285,7 @@ func TestCTlogKeys_FileModeEnablesGenerateSigner(t *testing.T) {
 func TestCTlogKeys_EmptyTypeEnablesGenerateSigner(t *testing.T) {
 	g := NewWithT(t)
 	instance := ctlogInstance()
-	instance.Spec.Signer.Type = ""
+	instance.Spec.Logs[0].Signer.Type = ""
 
 	c := testAction.FakeClientBuilder().Build()
 	a := testAction.PrepareAction(c, NewGenerateSignerAction())
@@ -307,7 +307,7 @@ func TestCTlogKeys_UnencryptedKeyAllowedInFIPS(t *testing.T) {
 	unencryptedKey := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes})
 
 	instance := ctlogInstance()
-	instance.Spec.Signer.File = &rhtasv1.CTlogFile{
+	instance.Spec.Logs[0].Signer.File = &rhtasv1.CTlogFile{
 		PrivateKeyRef: &rhtasv1.SecretKeySelector{
 			LocalObjectReference: rhtasv1.LocalObjectReference{Name: "user-secret"},
 			Key:                  "private",

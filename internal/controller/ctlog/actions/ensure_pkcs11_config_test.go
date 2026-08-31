@@ -25,18 +25,23 @@ func pkcs11CTlogInstance() *rhtasv1.CTlog {
 			Namespace: "default",
 		},
 		Spec: rhtasv1.CTlogSpec{
-			Signer: rhtasv1.CTlogSigner{
-				Type: rhtasv1.SignerTypePKCS11,
-				PKCS11: &rhtasv1.CTlogPKCS11Config{
-					PinSecretRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "hsm-pin"},
-						Key:                  "pin",
-					},
-					TokenLabel: "ctlog-token",
-					ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
-					PublicKeyRef: &rhtasv1.SecretKeySelector{
-						LocalObjectReference: rhtasv1.LocalObjectReference{Name: "hsm-pubkey"},
-						Key:                  "public",
+			Logs: []rhtasv1.CTLogConfig{
+				{
+					Prefix: "test-log",
+					Signer: &rhtasv1.CTlogSigner{
+						Type: rhtasv1.SignerTypePKCS11,
+						PKCS11: &rhtasv1.CTlogPKCS11Config{
+							PinSecretRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "hsm-pin"},
+								Key:                  "pin",
+							},
+							TokenLabel: "ctlog-token",
+							ModulePath: "/usr/lib64/pkcs11/libsofthsm2.so",
+							PublicKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "hsm-pubkey"},
+								Key:                  "public",
+							},
+						},
 					},
 				},
 			},
@@ -58,8 +63,8 @@ func pkcs11CTlogInstance() *rhtasv1.CTlog {
 func TestCanHandle_FileMode(t *testing.T) {
 	g := NewWithT(t)
 	instance := pkcs11CTlogInstance()
-	instance.Spec.Signer.Type = rhtasv1.SignerTypeFile
-	instance.Spec.Signer.PKCS11 = nil
+	instance.Spec.Logs[0].Signer.Type = rhtasv1.SignerTypeFile
+	instance.Spec.Logs[0].Signer.PKCS11 = nil
 
 	a := NewEnsurePKCS11ConfigAction()
 	g.Expect(a.CanHandle(t.Context(), instance)).To(BeFalse())
@@ -79,7 +84,7 @@ func TestCanHandle_PKCS11_CondTrue_SameHash(t *testing.T) {
 	instance := pkcs11CTlogInstance()
 
 	// Pre-compute hash and set annotation + condition.
-	hash := pkcs11SpecHash(instance.Spec.Signer.PKCS11)
+	hash := pkcs11SpecHash(instance.Spec.Logs[0].Signer.PKCS11)
 	instance.SetAnnotations(map[string]string{annotations.PKCS11SpecHash: hash})
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:    PKCS11Condition,
@@ -168,7 +173,7 @@ func TestHandle_NilPKCS11(t *testing.T) {
 	g := NewWithT(t)
 	ctx := t.Context()
 	instance := pkcs11CTlogInstance()
-	instance.Spec.Signer.PKCS11 = nil
+	instance.Spec.Logs[0].Signer.PKCS11 = nil
 
 	c := testAction.FakeClientBuilder().
 		WithObjects(instance).
@@ -315,7 +320,7 @@ func TestHandle_Rotation_FieldsUnchanged(t *testing.T) {
 	instance := pkcs11CTlogInstance()
 
 	// Set annotation + condition with matching hash -- CanHandle should return false.
-	hash := pkcs11SpecHash(instance.Spec.Signer.PKCS11)
+	hash := pkcs11SpecHash(instance.Spec.Logs[0].Signer.PKCS11)
 	instance.SetAnnotations(map[string]string{annotations.PKCS11SpecHash: hash})
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:               PKCS11Condition,
@@ -339,7 +344,7 @@ func TestHandle_Rotation_PinSecretRefChanged(t *testing.T) {
 	instance := pkcs11CTlogInstance()
 
 	// Set annotation + condition with hash from old spec.
-	oldHash := pkcs11SpecHash(instance.Spec.Signer.PKCS11)
+	oldHash := pkcs11SpecHash(instance.Spec.Logs[0].Signer.PKCS11)
 	instance.SetAnnotations(map[string]string{annotations.PKCS11SpecHash: oldHash})
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 		Type:    PKCS11Condition,
@@ -349,7 +354,7 @@ func TestHandle_Rotation_PinSecretRefChanged(t *testing.T) {
 	})
 
 	// Change PinSecretRef (simulates secret rotation).
-	instance.Spec.Signer.PKCS11.PinSecretRef = &rhtasv1.SecretKeySelector{
+	instance.Spec.Logs[0].Signer.PKCS11.PinSecretRef = &rhtasv1.SecretKeySelector{
 		LocalObjectReference: rhtasv1.LocalObjectReference{Name: "hsm-pin-rotated"},
 		Key:                  "pin",
 	}
@@ -363,7 +368,7 @@ func TestHandle_NilPinSecretRef(t *testing.T) {
 	g := NewWithT(t)
 	ctx := t.Context()
 	instance := pkcs11CTlogInstance()
-	instance.Spec.Signer.PKCS11.PinSecretRef = nil
+	instance.Spec.Logs[0].Signer.PKCS11.PinSecretRef = nil
 
 	c := testAction.FakeClientBuilder().
 		WithObjects(instance).

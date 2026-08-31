@@ -24,10 +24,14 @@ func init() {
 			} else {
 				protocol = "http"
 			}
+			prefix := ""
+			if len(obj.Spec.Logs) > 0 {
+				prefix = obj.Spec.Logs[0].Prefix
+			}
 			u := url.URL{
 				Scheme: protocol,
 				Host:   fmt.Sprintf("%s.%s.svc", actions.DeploymentName, obj.Namespace),
-				Path:   obj.Spec.Prefix,
+				Path:   prefix,
 			}
 			return u.String(), nil
 		})
