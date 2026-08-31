@@ -1801,6 +1801,10 @@ spec:
                       description: CTLogConfig defines the configuration for a certificate
                         transparency log (active or frozen).
                       properties:
+                        active:
+                          description: Active indicates if this is the currently active
+                            log. Only one log should be active at a time.
+                          type: boolean
                         frozenSTH:
                           description: |-
                             FrozenSTH is the frozen SignedTreeHead for a frozen shard.
@@ -2027,7 +2031,7 @@ spec:
                       x-kubernetes-map-type: atomic
                     type: array
                     x-kubernetes-list-map-keys:
-                    - logId
+                    - prefix
                     x-kubernetes-list-type: map
                   maxCertChainSize:
                     description: Max certificate chain size in bytes. Passed as --max_cert_chain_size.
@@ -3095,6 +3099,9 @@ spec:
                 required:
                 - logs
                 type: object
+                x-kubernetes-validations:
+                - message: only one log can be active at a time
+                  rule: self.logs.filter(x, x.active == true).size() <= 1
               fulcio:
                 description: FulcioSpec defines the desired state of Fulcio
                 properties:

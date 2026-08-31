@@ -350,6 +350,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 					{
 						LogId:  ptr.To(newTreeId),
 						Prefix: "trusted-artifact-signer",
+						Active: ptr.To(true),
 						Signer: &rhtasv1.CTlogSigner{
 							Type: "file",
 							File: &rhtasv1.CTlogFile{

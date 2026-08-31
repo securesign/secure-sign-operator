@@ -133,6 +133,7 @@ var _ = Describe("Install components to separate namespaces", Ordered, func() {
 				Logs: []rhtasv1.CTLogConfig{
 					{
 						Prefix: "test",
+						Active: ptr.To(true),
 						Signer: &rhtasv1.CTlogSigner{
 							Type: "file",
 							File: &rhtasv1.CTlogFile{

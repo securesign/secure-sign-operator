@@ -116,6 +116,7 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 				Logs: []rhtasv1.CTLogConfig{
 					{
 						Prefix: "test",
+						Active: ptr.To(true),
 						Signer: &rhtasv1.CTlogSigner{
 							Type: "file",
 							File: &rhtasv1.CTlogFile{

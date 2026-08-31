@@ -58,6 +58,7 @@ var _ = Describe("Securesign", func() {
 				Logs: []CTLogConfig{
 					{
 						Prefix: "log",
+						Active: ptr.To(true),
 						Signer: &CTlogSigner{Type: "file"},
 					},
 				},
@@ -312,6 +313,7 @@ func generateMinimalSecuresign(name string) *Securesign {
 				Logs: []CTLogConfig{
 					{
 						Prefix: "log",
+						Active: ptr.To(true),
 						Signer: &CTlogSigner{Type: "file"},
 					},
 				},

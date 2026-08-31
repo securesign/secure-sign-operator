@@ -22,6 +22,7 @@ import (
 )
 
 // CTlogSpec defines the desired state of CTlog component
+// +kubebuilder:validation:XValidation:rule="self.logs.filter(x, x.active == true).size() <= 1",message="only one log can be active at a time"
 type CTlogSpec struct {
 	PodRequirements      `json:",inline"`
 	ServiceAccountConfig `json:",inline"`
@@ -131,6 +132,10 @@ type CTLogConfig struct {
 	// Only meaningful when readonly is true.
 	// +optional
 	FrozenSTH *CTLogFrozenSTH `json:"frozenSTH,omitempty"`
+
+	// Active indicates if this is the currently active log. Only one log should be active at a time.
+	// +optional
+	Active *bool `json:"active,omitempty"`
 }
 
 // CTLogFrozenSTH represents a frozen SignedTreeHead for a read-only shard.

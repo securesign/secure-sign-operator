@@ -78,6 +78,7 @@ func TestSecuresignConversionUnit(t *testing.T) {
 							Logs: []rhtasv1.CTLogConfig{
 								{
 									Prefix: "log",
+									Active: ptr.To(true),
 									Signer: &rhtasv1.CTlogSigner{Type: "file"},
 								},
 							},
@@ -145,6 +146,7 @@ func TestSecuresignConversionUnit(t *testing.T) {
 								{
 									LogId:  ptr.To[int64](67890),
 									Prefix: "log",
+									Active: ptr.To(true),
 									Signer: &rhtasv1.CTlogSigner{Type: "file"},
 								},
 							},

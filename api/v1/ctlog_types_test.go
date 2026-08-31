@@ -146,6 +146,7 @@ var _ = Describe("CTlog", func() {
 		Context("CR is fully populated", func() {
 			It("outputs the CR", func() {
 				tree := int64(1269875)
+				t := true
 				ctlogInstance := CTlog{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "ctlog-full-manifest",
@@ -156,6 +157,7 @@ var _ = Describe("CTlog", func() {
 							{
 								LogId:  &tree,
 								Prefix: "log",
+								Active: &t,
 								Signer: &CTlogSigner{
 									Type: "file",
 									File: &CTlogFile{
