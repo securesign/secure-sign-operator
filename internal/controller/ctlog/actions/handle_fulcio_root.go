@@ -13,6 +13,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/action/trustmaterial"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/labels"
 	"github.com/securesign/operator/internal/state"
 	k8sutils "github.com/securesign/operator/internal/utils/kubernetes"
@@ -42,26 +43,22 @@ func (g handleFulcioCert) Name() string {
 
 // CanHandle gates on the component's readiness state and cert resolution status.
 //
-// Spec.Logs[0].Roots empty → autodiscovery: operator resolves certs from Fulcio CR status.
-// Spec.Logs[0].Roots set   → user-provided: operator uses the explicit refs from spec.
+// Active log Roots empty → autodiscovery: operator resolves certs from Fulcio CR status.
+// Active log Roots set   → user-provided: operator uses the explicit refs from spec.
 func (g handleFulcioCert) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool {
 	c := meta.FindStatusCondition(instance.GetConditions(), constants.ReadyCondition)
+	activeLog := utils.ActiveLog(instance.Spec.Logs)
 	switch {
 	case c == nil:
 		return false
 	case state.FromReason(c.Reason) < state.Creating:
 		return false
 	case len(instance.Status.RootCertificates) == 0:
-		// No certs resolved yet — initial resolution needed.
 		return true
-	case len(instance.Spec.Logs) == 0 || len(instance.Spec.Logs[0].Roots) == 0:
-		// Autodiscovery: always re-run Handle so it can compare the provisioned cert
-		// against Fulcio CR's current status and detect rotation.
-		// Handle itself short-circuits with Continue() when content is unchanged.
+	case activeLog == nil || len(activeLog.Roots) == 0:
 		return true
 	default:
-		// User-provided: only re-run when spec refs differ from status refs.
-		return !equality.Semantic.DeepDerivative(instance.Spec.Logs[0].Roots, instance.Status.RootCertificates)
+		return !equality.Semantic.DeepDerivative(activeLog.Roots, instance.Status.RootCertificates)
 	}
 }
 
@@ -78,8 +75,8 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *
 		return g.ReturnOnChange(g.PersistStatus)(ctx, instance)
 	}
 
-	// Check if we need to autodiscover or use user-provided certificates
-	userProvidedRoots := len(instance.Spec.Logs) > 0 && len(instance.Spec.Logs[0].Roots) > 0
+	activeLog := utils.ActiveLog(instance.Spec.Logs)
+	userProvidedRoots := activeLog != nil && len(activeLog.Roots) > 0
 
 	if !userProvidedRoots {
 		cert, err := g.discoverFulcioRootCert(ctx, instance.Namespace)
@@ -136,7 +133,7 @@ func (g handleFulcioCert) Handle(ctx context.Context, instance *rhtasv1.CTlog) *
 		}
 		instance.Status.RootCertificates = []rhtasv1.SecretKeySelector{sks}
 	} else {
-		instance.Status.RootCertificates = instance.Spec.Logs[0].Roots
+		instance.Status.RootCertificates = activeLog.Roots
 	}
 
 	meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{

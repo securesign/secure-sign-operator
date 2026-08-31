@@ -21,6 +21,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 //go:embed testdata/fulcio_root_cert.pem
@@ -211,6 +212,7 @@ func TestCertCan_Handle(t *testing.T) {
 					Logs: []rhtasv1.CTLogConfig{
 						{
 							Prefix: "test-log",
+							Active: ptr.To(true),
 							Roots:  tt.env.certificates,
 						},
 					},
@@ -517,6 +519,7 @@ func TestCert_Handle(t *testing.T) {
 					Logs: []rhtasv1.CTLogConfig{
 						{
 							Prefix: "test-log",
+							Active: ptr.To(true),
 							Roots:  tt.env.certificates,
 						},
 					},

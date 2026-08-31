@@ -1834,8 +1834,10 @@ spec:
                           type: object
                           x-kubernetes-map-type: atomic
                         logId:
-                          description: LogId is the optional Trillian tree ID. If
-                            not set, the operator will generate one.
+                          description: |-
+                            LogId is the Trillian tree ID. For the active log, the operator will
+                            generate one if not set. For frozen/readonly shards, this must be the
+                            existing tree ID from the original active log.
                           format: int64
                           minimum: 1
                           type: integer
@@ -1888,8 +1890,8 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         signer:
-                          description: Signer configuration. Required for active logs,
-                            optional for frozen shards.
+                          description: Signer configuration. Required for active and
+                            frozen logs. Optional only for mirrors.
                           properties:
                             file:
                               description: Configuration for file-based signer

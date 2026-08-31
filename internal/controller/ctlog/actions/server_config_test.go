@@ -592,6 +592,7 @@ func TestServerConfig_PKCS11(t *testing.T) {
 							{
 								LogId:  ptr.To(int64(123456)),
 								Prefix: "trusted-artifact-signer",
+								Active: ptr.To(true),
 								Signer: &rhtasv1.CTlogSigner{
 									Type: rhtasv1.SignerTypePKCS11,
 									PKCS11: &rhtasv1.CTlogPKCS11Config{
@@ -803,6 +804,7 @@ func TestServerConfig_PKCS11(t *testing.T) {
 							{
 								LogId:  ptr.To(int64(123456)),
 								Prefix: "trusted-artifact-signer",
+								Active: ptr.To(true),
 								Signer: &rhtasv1.CTlogSigner{
 									Type: rhtasv1.SignerTypePKCS11,
 									PKCS11: &rhtasv1.CTlogPKCS11Config{

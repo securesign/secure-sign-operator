@@ -17,9 +17,6 @@ func (c *CTLogConfig) SetDefaults() {
 	if c.Signer != nil {
 		c.Signer.SetDefaults()
 	}
-	if c.Prefix == "" {
-		c.Prefix = "trusted-artifact-signer"
-	}
 }
 
 func (s *CTlogSigner) SetDefaults() {

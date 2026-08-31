@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -28,6 +29,7 @@ func pkcs11CTlogInstance() *rhtasv1.CTlog {
 			Logs: []rhtasv1.CTLogConfig{
 				{
 					Prefix: "test-log",
+					Active: ptr.To(true),
 					Signer: &rhtasv1.CTlogSigner{
 						Type: rhtasv1.SignerTypePKCS11,
 						PKCS11: &rhtasv1.CTlogPKCS11Config{

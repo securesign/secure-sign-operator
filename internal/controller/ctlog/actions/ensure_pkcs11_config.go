@@ -11,6 +11,7 @@ import (
 	"github.com/securesign/operator/internal/action"
 	"github.com/securesign/operator/internal/annotations"
 	"github.com/securesign/operator/internal/constants"
+	"github.com/securesign/operator/internal/controller/ctlog/utils"
 	"github.com/securesign/operator/internal/state"
 	"github.com/securesign/operator/internal/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -36,10 +37,11 @@ func (a ensurePKCS11Config) Name() string {
 //   - The content hash of spec.logs[0].signer.pkcs11 fields differs from the hash
 //     stored in the PKCS11Condition message (drift detection).
 func (a ensurePKCS11Config) CanHandle(_ context.Context, instance *rhtasv1.CTlog) bool {
-	if len(instance.Spec.Logs) == 0 || instance.Spec.Logs[0].Signer == nil {
+	activeLog := utils.ActiveLog(instance.Spec.Logs)
+	if activeLog == nil || activeLog.Signer == nil {
 		return false
 	}
-	if instance.Spec.Logs[0].Signer.Type != rhtasv1.SignerTypePKCS11 {
+	if activeLog.Signer.Type != rhtasv1.SignerTypePKCS11 {
 		return false
 	}
 
@@ -52,8 +54,7 @@ func (a ensurePKCS11Config) CanHandle(_ context.Context, instance *rhtasv1.CTlog
 		return true
 	}
 
-	// Drift detection: compare current spec hash against stored annotation.
-	currentHash := pkcs11SpecHash(instance.Spec.Logs[0].Signer.PKCS11)
+	currentHash := pkcs11SpecHash(activeLog.Signer.PKCS11)
 	storedHash := instance.GetAnnotations()[annotations.PKCS11SpecHash]
 	return currentHash != storedHash
 }
@@ -63,10 +64,11 @@ func (a ensurePKCS11Config) CanHandle(_ context.Context, instance *rhtasv1.CTlog
 // ConfigCondition to trigger server config regeneration, and sets
 // PKCS11Condition to True.
 func (a ensurePKCS11Config) Handle(ctx context.Context, instance *rhtasv1.CTlog) *action.Result {
-	p := instance.Spec.Logs[0].Signer.PKCS11
+	activeLog := utils.ActiveLog(instance.Spec.Logs)
+	p := activeLog.Signer.PKCS11
 	if p == nil {
 		return a.Error(ctx,
-			reconcile.TerminalError(fmt.Errorf("spec.logs[0].signer.pkcs11 is nil but signer type is pkcs11")),
+			reconcile.TerminalError(fmt.Errorf("active log signer.pkcs11 is nil but signer type is pkcs11")),
 			instance,
 		)
 	}

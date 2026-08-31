@@ -219,6 +219,17 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 						LogId:    ptr.To(*oldTreeId),
 						Prefix:   "trusted-artifact-signer-shard-0",
 						Readonly: ptr.To(true),
+						Signer: &rhtasv1.CTlogSigner{
+							Type: "file",
+							File: &rhtasv1.CTlogFile{
+								PublicKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{
+										Name: secretName,
+									},
+									Key: "public-0",
+								},
+							},
+						},
 					},
 				}
 
