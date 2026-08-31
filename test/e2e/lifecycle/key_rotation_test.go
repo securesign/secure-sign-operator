@@ -146,14 +146,7 @@ var _ = Describe("Key rotation test", Ordered, func() {
 					Key: "cert",
 				}
 
-				f.Spec.Ctlog.RootCertificates = []rhtasv1.SecretKeySelector{
-					{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: secretName,
-						},
-						Key: "cert",
-					},
-				}
+				// RootCertificates now moved to Logs[0].Roots in the updated call below
 
 				return cli.Update(ctx, f)
 			}).Should(Succeed())
@@ -351,36 +344,42 @@ var _ = Describe("Key rotation test", Ordered, func() {
 
 			Eventually(func() error {
 				f := securesign.Get(ctx, cli, s.Namespace, s.Name)
-				f.Spec.Ctlog.TreeID = &newTreeId
 
-				if f.Spec.Ctlog.Signer.File == nil {
-					f.Spec.Ctlog.Signer.File = &rhtasv1.CTlogFile{}
-				}
-				f.Spec.Ctlog.Signer.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: secretName,
-					},
-					Key: "private",
-				}
-
-				f.Spec.Ctlog.Signer.File.PublicKeyRef = &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: secretName,
-					},
-					Key: "public",
-				}
-
-				// Add old tree to sharding as read-only frozen shard
-				f.Spec.Ctlog.Sharding = []rhtasv1.CTlogLogRange{
+				// Update CTlog spec to use new Logs array structure with active and frozen shards
+				f.Spec.Ctlog.Logs = []rhtasv1.CTLogConfig{
 					{
-						TreeID: *oldTreeId,
-						Prefix: "shard-0",
-						PublicKeyRef: &rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{
-								Name: secretName,
+						LogId:  ptr.To(newTreeId),
+						Prefix: "trusted-artifact-signer",
+						Signer: &rhtasv1.CTlogSigner{
+							Type: "file",
+							File: &rhtasv1.CTlogFile{
+								PrivateKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{
+										Name: secretName,
+									},
+									Key: "private",
+								},
+								PublicKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{
+										Name: secretName,
+									},
+									Key: "public",
+								},
 							},
-							Key: "public-0",
 						},
+						Roots: []rhtasv1.SecretKeySelector{
+							{
+								LocalObjectReference: rhtasv1.LocalObjectReference{
+									Name: secretName,
+								},
+								Key: "cert",
+							},
+						},
+					},
+					{
+						LogId:    ptr.To(*oldTreeId),
+						Prefix:   "shard-0",
+						Readonly: ptr.To(true),
 					},
 				}
 
