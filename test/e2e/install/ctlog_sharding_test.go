@@ -191,36 +191,33 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 				// Update securesign resource with new tree and sharding config
 				Expect(cli.Get(ctx, runtimeCli.ObjectKeyFromObject(s), s)).To(Succeed())
 
-				s.Spec.Ctlog.TreeID = ptr.To(newTreeId)
-
-				if s.Spec.Ctlog.Signer.File == nil {
-					s.Spec.Ctlog.Signer.File = &rhtasv1.CTlogFile{}
-				}
-				s.Spec.Ctlog.Signer.File.PrivateKeyRef = &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: secretName,
-					},
-					Key: "private",
-				}
-
-				s.Spec.Ctlog.Signer.File.PublicKeyRef = &rhtasv1.SecretKeySelector{
-					LocalObjectReference: rhtasv1.LocalObjectReference{
-						Name: secretName,
-					},
-					Key: "public",
-				}
-
-				// Add sharding configuration (read-only frozen shards)
-				s.Spec.Ctlog.Sharding = []rhtasv1.CTlogLogRange{
+				// Update CTlog spec to use new Logs array structure
+				s.Spec.Ctlog.Logs = []rhtasv1.CTLogConfig{
 					{
-						TreeID: *oldTreeId,
-						Prefix: "shard-0",
-						PublicKeyRef: &rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{
-								Name: secretName,
+						LogId:  ptr.To(newTreeId),
+						Prefix: "trusted-artifact-signer",
+						Signer: &rhtasv1.CTlogSigner{
+							Type: "file",
+							File: &rhtasv1.CTlogFile{
+								PrivateKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{
+										Name: secretName,
+									},
+									Key: "private",
+								},
+								PublicKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{
+										Name: secretName,
+									},
+									Key: "public",
+								},
 							},
-							Key: "public-0",
 						},
+					},
+					{
+						LogId:    ptr.To(*oldTreeId),
+						Prefix:   "trusted-artifact-signer-shard-0",
+						Readonly: ptr.To(true),
 					},
 				}
 
