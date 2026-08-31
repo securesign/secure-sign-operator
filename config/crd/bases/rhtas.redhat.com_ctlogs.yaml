@@ -3055,8 +3055,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
-            required:
-            - logs
             type: object
             x-kubernetes-validations:
             - message: only one log can be active at a time

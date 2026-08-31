@@ -29,12 +29,12 @@ type CTlogSpec struct {
 
 	// Logs defines the list of certificate transparency logs (active and frozen shards).
 	// Each entry represents either the active log or a frozen shard.
-	// +required
+	// +optional
 	// +listType=map
 	// +listMapKey=prefix
 	// +patchStrategy=merge
 	// +patchMergeKey=prefix
-	Logs []CTLogConfig `json:"logs"`
+	Logs []CTLogConfig `json:"logs,omitempty" patchStrategy:"merge" patchMergeKey:"prefix"`
 
 	// Define whether you want to export service or not
 	Ingress Ingress `json:"ingress,omitempty"`
