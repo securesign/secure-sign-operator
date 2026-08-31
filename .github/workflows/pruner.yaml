@@ -8,6 +8,8 @@ jobs:
   clean-image-registry:
     runs-on: ubuntu-latest
     name: Delete old dev images
+    permissions:
+      packages: write
     steps:
       - uses: snok/container-retention-policy@v3.1.0
         with:
