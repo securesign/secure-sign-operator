@@ -130,8 +130,18 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 					Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 					Logs: []rhtasv1.CTLogConfig{
 						{
-							LogId:  ptr.To(int64(111111)),
-							Prefix: "shard-111111",
+							LogId:    ptr.To(int64(111111)),
+							Prefix:   "shard-111111",
+							Readonly: ptr.To(true),
+							Signer: &rhtasv1.CTlogSigner{
+								Type: "file",
+								File: &rhtasv1.CTlogFile{
+									PublicKeyRef: &rhtasv1.SecretKeySelector{
+										LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+										Key:                  "public",
+									},
+								},
+							},
 							Roots: []rhtasv1.SecretKeySelector{
 								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
 							},
@@ -147,6 +157,10 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{Name: "secret", Namespace: "default"},
 						Data:       map[string][]byte{"cert": cert, "private": privateKey, "public": publicKey},
+					},
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: "shard-keys", Namespace: "default"},
+						Data:       map[string][]byte{"public": publicKey, "private": privateKey},
 					},
 				},
 			},
@@ -173,6 +187,15 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 							LogId:    ptr.To(int64(222222)),
 							Prefix:   "shard-222222",
 							Readonly: ptr.To(true),
+							Signer: &rhtasv1.CTlogSigner{
+								Type: "file",
+								File: &rhtasv1.CTlogFile{
+									PublicKeyRef: &rhtasv1.SecretKeySelector{
+										LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+										Key:                  "public",
+									},
+								},
+							},
 							Roots: []rhtasv1.SecretKeySelector{
 								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
 							},
@@ -188,6 +211,10 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{Name: "secret", Namespace: "default"},
 						Data:       map[string][]byte{"cert": cert, "private": privateKey, "public": publicKey},
+					},
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: "shard-keys", Namespace: "default"},
+						Data:       map[string][]byte{"public": publicKey},
 					},
 				},
 			},
@@ -212,8 +239,18 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 					Trillian: rhtasv1.ServiceReference{URL: "trillian.default.svc:8091"},
 					Logs: []rhtasv1.CTLogConfig{
 						{
-							LogId:  ptr.To(int64(333333)),
-							Prefix: "shard-333333",
+							LogId:    ptr.To(int64(333333)),
+							Prefix:   "shard-333333",
+							Readonly: ptr.To(true),
+							Signer: &rhtasv1.CTlogSigner{
+								Type: "file",
+								File: &rhtasv1.CTlogFile{
+									PublicKeyRef: &rhtasv1.SecretKeySelector{
+										LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+										Key:                  "public",
+									},
+								},
+							},
 							Roots: []rhtasv1.SecretKeySelector{
 								{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
 							},
@@ -231,6 +268,10 @@ func TestServerConfig_Handle_Sharding(t *testing.T) {
 					&v1.Secret{
 						ObjectMeta: metav1.ObjectMeta{Name: "secret", Namespace: "default"},
 						Data:       map[string][]byte{"cert": cert, "private": privateKey, "public": publicKey},
+					},
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: "shard-keys", Namespace: "default"},
+						Data:       map[string][]byte{"public": publicKey, "private": privateKey},
 					},
 				},
 			},
@@ -386,6 +427,15 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 					LogId:    ptr.To(int64(444444)),
 					Prefix:   "shard-444444",
 					Readonly: ptr.To(true),
+					Signer: &rhtasv1.CTlogSigner{
+						Type: "file",
+						File: &rhtasv1.CTlogFile{
+							PublicKeyRef: &rhtasv1.SecretKeySelector{
+								LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard-keys"},
+								Key:                  "public",
+							},
+						},
+					},
 					Roots: []rhtasv1.SecretKeySelector{
 						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
 					},
@@ -394,6 +444,10 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 					instance: inst,
 					objects: []client.Object{
 						newKeySecret("default"),
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "shard-keys", Namespace: "default"},
+							Data:       map[string][]byte{"public": publicKey, "private": privateKey},
+						},
 						newConfigSecret("old-config", "default", defaultAnnotations()),
 					},
 				}
@@ -423,6 +477,15 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 						LogId:    ptr.To(int64(555555)),
 						Prefix:   "shard-555555",
 						Readonly: ptr.To(true),
+						Signer: &rhtasv1.CTlogSigner{
+							Type: "file",
+							File: &rhtasv1.CTlogFile{
+								PublicKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard1-keys"},
+									Key:                  "public",
+								},
+							},
+						},
 						Roots: []rhtasv1.SecretKeySelector{
 							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
 						},
@@ -431,6 +494,15 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 						LogId:    ptr.To(int64(666666)),
 						Prefix:   "shard-666666",
 						Readonly: ptr.To(true),
+						Signer: &rhtasv1.CTlogSigner{
+							Type: "file",
+							File: &rhtasv1.CTlogFile{
+								PublicKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{Name: "shard2-keys"},
+									Key:                  "public",
+								},
+							},
+						},
 						Roots: []rhtasv1.SecretKeySelector{
 							{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "cert"},
 						},
@@ -440,6 +512,14 @@ func TestServerConfig_Handle_Update_Sharding(t *testing.T) {
 					instance: inst,
 					objects: []client.Object{
 						newKeySecret("default"),
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "shard1-keys", Namespace: "default"},
+							Data:       map[string][]byte{"public": publicKey, "private": privateKey},
+						},
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Name: "shard2-keys", Namespace: "default"},
+							Data:       map[string][]byte{"public": publicKey, "private": privateKey},
+						},
 						newConfigSecret("old-config", "default", defaultAnnotations()),
 					},
 				}
@@ -833,6 +913,7 @@ func TestServerConfig_Prerequisites(t *testing.T) {
 				},
 			},
 			Status: rhtasv1.CTlogStatus{
+				TreeID:        ptr.To(int64(123456)),
 				PrivateKeyRef: &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "private"},
 				PublicKeyRef:  &rhtasv1.SecretKeySelector{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "secret"}, Key: "public"},
 				Conditions: []metav1.Condition{
