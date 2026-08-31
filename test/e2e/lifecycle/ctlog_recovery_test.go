@@ -113,29 +113,34 @@ var _ = Describe("CTlog recovery and validation", Ordered, func() {
 				Trillian: rhtasv1.ServiceReference{
 					URL: fmt.Sprintf("trillian-logserver.%s.svc.cluster.local:8091", namespace.Name),
 				},
-				Signer: rhtasv1.CTlogSigner{
-					Type: "file",
-					File: &rhtasv1.CTlogFile{
-						PrivateKeyRef: &rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{
-								Name: "test-ctlog-keys",
-							},
-							Key: "private",
-						},
-						PublicKeyRef: &rhtasv1.SecretKeySelector{
-							LocalObjectReference: rhtasv1.LocalObjectReference{
-								Name: "test-ctlog-keys",
-							},
-							Key: "public",
-						},
-					},
-				},
-				RootCertificates: []rhtasv1.SecretKeySelector{
+				Logs: []rhtasv1.CTLogConfig{
 					{
-						LocalObjectReference: rhtasv1.LocalObjectReference{
-							Name: "test-root-cert",
+						Prefix: "test",
+						Signer: &rhtasv1.CTlogSigner{
+							Type: "file",
+							File: &rhtasv1.CTlogFile{
+								PrivateKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{
+										Name: "test-ctlog-keys",
+									},
+									Key: "private",
+								},
+								PublicKeyRef: &rhtasv1.SecretKeySelector{
+									LocalObjectReference: rhtasv1.LocalObjectReference{
+										Name: "test-ctlog-keys",
+									},
+									Key: "public",
+								},
+							},
 						},
-						Key: "cert",
+						Roots: []rhtasv1.SecretKeySelector{
+							{
+								LocalObjectReference: rhtasv1.LocalObjectReference{
+									Name: "test-root-cert",
+								},
+								Key: "cert",
+							},
+						},
 					},
 				},
 			},
