@@ -43,6 +43,7 @@ var _ = Describe("Conversion webhook", func() {
 						{
 							LogId:  ptr.To[int64](12345),
 							Prefix: "test-log",
+							Active: ptr.To(true),
 						},
 					},
 				},
@@ -252,6 +253,7 @@ var _ = Describe("Conversion webhook", func() {
 						Logs: []rhtasv1.CTLogConfig{
 							{
 								Prefix: "test-log",
+								Active: ptr.To(true),
 								Signer: &rhtasv1.CTlogSigner{Type: "file"},
 							},
 						},

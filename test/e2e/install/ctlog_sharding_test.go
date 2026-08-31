@@ -196,6 +196,7 @@ var _ = Describe("CTlog sharding configuration", Ordered, func() {
 					{
 						LogId:  ptr.To(newTreeId),
 						Prefix: "trusted-artifact-signer",
+						Active: ptr.To(true),
 						Signer: &rhtasv1.CTlogSigner{
 							Type: "file",
 							File: &rhtasv1.CTlogFile{
