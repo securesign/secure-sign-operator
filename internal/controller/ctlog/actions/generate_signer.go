@@ -32,10 +32,11 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.CTlog] {
 			GenerateData: generateData,
 			AlignStatus:  alignStatus,
 			IsEnabled: func(i *rhtasv1.CTlog) bool {
-				if len(i.Spec.Logs) == 0 || i.Spec.Logs[0].Signer == nil {
-					return true // Default to file type
+				activeLog := utils.ActiveLog(i.Spec.Logs)
+				if activeLog == nil || activeLog.Signer == nil {
+					return true
 				}
-				return i.Spec.Logs[0].Signer.Type == rhtasv1.SignerTypeFile || i.Spec.Logs[0].Signer.Type == ""
+				return activeLog.Signer.Type == rhtasv1.SignerTypeFile || activeLog.Signer.Type == ""
 			},
 			MutateSecret: func(_ *rhtasv1.CTlog, secret *corev1.Secret) {
 				if secret.Labels == nil {
@@ -48,8 +49,9 @@ func NewGenerateSignerAction() action.Action[*rhtasv1.CTlog] {
 }
 
 func resolveRef(ctx context.Context, instance *rhtasv1.CTlog, c client.Client) (*rhtasv1.SecretKeySelector, error) {
-	if len(instance.Spec.Logs) > 0 && instance.Spec.Logs[0].Signer != nil && instance.Spec.Logs[0].Signer.File != nil && instance.Spec.Logs[0].Signer.File.PrivateKeyRef != nil {
-		ref := instance.Spec.Logs[0].Signer.File.PrivateKeyRef
+	activeLog := utils.ActiveLog(instance.Spec.Logs)
+	if activeLog != nil && activeLog.Signer != nil && activeLog.Signer.File != nil && activeLog.Signer.File.PrivateKeyRef != nil {
+		ref := activeLog.Signer.File.PrivateKeyRef
 		if err := generateSigner.RequireSecret(ctx, c, instance.Namespace, ref); err != nil {
 			return nil, err
 		}
@@ -76,8 +78,9 @@ func alignStatus(instance *rhtasv1.CTlog, ref rhtasv1.SecretKeySelector) {
 	oldPrivateKeyRef := instance.Status.PrivateKeyRef
 
 	var file *rhtasv1.CTlogFile
-	if len(instance.Spec.Logs) > 0 && instance.Spec.Logs[0].Signer != nil {
-		file = instance.Spec.Logs[0].Signer.File
+	activeLog := utils.ActiveLog(instance.Spec.Logs)
+	if activeLog != nil && activeLog.Signer != nil {
+		file = activeLog.Signer.File
 	}
 	if file != nil && file.PrivateKeyRef != nil {
 		instance.Status.PrivateKeyRef = file.PrivateKeyRef

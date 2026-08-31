@@ -175,16 +175,16 @@ func (i serverConfig) Handle(ctx context.Context, instance *rhtasv1.CTlog) *acti
 		}
 		notAfterStart := int64(0)
 		notAfterLimit := int64(0)
-		// Get NotAfterStart/NotAfterLimit from first active log
-		if len(instance.Spec.Logs) > 0 && instance.Spec.Logs[0].NotAfterStart != nil {
-			notAfterStart = instance.Spec.Logs[0].NotAfterStart.Unix()
+		activeLog := ctlogUtils.ActiveLog(instance.Spec.Logs)
+		if activeLog != nil && activeLog.NotAfterStart != nil {
+			notAfterStart = activeLog.NotAfterStart.Unix()
 		}
-		if len(instance.Spec.Logs) > 0 && instance.Spec.Logs[0].NotAfterLimit != nil {
-			notAfterLimit = instance.Spec.Logs[0].NotAfterLimit.Unix()
+		if activeLog != nil && activeLog.NotAfterLimit != nil {
+			notAfterLimit = activeLog.NotAfterLimit.Unix()
 		}
 		logPrefix := ""
-		if len(instance.Spec.Logs) > 0 {
-			logPrefix = instance.Spec.Logs[0].Prefix
+		if activeLog != nil {
+			logPrefix = activeLog.Prefix
 		}
 		cfg, err = ctlogUtils.CreateCtlogConfig(trillianUrl, *instance.Status.TreeID, rootCerts, certConfig, logPrefix, shards, notAfterStart, notAfterLimit)
 	}
@@ -280,9 +280,10 @@ func (i serverConfig) buildPKCS11Config(
 	trillianUrl string,
 	rootCerts []ctlogUtils.RootCertificate,
 ) (map[string][]byte, error) {
+	activeLog := ctlogUtils.ActiveLog(instance.Spec.Logs)
 	var p *rhtasv1.CTlogPKCS11Config
-	if len(instance.Spec.Logs) > 0 && instance.Spec.Logs[0].Signer != nil {
-		p = instance.Spec.Logs[0].Signer.PKCS11
+	if activeLog != nil && activeLog.Signer != nil {
+		p = activeLog.Signer.PKCS11
 	}
 	if p == nil {
 		return nil, fmt.Errorf("PKCS#11 config is nil")
@@ -311,8 +312,8 @@ func (i serverConfig) buildPKCS11Config(
 	}
 
 	logPrefix := ""
-	if len(instance.Spec.Logs) > 0 {
-		logPrefix = instance.Spec.Logs[0].Prefix
+	if activeLog != nil {
+		logPrefix = activeLog.Prefix
 	}
 
 	return ctlogUtils.CreateCtlogPKCS11Config(
@@ -467,17 +468,18 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 		annotations[labels.LabelNamespace+"/privateKeyRef"] = fmt.Sprintf("%s/%s", instance.Status.PrivateKeyRef.Name, instance.Status.PrivateKeyRef.Key)
 	}
 
-	if len(instance.Spec.Logs) > 0 && instance.Spec.Logs[0].Prefix != "" {
-		annotations[labels.LabelNamespace+"/logPrefix"] = instance.Spec.Logs[0].Prefix
+	activeLog := ctlogUtils.ActiveLog(instance.Spec.Logs)
+	if activeLog != nil && activeLog.Prefix != "" {
+		annotations[labels.LabelNamespace+"/logPrefix"] = activeLog.Prefix
 	}
 
-	if len(instance.Spec.Logs) > 0 && (instance.Spec.Logs[0].NotAfterStart != nil || instance.Spec.Logs[0].NotAfterLimit != nil) {
+	if activeLog != nil && (activeLog.NotAfterStart != nil || activeLog.NotAfterLimit != nil) {
 		h := sha256.New()
-		if instance.Spec.Logs[0].NotAfterStart != nil {
-			_, _ = fmt.Fprintf(h, "NotAfterStart:%d", instance.Spec.Logs[0].NotAfterStart.Unix())
+		if activeLog.NotAfterStart != nil {
+			_, _ = fmt.Fprintf(h, "NotAfterStart:%d", activeLog.NotAfterStart.Unix())
 		}
-		if instance.Spec.Logs[0].NotAfterLimit != nil {
-			_, _ = fmt.Fprintf(h, ":NotAfterLimit:%d", instance.Spec.Logs[0].NotAfterLimit.Unix())
+		if activeLog.NotAfterLimit != nil {
+			_, _ = fmt.Fprintf(h, ":NotAfterLimit:%d", activeLog.NotAfterLimit.Unix())
 		}
 		annotations[labels.LabelNamespace+"/activeLogValidity"] = hex.EncodeToString(h.Sum(nil))
 	}
@@ -507,17 +509,17 @@ func (i serverConfig) configMatchingAnnotations(ctx context.Context, instance *r
 	}
 
 	signerType := getSignerType(instance)
-	if signerType == rhtasv1.SignerTypePKCS11 && len(instance.Spec.Logs) > 0 && instance.Spec.Logs[0].Signer != nil && instance.Spec.Logs[0].Signer.PKCS11 != nil {
-		annotations[labels.LabelNamespace+"/pkcs11SpecHash"] = pkcs11SpecHash(instance.Spec.Logs[0].Signer.PKCS11)
+	if signerType == rhtasv1.SignerTypePKCS11 && activeLog != nil && activeLog.Signer != nil && activeLog.Signer.PKCS11 != nil {
+		annotations[labels.LabelNamespace+"/pkcs11SpecHash"] = pkcs11SpecHash(activeLog.Signer.PKCS11)
 	}
 
 	return annotations
 }
 
-// getSignerType returns the signer type from the first active log
 func getSignerType(instance *rhtasv1.CTlog) string {
-	if len(instance.Spec.Logs) == 0 || instance.Spec.Logs[0].Signer == nil {
-		return rhtasv1.SignerTypeFile // default
+	activeLog := ctlogUtils.ActiveLog(instance.Spec.Logs)
+	if activeLog == nil || activeLog.Signer == nil {
+		return rhtasv1.SignerTypeFile
 	}
-	return instance.Spec.Logs[0].Signer.Type
+	return activeLog.Signer.Type
 }

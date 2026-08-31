@@ -91,7 +91,9 @@ type CTlogPKCS11Config struct {
 // CTLogConfig defines the configuration for a certificate transparency log (active or frozen).
 // +structType=atomic
 type CTLogConfig struct {
-	// LogId is the optional Trillian tree ID. If not set, the operator will generate one.
+	// LogId is the Trillian tree ID. For the active log, the operator will
+	// generate one if not set. For frozen/readonly shards, this must be the
+	// existing tree ID from the original active log.
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Minimum=1
 	LogId *int64 `json:"logId,omitempty"`
@@ -108,7 +110,7 @@ type CTLogConfig struct {
 	// +listType=atomic
 	Roots []SecretKeySelector `json:"roots,omitempty"`
 
-	// Signer configuration. Required for active logs, optional for frozen shards.
+	// Signer configuration. Required for active and frozen logs. Optional only for mirrors.
 	// +optional
 	Signer *CTlogSigner `json:"signer,omitempty"`
 
@@ -156,33 +158,6 @@ type CTLogFrozenSTH struct {
 	// TreeHeadSignature is the Base64-encoded signature.
 	// +optional
 	TreeHeadSignature []byte `json:"treeHeadSignature,omitempty"`
-}
-
-// CTlogLogRange defines the range and key details of a frozen CTlog shard (read-only)
-// Deprecated: Use CTLogConfig with readonly=true instead.
-// +structType=atomic
-type CTlogLogRange struct {
-	// ID of Merkle tree in Trillian backend
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Minimum=1
-	TreeID int64 `json:"treeID"`
-	// Prefix for the shard's URL path (e.g., "shard-12345"). Required to generate proper shard URLs.
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern="^[a-z0-9]([-a-z0-9/]*[a-z0-9])?$"
-	Prefix string `json:"prefix"`
-	// Reference to a secret containing the public key for the log shard
-	// +kubebuilder:validation:Optional
-	PublicKeyRef *SecretKeySelector `json:"publicKeyRef,omitempty"`
-	// RFC3339 timestamp when this shard's certificates become valid.
-	// +optional
-	NotAfterStart *metav1.Time `json:"notAfterStart,omitempty"`
-	// RFC3339 timestamp when this shard's certificates expire.
-	// +optional
-	NotAfterLimit *metav1.Time `json:"notAfterLimit,omitempty"`
-	// Reference to a secret containing the frozen SignedTreeHead (STH) for this shard.
-	// The STH is the final, immutable signed tree head for a frozen shard.
-	// +optional
-	FrozenSTHRef *SecretKeySelector `json:"frozenSTHRef,omitempty"`
 }
 
 // CTlogSigner defines the desired state of the CTlog Signer

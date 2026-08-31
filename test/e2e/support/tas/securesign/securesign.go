@@ -228,6 +228,7 @@ func WithProvidedCerts() Opts {
 		s.Spec.Ctlog.Logs = []rhtasv1.CTLogConfig{
 			{
 				Prefix: "log",
+				Active: ptr.To(true),
 				Signer: &rhtasv1.CTlogSigner{
 					Type: "file",
 					File: &rhtasv1.CTlogFile{
@@ -350,6 +351,7 @@ func WithPKCS11Signer(namespace string) Opts {
 		s.Spec.Ctlog.Logs = []rhtasv1.CTLogConfig{
 			{
 				Prefix: "log",
+				Active: ptr.To(true),
 				Signer: &rhtasv1.CTlogSigner{
 					Type: rhtasv1.SignerTypePKCS11,
 					PKCS11: &rhtasv1.CTlogPKCS11Config{
