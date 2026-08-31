@@ -77,7 +77,7 @@ func TestSecuresignConversionUnit(t *testing.T) {
 						Ctlog: rhtasv1.CTlogSpec{
 							Logs: []rhtasv1.CTLogConfig{
 								{
-									Prefix: "log",
+									Prefix: "trusted-artifact-signer",
 									Active: ptr.To(true),
 									Signer: &rhtasv1.CTlogSigner{Type: "file"},
 								},
@@ -145,7 +145,7 @@ func TestSecuresignConversionUnit(t *testing.T) {
 							Logs: []rhtasv1.CTLogConfig{
 								{
 									LogId:  ptr.To[int64](67890),
-									Prefix: "log",
+									Prefix: "trusted-artifact-signer",
 									Active: ptr.To(true),
 									Signer: &rhtasv1.CTlogSigner{Type: "file"},
 								},

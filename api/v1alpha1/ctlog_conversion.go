@@ -4,6 +4,7 @@ import (
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	utilconversion "github.com/securesign/operator/internal/conversion"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
@@ -24,10 +25,13 @@ func Convert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *rhtasv1.CTlogSpec, out *CTlo
 	if err := autoConvert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in, out, s); err != nil {
 		return err
 	}
-	// Extract signer config from first active log (non-readonly)
+	// Extract signer config, LogId, and RootCertificates from log with "trusted-artifact-signer" prefix
+	// v1alpha1 hardcodes this prefix, so we look for it in the v1 Logs array
 	for _, log := range in.Logs {
-		if log.Readonly == nil || !*log.Readonly {
-			// This is an active log
+		if log.Prefix == "trusted-artifact-signer" {
+			if log.LogId != nil {
+				out.TreeID = log.LogId
+			}
 			if log.Signer != nil && log.Signer.File != nil {
 				if log.Signer.File.PrivateKeyRef != nil {
 					out.PrivateKeyRef = &SecretKeySelector{}
@@ -42,7 +46,16 @@ func Convert_v1_CTlogSpec_To_v1alpha1_CTlogSpec(in *rhtasv1.CTlogSpec, out *CTlo
 					}
 				}
 			}
-			break
+			// Extract root certificates from the log
+			if len(log.Roots) > 0 {
+				out.RootCertificates = make([]SecretKeySelector, len(log.Roots))
+				for i, root := range log.Roots {
+					if err := Convert_v1_SecretKeySelector_To_v1alpha1_SecretKeySelector(&root, &out.RootCertificates[i], s); err != nil {
+						return err
+					}
+				}
+			}
+			return nil
 		}
 	}
 	return nil
@@ -52,12 +65,20 @@ func Convert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in *CTlogSpec, out *rhtasv1.CTlo
 	if err := autoConvert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in, out, s); err != nil {
 		return err
 	}
-	// If we have signer keys defined, create a Logs array with a single active log
+	// v1alpha1 always uses the hardcoded "trusted-artifact-signer" prefix
+	// Always ensure the first log exists with this prefix, as v1 requires at least one log
+	if len(out.Logs) == 0 {
+		out.Logs = make([]rhtasv1.CTLogConfig, 1)
+		out.Logs[0].Prefix = "trusted-artifact-signer"
+		// Default to file signer for empty specs
+		out.Logs[0].Signer = &rhtasv1.CTlogSigner{Type: rhtasv1.SignerTypeFile}
+		out.Logs[0].Active = ptr.To(true)
+	}
+	// If we have data to populate, ensure it's in the first log with the correct prefix
+	if in.TreeID != nil {
+		out.Logs[0].LogId = in.TreeID
+	}
 	if in.PrivateKeyRef != nil || in.PublicKeyRef != nil {
-		if len(out.Logs) == 0 {
-			out.Logs = make([]rhtasv1.CTLogConfig, 1)
-		}
-		// Populate the first log's signer config
 		if out.Logs[0].Signer == nil {
 			out.Logs[0].Signer = &rhtasv1.CTlogSigner{}
 		}
@@ -76,6 +97,14 @@ func Convert_v1alpha1_CTlogSpec_To_v1_CTlogSpec(in *CTlogSpec, out *rhtasv1.CTlo
 			}
 		}
 	}
+	if len(in.RootCertificates) > 0 {
+		out.Logs[0].Roots = make([]rhtasv1.SecretKeySelector, len(in.RootCertificates))
+		for i, root := range in.RootCertificates {
+			if err := Convert_v1alpha1_SecretKeySelector_To_v1_SecretKeySelector(&root, &out.Logs[0].Roots[i], s); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -90,9 +119,9 @@ func (src *CTlog) ConvertTo(dstRaw conversion.Hub) error {
 	}
 	dst.Spec.ImagePullSecrets = restored.Spec.ImagePullSecrets
 	dst.Spec.TrustedCA = restored.Spec.TrustedCA
-	// Restore Logs array from storage
+	// Restore Logs array from storage to preserve all fields
 	dst.Spec.Logs = restored.Spec.Logs
-	dst.Status.PublicKey = restored.Status.PublicKey
+	dst.Status = restored.Status
 	dst.Spec.Monitoring.ServiceMonitor = restored.Spec.Monitoring.ServiceMonitor
 	if dst.Spec.Trillian.URL == "" {
 		dst.Spec.Trillian.Ref = restored.Spec.Trillian.Ref

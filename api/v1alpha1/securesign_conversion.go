@@ -71,6 +71,9 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Fulcio.PodExtensions = restored.Spec.Fulcio.PodExtensions
 	dst.Spec.Fulcio.Auth = restored.Spec.Fulcio.Auth
 	dst.Spec.Fulcio.Signer.PKCS11 = restored.Spec.Fulcio.Signer.PKCS11
+	if dst.Spec.Fulcio.Signer.Kms == nil {
+		dst.Spec.Fulcio.Signer.Kms = restored.Spec.Fulcio.Signer.Kms
+	}
 	dst.Spec.Ctlog.ImagePullSecrets = restored.Spec.Ctlog.ImagePullSecrets
 	dst.Spec.Ctlog.TrustedCA = restored.Spec.Ctlog.TrustedCA
 	dst.Spec.Ctlog.Monitoring.ServiceMonitor = restored.Spec.Ctlog.Monitoring.ServiceMonitor
