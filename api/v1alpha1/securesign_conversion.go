@@ -1,12 +1,12 @@
 package v1alpha1
 
-//nolint:unused
 import (
+	"reflect"
+
 	rhtasv1 "github.com/securesign/operator/api/v1"
 	"github.com/securesign/operator/internal/controller/trillian/dbsecret"
 	utilconversion "github.com/securesign/operator/internal/conversion"
 	"github.com/securesign/operator/internal/migration"
-	"k8s.io/apimachinery/pkg/api/equality"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
@@ -54,11 +54,12 @@ func (src *Securesign) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Fulcio.ImagePullSecrets = restored.Spec.Fulcio.ImagePullSecrets
 	dst.Spec.Fulcio.Monitoring.ServiceMonitor = restored.Spec.Fulcio.Monitoring.ServiceMonitor
 	dst.Spec.Fulcio.Signer.Type = restored.Spec.Fulcio.Signer.Type
-	if dst.Spec.Fulcio.Signer.File == nil {
-		dst.Spec.Fulcio.Signer.File = restored.Spec.Fulcio.Signer.File
-	}
-	if dst.Spec.Fulcio.Signer.Kms == nil {
-		dst.Spec.Fulcio.Signer.Kms = restored.Spec.Fulcio.Signer.Kms
+	// If original v1 had File=&{} (empty struct), preserve it
+	if dst.Spec.Fulcio.Signer.File == nil && restored.Spec.Fulcio.Signer.File != nil {
+		emptyFile := &rhtasv1.FulcioFile{}
+		if reflect.DeepEqual(restored.Spec.Fulcio.Signer.File, emptyFile) {
+			dst.Spec.Fulcio.Signer.File = &rhtasv1.FulcioFile{}
+		}
 	}
 	// v1alpha1 inject prefix into URL - we need to restore empty URL to allow ref resolution
 	if restored.Spec.Fulcio.Ctlog.URL == "" && dst.Spec.Fulcio.Ctlog.URL == "///trusted-artifact-signer" { //nolint:goconst
