@@ -167,6 +167,15 @@ var _ = Describe("TUF controller", func() {
 						Name:      "ctlog-test",
 						Namespace: typeNamespaceName.Namespace,
 					},
+					Spec: rhtasv1.CTlogSpec{
+						Logs: []rhtasv1.CTLogConfig{
+							{
+								Prefix: "log",
+								Active: ptr.To(true),
+								Signer: &rhtasv1.CTlogSigner{Type: "file"},
+							},
+						},
+					},
 				},
 				&rhtasv1.Fulcio{
 					ObjectMeta: metav1.ObjectMeta{

@@ -98,6 +98,8 @@ var _ = Describe("CTlog controller", func() {
 							{
 								LogId:  &treeID,
 								Prefix: "log",
+								Active: ptr.To(true),
+								Signer: &rhtasv1.CTlogSigner{Type: "file"},
 							},
 						},
 						Monitoring: rhtasv1.MonitoringWithTLogConfig{

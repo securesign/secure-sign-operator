@@ -42,7 +42,7 @@ var _ = Describe("Conversion webhook", func() {
 					Logs: []rhtasv1.CTLogConfig{
 						{
 							LogId:  ptr.To[int64](12345),
-							Prefix: "test-log",
+							Prefix: "trusted-artifact-signer",
 							Active: ptr.To(true),
 						},
 					},
@@ -64,6 +64,12 @@ var _ = Describe("Conversion webhook", func() {
 				},
 				Spec: CTlogSpec{
 					TreeID: ptr.To[int64](67890),
+					PrivateKeyRef: &SecretKeySelector{
+						Key: "key",
+						LocalObjectReference: LocalObjectReference{
+							Name: "private-key-secret",
+						},
+					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, v1alpha1obj)).To(Succeed())
@@ -252,7 +258,7 @@ var _ = Describe("Conversion webhook", func() {
 					Ctlog: rhtasv1.CTlogSpec{
 						Logs: []rhtasv1.CTLogConfig{
 							{
-								Prefix: "test-log",
+								Prefix: "trusted-artifact-signer",
 								Active: ptr.To(true),
 								Signer: &rhtasv1.CTlogSigner{Type: "file"},
 							},

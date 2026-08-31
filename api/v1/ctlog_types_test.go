@@ -208,6 +208,7 @@ func generateMinimalCTlog(name string) *CTlog {
 			Logs: []CTLogConfig{
 				{
 					Prefix: "log",
+					Active: ptr.To(true),
 					Signer: &CTlogSigner{Type: "file"},
 				},
 			},

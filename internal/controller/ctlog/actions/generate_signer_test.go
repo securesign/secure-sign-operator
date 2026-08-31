@@ -5,9 +5,12 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"math/big"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 	rhtasv1 "github.com/securesign/operator/api/v1"
@@ -34,6 +37,7 @@ func ctlogInstance() *rhtasv1.CTlog {
 				{
 					LogId:  ptr.To(int64(123456)),
 					Prefix: "test-log",
+					Active: ptr.To(true),
 					Signer: &rhtasv1.CTlogSigner{Type: "file"},
 					Roots: []rhtasv1.SecretKeySelector{
 						{LocalObjectReference: rhtasv1.LocalObjectReference{Name: "root"}, Key: "cert"},
@@ -327,12 +331,28 @@ func TestCTlogKeys_UnencryptedKeyAllowedInFIPS(t *testing.T) {
 		},
 	}
 
+	rootCertTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "test-root"},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(24 * time.Hour),
+		IsCA:         true,
+		KeyUsage:     x509.KeyUsageCertSign,
+	}
+	rootCertDER, err := x509.CreateCertificate(rand.Reader, rootCertTemplate, rootCertTemplate, &key.PublicKey, key)
+	g.Expect(err).ToNot(HaveOccurred())
+	rootCertPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootCertDER})
+
 	userSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: "user-secret", Namespace: "default"},
 		Data:       map[string][]byte{"private": unencryptedKey},
 	}
+	rootSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "root", Namespace: "default"},
+		Data:       map[string][]byte{"cert": rootCertPEM},
+	}
 	c := testAction.FakeClientBuilder().
-		WithObjects(instance, userSecret).
+		WithObjects(instance, userSecret, rootSecret).
 		WithStatusSubresource(instance).
 		Build()
 

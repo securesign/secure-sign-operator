@@ -111,6 +111,8 @@ var _ = Describe("CTlog update test", func() {
 							{
 								LogId:  &treeID,
 								Prefix: "test-log",
+								Active: ptr.To(true),
+								Signer: &rhtasv1.CTlogSigner{Type: "file"},
 							},
 						},
 						Monitoring: rhtasv1.MonitoringWithTLogConfig{

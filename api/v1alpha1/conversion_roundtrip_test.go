@@ -290,6 +290,39 @@ func securesignFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	}
 }
 
+// normalizeEmptyContainers converts empty maps/slices to nil for JSON roundtrip consistency
+func normalizeEmptyContainers(s *rhtasv1.CTlog) {
+	// Normalize empty slices in status
+	if len(s.Status.Logs) == 0 {
+		s.Status.Logs = nil
+	}
+	if len(s.Status.RootCertificates) == 0 {
+		s.Status.RootCertificates = nil
+	}
+	if len(s.Status.Conditions) == 0 {
+		s.Status.Conditions = nil
+	}
+	// Normalize empty slices/maps in spec
+	if len(s.Spec.Logs) == 0 {
+		s.Spec.Logs = nil
+	}
+	if s.Spec.Ingress.Labels != nil && len(s.Spec.Ingress.Labels) == 0 {
+		s.Spec.Ingress.Labels = nil
+	}
+	if len(s.Spec.ImagePullSecrets) == 0 {
+		s.Spec.ImagePullSecrets = nil
+	}
+	if len(s.Spec.PodExtensions.InitContainers) == 0 {
+		s.Spec.PodExtensions.InitContainers = nil
+	}
+	if len(s.Spec.PodExtensions.Volumes) == 0 {
+		s.Spec.PodExtensions.Volumes = nil
+	}
+	if len(s.Spec.PodExtensions.VolumeMounts) == 0 {
+		s.Spec.PodExtensions.VolumeMounts = nil
+	}
+}
+
 // ctlogFuzzerFuncs constrains CTlog spec/status so Status.Url stays consistent with
 // the Prefix suffix it's built from and Trillian ServiceReference uses gRPC URLs.
 func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
@@ -305,6 +338,7 @@ func ctlogFuzzerFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 			if s.Status.Url != "" && len(s.Spec.Logs) > 0 {
 				s.Status.Url += "/" + s.Spec.Logs[0].Prefix
 			}
+			normalizeEmptyContainers(s)
 		},
 		func(s *CTlog, c randfill.Continue) {
 			c.FillNoCustom(s)
